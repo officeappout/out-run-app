@@ -51,7 +51,7 @@ export function BrandFlame({
   const src = tones && tones.length > 1 ? flameSrc(tones) : FLAME_SRC[tones?.[0] ?? tone];
   return (
     <span className="inline-block shrink-0" style={{ width: size, height: size }} aria-hidden>
-      <DotLottieReact src={src} loop={!still} autoplay={!still} style={{ width: size, height: size }} />
+      <DotLottieReact key={`${src}-${still}`} src={src} loop={!still} autoplay={!still} style={{ width: size, height: size }} />
     </span>
   );
 }

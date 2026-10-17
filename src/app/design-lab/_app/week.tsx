@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { EASE_V2 } from '@/components/ui/v2';
 import { BrandFlame, FLAME_TONE, type FlameTone } from './brand';
 import { AppIcon, ICON } from './parts';
-import { useMultiStyle, useStreakStyle, type StreakStyle } from './density';
+import { useMarkStyle, useMultiStyle, useStreakStyle, type StreakStyle } from './density';
 
 export type DayKind = 'strength' | 'walk' | 'run' | 'steps';
 export type DayStatus = 'done' | 'today' | 'planned' | 'rest' | 'missed';
@@ -26,6 +26,7 @@ export function toneOf(kind?: DayKind): FlameTone {
 }
 
 const TONE_ORDER: FlameTone[] = ['strength', 'cardio', 'steps'];
+const TONE_ICON: Record<FlameTone, string> = { strength: ICON.strength, cardio: ICON.run, steps: ICON.walk };
 /** All the flame tones a day earned, in a stable order. */
 export function tonesOf(d: Pick<StreakDay, 'kind' | 'kinds'>): FlameTone[] {
   const ts = (d.kinds?.length ? d.kinds : [d.kind]).map(toneOf);
@@ -83,6 +84,7 @@ export function StreakRow({
 }) {
   const reduce = useReducedMotion();
   const style = useStreakStyle();
+  const [peek, setPeek] = useState<number | null>(null);
   const n = days.length;
   const centerY = (showDates ? 24 : 0) + cell / 2;
   // heat: flames grow along a run, the newest is the biggest
@@ -132,6 +134,16 @@ export function StreakRow({
                 <button type="button" onClick={() => onSelect(i)} aria-pressed={isSel} className="flex flex-col items-center">
                   {body}
                 </button>
+              ) : d.status === 'done' ? (
+                <button
+                  type="button"
+                  onClick={() => setPeek((p) => (p === i ? null : i))}
+                  aria-expanded={peek === i}
+                  aria-label={`מה עשית ביום ${d.short}`}
+                  className="flex flex-col items-center"
+                >
+                  {body}
+                </button>
               ) : (
                 body
               )}
@@ -139,7 +151,50 @@ export function StreakRow({
           );
         })}
       </ol>
+      <AnimatePresence>
+        {peek !== null && days[peek] && (
+          <DayPeek key={peek} day={days[peek]} index={peek} n={n} top={centerY + cell / 2 + 10} onClose={() => setPeek(null)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/** Demo detail per activity for the day bubble. */
+const PEEK_LINE: Record<FlameTone, string> = {
+  strength: 'אימון כוח · 35 דק׳',
+  cardio: 'ריצה קלה · 20 דק׳ · 3.4 ק״מ',
+  steps: 'יעד הצעדים · 9,240 צעדים',
+};
+
+/** Tap a done day: a small glass bubble with what was done. */
+function DayPeek({ day, index, n, top, onClose }: { day: StreakDay; index: number; n: number; top: number; onClose: () => void }) {
+  const tones = tonesOf(day);
+  const edge = index <= 1 ? { insetInlineStart: 0 } : index >= n - 2 ? { insetInlineEnd: 0 } : { insetInlineStart: `${((index + 0.5) / n) * 100}%`, translate: '50% 0' };
+  return (
+    <motion.div
+      role="dialog"
+      aria-label={`יום ${day.short}`}
+      className="v2-glass-card absolute z-[3] w-[210px] rounded-[18px] p-2.5"
+      style={{ top, ...edge }}
+      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: EASE_V2 }}
+      onClick={onClose}
+    >
+      <div className="mb-1.5 text-[12px] font-extrabold text-v2-muted">יום {day.short} · {tones.length} פעילויות</div>
+      <ul className="space-y-1.5">
+        {tones.map((t) => (
+          <li key={t} className="flex items-center gap-2">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[9px]" style={{ background: `rgba(${FLAME_TONE[t].rgb},.14)` }}>
+              <img src={TONE_ICON[t]} alt="" className="h-4 w-4 object-contain" />
+            </span>
+            <span className="text-[13px] font-extrabold leading-tight">{PEEK_LINE[t]}</span>
+          </li>
+        ))}
+      </ul>
+    </motion.div>
   );
 }
 
@@ -150,7 +205,7 @@ function DayCell({ day, isToday, size, animate, scale = 1 }: { day: StreakDay; i
   // A done day is just the streak flame — no frame around it.
   if (day.status === 'done')
     return (
-      <MultiFlame tones={tonesOf(day)} size={Math.round(size * 1.05 * scale)} box={size} still={!(isToday && animate)} />
+      <MultiFlame tones={tonesOf(day)} size={Math.round(size * 1.05 * scale)} box={size} still={!(isToday && animate)} today={isToday} />
     );
   if (day.status === 'today')
     return (
@@ -299,11 +354,13 @@ function RunConnector({
  * multi-session days today). Dots under it name the activities; in "cycle"
  * the current one is the larger dot.
  */
-function MultiFlame({ tones, size, box, still }: { tones: FlameTone[]; size: number; box: number; still: boolean }) {
+function MultiFlame({ tones, size, box, still, today }: { tones: FlameTone[]; size: number; box: number; still: boolean; today: boolean }) {
   const mode = useMultiStyle();
+  const marks = useMarkStyle();
   const reduce = useReducedMotion();
   const multi = tones.length > 1;
-  const cycling = multi && mode === 'cycle' && !reduce;
+  // only today's flame moves; past multi-activity days show their main colour
+  const cycling = multi && mode === 'cycle' && today && !reduce;
   const [i, setI] = useState(0);
   useEffect(() => {
     if (!cycling) return;
@@ -327,9 +384,9 @@ function MultiFlame({ tones, size, box, still }: { tones: FlameTone[]; size: num
           </motion.span>
         </AnimatePresence>
       ) : (
-        <BrandFlame size={size} still={still} tones={mode === 'blend' ? tones : [tones[0]]} />
+        <BrandFlame size={size} still={still} tones={mode === 'blend' || reduce ? tones : [tones[0]]} />
       )}
-      {multi && (
+      {multi && marks === 'dots' && (
         <span className="absolute -bottom-1.5 flex items-center gap-[3px]" aria-label={tones.map((t) => FLAME_TONE[t].label).join(' + ')}>
           {tones.map((t) => (
             <span
@@ -340,6 +397,19 @@ function MultiFlame({ tones, size, box, still }: { tones: FlameTone[]; size: num
                 width: cycling && t === current ? 7 : 5,
                 height: cycling && t === current ? 7 : 5,
               }}
+            />
+          ))}
+        </span>
+      )}
+      {multi && marks === 'icons' && (
+        <span className="absolute -bottom-3 flex items-center gap-px rounded-full bg-white px-1 py-0.5 shadow-v2-ring" aria-label={tones.map((t) => FLAME_TONE[t].label).join(' + ')}>
+          {tones.map((t) => (
+            <img
+              key={t}
+              src={TONE_ICON[t]}
+              alt=""
+              className="h-3 w-3 object-contain transition-opacity duration-300"
+              style={{ opacity: cycling && t !== current ? 0.35 : 1 }}
             />
           ))}
         </span>

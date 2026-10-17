@@ -131,3 +131,40 @@ export function useMultiStyle(): MultiStyle {
     () => 'blend',
   );
 }
+
+/* ── what sits under a multi-activity flame: dots or tiny icons ────────── */
+
+export type MarkStyle = 'dots' | 'icons';
+const KKEY = 'design-lab-marks';
+let kmem: MarkStyle = 'dots';
+const klisteners = new Set<() => void>();
+
+function kread(): MarkStyle {
+  try {
+    const v = localStorage.getItem(KKEY);
+    return v === 'dots' || v === 'icons' ? v : kmem;
+  } catch {
+    return kmem;
+  }
+}
+
+export function setMarkStyle(s: MarkStyle) {
+  kmem = s;
+  try {
+    localStorage.setItem(KKEY, s);
+  } catch {
+    /* private mode */
+  }
+  klisteners.forEach((l) => l());
+}
+
+export function useMarkStyle(): MarkStyle {
+  return useSyncExternalStore(
+    (l) => {
+      klisteners.add(l);
+      return () => klisteners.delete(l);
+    },
+    kread,
+    () => 'dots',
+  );
+}

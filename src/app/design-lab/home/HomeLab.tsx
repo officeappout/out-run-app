@@ -12,12 +12,15 @@ import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
 import {
   pick,
   setDensity,
+  setMarkStyle,
   setMultiStyle,
   setStreakStyle,
   useDensity,
+  useMarkStyle,
   useMultiStyle,
   useStreakStyle,
   type Density,
+  type MarkStyle,
   type MultiStyle,
   type StreakStyle,
 } from '../_app/density';
@@ -73,6 +76,11 @@ const MULTIS: { id: MultiStyle; label: string }[] = [
   { id: 'cycle', label: 'להבה מתחלפת' },
 ];
 
+const MARKS: { id: MarkStyle; label: string }[] = [
+  { id: 'dots', label: 'נקודות' },
+  { id: 'icons', label: 'אייקונים קטנים' },
+];
+
 const LAB_LINKS = [
   { href: '/design-lab/schedule', label: 'תכנון אימונים' },
   { href: '/design-lab/steps', label: 'צעדים' },
@@ -87,6 +95,7 @@ export default function HomeLab() {
   const density = useDensity();
   const streakStyle = useStreakStyle();
   const multiStyle = useMultiStyle();
+  const markStyle = useMarkStyle();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -113,6 +122,7 @@ export default function HomeLab() {
           <LabStates title="גודל" value={density} options={DENSITIES} onChange={setDensity} />
           <LabStates title="סגנון הרצף" value={streakStyle} options={STREAKS} onChange={setStreakStyle} />
           <LabStates title="יום עם כמה פעילויות" value={multiStyle} options={MULTIS} onChange={setMultiStyle} />
+          <LabStates title="סימון מתחת ללהבה" value={markStyle} options={MARKS} onChange={setMarkStyle} />
           <LabStates title="מצב היום" value={state} options={STATES} onChange={setState} />
           <LabStates title="לוגו בראש המסך" value={logo} options={LOGOS} onChange={setLogo} />
           <LabStates title="הבר התחתון" value={nav} options={NAVS} onChange={setNav} />
@@ -220,10 +230,10 @@ function WeekSchedule({ state }: { state: TodayState }) {
       >
         לו״ז אימונים
       </SectionTitle>
-      <Link href="/design-lab/schedule" className="mx-4 block rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
+      <div className="relative mx-4 rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
         <DayLetters days={WEEK} todayIndex={todayIndex} />
         <StreakRow days={days} todayIndex={todayIndex} cell={pick(d, 44, 40, 36)} />
-        <div className="mt-2.5 flex items-center justify-center gap-3 text-[11.5px] font-bold text-v2-muted">
+        <div className="mt-4 flex items-center justify-center gap-3 text-[11.5px] font-bold text-v2-muted">
           {(['strength', 'cardio', 'steps'] as const).map((t) => (
             <span key={t} className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full" style={{ background: FLAME_TONE[t].hex }} />
@@ -237,7 +247,7 @@ function WeekSchedule({ state }: { state: TodayState }) {
             <b className="font-black text-v2-deep">{streak} ימים ברצף</b> · השיא שלך {USER.bestStreak}
           </span>
         </div>
-      </Link>
+      </div>
     </section>
   );
 }
