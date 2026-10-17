@@ -28,6 +28,7 @@ import type { MapRef } from 'react-map-gl';
 import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
+import { previewFitDelayMs, overviewFitBounds, overviewFitPadding } from './camera-fit';
 import { IS_PERF_BATCH2_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import { useMapStore } from '../store/useMapStore';
@@ -388,6 +389,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   const isSuggestionsFocused = useMapStore((s) => s.isSuggestionsFocused);
   suggestionsFocusedRef.current = isSuggestionsFocused;
   const fitBoundsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // G1.2: when the last preview fit was scheduled — drives the leading-edge debounce
+  // (previewFitDelayMs): the first fit at rest runs at once, a swipe burst still collapses.
+  const lastPreviewFitScheduledAtRef = useRef(0);
 
   // ── One-shot fit-all on entering discover mode ──
   // The first time discover mode mounts with ≥2 routes loaded we want the
@@ -922,6 +926,12 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           : focusedRoute.id;
         if (fitKey !== lastFocusedRouteIdRef.current && !overviewActiveRef.current) {
           lastFocusedRouteIdRef.current = fitKey;
+          const nowMs = Date.now();
+          const fitDelayMs = previewFitDelayMs(
+            fitBoundsDebounceRef.current != null,
+            nowMs - lastPreviewFitScheduledAtRef.current,
+          );
+          lastPreviewFitScheduledAtRef.current = nowMs;
           if (fitBoundsDebounceRef.current) {
             clearTimeout(fitBoundsDebounceRef.current);
           }
@@ -963,7 +973,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
                 duration: 600,
               });
             } catch { /* ignore */ }
-          }, 600);
+          }, fitDelayMs);
         }
         return;
       }
@@ -1140,6 +1150,8 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   // minZoom floor, so the whole route always stays visible even when long.
   const focusedRouteRef = useRef(focusedRoute);
   focusedRouteRef.current = focusedRoute;
+  // Round-trip walk legs drawn by the hybrid overview (null when off / none) — part of the fit (G1.2).
+  const hybridWalkLegs = useMapStore((s) => s.hybridWalkLegs);
   useEffect(() => {
     // Route-preview zoom-out (MAP_OVERVIEW_CHROME_V1): widen the padding + lower the
     // maxZoom cap so the route sits with more surrounding context (Moovit/Waze feel),
@@ -1159,26 +1171,22 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     const canvasH = typeof window !== 'undefined' ? window.innerHeight : 800;
     const freeWindow = canvasH - OVERVIEW_TOP_PAD - overviewSheetHeightPx;
     if (freeWindow < OVERVIEW_MIN_WINDOW) return;          // largest detent → map ~hidden → skip
-    const valid = path.filter(
-      (c: unknown): c is [number, number] =>
-        Array.isArray(c) && c.length === 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]),
-    );
-    if (valid.length < 2) return;
-    const bounds = valid.reduce(
-      (b, [lng, lat]) => [Math.min(b[0], lng), Math.min(b[1], lat), Math.max(b[2], lng), Math.max(b[3], lat)],
-      [valid[0][0], valid[0][1], valid[0][0], valid[0][1]],
-    );
+    // G1.2: frame everything the overview draws — the route AND the round-trip walk legs
+    // (user → entry, end → user) — not the route alone, which cut the user off the frame.
+    const bounds = overviewFitBounds(path, hybridWalkLegs);
+    if (!bounds) return;
     try {
       if (process.env.NODE_ENV !== 'production') console.log('[Cam] overview drawer-sync fit — bottom:', overviewSheetHeightPx, 'freeWindow:', freeWindow);
-      mapRef.current.fitBounds(bounds as [number, number, number, number], {
-        padding: { top: OVERVIEW_TOP_PAD, bottom: overviewSheetHeightPx, left: OVERVIEW_SIDE_PAD, right: OVERVIEW_SIDE_PAD },
+      mapRef.current.fitBounds(bounds, {
+        // G1.2: a margin above the drawer so the route never sits flush against / under its edge.
+        padding: overviewFitPadding(overviewSheetHeightPx, OVERVIEW_TOP_PAD, OVERVIEW_SIDE_PAD),
         maxZoom: OVERVIEW_MAX_ZOOM,
         duration: 350,
       });
     } catch { /* ignore */ }
     // focusedRoute read via ref; re-fit is keyed on its id + the drawer height.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overviewSheetHeightPx, focusedRoute?.id, isActiveWorkout, isNavigationMode, isMapLoaded]);
+  }, [overviewSheetHeightPx, focusedRoute?.id, isActiveWorkout, isNavigationMode, isMapLoaded, hybridWalkLegs]);
 
   // ── onMapReady: wire interaction listeners ──
   const onMapReady = useCallback((rawMap: mapboxgl.Map) => {
