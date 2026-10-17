@@ -16,7 +16,8 @@
  *         · Pill row: רמה / ציוד פונקציונלי
  *         · שריר ראשי         — same MUSCLE_ICON_PATHS map
  *         · שרירים משניים    — same icons / chips
- *         · דגשים             — derived auto-tips when no doc data
+ *         · דגשים             — doc `cues` → `description` lines → auto cues
+ *         · טיפים             — doc `tips` (when present)
  *         · סרטון הדגמה      — YouTube/Vimeo iframe
  *         · מותגים זמינים    — brand selector chips
  *
@@ -57,6 +58,10 @@ import {
   resolveBrandVideoUrl,
   resolveBrandImageUrl,
 } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import {
+  resolveEquipmentDrawerCues,
+  resolveEquipmentTips,
+} from '@/features/content/equipment/gym/core/gym-equipment-text.utils';
 import { getMuscleGroupLabel } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import { bunnyImg } from '@/lib/bunny-image';
@@ -101,14 +106,11 @@ function resolveName(raw: unknown): string {
 
 /**
  * Auto-derive a small set of "דגשים" (technique cues) when the
- * equipment doc doesn't carry its own. We pivot on the primary muscle
- * group so the cues feel relevant — generic "stay engaged, breathe
- * controlled" tips that apply to any rep on the targeted area.
- *
- * NOTE: This is intentionally heuristic. If/when the admin form gains
- * a `cues` / `highlights` field on the equipment doc, the resolver
- * will prefer those persisted strings and only fall back to this map
- * for legacy data — keeping the section non-empty either way.
+ * equipment doc carries neither `cues` nor a `description`. We pivot on
+ * the primary muscle group so the cues feel relevant — generic "stay
+ * engaged, breathe controlled" tips that apply to any rep on the
+ * targeted area. Last step of resolveEquipmentDrawerCues
+ * (gym-equipment-text.utils) — keeps the section non-empty either way.
  */
 const AUTO_CUES_BY_MUSCLE: Record<string, string[]> = {
   chest: [
@@ -346,10 +348,15 @@ export default function EquipmentDetailDrawer({
     [equipment?.primaryMuscle, equipment?.secondaryMuscles, equipment?.muscleGroups],
   );
 
-  const cues = useMemo(
-    () => (equipment ? deriveAutoCues(equipment) : []),
+  // דגשים: doc cues → description lines → muscle-based auto cues.
+  const { cues, source: cuesSource } = useMemo(
+    () =>
+      equipment
+        ? resolveEquipmentDrawerCues(equipment, () => deriveAutoCues(equipment))
+        : { cues: [] as string[], source: 'none' as const },
     [equipment],
   );
+  const tips = useMemo(() => resolveEquipmentTips(equipment), [equipment]);
 
   // ── Sheet body ───────────────────────────────────────────────────
   const sheet = (
@@ -615,10 +622,8 @@ export default function EquipmentDetailDrawer({
                     )}
 
                     {/* Cues / דגשים — numbered cyan circles, matching
-                        the exercise drawer exactly. Falls back to
-                        muscle-derived auto-cues when the doc has no
-                        explicit field (the admin form doesn't expose
-                        one yet). */}
+                        the exercise drawer exactly. Doc `cues` →
+                        `description` lines → muscle-derived auto-cues. */}
                     {cues.length > 0 && (
                       <section className="mb-6">
                         <h3
@@ -648,14 +653,39 @@ export default function EquipmentDetailDrawer({
                       </section>
                     )}
 
-                    {/* Goal-style summary card when the equipment doc
-                        also has a description-like text. We don't yet
-                        store one, but if/when the admin form adds it
-                        this section will surface it without further
-                        component changes. The render is gated by the
-                        existence of the field so the drawer doesn't
-                        show an empty card today. */}
-                    {(equipment as any).description && (
+                    {/* Tips / טיפים — easier/harder variants from the doc. */}
+                    {tips.length > 0 && (
+                      <section className="mb-6">
+                        <h3
+                          className="text-right text-[16px] font-semibold mb-3"
+                          style={SECTION_FONT}
+                        >
+                          טיפים
+                        </h3>
+                        <ul className="space-y-2.5">
+                          {tips.map((tip, i) => (
+                            <li
+                              key={`${tip}_${i}`}
+                              className="flex gap-3 items-start bg-slate-50 dark:bg-slate-800/40 rounded-xl px-4 py-3"
+                              style={{ border: PILL_BORDER }}
+                            >
+                              <span
+                                className="text-sm text-slate-700 dark:text-slate-300 flex-1 leading-relaxed"
+                                style={SECTION_FONT}
+                              >
+                                {tip}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+
+                    {/* Description card — only when the דגשים above came
+                        from the doc's own `cues`. When they came from the
+                        description itself, repeating it here would show
+                        the same steps twice. */}
+                    {cuesSource === 'doc' && equipment.description && (
                       <section className="mb-6">
                         <h3
                           className="text-right text-[16px] font-semibold mb-3"
@@ -672,10 +702,10 @@ export default function EquipmentDetailDrawer({
                             className="flex-shrink-0 mt-0.5 text-cyan-600"
                           />
                           <p
-                            className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed"
+                            className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line"
                             style={SECTION_FONT}
                           >
-                            {(equipment as any).description}
+                            {equipment.description}
                           </p>
                         </div>
                       </section>

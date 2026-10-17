@@ -72,6 +72,7 @@ import type { TabataBlockSpec } from '../logic/workout-generator.types';
 import type { TabataProtocolConfig } from '../core/types/protocol.types';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { selectBrandByName, resolveBrandVideoUrl, resolveBrandImageUrl } from '@/features/content/equipment/gym/core/gym-equipment-brand.utils';
+import { buildEquipmentMethodText } from '@/features/content/equipment/gym/core/gym-equipment-text.utils';
 import { generateHomeWorkoutTrio, normalizeProgramId } from './home-workout.service';
 import { calculateWorkoutStats, calculateEstimatedDuration } from '../logic/workout-budgeting.utils';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
@@ -775,6 +776,12 @@ export function buildMachinePseudoExercise(
       // brand does — that's exactly the empty/gray-box thumbnail bug.
       imageUrl: resolveBrandImageUrl(brands, brand),
     },
+    // The machine's how-to text (cues → else description lines; tips; prepNote) on
+    // the same method fields the player reads for real exercises — specificCues →
+    // "דגשים", highlights → "טיפים" (resolveExerciseCues), notificationText → plan
+    // prepNote. Empty for text-less machines (byte-identical to before). Shared by
+    // the park workout and the hybrid machine station (station-equipment-tabata).
+    ...buildEquipmentMethodText(machine),
   } as ExecutionMethod;
 
   const pseudoExercise = {
