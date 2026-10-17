@@ -27,6 +27,19 @@
  *        (respect opt-out)
  *    5.  `dropoffNotifiedAt` is absent OR older than RE_NOTIFY_HOURS
  *        (cooldown guard — never spam the same user twice quickly)
+ *    6.  `dropoffNotifyCount` < MAX_DROPOFF_NOTIFICATIONS (2) — lifetime cap;
+ *        a ghost user gets at most two of these, ever (before 17.10.2026 the
+ *        counter was written but never read, so a user who never finished
+ *        onboarding got one every RE_NOTIFY_HOURS indefinitely)
+ *
+ *  Candidates are read newest-first (`createdAt` DESC) so users who already
+ *  hit the cap — they stay IN_PROGRESS forever — can't fill the batch and
+ *  starve new drop-outs. Composite index: onboardingStatus ASC + createdAt DESC.
+ *
+ *  Quiet hours (22:00–07:00) and Shabbat/yom tov: the whole run exits early,
+ *  on BOTH paths, before anything is read or stamped (so a skipped window
+ *  never burns one of the user's two sends). The run is every 30 minutes, so
+ *  the next active-hours run picks the user up.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * PUSH STRATEGY
@@ -79,6 +92,8 @@
  *  `rateCapHours: 0` is passed because THIS dispatcher's own
  *  `dropoffNotifiedAt` cooldown (see AUDIT TRAIL above) is the real gate —
  *  not push.service.ts's generic cap, which stays intentionally unused here.
+ *  Quiet hours are NOT skipped (since 17.10.2026 — previously skipQuietHours:
+ *  true let this every-30-minutes cron push at 23:17 or 03:47).
  *  `dropoffNotifiedAt`/`dropoffNotifyCount` are stamped identically on both
  *  paths — this migration only changes the delivery mechanism, not the
  *  cooldown/audit-trail logic.
@@ -95,7 +110,8 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { sendPush } from './services/push.service';
+import { sendPush, isQuietHours } from './services/push.service';
+import { isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -125,6 +141,9 @@ const TEST_MODE = process.env.DROPOFF_TEST_MODE === 'true';
 
 const MULTICAST_BATCH_SIZE = 500;
 const MS_PER_HOUR = 60 * 60 * 1000;
+
+/** Lifetime cap on drop-off pushes per user (criterion 6 in the header). */
+export const MAX_DROPOFF_NOTIFICATIONS = 2;
 
 // ─── Message variants ─────────────────────────────────────────────────────────
 // Personalised Hebrew copy. `{name}` is replaced at dispatch time.
@@ -173,6 +192,42 @@ interface StaleUser {
 
 function cutoffTimestamp(hours: number): admin.firestore.Timestamp {
   return admin.firestore.Timestamp.fromMillis(Date.now() - hours * MS_PER_HOUR);
+}
+
+function toMillisLoose(v: unknown): number | null {
+  if (!v) return null;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const ms = new Date(v).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (typeof v === 'object') {
+    const t = v as { toMillis?: () => number; seconds?: number };
+    if (typeof t.toMillis === 'function') return t.toMillis();
+    if (typeof t.seconds === 'number') return t.seconds * 1000;
+  }
+  return null;
+}
+
+/**
+ * Lifetime-cap + cooldown check for one user doc (criteria 5–6 in the
+ * header). Returns a log-friendly skip reason, or null when the user may be
+ * notified now. Exported for tests.
+ */
+export function dropoffCapSkipReason(
+  data: Record<string, unknown>,
+  nowMs: number = Date.now(),
+): string | null {
+  const count = typeof data.dropoffNotifyCount === 'number' ? data.dropoffNotifyCount : 0;
+  if (count >= MAX_DROPOFF_NOTIFICATIONS) {
+    return `lifetime cap reached (${count}/${MAX_DROPOFF_NOTIFICATIONS})`;
+  }
+  const notifiedMs = toMillisLoose(data.dropoffNotifiedAt);
+  if (notifiedMs !== null && notifiedMs > nowMs - RE_NOTIFY_HOURS * MS_PER_HOUR) {
+    return `notified ${Math.round((nowMs - notifiedMs) / MS_PER_HOUR)}h ago, cooldown=${RE_NOTIFY_HOURS}h`;
+  }
+  return null;
 }
 
 /** Personalise a message variant for a specific user. */
@@ -266,8 +321,18 @@ export const onboardingDropoffDispatcher = onSchedule(
       logger.warn('[dropoff] TEST_MODE=true — all writes and FCM calls are suppressed.');
     }
 
+    // ── Step 0: quiet hours / Shabbat / yom tov — skip the whole run (both
+    // paths) before anything is read or stamped. See header.
+    if (isQuietHours()) {
+      logger.info('[dropoff] Quiet hours (22:00–07:00 Israel) — skipping run.');
+      return;
+    }
+    if (isShabbatOrYomTov()) {
+      logger.info('[dropoff] Shabbat/yom tov — skipping run.');
+      return;
+    }
+
     const staleBefore = cutoffTimestamp(STALE_HOURS);
-    const reNotifyBefore = cutoffTimestamp(RE_NOTIFY_HOURS);
 
     // Phase 0 Item 1c — routing flag; a read failure here is non-fatal, it
     // just means this run falls back to the legacy inline path (flag=false).
@@ -288,13 +353,15 @@ export const onboardingDropoffDispatcher = onSchedule(
 
     // ── Step 1: Query stale onboarding users ────────────────────────────
     // Composite index registered in firestore.indexes.json:
-    //   onboardingStatus ASC + createdAt ASC (COLLECTION scope)
+    //   onboardingStatus ASC + createdAt DESC (COLLECTION scope) — newest
+    //   first, so capped users can't starve new drop-outs (see header).
     let candidateDocs: admin.firestore.QueryDocumentSnapshot[];
     try {
       const snap = await db
         .collection('users')
         .where('onboardingStatus', 'in', ['IN_PROGRESS', 'ONBOARDING'])
         .where('createdAt', '<=', staleBefore)
+        .orderBy('createdAt', 'desc')
         .limit(BATCH_LIMIT)
         .get();
 
@@ -317,21 +384,11 @@ export const onboardingDropoffDispatcher = onSchedule(
       const data = docSnap.data() as Record<string, any>;
       const uid = docSnap.id;
 
-      // Cooldown guard — skip if notified too recently.
-      const notifiedAt = data.dropoffNotifiedAt;
-      if (notifiedAt) {
-        const notifiedTs =
-          notifiedAt instanceof admin.firestore.Timestamp
-            ? notifiedAt
-            : admin.firestore.Timestamp.fromDate(new Date(notifiedAt));
-        if (notifiedTs.toMillis() > reNotifyBefore.toMillis()) {
-          logger.info(
-            `[dropoff] uid=${uid} — skipping (notified ${
-              Math.round((Date.now() - notifiedTs.toMillis()) / MS_PER_HOUR)
-            }h ago, cooldown=${RE_NOTIFY_HOURS}h)`,
-          );
-          continue;
-        }
+      // Lifetime cap + cooldown guard.
+      const capReason = dropoffCapSkipReason(data);
+      if (capReason) {
+        logger.info(`[dropoff] uid=${uid} — skipping (${capReason})`);
+        continue;
       }
 
       // Push eligibility.
@@ -425,7 +482,6 @@ export const onboardingDropoffDispatcher = onSchedule(
             ...(user.authorityId ? { authorityId: user.authorityId } : {}),
           },
           rateCapHours: 0,
-          skipQuietHours: true,
         });
         userDelivered = result.delivered;
         userFailed = result.failed;

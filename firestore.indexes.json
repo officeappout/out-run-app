@@ -753,6 +753,31 @@
       ]
     },
 
+    // ── Push schedule fix, 17.10.2026 ────────────────────────────────────
+    // onboardingDropoffDispatcher now reads newest-first
+    // (.orderBy('createdAt','desc')) so users who hit the new 2-send
+    // lifetime cap can't starve new drop-outs. The ASCENDING pair above
+    // stays (funnel analytics uses it).
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",        "order": "DESCENDING" }
+      ]
+    },
+    // retentionScheduler: where('onboardingStatus','==','COMPLETED')
+    //   .where('lastActive','<=',cutoff).orderBy('lastActive','desc'),
+    // cursor-paginated (most recently churned first).
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "onboardingStatus", "order": "ASCENDING" },
+        { "fieldPath": "lastActive",       "order": "DESCENDING" }
+      ]
+    },
+
     // ── Growth Hub: Journey Hub bug-fix round, 06.10.2026 (BUG 2) ─────────
     // Root cause: `funnel-analytics.service.ts`'s `buildBaseConstraints`
     // adds a date-RANGE `where()` whenever an admin picks a date filter in

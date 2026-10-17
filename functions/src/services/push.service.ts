@@ -15,7 +15,14 @@
  *    degradation) that might prompt reaching for it would defeat its own purpose.
  * 1. User preference filter  — settings.pushEnabled + settings.notificationPrefs.{channel}
  *    `system` channel is force-on and bypasses all filters.
- * 2. Quiet hours             — 22:00–07:00 Asia/Jerusalem; skippable for scheduled jobs.
+ * 2. Quiet hours             — 22:00–07:00 Asia/Jerusalem; skippable via skipQuietHours.
+ * 2b. Shabbat / yom tov      — owner decision 17.10.2026: no pushes from Friday/erev-chag
+ *    14:00 to 20:30 on the day itself (Israel time; see shabbat.service.ts for the
+ *    exact window and holiday list). Dropped, not delayed (same as quiet hours).
+ *    NOT bypassable by skipQuietHours. Exempt ONLY: the `system` channel, and a 1:1
+ *    `chat` message between two people (caller passes isDirectMessage: true). Personal
+ *    interactions (kudos, league, group alerts) ARE blocked — the daily-cap
+ *    exemption in feature 7 is unrelated and unchanged.
  * 3. Rate cap                — max 1 push per (uid, channel) per N hours; stored in
  *    `push_rate/{uid}.{channel}_lastSentAt`. Default 24 h; pass rateCapHours=0 to disable.
  * 4. Dead token cleanup      — invalid tokens removed from user docs after every batch.
@@ -56,13 +63,16 @@
  * ───────────
  * The app is Israel-only, so we use a fixed timezone ('Asia/Jerusalem').
  * Quiet window: hour >= 22 OR hour < 7 (inclusive).
- * Scheduled functions (retention, training_reminder) pass skipQuietHours=true
- * because their cron expressions already target the active-hours window.
+ * skipQuietHours=true is only used by deliberate any-hour sends (admin
+ * broadcasts, chat). Scheduled nudges (retention, step-goal, onboarding
+ * drop-off, training reminders) do NOT bypass it — their crons already sit in
+ * active hours, so the check costs nothing and keeps the policy uniform.
  */
 
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
 import { writePushSentEvent } from './push-events.service';
+import { isShabbatOrYomTov } from './shabbat.service';
 
 // Lazy accessors — admin is initialized by the calling Cloud Function entry point.
 const getDb = () => admin.firestore();
@@ -283,10 +293,16 @@ export interface SendPushOpts {
    */
   rateCapHours?: number;
   /**
-   * Skip quiet-hours check (22:00–07:00 IST). Set to true for scheduled
-   * functions whose cron expression already targets active hours.
+   * Skip quiet-hours check (22:00–07:00 IST). Only for deliberate any-hour
+   * sends (admin broadcasts, chat). Does NOT skip the Shabbat/yom-tov guard.
    */
   skipQuietHours?: boolean;
+  /**
+   * `chat` only: true when this is a 1:1 message from one person to another
+   * (chats/{id}.type === 'dm', sender not a bot). The ONLY non-`system` send
+   * exempt from the Shabbat/yom-tov guard. Ignored on every other channel.
+   */
+  isDirectMessage?: boolean;
   /** See SendPushMeasurement's doc comment. Opt-in, absent = no-op. */
   measurement?: SendPushMeasurement;
   /**
@@ -317,6 +333,8 @@ export interface SendPushResult {
   skippedGlobalKill: number;
   skippedPrefs: number;
   skippedQuietHours: number;
+  /** Dropped by the Shabbat/yom-tov guard (see shabbat.service.ts). */
+  skippedShabbat: number;
   skippedRateCap: number;
   /** Skipped by the Stage 2 daily engagement cap (ENGAGEMENT_CHANNELS only —
    *  always 0 for chat/system/other channels). */
@@ -358,6 +376,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     skippedGlobalKill: 0,
     skippedPrefs: 0,
     skippedQuietHours: 0,
+    skippedShabbat: 0,
     skippedRateCap: 0,
     skippedDailyCap: 0,
     tokensPruned: 0,
@@ -376,6 +395,15 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   if (!isSystem && !(await isAdminChannelEnabled(channel))) {
     result.skippedPrefs = toUids.length;
     logger.info(`[push.service] ${channel} — disabled via admin config`);
+    return result;
+  }
+
+  // ── Shabbat / yom tov (owner decision 17.10.2026) — deliberately NOT gated
+  // on skipQuietHours. Exempt: `system`, and 1:1 person-to-person chat only. ──
+  const isDirectChat = channel === 'chat' && opts.isDirectMessage === true;
+  if (!isSystem && !isDirectChat && isShabbatOrYomTov()) {
+    result.skippedShabbat = toUids.length;
+    logger.info(`[push.service] ${channel} — Shabbat/yom tov, skipping ${toUids.length} uid(s)`);
     return result;
   }
 
@@ -607,10 +635,14 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Returns true when the current time in Israel falls inside the quiet window (22:00–07:00). */
-function isQuietHours(): boolean {
+/**
+ * Returns true when the time in Israel falls inside the quiet window (22:00–07:00).
+ * Exported so the legacy direct-FCM paths (onboardingDropoffDispatcher) apply
+ * the exact same window.
+ */
+export function isQuietHours(now: Date = new Date()): boolean {
   const hour = new Date(
-    new Date().toLocaleString('en-US', { timeZone: TZ }),
+    now.toLocaleString('en-US', { timeZone: TZ }),
   ).getHours();
   return hour >= QUIET_START_HOUR || hour < QUIET_END_HOUR;
 }
