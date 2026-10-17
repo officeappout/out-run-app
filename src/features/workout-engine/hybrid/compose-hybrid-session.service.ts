@@ -36,8 +36,12 @@ import {
   type StrengthBlockResult,
 } from '../core/pipeline/strength-block.service';
 import { MIN_STATION_EXERCISES } from './station-source';
+import { outdoorVideoSafePool } from './station-outdoor-media';
 import { appendCooldownExercises } from '../services/cooldown.service';
-import { hasExplicitCoreLevel } from '../logic/workout-selection.utils';
+import { hasExplicitCoreLevel, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../logic/workout-selection.utils';
+import { resolveToSlug, getIdToSlugMapSync } from '../services/program-hierarchy.utils';
+import { prependWarmupExercises } from '../services/warmup.service';
+import type { GeneratedWorkout } from '../logic/workout-generator.types';
 import { TABATA_BLOCK_SECONDS } from '../logic/protocols/tabata.constants';
 import {
   buildStationCoreTabataBlocks,
@@ -45,7 +49,7 @@ import {
   REST_BETWEEN_STATION_TABATA_BLOCKS_SEC,
 } from './station-core-tabata';
 import { DEFAULT_PACE_MAP_CONFIG } from '../core/config/pace-map-config';
-import { normalizeGearIds, satisfiesGearRequirement, ESSENTIAL_PARK_GEAR } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { normalizeGearIds, satisfiesGearRequirement } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
@@ -53,7 +57,14 @@ import {
   buildStationEquipmentTabataBlock,
   type StationEquipmentTabataInput,
 } from './station-equipment-tabata';
-import type { ParkWorkoutDifficulty } from '../services/compose-park-strength-workout.service';
+import {
+  resolveMachineAllocation,
+  machineShareForLevel,
+  isBlockAEligible,
+  MIN_BLOCK_A_MACHINES,
+  TABATA_DIFFICULTY_LADDER,
+  type ParkWorkoutDifficulty,
+} from '../services/compose-park-strength-workout.service';
 
 /** Score bonus that lifts an equipment-satisfied exercise above any bodyweight
  *  movement in the same domain — a park station foregrounds its iron. */
@@ -231,6 +242,13 @@ export interface HybridComposeInput {
    */
   stationDomainMode?: 'per_station' | 'multi';
   /**
+   * Push/pull level for the park machine-share ladder (compose-park-strength-workout's
+   * MACHINE_SHARE_LADDER via resolveMachineAllocation) at 'as_provided' stations that have real
+   * machines (HybridStopCandidate.parkEquipment). The caller passes resolveMachineShareLevel(profile);
+   * omitted → derived from generationContext.userProgramLevels push/pull (then userLevel).
+   */
+  machineShareLevel?: number;
+  /**
    * Domain-assessment gate (David, 23-24.09.2026): when true AND zero real
    * stop candidates exist at all (`stopCandidates` resolved to `[]` upstream
    * — route-stops' "no station at all" row), skip the §10 field-fallback
@@ -279,6 +297,8 @@ export interface HybridPlannedSegment {
    * Transferring an existing field — no new computation. Absent on legacy/home-only plans.
    */
   availableEquipment?: string[];
+  /** Route-stops planner: the domains this station trains (its share of the session's split). */
+  stationDomains?: string[];
   /**
    * Station-approach moment (David, 25.09.2026): the real GPS coordinates of
    * this stop, carried straight through from HybridStopCandidate.lat/lng
@@ -319,6 +339,8 @@ export interface HybridPlan {
      *  pure walk/run with `totals.stations: 0` by design, not a degraded station.
      *  The caller should show the "fill the questionnaire" nudge, not a lock card. */
     skippedFieldFallback: boolean;
+    /** Route-stops planner: stops on the route that are walked past (no station content). */
+    passThroughStopIds?: string[];
     log: string[];
   };
 }
@@ -552,6 +574,399 @@ function buildDomainGateFallback(
 }
 
 // ============================================================================
+// ROUTE-STOPS STATION PLANNER (hybrid route-stops audit, 17.10.2026)
+// ============================================================================
+//
+// 'as_provided' (route_stops) used to honour EVERY stop (up to 4), give each one an
+// 8–12 min floor and generate each one independently in 'multi' (full-body) mode — so a
+// 30-min request came out at 36–55 min, the same skill/pull work repeated at every stop,
+// and the first stop could be a minute from the start with no warm-up. The planner below
+// plans ONE session instead: one strength budget, a station count that fits it, one
+// full-body domain split across the stations, and exercise/skill state threaded across
+// stops. Stops that don't become stations are walked past (meta.passThroughStopIds).
+
+/** A station must be at least this many minutes of walking from the start (warm-up walk). */
+export const WARMUP_WALK_MIN = 3;
+/** Station length bounds for the route planner (the 8-min STATION_MINUTES.min sizes the COUNT). */
+const ROUTE_STATION_FLOOR_MIN = 5;
+const ROUTE_STATION_MAX_MIN = 20;
+/** Strength never takes more of the session than the existing split's strongest emphasis. */
+const ROUTE_STRENGTH_SHARE_CAP = 1 - EMPHASIS_AEROBIC_SHARE.strength;
+/** Minutes reserved for the short warm-up at a station reached before WARMUP_WALK_MIN. */
+const STATION_WARMUP_RESERVE_MIN = 2;
+/** A generated block may run this much over its station budget before it is trimmed. */
+const STATION_BUDGET_TOLERANCE = 1.1;
+/** Below this many minutes left after machines, a machine station stays machines-only. */
+const MIN_BODYWEIGHT_REMAINDER_MIN = 3;
+
+const ALL_STRENGTH_DOMAINS = ['push', 'pull', 'legs', 'core'] as const;
+
+/** One full-body plan split over N strength stations (filtered to the user's target domains). */
+const DOMAIN_GROUP_TEMPLATES: Record<number, string[][]> = {
+  1: [['push', 'pull', 'legs', 'core']],
+  2: [['pull', 'core'], ['push', 'legs']],
+  3: [['pull', 'core'], ['push'], ['legs']],
+  4: [['pull'], ['push'], ['legs'], ['core']],
+};
+
+/** Per-stop context the planner threads into dispatchStopContent. All optional — absent = legacy. */
+export interface StationPlanContext {
+  /** The domains this station trains (route planner split). */
+  domains?: string[];
+  /** Exercises already prescribed at an earlier station this session. */
+  excludeExerciseIds?: ReadonlySet<string>;
+  /** Skill exercises this station may not use (one skill family per session). */
+  excludeSkillExercise?: (ex: Exercise) => boolean;
+  /** Push/pull level for the park machine-share ladder; absent → no machines at this station. */
+  machineShareLevel?: number;
+  /** The station comes before a real warm-up walk → prepend a short warm-up. */
+  needsWarmup?: boolean;
+  /**
+   * Route planner station kind (17.10.2026): 'machines' = the park's machines only (one
+   * machine tabata), 'bodyweight' = no machines. Absent → the legacy in-station ladder split.
+   */
+  mode?: StationMode;
+}
+
+/** A route-stops strength station is EITHER machines OR bodyweight — never both mixed. */
+export type StationMode = 'machines' | 'bodyweight';
+
+/** Items that are never station sets: follow-along/reinforcement/recovery videos and test docs. */
+const NON_STATION_ROLES = new Set(['reinforcement', 'recovery']);
+const TEST_ITEM_NAME = /בדיקה|\btest\b/i;
+
+export function isTestItem(ex: Exercise): boolean {
+  const n = ex.name as unknown;
+  const names = typeof n === 'string'
+    ? [n]
+    : [(n as { he?: string })?.he, (n as { en?: string })?.en].filter((x): x is string => typeof x === 'string');
+  return names.some((x) => TEST_ITEM_NAME.test(x));
+}
+
+/** Station-wide content gate (every stop kind: strength, core, stretch). */
+export function isStationEligibleExercise(ex: Exercise): boolean {
+  if (NON_STATION_ROLES.has(ex.exerciseRole ?? '')) return false;
+  if (ex.isFinisherVideo) return false;
+  return !isTestItem(ex);
+}
+
+/**
+ * Drop non-station items from the master pool AND the guarantee pass's global pool, and strip
+ * outdoor methods that would play a home/office video (station-outdoor-media.ts) — an exercise
+ * left with no outdoor method is excluded at stops.
+ */
+function withStationEligibleContent(input: HybridComposeInput): HybridComposeInput {
+  const clean = (pool: Exercise[]) => outdoorVideoSafePool(pool.filter(isStationEligibleExercise));
+  const same = (a: Exercise[], b: Exercise[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const master = clean(input.masterExercises);
+  const globalPool = input.generationContext.globalExercisePool;
+  const cleanGlobal = globalPool ? clean(globalPool) : undefined;
+  if (same(master, input.masterExercises) && (!globalPool || same(cleanGlobal!, globalPool))) {
+    return input;
+  }
+  return {
+    ...input,
+    masterExercises: master,
+    generationContext: globalPool ? { ...input.generationContext, globalExercisePool: cleanGlobal } : input.generationContext,
+  };
+}
+
+/** Strength domain of an exercise: canonical movementGroup map first, primaryMuscle second. */
+function strengthDomainOf(ex: Exercise): string | undefined {
+  const mgDomain = MG_TO_DOMAIN[ex.movementGroup ?? ''];
+  // Skill movement groups map to their own slug (front_lever, planche…) → use the parent domain.
+  const d = (mgDomain && DOMAIN_RESOLUTION_SKILL_PARENT_MAP[mgDomain]) ?? mgDomain
+    ?? MUSCLE_TO_DOMAIN[(ex.primaryMuscle ?? '').toLowerCase()];
+  return d && (ALL_STRENGTH_DOMAINS as readonly string[]).includes(d) ? d : undefined;
+}
+
+/** Skill families (skill-program slugs) an exercise belongs to. [] = not a skill exercise. */
+export function skillFamiliesOf(ex: Exercise): string[] {
+  const ids = [...(ex.targetPrograms ?? []).map((tp) => tp.programId), ...(ex.programIds ?? [])];
+  const out = new Set<string>();
+  const mgDomain = MG_TO_DOMAIN[ex.movementGroup ?? ''];
+  if (mgDomain && DOMAIN_RESOLUTION_SKILL_PARENT_MAP[mgDomain] !== undefined) out.add(mgDomain);
+  for (const id of ids) {
+    if (DOMAIN_RESOLUTION_SKILL_PARENT_MAP[id] !== undefined) out.add(id);
+    else {
+      const slug = resolveToSlug(id);
+      if (DOMAIN_RESOLUTION_SKILL_PARENT_MAP[slug] !== undefined) out.add(slug);
+    }
+  }
+  if (out.size === 0 && (ex.tags ?? []).includes('skill' as never)) {
+    out.add(ex.base_movement_id ?? ex.movementGroup ?? 'skill');
+  }
+  return Array.from(out);
+}
+
+/** How well a stop's equipment suits a domain group (bar → pull, dips/bench → push, open → legs). */
+function groupAffinity(group: string[], equipment: string[]): number {
+  const has = (ids: string[]) => ids.some((id) => equipment.includes(id));
+  let score = 0;
+  for (const d of group) {
+    if (d === 'pull') score += has(['pullup_bar', 'high_bar', 'rings', 'low_bar']) ? 3 : 0;
+    else if (d === 'push') score += has(['dip_station', 'parallel_bars', 'parallettes']) ? 2 : has(['bench']) ? 1 : 0;
+    else if (d === 'legs') score += has(['step', 'bench']) || equipment.length === 0 ? 1 : 0;
+    else if (d === 'core') score += has(['pullup_bar', 'high_bar']) ? 1 : 0.5;
+  }
+  return score;
+}
+
+function buildDomainGroups(stationCount: number, domains: string[]): string[][] {
+  for (let n = Math.min(stationCount, 4); n >= 1; n--) {
+    const groups = DOMAIN_GROUP_TEMPLATES[n].map((g) => g.filter((d) => domains.includes(d))).filter((g) => g.length > 0);
+    if (groups.length === n) return groups;
+  }
+  return [domains.slice()];
+}
+
+/** Best group→station assignment by equipment affinity (≤4 stations → ≤24 permutations). */
+function assignGroups(groups: string[][], stations: HybridStopCandidate[]): string[][] {
+  let best: { order: number[]; score: number } | null = null;
+  const permute = (rest: number[], acc: number[]) => {
+    if (rest.length === 0) {
+      const score = acc.reduce((s, g, i) => s + groupAffinity(groups[g], stations[i].availableEquipment), 0);
+      if (!best || score > best.score) best = { order: acc.slice(), score };
+      return;
+    }
+    for (let i = 0; i < rest.length; i++) permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, rest[i]]);
+  };
+  permute(groups.map((_, i) => i), []);
+  return (best as { order: number[] } | null)?.order.map((g) => groups[g]) ?? groups;
+}
+
+export interface RouteStationPlan {
+  chosen: Array<{ candidate: HybridStopCandidate; km: number; needsWarmup: boolean; domains?: string[]; mode?: StationMode }>;
+  passThroughStopIds: string[];
+  strengthBudgetMin: number;
+  perStationMin: number;
+  walkMinEstimate: number;
+}
+
+/**
+ * PURE: plan the route-stops stations for ONE session.
+ *   strengthBudget = requested − estimated walking time, bounded to [floor, share cap]
+ *   stations       = min(eligible stops, STATION_MAX, ⌊strengthBudget / STATION_MINUTES.min⌋), ≥ 1
+ * Eligible = stops at least WARMUP_WALK_MIN of walking from the start; when none is, the
+ * farthest stop is used with a short warm-up. Stations are spread evenly along the route
+ * (non-strength stops are preferred last), then one full-body domain split is assigned to the
+ * strength stations by equipment affinity. Everything not chosen is a pass-through.
+ */
+export function planRouteStations(params: {
+  candidatesByKm: Array<{ candidate: HybridStopCandidate; km: number }>;
+  routeKm: number;
+  walkSecPerKm: number;
+  timeBudgetMin: number;
+  targetDomains: string[];
+  /**
+   * Park machine-share ladder share for this user (machineShareForLevel). When set, strength
+   * stations are dedicated: round(share × stations) of them (at most stations − 1 when there
+   * are two or more, so bodyweight always has a station) become machine-only stations at the
+   * parks with the most eligible machines; the rest are bodyweight-only and carry the
+   * full-body split. Absent → no machine stations.
+   */
+  machineShare?: number;
+  log: string[];
+}): RouteStationPlan {
+  const { candidatesByKm, routeKm, walkSecPerKm, timeBudgetMin, log } = params;
+  const walkMinEstimate = (routeKm * walkSecPerKm) / 60;
+  const cap = Math.max(ROUTE_STATION_FLOOR_MIN, timeBudgetMin * ROUTE_STRENGTH_SHARE_CAP);
+  const strengthBudgetMin = Math.min(cap, Math.max(ROUTE_STATION_FLOOR_MIN, timeBudgetMin - walkMinEstimate));
+
+  const warmupKm = (WARMUP_WALK_MIN * 60) / walkSecPerKm;
+  let eligible = candidatesByKm.filter((c) => c.km >= warmupKm);
+  let warmupFallback = false;
+  if (eligible.length === 0 && candidatesByKm.length > 0) {
+    eligible = [candidatesByKm[candidatesByKm.length - 1]];
+    warmupFallback = true;
+  }
+  const skippedEarly = candidatesByKm.filter((c) => c.km < warmupKm).length;
+
+  const byTime = Math.max(STATION_MIN, Math.floor(strengthBudgetMin / STATION_MINUTES.min));
+  const count = Math.min(eligible.length, STATION_MAX, byTime);
+
+  // Even spacing over the route (gaps vs routeKm/(n+1)); a non-strength stop (stretch/rest)
+  // anywhere but last costs a full route length, so the cooldown-type stop lands at the end.
+  let chosenIdx: number[] = [];
+  if (count > 0) {
+    const target = routeKm / (count + 1);
+    let bestScore = Infinity;
+    const combo: number[] = [];
+    const recurse = (start: number) => {
+      if (combo.length === count) {
+        const kms = combo.map((i) => eligible[i].km);
+        const gaps = [kms[0], ...kms.slice(1).map((km, j) => km - kms[j]), routeKm - kms[kms.length - 1]];
+        let score = gaps.reduce((s, g) => s + Math.abs(g - target), 0);
+        combo.forEach((i, j) => {
+          const act = eligible[i].candidate.activityType ?? 'strength';
+          if (act !== 'strength' && act !== 'core' && j !== combo.length - 1) score += routeKm;
+        });
+        if (score < bestScore) { bestScore = score; chosenIdx = combo.slice(); }
+        return;
+      }
+      for (let i = start; i <= eligible.length - (count - combo.length); i++) {
+        combo.push(i); recurse(i + 1); combo.pop();
+      }
+    };
+    recurse(0);
+  }
+  let chosen = chosenIdx.map((i) => ({
+    ...eligible[i], needsWarmup: warmupFallback, domains: undefined as string[] | undefined, mode: undefined as StationMode | undefined,
+  }));
+
+  // One full-body split over the strength stations. A core-activity stop (bench / weekly budget
+  // spent) already trains core, so core leaves the strength groups when one is chosen.
+  let domains = params.targetDomains.filter((d) => (ALL_STRENGTH_DOMAINS as readonly string[]).includes(d));
+  if (domains.length === 0) domains = [...ALL_STRENGTH_DOMAINS];
+  if (chosen.some((c) => c.candidate.activityType === 'core') && domains.length > 1) {
+    domains = domains.filter((d) => d !== 'core');
+  }
+  const strengthChosen = chosen.filter((c) => (c.candidate.activityType ?? 'strength') === 'strength');
+  // Machines OR bodyweight per station, never mixed (owner, 17.10.2026). The session's machine
+  // share follows the ladder by station count: k = round(share × n) machine stations.
+  let bodyweightChosen = strengthChosen;
+  if (params.machineShare != null && strengthChosen.length > 0) {
+    const n = strengthChosen.length;
+    const eligibleMachines = (c: HybridStopCandidate) =>
+      (c.parkEquipment ?? []).filter((m) => isBlockAEligible(m, domains)).length;
+    let k = Math.round(params.machineShare * n);
+    if (n >= 2) k = Math.min(k, n - 1);
+    const capable = strengthChosen
+      .filter((c) => eligibleMachines(c.candidate) >= MIN_BLOCK_A_MACHINES)
+      .sort((a, b) => eligibleMachines(b.candidate) - eligibleMachines(a.candidate));
+    const machineStations = new Set(capable.slice(0, k));
+    machineStations.forEach((c) => { c.mode = 'machines'; c.domains = domains.slice(); });
+    bodyweightChosen = strengthChosen.filter((c) => !machineStations.has(c));
+    bodyweightChosen.forEach((c) => { c.mode = 'bodyweight'; });
+    log.push(
+      `route planner: machine share ${params.machineShare.toFixed(2)} × ${n} strength station(s) → ` +
+      `${machineStations.size} machine station(s), ${bodyweightChosen.length} bodyweight` +
+      (machineStations.size < k ? ` (only ${capable.length} park(s) with ≥${MIN_BLOCK_A_MACHINES} eligible machines)` : ''),
+    );
+  }
+  if (bodyweightChosen.length > 0) {
+    const groups = buildDomainGroups(bodyweightChosen.length, domains);
+    // More strength stations than groups (a narrow target, e.g. upper-body only) → the extras
+    // are walked past rather than repeating a domain.
+    const kept = bodyweightChosen.slice(0, groups.length);
+    const dropped = new Set(bodyweightChosen.slice(groups.length).map((c) => c.candidate.stopId));
+    const assigned = assignGroups(groups, kept.map((c) => c.candidate));
+    kept.forEach((c, i) => { c.domains = assigned[i]; });
+    chosen = chosen.filter((c) => !dropped.has(c.candidate.stopId));
+  }
+
+  const perStationMin = chosen.length > 0
+    ? Math.min(ROUTE_STATION_MAX_MIN, Math.max(ROUTE_STATION_FLOOR_MIN, strengthBudgetMin / chosen.length))
+    : 0;
+  const chosenIds = new Set(chosen.map((c) => c.candidate.stopId));
+  const passThroughStopIds = candidatesByKm.map((c) => c.candidate.stopId).filter((id) => !chosenIds.has(id));
+
+  log.push(
+    `route planner: walk≈${walkMinEstimate.toFixed(1)}min, strength budget ${strengthBudgetMin.toFixed(1)}min ` +
+    `→ ${chosen.length} station(s) × ${perStationMin.toFixed(1)}min` +
+    (skippedEarly > 0 ? `, ${skippedEarly} stop(s) before the ${WARMUP_WALK_MIN}-min warm-up walk` : '') +
+    (warmupFallback ? ' (no stop past the warm-up walk → station warm-up)' : '') +
+    `; stations [${chosen.map((c) => `${c.candidate.stopId}@${c.km.toFixed(2)}km${c.mode === 'machines' ? ':machines' : c.domains ? `:${c.domains.join('+')}` : `:${c.candidate.activityType ?? 'strength'}`}`).join(', ')}]` +
+    (passThroughStopIds.length ? `; pass-through ${passThroughStopIds.length}` : ''),
+  );
+  return { chosen, passThroughStopIds, strengthBudgetMin, perStationMin, walkMinEstimate };
+}
+
+/**
+ * Trim a straight-sets block that overshoots its station budget, keeping it a real workout:
+ * (1) take sets down toward 2 (most sets first), (2) drop trailing exercises while more than
+ * two remain, (3) take sets down to 1, (4) drop trailing exercises (never the only one).
+ * Uses the engine's own 3 s/rep work estimate + the prescribed rest (+15 s per dropped exercise).
+ */
+export function fitBlockToBudget(block: StrengthBlockResult, budgetSec: number, log: string[], tag: string): StrengthBlockResult {
+  if (block.estimatedDurationSec <= budgetSec * STATION_BUDGET_TOLERANCE) return block;
+  const exercises = block.exercises.map((ex) => ({ ...ex }));
+  let est = block.estimatedDurationSec;
+  const perSet = (ex: (typeof exercises)[number]) =>
+    (ex.isTimeBased ? ex.reps : ex.reps * SECONDS_PER_REP) + (ex.restSeconds ?? 0);
+  const dropSet = (minSets: number): boolean => {
+    let idx = -1;
+    for (let i = 0; i < exercises.length; i++) {
+      if (exercises[i].sets > minSets && (idx < 0 || exercises[i].sets >= exercises[idx].sets)) idx = i;
+    }
+    if (idx < 0) return false;
+    const ex = exercises[idx];
+    est -= perSet(ex);
+    ex.sets -= 1;
+    if (Array.isArray(ex.repsSequence)) ex.repsSequence = ex.repsSequence.slice(0, ex.sets);
+    return true;
+  };
+  // Drop the last exercise of a domain that still has another one, so trimming never costs the
+  // station a domain while a duplicate-domain exercise is left; else the last exercise.
+  const dropExercise = (minExercises: number): boolean => {
+    if (exercises.length <= minExercises) return false;
+    const domains = exercises.map((ex) => strengthDomainOf(ex.exercise) ?? ex.exercise.id);
+    let idx = exercises.length - 1;
+    for (let i = exercises.length - 1; i >= 0; i--) {
+      if (domains.filter((d) => d === domains[i]).length > 1) { idx = i; break; }
+    }
+    const [dropped] = exercises.splice(idx, 1);
+    est -= dropped.sets * perSet(dropped) + 15;
+    return true;
+  };
+  const steps: Array<() => boolean> = [() => dropSet(2), () => dropExercise(2), () => dropSet(1), () => dropExercise(1)];
+  for (const step of steps) {
+    while (est > budgetSec && step()) { /* keep trimming at this step */ }
+    if (est <= budgetSec) break;
+  }
+  const totalPlannedSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);
+  log.push(`${tag} trimmed to budget: ~${Math.round(block.estimatedDurationSec / 60)}→~${Math.round(Math.max(0, est) / 60)}min (${block.totalPlannedSets}→${totalPlannedSets} sets)`);
+  return { ...block, exercises, estimatedDurationSec: Math.max(0, Math.round(est)), totalPlannedSets };
+}
+
+/** Rough duration of a warm-up list (same 3 s/rep model the stretch branch uses). */
+function exercisesDurationSec(list: StrengthBlockResult['exercises']): number {
+  return list.reduce((acc, ex) => acc + (ex.sets ?? 1) * ((ex.isTimeBased ? ex.reps : ex.reps * SECONDS_PER_REP) + (ex.restSeconds ?? 0)), 0);
+}
+
+/** Prepend a short warm-up to a station reached before the warm-up walk (route planner). */
+function withStationWarmup(
+  block: StrengthBlockResult,
+  candidate: HybridStopCandidate,
+  input: HybridComposeInput,
+  station: StationPlanContext | undefined,
+  log: string[],
+): StrengthBlockResult {
+  if (!station?.needsWarmup || block.exercises.length === 0) return block;
+  const stub = { exercises: [...block.exercises] } as unknown as GeneratedWorkout;
+  try {
+    prependWarmupExercises(
+      stub,
+      input.masterExercises,
+      input.generationContext.userProgramLevels ?? new Map(),
+      'park',
+      [],
+      block.exercises,
+      input.generationContext.difficulty,
+      candidate.availableEquipment,
+      STATION_WARMUP_SESSION_MIN,
+      getIdToSlugMapSync() ?? undefined,
+    );
+  } catch (err) {
+    log.push(`[${candidate.stopId}] station warm-up failed (${String(err)}) — station kept without it`);
+    return block;
+  }
+  const warmup = stub.exercises.filter((ex) => ex.exerciseRole === 'warmup');
+  if (warmup.length === 0) return block;
+  const warmupSec = exercisesDurationSec(warmup);
+  log.push(`[${candidate.stopId}] station warm-up: ${warmup.length} exercise(s) (~${Math.round(warmupSec / 60)}min) — reached before the ${WARMUP_WALK_MIN}-min warm-up walk`);
+  return {
+    ...block,
+    exercises: [...warmup, ...block.exercises],
+    estimatedDurationSec: block.estimatedDurationSec + warmupSec,
+    stationWarmup: true,
+  };
+}
+
+/** Session length handed to the warm-up ladder for a station warm-up → its minimum slots (~2 min). */
+const STATION_WARMUP_SESSION_MIN = 10;
+
+// ============================================================================
 // CONTENT DISPATCH (§4b) — activityType → generator
 // ============================================================================
 
@@ -559,9 +974,14 @@ export function dispatchStopContent(
   candidate: HybridStopCandidate,
   focus: BlockDomainFocus,
   blockMinutes: number,
-  input: HybridComposeInput,
+  rawInput: HybridComposeInput,
   log: string[],
+  /** Route-stops planner context (domains / cross-stop exclusions / machines / warm-up). */
+  station?: StationPlanContext,
 ): StrengthBlockResult | null {
+  // Station content gate (17.10.2026): follow-along/reinforcement/recovery videos and test
+  // docs are never station content, for every stop kind.
+  const input = withStationEligibleContent(rawInput);
   // NOTE (David, 23-24.09.2026): the old unconditional hydraulic-content shortcut
   // (resolveStationContent, station-content-resolver.ts) that used to sit here has
   // been REMOVED from this dispatch — superseded by the domain-assessment gate
@@ -588,8 +1008,10 @@ export function dispatchStopContent(
       // unassessed user at the real Sderot hydraulic station got 2 stray
       // skill exercises instead of machine tabata before this check existed).
       const effectiveDomainFocus = input.stationDomainMode === 'multi' ? undefined : (isBodyweight ? undefined : focus);
+      const stationDomains = station?.domains && station.domains.length > 0 ? station.domains : undefined;
       const userProgramLevels = input.generationContext.userProgramLevels;
-      const relevantDomains = effectiveDomainFocus ? FOCUS_TO_DOMAINS[effectiveDomainFocus] : (['push', 'pull', 'legs', 'core'] as const);
+      const relevantDomains: readonly string[] = stationDomains
+        ?? (effectiveDomainFocus ? FOCUS_TO_DOMAINS[effectiveDomainFocus] : (['push', 'pull', 'legs', 'core'] as const));
       const missingDomains = relevantDomains.filter((d) => !(userProgramLevels?.has(d) ?? true));
       if (missingDomains.length === relevantDomains.length) {
         return buildDomainGateFallback(candidate, missingDomains, blockMinutes, input, log);
@@ -623,56 +1045,157 @@ export function dispatchStopContent(
       if (scoredPool.length < beforeGate) {
         log.push(`[${candidate.stopId}] domain-assessment gate: ${beforeGate - scoredPool.length}/${beforeGate} exercise(s) in an unassessed domain removed`);
       }
-      // PREFER IRON (per movement domain): at an equipped park, an exercise whose
-      // method is real park iron (pull→מתח, push→דיפים) must win over a bodyweight
-      // movement OF THE SAME DOMAIN. Two steps: (1) score-boost every iron exercise;
-      // (2) drop a bodyweight exercise ONLY when its own domain has an iron alternative
-      // (spec: "bodyweight only where no equipment supports the movement"). A domain
-      // with no station iron (e.g. legs at a bar/dip park) keeps its bodyweight work.
-      let ironCount = 0;
-      const ironDomainList: string[] = [];
-      if (candidate.availableEquipment.length > 0) {
-        const tagged = scoredPool.map((se) => ({
-          se,
-          iron: methodUsesStationEquipment(se.method, candidate.availableEquipment),
-          domain: domainOf(se.exercise),
-        }));
-        // A pull-up bar / dip station provides real iron ONLY for pull + push. Never
-        // strip legs/core bodyweight over a spurious gear match (a bar can't squat).
-        const ironDomains = new Set(
-          tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).map((t) => t.domain),
-        );
-        ironCount = tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).length;
-        ironDomainList.push(...Array.from(ironDomains));
-        scoredPool = tagged
-          .filter((t) => (t.iron && ironDomains.has(t.domain)) || !ironDomains.has(t.domain))
-          .map((t) => (t.iron && ironDomains.has(t.domain) ? { ...t.se, score: t.se.score + IRON_PREFERENCE_BONUS } : t.se));
+
+      // ── Machine-share ladder (route planner only, 17.10.2026) — the SAME time split the
+      // park strength composer uses (resolveMachineAllocation / machineShareForLevel): low
+      // levels spend most of the station on the park's real machines (tabata), L8+ none.
+      let machinePart: StrengthBlockResult | null = null;
+      let bodyweightMinutes = blockMinutes;
+      const machines = candidate.parkEquipment ?? [];
+      if (station?.mode === 'machines' && machines.length > 0) {
+        // Dedicated machine station: the whole station is ONE machine tabata, no bodyweight.
+        const difficulty = DIFFICULTY_NUM_TO_LABEL[(input.generationContext.difficulty ?? 2) as 1 | 2 | 3];
+        const result = buildStationEquipmentTabataBlock({ machines, difficulty, scheduledDomains: stationDomains ?? [] }, blockMinutes);
+        if (result.block) {
+          const machineSec = result.block.config.rounds * (result.block.config.workSec + result.block.config.restSec);
+          log.push(`[${candidate.stopId}] machine station: ${result.exercises.length} machine(s), ${Math.round(machineSec / 60)}min tabata`);
+          return withStationWarmup({
+            exercises: result.exercises, estimatedDurationSec: machineSec, totalPlannedSets: result.block.config.rounds,
+            domainFocus: undefined, isEmpty: false, log: [], tabataBlocks: [result.block],
+          }, candidate, input, station, log);
+        }
+        log.push(`[${candidate.stopId}] machine station: tabata doesn't fit (${blockMinutes.toFixed(1)}min) → bodyweight`);
+      } else if (station?.mode == null && station?.machineShareLevel != null && machines.length > 0) {
+        const difficulty = DIFFICULTY_NUM_TO_LABEL[(input.generationContext.difficulty ?? 2) as 1 | 2 | 3];
+        const rung = TABATA_DIFFICULTY_LADDER[difficulty];
+        const scheduled = stationDomains ?? [];
+        const allocation = resolveMachineAllocation({
+          level: station.machineShareLevel,
+          eligibleMachineCount: machines.filter((m) => isBlockAEligible(m, scheduled)).length,
+          strengthTimeBudget: blockMinutes,
+          secPerRound: rung.workSec + rung.restSec,
+        });
+        if (allocation.machineCount > 0) {
+          const result = buildStationEquipmentTabataBlock({ machines, difficulty, scheduledDomains: scheduled }, allocation.machineTimeMinutes);
+          if (result.block) {
+            const machineSec = result.block.config.rounds * (result.block.config.workSec + result.block.config.restSec);
+            machinePart = {
+              exercises: result.exercises, estimatedDurationSec: machineSec, totalPlannedSets: result.block.config.rounds,
+              domainFocus: undefined, isEmpty: false, log: [], tabataBlocks: [result.block],
+            };
+            bodyweightMinutes = Math.max(0, blockMinutes - machineSec / 60);
+            log.push(
+              `[${candidate.stopId}] machine ladder: level ${station.machineShareLevel} → ${result.exercises.length} machine(s), ` +
+              `${Math.round(machineSec / 60)}min tabata, ${bodyweightMinutes.toFixed(1)}min bodyweight`,
+            );
+          }
+        } else {
+          log.push(`[${candidate.stopId}] machine ladder: level ${station.machineShareLevel} → no machines (share/time/eligible)`);
+        }
       }
-      // DIAG (temporary): equipment in vs pool out — did gear exercises survive, or is it top-up?
-      console.log(
-        `[hybrid:diag] stop "${candidate.stopId}" equip=[${candidate.availableEquipment.join(',')}]` +
-        ` isBodyweight=${isBodyweight} poolAfterFilter=${pool.exercises.length} finalPool=${scoredPool.length}` +
-        ` iron=${ironCount} ironDomains=[${ironDomainList.join(',')}]`,
-      );
-      const block = generateStrengthBlock({
-        blockMinutes,
-        scoredPool,
-        // Domain focus:
-        // • 'multi' (route-stops Bug 2a) → MIXED (undefined) for EVERY station, so a
-        //   single stop is a real full-body workout (iron where available, bodyweight
-        //   for the rest) instead of a single-domain slice.
-        // • else (budget-split default) → bodyweight is MIXED (a single-domain focus is
-        //   impossible with zero equipment), equipment stops keep their cycling domain.
-        domainFocus: effectiveDomainFocus,
-        context: input.generationContext,
-        rest: STATION_REST,
-      });
+      if (machinePart && bodyweightMinutes < MIN_BODYWEIGHT_REMAINDER_MIN) {
+        return withStationWarmup(machinePart, candidate, input, station, log);
+      }
+
+      // Session-level threading (route planner): this station's domains only, nothing an earlier
+      // station already prescribed, one skill family per session, no follow-along videos. Each
+      // restriction is relaxed (in that order) only if the station would otherwise come out empty.
+      const ironAndGenerate = (basePool: typeof scoredPool, domains: string[] | undefined): StrengthBlockResult => {
+        let candidatePool = basePool;
+        // PREFER IRON (per movement domain): at an equipped park, an exercise whose
+        // method is real park iron (pull→מתח, push→דיפים) must win over a bodyweight
+        // movement OF THE SAME DOMAIN. Two steps: (1) score-boost every iron exercise;
+        // (2) drop a bodyweight exercise ONLY when its own domain has an iron alternative
+        // (spec: "bodyweight only where no equipment supports the movement"). A domain
+        // with no station iron (e.g. legs at a bar/dip park) keeps its bodyweight work.
+        let ironCount = 0;
+        const ironDomainList: string[] = [];
+        if (candidate.availableEquipment.length > 0) {
+          const tagged = candidatePool.map((se) => ({
+            se,
+            iron: methodUsesStationEquipment(se.method, candidate.availableEquipment),
+            domain: domainOf(se.exercise),
+          }));
+          // A pull-up bar / dip station provides real iron ONLY for pull + push. Never
+          // strip legs/core bodyweight over a spurious gear match (a bar can't squat).
+          const ironDomains = new Set(
+            tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).map((t) => t.domain),
+          );
+          ironCount = tagged.filter((t) => t.iron && IRON_DOMAINS.has(t.domain)).length;
+          ironDomainList.push(...Array.from(ironDomains));
+          candidatePool = tagged
+            .filter((t) => (t.iron && ironDomains.has(t.domain)) || !ironDomains.has(t.domain))
+            .map((t) => (t.iron && ironDomains.has(t.domain) ? { ...t.se, score: t.se.score + IRON_PREFERENCE_BONUS } : t.se));
+        }
+        // DIAG (temporary): equipment in vs pool out — did gear exercises survive, or is it top-up?
+        console.log(
+          `[hybrid:diag] stop "${candidate.stopId}" equip=[${candidate.availableEquipment.join(',')}]` +
+          ` isBodyweight=${isBodyweight} poolAfterFilter=${pool.exercises.length} finalPool=${candidatePool.length}` +
+          ` iron=${ironCount} ironDomains=[${ironDomainList.join(',')}]`,
+        );
+        return generateStrengthBlock({
+          blockMinutes: bodyweightMinutes,
+          scoredPool: candidatePool,
+          // Domain focus:
+          // • route planner → this station's share of the session's full-body split.
+          // • 'multi' (route-stops Bug 2a) → MIXED (undefined) for EVERY station, so a
+          //   single stop is a real full-body workout (iron where available, bodyweight
+          //   for the rest) instead of a single-domain slice.
+          // • else (budget-split default) → bodyweight is MIXED (a single-domain focus is
+          //   impossible with zero equipment), equipment stops keep their cycling domain.
+          domainFocus: effectiveDomainFocus,
+          ...(domains ? { domains } : {}),
+          context: input.generationContext,
+          rest: STATION_REST,
+        });
+      };
+
+      let block: StrengthBlockResult;
+      if (station) {
+        const inDomains = (se: (typeof scoredPool)[number]) => {
+          if (!stationDomains) return true;
+          const d = strengthDomainOf(se.exercise);
+          return d != null && stationDomains.includes(d);
+        };
+        const notFollowAlong = (se: (typeof scoredPool)[number]) => !se.exercise.isFollowAlong;
+        const notUsed = (se: (typeof scoredPool)[number]) => !station.excludeExerciseIds?.has(se.exercise.id);
+        const skillOk = (se: (typeof scoredPool)[number]) => !station.excludeSkillExercise?.(se.exercise);
+        const attempts: Array<{ label: string; pool: typeof scoredPool; domains?: string[] }> = [
+          { label: 'strict', pool: scoredPool.filter((se) => notFollowAlong(se) && inDomains(se) && notUsed(se) && skillOk(se)), domains: stationDomains },
+          { label: 'skill relaxed', pool: scoredPool.filter((se) => notFollowAlong(se) && inDomains(se) && notUsed(se)), domains: stationDomains },
+          { label: 'repeats relaxed', pool: scoredPool.filter((se) => notFollowAlong(se) && inDomains(se)), domains: stationDomains },
+          { label: 'mixed', pool: scoredPool.filter(notFollowAlong), domains: undefined },
+        ];
+        block = { exercises: [], estimatedDurationSec: 0, totalPlannedSets: 0, isEmpty: true, log: [] };
+        for (const attempt of attempts) {
+          if (attempt.pool.length === 0) continue;
+          block = ironAndGenerate(attempt.pool, attempt.domains);
+          if (!block.isEmpty) {
+            if (attempt.label !== 'strict') log.push(`[${candidate.stopId}] station pool (${attempt.label}) — strict pool came out empty`);
+            break;
+          }
+        }
+        if (!block.isEmpty) block = fitBlockToBudget(block, bodyweightMinutes * 60, log, `[${candidate.stopId}]`);
+      } else {
+        block = ironAndGenerate(scoredPool, undefined);
+      }
       log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));
       // Note: empty here is NOT a domain-assessment case (that's handled by the
       // early short-circuit above, before the pool was even built) — this is an
       // unrelated empty reason (thin catalog, injury shield), unchanged existing
-      // behaviour: skip the station.
-      return block.isEmpty ? null : block;
+      // behaviour: skip the station (unless its machines already carry it).
+      if (machinePart) {
+        const merged: StrengthBlockResult = block.isEmpty ? machinePart : {
+          ...block,
+          exercises: [...machinePart.exercises, ...block.exercises],
+          estimatedDurationSec: machinePart.estimatedDurationSec + block.estimatedDurationSec,
+          totalPlannedSets: machinePart.totalPlannedSets + block.totalPlannedSets,
+          tabataBlocks: machinePart.tabataBlocks,
+        };
+        return withStationWarmup(merged, candidate, input, station, log);
+      }
+      if (block.isEmpty) return null;
+      return withStationWarmup(block, candidate, input, station, log);
     }
     case 'stretch':
     case 'mobility':
@@ -729,7 +1252,13 @@ export function dispatchStopContent(
       }
       const coreAssessed = coreUserProgramLevels?.has('core') ?? true;
       const hiitPool = coreAssessed ? input.masterExercises.filter((ex) => ex.tags?.includes('hiit_friendly')) : [];
-      const corePool = hiitPool.filter((ex) => hasExplicitCoreLevel(ex));
+      const fullCorePool = hiitPool.filter((ex) => hasExplicitCoreLevel(ex) && !ex.isFollowAlong);
+      // Route planner: a core stop never repeats the core tabata an earlier stop already did
+      // (falls back to the full pool only when nothing new is left).
+      const unusedCorePool = station?.excludeExerciseIds
+        ? fullCorePool.filter((ex) => !station.excludeExerciseIds!.has(ex.id))
+        : fullCorePool;
+      const corePool = unusedCorePool.length >= 2 ? unusedCorePool : fullCorePool;
       const blockCount = coreAssessed ? chooseStationTabataBlockCount(blockMinutes) : 0;
 
       if (blockCount > 0 && corePool.length > 0) {
@@ -752,7 +1281,7 @@ export function dispatchStopContent(
             `(${blocks.reduce((s, b) => s + b.exerciseIds.length, 0)} exercises total, ` +
             `requested ${blockCount}) — [${exercises.map((we) => (we.exercise.name as { he?: string })?.he ?? we.exercise.id).join(', ')}]`,
           );
-          return {
+          return withStationWarmup({
             exercises,
             estimatedDurationSec: blocks.length * TABATA_BLOCK_SECONDS
               + (blocks.length - 1) * REST_BETWEEN_STATION_TABATA_BLOCKS_SEC,
@@ -761,7 +1290,7 @@ export function dispatchStopContent(
             isEmpty: false,
             log: [],
             tabataBlocks: blocks,
-          };
+          }, candidate, input, station, log);
         }
         log.push(`[${candidate.stopId}] core: tabata composition failed (pool too thin) — falling back to field pool`);
       } else if (!coreAssessed) {
@@ -780,15 +1309,21 @@ export function dispatchStopContent(
         intentMode: 'field' as const,
       });
       const gatedFieldPool = pool.exercises.filter((se) => isExerciseDomainAssessed(se.exercise, coreUserProgramLevels));
-      const block = generateStrengthBlock({
+      const unusedFieldPool = station
+        ? gatedFieldPool.filter((se) => !se.exercise.isFollowAlong && !station.excludeExerciseIds?.has(se.exercise.id))
+        : gatedFieldPool;
+      const generateCore = (scoredPool: typeof gatedFieldPool) => generateStrengthBlock({
         blockMinutes,
-        scoredPool: gatedFieldPool,
+        scoredPool,
         domainFocus: 'legs_core',
         context: input.generationContext,
         rest: STATION_REST,
       });
+      let block = generateCore(unusedFieldPool);
+      if (block.isEmpty && unusedFieldPool !== gatedFieldPool) block = generateCore(gatedFieldPool);
+      if (!block.isEmpty && station) block = fitBlockToBudget(block, blockMinutes * 60, log, `[${candidate.stopId}]`);
       log.push(...block.log.map((l) => `[${candidate.stopId}] ${l}`));
-      return block.isEmpty ? null : block;
+      return block.isEmpty ? null : withStationWarmup(block, candidate, input, station, log);
     }
     default:
       // rest_view / meditation — no exercise content by design (a pure rest/view stop).
@@ -819,7 +1354,9 @@ function strengthBlockCalories(block: StrengthBlockResult, weightKg: number): nu
 // MAIN — composeHybridSession
 // ============================================================================
 
-export function composeHybridSession(input: HybridComposeInput): HybridPlan {
+export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
+  // Station content gate (17.10.2026): no follow-along/reinforcement/recovery/test items.
+  const input = withStationEligibleContent(rawInput);
   const log: string[] = [];
   const { resolved, whoGapNote } = resolveEmphasis(input.emphasis, input.weeklyGaps);
   log.push(`emphasis: ${input.emphasis} → ${resolved}${whoGapNote ? ` (${whoGapNote})` : ''}`);
@@ -856,20 +1393,28 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
   let usedFieldFallback = false;
   let insufficientHomeContent = false;
   let skippedFieldFallback = false;
+  let routePlan: RouteStationPlan | null = null;
   if (input.stopSelection === 'as_provided') {
     // ANCHOR mode (route-stops §1a): the caller placed these stops deliberately, on/near
-    // the route. Honour ALL of them in path order — the ±25% spacing gate governs even
-    // AUTO-placement and must never drop a hand-placed POI. Cap at STATION_MAX (logged,
-    // no silent truncation). Zero candidates → selection stays null → the field fallback
-    // below fires (bodyweight mid-route), never an empty plan.
-    const chosen = candidatesByKm.slice(0, STATION_MAX);
-    if (candidatesByKm.length > STATION_MAX) {
-      log.push(`as_provided: ${candidatesByKm.length} stops provided → capped at STATION_MAX (${STATION_MAX})`);
-    }
-    if (chosen.length) {
-      selection = { chosen, score: 0 };
-      stations = chosen.length;
-      log.push(`as_provided: ${chosen.length} stop(s) at [${chosen.map((c) => c.km.toFixed(2)).join(', ')}]km (spacing gate bypassed)`);
+    // the route — the ±25% spacing gate (about even AUTO-placement) is bypassed. Since
+    // 17.10.2026 the stops are no longer ALL stations: planRouteStations sizes ONE session
+    // (strength budget = requested − walking time, station count that fits it, warm-up walk
+    // before the first station, one full-body split across stations) and the rest are
+    // pass-through (logged + meta.passThroughStopIds). Zero candidates → selection stays
+    // null → the field fallback below fires (bodyweight mid-route), never an empty plan.
+    const walkPace = zonePaceSecPerKm(input.paceProfile, legZone(1, 3, input.aerobicKind, resolved));
+    routePlan = planRouteStations({
+      candidatesByKm,
+      routeKm,
+      walkSecPerKm: (walkPace.min + walkPace.max) / 2,
+      timeBudgetMin: input.timeBudgetMin,
+      targetDomains: input.generationContext.requiredDomains ?? ['push', 'pull', 'legs', 'core'],
+      machineShare: machineShareForLevel(input.machineShareLevel ?? deriveMachineShareLevel(input.generationContext)),
+      log,
+    });
+    if (routePlan.chosen.length) {
+      selection = { chosen: routePlan.chosen.map(({ candidate, km }) => ({ candidate, km })), score: 0 };
+      stations = routePlan.chosen.length;
     }
   } else {
     while (stations >= STATION_MIN && !selection) {
@@ -907,20 +1452,16 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       skippedFieldFallback = true;
       log.push('fit: zero real stop candidates + skipFieldFallbackWhenNoCandidates → pure aerobic, no synthetic stop');
     } else {
-      // §3 step 7 fallback, extended by §10 (09.08.2026, decision-tree v3, David-approved):
-      // ONE stop at the route midpoint, now assuming STANDARD PUBLIC PARK gear
-      // (pull-up bar / dip station / bench / etc — ESSENTIAL_PARK_GEAR) instead of pure
-      // bodyweight. Mirrors the SAME unconditional, unflagged assumption
-      // InputSanitizerMiddleware.ts:102-127 already makes for the home-generation path
-      // when no real park resolves — not a new "is this safe" judgment, the same one
-      // already live elsewhere. A high-level user's content is usually gear-based
-      // (weighted pull-ups, muscle-up progressions, etc.), so this directly reduces how
-      // often the insufficientHomeContent gate below fires for exactly the population
-      // §10 was written for — not a guarantee it never fires again.
+      // §3 step 7 fallback: ONE stop at the route midpoint — an OPEN AREA with no park, so
+      // BODYWEIGHT ONLY. (§10, 09.08.2026, had assumed ESSENTIAL_PARK_GEAR here; the
+      // 17.10.2026 hybrid audit found that prescribing one-arm hangs and Swedish-ladder
+      // nordics at a spot with no bar or ladder, so it is back to bodyweight — an empty
+      // equipment list makes dispatchStopContent filter in FIELD mode.) A high level whose
+      // bodyweight pool is too thin still hits the insufficientHomeContent gate below.
       usedFieldFallback = true;
       const midIdx = indexAtKm(prefixKm, routeKm / 2);
       const [lng, lat] = input.routePath[midIdx] ?? [0, 0];
-      const fieldFallbackEquipment = Array.from(ESSENTIAL_PARK_GEAR);
+      const fieldFallbackEquipment: string[] = [];
       selection = {
         chosen: [{
           candidate: {
@@ -935,7 +1476,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         }],
         score: 0,
       };
-      log.push(`fit: field fallback — standard-park-gear stop at route midpoint (equip=[${fieldFallbackEquipment.join(',')}])`);
+      log.push('fit: field fallback — bodyweight-only stop at route midpoint (open area, no park gear)');
 
       // route-stops Part B — home-substitute content check: a field-fallback stop offers
       // whatever content the level window yields from the standard-park-gear pool above
@@ -948,10 +1489,10 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       // would actually have built successfully. Same MIN_STATION_EXERCISES threshold a
       // real park pool already uses — no new mechanism, just applied earlier so the
       // caller can message instead of starting thin.
-      let fieldPool = filterExercisesContextually(input.masterExercises, {
-        ...input.filterContext, availableEquipment: fieldFallbackEquipment,
+      // Same pool dispatchStopContent builds for a bodyweight stop (FIELD mode, no gear).
+      const fieldPool = filterExercisesContextually(input.masterExercises, {
+        ...input.filterContext, availableEquipment: fieldFallbackEquipment, intentMode: 'field',
       }).exercises;
-      fieldPool = topUpWithBodyweightIfThin(fieldPool, input.masterExercises, input.filterContext);
       const targetLevel = input.generationContext.userLevel;
       const inBand = fieldPool.filter(
         (se) => Math.abs(input.filterContext.getUserLevelForExercise(se.exercise) - targetLevel) <= HOME_SUBSTITUTE_LEVEL_BAND,
@@ -976,13 +1517,63 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
     ...DOMAIN_ORDER,
   ];
 
-  const builtStops: Array<{ candidate: HybridStopCandidate; km: number; focus: BlockDomainFocus; content: StrengthBlockResult }> = [];
-  for (let i = 0; i < selection.chosen.length; i++) {
-    const { candidate, km } = selection.chosen[i];
-    const focus = focusOrder[i % focusOrder.length];
-    const content = dispatchStopContent(candidate, focus, perStationMin, input, log);
-    if (content) builtStops.push({ candidate, km, focus, content });
-    else log.push(`station ${candidate.stopId}: empty/unsupported — skipped (legs re-merge)`);
+  const builtStops: Array<{ candidate: HybridStopCandidate; km: number; focus: BlockDomainFocus; content: StrengthBlockResult; domains?: string[] }> = [];
+  if (routePlan && routePlan.chosen.length > 0) {
+    // ── Route planner: ONE session threaded across the stations ──────────────────────────
+    // usedExerciseIds → no exercise twice; one skill family per session (the user's P1 skill
+    // if set, else the first family a station prescribes), and skill work at ONE station only.
+    const machineShareLevel = input.machineShareLevel ?? deriveMachineShareLevel(input.generationContext);
+    const used = new Set<string>();
+    const p1 = input.generationContext.priority1SkillIds?.[0];
+    const p1Slug = p1 ? resolveToSlug(p1) : undefined;
+    let skillFamily: string | null = p1Slug && DOMAIN_RESOLUTION_SKILL_PARENT_MAP[p1Slug] !== undefined ? p1Slug : null;
+    let skillStationDone = false;
+    const familiesIn = (block: StrengthBlockResult) =>
+      Array.from(new Set(block.exercises.flatMap((we) => skillFamiliesOf(we.exercise))));
+    for (const c of routePlan.chosen) {
+      const minutes = c.needsWarmup
+        ? Math.max(ROUTE_STATION_FLOOR_MIN, routePlan.perStationMin - STATION_WARMUP_RESERVE_MIN)
+        : routePlan.perStationMin;
+      const ctxFor = (family: string | null): StationPlanContext => ({
+        domains: c.domains,
+        excludeExerciseIds: used,
+        excludeSkillExercise: (ex) => {
+          const fams = skillFamiliesOf(ex);
+          if (fams.length === 0) return false;
+          if (skillStationDone) return true;
+          return family != null && !fams.includes(family);
+        },
+        machineShareLevel,
+        needsWarmup: c.needsWarmup,
+        ...(c.mode ? { mode: c.mode } : {}),
+      });
+      let content = dispatchStopContent(c.candidate, focusOrder[0], minutes, input, log, ctxFor(skillFamily));
+      let fams = content ? familiesIn(content) : [];
+      if (content && skillFamily == null && fams.length > 1) {
+        // Two skill families at one station → keep the first, regenerate the station once.
+        const retry = dispatchStopContent(c.candidate, focusOrder[0], minutes, input, log, ctxFor(fams[0]));
+        log.push(`[${c.candidate.stopId}] skill families [${fams.join(',')}] → regenerated with ${fams[0]} only`);
+        if (retry) { content = retry; fams = familiesIn(retry); }
+      }
+      if (!content) {
+        log.push(`station ${c.candidate.stopId}: empty/unsupported — skipped (legs re-merge)`);
+        continue;
+      }
+      if (fams.length > 0) { skillStationDone = true; skillFamily = skillFamily ?? fams[0]; }
+      for (const we of content.exercises) used.add(we.exercise.id);
+      builtStops.push({ candidate: c.candidate, km: c.km, focus: focusOrder[0], content, domains: c.domains });
+    }
+  } else {
+    for (let i = 0; i < selection.chosen.length; i++) {
+      const { candidate, km } = selection.chosen[i];
+      const focus = focusOrder[i % focusOrder.length];
+      // route_stops field fallback: same session budget + station rules as the planner.
+      const content = routePlan
+        ? dispatchStopContent(candidate, focus, Math.min(ROUTE_STATION_MAX_MIN, routePlan.strengthBudgetMin), input, log, {})
+        : dispatchStopContent(candidate, focus, perStationMin, input, log);
+      if (content) builtStops.push({ candidate, km, focus, content });
+      else log.push(`station ${candidate.stopId}: empty/unsupported — skipped (legs re-merge)`);
+    }
   }
 
   // ── Step 6: aerobic legs from SURVIVING stops (isEmpty → merged legs) ─────
@@ -1038,6 +1629,7 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
         // 'multi' (Bug 2a): the station is full-body → no single-domain label/icon (UI
         // falls back to the generic "כוח" glyph). Else keep the cycling domain.
         domainFocus: input.stationDomainMode === 'multi' ? undefined : stop.focus,
+        ...(stop.domains ? { stationDomains: stop.domains } : {}),
         content: stop.content,
         durationSec: stop.content.estimatedDurationSec,
         estCalories: stationCalories,
@@ -1055,8 +1647,20 @@ export function composeHybridSession(input: HybridComposeInput): HybridPlan {
       estCalories: totalCalories,
       stations: builtStops.length,
     },
-    meta: { emphasisResolved: resolved, whoGapNote, usedFieldFallback, insufficientHomeContent, skippedFieldFallback, log },
+    meta: {
+      emphasisResolved: resolved, whoGapNote, usedFieldFallback, insufficientHomeContent, skippedFieldFallback,
+      ...(routePlan && routePlan.passThroughStopIds.length > 0 ? { passThroughStopIds: routePlan.passThroughStopIds } : {}),
+      log,
+    },
   };
+}
+
+/** Machine-share level fallback: average assessed push/pull (resolveMachineShareLevel's rule), else userLevel. */
+function deriveMachineShareLevel(ctx: WorkoutGenerationContext): number {
+  const levels = (['push', 'pull'] as const)
+    .map((d) => ctx.userProgramLevels?.get(d))
+    .filter((l): l is number => typeof l === 'number' && l > 0);
+  return levels.length > 0 ? Math.round(levels.reduce((a, b) => a + b, 0) / levels.length) : ctx.userLevel;
 }
 
 // ============================================================================

@@ -765,6 +765,7 @@ async function composeRouteStopsWorkout(
     { planFromPoint, detectTopology }, { getAllGymEquipmentCached },
     { useWeeklyVolumeStore },
     { resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext },
+    { isWeeklyStrengthBudgetSpent, MIN_COHERENT_STATION_SETS }, { resolveMachineShareLevel },
   ] = await tm.time('imports', Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
@@ -778,6 +779,8 @@ async function composeRouteStopsWorkout(
     import('../services/program-hierarchy.utils'),
     import('../logic/ContextualEngine'),
     import('../services/split-decision/SplitDecisionService'),
+    import('./weekly-budget-gate'),
+    import('../services/compose-park-strength-workout.service'),
   ]));
 
   const profile = useUserStore.getState().profile;
@@ -933,13 +936,19 @@ async function composeRouteStopsWorkout(
   // allow a 1–2 set sliver). getRemainingBudget() is STRENGTH-ONLY (useWeeklyVolumeStore:
   // strength.weeklyBudget − strength.totalSetsCompleted), NOT the aggregate active-minutes.
   // Scoped to this fn → the manual combined generator (composeHybridPlan) is untouched.
+  //
+  // Cold-store fix (17.10.2026): weeklyBudget 0 = the store was never initialised this session
+  // (it is only set from the stats screen) → UNKNOWN, not spent. See weekly-budget-gate.ts.
+  const weeklyStrength = useWeeklyVolumeStore.getState().strength;
   const remainingStrengthBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
-  const strengthSpent = remainingStrengthBudget < 4;
+  const strengthSpent = isWeeklyStrengthBudgetSpent(weeklyStrength);
   const coredStops = strengthSpent
     ? rawStops.map((s) => (s.activityType === 'strength' ? { ...s, activityType: 'core' as const } : s))
     : rawStops;
   if (strengthSpent && rawStops.some((s) => s.activityType === 'strength')) {
-    console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < 4) → strength stop(s) defaulted to core`);
+    console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < ${MIN_COHERENT_STATION_SETS}) → strength stop(s) defaulted to core`);
+  } else if (!(weeklyStrength?.weeklyBudget > 0)) {
+    console.log('[route-stops] weekly strength budget not initialised → treated as unknown (strength stops kept)');
   }
 
   // ── Entry-relative ordering (§7.3 Part 4 · planFromPoint, Axis ①) ─────────────────────────────
@@ -1029,6 +1038,8 @@ async function composeRouteStopsWorkout(
     ` skillsP2=[${priority2SkillIds.join(',')}] bodyweightPool=${bodyweightGuaranteePool.length}`,
   );
 
+  const machineShareLevel = resolveMachineShareLevel(profile as any);
+
   // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
   const buildForBolt = (difficulty: 1 | 2 | 3): HybridPlan => {
     const generationContext: WorkoutGenerationContext = {
@@ -1057,6 +1068,9 @@ async function composeRouteStopsWorkout(
       // an assessed user's zero-station route keeps today's field-fallback
       // synthesis completely unchanged (David's explicit "zero regression").
       skipFieldFallbackWhenNoCandidates: !hasAssessment,
+      // Machine-share ladder (park strength's MACHINE_SHARE_LADDER): same push/pull level the
+      // full-park composer keys it on, so low levels get the park's machines, L8+ bodyweight.
+      machineShareLevel,
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
     });
   };
@@ -1100,8 +1114,13 @@ async function composeRouteStopsWorkout(
   // `station` (singular, back-compat): the first strength stop is still the best single
   // anchor for any consumer that only reads one marker. `stations` (below, Part 5) is the
   // full per-stop list — every resolved stop gets its own map marker now.
-  const firstStrength = stops.find((s) => s.activityType === 'strength');
-  const markerStations = stops
+  // Station planner (17.10.2026): only the stops that actually carry content in some bolt are
+  // stations; the rest are walked past (plan.meta.passThroughStopIds) and get no marker, so the
+  // map never shows a "station" where nothing happens.
+  const stationStopIds = new Set(plans.flatMap((p) => p.segments.filter((g) => g.kind === 'strength').map((g) => g.stopId)));
+  const stationStops = stationStopIds.size > 0 ? stops.filter((s) => stationStopIds.has(s.stopId)) : stops;
+  const firstStrength = stationStops.find((s) => s.activityType === 'strength');
+  const markerStations = stationStops
     .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
     .map((s) => ({ lat: s.lat, lng: s.lng, name: s.name, image: s.image, parkId: s.parkId }));
 
