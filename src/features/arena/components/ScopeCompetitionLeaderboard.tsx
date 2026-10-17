@@ -19,7 +19,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trophy } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
-import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton } from './LeagueBoard';
+import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardPodium, BoardToggle, type PodiumEntry } from './LeagueBoard';
+import { perMember, rankByMeasure, type GroupMeasure } from './league-board-logic';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionEntry,
@@ -126,9 +127,26 @@ export function ScopeCompetitionLeaderboardView({
 }: ScopeCompetitionLeaderboardViewProps) {
   const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
 
-  // Design v2: one dark board (site league board) — the old separate podium
-  // previewed ranks 1-3 that the list below already repeated; the #1 row now
-  // carries the crown + gradient instead.
+  // Average per active member (the fair, official order — a small active
+  // neighborhood can win) or the total (David, 17.10.2026). Both come from
+  // the same entries: average = totalScore / activeMemberCount.
+  const [measure, setMeasure] = useState<GroupMeasure>('avg');
+  const ranked = rankByMeasure(entries, measure);
+  const unit = CATEGORY_UNIT_LABEL[category];
+  const shown = (e: ScopeCompetitionEntry) =>
+    (measure === 'avg' ? perMember(e) : e.totalScore).toLocaleString('he-IL');
+  const top3 = ranked.slice(0, 3);
+  const podium: [PodiumEntry, PodiumEntry, PodiumEntry] | null =
+    top3.length === 3
+      ? (top3.map((e) => ({
+          key: e.scopeId,
+          name: e.scopeName,
+          value: shown(e),
+          // the full unit lives on the rows + the note; the pedestal keeps just the number
+          sub: `${e.activeMemberCount} פעילים`,
+        })) as [PodiumEntry, PodiumEntry, PodiumEntry])
+      : null;
+
   return (
     <BoardCard
       title={`דירוג ה${GRANULARITY_LABEL[granularity]}`}
@@ -158,8 +176,21 @@ export function ScopeCompetitionLeaderboardView({
           body={EMPTY_STATE_COPY[granularity].subtitle}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-2">
-          {entries.map((entry) => (
+        <>
+        <div className="mb-2">
+          <BoardToggle
+            label="שיטת דירוג"
+            value={measure}
+            onChange={setMeasure}
+            options={[
+              { id: 'avg', label: 'ממוצע למשתתף' },
+              { id: 'total', label: 'סה״כ' },
+            ]}
+          />
+        </div>
+        {podium && <BoardPodium entries={podium} />}
+        <div className="grid grid-cols-1 gap-1 mt-1">
+          {ranked.slice(podium ? 3 : 0).map((entry) => (
             // Total score label is metric-qualified, never a bare "נקודות" —
             // getScopeCompetitionLeaderboard sums activityCredit filtered by
             // `category`, so a selected metric shows its own honest label.
@@ -168,11 +199,17 @@ export function ScopeCompetitionLeaderboardView({
               rank={entry.rank}
               name={entry.scopeName}
               sub={`${entry.activeMemberCount} פעיל${entry.activeMemberCount !== 1 ? 'ים' : ''}`}
-              value={entry.totalScore.toLocaleString('he-IL')}
-              unit={CATEGORY_UNIT_LABEL[category]}
+              value={shown(entry)}
+              unit={measure === 'avg' ? `${unit} למשתתף` : unit}
             />
           ))}
         </div>
+        <p className="mt-3 text-[12px] font-bold leading-snug text-v2-muted">
+          {measure === 'avg'
+            ? 'בממוצע למשתתף פעיל גודל השכונה לא קובע — גם קבוצה קטנה יכולה לנצח.'
+            : 'בסה״כ הגדולים מובילים. הדירוג הרשמי הוא לפי ממוצע למשתתף.'}
+        </p>
+        </>
       )}
     </BoardCard>
   );

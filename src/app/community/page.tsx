@@ -1089,30 +1089,30 @@ export default function CommunityPage() {
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
     return (
       <div
-        className="rounded-v2-card p-4 text-white relative overflow-hidden mb-3 bg-v2-ink shadow-v2-card-dark"
+        className="rounded-v2-card p-4 text-v2-ink relative overflow-hidden mb-3 border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb]"
         dir="rtl"
       >
         <div
           aria-hidden
           className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.4), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.14), transparent 70%)' }}
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
+            <p className="text-[11px]" style={{ color: '#64748b' }}>
               התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
             </p>
-            <p className="text-lg font-black mt-0.5 truncate text-v2-accent tabular-nums">
+            <p className="text-lg font-black mt-0.5 truncate text-v2-deep tabular-nums">
               {activeMyEntry
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
           <div
-            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white/10"
+            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white shadow-v2-ring"
           >
             <p className="text-lg font-black leading-none tabular-nums">#{activeScopeEntry.rank}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
+            <p className="text-[9px] mt-0.5" style={{ color: '#64748b' }}>{scopeTypeLabel}</p>
           </div>
         </div>
       </div>

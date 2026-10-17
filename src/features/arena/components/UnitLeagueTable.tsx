@@ -99,7 +99,7 @@ export function UnitLeagueTableView({
             type="button"
             onClick={() => setIsOpen((o) => !o)}
             aria-expanded={isOpen}
-            className="h-8 px-3 rounded-full bg-white/10 text-white text-[12.5px] font-bold flex items-center gap-1.5"
+            className="h-8 px-3 rounded-full bg-white text-v2-ink-2 shadow-v2-ring whitespace-nowrap text-[12.5px] font-bold flex items-center gap-1.5"
           >
             {activeOpt.label}
             <ChevronDown size={14} strokeWidth={2.4} className={`transition-transform ease-v2 ${isOpen ? 'rotate-180' : ''}`} />
