@@ -17,6 +17,7 @@ import type { GeneratedWorkout } from '../logic/workout-generator.types';
 // Deep import on purpose — the exercises barrel re-exports admin TSX, and
 // this module runs in node-env tests (same convention as gear-mapping.utils).
 import { getLocalizedText as glt } from '@/features/content/shared/localized-text.types';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { resolveExerciseMedia } from '../shared/utils/media-resolution.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '../logic/protocols/tabata.block';
@@ -30,24 +31,9 @@ export function buildWorkoutPlanFromGenerated(
   location?: string,
 ): Record<string, any> {
   const exercises = gw.exercises.map((ex) => {
-    const resolveHighlights = (): string[] => {
-      const methodHighlights = ex.method?.highlights;
-      if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
-        return methodHighlights.map((h: any) =>
-          typeof h === 'string' ? h : (h?.male || h?.female || ''),
-        ).filter(Boolean);
-      }
-      const contentHighlights = ex.exercise.content?.highlights;
-      if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
-        return contentHighlights;
-      }
-      const instr = ex.exercise.content?.instructions;
-      if (instr) {
-        const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
-        if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
-      }
-      return [];
-    };
+    // דגשים off the ENGINE-SELECTED method (specificCues → highlights → exercise
+    // content). Shared with every plan builder — see cue-text.utils.
+    const cues = resolveExerciseCues(ex.exercise, ex.method);
 
     const resolveGoal = (): string => {
       if (ex.exercise.content?.goal) return ex.exercise.content.goal;
@@ -100,7 +86,9 @@ export function buildWorkoutPlanFromGenerated(
       exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
       isFollowAlong: ex.exercise.isFollowAlong ?? false,
       hasAudio: false,
-      highlights: resolveHighlights(),
+      highlights: cues.highlights,
+      tips: cues.tips,
+      prepNote: (ex.method as any)?.notificationText ?? null,
       muscleGroups,
       goal: resolveGoal(),
       description: resolveGoal(),

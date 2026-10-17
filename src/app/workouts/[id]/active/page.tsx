@@ -50,6 +50,7 @@ import { useWorkoutPresence } from '@/features/workout-engine/hooks/useWorkoutPr
 import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWorkoutHeartbeat';
 import { useKudosInbox } from '@/features/safecity/hooks/useKudosInbox';
 import KudoToast from '@/features/safecity/components/KudoToast';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 
 // ============================================================================
 // TYPES
@@ -93,21 +94,6 @@ function extractLocalizedText(value: any): string {
 }
 
 /**
- * Helper to extract highlights array from content
- */
-function extractHighlights(content: any): string[] {
-  if (!content?.highlights) return [];
-  if (!Array.isArray(content.highlights)) return [];
-  return content.highlights.map((h: any) => {
-    if (typeof h === 'string') return h;
-    if (typeof h === 'object' && h !== null) {
-      return h.he || h.en || String(h);
-    }
-    return String(h || '');
-  });
-}
-
-/**
  * Convert Firestore Exercise to enriched WorkoutExercise
  * This ensures all metadata is included in the workout plan
  * 
@@ -138,8 +124,9 @@ function enrichExercise(
                extractLocalizedText(ex.content?.goal) ||
                '';
 
-  // Extract highlights
-  const highlights = extractHighlights(ex.content);
+  // דגשים off the location-matched method (specificCues → highlights → exercise
+  // content) — same resolver as the generated-plan builders (cue-text.utils).
+  const { highlights, tips } = resolveExerciseCues(ex, method);
 
   // Determine exercise type
   const exerciseType = ex.type === 'time' ? 'time' : 'reps';
@@ -258,6 +245,8 @@ function enrichExercise(
     isFollowAlong,
     hasAudio: ex.hasAudio === true,
     highlights,
+    tips,
+    prepNote: (method as any)?.notificationText ?? null,
     muscleGroups: ex.muscleGroups || [],
     goal,
     description: goal,

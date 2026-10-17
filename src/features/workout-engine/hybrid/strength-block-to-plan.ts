@@ -21,6 +21,7 @@ import type {
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -82,6 +83,11 @@ function prescriptionLabel(we: GeneratedExercise): { reps?: string; duration?: s
  *  segment-title; the run-path filter strips it when the user skipped it). */
 function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExercise {
   const { reps, duration } = prescriptionLabel(we);
+  // דגשים + prep note off the engine-selected method — same resolver as the
+  // regular strength path (buildRunnerWorkoutPlanFromGenerated). Conditional
+  // spreads keep cue-less exercises byte-identical to before.
+  const cues = resolveExerciseCues(we.exercise, we.method);
+  const prepNote = we.method?.notificationText;
   return {
     id: we.exercise.id,
     name: exName(we),
@@ -97,6 +103,9 @@ function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExerc
     ...(we.rampedTarget != null ? { rampedTarget: we.rampedTarget } : {}),
     ...(exEquipment(we).length > 0 ? { equipment: exEquipment(we) } : {}),
     ...exMedia(we),
+    ...(cues.highlights.length > 0 ? { highlights: cues.highlights } : {}),
+    ...(cues.tips.length > 0 ? { tips: cues.tips } : {}),
+    ...(prepNote ? { prepNote } : {}),
   };
 }
 

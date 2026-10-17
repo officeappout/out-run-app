@@ -29,10 +29,11 @@ import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
  *     animation (same @lottiefiles/dotlottie-react + self-hosted WASM the
  *     flame indicator uses — src/components/ui/AnimatedFlame.tsx).
  *   - Top-left: one clean column — "התרגיל הבא" label, a portrait (9:16)
- *     thumbnail tile, the exercise name, reps/time, and (when present) a
- *     coach-hint/prep note — all as plain text below the tile, never
- *     overlaid on the image. This is the SINGLE place next-exercise
- *     name/reps/notes are shown; RunnerHeader's own row 3 and prep-cue
+ *     thumbnail tile, the exercise name and reps/time — all as plain text
+ *     below the tile, never overlaid on the image. (The coach-hint/prep note
+ *     now sits under the center countdown — full width, 13px, up to 2
+ *     lines.) This is the SINGLE place next-exercise name/reps/notes are
+ *     shown; RunnerHeader's own row 3 and prep-cue
  *     banner were removed (16.09.2026) once they became a duplicate of this
  *     block. Positioned below RunnerHeader's story-bar + button rows (this
  *     app is dir="rtl" globally, so the header's Pause button — its last
@@ -216,14 +217,6 @@ export default function RestScreen({
                 {nextRepsOrDuration}
               </p>
             )}
-            {nextExercise.notificationText && (
-              <p
-                className="text-[10px] text-blue-500 dark:text-blue-400 leading-tight w-full"
-                style={{ fontFamily: 'var(--font-simpler)' }}
-              >
-                💡 {nextExercise.notificationText}
-              </p>
-            )}
           </div>
 
           {/* Center — title + countdown + animation */}
@@ -240,6 +233,17 @@ export default function RestScreen({
             >
               {formatTime(clampedRemaining)}
             </div>
+            {/* Prep note for the next exercise (its engine-selected method's
+                notificationText). Full width under the countdown — it was a
+                10px line squeezed into the 84px tile column, unreadable. */}
+            {nextExercise.notificationText && (
+              <p
+                className="w-full max-w-sm text-center text-[13px] text-blue-500 dark:text-blue-400 leading-snug line-clamp-2 mb-2"
+                style={{ fontFamily: 'var(--font-simpler)' }}
+              >
+                💡 {nextExercise.notificationText}
+              </p>
+            )}
             <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 180, height: 180 }} />
           </div>
 

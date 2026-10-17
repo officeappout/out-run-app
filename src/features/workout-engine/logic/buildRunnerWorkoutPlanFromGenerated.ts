@@ -32,6 +32,7 @@ import type { WorkoutPlan } from '@/features/parks';
 // Leaf import (not the `@/features/content/exercises` barrel) — keeps this pure
 // engine util free of the heavy admin/component graph the barrel pulls in.
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from './protocols/tabata.block';
@@ -52,24 +53,9 @@ export function buildRunnerWorkoutPlanFromGenerated(
   const glt = getLocalizedText;
 
   const exercises = (gw.exercises ?? []).map((ex: WorkoutExercise) => {
-    const resolveHighlights = (): string[] => {
-      const methodHighlights = (ex.method as any)?.highlights;
-      if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
-        return methodHighlights
-          .map((h: any) => (typeof h === 'string' ? h : h?.male || h?.female || ''))
-          .filter(Boolean);
-      }
-      const contentHighlights = ex.exercise.content?.highlights;
-      if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
-        return contentHighlights;
-      }
-      const instr = ex.exercise.content?.instructions;
-      if (instr) {
-        const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
-        if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
-      }
-      return [];
-    };
+    // דגשים off the ENGINE-SELECTED method (specificCues → highlights → exercise
+    // content). Shared with every plan builder — see cue-text.utils.
+    const cues = resolveExerciseCues(ex.exercise, ex.method);
 
     const resolveGoal = (): string => {
       if (ex.exercise.content?.goal) return ex.exercise.content.goal;
@@ -144,7 +130,9 @@ export function buildRunnerWorkoutPlanFromGenerated(
       exerciseRole: ((ex.exercise as any).exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
       isFollowAlong: (ex.exercise as any).isFollowAlong ?? false,
       hasAudio: false,
-      highlights: resolveHighlights(),
+      highlights: cues.highlights,
+      tips: cues.tips,
+      prepNote: (ex.method as any)?.notificationText ?? null,
       muscleGroups,
       goal: resolveGoal(),
       description: resolveGoal(),

@@ -7,6 +7,7 @@ import { resolveSetTarget, resolvePyramidStep } from '../logic/set-target.utils'
 import { resolveTutorialForLang } from '@/features/content/exercises/core/exercise.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import type { BlockProtocolInfo } from '../protocols/block-protocol';
+import { toCueList, resolveGenderedText } from '@/features/content/exercises/utils/cue-text.utils';
 import { tabataIntervalInfo, tabataMemberCosts, tabataRoundsPerMember } from '../protocols/tabata.advance';
 
 /**
@@ -44,7 +45,8 @@ export interface NextExerciseInfo {
   executionSteps: string[];
   muscleGroups: { primary: string[]; secondary: string[] };
   exerciseGoal: string | null;
-  /** Notification text from the matching execution method */
+  /** Prep note — the engine-selected method's notificationText (plan `prepNote`),
+   *  resolved for the user's gender. Falls back to the first method carrying one. */
   notificationText: string | null;
 }
 
@@ -77,6 +79,8 @@ export interface ExerciseDerivedValuesInput {
   /** Block-scoped protocol for the CURRENT segment (null outside tabata) — only
    *  consulted by nextExercise's round-robin look-ahead. */
   blockProtocol: BlockProtocolInfo | null;
+  /** `profile.core.gender` — resolves `{ male, female }` prep notes / cues. Missing → male. */
+  userGender?: string | null;
 }
 
 export interface ExerciseDerivedValuesResult {
@@ -131,6 +135,7 @@ export function useExerciseDerivedValues({
   getExercises,
   getSetsForExercise,
   blockProtocol,
+  userGender,
 }: ExerciseDerivedValuesInput): ExerciseDerivedValuesResult {
 
   // ── Total sets for the currently active exercise ────────────────────────
@@ -308,11 +313,13 @@ export function useExerciseDerivedValues({
     [activeExercise, pyramidStep],
   );
 
+  // toCueList: plans built before the cue fix (resumed sessions) or by other
+  // builders may still carry a jammed "- a - b" string — split it for display.
   const executionSteps = useMemo(() => {
-    if (Array.isArray(activeExercise?.highlights)) return activeExercise.highlights as string[];
-    if (Array.isArray(activeExercise?.instructions)) return activeExercise.instructions as string[];
+    if (Array.isArray(activeExercise?.highlights)) return toCueList(activeExercise.highlights, userGender);
+    if (Array.isArray(activeExercise?.instructions)) return toCueList(activeExercise.instructions, userGender);
     return [] as string[];
-  }, [activeExercise]);
+  }, [activeExercise, userGender]);
 
   const exerciseGoal = useMemo(
     () => (activeExercise?.goal || activeExercise?.description || null) as string | null,
@@ -517,8 +524,8 @@ export function useExerciseDerivedValues({
       exercise !== currentEx ? null : resolvePyramidStep(currentEx, currentSetIndex + 1);
 
     const nextSteps: string[] = (() => {
-      if (Array.isArray(exercise?.highlights)) return exercise.highlights as string[];
-      if (Array.isArray(exercise?.instructions)) return exercise.instructions as string[];
+      if (Array.isArray(exercise?.highlights)) return toCueList(exercise.highlights, userGender);
+      if (Array.isArray(exercise?.instructions)) return toCueList(exercise.instructions, userGender);
       return [];
     })();
 
@@ -576,23 +583,26 @@ export function useExerciseDerivedValues({
       muscleGroups: nextMuscles,
       exerciseGoal: exercise?.goal || exercise?.description || null,
       notificationText: (() => {
+        // Engine-selected method's note, carried through the plan as `prepNote`.
+        // A plan that carries the key (even null = "this method has none") is
+        // authoritative — never borrow another method's note for it.
+        if (exercise && 'prepNote' in exercise) {
+          return resolveGenderedText(exercise.prepNote, userGender) || null;
+        }
+        // Legacy plans (no prepNote key): first method carrying one — may not be
+        // the method the engine picked, kept only as a fallback.
         const methods =
           (exercise as any)?.execution_methods ||
           (exercise as any)?.executionMethods ||
           [];
         for (const m of methods) {
-          const nt = m.notificationText;
-          if (!nt) continue;
-          if (typeof nt === 'string') return nt;
-          if (typeof nt.he === 'string' && nt.he.trim()) return nt.he as string;
-          if (typeof nt.en === 'string' && nt.en.trim()) return nt.en as string;
-          if (typeof nt.male === 'string' && nt.male.trim()) return nt.male as string;
-          if (typeof nt.female === 'string' && nt.female.trim()) return nt.female as string;
+          const nt = resolveGenderedText(m?.notificationText, userGender);
+          if (nt) return nt;
         }
         return null;
       })(),
     };
-  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol]);
+  }, [workout, currentSegment, currentExerciseIndex, currentSegmentIndex, currentSetIndex, getSetsForExercise, getExercises, blockProtocol, userGender]);
 
   // ── Coaching label (shown on the active exercise card) ──────────────────
   const repsOrDurationText = useMemo(() => {

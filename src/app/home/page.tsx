@@ -42,6 +42,7 @@ import { UserFullProfile } from '@/types/user-profile';
 import { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
 import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/workout-engine/services/compose-park-strength-workout.service';
@@ -2077,24 +2078,9 @@ export default function HomePage() {
     if (gw?.exercises && typeof window !== 'undefined') {
       const { getLocalizedText: glt } = require('@/features/content/exercises');
       const exercises = gw.exercises.map((ex) => {
-        const resolveHighlights = (): string[] => {
-          const methodHighlights = ex.method?.highlights;
-          if (Array.isArray(methodHighlights) && methodHighlights.length > 0) {
-            return methodHighlights.map((h: any) =>
-              typeof h === 'string' ? h : (h?.male || h?.female || ''),
-            ).filter(Boolean);
-          }
-          const contentHighlights = ex.exercise.content?.highlights;
-          if (Array.isArray(contentHighlights) && contentHighlights.length > 0) {
-            return contentHighlights;
-          }
-          const instr = ex.exercise.content?.instructions;
-          if (instr) {
-            const txt = typeof instr === 'string' ? instr : (instr as any)?.he || (instr as any)?.en || '';
-            if (txt) return txt.split(/[.\n]/).map((s: string) => s.trim()).filter(Boolean);
-          }
-          return [];
-        };
+        // דגשים off the ENGINE-SELECTED method (specificCues → highlights → exercise
+        // content). Shared with every plan builder — see cue-text.utils.
+        const cues = resolveExerciseCues(ex.exercise, ex.method);
 
         const resolveGoal = (): string => {
           if (ex.exercise.content?.goal) return ex.exercise.content.goal;
@@ -2162,7 +2148,9 @@ export default function HomePage() {
           exerciseRole: (ex.exercise.exerciseRole as 'main' | 'warmup' | 'cooldown' | 'recovery') || 'main' as const,
           isFollowAlong: ex.exercise.isFollowAlong ?? false,
           hasAudio: false,
-          highlights: resolveHighlights(),
+          highlights: cues.highlights,
+          tips: cues.tips,
+          prepNote: (ex.method as any)?.notificationText ?? null,
           muscleGroups,
           goal: resolveGoal(),
           description: resolveGoal(),
