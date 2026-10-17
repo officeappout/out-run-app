@@ -157,3 +157,31 @@ export function battleSplit(mine: number, theirs: number): { minePct: number; th
   const minePct = Math.min(96, Math.max(4, raw));
   return { minePct, theirsPct: 100 - minePct };
 }
+
+// ── Average vs total (17.10.2026, David) ─────────────────────────────────────
+
+/** How a group board (neighborhoods, cities) ranks: per active member (fair, the official order) or the sum. */
+export type GroupMeasure = 'avg' | 'total';
+
+export interface ScoredScope {
+  totalScore: number;
+  activeMemberCount: number;
+}
+
+/** Score per active member, rounded; 0 when nobody was active. */
+export function perMember(e: ScoredScope): number {
+  return e.activeMemberCount > 0 ? Math.round(e.totalScore / e.activeMemberCount) : 0;
+}
+
+/**
+ * Re-rank scopes by the chosen measure. 'avg' = score per active member (a
+ * small neighborhood can win); 'total' = the sum. Ties keep the incoming
+ * order; ranks are re-numbered 1..n.
+ */
+export function rankByMeasure<T extends ScoredScope>(entries: T[], measure: GroupMeasure): (T & { rank: number })[] {
+  const key = (e: T) => (measure === 'avg' ? perMember(e) : e.totalScore);
+  return entries
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => key(b.e) - key(a.e) || a.i - b.i)
+    .map(({ e }, i) => ({ ...e, rank: i + 1 }));
+}

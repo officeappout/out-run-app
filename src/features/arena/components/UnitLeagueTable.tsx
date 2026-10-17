@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { RefreshCw, ChevronDown, Check, Users, Shield } from 'lucide-react';
-import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton } from './LeagueBoard';
+import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
 import { getUnitLeagueLeaderboard, type UnitLeagueRange, type UnitLeagueResult } from '../services/unit-league.service';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { getRelativeTime } from '@/lib/utils/date-formatter';
@@ -99,7 +99,7 @@ export function UnitLeagueTableView({
             type="button"
             onClick={() => setIsOpen((o) => !o)}
             aria-expanded={isOpen}
-            className="h-8 px-3 rounded-full bg-white/10 text-white text-[12.5px] font-bold flex items-center gap-1.5"
+            className="h-8 px-3 rounded-full bg-white text-v2-ink-2 shadow-v2-ring whitespace-nowrap text-[12.5px] font-bold flex items-center gap-1.5"
           >
             {activeOpt.label}
             <ChevronDown size={14} strokeWidth={2.4} className={`transition-transform ease-v2 ${isOpen ? 'rotate-180' : ''}`} />
@@ -131,8 +131,23 @@ export function UnitLeagueTableView({
             ))}
           </div>
         ) : result && result.entries.length > 0 ? (
-          <div className="grid grid-cols-1 gap-2">
-            {result.entries.map((entry, idx) => (
+          <>
+          {result.entries.length >= 3 && (
+            <BoardPodium
+              entries={
+                result.entries.slice(0, 3).map((e) => ({
+                  key: e.directoryId,
+                  name: e.name,
+                  value: e.avgSteps.toLocaleString('he-IL'),
+                  unit: 'צעדים',
+                  isMe: e.isMyUnit,
+                  sub: `${e.activeParticipantCount} פעילים`,
+                })) as [PodiumEntry, PodiumEntry, PodiumEntry]
+              }
+            />
+          )}
+          <div className="grid grid-cols-1 gap-1 mt-1">
+            {result.entries.map((entry, idx) => (idx < 3 && result.entries.length >= 3 ? null :
               <BoardRow
                 key={entry.directoryId}
                 rank={idx + 1}
@@ -146,6 +161,7 @@ export function UnitLeagueTableView({
               />
             ))}
           </div>
+          </>
         ) : result?.myUnitBelowFloor ? (
           <BoardMessage
             icon={Users}

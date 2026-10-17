@@ -53,6 +53,7 @@ GROUP_8089=(
   src/lib/__tests__/joinEngine.hostuid-escalation.emulator.test.ts
   src/app/api/admin/agents/__tests__/agents-routes.emulator.test.ts
   functions/src/__tests__/reminderSweepScheduler.emulator.test.ts
+  functions/src/__tests__/leagueScopeStats.emulator.test.ts
 )
 
 RESULTS=$(mktemp)

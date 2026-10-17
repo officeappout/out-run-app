@@ -1,5 +1,9 @@
 'use client';
 
+import { useHomeV2 } from "@/features/home/context/HomeV2Context";
+
+/** v2 hairline ring (design-language §2). */
+const V2_RING = "0 0 0 1px rgba(14,27,42,0.08)";
 import React, { useCallback, useMemo } from 'react';
 import { Loader2, Share2, Heart, ArrowDownCircle } from 'lucide-react';
 import {
@@ -88,6 +92,7 @@ export default function GeneratedWorkoutExerciseList({
   onToggleWarmupActive,
   actions,
 }: GeneratedWorkoutExerciseListProps) {
+  const v2 = useHomeV2();
   const sections = useMemo(
     () => groupExercisesIntoSections(generatedWorkout.exercises),
     [generatedWorkout.exercises],
@@ -171,16 +176,24 @@ export default function GeneratedWorkoutExerciseList({
         <div className="flex items-center gap-2">
           {diff != null && (
             <div
-              className="flex-shrink-0 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
-              style={{ border: PILL_BORDER_DRAWER }}
+              className={
+                v2
+                  ? "flex-shrink-0 flex items-center h-9 bg-white dark:bg-slate-800/90 rounded-[12px] px-2.5"
+                  : "flex-shrink-0 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
+              }
+              style={v2 ? { boxShadow: V2_RING } : { border: PILL_BORDER_DRAWER }}
             >
               <DifficultyBolts difficulty={diff as 1 | 2 | 3} size="md" />
             </div>
           )}
           {dur != null && dur > 0 && (
             <div
-              className="flex-shrink-0 flex items-center gap-1.5 bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
-              style={{ border: PILL_BORDER_DRAWER }}
+              className={
+                v2
+                  ? "flex-shrink-0 flex items-center gap-1 h-9 whitespace-nowrap bg-white dark:bg-slate-800/90 rounded-[12px] px-2.5"
+                  : "flex-shrink-0 flex items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800/90 shadow-sm rounded-lg px-3 py-1.5"
+              }
+              style={v2 ? { boxShadow: V2_RING } : { border: PILL_BORDER_DRAWER }}
             >
               <svg
                 width="14"
@@ -196,7 +209,7 @@ export default function GeneratedWorkoutExerciseList({
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <span className="text-[13px] font-normal text-gray-800 dark:text-gray-100">
+              <span className={`${v2 ? "text-[12.5px] font-extrabold tabular-nums" : "text-[13px] font-normal"} text-gray-800 dark:text-gray-100`}>
                 {dur} דק&apos;
               </span>
             </div>
@@ -208,7 +221,7 @@ export default function GeneratedWorkoutExerciseList({
             <button
               onClick={actions.onShare}
               disabled={actions.isSharing}
-              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50"
+              className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50`}
               aria-label="שתף"
             >
               {actions.isSharing ? (
@@ -220,7 +233,7 @@ export default function GeneratedWorkoutExerciseList({
             <button
               onClick={actions.onToggleFavorite}
               disabled={actions.isFavToggling}
-              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50"
+              className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50`}
               aria-label={actions.isFav ? 'הסר ממועדפים' : 'מועדפים'}
             >
               {actions.isFavToggling ? (
@@ -242,7 +255,7 @@ export default function GeneratedWorkoutExerciseList({
                 actions.isFavDownloading ||
                 actions.isFavDownloaded
               }
-              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50 relative"
+              className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50 relative`}
               aria-label="הורדה לאופליין"
             >
               {actions.isFavDownloading ? (
@@ -275,7 +288,7 @@ export default function GeneratedWorkoutExerciseList({
       {equipment.length > 0 && (
         <section className="mb-4">
           <h3
-            className="text-right text-[15px] font-semibold text-slate-900 dark:text-white mb-2"
+            className={`text-right ${v2 ? "text-[16px] font-black text-[#0e1419]" : "text-[15px] font-semibold text-slate-900"} dark:text-white mb-2`}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             ציוד
@@ -296,7 +309,7 @@ export default function GeneratedWorkoutExerciseList({
       {muscles.length > 0 && (
         <section className="mb-4">
           <h3
-            className="text-right text-[15px] font-semibold text-slate-900 dark:text-white mb-2"
+            className={`text-right ${v2 ? "text-[16px] font-black text-[#0e1419]" : "text-[15px] font-semibold text-slate-900"} dark:text-white mb-2`}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             שרירים

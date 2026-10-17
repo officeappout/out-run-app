@@ -43,6 +43,8 @@ describe('HybridStationLayer — start-of-walk intro', () => {
 
   it('the pre-existing approach-CTA gating is untouched (still gated, not a regression introduced by this change)', () => {
     expect(src).toContain("if (phase === 'aerobic' && (isFinalLeg || approaching)) {");
-    expect(src).toContain("'📍 הגעתי לתחנה'");
+    // The CTA itself moved to HybridStationCta (design-v2 icons, no emoji); still rendered here, still gated.
+    expect(src).toContain('<HybridStationCta');
+    expect(src).toContain('onClick={() => (isFinalLeg ? finishHybrid() : arrive())}');
   });
 });

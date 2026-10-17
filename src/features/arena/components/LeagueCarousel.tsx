@@ -164,16 +164,12 @@ function LeagueSheetList({
               onClick={() => onSelect(league.key)}
               aria-selected={active}
               role="tab"
-              className="flex items-center gap-3 w-full text-right rounded-v2-tile px-3 py-3 transition-all ease-v2 active:scale-[0.97]"
-              style={{
-                border: active
-                  ? `2px solid ${ACTIVE_BORDER}`
-                  : '1.5px solid #E5E7EB',
-                backgroundColor: active ? ACTIVE_RING : '#FFFFFF',
-              }}
+              className={`flex items-center gap-3 w-full text-right rounded-[20px] p-3 transition-transform ease-v2 active:scale-[0.98] ${
+                active ? 'bg-v2-tint ring-2 ring-v2-accent' : 'bg-white shadow-v2-ring'
+              }`}
             >
               <div
-                className="w-11 h-11 rounded-[14px] bg-v2-tint flex items-center justify-center overflow-hidden flex-shrink-0"
+                className={`w-11 h-11 rounded-[14px] ${active ? 'bg-white' : 'bg-v2-tint'} flex items-center justify-center overflow-hidden flex-shrink-0`}
                 aria-hidden="true"
               >
                 {league.logoUrl ? (
@@ -191,16 +187,16 @@ function LeagueSheetList({
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-sm truncate">
+                <div className="font-black text-v2-ink text-[16px] truncate">
                   {league.name}
                 </div>
                 {league.subtitle && (
-                  <div className="text-xs text-gray-500 truncate">
+                  <div className="text-[12.5px] font-bold text-v2-muted truncate">
                     {league.subtitle}
                   </div>
                 )}
                 {active && (
-                  <div className="text-[10px] text-gray-400 truncate mt-0.5">
+                  <div className="text-[11px] font-bold text-v2-deep truncate mt-0.5">
                     {activeFilterLabel}
                   </div>
                 )}
@@ -208,25 +204,18 @@ function LeagueSheetList({
 
               <div className="flex items-center gap-4 flex-shrink-0">
                 <div className="flex flex-col items-center leading-none">
-                  <span
-                    className="font-black tabular-nums text-sm"
-                    style={{ color: ACTIVE_BORDER }}
-                  >
+                  <span className="font-black tabular-nums text-[16px] text-v2-deep">
                     {league.rank != null ? `#${league.rank}` : '—'}
                   </span>
-                  <span className="text-gray-400 mt-0.5" style={{ fontSize: 9 }}>
-                    דירוג
-                  </span>
+                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">דירוג</span>
                 </div>
                 <div className="flex flex-col items-center leading-none">
-                  <span className="font-black tabular-nums text-sm text-gray-900">
+                  <span className="font-black tabular-nums text-[16px] text-v2-ink">
                     {league.memberCount != null
                       ? league.memberCount.toLocaleString('he-IL')
                       : '—'}
                   </span>
-                  <span className="text-gray-400 mt-0.5" style={{ fontSize: 9 }}>
-                    חברים
-                  </span>
+                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">חברים</span>
                 </div>
               </div>
             </button>
@@ -237,14 +226,16 @@ function LeagueSheetList({
       {/* Create / join a new league */}
       <Link
         href={createHref}
-        aria-label="הצטרף לליגה"
-        className="flex items-center gap-3 w-full rounded-2xl px-3 py-3 transition-all active:scale-[0.98]"
-        style={{ border: '1.5px dashed #D1D5DB', backgroundColor: '#F9FAFB' }}
+        aria-label="פתיחת ליגה חדשה"
+        className="flex items-center gap-3 w-full rounded-[20px] p-3 border-2 border-dashed border-v2-pill-border text-v2-ink-2 transition-transform ease-v2 active:scale-[0.98]"
       >
-        <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center border border-dashed border-gray-300 flex-shrink-0">
-          <Plus className="w-5 h-5 text-gray-400" />
+        <div className="w-11 h-11 rounded-full flex items-center justify-center border-2 border-dashed border-v2-pill-border flex-shrink-0">
+          <Plus className="w-5 h-5" strokeWidth={2.4} />
         </div>
-        <span className="font-bold text-gray-600 text-sm">הצטרף לליגה חדשה</span>
+        <span className="min-w-0">
+          <span className="block font-black text-v2-ink text-[16px]">פתיחת ליגה חדשה</span>
+          <span className="block text-[12.5px] font-bold truncate">שכונה, חברים, משפחה, עבודה, או כניסה עם קוד</span>
+        </span>
       </Link>
     </div>
   );

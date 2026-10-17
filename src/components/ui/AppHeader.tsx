@@ -36,6 +36,7 @@ import { useChatInbox } from '@/features/social/hooks/useChatInbox';
 import { isUserVerified } from '@/features/user/identity/services/access-control.service';
 import type { ActivityType } from '@/features/activity/types/activity.types';
 import { hapticSuccess } from '@/lib/haptics';
+import StreakFlame from '@/components/ui/v2/StreakFlame';
 
 interface AppHeaderProps {
   /**
@@ -54,9 +55,15 @@ interface AppHeaderProps {
    * map UI.  Defaults to false (= normal sticky behaviour).
    */
   asOverlay?: boolean;
+  /**
+   * Home v2 (enable_home_v2): the streak flame sits ON the avatar (brand Lottie +
+   * count) instead of beside it; avatar on a soft tint; chat/search as round
+   * white buttons. Same data, same targets — only the right/left zones restyle.
+   */
+  v2?: boolean;
 }
 
-export default function AppHeader({ children, zIndex = 40, asOverlay = false }: AppHeaderProps) {
+export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2 = false }: AppHeaderProps) {
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? null;
@@ -90,7 +97,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
   // tightened vertical padding only, icon sizes untouched).
   const innerRow = (
     <div
-      className="max-w-md mx-auto px-4 py-1 flex items-center justify-between"
+      className={`max-w-md mx-auto px-4 ${v2 ? 'py-2' : 'py-1'} flex items-center justify-between`}
       dir="rtl"
     >
       {/* Right zone (visually leftmost in RTL) — avatar + flame + streak.
@@ -104,6 +111,51 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
           in-place (stopPropagation so it doesn't also navigate to
           /profile); tapping anywhere else on the avatar still navigates
           to /profile, unchanged. */}
+      {v2 ? (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => { hapticSuccess(); router.push('/profile'); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { hapticSuccess(); router.push('/profile'); }
+        }}
+        className="relative active:scale-95 transition-transform cursor-pointer"
+        aria-label={streak > 0 ? `פרופיל · ${streak} ימים ברצף` : 'פרופיל'}
+      >
+        <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
+          {photoURL ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoURL} alt={userName} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[15px] font-black" style={{ background: '#eef8fc', color: '#0284c7' }}>
+              {userName.charAt(0).toUpperCase() || <Users className="w-4 h-4" />}
+            </div>
+          )}
+        </div>
+        {verified && (
+          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white flex items-center justify-center shadow-sm">
+            <BadgeCheck className="w-3 h-3 text-blue-500" fill="currentColor" />
+          </span>
+        )}
+        {activityUnread > 0 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openActivity(); }}
+            aria-label={`התראות — ${activityUnread > 99 ? '99+' : activityUnread} חדשות`}
+            className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-red-500 border-2 border-white"
+          />
+        )}
+        {streak > 0 && !activityLoading && (
+          <span
+            className="absolute -bottom-1.5 -left-2 flex items-center rounded-full bg-white pe-1.5"
+            style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}
+          >
+            <StreakFlame tones={['strength']} size={24} live={activityType !== 'none' && activityType !== 'rest'} />
+            <span className="text-[12px] font-black tabular-nums" style={{ color: '#0284c7' }}>{streak}</span>
+          </span>
+        )}
+      </div>
+      ) : (
       <div
         role="button"
         tabIndex={0}
@@ -157,6 +209,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
           )}
         </div>
       </div>
+      )}
 
       {/* Center — community co-logo (if any) + OUT logotype ("community × OUT") */}
       <div className="flex items-center gap-2" dir="ltr">
@@ -175,16 +228,19 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
           Bell removed per chrome polish: its unread badge now lives as a
           small dot on the avatar (right zone) instead, so the entry point
           isn't lost, just relocated next to the identity it's about. */}
-      <div className="flex items-center gap-0.5">
+      <div className={`flex items-center ${v2 ? 'gap-1.5' : 'gap-0.5'}`}>
         <button
           type="button"
           onClick={openChat}
-          className="relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
+          className={v2
+            ? 'relative w-10 h-10 grid place-items-center rounded-full bg-white active:scale-95 transition-transform'
+            : 'relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all'}
+          style={v2 ? { boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : undefined}
           aria-label="הודעות"
         >
           <MessageCircle className="w-5 h-5 text-gray-600" />
           {chatUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-cyan-500 text-on-brand text-[9px] font-black flex items-center justify-center px-1 shadow-sm">
+            <span className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full ${v2 ? 'bg-[#0e1419] text-white' : 'bg-cyan-500 text-on-brand'} text-[9px] font-black flex items-center justify-center px-1 shadow-sm`}>
               {chatUnread > 99 ? '99+' : chatUnread}
             </span>
           )}
@@ -192,7 +248,10 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false }: 
 
         <Link
           href="/search"
-          className="p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
+          className={v2
+            ? 'w-10 h-10 grid place-items-center rounded-full bg-white active:scale-95 transition-transform'
+            : 'p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all'}
+          style={v2 ? { boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : undefined}
           aria-label="חיפוש"
         >
           <Search className="w-5 h-5 text-gray-600" />

@@ -786,8 +786,8 @@ export default function CommunityPage() {
                   className="px-5 pb-8 pt-2 overflow-y-auto"
                   style={{ maxHeight: 'calc(85vh - 40px)' }}
                 >
-                  <h3 className="text-base font-black text-gray-900 mb-3 text-right">
-                    בחר ליגה
+                  <h3 className="text-[22px] font-black text-v2-ink tracking-v2-tight mb-4 text-right">
+                    הליגות שלי
                   </h3>
                   <LeagueCarousel
                     mode="sheet"
@@ -1089,30 +1089,30 @@ export default function CommunityPage() {
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
     return (
       <div
-        className="rounded-v2-card p-4 text-white relative overflow-hidden mb-3 bg-v2-ink shadow-v2-card-dark"
+        className="rounded-v2-card p-4 text-v2-ink relative overflow-hidden mb-3 border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb]"
         dir="rtl"
       >
         <div
           aria-hidden
           className="absolute -top-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.4), transparent 70%)' }}
+          style={{ background: 'radial-gradient(circle, rgba(0,186,247,0.14), transparent 70%)' }}
         />
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px]" style={{ color: '#9fb3c8' }}>
+            <p className="text-[11px]" style={{ color: '#64748b' }}>
               התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
             </p>
-            <p className="text-lg font-black mt-0.5 truncate text-v2-accent tabular-nums">
+            <p className="text-lg font-black mt-0.5 truncate text-v2-deep tabular-nums">
               {activeMyEntry
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
           </div>
           <div
-            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white/10"
+            className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white shadow-v2-ring"
           >
             <p className="text-lg font-black leading-none tabular-nums">#{activeScopeEntry.rank}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: '#9fb3c8' }}>{scopeTypeLabel}</p>
+            <p className="text-[9px] mt-0.5" style={{ color: '#64748b' }}>{scopeTypeLabel}</p>
           </div>
         </div>
       </div>
@@ -1135,20 +1135,25 @@ export default function CommunityPage() {
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };
     return (
-      <button
-        type="button"
-        onClick={handleInviteNeighbors}
-        className="w-full flex items-center gap-3 rounded-v2-card px-4 py-3.5 bg-v2-cta text-v2-on-cta shadow-v2-cta text-right active:scale-[0.97] transition-transform ease-v2"
+      // 17.10.2026 (design lab #321): the invite card on the light battle
+      // gradient with one primary button — not a second full-gradient card.
+      <div
+        className="w-full rounded-v2-card border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb] p-4 text-right"
         dir="rtl"
       >
-        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white/40">
-          <Users className="w-[18px] h-[18px]" />
+        <div className="flex items-start gap-3">
+          <div className="w-[42px] h-[42px] rounded-[14px] flex items-center justify-center flex-shrink-0 bg-white text-v2-deep">
+            <Users className="w-5 h-5" strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[16px] font-black text-v2-ink">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
+            <p className="text-[13.5px] text-v2-ink-2 leading-snug mt-0.5">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-black">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
-          <p className="text-[12px] font-semibold opacity-80">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
-        </div>
-      </button>
+        <Button variant="primary" size="md" block className="mt-3" onClick={handleInviteNeighbors}>
+          הזמנת שכנים
+        </Button>
+      </div>
     );
   }
 
@@ -1217,6 +1222,7 @@ export default function CommunityPage() {
                   granularity="city"
                   timeWindow={leaderboardTimeWindow}
                   category={leaderboardCategory}
+                  onCategoryChange={setLeaderboardCategory}
                   genderFilter={leaderboardGender}
                 />
               </>
@@ -1405,6 +1411,7 @@ export default function CommunityPage() {
                       timeWindow={leaderboardTimeWindow}
                       cityAuthorityId={authority.id}
                       category={leaderboardCategory}
+                      onCategoryChange={setLeaderboardCategory}
                       genderFilter={leaderboardGender}
                     />
                     {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}

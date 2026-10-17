@@ -196,6 +196,14 @@ opacity only (no height/width per frame).
    relevant), no logic changes beyond the stated scope, no map-owned files
    (`AppMap`, `MapShell`, `DiscoverLayer`, `TurnCarousel`), HOLD for David's
    visual approval.
+10. Labels never wrap where they shouldn't (David, 17.10.2026): every chip /
+    pill / button label is `whitespace-nowrap`; a row of pills is
+    `min-w-0` with `shrink-0` pills, and if it can't fit it scrolls or the
+    pills get more compact (h-9, px-2.5, 12.5px) — never a two-line "30 דק׳".
+    Check every screen at **360px** (small Android) as well as 390px.
+11. Colour hierarchy: one filled brand gradient per screen (the primary
+    action). Selection = soft tint; the streak flames carry the brand colour
+    in the schedule; everything else white or ink.
 
 ## 10. Legacy tokens (still valid, not v2)
 
