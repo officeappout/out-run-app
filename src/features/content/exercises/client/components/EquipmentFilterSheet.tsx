@@ -32,7 +32,7 @@
  *     accurate even after manual chip toggles deviate from a preset.
  */
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, Home, MapPin, PersonStanding, Loader2 } from 'lucide-react';
@@ -50,6 +50,11 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useUserStore } from '@/features/user';
 import { getUserFromFirestore } from '@/lib/firestore.service';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+
+/** Home v2 (enable_home_v2) styling switch for the sub-components below.
+ *  Provided by the sheet; false = today's UI, byte-for-byte. */
+const EquipV2 = createContext(false);
 
 interface Props {
   isOpen: boolean;
@@ -115,6 +120,11 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   const setFilterLocation = useExerciseLibraryStore((s) => s.setFilterLocation);
   const { profile } = useUserStore();
   const [saving, setSaving] = useState(false);
+  // Home v2 (enable_home_v2) — restyle only. Inline-onboarding keeps its
+  // current look (it is part of the onboarding flow, not this screen).
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const flagV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const v2 = flagV2 && !isInlineMode;
 
   // ── Lazy data sources ────────────────────────────────────────────────
   const [gear, setGear] = useState<GearDefinition[]>([]);
@@ -343,54 +353,66 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
           polish, equipment-full-screen round); X stays for filter/inline
           modes, which are still a dismissible bottom sheet, not a screen
           reached via back-navigation. */}
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+      <div
+        className={v2
+          ? `flex items-center gap-3 px-5 ${isProfileMode ? 'pb-3 pt-[max(env(safe-area-inset-top),12px)]' : 'pb-3 pt-1'}`
+          : 'flex items-center gap-2 px-5 py-3 border-b border-gray-100'}
+      >
         {isProfileMode && (
           <button
             type="button"
             onClick={onClose}
             aria-label="חזרה"
-            className="p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0"
+            className={v2
+              ? 'grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+              : 'p-1 -mr-1 text-gray-500 hover:text-gray-800 flex-shrink-0'}
           >
-            <ArrowRight size={20} />
+            <ArrowRight size={v2 ? 18 : 20} strokeWidth={v2 ? 2.4 : 2} />
           </button>
         )}
-        <h2 className={`font-bold text-gray-900 ${isProfileMode ? 'flex-1 text-lg' : 'text-base'}`}>
+        <h2
+          className={v2
+            ? 'min-w-0 flex-1 truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink'
+            : `font-bold text-gray-900 ${isProfileMode ? 'flex-1 text-lg' : 'text-base'}`}
+        >
           {isProfileMode ? 'הציוד שלי' : 'ציוד ומיקום'}
         </h2>
         {!isProfileMode && (
           <button
             type="button"
             onClick={onClose}
-            className="p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full"
+            className={v2
+              ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
+              : 'p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full'}
             aria-label="סגור"
           >
-            <X size={18} />
+            <X size={18} strokeWidth={v2 ? 2.4 : 2} />
           </button>
         )}
       </div>
 
       {/* Body */}
-      <div className={`flex-1 overflow-y-auto px-5 ${isProfileMode ? 'py-5' : 'py-4'}`}>
+      <div className={`flex-1 overflow-y-auto px-5 ${v2 ? (isProfileMode ? 'pb-6 pt-3' : 'pb-5 pt-2') : isProfileMode ? 'py-5' : 'py-4'}`}>
         {/* ── Preset shortcuts (filter mode only) ── */}
         {!isProfileMode && (
           <>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <p className={v2 ? 'mb-2.5 whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2'}>
               מקום אימון
             </p>
             {/* חדר כושר removed — no gym footage exists. The 'gym' PresetId and
                 its applyPreset branch are intentionally kept so a previously
                 stored filterLocation still resolves; it is simply not offerable. */}
-            <div className="grid grid-cols-2 gap-2 mb-5">
+            <div className={v2 ? 'mb-6 grid grid-cols-2 gap-1 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'grid grid-cols-2 gap-2 mb-5'}>
               <PresetButton
                 active={activePreset === 'home'}
                 onClick={() => applyPreset('home')}
-                icon={<Home size={18} />}
+                icon={<Home size={v2 ? 16 : 18} />}
                 label="בית"
               />
               <PresetButton
                 active={activePreset === 'park'}
                 onClick={() => applyPreset('park')}
-                icon={<MapPin size={18} />}
+                icon={<MapPin size={v2 ? 16 : 18} />}
                 label="פארק"
               />
             </div>
@@ -398,25 +420,26 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
         )}
 
         {/* ── Bodyweight (universal) ── */}
-        <p className={`font-bold text-gray-400 uppercase tracking-wider mb-2 ${isProfileMode ? 'text-xs' : 'text-[11px]'}`}>
+        <p className={v2 ? 'mb-2.5 whitespace-nowrap text-[15px] font-black text-v2-ink' : `font-bold text-gray-400 uppercase tracking-wider mb-2 ${isProfileMode ? 'text-xs' : 'text-[11px]'}`}>
           בסיס
         </p>
-        <div className="mb-5">
+        <div className={v2 ? 'mb-6' : 'mb-5'}>
           <Chip
             active={draft.has(BODYWEIGHT_SENTINEL)}
             onClick={() => toggle(BODYWEIGHT_SENTINEL)}
-            iconNode={<PersonStanding size={isProfileMode ? 20 : 16} className="text-gray-700" />}
+            iconNode={<PersonStanding size={isProfileMode ? 20 : 16} className={v2 ? 'text-v2-deep' : 'text-gray-700'} />}
             label="משקל גוף"
             large={isProfileMode}
           />
         </div>
 
         {loadError ? (
-          <p className="text-sm text-red-600 text-center py-6">
+          <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-down' : 'text-sm text-red-600 text-center py-6'}>
             שגיאה בטעינת הציוד
           </p>
         ) : gear.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className={v2 ? 'flex items-center justify-center gap-2 py-8 text-[14px] font-bold text-v2-muted' : 'text-sm text-gray-400 text-center py-8'}>
+            {v2 && <Loader2 size={16} className="animate-spin text-v2-accent" />}
             טוען ציוד...
           </p>
         ) : (
@@ -448,15 +471,17 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-100 bg-white">
-        <p className="px-5 pt-3 text-[12px] font-semibold text-gray-500 text-center">
+      <div className={v2 ? 'v2-glass-bar relative z-[1] pb-[max(env(safe-area-inset-bottom),8px)]' : 'border-t border-gray-100 bg-white'}>
+        <p className={v2 ? 'truncate whitespace-nowrap px-5 pt-3 text-center text-[12.5px] font-bold text-v2-muted' : 'px-5 pt-3 text-[12px] font-semibold text-gray-500 text-center'}>
           {summary}
         </p>
-        <div className="flex items-center gap-2 px-5 py-3">
+        <div className={v2 ? 'flex items-center gap-2.5 px-5 pb-2 pt-2.5' : 'flex items-center gap-2 px-5 py-3'}>
           <button
             type="button"
             onClick={clear}
-            className="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+            className={v2
+              ? 'h-12 flex-shrink-0 whitespace-nowrap rounded-full bg-white px-6 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+              : 'flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors'}
           >
             נקה
           </button>
@@ -464,7 +489,9 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             type="button"
             onClick={apply}
             disabled={saving}
-            className={`flex-1 font-bold text-white disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
+            className={v2
+              ? 'flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-50'
+              : `flex-1 font-bold text-white disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 ${
               isInlineMode
                 ? 'h-14 rounded-full text-base'
                 : 'py-2.5 rounded-lg text-sm bg-primary hover:opacity-90 transition-opacity'
@@ -516,7 +543,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className="fixed inset-0 z-[102] bg-white flex flex-col"
+            className={`fixed inset-0 z-[102] flex flex-col ${v2 ? 'bg-v2-surface' : 'bg-white'}`}
             dir="rtl"
           >
             {innerContent}
@@ -541,12 +568,14 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
-              className="fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col"
+              className={v2
+                ? 'fixed bottom-0 left-0 right-0 z-[71] flex max-h-[85vh] flex-col overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet'
+                : 'fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col'}
               dir="rtl"
             >
               {/* Drag handle */}
-              <div className="flex justify-center pt-2 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className={v2 ? 'flex justify-center pb-2 pt-2.5' : 'flex justify-center pt-2 pb-1'}>
+                <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
               </div>
               {innerContent}
             </motion.div>
@@ -557,7 +586,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   );
 
   if (!mounted) return null;
-  return createPortal(sheet, document.body);
+  return createPortal(<EquipV2.Provider value={v2}>{sheet}</EquipV2.Provider>, document.body);
 }
 
 // ── Sub-components ────────────────────────────────────────────────────
@@ -573,6 +602,22 @@ function PresetButton({
   icon: React.ReactNode;
   label: string;
 }) {
+  const v2 = useContext(EquipV2);
+  if (v2) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-[transform,background-color,color] duration-150 ease-v2 active:scale-[0.97] ${
+          active ? 'bg-white text-v2-deep shadow-v2-ring' : 'text-v2-muted'
+        }`}
+      >
+        <span className={active ? 'text-v2-deep' : 'text-v2-muted'}>{icon}</span>
+        <span>{label}</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -603,16 +648,17 @@ function Section({
   /** Profile (full-screen) mode — bigger chips/labels (chrome polish). */
   large?: boolean;
 }) {
+  const v2 = useContext(EquipV2);
   if (items.length === 0) return null;
   return (
-    <section className="mb-5">
-      <div className="flex items-center justify-between mb-2">
-        <p className={`font-bold text-gray-400 uppercase tracking-wider ${large ? 'text-xs' : 'text-[11px]'}`}>
+    <section className={v2 ? 'mb-6' : 'mb-5'}>
+      <div className={v2 ? 'mb-2.5 flex items-center justify-between gap-2' : 'flex items-center justify-between mb-2'}>
+        <p className={v2 ? 'min-w-0 truncate whitespace-nowrap text-[15px] font-black text-v2-ink' : `font-bold text-gray-400 uppercase tracking-wider ${large ? 'text-xs' : 'text-[11px]'}`}>
           {title}
         </p>
-        <span className={`text-gray-400 ${large ? 'text-xs' : 'text-[10px]'}`}>{items.length}</span>
+        <span className={v2 ? 'flex-shrink-0 text-[12px] font-bold text-v2-muted' : `text-gray-400 ${large ? 'text-xs' : 'text-[10px]'}`}>{items.length}</span>
       </div>
-      <div className={`flex flex-wrap ${large ? 'gap-2' : 'gap-1.5'}`}>
+      <div className={`flex flex-wrap ${v2 ? 'gap-2' : large ? 'gap-2' : 'gap-1.5'}`}>
         {items.map((g) => {
           const label = g.name?.he || g.name?.en || g.id;
           const svgPaths = resolveEquipmentSvgPathList(g.id);
@@ -649,6 +695,41 @@ function Chip({
   /** Profile (full-screen) mode — bigger chip/label/icon (chrome polish). */
   large?: boolean;
 }) {
+  const v2 = useContext(EquipV2);
+  if (v2) {
+    const size = large ? 22 : 18;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`flex max-w-full items-center rounded-full font-extrabold transition-[transform,background-color,color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+          large ? 'h-11 gap-2 ps-3 pe-4 text-[14.5px]' : 'h-10 gap-1.5 ps-2.5 pe-3.5 text-[13.5px]'
+        } ${
+          active
+            ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+            : 'bg-white text-v2-ink-2 shadow-v2-ring'
+        }`}
+      >
+        {iconNode ?? (iconSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconSrc}
+            alt=""
+            width={size}
+            height={size}
+            className="flex-shrink-0 object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+            }}
+          />
+        ) : (
+          <span className={`flex-shrink-0 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline ${large ? 'h-[22px] w-[22px]' : 'h-[18px] w-[18px]'}`} />
+        ))}
+        <span className="truncate whitespace-nowrap">{label}</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
