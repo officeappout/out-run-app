@@ -61,6 +61,7 @@ import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
 import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
+import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
 import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
@@ -983,7 +984,7 @@ export default function CommunityPage() {
                     onCategoryChange={setLeaderboardCategory}
                     genderFilter={leaderboardGender}
                   />
-                  {access.hasNeighborhoodAccess && renderNeighborhoodInviteCTA()}
+                  <InviteBonusCard scopeName={activeScopeEntry?.scopeName ?? null} />
                 </>
               ) : (
                 renderNeighborhoodSetupCTA()

@@ -112,6 +112,10 @@ export async function GET(req: NextRequest) {
     const k = meta.get(id)?.kind ?? 'other';
     if (board === 'settlement') return k === 'settlement';
     if (board === 'neighborhood-national') return k !== 'settlement';
+    // The city board is cities and councils only — a reservist's
+    // core.authorityId can be a military unit (it showed up as "חטיבה 810"
+    // among the cities, and as a battle opponent).
+    if (board === 'city' && !(k === 'city' || k === 'regional_council' || k === 'local_council')) return false;
     if (board === 'city' && kind !== 'all') {
       if (kind === 'city') return k === 'city';
       if (kind === 'council') return k === 'regional_council' || k === 'local_council';
