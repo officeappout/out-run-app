@@ -8,8 +8,8 @@ describe('v2 skills step', () => {
     const known = new Set(SKILL_PROGRAMS.map((s) => s.id));
     expect(ids.every((id) => known.has(id))).toBe(true);
     expect(ids.some((id) => V2_HIDDEN_SKILLS.has(id))).toBe(false);
-    // hidden in v2 only — still in the shared constants
-    expect(known.has('muscle_up') && known.has('handstand')).toBe(true);
+    // hidden from both pickers now (shared HIDDEN_PROGRAM_SLUGS)
+    expect(known.has('muscle_up') || known.has('handstand')).toBe(false);
   });
 
   it('caps individual picks at 3; deselect and the master always pass', () => {

@@ -35,6 +35,7 @@ import {
 import { resolveSkillContribution, resolveCategoryContribution } from './program-contribution-resolver';
 import { getAccessCodeResult, clearAccessCodeResult } from './access-code.service';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '../constants/skill-foundation-domain.constants';
+import { getFoundationAssessmentMax } from '../utils/assessment-level-caps';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { buildAttributionPayload } from '@/lib/marketingAttribution';
 import { triggerKellyWelcomeBot } from '@/features/social/services/kelly-welcome-bot.service';
@@ -1070,6 +1071,13 @@ export async function syncOnboardingToFirestore(
       };
 
       let cmsMaxLevels: Record<string, number> = {};
+      // Questionnaire caps for the skill→foundation derivation below (push /
+      // pull only) — min(maxLevels, assessmentMaxLevel ?? code default).
+      // Defaults to the code caps alone if the CMS fetch fails.
+      let foundationCaps: Record<'push' | 'pull', number> = {
+        push: getFoundationAssessmentMax(null, 'push'),
+        pull: getFoundationAssessmentMax(null, 'pull'),
+      };
       let cmsFetchSucceeded = false;
       try {
         const { getAllPrograms } = await import('@/features/content/programs/core/program.service');
@@ -1087,6 +1095,10 @@ export async function syncOnboardingToFirestore(
             cmsMaxLevels[key] = prog.maxLevels;
           }
         }
+        foundationCaps = {
+          push: getFoundationAssessmentMax(programs, 'push'),
+          pull: getFoundationAssessmentMax(programs, 'pull'),
+        };
       } catch (e) {
         console.warn('[onboarding-sync] CMS programs fetch failed — using emergency fallback', e);
       }
@@ -1346,7 +1358,7 @@ export async function syncOnboardingToFirestore(
           if (hasSkillsContribution && rLevel > 0) {
             const foundationDomain = SKILL_TO_FOUNDATION_DOMAIN[result.programId];
             if (foundationDomain) {
-              const maxFoundation = cmsMaxLevels[foundationDomain] ?? 25;
+              const maxFoundation = foundationCaps[foundationDomain];
               const foundationLevel = Math.min(rLevel + SKILL_TO_FOUNDATION_OFFSET, maxFoundation);
               quizTracks[foundationDomain] = { currentLevel: foundationLevel, percent: 0 };
               console.log(
@@ -1386,7 +1398,7 @@ export async function syncOnboardingToFirestore(
                 if (skillLvl <= 0) continue;
                 const fd = SKILL_TO_FOUNDATION_DOMAIN[skillId];
                 if (!fd) continue;
-                const maxFd = cmsMaxLevels[fd] ?? 25;
+                const maxFd = foundationCaps[fd];
                 const derived = Math.min(skillLvl + SKILL_TO_FOUNDATION_OFFSET, maxFd);
                 if ((derivedFoundations[fd] ?? 0) < derived) derivedFoundations[fd] = derived;
               }

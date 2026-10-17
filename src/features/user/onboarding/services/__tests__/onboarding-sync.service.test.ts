@@ -1171,8 +1171,9 @@ describe('syncOnboardingToFirestore — Phase 3 (union-based program/track creat
     // No redundant standalone 'push' program — planche is the sole source for push.
     expect(written.progression.activePrograms.some((p: any) => p.id === 'push')).toBe(false);
     expect(written.progression.activePrograms.some((p: any) => p.id === 'planche')).toBe(true);
-    // planche's own SKILL_TO_FOUNDATION_OFFSET derivation still populates the push track (12 + 9).
-    expect(written.progression.tracks.push.currentLevel).toBe(21);
+    // planche's own SKILL_TO_FOUNDATION_OFFSET derivation still populates the push track
+    // (12 + 9 = 21, clamped to the questionnaire's push cap of 19).
+    expect(written.progression.tracks.push.currentLevel).toBe(19);
   });
 
   it('Decision 1: Health co-selected with Skills (no Body Focus) still contributes its non-suppressed categories', async () => {
@@ -1377,5 +1378,75 @@ describe('syncOnboardingToFirestore — G8.2: no strength level without the ques
       expect(written.assignedResults?.[0]).toMatchObject({ programId: 'push' });
       expect(hasAnyStrengthLevel(written)).toBe(true);
     });
+  });
+});
+
+describe('syncOnboardingToFirestore — questionnaire level caps: skill→foundation (+9) is clamped to the push/pull cap', () => {
+  it('single skill: front_lever L13 derives pull 20 (cap), not 22', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
+    pathConfigState.skillFocus = ['front_lever'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'front_lever', levelId: 'front_lever_level_13', masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 3 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.tracks.front_lever.currentLevel).toBe(13);
+    expect(written.progression.tracks.pull.currentLevel).toBe(20);
+  });
+
+  it('multi skill: planche L13 + front_lever L12 derive push 19 / pull 20 (caps), not 22 / 21', async () => {
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
+    pathConfigState.skillFocus = ['planche', 'front_lever'];
+    stubBrowserStorage();
+
+    const shared = { push: 0, pull: 0, legs: 0, core: 3 };
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_13', masterProgramSubLevels: shared },
+        { programId: 'front_lever', levelId: 'front_lever_level_12', masterProgramSubLevels: shared },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.tracks.push.currentLevel).toBe(19);
+    expect(written.progression.tracks.pull.currentLevel).toBe(20);
+  });
+
+  it('existing users keep a higher level: a stored push L23 is not lowered by a capped derivation', async () => {
+    state.EXISTING_DOC = {
+      createdAt: 'X',
+      core: { name: 'A', gender: 'other', initialFitnessTier: 2 },
+      progression: {
+        globalLevel: 4, globalXP: 500, coins: 10,
+        domains: { push: { currentLevel: 23, maxLevel: 25, isUnlocked: true } },
+        tracks: { push: { currentLevel: 23, percent: 0 } },
+        activePrograms: [],
+      },
+      onboardingStatus: 'COMPLETED',
+      onboardingCompletedAt: 'ORIGINAL_COMPLETION_TIMESTAMP',
+      lifestyle: {},
+    };
+    pathConfigState.programPath = 'skills';
+    pathConfigState.cardOrder = ['skills'];
+    pathConfigState.skillFocus = ['planche'];
+    stubBrowserStorage();
+
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      assignedResults: [
+        { programId: 'planche', levelId: 'planche_level_13', masterProgramSubLevels: { push: 0, pull: 0, legs: 0, core: 3 } },
+      ],
+    } as any);
+
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.progression.tracks.push.currentLevel).toBe(23);
   });
 });

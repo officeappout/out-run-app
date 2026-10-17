@@ -274,13 +274,14 @@ describe('loadPathConfigAsync — unified skillMaxLevels resolution for a mixed 
 
     const cfg = await loadPathConfigAsync();
     expect(cfg.categories).toEqual(['planche', 'legs', 'core']);
-    // 'planche' resolved directly by program.id (maxLevels: 20) — the CMS
-    // lookup fallback (getProgramLevelSettingsByProgram) is never called.
-    expect(cfg.skillMaxLevels?.planche).toBe(20);
+    // 'planche' resolved directly by program.id (maxLevels: 20), then the
+    // questionnaire cap applies (code default 10) — the CMS lookup fallback
+    // (getProgramLevelSettingsByProgram) is never called.
+    expect(cfg.skillMaxLevels?.planche).toBe(10);
     expect(getProgramLevelSettingsByProgram).not.toHaveBeenCalled();
-    // 'legs'/'core' have no CMS movementPattern entry here → left out of
-    // skillMaxLevels, falling back to config.maxLevel (25) via getMaxLevelForCategory.
-    expect(cfg.skillMaxLevels?.legs).toBeUndefined();
+    // 'legs'/'core' have no CMS program here → only the code default cap.
+    expect(cfg.skillMaxLevels?.legs).toBe(10);
+    expect(cfg.skillMaxLevels?.core).toBe(13);
   });
 
   it('a skill ID absent from patternMaxMap falls back to getProgramLevelSettingsByProgram', async () => {

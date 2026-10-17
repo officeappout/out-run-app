@@ -41,6 +41,16 @@ export interface Program {
   name: string; // e.g., "Full Body", "Upper Body"
   description?: string;
   maxLevels?: number; // Maximum level this program supports
+  /**
+   * Highest level the onboarding level questionnaire (שאלון רמה) may assign
+   * for this program — kept below maxLevels while the top levels have no
+   * workout content yet. Optional: when absent, a code default by slug
+   * applies (ASSESSMENT_MAX_LEVEL_DEFAULTS in
+   * features/user/onboarding/utils/assessment-level-caps.ts). Does not
+   * affect users who already have a level. null = cleared in the admin
+   * editor (falls back to the code default, same as absent).
+   */
+  assessmentMaxLevel?: number | null;
   isMaster: boolean; // Master programs (e.g., "Full Body") track sub-levels
   imageUrl?: string; // Optional image for program display
   subPrograms?: string[]; // IDs of sub-programs (for Master Programs)
