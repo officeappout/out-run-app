@@ -10,6 +10,8 @@ import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGe
 
 interface FavoritesTabProps {
   onSelectWorkout: (generated: GeneratedWorkout, fav: FavoriteWorkout) => void;
+  /** Home v2 (enable_home_v2) look — passed by the profile's FavoritesSheet. */
+  v2?: boolean;
 }
 
 const DIFFICULTY_MAP: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
@@ -151,7 +153,47 @@ const FavoriteWorkoutCard = React.forwardRef<
   );
 });
 
-export default function FavoritesTab({ onSelectWorkout }: FavoritesTabProps) {
+/** v2 row — white card, tint icon tile, small "להתחיל" pill. Same onSelect. */
+const FavoriteWorkoutRowV2 = React.forwardRef<
+  HTMLButtonElement,
+  { fav: FavoriteWorkout; isDownloaded: boolean; onSelect: () => void }
+>(function FavoriteWorkoutRowV2({ fav, isDownloaded, onSelect }, ref) {
+  return (
+    <motion.button
+      ref={ref}
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -60, transition: { duration: 0.2 } }}
+      onClick={onSelect}
+      className="flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      dir="rtl"
+    >
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-v2-tile bg-v2-tint text-v2-deep">
+        <Dumbbell size={20} aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-extrabold text-v2-ink">{fav.title}</p>
+        <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+          <span>{DIFFICULTY_MAP[fav.difficulty] ?? ''}</span>
+          <span aria-hidden>·</span>
+          <Clock size={12} aria-hidden />
+          <span>{fav.estimatedDuration} דק׳</span>
+          <span aria-hidden>·</span>
+          <span className="truncate">{fav.exerciseCount} תרגילים</span>
+        </div>
+      </div>
+      {isDownloaded && (
+        <ArrowDownCircle size={18} className="shrink-0 text-v2-up" aria-label="זמין ללא אינטרנט" />
+      )}
+      <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-3 py-1.5 text-[12px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40">
+        להתחיל
+      </span>
+    </motion.button>
+  );
+});
+
+export default function FavoritesTab({ onSelectWorkout, v2 = false }: FavoritesTabProps) {
   const favorites = useFavoritesStore((s) => s.favorites);
   const downloadedIds = useFavoritesStore((s) => s.downloadedIds);
   const isLoading = useFavoritesStore((s) => s.isLoading);
@@ -173,6 +215,49 @@ export default function FavoritesTab({ onSelectWorkout }: FavoritesTabProps) {
     },
     [onSelectWorkout],
   );
+
+  if (v2) {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-v2-accent border-t-transparent" />
+          <p className="text-[13px] font-bold text-v2-muted">טוען מועדפים...</p>
+        </div>
+      );
+    }
+    if (sortedFavorites.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 px-6 py-14" dir="rtl">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-v2-tint text-v2-deep">
+            <Heart size={26} aria-hidden />
+          </span>
+          <div className="space-y-1.5 text-center">
+            <p className="text-[17px] font-black text-v2-ink">אין אימונים שמורים</p>
+            <p className="max-w-[280px] text-[14px] font-medium leading-relaxed text-v2-ink-2">
+              סמנ/י לב באימון שאהבת כדי לגשת אליו מכל מקום, גם ללא אינטרנט.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-2.5">
+        <p className="text-[12px] font-bold text-v2-muted" dir="rtl">
+          {sortedFavorites.length} אימונים שמורים
+        </p>
+        <AnimatePresence mode="popLayout">
+          {sortedFavorites.map((fav) => (
+            <FavoriteWorkoutRowV2
+              key={fav.id}
+              fav={fav}
+              isDownloaded={downloadedIds.has(fav.id)}
+              onSelect={() => handleSelect(fav)}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
