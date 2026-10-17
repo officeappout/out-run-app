@@ -33,8 +33,12 @@ import { useMemo } from 'react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import { MUSCLE_BAR_CHIPS, chipIsActive, toggleMuscleChip } from '../utils/muscle-bar.utils';
 import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 
 export default function MuscleFilterBar() {
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const selected = useExerciseLibraryStore((s) => s.filters.muscles);
   const setMuscles = useExerciseLibraryStore((s) => s.setMuscles);
 
@@ -57,6 +61,7 @@ export default function MuscleFilterBar() {
             label={chip.label}
             selected={chip.isActive}
             onClick={() => setMuscles(toggleMuscleChip(selected, chip))}
+            v2={v2}
           />
         ))}
       </div>

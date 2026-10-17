@@ -66,6 +66,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import React from 'react';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore as useUserStoreForFlags } from '@/features/user';
 import { ChevronDown, PersonStanding } from 'lucide-react';
 import FilterSheet from './FilterSheet';
 import {
@@ -157,7 +160,15 @@ interface Props {
   gear: GearDefinition[];
 }
 
+/** Home v2 (enable_home_v2) for the sheet's chips (incl. the helper components below). */
+const FiltersV2 = React.createContext(false);
+const V2_ON = 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40';
+const V2_OFF = 'bg-white text-v2-ink-2 shadow-v2-ring';
+const V2_CHIP = 'flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full ps-3 pe-3.5 text-[13px] font-extrabold transition-colors';
+
 export default function SecondaryFiltersSheet({ gear }: Props) {
+  const filtersSuperAdmin = useUserStoreForFlags((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(filtersSuperAdmin).flags.enableHomeV2;
   const isOpen = useExerciseLibraryStore((s) => s.isSecondaryFiltersOpen);
   const setOpen = useExerciseLibraryStore((s) => s.setSecondaryFiltersOpen);
   const filters = useExerciseLibraryStore((s) => s.filters);
@@ -324,12 +335,12 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
   }
 
   const footer = (
-    <div className="px-5 py-3 border-t border-gray-100 bg-white">
+    <div className={v2 ? 'v2-glass-bar px-5 py-3' : 'px-5 py-3 border-t border-gray-100 bg-white'}>
       <button
         type="button"
         onClick={handleApply}
-        className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm"
-        style={{ background: 'linear-gradient(90deg,#2CE0C0,#20C6D6 55%,#2AA3E8)' }}
+        className={v2 ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform active:scale-[0.98]' : 'w-full py-3.5 rounded-2xl text-white font-extrabold text-sm'}
+        style={v2 ? undefined : { background: 'linear-gradient(90deg,#2CE0C0,#20C6D6 55%,#2AA3E8)' }}
       >
         הצג {previewCount} תרגילים
       </button>
@@ -338,11 +349,12 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
   return (
     <FilterSheet isOpen={isOpen} title="פילטרים" onClose={() => setOpen(false)} footer={footer}>
+      <FiltersV2.Provider value={v2}>
       <div className="space-y-5">
         {/* ── שרירים — synced with the top bar (same store field, no draft),
              plus a secondary "associated with the selected track" hint ── */}
         <section>
-          <h3 className="text-[13px] font-bold text-gray-700 mb-1">שרירים</h3>
+          <h3 className={v2 ? "mb-1.5 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-1"}>שרירים</h3>
           {associatedMuscles.size > 0 && (
             <p className="text-[11px] text-amber-600 font-semibold mb-2">
               מסומן בכתום — שרירים שקשורים למסלול שנבחר (מידע בלבד, לא משפיע על התוצאות)
@@ -357,13 +369,17 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                   key={chip.key}
                   type="button"
                   onClick={() => setMuscles(toggleMuscleChip(filters.muscles, chip))}
-                  className={`flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
-                    isOn
-                      ? 'bg-primary/10 border-primary text-primary'
-                      : isAssociated
-                      ? 'bg-amber-50 border-amber-300 text-amber-700'
-                      : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={
+                    v2
+                      ? `${V2_CHIP} ${isOn ? V2_ON : isAssociated ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-300' : V2_OFF}`
+                      : `flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+                          isOn
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : isAssociated
+                            ? 'bg-amber-50 border-amber-300 text-amber-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`
+                  }
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -384,7 +400,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
         {/* ── מסלול — collapsible master → children hierarchy, per-track רמה
              nested inline (round 5, #3, #6, #8) ── */}
         <section>
-          <h3 className="text-[13px] font-bold text-gray-700 mb-2">מסלול</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>מסלול</h3>
           {programs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-4">טוען מסלולים...</p>
           ) : (
@@ -466,18 +482,22 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
         {/* ── מיקום ── */}
         <section>
-          <h3 className="text-[13px] font-bold text-gray-700 mb-2">מיקום</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>מיקום</h3>
           <div className="flex gap-2">
             {(['park', 'home'] as const).map((loc) => (
               <button
                 key={loc}
                 type="button"
                 onClick={() => setDraftLocation(draftLocation === loc ? null : loc)}
-                className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
-                  draftLocation === loc
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}
+                className={
+                  v2
+                    ? `h-11 flex-1 rounded-full text-[14.5px] font-extrabold transition-colors ${draftLocation === loc ? V2_ON : V2_OFF}`
+                    : `flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
+                        draftLocation === loc
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`
+                }
               >
                 {loc === 'park' ? 'פארק' : 'בית'}
               </button>
@@ -487,7 +507,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
         {/* ── ציוד ── */}
         <section>
-          <h3 className="text-[13px] font-bold text-gray-700 mb-2">ציוד</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>ציוד</h3>
           <div className="flex flex-wrap gap-1.5 mb-3">
             <EquipmentChip
               active={draftEquipment.has(BODYWEIGHT_SENTINEL)}
@@ -507,6 +527,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
           )}
         </section>
       </div>
+      </FiltersV2.Provider>
     </FilterSheet>
   );
 }
@@ -561,6 +582,15 @@ function ProgramPill({
   emphasized?: boolean;
 }) {
   const iconKey = resolveIconKey(program.iconKey, program.name);
+  const v2 = React.useContext(FiltersV2);
+  if (v2) {
+    return (
+      <button type="button" onClick={onClick} className={`min-w-0 flex-1 ${V2_CHIP} ${isOn ? V2_ON : V2_OFF}`}>
+        {getProgramIcon(iconKey, 'w-4 h-4 flex-shrink-0')}
+        <span className="truncate">{program.name}</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -622,13 +652,18 @@ function EquipmentChip({
   iconNode?: React.ReactNode;
   label: string;
 }) {
+  const eqV2 = React.useContext(FiltersV2);
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
-        active ? 'bg-primary/10 border-primary text-primary' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-      }`}
+      className={
+        eqV2
+          ? `${V2_CHIP} ${active ? V2_ON : V2_OFF}`
+          : `flex items-center gap-1.5 ps-2.5 pe-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+              active ? 'bg-primary/10 border-primary text-primary' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+            }`
+      }
     >
       {iconNode ?? (iconSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
