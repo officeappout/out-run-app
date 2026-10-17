@@ -12,6 +12,8 @@ import {
   Copy,
   Crown,
   Globe,
+  GraduationCap,
+  Heart,
   Home,
   Info,
   Plus,
@@ -30,9 +32,8 @@ import {
   BATTLE,
   CITIES,
   CITY_CHALLENGE,
-  DIVISIONS,
   INVITES,
-  MY_DIVISION,
+  PEOPLE_BOARD,
   MY_LEAGUES,
   NEIGHBORHOODS,
   POINTS_RULES,
@@ -322,18 +323,6 @@ function Row({
   );
 }
 
-function ZoneLine({ up, label }: { up: boolean; label: string }) {
-  const color = up ? 'text-[#00845a] border-[#00a86a]/40' : 'text-[#c8353a] border-[#e5484d]/40';
-  const Icon = up ? ChevronUp : ChevronDown;
-  return (
-    <li className={`flex items-center gap-2 px-3 py-1.5 text-[11.5px] font-extrabold ${color}`}>
-      <Icon size={14} strokeWidth={3} aria-hidden />
-      {label}
-      <span className={`h-px flex-1 border-t border-dashed ${color}`} />
-    </li>
-  );
-}
-
 function FairNote({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-start gap-2 rounded-[16px] bg-white px-3 py-2.5 text-[12.5px] font-bold leading-snug text-v2-ink-2 shadow-v2-ring">
@@ -343,11 +332,14 @@ function FairNote({ children }: { children: ReactNode }) {
   );
 }
 
-function BoardHead({ title, period }: { title: string; period: string }) {
+function BoardHead({ title, period, children }: { title: string; period: string; children?: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between px-2 pb-1 pt-1">
-      <span className="text-[17px] font-black">{title}</span>
-      <span className="text-[12px] font-bold text-v2-muted">{period}</span>
+    <div className="px-2 pb-1 pt-1">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[17px] font-black">{title}</span>
+        <span className="text-[12px] font-bold text-v2-muted">{period}</span>
+      </div>
+      {children && <div className="mt-2.5">{children}</div>}
     </div>
   );
 }
@@ -365,9 +357,52 @@ function ProgressBar({ pct, className = '' }: { pct: number; className?: string 
   );
 }
 
+/** 2,410,000 → "2.4 מיליון"; smaller numbers get thousands separators. */
+function big(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('he-IL', { maximumFractionDigits: 1 })} מיליון`;
+  return n.toLocaleString('he-IL');
+}
+
+type Measure = 'avg' | 'total';
+
+/** Average per active member (the fair ranking) vs the group's total. */
+function MeasureToggle({ value, onChange, avgLabel, totalLabel }: { value: Measure; onChange: (m: Measure) => void; avgLabel: string; totalLabel: string }) {
+  const reduce = useReducedMotion();
+  const opts: { id: Measure; label: string }[] = [
+    { id: 'avg', label: avgLabel },
+    { id: 'total', label: totalLabel },
+  ];
+  return (
+    <div className="grid grid-cols-2 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline" role="radiogroup" aria-label="שיטת דירוג">
+      {opts.map((o) => {
+        const on = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.id)}
+            className={`relative h-9 rounded-full text-[13px] font-extrabold transition-colors duration-200 ${on ? 'text-v2-ink' : 'text-v2-muted'}`}
+          >
+            {on && (
+              <motion.span
+                layoutId={`measure-${avgLabel}`}
+                className="absolute inset-0 rounded-full bg-white shadow-v2-ring"
+                transition={{ duration: reduce ? 0 : 0.28, ease: EASE_V2 }}
+              />
+            )}
+            <span className="relative">{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── personal leagues ───────────────────────────────────────────────────── */
 
-const LEAGUE_ICON = { division: Shield, city: Building2, private: Users, national: Globe } as const;
+const LEAGUE_ICON = { neighborhood: Home, city: Building2, private: Users, national: Globe } as const;
 
 function LeagueSwitcher({ leagueId, onPick }: { leagueId: string; onPick: () => void }) {
   const l = MY_LEAGUES.find((x) => x.id === leagueId) ?? MY_LEAGUES[0];
@@ -438,12 +473,9 @@ function InviteCard() {
 }
 
 function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => void }) {
-  const d = MY_DIVISION;
-  const current = DIVISIONS.findIndex((x) => x.id === d.division);
-  const next = DIVISIONS[current + 1];
-  const prev = DIVISIONS[current - 1];
-  const promoLine = d.rows[d.promoteTop - 1].points;
-  const pct = Math.min(100, Math.round((d.me.points / promoLine) * 100));
+  const d = PEOPLE_BOARD;
+  const nextPoints = d.me.points + d.me.toNext;
+  const pct = Math.min(100, Math.round((d.me.points / nextPoints) * 100));
   const top: PodiumItem[] = d.rows.slice(0, 3).map((r) => ({ name: r.name, value: String(r.points), unit: 'נק׳', me: r.me }));
   return (
     <>
@@ -451,47 +483,27 @@ function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => vo
 
       <Card padding="none" className="overflow-hidden !rounded-v2-card-lg">
         <div className="bg-gradient-to-b from-[#e8f9fe] to-white p-4 pb-2">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[13px] font-extrabold text-v2-deep">
-              {d.size} מתאמנים ברמה שלך
-            </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-extrabold text-v2-deep">{d.size} משתתפים השבוע</span>
             <span className="text-[12px] font-bold text-v2-muted">מתעדכן כל שעה</span>
           </div>
-          <div className="mt-2 flex justify-between text-[12.5px] font-bold">
-            <span className="text-v2-ink-2">עוד {d.me.toPromotion} נק׳ לאזור העלייה</span>
-            {next && <span className="text-v2-muted">ליגת {next.label}</span>}
+          <div className="mt-3 flex items-center gap-3 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring">
+            <span className="text-[26px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">#{d.me.rank}</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-extrabold">
+                עוד {d.me.toNext} נק׳ ועוקפים את {d.me.nextName}
+              </div>
+              <ProgressBar pct={pct} className="mt-1.5" />
+            </div>
+            <span className="text-[13px] font-black tabular-nums text-v2-ink-2">{d.me.points} נק׳</span>
           </div>
-          <ProgressBar pct={pct} className="mt-1.5" />
-          <ol className="mt-3 flex items-center gap-1.5" aria-label="דרגות הליגה">
-            {DIVISIONS.map((x, i) => (
-              <li
-                key={x.id}
-                className={`flex-1 rounded-full py-1 text-center text-[12px] font-extrabold ${
-                  i === current ? 'bg-v2-ink text-white' : i < current ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-muted'
-                }`}
-              >
-                {x.label}
-              </li>
-            ))}
-          </ol>
-          <div className="mt-4">
+          <div className="mt-5">
             <Podium items={top} />
           </div>
         </div>
         <ol className="px-2 pb-2">
-          {d.rows.slice(3).map((r, i) => {
-            const rank = i + 4;
-            return (
-              <div key={r.name}>
-                <Row rank={rank} name={r.name} value={String(r.points)} unit="נק׳" delta={r.delta} me={r.me} avatar />
-                {rank === d.promoteTop && next && <ZoneLine up label={`עולים לליגת ${next.label}`} />}
-              </div>
-            );
-          })}
-          <li className="py-1 text-center text-[13px] font-black tracking-[0.3em] text-v2-muted/60">···</li>
-          {prev && <ZoneLine up={false} label={`יורדים לליגת ${prev.label}`} />}
-          {d.bottom.map((r) => (
-            <Row key={r.name} rank={r.rank} name={r.name} value={String(r.points)} unit="נק׳" delta={r.delta} avatar />
+          {d.rows.slice(3).map((r, i) => (
+            <Row key={r.name} rank={i + 4} name={r.name} value={String(r.points)} unit="נק׳" delta={r.delta} me={r.me} avatar />
           ))}
         </ol>
       </Card>
@@ -508,9 +520,7 @@ function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => vo
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-[12.5px] font-bold leading-snug text-v2-muted">
-          מתחרים מול אנשים ברמה דומה, לא מול כל העיר. כל סוג פעילות נחשב.
-        </p>
+        <p className="mt-3 text-[12.5px] font-bold leading-snug text-v2-muted">כל סוג פעילות נחשב: כוח, ריצה, הליכה וצעדים.</p>
       </Card>
     </>
   );
@@ -519,13 +529,17 @@ function PeopleLeague({ leagueId, onPick }: { leagueId: string; onPick: () => vo
 /* ── neighborhoods ──────────────────────────────────────────────────────── */
 
 function NeighborhoodLeague() {
+  const [measure, setMeasure] = useState<Measure>('avg');
   const b = BATTLE;
   const lead = b.mine.perMember - b.rival.perMember;
   const pct = Math.round((b.mine.perMember / (b.mine.perMember + b.rival.perMember)) * 100);
-  const top: PodiumItem[] = NEIGHBORHOODS.slice(0, 3).map((n) => ({
+  const sorted = [...NEIGHBORHOODS].sort((x, y) => (measure === 'avg' ? y.perMember - x.perMember : y.totalSteps - x.totalSteps));
+  const val = (n: (typeof NEIGHBORHOODS)[number]) => (measure === 'avg' ? String(n.perMember) : big(n.totalSteps));
+  const unit = measure === 'avg' ? 'נק׳ למשתתף' : 'צעדים';
+  const top: PodiumItem[] = sorted.slice(0, 3).map((n) => ({
     name: n.name,
-    value: String(n.perMember),
-    unit: 'נק׳',
+    value: val(n),
+    unit: measure === 'avg' ? 'נק׳' : '',
     me: n.me,
     sub: `${n.active} פעילים`,
   }));
@@ -566,7 +580,15 @@ function NeighborhoodLeague() {
           />
         </div>
         <p className="mt-2 text-[12px] font-bold text-v2-muted">נקודות בממוצע למשתתף פעיל</p>
-        <div className="mt-4 flex items-center gap-3 rounded-[18px] bg-white px-4 py-3">
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[b.mine, b.rival].map((x) => (
+            <div key={x.name} className="rounded-[16px] bg-white/80 px-3 py-2">
+              <div className="text-[18px] font-black leading-tight tabular-nums">{big(x.totalSteps)}</div>
+              <div className="text-[11.5px] font-bold text-v2-muted">צעדים השבוע ב{x.name}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-3 rounded-[18px] bg-white px-4 py-3">
           <Avatar name="אתה" size={34} />
           <div className="flex-1">
             <div className="text-[13px] font-bold text-v2-muted">התרומה שלך השבוע</div>
@@ -581,24 +603,30 @@ function NeighborhoodLeague() {
       </div>
 
       <Card padding="sm">
-        <BoardHead title="שכונות תל אביב־יפו" period="השבוע" />
-        <Podium items={top} avatars={false} />
+        <BoardHead title="שכונות תל אביב־יפו" period="השבוע">
+          <MeasureToggle value={measure} onChange={setMeasure} avgLabel="ממוצע למשתתף" totalLabel="סה״כ צעדים" />
+        </BoardHead>
+        <Podium key={measure} items={top} avatars={false} />
         <ol className="mt-2">
-          {NEIGHBORHOODS.slice(3).map((n, i) => (
+          {sorted.slice(3).map((n, i) => (
             <Row
               key={n.name}
               rank={i + 4}
               name={n.name}
               sub={`${n.active} פעילים`}
-              value={String(n.perMember)}
-              unit="נק׳ למשתתף"
+              value={val(n)}
+              unit={unit}
               delta={n.delta}
               me={n.me}
             />
           ))}
         </ol>
       </Card>
-      <FairNote>נווה צדק במקום השלישי עם 97 פעילים בלבד: הניקוד הוא ממוצע למשתתף, לא סכום, ולכן גודל השכונה לא קובע.</FairNote>
+      <FairNote>
+        {measure === 'avg'
+          ? 'בממוצע למשתתף, גודל השכונה לא קובע: נווה צדק במקום השלישי עם 97 פעילים בלבד.'
+          : 'בסה״כ, שכונות גדולות מובילות. הדירוג הרשמי של הליגה הוא לפי ממוצע למשתתף.'}
+      </FairNote>
     </>
   );
 }
@@ -614,15 +642,20 @@ const SIZE_FILTERS = [
 
 function CityLeague() {
   const [size, setSize] = useState<(typeof SIZE_FILTERS)[number]['id']>('all');
-  const rows = CITIES.filter((c) => size === 'all' || c.size === size);
+  const [measure, setMeasure] = useState<Measure>('avg');
+  const rows = CITIES.filter((c) => size === 'all' || c.size === size).sort((x, y) =>
+    measure === 'avg' ? y.perMember - x.perMember : y.totalSteps - x.totalSteps,
+  );
+  const val = (r: (typeof CITIES)[number]) => (measure === 'avg' ? String(r.perMember) : big(r.totalSteps));
   const c = CITY_CHALLENGE;
   const top: PodiumItem[] = rows.slice(0, 3).map((r) => ({
     name: r.name,
-    value: String(r.perMember),
-    unit: 'נק׳',
+    value: val(r),
+    unit: measure === 'avg' ? 'נק׳' : '',
     me: r.me,
     sub: `${r.active.toLocaleString('he-IL')} פעילים`,
   }));
+  const podium = top.length === 3;
   return (
     <>
       <Card padding="lg" className="!rounded-v2-card-lg">
@@ -674,24 +707,30 @@ function CityLeague() {
       </div>
 
       <Card padding="sm">
-        <BoardHead title="ליגת הערים" period="החודש" />
-        {top.length === 3 && <Podium items={top} avatars={false} />}
+        <BoardHead title="ליגת הערים" period="החודש">
+          <MeasureToggle value={measure} onChange={setMeasure} avgLabel="ממוצע לתושב פעיל" totalLabel="סה״כ צעדים" />
+        </BoardHead>
+        {podium && <Podium key={measure + size} items={top} avatars={false} />}
         <ol className="mt-2">
-          {rows.slice(top.length === 3 ? 3 : 0).map((r, i) => (
+          {rows.slice(podium ? 3 : 0).map((r, i) => (
             <Row
               key={r.name}
-              rank={i + (top.length === 3 ? 4 : 1)}
+              rank={i + (podium ? 4 : 1)}
               name={r.name}
               sub={`${r.active.toLocaleString('he-IL')} פעילים`}
-              value={String(r.perMember)}
-              unit="נק׳ למשתתף"
+              value={val(r)}
+              unit={measure === 'avg' ? 'נק׳ למשתתף' : 'צעדים'}
               delta={r.delta}
               me={r.me}
             />
           ))}
         </ol>
       </Card>
-      <FairNote>אפשר להשוות ערים בגודל דומה. עיר קטנה עם תושבים פעילים מנצחת עיר גדולה.</FairNote>
+      <FairNote>
+        {measure === 'avg'
+          ? 'בממוצע לתושב פעיל, עיר קטנה עם תושבים פעילים מנצחת עיר גדולה.'
+          : 'בסה״כ צעדים הערים הגדולות מובילות. אפשר לסנן לפי גודל העיר להשוואה הוגנת.'}
+      </FairNote>
     </>
   );
 }
@@ -699,29 +738,39 @@ function CityLeague() {
 /* ── units ──────────────────────────────────────────────────────────────── */
 
 function UnitLeague() {
+  const [measure, setMeasure] = useState<Measure>('avg');
   const u = UNITS;
-  const brigadeTop: PodiumItem[] = u.brigades.map((b) => ({ name: b.name, value: String(b.score), unit: 'ציון', me: b.me }));
+  const brigades = [...u.brigades].sort((x, y) => (measure === 'avg' ? y.score - x.score : y.totalMinutes - x.totalMinutes));
+  const brigadeTop: PodiumItem[] = brigades.map((b) => ({
+    name: b.name,
+    value: measure === 'avg' ? String(b.score) : big(b.totalMinutes),
+    unit: measure === 'avg' ? 'ציון' : 'דק׳',
+    me: b.me,
+  }));
+  const rows = [...u.rows].sort((x, y) => (measure === 'avg' ? y.participation - x.participation : y.totalMinutes - x.totalMinutes));
   return (
     <>
       <Chip tone="neutral" icon={<Shield size={13} strokeWidth={2.6} aria-hidden />}>
         מוצג רק למשרתים ביחידה
       </Chip>
 
+      <MeasureToggle value={measure} onChange={setMeasure} avgLabel="אחוז השתתפות" totalLabel="סה״כ דקות" />
+
       <Card padding="sm" className="!rounded-v2-card-lg">
         <BoardHead title="דירוג החטיבות" period="החודש" />
-        <Podium items={brigadeTop} avatars={false} />
+        <Podium key={measure} items={brigadeTop} avatars={false} />
       </Card>
 
       <Card padding="sm">
         <BoardHead title={`גדודי ${u.brigade}`} period="השבוע" />
         <ol>
-          {u.rows.map((r, i) => (
+          {rows.map((r, i) => (
             <Row
               key={r.name}
               rank={i + 1}
               name={r.name}
-              value={`${r.participation}%`}
-              unit="השתתפות"
+              value={measure === 'avg' ? `${r.participation}%` : big(r.totalMinutes)}
+              unit={measure === 'avg' ? 'השתתפות' : 'דקות'}
               delta={r.delta}
               me={r.me}
               extra={
@@ -729,7 +778,9 @@ function UnitLeague() {
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-v2-tint">
                     <span className="block h-full rounded-full bg-v2-cta" style={{ width: `${r.participation}%` }} />
                   </span>
-                  <span className="text-[11.5px] font-bold tabular-nums text-v2-muted">{r.avgMinutes} דק׳ ממוצע</span>
+                  <span className="text-[11.5px] font-bold tabular-nums text-v2-muted">
+                    {measure === 'avg' ? `${big(r.totalMinutes)} דק׳ סה״כ` : `${r.participation}% השתתפות`}
+                  </span>
                 </span>
               }
             />
@@ -746,18 +797,26 @@ function UnitLeague() {
           שלח תזכורת לפלוגה
         </Button>
       </div>
-      <FairNote>הדירוג לפי אחוז הלוחמים שהתאמנו, ולא לפי כמות הדקות של הבודדים החזקים. כל לוחם נחשב.</FairNote>
+      <FairNote>
+        {measure === 'avg'
+          ? 'הדירוג לפי אחוז הלוחמים שהתאמנו, ולא לפי הדקות של הבודדים החזקים. כל לוחם נחשב.'
+          : 'סה״כ הדקות של כל היחידה. יחידות גדולות מובילות כאן, והדירוג הרשמי לפי אחוז השתתפות.'}
+      </FairNote>
     </>
   );
 }
 
 /* ── sheets: pick a league / open a new one ─────────────────────────────── */
 
+/** The league types the app's create wizard (/arena/create) already supports. */
 const CREATE_TYPES = [
-  { id: 'friends', label: 'חברים', icon: Users },
-  { id: 'work', label: 'עבודה', icon: Briefcase },
-  { id: 'family', label: 'משפחה', icon: Home },
-];
+  { id: 'neighborhood', label: 'שכונה', icon: Home, join: 'open', how: 'ליגה ציבורית: שכנים מוצאים אותה ומצטרפים בלי קוד.' },
+  { id: 'friends', label: 'חברים', icon: Users, join: 'link', how: 'ליגה פרטית: מצטרפים רק דרך קישור ההזמנה שלך.' },
+  { id: 'family', label: 'משפחה', icon: Heart, join: 'link', how: 'ליגה פרטית: מצטרפים רק דרך קישור ההזמנה שלך.' },
+  { id: 'work', label: 'עבודה', icon: Briefcase, join: 'request', how: 'שולחים בקשה לארגון, והוא פותח ליגה לכל העובדים.' },
+  { id: 'school', label: 'בית ספר', icon: GraduationCap, join: 'code', how: 'מצטרפים עם קוד הגישה שבית הספר נתן.' },
+  { id: 'military', label: 'יחידה', icon: Shield, join: 'code', how: 'מצטרפים עם קוד הגישה של היחידה.' },
+] as const;
 const CREATE_METRICS = ['כל הפעילות', 'צעדים', 'דקות כוח', 'ריצה'];
 
 function LeagueSheets({
@@ -774,7 +833,9 @@ function LeagueSheets({
   onClose: () => void;
 }) {
   const reduce = useReducedMotion();
-  const [type, setType] = useState('friends');
+  const [type, setType] = useState<(typeof CREATE_TYPES)[number]['id']>('friends');
+  const [isPublic, setIsPublic] = useState(true);
+  const t = CREATE_TYPES.find((x) => x.id === type)!;
   const [metric, setMetric] = useState(CREATE_METRICS[0]);
   return (
     <AnimatePresence>
@@ -852,22 +913,15 @@ function LeagueSheets({
                     </span>
                     <span>
                       <span className="block text-[16px] font-black text-v2-ink">פתיחת ליגה חדשה</span>
-                      <span className="block text-[12.5px] font-bold">חברים, עבודה, משפחה, או הצטרפות עם קוד</span>
+                      <span className="block text-[12.5px] font-bold">שכונה, חברים, משפחה, עבודה, או כניסה עם קוד</span>
                     </span>
                   </button>
                 </li>
               </ul>
             ) : (
               <div className="space-y-5">
-                <label className="block">
-                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">שם הליגה</span>
-                  <input
-                    defaultValue="החבר׳ה מהשכונה"
-                    className="h-12 w-full rounded-[14px] border border-v2-hairline bg-v2-surface px-4 text-[16px] font-extrabold outline-none focus:border-v2-accent focus:ring-[3px] focus:ring-v2-accent/20"
-                  />
-                </label>
                 <div>
-                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">סוג</span>
+                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">איזו ליגה?</span>
                   <div className="grid grid-cols-3 gap-2">
                     {CREATE_TYPES.map(({ id, label, icon: Icon }) => (
                       <button
@@ -884,40 +938,102 @@ function LeagueSheets({
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2.5 flex items-start gap-2 rounded-[14px] bg-v2-surface px-3 py-2.5 text-[13px] font-bold leading-snug text-v2-ink-2">
+                    <Info size={15} strokeWidth={2.4} className="mt-px shrink-0 text-v2-deep" aria-hidden />
+                    {t.how}
+                  </p>
                 </div>
-                <div>
-                  <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">על מה מתחרים</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CREATE_METRICS.map((m) => (
+
+                {t.join === 'code' ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">קוד גישה</span>
+                    <input
+                      dir="ltr"
+                      placeholder="OUT-XXXX"
+                      className="h-12 w-full rounded-[14px] border border-v2-hairline bg-v2-surface px-4 text-start text-[18px] font-black tracking-[0.15em] outline-none focus:border-v2-accent focus:ring-[3px] focus:ring-v2-accent/20"
+                    />
+                  </label>
+                ) : t.join === 'request' ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">שם מקום העבודה</span>
+                    <input
+                      placeholder="למשל: עיריית תל אביב"
+                      className="h-12 w-full rounded-[14px] border border-v2-hairline bg-v2-surface px-4 text-[16px] font-extrabold outline-none focus:border-v2-accent focus:ring-[3px] focus:ring-v2-accent/20"
+                    />
+                  </label>
+                ) : (
+                  <>
+                    <label className="block">
+                      <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">שם הליגה</span>
+                      <input
+                        defaultValue={type === 'neighborhood' ? 'הצפון הישן' : type === 'family' ? 'משפחת כהן' : 'החבר׳ה מהשכונה'}
+                        className="h-12 w-full rounded-[14px] border border-v2-hairline bg-v2-surface px-4 text-[16px] font-extrabold outline-none focus:border-v2-accent focus:ring-[3px] focus:ring-v2-accent/20"
+                      />
+                    </label>
+                    <div>
+                      <span className="mb-1.5 block text-[13px] font-extrabold text-v2-muted">על מה מתחרים</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CREATE_METRICS.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setMetric(m)}
+                            aria-pressed={metric === m}
+                            className={`h-9 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+                              metric === m ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {t.join === 'open' ? (
                       <button
-                        key={m}
                         type="button"
-                        onClick={() => setMetric(m)}
-                        aria-pressed={metric === m}
-                        className={`h-9 rounded-full px-4 text-[13px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
-                          metric === m ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
-                        }`}
+                        role="switch"
+                        aria-checked={isPublic}
+                        onClick={() => setIsPublic((v) => !v)}
+                        className="flex w-full items-center gap-3 rounded-[18px] bg-v2-surface px-4 py-3 text-start ring-1 ring-inset ring-v2-hairline"
                       >
-                        {m}
+                        <span className="flex-1">
+                          <span className="block text-[14.5px] font-extrabold">{isPublic ? 'ציבורית · בלי קוד' : 'פרטית · עם קישור הזמנה'}</span>
+                          <span className="block text-[12px] font-bold text-v2-muted">
+                            {isPublic ? 'כל מי שגר בשכונה יכול למצוא ולהצטרף' : 'רק מי שקיבל ממך קישור'}
+                          </span>
+                        </span>
+                        <span className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${isPublic ? 'bg-v2-cta' : 'bg-v2-pill-border'}`}>
+                          <span
+                            className="absolute top-1 h-5 w-5 rounded-full bg-white shadow-v2-ring transition-[inset-inline-start] duration-200 ease-v2"
+                            style={{ insetInlineStart: isPublic ? 24 : 4 }}
+                          />
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-[18px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
-                  <div className="flex-1">
-                    <div className="text-[12.5px] font-bold text-v2-muted">קוד הצטרפות</div>
-                    <div dir="ltr" className="text-start text-[20px] font-black tracking-[0.2em]">OUT-4K7Q</div>
-                  </div>
-                  <button type="button" aria-label="העתקת הקוד" className="grid h-10 w-10 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
-                    <Copy size={17} strokeWidth={2.4} />
-                  </button>
-                </div>
-                <p className="text-[12.5px] font-bold leading-snug text-v2-muted">
-                  כל חבר שמצטרף לאפליקציה דרך ההזמנה שלך מוסיף לך +{INVITES.perFriend} נק׳.
-                </p>
+                    ) : (
+                      <div className="flex items-center gap-3 rounded-[18px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12.5px] font-bold text-v2-muted">קישור הזמנה</div>
+                          <div dir="ltr" className="truncate text-start text-[15px] font-black">outrun.co.il/join/4K7Q</div>
+                        </div>
+                        <button type="button" aria-label="העתקת הקישור" className="grid h-10 w-10 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
+                          <Copy size={17} strokeWidth={2.4} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {t.join !== 'code' && t.join !== 'request' && (
+                  <p className="text-[12.5px] font-bold leading-snug text-v2-muted">
+                    כל חבר שמצטרף לאפליקציה דרך ההזמנה שלך מוסיף לך +{INVITES.perFriend} נק׳.
+                  </p>
+                )}
                 <Button variant="primary" size="lg" block>
-                  <UserPlus size={18} strokeWidth={2.6} aria-hidden />
-                  פתיחה והזמנת חברים
+                  {t.join === 'code' ? 'כניסה עם הקוד' : t.join === 'request' ? 'שליחת בקשה לארגון' : (
+                    <>
+                      <UserPlus size={18} strokeWidth={2.6} aria-hidden />
+                      {t.join === 'open' && isPublic ? 'פתיחת הליגה' : 'פתיחה והזמנת חברים'}
+                    </>
+                  )}
                 </Button>
               </div>
             )}
