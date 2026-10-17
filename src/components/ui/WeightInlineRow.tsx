@@ -35,12 +35,15 @@ export function useWeightNudge() {
   const saveWeight = async (w: number) => {
     const currentCore = useUserStore.getState().profile?.core;
     if (currentCore) {
-      useUserStore.getState().updateProfile({ core: { ...currentCore, weight: w } });
+      // weightSetByUser: see core/utils/weight-status.ts. Kept off the core type on
+      // purpose (a bare variable, not a literal, so no excess-property check).
+      const nextCore = { ...currentCore, weight: w, weightSetByUser: true };
+      useUserStore.getState().updateProfile({ core: nextCore });
     }
     const uid = auth.currentUser?.uid;
     if (uid) {
       try {
-        await updateDoc(doc(db, 'users', uid), { 'core.weight': w });
+        await updateDoc(doc(db, 'users', uid), { 'core.weight': w, 'core.weightSetByUser': true });
       } catch {
         // Non-blocking — local store already updated.
       }

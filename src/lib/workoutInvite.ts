@@ -12,6 +12,7 @@
 
 import { auth } from '@/lib/firebase';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import type { PlannedRunSettings } from '@/lib/planned-run';
 
 export interface RunInviteResult {
   token:        string;
@@ -32,11 +33,14 @@ export interface RunInviteResult {
  *   scheduled run. The API will set expiresAt = scheduledFor + 2h and write a
  *   community schedule entry for the host automatically.
  *
+ * - `plannedRun` (scheduled only): the drawer's goal + settings, stored with the
+ *   scheduled run (schedule entry + group doc) so "later" keeps what was chosen.
+ *
  * Throws if the user is not authenticated or the API returns an error.
  */
 export async function createRunInvite(
   activityType: 'running' | 'walking',
-  options?: { scheduledFor?: string },
+  options?: { scheduledFor?: string; plannedRun?: PlannedRunSettings },
 ): Promise<RunInviteResult> {
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
   if (!idToken) throw new Error('invite-not-authenticated');
@@ -53,6 +57,7 @@ export async function createRunInvite(
   }
   if (options?.scheduledFor) {
     body.scheduledFor = options.scheduledFor;
+    if (options.plannedRun) body.plannedRun = options.plannedRun;
   }
 
   const res = await fetch('/api/invite/run-session', {
