@@ -34,12 +34,6 @@ const TYPE_CHIPS: { id: SettlementType; label: string }[] = [
   { id: 'settlement', label: 'קיבוצים ומושבים' },
 ];
 
-const CATEGORY_CHIPS: { id: LeaderboardCategory; label: string }[] = [
-  { id: 'overall', label: 'כל הפעילות' },
-  { id: 'strength', label: 'כוח' },
-  { id: 'cardio', label: 'אירובי' },
-];
-
 function Chips<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
     <div className="-mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label={label}>
@@ -65,7 +59,6 @@ export default function NationalLeagueBoard({
   mode,
   timeWindow,
   category,
-  onCategoryChange,
   genderFilter = 'all',
   myScopeIds = [],
 }: {
@@ -73,6 +66,7 @@ export default function NationalLeagueBoard({
   mode: 'settlements' | 'neighborhoods';
   timeWindow: LeaderboardTimeWindow;
   category: LeaderboardCategory;
+  /** Kept for the call sites; activity chips were dropped from these boards (too many buttons). */
   onCategoryChange?: (c: LeaderboardCategory) => void;
   genderFilter?: LeaderboardGenderFilter;
   /** The viewer's own city / neighborhood ids — their rows get "שלך". */
@@ -156,7 +150,6 @@ export default function NationalLeagueBoard({
           label="אזור"
         />
       )}
-      {onCategoryChange && <Chips value={category} options={CATEGORY_CHIPS} onChange={onCategoryChange} label="סוג פעילות" />}
       <div className="mb-2">
         <BoardToggle
           label="שיטת דירוג"
