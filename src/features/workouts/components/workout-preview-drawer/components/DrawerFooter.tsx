@@ -1,5 +1,6 @@
 'use client';
 
+import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React from 'react';
 import { Play, Pencil, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
@@ -59,6 +60,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
   isAudioEnabled,
   onToggleAudio,
 }) => {
+  const v2 = useHomeV2();
   const startDisabled = !isOnline && !isFavDownloaded;
 
   return (
@@ -101,8 +103,16 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
         <button
           onClick={() => onStart()}
           disabled={startDisabled}
-          className="flex-1 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-lg border-0 outline-none disabled:opacity-40 disabled:active:scale-100"
-          style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 42 }}
+          className={`flex-1 ${v2 ? "text-[#04222b] text-[17px]" : "text-white text-lg"} font-extrabold rounded-full active:scale-[0.97] transition-all flex items-center justify-center gap-2 whitespace-nowrap border-0 outline-none disabled:opacity-40 disabled:active:scale-100`}
+          style={
+            v2
+              ? {
+                  background: 'linear-gradient(135deg, #00BAF7, #0CF2E3)',
+                  height: 48,
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0,186,247,0.7)',
+                }
+              : { background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 42 }
+          }
         >
           <Play size={20} fill="currentColor" />
           <span>התחלת אימון</span>
