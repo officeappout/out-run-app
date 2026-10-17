@@ -1,5 +1,6 @@
 'use client';
 
+import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
@@ -88,6 +89,7 @@ export default function WorkoutPreviewDrawer({
   onSelectIntensity,
   surface,
 }: WorkoutPreviewDrawerProps) {
+  const homeV2 = useHomeV2();
   const router = useRouter();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
@@ -558,7 +560,11 @@ export default function WorkoutPreviewDrawer({
                   >
                     <button
                       onClick={onClose}
-                      className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
+                      className={
+                        homeV2
+                          ? "v2-glass-chip w-10 h-10 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+                          : "w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
+                      }
                       aria-label="סגור"
                     >
                       <X size={20} strokeWidth={2.5} />

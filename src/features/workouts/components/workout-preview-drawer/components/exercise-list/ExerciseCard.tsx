@@ -1,5 +1,6 @@
 'use client';
 
+import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback } from 'react';
 import { Target } from 'lucide-react';
 import SwapIcon from '@/features/workout-engine/components/SwapIcon';
@@ -53,6 +54,7 @@ function ExerciseCardImpl({
   onSwap,
   volumeOverride,
 }: ExerciseCardProps) {
+  const v2 = useHomeV2();
   const name = typeof exercise.exercise.name === 'string'
     ? exercise.exercise.name
     : getLocalizedText(exercise.exercise.name, 'he');
@@ -83,12 +85,14 @@ function ExerciseCardImpl({
       tabIndex={0}
       onClick={handleTap}
       onKeyDown={handleKeyDown}
-      className={`relative w-full bg-white dark:bg-[#1E293B] rounded-lg overflow-hidden border-[0.5px] cursor-pointer active:scale-[0.98] transition-transform h-[70px] ${
+      className={`relative w-full bg-white dark:bg-[#1E293B] ${v2 ? "rounded-[16px]" : "rounded-lg"} overflow-hidden border-[0.5px] cursor-pointer active:scale-[0.98] transition-transform h-[70px] ${
         isGoal
           ? 'ring-2 ring-cyan-400 border-cyan-200 dark:border-cyan-800 bg-cyan-50/30 dark:bg-cyan-900/20'
           : isSuperset && !framed
             ? 'border-[#E0E9FF]/40 dark:border-slate-800/50 shadow-none'
-            : 'border-[#E0E9FF] dark:border-slate-700 shadow-sm'
+            : v2
+              ? 'border-transparent shadow-[0_0_0_1px_rgba(14,27,42,0.08)]'
+              : 'border-[#E0E9FF] dark:border-slate-700 shadow-sm'
       }`}
     >
       <div className="flex items-stretch h-full">
