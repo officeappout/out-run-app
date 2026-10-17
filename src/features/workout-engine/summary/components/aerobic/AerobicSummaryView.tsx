@@ -4,7 +4,11 @@ import React, { useState, type ReactNode } from 'react';
 import { Activity, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
 import { Button, Card, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
 import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
-import type { SummarySnap } from '../../blocks/summary-sheet.util';
+import { SUMMARY_COLLAPSED_PX, type SummarySnap } from '../../blocks/summary-sheet.util';
+import FinishAndContinueFooter, {
+  FINISH_CONTINUE_EXTRA_PX,
+  type FinishContinuation,
+} from '../../blocks/FinishAndContinueFooter';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import DopamineStreakBlock from '../shared/DopamineStreakBlock';
@@ -70,6 +74,12 @@ export interface AerobicSummaryViewProps {
    * No map is mounted behind the history route, so it passes 0. Default 110.
    */
   peekHeight?: number;
+  /**
+   * G7.1 (flag enable_finish_and_continue) — continuation suggestions + a large
+   * "סיים אימון" in the pinned footer (live flow only; ignored in history
+   * mode). Absent = today's footer, unchanged.
+   */
+  continuation?: FinishContinuation;
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
@@ -109,6 +119,7 @@ export default function AerobicSummaryView({
   isReadOnly = false,
   onDelete,
   peekHeight = 110,
+  continuation,
 }: AerobicSummaryViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
@@ -122,6 +133,8 @@ export default function AerobicSummaryView({
   const [expandedDeleteModalOpen, setExpandedDeleteModalOpen] = useState(false);
 
   // Pair = group session with exactly 2 participants; detected once groupCtx loads
+  const liveContinuation = !isReadOnly ? continuation : undefined;
+
   const isPair = variant === 'group' && (groupCtx?.participantCount ?? 0) === 2;
   const effectiveVariant = isPair ? 'pair' : variant;
 
@@ -474,8 +487,11 @@ export default function AerobicSummaryView({
         header={hero}
         peekHeight={peekHeight}
         initialSnap={initialSnap}
+        collapsedPx={liveContinuation ? SUMMARY_COLLAPSED_PX + FINISH_CONTINUE_EXTRA_PX : undefined}
         footer={
-          isReadOnly ? (
+          liveContinuation ? (
+            <FinishAndContinueFooter continuation={liveContinuation} onFinish={onSave} />
+          ) : isReadOnly ? (
             // History: optional delete (caller-owned confirm) + close. No save.
             <div className="flex items-center gap-2.5 px-4 py-3">
               {onDelete && (

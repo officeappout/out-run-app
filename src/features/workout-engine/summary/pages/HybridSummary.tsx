@@ -5,7 +5,11 @@ import { Share2, Trash2, Target, Sparkles } from 'lucide-react';
 import { Button, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
-import type { SummarySnap } from '../blocks/summary-sheet.util';
+import { SUMMARY_COLLAPSED_PX, type SummarySnap } from '../blocks/summary-sheet.util';
+import FinishAndContinueFooter, {
+  FINISH_CONTINUE_EXTRA_PX,
+  type FinishContinuation,
+} from '../blocks/FinishAndContinueFooter';
 import SegmentRail, { type SegmentRailItem } from '../blocks/SegmentRail';
 import { railTypeFromKind, segmentLabel, type SegmentRailType } from '../blocks/segment-rail.util';
 import { formatDuration } from '../format';
@@ -36,6 +40,12 @@ export interface HybridSummaryProps {
   peekHeight?: number;
   /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
   initialSnap?: SummarySnap;
+  /**
+   * G7.1 (flag enable_finish_and_continue) — continuation suggestions + a large
+   * "סיים אימון". Only the live post-finish flow passes it, only when the flag
+   * is ON; absent = today's footer, unchanged.
+   */
+  continuation?: FinishContinuation;
 }
 
 const HYBRID_TABS: DrawerTab[] = [
@@ -89,6 +99,7 @@ export default function HybridSummary({
   onDelete,
   peekHeight = 150,
   initialSnap = 'full',
+  continuation,
 }: HybridSummaryProps) {
   const [tab, setTab] = useState<string>('overview');
   const { summary, segments } = result;
@@ -212,7 +223,18 @@ export default function HybridSummary({
 
   // Pinned footer — share (where it was), optional delete (history only) and
   // the ONE explicit exit action. The drawer itself never finishes on drag/tap.
-  const footer = (
+  const footer = continuation ? (
+    <FinishAndContinueFooter
+      continuation={continuation}
+      onFinish={onFinish}
+      leading={
+        <Button variant="ghost" size="lg" onClick={handleShare} className="flex-1">
+          <Share2 size={18} strokeWidth={2.4} aria-hidden />
+          שתפו
+        </Button>
+      }
+    />
+  ) : (
     <div className="flex items-center gap-2.5 px-4 py-3">
       <Button variant="ghost" size="lg" onClick={handleShare} className="flex-1">
         <Share2 size={18} strokeWidth={2.4} aria-hidden />
@@ -243,6 +265,7 @@ export default function HybridSummary({
       header={hero}
       peekHeight={peekHeight}
       initialSnap={initialSnap}
+      collapsedPx={continuation ? SUMMARY_COLLAPSED_PX + FINISH_CONTINUE_EXTRA_PX : undefined}
       footer={footer}
     >
       {tabBody[tab] ?? tabBody.overview}

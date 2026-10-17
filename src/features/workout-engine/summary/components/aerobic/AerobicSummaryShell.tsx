@@ -8,6 +8,7 @@ import { createContribution } from '@/features/parks/core/services/contribution.
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import AerobicSummaryView from './AerobicSummaryView';
+import type { FinishContinuation } from '../../blocks/FinishAndContinueFooter';
 
 interface Props {
   variant: 'group' | 'solo' | 'pair';
@@ -29,6 +30,8 @@ interface Props {
   onDelete?: () => void;
   /** Gap above the open drawer; history passes 0 (no map behind). */
   peekHeight?: number;
+  /** G7.1 finish & continue footer (flag ON, live flow only) — forwarded to the view. */
+  continuation?: FinishContinuation;
 }
 
 /**
