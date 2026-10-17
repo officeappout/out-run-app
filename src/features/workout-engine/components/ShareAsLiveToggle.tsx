@@ -103,6 +103,8 @@ interface ShareAsLiveToggleProps {
   contextPark?: PlaceContext;
   /** Context prefill (flag-on path only) — a specific route already in scope. */
   contextRoute?: PlaceContext;
+  /** Home v2 (enable_home_v2) styling only. Default false = today's UI. */
+  v2?: boolean;
 }
 
 export default function ShareAsLiveToggle({
@@ -113,6 +115,7 @@ export default function ShareAsLiveToggle({
   className = '',
   contextPark,
   contextRoute,
+  v2 = false,
 }: ShareAsLiveToggleProps) {
   const profile = useUserStore((s) => s.profile);
   const storedGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
@@ -229,6 +232,46 @@ export default function ShareAsLiveToggle({
     : contextPark
     ? { kind: 'park' as const, id: contextPark.id, name: contextPark.name, lat: contextPark.lat ?? null, lng: contextPark.lng ?? null }
     : undefined;
+
+  const composeSheet = SOCIAL_COMPOSE_UI_ENABLED && (
+    <PlannedActivityComposeSheet
+      isOpen={composeOpen}
+      onClose={() => setComposeOpen(false)}
+      initialType={toComposeActivityType(activityType)}
+      initialPlace={initialPlace}
+      onCreated={() => setShareAsLive(true)}
+    />
+  );
+
+  if (v2) {
+    // v2: brand-tint icon tile, 14/12.5px text (the legacy 10px sub-line was
+    // below the 11px floor), and the drawer's own accent toggle instead of the
+    // off-brand teal one.
+    return (
+      <div className={`flex items-center gap-3 ${className}`} dir="rtl">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
+          <Users size={18} strokeWidth={2.4} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate whitespace-nowrap text-[14px] font-extrabold text-v2-ink">{headline}</div>
+          <div className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{subheadline}</div>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-pressed={shareAsLive}
+          aria-label={headline}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-150 ease-v2 ${shareAsLive ? 'bg-v2-accent' : 'bg-v2-pill-border'}`}
+        >
+          <span
+            className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-all duration-150 ease-v2"
+            style={{ left: shareAsLive ? 2 : 22 }}
+          />
+        </button>
+        {composeSheet}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex items-center gap-3 ${className}`} dir="rtl">

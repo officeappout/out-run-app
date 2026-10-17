@@ -515,9 +515,16 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 {v2
                   ? <span aria-hidden className="inline-flex shrink-0" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[15px] h-[15px]" /></span>
                   : <span aria-hidden>🚶</span>}
-                {roundTripOn
-                  ? `הלוך וחזור · כולל ${roundTripLegs.walkThereMin + roundTripLegs.walkBackMin} דק׳ הליכה אל המסלול וממנו`
-                  : 'הוסף הליכה הלוך וחזור'}
+                {(() => {
+                  const label = roundTripOn
+                    ? `הלוך וחזור · כולל ${roundTripLegs.walkThereMin + roundTripLegs.walkBackMin} דק׳ הליכה אל המסלול וממנו`
+                    : 'הוסף הליכה הלוך וחזור';
+                  // v2: the pill is whitespace-nowrap + max-w-full, and the "on" label
+                  // (~45 chars) is wider than the header's text column on a phone
+                  // (pl-16 reserves the back button) — it ran out of the pill and was
+                  // cut by the card's overflow-hidden. Truncate inside the pill.
+                  return v2 ? <span className="min-w-0 truncate">{label}</span> : label;
+                })()}
               </button>
             )}
           </div>

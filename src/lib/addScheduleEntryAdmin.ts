@@ -11,6 +11,7 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import type { PlannedRunSettings } from '@/lib/planned-run';
 
 const COLLECTION = 'userSchedule';
 
@@ -34,6 +35,8 @@ export interface AdminScheduleEntryPayload {
   groupName?: string;
   /** See UserScheduleEntry.isSoloScheduled */
   isSoloScheduled?: boolean;
+  /** See UserScheduleEntry.plannedRun */
+  plannedRun?: PlannedRunSettings;
 }
 
 /**

@@ -151,6 +151,8 @@ export function usePersonalInfoEditor() {
       const w = parseFloat(editWeight);
       if (!isNaN(w) && w > 0 && w !== profile?.core?.weight) {
         update['core.weight'] = w;
+        // Explicit user entry — see core/utils/weight-status.ts.
+        update['core.weightSetByUser'] = true;
       }
 
       const day = parseInt(editDob.day, 10);
