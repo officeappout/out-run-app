@@ -23,6 +23,9 @@ import EditProfileModal from './EditProfileModal';
 import WorkoutGrid from './WorkoutGrid';
 import ProfileHeader from './ProfileHeader';
 import PartnersHighlightsRow from './PartnersHighlightsRow';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import StreakFlame from '@/components/ui/v2/StreakFlame';
+import { EASE_V2 } from '@/components/ui/v2';
 
 // Carousels use Firestore + auth — keep them client-only via dynamic()
 const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: false });
@@ -65,6 +68,9 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   const partnerCount = profile?.social?.partnerCount ?? 0;
   const trainingTags = profile?.core?.trainingTags ?? [];
   const [activeTab, setActiveTab] = useState<typeof PROFILE_TABS[number]['id']>('workouts');
+  // Home v2 (enable_home_v2) — the profile is part of the same look.
+  const { flags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = flags.enableHomeV2;
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
   useEffect(() => {
@@ -154,18 +160,26 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               type="button"
               onClick={onOpenSettings}
               aria-label="הגדרות"
-              className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95 transition-all"
+              className={
+                v2
+                  ? 'grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                  : 'w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95 transition-all'
+              }
             >
-              <Settings2 className="w-5 h-5 text-gray-700" />
+              <Settings2 className={v2 ? 'w-[18px] h-[18px] text-v2-ink' : 'w-5 h-5 text-gray-700'} />
             </button>
           )}
           <button
             type="button"
             onClick={() => setIsFavoritesSheetOpen(true)}
             aria-label="אימונים שמורים"
-            className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95 transition-all"
+            className={
+                v2
+                  ? 'grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                  : 'w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center active:scale-95 transition-all'
+              }
           >
-            <Bookmark className="w-5 h-5 text-gray-700" />
+            <Bookmark className={v2 ? 'w-[18px] h-[18px] text-v2-ink' : 'w-5 h-5 text-gray-700'} />
           </button>
         </div>
 
@@ -180,13 +194,21 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           <ProfileHeader
             photoURL={photoURL}
             name={userName}
+            v2={v2}
             cornerBadge={
-              <>
-                <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
-                <span className="text-[11px] font-black text-gray-900 tabular-nums">
-                  {currentStreak}
-                </span>
-              </>
+              v2 ? (
+                <>
+                  <StreakFlame tones={['strength']} size={20} />
+                  <span className="text-[12px] font-black text-v2-ink tabular-nums">{currentStreak}</span>
+                </>
+              ) : (
+                <>
+                  <Flame className="w-3.5 h-3.5 text-orange-500" fill="currentColor" />
+                  <span className="text-[11px] font-black text-gray-900 tabular-nums">
+                    {currentStreak}
+                  </span>
+                </>
+              )
             }
             stats={[
               {
@@ -213,7 +235,11 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
               <button
                 type="button"
                 onClick={() => setIsEditProfileOpen(true)}
-                className="w-full mt-4 py-2.5 text-sm font-bold text-[#00ADEF] text-center active:bg-gray-50 transition-colors rounded-lg"
+                className={
+                  v2
+                    ? 'mt-3 h-10 w-full rounded-full bg-white text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                    : 'w-full mt-4 py-2.5 text-sm font-bold text-[#00ADEF] text-center active:bg-gray-50 transition-colors rounded-lg'
+                }
               >
                 עריכת פרופיל
               </button>
@@ -281,8 +307,35 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         initial={{ y: 16, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.03 }}
-        className="border-b border-gray-100"
+        className={v2 ? 'sticky top-0 z-[2] -mx-4 bg-v2-surface/95 px-4 pb-2 pt-1 backdrop-blur-sm' : 'border-b border-gray-100'}
       >
+        {v2 ? (
+          <div className="grid grid-cols-4 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label="תצוגת פרופיל">
+            {PROFILE_TABS.map((tab) => {
+              const on = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-full text-[13px] font-extrabold transition-colors duration-200 ${on ? 'text-white' : 'text-v2-ink-2'}`}
+                >
+                  {on && (
+                    <motion.span
+                      layoutId="profile-tab-v2"
+                      className="absolute inset-0 rounded-full bg-v2-ink"
+                      transition={{ duration: 0.28, ease: EASE_V2 }}
+                    />
+                  )}
+                  <tab.Icon className="relative h-3.5 w-3.5" aria-hidden />
+                  <span className="relative">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div className="flex" role="tablist" aria-label="תצוגת פרופיל">
           {PROFILE_TABS.map((tab) => (
             <button
@@ -303,6 +356,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             </button>
           ))}
         </div>
+        )}
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -327,12 +381,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.06 }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-black text-gray-800">האימונים שלי</h3>
+            <h3 className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800'}>האימונים שלי</h3>
             {onNavigateToHistory && (
               <button
                 type="button"
                 onClick={onNavigateToHistory}
-                className="text-xs font-semibold text-[#00ADEF]"
+                className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-semibold text-[#00ADEF]'}
               >
                 הכל
               </button>
@@ -343,6 +397,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             workouts={workouts}
             isLoading={historyLoading}
             onOpen={(id) => router.push(`/workouts/${id}/history`)}
+            v2={v2}
           />
         </motion.div>
       </div>

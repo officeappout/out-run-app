@@ -51,14 +51,39 @@ function tileStat(workout: WorkoutHistoryEntry): string {
   return `${km.toFixed(1)} ק״מ`;
 }
 
+/** v2 tile data — same activity colours as the home flames. */
+const V2_TONE: Record<string, { rgb: string; iconSrc: string }> = {
+  strength: { rgb: '0,186,247', iconSrc: '/icons/programs/muscle.svg' },
+  hybrid: { rgb: '0,186,247', iconSrc: '/icons/programs/muscle.svg' },
+  running: { rgb: '132,204,22', iconSrc: '/icons/programs/Run.svg' },
+  cycling: { rgb: '132,204,22', iconSrc: '/icons/programs/Run.svg' },
+  walking: { rgb: '245,158,11', iconSrc: '/icons/programs/walking.svg' },
+  recovery: { rgb: '139,92,246', iconSrc: '/icons/programs/walking.svg' },
+};
+
+function dayCaption(workout: WorkoutHistoryEntry): string {
+  const raw = (workout as { date?: unknown }).date;
+  const d = raw instanceof Date ? raw : typeof raw === 'string' || typeof raw === 'number' ? new Date(raw) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  const days = Math.floor((new Date(today.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000);
+  if (days === 0) return 'היום';
+  if (days === 1) return 'אתמול';
+  if (days < 7) return ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'][d.getDay()];
+  return `${d.getDate()}.${d.getMonth() + 1}`;
+}
+
 export default function WorkoutGrid({
   workouts,
   isLoading,
   onOpen,
+  v2 = false,
 }: {
   workouts: WorkoutHistoryEntry[];
   isLoading: boolean;
   onOpen: (workoutId: string) => void;
+  /** Home v2 look (enable_home_v2). */
+  v2?: boolean;
 }) {
   // Keep every workout in the grid, even one missing `id` (defensive only —
   // every real Firestore-returned entry has one in practice, per the type's
@@ -68,7 +93,12 @@ export default function WorkoutGrid({
   const tiles: ActivityTile[] = workouts.map((workout, idx) => {
     const { Icon, label, tileGradient } = getActivityMeta(workout);
     const workoutId = workout.id;
+    const type = (workout.workoutType ?? workout.activityType ?? 'running').toLowerCase();
+    const tone = V2_TONE[type] ?? V2_TONE.running;
+    const [value, unit] = tileStat(workout).split(' ');
+    const when = dayCaption(workout);
     return {
+      v2: { ...tone, value, unit: unit ?? '', caption: when ? `${label} · ${when}` : label },
       id: workoutId ?? `idx-${idx}`,
       Icon,
       label,
@@ -82,6 +112,7 @@ export default function WorkoutGrid({
     <ActivityTileGrid
       tiles={tiles}
       isLoading={isLoading}
+      v2={v2}
       emptyMessage={<>עוד אין אימונים.<br />תתחיל לזוז!</>}
     />
   );
