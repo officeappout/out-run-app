@@ -61,6 +61,7 @@ import {
   PRECISE_REFINE_OPTIONS,
   REVERSE_GEOCODE_TIMEOUT_MS,
 } from './UnifiedLocation/fast-locate';
+import { isUserCameraMove } from './UnifiedLocation/map-move-guard';
 
 // ── Sub-Components ───────────────────────────────────────
 import { InitialCard } from './UnifiedLocation/sub-components/InitialCard';
@@ -341,16 +342,26 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const handleDragStart = useCallback((evt?: { originalEvent?: unknown }) => {
     // A real gesture (not a programmatic fitBounds/jump) — the user is now
     // placing the pin themselves; a late GPS refinement must not override it.
-    if (evt?.originalEvent) userTookOverRef.current = true;
+    const byUser = isUserCameraMove(evt);
+    if (byUser) userTookOverRef.current = true;
     setIsDragging(true);
-    if (dragTimeoutRef.current) {
+    // Only a new user gesture supersedes a pending drag lookup — a
+    // programmatic move (fitBounds etc.) no longer re-schedules it on
+    // moveend, so cancelling it here would silently drop the user's drag.
+    if (byUser && dragTimeoutRef.current) {
       clearTimeout(dragTimeoutRef.current);
     }
   }, []);
 
-  const handleDragEnd = useCallback(async () => {
+  const handleDragEnd = useCallback(async (evt?: { originalEvent?: unknown }) => {
     setIsDragging(false);
     if (stage !== LocationStage.CONFIRMING) return;
+    // UNGATED fix: only the user's own gesture may re-pin the location to the
+    // map centre. Programmatic camera moves — the hero-route fitBounds, and
+    // the jumpTo react-map-gl does for setViewState (GPS fix, precise
+    // refinement, city pick) — used to land here too and move/re-save the
+    // location to the route's bounding-box centre, drifting off the GPS fix.
+    if (!isUserCameraMove(evt)) return;
     // v2: a programmatic camera move (fitBounds on the hero route) landing
     // while the GPS pipeline is still resolving must not start a second,
     // competing pipeline — the GPS one is about to set everything.
