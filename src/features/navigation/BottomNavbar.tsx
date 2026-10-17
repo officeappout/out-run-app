@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, Map, Users, TrendingUp } from 'lucide-react';
+import { Home, Map, Users, TrendingUp, User } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -54,6 +54,16 @@ export default function BottomNavigation() {
         ]
       : []),
   ];
+
+  if (flags.enableHomeV2) {
+    return (
+      <BottomNavV2
+        pathname={pathname ?? ''}
+        isSuppressed={isSuppressed}
+        showSocial={flags.enableCommunityFeed || flags.enableLeagues}
+      />
+    );
+  }
 
   return (
     <motion.nav
@@ -122,6 +132,79 @@ export default function BottomNavigation() {
           );
         })}
       </div>
+    </motion.nav>
+  );
+}
+
+// ============================================================================
+// v2 — the floating glass bar with the map as a raised circle in the middle
+// (design lab "map" variant, approved 17.10.2026). Behind enable_home_v2.
+// Two halves of equal width keep the circle centred whether or not the
+// social tab is on; profile joins the bar so the halves stay balanced.
+// ============================================================================
+
+type V2Item = { name: string; href: string; icon: typeof Home; active: boolean };
+
+function BottomNavV2({
+  pathname,
+  isSuppressed,
+  showSocial,
+}: {
+  pathname: string;
+  isSuppressed: boolean;
+  showSocial: boolean;
+}) {
+  const on = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const left: V2Item[] = [
+    { name: 'בית', href: '/home', icon: Home, active: on('/home') },
+    { name: 'התקדמות', href: '/progression', icon: TrendingUp, active: on('/progression') },
+  ];
+  const right: V2Item[] = [
+    ...(showSocial ? [{ name: 'חברתי', href: '/community', icon: Users, active: on('/community') }] : []),
+    { name: 'פרופיל', href: '/profile', icon: User, active: on('/profile') },
+  ];
+  const mapActive = on('/map');
+  const tab = (item: V2Item) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        tabIndex={isSuppressed ? -1 : 0}
+        aria-current={item.active ? 'page' : undefined}
+        className={`flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-0.5 whitespace-nowrap text-[11px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.96] ${
+          item.active ? 'text-v2-deep' : 'text-v2-muted'
+        }`}
+      >
+        <Icon size={21} strokeWidth={item.active ? 2.6 : 2.2} aria-hidden />
+        {item.name}
+      </Link>
+    );
+  };
+
+  return (
+    <motion.nav
+      aria-label="ניווט ראשי"
+      initial={false}
+      animate={{ y: isSuppressed ? '140%' : '0%' }}
+      transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+      style={{ pointerEvents: isSuppressed ? 'none' : 'auto', willChange: 'transform' }}
+      aria-hidden={isSuppressed}
+      className="v2-glass-bar fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+14px)] z-50 flex h-[58px] items-center rounded-full px-2 shadow-v2-float"
+    >
+      <div className="relative flex flex-1 justify-around">{left.map(tab)}</div>
+      <Link
+        href="/map"
+        tabIndex={isSuppressed ? -1 : 0}
+        aria-label="מפה"
+        aria-current={mapActive ? 'page' : undefined}
+        className={`relative -mt-9 grid h-16 w-16 shrink-0 place-items-center rounded-full bg-white shadow-v2-float ring-1 ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.96] ${
+          mapActive ? 'text-v2-deep ring-2 ring-v2-accent' : 'text-v2-deep'
+        }`}
+      >
+        <Map size={28} strokeWidth={2.4} aria-hidden />
+      </Link>
+      <div className="relative flex flex-1 justify-around">{right.map(tab)}</div>
     </motion.nav>
   );
 }
