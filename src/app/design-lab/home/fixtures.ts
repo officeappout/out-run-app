@@ -242,3 +242,18 @@ export const GROUP = {
     { day: 'רביעי', time: '07:00', going: 4 },
   ],
 };
+
+/** Home variants of today's cards (the location chip switches to these). */
+export const TODAY_CARDS_HOME = [
+  { id: 'balanced', label: 'מאוזן', title: 'אימון יומי בבית', minutes: 30, level: 2 as 1 | 2 | 3, photo: 'thumb:c5304f9e-26e4-4aaf-b5d9-29bda9673ba3', gear: 'door' as const },
+  { id: 'intense', label: 'עצים ומהיר', title: 'בלאסט בבית', minutes: 15, level: 3 as 1 | 2 | 3, photo: 'thumb:704d0e9a-a2ea-4e29-b8ed-b4dcef8c6384', gear: 'chair' as const },
+  { id: 'light', label: 'שחרור', title: 'אימון התאוששות בבית', minutes: 12, level: 1 as 1 | 2 | 3, photo: 'thumb:1bded9a1-b3ca-4263-99c8-e75800a76d99', gear: 'mat' as const },
+];
+
+/** "קבוצות קרובות אליך" — same row as the app's NearbyGroupsRow. */
+export const NEARBY_GROUPS = [
+  { id: 'walk', name: 'הליכה בתל אביב', cat: 'walking', catLabel: 'הליכה', next: 'היום 18:30', going: 9, letters: ['מ', 'ש', 'נ'], photo: 'thumb:f82f157e-511a-402e-a2db-a7d348ac233a', km: '0.8 ק״מ' },
+  { id: 'run', name: 'רצים בירקון', cat: 'running', catLabel: 'ריצה', next: 'מחר 06:30', going: 14, letters: ['ע', 'ר', 'י'], photo: 'thumb:2ecc9e93-359b-4fc5-b322-a4bad9d5ccf4', km: '1.5 ק״מ' },
+  { id: 'park', name: 'כוח בגינה — דבורה הנביאה', cat: 'calisthenics', catLabel: 'כוח', next: 'שבת 09:00', going: 6, letters: ['א', 'ד'], photo: 'thumb:a5367716-ecd2-4764-ab32-409506623fe7', km: '350 מ׳' },
+  { id: 'moms', name: 'הליכת אמהות בשכונה', cat: 'community', catLabel: 'קהילתי', next: 'ראשון 10:00', going: 11, letters: ['ל', 'מ', 'ת'], photo: 'thumb:bc6f76c3-e415-4424-b1bd-8cfce59a7b58', km: '1.1 ק״מ' },
+];

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, ChevronLeft, Pencil, Play, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, Flag, Home as HomeIcon, MapPinPlus, Pencil, Play, Plus, Sparkles, Trees, Users, X, Zap } from 'lucide-react';
 import { Button, Card, EASE_V2 } from '@/components/ui/v2';
 import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
@@ -14,7 +14,9 @@ import WorkoutDrawer from './WorkoutDrawer';
 import BuilderSheet from './BuilderSheet';
 import {
   ACTIVE_MINUTES,
+  NEARBY_GROUPS,
   NEARBY_PARKS,
+  TODAY_CARDS_HOME,
   STEPS_DETAIL,
   TODAY_CARDS,
   TODAY_LABEL,
@@ -43,9 +45,9 @@ const NAVS: { id: NavVariant; label: string }[] = [
 ];
 
 const DENSITIES: { id: Density; label: string }[] = [
+  { id: 'dense', label: 'סופי (באמצע)' },
   { id: 'regular', label: 'רגיל' },
-  { id: 'compact', label: 'קומפקטי (-10%)' },
-  { id: 'dense', label: 'דחוס' },
+  { id: 'compact', label: 'קומפקטי' },
 ];
 
 const LAB_LINKS = [
@@ -117,9 +119,11 @@ export default function HomeLab() {
           <WeekSchedule state={state} />
           <TodayCarousel state={state} onOpen={() => setDrawerOpen(true)} onBuild={() => setBuilderOpen(true)} />
           <ProgressTabs state={state} />
+          <NearbyGroups />
           <NearbyParks />
         </div>
       </div>
+      <PlusFab />
       <BottomNav active="home" variant={nav} />
       <WorkoutDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <BuilderSheet open={builderOpen} onClose={() => setBuilderOpen(false)} />
@@ -130,7 +134,7 @@ export default function HomeLab() {
 function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   const c = useDensity() !== 'regular';
   return (
-    <div className="mb-3 flex items-baseline justify-between px-4">
+    <div className="mb-3 flex items-center justify-between px-4">
       <h2 className={`${c ? 'text-[17px]' : 'text-[19px]'} font-black !tracking-[-0.02em]`}>{children}</h2>
       {action}
     </div>
@@ -198,7 +202,68 @@ function WeekSchedule({ state }: { state: TodayState }) {
 
 /* ── today's workouts: carousel of fade-out cards + the generator ───────── */
 
-const GEAR_ICON = { pullBar: ICON.pullBar, bars: ICON.bars, bench: ICON.bench } as const;
+const GEAR_ICON = { pullBar: ICON.pullBar, bars: ICON.bars, bench: ICON.bench, door: ICON.door, chair: ICON.chair, mat: ICON.mat } as const;
+
+type Place = 'out' | 'home';
+const PLACES: { id: Place; label: string; sub: string; icon: typeof Trees }[] = [
+  { id: 'out', label: 'בחוץ', sub: 'פארק / מגרש', icon: Trees },
+  { id: 'home', label: 'בבית', sub: 'אימון ביתי', icon: HomeIcon },
+];
+
+/** The app's AnchorLocationChip: where today's workouts are planned for. */
+function LocationChip({ value, onChange }: { value: Place; onChange: (p: Place) => void }) {
+  const [open, setOpen] = useState(false);
+  const cur = PLACES.find((p) => p.id === value)!;
+  const Icon = cur.icon;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={`מיקום האימון: ${cur.label}`}
+        className="flex h-9 items-center gap-1.5 rounded-full bg-white pe-2.5 ps-3 text-[13.5px] font-extrabold shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+      >
+        <Icon size={15} strokeWidth={2.5} className="text-v2-deep" aria-hidden />
+        {cur.label}
+        <ChevronDown size={14} strokeWidth={2.6} className="text-v2-muted" aria-hidden />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: EASE_V2 }}
+            className="v2-glass-card absolute end-0 top-11 z-[6] w-[180px] origin-top-left rounded-[18px] p-1.5"
+          >
+            {PLACES.map((p) => {
+              const I = p.icon;
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(p.id);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-[14px] px-3 py-2 text-start ${p.id === value ? 'bg-v2-tint' : ''}`}
+                  >
+                    <I size={16} strokeWidth={2.4} className={p.id === value ? 'text-v2-deep' : 'text-v2-muted'} aria-hidden />
+                    <span>
+                      <span className="block text-[14px] font-extrabold">{p.label}</span>
+                      <span className="block text-[11.5px] font-bold text-v2-muted">{p.sub}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 const PHRASES = [
   'תבנה אימון שמתאים למה שיש לך היום',
@@ -247,9 +312,11 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
   const ref = useRef<HTMLDivElement>(null);
   const d = useDensity();
   const c = d !== 'regular';
-  const W = pick(d, 300, 284, 264);
+  const W = pick(d, 300, 284, 284);
   const [index, setIndex] = useState(0);
-  const cards = state === 'rest' ? [...TODAY_CARDS].reverse() : TODAY_CARDS;
+  const [place, setPlace] = useState<Place>('out');
+  const base = place === 'home' ? TODAY_CARDS_HOME : TODAY_CARDS;
+  const cards = state === 'rest' ? [...base].reverse() : base;
 
   const onScroll = () => {
     const el = ref.current;
@@ -260,7 +327,9 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
 
   return (
     <section aria-label="האימון של היום">
-      <SectionTitle>{state === 'rest' ? 'יום מנוחה — משהו קל?' : state === 'done' ? 'רוצה עוד משהו?' : 'האימון של היום'}</SectionTitle>
+      <SectionTitle action={<LocationChip value={place} onChange={setPlace} />}>
+        {state === 'rest' ? 'יום מנוחה — משהו קל?' : state === 'done' ? 'רוצה עוד משהו?' : 'האימון של היום'}
+      </SectionTitle>
       <div
         ref={ref}
         onScroll={onScroll}
@@ -270,7 +339,7 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
         {cards.map((card) => (
           <article key={card.id} className={`relative shrink-0 snap-center overflow-hidden ${c ? 'rounded-v2-card' : 'rounded-v2-card-lg'} bg-white shadow-v2-card`} style={{ width: W }}>
             <button type="button" onClick={onOpen} className="block w-full text-start" aria-label={`פרטי ${card.title}`}>
-              <div className="relative" style={{ height: pick(d, 230, 200, 170) }}>
+              <div className="relative" style={{ height: pick(d, 230, 200, 200) }}>
                 <img
                   src={photo(card.photo)}
                   alt=""
@@ -486,5 +555,180 @@ function NearbyParks() {
         ))}
       </div>
     </section>
+  );
+}
+
+/* ── nearby groups (the app's NearbyGroupsRow) ──────────────────────────── */
+
+const GROUP_FILTERS = [
+  { id: 'all', label: 'הכל' },
+  { id: 'walking', label: 'הליכה' },
+  { id: 'running', label: 'ריצה' },
+  { id: 'calisthenics', label: 'כוח' },
+  { id: 'community', label: 'קהילתי' },
+];
+
+function NearbyGroups() {
+  const [cat, setCat] = useState('all');
+  const list = NEARBY_GROUPS.filter((g) => cat === 'all' || g.cat === cat);
+  return (
+    <section aria-label="קבוצות קרובות אליך">
+      <SectionTitle
+        action={
+          <Link href="/design-lab/group" className="flex items-center gap-0.5 text-[14px] font-extrabold text-v2-deep">
+            הכל <ChevronLeft size={15} strokeWidth={2.6} aria-hidden />
+          </Link>
+        }
+      >
+        קבוצות קרובות אליך
+      </SectionTitle>
+      <div className="mb-3 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
+        {GROUP_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setCat(f.id)}
+            aria-pressed={cat === f.id}
+            className={`h-8 shrink-0 rounded-full px-3.5 text-[12.5px] font-extrabold transition-[transform,background-color] duration-150 ease-v2 active:scale-[0.97] ${
+              cat === f.id ? 'bg-v2-cta text-v2-on-cta' : 'bg-white text-v2-ink-2 shadow-v2-ring'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
+        {list.map((g) => (
+          <Link
+            key={g.id}
+            href="/design-lab/group"
+            className="w-[230px] shrink-0 snap-start overflow-hidden rounded-[22px] bg-white shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.98]"
+          >
+            <div className="relative h-[110px]">
+              <img
+                src={photo(g.photo)}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{
+                  WebkitMaskImage: 'linear-gradient(180deg,#000 55%,transparent 100%)',
+                  maskImage: 'linear-gradient(180deg,#000 55%,transparent 100%)',
+                }}
+              />
+              <span className="v2-glass-chip absolute start-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11.5px] font-extrabold text-white">{g.catLabel}</span>
+              <span className="absolute end-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 text-[11.5px] font-extrabold">{g.km}</span>
+            </div>
+            <div className="px-3 pb-3">
+              <div className="truncate text-[15px] font-extrabold">{g.name}</div>
+              <div className="mt-0.5 text-[12.5px] font-bold text-v2-deep">המפגש הבא: {g.next}</div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="flex -space-x-2 space-x-reverse">
+                  {g.letters.map((l, i) => (
+                    <span
+                      key={i}
+                      className="grid h-7 w-7 place-items-center rounded-full text-[11px] font-black ring-2 ring-white"
+                      style={{ background: ['#bae6fd', '#c7f9e9', '#fde68a'][i % 3] }}
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </span>
+                <span className="text-[12px] font-extrabold text-v2-ink-2">{g.going} מגיעים</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+        {list.length === 0 && <div className="py-6 text-[14px] font-bold text-v2-muted">אין קבוצות בקטגוריה זו באזורך</div>}
+      </div>
+    </section>
+  );
+}
+
+/* ── the unified "+" (same drawer the map "+" opens) ────────────────────── */
+
+const PLUS_GROUPS = [
+  {
+    title: 'פעילות',
+    items: [
+      { label: 'יוצא להתאמן', sub: 'שתף שאתה יוצא לאימון — ריצה, הליכה או כוח', icon: Zap },
+      { label: 'פתח קבוצה/ליגה', sub: 'התחל קהילה או ליגה חדשה', icon: Users },
+    ],
+  },
+  {
+    title: 'תרומה למפה',
+    items: [
+      { label: 'הוסף מיקום', sub: 'פארק, גינת כושר או נקודת עניין חדשה', icon: MapPinPlus },
+      { label: 'דיווח מהיר', sub: 'ציוד פגום, תאורה, ניקיון ועוד', icon: Flag },
+    ],
+  },
+];
+
+function PlusFab() {
+  const [open, setOpen] = useState(false);
+  const reduce = useReducedMotion();
+  return (
+    <>
+      <motion.button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="הוסף"
+        whileTap={reduce ? undefined : { scale: 0.94 }}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+88px)] start-4 z-[6] grid h-14 w-14 place-items-center rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta ring-4 ring-white/70"
+      >
+        <Plus size={26} strokeWidth={2.6} />
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-[10]" role="dialog" aria-modal="true" aria-label="מה תרצה לעשות?">
+            <motion.button
+              type="button"
+              aria-label="סגירה"
+              className="absolute inset-0 bg-[#0e1419]/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2.5 shadow-v2-sheet"
+              initial={reduce ? { opacity: 0 } : { y: '100%' }}
+              animate={reduce ? { opacity: 1 } : { y: 0 }}
+              exit={reduce ? { opacity: 0 } : { y: '100%' }}
+              transition={{ duration: 0.38, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <div className="mb-3 flex justify-center">
+                <span className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
+              </div>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[20px] font-black !tracking-[-0.02em]">מה תרצה לעשות?</h2>
+                <button type="button" onClick={() => setOpen(false)} aria-label="סגירה" className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline">
+                  <X size={17} strokeWidth={2.6} />
+                </button>
+              </div>
+              {PLUS_GROUPS.map((g) => (
+                <div key={g.title} className="mb-3">
+                  <div className="mb-1.5 px-1 text-[12px] font-extrabold text-v2-muted">{g.title}</div>
+                  <ul className="space-y-2">
+                    {g.items.map(({ label, sub, icon: Icon }) => (
+                      <li key={label}>
+                        <button type="button" className="flex w-full items-center gap-3 rounded-[18px] bg-white p-3 text-start shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]">
+                          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep">
+                            <Icon size={20} strokeWidth={2.4} aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15.5px] font-black">{label}</span>
+                            <span className="block truncate text-[12.5px] font-bold text-v2-muted">{sub}</span>
+                          </span>
+                          <ChevronLeft size={17} strokeWidth={2.6} className="text-v2-muted" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

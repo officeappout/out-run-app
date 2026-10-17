@@ -11,7 +11,8 @@ export type Density = 'regular' | 'compact' | 'dense';
 
 const KEY = 'design-lab-density';
 const listeners = new Set<() => void>();
-let mem: Density = 'regular';
+// 'dense' is the locked "middle": compact cards, dense spacing and bars.
+let mem: Density = 'dense';
 
 function read(): Density {
   try {
@@ -38,7 +39,7 @@ function subscribe(l: () => void) {
 }
 
 export function useDensity(): Density {
-  return useSyncExternalStore(subscribe, read, () => 'regular');
+  return useSyncExternalStore(subscribe, read, () => 'dense');
 }
 
 /** true when compact or dense (dense keeps every compact reduction). */
