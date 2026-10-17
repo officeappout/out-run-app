@@ -27,6 +27,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { resolveAuthorTenantUnit } from './lib/resolveAuthorTenantUnit';
+import { minutesOf } from './lib/league-scope-stats';
 
 if (!admin.apps.length) { admin.initializeApp(); }
 const db = admin.firestore();
@@ -147,8 +148,10 @@ export const onWorkoutCreate = onDocumentCreated(
       logger.warn('onWorkoutCreate: could not read user core, using _global/_all', e);
     }
 
-    const durationMin =
-      typeof data.duration === 'number' && data.duration > 0 ? data.duration : 0;
+    // workouts.duration is SECONDS (WorkoutHistoryEntry). It used to be read
+    // as minutes here, so any workout of 20+ seconds crossed the 20-minute
+    // active-day bar. Same conversion as the league aggregates.
+    const durationMin = minutesOf(data.duration);
 
     // The calendar day this workout belongs to (prefer the workout's own date).
     const when =
