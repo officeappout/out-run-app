@@ -7,7 +7,7 @@ import { useSyncExternalStore } from 'react';
  * smaller headings, cards, buttons, bars; body text unchanged). Stored in
  * localStorage so every lab screen follows the same choice.
  */
-export type Density = 'regular' | 'compact';
+export type Density = 'regular' | 'compact' | 'dense';
 
 const KEY = 'design-lab-density';
 const listeners = new Set<() => void>();
@@ -16,7 +16,7 @@ let mem: Density = 'regular';
 function read(): Density {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'compact' || v === 'regular' ? v : mem;
+    return v === 'compact' || v === 'regular' || v === 'dense' ? v : mem;
   } catch {
     return mem;
   }
@@ -41,7 +41,12 @@ export function useDensity(): Density {
   return useSyncExternalStore(subscribe, read, () => 'regular');
 }
 
-/** true when compact. */
+/** true when compact or dense (dense keeps every compact reduction). */
 export function useCompact(): boolean {
-  return useDensity() === 'compact';
+  return useDensity() !== 'regular';
+}
+
+/** Pick a value per density. */
+export function pick<T>(d: Density, regular: T, compact: T, dense: T): T {
+  return d === 'dense' ? dense : d === 'compact' ? compact : regular;
 }

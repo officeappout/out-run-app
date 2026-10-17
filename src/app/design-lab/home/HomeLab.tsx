@@ -9,7 +9,7 @@ import LabFrame, { LabStates } from '../_shared/LabFrame';
 import { AppIcon, Bolts, BottomNav, ICON, Ring, photo, type NavVariant } from '../_app/parts';
 import { AppHeader, BrandFlame, type LogoMode } from '../_app/brand';
 import { DayLetters, StreakRow, type StreakDay } from '../_app/week';
-import { setDensity, useDensity, type Density } from '../_app/density';
+import { pick, setDensity, useDensity, type Density } from '../_app/density';
 import WorkoutDrawer from './WorkoutDrawer';
 import BuilderSheet from './BuilderSheet';
 import {
@@ -45,6 +45,7 @@ const NAVS: { id: NavVariant; label: string }[] = [
 const DENSITIES: { id: Density; label: string }[] = [
   { id: 'regular', label: 'רגיל' },
   { id: 'compact', label: 'קומפקטי (-10%)' },
+  { id: 'dense', label: 'דחוס' },
 ];
 
 const LAB_LINKS = [
@@ -59,7 +60,6 @@ export default function HomeLab() {
   const [logo, setLogo] = useState<LogoMode>('out');
   const [nav, setNav] = useState<NavVariant>('equal');
   const density = useDensity();
-  const c = density === 'compact';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
 
@@ -109,10 +109,10 @@ export default function HomeLab() {
       <div className="h-full overflow-y-auto overscroll-contain pb-32">
         <AppHeader name={USER.firstName} streak={USER.streakDays + (state === 'done' ? 1 : 0)} logo={logo} />
         <div className="px-4 pb-4 pt-4">
-          <div className={`${c ? 'text-[22px]' : 'text-[24px]'} font-black leading-tight tracking-v2-tight`}>בוקר טוב, {USER.firstName}</div>
+          <div className={`${pick(density, 'text-[24px]', 'text-[22px]', 'text-[20px]')} font-black leading-tight tracking-v2-tight`}>בוקר טוב, {USER.firstName}</div>
           <div className="text-[13.5px] font-bold text-v2-muted">{TODAY_LABEL}</div>
         </div>
-        <div className="space-y-7">
+        <div className={pick(density, 'space-y-7', 'space-y-7', 'space-y-5')}>
           {state === 'done' && <DoneToday />}
           <WeekSchedule state={state} />
           <TodayCarousel state={state} onOpen={() => setDrawerOpen(true)} onBuild={() => setBuilderOpen(true)} />
@@ -128,7 +128,7 @@ export default function HomeLab() {
 }
 
 function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
-  const c = useDensity() === 'compact';
+  const c = useDensity() !== 'regular';
   return (
     <div className="mb-3 flex items-baseline justify-between px-4">
       <h2 className={`${c ? 'text-[17px]' : 'text-[19px]'} font-black !tracking-[-0.02em]`}>{children}</h2>
@@ -169,7 +169,7 @@ function WeekSchedule({ state }: { state: TodayState }) {
     d.status === 'today' ? { ...d, status: state === 'done' ? 'done' : state === 'rest' ? 'rest' : 'today' } : d,
   );
   const streak = USER.streakDays + (state === 'done' ? 1 : 0);
-  const c = useDensity() === 'compact';
+  const d = useDensity();
   return (
     <section aria-label="לו״ז אימונים">
       <SectionTitle
@@ -184,7 +184,7 @@ function WeekSchedule({ state }: { state: TodayState }) {
       </SectionTitle>
       <Link href="/design-lab/schedule" className="mx-4 block rounded-v2-card bg-white px-2 pb-3 pt-3 shadow-v2-card">
         <DayLetters days={WEEK} todayIndex={todayIndex} />
-        <StreakRow days={days} todayIndex={todayIndex} cell={c ? 40 : 44} />
+        <StreakRow days={days} todayIndex={todayIndex} cell={pick(d, 44, 40, 36)} />
         <div className="mt-3 flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-v2-muted">
           <BrandFlame size={24} still />
           <span>
@@ -209,7 +209,7 @@ const PHRASES = [
 
 function GeneratorButton({ onClick }: { onClick: () => void }) {
   const reduce = useReducedMotion();
-  const c = useDensity() === 'compact';
+  const c = useDensity() !== 'regular';
   const [i, setI] = useState(0);
   useEffect(() => {
     if (reduce) return;
@@ -245,8 +245,9 @@ function GeneratorButton({ onClick }: { onClick: () => void }) {
 
 function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: () => void; onBuild: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const c = useDensity() === 'compact';
-  const W = c ? 284 : 300;
+  const d = useDensity();
+  const c = d !== 'regular';
+  const W = pick(d, 300, 284, 264);
   const [index, setIndex] = useState(0);
   const cards = state === 'rest' ? [...TODAY_CARDS].reverse() : TODAY_CARDS;
 
@@ -269,7 +270,7 @@ function TodayCarousel({ state, onOpen, onBuild }: { state: TodayState; onOpen: 
         {cards.map((card) => (
           <article key={card.id} className={`relative shrink-0 snap-center overflow-hidden ${c ? 'rounded-v2-card' : 'rounded-v2-card-lg'} bg-white shadow-v2-card`} style={{ width: W }}>
             <button type="button" onClick={onOpen} className="block w-full text-start" aria-label={`פרטי ${card.title}`}>
-              <div className="relative" style={{ height: c ? 200 : 230 }}>
+              <div className="relative" style={{ height: pick(d, 230, 200, 170) }}>
                 <img
                   src={photo(card.photo)}
                   alt=""
@@ -323,7 +324,7 @@ function ProgressTabs({ state }: { state: TodayState }) {
   const reduce = useReducedMotion();
   const minutes = ACTIVE_MINUTES.done + (state === 'done' ? WORKOUT.minutes : 0);
   const stepsPct = Math.round((STEPS_DETAIL.today / STEPS_DETAIL.goal) * 100);
-  const c = useDensity() === 'compact';
+  const d = useDensity();
   return (
     <section aria-label="ההתקדמות שלי">
       <div className="mx-4 mb-3 grid grid-cols-2 border-b border-v2-hairline" role="tablist">
@@ -404,7 +405,7 @@ function ProgressTabs({ state }: { state: TodayState }) {
             <>
               <Link href="/design-lab/steps" className="block">
                 <Card padding="md" className="grid place-items-center">
-                  <Ring pct={Math.min(100, stepsPct)} size={c ? 116 : 128} stroke={c ? 14 : 16} from="#00c07a" to="#39d98a" track="#e7f8f0">
+                  <Ring pct={Math.min(100, stepsPct)} size={pick(d, 128, 116, 104)} stroke={pick(d, 16, 14, 12)} from="#00c07a" to="#39d98a" track="#e7f8f0">
                     <span className="block text-[22px] font-black leading-none tabular-nums tracking-v2-tighter">
                       {STEPS_DETAIL.today.toLocaleString('he-IL')}
                     </span>
