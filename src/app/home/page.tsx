@@ -3512,6 +3512,7 @@ export default function HomePage() {
         onCreateGroup={() => router.push('/community?openCreate=true')}
         onAddLocation={() => setWizardOpen(true)}
         onReport={() => setReportOpen(true)}
+        onAddWorkout={() => setShowPlanner(true)}
       />
       <PlannedActivityComposeSheet
         isOpen={composeOpen}
