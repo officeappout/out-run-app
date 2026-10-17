@@ -1326,7 +1326,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div
                 className={
                   v2
-                    ? 'v2-glass-bar sticky top-0 z-10 flex flex-shrink-0 items-center gap-2 px-4 pb-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]'
+                    ? 'v2-glass-bar sticky top-0 z-10 flex flex-shrink-0 items-center gap-2 px-4 pb-2 pt-[calc(env(safe-area-inset-top,0px)+4px)]'
                     : 'sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex items-center gap-2 z-10 flex-shrink-0'
                 }
               >
