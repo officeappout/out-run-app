@@ -12,7 +12,7 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Crown, Flame, Footprints, MapPin, Swords, X, type LucideIcon } from 'lucide-react';
+import { Crown, Dumbbell, Flame, Footprints, MapPin, Scale, Swords, UserPlus, X, type LucideIcon } from 'lucide-react';
 import { EASE_V2 } from '@/components/ui/v2/tokens';
 import IconTile from '@/components/ui/v2/IconTile';
 import StatNumber from '@/components/ui/v2/StatNumber';
@@ -248,3 +248,63 @@ export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
   );
 }
 
+
+// ── How scope points work (neighborhoods / cities / settlements, home v2) ────
+
+/**
+ * Copy verified against the code, 17.10.2026 (the server aggregates —
+ * functions/src/lib/league-scope-stats.ts, apply-league-stats.ts,
+ * apply-referral-bonus.ts — and league-board-logic.ts rankByMeasure):
+ *  - workouts: creditOf = whole minutes (duration seconds ÷ 60, rounded) ×
+ *    CREDIT_MULTIPLIER (strength / hybrid 2, cardio — running, walking,
+ *    cycling — 1, recovery / maintenance 1).
+ *  - steps: stepsCreditOf = floor(daily steps ÷ 1,000) × 3, its own 'steps'
+ *    bucket, rolled up hourly (leagueStepsRollup) for today and yesterday.
+ *  - invite: +50 (REFERRAL_BONUS) to the REFERRER's city and neighborhood
+ *    for the week and the month, once per invitee, at most 5
+ *    (MAX_BONUSES_PER_WEEK) per referrer per week; not an active member.
+ *  - order: per active member (totalScore ÷ activeMemberCount) is the
+ *    official order; week = from Sunday, month = calendar, Asia/Jerusalem.
+ */
+export function ScopePointsContent() {
+  const rows: HowRow[] = [
+    {
+      icon: Dumbbell,
+      tone: 'accent',
+      title: 'אימונים',
+      body: 'כל דקת אימון כוח שווה 2 נקודות. כל דקת ריצה, הליכה, רכיבה או אימון תחזוקה שווה נקודה אחת.',
+    },
+    {
+      icon: Footprints,
+      tone: 'steps',
+      title: 'צעדים',
+      body: 'כל 1,000 צעדים מלאים ביום שווים 3 נקודות (למשל 7,800 צעדים = 21 נקודות). הצעדים מתעדכנים פעם בשעה.',
+    },
+    {
+      icon: UserPlus,
+      tone: 'gold',
+      title: 'חבר שמצטרף — 50+',
+      body: 'חבר שמצטרף דרך הקישור שלך מוסיף 50 נקודות לשכונה ולעיר שלך, עד 5 חברים בשבוע. הוא לא נספר כמשתתף פעיל עד שיתאמן.',
+    },
+    {
+      icon: Scale,
+      tone: 'run',
+      title: 'איך מדרגים',
+      body: 'הדירוג הרשמי הוא לפי ממוצע הנקודות למשתתף פעיל — כך גם שכונה או יישוב קטנים יכולים לנצח. השבוע מתחיל ביום ראשון, והחודש הוא החודש הקלנדרי.',
+    },
+  ];
+  return (
+    <div className="space-y-2.5 pt-1">
+      {rows.map((r) => (
+        <div key={r.title} className="flex items-start gap-3 rounded-v2-tile bg-v2-surface ring-1 ring-inset ring-v2-hairline p-3.5">
+          <IconTile icon={r.icon} tone={r.tone} size="sm" />
+          <div className="min-w-0">
+            <div className="text-[15px] font-black text-v2-ink">{r.title}</div>
+            <p className="text-[13px] leading-relaxed text-v2-ink-2 mt-0.5">{r.body}</p>
+          </div>
+        </div>
+      ))}
+      <p className="text-[12px] text-v2-muted px-1 pt-1">נקודות XP ורמות לא נספרות בדירוג הליגה.</p>
+    </div>
+  );
+}
