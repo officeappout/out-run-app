@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapboxService } from '../services/mapbox.service';
-import { haversineKm, haversineMeters, nearestPointOnPath } from '../services/geoUtils';
+import { haversineKm, haversineMeters, nearestPointOnPath, crossTrackDistanceMeters } from '../services/geoUtils';
+import { decideActiveApproach } from '../services/walk-approach';
 import { useMapStore } from '../store/useMapStore';
 import { withCancelPrevious } from '@/lib/requestGovernor';
 import type { Route } from '../types/route.types';
@@ -119,8 +120,8 @@ function transformWalkSteps(rawSteps: any[]): WalkStep[] {
  *  Exported (11.10.2026, start-experience state map) so start-experience-state.ts can reuse
  *  this exact value for its own "at start" check instead of duplicating the number. */
 export const ARRIVAL_RADIUS_M = 30;
-/** Time (ms) after workout starts before the dotted line auto-clears regardless of position. */
-const MAX_APPROACH_MS = 60_000;
+// The 60 s "clear regardless of position" fallback now lives in
+// services/walk-approach.ts as approachBudgetMs(): max(60 s, 2 × walk time).
 
 /**
  * Walking-time threshold (minutes) above which the walk-leg LINE itself is
@@ -151,9 +152,13 @@ const PRE_FETCH_SKIP_MULTIPLIER = 1.5;
  *  - Loaded in discover mode (pre-workout).
  *  - Persists after workout starts so the user can follow the dotted line
  *    to reach the route.
+ *  - If no line was loaded before Play (e.g. free_run mounts a fresh AppMap,
+ *    so a fresh instance of this hook), it is fetched once at workout start.
  *  - Clears automatically when:
- *      a) User steps within 30 m of the walk-leg's target (arrived), OR
- *      b) 60 seconds have elapsed since the workout started (fallback).
+ *      a) User steps within 30 m of the walk-leg's target, or onto the
+ *         route line anywhere (arrived), OR
+ *      b) max(60 s, 2 × walk time) has elapsed since the workout started
+ *         (fallback — services/walk-approach.ts approachBudgetMs).
  *  - Never draws the line at all above WALK_LEG_THRESHOLD_MIN minutes —
  *    walkMinutes is still recorded (real fetched value, or a straight-line
  *    estimate when the pre-fetch gate skipped the real request) so
@@ -176,12 +181,21 @@ export function useWalkToRoute(
   const cacheRef    = useRef<Map<string, WalkToRouteState>>(new Map());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Tracks when the current workout started — used for the 60-second fallback.
+  // Tracks when the current workout started — used for the approach-time fallback.
   const workoutStartTimeRef = useRef<number | null>(null);
 
   // Once the user arrives at a route endpoint we store the routeId here so the
   // dotted line cannot reappear even if the hook re-runs for the same route.
   const arrivedRouteIdRef = useRef<string | null>(null);
+
+  // Routes whose walk leg was already fetched (or attempted) from the ACTIVE
+  // branch in this workout — one fetch per route per workout, never per GPS tick.
+  const activeFetchAttemptedRef = useRef<Set<string>>(new Set());
+
+  // Latest focused route id, read after an await so a slow response for a
+  // route the user already swiped away from can't overwrite the current one.
+  const latestRouteIdRef = useRef<string | undefined>(focusedRoute?.id);
+  latestRouteIdRef.current = focusedRoute?.id;
 
   // Record workout start / clear timer on transition.
   useEffect(() => {
@@ -220,84 +234,20 @@ export function useWalkToRoute(
       setWalkSteps(null);
     };
 
-    // ── During active workout: check arrival, keep or clear ──────────────────
-    if (isActiveWorkout) {
-      // If the line was never loaded (user started workout without visiting
-      // discover, or a different route), nothing to do.
-      if (!routeId || !cacheRef.current.has(routeId)) {
-        clearAll();
-        return;
-      }
-
-      // Already marked as arrived for this route — stay cleared.
-      if (arrivedRouteIdRef.current === routeId) {
-        clearAll();
-        return;
-      }
-
-      // 60-second fallback: clear regardless of position.
-      const startTime = workoutStartTimeRef.current;
-      if (startTime != null && Date.now() - startTime > MAX_APPROACH_MS) {
-        arrivedRouteIdRef.current = routeId;
-        clearAll();
-        return;
-      }
-
-      // Proximity check: within 30 m of the walk-leg's ACTUAL target (the
-      // true nearest point on the route, Phase 1) — not "either endpoint",
-      // which could be far from where the dashed line was really pointing.
-      // Read from the cache (not state) since this branch doesn't recompute
-      // anything; `targetEndpoint` is null when the line was gated out for
-      // exceeding WALK_LEG_THRESHOLD_MIN, in which case there's nothing to
-      // track arrival against here.
-      const target = cacheRef.current.get(routeId)?.targetEndpoint;
-      if (target && userLat != null && userLng != null) {
-        if (haversineMeters(userLat, userLng, target.lat, target.lng) <= ARRIVAL_RADIUS_M) {
-          arrivedRouteIdRef.current = routeId;
-          clearAll();
-          return;
-        }
-      }
-
-      // Not yet arrived — keep the dotted line showing, don't change state.
-      return;
-    }
-
-    // ── Not in active workout: reset arrival tracker, handle discover ────────
-    arrivedRouteIdRef.current = null;
-
-    if (mapMode !== 'discover') {
-      clearAll();
-      return;
-    }
-
-    if (
-      userLat == null || userLng == null ||
-      !routeId ||
-      !hasValidPath
-    ) {
-      clearAll();
-      return;
-    }
-
-    // Serve from cache immediately — no spinner, no flash.
-    const cached = cacheRef.current.get(routeId);
-    if (cached) {
-      setState(cached);
-      setWalkToRouteMinutes(cached.walkMinutes);
-      setWalkSteps(cached.walkSteps);
-      return;
-    }
-
-    // Debounce: wait 500 ms after the last carousel snap before fetching.
-    debounceRef.current = setTimeout(async () => {
+    // Fetch + compute the walk leg for one route. Shared by the discover
+    // branch (debounced) and the active branch (once, when no line exists
+    // yet — see the active-run-map fix note below). Parameters shadow the
+    // effect's own values on purpose so the body reads exactly as before.
+    const runFetch = async (
+      userLat: number,
+      userLng: number,
+      routeId: string,
+      path: NonNullable<Route['path']>,
+    ): Promise<void> => {
       // TRUE nearest point on the route's polyline (Phase 1) — not
-      // "whichever endpoint is closer". path is captured via closure;
-      // hasValidPath (checked above, in the effect's own dep array) already
-      // guarantees it has ≥2 points by the time this timer fires for the
-      // same routeId (a path change always comes with a routeId change,
-      // which clears/recreates this timer — see the comment on userLat's
-      // destructuring above).
+      // "whichever endpoint is closer". Both callers check hasValidPath
+      // first, so path has ≥2 points here (a path change always comes with
+      // a routeId change — see the comment on userLat's destructuring above).
       const nearest = nearestPointOnPath({ lat: userLat, lng: userLng }, path!);
       if (!nearest) { clearAll(); return; }
       const [targetLng, targetLat] = nearest.point;
@@ -347,6 +297,8 @@ export function useWalkToRoute(
         );
 
         if (!result || result.path.length < 2) return;
+        // Focus moved to another route while this was in flight — drop it.
+        if (latestRouteIdRef.current !== routeId) return;
 
         // Real Mapbox duration (seconds), not a distance/80 guess — see the
         // WalkToRouteState.walkMinutes doc comment above.
@@ -397,7 +349,97 @@ export function useWalkToRoute(
       } catch {
         // Network / API error — non-critical, stay empty.
       }
-    }, 500);
+    };
+
+    // ── During active workout: fetch if missing, then keep or clear ─────────
+    // Active-run-map fix (17.10.2026): this branch used to ONLY re-use a line
+    // already fetched in discover mode by this same hook instance. A route
+    // workout without a planned session runs in mode 'free_run', where
+    // FreeRunLayer mounts its OWN AppMap (MapShell's is unmounted) — a fresh
+    // instance with an empty cache — so the walk-to-route line never drew
+    // after Play. Now a missing line is fetched once here, and the flat 60 s
+    // fallback became approachBudgetMs() (max(60 s, 2 × walk time)). Pure
+    // decision: services/walk-approach.ts (unit-tested).
+    if (isActiveWorkout) {
+      if (!routeId || !hasValidPath || userLat == null || userLng == null) {
+        clearAll();
+        return;
+      }
+
+      const cachedActive = cacheRef.current.get(routeId);
+      // Proximity check uses the walk-leg's ACTUAL target (the true nearest
+      // point on the route, Phase 1) — not "either endpoint". Read from the
+      // cache (not state); `targetEndpoint` is null when the line was gated
+      // out for exceeding WALK_LEG_THRESHOLD_MIN.
+      const target = cacheRef.current.get(routeId)?.targetEndpoint;
+      const alreadyDone = arrivedRouteIdRef.current === routeId;
+      const startTime = workoutStartTimeRef.current;
+      const decision = decideActiveApproach({
+        hasCache: !!cachedActive,
+        hasLine: !!cachedActive?.geoJSON,
+        fetchAttempted: activeFetchAttemptedRef.current.has(routeId),
+        alreadyDone,
+        elapsedMs: startTime != null ? Date.now() - startTime : null,
+        walkMinutes: cachedActive?.walkMinutes ?? null,
+        distToTargetM: target
+          ? haversineMeters(userLat, userLng, target.lat, target.lng)
+          : null,
+        // Skipped once done (no per-tick polyline scan after arrival).
+        distToRouteM: alreadyDone ? null : crossTrackDistanceMeters({ lat: userLat, lng: userLng }, path!),
+        arrivalRadiusM: ARRIVAL_RADIUS_M,
+      });
+
+      switch (decision) {
+        case 'fetch':
+          activeFetchAttemptedRef.current.add(routeId);
+          clearAll();
+          void runFetch(userLat, userLng, routeId, path!);
+          return;
+        case 'keep':
+          // Not yet arrived — keep the dotted line showing.
+          if (cachedActive) setState((prev) => (prev === cachedActive ? prev : cachedActive));
+          return;
+        case 'arrived':
+        case 'timeout':
+          arrivedRouteIdRef.current = routeId;
+          clearAll();
+          return;
+        case 'none':
+        default:
+          clearAll();
+          return;
+      }
+    }
+
+    // ── Not in active workout: reset arrival tracker, handle discover ────────
+    arrivedRouteIdRef.current = null;
+    activeFetchAttemptedRef.current.clear();
+
+    if (mapMode !== 'discover') {
+      clearAll();
+      return;
+    }
+
+    if (
+      userLat == null || userLng == null ||
+      !routeId ||
+      !hasValidPath
+    ) {
+      clearAll();
+      return;
+    }
+
+    // Serve from cache immediately — no spinner, no flash.
+    const cached = cacheRef.current.get(routeId);
+    if (cached) {
+      setState(cached);
+      setWalkToRouteMinutes(cached.walkMinutes);
+      setWalkSteps(cached.walkSteps);
+      return;
+    }
+
+    // Debounce: wait 500 ms after the last carousel snap before fetching.
+    debounceRef.current = setTimeout(() => { void runFetch(userLat, userLng, routeId, path!); }, 500);
 
     return () => {
       if (debounceRef.current) {

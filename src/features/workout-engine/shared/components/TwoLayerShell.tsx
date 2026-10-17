@@ -41,6 +41,12 @@ export interface TwoLayerShellRenderProps {
   isMinimized: boolean;
   /** Expand back to y=0 — equivalent to setIsMinimized(false). */
   onExpand: () => void;
+  /**
+   * True while the TOP LAYER is being dragged (between framer's onDragStart and
+   * onDragEnd). Lets callers hide map-root chrome (turn card, recenter) as soon
+   * as the laps list starts to show, not only once the layer has snapped down.
+   */
+  isDragging: boolean;
 }
 
 interface TwoLayerShellProps {
@@ -79,6 +85,11 @@ export default function TwoLayerShell({
     useLayerDrag(dockH, isActive);
 
   const onExpand = React.useCallback(() => setIsMinimized(false), [setIsMinimized]);
+
+  const [isDragging, setIsDragging] = React.useState(false);
+  // Reset if the session ends mid-drag (drag is disabled when !isActive, so
+  // onDragEnd would never fire to clear it).
+  React.useEffect(() => { if (!isActive) setIsDragging(false); }, [isActive]);
 
   // Guard against double-fire: dragControls.start(e) can re-trigger onPointerDown
   // in some WebView environments. One-frame debounce prevents the second call from
@@ -128,10 +139,11 @@ export default function TwoLayerShell({
         dragMomentum={false}
         animate={{ y: isActive && isMinimized ? minimizedY : 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        onDragEnd={isActive ? handleDragEnd : undefined}
+        onDragStart={isActive ? () => setIsDragging(true) : undefined}
+        onDragEnd={isActive ? (e, info) => { setIsDragging(false); handleDragEnd(e, info); } : undefined}
       >
         {/* Caller content (AppMap + workout overlays + browse UI) */}
-        {children({ dragControls, isMinimized, onExpand })}
+        {children({ dragControls, isMinimized, onExpand, isDragging })}
 
         {/* ── MINI STRIP ──────────────────────────────────────────────────────
             absolute top-0 inside motion.div — sits at the physical bottom of

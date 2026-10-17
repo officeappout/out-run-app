@@ -1962,7 +1962,9 @@ export default function AppMap({
         {/* ── Walk-to-route: dashed cyan line from user → nearest route endpoint ──
             The hook controls visibility: loads in discover mode, persists
             during active workout until the user arrives at the route endpoint
-            (within 30 m) or 60 s elapse. The hook itself returns null when done. */}
+            (within 30 m) or its approach budget (2 × walk time, at least 60 s) runs out; if
+            nothing was loaded before Play (free_run mounts a fresh AppMap) the hook
+            fetches the line once at workout start. Returns null when done. */}
         {walkToRoute.geoJSON && (
           <Source id="walk-to-route" type="geojson" data={walkToRoute.geoJSON as any}>
             <Layer
