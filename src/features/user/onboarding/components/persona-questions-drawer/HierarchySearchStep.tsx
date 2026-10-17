@@ -69,6 +69,8 @@ interface HierarchySearchStepProps {
    *  (the per-step wrapper between them is absolutely positioned and
    *  can't be grown by a child's own content). */
   onNeedsExpandedHeight?: (needed: boolean) => void;
+  /** enable_home_v2 look. Optional, default false = today's UI. */
+  v2?: boolean;
 }
 
 async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
@@ -118,7 +120,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
  * An empty level (no sub-units — most brigades today) shows that plainly
  * and points at the same finish button, instead of a dead-end "no results."
  */
-export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight }: HierarchySearchStepProps) {
+export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight, v2 = false }: HierarchySearchStepProps) {
   // breadcrumb[0] = top level (brigades); each entry is the directoryId
   // drilled into to reach the NEXT level's entries.
   const [breadcrumb, setBreadcrumb] = useState<DirectoryEntry[]>([]);
@@ -312,22 +314,22 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
   return (
     <div className="px-5 py-4 flex flex-col h-full" dir="rtl">
-      <h3 className="text-base font-bold text-slate-900 mb-1">{config.label}</h3>
-      {config.helperText && <p className="text-xs text-slate-400 mb-3">{config.helperText}</p>}
+      <h3 className={v2 ? 'mb-1 text-[17px] font-black !tracking-[-0.01em] text-v2-ink' : 'text-base font-bold text-slate-900 mb-1'}>{config.label}</h3>
+      {config.helperText && <p className={v2 ? 'mb-3 text-[12.5px] font-bold text-v2-muted' : 'text-xs text-slate-400 mb-3'}>{config.helperText}</p>}
       {breadcrumb.length > 0 && (
         <button
           type="button"
           onClick={goBackOneLevel}
-          className="flex items-center gap-1 text-sm text-slate-500 mb-3 self-start"
+          className={v2 ? 'mb-3 flex min-w-0 max-w-full items-center gap-1 self-start whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex items-center gap-1 text-sm text-slate-500 mb-3 self-start'}
         >
           <ChevronRight size={16} />
-          <span>{breadcrumb.map((b) => b.name).join(' / ')}</span>
+          <span className={v2 ? 'truncate' : undefined}>{breadcrumb.map((b) => b.name).join(' / ')}</span>
         </button>
       )}
 
       {!loading && entries.length > 0 && (
         <div className="relative mb-3">
-          <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className={v2 ? 'absolute right-4 top-1/2 -translate-y-1/2 text-v2-muted' : 'absolute right-3 top-1/2 -translate-y-1/2 text-slate-400'} />
           <input
             type="text"
             value={searchQuery}
@@ -335,26 +337,26 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             onFocus={() => onNeedsExpandedHeight?.(true)}
             onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder="חיפוש לפי שם או מספר..."
-            className="w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
+            className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white pl-4 pr-10 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
             dir="rtl"
           />
         </div>
       )}
 
       {loading ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">טוען...</div>
+        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>טוען...</div>
       ) : entries.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
-          <p className="text-slate-400 text-sm">
+          <p className={v2 ? 'text-[13px] font-bold text-v2-muted' : 'text-slate-400 text-sm'}>
             {breadcrumb.length > 0
               ? `אין תת-יחידות נוספות תחת ${breadcrumb[breadcrumb.length - 1].name}`
               : 'אין תוצאות'}
           </p>
         </div>
       ) : filteredEntries.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">אין תוצאות עבור "{searchQuery}"</div>
+        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>אין תוצאות עבור "{searchQuery}"</div>
       ) : (
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2">
+        <div className={v2 ? 'flex flex-1 flex-col gap-2.5 overflow-y-auto p-0.5' : 'flex-1 overflow-y-auto flex flex-col gap-2'}>
           {filteredEntries.map((entry) => {
             const selected = value.orgId === entry.orgId && (value.unitId ?? undefined) === (entry.unitId ?? undefined);
             return (
@@ -362,18 +364,22 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
                 key={entry.directoryId}
                 type="button"
                 onClick={() => selectEntry(entry)}
-                className={`flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-right transition-all ${
+                className={v2
+                  ? `flex min-w-0 items-center justify-between gap-3 rounded-[18px] bg-white px-4 py-3 text-right transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                      selected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
+                    }`
+                  : `flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-right transition-all ${
                   selected ? 'border-[#00E5FF] bg-cyan-50' : 'border-slate-200 active:scale-[0.98]'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className={v2 ? 'flex min-w-0 items-center gap-3' : 'flex items-center gap-3'}>
                   <UnitIconBadge unitId={entry.unitId ?? entry.orgId} iconUrl={entry.iconUrl} name={entry.name} size={32} />
-                  <span className="font-semibold text-slate-900">{entry.name}</span>
+                  <span className={v2 ? 'min-w-0 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink' : 'font-semibold text-slate-900'}>{entry.name}</span>
                 </div>
                 {selected ? (
-                  <Check size={16} className="text-[#00E5FF]" />
+                  <Check size={16} className={v2 ? 'flex-shrink-0 text-v2-accent' : 'text-[#00E5FF]'} />
                 ) : (
-                  <ChevronRight size={16} className="text-slate-300 rotate-180" />
+                  <ChevronRight size={16} className={v2 ? 'flex-shrink-0 rotate-180 text-v2-pill-border' : 'text-slate-300 rotate-180'} />
                 )}
               </button>
             );
@@ -385,7 +391,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
         <button
           type="button"
           onClick={openAddForm}
-          className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-slate-500 flex-shrink-0"
+          className={v2 ? 'flex flex-shrink-0 items-center justify-center gap-1.5 whitespace-nowrap py-2.5 text-[14px] font-extrabold text-v2-deep' : 'flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-slate-500 flex-shrink-0'}
         >
           <Plus size={16} />
           <span>היחידה שלי לא ברשימה — הוסף</span>
@@ -402,20 +408,20 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             onBlur={() => onNeedsExpandedHeight?.(false)}
             placeholder="שם היחידה"
             autoFocus
-            className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none"
+            className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white px-4 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
             dir="rtl"
           />
-          {addError && <p className="text-xs text-red-600 text-center">{addError}</p>}
+          {addError && <p className={v2 ? 'text-center text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600 text-center'}>{addError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleAddSubmit}
               disabled={!addName.trim() || addBusy}
-              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40"
+              className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-v2-tint text-[15px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40' : 'flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40'}
             >
               {addBusy ? 'שולח...' : 'שליחה'}
             </button>
-            <button type="button" onClick={() => setAddMode('closed')} className="px-4 py-2.5 text-sm text-slate-500">
+            <button type="button" onClick={() => setAddMode('closed')} className={v2 ? 'h-12 flex-shrink-0 whitespace-nowrap rounded-full bg-white px-5 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'px-4 py-2.5 text-sm text-slate-500'}>
               ביטול
             </button>
           </div>
@@ -424,13 +430,13 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
       {addMode === 'confirmMatch' && matchedSibling && (
         <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2 text-center">
-          <p className="text-sm text-slate-700">מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
-          {addError && <p className="text-xs text-red-600">{addError}</p>}
+          <p className={v2 ? 'text-[14px] font-medium text-v2-ink-2' : 'text-sm text-slate-700'}>מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
+          {addError && <p className={v2 ? 'text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600'}>{addError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => attachToSibling(matchedSibling)}
-              className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm"
+              className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[15px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm'}
             >
               כן, זו היחידה שלי
             </button>
@@ -438,7 +444,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               type="button"
               onClick={submitAsNew}
               disabled={addBusy}
-              className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40"
+              className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-white px-3 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40' : 'flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40'}
             >
               {addBusy ? 'שולח...' : 'לא, זו לא'}
             </button>
@@ -448,7 +454,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
       {addMode === 'submitted' && (
         <div className="pt-2 pb-1 flex-shrink-0 text-center">
-          <p className="text-sm text-slate-500">ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.</p>
+          <p className={v2 ? 'text-[13px] font-bold text-v2-up' : 'text-sm text-slate-500'}>ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.</p>
         </div>
       )}
 
@@ -458,13 +464,13 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       {hasSelection && (
         <div className="pt-3 flex-shrink-0">
           {declareState === 'error' && declareErrorMessage && (
-            <p className="text-xs text-red-600 text-center mb-2" dir="rtl">{declareErrorMessage}</p>
+            <p className={v2 ? 'mb-2 text-center text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600 text-center mb-2'} dir="rtl">{declareErrorMessage}</p>
           )}
           <button
             type="button"
             onClick={handleFinish}
             disabled={declareState === 'saving'}
-            className="w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm disabled:opacity-50"
+            className={v2 ? 'flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-none disabled:bg-v2-hairline disabled:text-v2-muted disabled:shadow-none' : 'w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm disabled:opacity-50'}
           >
             {declareState === 'saving' ? 'שומר...' : declareState === 'error' ? 'נסה שוב' : 'סיום'}
           </button>

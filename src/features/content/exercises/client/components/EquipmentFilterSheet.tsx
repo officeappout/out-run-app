@@ -88,6 +88,10 @@ interface Props {
    * If initialIds is non-empty, the preset is derived from that selection as usual.
    */
   activeLocation?: 'park' | 'gym' | 'home';
+  /** enable_home_v2 for the onboarding EquipmentStep: lets inline-onboarding
+   *  mode opt into the v2 look. Optional, default false — every other
+   *  inline-onboarding caller keeps today's UI. Ignored outside that mode. */
+  onboardingV2?: boolean;
 }
 
 type PresetId = 'home' | 'park' | 'gym';
@@ -112,7 +116,7 @@ function isPersonalGear(g: GearDefinition): boolean {
   return !isParkGear(g) && !isImprovisedGear(g);
 }
 
-export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter', onChange, activeLocation }: Props) {
+export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initialIds, mode = 'filter', onChange, activeLocation, onboardingV2 = false }: Props) {
   const isProfileMode = mode === 'profile';
   const isInlineMode = mode === 'inline-onboarding';
   const filterIds = useExerciseLibraryStore((s) => s.filters.equipmentIds);
@@ -124,7 +128,8 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
   // current look (it is part of the onboarding flow, not this screen).
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const flagV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
-  const v2 = flagV2 && !isInlineMode;
+  // Inline-onboarding opts in only via onboardingV2 (EquipmentStep, flag-gated).
+  const v2 = isInlineMode ? onboardingV2 : flagV2;
 
   // ── Lazy data sources ────────────────────────────────────────────────
   const [gear, setGear] = useState<GearDefinition[]>([]);
@@ -496,7 +501,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
                 ? 'h-14 rounded-full text-base'
                 : 'py-2.5 rounded-lg text-sm bg-primary hover:opacity-90 transition-opacity'
             }`}
-            style={isInlineMode ? {
+            style={isInlineMode && !v2 ? {
               background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
               boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
             } : undefined}

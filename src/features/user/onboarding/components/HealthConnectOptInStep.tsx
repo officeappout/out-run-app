@@ -19,6 +19,7 @@ import { Footprints, ChevronLeft } from 'lucide-react';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { getHealthPermissionState, deferHealthPermissionOnboarding } from '@/lib/healthBridge/init';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 
 interface HealthConnectOptInStepProps {
   onContinue: () => void;
@@ -27,6 +28,7 @@ interface HealthConnectOptInStepProps {
 export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptInStepProps) {
   const [checking, setChecking] = useState(true);
   const [isDeferring, setIsDeferring] = useState(false);
+  const v2 = useOnboardingV2();
 
   const { triggerHealthPermission, disclosureProps, isRequesting, unavailableReason } =
     useHealthWithDisclosure({
@@ -66,6 +68,67 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
   if (unavailableReason) {
     onContinue();
     return null;
+  }
+
+  // enable_home_v2 — same handlers/state, v2 look. Inside OnboardingLayout the
+  // CTA block is in-flow at the bottom of the (flex) scroll area: <main>
+  // already pads the bottom inset, so it only adds pb-3 (no second inset).
+  if (v2) {
+    const isFemale = typeof window !== 'undefined'
+      && sessionStorage.getItem('onboarding_personal_gender') === 'female';
+    return (
+      <div className="flex flex-col flex-1 h-full w-full min-h-0 bg-v2-surface px-4" dir="rtl">
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 py-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
+            className="grid h-20 w-20 place-items-center rounded-full bg-white shadow-v2-card"
+          >
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-v2-tint">
+              <Footprints size={30} className="text-v2-deep" />
+            </span>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.35 }}
+            className="space-y-2 max-w-sm"
+            style={{ fontFamily: 'var(--font-simpler)' }}
+          >
+            <h1 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink leading-tight">
+              רוצה שנעקוב אחרי הצעדים שלך?
+            </h1>
+            <p className="text-[15px] text-v2-ink-2 leading-relaxed">
+              חיבור ל-{'Apple Health / Google Health Connect'} מציג לך את הצעדים והקלוריות היומיים ישירות באפליקציה. אפשר לחבר גם מאוחר יותר מהפרופיל.
+            </p>
+          </motion.div>
+        </div>
+
+        <div className="flex-shrink-0 pt-3 pb-3 space-y-1" style={{ fontFamily: 'var(--font-simpler)' }}>
+          <button
+            type="button"
+            onClick={triggerHealthPermission}
+            disabled={isRequesting || isDeferring}
+            className="w-full h-[52px] rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:bg-none disabled:bg-v2-hairline disabled:text-v2-muted disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            {isRequesting ? 'מתחבר...' : isFemale ? 'חברי את הצעדים שלי' : 'חבר את הצעדים שלי'}
+          </button>
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={isRequesting || isDeferring}
+            className="w-full h-11 whitespace-nowrap text-v2-deep font-extrabold text-[14px] flex items-center justify-center gap-1 active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60"
+          >
+            <span>אולי מאוחר יותר</span>
+            <ChevronLeft size={14} />
+          </button>
+        </div>
+
+        <HealthConnectDisclosureModal {...disclosureProps} />
+      </div>
+    );
   }
 
   return (

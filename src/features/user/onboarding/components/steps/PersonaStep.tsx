@@ -2,7 +2,18 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check } from 'lucide-react';
+import {
+  Check,
+  Users,
+  GraduationCap,
+  BookOpen,
+  Briefcase,
+  Shield,
+  HeartPulse,
+  Dumbbell,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -10,6 +21,7 @@ import UnitJoinSuccessBanner from '@/components/ui/UnitJoinSuccessBanner';
 import type { AccessCodeResult } from '../../services/access-code.service';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import PersonaQuestionsDrawer from '../PersonaQuestionsDrawer';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { PERSONA_QUESTIONS } from '@/types/persona-question.types';
 import type { PersonaId } from '@/types/persona.types';
 import {
@@ -217,8 +229,20 @@ const GOAL_OPTIONS: GoalOption[] = [
 
 const MAX_GOALS = 2;
 
+/** enable_home_v2 — lucide glyph per persona (v2 shows no emoji). */
+const PERSONA_ICONS_V2: Record<string, LucideIcon> = {
+  parent: Users,
+  student: GraduationCap,
+  pupil: BookOpen,
+  office_worker: Briefcase,
+  military: Shield,
+  vatikim: HeartPulse,
+  pro_athlete: Dumbbell,
+};
+
 export default function PersonaStep({ onNext }: PersonaStepProps) {
   const { updateData, data } = useOnboardingStore();
+  const v2 = useOnboardingV2();
   
   // Get user gender from sessionStorage
   const userGender = useMemo(() => {
@@ -475,6 +499,272 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     }
     return `${goal1?.longDescEn} & ${goal2?.longDescEn}`;
   };
+
+  // ── v2 (enable_home_v2) — same state, handlers and store writes; v2 look ──
+  if (v2) {
+    const isFemale = userGender === 'female';
+    const madlibPill = (filled: boolean) =>
+      `inline-block rounded-lg px-2 py-0.5 text-[14px] font-extrabold transition-colors duration-150 ease-v2 ${
+        filled
+          ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline'
+      }`;
+    const PendingIcon = pendingPersona ? (PERSONA_ICONS_V2[pendingPersona.id] ?? UserRound) : UserRound;
+
+    return (
+      <div className="flex h-full flex-col font-simpler text-v2-ink" dir={direction}>
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="min-w-0 truncate text-[22px] font-black leading-[1.2] !tracking-[-0.02em] text-v2-ink">
+              {isHebrew ? 'שנכיר?' : "Let's get to know you"}
+            </h2>
+            {selectedPersonaIds.length > 0 && (
+              <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold tabular-nums text-v2-deep">
+                {selectedPersonaIds.length}
+              </span>
+            )}
+          </div>
+          {isHebrew && (
+            <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
+              {userName ? `היי ${userName}, ` : ''}
+              {isFemale
+                ? 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב.'
+                : 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב.'}
+            </p>
+          )}
+        </motion.div>
+
+        {/* Mad-libs sentence — sticky summary card */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-0 z-10 mb-4 rounded-[20px] bg-white/90 p-4 shadow-v2-card backdrop-blur-md"
+        >
+          <div className="text-center text-[15px] font-bold leading-relaxed text-v2-ink">
+            {isHebrew ? (
+              <>
+                אני{' '}
+                <span className={madlibPill(selectedPersonaIds.length > 0)}>{getSelectedLifestyleLabel()}</span>
+                {' '}שרוצה{' '}
+                <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+              </>
+            ) : (
+              <>
+                I&apos;m a{' '}
+                <span className={madlibPill(selectedPersonaIds.length > 0)}>{getSelectedLifestyleLabel()}</span>
+                {' '}who wants to{' '}
+                <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+              </>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Scrollable content */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
+          {/* Persona cards — 2-column grid */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <div className="grid grid-cols-2 gap-2.5 p-0.5">
+              {LIFESTYLE_OPTIONS.map((option, index) => {
+                const isSelected = selectedPersonaIds.includes(option.id);
+                const Icon = PERSONA_ICONS_V2[option.id] ?? UserRound;
+                return (
+                  <motion.button
+                    key={option.id}
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.05 + index * 0.02 }}
+                    onClick={() => handlePersonaToggle(option)}
+                    aria-pressed={isSelected}
+                    className={`relative flex h-[60px] min-w-0 items-center gap-2.5 rounded-[18px] bg-white px-3 transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                      isSelected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
+                    }`}
+                  >
+                    <span
+                      className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl ${
+                        isSelected ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-ink-2'
+                      }`}
+                    >
+                      <Icon size={18} strokeWidth={2.2} />
+                    </span>
+                    <span
+                      className={`min-w-0 flex-1 truncate whitespace-nowrap text-start text-[14.5px] ${
+                        isSelected ? 'font-black text-v2-ink' : 'font-extrabold text-v2-ink-2'
+                      }`}
+                    >
+                      {getPersonaLabel(option)}
+                    </span>
+                    <AnimatePresence>
+                      {isSelected && (
+                        <motion.span
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-v2-accent"
+                        >
+                          <Check size={12} className="text-white" strokeWidth={3} />
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Goal chips — multi-select, max 2 */}
+          <motion.div
+            ref={goalsSectionRef}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-4"
+          >
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <h3 className="min-w-0 truncate whitespace-nowrap text-[15px] font-black text-v2-ink">
+                {isHebrew ? 'מה המטרות שלך? (עד 2)' : 'Your goals? (up to 2)'}
+              </h3>
+              {selectedGoalIds.length > 0 && (
+                <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold tabular-nums text-v2-deep">
+                  {selectedGoalIds.length}/{MAX_GOALS}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 p-0.5">
+              {GOAL_OPTIONS.map((goal) => {
+                const isSelected = selectedGoalIds.includes(goal.id);
+                return (
+                  <button
+                    key={goal.id}
+                    type="button"
+                    onClick={() => handleGoalToggle(goal)}
+                    aria-pressed={isSelected}
+                    className={`flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-extrabold transition-[transform,background-color,color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                      isSelected
+                        ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`}
+                  >
+                    {isSelected && <Check size={14} strokeWidth={3} className="flex-shrink-0 text-v2-deep" />}
+                    <span>{isHebrew ? goal.shortTitleHe : goal.shortTitleEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Bottom CTA — <main> already pads the bottom inset */}
+        <div
+          className="flex-shrink-0 pb-3 pt-2"
+          style={{ background: 'linear-gradient(to top, #f6fbfd 70%, rgba(246,251,253,0))' }}
+        >
+          <AnimatePresence>
+            {!canContinue && (
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-2 text-center text-[12.5px] font-bold text-v2-muted"
+              >
+                {isHebrew
+                  ? (isFemale ? 'בחרי לפחות פרסונה אחת ומטרה אחת' : 'בחר לפחות פרסונה אחת ומטרה אחת')
+                  : 'Select at least one persona and one goal'}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!canContinue}
+            className={`flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full text-[16px] font-extrabold transition-transform duration-150 ease-v2 ${
+              canContinue
+                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+                : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
+            }`}
+          >
+            {isHebrew ? (isFemale ? 'המשיכי' : 'המשך') : 'Continue'}
+          </button>
+        </div>
+
+        {/* Access Code Gate modal — same flow; v2 shell (gate itself unchanged) */}
+        <AnimatePresence>
+          {showCodeModal && pendingPersona && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] flex items-center justify-center p-5"
+              style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(9,30,50,0.45)' }}
+              onClick={() => (codeSuccessResult ? handleCodeSuccessContinue() : handleCodeSkip())}
+            >
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.92, opacity: 0 }}
+                transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm"
+              >
+                {codeSuccessResult ? (
+                  <div className="rounded-v2-card bg-white p-6 text-center shadow-v2-float" dir="rtl">
+                    <h3 className="mb-4 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הקוד אומת!</h3>
+                    <div className="mb-5 flex justify-center">
+                      <UnitJoinSuccessBanner result={codeSuccessResult} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCodeSuccessContinue}
+                      className="flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                    >
+                      {isFemale ? 'המשיכי' : 'המשך'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4 flex flex-col items-center text-center">
+                      <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring">
+                        <PendingIcon size={26} strokeWidth={2.2} />
+                      </span>
+                      <h3 className="mt-3 text-[20px] font-black !tracking-[-0.02em] text-white" dir="rtl">
+                        {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
+                      </h3>
+                    </div>
+                    <AccessCodeGate
+                      orgName={isHebrew ? getPersonaLabel(pendingPersona) : pendingPersona.labelEn}
+                      personaLabel={getPersonaLabel(pendingPersona)}
+                      tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
+                      onSuccess={handleCodeSuccess}
+                      onSkip={handleCodeSkip}
+                    />
+                  </>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {drawerPersonaId && (
+          <PersonaQuestionsDrawer
+            personaId={drawerPersonaId}
+            isOpen={drawerPersonaId !== null}
+            onComplete={() => setDrawerPersonaId(null)}
+            v2
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full" dir={direction}>

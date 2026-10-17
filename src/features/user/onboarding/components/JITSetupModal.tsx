@@ -14,6 +14,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Heart } from 'lucide-react';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 function RingsIcon({ className }: { className?: string }) {
   return (
@@ -53,6 +55,20 @@ const REQUIREMENT_DESCRIPTIONS: Record<string, string> = {
   equipment: 'ספר לנו על הציוד שלך כדי שנתאים אימון מדויק',
 };
 
+// v2: one brand tint for every requirement icon (no red/blue/amber rings).
+const REQUIREMENT_ICONS_V2: Record<string, React.ReactNode> = {
+  health: <Heart className="h-[22px] w-[22px]" strokeWidth={2.25} />,
+  account: <Shield className="h-[22px] w-[22px]" strokeWidth={2.25} />,
+  equipment: <RingsIcon className="h-[22px] w-[22px]" />,
+};
+
+// v2: gendered forms of the legacy masculine copy.
+function requirementDescriptionV2(id: string, isFemale: boolean): string | undefined {
+  if (id === 'account') return isFemale ? 'גבי את החשבון שלך כדי לא לאבד את ההתקדמות' : REQUIREMENT_DESCRIPTIONS.account;
+  if (id === 'equipment') return isFemale ? 'ספרי לנו על הציוד שלך כדי שנתאים אימון מדויק' : REQUIREMENT_DESCRIPTIONS.equipment;
+  return REQUIREMENT_DESCRIPTIONS[id];
+}
+
 const REQUIREMENT_RING_COLORS: Record<string, string> = {
   health: 'border-red-400',
   account: 'border-blue-400',
@@ -68,6 +84,8 @@ export function JITSetupModal({
 }: JITSetupModalProps) {
   const router = useRouter();
   const [showInlineStep, setShowInlineStep] = useState(false);
+  const v2 = useOnboardingV2();
+  const isFemale = useUserStore((st) => st.profile?.core?.gender === 'female');
 
   if (!isOpen || requirements.length === 0) return null;
 
@@ -117,6 +135,93 @@ export function JITSetupModal({
           }}
         />
       </div>
+    );
+  }
+
+  // ── v2 (enable_home_v2): bottom sheet, same handlers / dismiss rules ──
+  // Fixed overlay covers <main>, so the sheet pads the bottom inset itself (once).
+  if (v2) {
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[141] flex items-end justify-center"
+          style={{ backdropFilter: 'blur(6px)', backgroundColor: 'rgba(9,30,50,0.42)' }}
+          onClick={hasHardBlock ? undefined : onCancel}
+        >
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+            className="w-full max-w-md rounded-t-[28px] bg-white px-5 pt-2.5 text-right text-v2-ink shadow-v2-sheet"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+            dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" aria-hidden />
+
+            <div className="flex items-start gap-3">
+              <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
+                {REQUIREMENT_ICONS_V2[primaryReq.id] || <Shield className="h-[22px] w-[22px]" strokeWidth={2.25} />}
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="text-[22px] font-black leading-tight !tracking-[-0.02em]">
+                  {hasHardBlock ? 'עוד צעד אחד קטן!' : 'רגע לפני שמתחילים...'}
+                </h2>
+                <p className="mt-1 text-[14.5px] font-medium leading-relaxed text-v2-ink-2">
+                  {requirementDescriptionV2(primaryReq.id, isFemale) || 'צריך להשלים כמה דברים לפני האימון'}
+                </p>
+              </div>
+            </div>
+
+            {requirements.length > 1 && (
+              <div className="mt-4 space-y-2">
+                {requirements.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center gap-3 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring"
+                  >
+                    <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep [&_svg]:h-[18px] [&_svg]:w-[18px]" aria-hidden>
+                      {REQUIREMENT_ICONS_V2[req.id] || <Shield strokeWidth={2.25} />}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[14.5px] font-bold text-v2-ink">
+                      {req.label}
+                    </span>
+                    {req.isHardBlock && (
+                      <span className="flex-shrink-0 whitespace-nowrap text-[12px] font-bold text-[#b4232a]">(חובה)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleCompleteNow}
+              className="mt-5 flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              <span className="truncate">
+                {hasHardBlock ? (isFemale ? 'השלימי עכשיו' : 'השלם עכשיו') : 'בואו נעדכן ציוד'}
+              </span>
+            </button>
+
+            {!hasHardBlock && (
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="mx-auto mt-1 flex h-11 items-center justify-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+              >
+                דלג בינתיים
+              </button>
+            )}
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
     );
   }
 

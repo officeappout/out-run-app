@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 // Persona ID → Hebrew label map. Canonical PersonaId vocabulary since the
 // 01.09.2026 persona-model redefinition -- 'reservist'/'soldier' merged into
@@ -19,6 +20,17 @@ const PERSONA_LABELS: Record<string, string> = {
   pro_athlete: 'ספורטאי/ת קצה',
 };
 
+// v2 only: gendered persona labels (no "/ית" slashes) when gender is known.
+const PERSONA_LABELS_V2: Record<string, { m: string; f: string }> = {
+  parent: { m: 'הורה', f: 'הורה' },
+  student: { m: 'סטודנט', f: 'סטודנטית' },
+  pupil: { m: 'תלמיד', f: 'תלמידה' },
+  office_worker: { m: 'עובד משרד', f: 'עובדת משרד' },
+  military: { m: 'חייל', f: 'חיילת' },
+  vatikim: { m: 'גיל הזהב', f: 'גיל הזהב' },
+  pro_athlete: { m: 'ספורטאי קצה', f: 'ספורטאית קצה' },
+};
+
 interface ProcessingStepProps {
   onNext: () => void;
 }
@@ -28,10 +40,17 @@ export default function ProcessingStep({ onNext }: ProcessingStepProps) {
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const { data } = useOnboardingStore();
+  const v2 = useOnboardingV2();
 
   // Resolve persona label from onboarding data
   const personaId = (data as any).selectedPersonaId || (data as any).selectedPersonaIds?.[0] || '';
-  const personaLabel = PERSONA_LABELS[personaId] || 'המשתמש';
+  const v2Gender =
+    v2 && typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_gender') : null;
+  const v2Label =
+    v2Gender === 'female' || v2Gender === 'male'
+      ? PERSONA_LABELS_V2[personaId]?.[v2Gender === 'female' ? 'f' : 'm']
+      : undefined;
+  const personaLabel = v2Label || PERSONA_LABELS[personaId] || 'המשתמש';
 
   const MESSAGES = [
     'מנתח העדפות אימון...',
@@ -76,6 +95,75 @@ export default function ProcessingStep({ onNext }: ProcessingStepProps) {
     }, 4500);
     return () => clearTimeout(timeout);
   }, [onNext]);
+
+  // ── v2 (enable_home_v2) ──────────────────────────────────────
+  // Same timers/auto-advance. Full-screen (rendered outside OnboardingLayout),
+  // so this owns its safe-area insets — once, here. No gradients: there is
+  // no CTA on this screen, so rings/core/progress are flat brand colour.
+  if (v2) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-v2-surface font-simpler text-v2-ink pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+        dir="rtl"
+      >
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+          className="relative mb-12"
+        >
+          <svg width="140" height="140" viewBox="0 0 140 140" className="animate-[spin_6s_linear_infinite]">
+            <circle cx="70" cy="70" r="64" fill="none" stroke="#00baf7" strokeWidth="1.5" strokeDasharray="8 12" opacity="0.35" />
+          </svg>
+          <svg width="140" height="140" viewBox="0 0 140 140" className="absolute inset-0 animate-[spin_4s_linear_infinite_reverse]">
+            <circle cx="70" cy="70" r="52" fill="none" stroke="#0284c7" strokeWidth="2" strokeDasharray="6 18" opacity="0.25" />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              className="grid h-16 w-16 place-items-center rounded-full bg-v2-tint ring-1 ring-inset ring-v2-accent/40"
+            >
+              <span className="h-6 w-6 rounded-full bg-v2-accent" />
+            </motion.div>
+          </div>
+          <svg width="140" height="140" viewBox="0 0 140 140" className="absolute inset-0 animate-[spin_3s_linear_infinite]">
+            <circle cx="70" cy="10" r="3" fill="#00baf7" opacity="0.9">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+        </motion.div>
+
+        <div className="relative h-8 w-full max-w-sm overflow-hidden px-6">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={messageIndex}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="absolute w-full truncate whitespace-nowrap px-6 text-center text-[15px] font-extrabold text-v2-deep"
+            >
+              {MESSAGES[messageIndex]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+
+        <div className="mt-10 h-1.5 w-56 overflow-hidden rounded-full bg-v2-hairline">
+          <motion.div className="h-full rounded-full bg-v2-accent" style={{ width: `${progress}%` }} />
+        </div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+          className="absolute bottom-[calc(env(safe-area-inset-bottom)+2.5rem)] whitespace-nowrap text-[11px] font-extrabold uppercase tracking-widest text-v2-muted"
+        >
+          OUT &mdash; Run Your World
+        </motion.p>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A] overflow-hidden" dir="rtl">

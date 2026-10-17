@@ -40,6 +40,9 @@ interface PersonaQuestionsDrawerProps {
    *  bump their OWN refresh trigger here — this drawer resolves once per
    *  open, it doesn't push updates back out. */
   onComplete: () => void;
+  /** enable_home_v2 look (sheet, dots, choice cards). Optional, default
+   *  false — hosts that don't pass it (MyPersonasSection) keep today's UI. */
+  v2?: boolean;
 }
 
 const slideVariants = {
@@ -68,7 +71,7 @@ const slideVariants = {
  * component: ContributionWizard has a closed step union, an if-chain
  * render (not config-driven), and no skip mechanism to reuse.
  */
-export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }: PersonaQuestionsDrawerProps) {
+export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, v2 = false }: PersonaQuestionsDrawerProps) {
   const questions = useMemo(() => PERSONA_QUESTIONS[personaId] ?? [], [personaId]);
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
@@ -239,7 +242,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        className={v2 ? 'absolute inset-0 bg-[rgba(9,30,50,0.35)] backdrop-blur-sm' : 'absolute inset-0 bg-black/30 backdrop-blur-sm'}
         onClick={handleDismiss}
       />
 
@@ -260,14 +263,24 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
         // — real-device test showed this step's own content is too short to
         // reach anywhere near the max-height cap on its own; see that
         // state's own comment above for why.
-        className={`relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
+        className={v2
+          ? `relative flex max-h-[92vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] font-simpler text-v2-ink shadow-v2-sheet ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`
+          : `relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
         dir="rtl"
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-lg font-bold text-slate-900">עוד קצת עלייך</h2>
+        {v2 && (
+          <div className="flex justify-center pb-1 pt-2.5">
+            <div className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
+          </div>
+        )}
+        <div className={v2 ? 'flex items-center justify-between gap-3 px-5 pb-2 pt-2' : 'flex items-center justify-between px-5 pt-5 pb-3'}>
+          <h2 className={v2 ? 'min-w-0 truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-bold text-slate-900'}>עוד קצת עלייך</h2>
           <button
             onClick={handleDismiss}
-            className="p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform"
+            aria-label={v2 ? 'סגירה' : undefined}
+            className={v2
+              ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
+              : 'p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform'}
           >
             <X size={18} />
           </button>
@@ -275,37 +288,43 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
 
         {saveFailed ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 pb-8 text-center" dir="rtl">
-            <p className="text-sm font-bold text-slate-800">
+            <p className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-slate-800'}>
               לא הצלחנו לשמור את התשובות שלך כרגע.
             </p>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className={v2 ? 'text-[13px] font-medium leading-relaxed text-v2-ink-2' : 'text-xs text-slate-500 leading-relaxed'}>
               מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.
             </p>
             <button
               onClick={handleRetryAfterFailure}
-              className="w-full max-w-xs text-on-brand font-black text-base py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 shadow-lg active:scale-[0.97] transition-transform"
+              className={v2
+                ? 'flex h-12 w-full max-w-xs items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                : 'w-full max-w-xs text-on-brand font-black text-base py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 shadow-lg active:scale-[0.97] transition-transform'}
             >
               נסה שוב
             </button>
           </div>
         ) : (
           <>
-            <p className="px-5 pb-3 text-xs text-slate-400" dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
+            <p className={v2 ? 'px-5 pb-3 text-[12.5px] font-bold text-v2-muted' : 'px-5 pb-3 text-xs text-slate-400'} dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
 
             <div className="flex items-center justify-center gap-2 pb-4">
               {questions.map((q, i) => (
                 <div key={q.key} className="flex items-center gap-1.5">
-                  <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                  <div className={v2
+                    ? `h-2 rounded-full transition-all duration-300 ease-v2 ${
+                        i === step ? 'w-5 bg-v2-accent' : i < step ? 'w-2 bg-v2-deep' : 'w-2 bg-v2-pill-border'
+                      }`
+                    : `w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                     i === step ? 'bg-[#00E5FF] scale-125' : i < step ? 'bg-emerald-400' : 'bg-slate-200'
                   }`} />
-                  {i < questions.length - 1 && <div className="w-6 h-px bg-slate-200" />}
+                  {i < questions.length - 1 && !v2 && <div className="w-6 h-px bg-slate-200" />}
                 </div>
               ))}
             </div>
 
             {showStaleUnitNotice && (
-              <div className="mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200" dir="rtl">
-                <p className="text-xs font-semibold text-amber-700">היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
+              <div className={v2 ? 'mx-5 mb-3 rounded-[14px] bg-[#fff7e6] px-4 py-2.5 ring-1 ring-inset ring-v2-amber/30' : 'mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200'} dir="rtl">
+                <p className={v2 ? 'text-[12.5px] font-bold text-v2-on-gold' : 'text-xs font-semibold text-amber-700'}>היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
               </div>
             )}
 
@@ -326,6 +345,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
                   config={currentQuestion}
                   value={answers[currentQuestion.key] as string | undefined}
                   onSelect={(v) => goToNextOrFinish({ ...answers, [currentQuestion.key]: v })}
+                  v2={v2}
                 />
               )}
               {currentQuestion?.type === 'hierarchy_search' && (
@@ -340,6 +360,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
                   onChange={(v: HierarchySearchValue) => setAnswers((prev) => ({ ...prev, ...v }))}
                   onDone={() => goToNextOrFinish(answers)}
                   onNeedsExpandedHeight={setNeedsExpandedHeight}
+                  v2={v2}
                 />
               )}
 
@@ -355,7 +376,9 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete }
                   <button
                     type="button"
                     onClick={() => goToNextOrFinish(answers)}
-                    className="w-full text-center text-sm font-semibold text-slate-400 py-2"
+                    className={v2
+                      ? 'w-full whitespace-nowrap py-2 text-center text-[14px] font-extrabold text-v2-deep'
+                      : 'w-full text-center text-sm font-semibold text-slate-400 py-2'}
                   >
                     דלג
                   </button>

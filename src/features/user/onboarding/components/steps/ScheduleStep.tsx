@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Coins, Check, Calendar, Clock, ChevronDown, Lightbulb, RefreshCw,
   Sofa, Footprints, Flame, Building2, TreePine, Dumbbell, Home as HomeIcon,
-  Bike, Sparkles, Heart, Zap,
+  Bike, Sparkles, Heart, Zap, AlertTriangle, Moon, X,
 } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
@@ -21,6 +21,8 @@ import {
   partitionWarnings,
 } from '@/features/schedule/engine/scheduleRules';
 import {
+  DAY_LETTERS,
+  SKILL_DISPLAY,
   type ScheduleDay,
   type ScheduleItemId,
 } from '@/features/schedule/types/smartSchedule.types';
@@ -33,6 +35,7 @@ import ScheduleFrequencyPicker from '@/features/schedule/components/ScheduleFreq
 import ScheduleDayBand from '@/features/schedule/components/ScheduleDayBand';
 import ScheduleWarningsPanel from '@/features/schedule/components/ScheduleWarningsPanel';
 import TrainingTimePicker from '@/features/schedule/components/TrainingTimePicker';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface ScheduleStepProps {
   onNext: () => void;
@@ -101,6 +104,7 @@ function CoinFly({
 export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStepProps) {
   // Focus mode — suppress global bottom navbar while wizard is active.
   useSuppressBottomNav();
+  const v2 = useOnboardingV2();
 
   const { updateData, data, claimReward, hasClaimedReward, coins } = useOnboardingStore();
 
@@ -475,6 +479,577 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   const showRecommendationA = historyFreq === 'none' && frequency >= 3;
   const showRecommendationB = (historyFreq === '1-2' || historyFreq === '3+') && frequency === 1;
   const hasRecommendation = showRecommendationA || showRecommendationB;
+
+  // ── enable_home_v2 branch ─────────────────────────────────────────────
+  // Same state, handlers, rewards and writes as the legacy render below —
+  // styling/layout only. The four extracted schedule components
+  // (ScheduleFrequencyPicker / ScheduleDayBand + DayPopover /
+  // ScheduleWarningsPanel / TrainingTimePicker) are rendered here as local
+  // v2 markup over the SAME props/handlers, so the shared components (and
+  // the legacy UI) stay byte-for-byte unchanged.
+  if (v2) {
+    const chipCls = (on: boolean) =>
+      `flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+        on
+          ? 'bg-v2-tint font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-white font-bold text-v2-ink-2 shadow-v2-ring'
+      }`;
+    const tileCls = (on: boolean) =>
+      `flex items-center justify-center rounded-2xl tabular-nums transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+        on
+          ? 'bg-v2-tint font-black text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-white font-bold text-v2-ink-2 shadow-v2-ring'
+      }`;
+    const coinBadge = (claimed: boolean, amount: number) => (
+      <motion.div
+        initial={false}
+        animate={{ opacity: claimed ? 1 : 0.5 }}
+        className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 ${
+          claimed ? 'bg-v2-gold/20 text-v2-on-gold' : 'bg-white text-v2-muted shadow-v2-ring'
+        }`}
+      >
+        <Coins size={13} strokeWidth={2.5} />
+        <span className="text-[11.5px] font-extrabold tabular-nums">{claimed ? amount : `+${amount}`}</span>
+      </motion.div>
+    );
+    const roundedMinutes = Math.round(minutes / 5) * 5;
+    const timeCol = (kind: 'h' | 'm') =>
+      (kind === 'h'
+        ? [hours - 1, hours, hours + 1].map((h) => (h < 0 ? 23 : h > 23 ? 0 : h))
+        : [roundedMinutes - 5, roundedMinutes, roundedMinutes + 5].map((m) => (m < 0 ? 55 : m > 55 ? 0 : m))
+      ).map((val, idx) => {
+        const isSelected = kind === 'h' ? val === hours : val === roundedMinutes;
+        return (
+          <button
+            key={`${kind}-${val}-${idx}`}
+            type="button"
+            onClick={() => handleTimeChange(kind === 'h' ? { hours: val } : { minutes: val })}
+            className={`${tileCls(isSelected)} h-10 w-16 ${isSelected ? 'text-[18px]' : 'text-[14px]'}`}
+          >
+            {String(val).padStart(2, '0')}
+          </button>
+        );
+      });
+    const popoverDay = openPopoverDay !== -1 ? scheduleGrid[openPopoverDay] : null;
+
+    return (
+      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+        <AnimatePresence>
+          {flyingCoin && (
+            <CoinFly
+              startPos={flyingCoin.startPos}
+              endPos={flyingCoin.endPos}
+              amount={flyingCoin.amount}
+              onComplete={handleCoinFlyComplete}
+            />
+          )}
+        </AnimatePresence>
+
+        <div className="px-4 pb-2 pt-1">
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+            <h1 className="text-[24px] font-black leading-[1.15] !tracking-[-0.02em]">
+              {isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
+            </h1>
+            <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
+              {isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
+            </p>
+          </motion.div>
+
+          {/* Recommendation ("Smart Tip") */}
+          <AnimatePresence>
+            {hasRecommendation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-4 overflow-hidden rounded-[20px] bg-white shadow-v2-ring"
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowRecommendation(!showRecommendation)}
+                  className="flex w-full items-center justify-between gap-2 px-4 py-3"
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-v2-tint">
+                      <Lightbulb size={16} className="text-v2-amber" strokeWidth={2.4} />
+                    </span>
+                    <span className="truncate whitespace-nowrap text-[14px] font-extrabold text-v2-ink">
+                      {isHebrew ? 'המלצה שלנו' : 'Our Recommendation'}
+                    </span>
+                  </span>
+                  <motion.span animate={{ rotate: showRecommendation ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                    <ChevronDown size={18} className="text-v2-muted" />
+                  </motion.span>
+                </button>
+                <AnimatePresence>
+                  {showRecommendation && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-3.5 text-[13.5px] font-medium leading-relaxed text-v2-ink-2">
+                        {showRecommendationA && (
+                          <p>
+                            {isHebrew
+                              ? 'היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.'
+                              : "Hey, we noticed you haven't trained in a while. We recommend starting with 1-2 times a week to build a strong foundation."}
+                          </p>
+                        )}
+                        {showRecommendationB && (
+                          <p>
+                            {t(
+                              'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
+                              'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!'
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Deep History */}
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 space-y-4 rounded-v2-card bg-white p-4 text-right shadow-v2-card"
+          >
+            <div className="space-y-2.5">
+              <h2 className="text-[15px] font-black">
+                {t('איך נראתה שגרת האימונים שלך בחודש האחרון?', 'איך נראתה שגרת האימונים שלך בחודש האחרון?')}
+              </h2>
+              <div role="radiogroup" className="flex flex-col gap-2">
+                {FREQ_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const sel = historyFreq === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={sel}
+                      onClick={() => handleHistoryFreq(opt.id)}
+                      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                        sel ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                      }`}
+                    >
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${sel ? 'bg-white' : 'bg-v2-surface'}`}>
+                        <Icon size={16} className={sel ? 'text-v2-deep' : 'text-v2-muted'} strokeWidth={2.2} />
+                      </span>
+                      <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] ${sel ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
+                        {opt.label}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full ${
+                          sel ? 'bg-v2-accent' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+                        }`}
+                      >
+                        {sel && <Check size={12} className="text-white" strokeWidth={3.2} />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {historyDone && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4 overflow-hidden"
+                >
+                  <div className="h-px bg-v2-hairline" />
+                  <div className="space-y-2.5">
+                    <h2 className="text-[15px] font-black">
+                      {t('איפה התאמנת בדרך כלל?', 'איפה התאמנת בדרך כלל?')}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {LOC_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        const sel = historyLocs.includes(opt.id);
+                        return (
+                          <button key={opt.id} type="button" aria-pressed={sel} onClick={() => toggleHistoryLoc(opt.id)} className={chipCls(sel)}>
+                            <Icon size={14} strokeWidth={2.2} />
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    <h2 className="text-[15px] font-black">
+                      {isHebrew ? 'באילו ענפי ספורט?' : 'Which sports?'}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {SPORT_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        const sel = historySpts.includes(opt.id);
+                        return (
+                          <button key={opt.id} type="button" aria-pressed={sel} onClick={() => toggleHistorySport(opt.id)} className={chipCls(sel)}>
+                            <Icon size={14} strokeWidth={2.2} />
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
+
+          {/* Section 1: Frequency */}
+          <section className="mb-5 text-right">
+            <div className="mb-2.5 flex items-center gap-2">
+              {IS_COIN_SYSTEM_ENABLED && (
+                <div className="relative" ref={frequencyBadgeRef}>
+                  {coinBadge(hasClaimedReward('SCHEDULE_FREQUENCY_REWARD'), 20)}
+                </div>
+              )}
+              <h2 className="whitespace-nowrap text-[16px] font-black">
+                {isHebrew ? 'כמה פעמים בשבוע?' : 'How many times a week?'}
+              </h2>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+                const isSelected = frequency === num;
+                const isRecommended = num === RECOMMENDED_FREQUENCY;
+                return (
+                  <div key={num} className="relative">
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => handleFrequencySelect(num)}
+                      className={`${tileCls(isSelected)} h-11 w-full text-[17px]`}
+                    >
+                      {num}
+                    </button>
+                    {isRecommended && isSelected && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                      >
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-extrabold text-v2-deep shadow-v2-ring">
+                          {isHebrew ? 'מומלץ עבורך' : 'Recommended'}
+                        </span>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="h-5" />
+          </section>
+
+          {/* Section 2: Days */}
+          <AnimatePresence>
+            {showDaysSection && (
+              <motion.section
+                initial={{ opacity: 0, height: 0, y: 10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0, scale: daysPulse ? [1, 1.02, 1] : 1 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {IS_COIN_SYSTEM_ENABLED && (
+                      <div className="relative" ref={daysBadgeRef}>
+                        {coinBadge(hasClaimedReward('SCHEDULE_DAYS_REWARD'), 30)}
+                      </div>
+                    )}
+                    <h2 className="whitespace-nowrap text-[16px] font-black">
+                      {isHebrew ? 'באילו ימים?' : 'Which days?'}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    aria-pressed={calendarSyncEnabled}
+                    onClick={() => setCalendarSyncEnabled(!calendarSyncEnabled)}
+                    className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[12px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      calendarSyncEnabled
+                        ? 'bg-v2-tint font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'bg-white font-bold text-v2-muted shadow-v2-ring'
+                    }`}
+                  >
+                    <RefreshCw size={12} strokeWidth={2.2} />
+                    <span>{isHebrew ? 'סנכרון ליומן' : 'Sync'}</span>
+                    {calendarSyncEnabled && <Check size={12} strokeWidth={3} />}
+                  </button>
+                </div>
+
+                <p className={`mb-2.5 text-[12.5px] font-bold ${selectedDays.length === frequency ? 'text-v2-up' : 'text-v2-amber'}`}>
+                  {isHebrew
+                    ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים`
+                    : `${selectedDays.length} of ${frequency} days selected`}
+                </p>
+
+                {/* 7-day band (v2 markup over ScheduleDayBand's exact props/handlers) */}
+                <div className="relative grid grid-cols-7 gap-1.5">
+                  {DAY_LETTERS.map((dayLabel, index) => {
+                    const day = scheduleGrid[index];
+                    const isRest = day.sessions.length === 0;
+                    const isSaturday = index === 6;
+                    const isPopoverOpen = openPopoverDay === index;
+                    const hasWarningOnDay = liveWarnings.some((w) => w.affectedDays.includes(index));
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleDayCardClick(index)}
+                        aria-label={`${dayLabel} — ${isRest ? 'יום מנוחה' : `${day.sessions.length} סשנים`}`}
+                        className={`relative flex w-full flex-col items-center gap-1.5 rounded-2xl px-0.5 py-2 transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                          isPopoverOpen
+                            ? 'bg-white shadow-v2-card ring-2 ring-v2-accent'
+                            : isRest
+                              ? isSaturday
+                                ? 'bg-v2-surface ring-1 ring-inset ring-v2-hairline'
+                                : 'bg-white shadow-v2-ring'
+                              : 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40'
+                        }`}
+                      >
+                        <span className={`text-[14px] font-black leading-none ${isRest ? 'text-v2-muted' : 'text-v2-deep'}`}>
+                          {dayLabel}
+                        </span>
+                        {isRest ? (
+                          <Moon size={15} className="text-v2-pill-border" strokeWidth={2} />
+                        ) : (
+                          <span className="flex flex-col items-center gap-0.5">
+                            {day.sessions.slice(0, 2).map((session, si) => {
+                              const display = SKILL_DISPLAY[session.skillId];
+                              if (!display) return null;
+                              return (
+                                <span
+                                  key={si}
+                                  aria-hidden
+                                  title={display.shortName}
+                                  className="grid h-7 w-7 place-items-center overflow-hidden rounded-full bg-white shadow-v2-ring"
+                                >
+                                  <img
+                                    src={display.iconPath}
+                                    alt=""
+                                    className="h-4 w-4 object-contain"
+                                    onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                                  />
+                                </span>
+                              );
+                            })}
+                            {day.sessions.length > 2 && (
+                              <span className="text-[11px] font-extrabold leading-none text-v2-deep">
+                                +{day.sessions.length - 2}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {hasWarningOnDay && !isPopoverOpen && (
+                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-v2-amber" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Day popover (v2 markup over DayPopover's exact handlers) */}
+                <AnimatePresence>
+                  {popoverDay && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+                      className="mt-3 overflow-hidden rounded-[20px] bg-white shadow-v2-card"
+                    >
+                      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+                        <h3 className="truncate whitespace-nowrap text-[15px] font-black">
+                          {isHebrew
+                            ? `מה מתאמנים ביום ${DAY_LETTERS[openPopoverDay]}׳?`
+                            : `Day ${DAY_LETTERS[openPopoverDay]} — pick programs`}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={handleClosePopover}
+                          aria-label="Close"
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
+                        >
+                          <X size={16} className="text-v2-ink-2" />
+                        </button>
+                      </div>
+                      <div className="max-h-[280px] space-y-1.5 overflow-y-auto px-3 pb-2 pt-1">
+                        {activeWizardOptions.map((opt) => {
+                          const isPicked = popoverDay.sessions.some((s) => s.skillId === opt.id);
+                          const display = SKILL_DISPLAY[opt.id];
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              aria-pressed={isPicked}
+                              onClick={() => handleSessionToggle(openPopoverDay, opt.id)}
+                              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                                isPicked ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                              }`}
+                            >
+                              <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-v2-surface">
+                                {display && (
+                                  <img
+                                    src={display.iconPath}
+                                    alt=""
+                                    className="h-5 w-5 object-contain"
+                                    onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                                  />
+                                )}
+                              </span>
+                              <span className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] ${isPicked ? 'font-extrabold text-v2-deep' : 'font-bold text-v2-ink-2'}`}>
+                                {isHebrew ? opt.labelHe : opt.labelEn}
+                              </span>
+                              <span
+                                aria-hidden
+                                className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md ${
+                                  isPicked ? 'bg-v2-accent' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+                                }`}
+                              >
+                                {isPicked && <Check size={12} className="text-white" strokeWidth={3.2} />}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          aria-pressed={popoverDay.sessions.length === 0}
+                          onClick={() => handleSetRestDay(openPopoverDay)}
+                          className={`mt-1 flex w-full items-center gap-3 rounded-2xl px-3 py-2 transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                            popoverDay.sessions.length === 0 ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                          }`}
+                        >
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-v2-surface">
+                            <Moon size={16} className="text-v2-muted" />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] font-bold text-v2-ink-2">
+                            {isHebrew ? 'יום מנוחה' : 'Rest day'}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex justify-end px-4 pb-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleClosePopover}
+                          className="whitespace-nowrap text-[14px] font-extrabold text-v2-deep"
+                        >
+                          {isHebrew ? 'סיימתי' : 'Done'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Warnings (v2 markup over ScheduleWarningsPanel's props) */}
+                <AnimatePresence>
+                  {(liveErrors.length > 0 || liveWarns.length > 0) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.18 }}
+                      className="mt-3 space-y-2"
+                    >
+                      {liveErrors.length > 0 && (
+                        <div className="rounded-[20px] bg-white p-3.5 shadow-v2-ring">
+                          <div className="mb-1 flex items-center gap-2">
+                            <AlertTriangle size={15} className="text-[#b4232a]" strokeWidth={2.5} />
+                            <span className="whitespace-nowrap text-[13px] font-extrabold text-[#b4232a]">
+                              {isHebrew ? 'שגיאות חובה לתקן' : 'Errors to resolve'}
+                            </span>
+                          </div>
+                          <ul className="space-y-1">
+                            {liveErrors.map((w) => (
+                              <li key={w.code} className="text-[12.5px] font-bold text-[#b4232a]">{w.message}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {liveWarns.length > 0 && (
+                        <div className="rounded-[20px] bg-white p-3.5 shadow-v2-ring">
+                          <div className="mb-1 flex items-center gap-2">
+                            <AlertTriangle size={15} className="text-v2-amber" strokeWidth={2.5} />
+                            <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-ink">
+                              {isHebrew ? 'אזהרות מהמנוע החכם' : 'Smart engine warnings'}
+                            </span>
+                          </div>
+                          <ul className="space-y-1">
+                            {liveWarns.map((w, i) => (
+                              <li key={`${w.code}-${i}`} className="text-[12.5px] font-bold text-v2-ink-2">{w.message}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.section>
+            )}
+          </AnimatePresence>
+
+          {/* Section 3: Time */}
+          <AnimatePresence>
+            {showTimeSection && (
+              <motion.section
+                initial={{ opacity: 0, height: 0, y: 10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+              >
+                <div className="mb-2.5 flex items-center gap-2">
+                  {IS_COIN_SYSTEM_ENABLED && (
+                    <div className="relative" ref={timeBadgeRef}>
+                      {coinBadge(hasClaimedReward('SCHEDULE_TIME_REWARD'), 20)}
+                    </div>
+                  )}
+                  <Clock size={17} className="shrink-0 text-v2-deep" strokeWidth={2.4} />
+                  <h2 className="whitespace-nowrap text-[16px] font-black">
+                    {isHebrew ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?') : 'What time do you train?'}
+                  </h2>
+                </div>
+                <div className="flex select-none items-center justify-center rounded-v2-card bg-white py-4 shadow-v2-card">
+                  <div className="flex items-center gap-4" style={{ direction: 'ltr' }}>
+                    <div className="flex flex-col gap-1.5">{timeCol('h')}</div>
+                    <span className="text-[24px] font-black text-v2-ink">:</span>
+                    <div className="flex flex-col gap-1.5">{timeCol('m')}</div>
+                  </div>
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="flex-grow" />
+
+        <StickyActionButton
+          variant="v2"
+          label={isJIT
+            ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
+            : isLastStep
+              ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
+              : (savedLanguage === 'he' ? t('המשך', 'המשיכי') : locale.common.continue)}
+          successLabel={isJIT
+            ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!')
+            : undefined}
+          disabled={!canContinue}
+          onPress={handleContinue}
+        />
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">

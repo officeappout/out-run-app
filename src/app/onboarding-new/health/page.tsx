@@ -17,6 +17,7 @@ import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-at
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
+import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
 export default function HealthDeclarationPage() {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
@@ -24,6 +25,9 @@ export default function HealthDeclarationPage() {
   const [mounted, setMounted] = useState(false);
   const [skipFailed, setSkipFailed] = useState(false);
   const skipGuardRef = useRef(createSkipAttemptGuard());
+  // enable_home_v2 — styling only for this page's own loading / retry states
+  // (the form itself is HealthDeclarationStep, which reads the flag itself).
+  const v2 = useOnboardingV2();
 
   const isRunningTrack = getOnboardingPref('gateway_track') === 'RUNNING';
 
@@ -262,8 +266,8 @@ export default function HealthDeclarationPage() {
   // once it's known, not before.
   if (!mounted || !_hasHydrated || (alreadyAccepted && !skipFailed)) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">טוען...</div>
+      <div className={v2 ? 'h-full bg-v2-surface flex items-center justify-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}>
+        <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>טוען...</div>
       </div>
     );
   }
@@ -278,15 +282,25 @@ export default function HealthDeclarationPage() {
   // to Finding 1 (round-3 review) closes.
   if (skipFailed) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <div className="text-slate-500">לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.</div>
-        <BrandCtaButton
-          type="button"
-          onClick={runAutoSkip}
-          className="px-5 py-2 text-sm"
-        >
-          נסה שוב
-        </BrandCtaButton>
+      <div className={v2 ? 'h-full bg-v2-surface flex flex-col items-center justify-center gap-4 px-6 text-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col items-center justify-center gap-4 px-6 text-center'}>
+        <div className={v2 ? 'text-[15px] font-bold text-v2-ink-2 leading-relaxed' : 'text-slate-500'}>לא הצלחנו לשמור את ההמשך. בדקו את החיבור ונסו שוב.</div>
+        {v2 ? (
+          <button
+            type="button"
+            onClick={runAutoSkip}
+            className="h-12 px-8 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
+          >
+            נסה שוב
+          </button>
+        ) : (
+          <BrandCtaButton
+            type="button"
+            onClick={runAutoSkip}
+            className="px-5 py-2 text-sm"
+          >
+            נסה שוב
+          </BrandCtaButton>
+        )}
       </div>
     );
   }
@@ -294,8 +308,8 @@ export default function HealthDeclarationPage() {
   const content = (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center">
-          <div className="text-slate-500">טוען...</div>
+        <div className={v2 ? 'flex-1 h-full bg-v2-surface flex items-center justify-center' : 'min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex items-center justify-center'}>
+          <div className={v2 ? 'text-[14px] font-bold text-v2-muted' : 'text-slate-500'}>טוען...</div>
         </div>
       }
     >

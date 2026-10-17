@@ -160,6 +160,8 @@ export interface InitialCardProps {
   detectedCity?: string | null;
   /** Context for copy switching (running vs strength vs general) */
   purpose?: MapPurpose;
+  /** enable_home_v2 — render the v2 design-language variant (default false). */
+  v2?: boolean;
 }
 
 export interface ConfirmationCardProps {
@@ -183,6 +185,8 @@ export interface ConfirmationCardProps {
   trainingContext: TrainingContext | null;
   /** Explorer mode: hide onboarding controls, use discovery copy */
   mode?: LocationStepMode;
+  /** enable_home_v2 — render the v2 design-language variant (default false). */
+  v2?: boolean;
 }
 
 export interface SearchOverlayProps {
@@ -191,10 +195,14 @@ export interface SearchOverlayProps {
   filteredCities: CityData[];
   onCitySelect: (city: CityData) => void;
   onBack: () => void;
+  /** enable_home_v2 — render the v2 design-language variant (default false). */
+  v2?: boolean;
 }
 
 export interface RadarPulseProps {
   center: { lat: number; lng: number };
+  /** enable_home_v2 — render the v2 design-language variant (default false). */
+  v2?: boolean;
 }
 
 // ── Pioneer + Plan B Fallback ────────────────────────────

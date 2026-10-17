@@ -21,6 +21,7 @@ import {
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { getOnboardingLocale, type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 
 interface HistoryStepProps {
   onNext: () => void;
@@ -28,6 +29,7 @@ interface HistoryStepProps {
 
 export default function HistoryStep({ onNext }: HistoryStepProps) {
   const { updateData, data, addCoins } = useOnboardingStore();
+  const v2 = useOnboardingV2();
   const [showCoinAnimation, setShowCoinAnimation] = useState(false);
   const [hasEarnedReward, setHasEarnedReward] = useState(false);
   
@@ -155,6 +157,196 @@ export default function HistoryStep({ onNext }: HistoryStepProps) {
 
   // Check if can continue (frequency must be selected)
   const canContinue = historyFrequency !== '';
+
+  // ── v2 (enable_home_v2) — same selections, handlers, analytics; v2 look ──
+  if (v2) {
+    const chipClass = (isSelected: boolean) =>
+      `flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[14px] font-extrabold transition-[transform,background-color,color,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+        isSelected
+          ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-white text-v2-ink-2 shadow-v2-ring'
+      }`;
+
+    return (
+      <div dir="rtl" className="mx-auto flex h-full w-full max-w-md flex-1 flex-col font-simpler text-v2-ink">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-6 pt-2">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-7"
+          >
+            {/* Section 1: routine frequency (single select) */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="min-w-0 text-[17px] font-black leading-snug !tracking-[-0.01em] text-v2-ink">
+                  {t(
+                    'איך נראתה שגרת האימונים שלך בחודש האחרון?',
+                    'איך נראתה שגרת האימונים שלך בחודש האחרון?'
+                  )}
+                </h3>
+
+                {/* Coin badge */}
+                <div className="relative flex-shrink-0">
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: hasEarnedReward ? 1 : 0.55,
+                      scale: showCoinAnimation ? [1, 1.2, 1] : 1,
+                    }}
+                    transition={{
+                      opacity: { duration: 0.3 },
+                      scale: { duration: 0.4, times: [0, 0.5, 1] },
+                    }}
+                    className="flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-1 shadow-v2-ring"
+                  >
+                    <Coins size={12} strokeWidth={2.5} className={hasEarnedReward ? 'text-v2-amber' : 'text-v2-muted'} />
+                    <span className={`text-[11px] font-extrabold ${hasEarnedReward ? 'text-v2-ink' : 'text-v2-muted'}`}>+10</span>
+                  </motion.div>
+                  <AnimatePresence>
+                    {showCoinAnimation && (
+                      <motion.div
+                        initial={{ opacity: 1, y: 0, scale: 1 }}
+                        animate={{ opacity: 0, y: -20, scale: 1.2 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                        className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2"
+                      >
+                        <div className="flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-1 shadow-v2-float">
+                          <Coins size={12} strokeWidth={2.5} className="text-v2-amber" />
+                          <span className="text-[11px] font-extrabold text-v2-ink">+10</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 p-0.5">
+                {frequencyOptions.map((option, index) => {
+                  const Icon = option.icon;
+                  const isSelected = historyFrequency === option.id;
+                  return (
+                    <motion.button
+                      key={option.id}
+                      type="button"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      onClick={() => handleFrequencySelect(option.id)}
+                      aria-pressed={isSelected}
+                      className={`flex h-[60px] w-full min-w-0 items-center gap-3 rounded-[18px] bg-white px-3.5 transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                        isSelected ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'
+                      }`}
+                    >
+                      <span
+                        className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl ${
+                          isSelected ? 'bg-v2-tint text-v2-deep' : 'bg-v2-surface text-v2-ink-2'
+                        }`}
+                      >
+                        <Icon size={18} strokeWidth={2.2} />
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate whitespace-nowrap text-right text-[15px] ${
+                          isSelected ? 'font-black text-v2-ink' : 'font-extrabold text-v2-ink-2'
+                        }`}
+                      >
+                        {option.label}
+                      </span>
+                      <span
+                        className={`grid h-6 w-6 flex-shrink-0 place-items-center rounded-full ${
+                          isSelected ? 'bg-v2-accent' : 'bg-v2-surface ring-[1.5px] ring-inset ring-v2-pill-border'
+                        }`}
+                      >
+                        {isSelected && <Check size={14} className="text-white" strokeWidth={3} />}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 2: locations (multi) */}
+            <div className="space-y-3">
+              <h3 className="text-[17px] font-black leading-snug !tracking-[-0.01em] text-v2-ink">
+                {t(
+                  'איפה התאמנת בדרך כלל עד היום?',
+                  'איפה התאמנת בדרך כלל עד היום?'
+                )}
+              </h3>
+              <div className="flex flex-wrap gap-2 p-0.5">
+                {locationOptions.map((location, index) => {
+                  const Icon = location.icon;
+                  const isSelected = historyLocations.includes(location.id);
+                  return (
+                    <motion.button
+                      key={location.id}
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1 + index * 0.03 }}
+                      onClick={() => handleLocationToggle(location.id)}
+                      aria-pressed={isSelected}
+                      className={chipClass(isSelected)}
+                    >
+                      <Icon size={15} strokeWidth={2.2} className="flex-shrink-0" />
+                      <span>{location.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 3: sports (multi) */}
+            <div className="space-y-3">
+              <h3 className="text-[17px] font-black leading-snug !tracking-[-0.01em] text-v2-ink">
+                {isHebrew ? 'ובאילו ענפי ספורט?' : 'Which sports?'}
+              </h3>
+              <div className="flex flex-wrap gap-2 p-0.5">
+                {sportOptions.map((sport, index) => {
+                  const Icon = sport.icon;
+                  const isSelected = historySports.includes(sport.id);
+                  return (
+                    <motion.button
+                      key={sport.id}
+                      type="button"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.15 + index * 0.03 }}
+                      onClick={() => handleSportToggle(sport.id)}
+                      aria-pressed={isSelected}
+                      className={chipClass(isSelected)}
+                    >
+                      <Icon size={15} strokeWidth={2.2} className="flex-shrink-0" />
+                      <span>{sport.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* CTA — <main> already pads the bottom inset, so only 12px here */}
+        <div
+          className="flex-shrink-0 px-4 pb-3 pt-3"
+          style={{ background: 'linear-gradient(to top, #f6fbfd 70%, rgba(246,251,253,0))' }}
+        >
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!canContinue}
+            className={`flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full text-[16px] font-extrabold transition-transform duration-150 ease-v2 ${
+              canContinue
+                ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+                : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
+            }`}
+          >
+            {locale.common.continue}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="w-full max-w-md mx-auto flex flex-col min-h-[100dvh] bg-slate-50/50">

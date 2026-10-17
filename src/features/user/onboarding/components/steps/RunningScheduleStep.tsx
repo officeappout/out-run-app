@@ -349,6 +349,247 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     );
   }
 
+  // ── enable_home_v2 interactive picker (JIT) ─────────────────────────────
+  // Same state/handlers/writes as the legacy render below — styling only.
+  // The calendar-sync and reminder toggles are `!isJIT`-only in the legacy
+  // render, and this branch is only reachable with isJIT true, so they are
+  // not rendered here either.
+  if (v2) {
+    const isFemale =
+      (profile?.core as { gender?: string } | undefined)?.gender === 'female' ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female');
+    const tileCls = (on: boolean) =>
+      `flex items-center justify-center rounded-2xl tabular-nums transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+        on
+          ? 'bg-v2-tint font-black text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+          : 'bg-white font-bold text-v2-ink-2 shadow-v2-ring'
+      }`;
+    const roundedMinutes = Math.round(minutes / 5) * 5;
+    const hourVals = [hours - 1, hours, hours + 1].map((h) => (h < 0 ? 23 : h > 23 ? 0 : h));
+    const minuteVals = [roundedMinutes - 5, roundedMinutes, roundedMinutes + 5].map((m) => (m < 0 ? 55 : m > 55 ? 0 : m));
+
+    return (
+      <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
+        <div className="px-4 pb-2 pt-1">
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+            <h1 className="text-[24px] font-black leading-[1.15] !tracking-[-0.02em]">מתי נרוץ?</h1>
+            <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
+              נבנה תוכנית ריצה שמתאימה לסדר היום שלך
+            </p>
+          </motion.div>
+
+          {/* Hybrid notice */}
+          <AnimatePresence>
+            {hasStrengthDays && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-3 overflow-hidden"
+              >
+                <div className="flex items-start gap-2.5 rounded-[20px] bg-white px-3.5 py-3 shadow-v2-ring">
+                  <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[#00baf7]" />
+                  <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
+                    ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
+                    אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Load-increase notice — wording DECIDED (see legacy render). */}
+          <AnimatePresence>
+            {isJIT && frequency > oldRunningScheduleDays.length && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-3 overflow-hidden"
+              >
+                <div className="flex items-start gap-2.5 rounded-[20px] bg-white px-3.5 py-3 shadow-v2-ring">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-v2-amber" strokeWidth={2.4} />
+                  <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
+                    בחרת יותר ימים מהתוכנית הנוכחית שלך.
+                    <br />
+                    נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Section 1: Frequency */}
+          <section className="mb-5 mt-2 text-right">
+            <h2 className="mb-2.5 whitespace-nowrap text-[16px] font-black">כמה אימוני ריצה בשבוע?</h2>
+            <div className="flex justify-center gap-3">
+              {Array.from(
+                { length: MAX_FREQUENCY - MIN_FREQUENCY + 1 },
+                (_, i) => i + MIN_FREQUENCY,
+              ).map((num) => {
+                const isRecommended = num === RECOMMENDED_FREQUENCY;
+                const isSelected = frequency === num;
+                return (
+                  <div key={num} className="relative">
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => handleFrequencySelect(num)}
+                      aria-label={`${num} ${num === 1 ? 'יום' : 'ימים'} בשבוע`}
+                      className={`${tileCls(isSelected)} h-14 w-16 text-[20px]`}
+                    >
+                      {num}
+                    </button>
+                    {isRecommended && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                      >
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-extrabold text-v2-deep shadow-v2-ring">
+                          מומלץ עבורך
+                        </span>
+                      </motion.div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="h-6" />
+          </section>
+
+          {/* Section 2: Days */}
+          <AnimatePresence>
+            {showDaysSection && (
+              <motion.section
+                initial={{ opacity: 0, height: 0, y: 10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0, scale: daysPulse ? [1, 1.02, 1] : 1 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-1.5 text-right"
+              >
+                <h2 className="mb-1.5 whitespace-nowrap text-[16px] font-black">באילו ימים?</h2>
+                <p className={`mb-2.5 text-[12.5px] font-bold ${selectedDays.length === frequency ? 'text-v2-up' : 'text-v2-deep'}`}>
+                  נבחרו {selectedDays.length} מתוך {frequency} ימים
+                </p>
+                <div className="grid grid-cols-7 gap-1.5">
+                  {DAYS_HEBREW.map((day, index) => {
+                    const isRunning = selectedDays.includes(index);
+                    const isStrength = strengthDayIndices.includes(index);
+                    return (
+                      <div key={index} className="relative">
+                        <button
+                          type="button"
+                          aria-pressed={isRunning}
+                          onClick={() => handleDayToggle(index)}
+                          aria-label={DAY_NAMES_HE[index]}
+                          className={`${tileCls(isRunning)} h-11 w-full text-[16px]`}
+                        >
+                          {day}
+                        </button>
+                        {/* Strength-day marker (same rule as legacy: shown
+                            whether or not it is also a running day). */}
+                        {isStrength && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#00baf7] ring-2 ring-white"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {hasStrengthDays && (
+                  <div className="mt-3 flex justify-center gap-4">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-bold text-v2-ink-2">
+                      <span className="h-3 w-3 rounded-[5px] bg-v2-tint ring-1 ring-inset ring-v2-accent/40" />
+                      ריצה
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-bold text-v2-ink-2">
+                      <span className="h-3 w-3 rounded-full bg-[#00baf7]" />
+                      כוח
+                    </span>
+                  </div>
+                )}
+              </motion.section>
+            )}
+          </AnimatePresence>
+
+          {/* Section 3: Time */}
+          <AnimatePresence>
+            {showTimeSection && (
+              <motion.section
+                initial={{ opacity: 0, height: 0, y: 10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
+              >
+                <div className="mb-2.5 flex items-center gap-2">
+                  <Timer size={17} className="shrink-0 text-v2-deep" strokeWidth={2.4} />
+                  <h2 className="whitespace-nowrap text-[16px] font-black">
+                    {isFemale ? 'באיזו שעה תרוצי?' : 'באיזו שעה תרוץ?'}
+                  </h2>
+                </div>
+                <div className="flex select-none items-center justify-center rounded-v2-card bg-white py-4 shadow-v2-card">
+                  <div className="flex items-center gap-4" style={{ direction: 'ltr' }}>
+                    <div className="flex flex-col gap-1.5">
+                      {hourVals.map((displayHour, idx) => {
+                        const isSelected = displayHour === hours;
+                        return (
+                          <button
+                            key={`hour-${displayHour}-${idx}`}
+                            type="button"
+                            onClick={() =>
+                              setTime((prev) => `${String(displayHour).padStart(2, '0')}:${prev.split(':')[1]}`)
+                            }
+                            className={`${tileCls(isSelected)} h-10 w-16 ${isSelected ? 'text-[18px]' : 'text-[14px]'}`}
+                          >
+                            {String(displayHour).padStart(2, '0')}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[24px] font-black text-v2-ink">:</span>
+                    <div className="flex flex-col gap-1.5">
+                      {minuteVals.map((displayMinute, idx) => {
+                        const isSelected = displayMinute === roundedMinutes;
+                        return (
+                          <button
+                            key={`min-${displayMinute}-${idx}`}
+                            type="button"
+                            onClick={() =>
+                              setTime((prev) => `${prev.split(':')[0]}:${String(displayMinute).padStart(2, '0')}`)
+                            }
+                            className={`${tileCls(isSelected)} h-10 w-16 ${isSelected ? 'text-[18px]' : 'text-[14px]'}`}
+                          >
+                            {String(displayMinute).padStart(2, '0')}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="flex-grow" />
+
+        <StickyActionButton
+          variant="v2"
+          label={isJIT ? 'שמירת שינויים' : isLastStep ? 'בואו נרוץ!' : 'המשך'}
+          successLabel={isJIT ? 'לוח ריצה עודכן!' : undefined}
+          disabled={!canContinue}
+          onPress={handleContinue}
+        />
+      </div>
+    );
+  }
+
   return (
     <div dir="rtl" className="w-full max-w-md mx-auto px-4 py-4 flex flex-col min-h-[100dvh] relative">
 

@@ -2,11 +2,18 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Star, Flag, Trees, Bike, Footprints, Route as RouteIconBase } from 'lucide-react';
 import type { ConfirmationCardProps, NearbyFacility } from '../location-types';
 import { getIdentityHook, selectSmartBadges, formatDistance, buildPioneerFallback } from '../location-utils';
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 import { resolveParkImage } from '@/lib/park-image';
+
+// v2 renders no emoji — strip pictographs (surrogate-pair emoji, dingbats,
+// VS16/ZWJ joiners) from copy that comes from the shared copy matrix.
+const EMOJI_RE = /(?:[\uD83C-\uD83E][\uDC00-\uDFFF]|[\u2600-\u27BF]|\u2B50|\uFE0F|\u200D)/g;
+function stripEmoji(text: string): string {
+  return text.replace(EMOJI_RE, '').replace(/\s{2,}/g, ' ').trim();
+}
 
 export function ConfirmationCard({
   displayName,
@@ -28,6 +35,7 @@ export function ConfirmationCard({
   bestMatchIndex,
   trainingContext,
   mode = 'onboarding',
+  v2 = false,
 }: ConfirmationCardProps) {
   const isExplorer = mode === 'explorer';
   const isBridge = mode === 'bridge';
@@ -96,6 +104,255 @@ export function ConfirmationCard({
   const showPioneer = isExplorer
     ? nearbyFacilities.length === 0
     : pioneer.showPioneer;
+
+  if (v2) {
+    // v2 — one bottom sheet over the full-bleed map. The step is `fixed
+    // inset-0` (it covers <main>), so this sheet owns the bottom inset, once.
+    const rated = nearbyFacilities.filter(f => f.rating != null && typeof f.rating === 'number' && f.rating > 0);
+    const avgRating = rated.length > 0
+      ? rated.reduce((sum, f) => sum + (f.rating ?? 0), 0) / rated.length
+      : null;
+    const isLoadingData = isLoadingParks || isLoadingCurated;
+
+    const renderAvatar = (facility: NearbyFacility, size: 'lg' | 'sm') => {
+      const box = size === 'lg' ? 'h-11 w-11' : 'h-9 w-9';
+      if (facility.kind === 'park') {
+        const icon = getFacilityIcon(resolveParkImage(facility, 80), resolveCategoryKey(facility), brandingConfig);
+        if (icon.type === 'image') {
+          return (
+            <div className={`${box} flex-shrink-0 overflow-hidden rounded-full bg-white shadow-v2-ring ${icon.tier === 'site_photo' ? '' : 'p-1'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={icon.value}
+                alt=""
+                className={`h-full w-full ${icon.tier === 'site_photo' ? 'object-cover' : 'object-contain'}`}
+              />
+            </div>
+          );
+        }
+        return (
+          <div className={`${box} grid flex-shrink-0 place-items-center rounded-full bg-v2-tint`}>
+            <Trees size={size === 'lg' ? 20 : 17} className="text-v2-deep" />
+          </div>
+        );
+      }
+      const routeActivity = facility.activityType || facility.type;
+      const RouteIcon = routeActivity === 'cycling' ? Bike : routeActivity === 'walking' ? Footprints : RouteIconBase;
+      return (
+        <div className={`${box} grid flex-shrink-0 place-items-center rounded-full bg-v2-tint`}>
+          <RouteIcon size={size === 'lg' ? 20 : 17} className="text-v2-deep" />
+        </div>
+      );
+    };
+
+    const renderMeta = (facility: NearbyFacility) => (
+      <div className="mt-0.5 flex items-center gap-2 whitespace-nowrap">
+        {facility.kind !== 'park' && (facility.distance || 0) > 0 && (
+          <span className="text-[12px] font-bold text-v2-muted">
+            {formatDistance((facility.distance || 0) * 1000)}
+          </span>
+        )}
+        {facility.rating != null && typeof facility.rating === 'number' && facility.rating > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[12px] font-extrabold text-v2-amber">
+            <Star size={12} className="fill-current" />
+            {facility.rating.toFixed(1)}
+          </span>
+        )}
+        <span className="text-[12px] font-bold text-v2-muted">{facility.formattedDistance}</span>
+      </div>
+    );
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 50 }}
+        transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+        className="absolute bottom-0 left-0 right-0 z-20"
+        dir="rtl"
+      >
+        <div
+          className="rounded-t-[28px] bg-white shadow-v2-sheet px-5 pt-3"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+        >
+          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-v2-pill-border" />
+
+          {/* Greeting — Pain → Solution */}
+          {!isUpdatingLocation && userName && (
+            <div className="mb-4 pb-4 border-b border-v2-hairline text-right">
+              <p className="text-[17px] leading-snug mb-1.5">
+                <span className="font-black text-v2-ink">היי {userName}</span>,{' '}
+                <span className="font-extrabold text-v2-deep">{stripEmoji(identityHook.intro)}</span>
+              </p>
+              <p className="text-[14px] leading-relaxed text-v2-ink-2">
+                {stripEmoji(identityHook.value)}
+              </p>
+            </div>
+          )}
+
+          {isUpdatingLocation && (
+            <div className="mb-4 flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin text-v2-accent" />
+              <span className="text-[14px] font-bold text-v2-ink-2 whitespace-nowrap">מעדכן מיקום...</span>
+            </div>
+          )}
+
+          {isExplorer && !isUpdatingLocation && (
+            <>
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
+                מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
+              </h2>
+              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
+                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
+              </p>
+            </>
+          )}
+
+          {!isExplorer && !isUpdatingLocation && !userName && (
+            <>
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
+                הגינה הכי קרובה ל{locationText}
+              </h2>
+              <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
+                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
+              </p>
+            </>
+          )}
+
+          {/* Drag hint + city rating */}
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-extrabold text-v2-deep">
+              <MapPin size={14} className="flex-shrink-0" />
+              <span className="truncate">גררו את המפה כדי לדייק את המיקום</span>
+            </p>
+            {avgRating != null && (
+              <span className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-[12px] font-extrabold text-v2-amber">
+                <Star size={12} className="fill-current" />
+                {avgRating.toFixed(1)} דירוג עירוני
+              </span>
+            )}
+          </div>
+
+          {/* City badges — info chips (not selectable) */}
+          {(isLoadingData || smartBadges.length > 0) && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {isLoadingData && (
+                <Loader2 size={14} className="animate-spin text-v2-accent" />
+              )}
+              {smartBadges.map((badge, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex h-7 max-w-full items-center rounded-full bg-v2-tint px-3 text-[12px] font-extrabold text-v2-deep whitespace-nowrap"
+                >
+                  <span className="truncate">{badge.label}</span>
+                </span>
+              ))}
+              {isLoadingData && smartBadges.length === 0 && (
+                <span className="inline-flex h-7 items-center rounded-full bg-v2-tint px-3 text-[12px] font-extrabold text-v2-deep whitespace-nowrap">
+                  טוען נתונים...
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* "Power of One" — single best match */}
+          {!isLoadingData && bestMatch && !showPioneer && (
+            <motion.div
+              key={`best-${bestMatch.id}-${bestMatchIndex}`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mb-4 flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-v2-ring"
+            >
+              {renderAvatar(bestMatch, 'lg')}
+              <div className="min-w-0 flex-1 text-right">
+                <span className="block truncate text-[15px] font-extrabold text-v2-ink">
+                  {bestMatch.name}
+                </span>
+                {renderMeta(bestMatch)}
+              </div>
+              <span className="inline-flex h-7 flex-shrink-0 items-center rounded-full bg-v2-tint px-2.5 text-[12px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 whitespace-nowrap">
+                #1
+              </span>
+            </motion.div>
+          )}
+
+          {/* Pioneer + Plan B */}
+          {!isLoadingData && showPioneer && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-4 rounded-[20px] bg-white p-3.5 shadow-v2-ring"
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-v2-tint">
+                  <Flag size={18} className="text-v2-deep" />
+                </div>
+                <div className="min-w-0 flex-1 text-right">
+                  <p className="text-[14px] font-extrabold leading-relaxed text-v2-ink">
+                    {stripEmoji(pioneer.pioneerMessage)}
+                  </p>
+                  {pioneer.fallbackAsset ? (
+                    <p className="mt-1 text-[12.5px] font-bold leading-relaxed text-v2-muted">
+                      {stripEmoji(pioneer.planBBridge)}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[12.5px] font-bold leading-relaxed text-v2-muted">
+                      {isFemale
+                        ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!'
+                        : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!'
+                      }
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {pioneer.fallbackAsset && (
+                <div className="mt-3 rounded-2xl bg-v2-surface p-3">
+                  <span className="mb-2 inline-flex h-6 items-center rounded-full bg-v2-tint px-2.5 text-[11px] font-extrabold text-v2-deep whitespace-nowrap">
+                    האלטרנטיבה הכי טובה בסביבה
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {renderAvatar(pioneer.fallbackAsset, 'sm')}
+                    <div className="min-w-0 flex-1 text-right">
+                      <span className="block truncate text-[14px] font-extrabold text-v2-ink">
+                        {pioneer.fallbackAsset.name}
+                      </span>
+                      {renderMeta(pioneer.fallbackAsset)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Primary action — the one gradient on this screen */}
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoadingParks}
+            className={
+              isLoadingParks
+                ? 'w-full h-[52px] rounded-full bg-v2-hairline text-[16px] font-extrabold text-v2-muted cursor-not-allowed whitespace-nowrap px-5'
+                : 'w-full h-[52px] rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 whitespace-nowrap px-5'
+            }
+          >
+            כן, זה הבית שלי!
+          </button>
+
+          {/* Secondary action — text link */}
+          <button
+            type="button"
+            onClick={onSearchOther}
+            className="mt-1.5 block w-full h-11 truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-deep active:scale-[0.97] transition-transform duration-150 ease-v2"
+          >
+            זה לא אזור המגורים שלי, חפשו אזור אחר
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

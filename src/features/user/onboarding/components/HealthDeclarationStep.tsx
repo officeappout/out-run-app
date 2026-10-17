@@ -14,6 +14,7 @@ import {
   submitHealthDeclaration, signatureFits, SIGNATURE_WIDTHS,
 } from '../services/health-declaration-record';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
+import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
 
 interface HealthDeclarationStepProps {
@@ -54,6 +55,10 @@ export default function HealthDeclarationStep({
     description,
   onContinue,
 }: HealthDeclarationStepProps) {
+  // enable_home_v2 — restyle only. Every legal/medical string below is
+  // untouched; v2 swaps classes (legacy classes kept verbatim in the else arm).
+  const v2 = useOnboardingV2();
+
   // ── User data from sessionStorage ──
   const userName = typeof window !== 'undefined'
     ? sessionStorage.getItem('onboarding_personal_name') || ''
@@ -356,7 +361,7 @@ export default function HealthDeclarationStep({
   }
 
   return (
-    <div className="flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50" dir="rtl">
+    <div className={v2 ? 'flex flex-col h-full w-full flex-1 min-h-0 bg-v2-surface' : 'flex flex-col h-full w-full min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50'} dir="rtl">
       {/* ── Scrollable content ── */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 pb-36 scroll-smooth">
         {/* ── PHASE 1 + 2: Header — Lemur pops in → Bubble pops in → Words mist in ── */}
@@ -393,7 +398,7 @@ export default function HealthDeclarationStep({
 
             {/* ── Phase 1b: Speech Bubble pops in simultaneously ── */}
             <motion.div
-              className="relative flex-1 min-w-0 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm"
+              className={v2 ? 'relative flex-1 min-w-0 bg-white rounded-[20px] p-4 shadow-v2-ring' : 'relative flex-1 min-w-0 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm'}
               initial={{ opacity: 0, scale: 0.94 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.28, ease: 'easeOut' }}
@@ -411,8 +416,8 @@ export default function HealthDeclarationStep({
                 style={{
                   position: 'absolute',
                   ...(isRTL
-                    ? { right: '-9px', borderLeft: '9px solid #e2e8f0' }
-                    : { left:  '-9px', borderRight: '9px solid #e2e8f0' }),
+                    ? { right: '-9px', borderLeft: `9px solid ${v2 ? '#e6edf2' : '#e2e8f0'}` }
+                    : { left:  '-9px', borderRight: `9px solid ${v2 ? '#e6edf2' : '#e2e8f0'}` }),
                   top: '50%',
                   transform: 'translateY(-50%)',
                   width: 0,
@@ -452,7 +457,10 @@ export default function HealthDeclarationStep({
                 initial="hidden"
                 animate="show"
               >
-                <h1 className="font-bold leading-snug mb-1.5" style={{ fontSize: '17px', color: '#000000' }}>
+                <h1
+                  className={v2 ? 'font-black leading-snug mb-1.5 text-v2-ink !tracking-[-0.01em]' : 'font-bold leading-snug mb-1.5'}
+                  style={v2 ? { fontSize: '17px' } : { fontSize: '17px', color: '#000000' }}
+                >
                   {(() => {
                     const sentence = isFemale
                       ? 'רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרות עלייך ב100%.'
@@ -477,7 +485,7 @@ export default function HealthDeclarationStep({
                   })()}
                 </h1>
 
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className={v2 ? 'text-[12.5px] font-bold text-v2-muted leading-relaxed' : 'text-xs text-slate-500 leading-relaxed'}>
                   {'נשאר לנו רק לעבור על שאלון הבריאות הקצר ולחתום למטה.'.split(' ').map((word, i) => (
                     <React.Fragment key={i}>
                       <motion.span
@@ -511,7 +519,9 @@ export default function HealthDeclarationStep({
           <button
             type="button"
             onClick={() => setShowSafetyInfoModal(true)}
-            className="flex items-center gap-1.5 text-[#5BC2F2] text-sm font-medium hover:text-[#4AADE3] transition-colors"
+            className={v2
+              ? 'flex items-center gap-1.5 whitespace-nowrap text-v2-deep text-[13px] font-extrabold active:scale-[0.97] transition-transform duration-150 ease-v2'
+              : 'flex items-center gap-1.5 text-[#5BC2F2] text-sm font-medium hover:text-[#4AADE3] transition-colors'}
           >
             <Info size={15} className="flex-shrink-0" />
             <span>מידע על פרטיות ובטיחות</span>
@@ -526,15 +536,17 @@ export default function HealthDeclarationStep({
           className="mb-6"
         >
           <div
-            className="bg-gradient-to-br from-sky-50 to-white border-2 border-sky-200 rounded-2xl p-5 space-y-3"
+            className={v2 ? 'rounded-v2-card bg-white shadow-v2-card p-4 space-y-3' : 'bg-gradient-to-br from-sky-50 to-white border-2 border-sky-200 rounded-2xl p-5 space-y-3'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             <button
               onClick={handleFastTrack}
               disabled={allAnswered && !usedFastTrack}
-              className="w-full bg-brand-cta hover:brightness-105 disabled:bg-none disabled:bg-slate-200 disabled:cursor-not-allowed text-on-brand font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className={v2
+                ? 'w-full h-12 rounded-full bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40 text-[14px] font-extrabold whitespace-nowrap flex items-center justify-center gap-2 px-4 active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:bg-v2-hairline disabled:text-v2-muted disabled:ring-0 disabled:cursor-not-allowed'
+                : 'w-full bg-brand-cta hover:brightness-105 disabled:bg-none disabled:bg-slate-200 disabled:cursor-not-allowed text-on-brand font-bold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2'}
             >
-              <Zap size={20} className="flex-shrink-0" />
+              <Zap size={v2 ? 18 : 20} className="flex-shrink-0" />
               <span>
                 {isFemale
                   ? 'אני מצהירה שכל התשובות הן "לא"'
@@ -544,9 +556,9 @@ export default function HealthDeclarationStep({
             </button>
 
             {/* Orange disclaimer */}
-            <div className="flex items-start gap-2 bg-orange-50/60 border border-orange-200/50 rounded-xl p-3">
-              <AlertTriangle size={16} className="text-orange-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-orange-700 leading-relaxed">
+            <div className={v2 ? 'flex items-start gap-2 bg-v2-amber/10 rounded-2xl p-3' : 'flex items-start gap-2 bg-orange-50/60 border border-orange-200/50 rounded-xl p-3'}>
+              <AlertTriangle size={16} className={v2 ? 'text-v2-amber flex-shrink-0 mt-0.5' : 'text-orange-600 flex-shrink-0 mt-0.5'} />
+              <p className={v2 ? 'text-[12.5px] font-semibold text-[#92400e] leading-relaxed' : 'text-xs text-orange-700 leading-relaxed'}>
                 <span className="font-bold">שימו לב:</span> לחיצה על כפתור זה מצהירה שאתם בריאים ולא סובלים מאף אחת מהבעיות הרפואיות המפורטות בשאלון. אם יש לכם ספק, אנא ענו על כל שאלה בנפרד.
               </p>
             </div>
@@ -554,7 +566,7 @@ export default function HealthDeclarationStep({
         </motion.div>
 
         {/* Questions */}
-        <div className="space-y-6">
+        <div className={v2 ? 'space-y-3' : 'space-y-6'}>
           {HEALTH_QUESTIONS.map((q, idx) => {
             const isAnswered = answeredQuestions.has(q.id);
             const isYes = answers[q.id] === true;
@@ -567,20 +579,24 @@ export default function HealthDeclarationStep({
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: usedFastTrack ? idx * 0.03 : idx * 0.03, duration: 0.25 }}
-                className="space-y-2.5"
+                className={v2 ? 'rounded-[20px] bg-white shadow-v2-ring p-4 space-y-3' : 'space-y-2.5'}
               >
                 <p
-                  className="text-slate-800 font-medium leading-relaxed text-sm"
+                  className={v2 ? 'text-v2-ink font-bold leading-relaxed text-[14.5px]' : 'text-slate-800 font-medium leading-relaxed text-sm'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   {q.text}
                 </p>
 
-                <div className="flex gap-3">
+                <div className={v2 ? 'flex gap-2' : 'flex gap-3'}>
                   {/* "לא" (No) button — Brand Blue when selected */}
                   <button
                     onClick={() => handleAnswer(q.id, false)}
-                    className={`flex-1 py-2.5 rounded-full border-2 transition-all font-bold text-sm relative
+                    className={v2
+                      ? `flex-1 h-11 rounded-full whitespace-nowrap text-[14px] font-extrabold relative transition-transform duration-150 ease-v2 active:scale-[0.97] ${isNo
+                        ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'bg-white text-v2-ink-2 shadow-v2-ring'}`
+                      : `flex-1 py-2.5 rounded-full border-2 transition-all font-bold text-sm relative
                       ${isNo
                         ? `bg-[#5BC2F2]/10 border-[#5BC2F2] text-[#5BC2F2] ring-1 ring-[#5BC2F2]/30 ${isAutoFilled ? 'bg-[#5BC2F2]/5' : ''}`
                         : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
@@ -589,14 +605,18 @@ export default function HealthDeclarationStep({
                   >
                     לא
                     {isAutoFilled && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-sky-400 rounded-full" title="Fast-Track" />
+                      <span className={v2 ? 'absolute top-1 right-2 w-2 h-2 bg-v2-accent rounded-full' : 'absolute -top-1 -right-1 w-2 h-2 bg-sky-400 rounded-full'} title="Fast-Track" />
                     )}
                   </button>
 
                   {/* "כן" (Yes) button — Soft red when selected */}
                   <button
                     onClick={() => handleAnswer(q.id, true)}
-                    className={`flex-1 py-2.5 rounded-full border-2 transition-all font-bold text-sm
+                    className={v2
+                      ? `flex-1 h-11 rounded-full whitespace-nowrap text-[14px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${isYes
+                        ? 'bg-[#fdecec] text-[#b4232a] ring-1 ring-inset ring-v2-down/40'
+                        : 'bg-white text-v2-ink-2 shadow-v2-ring'}`
+                      : `flex-1 py-2.5 rounded-full border-2 transition-all font-bold text-sm
                       ${isYes
                         ? 'bg-red-50 border-red-400 text-red-500 ring-1 ring-red-400/30'
                         : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
@@ -616,10 +636,10 @@ export default function HealthDeclarationStep({
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-xl p-3 mt-1">
-                        <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div className={v2 ? 'flex items-start gap-2 bg-v2-amber/10 rounded-2xl p-3 mt-1' : 'flex items-start gap-2 bg-amber-50 border border-amber-200/60 rounded-xl p-3 mt-1'}>
+                        <AlertTriangle size={16} className={v2 ? 'text-v2-amber flex-shrink-0 mt-0.5' : 'text-amber-500 flex-shrink-0 mt-0.5'} />
                         <p
-                          className="text-xs text-amber-700 leading-relaxed"
+                          className={v2 ? 'text-[12.5px] font-semibold text-[#92400e] leading-relaxed' : 'text-xs text-amber-700 leading-relaxed'}
                           style={{ fontFamily: 'var(--font-simpler)' }}
                         >
                           {isFemale
@@ -637,12 +657,12 @@ export default function HealthDeclarationStep({
         </div>
 
         {/* ── Signature Section ── */}
-        <div ref={signatureRef} className="mt-8 pt-6 border-t border-slate-100 space-y-4" style={{ fontFamily: 'var(--font-simpler)' }}>
+        <div ref={signatureRef} className={v2 ? 'mt-6 rounded-v2-card bg-white shadow-v2-card p-4 space-y-4' : 'mt-8 pt-6 border-t border-slate-100 space-y-4'} style={{ fontFamily: 'var(--font-simpler)' }}>
 
           {/* Title + gender-responsive subtitle */}
           <div className="space-y-1" dir="rtl">
-            <h3 className="font-black text-slate-900 text-lg">הצהרת בריאות ואישור תוכנית 📋</h3>
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <h3 className={v2 ? 'font-black text-v2-ink text-[17px] !tracking-[-0.02em]' : 'font-black text-slate-900 text-lg'}>הצהרת בריאות ואישור תוכנית 📋</h3>
+            <p className={v2 ? 'text-[14px] text-v2-ink-2 leading-relaxed' : 'text-sm text-slate-500 leading-relaxed'}>
               {isFemale
                 ? 'אנא קראי ואשרי את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'
                 : 'אנא קרא ואשר את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'}
@@ -651,7 +671,9 @@ export default function HealthDeclarationStep({
 
           {/* Scrollable legal declaration text */}
           <div
-            className="max-h-40 overflow-y-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed"
+            className={v2
+              ? 'max-h-40 overflow-y-auto bg-v2-surface p-4 rounded-2xl ring-1 ring-inset ring-v2-hairline text-[14px] text-v2-ink-2 leading-relaxed'
+              : 'max-h-40 overflow-y-auto bg-slate-50 p-4 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed'}
             dir="rtl"
           >
             {LEGAL_TEXT}
@@ -659,10 +681,10 @@ export default function HealthDeclarationStep({
 
           {/* ── Native HTML5 Canvas Signature Pad ── */}
           {/* dir="ltr" so the canvas coordinate system is left-to-right regardless of page direction */}
-          <div dir="ltr" className="w-full h-44 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl relative">
+          <div dir="ltr" className={v2 ? 'w-full h-44 bg-v2-surface border-2 border-dashed border-v2-accent/30 rounded-[20px] relative' : 'w-full h-44 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl relative'}>
             <canvas
               ref={canvasRef}
-              className="w-full h-full rounded-2xl cursor-crosshair touch-none select-none"
+              className={v2 ? 'w-full h-full rounded-[18px] cursor-crosshair touch-none select-none' : 'w-full h-full rounded-2xl cursor-crosshair touch-none select-none'}
               onMouseDown={(e) => { e.preventDefault(); startDrawing(getMousePos(e)); }}
               onMouseMove={(e) => { e.preventDefault(); continueDrawing(getMousePos(e)); }}
               onMouseUp={finishDrawing}
@@ -671,27 +693,33 @@ export default function HealthDeclarationStep({
             {/* Placeholder hint — hidden once the user starts drawing */}
             {!hasSigned && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" dir="rtl">
-                <span className="text-slate-300 text-sm">חתום/י כאן עם האצבע</span>
+                <span className={v2 ? 'text-v2-muted text-[14px] font-bold' : 'text-slate-300 text-sm'}>חתום/י כאן עם האצבע</span>
               </div>
             )}
             {/* Clear button — bottom-right corner */}
             <button
               type="button"
               onClick={clearCanvas}
-              className="absolute bottom-2.5 right-3 text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium"
+              className={v2
+                ? 'absolute bottom-2.5 right-3 whitespace-nowrap text-[12px] font-extrabold text-v2-deep'
+                : 'absolute bottom-2.5 right-3 text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium'}
             >
               ניקוי חתימה
             </button>
           </div>
 
           {/* Signature status pill */}
-          <div className={`text-xs text-center font-bold transition-colors ${signatureData ? 'text-emerald-600' : 'text-slate-400'}`}>
+          <div className={v2
+            ? `text-[12.5px] text-center font-bold transition-colors ${signatureData ? 'text-v2-up' : 'text-v2-muted'}`
+            : `text-xs text-center font-bold transition-colors ${signatureData ? 'text-emerald-600' : 'text-slate-400'}`}>
             {signatureData ? '✓ החתימה התקבלה' : 'יש לחתום בתיבה למעלה'}
           </div>
 
           {/* ── Confirmation Checkbox — disabled until the user has signed ── */}
           <div
-            className={`pt-3 border-t border-slate-100 transition-opacity duration-300 ${hasSigned ? 'opacity-100' : 'opacity-35 pointer-events-none'}`}
+            className={v2
+              ? `pt-1 transition-opacity duration-300 ${hasSigned ? 'opacity-100' : 'opacity-35 pointer-events-none'}`
+              : `pt-3 border-t border-slate-100 transition-opacity duration-300 ${hasSigned ? 'opacity-100' : 'opacity-35 pointer-events-none'}`}
           >
             <label className="flex items-start gap-3 cursor-pointer group">
               <div className="relative flex items-center mt-0.5 flex-shrink-0">
@@ -702,19 +730,23 @@ export default function HealthDeclarationStep({
                   onChange={(e) => setTermsAccepted(e.target.checked)}
                   disabled={!hasSigned}
                 />
-                <div className="w-5 h-5 border-2 border-slate-300 rounded-md peer-checked:bg-[#5BC2F2] peer-checked:border-[#5BC2F2] transition-all group-hover:border-[#5BC2F2]" />
-                <div className="absolute inset-0 flex items-center justify-center text-on-brand opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity">
+                <div className={v2
+                  ? 'w-[22px] h-[22px] border-2 border-v2-pill-border bg-white rounded-md peer-checked:bg-v2-accent peer-checked:border-v2-accent transition-colors'
+                  : 'w-5 h-5 border-2 border-slate-300 rounded-md peer-checked:bg-[#5BC2F2] peer-checked:border-[#5BC2F2] transition-all group-hover:border-[#5BC2F2]'} />
+                <div className={v2
+                  ? 'absolute inset-0 flex items-center justify-center text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity'
+                  : 'absolute inset-0 flex items-center justify-center text-on-brand opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity'}>
                   <svg width="12" height="9" viewBox="0 0 12 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M1 4L4 7L11 1" />
                   </svg>
                 </div>
               </div>
-              <p className="text-sm text-slate-700 leading-relaxed flex-1" dir="rtl">
+              <p className={v2 ? 'text-[14px] text-v2-ink leading-relaxed flex-1' : 'text-sm text-slate-700 leading-relaxed flex-1'} dir="rtl">
                 {isFemale ? 'אני מצהירה' : 'אני מצהיר'} כי כל הנתונים נכונים {isFemale ? 'ומסכימה' : 'ומסכים'} ל
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
-                  className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
+                  className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
                 >
                   תנאי השימוש
                 </button>
@@ -722,7 +754,7 @@ export default function HealthDeclarationStep({
                 <button
                   type="button"
                   onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }}
-                  className="text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium"
+                  className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
                 >
                   מדיניות הפרטיות
                 </button>
@@ -738,8 +770,10 @@ export default function HealthDeclarationStep({
 
       {/* ── Fixed bottom CTA ── */}
       <div
-        className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+        className={v2
+          ? 'fixed bottom-0 left-0 right-0 bg-v2-surface/90 backdrop-blur-xl px-4 pt-3 z-30'
+          : 'fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-4 pt-4 z-30'}
+        style={{ paddingBottom: v2 ? 'max(env(safe-area-inset-bottom, 0px), 12px)' : 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         {/* Medical blocking warning */}
         <AnimatePresence>
@@ -750,10 +784,10 @@ export default function HealthDeclarationStep({
               exit={{ opacity: 0, y: 10 }}
               className="mb-3"
             >
-              <div className="flex items-start gap-2.5 bg-red-50 border-2 border-red-300 rounded-xl p-4 shadow-sm">
-                <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className={v2 ? 'flex items-start gap-2.5 bg-[#fdecec] rounded-2xl p-4 ring-1 ring-inset ring-v2-down/30' : 'flex items-start gap-2.5 bg-red-50 border-2 border-red-300 rounded-xl p-4 shadow-sm'}>
+                <AlertTriangle size={20} className={v2 ? 'text-v2-down flex-shrink-0 mt-0.5' : 'text-red-500 flex-shrink-0 mt-0.5'} />
                 <p
-                  className="text-sm text-red-700 leading-relaxed font-semibold"
+                  className={v2 ? 'text-[14px] text-[#b4232a] leading-relaxed font-bold' : 'text-sm text-red-700 leading-relaxed font-semibold'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   {isFemale
@@ -771,14 +805,18 @@ export default function HealthDeclarationStep({
           disabled={!canSubmit || isSubmitting}
           animate={canSubmit && !isSubmitting ? { scale: [1, 1.01, 1] } : {}}
           transition={canSubmit && !isSubmitting ? { repeat: Infinity, duration: 1.5, ease: 'easeInOut' } : {}}
-          className={`w-full font-bold py-4 rounded-2xl transition-all text-base flex items-center justify-center gap-2
+          className={v2
+            ? `w-full h-[52px] rounded-full text-[16px] font-extrabold whitespace-nowrap flex items-center justify-center gap-2 transition-transform duration-150 ease-v2 ${canSubmit && !isSubmitting
+              ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
+              : 'bg-v2-hairline text-v2-muted cursor-not-allowed'}`
+            : `w-full font-bold py-4 rounded-2xl transition-all text-base flex items-center justify-center gap-2
             ${canSubmit && !isSubmitting
               ? 'text-white active:scale-[0.98]'
               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
           style={{
             fontFamily: 'var(--font-simpler)',
-            ...(canSubmit && !isSubmitting ? {
+            ...(!v2 && canSubmit && !isSubmitting ? {
               background: 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)',
               boxShadow: '0 8px 28px rgba(0,186,247,0.4), 0 3px 10px rgba(139,92,246,0.18)',
             } : {}),
@@ -799,7 +837,7 @@ export default function HealthDeclarationStep({
         {/* Progress hint */}
         {!allAnswered && !hasMedicalIssue && (
           <p
-            className="text-center text-xs text-slate-400 mt-2"
+            className={v2 ? 'text-center text-[12px] font-bold text-v2-muted mt-2' : 'text-center text-xs text-slate-400 mt-2'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             {`${answeredQuestions.size}/${HEALTH_QUESTIONS.length} שאלות נענו`}
@@ -807,7 +845,7 @@ export default function HealthDeclarationStep({
         )}
         {allAnswered && !signatureData && !hasMedicalIssue && (
           <p
-            className="text-center text-xs text-amber-500 mt-2 font-medium"
+            className={v2 ? 'text-center text-[12px] text-[#b45309] mt-2 font-bold' : 'text-center text-xs text-amber-500 mt-2 font-medium'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             נא לחתום בתיבת החתימה למעלה כדי להמשיך
@@ -815,7 +853,7 @@ export default function HealthDeclarationStep({
         )}
         {allAnswered && signatureData && !termsAccepted && !hasMedicalIssue && (
           <p
-            className="text-center text-xs text-amber-500 mt-2 font-medium"
+            className={v2 ? 'text-center text-[12px] text-[#b45309] mt-2 font-bold' : 'text-center text-xs text-amber-500 mt-2 font-medium'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             נא לאשר את תנאי השימוש ומדיניות הפרטיות
@@ -830,7 +868,10 @@ export default function HealthDeclarationStep({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-4 pb-6"
+            className={v2
+              ? 'fixed inset-0 bg-[#0e1419]/40 backdrop-blur-sm z-50 flex items-end justify-center px-3 pt-4'
+              : 'fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center p-4 pb-6'}
+            style={v2 ? { paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' } : undefined}
             onClick={() => setShowSafetyInfoModal(false)}
           >
             <motion.div
@@ -839,35 +880,39 @@ export default function HealthDeclarationStep({
               exit={{ y: 40, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 28 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              className={v2 ? 'bg-white rounded-[28px] shadow-v2-sheet w-full max-w-lg overflow-hidden' : 'bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden'}
               dir="rtl"
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className={v2 ? 'flex items-center justify-between px-5 pt-5 pb-2' : 'flex items-center justify-between px-5 py-4 border-b border-slate-100'}>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck size={20} className="text-[#5BC2F2] flex-shrink-0" />
-                  <h2 className="text-base font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  <ShieldCheck size={20} className={v2 ? 'text-v2-deep flex-shrink-0' : 'text-[#5BC2F2] flex-shrink-0'} />
+                  <h2 className={v2 ? 'text-[20px] font-black !tracking-[-0.02em] text-v2-ink whitespace-nowrap' : 'text-base font-bold text-slate-900'} style={{ fontFamily: 'var(--font-simpler)' }}>
                     פרטיות ובטיחות
                   </h2>
                 </div>
                 <button
                   onClick={() => setShowSafetyInfoModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                  className={v2
+                    ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline active:scale-[0.97] transition-transform duration-150 ease-v2'
+                    : 'p-2 hover:bg-slate-100 rounded-full transition-colors'}
                 >
-                  <X size={18} className="text-slate-600" />
+                  <X size={18} className={v2 ? 'text-v2-ink' : 'text-slate-600'} />
                 </button>
               </div>
               <div className="px-5 py-4 space-y-3" style={{ fontFamily: 'var(--font-simpler)' }}>
-                <p className="text-sm text-slate-600 leading-relaxed">
+                <p className={v2 ? 'text-[14px] text-v2-ink-2 leading-relaxed' : 'text-sm text-slate-600 leading-relaxed'}>
                   כל המידע שתמלא נשמר באופן פרטי ומאובטח, ומשמש רק לצורך התאמת התוכנית האישית עבורך.
                 </p>
-                <p className="text-sm text-slate-800 font-semibold leading-relaxed">
+                <p className={v2 ? 'text-[14px] text-v2-ink font-bold leading-relaxed' : 'text-sm text-slate-800 font-semibold leading-relaxed'}>
                   אם התשובה לאחת השאלות תצביע על בעיה רפואית, מומלץ להתייעץ עם רופא לפני תחילת פעילות גופנית.
                 </p>
               </div>
               <div className="px-5 pb-5">
                 <button
                   onClick={() => setShowSafetyInfoModal(false)}
-                  className="w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-3 rounded-xl transition-all text-sm"
+                  className={v2
+                    ? 'w-full h-12 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
+                    : 'w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-3 rounded-xl transition-all text-sm'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   הבנתי
