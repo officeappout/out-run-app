@@ -10,18 +10,12 @@
 import {
   collection,
   addDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
   getDoc,
   doc,
   deleteDoc,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { applyFeedPrefs, feedPrefsFrom, savePendingShare } from './feed-prefs';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -183,76 +177,47 @@ export async function createWorkoutPost(params: {
 // Read — posts from a list of user IDs
 // ────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Feed posts through /api/feed (Admin SDK + canSeePost — feed-visibility.ts),
+ * so a 'partners' post only reaches the author's mutual follows. The server
+ * decides the authors itself: the caller + whom they follow, or one author.
+ * Any failure → [] (never fall back to a direct read that skips the check).
+ */
+async function fetchFeed(params: Record<string, string>): Promise<FeedPost[]> {
+  try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!idToken) return [];
+    const res = await fetch(`/api/feed?${new URLSearchParams(params)}`, { headers: { Authorization: `Bearer ${idToken}` } });
+    if (!res.ok) throw new Error(`feed ${res.status}`);
+    const body = (await res.json()) as { posts: (Omit<FeedPost, 'createdAt'> & { createdAt: string })[] };
+    return (body.posts ?? []).map((p) => ({ ...p, createdAt: new Date(p.createdAt) }));
+  } catch (err) {
+    console.error('[feed.service] fetchFeed failed:', err);
+    return [];
+  }
+}
+
+/**
+ * The home feed: the caller and everyone they follow. `authorUids` is kept
+ * for the call sites' signature — the server derives the same list itself.
+ */
 export async function getFeedPosts(
   authorUids: string[],
   maxResults = 30,
 ): Promise<FeedPost[]> {
   if (!authorUids.length) return [];
-
-  // Firestore 'in' queries support up to 30 values
-  const batches: string[][] = [];
-  for (let i = 0; i < authorUids.length; i += 30) {
-    batches.push(authorUids.slice(i, i + 30));
-  }
-
-  const allPosts: FeedPost[] = [];
-
-  for (const batch of batches) {
-    const q = query(
-      collection(db, 'feed_posts'),
-      where('authorUid', 'in', batch),
-      orderBy('createdAt', 'desc'),
-      limit(maxResults),
-    );
-
-    const snap = await getDocs(q);
-    snap.forEach((d) => {
-      const data = d.data();
-      allPosts.push({
-        id: d.id,
-        authorUid: data.authorUid,
-        authorName: data.authorName,
-        type: data.type,
-        activityCategory: data.activityCategory,
-        durationMinutes: data.durationMinutes,
-        activityCredit: data.activityCredit ?? data.whoPoints ?? 0,
-        distanceKm: data.distanceKm ?? undefined,
-        paceMinPerKm: data.paceMinPerKm ?? undefined,
-        paceSecPerKm: data.paceSecPerKm ?? undefined,
-        runSegment: data.runSegment ?? undefined,
-        intensityLevel: data.intensityLevel ?? undefined,
-        title: data.title ?? undefined,
-        audience: data.audience ?? undefined,
-        reactionCount: data.reactionCount ?? 0,
-        authorityId: data.authorityId ?? undefined,
-        neighborhoodId: data.neighborhoodId ?? undefined,
-        schoolId: data.schoolId ?? undefined,
-        parkId: data.parkId ?? undefined,
-        parkName: data.parkName ?? undefined,
-        ageGroup: data.ageGroup ?? undefined,
-        gender: data.gender ?? undefined,
-        programId: data.programId ?? undefined,
-        groupIds: Array.isArray(data.groupIds) ? data.groupIds : undefined,
-        createdAt:
-          data.createdAt instanceof Timestamp
-            ? data.createdAt.toDate()
-            : new Date(data.createdAt),
-      });
-    });
-  }
-
-  allPosts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  return allPosts.slice(0, maxResults);
+  return fetchFeed({ max: String(maxResults) });
 }
 
 /**
- * Fetch recent posts by a single user (for profile previews).
+ * Fetch recent posts by a single user (for profile previews) — only the ones
+ * the caller may see.
  */
 export async function getUserPosts(
   uid: string,
   maxResults = 10,
 ): Promise<FeedPost[]> {
-  return getFeedPosts([uid], maxResults);
+  return fetchFeed({ author: uid, max: String(maxResults) });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
