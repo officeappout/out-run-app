@@ -5,6 +5,8 @@
  * grouped by author, filtered by scope, category, time window, and age group.
  */
 
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { periodKeysFor, pickScopeNumbers, type ScopeStatsDoc } from './league-scope-keys';
 import {
   collection,
   query,
@@ -1075,6 +1077,57 @@ export interface ScopeCompetitionResult {
   generatedAt: Date;
 }
 
+async function getScopeCompetitionFromStats(p: {
+  granularity: 'city' | 'neighborhood';
+  timeWindow: 'weekly' | 'monthly';
+  cityAuthorityId?: string | null;
+  category: LeaderboardCategory;
+  genderFilter: LeaderboardGenderFilter;
+  maxEntries: number;
+}): Promise<ScopeCompetitionResult | null> {
+  if (p.category !== 'overall' && p.genderFilter !== 'all') return null;
+  const periodKey = periodKeysFor(new Date())[p.timeWindow];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constraints: any[] = [
+    where('window', '==', p.timeWindow),
+    where('periodKey', '==', periodKey),
+    where('granularity', '==', p.granularity),
+  ];
+  if (p.granularity === 'neighborhood') constraints.push(where('parentId', '==', p.cityAuthorityId));
+  const snap = await getDocs(query(collection(db, 'league_scope_stats'), ...constraints));
+  const rows = snap.docs
+    .map((d) => {
+      const data = d.data() as ScopeStatsDoc;
+      const n = pickScopeNumbers(data, p.category, p.genderFilter);
+      return n && n.activeMemberCount > 0 ? { scopeId: data.scopeId, ...n } : null;
+    })
+    .filter((r): r is { scopeId: string; totalScore: number; activeMemberCount: number } => !!r)
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, p.maxEntries);
+  if (!rows.length) return { entries: [], generatedAt: new Date() };
+  const names = new Map<string, string>();
+  await Promise.all(
+    rows.map(async (r) => {
+      try {
+        const a = await getDoc(doc(db, 'authorities', r.scopeId));
+        names.set(r.scopeId, a.exists() ? ((a.data()?.name as string) ?? r.scopeId) : r.scopeId);
+      } catch {
+        names.set(r.scopeId, r.scopeId);
+      }
+    }),
+  );
+  return {
+    entries: rows.map((r, i) => ({
+      rank: i + 1,
+      scopeId: r.scopeId,
+      scopeName: names.get(r.scopeId) ?? r.scopeId,
+      totalScore: r.totalScore,
+      activeMemberCount: r.activeMemberCount,
+    })),
+    generatedAt: new Date(),
+  };
+}
+
 export async function getScopeCompetitionLeaderboard(params: {
   granularity: 'city' | 'neighborhood';
   timeWindow: LeaderboardTimeWindow;
@@ -1090,6 +1143,20 @@ export async function getScopeCompetitionLeaderboard(params: {
 
   if (granularity === 'neighborhood' && !cityAuthorityId) {
     return { entries: [], generatedAt: new Date() };
+  }
+
+  // League aggregates (enable_league_aggregates, 17.10.2026): read the
+  // per-scope sums written by onWorkoutCreateLeagueStats instead of scanning
+  // feed_posts. Weekly / monthly only (calendar week from Sunday, calendar
+  // month, Asia/Jerusalem); daily and category+gender together stay on the
+  // legacy path below. Any failure falls back to the legacy path too.
+  if (timeWindow !== 'daily' && (await readFeatureFlagOnce('enable_league_aggregates'))) {
+    try {
+      const fromStats = await getScopeCompetitionFromStats({ granularity, timeWindow, cityAuthorityId, category, genderFilter, maxEntries });
+      if (fromStats) return fromStats;
+    } catch (err) {
+      console.warn('[getScopeCompetitionLeaderboard] stats read failed — legacy path', err);
+    }
   }
 
   const groupField = scopeToField(granularity) as string; // 'authorityId' | 'neighborhoodId' — always non-null for these two
