@@ -704,7 +704,7 @@ export default function CommunityPage() {
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
 
-  async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; title?: string }) {
+  async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; showRoute: boolean; title?: string }) {
     if (!pendingShare || publishBusy) return;
     setPublishBusy(true);
     const params = { ...pendingShare, audience: choice.audience, title: choice.title ?? pendingShare.title };
@@ -712,6 +712,7 @@ export default function CommunityPage() {
       delete params.parkId;
       delete params.parkName;
     }
+    if (!choice.showRoute) delete params.routeShape;
     const id = await createWorkoutPost(params, { manual: true });
     setPublishBusy(false);
     if (id) {
@@ -745,6 +746,7 @@ export default function CommunityPage() {
           distanceKm: pendingShare.distanceKm,
           title: pendingShare.title,
           parkName: pendingShare.parkName,
+          routeShape: pendingShare.routeShape,
         }
       : null;
     const shareBlock = v2 ? (

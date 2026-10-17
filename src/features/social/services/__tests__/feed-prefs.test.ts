@@ -34,9 +34,23 @@ describe('applyFeedPrefs', () => {
     expect(d.publish).toBe(true);
     expect(d.params.audience).toBe('private');
   });
-  it('park hidden → no park on the post', () => {
-    const d = applyFeedPrefs(run, feedPrefsFrom({ showPark: false }), true);
+  it('park hidden → no park on an automatic post', () => {
+    const d = applyFeedPrefs(run, feedPrefsFrom({ showPark: false, autoPublish: { cardio: true } }), false);
+    expect(d.publish).toBe(true);
     expect(d.params.parkId).toBeUndefined();
     expect(d.params.parkName).toBeUndefined();
+  });
+  it('a manual share keeps what the sheet chose, even when the saved default hides the park/route', () => {
+    const d = applyFeedPrefs({ ...run, routeShape: [0, 0, 5, 5, 9, 9] }, feedPrefsFrom({ showPark: false, showRoute: false }), true);
+    expect(d.params.parkName).toBe('פארק');
+    expect(d.params.routeShape).toEqual([0, 0, 5, 5, 9, 9]);
+  });
+  it('route hidden → no route line on an automatic post', () => {
+    const d = applyFeedPrefs({ ...run, routeShape: [0, 0, 5, 5, 9, 9] }, feedPrefsFrom({ showRoute: false, autoPublish: { cardio: true } }), false);
+    expect(d.params.routeShape).toBeUndefined();
+  });
+  it('showRoute defaults to on', () => {
+    expect(feedPrefsFrom({}).showRoute).toBe(true);
+    expect(feedPrefsFrom({ showRoute: false }).showRoute).toBe(false);
   });
 });

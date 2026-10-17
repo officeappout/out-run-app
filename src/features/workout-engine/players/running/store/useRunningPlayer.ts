@@ -1808,6 +1808,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           if (IS_COMMUNITY_FEED_ENABLED && workoutSaved && !isCommute) {
             import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
               const { extractFeedScope, extractGroupIds } = await import('@/features/social/services/feed-scope.utils');
+              const { buildRouteShape } = await import('@/features/social/services/feed-route');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
               const userProfile = useUserStore.getState().profile;
               if (userProfile?.core?.name) {
@@ -1836,6 +1837,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   groupIds: extractGroupIds(userProfile),
                   parkId: detectedPark?.parkId,
                   parkName: detectedPark?.parkName,
+                  // Location-free line, ends trimmed (feed-route.ts) — kept
+                  // only for home v2 by createWorkoutPost.
+                  routeShape: buildRouteShape(safeRoutePath) ?? undefined,
                 }).catch(() => {});
               }
             }).catch(() => {});

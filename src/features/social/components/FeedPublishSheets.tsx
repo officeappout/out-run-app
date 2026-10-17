@@ -12,6 +12,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Globe, Lock, Settings2, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import type { FeedActivity, FeedPrefs, FeedPrefsAudience } from '../services/feed-prefs';
+import { routeShapeToSvg } from '../services/feed-route';
+import RouteLine from './RouteLine';
 
 const ACTIVITY: Record<FeedActivity, { label: string; rgb: string; icon: string }> = {
   strength: { label: 'כוח', rgb: '0,186,247', icon: '/icons/programs/muscle.svg' },
@@ -31,6 +33,8 @@ export interface ShareableWorkout {
   distanceKm?: number;
   title?: string;
   parkName?: string;
+  /** Location-free route line (feed-route.ts), cardio only. */
+  routeShape?: number[];
 }
 
 function ActivityBadge({ activity, size }: { activity: FeedActivity; size: number }) {
@@ -166,20 +170,23 @@ export function FeedShareSheet({
   workout: ShareableWorkout | null;
   defaults: FeedPrefs;
   busy?: boolean;
-  onPublish: (choice: { audience: FeedPrefsAudience; showPark: boolean; title?: string }) => void;
+  onPublish: (choice: { audience: FeedPrefsAudience; showPark: boolean; showRoute: boolean; title?: string }) => void;
   onSkip: () => void;
   onClose: () => void;
   onOpenPrivacy: () => void;
 }) {
   const [audience, setAudience] = useState<FeedPrefsAudience>(defaults.audience);
   const [showPark, setShowPark] = useState(defaults.showPark);
+  const [showRoute, setShowRoute] = useState(defaults.showRoute);
   const [title, setTitle] = useState('');
   useEffect(() => {
     if (!open) return;
     setAudience(defaults.audience);
     setShowPark(defaults.showPark);
+    setShowRoute(defaults.showRoute);
     setTitle(workout?.title ?? '');
-  }, [open, defaults.audience, defaults.showPark, workout?.title]);
+  }, [open, defaults.audience, defaults.showPark, defaults.showRoute, workout?.title]);
+  const hasRoute = workout?.activityCategory === 'cardio' && !!routeShapeToSvg(workout.routeShape, 320, 150);
 
   return (
     <Sheet open={open && !!workout} title="לשתף את האימון?" onClose={onClose}>
@@ -210,9 +217,20 @@ export function FeedShareSheet({
           {workout.parkName && (
             <Toggle label="להראות באיזה פארק" hint="בלי מפה ובלי כתובת, רק שם הפארק" on={showPark} onChange={setShowPark} />
           )}
+          {hasRoute && (
+            <>
+              <Toggle
+                label="להראות את קו המסלול"
+                hint="רק צורת הקו, בלי מפה. 200 המטרים הראשונים והאחרונים לא מוצגים"
+                on={showRoute}
+                onChange={setShowRoute}
+              />
+              {showRoute && <RouteLine shape={workout.routeShape} className="mt-1" />}
+            </>
+          )}
 
           <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
-            <Button size="lg" disabled={busy} onClick={() => onPublish({ audience, showPark, title: title.trim() || undefined })}>
+            <Button size="lg" disabled={busy} onClick={() => onPublish({ audience, showPark, showRoute: hasRoute && showRoute, title: title.trim() || undefined })}>
               {audience === 'private' ? 'שמירה אצלי' : 'פרסום'}
             </Button>
             <Button size="lg" variant="ghost" disabled={busy} onClick={onSkip}>
@@ -274,6 +292,12 @@ export function FeedPrivacySheet({
           hint="בלי מפה ובלי כתובת"
           on={draft.showPark}
           onChange={(showPark) => setDraft((d) => ({ ...d, showPark }))}
+        />
+        <Toggle
+          label="קו המסלול על פוסט אירובי"
+          hint="רק צורת הקו, בלי מפה. בלי 200 המטרים הראשונים והאחרונים"
+          on={draft.showRoute}
+          onChange={(showRoute) => setDraft((d) => ({ ...d, showRoute }))}
         />
       </section>
       <Button size="lg" block className="mt-5" disabled={busy} onClick={() => onSave(draft)}>
