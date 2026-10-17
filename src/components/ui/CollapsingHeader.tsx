@@ -68,10 +68,9 @@ export default function CollapsingHeader({
   });
 
   // When <main> already pads the safe area (applySafeAreaTop={false} — the
-  // AppHeader case), the header must stick BELOW the status bar, not at 0:
-  // at 0 it slid under the clock while scrolling, and hiding by -100% left a
-  // strip of it showing. A fixed cover keeps content from showing under the
-  // clock, and hiding moves the header past that cover too.
+  // AppHeader case): a fixed cover over the status bar keeps scrolled content
+  // (and the sliding header) from showing under the clock, and hiding moves
+  // the header past that cover too — -100% alone left a strip of it showing.
   if (!applySafeAreaTop) {
     return (
       <>
@@ -84,7 +83,10 @@ export default function CollapsingHeader({
           ref={headerRef}
           className={`sticky ${className} ${scrolled ? scrolledClassName : ''}`}
           style={{
-            top: 'env(safe-area-inset-top, 0px)',
+            // top: 0 — the scroll container already pads the safe area, and a
+            // sticky offset is measured inside that padding; top: safe-area
+            // counted it twice (a grey gap above the header, 17.10.2026).
+            top: 0,
             zIndex,
             transform: hidden ? 'translateY(calc(-100% - env(safe-area-inset-top, 0px)))' : 'translateY(0)',
             transition: 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1)',
