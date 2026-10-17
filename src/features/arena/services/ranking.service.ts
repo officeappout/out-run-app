@@ -1106,6 +1106,60 @@ async function getScopeCompetitionFromStats(p: {
   return { entries: body.entries ?? [], generatedAt: new Date() };
 }
 
+/** A national / filtered league board (home v2 leagues, stage 2). */
+export type LeagueBoardKind = 'city' | 'neighborhood-national' | 'settlement';
+
+export interface LeagueBoardEntry extends ScopeCompetitionEntry {
+  parentId: string | null;
+  parentName: string | null;
+  kind: string;
+  previousScore?: number;
+  delta?: number;
+}
+
+export interface LeagueBoardResult {
+  entries: LeagueBoardEntry[];
+  regions?: { id: string; name: string }[];
+  /** The boards run only on the server aggregates (enable_league_aggregates). */
+  unavailable?: boolean;
+}
+
+/**
+ * Nationwide neighborhoods, settlements (kibbutzim / moshavim) and "most
+ * improved" — boards that only exist on the server aggregates, so there is no
+ * feed_posts fallback: with enable_league_aggregates off (or a daily window)
+ * the result says `unavailable`.
+ */
+export async function getLeagueBoard(p: {
+  board: LeagueBoardKind;
+  timeWindow: LeaderboardTimeWindow;
+  measure?: 'total' | 'improved';
+  region?: string | null;
+  kind?: 'all' | 'city' | 'council';
+  category?: LeaderboardCategory;
+  genderFilter?: LeaderboardGenderFilter;
+  maxEntries?: number;
+}): Promise<LeagueBoardResult> {
+  if (p.timeWindow === 'daily' || !(await readFeatureFlagOnce('enable_league_aggregates'))) {
+    return { entries: [], unavailable: true };
+  }
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) return { entries: [] };
+  const qs = new URLSearchParams({
+    board: p.board,
+    window: p.timeWindow,
+    measure: p.measure ?? 'total',
+    category: p.category ?? 'overall',
+    gender: p.genderFilter ?? 'all',
+    max: String(p.maxEntries ?? 30),
+  });
+  if (p.region) qs.set('region', p.region);
+  if (p.kind && p.kind !== 'all') qs.set('kind', p.kind);
+  const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) throw new Error(`league board ${res.status}`);
+  return (await res.json()) as LeagueBoardResult;
+}
+
 export async function getScopeCompetitionLeaderboard(params: {
   granularity: 'city' | 'neighborhood';
   timeWindow: LeaderboardTimeWindow;

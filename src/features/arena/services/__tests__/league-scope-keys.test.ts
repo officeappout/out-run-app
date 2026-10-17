@@ -55,3 +55,51 @@ describe('buildScopeEntries', () => {
     expect(buildScopeEntries(docs, names, 'strength', 'female', 10)).toBeNull();
   });
 });
+
+import { buildImprovedEntries, previousPeriodKey, scopeKindOf } from '../league-scope-keys';
+
+describe('previousPeriodKey', () => {
+  it.each([
+    ['weekly', 'W2026-10-11', 'W2026-10-04'],
+    ['weekly', 'W2026-01-04', 'W2025-12-28'],
+    ['monthly', 'M2026-10', 'M2026-09'],
+    ['monthly', 'M2026-01', 'M2025-12'],
+  ] as const)('%s %s → %s', (w, key, prev) => {
+    expect(previousPeriodKey(w, key)).toBe(prev);
+  });
+});
+
+describe('buildImprovedEntries', () => {
+  const cur = [
+    { scopeId: 'a', totalCredit: 100, activeMemberCount: 4 },
+    { scopeId: 'b', totalCredit: 60, activeMemberCount: 2 },
+    { scopeId: 'c', totalCredit: 30, activeMemberCount: 1 },
+  ];
+  const prev = [
+    { scopeId: 'a', totalCredit: 90, activeMemberCount: 4 },
+    { scopeId: 'b', totalCredit: 10, activeMemberCount: 1 },
+    { scopeId: 'c', totalCredit: 50, activeMemberCount: 2 },
+  ];
+  it('ranks by the gain, drops anyone who went down', () => {
+    const r = buildImprovedEntries(cur, prev, new Map([['b', 'ב']]), 'overall', 'all', 10)!;
+    expect(r.map((e) => [e.scopeId, e.delta])).toEqual([
+      ['b', 50],
+      ['a', 10],
+    ]);
+    expect(r[0].scopeName).toBe('ב');
+  });
+  it('a newcomer gains its whole score', () => {
+    const r = buildImprovedEntries([{ scopeId: 'n', totalCredit: 40, activeMemberCount: 1 }], [], new Map(), 'overall', 'all', 10)!;
+    expect(r[0].delta).toBe(40);
+  });
+});
+
+describe('scopeKindOf', () => {
+  it('settlement, legacy local_council under a parent, and the rest', () => {
+    expect(scopeKindOf('settlement', 'rc1')).toBe('settlement');
+    expect(scopeKindOf('local_council', 'rc1')).toBe('settlement');
+    expect(scopeKindOf('local_council', undefined)).toBe('local_council');
+    expect(scopeKindOf('city', null)).toBe('city');
+    expect(scopeKindOf('school', null)).toBe('other');
+  });
+});
