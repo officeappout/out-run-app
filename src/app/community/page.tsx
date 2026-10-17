@@ -141,6 +141,10 @@ export default function CommunityPage() {
   useEffect(() => {
     setPendingShare(readPendingShare<PendingParams>()?.params ?? null);
   }, []);
+  // Above the component's return: the render helpers below are function
+  // declarations called from that return, so a const declared after it is
+  // still in its TDZ when they run (the 17.10.2026 /community crash).
+  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
   const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
@@ -698,7 +702,6 @@ export default function CommunityPage() {
 
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
-  const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
 
   async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; title?: string }) {
     if (!pendingShare || publishBusy) return;
