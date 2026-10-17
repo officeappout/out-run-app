@@ -19,6 +19,7 @@ import {
   Trees,
   Copy,
   Share2,
+  Trophy,
 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -26,6 +27,21 @@ import { Home as HomeIcon, Users as UsersIcon, Heart as HeartIcon, Briefcase, Gr
 
 /** Home v2 (enable_home_v2) for the wizard's step components. */
 const WizardV2 = React.createContext(false);
+
+/** v2 class strings shared by the steps (design language v2). */
+const V2C = {
+  input:
+    'h-12 w-full rounded-[16px] bg-white px-4 text-[15px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent',
+  textarea:
+    'w-full resize-none rounded-[16px] bg-white px-4 py-3 text-[15px] font-medium leading-relaxed text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-v2-accent',
+  counter: 'mt-1 text-left text-[11px] font-bold tabular-nums text-v2-muted',
+  chipOn: 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40',
+  chipOff: 'bg-white text-v2-ink-2 shadow-v2-ring',
+  cardOn: 'bg-white shadow-v2-card ring-2 ring-v2-accent',
+  cardOff: 'bg-white shadow-v2-ring',
+  press: 'transition-[transform,box-shadow,background-color] duration-150 ease-v2 active:scale-[0.97]',
+  hint: 'text-[12px] font-bold text-v2-muted',
+};
 
 /** v2: the app's line icons instead of emoji for the community types. */
 const GROUP_TYPE_ICON: Record<string, React.ElementType> = {
@@ -502,7 +518,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
                       </React.Fragment>
                     ))}
                   </div>
-                  <p className="text-[11px] text-gray-500 font-semibold mt-1.5 text-center">
+                  <p className={v2 ? 'mt-1.5 whitespace-nowrap text-center text-[12px] font-bold text-v2-muted' : 'text-[11px] text-gray-500 font-semibold mt-1.5 text-center'}>
                     {outreachMode ? 'פנייה לארגון' : STEPS[step]}
                   </p>
                 </>
@@ -512,7 +528,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             {/* ── Edit-mode loading skeleton ──────────────────────── */}
             {loadingEdit && (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="w-7 h-7 animate-spin text-cyan-500" />
+                <Loader2 className={`w-7 h-7 animate-spin ${v2 ? 'text-v2-deep' : 'text-cyan-500'}`} />
               </div>
             )}
 
@@ -651,7 +667,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
                 {/* ── Footer navigation ───────────────────────────────── */}
                 <div
-                  className="flex-shrink-0 px-5 pt-4 pb-4 border-t border-gray-100"
+                  className={`flex-shrink-0 px-5 pt-4 pb-4 border-t ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}
                   style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
                 >
                   <div className="flex items-center gap-3" dir="rtl">
@@ -703,7 +719,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
 
                   {/* Location hint — visible only on step 3 (StepWhenWhere) when no location is set */}
                   {step === 3 && form.hasMeetups === true && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
-                    <p className="text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1">
+                    <p className={v2 ? 'mt-2.5 flex items-center justify-center gap-1 whitespace-nowrap text-[12px] font-bold text-[#b45309]' : 'text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1'}>
                       <MapPin className="w-3 h-3" />
                       יש לבחור מיקום כדי להמשיך
                     </p>
@@ -727,7 +743,12 @@ function t(male: string, female: string, gender?: string | null): string {
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-gray-500 mb-1.5">{children}</label>;
+  const v2 = React.useContext(WizardV2);
+  return (
+    <label className={v2 ? 'mb-2 block whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'block text-xs font-bold text-gray-500 mb-1.5'}>
+      {children}
+    </label>
+  );
 }
 
 // ── Outreach interstitial (work / university) ─────────────────────────────────
@@ -823,6 +844,39 @@ function StepMode({
       sub: 'ליגה, אתגר או תחרות — כל אחד מתאמן ומדווח תוצאות',
     },
   ];
+
+  const v2 = React.useContext(WizardV2);
+  if (v2) {
+    return (
+      <div className="space-y-4 pt-4">
+        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">איך הקהילה שלך מתאמנת ביחד?</p>
+        <div className="flex flex-col gap-2.5">
+          {options.map((opt) => {
+            const on = form.hasMeetups === opt.value;
+            const Icon = opt.value ? UsersIcon : Trophy;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                aria-pressed={on}
+                onClick={() => updateForm('hasMeetups', opt.value)}
+                className={`flex items-center gap-3 rounded-[20px] p-3.5 text-start ${V2C.press} ${on ? V2C.cardOn : V2C.cardOff}`}
+              >
+                <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[14px] ${on ? 'bg-v2-cta text-v2-on-cta' : 'bg-v2-tint text-v2-deep'}`}>
+                  <Icon size={20} strokeWidth={2.4} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block whitespace-nowrap text-[15px] font-black text-v2-ink">{opt.label}</span>
+                  <span className="block text-[12.5px] font-bold leading-snug text-v2-muted">{opt.sub}</span>
+                </span>
+                {on && <Check size={18} strokeWidth={2.8} className="shrink-0 text-v2-deep" aria-hidden />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pt-4">
@@ -959,6 +1013,7 @@ function StepBasics({
   form: WizardForm;
   updateForm: <K extends keyof WizardForm>(k: K, v: WizardForm[K]) => void;
 }) {
+  const v2 = React.useContext(WizardV2);
   return (
     <div className="space-y-5 pt-4">
       <div>
@@ -973,13 +1028,31 @@ function StepBasics({
             'לדוגמה: קבוצת ריצה שכונתית'
           }
           maxLength={60}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className={v2 ? V2C.input : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400'}
         />
-        <p className="text-[10px] text-gray-400 mt-1 text-left">{form.name.length}/60</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.name.length}/60</p>
       </div>
 
       <div>
         <FieldLabel>{form.hasMeetups === false ? 'קטגוריה (אופציונלי)' : 'קטגוריה'}</FieldLabel>
+        {v2 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {CATEGORIES.map((cat) => {
+              const on = form.category === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => updateForm('category', cat.value)}
+                  className={`h-11 truncate whitespace-nowrap rounded-full px-3 text-[14px] font-extrabold ${V2C.press} ${on ? V2C.chipOn : V2C.chipOff}`}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid grid-cols-3 gap-2">
           {CATEGORIES.map((cat) => (
             <button
@@ -997,6 +1070,7 @@ function StepBasics({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       <div>
@@ -1007,9 +1081,9 @@ function StepBasics({
           placeholder="ספר על הקבוצה שלך — מה עושים, מי מוזמן, מה האווירה..."
           rows={3}
           maxLength={300}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
+          className={v2 ? V2C.textarea : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed'}
         />
-        <p className="text-[10px] text-gray-400 mt-1 text-left">{form.description.length}/300</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.description.length}/300</p>
       </div>
 
     </div>
@@ -1057,6 +1131,7 @@ function StepWhenWhere({
   const [parksLoading, setParksLoading] = React.useState(false);
   const [selectedParkId, setSelectedParkId] = React.useState<string | null>(null);
   const [geocoding, setGeocoding] = React.useState(false);
+  const v2 = React.useContext(WizardV2);
 
   // Derive sorted list: by distance when anchor/pin is known; fallback to A-Z (raw DB order).
   const parks = React.useMemo(() => {
@@ -1132,7 +1207,7 @@ function StepWhenWhere({
       <div>
         <div className="flex items-center justify-between mb-1">
           <FieldLabel>חפש כתובת, פארק או מקום</FieldLabel>
-          {geocoding && <Loader2 className="w-3.5 h-3.5 text-cyan-500 animate-spin" />}
+          {geocoding && <Loader2 className={`w-3.5 h-3.5 animate-spin ${v2 ? 'text-v2-deep' : 'text-cyan-500'}`} />}
         </div>
         <CommunityAddressSearch
           value={form.address}
@@ -1144,18 +1219,18 @@ function StepWhenWhere({
       {/* ── City parks list ──────────────────────────────── */}
       <div>
         <div className="flex items-center gap-1.5 mb-2">
-          <Trees className="w-3.5 h-3.5 text-emerald-500" />
+          <Trees className={`w-3.5 h-3.5 ${v2 ? 'mb-2 text-v2-deep' : 'text-emerald-500'}`} />
           <FieldLabel>בחר מפארקים עירוניים</FieldLabel>
         </div>
 
         {parksLoading ? (
           <div className="flex gap-2 overflow-x-auto pb-1">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-9 w-28 flex-shrink-0 rounded-xl bg-gray-100 animate-pulse" />
+              <div key={i} className={`h-9 w-28 flex-shrink-0 animate-pulse ${v2 ? 'rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'rounded-xl bg-gray-100'}`} />
             ))}
           </div>
         ) : parks.length === 0 ? (
-          <p className="text-[11px] text-gray-400 py-1">
+          <p className={v2 ? `${V2C.hint} py-1` : 'text-[11px] text-gray-400 py-1'}>
             {authorityId ? 'לא נמצאו פארקים עירוניים' : 'הרשאת עיר לא מוגדרת'}
           </p>
         ) : (
@@ -1167,14 +1242,18 @@ function StepWhenWhere({
                   key={park.id}
                   type="button"
                   onClick={() => handleParkSelect(park)}
-                  className={[
+                  aria-pressed={v2 ? isSelected : undefined}
+                  className={
+                    v2
+                      ? `flex h-10 flex-shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold ${V2C.press} ${isSelected ? V2C.chipOn : V2C.chipOff}`
+                      : [
                     'flex-shrink-0 snap-start flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-xs font-bold transition-all active:scale-95',
                     isSelected
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                       : 'border-gray-100 bg-gray-50 text-gray-700 hover:border-gray-200',
                   ].join(' ')}
                 >
-                  <MapPin className={`w-3 h-3 flex-shrink-0 ${isSelected ? 'text-emerald-500' : 'text-gray-400'}`} />
+                  <MapPin className={`w-3 h-3 flex-shrink-0 ${v2 ? (isSelected ? 'text-v2-deep' : 'text-v2-muted') : isSelected ? 'text-emerald-500' : 'text-gray-400'}`} />
                   <span className="truncate max-w-[120px]">{park.name}</span>
                 </button>
               );
@@ -1188,17 +1267,19 @@ function StepWhenWhere({
         <FieldLabel>
           {form.locationSelected ? 'כיוון עדין על המפה' : 'או לחץ על המפה לסימון מיקום'}
         </FieldLabel>
-        <MiniLocationPicker
-          value={form.coords}
-          onChange={handleMapPinChange}
-        />
-        <p className="text-[10px] text-gray-400 mt-1.5">
+        <div className={v2 ? 'overflow-hidden rounded-[20px] shadow-v2-ring' : undefined}>
+          <MiniLocationPicker
+            value={form.coords}
+            onChange={handleMapPinChange}
+          />
+        </div>
+        <p className={v2 ? `${V2C.hint} mt-1.5` : 'text-[10px] text-gray-400 mt-1.5'}>
           לחץ על המפה כדי לדייק את הפין
         </p>
       </div>
 
       {/* ── Schedule ─────────────────────────────────────── */}
-      <div className="border-t border-gray-100 pt-5 space-y-4">
+      <div className={`border-t pt-5 space-y-4 ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}>
         <div>
           <FieldLabel>יום בשבוע</FieldLabel>
           <div className="grid grid-cols-7 gap-1">
@@ -1207,7 +1288,11 @@ function StepWhenWhere({
                 key={i}
                 type="button"
                 onClick={() => setSlotDay(i)}
-                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
+                aria-pressed={v2 ? slotDay === i : undefined}
+                className={
+                  v2
+                    ? `h-10 whitespace-nowrap rounded-full text-[13px] font-extrabold ${V2C.press} ${slotDay === i ? V2C.chipOn : V2C.chipOff}`
+                    : `py-2.5 rounded-xl text-xs font-bold transition-all ${
                   slotDay === i
                     ? 'bg-gray-900 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -1226,13 +1311,17 @@ function StepWhenWhere({
               type="time"
               value={slotTime}
               onChange={(e) => setSlotTime(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className={v2 ? `${V2C.input} flex-1 tabular-nums` : 'flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-400'}
             />
             <button
               type="button"
               onClick={addSlot}
               disabled={!slotTime.match(/^\d{1,2}:\d{2}$/)}
-              className="px-4 py-3 rounded-xl bg-cyan-500 text-white text-sm font-black flex items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all"
+              className={
+                v2
+                  ? `flex h-12 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[14.5px] font-extrabold text-v2-deep shadow-v2-ring disabled:opacity-40 ${V2C.press}`
+                  : 'px-4 py-3 rounded-xl bg-cyan-500 text-white text-sm font-black flex items-center gap-1.5 disabled:opacity-40 active:scale-95 transition-all'
+              }
             >
               <Plus className="w-4 h-4" />
               הוסף
@@ -1246,15 +1335,16 @@ function StepWhenWhere({
             {form.scheduleSlots.map((slot, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100"
+                className={v2 ? 'flex h-12 items-center justify-between rounded-[16px] bg-white pe-1.5 ps-4 shadow-v2-ring' : 'flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100'}
               >
-                <span className="text-sm font-bold text-gray-800">
+                <span className={v2 ? 'truncate whitespace-nowrap text-[14.5px] font-extrabold tabular-nums text-v2-ink' : 'text-sm font-bold text-gray-800'}>
                   יום {DAYS_FULL[slot.dayOfWeek]} · {slot.time}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeSlot(i)}
-                  className="p-1.5 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  aria-label="הסרת המועד"
+                  className={v2 ? `grid h-9 w-9 shrink-0 place-items-center rounded-full text-v2-down ${V2C.press}` : 'p-1.5 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors'}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -1264,7 +1354,7 @@ function StepWhenWhere({
         )}
 
         {form.scheduleSlots.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-1">
+          <p className={v2 ? `${V2C.hint} py-1 text-center` : 'text-xs text-gray-400 text-center py-1'}>
             ניתן להמשיך ללא לוח זמנים ולעדכן מאוחר יותר
           </p>
         )}
@@ -1290,6 +1380,7 @@ function StepPrivacy({
   // the toggle's actual value was always correct — but worth matching the
   // same set the type-picker step already uses for consistency.
   const isPrivateByDefault = DEFAULT_PRIVATE_TYPES.has(form.groupType);
+  const v2 = React.useContext(WizardV2);
 
   return (
     <div className="space-y-5 pt-4">
@@ -1298,7 +1389,7 @@ function StepPrivacy({
         <div className="flex items-center gap-2 mb-2">
           <FieldLabel>פרטיות</FieldLabel>
           {isPrivateByDefault && (
-            <span className="text-[10px] text-cyan-600 font-semibold bg-cyan-50 px-1.5 py-0.5 rounded-md">
+            <span className={v2 ? 'mb-2 inline-flex h-6 items-center whitespace-nowrap rounded-full bg-v2-tint px-2 text-[11.5px] font-extrabold text-v2-deep' : 'text-[10px] text-cyan-600 font-semibold bg-cyan-50 px-1.5 py-0.5 rounded-md'}>
               ברירת-מחדל פרטי
             </span>
           )}
@@ -1315,17 +1406,27 @@ function StepPrivacy({
                 updateForm('isPublic', opt.value);
                 if (opt.value) updateForm('allowJoinRequests', false);
               }}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+              aria-pressed={v2 ? form.isPublic === opt.value : undefined}
+              className={
+                v2
+                  ? `flex flex-col items-start gap-2 rounded-[20px] p-3.5 text-start ${V2C.press} ${form.isPublic === opt.value ? V2C.cardOn : V2C.cardOff}`
+                  : `flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
                 form.isPublic === opt.value
                   ? 'border-cyan-500 bg-cyan-50'
                   : 'border-gray-100 bg-gray-50'
               }`}
             >
-              <span className={form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'}>
+              <span
+                className={
+                  v2
+                    ? `grid h-10 w-10 place-items-center rounded-[14px] ${form.isPublic === opt.value ? 'bg-v2-cta text-v2-on-cta' : 'bg-v2-tint text-v2-deep'}`
+                    : form.isPublic === opt.value ? 'text-cyan-500' : 'text-gray-400'
+                }
+              >
                 {opt.icon}
               </span>
-              <span className="text-sm font-black text-gray-800">{opt.label}</span>
-              <span className="text-[10px] text-gray-500 text-center leading-tight">{opt.sub}</span>
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800'}>{opt.label}</span>
+              <span className={v2 ? 'text-[12px] font-bold leading-snug text-v2-muted' : 'text-[10px] text-gray-500 text-center leading-tight'}>{opt.sub}</span>
             </button>
           ))}
         </div>
@@ -1344,14 +1445,18 @@ function StepPrivacy({
                 key={String(opt.value)}
                 type="button"
                 onClick={() => updateForm('allowJoinRequests', opt.value)}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                aria-pressed={v2 ? form.allowJoinRequests === opt.value : undefined}
+                className={
+                  v2
+                    ? `flex flex-col items-start gap-0.5 rounded-[18px] p-3 text-start ${V2C.press} ${form.allowJoinRequests === opt.value ? V2C.chipOn : V2C.chipOff}`
+                    : `flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
                   form.allowJoinRequests === opt.value
                     ? 'border-cyan-500 bg-cyan-50'
                     : 'border-gray-100 bg-gray-50 hover:border-gray-200'
                 }`}
               >
-                <span className="text-sm font-black text-gray-800">{opt.label}</span>
-                <span className="text-[9px] text-gray-400 text-center leading-tight">{opt.sub}</span>
+                <span className={v2 ? 'whitespace-nowrap text-[15px] font-black' : 'text-sm font-black text-gray-800'}>{opt.label}</span>
+                <span className={v2 ? 'text-[12px] font-bold leading-snug text-v2-muted' : 'text-[9px] text-gray-400 text-center leading-tight'}>{opt.sub}</span>
               </button>
             ))}
           </div>
@@ -1367,9 +1472,9 @@ function StepPrivacy({
           placeholder={'לדוגמה:\n• נא להגיע עם מים\n• כבוד הדדי\n• מוזמן לשתף חברים'}
           rows={5}
           maxLength={500}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed"
+          className={v2 ? V2C.textarea : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed'}
         />
-        <p className="text-[10px] text-gray-400 mt-1 text-left">{form.rules.length}/500</p>
+        <p className={v2 ? V2C.counter : 'text-[10px] text-gray-400 mt-1 text-left'}>{form.rules.length}/500</p>
       </div>
     </div>
   );
@@ -1388,6 +1493,7 @@ function StepFinalize({
   onImagePick: (e: React.ChangeEvent<HTMLInputElement>) => void;
   submitError: string | null;
 }) {
+  const v2 = React.useContext(WizardV2);
   return (
     <div className="space-y-5 pt-4">
       <div>
@@ -1395,7 +1501,10 @@ function StepFinalize({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`w-full h-44 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center transition-all active:scale-[0.98] ${
+          className={
+            v2
+              ? `flex h-44 w-full items-center justify-center overflow-hidden rounded-[20px] ${V2C.press} ${form.imagePreviewUrl ? 'shadow-v2-ring' : 'bg-v2-surface ring-1 ring-inset ring-v2-hairline'}`
+              : `w-full h-44 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center transition-all active:scale-[0.98] ${
             form.imagePreviewUrl ? 'border-transparent' : 'border-gray-200 hover:border-cyan-300 bg-gray-50'
           }`}
         >
@@ -1407,9 +1516,9 @@ function StepFinalize({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="flex flex-col items-center gap-2 text-gray-400">
+            <div className={`flex flex-col items-center gap-2 ${v2 ? 'text-v2-deep' : 'text-gray-400'}`}>
               <Camera className="w-8 h-8" />
-              <span className="text-xs font-bold">לחץ להוספת תמונה</span>
+              <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold' : 'text-xs font-bold'}>לחץ להוספת תמונה</span>
             </div>
           )}
         </button>
@@ -1423,8 +1532,8 @@ function StepFinalize({
       </div>
 
       {/* Summary */}
-      <div className="bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100">
-        <p className="text-xs font-bold text-gray-500 mb-3">סיכום</p>
+      <div className={v2 ? 'space-y-2.5 rounded-[20px] bg-white p-4 shadow-v2-ring' : 'bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100'}>
+        <p className={v2 ? 'mb-3 text-[15px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 mb-3'}>סיכום</p>
         <SummaryRow label="שם" value={form.name || '—'} />
         <SummaryRow label="קטגוריה" value={CATEGORIES.find((c) => c.value === form.category)?.label ?? '—'} />
         <SummaryRow
@@ -1447,7 +1556,7 @@ function StepFinalize({
       </div>
 
       {submitError && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-semibold text-center">
+        <div className={v2 ? 'rounded-[16px] bg-[#fef2f2] px-4 py-3 text-center text-[14px] font-bold text-[#b91c1c] ring-1 ring-inset ring-[#fecaca]' : 'px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-semibold text-center'}>
           {submitError}
         </div>
       )}
@@ -1456,6 +1565,15 @@ function StepFinalize({
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
+  const v2 = React.useContext(WizardV2);
+  if (v2) {
+    return (
+      <div className="flex items-center justify-between gap-3 text-[14px]">
+        <span className="shrink-0 whitespace-nowrap font-bold text-v2-muted">{label}</span>
+        <span className="min-w-0 truncate font-extrabold text-v2-ink">{value}</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-gray-500 font-semibold">{label}</span>

@@ -57,3 +57,33 @@ export function extractFeedScope(profile: any): FeedScopeFields {
 export function extractGroupIds(profile: any): string[] {
   return Array.isArray(profile?.social?.groupIds) ? profile.social.groupIds : [];
 }
+
+/**
+ * Make a post's rule-checked scope fields match the author's own users/{uid}
+ * doc exactly — the feed_posts create rule (firestore.rules, 11.10.2026)
+ * requires neighborhoodId / ageGroup / gender to EQUAL the doc's core values
+ * (null when missing) and every groupId to be in the doc's social.groupIds.
+ *
+ * Why (David, 17.10.2026 — "I finished a workout and no post appeared"):
+ * extractFeedScope falls back to ageGroup 'adult' (or one computed from
+ * birthDate) when core.ageGroup isn't on the doc — legacy accounts — so the
+ * create was rejected with permission-denied and the post silently vanished
+ * (createWorkoutPost swallows errors). Same for a stale client profile.
+ * `userDoc` undefined (couldn't read it) → params unchanged.
+ */
+export function alignScopeWithAuthorDoc<
+  P extends { neighborhoodId?: string; ageGroup?: 'minor' | 'adult'; gender?: 'male' | 'female' | 'other'; groupIds?: string[] },
+>(params: P, userDoc: unknown): P {
+  if (!userDoc || typeof userDoc !== 'object') return params;
+  const d = userDoc as { core?: Record<string, unknown>; social?: { groupIds?: unknown } };
+  const core = d.core ?? {};
+  const own = (v: unknown) => (v === null || v === undefined ? undefined : v);
+  const docGroups = Array.isArray(d.social?.groupIds) ? (d.social!.groupIds as unknown[]) : [];
+  return {
+    ...params,
+    neighborhoodId: own(core.neighborhoodId) as P['neighborhoodId'],
+    ageGroup: own(core.ageGroup) as P['ageGroup'],
+    gender: own(core.gender) as P['gender'],
+    groupIds: (params.groupIds ?? []).filter((g) => docGroups.includes(g)),
+  };
+}
