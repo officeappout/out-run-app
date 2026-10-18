@@ -306,7 +306,7 @@ export function SearchRouteCard({
   route,
   userPos,
   onClose,
-  onStart,
+  onStartRoute,
   onNavigateToStart,
   onDetails,
 }: {
@@ -314,7 +314,7 @@ export function SearchRouteCard({
   userPos?: { lat: number; lng: number } | null;
   onClose: () => void;
   /** CTA → the existing route workout start (RouteDetailSheet's onStartWorkout). */
-  onStart: () => void;
+  onStartRoute: () => void;
   /** → today's A→B route cards to the route's first point. */
   onNavigateToStart: () => void;
   /** → the full RouteDetailSheet. */
@@ -370,7 +370,7 @@ export function SearchRouteCard({
       </div>
 
       <div className="mt-3.5">
-        <button type="button" onClick={onStart} className={CTA}>
+        <button type="button" onClick={onStartRoute} className={CTA}>
           <Play size={16} strokeWidth={2.6} fill="currentColor" /> {act.cta}
         </button>
       </div>

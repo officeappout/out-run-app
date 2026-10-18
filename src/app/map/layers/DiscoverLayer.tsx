@@ -1769,7 +1769,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 route={searchPick.route}
                 userPos={logic.currentUserPos ?? null}
                 onClose={closeSearchPick}
-                onStart={() => {
+                onStartRoute={() => {
                   // Same as RouteDetailSheet's onStartWorkout.
                   const r = searchPick.route;
                   setSearchPick(null);
