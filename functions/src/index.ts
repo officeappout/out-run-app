@@ -75,6 +75,9 @@ export { onGroupMemberJoin } from './onGroupMemberJoin';
 export { onKudosCreated } from './onKudosCreated';
 // ── Notification-Manager-driven Triggers (reads workoutMetadata/notifications) ─
 export { stepGoalNudgeScheduler } from './stepGoalNudgeScheduler';
+// Daily review of the קלי AI chat (drives /api/admin/ai-coach/reviews/run). Needs the
+// AI_REVIEW_CRON_SECRET secret before deploy — see aiCoachReviewScheduler.ts.
+export { aiCoachReviewScheduler } from './aiCoachReviewScheduler';
 export { pushOutcomeSweeper } from './pushOutcomeSweeper';
 // onPushOpened (04.10.2026, attribution-correctness fix) — activates the
 // outcome window on OPEN instead of SEND. Needs its own `firebase deploy

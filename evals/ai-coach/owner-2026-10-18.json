@@ -1,0 +1,558 @@
+[
+  {
+    "id": "owner-01-week-plan",
+    "name": "\"מה בתוכנית השבוע?\" must read the schedule, no invented days, no English",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 1. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: answering without get_schedule, naming unplanned days, English in the reply."
+    },
+    "history": [],
+    "message": "מה בתוכנית השבוע?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustCallTool": "get_schedule",
+      "noInventedDays": true,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-02-doctor-question",
+    "name": "\"תגיד למה דוקטור הצעת 20 דק?\" is a question, not a medical symptom",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 2. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: the stop-and-see-a-doctor safety reply for a question that only contains the word \"דוקטור\"."
+    },
+    "history": [
+      {
+        "role": "user",
+        "text": "תבנה לי אימון"
+      },
+      {
+        "role": "assistant",
+        "text": "בניתי לך אימון של 20 דקות. אפשר ללחוץ על הכרטיס כדי להתחיל.\n[כרטיס אימון הוצג: אימון גוף מלא, 20 דקות, 5 תרגילים, workoutId=ai-fixture-0001]"
+      }
+    ],
+    "message": "תגיד למה דוקטור הצעת 20 דק?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "noSafetyReply": true,
+      "noEnglish": true,
+      "masculineSelfReference": true,
+      "mustNotCallTool": [
+        "handoff_to_human"
+      ]
+    }
+  },
+  {
+    "id": "owner-03-home-10min",
+    "name": "\"בוא תבנה לי אימון לבית ל10 דק\" → home, ≥3 exercises, ~10 min, home methods only",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 3. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: a non-home workout, fewer than 3 exercises, minutes far from 10."
+    },
+    "history": [],
+    "message": "בוא תבנה לי אימון לבית ל10 דק",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "location": "home",
+      "minExercises": 3,
+      "minutes": 10,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-04-hard-home-10min",
+    "name": "\"אימון ברמה גבוהה לבית 10 דק\" → ≥3 exercises, difficulty 3, mention LEVEL_CEILING when present",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 4. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: fewer than 3 exercises on a short intense home workout; when the engine capped the level (LEVEL_CEILING) the reply should say so."
+    },
+    "history": [],
+    "message": "אימון ברמה גבוהה לבית 10 דק",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "location": "home",
+      "minExercises": 3,
+      "minutes": 10,
+      "difficulty": 3,
+      "mentionLevelCeilingIfPresent": true,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-05-abs",
+    "name": "\"תבנה לי אימון בטן\" → core-only exercises",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 5. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: non-core exercises in an abs (בטן) workout."
+    },
+    "history": [],
+    "message": "תבנה לי אימון בטן",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "domains": [
+        "core"
+      ],
+      "minExercises": 3,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-06-memory",
+    "name": "\"רגע יש לך זכרון?\" → honest short answer, masculine self-reference",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread, 18.10.2026, failure 6. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: a long or evasive answer about memory, and feminine self-reference (Kelly is male)."
+    },
+    "history": [],
+    "message": "רגע יש לך זכרון?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustNotCallTool": [
+        "generate_workout",
+        "handoff_to_human"
+      ],
+      "maxSentences": 3,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  }
+]

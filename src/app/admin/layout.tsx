@@ -1359,6 +1359,10 @@ function AdminLayoutInner({
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/system-settings" icon={Settings} label="הגדרות מערכת" />
                                                 )}
+                                                {/* daily AI review of the קלי AI chat — super admins only (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/ai-coach/reviews" icon={MessageCircle} label="שיחות קלי" />
+                                                )}
                                             </NavGroup>
                                             {isSuperAdmin && (
                                                 <NavGroup label="כלי דמו">

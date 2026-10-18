@@ -99,9 +99,13 @@ describe('parseAiConfig', () => {
   it('reads valid fields and ignores invalid ones', () => {
     expect(
       parseAiConfig({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 'lots' }),
-    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40 });
+    ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40, reviewBudgetUsd: 2 });
     expect(parseAiConfig({ dailyBudgetUsd: -1, rateLimitPerHour: 0 }).dailyBudgetUsd).toBe(DEFAULT_AI_CONFIG.dailyBudgetUsd);
     expect(parseAiConfig({ dailyBudgetUsd: 0 }).dailyBudgetUsd).toBe(0);
+    // review agent budget: default $2, 0 = off, invalid → default
+    expect(parseAiConfig(undefined).reviewBudgetUsd).toBe(2);
+    expect(parseAiConfig({ reviewBudgetUsd: 0 }).reviewBudgetUsd).toBe(0);
+    expect(parseAiConfig({ reviewBudgetUsd: 'x' }).reviewBudgetUsd).toBe(2);
   });
 });
 

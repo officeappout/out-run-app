@@ -6,6 +6,7 @@
  *     killSwitch:       boolean  // true = no AI calls at all, immediately
  *     rateLimitPerHour: number   // per user
  *     rateLimitPerDay:  number   // per user
+ *     reviewBudgetUsd:  number   // daily cap for the conversation review agent (0 = review off)
  *   }
  *
  * A missing document or a missing/invalid field falls back to DEFAULT_AI_CONFIG (these are
@@ -18,6 +19,12 @@ export interface AiConfig {
   killSwitch: boolean;
   rateLimitPerHour: number;
   rateLimitPerDay: number;
+  /**
+   * Separate daily cap (USD, Israel day) for the AI coach review agent
+   * (src/lib/ai/review/). Its spend is ALSO booked in the global ledger, so it counts
+   * toward dailyBudgetUsd too. 0 turns the daily review off.
+   */
+  reviewBudgetUsd: number;
 }
 
 export const DEFAULT_AI_CONFIG: AiConfig = {
@@ -25,6 +32,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   killSwitch: false,
   rateLimitPerHour: 20,
   rateLimitPerDay: 40,
+  reviewBudgetUsd: 2,
 };
 
 function nonNegative(v: unknown, fallback: number): number {
@@ -45,5 +53,6 @@ export function parseAiConfig(data: Record<string, unknown> | undefined | null):
     killSwitch: typeof d.killSwitch === 'boolean' ? d.killSwitch : DEFAULT_AI_CONFIG.killSwitch,
     rateLimitPerHour: positiveInt(d.rateLimitPerHour, DEFAULT_AI_CONFIG.rateLimitPerHour),
     rateLimitPerDay: positiveInt(d.rateLimitPerDay, DEFAULT_AI_CONFIG.rateLimitPerDay),
+    reviewBudgetUsd: nonNegative(d.reviewBudgetUsd, DEFAULT_AI_CONFIG.reviewBudgetUsd),
   };
 }
