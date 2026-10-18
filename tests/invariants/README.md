@@ -11,25 +11,51 @@ silently pushes a 15-min request to 30 min — not one-off data problems.
 ## Run
 
 ```bash
-npm run test:invariants      # run the gate
-npm run snapshot:corpus      # refresh the frozen corpus (see below)
+npm run test:invariants      # runner.ts (groups A–F + H report) + the hermetic vitest ratchet
+npm run snapshot:corpus      # refresh the frozen provider fixture (Admin SDK, see below)
+npx tsx scripts/generator-qa.ts --ci     # the 40-scenario hard-invariant subset (+ ratchet)
+npx tsx scripts/generator-qa.ts --full   # every entry point, ~330 scenarios + coach references
 ```
 
-Wired into `/pre-commit` when a diff touches `src/features/workout-engine/**`.
+Wired into `/pre-commit` when a diff touches `src/features/workout-engine/**`; the vitest
+part (`src/features/workout-engine/__tests__/invariants-gate.hermetic.test.ts`) also runs in
+CI (`vitest.ci.config.ts`).
 
-### Requirement: `.env.local` (firebase init)
+### Hermetic — no `.env.local`, no production (2026-10-18)
 
-The gate loads firebase initialization from `.env.local` at the repo root. It is a
-**hard requirement** — `preflight.mjs` runs first and, if the file is missing/empty,
-aborts with a clear message and **exit code 2** (configuration error), distinct from
-an invariant failure (**exit code 1**). This is deliberate: a missing `.env.local`
-must never be mistaken for an engine regression.
+`src/lib/firebase.ts` is hardcoded to the PRODUCTION project. The gate no longer touches it:
 
-In a worktree, copy `.env.local` from the main checkout (it is gitignored). The gate
-does not read live app data — the file is only needed so the client firebase graph
-initializes; all structural inputs come from the frozen fixture.
+- `tests/invariants/tsconfig.json` (and `hermetic/tsconfig.json`) redirect `@/lib/firebase` and
+  `firebase/firestore` to `hermetic/firebase.stub.ts` / `hermetic/firestore.stub.ts`.
+- `hermetic/guard.ts` (imported first by every hermetic entry point) also catches RELATIVE imports
+  of the real module (`src/lib/firestore.service.ts` → `./firebase`), makes `fetch` throw, and
+  no-ops CSS imports pulled in by the map stack.
+- The Firestore stub replays `hermetic/corpus/*.json` (raw docs, `{ id, ...fields }`), logs every
+  read, and turns every write into a logged no-op; runners fail if a write was attempted.
+- Vitest uses `vi.mock` on the same two stubs (matched by resolved file, so relative imports are
+  covered too).
 
-**Exit codes:** `0` = green · `1` = invariant regression (hard failure) · `2` = config error (missing `.env.local`).
+`preflight.mjs` / `.env.local` are no longer needed by `npm run test:invariants`.
+
+**Corpus gap:** `hermetic/corpus` is a public REST dump (17.10.2026). `programLevelSettings` is
+auth-only, so it is absent: protocol probability falls back to 0 (no antagonist pairs) and the
+weekly budget to `max(4, level×2)`. To close it, drop a `programLevelSettings.json` (raw docs) into
+the corpus dir — read it with the Admin SDK, read-only.
+
+## Hard invariants (group H) — `hard-invariants.ts`
+
+H1 gear truth · H2 body-area focus (strict domains) · H3 min main exercises for the duration
+(≤10→3, ≤25→4, >25→5) · H4 no main exercise above user level +3 · H5 no test items. Checked on
+every entry point in `entry-points.ts` (home trio, builder chips, AI chat `generate_workout`
+mapping, park machines; route stops in the full bench). Main does not satisfy them today, so the
+vitest suite is a **ratchet**: it fails only on violations missing from
+`hard-invariants.baseline.json`, and logs the ones that disappeared — after a fix, shrink it:
+
+```bash
+UPDATE_HARD_BASELINE=1 npx vitest run src/features/workout-engine/__tests__/invariants-gate.hermetic.test.ts
+```
+
+Full numbers and root causes: `docs/workout-engine/05-BENCHMARK.md` part 6.
 
 ## The fixture is a FROZEN SNAPSHOT — refresh it periodically
 
@@ -64,9 +90,14 @@ override only the fetch fn to replay the fixture:
 | `…/programs/core/program.service` | `mocks/program.service.ts` |
 | `…/equipment/gym/core/gym-equipment.service` | `mocks/gym-equipment.service.ts` |
 
-Secondary reads (level-settings, trio-labels, workout-metadata) are **not** mocked
-yet — they fast-fail to their own fallbacks. Hardening them (so the gate needs
-neither `.env.local` nor network) is a follow-up.
+Secondary reads (app_config, gear_definitions, workoutMetadata, parks …) go through the
+hermetic Firestore stub (corpus replay) — see "Hermetic" above.
+
+> ⚠️ `fixtures/program_level_settings.json` was captured from the legacy
+> `program_level_settings` collection (1 orphan doc). The engine reads
+> `programLevelSettings` (auth-only, ~97 docs) — so per-level protocol/rest tuning has
+> never been exercised by this gate. Fix the snapshot script's collection name on the
+> next refresh.
 
 `Math.random` is seeded (`runner.ts`) so runs are deterministic; invariants are
 nonetheless written as **ranges** — the engine's randomness is a feature, and the
@@ -74,7 +105,9 @@ gate must not become a brittle golden-snapshot.
 
 ## Files
 
-- `runner.ts` — the gate: builds the matrix, runs the trio, asserts invariants.
+- `runner.ts` — the gate: builds the matrix, runs the trio, asserts invariants (A–F) + reports H.
+- `hard-invariants.ts` / `entry-points.ts` / `hard-invariants.baseline.json` — group H (see above).
+- `hermetic/` — Firebase/Firestore stubs, resolver guard, tsconfig, frozen raw corpus.
 - `profile-factory.ts` — `buildMockProfile()`, ported from the QA simulator (keep in sync).
 - `fixtures.ts` — loads the frozen corpus JSON.
 - `mocks/` — provider redirects.

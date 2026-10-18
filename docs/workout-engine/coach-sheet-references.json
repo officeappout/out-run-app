@@ -1,0 +1,2247 @@
+{
+ "generatedAt": "2026-10-18",
+ "sheetsDir": "sheets",
+ "rules": {
+  "order": "upper → lower → core (programs__17 row 1: \"התחלה עם פלג גוף עליון, מעבר לפלג גוף תחתון, ולבסוף תרגילי ליבה\")",
+  "setsByLevel": "levels 1-2: 2 sets per exercise; level 3+: 3 sets (core holds stay at 2) — programs__17",
+  "warmupCooldown": "warm-up 5 min + cool-down 5 min, NOT counted in the session minutes — programs__18 block headers"
+ },
+ "references": [
+  {
+   "id": "fullbody-L1-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 1,
+   "difficulty": 1,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 75",
+     "family": "push",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 75 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט עם רצועות",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פלאנק עם תמיכה של הברכיים",
+     "family": "core",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L1-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 1,
+   "difficulty": 2,
+   "minutes": 25,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 60",
+     "family": "push",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 60 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט חלקי על ספסל",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' אחורי",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שולחן הפוך",
+     "family": "core",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 20,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L1-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 1,
+   "difficulty": 3,
+   "minutes": 30,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "פשיטת מרפקים על הרצפה",
+     "family": "push",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "תלייה פאסיבית עם עזרה של הרגליים",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 20,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט על הרצפה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שכיבות שמיכה בזווית 75",
+     "family": "push",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פלאנק עם תמיכה של הברכיים",
+     "family": "core",
+     "sets": 2,
+     "repMin": 25,
+     "repMax": 35,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L2-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 2,
+   "difficulty": 1,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 60",
+     "family": "push",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 45 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פלאנק",
+     "family": "core",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L2-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 2,
+   "difficulty": 2,
+   "minutes": 25,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 45",
+     "family": "push",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 45 מעלות עם ברכיים מכופפות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' קידמי",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "היפ טראסט על הרצפה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פלאנק עליות + נגיעות בכתפיים",
+     "family": "core",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L2-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 2,
+   "difficulty": 3,
+   "minutes": 30,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 30",
+     "family": "push",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "תלייה פסיבית",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 30 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט עם קפיצה קטנה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' אחורי",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "החזקה בשכיבות סמיכה ב90 מעלות במרפק",
+     "family": "core",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 25,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L3-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 3,
+   "difficulty": 1,
+   "minutes": 25,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 45",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 30 מעלות",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט נמוך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' קידמי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "פלאנק",
+     "family": "core",
+     "sets": 2,
+     "repMin": 30,
+     "repMax": 40,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L3-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 3,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה בזווית 30",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "חתירות בזווית 15 מעלות",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על המתח בזווית 90 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 20,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט עם קפיצה קטנה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "יד ורגל נגדית בפלאנק",
+     "family": "core",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L3-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 3,
+   "difficulty": 3,
+   "minutes": 35,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות סמיכה טווח תנועה חלקי חלק עליון",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על המתח בזווית 15 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 25,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "שכיבות סמיכה בטווח תנועה חלקי חלק תחתון",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט חצי טווח",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "לאנץ' בולגרי חצי טווח",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סיסי סקוואט גובה שוק",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פלאנק עליות + נגיעות בכתפיים",
+     "family": "core",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L4-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 4,
+   "difficulty": 1,
+   "minutes": 25,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שכיבות סמיכה",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה אקטיבית על המקבילים",
+     "family": "push",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 25,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "תלייה אקטיבית/פאסיבית",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ בולגרי חצי טווח",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L4-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 4,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות סמיכה בפיסוק",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מקבילים בעזרת גומיה בהתנגדות גבוהה",
+     "family": "push",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על המתח בזווית 90 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "סומו סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "כפיפת ירך בהגבהה (גובה נמוך)",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "פלאנק יד ורגל נגדית",
+     "family": "core",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L4-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 4,
+   "difficulty": 3,
+   "minutes": 35,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שכיבות שמיכה שלילי",
+     "family": "push",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על מקבילים בזווית 90 מעלות",
+     "family": "push",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 25,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "מתח שלילי עם תמיכה של הרגליים",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פשיטת ברך שלילי בשכיבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ אחורי בהצלבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "דד ליפט בהתנגדות גומייה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "כפיפת ברך בשכיבה עם גומייה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L5-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 5,
+   "difficulty": 1,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שכיבות סמיכה",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מקבילים בעזרת גומיה בהתנגדות בינונית",
+     "family": "push",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על המתח בזווית 120 מעלות",
+     "family": "pull",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט מוגבה רגל לפנים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "לאנץ בולגרי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "היפ טראסט מוגבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L5-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 5,
+   "difficulty": 2,
+   "minutes": 35,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "שרימפ סקוואט בלי ידיים - גובה ברך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מתח בעזרת גומיה בהתנגדות גבוהה",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "החזקה על מקבילים בזווית 120",
+     "family": "push",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 30,
+     "timed": true,
+     "perSide": false
+    },
+    {
+     "name": "ברך לקיר",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "פשיטת אגן על ספסל",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים על מדרגה רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שכיבות סמיכה בעזרת תמיכה של הברכיים",
+     "family": "push",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L5-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 5,
+   "difficulty": 3,
+   "minutes": 40,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "פיסטול סקוואט מוגבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "מתח בעזרת גומיה בהתנגדות בינונית",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מתח טווח תנועה חלקי חלק עליון",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט - בעזרת עמוד",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פשיטת מרפק על ספסל",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט קשתים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל גובה ברך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות רגליים בישיבת פייק",
+     "family": "core",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L6-קל",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 6,
+   "difficulty": 1,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שרימפ סקוואט - בעזרת עמוד",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מתח בעזרת גומיה בהתנגדות בינונית",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פשיטת מרפק על ספסל",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט קשתים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט מוגבה רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "ישיבת L בעזרת תמיכה של הרגליים",
+     "family": "core",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 20,
+     "timed": true,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L6-בינוני",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 6,
+   "difficulty": 2,
+   "minutes": 35,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "מקבילים בטווח תנועה חלקי עליון",
+     "family": "push",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שכיבות סמיכה",
+     "family": "push",
+     "sets": 3,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "מתח טווח תנועה חלקי חלק עליון",
+     "family": "pull",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט ישיבה על ספסל",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סיסי סקוואט גובה ברך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ בקפיצה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "fullbody-L6-מאתגר",
+   "source": "programs__17_כל_הגוף",
+   "category": "full_body",
+   "level": 6,
+   "difficulty": 3,
+   "minutes": 40,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "מקבילים בעזרת גומיה בהתנגדות בינונית",
+     "family": "push",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט - יד אחת גובה ברך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "כפיפת ברך בשכיבה על טבעות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט חצי טווח",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סיסי סקוואט גובה שוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט - תמיכת רגל",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "רוורס נורדיק בעזרת גומיה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L1-12min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 1,
+   "difficulty": null,
+   "minutes": 12,
+   "restSec": null,
+   "exercises": [
+    {
+     "name": "סקוואט על ספסל",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "דדליפט",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות מדרגה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 20,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L1-18min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 1,
+   "difficulty": null,
+   "minutes": 18,
+   "restSec": null,
+   "exercises": [
+    {
+     "name": "סקוואט עם רצועות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "בוקר טוב בישבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ אחורי",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L2-12min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 2,
+   "difficulty": null,
+   "minutes": 12,
+   "restSec": null,
+   "exercises": [
+    {
+     "name": "סקוואט על ספסל",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "דדליפט",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות מדרגה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 20,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L2-18min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 2,
+   "difficulty": null,
+   "minutes": 18,
+   "restSec": null,
+   "exercises": [
+    {
+     "name": "סקוואט עם רצועות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "בוקר טוב בישבה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ אחורי",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L1-base-15min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 1,
+   "difficulty": 2,
+   "minutes": 15,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט עם רצועות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' אחורי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "היפ טראסט על הרצפה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L4-base-15min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 4,
+   "difficulty": 2,
+   "minutes": 15,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ בולגרי חצי טווח",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סומו סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "כפיפת ברך בשכיבה עם גומייה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L10-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 10,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "רוורס נורדיק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט מוגבה רגל לפנים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שרימפ סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סיסי סקוואט שלילי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קוזק סקוואט בהגבהה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "lower-L13-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 13,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "שרימפ סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סיסי סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "נורדיק עד 45 מעלות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L4-challenge-20min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 4,
+   "difficulty": 3,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט קפיצה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ בולגרי חצי טווח",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "דד ליפט בהתנגדות גומייה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "כפיפת ירך בהגבהה (גובה נמוך)",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L2-base-15min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 2,
+   "difficulty": 2,
+   "minutes": 15,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט 90 מעלות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' קידמי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "היפ טראסט על רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליות תאומים",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L11-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 11,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סיסי סקוואט עם עזרה של קיר",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט מוגבה רגל לפנים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שרימפ סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "רוורס נורדיק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L14-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 14,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "נורדיק שלילי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סיסי סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 2,
+     "repMax": 4,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 20,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L2-challenge-20min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 2,
+   "difficulty": 3,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט 90 מעלות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' קידמי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "דדליפט רומני",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "עליית מדרגה גובה קרסול",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "דדליפט רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    }
+   ]
+  },
+  {
+   "id": "lower-L5-challenge-20min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 5,
+   "difficulty": 3,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "לאנג' בולגרי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סיסי סקוואט גובה ברך (רמה 6)",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט ישיבה על ספסל",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט מוגבה רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L3-base-15min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 3,
+   "difficulty": 2,
+   "minutes": 15,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "לאנץ' קידמי",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "היפ טראסט רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "עליות תאומים על מדרגה",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 15,
+     "repMax": 20,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L3-challenge-20min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 3,
+   "difficulty": 3,
+   "minutes": 20,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סקוואט קפיצה",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "קפיצה על ספסל גובה שוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L6-challenge-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 6,
+   "difficulty": 3,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט - בעזרת עמוד",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "היפ טראסט מוגבה רגל אחת",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט - תמיכת רגל",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "סיסי סקוואט גובה ברך",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סקוואט קשתים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L12-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 12,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "סיסי סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "נורדיק עד 45 מעלות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שרימפ סקוואט עמוק- בלי ידיים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 10,
+     "repMax": 12,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L15-base-30min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 15,
+   "difficulty": 2,
+   "minutes": 30,
+   "restSec": 90,
+   "exercises": [
+    {
+     "name": "נורדיק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 1,
+     "repMax": 3,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "סיסי סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט עמוק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 6,
+     "repMax": 8,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 20,
+     "repMax": 25,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  },
+  {
+   "id": "lower-L12-challenge-35min",
+   "source": "programs__18_תחתון_תוכניות",
+   "category": "lower_body",
+   "level": 12,
+   "difficulty": 3,
+   "minutes": 35,
+   "restSec": 120,
+   "exercises": [
+    {
+     "name": "סיסי סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "נורדיק עד 45 מעלות",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 5,
+     "repMax": 7,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "פיסטול סקוואט",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 4,
+     "repMax": 6,
+     "timed": false,
+     "perSide": true
+    },
+    {
+     "name": "שרימפ סקוואט עמוק- בלי ידיים",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 8,
+     "repMax": 10,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "רוורס נורדיק",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "קפיצה על ספסל - גובה אגן",
+     "family": "legs",
+     "sets": 2,
+     "repMin": 12,
+     "repMax": 15,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "שרימפ סקוואט עמוק (רמה 13)",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 3,
+     "repMax": 5,
+     "timed": false,
+     "perSide": false
+    },
+    {
+     "name": "נורדיק שלילי (רמה 14)",
+     "family": "legs",
+     "sets": 3,
+     "repMin": 2,
+     "repMax": 4,
+     "timed": false,
+     "perSide": false
+    }
+   ]
+  }
+ ]
+}

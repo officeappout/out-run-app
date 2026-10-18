@@ -21,6 +21,9 @@
  * hold via the builder-stability merge, 0acd234).
  */
 
+// ── Hermetic: no real Firebase (relative './firebase' imports included), no network ──
+import './hermetic/guard';
+
 // ── Seed Math.random BEFORE importing the engine graph ──────────────────────
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -38,6 +41,8 @@ import type { HomeWorkoutOptions } from '@/features/workout-engine/services/home
 import type { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/workout-generator.types';
 import { calculateEstimatedDuration } from '@/features/workout-engine/logic/workout-budgeting.utils';
 import { buildMockProfile } from './profile-factory';
+import { checkHardInvariants, HARD_LABELS, type HardId } from './hard-invariants';
+import { ciMatrix, runScenario } from './entry-points';
 
 // ── Constants mirrored from the engine (keep in sync; cited) ────────────────
 const BOLT_DURATION_CAPS: Record<number, number> = { 1: 30, 2: 45, 3: 60 }; // home-workout.service.ts:499
@@ -295,6 +300,24 @@ async function main() {
     trio.options.forEach(o => { checkWorkout(cell.meta, o.result.workout, o.result.workout.difficulty); workoutCount++; });
   }
 
+  // ── H · Hard product invariants over the entry-point CI subset (2026-10-18) ──
+  // Informational here: the authoritative ratchet (fails only on NEW violations vs
+  // tests/invariants/hard-invariants.baseline.json) is the hermetic vitest suite
+  // src/features/workout-engine/__tests__/invariants-gate.hermetic.test.ts, which
+  // runs the same 40 scenarios on the live-shaped corpus (tests/invariants/hermetic/corpus).
+  // Under this runner the exercise catalog comes from the frozen 09.07 fixtures.
+  const hCount: Record<string, number> = {};
+  let hWorkouts = 0;
+  for (const s of ciMatrix()) {
+    Math.random = mulberry32(0xc0ffee);
+    try {
+      for (const r of await runScenario(s)) {
+        hWorkouts++;
+        for (const id of Array.from(new Set(checkHardInvariants(r.workout, r.ctx).map(v => v.id)))) hCount[id] = (hCount[id] ?? 0) + 1;
+      }
+    } catch (e) { hCount.error = (hCount.error ?? 0) + 1; }
+  }
+
   // ── Report ────────────────────────────────────────────────────────────────
   const hardFails = findings.filter(f => !f.ok && !f.xfail);
   const xfails = findings.filter(f => !f.ok && f.xfail);
@@ -315,6 +338,8 @@ async function main() {
     if (!gf.length) continue;
     console.log(`  ${g}: ${gf.filter(f => f.ok && !f.xfail).length} pass · ${hf} FAIL${xf ? ` · ${xf} xfail` : ''}`);
   }
+  console.log(`  H (entry-point CI subset, ${hWorkouts} workouts — informational, ratchet lives in vitest): ` +
+    (['H1', 'H2', 'H3', 'H4', 'H5'] as HardId[]).map(id => `${id} ${HARD_LABELS[id]} ✗${hCount[id] ?? 0}`).join(' · ') + (hCount.error ? ` · errors ${hCount.error}` : ''));
   console.log(`\n  TOTAL: ${pass} pass · ${hardFails.length} FAIL · ${dedupe(xfails).length} xfail (known) · ${xpassLabels.length} xpass`);
 
   if (xfails.length) {
