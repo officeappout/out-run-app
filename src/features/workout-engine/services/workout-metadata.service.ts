@@ -136,6 +136,66 @@ export interface WorkoutMetadataContext {
    * unchanged (falls through to `new Date()`).
    */
   previewNow?: Date;
+
+  // === Weather (weather_enabled flag, 18.10.2026) ===
+  /**
+   * Weather flag at the user's cell. A content row with a `weather` field
+   * ('rain' | 'heat' | 'cold' | 'uv') is targeted copy: it gets +WEATHER_MATCH_BOOST
+   * when it matches and is hard-excluded otherwise (so rain copy never shows on a
+   * dry day). Rows without the field are unaffected.
+   */
+  weather?: 'rain' | 'heat' | 'cold' | 'uv';
+  /**
+   * When true and `weather` is set but no weather-tagged title row matched, the title
+   * falls back to WEATHER_FALLBACK_TITLES (resolveWeatherFallbackTitle). Set by the
+   * home trio for the recommended card only.
+   */
+  allowWeatherFallbackTitle?: boolean;
+}
+
+// ============================================================================
+// WEATHER COPY
+// ============================================================================
+
+/** Boost for a content row whose `weather` field matches the context's weather flag. */
+export const WEATHER_MATCH_BOOST = 5;
+
+/**
+ * Built-in titles for a weather-flagged session when no weather-tagged row exists yet.
+ * Brand voice: short, gender-neutral, no emoji, no em-dashes.
+ */
+export const WEATHER_FALLBACK_TITLES = {
+  rainHome: 'גשום היום? אימון לסלון',
+  heat: 'אימון קצר בצל',
+  cold: 'מתחממים טוב ויוצאים',
+} as const;
+
+/**
+ * Pure: the fallback title for a weather flag, or null when none fits. Rain only has a
+ * title for a HOME session (the rain-home redirect, or a user who trains at home anyway);
+ * an explicit park/gym choice in the rain keeps its regular copy.
+ */
+export function resolveWeatherFallbackTitle(
+  weather: WorkoutMetadataContext['weather'],
+  location: ExecutionLocation | undefined,
+): string | null {
+  switch (weather) {
+    case 'rain':
+      return location === 'home' ? WEATHER_FALLBACK_TITLES.rainHome : null;
+    case 'heat':
+    case 'uv':
+      return WEATHER_FALLBACK_TITLES.heat;
+    case 'cold':
+      return WEATHER_FALLBACK_TITLES.cold;
+    default:
+      return null;
+  }
+}
+
+/** Pure: weather contribution to a row's score — +boost, 0, or null (= hard-exclude). */
+export function scoreWeatherField(rowWeather: unknown, ctxWeather: WorkoutMetadataContext['weather']): number | null {
+  if (typeof rowWeather !== 'string' || rowWeather === '' || rowWeather === 'any') return 0;
+  return rowWeather === ctxWeather ? WEATHER_MATCH_BOOST : null;
 }
 
 /**
@@ -497,6 +557,11 @@ function includesWholeWord(haystack: string, keyword: string): boolean {
 
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
+
+  // ── WEATHER GUARD ── weather-tagged rows only for that weather (see scoreWeatherField).
+  const weatherScore = scoreWeatherField(row.weather, ctx.weather);
+  if (weatherScore === null) return -1;
+  score += weatherScore;
 
   // ── PERSONA-NEUTRAL GUARD ("David Clause") ──
   // Two layers of protection for persona-free users:
@@ -1079,6 +1144,10 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   const reasons: string[] = [];
 
+  const ws = scoreWeatherField(row.weather, ctx.weather);
+  if (ws === null) reasons.push(`weather_EXCLUDED(row=${row.weather}, ctx=${ctx.weather ?? 'none'})`);
+  else if (ws > 0) reasons.push(`weather=${row.weather}(+${ws})`);
+
   const userHasNoPersona = !ctx.persona || ctx.persona === '';
   const rp = row.persona;
   if (userHasNoPersona && rp && rp !== '' && rp !== 'any' && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
@@ -1275,6 +1344,8 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
 interface ScoredFetchResult {
   text: string | null;
   bundleId?: string;
+  /** The picked row's own `weather` tag, if any (drives the weather fallback title). */
+  weather?: string;
   /** Only populated when scoredFetch is called with includeCandidates=true (preview/simulator use). */
   candidates?: WorkoutMetadataCandidate[];
 }
@@ -1397,7 +1468,12 @@ async function scoredFetch(
         .sort((a, b) => b.score - a.score);
     }
 
-    return { text: result, bundleId: picked.bundleId, candidates };
+    return {
+      text: result,
+      bundleId: picked.bundleId,
+      weather: typeof picked.weather === 'string' && picked.weather ? picked.weather : undefined,
+      candidates,
+    };
   } catch (error) {
     console.warn(`[WorkoutMetadata] Error in scoredFetch(${parentDoc}/${subCol}):`, error);
     return { text: null };
@@ -1570,7 +1646,13 @@ async function resolveWorkoutMetadataCore(
       variant ? fetchLogicCue(ctx, variant, activeBundleId, isUsable) : Promise.resolve(null),
     ]);
 
-    const title = titleResult.text;
+    // Weather fallback title: weather is flagged, the caller allows it (recommended card),
+    // and no weather-tagged title row won — use the built-in line instead of generic copy.
+    const weatherFallbackTitle =
+      ctx.weather && ctx.allowWeatherFallbackTitle && titleResult.weather !== ctx.weather
+        ? resolveWeatherFallbackTitle(ctx.weather, ctx.location)
+        : null;
+    const title = weatherFallbackTitle ?? titleResult.text;
     const description = descriptionResult.text;
     const aiCue = phraseResult.text;
     const hasAnyFirestoreData = title || description || aiCue || logicCue;

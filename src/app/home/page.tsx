@@ -72,6 +72,9 @@ import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCar
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } from '@/features/home/components/WorkoutBuilderSheet';
+import WeatherChip from '@/features/weather/components/WeatherChip';
+import { useWeather } from '@/features/weather/hooks/useWeather';
+import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import AnchorLocationChip from '@/features/home/components/AnchorLocationChip';
 import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
@@ -261,17 +264,18 @@ const WHO_WEEKLY_TARGET = 150;
 
 /** Weekly activity minutes card */
 /** Home v2 — the greeting by the hour (Israel time on the device) + today's date. */
-function HomeGreeting({ name }: { name: string }) {
+function HomeGreeting({ name, trailing }: { name: string; trailing?: React.ReactNode }) {
   const now = new Date();
   const h = now.getHours();
   const hello = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
   const first = name.trim().split(/\s+/)[0] ?? '';
   return (
-    <div className="pb-2 pt-2" dir="rtl">
-      <h1 className="text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
+    <div className="flex items-center justify-between gap-3 pb-2 pt-2" dir="rtl">
+      <h1 className="min-w-0 truncate text-[22px] font-black leading-tight tracking-v2-tight text-v2-ink">
         {hello}
         {first ? `, ${first}` : ''}
       </h1>
+      {trailing ? <div className="min-w-0 flex-shrink">{trailing}</div> : null}
     </div>
   );
 }
@@ -363,6 +367,12 @@ export default function HomePage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  // Weather (weather_enabled, default off): one call for the whole page. The chip renders
+  // it; generation reads it through the ref at build time (a late arrival never re-runs
+  // ranking/generation, so nothing flickers).
+  const homeWeather = useWeather(!flagsLoading && featureFlags.weatherEnabled);
+  const homeWeatherRef = useRef<WorkoutWeather | null>(null);
+  homeWeatherRef.current = homeWeather?.workoutWeather ?? null;
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
   // First-run tours (slice 2, 17.10.2026) — enable_onboarding_tutorial_v1 AND enable_home_v2.
   // The home tour only starts from the WelcomeDrawer's "סתם בא לי להסתכל באפליקציה" link.
@@ -1296,6 +1306,7 @@ export default function HomePage() {
         date: new Date(selectedDate + 'T00:00:00'),
         todayScheduleEntries,
         healthConnected,
+        weather: homeWeatherRef.current,
       });
       return runSuggestionEngineStreaming(context, (suggestion) => {
         // TEMPORARY diagnostic (26.08.2026, per David's request) — understand why one suggestion
@@ -1447,6 +1458,7 @@ export default function HomePage() {
       // here would ignore a not-connected user, feeding an unbucketed/wrong cache key into the
       // resolve this function's own comment above describes triggering.
       healthConnected,
+      weather: homeWeatherRef.current,
     });
     resolveHomeTier2(suggestion, context, profile);
   }, [profile, resolveHomeTier2, selectedDate, healthConnected]);
@@ -1920,6 +1932,7 @@ export default function HomePage() {
         surface: 'home',
         date: new Date(selectedDate + 'T00:00:00'),
         healthConnected,
+        weather: homeWeatherRef.current,
       });
       // Real-steps-connect plan (02.09.2026, Part 3; revised 04.09.2026, Bug 1 + Fix 2): the
       // upgraded safety-net slot (PreWorkoutCardRenderer.tsx) shows a real walking route once
@@ -2820,7 +2833,18 @@ export default function HomePage() {
       <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
 
         {/* Home v2 greeting (design lab): "בוקר טוב, דוד" + today's date. */}
-        {featureFlags.enableHomeV2 && <HomeGreeting name={profile?.core?.name ?? ''} />}
+        {featureFlags.enableHomeV2 && (
+          <HomeGreeting
+            name={profile?.core?.name ?? ''}
+            trailing={homeWeather ? <WeatherChip weather={homeWeather} /> : null}
+          />
+        )}
+        {/* v1 has no greeting row — the weather chip gets its own quiet row (weather_enabled). */}
+        {!featureFlags.enableHomeV2 && homeWeather && (
+          <div className="flex pt-1" dir="rtl">
+            <WeatherChip weather={homeWeather} />
+          </div>
+        )}
 
         {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan),
             relocated to the very top of the page (21.08.2026, "ארכיטקטורת הבית
@@ -3321,6 +3345,7 @@ export default function HomePage() {
                     onTrioSelectorChange={setTrioSelector}
                     healthConnected={healthConnected}
                     onConnectSteps={triggerHealthPermission}
+                    weather={homeWeather?.workoutWeather ?? null}
                   />
                 );
                 return HOME_ANCHOR_V2_ENABLED

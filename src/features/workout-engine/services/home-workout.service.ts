@@ -114,6 +114,12 @@ import {
   resolveToSlug,
 } from './program-hierarchy.utils';
 import { prependWarmupExercises, backfillMissingPatternWarmup } from './warmup.service';
+import {
+  adjustTimeForWeather,
+  applyWeatherRest,
+  capDifficultyForWeather,
+  extraWarmupMinutesForWeather,
+} from './weather-adaptation';
 import { appendCooldownExercises } from './cooldown.service';
 import { resolveEffectiveBoltTime } from '../logic/bolt-time.utils';
 import {
@@ -1131,7 +1137,12 @@ export async function generateHomeWorkoutTrio(
     // Intensity gating (isIntenseLocked) controls UI availability only;
     // it must not silently degrade a D3 generation to D2 after the user
     // has already chosen Intense.
-    const optionDifficulty: DifficultyLevel = cfg.difficulty;
+    //
+    // Weather (heat/UV): capped at 2 — the intense slot keeps its place in the
+    // carousel but is generated at D2, without the forced pyramid / intense
+    // post-process below (weatherCapped). No-op without options.weather.
+    const optionDifficulty: DifficultyLevel = capDifficultyForWeather(cfg.difficulty, options.weather);
+    const weatherCapped = optionDifficulty !== cfg.difficulty;
 
     // ── Bolt-specific availableTime CEILING — AUTOMATIC suggestions only ───
     // F4 (docs/workout-engine/03-CHANGES.md Addendum 15/19; 00-PLAN.md §16):
@@ -1146,7 +1157,11 @@ export async function generateHomeWorkoutTrio(
     // before this fix (Addendum 17's own proof run caught it).
     const boltDurationCap = BOLT_DURATION_CAPS[optionDifficulty];
     const isExplicitChoice = options.targetDifficulty != null;
-    const effectiveTime = resolveEffectiveBoltTime(options.availableTime, boltDurationCap, isExplicitChoice);
+    // Weather (heat/UV): −20% of the bolt's time, min 15 (weather-adaptation.ts).
+    const effectiveTime = adjustTimeForWeather(
+      resolveEffectiveBoltTime(options.availableTime, boltDurationCap, isExplicitChoice),
+      options.weather,
+    );
     if (effectiveTime !== boltDurationCap) {
       console.log(`[WorkoutTrio] Bolt${optionDifficulty}: honouring requested ${effectiveTime}min (ceiling ${boltDurationCap}min, explicit=${isExplicitChoice})`);
     }
@@ -1176,7 +1191,7 @@ export async function generateHomeWorkoutTrio(
     // it still picks the most appropriate elite compound exercise.
     //
     // Applies to training days only — rest-day configs have no "intense" slot.
-    if (i === 2 && !isRestDay) {
+    if (i === 2 && !isRestDay && !weatherCapped) {
       optionContext.preferredProtocols  = ['pyramid'];
       optionContext.protocolProbability = 1.0;
       console.log('[WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0)');
@@ -1229,6 +1244,7 @@ export async function generateHomeWorkoutTrio(
         pipeline.baseGeneratorContext.availableEquipment,
         effectiveTime, // time-aware warmup: included in the user's budget
         pipeline.idToSlug, // closes the warmup skill-leak — see prependWarmupExercises' own doc comment
+        extraWarmupMinutesForWeather(options.weather), // cold → longer warm-up (0 otherwise)
       );
 
       // Cooldown
@@ -1241,7 +1257,7 @@ export async function generateHomeWorkoutTrio(
       );
 
       // Post-processing (Option 2 & 3 modifiers) — delegated to trio-modifiers.service.ts
-      if (cfg.postProcess === 'intense') {
+      if (cfg.postProcess === 'intense' && !weatherCapped) {
         applyIntenseOption(workout, sessionBlacklist, pipeline.userProgramLevels, pipeline.allExercises, pipeline.effectiveFilterLocation, {
           candidatePool: pipeline.baseGeneratorContext.globalExercisePool,
           availableEquipment: pipeline.baseGeneratorContext.availableEquipment,
@@ -1271,6 +1287,10 @@ export async function generateHomeWorkoutTrio(
       // expendable exercises (core → isolation → extra legs); Phase B trims
       // sets down to a floor of 2 by ascending tier priority.  Rest seconds
       // are never touched — the staircase is physiologically fixed.
+      // Weather (heat/UV): rest ×1.25 on main exercises — before the cap so it trims
+      // against the real, longer session.
+      applyWeatherRest(workout.exercises, options.weather);
+
       enforceVolumeCap(workout, {
         // Trim against the EFFECTIVE time (user request honoured above), not
         // the bolt ceiling — otherwise a 20-min request still ships 45 min.
@@ -1308,6 +1328,11 @@ export async function generateHomeWorkoutTrio(
           difficulty: workout.difficulty,
           dominantMuscle: initialCategoryMeta.dominantMuscle,
           categoryLabel: initialCategoryMeta.categoryLabel,
+          // Weather fallback title only on the recommended card of a training day —
+          // the other slots keep their own copy (no "(משלים)" dedup on a shared title).
+          allowWeatherFallbackTitle: !isRestDay && i === (options.generateSingleOption
+            ? singleOptionWantIndex
+            : pipeline.sessionPolicy.defaultFocusIndex),
         };
 
         const variant: TrioVariant = resolveTrioVariant(cfg);
@@ -1889,6 +1914,7 @@ async function _buildSharedPipeline(
     strictDomains,
     parkEquipmentIds,
     isManualOverride,
+    weather,
   } = options;
 
   const WEEKLY_SA_CAP = 6;
@@ -3196,6 +3222,7 @@ async function _buildSharedPipeline(
     isAbroad,
     recentBundleIds,
     previewNow,
+    weather: weather?.flag ?? undefined,
   };
 
   // ── Weekly gap (the domain furthest behind its weekly set target) ──────
