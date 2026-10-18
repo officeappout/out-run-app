@@ -7,6 +7,7 @@ import { WEEKS_LOOKUP } from '../../data/running-improvement-branch.draft';
 import { DEFAULT_PLAN_WEEKS, type GeneratorTargetDistance } from '@/features/workout-engine/core/services/plan-generator.service';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { CustomLengthIcon, RaceBibIcon, WeeksCalendarIcon } from '../running-v2/PlanLengthIcons';
 
 interface PlanLengthStepProps {
   onNext: () => void;
@@ -46,6 +47,42 @@ function computeRecommendedWeeks(): number {
   } catch {
     return 8;
   }
+}
+
+// v2 (enable_home_v2) — R5-prop-planlength order and copy.
+const V2_PRESET_WEEKS = [8, 10, 12] as const;
+const V2_PRESET_LABELS: Record<number, string> = {
+  8: 'מהיר',
+  10: 'מאוזן',
+  12: 'מדורג ובטוח',
+};
+/** The weeks bar under each preset card is drawn out of this many segments. */
+const WEEKS_BAR_SEGMENTS = 16;
+
+const PLAN_DIST_LABELS: Record<string, string> = {
+  '2k': '2 ק״מ',
+  '3k': '3 ק״מ',
+  '5k': '5 ק״מ',
+  '10k': '10 ק״מ',
+};
+
+/** "10 ק״מ" from the running answers, or null (e.g. maintenance). */
+function planDistanceLabel(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = sessionStorage.getItem('onboarding_running_answers');
+    const d = stored ? JSON.parse(stored).targetDistance : null;
+    return typeof d === 'string' ? PLAN_DIST_LABELS[d] ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "13 בדצמבר" — the v2 cards' short end date. */
+function formatShortEndDate(weeks: number): string {
+  const end = new Date();
+  end.setDate(end.getDate() + weeks * 7);
+  return end.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
 }
 
 function formatEndDate(weeks: number): string {
@@ -290,12 +327,12 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
     return calendarDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  // ── v2 (enable_home_v2) ──────────────────────────────────────
-  // Same state and handlers. Fills OnboardingLayout's scroll area (flex-1)
-  // instead of min-h-[100dvh] — <main> already pads both safe-area insets.
+  // ── v2 (enable_home_v2) — owner-approved R5-prop-planlength ─────
+  // Same state, same handlers, same saved value (runningPlanWeeks):
+  // presets 8/10/12, "יש לי מרוץ" = the calendar mode (race date → weeks,
+  // weeksFromDate), "אחר" = the 4–52 slider. Fills OnboardingLayout's
+  // scroll area (flex-1) — <main> already pads both safe-area insets.
   if (v2) {
-    const isFemale =
-      typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female';
     const radio = (on: boolean) => (
       <span
         aria-hidden
@@ -307,22 +344,32 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
       </span>
     );
     const cardCls = (on: boolean) =>
-      `rounded-[20px] bg-white transition-shadow duration-200 ease-v2 ${on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'}`;
+      `rounded-[22px] bg-white transition-shadow duration-200 ease-v2 ${on ? 'shadow-v2-card ring-2 ring-v2-accent' : 'shadow-v2-ring'}`;
+    const iconTile = (node: React.ReactNode) => (
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-v2-tint text-v2-deep" aria-hidden>
+        {node}
+      </span>
+    );
+    const distLabel = planDistanceLabel();
+    const expand = {
+      initial: { opacity: 0, height: 0 },
+      animate: { opacity: 1, height: 'auto' },
+      exit: { opacity: 0, height: 0 },
+      transition: { duration: 0.28, ease: [0.23, 1, 0.32, 1] },
+    } as const;
 
     return (
       <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
         <div className="px-4 pb-2 pt-1">
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
-            <h1 className="text-[24px] font-black leading-[1.15] !tracking-[-0.02em]">
-              {isFemale ? 'לכמה שבועות תרצי את התוכנית?' : 'לכמה שבועות תרצה את התוכנית?'}
-            </h1>
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 px-1">
+            <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">לכמה שבועות התוכנית?</h1>
             <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
-              {isFemale ? 'בחרי את משך התוכנית המועדף עלייך' : 'בחר את משך התוכנית המועדף עליך'}
+              {distLabel ? `בונים עד ל-${distLabel} · אפשר לשנות אחר כך` : 'אפשר לשנות אחר כך'}
             </p>
           </motion.div>
 
           <div role="radiogroup" aria-label="משך התוכנית" className="flex flex-col gap-2.5">
-            {PRESET_WEEKS.map((weeks) => {
+            {V2_PRESET_WEEKS.map((weeks) => {
               const on = mode === 'preset' && selectedPreset === weeks;
               const isRecommended = weeks === recommended;
               return (
@@ -332,56 +379,94 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                   role="radio"
                   aria-checked={on}
                   onClick={() => handlePresetSelect(weeks)}
-                  className={`${cardCls(on)} flex w-full items-center gap-3 px-4 py-3 text-right transition-transform duration-150 ease-v2 active:scale-[0.97]`}
+                  className={`${cardCls(on)} w-full p-3.5 text-right transition-transform duration-150 ease-v2 active:scale-[0.97]`}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{weeks} שבועות</span>
-                      {isRecommended && (
-                        <span className="whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
-                          מומלץ
-                        </span>
-                      )}
+                  <span className="flex items-center gap-3">
+                    {iconTile(<WeeksCalendarIcon weeks={weeks} />)}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        <span className="whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{weeks} שבועות</span>
+                        {isRecommended && (
+                          <span className="whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
+                            מומלץ
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                        {V2_PRESET_LABELS[weeks]} · עד {formatShortEndDate(weeks)}
+                      </span>
                     </span>
-                    <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                      {PRESET_LABELS[weeks]} · עד {formatEndDate(weeks)}
-                    </span>
+                    {radio(on)}
                   </span>
-                  {radio(on)}
+                  <span className="mt-2.5 flex gap-[2px]" aria-hidden>
+                    {Array.from({ length: WEEKS_BAR_SEGMENTS }, (_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 flex-1 rounded-[2px] ${i < weeks ? (on ? 'bg-v2-accent' : 'bg-v2-accent/70') : 'bg-v2-hairline'}`}
+                      />
+                    ))}
+                  </span>
                 </button>
               );
             })}
 
-            {/* Custom length (slider) */}
+            {/* I have a race → the end-date calendar (race date → weeks) */}
+            <div className={cardCls(mode === 'calendar')}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'calendar'}
+                onClick={() => setMode('calendar')}
+                className="flex w-full items-center gap-3 p-3.5 text-right"
+              >
+                {iconTile(<RaceBibIcon />)}
+                <span className="min-w-0 flex-1">
+                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">יש לי מרוץ</span>
+                  <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                    {calendarDate
+                      ? `${formatCalendarDisplay()} · ${weeksFromDate(calendarDate)} שבועות`
+                      : 'בחרו תאריך — נחשב את מספר השבועות'}
+                  </span>
+                </span>
+                {radio(mode === 'calendar')}
+              </button>
+              <AnimatePresence initial={false}>
+                {mode === 'calendar' && (
+                  <motion.div {...expand} className="overflow-hidden">
+                    <div className="px-3 pb-3">
+                      <MiniCalendar selected={calendarDate} onChange={setCalendarDate} minDate={minCalendarDate} v2 />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Other → the 4–52 slider */}
             <div className={cardCls(mode === 'slider')}>
               <button
                 type="button"
                 role="radio"
                 aria-checked={mode === 'slider'}
                 onClick={() => setMode('slider')}
-                className="flex w-full items-center gap-3 px-4 py-3 text-right"
+                className="flex w-full items-center gap-3 p-3.5 text-right"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
-                  <SlidersHorizontal size={17} className="text-v2-deep" />
+                {iconTile(<CustomLengthIcon />)}
+                <span className="min-w-0 flex-1">
+                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">אחר</span>
+                  <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                    {mode === 'slider' ? `${sliderWeeks} שבועות · עד ${formatShortEndDate(sliderWeeks)}` : '4–52 שבועות'}
+                  </span>
                 </span>
-                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[16px] font-black">בחירה מותאמת אישית</span>
                 {radio(mode === 'slider')}
               </button>
               <AnimatePresence initial={false}>
                 {mode === 'slider' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-                    className="overflow-hidden"
-                  >
+                  <motion.div {...expand} className="overflow-hidden">
                     <div className="flex flex-col items-center gap-1 px-4 pb-4">
                       <span className="whitespace-nowrap text-[30px] font-black tabular-nums !tracking-[-0.02em] text-v2-deep">
                         {sliderWeeks} שבועות
                       </span>
-                      <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">עד {formatEndDate(sliderWeeks)}</p>
-                      <div className="relative mt-2 flex h-10 w-full items-center" dir="ltr">
+                      <div className="relative mt-1 flex h-10 w-full items-center" dir="ltr">
                         <input
                           type="range"
                           min={4}
@@ -400,43 +485,6 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                         <span>4</span>
                         <span>52</span>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Custom end date (calendar) */}
-            <div className={cardCls(mode === 'calendar')}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === 'calendar'}
-                onClick={() => setMode('calendar')}
-                className="flex w-full items-center gap-3 px-4 py-3 text-right"
-              >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-v2-tint" aria-hidden>
-                  <Calendar size={17} className="text-v2-deep" />
-                </span>
-                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[16px] font-black">בחירת תאריך סיום</span>
-                {radio(mode === 'calendar')}
-              </button>
-              <AnimatePresence initial={false}>
-                {mode === 'calendar' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-3 pb-3">
-                      {calendarDate && (
-                        <p className="mb-2 truncate whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep">
-                          {formatCalendarDisplay()} ({weeksFromDate(calendarDate)} שבועות)
-                        </p>
-                      )}
-                      <MiniCalendar selected={calendarDate} onChange={setCalendarDate} minDate={minCalendarDate} v2 />
                     </div>
                   </motion.div>
                 )}
