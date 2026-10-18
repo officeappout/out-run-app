@@ -52,7 +52,7 @@ import {
   getExerciseLevelForProgram,
   type ProgressionChain,
 } from '../hooks/useExerciseMasterData';
-import { resolveTreeProgramId, isProgressionMapLeafProgram } from '@/lib/progression-map-config';
+import { resolveTreeProgramId, resolveExerciseProgressionMapHref } from '@/lib/progression-map-config';
 
 // ── Visual tokens (shared with ExerciseDetailSheet) ────────────────────────
 const PILL_BORDER = '0.5px solid #E0E9FF';
@@ -162,14 +162,13 @@ export interface MasterExerciseViewProps {
   /** Tapping the performance card routes here. Consumer owns navigation. */
   onNavigateToAnalytics?: (exerciseId: string, exerciseName: string) => void;
   /**
-   * Tapping "מפה מלאה ←" routes here. Resolved by THIS component from its
-   * own activeProgramId (the switcher's current selection), not re-derived
-   * by the consumer — see handleRoadmapNavigate. `treeProgramId` is the
-   * live Skill Tree destination when the active path is one of the 6
-   * allow-listed programs; null means it isn't, so the consumer should fall
-   * back to the legacy base_movement_id roadmap route.
+   * Tapping "מפה מלאה ←" routes here with the progression-map href. Resolved
+   * by THIS component from its own activeProgramId (the switcher's current
+   * selection), not re-derived by the consumer — see progressionMapHref.
+   * When the active path has no progression map the link is not rendered at
+   * all, so this is only ever called with a real /progression-map/<id> href.
    */
-  onNavigateToRoadmap?: (treeProgramId: string | null, fallbackBaseMovementId: string) => void;
+  onNavigateToRoadmap?: (progressionMapHref: string) => void;
   /**
    * Optional short notice banner shown at the very top of the sheet — e.g.
    * "above your current level" when opened from a locked Progression Map
@@ -430,16 +429,15 @@ function ProgressionChainRow({
   location,
   userLevelInTrack,
   activeProgramId,
-  onNavigateToRoadmap,
-  exercise,
+  onOpenProgressionMap,
 }: {
   chain: ProgressionChain;
   location: string | null;
   userLevelInTrack: number | null;
   /** Feature #5: the switcher's current selection — passed through to each ChainNode's level display and used for the lock comparison below. */
   activeProgramId?: string | null;
-  onNavigateToRoadmap?: (baseMovementId: string) => void;
-  exercise: Exercise;
+  /** Present only when the active path has a progression map — absent → no "מפה מלאה" link. */
+  onOpenProgressionMap?: () => void;
 }) {
   const v2 = useContext(MevV2);
   // SAFETY GATE: only render when there is a real progression lineage
@@ -451,8 +449,6 @@ function ProgressionChainRow({
     userLevelInTrack != null &&
     userLevelInTrack < getExerciseLevelForProgram(chain.next, activeProgramId);
 
-  const baseMovementId = exercise.base_movement_id ?? null;
-
   if (v2) {
     return (
       <section className="mb-6" dir="rtl">
@@ -460,10 +456,10 @@ function ProgressionChainRow({
           <h3 className="whitespace-nowrap text-right text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
             מסלול ההתקדמות
           </h3>
-          {baseMovementId && onNavigateToRoadmap && (
+          {onOpenProgressionMap && (
             <button
               type="button"
-              onClick={() => onNavigateToRoadmap(baseMovementId)}
+              onClick={onOpenProgressionMap}
               className="flex h-8 items-center gap-0.5 whitespace-nowrap rounded-full bg-white pe-2 ps-3 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               מפה מלאה
@@ -498,10 +494,10 @@ function ProgressionChainRow({
         <h3 className="text-right text-[16px] font-semibold text-slate-800" style={SECTION_FONT}>
           מסלול ההתקדמות
         </h3>
-        {baseMovementId && onNavigateToRoadmap && (
+        {onOpenProgressionMap && (
           <button
             type="button"
-            onClick={() => onNavigateToRoadmap(baseMovementId)}
+            onClick={onOpenProgressionMap}
             className="text-[11px] font-bold text-[#00ADEF] active:opacity-70"
           >
             מפה מלאה ←
@@ -778,11 +774,12 @@ export default function MasterExerciseView({
   // (not a fresh resolveTreeProgramId(exercise) re-derive, which could
   // disagree with what the switcher is showing) — see
   // MasterExerciseViewProps.onNavigateToRoadmap's doc comment.
-  const handleRoadmapNavigate = (fallbackBaseMovementId: string) => {
-    const treeProgramId =
-      activeProgramId && isProgressionMapLeafProgram(activeProgramId) ? activeProgramId : null;
-    onNavigateToRoadmap?.(treeProgramId, fallbackBaseMovementId);
-  };
+  // null when the active path has no progression map → no link at all.
+  const progressionMapHref = resolveExerciseProgressionMapHref(activeProgramId);
+  const handleOpenProgressionMap =
+    progressionMapHref && onNavigateToRoadmap
+      ? () => onNavigateToRoadmap(progressionMapHref)
+      : undefined;
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   useEffect(() => { setSwitcherOpen(false); }, [exercise.id]);
@@ -1116,8 +1113,7 @@ export default function MasterExerciseView({
           location={activeLocation}
           userLevelInTrack={userLevelInTrack}
           activeProgramId={stripProgramId}
-          onNavigateToRoadmap={onNavigateToRoadmap ? handleRoadmapNavigate : undefined}
-          exercise={exercise}
+          onOpenProgressionMap={handleOpenProgressionMap}
         />
 
         {/* ── Section 4: Personal performance dashboard ─────────────────── */}

@@ -140,6 +140,19 @@ export function resolveProgressionMapDestination(idOrSlug: string): string | nul
   return null;
 }
 
+/**
+ * The exercise sheet's "מפה מלאה" link destination for the path the sheet is
+ * currently showing (MasterExerciseView's activeProgramId), or null when that
+ * path has no progression map — in which case the link is not shown at all
+ * (owner decision, Oct 2026; it used to fall back to /exercises/roadmap/<id>,
+ * a route that never existed).
+ */
+export function resolveExerciseProgressionMapHref(
+  activeProgramId: string | null | undefined,
+): string | null {
+  return activeProgramId ? resolveProgressionMapDestination(activeProgramId) : null;
+}
+
 export function getProgressionMapProgramName(programId: string): string | null {
   return PROGRESSION_MAP_LEAF_PROGRAMS.find((p) => p.programId === programId)?.nameHe ?? null;
 }

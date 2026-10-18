@@ -137,19 +137,14 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
     router.push(`/profile/exercise/${exerciseId}?name=${encodeURIComponent(exerciseName)}`);
   };
 
-  // Feature #5 (program/path switcher): treeProgramId is now resolved by
+  // Feature #5 (program/path switcher): the destination is resolved by
   // MasterExerciseView itself, from its own activeProgramId (the switcher's
-  // current selection) — not re-derived here from a fresh
-  // resolveTreeProgramId(exercise) call, which could disagree with
-  // whichever path the switcher is actually showing for a multi-tagged
-  // exercise. This handler is now a plain "navigate to the resolved
-  // destination" executor.
-  const handleNavigateToRoadmap = (treeProgramId: string | null, fallbackBaseMovementId: string) => {
-    if (treeProgramId) {
-      router.push(`/progression-map/${treeProgramId}`);
-      return;
-    }
-    router.push(`/exercises/roadmap/${encodeURIComponent(fallbackBaseMovementId)}`);
+  // current selection). It only calls this when that path HAS a progression
+  // map — otherwise the "מפה מלאה" link isn't rendered at all (the old
+  // fallback, /exercises/roadmap/<base_movement_id>, was a route that never
+  // existed). This handler is a plain "navigate there" executor.
+  const handleNavigateToRoadmap = (progressionMapHref: string) => {
+    router.push(progressionMapHref);
   };
 
   const sheet = (
