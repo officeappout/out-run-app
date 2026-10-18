@@ -74,6 +74,7 @@ import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } from '@/features/home/components/WorkoutBuilderSheet';
 import WeatherChip from '@/features/weather/components/WeatherChip';
 import { useWeather } from '@/features/weather/hooks/useWeather';
+import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import { AiCoachHomeEntry } from '@/features/ai-coach/components/AiCoachEntry';
 import AnchorLocationChip from '@/features/home/components/AnchorLocationChip';
@@ -367,11 +368,13 @@ export default function HomePage() {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
-  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
-  // Weather (weather_enabled, default off): one call for the whole page. The chip renders
+  const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  // Weather (weather_enabled, default off; weather_admins_only, default on = super admins
+  // only — isWeatherOnFor reads the LIVE toggles, not the super-admin override): one call
+  // for the whole page. The chip renders
   // it; generation reads it through the ref at build time (a late arrival never re-runs
   // ranking/generation, so nothing flickers).
-  const homeWeather = useWeather(!flagsLoading && featureFlags.weatherEnabled);
+  const homeWeather = useWeather(!flagsLoading && isWeatherOnFor(liveFlags, isSuperAdmin));
   const homeWeatherRef = useRef<WorkoutWeather | null>(null);
   homeWeatherRef.current = homeWeather?.workoutWeather ?? null;
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();

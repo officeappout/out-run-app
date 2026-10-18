@@ -132,8 +132,17 @@ export const FLAG_DEFS = [
   // coachNoteLLM — the post-workout coach note is written by the LLM instead of the template
   // engine. Fail-closed; requires aiCoachEnabled at runtime.
   { key: 'coachNoteLLM', firestoreKey: 'coach_note_llm', defaultValue: false, superAdminValue: false },
-  // weatherEnabled — weather context for coaching / suggestions. Fail-closed.
+  // weatherEnabled — the home weather chip + weather-aware workouts (rain → home, heat →
+  // shorter/more rest, cold → longer warm-up). Fail-closed. superAdminValue is unused for the
+  // weather pair: the home page gates on the LIVE values (useFeatureFlags' rawFlags) via
+  // isWeatherOnFor (src/features/weather/core/weather-access.ts), so the panel toggle is the
+  // one switch for admins too.
   { key: 'weatherEnabled', firestoreKey: 'weather_enabled', defaultValue: false, superAdminValue: false },
+  // weatherAdminsOnly (18.10.2026) — testing mode for weatherEnabled: while ON, weather reaches
+  // super admins only (the same audience enable_home_v2 previews to). defaultValue TRUE so
+  // flipping weather_enabled on can never reach every user by accident — opening it to all is
+  // a second, explicit flip of this toggle to OFF.
+  { key: 'weatherAdminsOnly', firestoreKey: 'weather_admins_only', defaultValue: true, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

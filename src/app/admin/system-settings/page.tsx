@@ -44,6 +44,7 @@ interface FlagState {
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
   weather_enabled: boolean;
+  weather_admins_only: boolean;
 }
 
 // ============================================================================
@@ -198,7 +199,7 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconBg: 'bg-fuchsia-50',
     iconColor: 'text-fuchsia-500',
     title: 'מאמן AI (מתג ראשי)',
-    description: 'מתג ראשי לכל יכולות ה-AI. כבוי = אין שום קריאה לספק ה-AI, לאף משתמש (כולל מנהלים). התקציב היומי ומתג החירום נמצאים ב-app_config/ai.',
+    description: 'קלי AI בצ׳אט ובמסך הבית למשתמשים עם הרשאה. כבוי = אין שום קריאה לספק ה-AI, לאף משתמש (כולל מנהלים). התקציב היומי ומתג החירום נמצאים ב-app_config/ai.',
   },
   {
     key: 'ai_coach_free_for_all',
@@ -206,7 +207,7 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconBg: 'bg-fuchsia-50',
     iconColor: 'text-fuchsia-500',
     title: 'AI חינם לכולם (השקה)',
-    description: 'דלוק = כל משתמש בגיר יכול להשתמש ב-AI בלי הרשאה אישית. כבוי = רק משתמשים עם הרשאה פעילה (entitlements). פועל רק כשהמתג הראשי דלוק.',
+    description: '⚠️ דלוק = כל משתמש בוגר מקבל AI, וזה עולה כסף. כבוי = רק משתמשים עם הרשאה פעילה (entitlements). פועל רק כשהמתג הראשי דלוק.',
   },
   {
     key: 'coach_note_llm',
@@ -214,7 +215,7 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconBg: 'bg-fuchsia-50',
     iconColor: 'text-fuchsia-500',
     title: 'הערת מאמן מ-AI',
-    description: 'הערת המאמן אחרי אימון נכתבת על ידי ה-AI במקום התבנית. עדיין לא מחובר לשום מסך. פועל רק כשהמתג הראשי דלוק.',
+    description: 'הערת המאמן אחרי אימון נכתבת על ידי ה-AI במקום התבנית. עדיין לא מחובר. פועל רק כשהמתג הראשי דלוק.',
   },
   {
     key: 'weather_enabled',
@@ -222,7 +223,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconBg: 'bg-sky-50',
     iconColor: 'text-sky-500',
     title: 'מזג אוויר',
-    description: 'הקשר מזג אוויר להמלצות ולמאמן. עדיין לא מחובר לשום מסך. כבוי = כמו היום.',
+    description: 'צ׳יפ מזג אוויר במסך הבית + אימונים שמתאימים את עצמם: גשם → אימון בבית, חום → קצר יותר עם יותר מנוחה, קור → חימום ארוך יותר. ⚠️ ה-API החינמי (Open-Meteo) מיועד לשימוש לא-מסחרי — לפרודקשן צריך מפתח בתשלום או השירות המטאורולוגי. כבוי = כמו היום.',
+  },
+  {
+    key: 'weather_admins_only',
+    icon: ShieldAlert,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'מזג אוויר — מנהלים בלבד (בדיקה)',
+    description: 'דלוק = מזג האוויר מופיע רק לסופר-אדמינים (לבדיקה על החשבון שלך). כבוי = לכל המשתמשים. פועל רק כשמזג אוויר דלוק.',
+    parentKey: 'weather_enabled',
   },
 ];
 
