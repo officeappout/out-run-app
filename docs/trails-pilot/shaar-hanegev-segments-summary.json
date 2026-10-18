@@ -1,0 +1,57 @@
+{
+  "area": "shaar-hanegev",
+  "relationId": 1473954,
+  "osmTimestamp": "2026-10-17T20:20:51Z",
+  "includedWaysInBbox": 10317,
+  "skippedWaysMissingNodes": 0,
+  "segmentsInBbox": 20929,
+  "segments": 4001,
+  "totalKm": 832.8,
+  "withElevationPct": 100,
+  "inRouteRelationPct": 15.4,
+  "highwayPctByLength": {
+    "track": 71.3,
+    "service": 9.1,
+    "residential": 6.8,
+    "path": 6.7,
+    "footway": 3.9,
+    "cycleway": 2.2,
+    "steps": 0
+  },
+  "surfaceConfidencePctByLength": {
+    "highway_default": 90.8,
+    "osm_tracktype": 7.6,
+    "osm_surface": 1.6
+  },
+  "surfacePctByLength": {
+    "dirt": 72.9,
+    "asphalt": 11.8,
+    "unknown": 7.2,
+    "gravel": 4.6,
+    "paving_stones": 3.4
+  },
+  "litPctByLength": {
+    "no:default_unlit_outside_built_up": 86.4,
+    "unknown:none": 13.6
+  },
+  "inBuiltUpPctByLength": {
+    "open": 86.4,
+    "built_up": 13.6
+  },
+  "streetLampsInBbox": 4,
+  "settlements": [
+    "אור הנר",
+    "איבים",
+    "ארז",
+    "ברור חיל",
+    "גבים",
+    "דורות",
+    "יכיני",
+    "כפר עזה",
+    "מפלסים",
+    "נחל עוז",
+    "ניר עם",
+    "רוחמה"
+  ],
+  "seconds": 4
+}
