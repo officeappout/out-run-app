@@ -2056,6 +2056,7 @@ export class WorkoutGenerator {
     if (context.intentMode === 'blast') return `🔥 מצב Blast! ${exerciseCount} תרגילים באינטנסיביות גבוהה. מנוח מקוצר - תן בראש!`;
     if (context.intentMode === 'on_the_way') return `🚗 אימון מהיר לפני היום הגדול. ${exerciseCount} תרגילים, אפס זיעה!`;
     if (context.intentMode === 'field') return `🎖️ מצב שטח! ${exerciseCount} תרגילים ללא ציוד. לחימה!`;
+    if (context.calmReturnLabel != null) return context.calmReturnLabel;
     if (context.daysInactive > INACTIVITY_THRESHOLD_DAYS) return `💪 חזרת אחרי ${context.daysInactive} ימים! נתחיל בקלות - העיקר להתחיל.`;
     if (context.persona) {
       const personaLabel = LIFESTYLE_LABELS[context.persona];

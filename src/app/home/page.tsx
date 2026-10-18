@@ -95,6 +95,10 @@ import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
+import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
+import CalmReturnCard from '@/features/home/components/CalmReturnCard';
+import { calmCopy } from '@/lib/calm-return/surface';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import AppHeader from '@/components/ui/AppHeader';
@@ -1217,6 +1221,10 @@ export default function HomePage() {
   // generator doesn't exist yet to compete against it for priority. Revisit (prioritize the
   // eventual top-ranked suggestion, defer the rest) once a second one does.
   const [preWorkoutSuggestions, setPreWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  // Calm return (CALM_RETURN_V1, panel flag enable_calm_return_v1): this page owns the
+  // return episode (the one write + the ONE fresh-week card per return); StatsOverview only
+  // reads the same state for its card titles. Off → nothing here renders or writes.
+  const calmReturn = useCalmReturn(profile, { manageEpisode: true });
   const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
   // Parity fix (27.08.2026): which suggestion the new carousel is currently centered on — the
   // old anchor's own header (title/description/location chip) always described exactly ONE
@@ -3162,10 +3170,11 @@ export default function HomePage() {
                 // useExercisePool/useSwapAll need it there) already IS this suggestion's real
                 // GeneratedWorkout with any swap override applied; reused here rather than a
                 // second, independently-drifting resolveHeroWorkout call.
-                const preWorkoutDescription =
-                  activeCarouselWorkout?.description
-                  || activePreWorkoutSuggestion?.subtitle
-                  || 'מוכן להתחיל?';
+                const preWorkoutDescription = calmReturn.welcomeBack
+                  ? calmCopy(profile?.core?.gender).welcomeBackSubtitle
+                  : activeCarouselWorkout?.description
+                    || activePreWorkoutSuggestion?.subtitle
+                    || 'מוכן להתחיל?';
 
                 // Strength-invite carousel slide (placement change, 19.09.2026): the
                 // sentinel (STRENGTH_INVITE_CARD_ID/isStrengthInviteCarouselItem, hoisted to
@@ -3198,7 +3207,7 @@ export default function HomePage() {
                               : 'text-2xl font-extrabold text-gray-900 dark:text-white'
                           }
                         >
-                          האימון היומי שלך
+                          {calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
                         </h3>
                         {isActiveSuggestionHeroTreated && (
                           <AnchorLocationChip
@@ -3364,16 +3373,34 @@ export default function HomePage() {
                     weather={homeWeather?.workoutWeather ?? null}
                   />
                 );
+                // Calm return: the ONE quiet card on the first open after 7+ days away —
+                // above today's workout, never a modal. null whenever the flag is off.
+                const calmCard = calmReturn.surface.kind === 'fresh_week_card' && isViewingToday ? (
+                  <div className="px-4 mb-3">
+                    <CalmReturnCard
+                      gender={profile?.core?.gender}
+                      showLevelCheckLink={calmReturn.surface.showLevelCheckLink}
+                      onLevelCheck={() => {
+                        // User-initiated only — calm return never routes here on its own.
+                        const tpl = profile?.progression?.activePrograms?.[0]?.templateId;
+                        const domain = tpl && ['push', 'pull', 'legs', 'core'].includes(tpl) ? tpl : 'push';
+                        startMiniDomainAssessment(router, domain, '/home');
+                      }}
+                      onDismiss={calmReturn.dismissFreshWeekCard}
+                    />
+                  </div>
+                ) : null;
+                const contentWithCalm = calmCard ? <>{calmCard}{content}</> : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
                     <motion.div
                       className="order-first"
                       onPanEnd={!readyPreWorkoutSuggestions && !isViewingPastDate && hasStrengthProgram ? handleAnchorDayPan : undefined}
                     >
-                      {content}
+                      {contentWithCalm}
                     </motion.div>
                   )
-                  : content;
+                  : contentWithCalm;
               })()}
             </div>
           );

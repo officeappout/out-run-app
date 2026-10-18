@@ -6,7 +6,9 @@ import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useUserStore } from '@/features/user';
 import { getRunWorkoutTemplate, getPaceMapConfig, getRunProgramTemplate } from '@/features/workout-engine/core/services/running-admin.service';
-import { materializeWorkout } from '@/features/workout-engine/core/services/running-engine.service';
+import { materializeWorkout, computeZones } from '@/features/workout-engine/core/services/running-engine.service';
+import { calmRunWorkout, calmCopy, getDaysAway, resolveCalmReturn } from '@/lib/calm-return';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { resolveRunningWorkoutMetadata } from '@/features/workout-engine/services/running-metadata.service';
 import { useMapLogic } from '@/features/parks';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
@@ -73,7 +75,24 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         ]);
         if (!template) { setIsLoading(false); return; }
         const rules = fullProgram?.progressionRules ?? [];
-        const workout = materializeWorkout(template, weekNumber, rules, paceProfile, paceMapConfig);
+        const materialized = materializeWorkout(template, weekNumber, rules, paceProfile, paceMapConfig);
+        // Calm return (CALM_RETURN_V1): the same lighter run the home card showed — a quality
+        // run becomes an easy one, volume per the return tier. Flag off → unchanged.
+        let workout = materialized;
+        if (readLiveFlag('enableCalmReturnV1') && profile) {
+          const now = new Date();
+          const calm = resolveCalmReturn({ daysAway: getDaysAway(profile, now), episode: profile.calmReturn, now });
+          if (calm.isLightened) {
+            workout = calmRunWorkout(materialized, calm.load, {
+              easyPace: paceProfile.basePace > 0
+                ? (({ minPace, maxPace }) => ({ min: minPace, max: maxPace }))(
+                    computeZones(paceProfile.basePace, paceProfile.profileType, paceMapConfig).easy,
+                  )
+                : null,
+              easyLabel: calmCopy(null).easyRunLabel,
+            });
+          }
+        }
 
         await resolveRunningWorkoutMetadata({
           workout,

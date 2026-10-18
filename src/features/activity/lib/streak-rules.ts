@@ -89,3 +89,78 @@ export function advanceStreakForDay(
   }
   return { currentStreak: next, lastStreakDate: todayStr, advanced: true };
 }
+
+// ── Calm return: one automatic grace day per week (CALM_RETURN_V1) ─────────
+//
+// A single missed day no longer breaks the streak: once per calendar week
+// (Sun–Sat, the week of the MISSED day) the gap of exactly one day is bridged
+// automatically — "יום חסד". The grace day counts as a streak day (N → N+2 on
+// the day the user comes back). That is deliberate: the streaks/{uid} rule only
+// accepts +1 advances of exactly one calendar day, so the store bridges the gap
+// with two such writes (N+1 on the grace day, N+2 today) and needs no rules
+// change. Only active behind the panel flag enable_calm_return_v1; the store
+// keeps calling advanceStreakForDay unchanged while it is off.
+
+/** 'YYYY-MM-DD' of the Sunday that starts the week of `dayStr` (also 'YYYY-MM-DD'). */
+export function streakWeekKey(dayStr: string): string {
+  const d = new Date(`${dayStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  return d.toISOString().slice(0, 10);
+}
+
+function dayDiff(fromStr: string, toStr: string): number {
+  return Math.floor((new Date(toStr).getTime() - new Date(fromStr).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function addDays(dayStr: string, n: number): string {
+  const d = new Date(`${dayStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export interface GraceStreakCounters extends StreakCounters {
+  /** streakWeekKey of the week whose grace day was already used ('' / undefined = none). */
+  graceWeekKey?: string;
+}
+
+/**
+ * The single missed day between `lastStreakDate` and `todayStr` that a grace day can
+ * cover, or null (no gap, a longer gap, no streak, or the grace of that week is used).
+ */
+export function graceDayFor(counters: GraceStreakCounters, todayStr: string): string | null {
+  const { currentStreak, lastStreakDate, graceWeekKey } = counters;
+  if (!lastStreakDate || currentStreak <= 0) return null;
+  if (dayDiff(lastStreakDate, todayStr) !== 2) return null;
+  const missed = addDays(lastStreakDate, 1);
+  return graceWeekKey === streakWeekKey(missed) ? null : missed;
+}
+
+/** On load: is a streak whose last counted day is `lastStreakDate` still alive today? */
+export function isStreakAliveWithGrace(counters: GraceStreakCounters, todayStr: string): boolean {
+  if (!counters.lastStreakDate) return false;
+  const diff = dayDiff(counters.lastStreakDate, todayStr);
+  if (diff <= 1) return true;
+  return graceDayFor(counters, todayStr) !== null;
+}
+
+/**
+ * advanceStreakForDay + the weekly grace day. Same result as advanceStreakForDay unless a
+ * grace day bridges a one-day gap: then the streak continues (+2: the grace day and today)
+ * and `graceDate` / `graceWeekKey` say which day was covered.
+ */
+export function advanceStreakForDayWithGrace(
+  counters: GraceStreakCounters,
+  todayStr: string,
+): StreakCounters & { advanced: boolean; graceDate: string | null; graceWeekKey: string | undefined } {
+  const grace = counters.lastStreakDate !== todayStr ? graceDayFor(counters, todayStr) : null;
+  if (grace) {
+    return {
+      currentStreak: counters.currentStreak + 2,
+      lastStreakDate: todayStr,
+      advanced: true,
+      graceDate: grace,
+      graceWeekKey: streakWeekKey(grace),
+    };
+  }
+  return { ...advanceStreakForDay(counters, todayStr), graceDate: null, graceWeekKey: counters.graceWeekKey };
+}

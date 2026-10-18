@@ -12,7 +12,8 @@ import {
   getPaceMapConfig,
   getRunProgramTemplate,
 } from '@/features/workout-engine/core/services/running-admin.service';
-import { materializeWorkout } from '@/features/workout-engine/core/services/running-engine.service';
+import { materializeWorkout, computeZones } from '@/features/workout-engine/core/services/running-engine.service';
+import { calmRunWorkout, calmCopy, type CalmReturnState } from '@/lib/calm-return';
 import {
   isRunningPlanBuildStuck,
   hasRunningRebuildInputs,
@@ -97,9 +98,15 @@ const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0
 interface NextRunWorkoutCardProps {
   /** Weather flag at the user's cell (home's useWeather, `weather_enabled`); null/undefined = none. */
   weatherFlag?: WeatherFlag | null;
+  /** Calm return (CALM_RETURN_V1) — null/undefined whenever the flag is off = today's card. */
+  calmReturn?: CalmReturnState | null;
+  /** 4–6 days away: only the card's title line changes. */
+  calmWelcomeBack?: boolean;
 }
 
-export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkoutCardProps = {}) {
+export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = null, calmWelcomeBack = false }: NextRunWorkoutCardProps = {}) {
+  // Calm return: quality runs show (and run) as an easy run, with the tier's lighter volume.
+  const calmLoad = calmReturn?.isLightened ? calmReturn.load : null;
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const running = profile?.running;
@@ -239,7 +246,17 @@ export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkou
       .then(async ([template, paceMapConfig, fullProgram]) => {
         if (!template) { setBriefingLoading(false); return; }
         const rules = (fullProgram as any)?.progressionRules ?? [];
-        const w = materializeWorkout(template, pendingWeek ?? 1, rules, paceProfile, paceMapConfig);
+        const materialized = materializeWorkout(template, pendingWeek ?? 1, rules, paceProfile, paceMapConfig);
+        const w = calmLoad
+          ? calmRunWorkout(materialized, calmLoad, {
+              easyPace: paceProfile.basePace > 0
+                ? (({ minPace, maxPace }) => ({ min: minPace, max: maxPace }))(
+                    computeZones(paceProfile.basePace, paceProfile.profileType, paceMapConfig).easy,
+                  )
+                : null,
+              easyLabel: calmCopy(null).easyRunLabel,
+            })
+          : materialized;
 
         const totalDurMin = Math.round(
           w.blocks.reduce((s, b) => s + (b.durationSeconds ?? 0), 0) / 60,
@@ -302,7 +319,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkou
         setBriefingLoading(false);
       })
       .catch(() => setBriefingLoading(false));
-  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag]);
+  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag, calmLoad]);
 
   const handleBriefingGo = () => {
     setBriefingOpen(false);
@@ -476,7 +493,10 @@ export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkou
   };
 
   const estimatedMinutes = basePace > 0 ? Math.round((basePace * distKm) / 60) : null;
-  const WorkoutIcon = WORKOUT_ICONS[workout];
+  // Calm return: an easy run replaces a quality run — the card says so before it starts.
+  const calmEasy = !!calmLoad?.runEasyOnly && workout !== 'easy' && workout !== 'long';
+  const displayWorkout: WorkoutType = calmEasy ? 'easy' : workout;
+  const WorkoutIcon = WORKOUT_ICONS[displayWorkout];
 
   const effectiveRestDay = !isRunDay || skippedToday;
 
@@ -528,7 +548,11 @@ export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkou
   return (
     <div className="bg-white dark:bg-[#1E2A28] rounded-2xl p-5" style={CARD_STYLE} dir="rtl">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-bold text-slate-600">האימון שלך היום</p>
+        <p className="text-xs font-bold text-slate-600">
+          {calmWelcomeBack
+            ? `${calmCopy(null).welcomeBackTitle} · ${calmCopy(null).welcomeBackSubtitle}`
+            : 'האימון שלך היום'}
+        </p>
         <span className="text-[11px] font-medium text-slate-600 tabular-nums">
           {formatDate()}
         </span>
@@ -543,7 +567,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkou
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-base font-extrabold text-slate-900 dark:text-white truncate">
-            {workoutLabel || labels[workout]}
+            {calmEasy ? labels.easy : workoutLabel || labels[workout]}
           </p>
           {estimatedMinutes && (
             <p className="text-sm text-slate-600 mt-0.5">~{estimatedMinutes} דקות</p>

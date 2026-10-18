@@ -442,6 +442,12 @@ export interface WorkoutGenerationContext {
   isRecoveryDay?: boolean;
   detrainingLock?: boolean;
   volumeReductionOverride?: number;
+  /** Calm return (CALM_RETURN_V1): set only while the flag is on and the return policy
+   *  lightened this session. Replaces the count-based badge ("🦥 חזרה אחרי X ימים") and
+   *  cue ("💪 חזרת אחרי X ימים!") with this label, and the inactivity −40% branch is
+   *  skipped (the policy's volumeReductionOverride carries the tiered reduction).
+   *  Undefined = today's behaviour, unchanged. */
+  calmReturnLabel?: string;
   /** Current week in the 5-week periodization cycle (1=Build, 4=Peak, 5=Deload).
    *  Undefined = no active program / no cycle anchor. */
   periodizationWeek?: number;

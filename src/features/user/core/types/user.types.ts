@@ -564,4 +564,7 @@ export interface UserFullProfile {
   createdAt?: any; // Firebase serverTimestamp() - user registration/joining date
   updatedAt?: any; // Firebase serverTimestamp() - last profile update
   lastActive?: any; // Firebase serverTimestamp() - last active timestamp
+  /** Calm return (CALM_RETURN_V1): the current return episode — written once by the first
+   *  app open after a 7+ day gap. See src/lib/calm-return/policy.ts. */
+  calmReturn?: import('@/lib/calm-return/policy').CalmReturnEpisode;
 }

@@ -43,6 +43,8 @@ import {
   type AlignmentAction,
 } from '@/features/workout-engine/core/services/workout-completion.service';
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
+import { calmCopy } from '@/lib/calm-return/surface';
+import { useCalmReturn } from '../hooks/useCalmReturn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -360,6 +362,14 @@ export default function StatsOverview({
   weather = null,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
+  // Calm return (CALM_RETURN_V1) — the LIVE panel toggle (no super-admin override). The
+  // episode write + the fresh-week card live in the home page (useCalmReturn there, with
+  // manageEpisode); this instance only reads the state for its cards.
+  const calm = useCalmReturn(profile, { isGuest });
+  const calmReturnOn = calm.on;
+  const calmState = calm.state;
+  const calmWelcomeBack = calm.welcomeBack;
+  const calmGender = profile?.core?.gender;
   const weatherRef = useRef<WorkoutWeather | null>(weather);
   weatherRef.current = weather;
   const router = useRouter();
@@ -436,11 +446,20 @@ export default function StatsOverview({
   useEffect(() => {
     const runProgram = profile?.running?.activeProgram;
     if (!runProgram) return;
+    // Calm return: no realign / rebuild popup and no missed-workout banner — a 7+ day gap
+    // is re-planned silently (startCalmReturnEpisode below), shorter gaps change nothing.
+    if (calmReturnOn) {
+      setAlignmentAction({ type: 'none' });
+      setShowRealignPopup(false);
+      setShowRebuildPopup(false);
+      return;
+    }
     const action = handleProgramAlignment(runProgram, lastWorkoutDate ?? null);
     setAlignmentAction(action);
     if (action.type === 'plan_realign') setShowRealignPopup(true);
     if (action.type === 'rebuild') setShowRebuildPopup(true);
-  }, [profile?.running?.activeProgram, lastWorkoutDate]);
+  }, [profile?.running?.activeProgram, lastWorkoutDate, calmReturnOn]);
+
 
   const handleRollBack = useCallback(async () => {
     const uid = getCurrentUid();
@@ -932,7 +951,7 @@ export default function StatsOverview({
         genPerfEnd(); // #0: print the phase/read table (no-op unless GEN_TIMING is on)
       }
     })();
-  }, [profile?.id, isGuest, targetDate, scheduleVersion]);
+  }, [profile?.id, isGuest, targetDate, scheduleVersion, calmReturnOn]);
 
   // Persist hero media to sessionStorage so the Workout Detail page can reuse it
   useEffect(() => {
@@ -1103,7 +1122,9 @@ export default function StatsOverview({
               : 'relative mb-1'
           }
         >
-          <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">האימון היומי שלך</h3>
+          <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+            {calmWelcomeBack ? calmCopy(calmGender).welcomeBackTitle : 'האימון היומי שלך'}
+          </h3>
           {/* Location square beside the title. Shows the user's pin when there is one,
               otherwise the engine's echo (clamped to the pickable set). */}
           {HOME_ANCHOR_V2_ENABLED && (
@@ -1129,7 +1150,9 @@ export default function StatsOverview({
         <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
           {!hasCompletedAssessment
             ? 'התאימו את האימונים לרמה שלכם .'
-            : dynamicWorkout?.description || 'מוכן להתחיל?'}
+            : calmWelcomeBack
+              ? calmCopy(calmGender).welcomeBackSubtitle
+              : dynamicWorkout?.description || 'מוכן להתחיל?'}
         </p>
       </div>
 
@@ -1376,7 +1399,7 @@ export default function StatsOverview({
         {/* ── Rest Day: show card FIRST when it's a rest day ── */}
         {!isRunDayToday && (
           <div className="w-full max-w-[358px] mx-auto">
-            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} />
+            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} calmReturn={calmState} calmWelcomeBack={calmWelcomeBack} />
           </div>
         )}
 
@@ -1393,7 +1416,7 @@ export default function StatsOverview({
         {/* ── Today's Workout Card (only on run days — rest day shown above) ── */}
         {isRunDayToday && (
           <div className="w-full max-w-[358px] mx-auto">
-            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} />
+            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} calmReturn={calmState} calmWelcomeBack={calmWelcomeBack} />
           </div>
         )}
 

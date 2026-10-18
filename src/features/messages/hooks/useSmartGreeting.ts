@@ -56,6 +56,8 @@ export interface GreetingContext {
   program?: string;
   /** User's display name */
   userName?: string;
+  /** User's gender — picks the male/female variant of gendered copy */
+  gender?: 'male' | 'female' | 'other';
 }
 
 export interface SmartGreetingResult {
@@ -211,6 +213,7 @@ export function useSmartGreeting(explicitContext?: Partial<GreetingContext>): Sm
         persona: context.persona,
         streak: context.streak,
         isPersonalRecord: context.hasPersonalRecord,
+        gender: context.gender,
       };
       
       const selectedMessage = messageService.getLocalBestMessage(msgContext);
@@ -224,7 +227,7 @@ export function useSmartGreeting(explicitContext?: Partial<GreetingContext>): Sm
     } finally {
       setIsLoading(false);
     }
-  }, [messageType, context.persona, context.streak, context.hasPersonalRecord]);
+  }, [messageType, context.persona, context.streak, context.hasPersonalRecord, context.gender]);
   
   // Initial fetch and subscribe to changes
   useEffect(() => {
@@ -245,8 +248,8 @@ export function useSmartGreeting(explicitContext?: Partial<GreetingContext>): Sm
   
   // Get message for specific type
   const getMessageForType = useCallback((type: MessageType): SmartMessage => {
-    return messageService.getLocalBestMessage({ type, persona: context.persona });
-  }, [context.persona]);
+    return messageService.getLocalBestMessage({ type, persona: context.persona, gender: context.gender });
+  }, [context.persona, context.gender]);
   
   return {
     message,

@@ -340,12 +340,14 @@ export function calculateVolumeAdjustment(
     const override = context.volumeReductionOverride;
     adjustedSets = Math.max(2, Math.round(baseSets * (1 - override)));
     reductionPercent = override * 100;
-    badge = '🦥 מצב מופחת';
+    badge = context.calmReturnLabel ?? '🦥 מצב מופחת';
     reason = 'detraining';
     return { reason, reductionPercent: Math.round(reductionPercent), originalSets: baseSets, adjustedSets, badge };
   }
 
-  if (context.daysInactive > INACTIVITY_THRESHOLD_DAYS) {
+  // Calm return: the tiered reduction already arrived as volumeReductionOverride (or the
+  // policy chose none) — never the flat −40% "חזרה אחרי X ימים" on top.
+  if (context.calmReturnLabel == null && context.daysInactive > INACTIVITY_THRESHOLD_DAYS) {
     adjustedSets = Math.max(2, Math.round(baseSets * (1 - INACTIVITY_VOLUME_REDUCTION)));
     reductionPercent = INACTIVITY_VOLUME_REDUCTION * 100;
     badge = `🦥 חזרה אחרי ${context.daysInactive} ימים`;

@@ -137,6 +137,11 @@ import {
   scaleByPeriodization,
   type SessionPolicy,
 } from './periodization.service';
+import { applyCalmReturnToPolicy, capDifficultyForCalmReturn } from './calm-return-session';
+import { getDaysAway } from '@/lib/calm-return/days-away';
+import { resolveCalmReturn, type CalmReturnState } from '@/lib/calm-return/policy';
+import { calmCopy } from '@/lib/calm-return/surface';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import type {
   HomeWorkoutOptions,
   HomeWorkoutResult,
@@ -1151,7 +1156,11 @@ export async function generateHomeWorkoutTrio(
     // Weather (heat/UV): capped at 2 — the intense slot keeps its place in the
     // carousel but is generated at D2, without the forced pyramid / intense
     // post-process below (weatherCapped). No-op without options.weather.
-    const optionDifficulty: DifficultyLevel = capDifficultyForWeather(cfg.difficulty, options.weather);
+    const optionDifficulty: DifficultyLevel = capDifficultyForCalmReturn(
+      capDifficultyForWeather(cfg.difficulty, options.weather),
+      pipeline.calmReturn?.load,
+      options.targetDifficulty != null,
+    );
     const weatherCapped = optionDifficulty !== cfg.difficulty;
 
     // ── Bolt-specific availableTime CEILING — AUTOMATIC suggestions only ───
@@ -1896,6 +1905,8 @@ interface SharedPipelineState {
   resolvedChildDomains: string[];
   effectiveFilterLocation: ExecutionLocation;
   gatingResult: { isIntenseLocked: boolean; lockReason?: string };
+  /** Calm return state for this session — null whenever the flag is off. */
+  calmReturn: CalmReturnState | null;
   aiCue?: string;
   resultMeta: HomeWorkoutResult['meta'];
   metadataCtxBase: WorkoutMetadataContext;
@@ -1949,6 +1960,7 @@ async function _buildSharedPipeline(
     injuryOverride,
     equipmentOverride,
     daysInactiveOverride,
+    calmReturnEnabled,
     personaOverride,
     timeOfDay: timeOfDayOverride,
     previewNow,
@@ -2281,7 +2293,22 @@ async function _buildSharedPipeline(
   const exercisePoolDiagnostics = poolResult.diagnostics;
 
   // ── 2. Derive contextual values ──────────────────────────────────────
-  const daysInactive = daysInactiveOverride ?? calculateDaysInactive(userProfile);
+  // Calm return (flag on, real profile gap only): ONE gap for the whole app — getDaysAway —
+  // and the tiered calm load instead of resolveSessionPolicy's gap tiers (see below).
+  const calmReturn: CalmReturnState | null =
+    (calmReturnEnabled ?? readLiveFlag('enableCalmReturnV1')) && daysInactiveOverride == null
+      ? (() => {
+          const calmNow = previewNow ?? new Date();
+          return resolveCalmReturn({
+            daysAway: getDaysAway(userProfile, calmNow),
+            episode: userProfile.calmReturn,
+            now: calmNow,
+          });
+        })()
+      : null;
+  const daysInactive = calmReturn
+    ? calmReturn.daysAway ?? 0
+    : daysInactiveOverride ?? calculateDaysInactive(userProfile);
   const injuries = extractInjuryShield(userProfile, injuryOverride);
   const persona = mapPersonaIdToLifestylePersona(userProfile, personaOverride);
   const lifestyles = collectLifestyles(userProfile, persona);
@@ -2493,12 +2520,22 @@ async function _buildSharedPipeline(
   const resolvedMaxIntense = maxIntenseWorkoutsPerWeek ?? globalMaxIntense;
 
   // ── Intensity gating ─────────────────────────────────────────────────
-  const gatingResult = getAvailableDifficulties({
+  const gatingResultRaw = getAvailableDifficulties({
     userLevel: baseUserLevel,
-    daysInactive,
+    // Calm return: the count-based detraining lock is replaced by the calm load's cap.
+    daysInactive: calmReturn ? 0 : daysInactive,
     weeklyIntenseCount,
     maxIntenseWorkoutsPerWeek: resolvedMaxIntense,
   });
+  const gatingResult =
+    calmReturn && calmReturn.load.strengthMaxDifficulty < 3
+      ? {
+          ...gatingResultRaw,
+          availableDifficulties: gatingResultRaw.availableDifficulties.filter((d) => d <= calmReturn.load.strengthMaxDifficulty),
+          isIntenseLocked: true,
+          lockReason: calmCopy(null).lightVersionBadge,
+        }
+      : gatingResultRaw;
 
   // ── Resilient Smart Coach: Periodization Clock + Gap Policy ──────────
   // Derives the current 5-week cycle position from the active program's
@@ -2509,7 +2546,13 @@ async function _buildSharedPipeline(
   //   - Rebuild (21+ day gap → forces deload + cycle restart hint)
   const activeProgramForCycle = userProfile.progression?.activePrograms?.[0];
   const cycleWeek = derivePeriodizationWeek(activeProgramForCycle);
-  const sessionPolicy: SessionPolicy = resolveSessionPolicy(cycleWeek, daysInactive);
+  const sessionPolicy: SessionPolicy = calmReturn
+    ? applyCalmReturnToPolicy(
+        resolveSessionPolicy(cycleWeek, 0),
+        calmReturn.load,
+        calmCopy(effectiveGenderForCalm(userProfile)).lightVersionCue,
+      )
+    : resolveSessionPolicy(cycleWeek, daysInactive);
 
   const detrainingLock = sessionPolicy.detrainingLock;
   const volumeReductionOverride = sessionPolicy.volumeReductionOverride;
@@ -3096,7 +3139,10 @@ async function _buildSharedPipeline(
     earlyPipelineNotes: levelCeilingNotes.length > 0
       ? [...levelCeilingNotes, ...(exercisePoolDiagnostics ?? [])]
       : exercisePoolDiagnostics,
-    daysInactive,
+    // Calm return: the generator's own count-based badge/cue/−40% stay off — the calm
+    // label + volumeReductionOverride carry the return instead.
+    daysInactive: calmReturn ? 0 : daysInactive,
+    ...(calmReturn?.isLightened ? { calmReturnLabel: calmCopy(null).lightVersionBadge } : {}),
     intentMode,
     persona,
     location,
@@ -3345,6 +3391,7 @@ async function _buildSharedPipeline(
     resolvedChildDomains,
     effectiveFilterLocation,
     gatingResult,
+    calmReturn,
     aiCue: undefined,
     // Expose so generateHomeWorkoutTrio can read them without crossing function scopes.
     adminPreferredProtocols,
@@ -3386,3 +3433,7 @@ async function _buildSharedPipeline(
 
 // NOTE: This trailing comment block replaces ~520 lines of moved code.
 
+/** Gender for calm-return copy ('male' default — the copy helper reads only 'female'). */
+function effectiveGenderForCalm(profile: UserFullProfile): 'male' | 'female' | 'other' | undefined {
+  return profile.core?.gender;
+}
