@@ -1,8 +1,20 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
-import { Activity, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
-import { Button, Card, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
+import { Activity, ChevronLeft, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
+import {
+  Button,
+  Card,
+  CardTile,
+  Chip,
+  IconTile,
+  MetricRings,
+  StatNumber,
+  StreakDotsStrip,
+  type StreakWeekBar,
+  type WeekDot,
+} from '@/components/ui/v2';
+import { aerobicRings } from '../../v2-summary.mapping';
 import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../../blocks/summary-sheet.util';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
@@ -72,6 +84,17 @@ export interface AerobicSummaryViewProps {
   peekHeight?: number;
   /** enable_home_v2 live flow — the "לשתף את האימון בפיד?" card (owned by the shell). */
   feedShareSlot?: ReactNode;
+  /**
+   * enable_home_v2 — the approved F-1f overview (three rings + streak strip,
+   * no XP chip). Absent ⇒ today's summary, unchanged. `streak` is null in the
+   * read-only history view (the week strip describes "now").
+   */
+  v2?: AerobicSummaryV2Data;
+}
+
+export interface AerobicSummaryV2Data {
+  streak: { days: WeekDot[]; best: number } | null;
+  weekBars?: StreakWeekBar[];
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
@@ -112,6 +135,7 @@ export default function AerobicSummaryView({
   onDelete,
   peekHeight = 110,
   feedShareSlot,
+  v2,
 }: AerobicSummaryViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [expandedMap, setExpandedMap] = useState(false);
@@ -154,7 +178,7 @@ export default function AerobicSummaryView({
       <div className="flex flex-col items-end gap-1.5 shrink-0">
         <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="md" />
         {/* XP chip — solo only */}
-        {effectiveVariant === 'solo' && xpEarned > 0 && (
+        {effectiveVariant === 'solo' && xpEarned > 0 && !v2 && (
           <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
             {`+${xpEarned} XP`}
           </Chip>
@@ -213,18 +237,54 @@ export default function AerobicSummaryView({
       <PersonalRecordTag />
       <MomentSentence />
 
-      {/* Streak */}
-      {streakDays > 1 && <DopamineStreakBlock streakDays={streakDays} />}
+      {v2 ? (
+        <>
+          {/* v2 (F-1f): three rings, then the streak strip. */}
+          <Card padding="md">
+            <MetricRings rings={aerobicRings(workout)} />
+          </Card>
+          {v2.streak && (
+            <StreakDotsStrip
+              streak={streakDays}
+              best={Math.max(v2.streak.best, streakDays)}
+              days={v2.streak.days}
+              bars={v2.weekBars}
+            />
+          )}
+          {workout.laps && workout.laps.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('segments')}
+              className="flex w-full items-center gap-3 rounded-v2-card bg-white px-4 py-3 text-start shadow-v2-card active:scale-[0.97] transition-transform duration-150 ease-v2"
+            >
+              <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="sm" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14.5px] font-black text-v2-ink">קצב בכל הקפה</span>
+                <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
+              </span>
+              <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[12px] font-extrabold tabular-nums text-v2-deep">
+                {workout.laps.length} הקפות
+              </span>
+              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Streak */}
+          {streakDays > 1 && <DopamineStreakBlock streakDays={streakDays} />}
 
-      {/* Stat rings */}
-      <Card padding="sm">
-        <AerobicStatRingsBlock
-          activityType={activityType}
-          pace={workout.pace ?? 0}
-          duration={workout.duration ?? 0}
-          calories={workout.calories ?? 0}
-        />
-      </Card>
+          {/* Stat rings */}
+          <Card padding="sm">
+            <AerobicStatRingsBlock
+              activityType={activityType}
+              pace={workout.pace ?? 0}
+              duration={workout.duration ?? 0}
+              calories={workout.calories ?? 0}
+            />
+          </Card>
+        </>
+      )}
 
       {/* Participants compact list — group only (3+) */}
       {effectiveVariant === 'group' && groupCtx && groupCtx.participants.length > 0 && (
@@ -247,7 +307,7 @@ export default function AerobicSummaryView({
         <Card padding="md" dir="rtl">
           {ratingSubmitted ? (
             <div className="text-center text-[14px] font-extrabold text-v2-deep">
-              {`תודה על הדירוג! +${XP_REWARDS.review} XP`}
+              {v2 ? 'תודה על הדירוג!' : `תודה על הדירוג! +${XP_REWARDS.review} XP`}
             </div>
           ) : (
             <>

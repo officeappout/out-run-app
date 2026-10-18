@@ -11,6 +11,10 @@ import AerobicSummaryView from './AerobicSummaryView';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { PendingSummaryFeedShare } from '@/features/social/components/SummaryFeedShare';
+import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
+import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
+import type { AerobicSummaryV2Data } from './AerobicSummaryView';
 
 interface Props {
   variant: 'group' | 'solo' | 'pair';
@@ -45,6 +49,27 @@ export default function AerobicSummaryShell(props: Props) {
   // Home v2 (enable_home_v2): offer this run's pending feed share here too.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+
+  // Home v2: streak strip + week bars (read-only activity-store reads). The
+  // run's own activity write already ran in finishWorkout, so the store
+  // numbers include this session; today is marked trained either way.
+  const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly });
+  const weeklySummary = useActivityStore((s) => s.weeklySummary);
+  const v2Data: AerobicSummaryV2Data | undefined = v2
+    ? {
+        streak: isReadOnly ? null : streakWeek,
+        weekBars: isReadOnly
+          ? undefined
+          : [
+              { label: 'אימוני אירובי השבוע', value: weeklySummary?.categorySessions?.cardio ?? 0 },
+              {
+                label: 'דקות פעילות',
+                value: (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0),
+                max: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
+              },
+            ],
+      }
+    : undefined;
 
   const storeSavedWorkoutId = useRunningPlayer((s) => s.savedWorkoutId);
   const savedWorkoutId = isReadOnly ? null : storeSavedWorkoutId;
@@ -125,6 +150,7 @@ export default function AerobicSummaryShell(props: Props) {
       deleteLastWorkout={() => useRunningPlayer.getState().deleteLastWorkout()}
       deleteWorkoutWithReversal={deleteWorkoutWithReversal}
       feedShareSlot={v2 && !isReadOnly ? <PendingSummaryFeedShare activity="cardio" /> : undefined}
+      v2={v2Data}
     />
   );
 }

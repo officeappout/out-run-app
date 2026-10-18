@@ -24,6 +24,7 @@ import { startMiniDomainAssessment } from '@/features/user/onboarding/services/m
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
+import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
 import { buildStrengthPostDetails } from '@/features/social/services/feed-post-details';
@@ -318,6 +319,9 @@ export default function StrengthSummaryPage({
   });
 
   // ── Home v2 data (display-only; flag OFF ⇒ undefined ⇒ today's view) ──
+  // Streak dots: read-only activity-store read. Today counts as trained in
+  // the live flow (this session's activity write runs later, at Finish).
+  const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly });
   const v2Phases = useMemo(
     () =>
       homeV2
@@ -340,6 +344,7 @@ export default function StrengthSummaryPage({
     v2 = {
       phases: v2Phases,
       totals: sessionTotals(v2Phases),
+      streakWeek: isReadOnly ? null : streakWeek,
       week: isReadOnly
         ? null
         : {

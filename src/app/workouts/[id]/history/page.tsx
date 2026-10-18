@@ -190,6 +190,7 @@ export default function WorkoutHistoryPage() {
           xpEarned={workout.xpEarned ?? 0}
           onFinish={handleClose}
           onDelete={WORKOUT_DELETE_EXPANDED_ENABLED ? () => setShowDeleteConfirm(true) : undefined}
+          isReadOnly
           // No live Mapbox mounted behind this route (unlike /map) — skip the
           // transparent peek gap that would otherwise show empty space.
           peekHeight={0}

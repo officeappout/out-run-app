@@ -30,13 +30,15 @@ import type { useProgressionSync } from './hooks/useProgressionSync';
 import type { useEmailCapture } from './hooks/useEmailCapture';
 import {
   SummaryHeroV2,
-  WeekCardV2,
-  GainCardV2,
+  StreakCardV2,
+  ProgramCardV2,
   ImprovementsCardV2,
   PhaseBreakdownV2,
   type WeekCardV2Props,
 } from './components/v2/StrengthSummaryV2Sections';
 import type { PhaseSummary, SessionTotals } from './utils/phase-summary';
+import { levelRingModel } from './utils/level-ring.util';
+import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/components/ui/v2';
 
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
@@ -44,6 +46,33 @@ export interface StrengthSummaryV2Data {
   totals: SessionTotals;
   /** Null in the read-only history view (the week card describes "now", not that past workout). */
   week: WeekCardV2Props | null;
+  /** This week's streak dots + best streak (activity store). Null in the read-only history view. */
+  streakWeek?: { days: WeekDot[]; best: number } | null;
+}
+
+/**
+ * The v2 "התקדמות בתוכניות שלי" row from the real program level: the ring is
+ * % inside the level, and today's gain (progressionResult) is the green arc.
+ * Without a progression result (e.g. it failed) the ring shows no gain.
+ */
+export function strengthProgramItem(args: {
+  programName: string;
+  programId?: string;
+  liveLevel: number;
+  livePercent: number;
+  maxLevel: number;
+  progressionResult: ReturnType<typeof useProgressionSync>['progressionResult'];
+}): ProgramProgressItem {
+  const m = levelRingModel(args.liveLevel, args.maxLevel, args.livePercent);
+  const gain = args.progressionResult?.success ? args.progressionResult.activeProgramGain : null;
+  return {
+    key: args.programId ?? 'program',
+    name: args.programName,
+    levelLabel: m.levelLabel,
+    nextLabel: m.nextLabel,
+    ring: programRingModel(m.percent, gain?.totalGain ?? 0, !!gain?.leveledUp),
+    gain: gain?.totalGain ?? 0,
+  };
 }
 
 type Analytics = ReturnType<typeof useSummaryAnalytics>;
@@ -95,6 +124,7 @@ export interface StrengthSummaryViewProps {
 
 export default function StrengthSummaryView({
   programName,
+  programId,
   maxLevel,
   isReadOnly,
   completedExercises,
@@ -140,37 +170,41 @@ export default function StrengthSummaryView({
       {/* Scrollable content */}
       {v2 ? (
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">
+          {/* Approved A-6c order: hero → streak → programs → improvement →
+              exercise breakdown. No XP display and no "פירוט התקדמות" in v2
+              (the XP award itself still runs in useXpAward). */}
           <SummaryHeroV2
             formattedDuration={analytics.formattedDuration}
             calories={analytics.calories}
             totals={v2.totals}
-            streak={analytics.streak}
-            streakFlameType={analytics.streakFlameType}
-            streakChainReady={xp.streakChainReady}
-            xpSlot={
-              <XpStatusRow
-                xpStatus={xp.xpStatus}
-                xpEarnedAmount={xp.xpEarnedAmount}
-                xpControls={xp.xpControls}
-                onRetry={xp.runAwardXP}
-              />
-            }
+            phases={v2.phases}
           />
 
           {feedShareSlot}
 
-          {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
-            <LevelRingCard
-              programName={programName ?? 'תוכנית אימון'}
-              currentLevel={analytics.liveLevel}
-              maxLevel={maxLevel ?? 25}
-              progressPercent={analytics.livePercent ?? 0}
+          {v2.streakWeek && (
+            <StreakCardV2
+              streak={analytics.streak}
+              best={Math.max(v2.streakWeek.best, analytics.streak)}
+              days={v2.streakWeek.days}
+              week={v2.week}
             />
           )}
 
           {shouldShowLevelRing({ isReadOnly, progressionResult: progression.progressionResult }) && (
-            <GainCardV2 progressionResult={progression.progressionResult} />
+            <ProgramCardV2
+              item={strengthProgramItem({
+                programName: programName ?? 'תוכנית אימון',
+                programId,
+                liveLevel: analytics.liveLevel,
+                livePercent: analytics.livePercent ?? 0,
+                maxLevel: maxLevel ?? 25,
+                progressionResult: progression.progressionResult,
+              })}
+            />
           )}
+
+          <ImprovementsCardV2 phases={v2.phases} />
 
           <ProgramSuggestionCard
             suggestions={visibleSuggestions}
@@ -180,12 +214,8 @@ export default function StrengthSummaryView({
 
           {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
 
-          <ImprovementsCardV2 phases={v2.phases} />
-
           <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">פירוט התרגילים</h2>
           <PhaseBreakdownV2 phases={v2.phases} />
-
-          {v2.week && <WeekCardV2 {...v2.week} />}
         </div>
       ) : (
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">

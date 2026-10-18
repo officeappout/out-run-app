@@ -2,7 +2,23 @@
 
 import { useState, type ReactNode } from 'react';
 import { Share2, Trash2, Target, Sparkles } from 'lucide-react';
-import { Button, CardTile, Chip, IconTile, StatNumber } from '@/components/ui/v2';
+import {
+  Button,
+  Card,
+  CardTile,
+  Chip,
+  ExerciseSetsTable,
+  IconTile,
+  MetricRings,
+  StatNumber,
+  StreakDotsStrip,
+} from '@/components/ui/v2';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
+import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
+import { useSummaryStreakWeek } from '../hooks/useSummaryStreakWeek';
+import { hybridRings, hybridStationTables } from '../v2-summary.mapping';
 import type { HybridFinalizeResult } from '@/features/workout-engine/hybrid/hybrid-orchestrator';
 import SummaryDrawerShell, { type DrawerTab } from '../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../blocks/summary-sheet.util';
@@ -36,6 +52,11 @@ export interface HybridSummaryProps {
   peekHeight?: number;
   /** Snap the drawer opens at — 'full' (default) or 'peek' (dev preview). */
   initialSnap?: SummarySnap;
+  /**
+   * History (read-only) view. Only read by the enable_home_v2 overview: the
+   * "this week" streak strip describes now, so it is hidden for a past workout.
+   */
+  isReadOnly?: boolean;
 }
 
 const HYBRID_TABS: DrawerTab[] = [
@@ -89,14 +110,21 @@ export default function HybridSummary({
   onDelete,
   peekHeight = 150,
   initialSnap = 'full',
+  isReadOnly = false,
 }: HybridSummaryProps) {
   const [tab, setTab] = useState<string>('overview');
+  // Home v2 (enable_home_v2): F-2f/F-3e overview (rings + streak strip, no XP)
+  // and the F-3g strength table. Flag off ⇒ today's summary, unchanged.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly });
+  const weeklySummary = useActivityStore((s) => s.weeklySummary);
   const { summary, segments } = result;
   const totalDurationSec = segments.reduce((acc, s) => acc + (s.actual?.durationSec ?? 0), 0);
   const aerobicSec = summary.totalActualAerobicSec;
   const completedSegments = summary.completedAerobicSegments + summary.completedStrengthSegments;
   const xpVal = Math.round(xpEarned || 0);
-  void streakDays;
+  const stationTables = v2 ? hybridStationTables(segments) : [];
 
   // Hero (drag zone): the combined number — total session time — with the two
   // halves as chips. Stays visible when the drawer is collapsed to its peek.
@@ -115,7 +143,7 @@ export default function HybridSummary({
       <div className="flex flex-col items-end gap-1.5 shrink-0">
         <Chip tone="accent">{`${summary.totalActualDistanceKm.toFixed(2)} ק״מ`}</Chip>
         <Chip tone="neutral">{`${summary.totalStrengthSets} סטים`}</Chip>
-        {xpVal > 0 && (
+        {xpVal > 0 && !v2 && (
           <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
             {`+${xpVal} XP`}
           </Chip>
@@ -134,7 +162,32 @@ export default function HybridSummary({
   ) : null;
 
   const tabBody: Record<string, ReactNode> = {
-    overview: (
+    overview: v2 ? (
+      <div className="space-y-3 px-4 pt-4 pb-6">
+        <Card padding="md">
+          <MetricRings rings={hybridRings(result)} />
+        </Card>
+        {banner}
+        {!isReadOnly && (
+          <StreakDotsStrip
+            streak={streakDays}
+            best={Math.max(streakWeek.best, streakDays)}
+            days={streakWeek.days}
+            bars={[
+              {
+                label: 'דקות פעילות',
+                value: (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0),
+                max: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
+              },
+            ]}
+          />
+        )}
+        <div>
+          <SectionLabel>מהלך האימון</SectionLabel>
+          <SegmentRail items={buildRailItems(segments)} />
+        </div>
+      </div>
+    ) : (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
           <StatTile value={summary.totalActualDistanceKm} decimals={2} unit="ק״מ" label="מרחק" />
@@ -165,7 +218,13 @@ export default function HybridSummary({
         <SegmentRail items={buildRailItems(segments, 'aerobic')} />
       </div>
     ),
-    strength: (
+    strength: v2 && stationTables.length > 0 ? (
+      <div className="space-y-4 px-4 pt-4 pb-6">
+        {stationTables.map((t) => (
+          <ExerciseSetsTable key={t.key} title={t.title} rows={t.rows} />
+        ))}
+      </div>
+    ) : (
       <div className="px-4 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
           <StatTile value={summary.totalStrengthSets} label="סטים שהושלמו" />
@@ -180,14 +239,14 @@ export default function HybridSummary({
     ),
     stats: (
       <div className="px-4 pt-4 pb-6">
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${v2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
           <StatTile
             value={totalDurationSec}
             format={() => formatDuration(totalDurationSec)}
             label="זמן"
           />
           <StatTile value={Math.round(calories || 0)} label="קק״ל" />
-          <StatTile value={xpVal} label="XP" />
+          {!v2 && <StatTile value={xpVal} label="XP" />}
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2">
           <StatTile
