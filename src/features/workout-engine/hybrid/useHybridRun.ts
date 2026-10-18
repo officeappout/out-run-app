@@ -193,7 +193,7 @@ export interface HybridRunStore {
   /** G2.4 — "המשך במסלול": close the held station and resume walking (run clock starts NOW). */
   continueAfterStation: () => void;
   /** G2.4 — in-station swap: write the replacement into the live station plan. False = unmapped. */
-  swapStationExercise: (segIdx: number, exIdx: number, newExercise: unknown, method: unknown) => boolean;
+  swapStationExercise: (segIdx: number, exIdx: number, newExercise: unknown, method: unknown, toLevel?: number) => boolean;
   /** G2.4 — the content exercise (full Exercise doc) + level behind a plan position, for the swap modal. */
   getStationSwapCandidate: (segIdx: number, exIdx: number) => { exercise: unknown; level: number } | null;
   /**
@@ -345,10 +345,10 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     get().completeStation(pending.exerciseLog, pending.completedAtMs);
   },
 
-  swapStationExercise: (segIdx, exIdx, newExercise, method) => {
+  swapStationExercise: (segIdx, exIdx, newExercise, method, toLevel) => {
     const plan = get().stationPlan;
     if (!activeStationContent || !plan) return false;
-    const next = swapExerciseInStationContent(activeStationContent, plan, segIdx, exIdx, newExercise, method);
+    const next = swapExerciseInStationContent(activeStationContent, plan, segIdx, exIdx, newExercise, method, toLevel);
     if (!next) return false;
     activeStationContent = next;
     set({ stationPlan: buildStationPlan(next) });

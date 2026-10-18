@@ -47,6 +47,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
+import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/workout-engine/services/compose-park-strength-workout.service';
 import type { Park } from '@/features/parks/core/types/park.types';
 import { getUserFromFirestore } from '@/lib/firestore.service';
@@ -2199,6 +2200,8 @@ export default function HomePage() {
           })(),
           pyramidSequence: (ex as any).pyramidSequence ?? undefined,
           repsSequence: (ex as any).repsSequence ?? undefined,
+          // Soft-adaptation Phase 0 (data only) — parity with buildRunnerWorkoutPlanFromGenerated.
+          ...adaptationStampForPlan(ex),
         };
       });
 
@@ -2299,6 +2302,9 @@ export default function HomePage() {
         name: gw.title || 'אימון כוח',
         description: gw.description || '',
         logicCue: gw.logicCue || '',
+        // "דגשי האימון" source (light scalars) — read by WorkoutPreviewClient,
+        // rendered only while WORKOUT_COACH_NOTE_V1 is on.
+        decisionRecord: gw.decisionRecord,
         segments,
         totalDuration: gw.estimatedDuration || 30,
         difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,

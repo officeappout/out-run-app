@@ -2,19 +2,22 @@
 
 /**
  * PostWorkoutSurvey - "How was it?" feedback component
- * 
- * Features:
- * - Only triggers for the FIRST 3 SESSIONS of a user's journey
- * - 3 options: Too Easy, Just Right, Too Hard
- * - Too Easy: Awards +5% progress bonus
- * - Too Hard: Suggests -1 level for next session
- * - "Always skip this" option to permanently disable
- * - Integrates with progression system
+ *
+ * Soft-adaptation Phase 0 (18.10.2026) — RECORD ONLY:
+ * - Mounted on the strength summary behind POST_WORKOUT_SURVEY_V1
+ *   (active/page.tsx), on the first 3 strength sessions and then about
+ *   every 4th (adaptation/survey-cadence.ts).
+ * - 3 options: קל מדי / בדיוק / קשה מדי. The answer is saved on the workout
+ *   doc (workouts/{id}.feedback) and changes NOTHING — no level change, no
+ *   progress bonus. (It used to promise "+5% progress" / "-1 level"; nothing
+ *   ever applied those, and the component was never mounted.)
+ * - "Always skip this" permanently disables it on this device.
  */
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThumbsUp, ThumbsDown, Minus, Sparkles, AlertTriangle, CheckCircle, X, EyeOff } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Minus, CheckCircle, X, EyeOff } from 'lucide-react';
+import { shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
 
 // ============================================================================
 // TYPES
@@ -23,10 +26,10 @@ import { ThumbsUp, ThumbsDown, Minus, Sparkles, AlertTriangle, CheckCircle, X, E
 export type WorkoutFeedback = 'too_easy' | 'just_right' | 'too_hard';
 
 export interface PostWorkoutSurveyProps {
-  /** Estimated duration of the completed workout */
-  estimatedDuration: number;
+  /** Estimated duration of the completed workout (unused; kept for callers) */
+  estimatedDuration?: number;
   
-  /** Number of sessions the user has completed (1-indexed) */
+  /** 1-based strength-session number (drives the cadence gate) */
   sessionCount: number;
   
   /** Callback when user submits feedback */
@@ -45,10 +48,13 @@ export interface PostWorkoutSurveyProps {
   isVisible?: boolean;
 }
 
+/**
+ * Phase 0: a thank-you line only. Deliberately has NO progress/level fields —
+ * the survey must never change level or progress (tested in
+ * adaptation/__tests__/post-workout-survey.test.ts).
+ */
 export interface FeedbackResult {
   feedback: WorkoutFeedback;
-  progressBonus?: number;        // +5% for "too_easy"
-  levelAdjustment?: number;      // -1 for "too_hard"
   message: string;
 }
 
@@ -56,8 +62,6 @@ export interface FeedbackResult {
 // CONSTANTS
 // ============================================================================
 
-/** Only show survey for first 3 sessions of user's journey */
-const MAX_SESSIONS_FOR_SURVEY = 3;
 
 /** Local storage key for opt-out preference */
 const SURVEY_OPT_OUT_KEY = 'outrun_survey_opted_out';
@@ -80,7 +84,7 @@ const FEEDBACK_OPTIONS: {
   },
   {
     id: 'just_right',
-    label: 'בדיוק נכון',
+    label: 'בדיוק',
     icon: <Minus className="w-6 h-6" />,
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
@@ -101,24 +105,16 @@ const FEEDBACK_OPTIONS: {
 // ============================================================================
 
 /**
- * Determine if survey should be shown
- * Only shows for first 3 sessions AND if user hasn't opted out
+ * Determine if survey should be shown: the cadence gate (first 3 strength
+ * sessions, then about every 4th) AND the user hasn't opted out.
  */
 export function shouldShowPostWorkoutSurvey(
   sessionCount: number,
   isOptedOut?: boolean
 ): boolean {
-  // Check if user has opted out
   if (isOptedOut) return false;
-  
-  // Check localStorage for opt-out (client-side)
-  if (typeof window !== 'undefined') {
-    const optedOut = localStorage.getItem(SURVEY_OPT_OUT_KEY);
-    if (optedOut === 'true') return false;
-  }
-  
-  // Only show for first 3 sessions
-  return sessionCount <= MAX_SESSIONS_FOR_SURVEY;
+  if (isSurveyOptedOut()) return false;
+  return shouldPromptPostWorkoutSurvey(sessionCount);
 }
 
 /**
@@ -142,30 +138,18 @@ export function setSurveyOptOut(optOut: boolean): void {
 }
 
 /**
- * Process feedback and determine results
+ * Process feedback → the thank-you line. Record-only: no progress bonus, no
+ * level adjustment, for any rating.
  */
 export function processFeedback(feedback: WorkoutFeedback): FeedbackResult {
   switch (feedback) {
     case 'too_easy':
-      return {
-        feedback,
-        progressBonus: 5, // +5% progress bonus
-        message: '🎉 מדהים! קיבלת +5% בונוס התקדמות. נעלה רמה בפעם הבאה!',
-      };
-    
+      return { feedback, message: 'תודה! נשתמש בזה כדי להתאים את האימונים הבאים.' };
     case 'too_hard':
-      return {
-        feedback,
-        levelAdjustment: -1, // Suggest -1 level
-        message: '💪 הבנו! נוריד קצת את הקושי באימון הבא. הכי חשוב - עשית את זה!',
-      };
-    
+      return { feedback, message: 'תודה על הכנות! נשתמש בזה כדי להתאים את האימונים הבאים.' };
     case 'just_right':
     default:
-      return {
-        feedback,
-        message: '👍 מעולה! ממשיכים באותה רמה. עבודה טובה!',
-      };
+      return { feedback, message: 'מעולה, תודה!' };
   }
 }
 
@@ -174,7 +158,6 @@ export function processFeedback(feedback: WorkoutFeedback): FeedbackResult {
 // ============================================================================
 
 export default function PostWorkoutSurvey({
-  estimatedDuration,
   sessionCount,
   onSubmit,
   onDismiss,
@@ -192,7 +175,7 @@ export default function PostWorkoutSurvey({
     setLocalOptedOut(isOptedOut || isSurveyOptedOut());
   }, [isOptedOut]);
   
-  // Don't show if opted out or past first 3 sessions
+  // Don't show if opted out or not on a cadence session
   if (!shouldShowPostWorkoutSurvey(sessionCount, localOptedOut)) {
     return null;
   }
@@ -219,9 +202,6 @@ export default function PostWorkoutSurvey({
   
   if (!isVisible) return null;
   
-  // Calculate which session this is (for display)
-  const sessionLabel = sessionCount === 1 ? 'ראשון' : sessionCount === 2 ? 'שני' : 'שלישי';
-  
   return (
     <AnimatePresence>
       <motion.div
@@ -237,7 +217,7 @@ export default function PostWorkoutSurvey({
             <div>
               <h3 className="text-xl font-bold text-white">איך היה האימון? 🎯</h3>
               <p className="text-cyan-100 text-sm mt-1">
-                אימון {sessionLabel} מתוך 3 - המשוב שלך עוזר לנו לכייל את הרמה!
+                לא חובה — זה עוזר לנו להתאים את האימונים
               </p>
             </div>
             {onDismiss && (
@@ -325,51 +305,16 @@ export default function PostWorkoutSurvey({
               animate={{ opacity: 1, scale: 1 }}
               className="text-center py-4"
             >
-              {/* Icon based on feedback */}
               <div className="mb-4">
-                {result?.feedback === 'too_easy' && (
-                  <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-green-600" />
-                  </div>
-                )}
-                {result?.feedback === 'just_right' && (
-                  <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-8 h-8 text-blue-600" />
-                  </div>
-                )}
-                {result?.feedback === 'too_hard' && (
-                  <div className="w-16 h-16 mx-auto bg-amber-100 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-8 h-8 text-amber-600" />
-                  </div>
-                )}
+                <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-blue-600" />
+                </div>
               </div>
-              
-              {/* Message */}
+
+              {/* Message — record-only: no bonus / level badges (Phase 0) */}
               <p className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
                 {result?.message}
               </p>
-              
-              {/* Bonus/Adjustment badge */}
-              {result?.progressBonus && (
-                <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-bold">
-                  <Sparkles className="w-4 h-4" />
-                  +{result.progressBonus}% בונוס התקדמות
-                </div>
-              )}
-              
-              {result?.levelAdjustment && (
-                <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-bold">
-                  <AlertTriangle className="w-4 h-4" />
-                  נוריד רמה באימון הבא
-                </div>
-              )}
-              
-              {/* Session progress indicator */}
-              {sessionCount < MAX_SESSIONS_FOR_SURVEY && (
-                <p className="text-sm text-gray-500 mt-4">
-                  נשאר עוד {MAX_SESSIONS_FOR_SURVEY - sessionCount} אימונים עם משוב
-                </p>
-              )}
             </motion.div>
           )}
         </div>

@@ -6,6 +6,7 @@
 import type { HybridPlannedSegment } from './compose-hybrid-session.service';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
+import { swapStampForEntry } from '../adaptation/exercise-log-stamp';
 
 export interface StationContext {
   /** No strength station after this one → the existing finish/summary path, no completion screen. */
@@ -129,10 +130,20 @@ export function swapExerciseInStationContent(
   exIdx: number,
   newExercise: unknown,
   method: unknown,
+  /** Phase 0 (data only): the replacement's level from the swap modal. */
+  toLevel?: number,
 ): StrengthBlockResult | null {
   const idx = locateStationContentIndex(content, stationPlan, segIdx, exIdx);
   if (idx === -1) return null;
   const exercises = content.exercises.slice();
-  exercises[idx] = { ...exercises[idx], exercise: newExercise as never, method: method as never, wasSwapped: true };
+  const newId = (newExercise as { id?: string } | null)?.id ?? '';
+  exercises[idx] = {
+    ...exercises[idx],
+    exercise: newExercise as never,
+    method: method as never,
+    wasSwapped: true,
+    // Soft-adaptation Phase 0 (data only): original slot exercise + levels.
+    ...swapStampForEntry(exercises[idx], newId, toLevel),
+  };
   return { ...content, exercises };
 }

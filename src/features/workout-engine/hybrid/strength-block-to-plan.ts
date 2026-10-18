@@ -22,6 +22,7 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
+import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 /** Localized name off the content exercise (Firestore doc shape — dynamic access). */
 function exName(we: GeneratedExercise): string {
@@ -106,6 +107,8 @@ function toPlanExercise(we: GeneratedExercise, preserveRole: boolean): PlanExerc
     ...(cues.highlights.length > 0 ? { highlights: cues.highlights } : {}),
     ...(cues.tips.length > 0 ? { tips: cues.tips } : {}),
     ...(prepNote ? { prepNote } : {}),
+    // Soft-adaptation Phase 0 (data only) — same stamp as the solo plan mappers.
+    ...adaptationStampForPlan(we),
   };
 }
 

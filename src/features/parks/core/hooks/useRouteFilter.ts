@@ -7,6 +7,7 @@ import { calculateCalories } from '@/lib/calories.utils';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { Park } from '../types/park.types';
+import { routeMatchesActivity } from '../utils/route-activity-match';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -141,8 +142,9 @@ export function useRouteFilter(
     const targetTotalDistance = (preferences.duration / 60) * speedKmH;
 
     let candidates = allRoutes.filter((route) => {
-      const routeActivity = route.activityType || route.type;
-      if (routeActivity !== preferences.activity) return false;
+      // Walking/running are one on-foot family at the route level (phase 1.3);
+      // cycling keeps strict equality — see route-activity-match.ts.
+      if (!routeMatchesActivity(route, preferences.activity)) return false;
       if (preferences.includeStrength && !route.features?.hasGym) return false;
       return true;
     });

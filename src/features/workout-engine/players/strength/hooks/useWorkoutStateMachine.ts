@@ -19,6 +19,12 @@ import { useExerciseLog } from './useExerciseLog';
 import type { NextExerciseInfo } from './useExerciseDerivedValues';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { useUserStore } from '@/features/user';
+import type { CoachHintMark, RepsSource } from '@/features/workout-engine/adaptation/adaptation.types';
+import {
+  inferRepsSource,
+  logStampFromPlanExercise,
+  recordSetMeta,
+} from '@/features/workout-engine/adaptation/exercise-log-stamp';
 export type { NextExerciseInfo } from './useExerciseDerivedValues';
 
 // ============================================================================
@@ -41,6 +47,28 @@ export interface ExerciseResultLog {
   confirmedRepsRight?: number[];
   /** Per-side reps for unilateral exercises (left side / שמאל) */
   confirmedRepsLeft?: number[];
+
+  // ── Soft-adaptation Phase 0 (data only, 18.10.2026) ──────────────────────
+  // Plan context, stamped once when the entry is created (exercise-log-stamp.ts
+  // logStampFromPlanExercise), and per-set provenance parallel to
+  // confirmedReps. All optional — older entries / checkpoints lack them.
+  domain?: string;
+  exerciseLevel?: number;
+  userDomainLevel?: number;
+  prescribedRange?: { min: number; max: number };
+  role?: string;
+  wasSwapped?: true;
+  swappedFromId?: string;
+  /** Per set: 'edited' (user moved the picker), 'default' (saved the prefill), 'timer' (measured). */
+  repsSource?: RepsSource[];
+  /** Per set: the coach hint shown at save ('none' when no hint). */
+  coachHints?: CoachHintMark[];
+}
+
+/** Optional provenance a save call site knows (5th handleRepetitionSave arg). */
+export interface RepSaveMeta {
+  repsSource?: RepsSource;
+  coachHint?: 'fail' | 'overachieve' | null;
 }
 
 // NextExerciseInfo moved to useExerciseDerivedValues.ts (SM-3); re-exported above.
@@ -183,7 +211,7 @@ export interface WorkoutStateMachineResult {
 
   handleExerciseComplete: (reps?: number) => void;
   /** Saves reps AND closes the drawer. Pass forceSkipRest to bypass RESTING entirely. Pass editSetIndex to update a specific set in-place (re-edit). */
-  handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number) => void;
+  handleRepetitionSave: (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number, meta?: RepSaveMeta) => void;
   skipRest: () => void;
   /** "+15 שנ׳" — extend the CURRENT rest countdown (no-op outside RESTING). */
   extendRest: (seconds?: number) => void;
@@ -800,17 +828,22 @@ export function useWorkoutStateMachine(
               const existing = exerciseLogRef.current.find(
                 (e) => e.exerciseId === activeExercise.id && e.segmentId === segId,
               );
-              if (existing) {
-                existing.confirmedReps.push(followAlongReps);
+              let entry = existing;
+              if (entry) {
+                entry.confirmedReps.push(followAlongReps);
               } else {
-                exerciseLogRef.current.push({
+                entry = {
                   exerciseId: activeExercise.id,
                   exerciseName: activeExercise.name,
                   segmentId: segId,
                   confirmedReps: [followAlongReps],
                   targetReps: followAlongReps,
-                });
+                  ...logStampFromPlanExercise(activeExercise),
+                };
+                exerciseLogRef.current.push(entry);
               }
+              // Phase 0: one tap, no value entered → the default.
+              recordSetMeta(entry, entry.confirmedReps.length - 1, 'default', null);
               bumpLog();
             }
             setFadeIn(false);
@@ -912,7 +945,7 @@ export function useWorkoutStateMachine(
    * his rest begins — total workout time keeps ticking throughout.
    */
   const handleRepetitionSave = useCallback(
-    (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number) => {
+    (reps: number, sideData?: { left: number; right: number }, forceSkipRest?: boolean, editSetIndex?: number, meta?: RepSaveMeta) => {
       if (!activeExercise) {
         setIsLogDrawerOpen(false);
         return;
@@ -929,8 +962,24 @@ export function useWorkoutStateMachine(
         existing !== undefined &&
         editSetIndex < existing.confirmedReps.length;
 
+      // Phase 0 provenance (data only — never changes what's saved).
+      // Callers that know (the log drawer / big-screen INPUT) pass meta;
+      // otherwise a value equal to the target counts as the default, and no
+      // coach hint was shown (coachHints records what the user SAW).
+      const setHint = meta?.coachHint ?? null;
+
       if (isReEdit) {
+        const previous = existing!.confirmedReps[editSetIndex];
         existing!.confirmedReps[editSetIndex] = reps;
+        const priorHint = existing!.coachHints?.[editSetIndex];
+        recordSetMeta(
+          existing!,
+          editSetIndex,
+          meta?.repsSource ?? (reps !== previous ? 'edited' : existing!.repsSource?.[editSetIndex] ?? 'default'),
+          meta && meta.coachHint !== undefined
+            ? meta.coachHint
+            : priorHint && priorHint !== 'none' ? priorHint : null,
+        );
         if (sideData) {
           if (existing!.confirmedRepsRight) existing!.confirmedRepsRight[editSetIndex] = sideData.right;
           if (existing!.confirmedRepsLeft) existing!.confirmedRepsLeft[editSetIndex] = sideData.left;
@@ -945,16 +994,17 @@ export function useWorkoutStateMachine(
 
       setCompletedReps(reps);
 
-      if (existing) {
-        existing.confirmedReps.push(reps);
+      let savedEntry = existing;
+      if (savedEntry) {
+        savedEntry.confirmedReps.push(reps);
         if (sideData) {
-          if (!existing.confirmedRepsRight) existing.confirmedRepsRight = [];
-          if (!existing.confirmedRepsLeft) existing.confirmedRepsLeft = [];
-          existing.confirmedRepsRight.push(sideData.right);
-          existing.confirmedRepsLeft.push(sideData.left);
+          if (!savedEntry.confirmedRepsRight) savedEntry.confirmedRepsRight = [];
+          if (!savedEntry.confirmedRepsLeft) savedEntry.confirmedRepsLeft = [];
+          savedEntry.confirmedRepsRight.push(sideData.right);
+          savedEntry.confirmedRepsLeft.push(sideData.left);
         }
       } else {
-        exerciseLogRef.current.push({
+        savedEntry = {
           exerciseId: activeExercise.id,
           exerciseName: activeExercise.name,
           segmentId: segId,
@@ -964,8 +1014,16 @@ export function useWorkoutStateMachine(
             confirmedRepsRight: [sideData.right],
             confirmedRepsLeft: [sideData.left],
           }),
-        });
+          ...logStampFromPlanExercise(activeExercise),
+        };
+        exerciseLogRef.current.push(savedEntry);
       }
+      recordSetMeta(
+        savedEntry,
+        savedEntry.confirmedReps.length - 1,
+        meta?.repsSource ?? inferRepsSource(reps, targetReps),
+        setHint,
+      );
       bumpLog();
       if (sideData) {
         console.log(

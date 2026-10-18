@@ -1,9 +1,8 @@
 'use client';
 
 import { ExternalLink, GitPullRequest, Lightbulb } from 'lucide-react';
-import { safeHttpUrl } from '@/features/admin/agents/agents-panel.logic';
+import { formatPanelTime, safeHttpUrl } from '@/features/admin/agents/agents-panel.logic';
 import type { AgentFinding } from '@/features/admin/agents/agent-findings.types';
-import { formatPanelTime } from './AgentList';
 
 const KIND_LABEL: Record<string, string> = { new: 'חדש', escalating: 'מזנק', regressed: 'חזר' };
 const CONFIDENCE_LABEL: Record<string, string> = { high: 'גבוה', medium: 'בינוני', low: 'נמוך', none: 'אין' };

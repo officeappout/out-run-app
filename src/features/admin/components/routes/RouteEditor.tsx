@@ -388,12 +388,14 @@ export default function RouteEditor({
                     // older readers (useRouteFilter, ActiveWorkoutOverlay)
                     // that consult `features.hasBenches` / `features.lit`
                     // directly. When the admin explicitly tags benches or
-                    // night_lighting, the boolean flips true; otherwise it
-                    // falls back to the previous heuristic.
+                    // night_lighting, the boolean flips true. `lit` is set
+                    // ONLY from the admin's deliberate night_lighting tag
+                    // (the old `|| environment === 'urban'` heuristic is
+                    // gone) and is omitted otherwise.
                     hasGym: false,
                     hasBenches: featureTags.includes('has_benches'),
                     scenic: environment === 'nature' || environment === 'beach',
-                    lit: featureTags.includes('night_lighting') || environment === 'urban',
+                    ...(featureTags.includes('night_lighting') ? { lit: true } : {}),
                     terrain,
                     environment,
                     trafficLoad: environment === 'urban' ? 'medium' : 'none',

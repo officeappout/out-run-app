@@ -70,6 +70,7 @@ import {
 } from './logic/demo-gate';
 import { isPlayerAudioMuted } from './logic/player-audio-mute';
 import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onboarding/components/FirstRunTour';
+import type { RepsSource, SwapOpenContext, SwapSource } from '@/features/workout-engine/adaptation/adaptation.types';
 import { shouldArmPlayerTour } from '@/features/user/onboarding/services/first-run-tour';
 
 export type { ExerciseResultLog };
@@ -79,7 +80,13 @@ interface StrengthRunnerProps {
   onComplete?: (exerciseLog?: ExerciseResultLog[]) => void;
   onPause?: () => void;
   onResume?: () => void;
-  onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number) => void;
+  /**
+   * `context` (soft-adaptation Phase 0, data only): which in-player entry
+   * opened the swap + where the user was in that exercise — the parent logs
+   * it with the swap (logExerciseSwap). Optional; existing 3-arg handlers
+   * keep working.
+   */
+  onSwapExercise?: (exerciseId: string, segmentIndex: number, exerciseIndex: number, context?: SwapOpenContext) => void;
   /** Pre-fetched map of exerciseId → last-session confirmed reps, for smart target selection */
   exerciseHistoryMap?: Record<string, number[]>;
   /** B2: true when mounted inside a hybrid station (HybridStationLayer). Hides the
@@ -191,6 +198,7 @@ export default function StrengthRunner({
     },
     handlePickerChange,
     handleUnilateralSave,
+    pickerTouchedRef,
   } = useInputPickerState({
     workoutState: sm.workoutState,
     completedReps: sm.completedReps,
@@ -234,15 +242,28 @@ export default function StrengthRunner({
   );
 
   const handleBigScreenInputSave = useCallback(() => {
+    // Phase 0 provenance (data only): untouched → the prefill, which for a
+    // timed set is the timer's measurement. This screen shows no coach hint.
+    const repsSource: RepsSource = pickerTouchedRef.current
+      ? 'edited'
+      : isTimeExercise && sm.completedReps != null
+        ? 'timer'
+        : 'default';
+    const meta = { repsSource, coachHint: null };
     if (isUnilateralForInput) {
       sm.handleRepetitionSave(
         Math.min(inputRepsLeft, inputRepsRight),
         { left: inputRepsLeft, right: inputRepsRight },
+        undefined,
+        undefined,
+        meta,
       );
     } else {
-      sm.handleRepetitionSave(inputRepsValue);
+      sm.handleRepetitionSave(inputRepsValue, undefined, undefined, undefined, meta);
     }
   }, [
+    isTimeExercise,
+    pickerTouchedRef,
     isUnilateralForInput,
     inputRepsValue,
     inputRepsLeft,
@@ -312,15 +333,30 @@ export default function StrengthRunner({
 
   // ── Swap handler ─────────────────────────────────────────────────────────
 
-  const handleSwap = onSwapExercise
+  // Phase 0 (data only): each entry point gets its own handler so the swap
+  // log knows where it came from + how far into the exercise the user was.
+  const makeSwapHandler = (source: SwapSource) => onSwapExercise
     ? () => {
         const exId = sm.activeExercise?.id || '';
         if (exId) {
           hapticMedium();
-          onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex);
+          const segId =
+            workout.segments[sm.currentSegmentIndex]?.id || String(sm.currentSegmentIndex);
+          const entry = sm.getExerciseLog().find((e) => e.exerciseId === exId && e.segmentId === segId);
+          const done = entry?.confirmedReps ?? [];
+          const context: SwapOpenContext = {
+            source,
+            setsDoneBefore: done.length,
+            ...(done.length > 0 ? { lastSetReps: done[done.length - 1] } : {}),
+            ...(sm.repsRangeMin != null ? { rangeMin: sm.repsRangeMin } : {}),
+          };
+          onSwapExercise(exId, sm.currentSegmentIndex, sm.currentExerciseIndex, context);
         }
       }
     : undefined;
+  const handleSwap = makeSwapHandler('in_workout_active');
+  const handleSwapFromLogDrawer = makeSwapHandler('in_workout_log_drawer');
+  const handleSwapFromCoachHint = makeSwapHandler('in_workout_coach_hint');
 
   // ── Log Drawer content (extracted to LogDrawerContent, Step R-5) ─────────
   // Slot rendered inside RestScreen as the `logDrawerNode`.  All picker
@@ -345,18 +381,32 @@ export default function StrengthRunner({
       onPickerChange={handlePickerChange}
       repsRangeMin={sm.repsRangeMin}
       repsRangeMax={sm.repsRangeMax}
-      onSaveBilateral={() => {
+      onSaveBilateral={(coachHintAtSave) => {
         const repsToSave =
           sm.completedReps ?? lockedAchievedRef.current ?? pickerInitialValue ?? pickerTargetValue;
+        // Phase 0 provenance (data only): only a real picker gesture is
+        // 'edited'; one tap on save stores the prefill ('default'), which for
+        // a timed set is the timer's own measurement ('timer').
+        const repsSource: RepsSource = pickerTouchedRef.current
+          ? 'edited'
+          : isTimeExercise && (sm.completedReps ?? lockedAchievedRef.current) != null
+            ? 'timer'
+            : 'default';
         if (!repsToSave || repsToSave <= 0) {
-          sm.handleRepetitionSave(pickerTargetValue);
+          sm.handleRepetitionSave(pickerTargetValue, undefined, undefined, undefined, {
+            repsSource: 'default',
+            coachHint: coachHintAtSave,
+          });
           return;
         }
-        sm.handleRepetitionSave(repsToSave);
+        sm.handleRepetitionSave(repsToSave, undefined, undefined, undefined, {
+          repsSource,
+          coachHint: coachHintAtSave,
+        });
       }}
       onSaveUnilateral={handleUnilateralSave}
       onSetCoachHint={setCoachHint}
-      onSwap={handleSwap}
+      onSwap={handleSwapFromLogDrawer}
     />
   );
 
@@ -627,7 +677,7 @@ export default function StrengthRunner({
           onExtendRest={() => sm.extendRest()}
           autoExpandPreview={guided}
           onDismissHint={() => setCoachHint(null)}
-          onSwap={handleSwap}
+          onSwap={handleSwapFromCoachHint}
         />
       );
     }
@@ -766,7 +816,7 @@ export default function StrengthRunner({
                 gender={userGender}
                 onFound={handleEquipmentFound}
                 onSwap={onSwapExercise
-                  ? (item) => onSwapExercise(item.exerciseId, sm.currentSegmentIndex, item.exIdx)
+                  ? (item) => onSwapExercise(item.exerciseId, sm.currentSegmentIndex, item.exIdx, { source: 'in_workout_find_equipment' })
                   : undefined}
               />
             )}

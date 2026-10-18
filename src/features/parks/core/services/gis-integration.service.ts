@@ -317,7 +317,8 @@ export const GISIntegrationService = {
                             scenic:
                                 classification.environment === 'nature' ||
                                 classification.environment === 'beach',
-                            lit: classification.environment === 'urban',
+                            // `lit` intentionally omitted — 'urban' is not evidence
+                            // of street lighting; see qualitySignals.lighting.
                             terrain: classification.terrain,
                             environment: classification.environment,
                             trafficLoad:

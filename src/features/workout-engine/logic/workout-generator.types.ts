@@ -10,6 +10,7 @@
 import { Exercise, MechanicalType, ExecutionLocation, InjuryShieldArea } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
+import type { DecisionRecord } from '../services/decision-record';
 
 // ============================================================================
 // CORE TYPES
@@ -157,6 +158,18 @@ export interface WorkoutExercise {
    */
   isGuaranteedCore?: boolean;
   wasSwapped?: boolean;
+  /**
+   * Soft-adaptation Phase 0 (data only): the exercise the engine ORIGINALLY
+   * prescribed in this slot, kept across repeated swaps. Set by the swap
+   * paths (deriveSwappedEntry / station-flow / DiscoverLayer) via
+   * adaptation/exercise-log-stamp.ts's swapStampForEntry. Never read by the
+   * engine.
+   */
+  swappedFromId?: string;
+  /** Phase 0: the user's domain level frozen at swap time (programLevel − levelDelta of the original). */
+  userDomainLevel?: number;
+  /** Phase 0: the replacement's level from the swap modal, when the swap path doesn't rewrite programLevel. */
+  swappedToLevel?: number;
   /**
    * swap-all "keep + mark": set when a bulk/single dimension swap (e.g. location
    * park→home) found NO qualifying method AND no same-level alternative for this
@@ -341,6 +354,13 @@ export interface GeneratedWorkout {
    * pull from, not an error.
    */
   reserveExercises?: WorkoutExercise[];
+  /**
+   * WHY this workout was built + WHAT to expect, as typed light scalars
+   * (decision-record.ts). Set by generateHomeWorkoutTrio after the final
+   * mutation; rendered as the "דגשי האימון" coach note only while
+   * WORKOUT_COACH_NOTE_V1 is on. Absent on legacy/restored/other-path plans.
+   */
+  decisionRecord?: DecisionRecord;
 }
 
 export interface TabataBlockSpec {

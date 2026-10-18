@@ -46,7 +46,7 @@ import { buildStrengthPostDetails, type FeedPostDetails } from '@/features/socia
 import { buildPhaseSummary } from '@/features/workout-engine/components/strength/utils/phase-summary';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
-import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED, RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED } from '@/config/feature-flags';
+import { IS_COMMUNITY_FEED_ENABLED, POST_WORKOUT_SURVEY_V1, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED, RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { runActivitySync } from '@/features/workout-engine/components/strength/hooks/useActivitySync';
@@ -60,6 +60,11 @@ import { useActiveWorkoutHeartbeat } from '@/features/heatmap/hooks/useActiveWor
 import { useKudosInbox } from '@/features/safecity/hooks/useKudosInbox';
 import KudoToast from '@/features/safecity/components/KudoToast';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
+import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
+import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
+import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/features/workout-engine/components/PostWorkoutSurvey';
 
 // ============================================================================
 // TYPES
@@ -381,6 +386,13 @@ interface SaveWorkoutToHistoryParams {
   workoutPlan: WorkoutPlan | null;
   xpEarned: number;
   xpStatus: 'pending' | 'awarded' | 'failed';
+  /**
+   * Soft-adaptation Phase 0 — the post-workout survey answer, when the
+   * survey was shown (POST_WORKOUT_SURVEY_V1). Rides in the create payload,
+   * so an offline-queued workout carries it in its outbox payload too.
+   * Recorded only: no level / progress effect.
+   */
+  feedback?: WorkoutFeedbackRecord | null;
 }
 
 /**
@@ -409,6 +421,7 @@ async function saveWorkoutToHistory({
   workoutPlan,
   xpEarned: awardedXP,
   xpStatus: xpAwardStatus,
+  feedback,
 }: SaveWorkoutToHistoryParams): Promise<{
   saved: boolean;
   detectedPark: Awaited<ReturnType<typeof detectNearbyPark>>;
@@ -534,6 +547,7 @@ async function saveWorkoutToHistory({
         ...(detectedPark
           ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
           : {}),
+        ...(feedback ? { feedback } : {}),
       });
       console.log('[ActiveWorkoutPage] Workout saved to history');
     } catch (err) {
@@ -661,10 +675,23 @@ export default function ActiveWorkoutPage() {
   const [exerciseHistoryMap, setExerciseHistoryMap] = useState<Record<string, number[]>>({});
 
   // === MID-WORKOUT SWAP STATE ===
-  const [swapTarget, setSwapTarget] = useState<{ segIdx: number; exIdx: number; exerciseId: string } | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{
+    segIdx: number;
+    exIdx: number;
+    exerciseId: string;
+    /** Phase 0 (data only): which in-player entry opened the swap, for the swap log. */
+    context?: SwapOpenContext;
+  } | null>(null);
   const [fullSwapExercise, setFullSwapExercise] = useState<FirestoreExercise | null>(null);
   /** Incremented when an exercise is swapped mid-session to force stableWorkoutPlan to update */
   const [workoutVersion, setWorkoutVersion] = useState(0);
+
+  // === POST-WORKOUT SURVEY (soft-adaptation Phase 0, POST_WORKOUT_SURVEY_V1) ===
+  // The answer rides into the workout's create payload (saveWorkoutToHistory)
+  // and changes NOTHING about level / progress. null = not shown this time.
+  const surveyFeedbackRef = useRef<WorkoutFeedbackRecord | null>(null);
+  const [surveySessionNumber, setSurveySessionNumber] = useState<number | null>(null);
+  const surveyCountedRef = useRef(false);
 
   // === LIVE PRESENCE (Social Map heartbeat while workout is active) ===
   useWorkoutPresence({
@@ -888,6 +915,24 @@ export default function ActiveWorkoutPage() {
     if (!workoutPlan) return null;
     return workoutPlan;
   }, [workoutPlan?.id, workoutVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Survey cadence: counted once per summary reached (first 3 strength
+  // sessions, then about every 4th — survey-cadence.ts). Recovery sessions
+  // are not asked. Flag OFF by default → this effect is a no-op.
+  useEffect(() => {
+    if (!POST_WORKOUT_SURVEY_V1 || flowState !== 'summary' || surveyCountedRef.current) return;
+    if (!stableWorkoutPlan || stableWorkoutPlan.isRecovery) return;
+    surveyCountedRef.current = true;
+    const n = bumpStrengthSummaryCount(auth.currentUser?.uid);
+    if (n != null && shouldPromptPostWorkoutSurvey(n) && !isSurveyOptedOut()) {
+      setSurveySessionNumber(n);
+    }
+  }, [flowState, stableWorkoutPlan]);
+
+  const closeSurvey = useCallback((rating: WorkoutFeedback | null) => {
+    surveyFeedbackRef.current = { rating, at: new Date(), prompted: true };
+    setSurveySessionNumber(null);
+  }, []);
 
   // === RECOVERY_VIDEO_EXIT_BUTTON_ENABLED (feature-flags.ts) ===
   // Discriminator + flag computed ONCE here — the single source point every
@@ -1410,6 +1455,7 @@ export default function ActiveWorkoutPage() {
       workoutPlan: stableWorkoutPlan,
       xpEarned: awardedXP,
       xpStatus: xpAwardStatus,
+      feedback: surveyFeedbackRef.current,
     });
 
     // 1a. Streak/completion write — ONLY after the workout doc above actually
@@ -1578,8 +1624,8 @@ export default function ActiveWorkoutPage() {
    * Fetches the full Firestore Exercise, then opens the replacement modal.
    */
   const handleSwapExercise = useCallback(
-    async (exerciseId: string, segIdx: number, exIdx: number) => {
-      setSwapTarget({ segIdx, exIdx, exerciseId });
+    async (exerciseId: string, segIdx: number, exIdx: number, context?: SwapOpenContext) => {
+      setSwapTarget({ segIdx, exIdx, exerciseId, ...(context ? { context } : {}) });
       try {
         const full = await getFirestoreExercise(exerciseId);
         if (full) {
@@ -1610,7 +1656,12 @@ export default function ActiveWorkoutPage() {
    *      mutual link remains intact and section-grouping keeps the pair card.
    */
   const handleReplaceExercise = useCallback(
-    (newExercise: FirestoreExercise, executionMethod: ExecutionMethod) => {
+    (
+      newExercise: FirestoreExercise,
+      executionMethod: ExecutionMethod,
+      levelComparison?: 'lower' | 'same' | 'higher',
+      meta?: ReplacementMeta,
+    ) => {
       if (!swapTarget || !workoutPlan) return;
 
       const { segIdx, exIdx } = swapTarget;
@@ -1619,6 +1670,31 @@ export default function ActiveWorkoutPage() {
 
       // ── Step 1: Snapshot session context from the OLD exercise ──────────
       const oldExercise = segment.exercises?.[exIdx];
+
+      // ── Soft-adaptation Phase 0: record the swap (data only, fire-and-forget) ──
+      const swapCtx = swapTarget.context;
+      logExerciseSwap({
+        sessionClientId: workoutPlan.id,
+        fromExerciseId: oldExercise?.id ?? swapTarget.exerciseId,
+        fromName: oldExercise?.name,
+        toExerciseId: newExercise.id,
+        toName: getLocalizedText(newExercise.name),
+        domain: oldExercise?.domain ?? domainOfMovementGroup(newExercise.movementGroup),
+        fromLevel: oldExercise?.exerciseLevel ?? meta?.fromLevel,
+        toLevel: meta?.toLevel,
+        userDomainLevel: oldExercise?.userDomainLevel,
+        direction: levelComparison,
+        tab: meta?.tab,
+        reason: meta?.reason,
+        source: swapCtx?.source ?? 'in_workout_active',
+        flow: 'solo',
+        userInitiated: true,
+        location: workoutLocation,
+        segmentRole: oldExercise?.exerciseRole,
+        setsDoneBefore: swapCtx?.setsDoneBefore,
+        lastSetReps: swapCtx?.lastSetReps,
+        rangeMin: swapCtx?.rangeMin ?? oldExercise?.repsRange?.min,
+      });
       const inheritedSets        = oldExercise?.sets;
       const inheritedReps        = oldExercise?.reps;
       const inheritedDuration    = oldExercise?.duration;
@@ -1647,6 +1723,15 @@ export default function ActiveWorkoutPage() {
         // Superset linkage — carry the old pairedWith string forward
         pairedWith: inheritedPairedWith ?? null,
         wasSwapped: true,
+        // Phase 0 (data only): provenance for the strength log stamp — the
+        // slot's original exercise, the replacement's level, and the domain
+        // context the slot was prescribed under.
+        swappedFromId: oldExercise?.swappedFromId ?? oldExercise?.id,
+        ...(typeof meta?.toLevel === 'number' ? { exerciseLevel: meta.toLevel } : {}),
+        ...(oldExercise?.userDomainLevel != null ? { userDomainLevel: oldExercise.userDomainLevel } : {}),
+        ...((oldExercise?.domain ?? domainOfMovementGroup(newExercise.movementGroup))
+          ? { domain: oldExercise?.domain ?? domainOfMovementGroup(newExercise.movementGroup) }
+          : {}),
       };
 
       // ── Step 3: Deep-clone segments, replace target + re-link partner ───
@@ -1901,8 +1986,28 @@ export default function ActiveWorkoutPage() {
   
   // Step 3: Summary Screen
   if (flowState === 'summary') {
+    // Phase 0 survey overlay — only while the cadence gate opened it (flag
+    // OFF → surveySessionNumber stays null → nothing renders). z-[101]: the
+    // full-screen-overlay tier that clears OfflineBanner (.cursorrules table).
+    const surveyOverlay = surveySessionNumber != null ? (
+      <div className="fixed inset-0 z-[101] flex items-end justify-center bg-black/40 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-md">
+          <PostWorkoutSurvey
+            sessionCount={surveySessionNumber}
+            onSubmit={(rating) => {
+              surveyFeedbackRef.current = { rating, at: new Date(), prompted: true };
+              // Let the one-line thank-you show, then reveal the summary.
+              setTimeout(() => setSurveySessionNumber(null), 1200);
+            }}
+            onDismiss={() => closeSurvey(null)}
+          />
+        </div>
+      </div>
+    ) : null;
     if (STRENGTH_SUMMARY_V2_ENABLED) {
       return (
+        <>
+        {surveyOverlay}
         <StrengthSummary
           duration={workoutStats.duration}
           totalReps={workoutStats.totalReps}
@@ -1923,9 +2028,12 @@ export default function ActiveWorkoutPage() {
           workoutSegments={stableWorkoutPlan.segments}
           previousSets={exerciseHistoryMap}
         />
+        </>
       );
     }
     return (
+      <>
+      {surveyOverlay}
       <StrengthSummaryPage
         duration={workoutStats.duration}
         totalReps={workoutStats.totalReps}
@@ -1952,6 +2060,7 @@ export default function ActiveWorkoutPage() {
         workoutSegments={stableWorkoutPlan.segments}
         previousSets={exerciseHistoryMap}
       />
+      </>
     );
   }
 

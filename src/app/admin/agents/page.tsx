@@ -12,18 +12,28 @@ import {
   fetchAgentsOverview,
   markAgentFindingRead,
 } from '@/features/admin/services/agents.service';
-import { AGENT_REGISTRY } from '@/features/admin/agents/agent-registry';
+import {
+  AGENT_REGISTRY,
+  AUTOMATION_REGISTRY,
+  groupAutomationsByTopic,
+} from '@/features/admin/agents/agent-registry';
 import {
   applyOptimisticRead,
   revertOptimisticRead,
   type PanelState,
 } from '@/features/admin/agents/agents-panel.logic';
-import type { FindingsStatusFilter } from '@/features/admin/agents/agent-findings.types';
-import AgentList from '@/features/admin/components/agents/AgentList';
+import type { AutomationStatus, FindingsStatusFilter } from '@/features/admin/agents/agent-findings.types';
+import AutomationCard from '@/features/admin/components/agents/AutomationCard';
 import FindingsView from '@/features/admin/components/agents/FindingsView';
 
 /**
- * /admin/agents — agents panel, root-only.
+ * /admin/agents — agents & automations hub, root-only.
+ *
+ * Every automation in the registry (agent-registry.ts), grouped by topic:
+ * what it does, when it runs, where it writes, a link to its admin screen
+ * and — where a source exists — its real last run, read-only, from the
+ * root-only overview route. Agents with findings (oncall) keep the findings
+ * view below the cards.
  *
  * The gate on this page is UX only (non-root sees a "root only" screen and
  * NO request is ever sent). The real boundary is the three
@@ -40,6 +50,8 @@ export default function AgentsPanelPage() {
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [loadingFindings, setLoadingFindings] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [automations, setAutomations] = useState<AutomationStatus[]>([]);
+  const [overviewLoaded, setOverviewLoaded] = useState(false);
   // Drops a findings response that arrives after the user switched agent/filter.
   const findingsRequestId = useRef(0);
 
@@ -64,12 +76,14 @@ export default function AgentsPanelPage() {
   const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
     try {
-      const agents = await fetchAgentsOverview();
-      setPanel((prev) => ({ ...prev, agents }));
+      const overview = await fetchAgentsOverview();
+      setPanel((prev) => ({ ...prev, agents: overview.agents }));
+      setAutomations(overview.automations);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'שגיאה בטעינת הסוכנים');
     } finally {
       setLoadingAgents(false);
+      setOverviewLoaded(true);
     }
   }, []);
 
@@ -137,19 +151,25 @@ export default function AgentsPanelPage() {
 
   const selectedDef = AGENT_REGISTRY.find((a) => a.id === selectedId) ?? null;
   const selectedOverview = panel.agents.find((a) => a.agentId === selectedId) ?? null;
+  const groups = groupAutomationsByTopic();
 
   return (
-    <div className="max-w-5xl mx-auto py-8 space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-          <Bot className="w-6 h-6 text-cyan-600" />
-          פאנל סוכנים
-        </h1>
+    <div className="max-w-6xl mx-auto py-8 space-y-6" dir="rtl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
+            <Bot className="w-6 h-6 text-cyan-600" />
+            סוכנים ואוטומציות
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {AUTOMATION_REGISTRY.length} אוטומציות במערכת, לפי נושא. הסטטוס נקרא בלבד — שום דבר כאן לא מפעיל או משנה אוטומציה.
+          </p>
+        </div>
         <button
           type="button"
           onClick={refresh}
           disabled={loadingAgents || loadingFindings}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg disabled:opacity-50"
         >
           <RefreshCw size={14} className={loadingAgents || loadingFindings ? 'animate-spin' : ''} />
           רענן
@@ -160,18 +180,54 @@ export default function AgentsPanelPage() {
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>
       )}
 
-      <AgentList agents={panel.agents} selectedId={selectedId} onSelect={setSelectedId} />
+      <nav className="flex flex-wrap gap-2" aria-label="נושאים">
+        {groups.map((g) => (
+          <a
+            key={g.topic}
+            href={`#topic-${g.topic}`}
+            className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+          >
+            {g.label} <span className="text-slate-400">{g.automations.length}</span>
+          </a>
+        ))}
+      </nav>
+
+      {groups.map((g) => (
+        <section key={g.topic} id={`topic-${g.topic}`} className="space-y-3 scroll-mt-4">
+          <h2 className="text-lg font-black text-slate-900">
+            {g.label} <span className="text-sm font-bold text-slate-400">({g.automations.length})</span>
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {g.automations.map((def) => (
+              <AutomationCard
+                key={def.id}
+                def={def}
+                status={automations.find((a) => a.automationId === def.id)}
+                agent={panel.agents.find((a) => a.agentId === def.id)}
+                loaded={overviewLoaded && !loadingAgents}
+                selected={def.hasFindings === true && selectedId === def.id}
+                onShowFindings={(id) => {
+                  setSelectedId(id);
+                  document.getElementById('agent-findings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
       {selectedDef && (
-        <FindingsView
-          agentLabel={selectedDef.label}
-          findings={panel.findings}
-          status={status}
-          onStatusChange={setStatus}
-          loading={loadingFindings}
-          neverRan={!selectedOverview?.lastRunAt}
-          onOpen={openFinding}
-        />
+        <div id="agent-findings" className="scroll-mt-4 border-t border-slate-200 pt-6">
+          <FindingsView
+            agentLabel={selectedDef.label}
+            findings={panel.findings}
+            status={status}
+            onStatusChange={setStatus}
+            loading={loadingFindings}
+            neverRan={!selectedOverview?.lastRunAt}
+            onOpen={openFinding}
+          />
+        </div>
       )}
     </div>
   );

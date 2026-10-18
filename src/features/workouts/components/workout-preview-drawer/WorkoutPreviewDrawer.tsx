@@ -161,7 +161,15 @@ export default function WorkoutPreviewDrawer({
     handleOpenPyramidStepSwap,
     handleExerciseReplace,
     closeReplacementModal,
-  } = useExerciseSwap({ generatedWorkout, onGeneratedWorkoutUpdate });
+  } = useExerciseSwap({
+    generatedWorkout,
+    onGeneratedWorkoutUpdate,
+    // Phase 0 swap log only — the live location (swap-all stamps it on the content).
+    location:
+      (generatedWorkout?.executionLocation as string | undefined) ||
+      (workoutLocation as string | undefined) ||
+      'park',
+  });
 
   const isOnline = useOnlineStatus();
   const workoutTitleForPresence = generatedWorkout?.title ?? workout?.title ?? '';

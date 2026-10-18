@@ -17,6 +17,7 @@ import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { Dumbbell, X } from 'lucide-react';
 import { filterAlternativesByEquipment } from '../logic/equipment-filter';
+import type { ReplacementMeta, SwapReason } from '@/features/workout-engine/adaptation/adaptation.types';
 
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
@@ -26,7 +27,17 @@ interface ExerciseReplacementModalProps {
   location: ExecutionLocation;
   park: Park | null;
   userProfile: UserFullProfile;
-  onReplace: (newExercise: Exercise, executionMethod: ExecutionMethod, levelComparison: 'lower' | 'same' | 'higher') => void;
+  /**
+   * `meta` (soft-adaptation Phase 0, data only): the tab the replacement came
+   * from, the optional reason chip, and both levels — for logExerciseSwap.
+   * Existing 2/3-arg handlers keep working unchanged.
+   */
+  onReplace: (
+    newExercise: Exercise,
+    executionMethod: ExecutionMethod,
+    levelComparison: 'lower' | 'same' | 'higher',
+    meta: ReplacementMeta,
+  ) => void;
   /**
    * PR-B3 — at a hybrid STATION only: the park's normalized gear ids. When given, both tabs list
    * only exercises with a park method that fits this equipment (or needs none), and picking one
@@ -36,6 +47,19 @@ interface ExerciseReplacementModalProps {
 }
 
 type TabType = 'adaptation' | 'alternative';
+
+/**
+ * Optional one-tap "why?" chips (Phase 0, data only). Selecting one is never
+ * required to swap. 'pain' is recorded for the admin view only — it must
+ * never feed adaptation (see adaptation.types.ts) — and shows a safety line.
+ */
+const REASON_CHIPS: { id: SwapReason; label: string }[] = [
+  { id: 'too_hard', label: 'קשה מדי' },
+  { id: 'too_easy', label: 'קל מדי' },
+  { id: 'no_equipment', label: 'אין לי את הציוד' },
+  { id: 'dislike', label: 'פחות מתאים לי' },
+  { id: 'pain', label: 'כואב' },
+];
 
 const LEVEL_ICONS: Record<string, { src: string; color: string }> = {
   lower:  { src: '/assets/icons/ui/level_down.svg', color: 'text-orange-500' },
@@ -131,6 +155,7 @@ export default function ExerciseReplacementModal({
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
   const [alternativeExercises, setAlternativeExercises] = useState<AlternativeExerciseOption[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<AlternativeExerciseOption | null>(null);
+  const [reason, setReason] = useState<SwapReason | null>(null);
 
   const [loadingAdaptation, setLoadingAdaptation] = useState(true);
   const [loadingAlternative, setLoadingAlternative] = useState(true);
@@ -152,6 +177,7 @@ export default function ExerciseReplacementModal({
     setAdaptationExercises([]);
     setAlternativeExercises([]);
     setSelectedExercise(null);
+    setReason(null);
 
     (async () => {
       try {
@@ -196,10 +222,15 @@ export default function ExerciseReplacementModal({
       method = selectedExercise.selectedExecutionMethod;
     }
     if (method) {
-      onReplace(selectedExercise.exercise, method, selectedExercise.levelComparison);
+      onReplace(selectedExercise.exercise, method, selectedExercise.levelComparison, {
+        tab: activeTab,
+        ...(reason ? { reason } : {}),
+        ...(typeof selectedExercise.resolvedLevel === 'number' ? { toLevel: selectedExercise.resolvedLevel } : {}),
+        fromLevel: currentLevel,
+      });
       onClose();
     }
-  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds]);
+  }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds, reason, currentLevel]);
 
   // ── Helpers ──
   const getImage = (ex: Exercise): string => {
@@ -285,7 +316,7 @@ export default function ExerciseReplacementModal({
             <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-4 flex-shrink-0" />
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-6 pb-44">
+            <div className="flex-1 overflow-y-auto px-6 pb-64">
 
               {/* ── Header ── */}
               <div className="flex items-center gap-5 mb-6">
@@ -415,6 +446,37 @@ export default function ExerciseReplacementModal({
               className="absolute bottom-0 left-0 right-0 px-6 pt-4 bg-gradient-to-t from-white dark:from-[#1E1E1E] via-white/95 dark:via-[#1E1E1E]/95 to-transparent"
               style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
             >
+              {/* ── Optional reason chips (one row, skippable) ── */}
+              <div className="mb-3 -mx-6 px-6 pt-2 bg-white/95 dark:bg-[#1E1E1E]/95">
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 text-right">
+                  למה מחליפים? (לא חובה)
+                </p>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
+                  {REASON_CHIPS.map((chip) => {
+                    const on = reason === chip.id;
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setReason(on ? null : chip.id)}
+                        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors active:scale-[0.97] ${
+                          on
+                            ? 'bg-[#00BAF7]/10 border-[#00BAF7] text-[#0090C0] dark:text-[#5CD3FF]'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {reason === 'pain' && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1.5 text-right">
+                    כאב הוא סימן לעצור. אם הוא לא עובר — כדאי להתייעץ עם איש מקצוע.
+                  </p>
+                )}
+              </div>
               <button
                 onClick={handleReplace}
                 disabled={!selectedExercise}

@@ -58,6 +58,21 @@ export interface QualityBadgeInfo {
 }
 
 /**
+ * True only when lighting was actually COMPUTED from street-segment data and
+ * the route cleared the lit-coverage bar (qualitySignals.lighting). This is
+ * the single source of truth for any user-facing "lit" claim —
+ * `features.lit` is NOT: historically writers filled it from a heuristic
+ * (surface === 'road' / environment === 'urban'), so it says nothing about
+ * real street lighting. Positive-only, same rule as computeQualityBadges.
+ */
+export function isRouteLitVerified(
+  route: Pick<Route, 'qualitySignals'> | null | undefined,
+): boolean {
+  const lighting = route?.qualitySignals?.lighting;
+  return lighting?.status === 'computed' && lighting.isLit === true;
+}
+
+/**
  * Priority order (David-approved 01.09.2026): lighting > water > composition
  * > fitness > bench > court > dog_park. Evaluated top-to-bottom; the first
  * CARD_BADGE_CAP that actually fire are kept, in this order — a card never
@@ -73,8 +88,7 @@ export function computeQualityBadges(
   const amenitiesComputed = amenities?.status === 'computed';
 
   // 1. lighting
-  if (qualitySignals?.lighting?.status === 'computed' && qualitySignals.lighting.isLit === true) {
-    // Wording matches RouteDetailSheet's existing features.lit chip verbatim.
+  if (isRouteLitVerified({ qualitySignals })) {
     candidates.push({ key: 'lighting', label: 'מואר' });
   }
 

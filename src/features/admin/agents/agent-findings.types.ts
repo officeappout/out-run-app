@@ -67,3 +67,19 @@ export interface AgentOverview {
 }
 
 export type FindingsStatusFilter = 'unread' | 'all';
+
+/**
+ * Read-only "last run" of one automation in the registry, as returned by
+ * GET /api/admin/agents (`automations`). Built from the registry entry's
+ * statusSource; `available: false` = the entry has no status source.
+ * `error` = the source query failed (the rest of the panel still loads).
+ */
+export interface AutomationStatus {
+  automationId: string;
+  available: boolean;
+  lastAt: string | null;
+  /** Short enum-like value from the source doc (e.g. succeeded / failed / sent). */
+  status: string | null;
+  counts: { label: string; value: number }[];
+  error: 'unavailable' | null;
+}

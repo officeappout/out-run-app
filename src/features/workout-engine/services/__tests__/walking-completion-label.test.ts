@@ -1,23 +1,17 @@
 /**
- * DIAGNOSTIC — Stage 2 field-test verification, not a permanent regression
- * suite (yet). Proves by EXECUTION, not by reading, two bugs found in
- * docs/field-test/01-walking-flow-map.md:
+ * REGRESSION — walking sessions labelled as running (FIXED, routes phase 1.4).
  *
- *   1. useRunningPlayer.ts:1881,1885 sends workoutType:'running' /
- *      displayIcon:'run-fast' UNCONDITIONALLY on session finish — including
- *      for a completed WALKING session. (Line numbers shifted again from
- *      1831/1835 — once by the 24.09.2026 deviation-mechanism removal, and
- *      again by the 11.10.2026 route-trace-cadence fix + the earlier G7.1
- *      hybrid-redirect fix, both of which added comment/logic lines earlier
- *      in this same file. The bug itself is untouched, still unfixed, same
- *      literals, same behavior — only the line numbers move.)
- *   2. That literal survives, unmodified, all the way into the REAL
- *      (unmocked) markTodayAsCompleted() action's Firestore write —
- *      confirmed by running the actual production code with only the true
- *      I/O boundary (Firestore SDK, Firebase auth) mocked.
- *
- * David's instruction (19.09.2026): verify via execution, do not fix yet.
- * Delete or promote to a real regression test once the fix lands.
+ * Promoted from the Stage-2 diagnostic (_verify-walking-mislabel-bugs, which
+ * proved by execution that useRunningPlayer sent workoutType:'running' /
+ * displayIcon:'run-fast' unconditionally on finish, so a completed WALK was
+ * written to dailyProgress as a run and fed into the running weekly-volume
+ * tracker). The fix: useRunningPlayer now takes both labels from
+ * aerobicCompletionLabels(activityType). These tests lock that in:
+ *   1. source-fact: the player no longer contains the hardcoded literals and
+ *      does call aerobicCompletionLabels;
+ *   2. execution: the labels it produces for a walk / run go through the REAL
+ *      (unmocked) completion pipeline and land correctly in Firestore.
+ * Cycling is out of scope and deliberately unchanged ('running'/'run-fast').
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'node:fs';
@@ -71,29 +65,18 @@ vi.mock('@/lib/healthBridge/init', () => ({
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../..');
 
-describe('Source-fact check (mechanical, not eyeballed): the useRunningPlayer literals really are unconditional; the share text is fixed', () => {
-  it('useRunningPlayer.ts:1831 and :1835 are bare string literals with zero reference to activityType', () => {
+describe('Source-fact check (mechanical): useRunningPlayer derives completion labels from activityType; the share text is fixed', () => {
+  it('FIXED — useRunningPlayer no longer hardcodes workoutType:\'running\' / displayIcon:\'run-fast\' on finish', () => {
     const filePath = path.join(
       REPO_ROOT,
       'src/features/workout-engine/players/running/store/useRunningPlayer.ts',
     );
-    const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
-    // Located by CONTENT, not a fixed line number: the pair (workoutType literal, then the
-    // displayIcon literal 4 lines below) drifted 3 times as unrelated edits landed earlier in the
-    // file (last: G2.6's map heading-mode fields, 15.10.2026). Same two literals, same assertions.
-    const idx = lines.findIndex(
-      (l, i) => l.includes(`workoutType: 'running'`) && (lines[i + 4] ?? '').includes(`displayIcon: 'run-fast'`),
-    );
-    expect(idx).toBeGreaterThan(-1);
-    const line1881 = lines[idx];
-    const line1885 = lines[idx + 4];
-    expect(line1881).toContain(`workoutType: 'running'`);
-    expect(line1885).toContain(`displayIcon: 'run-fast'`);
-    // The bug's precondition: neither line references the real activityType
-    // variable that holds 'walking' — if it did, this assertion would fail
-    // the moment someone "fixes" it by accident without updating this test.
-    expect(line1881).not.toContain('activityType');
-    expect(line1885).not.toContain('activityType');
+    const src = fs.readFileSync(filePath, 'utf-8');
+    expect(src).not.toContain(`workoutType: 'running'`);
+    expect(src).not.toContain(`displayIcon: 'run-fast'`);
+    expect(src).toContain('aerobicCompletionLabels(activityType)');
+    expect(src).toContain('workoutType: completionLabels.workoutType');
+    expect(src).toContain('displayIcon: completionLabels.displayIcon');
   });
 
   // FIXED (16.10.2026): the share-text half of this bug is gone. The old proof
@@ -127,7 +110,7 @@ describe('Source-fact check (mechanical, not eyeballed): the useRunningPlayer li
   });
 });
 
-describe('Execution proof: a completed WALKING session gets written to Firestore tagged as running', () => {
+describe('Execution: a completed WALKING session is written to Firestore as walking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // markTodayAsCompleted() early-returns on `typeof window === 'undefined'`
@@ -140,52 +123,71 @@ describe('Execution proof: a completed WALKING session gets written to Firestore
     (globalThis as unknown as { sessionStorage: unknown }).sessionStorage = { setItem: vi.fn() };
   });
 
-  it('reproduces the exact object useRunningPlayer.ts sends today for a walk, runs it through the REAL (unmocked) completion pipeline, and captures the real Firestore write', async () => {
+  it('aerobicCompletionLabels: walking → walking/walk; running and cycling unchanged (running/run-fast)', async () => {
+    const { aerobicCompletionLabels } = await import(
+      '@/features/workout-engine/services/completion-sync.service'
+    );
+    expect(aerobicCompletionLabels('walking')).toEqual({ workoutType: 'walking', displayIcon: 'walk' });
+    expect(aerobicCompletionLabels('running')).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+    // Cycling is out of scope — behaviour deliberately unchanged.
+    expect(aerobicCompletionLabels('cycling')).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+    expect(aerobicCompletionLabels(undefined)).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+  });
+
+  it('a WALK finished through the player\'s labels runs the REAL completion pipeline and is written as walking (not running)', async () => {
     const { setDoc } = await import('firebase/firestore');
-    // Import the REAL, unmodified production function — not a re-implementation.
-    const { syncWorkoutCompletion } = await import(
+    const { syncWorkoutCompletion, aerobicCompletionLabels } = await import(
       '@/features/workout-engine/services/completion-sync.service'
     );
 
-    // This object is copied verbatim from useRunningPlayer.ts:1830-1837 —
-    // exactly what today's code sends when a WALKING session finishes.
+    // Same shape useRunningPlayer sends on finish, with labels from the fix.
+    const labels = aerobicCompletionLabels('walking');
     await syncWorkoutCompletion({
-      workoutType: 'running',
+      workoutType: labels.workoutType,
       durationMinutes: 22,
       calories: 140,
       activityCategory: 'cardio',
-      displayIcon: 'run-fast',
+      displayIcon: labels.displayIcon,
       distanceKm: 1.8,
     });
 
-    // Consequence #1 (new finding, not in the stage-1 doc): the walk's
-    // distance/duration gets recorded into the RUNNING weekly-volume
-    // tracker, because completion-sync.service.ts:104 branches on
-    // `payload.workoutType === 'running'` — which is true here even
-    // though the session was a walk.
-    expect(recordRunningSession).toHaveBeenCalledWith(1.8, 22);
+    // The walk must NOT be recorded into the RUNNING weekly-volume tracker.
+    expect(recordRunningSession).not.toHaveBeenCalled();
 
-    // Consequence #2: what did the REAL useProgressionStore.markTodayAsCompleted
-    // actually write to dailyProgress via setDoc? (db/setDoc are mocked —
-    // everything else in the call chain is live production code.)
     const setDocMock = setDoc as unknown as { mock: { calls: unknown[][] } };
     const dailyProgressCall = setDocMock.mock.calls.find(
       (call) => JSON.stringify(call[1]).includes('workoutType'),
     );
     expect(dailyProgressCall).toBeDefined();
     const written = dailyProgressCall![1] as Record<string, unknown>;
-
-    // eslint-disable-next-line no-console
-    console.log(
-      '[VERIFY] Real setDoc(dailyProgress, ...) payload for a WALK, as executed today:',
-      JSON.stringify(written, null, 2),
-    );
-
-    expect(written.workoutType).toBe('running'); // ← the bug, captured live
-    expect(written.displayIcon).toBe('run-fast'); // ← the bug, captured live
+    expect(written.workoutType).toBe('walking');
+    expect(written.displayIcon).toBe('walk');
   });
 
-  it('control: the SAME real code path correctly labels the session when given the value it SHOULD have received', async () => {
+  it('a RUN still records into the running weekly-volume tracker and is written as running', async () => {
+    const { setDoc } = await import('firebase/firestore');
+    const { syncWorkoutCompletion, aerobicCompletionLabels } = await import(
+      '@/features/workout-engine/services/completion-sync.service'
+    );
+    const labels = aerobicCompletionLabels('running');
+    await syncWorkoutCompletion({
+      workoutType: labels.workoutType,
+      durationMinutes: 22,
+      calories: 140,
+      activityCategory: 'cardio',
+      displayIcon: labels.displayIcon,
+      distanceKm: 3.2,
+    });
+    expect(recordRunningSession).toHaveBeenCalledWith(3.2, 22);
+    const setDocMock = setDoc as unknown as { mock: { calls: unknown[][] } };
+    const written = setDocMock.mock.calls.find(
+      (call) => JSON.stringify(call[1]).includes('workoutType'),
+    )![1] as Record<string, unknown>;
+    expect(written.workoutType).toBe('running');
+    expect(written.displayIcon).toBe('run-fast');
+  });
+
+  it('control: the real pipeline labels a literal walking payload correctly', async () => {
     const { setDoc } = await import('firebase/firestore');
     const { syncWorkoutCompletion } = await import(
       '@/features/workout-engine/services/completion-sync.service'
@@ -208,12 +210,6 @@ describe('Execution proof: a completed WALKING session gets written to Firestore
       (call) => JSON.stringify(call[1]).includes('workoutType'),
     );
     const written = dailyProgressCall![1] as Record<string, unknown>;
-
-    // eslint-disable-next-line no-console
-    console.log(
-      '[VERIFY] Same real code path, correctly-tagged input:',
-      JSON.stringify(written, null, 2),
-    );
 
     expect(written.workoutType).toBe('walking');
     expect(written.displayIcon).toBe('walk'); // proves getWorkoutIcon('walking') really does map correctly — bug is isolated to the origination point, not the pipeline

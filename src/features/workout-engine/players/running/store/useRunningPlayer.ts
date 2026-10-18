@@ -1892,13 +1892,17 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
         // Unified completion sync
         const durationMinutes = Math.max(Math.round(sessionState.totalDuration / 60), 1);
-        const { syncWorkoutCompletion } = await import('@/features/workout-engine/services/completion-sync.service');
+        const { syncWorkoutCompletion, aerobicCompletionLabels } = await import('@/features/workout-engine/services/completion-sync.service');
+        // A finished WALK is recorded as a walk (routes phase 1.4) — it used
+        // to be hardcoded 'running'/'run-fast'. Every non-walking session
+        // (incl. cycling) keeps exactly today's values.
+        const completionLabels = aerobicCompletionLabels(activityType);
         await syncWorkoutCompletion({
-          workoutType: 'running',
+          workoutType: completionLabels.workoutType,
           durationMinutes,
           calories: finalCalories,
           activityCategory: 'cardio',
-          displayIcon: 'run-fast',
+          displayIcon: completionLabels.displayIcon,
           distanceKm: sessionState.totalDistance ?? 0,
         }).catch((e) => console.error('[useRunningPlayer] syncWorkoutCompletion error:', e));
 

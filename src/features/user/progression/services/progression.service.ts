@@ -79,6 +79,7 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import type { LevelGoal } from '@/types/workout';
 import { getUserAccessLevel, hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { PROGRESSION_RULES_FROM_ADMIN_V1 } from '@/config/feature-flags';
 /**
  * Progression v2 Phase 2 — deliberate cross-domain reuse of progression-map's
  * gating logic, NOT a Law 7 violation-by-oversight: Phase 1 built
@@ -1180,7 +1181,7 @@ export async function initializeProgressionTracks(
 /**
  * Progression rule result with all settings including volume-based fields
  */
-interface ProgressionRuleResult {
+export interface ProgressionRuleResult {
   baseSessionGain: number;
   bonusPercent: number;
   requiredSetsForFullGain: number;
@@ -1188,64 +1189,143 @@ interface ProgressionRuleResult {
 }
 
 /**
- * Get progression rule for a specific program and level
- * Falls back to defaults if no rule is defined
+ * Candidate `progression_rules` doc ids for a program + level, in lookup order.
+ *
+ * Bug fix (coach-note PR): the admin panel saves progression rules keyed by the
+ * program's Firestore DOC ID (e.g. `J0fLpmJhG0KDN2tQouxh_level_3`), but every
+ * caller here passes a SLUG (`push`/`pull`/`legs`/`core` — the master flow's
+ * childSlugs and the leaf flow's slug activeProgramId). The old single lookup
+ * `${slug}_level_${n}` therefore always missed, and DEFAULT_PROGRESSION_BY_LEVEL
+ * silently replaced every admin-tuned rule.
+ *
+ * Order: doc id first (where the admin writes), then the slug-keyed id (legacy /
+ * hand-made docs), then the raw input if it is neither. Deduped.
  */
-async function getProgressionRuleForLevel(
+export function progressionRuleIdCandidates(
   programId: string,
-  level: number
+  level: number,
+  slugMap: Pick<ProgramSlugMap, 'idToSlug' | 'slugToId'> | null,
+): string[] {
+  const docId =
+    slugMap?.slugToId.get(programId) ??
+    (slugMap?.idToSlug.has(programId) ? programId : undefined);
+  const slug = slugMap?.idToSlug.get(programId) ?? programId;
+  const out: string[] = [];
+  for (const key of [docId, slug, programId]) {
+    if (!key) continue;
+    const id = `${key}_level_${level}`;
+    if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+/** Short-lived cache: one completion resolves the same (program, level) rule
+ *  for several children; admins rarely edit rules, 5 minutes is plenty fresh. */
+const RULE_CACHE_TTL_MS = 5 * 60 * 1000;
+const ruleCache = new Map<string, { at: number; value: Promise<ProgressionRuleResult> }>();
+let lazySlugMap: Promise<ProgramSlugMap | null> | null = null;
+
+/** Test-only: drop cached rules + the lazily built slug map. */
+export function __resetProgressionRuleCacheForTests(): void {
+  ruleCache.clear();
+  lazySlugMap = null;
+}
+
+function ruleFromData(
+  data: Record<string, any>,
+  level: number,
+  levelDefaults: { baseGain: number; bonusPercent: number },
+): ProgressionRuleResult {
+  return {
+    baseSessionGain: data.baseGain ?? data.baseSessionGain ?? levelDefaults.baseGain,
+    bonusPercent: data.bonusPercent ?? levelDefaults.bonusPercent,
+    requiredSetsForFullGain: data.requiredSetsForFullGain ?? data.requiredSets ?? getDefaultRequiredSets(level),
+    linkedPrograms: data.linkedPrograms ?? [],
+  };
+}
+
+/**
+ * Get progression rule for a specific program and level.
+ * Behind PROGRESSION_RULES_FROM_ADMIN_V1, `programId` may be a slug or a
+ * Firestore doc id — both are resolved (see progressionRuleIdCandidates).
+ * Falls back to defaults if no rule is defined.
+ */
+export async function getProgressionRuleForLevel(
+  programId: string,
+  level: number,
+  slugMap?: ProgramSlugMap | null,
+): Promise<ProgressionRuleResult> {
+  // Flag off (today): the original single `${programId}_level_${level}`
+  // lookup, no slug→id resolution, no cache — so admin rules keyed by doc id
+  // keep being missed and the defaults apply, exactly as before.
+  if (!PROGRESSION_RULES_FROM_ADMIN_V1) {
+    return loadProgressionRuleForLevel(programId, level, null, [`${programId}_level_${level}`]);
+  }
+  const cacheKey = `${programId}|${level}`;
+  const hit = ruleCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < RULE_CACHE_TTL_MS) return hit.value;
+  const value = loadProgressionRuleForLevel(programId, level, slugMap);
+  ruleCache.set(cacheKey, { at: Date.now(), value });
+  // Never pin a failure: a thrown load is evicted so the next call retries.
+  value.catch(() => ruleCache.delete(cacheKey));
+  return value;
+}
+
+async function loadProgressionRuleForLevel(
+  programId: string,
+  level: number,
+  slugMap?: ProgramSlugMap | null,
+  fixedCandidates?: string[],
 ): Promise<ProgressionRuleResult> {
   const levelDefaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
+  const defaults: ProgressionRuleResult = {
+    baseSessionGain: levelDefaults.baseGain,
+    bonusPercent: levelDefaults.bonusPercent,
+    requiredSetsForFullGain: getDefaultRequiredSets(level),
+    linkedPrograms: [],
+  };
 
   try {
-    const ruleId = `${programId}_level_${level}`;
-    const ruleDoc = await getDoc(doc(db, PROGRESSION_RULES_COLLECTION, ruleId));
-    
-    if (ruleDoc.exists()) {
-      const data = ruleDoc.data();
-      const resolved = {
-        baseSessionGain: data.baseGain ?? data.baseSessionGain ?? levelDefaults.baseGain,
-        bonusPercent: data.bonusPercent ?? levelDefaults.bonusPercent,
-        requiredSetsForFullGain: data.requiredSetsForFullGain ?? data.requiredSets ?? getDefaultRequiredSets(level),
-        linkedPrograms: data.linkedPrograms ?? [],
-      };
-      console.log(`[Progression] Rule loaded: ${ruleId}`, resolved, '(raw Firestore:', data, ')');
-      return resolved;
+    let candidates = fixedCandidates;
+    if (!candidates) {
+      let map = slugMap ?? null;
+      if (!map) {
+        lazySlugMap ??= buildProgramSlugMap().catch(() => null);
+        map = await lazySlugMap;
+      }
+      candidates = progressionRuleIdCandidates(programId, level, map);
+    }
+
+    for (const ruleId of candidates) {
+      const ruleDoc = await getDoc(doc(db, PROGRESSION_RULES_COLLECTION, ruleId));
+      if (ruleDoc.exists()) {
+        const data = ruleDoc.data();
+        const resolved = ruleFromData(data, level, levelDefaults);
+        console.log(`[Progression] Rule loaded: ${ruleId} (for "${programId}")`, resolved);
+        return resolved;
+      }
     }
 
     // No doc in progression_rules — check programLevelSettings as secondary source
-    try {
-      const plsDoc = await getDoc(doc(db, 'programLevelSettings', ruleId));
-      if (plsDoc.exists()) {
-        const pls = plsDoc.data();
-        if (pls.baseSessionGain != null || pls.baseGain != null) {
-          const resolved = {
-            baseSessionGain: pls.baseGain ?? pls.baseSessionGain ?? levelDefaults.baseGain,
-            bonusPercent: pls.bonusPercent ?? levelDefaults.bonusPercent,
-            requiredSetsForFullGain: pls.requiredSetsForFullGain ?? pls.requiredSets ?? getDefaultRequiredSets(level),
-            linkedPrograms: pls.linkedPrograms ?? [],
-          };
-          console.log(`[Progression] Rule from programLevelSettings: ${ruleId}`, resolved);
-          return resolved;
+    for (const ruleId of candidates) {
+      try {
+        const plsDoc = await getDoc(doc(db, 'programLevelSettings', ruleId));
+        if (plsDoc.exists()) {
+          const pls = plsDoc.data();
+          if (pls.baseSessionGain != null || pls.baseGain != null) {
+            const resolved = ruleFromData(pls, level, levelDefaults);
+            console.log(`[Progression] Rule from programLevelSettings: ${ruleId}`, resolved);
+            return resolved;
+          }
         }
-      }
-    } catch { /* secondary lookup — non-critical */ }
+      } catch { /* secondary lookup — non-critical */ }
+    }
 
-    console.log(`[Progression] No rule for ${ruleId} — using defaults:`, levelDefaults);
-    return {
-      baseSessionGain: levelDefaults.baseGain,
-      bonusPercent: levelDefaults.bonusPercent,
-      requiredSetsForFullGain: getDefaultRequiredSets(level),
-      linkedPrograms: [],
-    };
+    console.log(`[Progression] No rule for ${candidates.join(' / ')} — using defaults:`, levelDefaults);
+    return defaults;
   } catch (error) {
     console.error('Error fetching progression rule:', error);
-    return {
-      baseSessionGain: levelDefaults.baseGain,
-      bonusPercent: levelDefaults.bonusPercent,
-      requiredSetsForFullGain: getDefaultRequiredSets(level),
-      linkedPrograms: [],
-    };
+    return defaults;
   }
 }
 
@@ -1841,7 +1921,7 @@ async function processBottomUpMasterCompletion(
     const childExercises = childBuckets[childId] || [];
     const childTrack = updatedTracks[childId] || getDefaultTrackProgress();
     const childLevel = childTrack.currentLevel;
-    const childRule = await getProgressionRuleForLevel(childId, childLevel);
+    const childRule = await getProgressionRuleForLevel(childId, childLevel, slugMap);
 
     const childSets = childExercises.reduce((s, e) => s + e.setsCompleted, 0);
     totalSetsPerformed += childSets;
@@ -2225,7 +2305,7 @@ export async function processWorkoutCompletion(
     const currentLevel = currentTrack.currentLevel;
     
     // Get progression rule for this level
-    const rule = await getProgressionRuleForLevel(activeProgramId, currentLevel);
+    const rule = await getProgressionRuleForLevel(activeProgramId, currentLevel, slugMap);
     
     // Calculate total sets performed
     const setsPerformed = calculateTotalSetsPerformed(exercises);
@@ -2286,11 +2366,23 @@ export async function processWorkoutCompletion(
             : match.repsPerSet.reduce((sum, r) => sum + r, 0); // total hold seconds
 
         if (bestValue >= goal.targetValue) {
-          // STRICT: goal met → award full progressBonus
+          // Goal met. Behind PROGRESSION_RULES_FROM_ADMIN_V1 the progressBonus
+          // is a ONE-TIME weight per goal per level (completedGoalIds resets on
+          // level-up): paid the first time the goal is met, never again at this
+          // level. Flag off (today): it is re-added on EVERY session that
+          // repeats the goal (+5% default per workout) — gated because removing
+          // that materially slows progression for users who hit their goals.
+          if (PROGRESSION_RULES_FROM_ADMIN_V1 && alreadyCompleted.has(goal.exerciseId)) {
+            console.log(
+              `[Progression] Goal "${goal.exerciseName}": already completed at this level → +0%`,
+            );
+            continue;
+          }
           goalBonusGain += bonus;
           if (!alreadyCompleted.has(goal.exerciseId)) {
             newlyCompletedGoalIds.push(goal.exerciseId);
           }
+          if (PROGRESSION_RULES_FROM_ADMIN_V1) alreadyCompleted.add(goal.exerciseId);
           console.log(
             `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
               ` ✅ MET → +${bonus}%`,

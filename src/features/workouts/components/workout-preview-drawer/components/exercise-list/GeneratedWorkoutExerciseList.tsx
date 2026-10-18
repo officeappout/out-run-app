@@ -21,6 +21,8 @@ import DrawerEquipmentBadge from '../DrawerEquipmentBadge';
 import DrawerMuscleBadge from '../DrawerMuscleBadge';
 import DownloadProgressCircle from '../DownloadProgressCircle';
 import ExerciseCard from './ExerciseCard';
+import CoachNoteBlock, { useCoachNote } from '@/features/workout-engine/components/CoachNoteBlock';
+import { refreshDecisionExpect } from '@/features/workout-engine/services/decision-record';
 import PyramidStepCard from './PyramidStepCard';
 import SectionHeader from './SectionHeader';
 import { groupExercisesIntoSections } from '../../utils/section-grouping.utils';
@@ -165,7 +167,17 @@ export default function GeneratedWorkoutExerciseList({
   }, [generatedWorkout.exercises]);
   const cachedMediaMap = useCachedMediaMap(allMediaUrls);
 
-  const displayText = generatedWorkout.logicCue || generatedWorkout.description;
+  // WORKOUT_COACH_NOTE_V1: when the coach note renders it takes over the
+  // "why" role logicCue played, so the line above it shows the description.
+  // Flag off (or no record) → coachNote is '' → byte-identical to before.
+  const coachRecord = useMemo(
+    () => refreshDecisionExpect(generatedWorkout.decisionRecord, generatedWorkout),
+    [generatedWorkout],
+  );
+  const coachNote = useCoachNote(coachRecord);
+  const displayText = coachNote
+    ? generatedWorkout.description
+    : generatedWorkout.logicCue || generatedWorkout.description;
   const diff = generatedWorkout.difficulty;
   const dur = generatedWorkout.estimatedDuration;
 
@@ -283,6 +295,9 @@ export default function GeneratedWorkoutExerciseList({
           {displayText}
         </p>
       )}
+
+      {/* ── דגשי האימון (WORKOUT_COACH_NOTE_V1) ── */}
+      <CoachNoteBlock note={coachNote} v2={!!v2} className="mb-4" />
 
       {/* ── ציוד (Equipment) ── */}
       {equipment.length > 0 && (

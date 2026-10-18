@@ -92,3 +92,44 @@ export function isAgentStale(agent: AgentOverview, nowMs: number, staleAfterMs =
   const t = Date.parse(agent.lastRunAt);
   return Number.isNaN(t) || nowMs - t > staleAfterMs;
 }
+
+export function formatPanelTime(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+export type StatusTone = 'ok' | 'fail' | 'progress' | 'neutral';
+
+/** Hebrew label + tone for the short status tokens the status sources carry. */
+const STATUS_TOKENS: Record<string, { label: string; tone: StatusTone }> = {
+  succeeded: { label: 'הצליח', tone: 'ok' },
+  sent: { label: 'נשלח', tone: 'ok' },
+  failed: { label: 'נכשל', tone: 'fail' },
+  pending: { label: 'ממתין', tone: 'progress' },
+  running: { label: 'רץ עכשיו', tone: 'progress' },
+  processing: { label: 'בטיפול', tone: 'progress' },
+};
+
+export function describeStatusToken(status: string | null): { label: string; tone: StatusTone } | null {
+  if (!status) return null;
+  return STATUS_TOKENS[status] ?? { label: status, tone: 'neutral' };
+}
+
+/**
+ * The one-line "last run" text of an automation card.
+ *   - no status source             → "אין דיווח סטטוס עדיין"
+ *   - status not loaded yet        → "טוען…"
+ *   - the source read failed       → "הסטטוס לא זמין כרגע"
+ *   - source exists, no doc yet    → "עוד אין רשומה"
+ *   - otherwise                    → the timestamp
+ */
+export function describeLastRun(
+  hasSource: boolean,
+  status: { lastAt: string | null; error: string | null } | undefined,
+): { text: string; known: boolean } {
+  if (!hasSource) return { text: 'אין דיווח סטטוס עדיין', known: false };
+  if (!status) return { text: 'טוען…', known: false };
+  if (status.error) return { text: 'הסטטוס לא זמין כרגע', known: false };
+  if (!status.lastAt) return { text: 'עוד אין רשומה', known: false };
+  return { text: formatPanelTime(status.lastAt), known: true };
+}
