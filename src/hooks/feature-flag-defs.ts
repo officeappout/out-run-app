@@ -124,9 +124,11 @@ export const FLAG_DEFS = [
   // `true` here would only show super admins UI the server then refuses).
   { key: 'aiCoachEnabled', firestoreKey: 'ai_coach_enabled', defaultValue: false, superAdminValue: false },
   // aiCoachFreeForAll — launch mode: while ON, every eligible (adult) user may use AI without an
-  // entitlements/{uid} doc. defaultValue true is the owner's explicit launch decision, and is safe
-  // only because it is ANDed with aiCoachEnabled (fail-closed) — on its own it grants nothing.
-  { key: 'aiCoachFreeForAll', firestoreKey: 'ai_coach_free_for_all', defaultValue: true, superAdminValue: true },
+  // entitlements/{uid} doc. Fail-CLOSED (18.10.2026, owner): defaultValue false so turning
+  // ai_coach_enabled ON can never open AI to every user by accident (a missing key or a failed
+  // read means "entitled users only"). To open AI to everyone, turn ai_coach_free_for_all ON
+  // explicitly in the panel. superAdminValue false: the server ignores the override anyway.
+  { key: 'aiCoachFreeForAll', firestoreKey: 'ai_coach_free_for_all', defaultValue: false, superAdminValue: false },
   // coachNoteLLM — the post-workout coach note is written by the LLM instead of the template
   // engine. Fail-closed; requires aiCoachEnabled at runtime.
   { key: 'coachNoteLLM', firestoreKey: 'coach_note_llm', defaultValue: false, superAdminValue: false },

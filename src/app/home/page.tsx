@@ -75,6 +75,7 @@ import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } f
 import WeatherChip from '@/features/weather/components/WeatherChip';
 import { useWeather } from '@/features/weather/hooks/useWeather';
 import type { WorkoutWeather } from '@/features/weather/core/weather.types';
+import { AiCoachHomeEntry } from '@/features/ai-coach/components/AiCoachEntry';
 import AnchorLocationChip from '@/features/home/components/AnchorLocationChip';
 import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
@@ -2845,6 +2846,9 @@ export default function HomePage() {
             <WeatherChip weather={homeWeather} />
           </div>
         )}
+
+        {/* "קלי AI" entry — renders nothing unless aiCoachEnabled + entitlement + adult. */}
+        <AiCoachHomeEntry v2={featureFlags.enableHomeV2} />
 
         {/* Today Activity Strip — Stage D+E (19.08.2026, "completion-loop" plan),
             relocated to the very top of the page (21.08.2026, "ארכיטקטורת הבית

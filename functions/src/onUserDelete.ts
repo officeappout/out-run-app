@@ -126,6 +126,17 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     counts.healthSamples = 0;
   }
 
+  // 2c. ai_coach_threads/{uid} + messages — the "קלי AI" conversation (thread
+  //     summary, pending tool turn, every message). Top-level, keyed by uid, so
+  //     the users/{uid} recursiveDelete above does not reach it.
+  try {
+    await db.recursiveDelete(db.collection('ai_coach_threads').doc(uid));
+    counts.aiCoachThreads = 1;
+  } catch (e) {
+    logger.warn(`[purgeUserData] ai_coach_threads/${uid} recursiveDelete failed`, e);
+    counts.aiCoachThreads = 0;
+  }
+
   // 3. Presence, social graph, personal activity feed, kudos inbox.
   //    Each is owned exclusively by the deleted user.
   for (const top of ['presence', 'connections', 'activity', 'kudos'] as const) {

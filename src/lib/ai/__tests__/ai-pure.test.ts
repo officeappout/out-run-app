@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { canUseAi, isAiEntitlementActive } from '../ai-entitlement';
 import { AI_PRICE_TABLE, estimateCostUsd, usageFromSdk, priceFor } from '../ai-pricing';
 import { DEFAULT_AI_CONFIG, parseAiConfig } from '../ai-config';
+import { FLAG_DEFS } from '@/hooks/feature-flag-defs';
 
 const NOW = Date.UTC(2026, 9, 18, 12);
 const on = { aiCoachEnabled: true, aiCoachFreeForAll: false };
@@ -101,5 +102,15 @@ describe('parseAiConfig', () => {
     ).toEqual({ dailyBudgetUsd: 12.5, killSwitch: true, rateLimitPerHour: 5, rateLimitPerDay: 40 });
     expect(parseAiConfig({ dailyBudgetUsd: -1, rateLimitPerHour: 0 }).dailyBudgetUsd).toBe(DEFAULT_AI_CONFIG.dailyBudgetUsd);
     expect(parseAiConfig({ dailyBudgetUsd: 0 }).dailyBudgetUsd).toBe(0);
+  });
+});
+
+describe('AI flag defaults (fail closed)', () => {
+  it('aiCoachEnabled and aiCoachFreeForAll both default to false, super admin override too', () => {
+    for (const key of ['aiCoachEnabled', 'aiCoachFreeForAll']) {
+      const d = FLAG_DEFS.find((f) => f.key === key)!;
+      expect(d.defaultValue).toBe(false);
+      expect(d.superAdminValue).toBe(false);
+    }
   });
 });

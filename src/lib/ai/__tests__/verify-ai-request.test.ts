@@ -85,6 +85,19 @@ describe('verifyAiRequest', () => {
     expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ status: 403, code: 'ai_not_available' });
   });
 
+  it('free-for-all key missing → defaults OFF: enabling the master flag alone never opens AI to everyone', async () => {
+    state.db = createMockDb(seed({ 'system_config/feature_flags': { ai_coach_enabled: true } }));
+    expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ status: 403, code: 'ai_not_available' });
+
+    state.db = createMockDb(
+      seed({
+        'system_config/feature_flags': { ai_coach_enabled: true },
+        [`entitlements/${UID}`]: { aiCoach: { active: true, source: 'free_launch' } },
+      }),
+    );
+    expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ ok: true });
+  });
+
   it('without free-for-all, requires an active entitlement', async () => {
     const flags = { 'system_config/feature_flags': { ai_coach_enabled: true, ai_coach_free_for_all: false } };
     state.db = createMockDb(seed(flags));
