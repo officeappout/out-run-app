@@ -47,9 +47,13 @@ import {
 import { activityPriorityService } from '../services/ActivityPriorityService';
 import {
   advanceStreakForDay,
+  advanceStreakForDayWithGrace,
   dayQualifiesBySteps,
   dayQualifiesForStreak,
+  isStreakAliveWithGrace,
+  type StreakCounters,
 } from '../lib/streak-rules';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 // ============================================================================
@@ -135,6 +139,11 @@ interface ActivityState {
    *  Persisted to localStorage so logWorkout can detect missed days
    *  even when loadFromServer hasn't completed yet. */
   lastStreakDate: string;
+  /** Calm return (CALM_RETURN_V1): streakWeekKey of the week whose grace day was used. */
+  streakGraceWeekKey?: string;
+  /** Calm return: a grace day bridged today's advance; syncToServer writes the bridge first
+   *  (two +1 writes — the only shape the streaks rule accepts). Cleared after the sync. */
+  pendingStreakGrace?: { date: string; prevStreak: number; prevLongest: number } | null;
   
   // Dominant color for path visualization
   dominantActivityColor: string;
@@ -422,6 +431,29 @@ function calculateWeeklySummary(
 // STORE IMPLEMENTATION
 // ============================================================================
 
+/**
+ * Count `todayStr` toward the streak. Flag off: exactly advanceStreakForDay (unchanged).
+ * Calm return on: the weekly grace day may bridge a one-day gap — `extra` then carries the
+ * store fields that record it (empty object otherwise, so set() calls stay identical).
+ */
+function advanceStreakToday(
+  counters: StreakCounters,
+  todayStr: string,
+  state: Pick<ActivityStore, 'streakGraceWeekKey' | 'longestStreak'>,
+): StreakCounters & { advanced: boolean; extra: Partial<ActivityStore> } {
+  if (!readLiveFlag('enableCalmReturnV1')) {
+    return { ...advanceStreakForDay(counters, todayStr), extra: {} };
+  }
+  const r = advanceStreakForDayWithGrace({ ...counters, graceWeekKey: state.streakGraceWeekKey }, todayStr);
+  const extra: Partial<ActivityStore> = r.graceDate
+    ? {
+        streakGraceWeekKey: r.graceWeekKey,
+        pendingStreakGrace: { date: r.graceDate, prevStreak: counters.currentStreak, prevLongest: state.longestStreak },
+      }
+    : {};
+  return { currentStreak: r.currentStreak, lastStreakDate: r.lastStreakDate, advanced: r.advanced, extra };
+}
+
 export const useActivityStore = create<ActivityStore>()(
   persist(
     (set, get) => ({
@@ -576,6 +608,7 @@ export const useActivityStore = create<ActivityStore>()(
 
         let newStreak = state.currentStreak;
         let newLastStreakDate = state.lastStreakDate;
+        let graceExtra: Partial<ActivityStore> = {};
 
         const justCrossedThreshold =
           prevTotalMinutes < STREAK_MINIMUM_MINUTES &&
@@ -585,12 +618,15 @@ export const useActivityStore = create<ActivityStore>()(
           // Shared policy (streak-rules.ts): no-op if today was already
           // counted (e.g. by the steps path), restart at 1 after a gap of
           // more than one day, +1 after yesterday, 1 with no prior date.
-          const advanced = advanceStreakForDay(
+          // (Calm return on: + the weekly grace day — advanceStreakToday.)
+          const advanced = advanceStreakToday(
             { currentStreak: state.currentStreak, lastStreakDate: newLastStreakDate },
             getTodayString(),
+            state,
           );
           newStreak = advanced.currentStreak;
           newLastStreakDate = advanced.lastStreakDate;
+          graceExtra = advanced.extra;
         }
 
         set({
@@ -603,6 +639,7 @@ export const useActivityStore = create<ActivityStore>()(
           currentStreak: newStreak,
           longestStreak: Math.max(state.longestStreak, newStreak),
           lastStreakDate: newLastStreakDate,
+          ...graceExtra,
         });
         
         get().recalculate();
@@ -650,18 +687,21 @@ export const useActivityStore = create<ActivityStore>()(
 
         let newStreak = state.currentStreak;
         let newLastStreakDate = state.lastStreakDate;
+        let graceExtra: Partial<ActivityStore> = {};
 
         const justCrossedThreshold =
           prevTotalMinutes < STREAK_MINIMUM_MINUTES &&
           totalMinutes >= STREAK_MINIMUM_MINUTES;
 
         if (justCrossedThreshold) {
-          const advanced = advanceStreakForDay(
+          const advanced = advanceStreakToday(
             { currentStreak: state.currentStreak, lastStreakDate: newLastStreakDate },
             getTodayString(),
+            state,
           );
           newStreak = advanced.currentStreak;
           newLastStreakDate = advanced.lastStreakDate;
+          graceExtra = advanced.extra;
         }
 
         set({
@@ -674,6 +714,7 @@ export const useActivityStore = create<ActivityStore>()(
           currentStreak: newStreak,
           longestStreak: Math.max(state.longestStreak, newStreak),
           lastStreakDate: newLastStreakDate,
+          ...graceExtra,
         });
 
         get().recalculate();
@@ -748,9 +789,10 @@ export const useActivityStore = create<ActivityStore>()(
         if (state.lastStreakDate === todayStr) return false; // already counted today
         if (!dayQualifiesBySteps(state.today)) return false;
 
-        const advanced = advanceStreakForDay(
+        const advanced = advanceStreakToday(
           { currentStreak: state.currentStreak, lastStreakDate: state.lastStreakDate },
           todayStr,
+          state,
         );
         if (!advanced.advanced) return false;
 
@@ -758,6 +800,7 @@ export const useActivityStore = create<ActivityStore>()(
           currentStreak: advanced.currentStreak,
           longestStreak: Math.max(state.longestStreak, advanced.currentStreak),
           lastStreakDate: advanced.lastStreakDate,
+          ...advanced.extra,
         });
         console.log('[ActivityStore] Streak counted today via step goal:', advanced.currentStreak);
 
@@ -913,14 +956,34 @@ export const useActivityStore = create<ActivityStore>()(
           // (activityScopeExtra), so a new scope (like reserveScope) only
           // needs to be added once.
           const streakRef = doc(db, COLLECTION_STREAK, state.today.userId);
+          // Calm return grace day: bridge the missed day first (N+1 on the grace day), so
+          // today's write is the plain "+1 advance" the streaks rule accepts. Best-effort —
+          // a rejected bridge (e.g. already written by an earlier sync) never blocks today.
+          const pendingGrace = state.pendingStreakGrace;
+          if (pendingGrace && state.lastStreakDate === state.today.date) {
+            try {
+              await setDoc(streakRef, {
+                userId: state.today.userId,
+                currentStreak: pendingGrace.prevStreak + 1,
+                longestStreak: Math.max(pendingGrace.prevLongest, pendingGrace.prevStreak + 1),
+                lastActivityDate: pendingGrace.date,
+                ...activityScopeExtra,
+                updatedAt: serverTimestamp(),
+              }, { merge: true });
+            } catch (graceErr) {
+              console.warn('[ActivityStore] Grace-day bridge write skipped:', graceErr);
+            }
+          }
           await setDoc(streakRef, {
             userId: state.today.userId,
             currentStreak: state.currentStreak,
             longestStreak: state.longestStreak,
             lastActivityDate: state.today.date,
+            ...(state.streakGraceWeekKey ? { graceWeekKey: state.streakGraceWeekKey } : {}),
             ...activityScopeExtra,
             updatedAt: serverTimestamp(),
           }, { merge: true });
+          if (pendingGrace) set({ pendingStreakGrace: null });
 
           // Mirror streak into users/{uid}.progression.currentStreak so that
           // useProgressionStore (which reads from the users doc) stays in sync.
@@ -982,12 +1045,19 @@ export const useActivityStore = create<ActivityStore>()(
           let longestStreak = 0;
           
           let restoredLastStreakDate = '';
+          // Calm return: the weekly grace day may keep a one-day gap alive.
+          const calmStreakOn = readLiveFlag('enableCalmReturnV1');
+          let restoredGraceWeekKey: string | undefined;
 
           if (streakSnap.exists()) {
             const streakData = streakSnap.data();
             currentStreak = streakData.currentStreak || 0;
             longestStreak = streakData.longestStreak || 0;
             restoredLastStreakDate = streakData.lastActivityDate || '';
+            if (calmStreakOn) {
+              restoredGraceWeekKey =
+                (typeof streakData.graceWeekKey === 'string' && streakData.graceWeekKey) || get().streakGraceWeekKey || undefined;
+            }
 
             // Check if streak is still valid (last activity was yesterday or today)
             if (restoredLastStreakDate) {
@@ -996,7 +1066,15 @@ export const useActivityStore = create<ActivityStore>()(
                 / (1000 * 60 * 60 * 24),
               );
 
-              if (daysDiff > 1) {
+              const keptByGrace =
+                calmStreakOn &&
+                daysDiff > 1 &&
+                isStreakAliveWithGrace(
+                  { currentStreak, lastStreakDate: restoredLastStreakDate, graceWeekKey: restoredGraceWeekKey },
+                  targetDate,
+                );
+
+              if (daysDiff > 1 && !keptByGrace) {
                 // Streak broken — also clear the local date so logWorkout starts fresh
                 currentStreak = 0;
                 restoredLastStreakDate = '';
@@ -1107,6 +1185,7 @@ export const useActivityStore = create<ActivityStore>()(
             currentStreak,
             longestStreak: Math.max(longestStreak, currentStreak),
             lastStreakDate: restoredLastStreakDate,
+            ...(restoredGraceWeekKey ? { streakGraceWeekKey: restoredGraceWeekKey } : {}),
             userProgram: state.userProgram,
           });
           
@@ -1284,6 +1363,9 @@ export const useActivityStore = create<ActivityStore>()(
         currentStreak: state.currentStreak,
         longestStreak: state.longestStreak,
         lastStreakDate: state.lastStreakDate,
+        // Calm return only — absent (undefined) while the flag is off.
+        ...(state.streakGraceWeekKey ? { streakGraceWeekKey: state.streakGraceWeekKey } : {}),
+        ...(state.pendingStreakGrace ? { pendingStreakGrace: state.pendingStreakGrace } : {}),
         lastSyncTimestamp: state.lastSyncTimestamp,
         resolvedStepGoal: state.resolvedStepGoal,
       }),

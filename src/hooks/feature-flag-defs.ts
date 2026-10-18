@@ -116,6 +116,13 @@ export const FLAG_DEFS = [
   // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
   // on his account while every other user keeps today's home until he flips it.
   { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
+  // Calm return (CALM_RETURN_V1, 18.10.2026, policy approved by David) — coming back after
+  // missed workouts costs the user as little attention as possible: one getDaysAway for the
+  // whole app, tiered lighter loads (src/lib/calm-return), no realign/rebuild popups, no
+  // missed-workout banner, at most one quiet card per open, a weekly streak grace day.
+  // Fail-closed; superAdminValue false — the panel toggle is the one switch (the streak
+  // store and the generator read the live value, which ignores the super-admin override).
+  { key: 'enableCalmReturnV1', firestoreKey: 'enable_calm_return_v1', defaultValue: false, superAdminValue: false },
   // OUT AI Phase 0 (18.10.2026) — foundation only, no user-facing AI feature reads these yet.
   // The SERVER is the enforcer (src/lib/ai/*.server.ts reads this same document via the Admin
   // SDK, ignoring superAdminValue); the client copies below only drive UI.

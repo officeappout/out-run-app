@@ -68,6 +68,9 @@ export interface SmartMessage {
   isActive: boolean;
   /** Optional: specific persona this message targets */
   targetPersona?: string;
+  /** Optional: grammatical gender of the copy (male/female variants instead of slashes).
+   *  Unset = neutral, shown to everyone; a user of unknown gender gets the male form. */
+  targetGender?: 'male' | 'female';
   /** Optional: minimum streak to show this message */
   minStreak?: number;
   /** Optional: maximum streak to show this message */
@@ -85,6 +88,7 @@ export interface SmartMessageInput {
   priority: number;
   isActive: boolean;
   targetPersona?: string;
+  targetGender?: 'male' | 'female';
   minStreak?: number;
   maxStreak?: number;
 }
@@ -102,6 +106,21 @@ export interface MessageContext {
   level?: number;
   /** User's active program name */
   program?: string;
+  /** User's gender — picks the male/female variant of gendered copy. */
+  gender?: 'male' | 'female' | 'other';
+}
+
+/** Gendered copy: neutral rows fit everyone; unknown/other gender reads the male form. */
+export function messageMatchesGender(msg: Pick<SmartMessage, 'targetGender'>, gender?: MessageContext['gender']): boolean {
+  if (!msg.targetGender) return true;
+  return msg.targetGender === (gender === 'female' ? 'female' : 'male');
+}
+
+function pickDefault(type: MessageType, gender?: MessageContext['gender']): SmartMessage {
+  const all = DEFAULT_MESSAGES[type] || DEFAULT_MESSAGES.default;
+  const defaults = all.filter((m) => messageMatchesGender(m, gender));
+  const pool = defaults.length > 0 ? defaults : all;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // ============================================================================
@@ -138,11 +157,14 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
     { id: 'default-part-2', type: 'partial_workout', text: 'התחלה טובה!', subText: 'בפעם הבאה נשלים', priority: 5, isActive: true },
     { id: 'default-part-3', type: 'partial_workout', text: 'לא נורא!', subText: 'העיקר שזז', priority: 4, isActive: true },
   ],
+  // Calm return copy (18.10.2026): warm and short, no day counts, no "where were you".
   re_engagement: [
-    { id: 'default-re-1', type: 're_engagement', text: 'כיף לראות אותך!', subText: 'בוא נחזור לעניינים', priority: 5, isActive: true },
-    { id: 'default-re-2', type: 're_engagement', text: 'התגעגענו!', subText: 'מוכן לאימון?', priority: 5, isActive: true },
-    { id: 'default-re-3', type: 're_engagement', text: 'חזרת!', subText: 'הגוף שלך מחכה', priority: 6, isActive: true },
-    { id: 'default-re-4', type: 're_engagement', text: 'איפה היית?', subText: 'הגיע הזמן לזוז', priority: 4, isActive: true },
+    { id: 'default-re-1', type: 're_engagement', text: 'כיף לראות אותך!', subText: 'בוא נתחיל בקטנה', priority: 5, isActive: true, targetGender: 'male' },
+    { id: 'default-re-1f', type: 're_engagement', text: 'כיף לראות אותך!', subText: 'בואי נתחיל בקטנה', priority: 5, isActive: true, targetGender: 'female' },
+    { id: 'default-re-2', type: 're_engagement', text: 'טוב שחזרת', subText: 'מוכן לאימון קליל?', priority: 5, isActive: true, targetGender: 'male' },
+    { id: 'default-re-2f', type: 're_engagement', text: 'טוב שחזרת', subText: 'מוכנה לאימון קליל?', priority: 5, isActive: true, targetGender: 'female' },
+    { id: 'default-re-3', type: 're_engagement', text: 'שבוע חדש מתחיל היום', subText: 'אימון קליל להיום', priority: 6, isActive: true },
+    { id: 'default-re-4', type: 're_engagement', text: 'חוזרים בקטנה', subText: 'גם קצת זה מספיק להיום', priority: 4, isActive: true },
   ],
   pr_record: [
     { id: 'default-pr-1', type: 'pr_record', text: 'שיא חדש! 🏆', subText: 'שברת את עצמך', priority: 10, isActive: true },
@@ -167,8 +189,8 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
     { id: 'default-cs-3', type: 'community_session', text: 'מפגש מחר!', subText: 'אל תשכח לאשר הגעה', priority: 6, isActive: true },
   ],
   missed_workout: [
-    { id: 'default-mw-1', type: 'missed_workout', text: 'אתמול היה אמור להיות לך אימון בתוכנית, אבל לא נורא!', subText: 'רוצה להשלים אותו עכשיו ולקבל את הקרדיט?', priority: 7, isActive: true },
-    { id: 'default-mw-2', type: 'missed_workout', text: 'פספסת את האימון של אתמול? 💪', subText: 'שום דבר לא קרה — הלו"ז מחכה לך כאן למטה:', priority: 6, isActive: true },
+    { id: 'default-mw-1', type: 'missed_workout', text: 'האימון של אתמול עוד כאן', subText: 'רוצה לעשות אותו היום?', priority: 7, isActive: true },
+    { id: 'default-mw-2', type: 'missed_workout', text: 'הכל בסדר', subText: 'אם בא לך, אפשר להשלים היום', priority: 6, isActive: true },
   ],
   default: [
     { id: 'default-def-1', type: 'default', text: 'היי!', subText: 'מוכן להתאמן?', priority: 5, isActive: true },
@@ -192,8 +214,9 @@ const INITIAL_SEED_DATA: SmartMessage[] = [
   { id: 'seed-part-2', type: 'partial_workout', text: 'חצי אימון', subText: 'עדיף מאפס אימונים', priority: 5, isActive: true },
   
   // Re-engagement
-  { id: 'seed-re-1', type: 're_engagement', text: 'איפה נעלמת?', subText: 'השרירים שואלים', priority: 7, isActive: true },
-  { id: 'seed-re-2', type: 're_engagement', text: 'הופה!', subText: 'הגיע הזמן לחזור לעניינים', priority: 6, isActive: true },
+  { id: 'seed-re-1', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בוא נזוז קצת', priority: 7, isActive: true, targetGender: 'male' },
+  { id: 'seed-re-1f', type: 're_engagement', text: 'טוב לראות אותך', subText: 'בואי נזוז קצת', priority: 7, isActive: true, targetGender: 'female' },
+  { id: 'seed-re-2', type: 're_engagement', text: 'הופה!', subText: 'אימון קליל להיום?', priority: 6, isActive: true },
   
   // PR Record
   { id: 'seed-pr-1', type: 'pr_record', text: 'מפלצת!', subText: 'שבירת שיאים זה הדבר שלך', priority: 10, isActive: true },
@@ -314,6 +337,7 @@ class MessageService {
     
     // Filter by context constraints
     const filtered = messages.filter(msg => {
+      if (!messageMatchesGender(msg, context.gender)) return false;
       // Lifestyle/Persona filtering
       if (msg.targetPersona) {
         // 'general' always matches
@@ -343,14 +367,13 @@ class MessageService {
     
     if (filtered.length === 0) {
       // Fallback: try messages without targetPersona
-      const untargeted = messages.filter(m => !m.targetPersona);
+      const untargeted = messages.filter(m => !m.targetPersona && messageMatchesGender(m, context.gender));
       if (untargeted.length > 0) {
         return this.selectByPriority(untargeted);
       }
       
       // Final fallback: default messages
-      const defaults = DEFAULT_MESSAGES[context.type] || DEFAULT_MESSAGES.default;
-      return defaults[Math.floor(Math.random() * defaults.length)];
+      return pickDefault(context.type, context.gender);
     }
     
     return this.selectByPriority(filtered);
@@ -472,6 +495,7 @@ class MessageService {
     
     // Filter by context constraints
     const filtered = messages.filter(msg => {
+      if (!messageMatchesGender(msg, context.gender)) return false;
       // Check persona match
       if (msg.targetPersona && context.persona && msg.targetPersona !== context.persona) {
         return false;
@@ -488,8 +512,7 @@ class MessageService {
     
     // Select randomly weighted by priority
     if (filtered.length === 0) {
-      const defaults = DEFAULT_MESSAGES[context.type] || DEFAULT_MESSAGES.default;
-      return defaults[Math.floor(Math.random() * defaults.length)];
+      return pickDefault(context.type, context.gender);
     }
     
     // Weighted random selection based on priority
@@ -720,6 +743,7 @@ class MessageService {
             subText: msg.subText,
             priority: msg.priority,
             isActive: msg.isActive,
+            ...(msg.targetGender ? { targetGender: msg.targetGender } : {}),
           });
           count++;
         }

@@ -40,6 +40,7 @@ interface FlagState {
   enable_no_auto_strength_level: boolean;
   enable_league_aggregates: boolean;
   enable_home_v2: boolean;
+  enable_calm_return_v1: boolean;
   ai_coach_enabled: boolean;
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
@@ -106,6 +107,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-500',
     title: 'העיצוב החדש (v2)',
     description: 'דף הבית, הבר התחתון, מחולל ותכנון אימונים, צעדים, פארק, קבוצה, פרופיל, הגדרות, ליגות ופיד בעיצוב החדש. מנהלי־על רואים אותו תמיד',
+  },
+  {
+    key: 'enable_calm_return_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-500',
+    title: 'חזרה רגועה אחרי הפסקה',
+    description: 'מי שחוזר אחרי כמה ימים בלי אימון מקבל אימון קליל יותר, בלי חלונות קופצים ובלי באנר "פספסת". 4-6 ימים: רק כותרת הכרטיס משתנה. שבוע ומעלה: שבוע חדש מהיום וכרטיס אחד בפתיחה הראשונה. רצף: יום חסד אחד בשבוע. כבוי = כמו היום',
   },
   {
     key: 'enable_hybrid_slots',

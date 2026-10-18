@@ -61,6 +61,17 @@ export interface HomeWorkoutOptions {
   /** Override days-inactive for testing (default: calculated from profile) */
   daysInactiveOverride?: number;
 
+  /**
+   * Calm return (CALM_RETURN_V1). Undefined = the pipeline reads the live panel flag itself
+   * (readLiveFlag — every entry point follows the same switch; always OFF in node/hermetic
+   * runs). true/false forces it (tests). When on, the gap
+   * is getDaysAway (one source for the whole app) and the tiered calm load replaces the
+   * gap tiers of resolveSessionPolicy (src/features/workout-engine/services/
+   * calm-return-session.ts). Off = today's behaviour, byte for byte. Ignored
+   * when daysInactiveOverride is set (the admin simulators keep their own gap).
+   */
+  calmReturnEnabled?: boolean;
+
   /** Override persona for testing */
   personaOverride?: LifestylePersona;
 
