@@ -132,12 +132,12 @@ Two live fields are **Admin-SDK-only and undocumented in the TS types**: `dropof
 
 ## 4. Deep-link targets
 
-**Mechanism:** FCM `data.deepLink` carries a bare path string (e.g. `/chat/<id>`, `/community/groups/<id>`, `/onboarding-new/selection`). Client-side listener at `src/lib/native/push.ts:359-420` (`FirebaseMessaging.addListener('notificationActionPerformed', ...)`) reads it, resolves it against `window.location.origin` (same-origin check only, no path allow-list), and does a **full page navigation** (`window.location.href = target.href`) — not an in-app router push.
+**Mechanism:** FCM `data.deepLink` carries a bare path string (e.g. `/chat/<id>`, `/community/groups/<id>`, `/gateway`). Client-side listener at `src/lib/native/push.ts:359-420` (`FirebaseMessaging.addListener('notificationActionPerformed', ...)`) reads it, resolves it against `window.location.origin` (same-origin check only, no path allow-list), and does a **full page navigation** (`window.location.href = target.href`) — not an in-app router push.
 
 | Destination type | Wired today? | Detail |
 |---|---|---|
 | Specific static screen (home `/`, chat, community) | ✅ | Routes exist and resolve correctly |
-| Onboarding/completion module | ✅ | `/onboarding-new/selection` re-hydrates the wizard at the last completed step |
+| Onboarding/completion module | ✅ | `/gateway` re-routes an in-progress user to their saved onboarding step (was `/onboarding-new/selection`, a deleted route — now redirected) |
 | Community group by ID | ⚠️ **broken today** | Senders build `/community/groups/{groupId}` but the real route is `/community/{id}` (single dynamic segment, `src/app/community/[id]/page.tsx`) — no `community/groups/` folder exists. Taps 404. One-line fix needed either in the dispatcher or by adding the route. |
 | Specific workout route/trail by ID | ❌ **not wired** | No public-facing route/trail detail page exists anywhere in `src/app` (only admin-only `src/app/admin/routes`). Would need a new page + new deep-link string; the navigation mechanism itself needs no changes. |
 | **"Route from the user's neighborhood"** | ❌ **not targetable** | Two separate gaps stack here: (a) no `neighborhoodId` field exists on the user doc at all (§1), and (b) no consumer page for a specific route/park exists (previous row). Both would need to be built. |
@@ -179,7 +179,7 @@ It's interactive, not passive: tapping expands an accordion; each incomplete ite
 |---|---|---|---|---|---|
 | 1 | Training reminder | Cron `30 7 * * *` IST | `📅 {category label}{ ב-HH:MM \| היום}` + 1 of 3 rotating bodies (day-of-year rotation) | `userSchedule` today, uncompleted, time not passed | `/` |
 | 2 | Retention/inactivity | Cron `0 10 * * *` IST | 1 of 4 `{name}, {days_since}…` templates (uid-hash rotation) | `onboardingStatus==COMPLETED`, inactive ≥7d | `/` |
-| 3 | Onboarding dropoff | Cron every 30 min, all day | 1 of 5 `{name}, …` templates (uid-hash rotation) | `onboardingStatus IN [IN_PROGRESS,ONBOARDING]`, stale ≥24h, 48h cooldown | `/onboarding-new/selection` |
+| 3 | Onboarding dropoff | Cron every 30 min, all day | 1 of 5 `{name}, …` templates (uid-hash rotation) | `onboardingStatus IN [IN_PROGRESS,ONBOARDING]`, stale ≥24h, 48h cooldown | `/gateway` |
 | 4 | Level up | `progression.globalLevel` increases | Per-level table (levels 2-10, each a distinct title+body) + generic fallback | Any user leveling past 1 | `/` |
 | 5 | Kudos received | `onCreate kudos inbox`, batched (30min rate cap) | Single or batched-count template | Kudos recipient | `/activity` |
 | 6 | Group-join welcome | `onCreate group member` | `"ברוך הבא ל{group_name}!"` | New joiner (non-bootstrap-admin) | `/community/groups/{id}` ⚠️ broken (see §4) |
