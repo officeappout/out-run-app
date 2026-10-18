@@ -25,10 +25,16 @@ import { FieldValue, type Firestore, type DocumentSnapshot } from 'firebase-admi
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { isRootAdmin } from '@/config/feature-flags';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
-import { isRegisteredAgent, AGENT_REGISTRY } from '@/features/admin/agents/agent-registry';
+import {
+  isRegisteredAgent,
+  AGENT_REGISTRY,
+  AUTOMATION_REGISTRY,
+  type AutomationDefinition,
+} from '@/features/admin/agents/agent-registry';
 import type {
   AgentFinding,
   AgentOverview,
+  AutomationStatus,
   FindingsStatusFilter,
   SuspectedPr,
 } from '@/features/admin/agents/agent-findings.types';
@@ -185,6 +191,84 @@ export async function computeAgentsOverview(db: Firestore): Promise<AgentOvervie
         consecutiveFailures: num(s.consecutiveFailures),
         unreadCount: unreadAgg.data().count,
       };
+    }),
+  );
+}
+
+// ── Automation "last run" (read-only, registry-driven) ───────────────────────
+
+const STATUS_VALUE = /^[A-Za-z_-]{1,32}$/;
+
+function readPath(data: Record<string, unknown>, path: string): unknown {
+  let cur: unknown = data;
+  for (const key of path.split('.')) {
+    if (!cur || typeof cur !== 'object') return undefined;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return cur;
+}
+
+/**
+ * Turns the newest source doc into an AutomationStatus. Only the
+ * registry-whitelisted fields are looked at; the status value is passed
+ * through only when it is a short enum-like token (never free text).
+ */
+export function serializeAutomationStatus(
+  def: AutomationDefinition,
+  data: Record<string, unknown> | null,
+): AutomationStatus {
+  const src = def.statusSource;
+  if (!src || src.kind !== 'latestDoc') {
+    return { automationId: def.id, available: false, lastAt: null, status: null, counts: [], error: null };
+  }
+  if (!data) {
+    return { automationId: def.id, available: true, lastAt: null, status: null, counts: [], error: null };
+  }
+  const rawStatus = src.statusField ? data[src.statusField] : undefined;
+  const counts = (src.countFields ?? []).flatMap(({ path, label }) => {
+    const v = readPath(data, path);
+    return typeof v === 'number' && Number.isFinite(v) ? [{ label, value: v }] : [];
+  });
+  return {
+    automationId: def.id,
+    available: true,
+    lastAt: toIso(data[src.orderByField]),
+    status: typeof rawStatus === 'string' && STATUS_VALUE.test(rawStatus) ? rawStatus : null,
+    counts,
+    error: null,
+  };
+}
+
+/**
+ * One read per registry entry that has a latestDoc source: the newest doc
+ * by a single field (automatic single-field index — no composite index),
+ * reading ONLY the whitelisted fields via select(). Read-only; a failing
+ * source becomes `error: 'unavailable'` instead of failing the panel.
+ * agentDoc sources are covered by computeAgentsOverview.
+ */
+export async function computeAutomationStatuses(db: Firestore): Promise<AutomationStatus[]> {
+  return Promise.all(
+    AUTOMATION_REGISTRY.map(async (def) => {
+      const src = def.statusSource;
+      if (!src || src.kind !== 'latestDoc') return serializeAutomationStatus(def, null);
+      const fields = [
+        src.orderByField,
+        ...(src.statusField ? [src.statusField] : []),
+        ...(src.countFields ?? []).map((c) => c.path),
+      ];
+      try {
+        const snap = await db
+          .collection(src.collection)
+          .orderBy(src.orderByField, 'desc')
+          .limit(1)
+          .select(...fields)
+          .get();
+        const doc = snap.docs[0];
+        return serializeAutomationStatus(def, doc ? ((doc.data() ?? {}) as Record<string, unknown>) : null);
+      } catch (err) {
+        console.error('[agentsPanel] automation status read failed', def.id, err instanceof Error ? err.name : 'unknown');
+        return { ...serializeAutomationStatus(def, null), error: 'unavailable' as const };
+      }
     }),
   );
 }

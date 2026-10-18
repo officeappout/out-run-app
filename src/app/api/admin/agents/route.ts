@@ -1,13 +1,16 @@
 /**
  * GET /api/admin/agents — root-only. Health + unread count for every agent
- * in the registry (src/features/admin/agents/agent-registry.ts).
+ * with findings, plus a read-only "last run" for every automation in the
+ * registry (src/features/admin/agents/agent-registry.ts) — newest doc of
+ * its status source, whitelisted fields only.
  * Security contract: src/lib/agentsPanelServer.ts header. No audit row —
- * this returns counts/health only, no finding content.
+ * this returns counts/health/timestamps only, no finding or user content.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import {
   computeAgentsOverview,
+  computeAutomationStatuses,
   gateAgentsRequest,
   isAgentsPanelRateLimited,
 } from '@/lib/agentsPanelServer';
@@ -33,8 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const agents = await computeAgentsOverview(db);
-    return NextResponse.json({ agents }, { headers: NO_STORE });
+    const [agents, automations] = await Promise.all([
+      computeAgentsOverview(db),
+      computeAutomationStatuses(db),
+    ]);
+    return NextResponse.json({ agents, automations }, { headers: NO_STORE });
   } catch (err) {
     console.error('[api/admin/agents] failed', err instanceof Error ? err.name : 'unknown');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: NO_STORE });
