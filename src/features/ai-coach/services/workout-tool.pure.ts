@@ -62,15 +62,41 @@ const clampInt = (v: unknown, lo: number, hi: number): number => {
   return Math.min(hi, Math.max(lo, n));
 };
 
-/** GeneratedWorkout → WorkoutToolResult (main exercises only; names via the caller). */
+export interface CompactDetails {
+  methodName: (ex: WorkoutExercise) => string;
+  gearLabels: (ex: WorkoutExercise) => string[];
+  area: (ex: WorkoutExercise) => string | null;
+  requestedMinutes: number;
+  domains: string[];
+  difficulty: number;
+  shortOfMinimum?: boolean;
+}
+
+/** The engine clamped the user's level to the content ceiling for this location (#404). */
+export function hasLevelCeiling(workout: Pick<GeneratedWorkout, 'decisionRecord'>): boolean {
+  const reasons = (workout.decisionRecord as { reasons?: Array<{ code?: string }> } | undefined)?.reasons;
+  return Array.isArray(reasons) && reasons.some((r) => r?.code === 'LEVEL_CEILING');
+}
+
+function hasVideo(ex: WorkoutExercise): boolean {
+  const media = (ex.method as { media?: { mainVideoUrl?: string | null } } | null | undefined)?.media;
+  return typeof media?.mainVideoUrl === 'string' && media.mainVideoUrl.length > 0;
+}
+
+/**
+ * GeneratedWorkout → WorkoutToolResult (main exercises only; names via the caller). With
+ * `details`, every exercise also carries its method, where it is done, the gear it needs
+ * and whether it has a video, so Kelly can answer "is this for home?" from facts.
+ */
 export function compactWorkout(
   workoutId: string,
   location: GenerateWorkoutInputT['location'],
   workout: GeneratedWorkout,
   nameOf: (ex: WorkoutExercise) => string,
+  details?: CompactDetails,
 ): WorkoutToolResult {
   const main = workout.exercises.filter(isMain).slice(0, 20);
-  return {
+  const out: WorkoutToolResult = {
     workoutId,
     title: (workout.title || 'אימון מותאם אישית').slice(0, 80),
     minutes: clampInt(workout.estimatedDuration, 1, 180),
@@ -80,7 +106,27 @@ export function compactWorkout(
       sets: clampInt(ex.sets, 0, 20),
       reps: ex.isTimeBased ? null : clampInt(ex.reps, 0, 300),
       seconds: ex.isTimeBased ? clampInt(ex.reps, 0, 900) : null,
+      ...(details
+        ? {
+            method: (details.methodName(ex) || '').slice(0, 80),
+            methodLocation: ((ex.method as { location?: string } | null | undefined)?.location ?? null)?.slice(0, 20) ?? null,
+            gear: details.gearLabels(ex).map((g) => g.slice(0, 40)).slice(0, 6),
+            video: hasVideo(ex),
+            area: details.area(ex),
+          }
+        : {}),
     })),
-    ...(workout.decisionRecord ? { decisionRecord: JSON.parse(JSON.stringify(workout.decisionRecord)) } : {}),
   };
+  if (details) {
+    out.requestedMinutes = clampInt(details.requestedMinutes, 1, 180);
+    out.domains = details.domains.slice(0, 8);
+    out.difficulty = clampInt(details.difficulty, 1, 3);
+    out.structure = String(workout.structure ?? 'standard').slice(0, 20);
+    out.warmupCount = workout.exercises.filter((e) => e.exerciseRole === 'warmup').length;
+    out.cooldownCount = workout.exercises.filter((e) => e.exerciseRole === 'cooldown').length;
+    out.levelCeiling = hasLevelCeiling(workout);
+    if (details.shortOfMinimum) out.shortOfMinimum = true;
+  }
+  if (workout.decisionRecord) out.decisionRecord = JSON.parse(JSON.stringify(workout.decisionRecord));
+  return out;
 }

@@ -1368,7 +1368,11 @@ export function selectExercisesWithDomainQuotas(
   // residual `matchesAnyRequiredDomain` shares with it).
   if (selected.length < count) {
     const domainMatched = shuffled
-      .filter((s) => !selectedIds.has(s.exercise.id) && matchesAnyRequiredDomain(s.exercise, context))
+      .filter((s) =>
+        !selectedIds.has(s.exercise.id)
+        && matchesAnyRequiredDomain(s.exercise, context)
+        && Math.abs((s as { levelDiff?: number }).levelDiff ?? 0) <= 3, // same ±3 window as the DomainRescue relax above
+      )
       .sort((a, b) => b.score - a.score);
     const shuffledDomainMatched = seededShuffle(domainMatched.slice(0, (count - selected.length) * 2), seed + 999);
     for (const s of shuffledDomainMatched) {
@@ -1380,7 +1384,32 @@ export function selectExercisesWithDomainQuotas(
     }
   }
 
-  if (selected.length < count) {
+  // Strict single/multi-domain requests (the builder's muscle chips, the AI coach's
+  // "אימון בטן"): before giving up on the domain, widen to the FULL scored pool (not
+  // just the difficulty-filtered top `count * 2`), closest level first. Then STOP:
+  // the domain-blind last resort below must never turn "core only" into a push/pull
+  // session (AI coach review 18.10.2026: "אימון בטן" shipped פשיטת מרפקים + דדליפט
+  // רומני because the core pool after the difficulty cut held only 1-2 candidates).
+  // A short on-domain session is the honest result; enforceVolumeCap's add-back and
+  // the reserve pool (also domain-gated under strictDomains) fill volume.
+  if (selected.length < count && context.strictDomains) {
+    const wider = scoredExercises
+      .filter((s) =>
+        !selectedIds.has(s.exercise.id)
+        && matchesAnyRequiredDomain(s.exercise, context)
+        && Math.abs((s as { levelDiff?: number }).levelDiff ?? 0) <= 3, // same ±3 window as the DomainRescue relax above
+      )
+      .sort((a, b) =>
+        Math.abs((a as { levelDiff?: number }).levelDiff ?? 0) - Math.abs((b as { levelDiff?: number }).levelDiff ?? 0) || b.score - a.score,
+      );
+    for (const s of wider) {
+      if (selected.length >= count) break;
+      selected.push(s);
+      selectedIds.add(s.exercise.id);
+    }
+  }
+
+  if (selected.length < count && !context.strictDomains) {
     const any = shuffled
       .filter((s) => !selectedIds.has(s.exercise.id))
       .sort((a, b) => b.score - a.score);
@@ -1528,7 +1557,11 @@ export function selectExercisesWithDominance(
   if (selected.length < count) {
     const rem = count - selected.length;
     const domainMatched = scoredExercises
-      .filter((s) => !selectedIds.has(s.exercise.id) && matchesAnyRequiredDomain(s.exercise, context))
+      .filter((s) =>
+        !selectedIds.has(s.exercise.id)
+        && matchesAnyRequiredDomain(s.exercise, context)
+        && Math.abs((s as { levelDiff?: number }).levelDiff ?? 0) <= 3, // same ±3 window as the DomainRescue relax above
+      )
       .sort((a, b) => b.score - a.score)
       .slice(0, rem * 2);
     const shuffledDomainMatched = seededShuffle(domainMatched, seed + 99);

@@ -25,7 +25,7 @@ export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_
 export interface ChatState {
   phase: ChatPhase;
   messages: UiMessage[];
-  /** A server tool is running (UI: "בודקת..."). */
+  /** A server tool is running (UI: "בודק..."). */
   toolStatus: string | null;
   /** The client tool the device must run now. */
   toolCall: { id: string; name: string; input: unknown } | null;

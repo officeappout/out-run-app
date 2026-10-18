@@ -258,3 +258,54 @@ describe('historyToModelMessages', () => {
     expect(h[1].content).toContain('workoutId=ai-1-aaaaaa');
   });
 });
+
+describe('reply guards in the turn loop (owner review 18.10.2026)', () => {
+  const SHEET: any = {
+    firstName: 'דוד', gender: 'male', ageBand: null, goals: { mainGoal: null, selected: [] }, primaryTrack: null,
+    programs: [], injuries: [], streakDays: null, lastWorkouts: [], today: [],
+    thisWeek: [
+      { date: '2026-10-18', type: 'training', programs: [], startTime: '18:00', completed: false, title: null },
+      { date: '2026-10-20', type: 'training', programs: [], startTime: null, completed: false, title: null },
+    ],
+    preferredTrainingTime: null, equipment: { home: [], office: [], outdoor: [] }, area: null,
+  };
+  const GUARDED: TurnConfig = { ...CFG, guards: { sheet: SHEET, todayDow: 0 } };
+
+  it('re-prompts once, then strips foreign words that survive the retry', async () => {
+    const { deps, events, calls } = harness([
+      msg('end_turn', { type: 'text', text: 'השבוע יש לך 3 אימונים, ok?' }),
+      msg('end_turn', { type: 'text', text: 'השבוע יש לך 2 אימונים, ביום ראשון ב-18:00 ושלישי. ok?' }),
+    ]);
+    const out = await runCoachTurn(GUARDED, newTurnState('מה בתוכנית?'), deps);
+    expect(calls).toHaveLength(2);
+    expect(out.state.turnText).toBe('השבוע יש לך 2 אימונים, ביום ראשון ב-18:00 ושלישי.?');
+    expect(events.filter((e) => e.type === 'text')).toHaveLength(1); // the bad first try was never sent
+    expect(out.state.log!.guards).toEqual([
+      { type: 'grounding', action: 'reprompt: 3 workouts' },
+      { type: 'hebrew_only', action: 'reprompt: ok' },
+      { type: 'hebrew_only', action: 'unresolved_after_retry: ok' },
+      { type: 'hebrew_only', action: 'stripped: ok' },
+    ]);
+  });
+
+  it('a correct reply passes untouched with a single model call', async () => {
+    const { deps, calls } = harness([msg('end_turn', { type: 'text', text: 'השבוע מתוכננים לך 2 אימונים.' })]);
+    const out = await runCoachTurn(GUARDED, newTurnState('מה בתוכנית?'), deps);
+    expect(calls).toHaveLength(1);
+    expect(out.state.log!.guards).toEqual([]);
+    expect(out.state.log!.usage).toEqual({ in: 10, out: 5, cacheRead: 0 });
+  });
+
+  it('a tool round preamble is shown (stripped), tool calls are logged with a result summary', async () => {
+    const h = harness(
+      [
+        msg('tool_use', { type: 'text', text: 'checking בודק.' }, { type: 'tool_use', id: 't1', name: 'get_progress', input: { range: 'week' } }),
+        msg('end_turn', { type: 'text', text: 'השבוע עשית 2 אימונים.' }),
+      ],
+      vi.fn(async () => ({ content: '{"range":"week","workouts":2,"activeDays":2}' })),
+    );
+    const out = await runCoachTurn(GUARDED, newTurnState('איך אני מתקדם?'), h.deps);
+    expect(out.state.turnText).toBe('בודק.\nהשבוע עשית 2 אימונים.');
+    expect(out.state.log!.toolCalls).toEqual([{ name: 'get_progress', input: { range: 'week' }, resultSummary: '{"range":"week","workouts":2,"activeDays":2}' }]);
+  });
+});

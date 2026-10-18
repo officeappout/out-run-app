@@ -24,6 +24,7 @@ import {
   type ProgressRange,
   type RawScheduleEntry,
   type RawWorkout,
+  type UserContextSheet,
 } from './context-sheet';
 import { firstNameOf } from './persona';
 import type { StoredCard } from './thread-store.server';
@@ -89,7 +90,8 @@ async function readAreaName(ctx: ServerToolContext): Promise<string | null> {
   return null;
 }
 
-export async function getUserContext(ctx: ServerToolContext): Promise<ToolExecResult> {
+/** The user sheet (also pre-loaded into every turn's system prompt by the route). */
+export async function loadUserContextSheet(ctx: ServerToolContext): Promise<UserContextSheet> {
   const todayKey = getIsraelDateKey(ctx.now);
   const week = weekKeys(todayKey, getIsraelDayOfWeek(ctx.now));
   const [workouts, weekSchedule, areaName] = await Promise.all([
@@ -97,7 +99,29 @@ export async function getUserContext(ctx: ServerToolContext): Promise<ToolExecRe
     readSchedule(ctx, week),
     readAreaName(ctx),
   ]);
-  return json(buildUserContextSheet({ profile: ctx.profile, workouts, weekSchedule, todayKey, areaName, now: ctx.now }));
+  return buildUserContextSheet({ profile: ctx.profile, workouts, weekSchedule, todayKey, areaName, now: ctx.now });
+}
+
+export async function getUserContext(ctx: ServerToolContext): Promise<ToolExecResult> {
+  return json(await loadUserContextSheet(ctx));
+}
+
+/** The stored exercise list of a card shown in this conversation (no device round trip). */
+export function getWorkoutDetails(ctx: ServerToolContext, input: { workoutId: string }): ToolExecResult {
+  const card = ctx.knownCards.get(input.workoutId);
+  if (!card) return { content: 'No workout with this id was shown in this conversation.', isError: true };
+  if (!card.exercises?.length) {
+    return json({ workoutId: card.workoutId, title: card.title, minutes: card.minutes, location: card.location, note: 'The exercise list of this older card was not saved. Suggest building it again.' });
+  }
+  return json({
+    workoutId: card.workoutId,
+    title: card.title,
+    minutes: card.minutes,
+    requestedMinutes: card.requestedMinutes,
+    location: card.location,
+    levelCeiling: card.levelCeiling,
+    exercises: card.exercises,
+  });
 }
 
 export async function getProgress(ctx: ServerToolContext, input: { range: ProgressRange }): Promise<ToolExecResult> {
@@ -183,6 +207,8 @@ export async function executeServerTool(ctx: ServerToolContext, name: string, in
       return getProgress(ctx, input as { range: ProgressRange });
     case 'get_schedule':
       return getSchedule(ctx, input as { from: string; to: string });
+    case 'get_workout_details':
+      return getWorkoutDetails(ctx, input as { workoutId: string });
     case 'explain_workout':
       return explainWorkout(ctx, input as { workoutId: string });
     case 'handoff_to_human':

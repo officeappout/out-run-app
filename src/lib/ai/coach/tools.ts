@@ -69,6 +69,10 @@ export const ExplainWorkoutInput = z.object({
   workoutId: z.string().min(1).max(80),
 });
 
+export const GetWorkoutDetailsInput = z.object({
+  workoutId: z.string().min(1).max(80),
+});
+
 export const HandoffToHumanInput = z.object({
   summary: z.string().trim().min(5).max(500),
 });
@@ -100,7 +104,7 @@ export const COACH_TOOLS = {
     name: 'get_user_context',
     kind: 'server',
     description:
-      "Returns a compact sheet about the user: first name, grammatical gender, age band, goals, active programs with levels, injuries, streak, the last 5 workouts, today's and this week's schedule, preferred training time, the user's own equipment ids per location, and a coarse area name. Call it once before suggesting or building a workout, or when the user asks about themselves.",
+      "Returns a compact sheet about the user: first name, grammatical gender, age band, goals, active programs with levels, injuries, streak, the last 5 workouts, today's and this week's schedule, preferred training time, the user's own equipment ids per location, and a coarse area name. The same sheet is already in the session context at the start of every turn; call this only to refresh it.",
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     zod: GetUserContextInput,
   },
@@ -137,7 +141,7 @@ export const COACH_TOOLS = {
     name: 'generate_workout',
     kind: 'client',
     description:
-      "Builds a real workout with the app's workout engine on the user's device and shows it as a card the user can open and start. Use it whenever the user wants a workout. The result lists the title, minutes and exercises; describe only what it returns.",
+      "Builds a real workout with the app's workout engine on the user's device and shows it as a card the user can open and start. Use it whenever the user wants a workout. The result lists the title, the real minutes (which may differ from the request), and every main exercise with its method, where it is done (methodLocation) and the gear it needs; describe only what it returns.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -154,7 +158,7 @@ export const COACH_TOOLS = {
           type: 'array',
           items: { type: 'string' },
           maxItems: 12,
-          description: "Equipment ids, only from the user's own equipment for that location (get_user_context). Empty means bodyweight or the user's saved gear.",
+          description: "Leave empty: the engine uses the user's own saved gear for that location. Only pass ids (from the user's own equipment list) when the user explicitly limits the gear for this workout.",
         },
         intent: { type: 'string', maxLength: 80, description: 'Short free-text note of what the user asked for' },
       },
@@ -175,6 +179,19 @@ export const COACH_TOOLS = {
       additionalProperties: false,
     },
     zod: ExplainWorkoutInput,
+  },
+  get_workout_details: {
+    name: 'get_workout_details',
+    kind: 'server',
+    description:
+      'Returns the exercise list of a workout card shown in this conversation: each main exercise with its method, where it is done (home, park, office), the gear it needs and whether it has a video. Use it to answer questions about a shown workout, like whether it fits home or which gear it needs. Pass the workoutId from the card.',
+    inputSchema: {
+      type: 'object',
+      properties: { workoutId: { type: 'string' } },
+      required: ['workoutId'],
+      additionalProperties: false,
+    },
+    zod: GetWorkoutDetailsInput,
   },
   handoff_to_human: {
     name: 'handoff_to_human',
@@ -265,9 +282,30 @@ export const WorkoutToolResultSchema = z.object({
         sets: z.number().int().min(0).max(20),
         reps: z.number().int().min(0).max(300).nullable(),
         seconds: z.number().int().min(0).max(900).nullable(),
+        /** The execution method's name ("חתירות באמצעות מגבת"). */
+        method: z.string().max(80).optional(),
+        /** Where the chosen method is done (home / park / office / …). */
+        methodLocation: z.string().max(20).nullable().optional(),
+        /** Hebrew names of the gear the method needs (empty = bodyweight). */
+        gear: z.array(z.string().max(40)).max(6).optional(),
+        /** The method has a video in the app. */
+        video: z.boolean().optional(),
+        /** Base body area: push / pull / legs / core. */
+        area: z.string().max(20).nullable().optional(),
       }),
     )
     .max(20),
+  /** What the user asked for (the card shows the real `minutes`). */
+  requestedMinutes: z.number().int().min(1).max(180).optional(),
+  domains: z.array(z.string().max(40)).max(8).optional(),
+  difficulty: z.number().int().min(1).max(3).optional(),
+  structure: z.string().max(20).optional(),
+  warmupCount: z.number().int().min(0).max(20).optional(),
+  cooldownCount: z.number().int().min(0).max(20).optional(),
+  /** The engine clamped the level down: little content at the user's level for this location. */
+  levelCeiling: z.boolean().optional(),
+  /** Fewer main exercises than the short-session minimum were available. */
+  shortOfMinimum: z.boolean().optional(),
   decisionRecord: DecisionRecordLoose.optional(),
 });
 export type WorkoutToolResult = z.infer<typeof WorkoutToolResultSchema>;

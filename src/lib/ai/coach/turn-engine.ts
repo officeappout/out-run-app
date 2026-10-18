@@ -13,12 +13,24 @@
  * tool_choice 'none', so the turn always ends in text and never with a dangling tool_use.
  * tool_choice is only ever 'auto' or 'none' (forced tool choice is rejected on current
  * models).
+ *
+ * Reply guards (reply-guards.ts): a round's text is buffered and emitted when the round
+ * ends, not per delta. The FINAL round's text is checked (grounding + Hebrew only); on an
+ * issue the model is re-prompted ONCE with an internal note (the bad text is never shown),
+ * and foreign words that survive the retry are stripped. A tool round's short preamble is
+ * only stripped. Every intervention lands in `state.log.guards`.
+ *
+ * Review log: `state.log` collects the model id, token usage, every tool call (validated
+ * input + a compact result summary) and the guard interventions of the whole turn, across
+ * the client-tool round trip; the route saves it on the assistant message as `log`.
  */
 import type Anthropic from '@anthropic-ai/sdk';
 import type { CoachStreamEvent } from './protocol';
+import type { UserContextSheet } from './context-sheet';
 import { toolKind, validateToolInput, type ClientToolOutcome } from './tools';
+import { checkReply, correctionNote, factsFromEvidence, findForeignWords, stripForeignWords, type ReplyIssue } from './reply-guards';
 
-export const REFUSAL_TEXT = 'על זה אני לא יכולה לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
+export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
 export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
 export const TRUNCATED_TOOL_TEXT = 'משהו נקטע באמצע. אפשר לבקש שוב?';
 
@@ -36,8 +48,27 @@ export interface TurnDeps {
   callModel(params: Anthropic.MessageStreamParams, onText: (delta: string) => void): Promise<Anthropic.Message>;
   executeServerTool(name: string, input: unknown): Promise<ToolExecResult>;
   /** Last server-side shaping of a validated client-tool input (e.g. strip gear the user doesn't own). */
-  prepareClientTool?(name: string, input: unknown): unknown;
+  prepareClientTool?(name: string, input: unknown, state: TurnState): unknown;
   emit(event: CoachStreamEvent): void;
+}
+
+/** The per-message review log (saved as `log` on assistant messages). */
+export interface TurnLog {
+  model: string;
+  usage: { in: number; out: number; cacheRead: number };
+  toolCalls: Array<{ name: string; input: unknown; resultSummary: string }>;
+  guards: Array<{ type: string; action: string }>;
+}
+
+export function newTurnLog(model = ''): TurnLog {
+  return { model, usage: { in: 0, out: 0, cacheRead: 0 }, toolCalls: [], guards: [] };
+}
+
+export interface TurnGuardConfig {
+  /** The user sheet pre-loaded into this turn's system prompt (null when it failed to load). */
+  sheet: UserContextSheet | null;
+  /** Israel weekday today, 0 = Sunday. */
+  todayDow: number;
 }
 
 export interface TurnConfig {
@@ -48,6 +79,8 @@ export interface TurnConfig {
   history: Anthropic.MessageParam[];
   maxRounds: number;
   maxTokens: number;
+  /** Reply guards. Omitted → only the Hebrew-only check runs (no grounding facts). */
+  guards?: TurnGuardConfig;
 }
 
 export interface TurnState {
@@ -56,6 +89,10 @@ export interface TurnState {
   roundsUsed: number;
   /** All text Kelly said in this turn so far (what gets saved). */
   turnText: string;
+  /** Review log for the whole turn (optional for states persisted before it existed). */
+  log?: TurnLog;
+  /** The one corrective re-prompt of this turn was used. */
+  correctionUsed?: boolean;
 }
 
 export interface ClientToolCall {
@@ -69,7 +106,59 @@ export type TurnOutcome =
   | { kind: 'client_tool'; state: TurnState; call: ClientToolCall; pendingResults: Anthropic.ToolResultBlockParam[] };
 
 export function newTurnState(userText: string): TurnState {
-  return { turnMessages: [{ role: 'user', content: userText }], roundsUsed: 0, turnText: '' };
+  return { turnMessages: [{ role: 'user', content: userText }], roundsUsed: 0, turnText: '', log: newTurnLog() };
+}
+
+/** The text of the turn's first user message (the request this turn answers). */
+export function turnUserText(state: TurnState): string {
+  const first = state.turnMessages[0];
+  if (!first || first.role !== 'user') return '';
+  if (typeof first.content === 'string') return first.content;
+  return first.content
+    .map((b) => (b.type === 'text' ? b.text : ''))
+    .join(' ')
+    .trim();
+}
+
+/** Every tool_result text in this turn so far (the evidence a reply may rely on). */
+export function turnToolResultTexts(state: TurnState): string[] {
+  const out: string[] = [];
+  for (const m of state.turnMessages) {
+    if (m.role !== 'user' || typeof m.content === 'string') continue;
+    for (const b of m.content) {
+      if (b.type !== 'tool_result' || b.is_error) continue;
+      if (typeof b.content === 'string') out.push(b.content);
+      else if (Array.isArray(b.content)) for (const c of b.content) if (c.type === 'text') out.push(c.text);
+    }
+  }
+  return out;
+}
+
+const MAX_SUMMARY = 700;
+const PENDING_ON_DEVICE = 'pending_on_device';
+
+/** A compact, review-friendly summary of a tool result (workout results keep the essentials). */
+export function summarizeToolResult(name: string, content: string, isError?: boolean): string {
+  if (isError) return `error: ${content}`.slice(0, MAX_SUMMARY);
+  if (name === 'generate_workout' || name === 'get_workout_details') {
+    try {
+      const r = JSON.parse(content) as Record<string, unknown>;
+      const ex = Array.isArray(r.exercises) ? (r.exercises as Array<Record<string, unknown>>) : [];
+      return JSON.stringify({
+        workoutId: r.workoutId,
+        title: r.title,
+        minutes: r.minutes,
+        requestedMinutes: r.requestedMinutes,
+        location: r.location,
+        domains: r.domains,
+        levelCeiling: r.levelCeiling,
+        exercises: ex.map((e) => [e.name, e.method, e.methodLocation, Array.isArray(e.gear) ? (e.gear as string[]).join('+') : '', e.area].join('|')),
+      }).slice(0, MAX_SUMMARY);
+    } catch {
+      /* fall through */
+    }
+  }
+  return content.slice(0, MAX_SUMMARY);
 }
 
 function appendText(state: TurnState, text: string, deps: TurnDeps): void {
@@ -83,7 +172,11 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
     turnMessages: [...initial.turnMessages],
     roundsUsed: initial.roundsUsed,
     turnText: initial.turnText,
+    log: initial.log ? JSON.parse(JSON.stringify(initial.log)) : newTurnLog(cfg.model),
+    correctionUsed: initial.correctionUsed ?? false,
   };
+  const log = state.log!;
+  log.model = cfg.model;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -99,33 +192,55 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
       messages: [...cfg.history, ...state.turnMessages],
     };
 
-    // A new round's first delta starts on a new line after earlier text in this turn.
-    let needSep = state.turnText.length > 0;
+    // Buffered: the round's text is validated before anyone sees it.
+    let roundText = '';
     const message = await deps.callModel(params, (delta) => {
-      if (!delta) return;
-      const piece = needSep ? `\n${delta}` : delta;
-      needSep = false;
-      deps.emit({ type: 'text', delta: piece });
-      state.turnText += piece;
+      if (delta) roundText += delta;
     });
+    const u = message.usage as Partial<Anthropic.Usage> | undefined;
+    log.usage.in += u?.input_tokens ?? 0;
+    log.usage.out += u?.output_tokens ?? 0;
+    log.usage.cacheRead += u?.cache_read_input_tokens ?? 0;
 
     if (message.stop_reason === 'refusal') {
+      log.guards.push({ type: 'refusal', action: 'fixed_text' });
       appendText(state, REFUSAL_TEXT, deps);
       return { kind: 'final', state, stopReason: 'refusal' };
     }
 
     const toolUses = message.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+    const isFinal = message.stop_reason !== 'tool_use' || toolUses.length === 0 || lastCall;
 
     // A tool_use cut off by max_tokens may carry a truncated input: never run it.
     if (message.stop_reason === 'max_tokens' && toolUses.length > 0) {
+      emitChecked(state, roundText, deps, null);
       appendText(state, TRUNCATED_TOOL_TEXT, deps);
       return { kind: 'final', state, stopReason: 'max_tokens' };
     }
 
-    if (message.stop_reason !== 'tool_use' || toolUses.length === 0 || lastCall) {
+    if (isFinal) {
+      const text = roundText.trim();
+      if (text) {
+        const facts = cfg.guards
+          ? factsFromEvidence(cfg.guards.sheet, turnToolResultTexts(state), cfg.guards.todayDow)
+          : null;
+        const issues = checkReply(text, facts);
+        if (issues.length && !state.correctionUsed) {
+          state.correctionUsed = true;
+          for (const i of issues) log.guards.push({ type: guardType(i), action: `reprompt: ${issueDetail(i)}` });
+          state.turnMessages.push({ role: 'assistant', content: text });
+          state.turnMessages.push({ role: 'user', content: correctionNote(issues) });
+          continue; // same round budget: a correction is not a tool round
+        }
+        for (const i of issues) log.guards.push({ type: guardType(i), action: `unresolved_after_retry: ${issueDetail(i)}` });
+        emitChecked(state, text, deps, facts?.text ?? '');
+      }
       if (!state.turnText.trim()) appendText(state, EMPTY_TEXT, deps);
       return { kind: 'final', state, stopReason: message.stop_reason };
     }
+
+    // A tool round: its short preamble ("בודק...") is shown, with foreign words stripped.
+    emitChecked(state, roundText, deps, null);
 
     state.turnMessages.push({ role: 'assistant', content: message.content });
     state.roundsUsed++;
@@ -138,19 +253,18 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
       const v = validateToolInput(tu.name, tu.input);
       if (!v.ok) {
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: v.error, is_error: true });
+        log.toolCalls.push({ name: tu.name, input: tu.input ?? null, resultSummary: `rejected: ${v.error}`.slice(0, MAX_SUMMARY) });
         continue;
       }
       if (toolKind(tu.name) === 'client') {
         if (clientCall) {
-          results.push({
-            type: 'tool_result',
-            tool_use_id: tu.id,
-            content: 'Only one workout can be built at a time. Build the next one after the user sees this one.',
-            is_error: true,
-          });
+          const content = 'Only one workout can be built at a time. Build the next one after the user sees this one.';
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content, is_error: true });
+          log.toolCalls.push({ name: tu.name, input: v.input, resultSummary: 'rejected: second client tool in one round' });
           continue;
         }
-        clientCall = { id: tu.id, name: tu.name, input: deps.prepareClientTool ? deps.prepareClientTool(tu.name, v.input) : v.input };
+        clientCall = { id: tu.id, name: tu.name, input: deps.prepareClientTool ? deps.prepareClientTool(tu.name, v.input, state) : v.input };
+        log.toolCalls.push({ name: tu.name, input: clientCall.input, resultSummary: PENDING_ON_DEVICE });
         continue;
       }
       serverCalls.push({ id: tu.id, name: tu.name, input: v.input });
@@ -161,9 +275,11 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
         deps.emit({ type: 'tool_status', name: c.name });
         try {
           const r = await deps.executeServerTool(c.name, c.input);
+          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: summarizeToolResult(c.name, r.content, r.isError) });
           return { type: 'tool_result', tool_use_id: c.id, content: r.content, ...(r.isError ? { is_error: true } : {}) };
         } catch (err) {
           console.error(`[ai-coach] tool ${c.name} failed`, err);
+          log.toolCalls.push({ name: c.name, input: c.input, resultSummary: 'error: tool threw' });
           return { type: 'tool_result', tool_use_id: c.id, content: 'The tool failed. Tell the user simply and offer another way.', is_error: true };
         }
       }),
@@ -177,15 +293,46 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
   }
 }
 
+function guardType(i: ReplyIssue): string {
+  return i.kind === 'ungrounded' ? 'grounding' : 'hebrew_only';
+}
+
+function issueDetail(i: ReplyIssue): string {
+  return (i.kind === 'ungrounded' ? i.claims : i.words).join(', ').slice(0, 200);
+}
+
+/** Emits `text` (if any) after stripping foreign words; logs a strip. */
+function emitChecked(state: TurnState, text: string, deps: TurnDeps, evidenceText: string | null): void {
+  let t = text.trim();
+  if (!t) return;
+  const words = findForeignWords(t, evidenceText ?? '');
+  if (words.length) {
+    t = stripForeignWords(t, words);
+    state.log?.guards.push({ type: 'hebrew_only', action: `stripped: ${words.join(', ').slice(0, 200)}` });
+  }
+  if (t) appendText(state, t, deps);
+}
+
 /** What the model reads back from a generate_workout outcome. */
 export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome): Anthropic.ToolResultBlockParam {
   if (outcome.ok) {
     // The decision record stays server-side (explain_workout reads it from the card).
-    const { workoutId, title, minutes, location, exercises } = outcome.result;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { decisionRecord: _dr, ...result } = outcome.result;
+    const notes: string[] = [];
+    if (result.requestedMinutes && Math.abs(result.minutes - result.requestedMinutes) >= 2) {
+      notes.push(`The real length is ${result.minutes} minutes (warm-up and cool-down included); the user asked for ${result.requestedMinutes}. Say the real minutes.`);
+    }
+    if (result.levelCeiling) {
+      notes.push(`There is less content at the user's level for this location, so the engine built it a bit below their level. Say so in one short sentence, like: ${result.location === 'home' ? 'בבית יש פחות תרגילים ברמה שלך, אז בניתי' : 'כאן יש פחות תרגילים ברמה שלך, אז בניתי'} ...`);
+    }
+    if (result.shortOfMinimum) {
+      notes.push('Fewer exercises than usual were available for this request at this location. Say it simply and offer a different area or location.');
+    }
     return {
       type: 'tool_result',
       tool_use_id: id,
-      content: JSON.stringify({ shownToUserAsCard: true, workoutId, title, minutes, location, exercises }),
+      content: JSON.stringify({ shownToUserAsCard: true, ...result, ...(notes.length ? { notesForCoach: notes } : {}) }),
     };
   }
   const why: Record<typeof outcome.error, string> = {
@@ -202,11 +349,28 @@ export function resumeWithClientResult(
   state: TurnState,
   pendingResults: Anthropic.ToolResultBlockParam[],
   clientResult: Anthropic.ToolResultBlockParam,
+  toolName = 'generate_workout',
 ): TurnState {
+  const log: TurnLog = state.log ? JSON.parse(JSON.stringify(state.log)) : newTurnLog();
+  // The input the device ran: the tool_use block of the last assistant message.
+  let input: unknown = null;
+  for (let i = state.turnMessages.length - 1; i >= 0 && input === null; i--) {
+    const m = state.turnMessages[i];
+    if (m.role !== 'assistant' || typeof m.content === 'string') continue;
+    const tu = m.content.find((b) => b.type === 'tool_use' && b.id === clientResult.tool_use_id) as Anthropic.ToolUseBlockParam | undefined;
+    if (tu) input = tu.input ?? null;
+  }
+  const content = typeof clientResult.content === 'string' ? clientResult.content : JSON.stringify(clientResult.content ?? '');
+  const summary = summarizeToolResult(toolName, content, clientResult.is_error);
+  const pendingEntry = [...log.toolCalls].reverse().find((c) => c.name === toolName && c.resultSummary === PENDING_ON_DEVICE);
+  if (pendingEntry) pendingEntry.resultSummary = summary;
+  else log.toolCalls.push({ name: toolName, input, resultSummary: summary });
   return {
     turnMessages: [...state.turnMessages, { role: 'user', content: [...pendingResults, clientResult] }],
     roundsUsed: state.roundsUsed,
     turnText: state.turnText,
+    log,
+    correctionUsed: state.correctionUsed ?? false,
   };
 }
 

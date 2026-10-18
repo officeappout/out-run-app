@@ -3,7 +3,11 @@
  * writes).
  *
  *   ai_coach_threads/{uid}                 { summary, summarizedUntil, pending, messageCount, updatedAt }
- *   ai_coach_threads/{uid}/messages/{id}   { role, text, cards[], createdAt, expireAt }
+ *   ai_coach_threads/{uid}/messages/{id}   { role, text, cards[], log?, createdAt, expireAt }
+ *
+ * `log` (assistant messages only, for the conversation-review agent; the app never
+ * renders it): { model, usage: { in, out, cacheRead }, toolCalls: [{ name, input,
+ * resultSummary }], guards: [{ type, action }] } — see TurnLog in turn-engine.ts.
  *
  * Retention: every message carries expireAt = createdAt + 90 days. A Firestore TTL policy
  * on the `messages` collection group, field `expireAt`, deletes them (one-time console
@@ -19,7 +23,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { COACH_HISTORY_TURNS } from './persona';
 import type { WorkoutCard } from './protocol';
-import type { HistoryMessage, TurnState } from './turn-engine';
+import type { HistoryMessage, TurnLog, TurnState } from './turn-engine';
+import type { WorkoutToolResult } from './tools';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
 export const AI_COACH_RETENTION_DAYS = 90;
@@ -28,6 +33,10 @@ const PENDING_TTL_MS = 10 * 60 * 1000;
 export interface StoredCard extends WorkoutCard {
   /** Engine decision record (for explain_workout). Not rendered. */
   decisionRecord?: Record<string, unknown> | null;
+  /** Main exercises with method, location, gear, video (for get_workout_details). Not rendered. */
+  exercises?: WorkoutToolResult['exercises'];
+  requestedMinutes?: number | null;
+  levelCeiling?: boolean;
 }
 
 export interface StoredMessage extends HistoryMessage {
@@ -113,7 +122,7 @@ export async function loadThread(db: Firestore, uid: string, now = Date.now()): 
 export async function appendMessage(
   db: Firestore,
   uid: string,
-  msg: { role: 'user' | 'assistant'; text: string; cards?: StoredCard[] },
+  msg: { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; log?: TurnLog },
   now = Date.now(),
 ): Promise<string> {
   const ref = messagesCol(db, uid).doc();
@@ -122,6 +131,7 @@ export async function appendMessage(
     role: msg.role,
     text: msg.text.slice(0, 4000),
     cards: (msg.cards ?? []).map((c) => JSON.parse(JSON.stringify(c))),
+    ...(msg.log ? { log: JSON.parse(JSON.stringify(msg.log)) } : {}),
     createdAt: Timestamp.fromMillis(now),
     expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000),
   });
