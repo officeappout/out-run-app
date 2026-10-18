@@ -9,10 +9,12 @@
  *      (owner decision, Oct 2026).
  *
  * The goal used by the steps rule is the same one the home screen shows
- * the user (`dailyActivity.stepsGoal`, falling back to DAILY_STEP_GOAL
- * when a doc was created by the ingestHealthSamples Cloud Function and
- * never got a stepsGoal field) — NOT the separate adaptive
- * `users.progression.dailyStepGoal`, which nothing on screen displays.
+ * the user: `dailyActivity.stepsGoal`, which for TODAY the activity store
+ * stamps with the user's ONE resolved goal (lib/step-goal.ts — adaptive or
+ * manual, the same goal the evening push uses) and which stays as that
+ * day's snapshot afterwards. Falls back to DAILY_STEP_GOAL when a doc was
+ * created by the ingestHealthSamples Cloud Function and never got a
+ * stepsGoal field.
  *
  * A day is counted at most once: `lastStreakDate === today` is the
  * idempotency key shared by both rules (see advanceStreakForDay).

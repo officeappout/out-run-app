@@ -12,6 +12,7 @@
 
 'use client';
 
+import { refreshStepGoal } from '../services/step-goal.service';
 import { useEffect, useMemo, useState } from 'react';
 import { useActivityStore } from '../store/useActivityStore';
 import { useUserStore } from '@/features/user';
@@ -159,6 +160,9 @@ export function useDailyActivity(): DailyActivityResult {
       loadFromServer(profile.id).then(() => {
         // Then initialize with user program
         initialize(profile.id, primaryProgram);
+        // Resolve the user's ONE step goal (weekly adaptive recompute or
+        // their manual choice) and stamp it on today — once per day per uid.
+        void refreshStepGoal(profile.id);
       });
     }
   }, [userHydrated, profile?.id, activityHydrated, authReady, initialize, loadFromServer]);

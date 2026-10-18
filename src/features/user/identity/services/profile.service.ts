@@ -63,7 +63,9 @@ export function createInitialProgression(
     lastActiveDate: '',
     lemurStage: 1,
     // NEW: Dynamic Goals fields
-    dailyStepGoal: 3000,
+    // Base of the ONE adaptive step goal (features/activity/lib/step-goal.ts).
+    // Unstamped (no stepGoalComputedOn) → the resolver starts from 8000 anyway.
+    dailyStepGoal: 8000,
     dailyFloorGoal: 3,
     currentStreak: 0,
     goalHistory: [],

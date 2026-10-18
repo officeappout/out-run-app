@@ -142,6 +142,13 @@ interface ActivityState {
   // Store metadata
   lastSyncTimestamp: number | null;
   _hasHydrated: boolean;
+
+  /** The user's resolved daily step goal (lib/step-goal.ts — the ONE resolver,
+   *  fed from users/{uid}.progression by services/step-goal.service.ts). Null
+   *  until first resolved; while null, today.stepsGoal keeps whatever the day
+   *  doc / createEmptyDailyActivity gave it (DAILY_STEP_GOAL). Stamped onto
+   *  TODAY's doc only — past days keep their own snapshot. */
+  resolvedStepGoal: number | null;
 }
 
 interface ActivityActions {
@@ -224,6 +231,10 @@ interface ActivityActions {
   
   // Subscribe to real-time Firestore updates
   subscribeToChanges: (userId: string) => () => void;
+
+  // Stamp the resolved step goal onto today (ring, streak steps rule,
+  // step-deficit card all read today.stepsGoal) and snapshot it to the day doc.
+  applyResolvedStepGoal: (goal: number) => void;
 }
 
 type ActivityStore = ActivityState & ActivityActions;
@@ -234,6 +245,15 @@ type ActivityStore = ActivityState & ActivityActions;
 
 let syncTimeout: NodeJS.Timeout | null = null;
 const SYNC_DEBOUNCE_MS = 2000; // Sync 2 seconds after last change
+
+/**
+ * Today's day with the resolved step goal stamped on (no-op for other days,
+ * or before the goal has been resolved).
+ */
+function withStepGoal(day: DailyActivity, goal: number | null): DailyActivity {
+  if (!goal || goal <= 0 || day.date !== getTodayString() || day.stepsGoal === goal) return day;
+  return { ...day, stepsGoal: goal, stepsGoalMet: (Number(day.steps) || 0) >= goal };
+}
 
 /**
  * Debounced sync to prevent too many Firestore writes
@@ -416,6 +436,7 @@ export const useActivityStore = create<ActivityStore>()(
       dominantActivityColor: ACTIVITY_COLORS.strength.hex,
       lastSyncTimestamp: null,
       _hasHydrated: false,
+      resolvedStepGoal: null,
       
       // Actions
       initialize: (userId: string, userProgram?: string) => {
@@ -437,6 +458,7 @@ export const useActivityStore = create<ActivityStore>()(
             today!.categories[cat].weeklyGoalMinutes = weeklyGoals[cat];
           });
         }
+        today = withStepGoal(today, state.resolvedStepGoal);
         
         set({
           today,
@@ -529,7 +551,7 @@ export const useActivityStore = create<ActivityStore>()(
             `[ActivityStore] logWorkout called with stale/missing today ` +
             `(had=${state.today?.date}, need=${todayStr}). Auto-initializing.`,
           );
-          set({ today: createEmptyDailyActivity(userId, todayStr) });
+          set({ today: withStepGoal(createEmptyDailyActivity(userId, todayStr), get().resolvedStepGoal) });
           state = get();
           if (!state.today) return;
         }
@@ -602,7 +624,7 @@ export const useActivityStore = create<ActivityStore>()(
             `[ActivityStore] logMultiCategoryWorkout called with stale/missing today ` +
             `(had=${state.today?.date}, need=${todayStr}). Auto-initializing.`,
           );
-          set({ today: createEmptyDailyActivity(userId, todayStr) });
+          set({ today: withStepGoal(createEmptyDailyActivity(userId, todayStr), get().resolvedStepGoal) });
           state = get();
           if (!state.today) return;
         }
@@ -945,6 +967,12 @@ export const useActivityStore = create<ActivityStore>()(
             todayActivity = createEmptyDailyActivity(userId, targetDate);
             console.log('[ActivityStore] No Firestore data, created new day');
           }
+          // Today's goal is the resolved one (the doc's stepsGoal is only a
+          // snapshot — and a doc first created by ingestHealthSamples has none).
+          const loadedGoal = docSnap.exists() ? Number(docSnap.data()?.stepsGoal) : NaN;
+          todayActivity = withStepGoal(todayActivity, get().resolvedStepGoal);
+          const goalSnapshotStale =
+            docSnap.exists() && todayActivity.date === getTodayString() && loadedGoal !== todayActivity.stepsGoal;
           
           // 2. Load streak data
           const streakRef = doc(db, COLLECTION_STREAK, userId);
@@ -1089,7 +1117,10 @@ export const useActivityStore = create<ActivityStore>()(
           //    app open → ingestHealthSamples), so this load is one of the
           //    moments today's step goal can first be seen as met.
           if (targetDate === getTodayString()) {
-            get().countTodayIfStepGoalMet();
+            const counted = get().countTodayIfStepGoalMet();
+            // Refresh the day doc's goal snapshot (countTodayIfStepGoalMet
+            // already synced when it counted).
+            if (!counted && goalSnapshotStale) debouncedSync(() => get().syncToServer());
           }
           
           console.log('[ActivityStore] Loaded from Firestore - Streak:', currentStreak);
@@ -1147,7 +1178,7 @@ export const useActivityStore = create<ActivityStore>()(
         if (!state.today) return;
         
         set({
-          today: createEmptyDailyActivity(state.today.userId, getTodayString()),
+          today: withStepGoal(createEmptyDailyActivity(state.today.userId, getTodayString()), state.resolvedStepGoal),
         });
         
         get().recalculate();
@@ -1178,7 +1209,7 @@ export const useActivityStore = create<ActivityStore>()(
                 const localTime = state.today?.updatedAt instanceof Date ? state.today.updatedAt.getTime() : 0;
 
                 if (serverTime > localTime) {
-                  set({ today: data });
+                  set({ today: withStepGoal(data, get().resolvedStepGoal) });
                   get().recalculate();
                   console.log('[ActivityStore] Updated from Firestore real-time');
                   // Steps path — fresh passive steps may have just met the goal.
@@ -1228,6 +1259,20 @@ export const useActivityStore = create<ActivityStore>()(
           unsubStreak?.();
         };
       },
+
+      applyResolvedStepGoal: (goal: number) => {
+        if (!Number.isFinite(goal) || goal <= 0) return;
+        const state = get();
+        const prevGoal = state.today?.stepsGoal;
+        const nextToday = state.today ? withStepGoal(state.today, goal) : null;
+        set({ resolvedStepGoal: goal, ...(nextToday ? { today: nextToday } : {}) });
+        if (!nextToday || nextToday.stepsGoal === prevGoal) return;
+        get().recalculate();
+        // A lower goal may have just been met → the streak's steps rule (it
+        // syncs itself when it counts); otherwise snapshot the goal to the doc.
+        if (get().countTodayIfStepGoalMet()) return;
+        if (nextToday.userId) debouncedSync(() => get().syncToServer());
+      },
     }),
     {
       name: 'out-activity-store',
@@ -1240,6 +1285,7 @@ export const useActivityStore = create<ActivityStore>()(
         longestStreak: state.longestStreak,
         lastStreakDate: state.lastStreakDate,
         lastSyncTimestamp: state.lastSyncTimestamp,
+        resolvedStepGoal: state.resolvedStepGoal,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

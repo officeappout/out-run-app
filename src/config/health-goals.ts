@@ -1,18 +1,19 @@
 /**
- * Health Goals — single source of truth for step/floor display goals.
+ * Health Goals — step/floor display constants.
  *
- * Scope note: this file owns the *display / fallback* daily step goal used by
- * widgets, rings, charts, and the daily-activity document. It is intentionally
- * separate from the *adaptive* progression goal
- * (`users.progression.dailyStepGoal`, starts at 3000 and self-adjusts) which
- * lives in `smart-goals.service.ts`. Do NOT collapse the two — they serve
- * different purposes.
+ * The user's daily step goal itself is resolved by ONE resolver,
+ * `src/features/activity/lib/step-goal.ts` (adaptive by default, user can
+ * override; stored on `users/{uid}.progression.dailyStepGoal`), shared with
+ * the Cloud Functions. DAILY_STEP_GOAL below is its base (= BASE_STEP_GOAL)
+ * and the fallback before a user's goal has been resolved.
  */
 
 /**
- * Default daily step goal shown across the app when a user has no
- * per-day `dailyActivity.stepsGoal` value yet. Matches the value written by
- * `createEmptyDailyActivity()`.
+ * Base daily step goal — the adaptive goal's starting point and the fallback
+ * shown before the user's goal is resolved (and for a past day whose
+ * `dailyActivity.stepsGoal` snapshot is missing). Matches the value written
+ * by `createEmptyDailyActivity()`. Must equal BASE_STEP_GOAL in
+ * features/activity/lib/step-goal.ts (asserted in its tests).
  */
 export const DAILY_STEP_GOAL = 8_000;
 

@@ -2185,7 +2185,13 @@ export default function UserDetailPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-xs text-gray-500 mb-1">יעד צעדים יומי</p>
-                          <p className="font-bold text-gray-900">{(fullProfile.progression as any)?.dailyStepGoal ?? 'לא הוגדר'}</p>
+                          <p className="font-bold text-gray-900">
+                            {(fullProfile.progression as any)?.stepGoalMode === 'manual'
+                              ? `${(fullProfile.progression as any)?.dailyStepGoal} (ידני)`
+                              : (fullProfile.progression as any)?.stepGoalComputedOn
+                                ? `${(fullProfile.progression as any)?.dailyStepGoal} (אוטומטי)`
+                                : 'אוטומטי — טרם חושב (8000)'}
+                          </p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-xs text-gray-500 mb-1">יעד קומות יומי</p>
