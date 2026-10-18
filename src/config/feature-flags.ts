@@ -1691,7 +1691,7 @@ export function shouldProcessCoinRewards(): boolean {
 // rep-provenance fields are NOT behind this flag (they add no UI).
 export const POST_WORKOUT_SURVEY_V1 = false;
 
-// ── Schedule advisor, phase A (18.10.2026) — launch gates, all default OFF ──
+// ── Schedule advisor, phase A (18.10.2026) — three launch gates, all default OFF ──
 //
 // RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 — "back 1 week" (rollBackOneWeek,
 // workout-completion.service.ts) rewrites the current running week from the previous
@@ -1700,3 +1700,25 @@ export const POST_WORKOUT_SURVEY_V1 = false;
 // next-run card and the schedule rules read it as unknown). True = the pure
 // buildRolledBackSchedule (running-alignment.ts) keeps those fields.
 export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = false;
+
+// SCHEDULE_BUILDER_SAVE_V1 — the schedule-builder drawer's "approve" button. While false
+// the drawer stays preview-only (button disabled, nothing written — today's behaviour).
+// True = the approve button opens "רק השבוע / מכאן והלאה" and writes through the existing
+// writers only (scheduleBuilderSave.ts): lifestyle.recurringTemplate via mergeDayItems +
+// lifestyle.scheduleDays, running days via completeRunningScheduleFirstChoice (which
+// rebuilds the plan with mergePreservedHistory), and the drawer's own controls to
+// lifestyle.scheduleAdvisorPrefs. "Only this week" writes userSchedule day overrides.
+// localStorage override for testing on one device: localStorage['OUT_SCHEDULE_SAVE'] = '1' | '0'
+// (helper isScheduleBuilderSaveEnabled lives in the consumer, scheduleBuilderSave.ts).
+export const SCHEDULE_BUILDER_SAVE_V1 = false;
+
+// SCHEDULE_ADVISOR_BUDGET_V1 — the strength generator's weekly-budget divisor (how many
+// days the weekly set budget is spread over: home-workout.service.ts's scheduleDays,
+// SplitDecisionService's getWorkoutContext). While false it stays
+// lifestyle.scheduleDays.length (a strength∪running union with different empty-defaults,
+// 3 vs 2) — today's numbers. True = the STRENGTH day count from the recurring template
+// (resolveStrengthBudgetDays, schedule/advisor/budget-divisor.ts), so a hybrid 3+3 user's
+// strength budget is split over 3 days, not 6. Overrides for testing:
+// localStorage['OUT_SCHEDULE_ADVISOR_BUDGET'] = '1' | '0' (one device), and the offline
+// bench's env OUT_SCHEDULE_ADVISOR_BUDGET_V1=1 (node only).
+export const SCHEDULE_ADVISOR_BUDGET_V1 = false;

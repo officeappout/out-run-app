@@ -57,6 +57,8 @@
  * design" case), `L${level}`-style level formatting, and `→` for before/after transitions.
  */
 
+import { resolveStrengthBudgetDays } from '@/features/schedule/advisor/budget-divisor';
+import { resolveToSlug as resolveToSlugForBudget } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { Generator } from '../types/generator.types';
 import type { Suggestion } from '../types/suggestion.types';
 import type { GeneratedWorkout } from '../../logic/WorkoutGenerator';
@@ -109,7 +111,8 @@ async function resolveWorstDomainGap(
     masterProgramIds,
     LOG_PREFIX,
   );
-  const scheduleDays = (profile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+  // Same budget divisor as home-workout.service (budget-divisor.ts, SCHEDULE_ADVISOR_BUDGET_V1).
+  const scheduleDays = resolveStrengthBudgetDays(profile, 3, { resolveSlug: resolveToSlugForBudget });
 
   const { domainBudgets } = await resolveAggregateFullBodyBudget(
     scheduleDays,

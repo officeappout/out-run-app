@@ -564,6 +564,49 @@ export async function updateScheduleDays(
   }
 }
 
+/**
+ * Schedule builder "from now on" (SCHEDULE_BUILDER_SAVE_V1 — the only caller is
+ * src/features/schedule/services/scheduleBuilderSave.ts, which runs only behind it).
+ * One write of the fixed schedule the builder drawer approved: the recurring template
+ * (already merged per day with mergeDayItems by the caller's pure planner, so running
+ * ids are kept), lifestyle.scheduleDays, and the drawer's own controls. Dotted paths only
+ * — every other lifestyle field (primaryTrack, reminders …) is untouched.
+ */
+export async function replaceRecurringSchedule(
+  recurringTemplate: Record<string, string[]>,
+  scheduleDays: string[],
+  prefs: { availableDayCount: number; focus: number },
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      'lifestyle.recurringTemplate': recurringTemplate,
+      'lifestyle.scheduleDays': scheduleDays,
+      'lifestyle.scheduleAdvisorPrefs': prefs,
+      updatedAt: serverTimestamp(),
+    });
+    console.log('[UserSchedule] RECURRING SCHEDULE REPLACED (schedule builder)');
+    return true;
+  } catch (err) {
+    console.error('[UserSchedule] replaceRecurringSchedule FAILED', err);
+    return false;
+  }
+}
+
+/** The builder drawer's controls alone ("this week only" still remembers them). Same flag as above. */
+export async function saveScheduleAdvisorPrefs(prefs: { availableDayCount: number; focus: number }): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+  try {
+    await updateDoc(doc(db, 'users', uid), { 'lifestyle.scheduleAdvisorPrefs': prefs, updatedAt: serverTimestamp() });
+    return true;
+  } catch (err) {
+    console.error('[UserSchedule] saveScheduleAdvisorPrefs FAILED', err);
+    return false;
+  }
+}
+
 // ── entries[] Format Helpers ──────────────────────────────────────────────
 //
 // Authoritative shape:

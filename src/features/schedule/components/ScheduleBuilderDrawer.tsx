@@ -4,7 +4,8 @@
  * ScheduleBuilderDrawer — schedule-drawer-screen-spec.md, stage 1
  * (screen + engine, no drag). Schedule advisor phase A: the week comes from the pure
  * advisor (adviseWeek, src/features/schedule/advisor), the controls' defaults from the
- * profile, the notes from typed reasons. Still no save (the approve button stays disabled).
+ * profile, the notes from typed reasons; saving exists only behind SCHEDULE_BUILDER_SAVE_V1
+ * (default OFF — the approve button stays disabled, exactly as before).
  *
  * Sheet mechanics: `useMotionValue(0)` + `drag="y"` on the handle +
  * `useSheetScrollChain` for swipe-to-dismiss from inside the scroll body —
@@ -62,8 +63,10 @@ import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/Aerob
 import { defaultWeaveControls, type WeaveMode, type WeaverInputProfile } from '../engine/weaverInput';
 import { scheduleIdNameHe } from '../engine/strengthVocabulary';
 import { adviseWeek } from '../advisor/advisor';
-import { toAdvisorInputFromClient } from '../advisor/adapters/client';
+import { toAdvisorInputFromClient, localDateKey } from '../advisor/adapters/client';
 import type { WeekAdvice } from '../advisor/types';
+import { planScheduleSave, type SaveScope } from '../services/scheduleBuilderSave.plan';
+import { isScheduleBuilderSaveEnabled, saveScheduleProposal } from '../services/scheduleBuilderSave';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
@@ -142,12 +145,15 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const [mode, setMode] = useState<WeaveMode>('mixed');
   const [focus, setFocus] = useState(50);
   const [availableDayCount, setAvailableDayCount] = useState(3);
+  const [saveState, setSaveState] = useState<'idle' | 'choose' | 'saving' | 'saved' | 'failed'>('idle');
+  const [runningNote, setRunningNote] = useState<string | null>(null);
   useEffect(() => {
     if (!isOpen) return;
     const d = defaultWeaveControls(profile as WeaverInputProfile | null, { resolveSlug: resolveToSlug });
     setMode(d.mode);
     setFocus(d.focus);
     setAvailableDayCount(d.availableDayCount);
+    setSaveState('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- defaults are taken once per open, not on every profile refresh
   }, [isOpen]);
 
@@ -165,6 +171,31 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
       return null;
     }
   }, [profile, mode, focus, availableDayCount, asOfDate]);
+
+  // ── Save (SCHEDULE_BUILDER_SAVE_V1, default OFF → the approve button stays disabled) ──
+  const saveEnabled = isScheduleBuilderSaveEnabled();
+  const handleSave = async (scope: SaveScope) => {
+    if (!result || !profile || !userId) return;
+    setSaveState('saving');
+    const plan = planScheduleSave({
+      profile: profile as WeaverInputProfile,
+      week: result.week,
+      controls: result.controls,
+      scope,
+      todayKey: localDateKey(asOfDate),
+      resolveSlug: resolveToSlug,
+    });
+    const runningTime = (profile as { lifestyle?: { reminders?: { runningTime?: string } } }).lifestyle?.reminders?.runningTime ?? '18:00';
+    const outcome = await saveScheduleProposal(plan, { uid: userId, runningTime });
+    setRunningNote(
+      outcome.runningSkipped === 'this_week_scope'
+        ? 'הריצות זזות רק ב"מכאן והלאה" — השבוע נשארו במקומן.'
+        : outcome.runningSkipped === 'single_run'
+          ? 'ריצה אחת בשבוע היא לא תוכנית — ימי הריצה לא שונו.'
+          : null,
+    );
+    setSaveState(outcome.ok ? 'saved' : 'failed');
+  };
 
   if (!isOpen) return null;
 
@@ -276,14 +307,40 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
                 </div>
               )}
 
-              {/* Approval button — inactive at this stage. No write, per spec (the save path is phase A2, behind its own flag). */}
-              <button
-                type="button"
-                disabled
-                className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
-              >
-                אישור (בקרוב)
-              </button>
+              {/* Approval — disabled unless SCHEDULE_BUILDER_SAVE_V1 (default OFF: preview only, no write). */}
+              {!saveEnabled && (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
+                >
+                  אישור (בקרוב)
+                </button>
+              )}
+              {saveEnabled && result && saveState === 'idle' && (
+                <button
+                  type="button"
+                  onClick={() => setSaveState('choose')}
+                  className="w-full mt-4 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm"
+                >
+                  זה מתאים לי
+                </button>
+              )}
+              {saveEnabled && result && saveState === 'choose' && (
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => handleSave('this_week')} className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 font-black text-sm text-gray-700">
+                    רק השבוע
+                  </button>
+                  <button type="button" onClick={() => handleSave('from_now')} className="flex-1 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm">
+                    מכאן והלאה
+                  </button>
+                </div>
+              )}
+              {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">שומר…</p>}
+              {saveEnabled && saveState === 'saved' && (
+                <p className="mt-4 text-sm font-black text-gray-700 text-center">נשמר.{runningNote ? ` ${runningNote}` : ''}</p>
+              )}
+              {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">השמירה לא הצליחה. אפשר לנסות שוב.</p>}
             </div>
           </motion.div>
         </>
