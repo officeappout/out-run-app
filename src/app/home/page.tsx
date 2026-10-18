@@ -68,6 +68,7 @@ import { nextPlannedDay, totalMinutes as sumMinutes, totalXp } from '@/features/
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 import { todayCardFallbackTitle } from '@/features/home/utils/today-activity-labels';
 import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
+import RacePredictionCard from '@/features/home/components/widgets/RacePredictionCard';
 import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
 import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
 import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } from '@/features/home/components/WorkoutBuilderSheet';
@@ -3084,6 +3085,12 @@ export default function HomePage() {
                   <ActivityCard />
                   <StepsSummaryCard variant="compact" />
                 </div>
+              )}
+
+              {/* Home v2 only: race prediction from the user's real paceProfile.basePace.
+                  The card returns null without v2 / for non-runners. */}
+              {featureFlags.enableHomeV2 && (
+                <RacePredictionCard runningProgramsEnabled={featureFlags.enableRunningPrograms} />
               )}
             </div>
           );
