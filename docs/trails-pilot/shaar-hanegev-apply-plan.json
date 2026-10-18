@@ -1,0 +1,67 @@
+{
+  "status": "NOT EXECUTED — dry-run plan for owner approval",
+  "writes": [
+    {
+      "collection": "trail_segments",
+      "docId": "segment.id (deterministic: seg_<firstWayId>_<startNode>_<endNode>)",
+      "count": 4001,
+      "fields": [
+        "geometry ({lng,lat}[])",
+        "startNode",
+        "endNode",
+        "lengthM",
+        "elevation{provider,gainFwdM,gainRevM,maxGrade50mFwdPct,maxGrade50mRevPct,minEleM,maxEleM}",
+        "highwayClass",
+        "surface",
+        "surfaceRaw",
+        "surfaceConfidence",
+        "lit",
+        "litSource",
+        "sacScale",
+        "mtbScale",
+        "tracktype",
+        "colour",
+        "itcRef",
+        "name",
+        "inBuiltUp",
+        "osmWayIds",
+        "routeRelationIds",
+        "foot",
+        "bicycle",
+        "license",
+        "authorityId",
+        "source:\"osm_geofabrik_v1\"",
+        "osmTimestamp",
+        "updatedAt"
+      ]
+    },
+    {
+      "collection": "official_routes",
+      "docId": "osm_rel_<relationId> | gen_<placeNodeId>_<n>",
+      "count": 49,
+      "fields": [
+        "name",
+        "distance (km)",
+        "duration (min, from activity pace)",
+        "difficulty ('easy'|'medium'|'hard')",
+        "type ('walking'|'cycling')",
+        "path ({lng,lat}[])",
+        "routeShape ('loop'|'out_and_back'; linear → see doc)",
+        "surfaceType (dominant)",
+        "elevationGain",
+        "maxGrade",
+        "authorityId",
+        "city",
+        "status:'pending'",
+        "published:false",
+        "trail{kind,nameSource,needsName,segmentIds,segmentForward,stars,difficultyBreakdown,osm,license,attribution}"
+      ]
+    }
+  ],
+  "neverWritten": [
+    "firestore.rules",
+    "indexes",
+    "any existing official_routes doc (create-only, skip if id exists)",
+    "published:true"
+  ]
+}

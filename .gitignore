@@ -94,3 +94,9 @@ firestore-debug.log
 # Disposable, never-committed investigation scripts (one-off production
 # read-only checks) — kept on disk, just not tracked.
 scripts/_investigate-*
+
+# ── Trails pilot (scripts/trails/*) ───────────────────────────────────────────
+# Downloaded public source data (Copernicus GLO-30 DEM tiles, Geofabrik OSM
+# extracts) and dry-run outputs. Large, re-downloadable, never committed.
+/.cache/
+/.trails-out/
