@@ -46,7 +46,7 @@ export function resolveSignupDefaultWrite(
 ): SignupDefaultWritePayload | null {
   if (input.isJIT || !input.hasHydrated) return null;
 
-  const { frequency, dayIndices } = resolveDefaultRunningSchedule(input.profile);
+  const { frequency, dayIndices } = resolveDefaultRunningSchedule(input.profile, input.strengthDays);
   const runningScheduleDays = dayIndices.map((i) => DAYS_HEBREW[i]).sort();
   const scheduleDays = Array.from(new Set([...input.strengthDays, ...runningScheduleDays]));
 

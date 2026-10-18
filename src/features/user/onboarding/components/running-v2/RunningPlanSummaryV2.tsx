@@ -8,15 +8,16 @@
  *
  *  hero race photo → plan headline → "איך התוכנית בנויה" (relative weekly
  *  volume from the template rules, see utils/running-plan-shape.ts) →
- *  "מה יש בתוכנית" → "ימי ריצה" + "שינוי" → one gradient CTA.
+ *  "מה יש בתוכנית" → "ימי ריצה" info row (the silent default + one caption
+ *  line on where they're chosen; no change button) → one gradient CTA.
  *
  * Lives inside OnboardingLayout's scroll area (flex-1); the CTA is the
  * sticky in-flow StickyActionButton v2.
  */
 
-import React, { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Check, Footprints, Info, RefreshCcw, Waves, Zap } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { CalendarDays, Check, Footprints, RefreshCcw, Waves, Zap } from 'lucide-react';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import {
   buildPlanContentRows,
@@ -39,6 +40,8 @@ export interface RunningPlanSummaryV2Props {
   /** Hebrew day letters, e.g. ['א','ג','ו']. */
   scheduleDays: string[];
   scheduleTime: string | null;
+  /** User already trains strength — run days get woven around those days. */
+  hasStrengthTrack?: boolean;
   onGenerate: () => void;
 }
 
@@ -101,7 +104,6 @@ function VolumeChart({ bars }: { bars: PlanWeekBar[] }) {
 export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
   const isFemale =
     typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female';
-  const [showDaysNote, setShowDaysNote] = useState(false);
 
   const { bars, rows } = useMemo(() => {
     const bars = buildWeeklyVolumePattern(p.weeks, isConservativePlan(p.answers));
@@ -115,8 +117,11 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
   }, [p.weeks, p.frequency, p.answers]);
 
   const daysLine = p.scheduleDays.length > 0
-    ? [p.scheduleDays.map((d) => `${d}׳`).join(' · '), p.scheduleTime].filter(Boolean).join(' · ')
+    ? [p.scheduleDays.map((d) => `${d}׳`).join(' '), p.scheduleTime].filter(Boolean).join(' · ')
     : null;
+  const daysCaption = p.hasStrengthTrack
+    ? 'נשלב את הריצות עם ימי הכוח שלך במסך הבית.'
+    : 'את הימים והשעה תבחרו במסך הבית, מיד אחרי ההרשמה. התוכנית תתעדכן בלי לאבד התקדמות.';
 
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
@@ -211,35 +216,12 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-extrabold text-v2-deep">ימי ריצה</p>
-                <p dir="rtl" className="truncate whitespace-nowrap text-[14.5px] font-black">{daysLine}</p>
+                <p dir="rtl" className="truncate whitespace-nowrap text-[14.5px] font-black">
+                  {daysLine} <span className="text-[12.5px] font-bold text-v2-muted">(ברירת מחדל)</span>
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowDaysNote((v) => !v)}
-                aria-expanded={showDaysNote}
-                className="h-9 shrink-0 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
-              >
-                שינוי
-              </button>
             </div>
-            <AnimatePresence initial={false}>
-              {showDaysNote && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-2 flex items-start gap-2 rounded-[14px] bg-v2-tint px-3 py-2.5">
-                    <Info size={15} strokeWidth={2.4} className="mt-0.5 shrink-0 text-v2-deep" aria-hidden />
-                    <p className="text-[12.5px] font-bold leading-snug text-v2-ink-2">
-                      אלה ימי ברירת המחדל. את הימים והשעה בוחרים אחרי ההרשמה, מהלו״ז במסך הבית — והתוכנית מתעדכנת בהתאם.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <p className="mt-1.5 px-1 text-[12px] font-bold leading-snug text-v2-muted">{daysCaption}</p>
           </motion.div>
         )}
       </div>

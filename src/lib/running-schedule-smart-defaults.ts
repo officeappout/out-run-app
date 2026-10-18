@@ -32,3 +32,62 @@ export const getSmartDefaultDays = (freq: number): number[] => {
     }
   }
 };
+
+/**
+ * Strength-aware default run days (owner, 18.10.2026): the silent signup
+ * default used to be getSmartDefaultDays(freq) unconditionally, so a user
+ * who already trains strength on e.g. Sun/Tue/Thu got runs on exactly the
+ * same three days. This picks `freq` run days (0=Sun..6=Sat) that:
+ *
+ *   1. overlap the given strength days as little as possible (zero whenever
+ *      freq + strength days fit in the week; minimal overlap otherwise),
+ *   2. among those, are spread as evenly as possible across the week
+ *      (smallest sum of squared circular gaps, so Sat->Sun counts as
+ *      consecutive),
+ *   3. tie-break: keep as many of getSmartDefaultDays(freq)'s days as
+ *      possible, then lowest indices — deterministic.
+ *
+ * With no strength days it returns getSmartDefaultDays(freq) unchanged, so
+ * a pure-runner signup gets exactly today's default.
+ */
+export function pickRunDaysAvoidingStrength(freq: number, strengthDayIndices: number[]): number[] {
+  const n = Math.max(0, Math.min(7, Math.round(freq)));
+  const blocked = new Set(strengthDayIndices.filter((i) => Number.isInteger(i) && i >= 0 && i <= 6));
+  if (blocked.size === 0) return getSmartDefaultDays(n);
+  if (n === 0) return [];
+  if (n === 7) return [0, 1, 2, 3, 4, 5, 6];
+
+  const preferred = new Set(getSmartDefaultDays(n));
+  let best: number[] = [];
+  let bestKey: number[] | null = null;
+
+  for (let mask = 0; mask < 1 << 7; mask++) {
+    const days: number[] = [];
+    for (let d = 0; d < 7; d++) if (mask & (1 << d)) days.push(d);
+    if (days.length !== n) continue;
+
+    const overlap = days.filter((d) => blocked.has(d)).length;
+    let spread = 0;
+    for (let i = 0; i < n; i++) {
+      const gap = i === n - 1 ? days[0] + 7 - days[i] : days[i + 1] - days[i];
+      spread += gap * gap;
+    }
+    const keptDefault = days.filter((d) => preferred.has(d)).length;
+    // Lower is better on every component; masks iterate low->high so the
+    // first found wins exact ties — combined with the sort key below that's
+    // the lexicographically smallest day list.
+    const key = [overlap, spread, -keptDefault, ...days];
+    if (!bestKey || lexLess(key, bestKey)) {
+      bestKey = key;
+      best = days;
+    }
+  }
+  return best;
+}
+
+function lexLess(a: number[], b: number[]): boolean {
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    if (a[i] !== b[i]) return a[i] < b[i];
+  }
+  return a.length < b.length;
+}

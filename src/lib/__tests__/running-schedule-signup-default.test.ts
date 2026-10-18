@@ -34,3 +34,16 @@ describe('resolveSignupDefaultWrite', () => {
     expect(result!.scheduleDays).toEqual(result!.runningScheduleDays);
   });
 });
+
+describe('resolveSignupDefaultWrite — strength-aware days', () => {
+  it('run days never collide with the existing strength days; time and source unchanged', () => {
+    const r = resolveSignupDefaultWrite({ isJIT: false, hasHydrated: true, strengthDays: ['א', 'ג', 'ה'] });
+    expect(r).not.toBeNull();
+    expect(r!.runningScheduleDays).toEqual(['ב', 'ד', 'ו']);
+    expect(r!.runningScheduleDayIndices).toEqual([1, 3, 5]);
+    expect(r!.runningScheduleTime).toBe('07:00');
+    expect(r!.runningScheduleDaysSource).toBe('system-default');
+    expect(r!.runningWeeklyFrequency).toBe(3);
+    expect([...r!.scheduleDays].sort()).toEqual(['א', 'ב', 'ג', 'ד', 'ה', 'ו']);
+  });
+});
