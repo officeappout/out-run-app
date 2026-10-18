@@ -164,7 +164,7 @@ describe('order: find → gate → set', () => {
   it('the demo gate is only considered once no find screen is pending; both share the hold', () => {
     const runner = readFileSync(fileURLToPath(new URL('../../players/strength/StrengthRunner.tsx', import.meta.url)), 'utf8');
     expect(runner).toContain('const needsGate = !needsFind && shouldGateExercise(gateInput);');
-    expect(runner).toContain('const needsHold = needsFind || needsGate;');
+    expect(runner).toContain('const needsHold = needsFind || needsGate || needsTour;');
     const found = runner.slice(runner.indexOf('const handleEquipmentFound'), runner.indexOf('const handleGateStart'));
     expect(found).toContain('if (!gateNext && sm.isPaused) sm.togglePause();'); // stays held when the gate is next
   });

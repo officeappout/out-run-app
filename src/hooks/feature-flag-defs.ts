@@ -65,13 +65,13 @@ export const FLAG_DEFS = [
   // this flag either way — it only gates the panel's own visibility).
   { key: 'enableMockLocationPanel', firestoreKey: 'enable_mock_location_panel', defaultValue: true, superAdminValue: true },
   // Onboarding tutorial, entry-mechanism slice (06.10.2026) — the whole new
-  // welcome-drawer + 2-gate entry router. defaultValue AND superAdminValue
-  // both false, deliberately NOT the usual "super admins always preview"
-  // convenience: David's own instruction was "nothing changes in production
-  // until I flip it" — with live paying users + a city on this app, that
-  // must hold for his own account too, not just everyone else's. Normal
-  // fail-closed pattern otherwise — this is not a wave-1-style exception.
-  { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: false, superAdminValue: false },
+  // welcome-drawer + 2-gate entry router; slice 2 (17.10.2026) adds the first-run
+  // coach-mark tours (home / map / community / player — those also need enable_home_v2).
+  // defaultValue false: nothing changes for users until the panel toggle is flipped.
+  // superAdminValue was false (David: "nothing changes in production until I flip it");
+  // flipped to true on 17.10.2026 at the owner's request so he can review the first-run
+  // experience on his own account — affects super admins only. Fail-closed otherwise.
+  { key: 'enableOnboardingTutorialV1', firestoreKey: 'enable_onboarding_tutorial_v1', defaultValue: false, superAdminValue: true },
   // Guided station layer (PR-B1, 15.10.2026) — KILL-SWITCH, not a launch gate. The guided
   // "ליווי צעד-אחר-צעד" layer is the default for every user (David's decision); this flag
   // exists only to turn it OFF globally without a deploy (off = everyone gets fast mode,
@@ -83,7 +83,7 @@ export const FLAG_DEFS = [
   // Sderot pilot G1.1 (15.10.2026) — map carousel ("מה עושים היום?") swipe affordance v2: wider
   // peek, a delayed once-per-user nudge, and a peeking card's button only centres it (never
   // starts "יוצאים מיד" by accident). Fail-closed launch gate; superAdminValue false on purpose
-  // (like enableOnboardingTutorialV1) — the panel toggle is the ONE switch, David's own account
+  // — the panel toggle is the ONE switch, David's own account
   // included, so the flag-off regression pass shows exactly what users get (today's #207 hint).
   { key: 'enableCarouselSwipeHint', firestoreKey: 'enable_carousel_swipe_hint', defaultValue: false, superAdminValue: false },
   // Sderot pilot G3.1 (15.10.2026) — walk-to-first-stop: a persistent walking card with live

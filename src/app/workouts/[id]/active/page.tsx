@@ -27,6 +27,10 @@ import {
 import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engine/components/strength/StrengthDopamineScreen';
 import StrengthSummary from '@/features/workout-engine/summary/pages/StrengthSummary';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
+import { firstRunTourSeenKey, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
+import { useIsNewUserForTours } from '@/features/user/onboarding/hooks/useIsNewUserForTours';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
@@ -888,6 +892,26 @@ export default function ActiveWorkoutPage() {
     [stableWorkoutPlan],
   );
 
+  // First-run player tour (onboarding slice 2) — enable_onboarding_tutorial_v1 AND
+  // enable_home_v2, first strength session only (seen-once per user; StrengthRunner holds the
+  // first set and writes nothing itself — FirstRunTour records the seen flag).
+  const tourIsSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const { flags: tourFlags, loading: tourFlagsLoading } = useFeatureFlags(tourIsSuperAdmin);
+  const playerToursOn = !tourFlagsLoading && firstRunToursEnabled(tourFlags);
+  const [playerTourUnseen, setPlayerTourUnseen] = useState(false);
+  useEffect(() => {
+    const uid = profile?.id;
+    if (!playerToursOn || !uid) { setPlayerTourUnseen(false); return; }
+    let alive = true;
+    void getOnboardingPrefAsync(firstRunTourSeenKey('player', uid)).then((v) => {
+      if (alive) setPlayerTourUnseen(!v);
+    });
+    return () => { alive = false; };
+  }, [playerToursOn, profile?.id]);
+  // New users only (≤ 14 days since account creation) — an older account never arms the hold.
+  const playerTourNewUser = useIsNewUserForTours(playerTourUnseen);
+  const playerTourEligible = playerTourUnseen && playerTourNewUser === true && !isPureRecoveryVideoTrioWorkout(stableWorkoutPlan);
+
   // Mirror into useSessionStore so Android (plain JS, src/lib/native/init.ts)
   // and, via WorkoutExitGuardTracker's @capacitor/preferences mirror, iOS's
   // native decidePolicyFor (ViewController.swift) can read this without
@@ -1720,6 +1744,8 @@ export default function ActiveWorkoutPage() {
           onResume={handleResume}
           onSwapExercise={handleSwapExercise}
           exerciseHistoryMap={exerciseHistoryMap}
+          firstRunTour={playerTourEligible}
+          onFirstRunTourClose={() => setPlayerTourUnseen(false)}
           initialCheckpoint={
             STRENGTH_RESUME_CHECKPOINT_ENABLED && checkpointDecisionMade && pendingCheckpoint
               ? {

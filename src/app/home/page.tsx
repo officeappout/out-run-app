@@ -13,6 +13,8 @@ import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import WelcomeDrawer from '@/features/user/onboarding/components/WelcomeDrawer';
+import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
+import { FIRST_RUN_COACH, firstRunToursEnabled, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
 import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
@@ -361,6 +363,10 @@ export default function HomePage() {
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
+  // First-run tours (slice 2, 17.10.2026) — enable_onboarding_tutorial_v1 AND enable_home_v2.
+  // The home tour only starts from the WelcomeDrawer's "סתם בא לי להסתכל באפליקציה" link.
+  const firstRunToursOn = !flagsLoading && firstRunToursEnabled(featureFlags);
+  const [homeTourRequested, setHomeTourRequested] = useState(false);
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   const scheduleState = useSmartSchedule();
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
@@ -2871,6 +2877,7 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className="relative overflow-hidden rounded-3xl"
+            data-coach={FIRST_RUN_COACH.homeWeek}
           >
             <SmartWeeklySchedule
               v2={featureFlags.enableHomeV2}
@@ -3034,7 +3041,7 @@ export default function HomePage() {
           // no-op (this div's only child, nothing left to reorder against) — harmless to
           // leave; removing it isn't needed for correctness and isn't part of this fix.
           const anchorBlock = (
-            <div className="flex flex-col gap-4 mt-0">
+            <div className="flex flex-col gap-4 mt-0" data-coach={FIRST_RUN_COACH.homeWorkout}>
               {/* ── Daily Workout Hero — always visible ───────────────
                   R-1.5 (order B, workout-first): with HOME_ANCHOR_V2_ENABLED the
                   anchor is pulled ABOVE the tabs/metrics via flex `order-first`,
@@ -3474,9 +3481,27 @@ export default function HomePage() {
                 dismissWelcomeDrawer();
                 router.push('/map');
               }}
+              onJustLook={firstRunToursOn ? () => {
+                dismissWelcomeDrawer();
+                if (tourAfterWelcomeChoice('browse') === 'home') setHomeTourRequested(true);
+              } : undefined}
             />
           )}
       </AnimatePresence>
+
+      {/* First-run home tour (slice 2) — after "סתם להסתכל" only, never over another sheet:
+          the same guard list as the WelcomeDrawer / "+" FAB, plus the "+" drawer's own sheets. */}
+      <FirstRunTour
+        tour="home"
+        active={
+          firstRunToursOn && homeTourRequested && entryRouterClassification.kind !== 'new' &&
+          !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge &&
+          !plusDrawerOpen && !composeOpen && !wizardOpen && !reportOpen
+        }
+        uid={profile?.id}
+        gender={profile?.core?.gender}
+        onClose={() => setHomeTourRequested(false)}
+      />
 
       {/* ── Unified "+" FAB — promoted home entry point, opens the SAME
           UnifiedPlusDrawer the map "+" opens (Phase 1 revision — one
@@ -3489,6 +3514,7 @@ export default function HomePage() {
       {SOCIAL_COMPOSE_UI_ENABLED && !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && (
         <button
           onClick={() => setPlusDrawerOpen(true)}
+          data-coach={FIRST_RUN_COACH.homePlus}
           className={
             featureFlags.enableHomeV2
               ? 'fixed z-[55] w-14 h-14 rounded-full flex items-center justify-center bg-white text-[#0284c7] active:scale-95 transition-transform'

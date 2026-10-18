@@ -69,6 +69,8 @@ import {
   shouldGateExercise, timerLeadInSeconds, gateClipMuted, type DemoSeenStore,
 } from './logic/demo-gate';
 import { isPlayerAudioMuted } from './logic/player-audio-mute';
+import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onboarding/components/FirstRunTour';
+import { shouldArmPlayerTour } from '@/features/user/onboarding/services/first-run-tour';
 
 export type { ExerciseResultLog };
 
@@ -103,6 +105,12 @@ interface StrengthRunnerProps {
    * starts fresh exactly as before this prop existed.
    */
   initialCheckpoint?: InitialWorkoutCheckpoint;
+  /** First-run player tour (onboarding slice 2, enable_onboarding_tutorial_v1 + enable_home_v2):
+   *  the page decided this user hasn't seen it. Shown once, before the FIRST set starts (held in
+   *  the same pause the demo gate uses) — never mid-exercise, never in a hybrid station or a
+   *  resumed session. Omitted/false → byte-identical. */
+  firstRunTour?: boolean;
+  onFirstRunTourClose?: (reason: FirstRunTourCloseReason) => void;
 }
 
 export default function StrengthRunner({
@@ -117,6 +125,8 @@ export default function StrengthRunner({
   demoGate,
   findEquipment,
   initialCheckpoint,
+  firstRunTour = false,
+  onFirstRunTourClose,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
 
@@ -354,6 +364,7 @@ export default function StrengthRunner({
 
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
+  const profileId = useUserStore((s) => s.profile?.id);
 
   // ── PR-B2 demo gate (guided only) ───────────────────────────────────────
   // Held in the player's EXISTING pause — every clock already honours isPaused (elapsed +
@@ -390,7 +401,23 @@ export default function StrengthRunner({
     isFirstTabataInterval,
   };
   const needsGate = !needsFind && shouldGateExercise(gateInput);
-  const needsHold = needsFind || needsGate;
+  // First-run player tour (onboarding slice 2): armed only while the first set is still in
+  // PREPARING, then held exactly like the demo gate (PREPARING → ACTIVE, paused) until it closes.
+  const [playerTour, setPlayerTour] = useState<'idle' | 'armed' | 'done'>('idle');
+  useLayoutEffect(() => {
+    if (playerTour !== 'idle') return;
+    if (shouldArmPlayerTour({
+      eligible: firstRunTour,
+      workoutState: sm.workoutState,
+      segmentIndex: sm.currentSegmentIndex,
+      exerciseIndex: sm.currentExerciseIndex,
+      resumed: !!initialCheckpoint,
+      guidedGates: embedded || !!demoGate || !!findEquipment,
+    })) setPlayerTour('armed');
+  }, [playerTour, firstRunTour, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint, embedded, demoGate, findEquipment]);
+  const needsTour = playerTour === 'armed' && !needsFind && !needsGate;
+  const tourActive = needsTour && sm.workoutState === 'ACTIVE';
+  const needsHold = needsFind || needsGate || needsTour;
   const gateActive = needsGate && sm.workoutState === 'ACTIVE';
   const findActive = needsFind && sm.workoutState === 'ACTIVE';
   // Layout effect → the hold lands before paint, so no clock gets a tick in.
@@ -433,6 +460,12 @@ export default function StrengthRunner({
     setGateTick((t) => t + 1);
     if (sm.isPaused) sm.togglePause(); // release the hold → the timer / rep set starts now
   }, [isTabataBlock, workout.segments, sm, demoGate, gateActiveKey]);
+
+  const handlePlayerTourClose = useCallback((reason: FirstRunTourCloseReason) => {
+    setPlayerTour('done');
+    onFirstRunTourClose?.(reason);
+    if (sm.isPaused) sm.togglePause(); // release the hold → the first set starts now
+  }, [onFirstRunTourClose, sm]);
 
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
@@ -747,6 +780,15 @@ export default function StrengthRunner({
                 onStart={handleGateStart}
               />
             )}
+
+            {/* First-run player tour — over the held first set (portal; see FirstRunTour). */}
+            <FirstRunTour
+              tour="player"
+              active={tourActive}
+              uid={profileId}
+              gender={userGender}
+              onClose={handlePlayerTourClose}
+            />
 
             {/* Header overlay — also the drag handle for minimize */}
             {showHeader && !gateActive && !findActive && (

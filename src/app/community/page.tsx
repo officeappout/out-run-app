@@ -63,6 +63,8 @@ import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompet
 import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
 import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
 import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
+import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
+import { FIRST_RUN_COACH, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import CityChallengeCard from '@/features/arena/components/CityChallengeCard';
 import { BoardSheet, ScopePointsContent } from '@/features/arena/components/LeagueBoardSheets';
 import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
@@ -612,8 +614,17 @@ export default function CommunityPage() {
     </button>
   );
 
+  // First-run community tour (slice 2) — leagues tab (v2), loaded, nothing else open.
+  const communityTourActive =
+    !flagsLoading && firstRunToursEnabled(featureFlags) && featureFlags.enableLeagues &&
+    topTab === 'leagues' && !arenaLoading &&
+    !selectedGroup && !selectedEvent && !successData && !wizardOpen && !scopePointsOpen &&
+    !groupWalkOpen && !leagueSheetOpen && !leagueFilterSheetOpen && !axisMenuOpen &&
+    !shareOpen && !privacyOpen;
+
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
+      <FirstRunTour tour="community" active={communityTourActive} uid={userId} gender={profile?.core?.gender} />
       {/* ── Shared App Header ───────────────────────────────────────────────
             Top-level tabs (פיד / ליגות) and the active sub-bar live INSIDE
             the AppHeader's children slot so they collapse together as one
@@ -991,6 +1002,7 @@ export default function CommunityPage() {
           className="sticky top-0 z-[3] -mx-4 bg-v2-surface/95 px-4 pb-1 pt-1 backdrop-blur-sm"
           role="tablist"
           aria-label="ליגות"
+          data-coach={FIRST_RUN_COACH.communityLeague}
         >
           <div className="grid rounded-full bg-white p-1 shadow-v2-ring" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
             {tabs.map((t) => {
@@ -1052,7 +1064,9 @@ export default function CommunityPage() {
                     onCategoryChange={setLeaderboardCategory}
                     genderFilter={leaderboardGender}
                   />
-                  <InviteBonusCard scopeName={activeScopeEntry?.scopeName ?? null} />
+                  <div data-coach={FIRST_RUN_COACH.communityInvite}>
+                    <InviteBonusCard scopeName={activeScopeEntry?.scopeName ?? null} />
+                  </div>
                 </>
               ) : (
                 renderNeighborhoodSetupCTA()

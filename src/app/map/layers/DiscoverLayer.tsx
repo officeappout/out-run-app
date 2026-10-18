@@ -32,6 +32,8 @@ import { buildMapUserContext } from '@/features/workout-engine/core/context/buil
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
 import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
+import { FIRST_RUN_COACH, firstRunToursEnabled, isMapTourBlocked } from '@/features/user/onboarding/services/first-run-tour';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
@@ -216,9 +218,11 @@ interface DiscoverLayerProps {
   initialOpenDiscover?: boolean;
   /** Center the camera on the best-available fix (live GPS or fallback dot). */
   onRecenter?: () => void;
+  /** First-run map tour (slice 2): this is a plain map arrival (see MapShell). */
+  firstRunTourEligible?: boolean;
 }
 
-export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter, firstRunTourEligible = false }: DiscoverLayerProps) {
   const router = useRouter();
   const { setMode } = useMapMode();
   // Phase 3 (social-activities plan): opportunistically refresh the
@@ -1434,6 +1438,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
   // ── THE LAW: SINGLE SCREEN STATE ──
   const selectedPark = useMapStore((s) => s.selectedPark);
+  const mapGlobalSheet = useMapStore((s) => s.globalSheet);
   type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'PARK_CARD' | 'COMMUTE' | 'DISCOVERY';
   const screen: Screen = (() => {
     if (logic.navState === 'searching') return 'SEARCH';
@@ -1494,12 +1499,14 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   Home / Work saved-place shortcuts are surfaced inside the
                   NavigationHub full-screen overlay (Quick Actions grid) so
                   the map canvas stays uncluttered. */}
-              <FloatingSearchBar
-                inputRef={logic.searchInputRef}
-                searchQuery={logic.searchQuery}
-                onSearchChange={logic.setSearchQuery}
-                onFocus={() => logic.setNavState('searching')}
-              />
+              <div data-coach={FIRST_RUN_COACH.mapSearch}>
+                <FloatingSearchBar
+                  inputRef={logic.searchInputRef}
+                  searchQuery={logic.searchQuery}
+                  onSearchChange={logic.setSearchQuery}
+                  onFocus={() => logic.setNavState('searching')}
+                />
+              </div>
 
               {/* Mode header pills — also hidden in commute mode so the
                   top surface stays focused on the active navigation flow. */}
@@ -1709,6 +1716,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
               <div
                 className="absolute right-4 z-[50] pointer-events-none"
                 style={{ top: 'calc(52px + env(safe-area-inset-top, 0px) + 116px)' }}
+                data-coach={FIRST_RUN_COACH.mapLayers}
               >
                 <MapLayersControl liveCount={live.length} />
               </div>
@@ -2174,9 +2182,25 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     }
   }
 
+  // First-run map tour (slice 2) — idle discovery screen only: never during a workout/run,
+  // never on a deep-linked arrival, never over a sheet / drawer / non-idle map mode.
+  const mapTourActive =
+    firstRunTourEligible && !mapFlagsLoading && firstRunToursEnabled(mapFeatureFlags) &&
+    isMapVisuallyReady &&
+    !isMapTourBlocked({
+      workoutActive: logic.isWorkoutActive,
+      openedByDeepLink: !firstRunTourEligible,
+      surfaceOpen:
+        screen !== 'DISCOVERY' || mapMode !== 'idle' || partnerTab !== null || topChromeFolded ||
+        plusDrawerOpen || wizardOpen || reportOpen || composeOpen || setPlaceSheetKind !== null ||
+        !!legPlanPreview || logic.showDetailsDrawer || !!mapGlobalSheet || logic.isGenerating,
+    });
+
   return (
     <>
       {renderScreen()}
+
+      <FirstRunTour tour="map" active={mapTourActive} uid={profile?.id} gender={profile?.core?.gender} delayMs={900} />
 
       {/* ═══ Global overlays — always available, never conflict ═══ */}
       {logic.isGenerating && <RouteGenerationLoader />}

@@ -360,7 +360,7 @@ export default function ActiveExerciseView({
             )}
 
             {/* Primary CTA */}
-            <div className="mb-2">
+            <div className="mb-2" data-coach="player-done">
               <FillingButton
                 key={`fill-${activeKey}`}
                 autoCompleteTime={autoCompleteTime}
@@ -389,7 +389,7 @@ export default function ActiveExerciseView({
             )}
 
             {/* ── Below the fold — unified ExerciseDetailContent ────────── */}
-            <div className="-mx-5 mt-4">
+            <div className="-mx-5 mt-4" data-coach="player-how-to">
               <ExerciseDetailContent
                 exerciseName={exerciseName}
                 videoUrl={null}
