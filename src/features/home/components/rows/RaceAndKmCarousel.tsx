@@ -21,13 +21,9 @@ import { Footprints, Activity } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useWeeklyRunningKm } from '@/features/activity';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
+import { predictRaceSeconds, targetDistanceKm } from '@/features/workout-engine/core/services/race-prediction.service';
 
 const REF_KM_5K = 5;
-
-function riegelPredict(basePaceSecKm: number, refKm: number, targetKm: number): number {
-  const refTime = basePaceSecKm * refKm;
-  return refTime * Math.pow(targetKm / refKm, 1.06);
-}
 
 function formatTime(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -41,7 +37,9 @@ function RacePaceTile() {
   const profile = useUserStore((s) => s.profile);
   const basePace = profile?.running?.paceProfile?.basePace ?? 0;
   const has5kPrediction = basePace > 0;
-  const fiveKSeconds = has5kPrediction ? riegelPredict(basePace, REF_KM_5K, REF_KM_5K) : 0;
+  // Same model as every other surface: reference = the plan's target distance.
+  const refKm = targetDistanceKm(profile?.running?.generatedProgramTemplate?.targetDistance);
+  const fiveKSeconds = has5kPrediction ? predictRaceSeconds(basePace, refKm, REF_KM_5K) : 0;
 
   return (
     <CompactMetricTile

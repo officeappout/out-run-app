@@ -34,6 +34,7 @@ import type {
 } from '../types/running.types';
 
 import { WARMUP_COOLDOWN_BY_CATEGORY } from '../config/warmup-cooldown-config';
+import { predictedRacePaceSecPerKm } from './race-prediction.service';
 
 import type { RunBlock, RunBlockType } from '../../players/running/types/run-block.type';
 import type { RunWorkout } from '../../players/running/types/run-workout.type';
@@ -239,29 +240,46 @@ export function processSelfCorrection(
   }
 
   const window = recentRecords.slice(-QUALITY_WINDOW_SIZE);
-
-  // Average pace across the quality exercises in the 3-workout window
-  const avgPace =
-    window.reduce((sum, r) => sum + r.qualityExerciseAvgPace, 0) / window.length;
-
-  // Resolve the target zone boundaries for the dominant zone in the window.
-  // If workouts target different zones, use the most recent one.
-  const targetZone = window[window.length - 1].targetZone;
   const zones = computeZones(currentBasePace, profileType, config);
+
+  // Each record's pace was run in ITS OWN zone (tempo ≈ 105–112 % of
+  // basePace, short intervals ≈ 93–97 %…). Averaging raw paces or snapping
+  // basePace to a zone pace mixes two scales, so every record is first
+  // translated into basePace terms (pace ÷ its zone's mid-point ratio).
+  // For a window that targets one zone this changes nothing in the
+  // classification below; it only fixes the two "snap" branches, which used
+  // to set basePace to the ZONE pace (e.g. running tempo faster than the
+  // zone made basePace SLOWER).
+  const zoneMidRatio = (zone: RunZoneType): number => {
+    const z = zones[zone];
+    const mid = z ? (z.minPace + z.maxPace) / 2 : 0;
+    return mid > 0 && currentBasePace > 0 ? mid / currentBasePace : 1;
+  };
+  const avgBaseEquivalent =
+    window.reduce((sum, r) => sum + r.qualityExerciseAvgPace / zoneMidRatio(r.targetZone), 0) /
+    window.length;
+
+  // Classify against the most recent record's zone (as before).
+  const targetZone = window[window.length - 1].targetZone;
   const { minPace, maxPace } = zones[targetZone];
+  const avgPace = avgBaseEquivalent * zoneMidRatio(targetZone);
 
   const performanceZone = classifyPerformance(avgPace, minPace, maxPace);
+
+  const rewarded = round5(currentBasePace * (1 - SELF_CORRECTION_DELTA));
+  const penalised = round5(currentBasePace * (1 + SELF_CORRECTION_DELTA));
 
   let newBasePace: number;
 
   switch (performanceZone) {
     case 'above_high':
-      // Ran faster than the zone → snap to avg, then reward 1.5 %
-      newBasePace = round5(avgPace * (1 - SELF_CORRECTION_DELTA));
+      // Ran faster than the zone → snap to the average (in basePace terms),
+      // then reward 1.5 %. Never less of an improvement than 'high' gives.
+      newBasePace = Math.min(rewarded, round5(avgBaseEquivalent * (1 - SELF_CORRECTION_DELTA)));
       break;
 
     case 'high':
-      newBasePace = round5(currentBasePace * (1 - SELF_CORRECTION_DELTA));
+      newBasePace = rewarded;
       break;
 
     case 'mid':
@@ -269,12 +287,13 @@ export function processSelfCorrection(
       break;
 
     case 'low':
-      newBasePace = round5(currentBasePace * (1 + SELF_CORRECTION_DELTA));
+      newBasePace = penalised;
       break;
 
     case 'below_low':
-      // Ran slower than the zone → snap to avg, then penalise 1.5 %
-      newBasePace = round5(avgPace * (1 + SELF_CORRECTION_DELTA));
+      // Ran slower than the zone → snap to the average (in basePace terms),
+      // then penalise 1.5 %. Never less of a slow-down than 'low' gives.
+      newBasePace = Math.max(penalised, round5(avgBaseEquivalent * (1 + SELF_CORRECTION_DELTA)));
       break;
   }
 
@@ -305,6 +324,7 @@ export function recordQualityWorkout(
   qualityExerciseAvgPace: number,
   targetZone: RunZoneType,
   config: PaceMapConfig,
+  now: Date = new Date(),
 ): RecordQualityResult {
   const zones = computeZones(currentProfile.basePace, currentProfile.profileType, config);
   const { minPace, maxPace } = zones[targetZone];
@@ -313,7 +333,7 @@ export function recordQualityWorkout(
 
   const record: QualityWorkoutRecord = {
     workoutId,
-    date: new Date().toISOString(),
+    date: now.toISOString(),
     qualityExerciseAvgPace,
     targetZone,
     performanceZone,
@@ -358,7 +378,7 @@ export function recordQualityWorkout(
     qualityWorkoutCount: newCount,
     lastSelfCorrectionDate:
       selfCorrection?.shouldUpdateProfile
-        ? new Date().toISOString()
+        ? now.toISOString()
         : currentProfile.lastSelfCorrectionDate,
   };
 
@@ -1684,30 +1704,17 @@ const TARGET_DISTANCE_METERS: Record<string, number> = {
   '10k': 10_000,
 };
 
-/** Seconds per KM faster than easy pace, per target distance. */
-const RACE_PACE_OFFSET: Record<string, number> = {
-  '3k': 25,
-  '5k': 20,
-  '10k': 15,
-};
-
-/**
- * Compute predicted race pace in seconds/km.
- * Uses the user's basePace (which represents their easy-run pace per km)
- * and subtracts a distance-dependent offset to approximate race effort.
- * For tempo-level athletes the race pace is close to their tempo zone.
- */
-export function computePredictedRacePace(
-  basePace: number,
-  targetDistance: '3k' | '5k' | '10k' | 'maintenance',
-): number {
-  const offset = RACE_PACE_OFFSET[targetDistance] ?? 15;
-  return Math.max(basePace - offset, Math.round(basePace * 0.8));
-}
-
 /**
  * Build a synthetic Race Day workout for the final week.
  * Single block: run the full target distance at predicted race pace.
+ *
+ * Race pace comes from the SAME prediction the home widgets show
+ * (race-prediction.service: Riegel from basePace, reference = the plan's
+ * target distance), which at the target distance is basePace itself —
+ * calibrateBasePace already derives basePace as the target-distance race
+ * pace. The old separate model (basePace − 15/20/25 s) assumed basePace was
+ * an easy-run pace, which it is not, and made race day 15–25 s/km faster
+ * than the prediction the runner sees on the home screen.
  */
 function buildRaceDayWorkout(
   targetDistance: '3k' | '5k' | '10k' | 'maintenance',
@@ -1718,7 +1725,7 @@ function buildRaceDayWorkout(
   const distMeters = TARGET_DISTANCE_METERS[targetDistance];
   if (!distMeters) return null;
 
-  const racePace = computePredictedRacePace(userProfile.basePace, targetDistance);
+  const racePace = predictedRacePaceSecPerKm(userProfile.basePace, targetDistance);
   const racePaceLabel = `${Math.floor(racePace / 60)}:${String(racePace % 60).padStart(2, '0')} /ק״מ`;
 
   const raceBlock: RunBlock = {

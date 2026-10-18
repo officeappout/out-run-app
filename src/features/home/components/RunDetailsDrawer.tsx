@@ -6,10 +6,8 @@ import { X, Trophy, Edit3 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { predictRaceSeconds, targetDistanceKm } from '@/features/workout-engine/core/services/race-prediction.service';
 
-const DIST_KM: Record<string, number> = {
-  '2k': 2, '3k': 3, '5k': 5, '10k': 10, maintenance: 5,
-};
 
 function formatTime(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -17,11 +15,6 @@ function formatTime(totalSeconds: number): string {
   const s = Math.round(totalSeconds % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function riegelPredict(basePaceSecKm: number, refKm: number, targetKm: number): number {
-  const refTime = basePaceSecKm * refKm;
-  return refTime * Math.pow(targetKm / refKm, 1.06);
 }
 
 interface RunDetailsDrawerProps {
@@ -39,13 +32,13 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
   const { profile, refreshProfile } = useUserStore();
   const running = profile?.running;
   const basePace = running?.paceProfile?.basePace ?? 0;
-  const refKm = DIST_KM[running?.generatedProgramTemplate?.targetDistance ?? '5k'] ?? 5;
+  const refKm = targetDistanceKm(running?.generatedProgramTemplate?.targetDistance);
 
   const predictions = useMemo(() => {
     if (!basePace || basePace <= 0) return [];
     return PREDICTIONS.map(({ label, km }) => ({
       label,
-      time: formatTime(riegelPredict(basePace, refKm, km)),
+      time: formatTime(predictRaceSeconds(basePace, refKm, km)),
     }));
   }, [basePace, refKm]);
 

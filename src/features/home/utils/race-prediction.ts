@@ -8,10 +8,14 @@
  * number every other prediction surface in the app reads (RunProgressCircle,
  * RunDetailsDrawer, RaceAndKmCarousel).
  *
- * Model = the one those surfaces already use: Riegel from basePace, with the
+ * Model = the shared one in workout-engine/core/services/race-prediction.service
+ * (also used by the plan's race-day workout): Riegel from basePace, with the
  * reference distance = the plan's target distance (5 km when unknown):
  *   T(d) = basePace × refKm × (d / refKm)^1.06
  * So the main distance (= refKm) is simply basePace × refKm.
+ *
+ * basePace moves after planned quality runs (pace-self-correction.service →
+ * recordQualityWorkout), so the number follows the runner's recent runs.
  *
  * Trend: `paceProfile.qualityWorkoutsHistory[].impactOnBasePaceSeconds` is
  * what the self-correction step stamps when it moves basePace. Summing the
@@ -19,30 +23,22 @@
  * impact in the window → no trend (we never invent one).
  */
 
-export const RIEGEL_EXPONENT = 1.06;
+import {
+  predictRaceSeconds,
+  targetDistanceKm,
+} from '@/features/workout-engine/core/services/race-prediction.service';
+
+// One model for every surface — see race-prediction.service.ts.
+export {
+  RIEGEL_EXPONENT,
+  predictRaceSeconds,
+  targetDistanceKm,
+} from '@/features/workout-engine/core/services/race-prediction.service';
+
 export const HALF_MARATHON_KM = 21.0975;
 
 /** Distances shown in the secondary row (the main one is filtered out). */
 export const RACE_DISTANCES_KM = [5, 10, HALF_MARATHON_KM] as const;
-
-const TARGET_DISTANCE_KM: Record<string, number> = {
-  '2k': 2,
-  '3k': 3,
-  '5k': 5,
-  '10k': 10,
-};
-
-/** Plan goal distance → km. 'maintenance' / unknown / missing → 5. */
-export function targetDistanceKm(targetDistance: unknown): number {
-  if (typeof targetDistance !== 'string') return 5;
-  return TARGET_DISTANCE_KM[targetDistance] ?? 5;
-}
-
-/** Riegel projection in seconds. 0 for invalid input. */
-export function predictRaceSeconds(basePaceSecPerKm: number, refKm: number, targetKm: number): number {
-  if (!(basePaceSecPerKm > 0) || !(refKm > 0) || !(targetKm > 0)) return 0;
-  return basePaceSecPerKm * refKm * Math.pow(targetKm / refKm, RIEGEL_EXPONENT);
-}
 
 /** "5 ק״מ" / "21.1 ק״מ" */
 export function formatDistanceLabel(km: number): string {
@@ -146,6 +142,8 @@ export type RacePredictionView =
       basePace: number;
       /** main-distance seconds now minus 30 days ago (negative = faster). null = no history. */
       trendSeconds: number | null;
+      /** At least one dated quality run is recorded → the number follows recent runs. */
+      basedOnRuns: boolean;
     };
 
 /**
@@ -178,7 +176,9 @@ export function selectRacePrediction(input: RacePredictionInput): RacePrediction
     trendSeconds = delta === 0 ? null : delta;
   }
 
-  return { state: 'ready', main, others, basePace, trendSeconds };
+  const basedOnRuns = !!input.history?.some((r) => toMillis(r?.date) !== null);
+
+  return { state: 'ready', main, others, basePace, trendSeconds, basedOnRuns };
 }
 
 /** Trend chip parts: clock of the change + direction word. */
