@@ -26,3 +26,15 @@ export * from './tokens';
 export { default as StreakFlame } from './StreakFlame';
 export type { StreakFlameProps } from './StreakFlame';
 export * from './streak';
+// Post-workout summary (home v2) building blocks.
+export * from './summary';
+export { default as ExerciseSetsTable, SetTileBox, SetsLegend, ExerciseThumb } from './ExerciseSetsTable';
+export type { ExerciseSetsRow, ExerciseSetsTableProps } from './ExerciseSetsTable';
+export { default as ProgramProgressRing } from './ProgramProgressRing';
+export type { ProgramProgressItem } from './ProgramProgressRing';
+export { default as StreakDotsStrip } from './StreakDotsStrip';
+export type { StreakDotsStripProps, StreakWeekBar } from './StreakDotsStrip';
+export { default as MetricRings } from './MetricRings';
+export type { MetricRing } from './MetricRings';
+export { default as ImprovementCard } from './ImprovementCard';
+export type { ImprovementItem, ImprovementCardProps } from './ImprovementCard';

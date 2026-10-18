@@ -50,6 +50,11 @@ export interface ExerciseSummary {
   status: ExerciseStatus;
   /** Best set this session minus best set of the previous session (only when > 0). */
   improvedBy: number | null;
+  /** Best set this session / last session (null when unknown) — for "פעם קודמת X · היום Y". */
+  best: number | null;
+  previousBest: number | null;
+  /** Exercise image from the plan (live flow only). */
+  imageUrl?: string;
 }
 
 export interface BlockSummary {
@@ -85,6 +90,7 @@ export interface SessionTotals extends PhaseTotals {
 interface PlanExercise {
   id: string;
   name: string;
+  imageUrl?: string;
   reps?: string;
   duration?: string;
   sets?: number;
@@ -206,8 +212,9 @@ function buildExercise(args: {
   done: number[];
   targetFor: (i: number) => number | null;
   previous?: number[];
+  imageUrl?: string;
 }): ExerciseSummary {
-  const { key, name, unit, plannedSets, done, targetFor, previous } = args;
+  const { key, name, unit, plannedSets, done, targetFor, previous, imageUrl } = args;
   const count = Math.max(done.length, plannedSets ?? 0);
   const sets: SetSummary[] = [];
   for (let i = 0; i < count; i++) {
@@ -220,11 +227,26 @@ function buildExercise(args: {
   const allFull = sets.length > 0 && sets.every((s) => s.mark === 'full');
   const status: ExerciseStatus = doneSets === 0 ? 'skipped' : allFull ? 'done' : 'partial';
   let improvedBy: number | null = null;
-  if (previous && previous.length > 0 && done.length > 0) {
-    const delta = Math.max(...done) - Math.max(...previous);
+  const best = done.length > 0 ? Math.max(...done) : null;
+  const previousBest = previous && previous.length > 0 ? Math.max(...previous) : null;
+  if (best !== null && previousBest !== null) {
+    const delta = best - previousBest;
     if (delta > 0) improvedBy = delta;
   }
-  return { key, name, unit, plannedSets, doneSets, total, sets, status, improvedBy };
+  return {
+    key,
+    name,
+    unit,
+    plannedSets,
+    doneSets,
+    total,
+    sets,
+    status,
+    improvedBy,
+    best,
+    previousBest,
+    ...(imageUrl ? { imageUrl } : {}),
+  };
 }
 
 function totalsFor(blocks: BlockSummary[]): PhaseTotals {
@@ -283,6 +305,7 @@ export function buildPhaseSummary({
                 ? bTarget
                 : planTargetForSet(ex, segment, unit, i) ?? (entry && entry.targetReps > 0 ? entry.targetReps : null),
             previous: previousSets?.[ex.id],
+            imageUrl: ex.imageUrl,
           }),
         );
       }
