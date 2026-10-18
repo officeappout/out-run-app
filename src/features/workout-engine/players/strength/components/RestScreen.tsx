@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dumbbell } from 'lucide-react';
+import { Dumbbell, Lightbulb, Volume2, VolumeX, Timer } from 'lucide-react';
 import { DotLottieReact, setWasmUrl } from '@lottiefiles/dotlottie-react';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
 import type { NextExerciseInfo } from '../hooks/useWorkoutStateMachine';
@@ -10,6 +10,7 @@ import { useNetworkAwareStreamUrl } from '@/features/content/exercises/client/ho
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { usePlayerAudioMute } from '../logic/player-audio-mute';
 import { REST_EXTEND_SECONDS } from '../logic/player-controls.utils';
+import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 
 /**
  * RestScreen — unified REST-phase card, shared by every workout type
@@ -115,6 +116,8 @@ export default function RestScreen({
     return () => clearTimeout(t);
   }, [autoExpandPreview, videoKey]);
   const [posterFailed, setPosterFailed] = useState(false);
+  // enable_home_v2 — styling only (provided once by StrengthRunner).
+  const v2 = useStrengthPlayerV2();
   // Session-wide mute for countdown beeps (and later voice) — see player-audio-mute.ts.
   const audioMuted = usePlayerAudioMute((st) => st.muted);
   const toggleAudioMuted = usePlayerAudioMute((st) => st.toggleMuted);
@@ -149,7 +152,7 @@ export default function RestScreen({
       className={`absolute inset-0 overflow-hidden transition-opacity duration-300 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}
       dir="rtl"
     >
-      <div className="absolute inset-0 bg-white dark:bg-[#0F172A]" />
+      <div className={v2 ? 'absolute inset-0 bg-v2-surface' : 'absolute inset-0 bg-white dark:bg-[#0F172A]'} />
 
       {!isLogDrawerOpen && (
         <>
@@ -169,14 +172,16 @@ export default function RestScreen({
             }}
           >
             <p
-              className="text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider"
+              className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               התרגיל הבא
             </p>
             <button
               onClick={() => setIsPreviewExpanded((v) => !v)}
-              className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 bg-slate-900 transition-all duration-300"
+              className={v2
+                ? 'relative w-full rounded-[18px] overflow-hidden bg-v2-tint shadow-v2-card transition-all duration-300 ease-v2 active:scale-[0.97]'
+                : 'relative w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 bg-slate-900 transition-all duration-300'}
               style={{ aspectRatio: '9 / 16' }}
               aria-label={isPreviewExpanded ? 'כווץ תצוגה מקדימה' : 'הרחב תצוגה מקדימה'}
             >
@@ -190,8 +195,8 @@ export default function RestScreen({
                   isPaused={isPaused}
                 />
               ) : showPosterIcon ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
-                  <Dumbbell size={22} className="text-slate-400" />
+                <div className={v2 ? 'absolute inset-0 flex items-center justify-center bg-v2-tint' : 'absolute inset-0 flex items-center justify-center bg-slate-700'}>
+                  <Dumbbell size={22} className={v2 ? 'text-v2-accent' : 'text-slate-400'} />
                 </div>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -204,14 +209,14 @@ export default function RestScreen({
               )}
             </button>
             <p
-              className="text-xs font-bold text-slate-900 dark:text-white leading-tight line-clamp-2 w-full"
+              className={v2 ? 'text-[13px] font-extrabold text-v2-ink leading-tight line-clamp-2 w-full' : 'text-xs font-bold text-slate-900 dark:text-white leading-tight line-clamp-2 w-full'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               {nextExercise.name}
             </p>
             {nextRepsOrDuration && (
               <p
-                className="text-[10px] text-slate-400 dark:text-zinc-500 w-full"
+                className={v2 ? 'text-[12px] font-bold text-v2-muted w-full truncate whitespace-nowrap' : 'text-[10px] text-slate-400 dark:text-zinc-500 w-full'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 {nextRepsOrDuration}
@@ -222,13 +227,13 @@ export default function RestScreen({
           {/* Center — title + countdown + animation */}
           <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
             <p
-              className="text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2"
+              className={v2 ? 'text-[13px] font-extrabold text-v2-deep whitespace-nowrap mb-2' : 'text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               מנוחה
             </p>
             <div
-              className="text-7xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums mb-4"
+              className={v2 ? 'text-7xl font-black text-v2-ink !tracking-[-0.03em] tabular-nums mb-4' : 'text-7xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums mb-4'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               {formatTime(clampedRemaining)}
@@ -238,10 +243,12 @@ export default function RestScreen({
                 10px line squeezed into the 84px tile column, unreadable. */}
             {nextExercise.notificationText && (
               <p
-                className="w-full max-w-sm text-center text-[13px] text-blue-500 dark:text-blue-400 leading-snug line-clamp-2 mb-2"
+                className={v2 ? 'w-full max-w-sm text-center text-[13px] font-bold text-v2-deep leading-snug line-clamp-2 mb-2' : 'w-full max-w-sm text-center text-[13px] text-blue-500 dark:text-blue-400 leading-snug line-clamp-2 mb-2'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                💡 {nextExercise.notificationText}
+                {v2 ? (
+                  <Lightbulb size={15} strokeWidth={2.5} className="inline-block align-[-3px] me-1 text-v2-accent" aria-hidden />
+                ) : '💡 '}{nextExercise.notificationText}
               </p>
             )}
             <DotLottieReact src={REST_ANIMATION_SRC} loop autoplay style={{ width: 180, height: 180 }} />
@@ -251,26 +258,32 @@ export default function RestScreen({
               (when the caller provides onExtend). Text + icon, above the skip button. */}
           <div
             className="absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2"
-            style={{ bottom: onSkip ? 'calc(max(2rem, env(safe-area-inset-bottom, 24px)) + 48px)' : 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
+            style={{ bottom: onSkip ? `calc(max(2rem, env(safe-area-inset-bottom, 24px)) + ${v2 ? 56 : 48}px)` : 'max(2rem, env(safe-area-inset-bottom, 24px))' }}
           >
             <button
               type="button"
               onClick={toggleAudioMuted}
               aria-pressed={audioMuted}
-              className="flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all"
+              className={v2
+                ? `flex items-center gap-1.5 h-9 px-4 rounded-full text-[13px] font-extrabold whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2 ${audioMuted ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'}`
+                : 'flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              <span aria-hidden>{audioMuted ? '🔇' : '🔊'}</span>
+              {v2 ? (
+                audioMuted ? <VolumeX size={16} strokeWidth={2.5} aria-hidden /> : <Volume2 size={16} strokeWidth={2.5} aria-hidden />
+              ) : (
+                <span aria-hidden>{audioMuted ? '🔇' : '🔊'}</span>
+              )}
               {audioMuted ? 'מושתק' : 'השתקה'}
             </button>
             {onExtend && (
               <button
                 type="button"
                 onClick={onExtend}
-                className="flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all"
+                className={v2 ? 'flex items-center gap-1.5 h-9 px-4 rounded-full bg-white shadow-v2-ring text-[13px] font-extrabold text-v2-ink-2 whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2' : 'flex items-center gap-1.5 py-2 px-4 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#0F172A] active:scale-[0.98] transition-all'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                <span aria-hidden>⏱️</span>
+                {v2 ? <Timer size={16} strokeWidth={2.5} aria-hidden /> : <span aria-hidden>⏱️</span>}
                 <bdi dir="ltr">+{REST_EXTEND_SECONDS}</bdi> שנ׳
               </button>
             )}
@@ -280,11 +293,13 @@ export default function RestScreen({
           {onSkip && (
             <button
               onClick={onSkip}
-              className="absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 py-2 px-5 border border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all active:scale-[0.98] bg-white dark:bg-[#0F172A]"
+              className={v2
+                ? 'absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 h-11 px-6 rounded-full bg-v2-cta text-v2-on-cta shadow-v2-cta text-[15px] font-extrabold whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
+                : 'absolute z-20 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 py-2 px-5 border border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all active:scale-[0.98] bg-white dark:bg-[#0F172A]'}
               style={{ bottom: 'max(2rem, env(safe-area-inset-bottom, 24px))', fontFamily: 'var(--font-simpler)' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/assets/icons/ui/skip.svg" className="w-4 h-4 dark:invert" alt="Skip" />
+              <img src="/assets/icons/ui/skip.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="Skip" />
               דלגו על המנוחה
             </button>
           )}
@@ -321,11 +336,11 @@ export default function RestScreen({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-white dark:bg-[#0F172A]"
+            className={v2 ? 'absolute inset-0 z-30 flex items-center justify-center bg-v2-surface' : 'absolute inset-0 z-30 flex items-center justify-center bg-white dark:bg-[#0F172A]'}
           >
             <span
-              className="text-9xl font-bold tabular-nums"
-              style={{ fontFamily: 'var(--font-simpler)', color: '#93C5FD' }}
+              className={v2 ? 'text-9xl font-black tabular-nums text-v2-accent' : 'text-9xl font-bold tabular-nums'}
+              style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#93C5FD' }}
             >
               {clampedRemaining}
             </span>

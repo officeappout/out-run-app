@@ -8,6 +8,7 @@ import {
   resolveEquipmentLabel,
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 
 /**
  * RunnerHeader — gradient overlay header for the live workout player.
@@ -120,6 +121,8 @@ export default function RunnerHeader({
   hideMinimize = false,
   onTogglePause,
 }: RunnerHeaderProps) {
+  // enable_home_v2 — styling only (provided once by StrengthRunner).
+  const v2 = useStrengthPlayerV2();
   return (
     <div
       className={`absolute top-0 left-0 right-0 z-[45] transition-all duration-300 ${
@@ -140,6 +143,7 @@ export default function RunnerHeader({
             activeBarDuration={autoCompleteTime}
             isPaused={isPaused}
             isResting={isResting}
+            v2={v2}
           />
         </div>
 
@@ -156,15 +160,19 @@ export default function RunnerHeader({
             ) : (
               <button
                 onClick={onMinimize}
-                className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                className={v2
+                  ? 'grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2'
+                  : 'w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}
               >
-                <img src="/assets/icons/ui/list.svg" className="w-5 h-5 dark:invert" alt="List" />
+                <img src="/assets/icons/ui/list.svg" className={v2 ? 'w-5 h-5' : 'w-5 h-5 dark:invert'} alt="List" />
               </button>
             )}
           </div>
 
           <div
-            className="flex-1 text-center text-slate-900 dark:text-white font-bold text-xl tracking-wider tabular-nums"
+            className={v2
+              ? 'flex-1 min-w-0 truncate whitespace-nowrap text-center text-v2-ink font-black text-xl tabular-nums'
+              : 'flex-1 text-center text-slate-900 dark:text-white font-bold text-xl tracking-wider tabular-nums'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             {isPaused
@@ -180,14 +188,16 @@ export default function RunnerHeader({
             <button
               onClick={onTogglePause}
               aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
-              className="h-10 px-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              className={v2
+                ? 'h-10 px-3 flex items-center justify-center gap-1.5 rounded-full bg-white shadow-v2-ring whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
+                : 'h-10 px-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}
             >
               {isPaused ? (
-                <Play size={16} className="text-slate-800" fill="currentColor" />
+                <Play size={16} className={v2 ? 'text-v2-ink' : 'text-slate-800'} fill="currentColor" />
               ) : (
-                <img src="/assets/icons/ui/pause.svg" className="w-4 h-4 dark:invert" alt="" />
+                <img src="/assets/icons/ui/pause.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="" />
               )}
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-200" style={{ fontFamily: 'var(--font-simpler)' }}>
+              <span className={v2 ? 'text-[12px] font-extrabold text-v2-ink whitespace-nowrap' : 'text-xs font-bold text-slate-700 dark:text-slate-200'} style={{ fontFamily: 'var(--font-simpler)' }}>
                 {isPaused ? 'המשך' : 'השהייה'}
               </span>
             </button>
@@ -205,7 +215,9 @@ export default function RunnerHeader({
         {tabataInterval && !isMachineTabata && (
           <div className="flex justify-center mb-2">
             <span
-              className="text-[11px] font-bold text-[#007EA8] bg-white rounded-full px-2.5 py-0.5 uppercase tracking-wider tabular-nums"
+              className={v2
+                ? 'text-[12px] font-extrabold text-v2-deep bg-v2-tint ring-1 ring-inset ring-v2-accent/40 rounded-full px-2.5 py-0.5 whitespace-nowrap tabular-nums'
+                : 'text-[11px] font-bold text-[#007EA8] bg-white rounded-full px-2.5 py-0.5 uppercase tracking-wider tabular-nums'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               אינטרוול {isResting
@@ -224,7 +236,7 @@ export default function RunnerHeader({
               const label = setCounterLabel(firstIncompleteSetIdx, currentRound, currentExLoggedReps.length || totalRounds);
               return label ? (
                 <span
-                  className="text-[11px] font-bold text-[#007EA8] me-1 tabular-nums"
+                  className={v2 ? 'text-[12px] font-extrabold text-v2-deep me-1 whitespace-nowrap tabular-nums' : 'text-[11px] font-bold text-[#007EA8] me-1 tabular-nums'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   {label}
@@ -234,6 +246,23 @@ export default function RunnerHeader({
             {currentExLoggedReps.map((reps, i) => {
               const isLogged = reps !== null;
               const isCurrentActive = i === (firstIncompleteSetIdx >= 0 ? firstIncompleteSetIdx : currentRound - 1);
+              if (v2) {
+                return (
+                  <div
+                    key={i}
+                    className={[
+                      'w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold tabular-nums transition-all duration-300',
+                      isLogged
+                        ? 'bg-v2-accent text-white'
+                        : isCurrentActive
+                          ? 'bg-v2-tint text-v2-deep ring-2 ring-inset ring-v2-accent'
+                          : 'bg-white text-v2-muted shadow-v2-ring',
+                    ].join(' ')}
+                  >
+                    {isLogged ? <Check size={12} strokeWidth={3} /> : i + 1}
+                  </div>
+                );
+              }
               return (
                 <div
                   key={i}
@@ -276,7 +305,9 @@ export default function RunnerHeader({
                   return (
                     <div
                       key={eqId}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      className={v2
+                        ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white shadow-v2-ring'
+                        : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}
                     >
                       {svgPath ? (
                         <img
@@ -292,10 +323,10 @@ export default function RunnerHeader({
                           }}
                         />
                       ) : (
-                        <PersonStanding size={14} className="text-slate-400" />
+                        <PersonStanding size={14} className={v2 ? 'text-v2-muted' : 'text-slate-400'} />
                       )}
                       <span
-                        className="text-xs font-normal text-slate-700 dark:text-slate-200"
+                        className={v2 ? 'text-[12px] font-bold text-v2-ink-2 whitespace-nowrap' : 'text-xs font-normal text-slate-700 dark:text-slate-200'}
                         style={{ fontFamily: 'var(--font-simpler)' }}
                       >
                         {resolveEquipmentLabel(eqId)}
@@ -308,7 +339,7 @@ export default function RunnerHeader({
             {isNextPartnerExercise && supersetPartnerName && (
               <div className="flex flex-col items-start min-w-0">
                 <p
-                  className="font-semibold text-violet-500 dark:text-violet-400 truncate max-w-full"
+                  className={v2 ? 'font-bold text-violet-500 truncate max-w-full whitespace-nowrap' : 'font-semibold text-violet-500 dark:text-violet-400 truncate max-w-full'}
                   style={{ fontFamily: 'var(--font-simpler)', fontSize: '12px', lineHeight: '18px' }}
                 >
                   מעבר לבן זוג הסופרסט: {supersetPartnerName}

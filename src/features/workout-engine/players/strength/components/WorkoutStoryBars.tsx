@@ -21,15 +21,21 @@ interface WorkoutStoryBarsProps {
   activeBarDuration: number;
   isPaused: boolean;
   isResting: boolean;
+  /** enable_home_v2 styling: navy-tinted track, v2 accent, no glow. Default false → today's look. */
+  v2?: boolean;
 }
 
 export default function WorkoutStoryBars({
   progressBars,
-  accentColor = '#00AEEF',
+  accentColor: accentColorProp,
   activeBarDuration,
   isPaused,
   isResting,
+  v2 = false,
 }: WorkoutStoryBarsProps) {
+  const accentColor = accentColorProp ?? (v2 ? '#00baf7' : '#00AEEF');
+  const trackColor = v2 ? 'rgba(14, 27, 42, 0.10)' : 'rgba(0, 0, 0, 0.15)';
+  const barGlow = v2 ? 'none' : `0 0 6px ${accentColor}80`;
   const safeDuration = (!activeBarDuration || activeBarDuration <= 0) ? 10 : activeBarDuration;
 
   const [fillProgress, setFillProgress] = useState(0);
@@ -92,7 +98,7 @@ export default function WorkoutStoryBars({
             className="relative h-1.5 rounded-full overflow-hidden transition-all duration-300"
             style={{
               flex: isCurrentBar ? 3 : 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.15)',
+              backgroundColor: trackColor,
             }}
           >
             {/* Completed bars — solid fill */}
@@ -101,7 +107,7 @@ export default function WorkoutStoryBars({
                 className="absolute inset-0 rounded-full"
                 style={{
                   backgroundColor: accentColor,
-                  boxShadow: `0 0 6px ${accentColor}80`,
+                  boxShadow: barGlow,
                 }}
               />
             )}
@@ -113,7 +119,7 @@ export default function WorkoutStoryBars({
                 style={{
                   width: isResting ? '100%' : `${fillProgress * 100}%`,
                   backgroundColor: accentColor,
-                  boxShadow: `0 0 6px ${accentColor}80`,
+                  boxShadow: barGlow,
                   transition: isPaused ? 'none' : 'width 0.1s linear',
                 }}
               />

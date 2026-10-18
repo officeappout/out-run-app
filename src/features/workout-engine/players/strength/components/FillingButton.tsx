@@ -21,6 +21,8 @@ interface FillingButtonProps {
   isPaused?: boolean;
   className?: string;
   disabled?: boolean;
+  /** enable_home_v2 styling (the screen's one gradient CTA). Default false → today's look. */
+  v2?: boolean;
 }
 
 export default function FillingButton({
@@ -30,6 +32,7 @@ export default function FillingButton({
   isPaused = false,
   disabled = false,
   className = '',
+  v2 = false,
 }: FillingButtonProps) {
   const safeDuration = (!autoCompleteTime || autoCompleteTime <= 0) ? 10 : autoCompleteTime;
   const MIN_MOUNT_MS = 1500;
@@ -117,6 +120,41 @@ export default function FillingButton({
 
   // Calculate fill width percentage
   const fillWidth = `${fillProgress * 100}%`;
+
+  if (v2) {
+    return (
+      <button
+        onClick={handleClick}
+        disabled={disabled || isComplete}
+        className={`
+          relative w-full h-14
+          bg-v2-cta text-v2-on-cta shadow-v2-cta
+          rounded-full
+          flex items-center justify-center gap-2.5
+          font-extrabold whitespace-nowrap
+          active:scale-[0.97]
+          transition-transform duration-150 ease-v2
+          overflow-hidden
+          ${disabled || isComplete ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          ${className}
+        `}
+        style={{ fontFamily: 'var(--font-simpler)' }}
+      >
+        {/* Fill — a light wash over the gradient (dormant while auto-advance is off). */}
+        <div
+          className="absolute inset-y-0 left-0 bg-white/30"
+          style={{
+            width: fillWidth,
+            transition: isPaused ? 'none' : 'width 0.1s linear',
+          }}
+        />
+        <div className="relative z-10 flex items-center gap-2.5">
+          <span className="text-[17px]">{label}</span>
+          <Check size={22} strokeWidth={2.75} className="text-v2-on-cta" />
+        </div>
+      </button>
+    );
+  }
 
   return (
     <button

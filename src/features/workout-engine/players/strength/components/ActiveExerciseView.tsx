@@ -8,6 +8,7 @@ import ExerciseDetailContent from './ExerciseDetailContent';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
+import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -179,6 +180,8 @@ export default function ActiveExerciseView({
   // media budget and cause the primary video to fail. Waiting for the main
   // video's `loadeddata` event before mounting the prefetch avoids this race.
   const [mainVideoReady, setMainVideoReady] = useState(false);
+  // enable_home_v2 — styling only (provided once by StrengthRunner).
+  const v2 = useStrengthPlayerV2();
 
   // Reset the gate on every set remount so the prefetch is re-deferred.
   useEffect(() => {
@@ -258,28 +261,30 @@ export default function ActiveExerciseView({
 
           {/* Card — compact, content-hugging */}
           <div
-            className="relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-2"
+            className={v2
+              ? 'relative bg-white rounded-t-[28px] shadow-v2-sheet px-5 pt-2'
+              : 'relative bg-white dark:bg-slate-950 rounded-t-[28px] shadow-2xl px-5 pt-2'}
             dir="rtl"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
           >
             {/* Scroll hint — drag handle */}
             <div className="flex justify-center mb-1.5">
-              <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full'} />
             </div>
 
             {/* ── Central Metrics: Range (XL Black) + Target (Blue) ────── */}
             {repsOrDurationText && (
               <div className="flex items-baseline justify-center gap-2 mb-0.5">
                 <span
-                  className="text-4xl font-black"
-                  style={{ fontFamily: 'var(--font-simpler)', color: '#000000' }}
+                  className={v2 ? 'text-4xl font-black text-v2-ink !tracking-[-0.02em] whitespace-nowrap tabular-nums' : 'text-4xl font-black'}
+                  style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#000000' }}
                 >
                   {repsOrDurationText}{isUnilateral ? ' (לכל צד)' : ''}
                 </span>
                 {targetValue > 0 && (
                   <span
-                    className="text-sm font-bold"
-                    style={{ fontFamily: 'var(--font-simpler)', color: '#00B4FF' }}
+                    className={v2 ? 'text-[13px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-sm font-bold'}
+                    style={v2 ? { fontFamily: 'var(--font-simpler)' } : { fontFamily: 'var(--font-simpler)', color: '#00B4FF' }}
                   >
                     (יעד: {targetValue})
                   </span>
@@ -292,7 +297,7 @@ export default function ActiveExerciseView({
               <div className="flex flex-col items-center gap-0.5 mb-1" dir="rtl">
                 {/* Step counter — same visual register as superset "סבב N מתוך M" */}
                 <span
-                  className="text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider"
+                  className={v2 ? 'text-[12px] font-extrabold text-v2-deep whitespace-nowrap' : 'text-[11px] font-bold text-[#00BAF7] uppercase tracking-wider'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
                   שלב {currentRound} מתוך {totalRounds}
@@ -307,7 +312,7 @@ export default function ActiveExerciseView({
                       return (
                         <span
                           key={idx}
-                          className="text-[10px] text-slate-400 dark:text-slate-500"
+                          className={v2 ? 'text-[11px] font-bold text-v2-muted whitespace-nowrap' : 'text-[10px] text-slate-400 dark:text-slate-500'}
                           style={{ fontFamily: 'var(--font-simpler)' }}
                         >
                           {idx === 0 ? '▸' : '→'} {val} {unit}
@@ -321,7 +326,7 @@ export default function ActiveExerciseView({
 
             {/* Exercise name — secondary, below the metrics */}
             <p
-              className="text-base font-semibold text-slate-900 dark:text-white text-center mb-2"
+              className={v2 ? 'text-[17px] font-black text-v2-ink text-center mb-2 !tracking-[-0.01em]' : 'text-base font-semibold text-slate-900 dark:text-white text-center mb-2'}
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               {exerciseName}
@@ -330,7 +335,7 @@ export default function ActiveExerciseView({
             {/* PR-B1 guided: one short guidance line */}
             {guidanceLine && (
               <p
-                className="text-[13px] font-semibold text-center text-[#007EA8] mb-2"
+                className={v2 ? 'text-[13px] font-bold text-center text-v2-deep mb-2' : 'text-[13px] font-semibold text-center text-[#007EA8] mb-2'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 {guidanceLine}
@@ -340,17 +345,17 @@ export default function ActiveExerciseView({
             {/* Superset badge + round counter */}
             {isSupersetActive && supersetPartnerName && (
               <div className="flex flex-col items-center gap-1 mb-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 dark:bg-violet-950/60 dark:border-violet-700 rounded-full">
-                  <span className="text-[10px] font-bold text-violet-600 dark:text-violet-300 uppercase tracking-wider" style={{ fontFamily: 'var(--font-simpler)' }}>
+                <div className={v2 ? 'inline-flex max-w-full items-center gap-1.5 px-3 py-1 bg-violet-50 ring-1 ring-inset ring-violet-200 rounded-full' : 'inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 border border-violet-200 dark:bg-violet-950/60 dark:border-violet-700 rounded-full'}>
+                  <span className={v2 ? 'text-[11px] font-extrabold text-violet-600 whitespace-nowrap' : 'text-[10px] font-bold text-violet-600 dark:text-violet-300 uppercase tracking-wider'} style={{ fontFamily: 'var(--font-simpler)' }}>
                     סופרסט
                   </span>
-                  <span className="text-[10px] text-violet-400" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  <span className={v2 ? 'text-[11px] font-bold text-violet-500 truncate' : 'text-[10px] text-violet-400'} style={{ fontFamily: 'var(--font-simpler)' }}>
                     × {supersetPartnerName}
                   </span>
                 </div>
                 {totalRounds > 1 && (
                   <span
-                    className="text-[11px] font-semibold text-violet-500 dark:text-violet-400"
+                    className={v2 ? 'text-[12px] font-extrabold text-violet-500 whitespace-nowrap' : 'text-[11px] font-semibold text-violet-500 dark:text-violet-400'}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
                     סבב {currentRound} מתוך {totalRounds}
@@ -367,6 +372,7 @@ export default function ActiveExerciseView({
                 onClick={() => onComplete()}
                 label="סיימתי"
                 isPaused={isPaused}
+                v2={v2}
               />
             </div>
 
@@ -375,11 +381,13 @@ export default function ActiveExerciseView({
               <div className="flex justify-center mb-1">
                 <button
                   onClick={onSwap}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 active:scale-[0.97] transition-transform"
+                  className={v2
+                    ? 'inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2'
+                    : 'inline-flex items-center gap-2 px-5 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 active:scale-[0.97] transition-transform'}
                 >
-                  <img src="/assets/icons/ui/swap.svg" className="w-4 h-4 dark:invert" alt="Swap" />
+                  <img src="/assets/icons/ui/swap.svg" className={v2 ? 'w-4 h-4' : 'w-4 h-4 dark:invert'} alt="Swap" />
                   <span
-                    className="text-sm font-bold text-slate-600 dark:text-slate-300"
+                    className={v2 ? 'text-[14px] font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-600 dark:text-slate-300'}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
                     החלפת תרגיל

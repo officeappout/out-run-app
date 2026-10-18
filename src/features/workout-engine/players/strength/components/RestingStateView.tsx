@@ -2,7 +2,9 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Dumbbell, Flame, X } from 'lucide-react';
 import RestScreen from './RestScreen';
+import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 
 /**
  * RestingStateView — RESTING phase orchestrator.
@@ -89,6 +91,8 @@ export default function RestingStateView({
     : `next-${currentSegmentIndex}-${currentExerciseIndex}`;
 
   const showCoachHint = coachHint && !isLogDrawerOpen && currentRound < totalRounds;
+  // enable_home_v2 — styling only (provided once by StrengthRunner).
+  const v2 = useStrengthPlayerV2();
 
   return (
     <div
@@ -121,6 +125,47 @@ export default function RestingStateView({
             style={{ bottom: 'calc(env(safe-area-inset-bottom, 16px) + 160px)' }}
             dir="rtl"
           >
+            {v2 ? (
+            <div className="rounded-[20px] bg-white px-3.5 py-2.5 shadow-v2-card flex items-center gap-2.5">
+              <span
+                className={`grid h-9 w-9 flex-shrink-0 place-items-center rounded-full ${
+                  coachHint === 'fail' ? 'bg-orange-50 text-orange-500' : 'bg-emerald-50 text-emerald-500'
+                }`}
+                aria-hidden
+              >
+                {coachHint === 'fail' ? <Dumbbell size={18} strokeWidth={2.5} /> : <Flame size={18} strokeWidth={2.5} />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-black leading-tight text-v2-ink whitespace-nowrap truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  {coachHint === 'fail' ? 'קשה מדי?' : 'קל מדי?'}
+                </p>
+                <p className="text-[12px] font-bold leading-tight mt-0.5 text-v2-muted" style={{ fontFamily: 'var(--font-simpler)' }}>
+                  {coachHint === 'fail'
+                    ? 'תוכל/י להחליף לגרסה קלה יותר'
+                    : 'כל הכבוד! נתאים את האימון הבא'}
+                </p>
+              </div>
+              {onSwap && coachHint === 'fail' && (
+                <button
+                  onClick={() => { onDismissHint(); onSwap(); }}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/assets/icons/ui/swap.svg" className="w-3.5 h-3.5" alt="" />
+                  <span className="text-[12px] font-extrabold text-v2-ink-2 whitespace-nowrap" style={{ fontFamily: 'var(--font-simpler)' }}>
+                    החלפה
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={onDismissHint}
+                className="flex-shrink-0 grid h-7 w-7 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
+                aria-label="סגור"
+              >
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+            ) : (
             <div className={`rounded-2xl px-3.5 py-2.5 shadow-lg backdrop-blur-sm flex items-center gap-2.5 ${
               coachHint === 'fail'
                 ? 'bg-orange-50/90 border border-orange-200/60 dark:bg-orange-950/80 dark:border-orange-700/50'
@@ -157,6 +202,7 @@ export default function RestingStateView({
                 <span className="text-sm leading-none">×</span>
               </button>
             </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
