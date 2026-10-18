@@ -26,6 +26,7 @@ import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.type
 import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
+import { buildStrengthPostDetails } from '@/features/social/services/feed-post-details';
 import {
   clearPendingShare,
   feedPrefsFrom,
@@ -404,7 +405,14 @@ export default function StrengthSummaryPage({
       feedShareSlot={
         showFeedShare ? (
           <SummaryFeedShare
-            workout={{ activityCategory: 'strength', durationMinutes: analytics.durationMinutes, title: programName }}
+            workout={{
+              activityCategory: 'strength',
+              durationMinutes: analytics.durationMinutes,
+              title: programName,
+              // For the "שיתוף לרשתות" image: the exercises this summary
+              // shows (no level here — the post gets it at finish).
+              ...buildStrengthPostDetails({ phases: v2Phases }),
+            }}
             onPublish={async (choice) => {
               setFeedShare({ kind: 'publish', choice });
               clearPendingShare();

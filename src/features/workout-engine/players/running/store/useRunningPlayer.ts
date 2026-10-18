@@ -1809,6 +1809,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             import('@/features/social/services/feed.service').then(async ({ createWorkoutPost }) => {
               const { extractFeedScope, extractGroupIds } = await import('@/features/social/services/feed-scope.utils');
               const { buildRouteShape } = await import('@/features/social/services/feed-route');
+              const { buildPaceSplits, streakFor } = await import('@/features/social/services/feed-post-details');
+              const { useActivityStore } = await import('@/features/activity/store/useActivityStore');
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
               const userProfile = useUserStore.getState().profile;
               if (userProfile?.core?.name) {
@@ -1840,6 +1842,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   // Location-free line, ends trimmed (feed-route.ts) — kept
                   // only for home v2 by createWorkoutPost.
                   routeShape: buildRouteShape(safeRoutePath) ?? undefined,
+                  // Home v2 details (feed-post-details.ts) — per-lap pace
+                  // from the laps this run recorded, and the home's streak.
+                  // Dropped by createWorkoutPost for users without home v2.
+                  paceSplits: buildPaceSplits(completedLaps),
+                  streakDays: streakFor(useActivityStore.getState().currentStreak),
                 }).catch(() => {});
               }
             }).catch(() => {});

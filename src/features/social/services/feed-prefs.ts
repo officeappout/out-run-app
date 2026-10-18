@@ -83,6 +83,11 @@ export interface ShareChoice {
   showPark: boolean;
   showRoute: boolean;
   title?: string;
+  /**
+   * Home v2: one compressed photo picked in the sheet (feed-photo.ts). Not a
+   * post param — the caller hands it to createWorkoutPost's opts.photo.
+   */
+  photo?: Blob | null;
 }
 
 /**
