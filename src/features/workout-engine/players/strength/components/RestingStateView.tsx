@@ -134,7 +134,7 @@ export default function RestingStateView({
                 <p className={`text-[11px] leading-tight mt-0.5 ${coachHint === 'fail' ? 'text-orange-600/80 dark:text-orange-400/80' : 'text-emerald-600/80 dark:text-emerald-400/80'}`} style={{ fontFamily: 'var(--font-simpler)' }}>
                   {coachHint === 'fail'
                     ? 'תוכל/י להחליף לגרסה קלה יותר'
-                    : 'כל הכבוד! הקושי יעלה אוטומטית'}
+                    : 'כל הכבוד! נתאים את האימון הבא'}
                 </p>
               </div>
               {onSwap && coachHint === 'fail' && (

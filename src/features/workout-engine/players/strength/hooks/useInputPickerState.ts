@@ -79,6 +79,9 @@ export interface InputPickerStateDeps {
   handleRepetitionSave: (
     reps: number,
     sideData?: { left: number; right: number },
+    forceSkipRest?: boolean,
+    editSetIndex?: number,
+    meta?: { repsSource?: 'edited' | 'default' | 'timer'; coachHint?: 'fail' | 'overachieve' | null },
   ) => void;
 }
 
@@ -112,7 +115,14 @@ export interface InputPickerStateApi {
 
   // Action handlers
   handlePickerChange: (newVal: number) => void;
-  handleUnilateralSave: () => void;
+  handleUnilateralSave: (coachHint?: 'fail' | 'overachieve' | null) => void;
+
+  /**
+   * Soft-adaptation Phase 0 (data only): true once the user moved any picker
+   * since the drawer / INPUT screen opened. Read at save time to stamp the
+   * set's repsSource ('edited' vs 'default'/'timer'). Never changes a value.
+   */
+  pickerTouchedRef: React.MutableRefObject<boolean>;
 }
 
 export function useInputPickerState(
@@ -156,18 +166,26 @@ export function useInputPickerState(
   const inputSeedValue = completedReps ?? pickerTargetValue;
 
   // ── Big-Screen INPUT picker state ─────────────────────────────────────────
-  const [inputRepsValue, setInputRepsValue] = useState(inputSeedValue);
-  const [inputRepsRight, setInputRepsRight] = useState(inputSeedValue);
-  const [inputRepsLeft, setInputRepsLeft] = useState(inputSeedValue);
+  const [inputRepsValue, setInputRepsValueRaw] = useState(inputSeedValue);
+  const [inputRepsRight, setInputRepsRightRaw] = useState(inputSeedValue);
+  const [inputRepsLeft, setInputRepsLeftRaw] = useState(inputSeedValue);
+
+  // Phase 0 (data only): did the user touch a picker since this screen opened?
+  const pickerTouchedRef = useRef(false);
 
   // Effect 1 — re-seed every time INPUT state is entered (new set completed).
   useEffect(() => {
     if (workoutState !== 'INPUT') return;
     const seed = completedReps ?? pickerTargetValue;
-    setInputRepsValue(seed);
-    setInputRepsRight(seed);
-    setInputRepsLeft(seed);
+    setInputRepsValueRaw(seed);
+    setInputRepsRightRaw(seed);
+    setInputRepsLeftRaw(seed);
   }, [workoutState, completedReps, pickerTargetValue]);
+
+  // Phase 0: a fresh INPUT screen starts untouched.
+  useEffect(() => {
+    if (workoutState === 'INPUT') pickerTouchedRef.current = false;
+  }, [workoutState]);
 
   // ── Drawer stability gate ─────────────────────────────────────────────────
   const [isDrawerStable, setIsDrawerStable] = useState(false);
@@ -176,6 +194,7 @@ export function useInputPickerState(
   // Effect 2 — don't render picker until drawer animation settles (~280 ms).
   useEffect(() => {
     if (isLogDrawerOpen) {
+      pickerTouchedRef.current = false; // Phase 0: a fresh drawer starts untouched
       drawerOpenTimeRef.current = Date.now();
       setIsDrawerStable(false);
       const timer = setTimeout(() => setIsDrawerStable(true), 280);
@@ -211,18 +230,42 @@ export function useInputPickerState(
   }, [activeExercise?.id]);
 
   // ── Log-Drawer unilateral per-side state ──────────────────────────────────
-  const [repsRight, setRepsRight] = useState(pickerInitialValue);
-  const [repsLeft, setRepsLeft] = useState(pickerInitialValue);
+  const [repsRight, setRepsRightRaw] = useState(pickerInitialValue);
+  const [repsLeft, setRepsLeftRaw] = useState(pickerInitialValue);
+
+  // User-facing setters (wired to the pickers' onChange, which only fires on
+  // a real gesture) — mark the screen as touched, then set. The effects above
+  // and below use the raw setters so a programmatic re-seed is not a touch.
+  const setInputRepsValue = useCallback((v: React.SetStateAction<number>) => {
+    pickerTouchedRef.current = true;
+    setInputRepsValueRaw(v);
+  }, []);
+  const setInputRepsRight = useCallback((v: React.SetStateAction<number>) => {
+    pickerTouchedRef.current = true;
+    setInputRepsRightRaw(v);
+  }, []);
+  const setInputRepsLeft = useCallback((v: React.SetStateAction<number>) => {
+    pickerTouchedRef.current = true;
+    setInputRepsLeftRaw(v);
+  }, []);
+  const setRepsRight = useCallback((v: React.SetStateAction<number>) => {
+    pickerTouchedRef.current = true;
+    setRepsRightRaw(v);
+  }, []);
+  const setRepsLeft = useCallback((v: React.SetStateAction<number>) => {
+    pickerTouchedRef.current = true;
+    setRepsLeftRaw(v);
+  }, []);
 
   // Effect 5 — reset per-side values when exercise or set changes; for
   // unilateral timed sets, prefer the recorded sides from the state machine.
   useEffect(() => {
     if (pendingSideData) {
-      setRepsRight(pendingSideData.right);
-      setRepsLeft(pendingSideData.left);
+      setRepsRightRaw(pendingSideData.right);
+      setRepsLeftRaw(pendingSideData.left);
     } else {
-      setRepsRight(pickerInitialValue);
-      setRepsLeft(pickerInitialValue);
+      setRepsRightRaw(pickerInitialValue);
+      setRepsLeftRaw(pickerInitialValue);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeExercise?.id, currentRound, pendingSideData]);
@@ -234,15 +277,29 @@ export function useInputPickerState(
         `[Runner Link] Received from picker: ${newVal} at ${Date.now() - drawerOpenTimeRef.current}ms since drawer open`,
       );
       if (newVal <= 0) return;
+      pickerTouchedRef.current = true; // Phase 0: picker onChange = a real gesture
       setCompletedReps(newVal);
     },
     [setCompletedReps],
   );
 
-  const handleUnilateralSave = useCallback(() => {
-    const effective = Math.min(repsRight, repsLeft);
-    handleRepetitionSave(effective, { left: repsLeft, right: repsRight });
-  }, [repsRight, repsLeft, handleRepetitionSave]);
+  const handleUnilateralSave = useCallback(
+    (coachHint?: 'fail' | 'overachieve' | null) => {
+      const effective = Math.min(repsRight, repsLeft);
+      // Phase 0 provenance: untouched + a timed set → the timer's values
+      // (pendingSideData), untouched reps → the prefill.
+      const repsSource = pickerTouchedRef.current
+        ? 'edited'
+        : isTimeExercise && pendingSideData
+          ? 'timer'
+          : 'default';
+      handleRepetitionSave(effective, { left: repsLeft, right: repsRight }, undefined, undefined, {
+        repsSource,
+        ...(coachHint !== undefined ? { coachHint } : {}),
+      });
+    },
+    [repsRight, repsLeft, handleRepetitionSave, isTimeExercise, pendingSideData],
+  );
 
   return {
     inputRepsValue,
@@ -268,5 +325,6 @@ export function useInputPickerState(
     },
     handlePickerChange,
     handleUnilateralSave,
+    pickerTouchedRef,
   };
 }

@@ -1653,3 +1653,15 @@ export function shouldShowCoinUI(): boolean {
 export function shouldProcessCoinRewards(): boolean {
   return IS_COIN_SYSTEM_ENABLED;
 }
+
+// POST_WORKOUT_SURVEY_V1 — soft-adaptation Phase 0 (data only, 18.10.2026).
+// Mounts PostWorkoutSurvey ("קל מדי / בדיוק / קשה מדי") over the strength
+// summary on the user's first 3 strength sessions, then about every 4th
+// (adaptation/survey-cadence.ts). The answer is saved as
+// workouts/{id}.feedback = { rating, at, prompted } inside the create payload
+// (so an offline-queued workout carries it too) and changes NOTHING — no
+// level change, no progress bonus (processFeedback is record-only).
+// Default OFF to be safe: it adds a screen to the post-workout flow, so the
+// owner turns it on after a device check. Swap logging and the per-set
+// rep-provenance fields are NOT behind this flag (they add no UI).
+export const POST_WORKOUT_SURVEY_V1 = false;

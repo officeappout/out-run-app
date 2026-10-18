@@ -13,6 +13,9 @@ import type {
 import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
+import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { adaptationStampForPlan, domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import type { ReplacementMeta } from '@/features/workout-engine/adaptation/adaptation.types';
 
 // TUT multiplier — kept in lock-step with TUT_REPS_TO_SECONDS in
 // pyramid.processor.ts so both write paths agree on the conversion.
@@ -29,6 +32,8 @@ interface PyramidSwapContext {
 interface UseExerciseSwapParams {
   generatedWorkout: GeneratedWorkout | null | undefined;
   onGeneratedWorkoutUpdate?: (updated: GeneratedWorkout) => void;
+  /** Execution location shown in the drawer — recorded on the swap log (Phase 0, data only). */
+  location?: string;
 }
 
 interface UseExerciseSwapReturn {
@@ -58,7 +63,8 @@ interface UseExerciseSwapReturn {
   handleExerciseReplace: (
     newExercise: FirestoreExercise,
     method: ExecutionMethod,
-    _levelComparison: 'lower' | 'same' | 'higher',
+    levelComparison: 'lower' | 'same' | 'higher',
+    meta?: ReplacementMeta,
   ) => void;
   /** Modal `onClose` callback — clears state in one atomic flush. */
   closeReplacementModal: () => void;
@@ -83,6 +89,7 @@ interface UseExerciseSwapReturn {
 export function useExerciseSwap({
   generatedWorkout,
   onGeneratedWorkoutUpdate,
+  location,
 }: UseExerciseSwapParams): UseExerciseSwapReturn {
   const [replacementModalOpen, setReplacementModalOpen] = useState(false);
   const [exerciseToReplace, setExerciseToReplace] =
@@ -127,9 +134,40 @@ export function useExerciseSwap({
     (
       newExercise: FirestoreExercise,
       method: ExecutionMethod,
-      _levelComparison: 'lower' | 'same' | 'higher',
+      levelComparison: 'lower' | 'same' | 'higher',
+      meta?: ReplacementMeta,
     ) => {
       if (!generatedWorkout || !exerciseToReplace) return;
+
+      // ── Soft-adaptation Phase 0: record the swap (data only, fire-and-forget) ──
+      // Never awaited and never throws — the mutation below is unaffected.
+      {
+        const slot = pyramidSwapContext
+          ? generatedWorkout.exercises.find((we) => we.exercise.id === pyramidSwapContext.parentExerciseId)
+          : generatedWorkout.exercises.find((we) => we.exercise.id === exerciseToReplace.id);
+        const pyramidStep = pyramidSwapContext
+          ? slot?.pyramidSequence?.[pyramidSwapContext.stepIndex]
+          : undefined;
+        const stamp = slot ? adaptationStampForPlan(slot) : {};
+        logExerciseSwap({
+          fromExerciseId: pyramidSwapContext ? pyramidSwapContext.originalExerciseId : exerciseToReplace.id,
+          fromName: pyramidStep?.name ?? getLocalizedText(exerciseToReplace.name, 'he'),
+          toExerciseId: newExercise.id,
+          toName: getLocalizedText(newExercise.name, 'he'),
+          domain: stamp.domain ?? domainOfMovementGroup(exerciseToReplace.movementGroup),
+          fromLevel: meta?.fromLevel ?? exerciseToReplaceLevel,
+          toLevel: meta?.toLevel,
+          userDomainLevel: stamp.userDomainLevel,
+          direction: levelComparison,
+          tab: meta?.tab,
+          reason: meta?.reason,
+          source: pyramidSwapContext ? 'preview_pyramid_step' : 'preview',
+          flow: 'preview',
+          userInitiated: true,
+          location,
+          segmentRole: slot?.exerciseRole,
+        });
+      }
 
       // ── Pyramid Step Swap Path (Twin-Sync + Strict Shape Preservation) ─
       // When the user swaps a single step inside a pyramid, we mutate the
@@ -257,8 +295,10 @@ export function useExerciseSwap({
     [
       generatedWorkout,
       exerciseToReplace,
+      exerciseToReplaceLevel,
       pyramidSwapContext,
       onGeneratedWorkoutUpdate,
+      location,
     ],
   );
 

@@ -121,6 +121,22 @@ export interface Exercise {
    * Undefined for standard sets and Repetition Pyramids.
    */
   pyramidSequence?: PyramidStep[];
+
+  // ── Soft-adaptation Phase 0 (data only, 18.10.2026) ──────────────────────
+  // Stamped by the plan mappers from the generator entry
+  // (adaptation/exercise-log-stamp.ts adaptationStampForPlan) and copied onto
+  // the per-exercise strength log when the first set is saved. Read by
+  // nothing that changes behaviour.
+  /** Training domain (push/pull/legs/core/skill slug) from the movement group. */
+  domain?: string;
+  /** The exercise's level in its program (generator programLevel). */
+  exerciseLevel?: number;
+  /** The user's level in that domain when the plan was built. */
+  userDomainLevel?: number;
+  /** True when the user swapped this slot (preview or in-workout). */
+  wasSwapped?: boolean;
+  /** The exercise originally prescribed in this slot (set only when swapped). */
+  swappedFromId?: string;
 }
 
 export interface RouteSegment {
