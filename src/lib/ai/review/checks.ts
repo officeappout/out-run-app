@@ -7,6 +7,9 @@
  * to two one-letter prefixes stripped (ו ב ל ה מ ש כ): "לבית" → "בית", "ובבית" → "בית".
  */
 
+import { firstFeminineSelfReference } from '@/lib/ai/coach/gender-voice';
+import type { CoachGender } from '@/lib/ai/coach/persona';
+
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 
 const PREFIX = /^[ובלהמשכ]/;
@@ -57,6 +60,10 @@ const LOCATION_WORDS: Record<ReqLocation, ReadonlySet<string>> = {
 };
 
 const WORKOUT_REQUEST = /אימון|אימונים|תבנה|תבני|תבנו|בנה\s+לי|תכין|תכיני|תן\s+לי\s+אימון|תני\s+לי\s+אימון|להתאמן/;
+/** An explicit build verb ("תבנה", "תן לי בטן"): a workout request even when the schedule is mentioned. */
+const BUILD_REQUEST = /תבנה|תבני|תבנו|בנה\s+לי|תכין|תכיני|(?:תן|תני)\s+לי\s+(אימון|בטן|רגליים|גב|חזה|ידיים|כתפיים|ישבן)/;
+/** A question about the user's own plan ("מה מצפה לי השבוע? … מה יש לי באימונים"). */
+const SCHEDULE_STRONG = /בתוכנית|לוח\s+זמנים|לו["״]ז|מתוכנן|מה\s+(מחכה|מצפה)\s+לי|מה\s+יש\s+לי|האימונים\s+שלי/;
 const HIGH_INTENSITY = /רמה\s+גבוהה|ברמה\s+גבוהה|קשה|אינטנסיבי|מאתגר|חזק\s+במיוחד/;
 const LOW_INTENSITY = /רמה\s+נמוכה|קליל|קל\s|קל$|רגוע/;
 
@@ -84,14 +91,15 @@ export function parseRequest(text: string): ParsedRequest {
   const domains = (Object.keys(DOMAIN_WORDS) as ReqDomain[]).filter((d) => hasWord(t, DOMAIN_WORDS[d]));
   for (const [re, d] of DOMAIN_PHRASES) if (re.test(t) && !domains.includes(d)) domains.push(d);
   const location = (Object.keys(LOCATION_WORDS) as ReqLocation[]).find((l) => hasWord(t, LOCATION_WORDS[l])) ?? null;
-  const isWorkoutRequest = WORKOUT_REQUEST.test(t);
+  const build = BUILD_REQUEST.test(t);
+  const isWorkoutRequest = build || (WORKOUT_REQUEST.test(t) && !SCHEDULE_STRONG.test(t));
   return {
     isWorkoutRequest,
     domains: /כל\s+הגוף/.test(t) ? [] : domains,
     location,
     minutes: isWorkoutRequest ? parseMinutes(t) : null,
     intensity: HIGH_INTENSITY.test(t) ? 3 : LOW_INTENSITY.test(t) ? 1 : null,
-    isScheduleQuestion: /בתוכנית|התוכנית|לוח\s+זמנים|לו["״]ז|מתוכנן|מה\s+מחכה|השבוע/.test(t) && !isWorkoutRequest,
+    isScheduleQuestion: (SCHEDULE_STRONG.test(t) || /התוכנית|השבוע/.test(t)) && !isWorkoutRequest,
   };
 }
 
@@ -112,15 +120,14 @@ export function looksLikeSafetyReply(text: string): boolean {
   return /מד["״']?א/.test(t) || /(^|\D)101(\D|$)/.test(t) || /עוצר(?:ת)?\s+כאן\s+רגע/.test(t);
 }
 
-const FEMININE_SELF =
-  /אני\s+(?:לא\s+|גם\s+|רק\s+|כן\s+|עדיין\s+)?(יכולה|ממליצה|בודקת|עוצרת|מציעה|חושבת|רואה|זוכרת|יודעת|מבינה|רופאה|מאמנת|שמחה|בונה|מכינה|צריכה|מנסה|שומרת|מסכימה|מתנצלת|מקשיבה|זמינה|כאן\s+בשבילך\s+בתור\s+מאמנת)/;
-
-/** A feminine first-person self-reference ("אני יכולה") — Kelly is a male coach. */
-export function findFeminineSelfReference(text: string): string | null {
-  const m = (text ?? '').normalize('NFC').match(FEMININE_SELF);
-  if (m) return m[0];
-  const m2 = (text ?? '').match(/המאמנת\s+הדיגיטלית|אני\s+קלי,\s+המאמנת/);
-  return m2 ? m2[0] : null;
+/**
+ * A feminine first-person self-reference ("אני יכולה", "אבל לא בטוחה שהבנתי") — Kelly is a
+ * male coach. The SAME detector the live reply guard uses (coach/gender-voice.ts), so a
+ * slip the guard would rewrite is exactly a slip the review flags. Without the user's
+ * gender the subjectless rule is the cautious one ("בטוחה?" to a female user never counts).
+ */
+export function findFeminineSelfReference(text: string, userGender?: CoachGender | null): string | null {
+  return firstFeminineSelfReference(text, userGender);
 }
 
 export const WEEKDAYS_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;

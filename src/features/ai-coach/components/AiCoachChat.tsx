@@ -9,6 +9,7 @@
  * then runs the normal session path (useWorkoutSession → active_workout_data → player).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Send, Sparkles, WifiOff } from 'lucide-react';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
@@ -19,6 +20,7 @@ import { useAiCoachChat } from '../hooks/useAiCoachChat';
 import { getAiWorkout } from '../services/workout-cache';
 import { isBusy, LIVE_ID } from '../state/chat-machine';
 import AiCoachWorkoutCard from './AiCoachWorkoutCard';
+import AiCoachActionChips from './AiCoachActionChips';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -39,6 +41,7 @@ const DIFF: Record<number, 'easy' | 'medium' | 'hard'> = { 1: 'easy', 2: 'medium
 
 export default function AiCoachChat({ profile, onClose }: { profile: UserFullProfile; onClose: () => void }) {
   const { state, send, retry, dismissError } = useAiCoachChat(profile);
+  const router = useRouter();
   const gender = coachGenderOf(profile.core?.gender);
   const online = useOnline();
   const [input, setInput] = useState('');
@@ -54,6 +57,8 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
   const busy = isBusy(state);
   const uiError = state.error ? describeCoachError(state.error, gender) : null;
   const showIntro = state.phase !== 'loading' && state.messages.length === 0;
+  // "Build today's workout" belongs to today's newest reply only; older chips open the schedule.
+  const lastAssistantId = [...state.messages].reverse().find((m) => m.role === 'assistant')?.id ?? null;
 
   const cached = useMemo(() => (openCard ? getAiWorkout(openCard.workoutId) : null), [openCard]);
   const shell = useMemo(() => {
@@ -134,7 +139,7 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
 
       {/* Messages */}
       <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        {state.phase === 'loading' && <p className="py-10 text-center text-sm text-gray-400 animate-pulse">טוענת את השיחה...</p>}
+        {state.phase === 'loading' && <p className="py-10 text-center text-sm text-gray-400 animate-pulse">טוען את השיחה...</p>}
 
         {showIntro && (
           <div className="flex flex-col items-end">
@@ -159,6 +164,14 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
                   <AiCoachWorkoutCard key={c.workoutId} card={c} onOpen={handleOpenCard} />
                 ))}
               </div>
+              {!mine && m.actions && m.actions.length > 0 && (
+                <AiCoachActionChips
+                  actions={m.id === lastAssistantId ? m.actions : m.actions.filter((a) => a !== 'build_today')}
+                  onNavigate={(href) => router.push(href)}
+                  onSend={(msg) => send(msg)}
+                  disabled={busy}
+                />
+              )}
             </div>
           );
         })}

@@ -24,6 +24,10 @@ export interface RawScheduleEntry {
   startTime?: unknown;
   completed?: unknown;
   title?: unknown;
+  /** ['strength' | 'cardio' | 'maintenance' | 'walking'] */
+  scheduledCategories?: unknown;
+  /** Planned run settings ({ goal: { type: 'time', value: minutes } … }). */
+  plannedRun?: unknown;
 }
 
 export interface SheetWorkout {
@@ -32,13 +36,30 @@ export interface SheetWorkout {
   minutes: number;
 }
 
+/** generate_workout settings for a planned entry ("בנה את האימון של היום"). */
+export interface SheetBuildNow {
+  /** Planned minutes when the entry has them; null → the coach picks a sensible default. */
+  durationMin: number | null;
+  /** Base domains of the entry's program(s); empty → full body / engine decides. */
+  domains: string[];
+}
+
 export interface SheetScheduleEntry {
   date: string;
+  /** Hebrew weekday name ("שני"), derived from `date`. */
+  weekday?: string;
   type: string;
+  /** Hebrew program names (unknown program ids are left out: never an id in a reply). */
   programs: string[];
+  /** What kind of session: strength, cardio, walking, maintenance (null = not stated). */
+  kind?: string | null;
   startTime: string | null;
+  /** Planned length in minutes, when the entry states one (a planned run with a time goal). */
+  plannedMinutes?: number | null;
   completed: boolean;
   title: string | null;
+  /** Set on a strength / training entry the coach can build right now. */
+  buildNow?: SheetBuildNow | null;
 }
 
 export interface UserContextSheet {
@@ -106,15 +127,60 @@ export function sheetWorkout(w: RawWorkout): SheetWorkout | null {
   };
 }
 
+export const WEEKDAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'] as const;
+
+export function weekdayOfKey(isoDayKey: string): string | undefined {
+  const t = Date.parse(`${isoDayKey}T12:00:00Z`);
+  return Number.isFinite(t) ? WEEKDAY_NAMES_HE[new Date(t).getUTCDay()] : undefined;
+}
+
+/** Program id → the base domains generate_workout takes. Unknown ids → none. */
+const PROGRAM_DOMAINS: Record<string, string[]> = {
+  push: ['push'],
+  pull: ['pull'],
+  legs: ['legs'],
+  core: ['core'],
+  upper_body: ['push', 'pull'],
+  calisthenics_upper: ['push', 'pull'],
+  lower_body: ['legs'],
+  full_body: [],
+};
+
+function plannedMinutesOf(e: RawScheduleEntry): number | null {
+  const goal = (e.plannedRun as { goal?: { type?: unknown; value?: unknown } } | undefined)?.goal;
+  if (goal?.type === 'time' && typeof goal.value === 'number' && goal.value > 0 && goal.value <= 600) return Math.round(goal.value);
+  return null;
+}
+
+function kindOf(e: RawScheduleEntry): string | null {
+  const cats = strList(e.scheduledCategories, 4, 20);
+  if (e.plannedRun) return 'cardio';
+  for (const k of ['strength', 'cardio', 'walking', 'maintenance']) if (cats.includes(k)) return k;
+  return null;
+}
+
 export function sheetScheduleEntry(e: RawScheduleEntry): SheetScheduleEntry {
   const ids = strList(e.programIds, 6, 60);
+  const type = str(e.type) ?? 'training';
+  const kind = kindOf(e);
+  const plannedMinutes = plannedMinutesOf(e);
+  const completed = e.completed === true;
+  // Only a strength-style session can be built by generate_workout (runs and walks can't).
+  const buildable = type === 'training' && !completed && (kind === null || kind === 'strength');
+  const domains = Array.from(new Set(ids.flatMap((id) => PROGRAM_DOMAINS[id] ?? [])));
   return {
     date: e.date,
-    type: str(e.type) ?? 'training',
-    programs: ids.map((id) => programName(id) ?? id),
+    weekday: weekdayOfKey(e.date),
+    type,
+    programs: ids.map((id) => programName(id)).filter((x): x is string => !!x),
+    kind,
     startTime: str(e.startTime, 5),
-    completed: e.completed === true,
+    plannedMinutes,
+    completed,
     title: str(e.title, 60),
+    buildNow: buildable
+      ? { durationMin: plannedMinutes !== null ? Math.min(90, Math.max(5, plannedMinutes)) : null, domains }
+      : null,
   };
 }
 

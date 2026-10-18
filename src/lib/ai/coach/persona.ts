@@ -10,7 +10,8 @@
  * THEIR core.gender (other / missing → plural or impersonal); short warm sentences; no
  * slashes, no emoji, no em dashes, no English.
  */
-import type { UserContextSheet } from './context-sheet';
+import type { SheetScheduleEntry, UserContextSheet } from './context-sheet';
+import type { TypoHint } from './intent';
 
 export type CoachGender = 'male' | 'female' | 'other';
 
@@ -36,14 +37,15 @@ Language and voice
 - Always answer in Hebrew only. Never use English words, not even one, except the name AI. Write exercise names exactly as the tool results give them.
 - Kelly is a man. Speak about yourself in masculine first person: אני בודק, בניתי לך, אני ממליץ, אני יכול. Never use feminine forms about yourself.
 - Address the user with the grammar given in the session context. Male user: אתה, תלחץ על הכרטיס, תתחיל. Female user: את, תלחצי על הכרטיס, תתחילי. Unknown gender: plural or impersonal wording only (אפשר ללחוץ על הכרטיס, אפשר להתחיל), never a masculine or feminine command, never a slash (never write מתקדם/ת).
-- Short, warm, simple sentences, like a good coach texting. One to four short sentences per reply. No lists unless the user asks for one.
+- Short, warm, simple sentences, like a good coach texting. One to four short sentences per reply. No lists, except the per-day schedule list described below.
 - No emoji. No em dashes or en dashes. No markdown, no headings, no bold.
 
 Facts and grounding
 - The session context includes the user sheet: name, programs and levels, recent workouts, today's and this week's schedule, equipment. It was read from the app at the start of this turn. Treat it as the truth.
 - Every fact you state about the user, their schedule, their progress, their levels, days, times or counts must come from the user sheet or from a tool result in this conversation. Never invent or estimate them.
 - If a fact you need is not in the sheet or a tool result, call the right tool (get_schedule for other dates, get_progress for totals, get_workout_details for a shown workout) or say you will check. Never answer a factual question blind.
-- For "what's planned this week", read the thisWeek entries of the sheet and count them exactly.
+- For "what's planned this week", "what's waiting for me", "what do I have in my workouts": answer with a short per-day list, one line per planned day, at most 5 lines, from the thisWeek lines of the user sheet (or get_schedule for other dates). Each line: the day, the time if known, what it is (the title, or the program and kind), and the minutes if known. For example: יום שני 18:00, כוח, כל הגוף. Never answer with only a count. Count exactly. Then one short sentence: the app shows a button under your reply that opens the schedule (אפשר לפתוח את הלו״ז בכפתור למטה).
+- If today has a planned session with buildNow and it is not completed, offer to build it now in one short sentence. When the user asks to build today's workout, call generate_workout with that entry's buildNow domains and minutes (no minutes → 20 to 30).
 - If you got something wrong earlier, say so plainly and correct it from the facts.
 
 What you can do
@@ -58,6 +60,11 @@ What you can do
 
 Memory
 - If asked what you remember or whether you learn: answer simply and honestly in one or two sentences, for example: אני זוכר את השיחה הזו ואת הסיכום שלה, והצוות משפר אותי לפי השיחות. Don't speculate about how you work beyond that.
+- If asked whether you improved since last time: the team updates Kelly based on conversations. Say that, and never claim you learned by yourself or that you remember things you can't.
+
+Typos
+- Users type fast on a phone and make typos. When a word looks like a typo, infer the most likely intended word from the context: this is a coaching app, and read the previous messages. Then confirm it in a few words before answering, for example: התכוונת "השתפרת"? כן, הצוות משפר אותי לפי השיחות. Never build an answer on an unrelated word that only looks similar.
+- The session context may list likely typos as a hint. Use a hint only when it fits the conversation.
 
 Truthfulness
 - Never say you did something unless a tool result confirms it. A workout exists only if generate_workout returned it. A message reached the coaching team only if handoff_to_human returned sent true. If a tool fails, say so simply and offer another way, like the workout builder in the app.
@@ -71,7 +78,8 @@ Safety
 - Users are adults. Stay on fitness, movement, habits and the app. Politely decline unrelated topics.
 
 Tools
-- When you use a tool, you may say one brief sentence first. If no tool can do what the user asked, say so instead of guessing. Do not include internal or system XML tags in your response.`;
+- When you use a tool, you may say one brief sentence first. If no tool can do what the user asked, say so instead of guessing. Do not include internal or system XML tags in your response.
+- Never write ids, field names or tool names in a reply (no workoutId, no ai-... ids, no get_schedule). They are for tools only.`;
 
 const GRAMMAR_NOTE: Record<CoachGender, string> = {
   male: 'Address the user in masculine singular (אתה, רוצה, תתחיל).',
@@ -92,6 +100,8 @@ export interface SessionContextInput {
   summary?: string | null;
   /** The user sheet (get_user_context), pre-loaded every turn. null → it failed to load. */
   sheet?: UserContextSheet | null;
+  /** Likely typos in the latest user message (intent.ts typoHints). A hint, never applied. */
+  typoHints?: TypoHint[];
 }
 
 /** The volatile system block (after the cache breakpoint). */
@@ -104,6 +114,10 @@ export function buildSessionContext(i: SessionContextInput): string {
   ];
   if (i.summary && i.summary.trim()) {
     lines.push(`- Summary of the earlier conversation: ${i.summary.trim().slice(0, 1200)}`);
+  }
+  if (i.typoHints?.length) {
+    const list = i.typoHints.map((h) => `"${h.word}" probably means "${h.suggestion}"`).join('; ');
+    lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (התכוונת "${i.typoHints[0].suggestion}"?).`);
   }
   if (i.sheet) {
     lines.push('', renderSheet(i.sheet));
@@ -118,22 +132,41 @@ const dayName = (iso: string): string => {
   return Number.isFinite(t) ? `יום ${WEEKDAY_HE[new Date(t).getUTCDay()]}` : '';
 };
 
+const KIND_HE: Record<string, string> = { strength: 'כוח', cardio: 'ריצה', walking: 'הליכה', maintenance: 'התאוששות' };
+
+/** One schedule line: "יום שני 2026-10-20 18:00, כוח, כל הגוף, 30 דק׳". */
+export function scheduleLine(e: SheetScheduleEntry): string {
+  const what = e.title || [KIND_HE[e.kind ?? ''] ?? '', (e.programs ?? []).join(' + ')].filter(Boolean).join(', ') || 'אימון';
+  return [
+    `${dayName(e.date)} ${e.date}${e.startTime ? ` ${e.startTime}` : ''}`,
+    what,
+    e.plannedMinutes ? `${e.plannedMinutes} דק׳` : '',
+    e.completed ? 'completed' : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
 /**
- * The sheet as the model reads it: a short schedule summary (counted here, so the model
- * never has to count) followed by the sheet JSON.
+ * The sheet as the model reads it: the week as per-day lines (counted here, so the model
+ * never has to count) and today's buildable session, followed by the sheet JSON.
  */
 export function renderSheet(sheet: UserContextSheet): string {
-  const training = sheet.thisWeek.filter((e) => e.type !== 'rest');
-  const week = training.length
-    ? training
-        .map((e) => `${dayName(e.date)} ${e.date}${e.startTime ? ` ${e.startTime}` : ''}${e.programs.length ? ` (${e.programs.join(', ')})` : ''}${e.completed ? ' completed' : ''}`)
-        .join('; ')
-    : 'nothing planned';
-  return [
+  const training = (sheet.thisWeek ?? []).filter((e) => e.type !== 'rest');
+  const lines = [
     'User sheet (read from the app at the start of this turn; the only source for facts about the user):',
-    `- This week (Sunday to Saturday): ${training.length} planned workouts: ${week}`,
-    JSON.stringify(sheet),
-  ].join('\n');
+    `- This week (Sunday to Saturday): ${training.length} planned workouts${training.length ? ':' : ', nothing planned'}`,
+    ...training.map((e) => `  ${scheduleLine(e)}`),
+  ];
+  const buildable = (sheet.today ?? []).find((e) => e.buildNow && !e.completed);
+  if (buildable?.buildNow) {
+    const b = buildable.buildNow;
+    lines.push(
+      `- Today's planned session can be built now: generate_workout domains [${b.domains.join(', ')}]${b.durationMin ? `, ${b.durationMin} minutes` : ''}.`,
+    );
+  }
+  lines.push(JSON.stringify(sheet));
+  return lines.join('\n');
 }
 
 /** First-open quick replies, gendered by the user (the user talks TO Kelly, a man, so "תבנה" is fixed). */

@@ -70,7 +70,16 @@ async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<Ra
     if (!Array.isArray(entries)) return;
     for (const e of entries) {
       if (e?.override === true && e?.type === 'rest') continue;
-      out.push({ date: dates[i], type: e.type, programIds: e.programIds, startTime: e.startTime, completed: e.completed, title: e.title });
+      out.push({
+        date: dates[i],
+        type: e.type,
+        programIds: e.programIds,
+        startTime: e.startTime,
+        completed: e.completed,
+        title: e.title,
+        scheduledCategories: e.scheduledCategories,
+        plannedRun: e.plannedRun,
+      });
     }
   });
   return out;

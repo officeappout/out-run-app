@@ -15,10 +15,12 @@
  * models).
  *
  * Reply guards (reply-guards.ts): a round's text is buffered and emitted when the round
- * ends, not per delta. The FINAL round's text is checked (grounding + Hebrew only); on an
- * issue the model is re-prompted ONCE with an internal note (the bad text is never shown),
- * and foreign words that survive the retry are stripped. A tool round's short preamble is
- * only stripped. Every intervention lands in `state.log.guards`.
+ * ends, not per delta. The FINAL round's text is checked (grounding, Hebrew only / no
+ * internal ids, Kelly's masculine voice); on an issue the model is re-prompted ONCE with an
+ * internal note (the bad text is never shown). After the retry, foreign words and ids are
+ * stripped and feminine self-references are rewritten to the masculine. A tool round's
+ * short preamble only gets the strip + rewrite. Every intervention lands in
+ * `state.log.guards`.
  *
  * Review log: `state.log` collects the model id, token usage, every tool call (validated
  * input + a compact result summary) and the guard interventions of the whole turn, across
@@ -29,6 +31,8 @@ import type { CoachStreamEvent } from './protocol';
 import type { UserContextSheet } from './context-sheet';
 import { toolKind, validateToolInput, type ClientToolOutcome } from './tools';
 import { checkReply, correctionNote, factsFromEvidence, findForeignWords, stripForeignWords, type ReplyIssue } from './reply-guards';
+import { masculinizeSelfReferences } from './gender-voice';
+import type { CoachGender } from './persona';
 
 export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
 export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
@@ -69,6 +73,8 @@ export interface TurnGuardConfig {
   sheet: UserContextSheet | null;
   /** Israel weekday today, 0 = Sunday. */
   todayDow: number;
+  /** The user's grammatical gender (the feminine-voice check is stricter when not female). */
+  userGender?: CoachGender | null;
 }
 
 export interface TurnConfig {
@@ -224,7 +230,8 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
         const facts = cfg.guards
           ? factsFromEvidence(cfg.guards.sheet, turnToolResultTexts(state), cfg.guards.todayDow)
           : null;
-        const issues = checkReply(text, facts);
+        const userGender = cfg.guards?.userGender ?? null;
+        const issues = checkReply(text, facts, userGender);
         if (issues.length && !state.correctionUsed) {
           state.correctionUsed = true;
           for (const i of issues) log.guards.push({ type: guardType(i), action: `reprompt: ${issueDetail(i)}` });
@@ -233,14 +240,14 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
           continue; // same round budget: a correction is not a tool round
         }
         for (const i of issues) log.guards.push({ type: guardType(i), action: `unresolved_after_retry: ${issueDetail(i)}` });
-        emitChecked(state, text, deps, facts?.text ?? '');
+        emitChecked(state, text, deps, facts?.text ?? '', userGender);
       }
       if (!state.turnText.trim()) appendText(state, EMPTY_TEXT, deps);
       return { kind: 'final', state, stopReason: message.stop_reason };
     }
 
     // A tool round: its short preamble ("בודק...") is shown, with foreign words stripped.
-    emitChecked(state, roundText, deps, null);
+    emitChecked(state, roundText, deps, null, cfg.guards?.userGender ?? null);
 
     state.turnMessages.push({ role: 'assistant', content: message.content });
     state.roundsUsed++;
@@ -294,21 +301,35 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
 }
 
 function guardType(i: ReplyIssue): string {
-  return i.kind === 'ungrounded' ? 'grounding' : 'hebrew_only';
+  return i.kind === 'ungrounded' ? 'grounding' : i.kind === 'foreign' ? 'hebrew_only' : 'masculine_voice';
 }
 
 function issueDetail(i: ReplyIssue): string {
-  return (i.kind === 'ungrounded' ? i.claims : i.words).join(', ').slice(0, 200);
+  return (i.kind === 'ungrounded' ? i.claims : i.kind === 'foreign' ? i.words : i.forms).join(', ').slice(0, 200);
 }
 
-/** Emits `text` (if any) after stripping foreign words; logs a strip. */
-function emitChecked(state: TurnState, text: string, deps: TurnDeps, evidenceText: string | null): void {
+/**
+ * Emits `text` (if any) after stripping foreign words / internal ids and rewriting
+ * feminine self-references to the masculine; logs each intervention.
+ */
+function emitChecked(
+  state: TurnState,
+  text: string,
+  deps: TurnDeps,
+  evidenceText: string | null,
+  userGender: CoachGender | null = null,
+): void {
   let t = text.trim();
   if (!t) return;
   const words = findForeignWords(t, evidenceText ?? '');
   if (words.length) {
     t = stripForeignWords(t, words);
     state.log?.guards.push({ type: 'hebrew_only', action: `stripped: ${words.join(', ').slice(0, 200)}` });
+  }
+  const masc = masculinizeSelfReferences(t, userGender);
+  if (masc.changed.length) {
+    t = masc.text;
+    state.log?.guards.push({ type: 'masculine_voice', action: `rewritten: ${masc.changed.join(', ').slice(0, 200)}` });
   }
   if (t) appendText(state, t, deps);
 }

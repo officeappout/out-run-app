@@ -1,0 +1,548 @@
+[
+  {
+    "id": "owner-07-feminine-slip",
+    "name": "Kelly's feminine slip (\"לא בטוחה שהבנתי\") is caught and rewritten to the masculine",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread after #434 (18.10.2026). User message verbatim; the context sheet is synthetic (no real profile data). The mock replays the bad reply verbatim on both rounds, so this proves the guard: one re-prompt, then the deterministic masculine rewrite."
+    },
+    "history": [
+      {
+        "role": "user",
+        "text": "אתה משתפר עם הזמן?"
+      },
+      {
+        "role": "assistant",
+        "text": "הצוות משפר אותי לפי השיחות, אז כל פעם אני קצת יותר טוב."
+      }
+    ],
+    "message": "היי חזרתי השצפרת",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "mock": {
+      "replies": [
+        "אני מניח שאתה מתכוון ל\"הצפרת\"… אבל לא בטוחה שהבנתי. אפשר לכתוב שוב?"
+      ]
+    },
+    "assertions": {
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "לא בטוח שהבנתי"
+      ],
+      "mustNotMatch": [
+        "בטוחה"
+      ],
+      "noEnglish": true,
+      "noSafetyReply": true
+    }
+  },
+  {
+    "id": "owner-08-female-user-no-false-positive",
+    "name": "\"את בטוחה?\" to a female user is correct grammar and is left alone",
+    "source": {
+      "kind": "fixture",
+      "note": "False-positive guard for the feminine-voice detector: Kelly addresses a female user in the feminine; only his own voice must be masculine."
+    },
+    "history": [],
+    "message": "אני רוצה לעשות היום אימון של שעה וחצי",
+    "context": {
+      "firstName": "נועה",
+      "gender": "female",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "נועה",
+        "gender": "female",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "mock": {
+      "replies": [
+        "את בטוחה? אפשר גם אימון קצר יותר, ואני יכול לבנות אותו עכשיו."
+      ]
+    },
+    "assertions": {
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "את בטוחה\\?",
+        "אני יכול"
+      ],
+      "noEnglish": true,
+      "noSafetyReply": true
+    }
+  },
+  {
+    "id": "owner-09-typo-improved",
+    "name": "\"השצפרת\" is read as \"השתפרת\" and confirmed briefly",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread after #434 (18.10.2026). User message verbatim; the context sheet is synthetic (no real profile data). Kelly guessed \"הצפרת\". צ and ת are neighbours on the Hebrew keyboard; the server passes a typo HINT, Kelly confirms the intended word and answers truthfully (the team improves Kelly from conversations)."
+    },
+    "history": [
+      {
+        "role": "user",
+        "text": "אתה משתפר עם הזמן?"
+      },
+      {
+        "role": "assistant",
+        "text": "הצוות משפר אותי לפי השיחות, אז כל פעם אני קצת יותר טוב."
+      }
+    ],
+    "message": "היי חזרתי השצפרת",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustMatch": [
+        "השתפרת",
+        "הצוות"
+      ],
+      "mustNotMatch": [
+        "הצפרת"
+      ],
+      "mustNotCallTool": [
+        "generate_workout",
+        "handoff_to_human"
+      ],
+      "maxSentences": 3,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-10-week-per-day",
+    "name": "\"מה מצפה לי השבוע?\" gets a per-day list (not counts) and the open-schedule chip",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread after #434 (18.10.2026). User message verbatim; the context sheet is synthetic (no real profile data). Kelly answered with counts only. Expected: one line per planned day (day, time, what), at most 5 lines + one sentence, the \"פתח את הלו״ז\" chip, and \"בנה את האימון של היום\" since today's session is buildable."
+    },
+    "history": [],
+    "message": "מה מצפה לי השבוע? איך אני יודע מה יש לי באימונים",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "18:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "18:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [],
+            "kind": "cardio",
+            "startTime": "07:30",
+            "plannedMinutes": 30,
+            "completed": false,
+            "title": null,
+            "buildNow": null
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "משיכה"
+            ],
+            "kind": "strength",
+            "startTime": "18:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": "אימון גב ומתח",
+            "buildNow": {
+              "durationMin": null,
+              "domains": [
+                "pull"
+              ]
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "namesAllScheduledDays": true,
+      "noInventedDays": true,
+      "maxLines": 6,
+      "chips": [
+        "open_schedule",
+        "build_today"
+      ],
+      "mustNotCallTool": [
+        "generate_workout"
+      ],
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "owner-11-abs-strengthen",
+    "name": "\"תן לי בטן אני רוצה לחזק\" builds a core-only workout (success case)",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner's own thread after #434 (18.10.2026). User message verbatim; the context sheet is synthetic (no real profile data). This one worked after #434; kept as a regression anchor."
+    },
+    "history": [],
+    "message": "תן לי בטן אני רוצה לחזק",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 9,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "skills",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": null,
+            "level": 4,
+            "percentToNext": 40
+          }
+        ],
+        "injuries": [],
+        "streakDays": 3,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          },
+          {
+            "date": "2026-10-22",
+            "type": "training",
+            "programs": [
+              "גוף מלא"
+            ],
+            "startTime": "18:00",
+            "completed": false,
+            "title": null
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar",
+            "dip_bar"
+          ]
+        },
+        "area": null
+      }
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "domains": [
+        "core"
+      ],
+      "minExercises": 3,
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true
+    }
+  }
+]

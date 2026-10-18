@@ -13,6 +13,7 @@ import type { ChatRequest, CoachStreamEvent, WorkoutCard } from '@/lib/ai/coach/
 import { CoachHttpError, CoachOfflineError, postCoach } from '../services/ai-coach-api';
 import { runClientTool } from '../services/client-tools';
 import { chatReducer, initialChatState, isBusy, type UiMessage } from '../state/chat-machine';
+import { isCoachActionId } from '@/lib/ai/coach/action-chips';
 
 const HISTORY_LIMIT = 30;
 
@@ -52,6 +53,7 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
                     location: c.location,
                   }))
                 : [],
+              actions: Array.isArray(x.actions) ? (x.actions as unknown[]).filter(isCoachActionId) : [],
             } as UiMessage;
           })
           .reverse();

@@ -125,7 +125,7 @@ export const COACH_TOOLS = {
     name: 'get_schedule',
     kind: 'server',
     description:
-      "Returns the user's planned schedule entries between two dates (inclusive, YYYY-MM-DD, at most 14 days): type, programs, start time, completed.",
+      "Returns the user's planned schedule entries between two dates (inclusive, YYYY-MM-DD, at most 14 days), one per planned session: date, weekday, type, kind (strength, cardio, walking), program names, start time, planned minutes when known, title, completed, and buildNow (generate_workout settings for a strength session that can be built now).",
     inputSchema: {
       type: 'object',
       properties: {

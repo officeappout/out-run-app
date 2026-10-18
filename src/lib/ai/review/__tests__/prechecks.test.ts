@@ -61,6 +61,10 @@ describe('reply detectors', () => {
     expect(findFeminineSelfReference('אני יכולה לבנות לך אימון')).toBe('אני יכולה');
     expect(findFeminineSelfReference('אני לא זוכרת שיחות קודמות')).toBe('אני לא זוכרת');
     expect(findFeminineSelfReference('אני יכול לבנות לך אימון')).toBeNull();
+    // Round 2 (owner thread after #434): the subject dropped, same detector as the live guard.
+    expect(findFeminineSelfReference('אני מניח שאתה מתכוון… אבל לא בטוחה שהבנתי')).toBe('לא בטוחה');
+    expect(findFeminineSelfReference('את בטוחה? אפשר גם קצר יותר.')).toBeNull();
+    expect(findFeminineSelfReference('אני רואה שהתקדמת')).toBeNull(); // same spelling for both genders
     expect(looksLikeSafetyReply(safetyReply('chest', 'male'))).toBe(true);
     expect(looksLikeSafetyReply('בניתי לך אימון של 20 דקות')).toBe(false);
     expect(weekdaysMentioned('יש לך אימון ביום שלישי וביום חמישי, ובשבת מנוחה')).toEqual([2, 4, 6]);
@@ -87,6 +91,23 @@ describe('owner case 1 — "מה בתוכנית השבוע?"', () => {
     const issues = precheckTurn(noLog);
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({ category: 'hallucination', severity: 1, likelyRootCause: 'unknown' });
+  });
+});
+
+describe('round 2 — "מה מצפה לי השבוע? איך אני יודע מה יש לי באימונים"', () => {
+  const userText = 'מה מצפה לי השבוע? איך אני יודע מה יש לי באימונים';
+  const sched = [{ name: 'get_schedule', input: { from: '2026-10-18', to: '2026-10-24' }, resultSummary: { entries: 3 } }];
+  it('is a schedule question, not a workout request', () => {
+    expect(parseRequest(userText)).toMatchObject({ isWorkoutRequest: false, isScheduleQuestion: true });
+    expect(parseRequest('תן לי בטן אני רוצה לחזק')).toMatchObject({ isWorkoutRequest: true, domains: ['core'] });
+  });
+  it('a count-only answer is flagged as unhelpful', () => {
+    const bad = turn({ userText, assistantText: 'השבוע מתוכננים לך 3 אימונים.', toolCalls: sched });
+    expect(cats(bad)).toEqual(['unhelpful']);
+  });
+  it('a per-day answer is clean', () => {
+    const good = turn({ userText, assistantText: 'יום ראשון 18:00, כוח\nיום שלישי 07:30, ריצה\nיום חמישי 18:00, גב', toolCalls: sched });
+    expect(cats(good)).toEqual([]);
   });
 });
 

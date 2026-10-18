@@ -1520,6 +1520,12 @@ export default function HomePage() {
         setShowLifestyleWizard(true);
         window.history.replaceState({}, '', '/home');
       }
+      // ?openPlanner=true — the "פתח את הלו״ז" chip in the קלי AI chat opens the
+      // full-screen training planner (the schedule screen).
+      if (params.get('openPlanner') === 'true') {
+        window.history.replaceState({}, '', '/home');
+        setShowPlanner(true);
+      }
       if (params.get('startWorkout') === 'true') {
         window.history.replaceState({}, '', '/home');
         // Defer so the page finishes mounting before triggering the workout flow

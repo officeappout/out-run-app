@@ -9,6 +9,7 @@
  *   text         a chunk of Kelly's reply
  *   tool_status  a server tool is running (UI: "בודק...")
  *   card         a workout card to render (after a generate_workout result came back)
+ *   actions      action chips under the reply (ids; label + target in action-chips.ts)
  *   client_tool  run this tool on the device, then POST {toolResult}; the stream ends here
  *   done         the turn is complete and saved
  *   error        the turn failed after the stream started
@@ -17,6 +18,7 @@
 import { z } from 'zod';
 import { ClientToolOutcomeSchema, type CoachLocation } from './tools';
 import type { CoachGender } from './persona';
+import type { CoachActionId } from './action-chips';
 
 export const CHAT_MESSAGE_MAX_CHARS = 1000;
 
@@ -41,6 +43,7 @@ export type CoachStreamEvent =
   | { type: 'text'; delta: string }
   | { type: 'tool_status'; name: string }
   | { type: 'card'; card: WorkoutCard }
+  | { type: 'actions'; actions: CoachActionId[] }
   | { type: 'client_tool'; id: string; name: string; input: unknown }
   | { type: 'done'; messageId: string | null }
   | { type: 'error'; code: CoachStreamErrorCode };

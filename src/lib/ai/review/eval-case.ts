@@ -44,8 +44,16 @@ export const EvalAssertionsSchema = z
     noInventedDays: z.boolean().optional(),
     /** When the built workout carries LEVEL_CEILING, the reply must say so. */
     mentionLevelCeilingIfPresent: z.boolean().optional(),
+    /** Every planned weekday (preloaded sheet week + get_schedule results) is named in the reply. */
+    namesAllScheduledDays: z.boolean().optional(),
+    /** At most this many non-empty lines (the per-day schedule list is ≤ 5 lines + one sentence). */
+    maxLines: z.number().int().min(1).optional(),
+    /** Action chips the turn must carry (action-chips.ts ids). */
+    chips: z.array(z.enum(['open_schedule', 'build_today'])).optional(),
     /** Regex sources the reply must match (all). */
     mustMatch: z.array(z.string()).optional(),
+    /** Regex sources the reply must NOT match (none). */
+    mustNotMatch: z.array(z.string()).optional(),
   })
   .strict();
 export type EvalAssertions = z.infer<typeof EvalAssertionsSchema>;
@@ -79,6 +87,12 @@ export const EvalCaseSchema = z.object({
   message: z.string().min(1).max(1000),
   context: EvalContextSchema,
   assertions: EvalAssertionsSchema,
+  /**
+   * Mock mode only (scriptedMockModel): the text the fake model writes, in order, one per
+   * text round (the last one repeats). Lets a fixture replay a BAD model reply (e.g. the
+   * feminine slip) to prove the reply guards fix it. Ignored in --live runs.
+   */
+  mock: z.object({ replies: z.array(z.string().min(1)).min(1) }).optional(),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;
 
@@ -99,6 +113,10 @@ export interface EvalRunResult {
   toolCalls: EvalToolCall[];
   /** Naming today's weekday is never an invented day. */
   todayDayOfWeek?: number;
+  /** Dates of the planned (non-rest) sessions in the user sheet pre-loaded into the turn. */
+  sheetWeekDates?: string[];
+  /** Action chips the turn produced. */
+  chips?: string[];
 }
 
 export interface AssertionResult {
@@ -117,6 +135,7 @@ function weekdayOf(dateKey: string): number {
 
 function scheduleWeekdays(run: EvalRunResult): Set<number> {
   const out = new Set<number>();
+  for (const d of run.sheetWeekDates ?? []) if (/^\d{4}-\d{2}-\d{2}$/.test(d)) out.add(weekdayOf(d));
   for (const c of run.toolCalls) {
     if (c.isError) continue;
     const r = c.result as { entries?: unknown; thisWeek?: unknown } | null;
@@ -212,6 +231,34 @@ export function checkAssertions(a: EvalAssertions, run: EvalRunResult): Assertio
     const invented = said.filter((d) => !known.has(d));
     add('noInventedDays', invented.length === 0, invented.length ? `days not in the schedule result: ${invented.join(',')}` : `${said.length} day(s) named, all from tool results`);
   }
+  if (a.namesAllScheduledDays) {
+    const said = new Set(weekdaysMentioned(text));
+    const planned = Array.from(scheduleWeekdays(run)).sort();
+    const missing = planned.filter((d) => !said.has(d));
+    add(
+      'namesAllScheduledDays',
+      planned.length > 0 && missing.length === 0,
+      planned.length === 0 ? 'no planned days in the evidence' : missing.length ? `planned days not named: ${missing.join(',')}` : `all ${planned.length} planned day(s) named`,
+    );
+  }
+  if (a.maxLines) {
+    const n = text.split('\n').filter((l) => l.trim()).length;
+    add('maxLines', n <= a.maxLines, `${n} lines (max ${a.maxLines})`);
+  }
+  if (a.chips) {
+    const got = run.chips ?? [];
+    const missing = a.chips.filter((c) => !got.includes(c));
+    add('chips', missing.length === 0, missing.length ? `missing chips: ${missing.join(', ')} (got: ${got.join(', ') || 'none'})` : `chips ${got.join(', ')}`);
+  }
+  for (const src of a.mustNotMatch ?? []) {
+    let hit = false;
+    try {
+      hit = new RegExp(src).test(text);
+    } catch {
+      hit = false;
+    }
+    add(`mustNotMatch /${src}/`, !hit, hit ? 'matched' : 'ok');
+  }
   for (const src of a.mustMatch ?? []) {
     let ok = false;
     try {
@@ -243,8 +290,11 @@ export function defaultAssertions(userText: string, category?: IssueCategory): E
       a.mentionLevelCeilingIfPresent = true;
     }
   } else if (req.isScheduleQuestion) {
-    a.mustCallTool = 'get_schedule';
+    // The week is pre-loaded into every turn (the user sheet), so get_schedule is optional:
+    // what matters is a per-day answer with no invented days, and the schedule chip.
     a.noInventedDays = true;
+    a.namesAllScheduledDays = true;
+    a.chips = ['open_schedule'];
   }
   if (category === 'unhelpful' || category === 'tone_gender') a.maxSentences = 4;
   return a;
