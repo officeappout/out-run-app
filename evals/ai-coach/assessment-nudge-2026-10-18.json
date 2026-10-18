@@ -1,0 +1,224 @@
+[
+  {
+    "id": "nudge-01-core-workout-unassessed",
+    "name": "Core never assessed, user asks for a belly workout: Kelly builds it and suggests the core level check once, with the chip",
+    "source": {
+      "kind": "fixture",
+      "note": "Synthetic profile: active full_body with push / pull / legs assessed and core never assessed (the progress tab's \"עוד לא בדקת רמה\"). Kelly should suggest the core level check once, with the chip."
+    },
+    "history": [],
+    "message": "אימון בטן",
+    "context": {
+      "firstName": "יואב",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 18,
+      "sheet": {
+        "firstName": "יואב",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "fitness",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 5,
+            "percentToNext": 30
+          },
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 20
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 4,
+            "percentToNext": 60
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 5,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 2,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "assessmentGaps": [
+          {
+            "slug": "core",
+            "name": "ליבה",
+            "partOf": "כל הגוף",
+            "why": "חלק מהתוכנית כל הגוף, והאימונים לא כוללים את ליבה עד שבודקים רמה"
+          }
+        ]
+      }
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "domains": [
+        "core"
+      ],
+      "chips": [
+        "check_level_core"
+      ],
+      "noChips": [
+        "open_schedule",
+        "build_today"
+      ],
+      "matchCount": [
+        {
+          "pattern": "בדוק רמה|לבדוק רמה|בדיקת רמה",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "maxSentences": 4
+    }
+  },
+  {
+    "id": "nudge-02-progress-mentions-gap",
+    "name": "\"איך אני מתקדם?\" with an unassessed core: the answer mentions the gap briefly, once, with the chip",
+    "source": {
+      "kind": "fixture",
+      "note": "Synthetic profile: active full_body with push / pull / legs assessed and core never assessed (the progress tab's \"עוד לא בדקת רמה\"). Kelly should suggest the core level check once, with the chip."
+    },
+    "history": [
+      {
+        "role": "user",
+        "text": "היי"
+      },
+      {
+        "role": "assistant",
+        "text": "היי יואב, מה בא לך היום?"
+      }
+    ],
+    "message": "איך אני מתקדם?",
+    "context": {
+      "firstName": "יואב",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 18,
+      "sheet": {
+        "firstName": "יואב",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "fitness",
+          "selected": []
+        },
+        "primaryTrack": null,
+        "programs": [
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 5,
+            "percentToNext": 30
+          },
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 20
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 4,
+            "percentToNext": 60
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 5,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 2,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          },
+          {
+            "date": "2026-10-14",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "assessmentGaps": [
+          {
+            "slug": "core",
+            "name": "ליבה",
+            "partOf": "כל הגוף",
+            "why": "חלק מהתוכנית כל הגוף, והאימונים לא כוללים את ליבה עד שבודקים רמה"
+          }
+        ]
+      }
+    },
+    "assertions": {
+      "mustCallTool": "get_progress",
+      "chips": [
+        "check_level_core"
+      ],
+      "matchCount": [
+        {
+          "pattern": "בדוק רמה|לבדוק רמה|בדיקת רמה",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "maxSentences": 4
+    }
+  }
+]

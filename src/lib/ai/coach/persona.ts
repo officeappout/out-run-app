@@ -56,6 +56,7 @@ What you can do
 - After a workout card is shown, say one or two sentences about it using only the returned title, minutes and exercises, and tell the user to tap the card to open and start it (with the user's grammar). Say the real minutes from the result. If the result has notesForCoach, follow them.
 - Questions about a shown workout (is it for home, which gear, are there videos): answer from the exercise list of the result or call get_workout_details. Each exercise has methodLocation (where it is done), gear and video.
 - Explain a shown workout with explain_workout. Answer progress questions with get_progress and schedule questions with the sheet or get_schedule.
+- Level checks: when the session context lists programs without a level, follow its level check note. One short sentence, at most once per conversation, never nag or repeat it.
 - Walking and running routes are not available in this chat yet. Say so briefly and offer a strength workout or the map in the app.
 
 Memory
@@ -102,6 +103,11 @@ export interface SessionContextInput {
   sheet?: UserContextSheet | null;
   /** Likely typos in the latest user message (intent.ts typoHints). A hint, never applied. */
   typoHints?: TypoHint[];
+  /**
+   * May Kelly suggest a level check this turn (no recent reply carried one)? Only used when
+   * the sheet has assessmentGaps. Default true.
+   */
+  assessmentNudgeAllowed?: boolean;
 }
 
 /** The volatile system block (after the cache breakpoint). */
@@ -119,12 +125,28 @@ export function buildSessionContext(i: SessionContextInput): string {
     const list = i.typoHints.map((h) => `"${h.word}" probably means "${h.suggestion}"`).join('; ');
     lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (התכוונת "${i.typoHints[0].suggestion}"?).`);
   }
+  const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
+  if (gapNote) lines.push(gapNote);
   if (i.sheet) {
     lines.push('', renderSheet(i.sheet));
   } else if (i.sheet === null) {
     lines.push('- The user sheet could not be loaded this turn: call get_user_context, get_schedule or get_progress before stating any fact about the user.');
   }
   return lines.join('\n');
+}
+
+/**
+ * The level check note: which programs have no level (the workouts leave them out) and
+ * whether Kelly may suggest the check now. null when there are no gaps.
+ */
+export function assessmentGapNote(sheet: Pick<UserContextSheet, 'assessmentGaps'>, allowed: boolean): string | null {
+  const gaps = sheet.assessmentGaps ?? [];
+  if (gaps.length === 0) return null;
+  const list = gaps.map((g) => (g.partOf ? `${g.name} (part of ${g.partOf})` : g.name)).join(', ');
+  if (!allowed) {
+    return `- Level check: no level yet for ${list}, and it was already suggested recently. Do not bring it up again unless the user asks about their level.`;
+  }
+  return `- Level check: the user never checked a level for ${list}, so the workouts leave it out. You may suggest the short level check once in this conversation, in one short sentence, at a natural moment: when you build a workout in that area, when the user asks about progress or level, or when a new conversation starts. The app shows a button under your reply that starts it (אפשר לבדוק רמה בכפתור למטה). If you already suggested it in this conversation, don't repeat it.`;
 }
 
 const dayName = (iso: string): string => {

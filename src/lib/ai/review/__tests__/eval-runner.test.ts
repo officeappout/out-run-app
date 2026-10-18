@@ -46,8 +46,10 @@ function script(steps: Array<{ tools?: Array<{ name: string; input: unknown }>; 
 }
 
 describe('fixtures', () => {
-  it('the owner cases (round 1 + round 2) parse and are unique', () => {
+  it('the owner cases (round 1 + round 2) and the level-check nudges parse and are unique', () => {
     expect(cases.map((c) => c.id).sort()).toEqual([
+      'nudge-01-core-workout-unassessed',
+      'nudge-02-progress-mentions-gap',
       'owner-01-week-plan',
       'owner-02-doctor-question',
       'owner-03-home-10min',

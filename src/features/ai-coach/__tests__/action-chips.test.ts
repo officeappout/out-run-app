@@ -7,7 +7,16 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AI_COACH_CHIP_LINKS, COACH_ACTIONS, SCHEDULE_DEEP_LINK } from '@/lib/ai/coach/action-chips';
+import {
+  AI_COACH_CHIP_LINKS,
+  AI_COACH_RETURN_PATH,
+  COACH_ACTIONS,
+  MINI_ASSESSMENT_ROUTE,
+  SCHEDULE_DEEP_LINK,
+  isCheckLevelActionId,
+} from '@/lib/ai/coach/action-chips';
+import { ASSESS_CATEGORY_SLUGS, ASSESS_SKILL_SLUGS } from '@/lib/ai/coach/assessment-gaps';
+import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
 import { chatReducer, initialChatState, LIVE_ID, type ChatState } from '../state/chat-machine';
 
 const APP_DIR = path.resolve(process.cwd(), 'src/app');
@@ -65,6 +74,83 @@ describe('chip deep links', () => {
 
   it('a missing route is caught', () => {
     expect(pageFor('/schedule')).toBeNull();
+  });
+});
+
+describe('level-check chips → the mini assessment', () => {
+  const assessChips = Object.entries(COACH_ACTIONS).filter(([id]) => isCheckLevelActionId(id));
+  const read = (rel: string) => fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8');
+
+  it('every assessable program has a chip that starts the mini check and comes back to the chat', () => {
+    expect(assessChips.length).toBe(ASSESS_CATEGORY_SLUGS.length + ASSESS_SKILL_SLUGS.length);
+    for (const [, spec] of assessChips) {
+      expect(spec.href).toBeUndefined();
+      expect(spec.assess?.route).toBe(MINI_ASSESSMENT_ROUTE);
+      expect(spec.assess?.returnTo).toBe(AI_COACH_RETURN_PATH);
+      expect(spec.label).toMatch(/^בדוק רמה ב\S/);
+    }
+  });
+
+  it('the assessment page exists and runs the mini branch (reads + consumes the seeded state)', () => {
+    const page = pageFor(MINI_ASSESSMENT_ROUTE);
+    expect(page, `no page for ${MINI_ASSESSMENT_ROUTE}`).not.toBeNull();
+    const src = fs.readFileSync(page!, 'utf8');
+    expect(src).toContain('isMiniAssessmentActive()');
+    expect(src).toContain('consumeMiniAssessmentState()');
+  });
+
+  it('startMiniDomainAssessment navigates to that same page and stores the return path', () => {
+    const src = read('src/features/user/onboarding/services/mini-domain-assessment.ts');
+    expect(src).toContain(`'${MINI_ASSESSMENT_ROUTE}'`);
+    expect(src).toMatch(/sessionStorage\.setItem\(MINI_ASSESSMENT_RETURN_TO_KEY, resolvedReturnTo\)/);
+  });
+
+  it('the return path is the chat page', () => {
+    expect(pageFor(AI_COACH_RETURN_PATH)).not.toBeNull();
+  });
+
+  it('categories go to the body_focus path, skills to the skills path', () => {
+    for (const [, spec] of assessChips) {
+      const a = spec.assess!;
+      if (a.domainType === 'category') expect(['push', 'pull', 'legs', 'core']).toContain(a.slug);
+      else expect(Object.keys(SKILL_TO_FOUNDATION_DOMAIN)).toContain(a.slug);
+    }
+  });
+
+  it('the chat screen wires the chip to startMiniDomainAssessment with the chip target', () => {
+    const src = read('src/features/ai-coach/components/AiCoachChat.tsx');
+    expect(src).toContain('onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}');
+  });
+});
+
+describe('chat reducer: workout build state (card skeleton / error)', () => {
+  const base: ChatState = chatReducer({ ...initialChatState, phase: 'idle' }, { type: 'SEND', id: 'u1', text: 'אימון בטן' });
+  const tool = { type: 'client_tool' as const, id: 't1', name: 'generate_workout', input: {} };
+  const card = { type: 'workout' as const, workoutId: 'ai-abc-1234', title: 'אימון בטן בבית', minutes: 20, exerciseCount: 5, location: 'home' as const };
+
+  it('building from the client tool until the card arrives', () => {
+    let s = chatReducer(base, { type: 'EVENT', event: tool });
+    expect(s.workoutBuild).toBe('building');
+    s = chatReducer(s, { type: 'TOOL_POSTED', ok: true });
+    expect(s.workoutBuild).toBe('building');
+    s = chatReducer(s, { type: 'EVENT', event: { type: 'card', card } });
+    expect(s.workoutBuild).toBe('idle');
+  });
+
+  it('failed when the device could not build it; cleared by the next message', () => {
+    let s = chatReducer(base, { type: 'EVENT', event: tool });
+    s = chatReducer(s, { type: 'TOOL_POSTED', ok: false });
+    expect(s.workoutBuild).toBe('failed');
+    s = chatReducer(s, { type: 'EVENT', event: { type: 'done', messageId: 'a1' } });
+    expect(s.workoutBuild).toBe('failed');
+    s = chatReducer(s, { type: 'SEND', id: 'u2', text: 'שוב' });
+    expect(s.workoutBuild).toBe('idle');
+  });
+
+  it('a turn that ends without a card drops the skeleton', () => {
+    let s = chatReducer(base, { type: 'EVENT', event: tool });
+    s = chatReducer(s, { type: 'EVENT', event: { type: 'error', code: 'internal' } });
+    expect(s.workoutBuild).toBe('idle');
   });
 });
 

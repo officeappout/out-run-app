@@ -37,6 +37,10 @@ export interface WorkoutCard {
   minutes: number;
   exerciseCount: number;
   location: CoachLocation;
+  /** Base domains the workout was built for (push / pull / legs / core; empty = full body). Absent on older cards. */
+  domains?: string[];
+  /** 1 easy, 2 balanced, 3 intense. Absent on older cards. */
+  difficulty?: number;
 }
 
 export type CoachStreamEvent =

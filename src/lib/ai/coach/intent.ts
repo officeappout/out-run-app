@@ -199,6 +199,16 @@ export function inferScheduleQuestion(text: string): boolean {
   return SCHEDULE_Q.test(t) && !BUILD_REQ.test(t);
 }
 
+// ─── Progress questions ──────────────────────────────────────────────────────
+
+const PROGRESS_Q = /מתקדם|מתקדמת|מתקדמים|ההתקדמות|התקדמתי|השתפרתי|איך\s+אני\s+(עומד|עומדת)|באיזו\s+רמה|מה\s+הרמה\s+שלי|הרמה\s+שלי/;
+
+/** "איך אני מתקדם?", "באיזו רמה אני?" — a question about the user's own progress or level. */
+export function inferProgressQuestion(text: string): boolean {
+  const t = (text ?? '').normalize('NFC').replace(NIQQUD, '');
+  return PROGRESS_Q.test(t) && !BUILD_REQ.test(t);
+}
+
 // ─── Typo hints ──────────────────────────────────────────────────────────────
 //
 // Owner thread after #434: "היי חזרתי השצפרת" (meant "השתפרת", צ and ת are neighbours on

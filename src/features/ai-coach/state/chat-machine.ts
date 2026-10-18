@@ -7,6 +7,10 @@
  *                   └──── done ─────┴──────────────── done ◄──── card / text ─────────┘
  *   any ─FAILED / error event─► error ─DISMISS─► idle
  *
+ * `workoutBuild` drives the workout card's skeleton / error state: 'building' from the
+ * generate_workout client_tool until the card arrives (or the turn ends), 'failed' when the
+ * device could not build it (cleared by the next SEND).
+ *
  * The live assistant bubble has id LIVE_ID until `done` gives it the stored message id.
  */
 import type { CoachStreamEvent, CoachErrorInput, WorkoutCard } from '@/lib/ai/coach/protocol';
@@ -25,6 +29,8 @@ export interface UiMessage {
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';
 
+export type WorkoutBuildState = 'idle' | 'building' | 'failed';
+
 export interface ChatState {
   phase: ChatPhase;
   messages: UiMessage[];
@@ -34,13 +40,16 @@ export interface ChatState {
   toolCall: { id: string; name: string; input: unknown } | null;
   error: CoachErrorInput | null;
   lastUserText: string | null;
+  /** The workout card placeholder: skeleton while building, error card when it failed. */
+  workoutBuild: WorkoutBuildState;
 }
 
 export type ChatAction =
   | { type: 'HISTORY_LOADED'; messages: UiMessage[] }
   | { type: 'SEND'; id: string; text: string }
   | { type: 'EVENT'; event: CoachStreamEvent }
-  | { type: 'TOOL_POSTED' }
+  /** The device ran the client tool and posted its result; `ok` false = it failed. */
+  | { type: 'TOOL_POSTED'; ok?: boolean }
   | { type: 'FAILED'; error: CoachErrorInput }
   | { type: 'DISMISS_ERROR' };
 
@@ -51,6 +60,7 @@ export const initialChatState: ChatState = {
   toolCall: null,
   error: null,
   lastUserText: null,
+  workoutBuild: 'idle',
 };
 
 function withLive(messages: UiMessage[], fn: (m: UiMessage) => UiMessage): UiMessage[] {
@@ -83,6 +93,7 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
         toolCall: null,
         toolStatus: null,
         lastUserText: a.text,
+        workoutBuild: 'idle',
         messages: [...s.messages.filter((m) => m.id !== LIVE_ID), { id: a.id, role: 'user', text: a.text, cards: [] }],
       };
 
@@ -96,6 +107,7 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
         case 'card':
           return {
             ...s,
+            workoutBuild: 'idle',
             messages: withLive(s.messages, (m) =>
               m.cards.some((c) => c.workoutId === ev.card.workoutId) ? m : { ...m, cards: [...m.cards, ev.card] },
             ),
@@ -103,27 +115,50 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
         case 'actions':
           return { ...s, messages: withLive(s.messages, (m) => ({ ...m, actions: Array.from(new Set([...(m.actions ?? []), ...ev.actions])) })) };
         case 'client_tool':
-          return { ...s, phase: 'running_tool', toolStatus: null, toolCall: { id: ev.id, name: ev.name, input: ev.input } };
+          return {
+            ...s,
+            phase: 'running_tool',
+            toolStatus: null,
+            toolCall: { id: ev.id, name: ev.name, input: ev.input },
+            workoutBuild: ev.name === 'generate_workout' ? 'building' : s.workoutBuild,
+          };
         case 'done':
           return {
             ...s,
             phase: 'idle',
             toolStatus: null,
             toolCall: null,
+            workoutBuild: s.workoutBuild === 'building' ? 'idle' : s.workoutBuild,
             messages: dropEmptyLive(s.messages).map((m) => (m.id === LIVE_ID ? { ...m, id: ev.messageId ?? `local-${s.messages.length}` } : m)),
           };
         case 'error':
-          return { ...s, phase: 'error', toolStatus: null, toolCall: null, error: { code: ev.code }, messages: dropEmptyLive(s.messages) };
+          return {
+            ...s,
+            phase: 'error',
+            toolStatus: null,
+            toolCall: null,
+            error: { code: ev.code },
+            workoutBuild: s.workoutBuild === 'building' ? 'idle' : s.workoutBuild,
+            messages: dropEmptyLive(s.messages),
+          };
         default:
           return s;
       }
     }
 
     case 'TOOL_POSTED':
-      return { ...s, phase: 'sending', toolCall: null };
+      return { ...s, phase: 'sending', toolCall: null, workoutBuild: a.ok === false && s.workoutBuild === 'building' ? 'failed' : s.workoutBuild };
 
     case 'FAILED':
-      return { ...s, phase: 'error', toolStatus: null, toolCall: null, error: a.error, messages: dropEmptyLive(s.messages) };
+      return {
+        ...s,
+        phase: 'error',
+        toolStatus: null,
+        toolCall: null,
+        error: a.error,
+        workoutBuild: s.workoutBuild === 'building' ? 'idle' : s.workoutBuild,
+        messages: dropEmptyLive(s.messages),
+      };
 
     case 'DISMISS_ERROR':
       return { ...s, phase: 'idle', error: null };
