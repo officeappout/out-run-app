@@ -291,6 +291,11 @@ export interface GeneratedWorkout {
    *  Addendum 17/20, F2 — an explicit user choice that gets overridden must
    *  never look like a silent bug. */
   difficultyOverrideNote?: string;
+  /** User-facing (Hebrew) note set when the main block had to be rescued because
+   *  nothing matched the request at this location / gear / level — the workout
+   *  then holds the closest available exercises instead of shipping empty
+   *  (never-empty.utils.ts, generator QA round 1, 2026-10-18). Undefined otherwise. */
+  focusFallbackNote?: string;
   volumeAdjustment?: VolumeAdjustment;
   blastMode?: BlastModeDetails;
   mechanicalBalance: MechanicalBalanceSummary;

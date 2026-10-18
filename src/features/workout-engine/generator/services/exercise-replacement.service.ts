@@ -8,6 +8,7 @@
  */
 import { Exercise, ExecutionLocation, ExecutionMethod, RequiredGearType } from '@/features/content/exercises';
 import { getAllExercises } from '@/features/content/exercises';
+import { withoutTestExercises } from '../../shared/utils/test-exercise.utils';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { selectExecutionMethodWithBrand } from './execution-method-selector.service';
@@ -139,7 +140,7 @@ export async function getExerciseVariations(
     return [];
   }
 
-  const allExercises = await getAllExercises();
+  const allExercises = withoutTestExercises(await getAllExercises()); // H5: never offer a test item as a swap
   const { selectExecutionMethodWithBrand } = await import('./execution-method-selector.service');
 
   const all: AlternativeExerciseOption[] = [];
@@ -223,7 +224,7 @@ export async function getAlternativeExercises(
     return [];
   }
 
-  const allExercises = pool && pool.length > 0 ? pool : await getAllExercises();
+  const allExercises = withoutTestExercises(pool && pool.length > 0 ? pool : await getAllExercises()); // H5
   const all: AlternativeExerciseOption[] = [];
   let originalGearType: RequiredGearType | undefined;
 

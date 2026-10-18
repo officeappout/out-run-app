@@ -130,31 +130,47 @@ describe('applyEssentialGearFilter — naked backfill isTimeBased consistency (d
     expect(pull.reps).toBeLessThanOrEqual(4);
   });
 
-  it('a candidate well above the user\'s level backfills with above-level (hard/elite) reps, not a flat default', () => {
+  it('the backfill stays inside the level window: a far-above-level candidate is skipped, an in-window +1 one is stamped hard (generator QA round 1)', () => {
+    // Was: "a candidate well above the user's level backfills with elite reps". The
+    // backfill used to take the first gear-free docs in catalog order with no level
+    // window (05-BENCHMARK §6.4 #4 — an L10 push variant for L1 users). It now only
+    // admits levelDelta in [−3, +1]; the volume re-derivation it exercises is unchanged.
     const workout = baseWorkout([]);
     const advanced = { ...rawExercise('adv_1', 'vertical_pull'), targetPrograms: [{ programId: 'pull', level: 15 }] } as Exercise;
+    const plusOne = { ...rawExercise('plus1_1', 'vertical_pull'), targetPrograms: [{ programId: 'pull', level: 6 }] } as Exercise;
     const allExercises = [
       advanced,
+      plusOne,
       rawExercise('pull_2', 'vertical_pull'),
       rawExercise('push_1', 'vertical_push'),
     ];
-    const userProgramLevels = new Map([['pull', 5]]); // delta = 15 - 5 = +10 → elite tier
+    const userProgramLevels = new Map([['pull', 5]]);
 
     applyEssentialGearFilter(workout, new Set(), allExercises, 'home', userProgramLevels);
 
     const mains = workout.exercises.filter((e) => e.exerciseRole === 'main');
-    const adv = mains.find((e) => e.exercise.id === 'adv_1')!;
-    expect(adv).toBeDefined();
-    // TIER_TABLE elite reps = 1-3, never the old flat 10.
-    expect(adv.reps).toBeGreaterThanOrEqual(1);
-    expect(adv.reps).toBeLessThanOrEqual(3);
-    // Backfilled entries previously never got tier/levelDelta/programLevel/
-    // isOverLevel stamped at all (always undefined) — now consistent with
-    // every other exercise-identity assignment in the pipeline.
-    expect(adv.tier).toBe('elite');
-    expect(adv.levelDelta).toBe(10);
-    expect(adv.programLevel).toBe(15);
-    expect(adv.isOverLevel).toBe(true);
+    expect(mains.find((e) => e.exercise.id === 'adv_1')).toBeUndefined(); // +10 — outside the window
+    const p1 = mains.find((e) => e.exercise.id === 'plus1_1')!;
+    expect(p1).toBeDefined();
+    expect(p1.tier).toBe('hard');
+    expect(p1.levelDelta).toBe(1);
+    expect(p1.programLevel).toBe(6);
+    expect(p1.isOverLevel).toBe(true);
+  });
+
+  it('the backfill stays on the session\'s areas (requiredDomains) and fills the missing area first', () => {
+    const workout = baseWorkout([workoutExercise('legs_kept', 'squat', 3)]);
+    const allExercises = [
+      rawExercise('push_1', 'vertical_push'),
+      rawExercise('legs_2', 'squat'),
+      rawExercise('pull_1', 'vertical_pull'),
+      rawExercise('core_1', 'core'),
+    ];
+    applyEssentialGearFilter(workout, new Set(), allExercises, 'home', new Map(), undefined, undefined, undefined, ['pull', 'legs']);
+    const ids = workout.exercises.filter((e) => e.exerciseRole === 'main').map((e) => e.exercise.id);
+    expect(ids).toContain('pull_1'); // the area with no representative goes first
+    expect(ids).not.toContain('push_1');
+    expect(ids).not.toContain('core_1');
   });
 });
 

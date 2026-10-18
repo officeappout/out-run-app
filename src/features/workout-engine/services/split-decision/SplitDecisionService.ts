@@ -483,7 +483,7 @@ export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutCo
 
       const budgetSource = weeklyBudget != null
         ? 'Admin Panel (ProgramLevelSettings)'
-        : 'Fallback Calculation (userLevel × 2)';
+        : 'Fallback Calculation (max(tier default, userLevel × 2))';
       const isDynamic = totalCompletedThisWeek > 0 || (remainingScheduleDays != null);
 
       console.group('[Budget Math Formulation]' + (isDynamic ? ' [Deficit-Aware]' : ' [Static]'));

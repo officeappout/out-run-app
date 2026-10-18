@@ -159,6 +159,14 @@ import {
   computeLevelAwareLogicCue,
   type TrioOptionConfig,
 } from './trio-labels.service';
+// Generator QA round 1 (2026-10-18). Kept AFTER the original imports on purpose: the
+// module evaluation order matters to vitest suites that mock gym-equipment.service with
+// a factory importing gear-mapping.utils (coach-note.generator-fixtures) — pulling
+// gear-mapping in earlier through these deadlocks that mock.
+import { withoutTestExercises } from '../shared/utils/test-exercise.utils';
+import { enforceStrictFocus, isOnStrictFocus } from '../logic/strict-focus.utils';
+import { minMainExercisesFor } from '../logic/session-frame.utils';
+import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.utils';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
 export { mapPersonaIdToLifestylePersona, calculateDaysInactive, extractInjuryShield } from './user-profile.utils';
@@ -1275,6 +1283,7 @@ export async function generateHomeWorkoutTrio(
           pipeline.baseGeneratorContext.levelProgressPercent,
           pipeline.baseGeneratorContext.intentMode,
           pipeline.baseGeneratorContext.availableEquipment,
+          pipeline.baseGeneratorContext.requiredDomains, // the session's areas (strict or program-derived)
         );
       } else if (cfg.postProcess === 'mobility_tag') {
         applyTagPreference(workout, 'mobility', sessionBlacklist);
@@ -1292,6 +1301,38 @@ export async function generateHomeWorkoutTrio(
       // Weather (heat/UV): rest ×1.25 on main exercises — before the cap so it trims
       // against the real, longer session.
       applyWeatherRest(workout.exercises, options.weather);
+
+      // Strict body-area request (builder chips / AI domains): the last word on focus,
+      // AFTER every post-processing pass that can add or swap a main exercise and
+      // BEFORE the volume cap, whose variety add-back then refills on-focus only (H2).
+      const offFocus = enforceStrictFocus(
+        workout,
+        pipeline.baseGeneratorContext.requiredDomains,
+        pipeline.baseGeneratorContext.strictDomains,
+      );
+      if (offFocus.length) {
+        console.log(`[StrictFocus] removed ${offFocus.length} off-focus main exercise(s): ${offFocus.join(', ')}`);
+      }
+      // Never ship an empty main block silently (05-BENCHMARK §6.4 #10): closest
+      // available exercises + a user-facing note instead.
+      const neverEmptyOpts = {
+        pool: pipeline.baseGeneratorContext.globalExercisePool ?? [],
+        allExercises: pipeline.allExercises,
+        location: pipeline.effectiveFilterLocation,
+        availableEquipment: pipeline.baseGeneratorContext.availableEquipment ?? [],
+        userProgramLevels: pipeline.userProgramLevels,
+        requiredDomains: pipeline.baseGeneratorContext.requiredDomains,
+        strict: pipeline.baseGeneratorContext.strictDomains,
+        minMain: minMainExercisesFor(effectiveTime),
+        difficulty: workout.difficulty,
+        activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
+      };
+      const rescueNote = rescueEmptyMainBlock(workout, neverEmptyOpts);
+      if (rescueNote) console.warn(`[NeverEmpty] empty main block rescued — ${rescueNote}`);
+      // H3: below the duration's minimum with a thin reserve → top the reserve up
+      // from the session pool so enforceVolumeCap's Phase V can reach the floor.
+      const toppedUp = topUpVarietyReserve(workout, neverEmptyOpts);
+      if (toppedUp) console.log(`[VarietyFloor] reserve topped up with ${toppedUp} pool candidate(s)`);
 
       enforceVolumeCap(workout, {
         // Trim against the EFFECTIVE time (user request honoured above), not
@@ -1458,14 +1499,31 @@ export async function generateHomeWorkoutTrio(
     // skips the call entirely, workout.exercises passes through untouched —
     // byte-identical to pre-flag behavior.
     workout.pipelineLog = workout.pipelineLog ?? [];
+    // Strict body-area request: only skills whose area was asked for may be
+    // represented (a planche pill + "back" chips must not swap a row for a planche lean).
+    const strictReq = optionContext.strictDomains ? optionContext.requiredDomains : undefined;
+    const skillContext = strictReq?.length
+      ? {
+          ...optionContext,
+          selectedSkillIds: (optionContext.selectedSkillIds ?? []).filter(
+            (sk) => strictReq.includes(sk) || strictReq.includes(DOMAIN_RESOLUTION_SKILL_PARENT_MAP[sk] ?? ''),
+          ),
+        }
+      : optionContext;
     workout.exercises = SKILL_REPRESENTATION_GUARANTEE_ENABLED
       ? runSkillRepresentationGuarantee(
           workout.exercises,
-          optionContext,
+          skillContext,
           optionDifficulty,
           workout.pipelineLog,
         )
       : workout.exercises;
+    // Safety net: the late guarantees above may not add an off-focus exercise to a
+    // strict request (removal only here — the variety add-back already ran).
+    if (strictReq?.length && !orchResult.usedEmptyPoolFallback) {
+      const lateOffFocus = enforceStrictFocus(workout, strictReq, true);
+      if (lateOffFocus.length) console.log(`[StrictFocus] late pass removed: ${lateOffFocus.join(', ')}`);
+    }
 
     // ── Late push/pull warmup-coverage backfill (2026-10-07) ──────────────
     //
@@ -1979,7 +2037,9 @@ async function _buildSharedPipeline(
   // with the original profile before the effective override is built.
   const baseUserLevel = getBaseUserLevel(userProfile);
   const [allExercises, gymEquipmentList, allPrograms] = await Promise.all([
-    getAllExercises(),
+    // Test / placeholder docs ("…לבדיקה", "Copy of …") never enter ANY pool —
+    // main, warm-up, cool-down, tabata, backfill (05-BENCHMARK §6.4 #1, H5).
+    getAllExercises().then(withoutTestExercises),
     getAllGymEquipment(),
     getCachedPrograms(),
     ensureEquipmentCachesLoaded(),
@@ -2746,8 +2806,17 @@ async function _buildSharedPipeline(
     // end for the custom builder. Defined order: the user's EXPLICIT muscle
     // choice drives the session; the program filter is dropped for this
     // generation only (levels degrade gracefully to domain-level resolution).
+    //
+    // Widened 2026-10-18 (generator QA round 1, H2 + never-empty): the rescue used to
+    // fire only on a COMPLETELY empty pool. A program pill + conflicting chips (e.g.
+    // "core" program, chest+back chips) left a non-empty but entirely OFF-focus pool,
+    // which the strict focus pass then emptied → a 0-exercise builder workout. Now it
+    // fires whenever the pool can't supply the duration's minimum of ON-focus picks,
+    // and the rescued pool is kept only if it supplies more of them.
+    const onFocusCount = (pool: typeof scoredExercises) =>
+      pool.filter((s) => isOnStrictFocus(s.exercise, requiredDomainsOverride ?? [])).length;
     if (
-      scoredExercises.length === 0 &&
+      onFocusCount(scoredExercises) < minMainExercisesFor(availableTime) &&
       (filterContext.activeProgramFilters?.length ?? 0) > 0 &&
       strictDomains &&
       (requiredDomainsOverride?.length ?? 0) > 0
@@ -2766,8 +2835,9 @@ async function _buildSharedPipeline(
         userProgramLevels,
         poolStrategy,
       );
-      scoredExercises = rescuePool.candidates.get('__shared__') ?? [];
-      console.warn(`[WorkoutTrio] domain-precedence rescue recovered ${scoredExercises.length} exercises`);
+      const rescued = rescuePool.candidates.get('__shared__') ?? [];
+      if (onFocusCount(rescued) > onFocusCount(scoredExercises)) scoredExercises = rescued;
+      console.warn(`[WorkoutTrio] domain-precedence rescue recovered ${rescued.length} exercises (${onFocusCount(rescued)} on focus)`);
     }
 
     filterResult = {
@@ -3069,6 +3139,13 @@ async function _buildSharedPipeline(
     // Tabata finisher probability — SEPARATE union track, same periodization
     // scaling (Deload mult 0 kills the finisher too).
     tabataProbability: (() => {
+      // A strict body-area request (builder chips / AI domains) never gets the
+      // tabata finisher — its members are hiit_friendly picks from any domain
+      // (05-BENCHMARK §6.4 #3: 14 of the builder's H2 violations).
+      if (strictDomains && (requiredDomainsOverride?.length ?? 0) > 0) {
+        console.log('[WorkoutTrio] Tabata finisher disabled — strict body-area request');
+        return 0;
+      }
       const base = tabataFinisher?.probability ?? 0;
       const scaled = scaleByPeriodization(base, sessionPolicy.protocolMultiplier);
       if (base > 0) {

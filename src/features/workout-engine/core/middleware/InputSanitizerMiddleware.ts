@@ -86,8 +86,9 @@ const CLAMPABLE_DOMAINS: ReadonlySet<string> = new Set(Object.values(MG_TO_DOMAI
  *        b. DEFAULT_PARK_GEAR catastrophic fallback when no park
  *           inventory was resolved (canonical place this fires;
  *           ESSENTIAL_PARK_GEAR's narrower set is still used as-is by
- *           every other caller, e.g. park-gating's CLIFF rescue).
- *      Plus universal outdoor fixtures (`park_bench`, `park_step`).
+ *           every other caller, e.g. park-gating's CLIFF rescue), plus
+ *           `park_bench` / `park_step` — ONLY in this no-park fallback; a
+ *           real park offers exactly what it lists (H1, 2026-10-18).
  *
  * The result is deduplicated via `new Set(...)` so the array is stable
  * regardless of overlap between the user's profile equipment, the gym
@@ -122,13 +123,14 @@ export function normalizeEquipmentArray(
 
   if (location === 'park' || location === 'street') {
     if (parkEquipmentIds?.length) {
-      // Real park inventory is the primary source of truth.
-      // Universal outdoor fixtures (bench, step) are additive regardless.
+      // Real park inventory is the ONLY source of truth (gear truth, H1 — generator QA
+      // round 1, 2026-10-18): only what the park lists, plus bodyweight. The bench and
+      // step used to be added "regardless" — and since bench/step share the box_surface
+      // family, every real park then offered "מדרגות אימון" exercises even with no
+      // steps there (05-BENCHMARK §6.4 #5: 30 of 38 H1 violations).
       availableEquipment = [
         ...availableEquipment,
         ...parkEquipmentIds,
-        'park_bench',
-        'park_step',
       ];
       console.log(
         `[InputSanitizer] 🏞️ Park inventory (real): [${parkEquipmentIds.join(', ')}]`,

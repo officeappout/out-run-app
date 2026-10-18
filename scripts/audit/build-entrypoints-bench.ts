@@ -269,7 +269,7 @@ async function main() {
   const summary = {
     generatedAt: new Date().toISOString(), mode: CI ? 'ci' : 'full', seed: SEED, scenarios: scenarios.length, workouts: rows.length, errors,
     ms: Date.now() - t0, aiShapingApplied: !!shaping, hermetic: { firestoreReads: fsLog.filter(l => l.op === 'read').length, blockedWrites: writes },
-    corpusNote: 'tests/invariants/hermetic/corpus = public REST dump 2026-10-17; programLevelSettings (auth-only) absent → weekly budget falls back to max(4, level×2)',
+    corpusNote: 'tests/invariants/hermetic/corpus = public REST dump 2026-10-17; programLevelSettings (auth-only) absent → weekly budget falls back to max(tier default 8/12/16, level×2)',
     perGrader, byEntry, byMinutes, topFailures, worst, sideBySide,
   };
   fs.mkdirSync(OUT_DIR, { recursive: true });

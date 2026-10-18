@@ -8,6 +8,7 @@
  * ISOMORPHIC: Pure TypeScript, no React hooks.
  */
 
+import { isTestOrPlaceholderExercise, withoutTestExercises } from '../shared/utils/test-exercise.utils';
 import { Exercise, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { ExecutionMethod } from '@/features/content/exercises/core/exercise.types';
 import {
@@ -57,22 +58,10 @@ const WARMUP_REST_SECONDS = 15;
 /** Gear IDs to exclude from warmup (bands, TRX, personal gear) */
 const BANNED_WARMUP_GEAR_IDS = new Set(['I1K30JehaxSx8dlBOZyd', '7gLOFEfgSvInu7lfLHxV']);
 
-/**
- * TEMPORARY blocklist — TODO(David, added 05.09.2026): remove once the
- * catalog doc's metadata is fixed, not before. `k10Af7WEV0qDqx8PY7xQ`
- * ("חימום פלג גוף עליון לבדיקה") is real, uploaded video content (Bunny
- * CDN, workflow.uploaded=true) but its description/goal fields are still
- * draft/placeholder text ("סרטון חימום בדיקה" with typos, empty
- * description/instructions) — see docs/workout-engine/03-CHANGES.md's
- * 05.09.2026 entry for the full investigation. It is currently the ONLY
- * exercise in the whole catalog that passes Track A1's exerciseRole==='warmup'
- * + isFollowAlong gate (commit 71483317), so without this blocklist every
- * park general-mobility slot that falls through to the video-guide track
- * ships this placeholder to real users. Once David finishes real
- * description/goal copy for this doc, delete this constant and its one
- * call site below — do NOT leave it hardcoded "just in case."
- */
-const KNOWN_PLACEHOLDER_EXERCISE_IDS = new Set(['k10Af7WEV0qDqx8PY7xQ']);
+// The former one-off KNOWN_PLACEHOLDER_EXERCISE_IDS blocklist (k10Af7WEV0qDqx8PY7xQ,
+// "חימום פלג גוף עליון לבדיקה", 05.09.2026) now lives in the central
+// shared/utils/test-exercise.utils.ts (KNOWN_TEST_EXERCISE_IDS + name rule), applied
+// to every pool below via isTestOrPlaceholderExercise.
 
 // ============================================================================
 // WARMUP LADDER — David Scale constants & types
@@ -492,6 +481,7 @@ export function prependWarmupExercises(
    */
   extraWarmupMinutes?: number,
 ): void {
+  allExercises = withoutTestExercises(allExercises); // H5 — defensive; callers pass the raw catalog
   if (idToSlug) {
     allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
   }
@@ -651,7 +641,7 @@ export function prependWarmupExercises(
   //   imperfect (non-location-matched) guide beats no warmup at all.
   const generalCandidates = allExercises.filter((ex) => {
     if (workoutIds.has(ex.id)) return false;
-    if (KNOWN_PLACEHOLDER_EXERCISE_IDS.has(ex.id)) return false; // see TODO at the constant's definition
+    if (isTestOrPlaceholderExercise(ex)) return false; // test / placeholder docs (H5)
     // Track A1 — follow-along video guides: need NO equipment, but MUST match the
     // location AND be tagged for this slot (exerciseRole === 'warmup') — only real
     // warmup video guides get the no-equipment treatment, and they are location-routed
@@ -682,7 +672,7 @@ export function prependWarmupExercises(
     // must not widen back out to core-tabata / recovery-session follow-along items.
     const emergencyCandidates = allExercises.filter(ex =>
       !workoutIds.has(ex.id) &&
-      !KNOWN_PLACEHOLDER_EXERCISE_IDS.has(ex.id) && // see TODO at the constant's definition
+      !isTestOrPlaceholderExercise(ex) && // test / placeholder docs (H5)
       ex.isFollowAlong === true &&
       ex.exerciseRole === 'warmup' &&
       (ex.execution_methods ?? ex.executionMethods ?? []).length > 0,
@@ -1071,6 +1061,7 @@ export function backfillMissingPatternWarmup(
   availableTimeMin?: number,
   idToSlug?: Map<string, string>,
 ): void {
+  allExercises = withoutTestExercises(allExercises); // H5 — defensive; callers pass the raw catalog
   if (idToSlug) {
     allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
   }

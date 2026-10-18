@@ -11,9 +11,11 @@
  *                          park: required gear ⊆ the park's resolved gear.
  *   H2 body-area focus   — strict requiredDomains (builder body-area chips, AI chat
  *                          domains): every MAIN exercise trains a requested area.
- *   H3 minimum count     — main exercises ≥ minMainFor(minutes): ≤10→3, ≤15→4 (the
- *                          #434 short-session rule), ≤25→4, >25→5 (coach sheets
- *                          "כל הגוף": 20 min = 4, 25 = 5, 30 = 6 exercises).
+ *   H3 minimum count     — main exercises ≥ minMainFor(minutes), the owner's target
+ *                          (generator QA round 1, 2026-10-18): ≤15→3, ≤30→4 (20 min
+ *                          already 4), ≤45→5, >45→6. Independent oracle — the engine's
+ *                          own floor is session-frame.utils minMainExercisesFor. (Was
+ *                          ≤10→3, ≤25→4, >25→5 in the #436 bench.)
  *   H4 level band        — no main exercise more than +3 above the user's level in
  *                          its domain (`levelDelta`, the engine's own field).
  *   H5 no test items     — no exercise / method whose name marks it as a test or
@@ -41,6 +43,13 @@ export interface HardContext {
   /** Strict requested body areas (push/pull/legs/core); undefined = no focus asked. */
   strictDomains?: string[];
   requestedMinutes: number;
+  /**
+   * Minutes the H3 count floor is judged against when the entry point itself sizes
+   * the session below the request — the home trio's AUTOMATIC bolts are capped at
+   * 30/45/60 min (BOLT_DURATION_CAPS + resolveEffectiveBoltTime), so a 60-min trio's
+   * bolt 1 is a 30-min workout by design. Defaults to requestedMinutes.
+   */
+  countMinutes?: number;
   /** Skip H3 (rest/recovery workouts, needs-assessment, machine-only blocks). */
   skipCount?: boolean;
 }
@@ -66,9 +75,10 @@ export function baseDomainOf(e: WorkoutExercise): string | null {
 }
 
 export function minMainFor(minutes: number): number {
-  if (minutes <= 10) return 3;
-  if (minutes <= 25) return 4;
-  return 5;
+  if (minutes <= 15) return 3;
+  if (minutes <= 30) return 4;
+  if (minutes <= 45) return 5;
+  return 6;
 }
 
 /** Required (non-optional, non-surface) gear of the exercise's chosen method that `available` doesn't satisfy. */
@@ -101,8 +111,9 @@ export function checkHardInvariants(w: GeneratedWorkout, ctx: HardContext): Viol
   }
   // H3 — minimum count
   if (!ctx.skipCount && !w.isRecovery) {
-    const need = minMainFor(ctx.requestedMinutes);
-    if (main.length < need) out.push({ id: 'H3', detail: `${main.length} main < ${need} for ${ctx.requestedMinutes}min` });
+    const minutes = ctx.countMinutes ?? ctx.requestedMinutes;
+    const need = minMainFor(minutes);
+    if (main.length < need) out.push({ id: 'H3', detail: `${main.length} main < ${need} for ${minutes}min` });
   }
   // H4 — level band
   for (const e of main) {

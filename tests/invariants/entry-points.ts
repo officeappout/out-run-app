@@ -102,7 +102,13 @@ export async function runScenario(s: Scenario): Promise<Run[]> {
       userProfile: profile, location: loc.location, testLocation: loc.location, availableTime: s.minutes,
       parkEquipmentIds: parkIds, scheduledProgramIds: scheduled, skipCycleRestart: true,
     } as Parameters<typeof generateHomeWorkoutTrio>[0]);
-    return trio.options.filter(o => o.result?.workout).map((o, i) => ({ scenario: s, bolt: o.result.workout.difficulty ?? i + 1, workout: o.result.workout, ctx }));
+    // Automatic trio bolts are sized min(request, 30/45/60) by design (home-workout.service
+    // BOLT_DURATION_CAPS + resolveEffectiveBoltTime) — H3 judges each bolt by ITS minutes.
+    const TRIO_BOLT_CAP = [30, 45, 60];
+    return trio.options.filter(o => o.result?.workout).map((o, i) => ({
+      scenario: s, bolt: o.result.workout.difficulty ?? i + 1, workout: o.result.workout,
+      ctx: { ...ctx, countMinutes: Math.min(s.minutes, TRIO_BOLT_CAP[i] ?? s.minutes) },
+    }));
   }
   if (s.entry === 'builder') {
     const r = await generateHomeWorkout({

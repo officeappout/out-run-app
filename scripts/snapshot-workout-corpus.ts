@@ -63,7 +63,11 @@ async function main() {
     dump('exercises'),
     dump('gym_equipment'),
     dump('programs'),
-    dump('program_level_settings'),
+    // The real collection is camelCase `programLevelSettings` (programLevelSettings.service.ts
+    // PROGRAM_LEVEL_SETTINGS_COLLECTION, 97 docs, auth-only). `program_level_settings` holds one
+    // orphan doc — reading it meant no per-level protocol/rest/volume tuning was ever exercised
+    // by the gate (05-BENCHMARK §6.4 #9). The fixture FILE keeps its snake_case name.
+    dump('programLevelSettings'),
   ]);
   console.log(`[snapshot] read from Firestore in ${Date.now() - t0}ms`);
 

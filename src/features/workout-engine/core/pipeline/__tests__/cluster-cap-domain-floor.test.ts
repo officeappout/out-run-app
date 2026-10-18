@@ -114,15 +114,18 @@ describe('BudgetDistributor cluster caps — per-domain survivor floor', () => {
     };
     const distributor = createBudgetDistributor();
 
+    // 15 min (was 30): since generator QA round 1 the cluster never culls below the
+    // duration's minimum (minMainExercisesFor: 30 min → 4), so the 3-exercise
+    // baseline cull this test is about only bites at ≤15 min (minimum 3).
     const withoutFix = distributor.distribute(
-      pool, baseContext({ availableTime: 30 }), 2, constraints,
+      pool, baseContext({ availableTime: 15 }), 2, constraints,
     );
     // Sanity: confirms the cull actually fires and drops to 3 (the bug's own precondition).
     expect(mainsOf(withoutFix.exercises).length).toBe(3);
 
     const withDomains = distributor.distribute(
       pool,
-      baseContext({ availableTime: 30, requiredDomains: ['legs', 'push'] }),
+      baseContext({ availableTime: 15, requiredDomains: ['legs', 'push'] }),
       2,
       constraints,
     );
@@ -187,8 +190,8 @@ describe('BudgetDistributor cluster caps — per-domain survivor floor', () => {
     const distributor = createBudgetDistributor();
 
     const result = distributor.distribute(
-      pool, baseContext({ availableTime: 30, requiredDomains: ['push'] }), 2, constraints,
-    );
+      pool, baseContext({ availableTime: 15, requiredDomains: ['push'] }), 2, constraints,
+    ); // 15 min: the 3-exercise baseline (30 min now keeps the 4-exercise minimum)
     const mains = mainsOf(result.exercises);
     expect(mains.length).toBe(3);
     // Same top-3-by-score survivors as the pre-fix behavior would produce.

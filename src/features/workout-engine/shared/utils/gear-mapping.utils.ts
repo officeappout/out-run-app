@@ -688,8 +688,11 @@ export const ALIAS_TO_CANONICAL: Record<string, string> = {
 };
 
 /**
- * Essential park fixtures — canonical IDs that are always assumed to exist
- * at any park / outdoor gym. applyParkGating force-allows these.
+ * Essential park fixtures — canonical IDs assumed when NO real park inventory is
+ * known (catastrophic fallback / park-gating CLIFF rescue). A resolved park offers
+ * only what it lists (InputSanitizerMiddleware.normalizeEquipmentArray).
+ * 'step' removed 2026-10-18 (gear truth, H1): training steps are a specific
+ * installation, not a universal park fixture.
  */
 export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
   'pullup_bar',
@@ -697,7 +700,6 @@ export const ESSENTIAL_PARK_GEAR: ReadonlySet<string> = new Set([
   'bench',
   'low_bar',
   'high_bar',
-  'step',          // training_steps / park_step / box all normalize to 'step'
 ]);
 
 /**

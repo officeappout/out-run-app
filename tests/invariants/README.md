@@ -39,13 +39,13 @@ CI (`vitest.ci.config.ts`).
 
 **Corpus gap:** `hermetic/corpus` is a public REST dump (17.10.2026). `programLevelSettings` is
 auth-only, so it is absent: protocol probability falls back to 0 (no antagonist pairs) and the
-weekly budget to `max(4, level×2)`. To close it, drop a `programLevelSettings.json` (raw docs) into
+weekly budget to `max(tier default 8/12/16, level×2)` (was `max(4, level×2)` before generator QA round 1). To close it, drop a `programLevelSettings.json` (raw docs) into
 the corpus dir — read it with the Admin SDK, read-only.
 
 ## Hard invariants (group H) — `hard-invariants.ts`
 
 H1 gear truth · H2 body-area focus (strict domains) · H3 min main exercises for the duration
-(≤10→3, ≤25→4, >25→5) · H4 no main exercise above user level +3 · H5 no test items. Checked on
+(≤15→3, ≤30→4, ≤45→5, >45→6 — the owner's table; trio bolts judged by their own 30/45/60 cap) · H4 no main exercise above user level +3 · H5 no test items. Checked on
 every entry point in `entry-points.ts` (home trio, builder chips, AI chat `generate_workout`
 mapping, park machines; route stops in the full bench). Main does not satisfy them today, so the
 vitest suite is a **ratchet**: it fails only on violations missing from
