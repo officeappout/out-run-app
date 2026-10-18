@@ -172,3 +172,25 @@ describe('challengeProgress', () => {
     expect(challengeProgress(10, 0)).toEqual({ pct: 0, left: 0, done: false });
   });
 });
+
+import { formatKm, rankByKm } from '../league-board-logic';
+
+describe('km next to the points', () => {
+  it('formatKm', () => {
+    expect(formatKm(1240.4)).toBe((1240).toLocaleString('he-IL'));
+    expect(formatKm(4.25)).toBe((4.3).toLocaleString('he-IL'));
+    expect(formatKm(12)).toBe('12');
+    expect(formatKm(undefined)).toBe('0');
+    expect(formatKm(-3)).toBe('0');
+  });
+  it('rankByKm — per member or total, ties keep order', () => {
+    const e = [
+      { id: 'a', totalKm: 30, kmPerMember: 7.5 },
+      { id: 'b', totalKm: 12.5, kmPerMember: 12.5 },
+      { id: 'c' },
+      { id: 'd', totalKm: 30, kmPerMember: 1 },
+    ];
+    expect(rankByKm(e, 'total').map((x) => [x.id, x.rank])).toEqual([['a', 1], ['d', 2], ['b', 3], ['c', 4]]);
+    expect(rankByKm(e, 'avg').map((x) => x.id)).toEqual(['b', 'a', 'd', 'c']);
+  });
+});

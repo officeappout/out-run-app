@@ -186,6 +186,29 @@ export function rankByMeasure<T extends ScoredScope>(entries: T[], measure: Grou
     .map(({ e }, i) => ({ ...e, rank: i + 1 }));
 }
 
+// ── km next to the points (home v2 leagues, 18.10.2026) ─────────────────────
+
+/** "1,240" for big totals, "4.2" under 100 km, "0" for nothing — he-IL digits. */
+export function formatKm(km: number | undefined | null): string {
+  const n = typeof km === 'number' && Number.isFinite(km) && km > 0 ? km : 0;
+  if (n >= 100) return Math.round(n).toLocaleString('he-IL');
+  return (Math.round(n * 10) / 10).toLocaleString('he-IL', { maximumFractionDigits: 1 });
+}
+
+interface KmScope {
+  totalKm?: number;
+  kmPerMember?: number;
+}
+
+/** Re-rank by km — 'avg' = km per active member, 'total' = the sum. Ties keep order. */
+export function rankByKm<T extends KmScope>(entries: T[], measure: GroupMeasure): (T & { rank: number })[] {
+  const key = (e: T) => (measure === 'avg' ? e.kmPerMember ?? 0 : e.totalKm ?? 0);
+  return entries
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => key(b.e) - key(a.e) || a.i - b.i)
+    .map(({ e }, i) => ({ ...e, rank: i + 1 }));
+}
+
 // ── City challenge (home v2 leagues, 17.10.2026) ────────────────────────────
 
 /**

@@ -112,3 +112,52 @@ export function stepsCreditOf(steps: unknown): number {
   const n = typeof steps === 'number' && Number.isFinite(steps) ? steps : 0;
   return Math.max(0, Math.floor(n / STEPS_PER_UNIT)) * POINTS_PER_STEPS_UNIT;
 }
+
+// ── Distance (km) — shown next to the points, never part of them ────────────
+
+/**
+ * The steps → km estimate the app's steps screen uses when a day has no
+ * synced distance (StepsAnalyticsView: ~1,300 steps per km). Keep the two
+ * the same.
+ */
+export const STEPS_PER_KM_ESTIMATE = 1300;
+
+/**
+ * A dailyActivity day's distance in whole meters (owner 18.10.2026): the
+ * synced distanceMeters (HealthKit / Health Connect) when > 0, otherwise the
+ * steps estimate. dailyActivity already includes runs and walks, so workouts
+ * never add distance on their own (no double counting). Never affects points.
+ */
+export function distanceMetersOfDay(steps: unknown, distanceMeters: unknown): number {
+  const real = typeof distanceMeters === 'number' && Number.isFinite(distanceMeters) ? distanceMeters : 0;
+  if (real > 0) return Math.round(real);
+  const n = typeof steps === 'number' && Number.isFinite(steps) ? steps : 0;
+  return n > 0 ? Math.round((n / STEPS_PER_KM_ESTIMATE) * 1000) : 0;
+}
+
+/**
+ * What a rollup run adds for one user-day, given what was already applied
+ * (league_steps_applied). Credit and distance are independent deltas, each
+ * only ever added (never subtracted): a day whose estimate is later replaced
+ * by a smaller synced distance just waits until it grows past the applied
+ * value.
+ */
+export function stepsDayDelta(
+  applied: { credit?: unknown; distanceMeters?: unknown } | undefined,
+  credit: number,
+  distanceMeters: number,
+): { credit: number; distanceMeters: number } {
+  const prevCredit = typeof applied?.credit === 'number' ? applied.credit : 0;
+  const prevDist = typeof applied?.distanceMeters === 'number' ? applied.distanceMeters : 0;
+  return { credit: Math.max(0, credit - prevCredit), distanceMeters: Math.max(0, distanceMeters - prevDist) };
+}
+
+/**
+ * Is a league member doc an ACTIVE member (counted in activeMemberCount)?
+ * Members always had credit > 0; a distance-only day (under 1,000 steps)
+ * writes a member doc with credit 0 just to hold the km, and that must not
+ * stop the person's first real points from counting them as active.
+ */
+export function isCountedMember(m: { credit?: unknown } | undefined): boolean {
+  return typeof m?.credit === 'number' && m.credit > 0;
+}

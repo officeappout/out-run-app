@@ -40,8 +40,8 @@ describe('buildScopeEntries', () => {
 
   it('ranks by total, drops empty scopes, names fall back to the id', () => {
     expect(buildScopeEntries(docs, names, 'overall', 'all', 10)).toEqual([
-      { rank: 1, scopeId: 'b', scopeName: 'שכונה ב', totalScore: 90, activeMemberCount: 3 },
-      { rank: 2, scopeId: 'a', scopeName: 'שכונה א', totalScore: 40, activeMemberCount: 2 },
+      { rank: 1, scopeId: 'b', scopeName: 'שכונה ב', totalScore: 90, activeMemberCount: 3, totalKm: 0, kmPerMember: 0 },
+      { rank: 2, scopeId: 'a', scopeName: 'שכונה א', totalScore: 40, activeMemberCount: 2, totalKm: 0, kmPerMember: 0 },
     ]);
   });
 
@@ -101,5 +101,50 @@ describe('scopeKindOf', () => {
     expect(scopeKindOf('local_council', undefined)).toBe('local_council');
     expect(scopeKindOf('city', null)).toBe('city');
     expect(scopeKindOf('school', null)).toBe('other');
+  });
+});
+
+import { buildDistanceEntries, kmOf } from '../league-scope-keys';
+
+describe('km (distance next to the points)', () => {
+  it('kmOf: meters → km, one decimal, junk → 0', () => {
+    expect(kmOf(1240049)).toBe(1240);
+    expect(kmOf(4150)).toBe(4.2);
+    expect(kmOf(undefined)).toBe(0);
+    expect(kmOf(-5)).toBe(0);
+  });
+
+  const docs = [
+    { scopeId: 'a', totalCredit: 400, activeMemberCount: 4, distanceMeters: 30_000, byActivity: { cardio: { credit: 50, members: 2 } } },
+    { scopeId: 'b', totalCredit: 900, activeMemberCount: 3, distanceMeters: 12_500 },
+    { scopeId: 'c', totalCredit: 0, activeMemberCount: 0, distanceMeters: 800 },
+    { scopeId: 'd', totalCredit: 50, activeMemberCount: 1 },
+  ];
+
+  it('board rows carry totalKm and km per active member, points untouched', () => {
+    const r = buildScopeEntries(docs, new Map(), 'overall', 'all', 10)!;
+    expect(r.map((e) => [e.scopeId, e.totalScore, e.totalKm, e.kmPerMember])).toEqual([
+      ['b', 900, 12.5, 4.2],
+      ['a', 400, 30, 7.5],
+      ['d', 50, 0, 0],
+    ]);
+  });
+
+  it('filtered boards leave km out (one scope-wide tally)', () => {
+    const r = buildScopeEntries(docs, new Map(), 'cardio', 'all', 10)!;
+    expect(r[0].totalKm).toBeUndefined();
+    expect(buildImprovedEntries(docs, [], new Map(), 'overall', 'all', 10)![0].totalKm).toBe(12.5);
+  });
+
+  it('measure=distance ranks by km, keeps km-only scopes, drops scopes without km', () => {
+    const r = buildDistanceEntries(docs, new Map([['a', 'א']]), 10);
+    expect(r.map((e) => [e.rank, e.scopeId, e.totalKm])).toEqual([
+      [1, 'a', 30],
+      [2, 'b', 12.5],
+      [3, 'c', 0.8],
+    ]);
+    expect(r[0].scopeName).toBe('א');
+    expect(r[2].kmPerMember).toBe(0);
+    expect(buildDistanceEntries(docs, new Map(), 1)).toHaveLength(1);
   });
 });

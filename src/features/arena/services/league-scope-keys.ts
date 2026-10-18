@@ -34,6 +34,29 @@ export interface ScopeStatsDoc {
   activeMemberCount?: number;
   byActivity?: Partial<Record<'strength' | 'cardio' | 'maintenance', { credit: number; members: number }>>;
   byGender?: Partial<Record<'male' | 'female', { credit: number; members: number }>>;
+  /** The scope's km tally in meters (leagueStepsRollup) — shown, never points. */
+  distanceMeters?: number;
+}
+
+/** Meters → km, one decimal. */
+export function kmOf(meters: unknown): number {
+  const m = typeof meters === 'number' && Number.isFinite(meters) && meters > 0 ? meters : 0;
+  return Math.round(m / 100) / 10;
+}
+
+/**
+ * km for a board row. Distance is one scope-wide tally (not split by
+ * activity or gender), so it is only reported for the unfiltered board.
+ */
+function kmFields(
+  d: ScopeStatsDoc,
+  activeMemberCount: number,
+  category: string,
+  gender: string,
+): { totalKm?: number; kmPerMember?: number } {
+  if (category !== 'overall' || gender !== 'all') return {};
+  const totalKm = kmOf(d.distanceMeters);
+  return { totalKm, kmPerMember: activeMemberCount > 0 ? Math.round((totalKm / activeMemberCount) * 10) / 10 : 0 };
 }
 
 /**
@@ -65,6 +88,10 @@ export interface ScopeStatsEntry {
   scopeName: string;
   totalScore: number;
   activeMemberCount: number;
+  /** Unfiltered boards only (category overall, gender all). */
+  totalKm?: number;
+  /** totalKm ÷ active members, one decimal. */
+  kmPerMember?: number;
 }
 
 /**
@@ -83,9 +110,9 @@ export function buildScopeEntries(
   return docs
     .map((d) => {
       const n = pickScopeNumbers(d, category, gender);
-      return n && n.activeMemberCount > 0 ? { scopeId: d.scopeId, ...n } : null;
+      return n && n.activeMemberCount > 0 ? { scopeId: d.scopeId, ...n, ...kmFields(d, n.activeMemberCount, category, gender) } : null;
     })
-    .filter((r): r is { scopeId: string; totalScore: number; activeMemberCount: number } => !!r)
+    .filter((r): r is Omit<ScopeStatsEntry, 'rank' | 'scopeName'> => !!r)
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, maxEntries)
     .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
@@ -129,10 +156,27 @@ export function buildImprovedEntries(
       const n = pickScopeNumbers(d, category, gender);
       if (!n || n.activeMemberCount <= 0) return null;
       const before = prevScore.get(d.scopeId) ?? 0;
-      return { scopeId: d.scopeId, ...n, previousScore: before, delta: n.totalScore - before };
+      return { scopeId: d.scopeId, ...n, ...kmFields(d, n.activeMemberCount, category, gender), previousScore: before, delta: n.totalScore - before };
     })
     .filter((r): r is Omit<ImprovedEntry, 'rank' | 'scopeName'> => !!r && r.delta > 0)
     .sort((a, b) => b.delta - a.delta)
+    .slice(0, maxEntries)
+    .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
+}
+
+/**
+ * The km board (measure=distance): scopes with any distance this period,
+ * most km first. km are one scope-wide tally, so there is no category /
+ * gender split — the caller sends the unfiltered board.
+ */
+export function buildDistanceEntries(docs: ScopeStatsDoc[], names: Map<string, string>, maxEntries: number): ScopeStatsEntry[] {
+  return docs
+    .map((d) => {
+      const n = pickScopeNumbers(d, 'overall', 'all')!;
+      return { scopeId: d.scopeId, ...n, ...kmFields(d, n.activeMemberCount, 'overall', 'all') };
+    })
+    .filter((r) => (r.totalKm ?? 0) > 0)
+    .sort((a, b) => (b.totalKm ?? 0) - (a.totalKm ?? 0))
     .slice(0, maxEntries)
     .map((r, i) => ({ rank: i + 1, ...r, scopeName: names.get(r.scopeId) ?? r.scopeId }));
 }

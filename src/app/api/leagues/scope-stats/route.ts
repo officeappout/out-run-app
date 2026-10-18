@@ -16,7 +16,9 @@
  *   parentId = <city>            — required for board=neighborhood (one city)
  *   region = <regional council>  — optional for board=settlement
  *   kind = all | city | council | settlement — optional filter for board=city…
- *   measure = total | improved   — improved = gain vs the previous period
+ *   measure = total | improved | distance — improved = gain vs the previous
+ *             period; distance = most km first (unfiltered board only — km are
+ *             one scope-wide tally, shown next to the points, never part of them)
  *   category = overall|strength|cardio|maintenance, gender = all|male|female, max ≤ 50
  *
  * Settlements (kibbutzim / moshavim) are recorded as neighborhoods of their
@@ -26,6 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import {
+  buildDistanceEntries,
   buildImprovedEntries,
   buildScopeEntries,
   periodKeysFor,
@@ -60,7 +63,8 @@ export async function GET(req: NextRequest) {
   const parentId = q.get('parentId');
   const region = q.get('region');
   const kind = q.get('kind') ?? 'all';
-  const measure = q.get('measure') === 'improved' ? 'improved' : 'total';
+  const measureParam = q.get('measure');
+  const measure = measureParam === 'improved' || measureParam === 'distance' ? measureParam : 'total';
   const category = (q.get('category') ?? 'overall') as Category;
   const gender = (q.get('gender') ?? 'all') as Gender;
   const max = Math.min(50, Math.max(1, Number(q.get('max') ?? 20) || 20));
@@ -136,7 +140,9 @@ export async function GET(req: NextRequest) {
   };
 
   let entries;
-  if (measure === 'improved') {
+  if (measure === 'distance') {
+    entries = category === 'overall' && gender === 'all' ? buildDistanceEntries(docs, names, max) : null;
+  } else if (measure === 'improved') {
     // Only this period's (already filtered) scopes can appear, so the previous
     // period needs no filtering — it's a lookup by scopeId.
     const prev = await readPeriod(previousPeriodKey(win, periodKey));

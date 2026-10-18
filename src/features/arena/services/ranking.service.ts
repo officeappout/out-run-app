@@ -1069,6 +1069,9 @@ export interface ScopeCompetitionEntry {
   scopeName: string;
   totalScore: number;
   activeMemberCount: number;
+  /** km this period (server aggregates, unfiltered boards only) — shown, never points. */
+  totalKm?: number;
+  kmPerMember?: number;
 }
 
 export interface ScopeCompetitionResult {
@@ -1133,7 +1136,8 @@ export interface LeagueBoardResult {
 export async function getLeagueBoard(p: {
   board: LeagueBoardKind;
   timeWindow: LeaderboardTimeWindow;
-  measure?: 'total' | 'improved';
+  /** distance = most km first (unfiltered board only). */
+  measure?: 'total' | 'improved' | 'distance';
   region?: string | null;
   kind?: 'all' | 'city' | 'council';
   category?: LeaderboardCategory;
@@ -1158,6 +1162,30 @@ export async function getLeagueBoard(p: {
   const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
   if (!res.ok) throw new Error(`league board ${res.status}`);
   return (await res.json()) as LeagueBoardResult;
+}
+
+/**
+ * The signed-in user's OWN contribution to one league scope this period
+ * (points + km), via /api/leagues/my-contribution — the per-member rows
+ * aren't client-readable. null on daily windows, signed-out, or any failure.
+ */
+export async function getMyLeagueContribution(p: {
+  granularity: 'city' | 'neighborhood';
+  scopeId: string;
+  timeWindow: LeaderboardTimeWindow;
+}): Promise<{ credit: number; totalKm: number } | null> {
+  if (p.timeWindow === 'daily' || !p.scopeId) return null;
+  try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!idToken) return null;
+    const qs = new URLSearchParams({ granularity: p.granularity, scopeId: p.scopeId, window: p.timeWindow });
+    const res = await fetch(`/api/leagues/my-contribution?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { credit?: number; totalKm?: number };
+    return { credit: body.credit ?? 0, totalKm: body.totalKm ?? 0 };
+  } catch {
+    return null;
+  }
 }
 
 export async function getScopeCompetitionLeaderboard(params: {
