@@ -202,10 +202,13 @@ describe('coach note', () => {
     const text = s.join(' ');
     expect(text).toContain('6 ימים');
     const nums = (text.match(/\d+/g) ?? []).map(Number);
-    // Every number must be in the record (rest may be shown in minutes).
+    // Every number comes from the record: a value in it, a value inside one of
+    // its ranges (narrow ranges are rounded to one value), or rest in minutes.
     const recNums = (JSON.stringify(record).match(/\d+/g) ?? []).map(Number);
+    const inRanges = [record.expect.setsRange!, record.expect.repRange!].flatMap((r) =>
+      Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i));
     const rest = record.expect.restRange!;
-    const allowed = new Set([...recNums, Math.round(rest.min / 60), Math.round(rest.max / 60)]);
+    const allowed = new Set([...recNums, ...inRanges, Math.round(rest.min / 60), Math.round(rest.max / 60)]);
     for (const n of nums) expect(allowed.has(n)).toBe(true);
   });
 
@@ -235,10 +238,33 @@ describe('coach note', () => {
     expect(renderCoachNote({ ...rich(), v: 2 as unknown as 1 })).toBe('');
   });
 
-  it('rest formatting: seconds under 2 minutes, minutes above', () => {
-    expect(fmtRest({ min: 60, max: 90 })).toBe('60 עד 90 שניות');
-    expect(fmtRest({ min: 120, max: 180 })).toBe('2 עד 3 דקות');
-    expect(fmtRest({ min: 90, max: 150 })).toBe('דקה וחצי עד 2 דקות וחצי');
+  it('rest formatting: narrow ranges collapse to one rounded value, wide ones stay ranges', () => {
+    expect(fmtRest({ min: 60, max: 90 })).toBe('75 שניות');
+    expect(fmtRest({ min: 120, max: 150 })).toBe('2 דקות וחצי');
+    expect(fmtRest({ min: 90, max: 120 })).toBe('2 דקות');
+    expect(fmtRest({ min: 45, max: 150 })).toBe('45 שניות עד 2 דקות וחצי');
+    expect(fmtRest({ min: 60, max: 180 })).toBe('דקה עד 3 דקות');
     expect(fmtRest({ min: 105, max: 180 })).toBe('2 עד 3 דקות');
+    expect(fmtRest({ min: 120, max: 120 })).toBe('2 דקות');
+  });
+
+  it('level sentence only when the level is news (LEVEL_CEILING)', () => {
+    const plain = buildDecisionRecord(workout(), { programFocus: { program: 'full_body', level: 7 }, location: 'home' });
+    expect(renderCoachNote(plain)).not.toContain('רמה 7');
+    const clamped = buildDecisionRecord(workout({ pipelineLog: ['level_ceiling_clamp: push L9→L7'] }), {
+      programFocus: { program: 'full_body', level: 7 }, location: 'home',
+    });
+    expect(renderCoachNote(clamped)).toContain('רמה 7');
+  });
+
+  it('what-to-expect is short: exercises + minutes + one more fact, narrow ranges rounded', () => {
+    const w = workout();
+    for (const e of w.exercises) { e.sets = 3; e.repsRange = { min: 5, max: 6 }; }
+    w.exercises[2].sets = 4;
+    const text = renderCoachNote(buildDecisionRecord(w, {}));
+    expect(text).toMatch(/3 תרגילים.*32 דקות/);
+    expect(text).not.toMatch(/\d+ עד \d+ סטים/); // 3..4 sets → one value
+    expect(text).not.toMatch(/5 עד 6/); // 5..6 reps → one value
+    expect(text).not.toContain('מנוחה'); // rest only when there are no reps to quote
   });
 });

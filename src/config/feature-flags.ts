@@ -393,6 +393,17 @@ export const POST_WORKOUT_LANDING_V1 = false;
 // unwired.
 export const HOME_DAY_SELECT_SCOPE_V1 = false;
 
+// PROGRESSION_RULES_FROM_ADMIN_V1: make the admin-tuned progression_rules actually
+// apply. Today getProgressionRuleForLevel looks up `<slug>_level_N` while the admin
+// saves `<programDocId>_level_N`, so every lookup misses and
+// DEFAULT_PROGRESSION_BY_LEVEL is used for every user. ON: resolve slug → doc id
+// (slug-keyed doc as fallback, 5-min cache) AND pay a level goal's progressBonus
+// once per goal per level instead of on every session that repeats it.
+// Both CHANGE PROGRESSION SPEED for real users (see PR #415 for the live-vs-default
+// table) — owner decision to ship dark. While FALSE: byte-identical to today
+// (single raw-id lookup → defaults; goal bonus re-paid each session).
+export const PROGRESSION_RULES_FROM_ADMIN_V1 = false;
+
 // WORKOUT_COACH_NOTE_V1: the "דגשי האימון" block on the workout overview — 2–4
 // short Hebrew sentences explaining WHY this workout was built (recovery /
 // returning / cycle week / weekly gap / focus / location …) and WHAT to expect

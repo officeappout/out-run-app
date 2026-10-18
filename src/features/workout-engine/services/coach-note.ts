@@ -3,7 +3,8 @@
  * DecisionRecord (decision-record.ts):
  *
  *   1–2. why this combination (the top 1–2 ranked reasons)
- *   2–3. what to expect (exercises, sets × reps, rest, intensity, protocol)
+ *   2–3. what to expect: exercises + minutes, plus ONE of sets × reps / rest
+ *        (then an optional protocol line)
  *   opt. a calm line for evening / night / recovery
  *
  * Voice rules (brand): short, simple, no jargon, no English, no em-dashes, no
@@ -44,8 +45,8 @@ export type CoachPhraseKey =
   | 'DIFFICULTY_intense'
   | 'LEVEL_CEILING'
   | 'MUSCLES_RESTED'
-  | 'EXPECT_full'
-  | 'EXPECT_full_no_intensity'
+  | 'EXPECT_volume'
+  | 'EXPECT_rest'
   | 'EXPECT_short'
   | 'PROTOCOL_pyramid'
   | 'PROTOCOL_antagonist'
@@ -100,10 +101,10 @@ export const DEFAULT_COACH_PHRASEBOOK: Record<CoachPhraseKey, string[]> = {
   ],
   LOCATION_bodyweight: [
     'בנינו לך אימון {locIn} עם משקל הגוף בלבד, בלי ציוד.',
-    'כל התרגילים מתאימים {locIn} ולא צריך שום ציוד.',
+    'את כל התרגילים אפשר לעשות {locIn}, בלי שום ציוד.',
   ],
   LOCATION_equipment: [
-    'בנינו לך אימון {locIn} שמשתמש בציוד שיש לך שם.',
+    'בנינו לך אימון {locIn} עם הציוד שיש במקום.',
     'התרגילים נבחרו לפי מה שיש {locIn}.',
   ],
   TIME_morning: [
@@ -138,18 +139,17 @@ export const DEFAULT_COACH_PHRASEBOOK: Record<CoachPhraseKey, string[]> = {
     'השרירים שעבדו לאחרונה נחים היום, והעבודה עוברת לאחרים.',
     'נותנים מנוחה לשרירים שעבדו לאחרונה ומחזקים את האחרים.',
   ],
-  EXPECT_full: [
-    'מחכים לך {n}, {sets} של {reps}, עם {rest} מנוחה בין סט לסט.',
-    'אימון {intensity} של בערך {dur} דקות: {n}, {sets} של {reps} ומנוחה של {rest}.',
-    'בסך הכול {n} ובערך {dur} דקות, {sets} של {reps} ומנוחה של {rest} בין הסטים.',
+  EXPECT_volume: [
+    '{n}, כ־{dur} דקות, {sets} של {reps}.',
+    'מחכים לך {n} בכ־{dur} דקות, {sets} של {reps} בכל אחד.',
   ],
-  EXPECT_full_no_intensity: [
-    'מחכים לך {n}, {sets} של {reps}, עם {rest} מנוחה בין סט לסט.',
-    'בסך הכול {n} ובערך {dur} דקות, {sets} של {reps} ומנוחה של {rest} בין הסטים.',
+  EXPECT_rest: [
+    '{n}, כ־{dur} דקות, עם {rest} מנוחה בין סטים.',
+    'מחכים לך {n} בכ־{dur} דקות, ומנוחה של {rest} בין סטים.',
   ],
   EXPECT_short: [
-    'בסך הכול {n} ובערך {dur} דקות.',
-    'מחכים לך {n}, בערך {dur} דקות בסך הכול.',
+    '{n}, כ־{dur} דקות.',
+    'מחכים לך {n} בכ־{dur} דקות.',
   ],
   PROTOCOL_pyramid: [
     'אחד התרגילים בנוי כפירמידה, וכל סט בו מאתגר קצת יותר.',
@@ -228,8 +228,6 @@ const LOCATION_IN_HE: Record<string, string> = {
   desk: 'ליד השולחן',
 };
 
-const INTENSITY_HE = { easy: 'קל', balanced: 'מאוזן', intense: 'עצים' } as const;
-
 // ============================================================================
 // FORMATTING
 // ============================================================================
@@ -238,16 +236,25 @@ function fmtRange(r: NumRange): string {
   return r.min === r.max ? `${r.min}` : `${r.min} עד ${r.max}`;
 }
 
+/** One value when the range is narrow (spread ≤ `narrow`), else the range as is. */
+function collapse(r: NumRange, narrow: number, step = 1): NumRange {
+  if (r.max - r.min > narrow) return r;
+  const v = Math.round((r.min + r.max) / 2 / step) * step;
+  return { min: v, max: v };
+}
+
 function fmtCount(n: number, one: string, many: string): string {
   return n === 1 ? one : `${n} ${many}`;
 }
 
-function fmtSets(r: NumRange): string {
+function fmtSets(range: NumRange): string {
+  const r = collapse(range, 1);
   return r.max === 1 ? 'סט אחד' : `${fmtRange(r)} סטים`;
 }
 
-function fmtReps(r: NumRange & { unit: 'reps' | 'seconds' }): string {
-  if (r.unit === 'seconds') return `${fmtRange(r)} שניות`;
+function fmtReps(range: NumRange & { unit: 'reps' | 'seconds' }): string {
+  if (range.unit === 'seconds') return `${fmtRange(collapse(range, 5, 5))} שניות`;
+  const r = collapse(range, 1);
   return r.max === 1 ? 'חזרה אחת' : `${fmtRange(r)} חזרות`;
 }
 
@@ -260,10 +267,18 @@ function fmtMinutes(sec: number): string {
   return half ? `${whole} דקות וחצי` : `${whole} דקות`;
 }
 
-/** Rest: seconds while it stays under 2 minutes, half-minutes once it reaches 2. */
+function fmtRestValue(sec: number): string {
+  return sec >= 90 ? fmtMinutes(sec) : `${Math.round(sec / 15) * 15} שניות`;
+}
+
+/**
+ * Rest. A narrow range (spread ≤ 60s) becomes ONE rounded value ("2 דקות
+ * וחצי", never "2 דקות עד 2 דקות וחצי"); a wide one stays a range.
+ */
 export function fmtRest(r: NumRange): string {
+  if (r.max - r.min <= 60) return fmtRestValue((r.min + r.max) / 2);
   if (r.max < 120) return `${fmtRange(r)} שניות`;
-  const lo = fmtMinutes(r.min);
+  const lo = r.min >= 60 ? fmtMinutes(r.min) : `${Math.round(r.min / 15) * 15} שניות`;
   const hi = fmtMinutes(r.max);
   if (lo === hi) return lo;
   const a = Math.round(r.min / 30) / 2;
@@ -371,18 +386,20 @@ export function renderCoachNoteSentences(
   // ── Why (top 1–2 renderable reasons). Evening/night TIME is saved for the
   //    calm line instead of spending a "why" slot on it.
   const why: string[] = [];
-  const usedCodes = new Set<string>();
+  const hasLevelNews = record.reasons.some((r) => r.code === 'LEVEL_CEILING');
   for (const r of record.reasons) {
     if (why.length >= 2) break;
     if (r.code === 'TIME' && r.slot !== 'morning') continue;
+    // "Built around level X in program Y" is true of EVERY workout, so it says
+    // nothing — only worth a slot when the level itself is news (the content
+    // ceiling clamped it).
+    if (r.code === 'PROGRAM_FOCUS' && !hasLevelNews) continue;
     const s = reasonSentence(book, r, seed);
-    if (s) {
-      why.push(s);
-      usedCodes.add(r.code);
-    }
+    if (s) why.push(s);
   }
 
-  // ── What to expect.
+  // ── What to expect: exercises + minutes, plus the single most useful
+  //    extra fact (sets × reps; rest only when there are no reps to quote).
   const n = expect.exercisesCount;
   const vars: Vars = {
     n: n > 0 ? fmtCount(n, 'תרגיל אחד', 'תרגילים') : undefined,
@@ -390,11 +407,10 @@ export function renderCoachNoteSentences(
     reps: expect.repRange ? fmtReps(expect.repRange) : undefined,
     rest: expect.restRange ? fmtRest(expect.restRange) : undefined,
     dur: expect.durationMin > 0 ? expect.durationMin : undefined,
-    intensity: INTENSITY_HE[expect.intensityWord],
   };
-  const expectKey = usedCodes.has('DIFFICULTY') ? 'EXPECT_full_no_intensity' : 'EXPECT_full';
   const expectSentence =
-    (!isRecovery ? pick(book, expectKey, seed, vars) : null) ?? pick(book, 'EXPECT_short', seed, vars);
+    (!isRecovery ? pick(book, 'EXPECT_volume', seed, vars) ?? pick(book, 'EXPECT_rest', seed, vars) : null) ??
+    pick(book, 'EXPECT_short', seed, vars);
 
   let protocolSentence: string | null = null;
   if (expect.protocol !== 'straight') {

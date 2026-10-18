@@ -79,6 +79,7 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import type { LevelGoal } from '@/types/workout';
 import { getUserAccessLevel, hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
+import { PROGRESSION_RULES_FROM_ADMIN_V1 } from '@/config/feature-flags';
 /**
  * Progression v2 Phase 2 — deliberate cross-domain reuse of progression-map's
  * gating logic, NOT a Law 7 violation-by-oversight: Phase 1 built
@@ -1245,14 +1246,21 @@ function ruleFromData(
 
 /**
  * Get progression rule for a specific program and level.
- * `programId` may be a slug or a Firestore doc id — both are resolved (see
- * progressionRuleIdCandidates). Falls back to defaults if no rule is defined.
+ * Behind PROGRESSION_RULES_FROM_ADMIN_V1, `programId` may be a slug or a
+ * Firestore doc id — both are resolved (see progressionRuleIdCandidates).
+ * Falls back to defaults if no rule is defined.
  */
 export async function getProgressionRuleForLevel(
   programId: string,
   level: number,
   slugMap?: ProgramSlugMap | null,
 ): Promise<ProgressionRuleResult> {
+  // Flag off (today): the original single `${programId}_level_${level}`
+  // lookup, no slug→id resolution, no cache — so admin rules keyed by doc id
+  // keep being missed and the defaults apply, exactly as before.
+  if (!PROGRESSION_RULES_FROM_ADMIN_V1) {
+    return loadProgressionRuleForLevel(programId, level, null, [`${programId}_level_${level}`]);
+  }
   const cacheKey = `${programId}|${level}`;
   const hit = ruleCache.get(cacheKey);
   if (hit && Date.now() - hit.at < RULE_CACHE_TTL_MS) return hit.value;
@@ -1267,6 +1275,7 @@ async function loadProgressionRuleForLevel(
   programId: string,
   level: number,
   slugMap?: ProgramSlugMap | null,
+  fixedCandidates?: string[],
 ): Promise<ProgressionRuleResult> {
   const levelDefaults = DEFAULT_PROGRESSION_BY_LEVEL[Math.min(level, 10)] || DEFAULT_PROGRESSION_BY_LEVEL[10];
   const defaults: ProgressionRuleResult = {
@@ -1277,12 +1286,15 @@ async function loadProgressionRuleForLevel(
   };
 
   try {
-    let map = slugMap ?? null;
-    if (!map) {
-      lazySlugMap ??= buildProgramSlugMap().catch(() => null);
-      map = await lazySlugMap;
+    let candidates = fixedCandidates;
+    if (!candidates) {
+      let map = slugMap ?? null;
+      if (!map) {
+        lazySlugMap ??= buildProgramSlugMap().catch(() => null);
+        map = await lazySlugMap;
+      }
+      candidates = progressionRuleIdCandidates(programId, level, map);
     }
-    const candidates = progressionRuleIdCandidates(programId, level, map);
 
     for (const ruleId of candidates) {
       const ruleDoc = await getDoc(doc(db, PROGRESSION_RULES_COLLECTION, ruleId));
@@ -2354,20 +2366,23 @@ export async function processWorkoutCompletion(
             : match.repsPerSet.reduce((sum, r) => sum + r, 0); // total hold seconds
 
         if (bestValue >= goal.targetValue) {
-          // Goal met. The progressBonus is a ONE-TIME weight per goal per level
-          // (completedGoalIds resets on level-up): it is awarded the first time
-          // the goal is met and never again at this level. Bug fix — it used
-          // to be re-added on EVERY session that repeated the goal, so a user
-          // could "farm" +5% per workout from a goal they had already passed.
-          if (alreadyCompleted.has(goal.exerciseId)) {
+          // Goal met. Behind PROGRESSION_RULES_FROM_ADMIN_V1 the progressBonus
+          // is a ONE-TIME weight per goal per level (completedGoalIds resets on
+          // level-up): paid the first time the goal is met, never again at this
+          // level. Flag off (today): it is re-added on EVERY session that
+          // repeats the goal (+5% default per workout) — gated because removing
+          // that materially slows progression for users who hit their goals.
+          if (PROGRESSION_RULES_FROM_ADMIN_V1 && alreadyCompleted.has(goal.exerciseId)) {
             console.log(
               `[Progression] Goal "${goal.exerciseName}": already completed at this level → +0%`,
             );
             continue;
           }
           goalBonusGain += bonus;
-          newlyCompletedGoalIds.push(goal.exerciseId);
-          alreadyCompleted.add(goal.exerciseId);
+          if (!alreadyCompleted.has(goal.exerciseId)) {
+            newlyCompletedGoalIds.push(goal.exerciseId);
+          }
+          if (PROGRESSION_RULES_FROM_ADMIN_V1) alreadyCompleted.add(goal.exerciseId);
           console.log(
             `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
               ` ✅ MET → +${bonus}%`,

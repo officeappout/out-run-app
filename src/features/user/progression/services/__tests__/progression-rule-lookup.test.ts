@@ -9,7 +9,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const state = vi.hoisted(() => ({
   RULES: {} as Record<string, Record<string, unknown>>,
   reads: [] as string[],
+  flag: true,
 }));
+
+// Live getter so each test can flip PROGRESSION_RULES_FROM_ADMIN_V1.
+vi.mock('@/config/feature-flags', async (importOriginal) => {
+  const orig = await importOriginal<Record<string, unknown>>();
+  return {
+    ...orig,
+    get PROGRESSION_RULES_FROM_ADMIN_V1() {
+      return state.flag;
+    },
+  };
+});
 
 vi.mock('@/lib/firebase', () => ({ db: {} }));
 
@@ -63,6 +75,8 @@ const slugMap = {
 beforeEach(() => {
   state.RULES = {};
   state.reads = [];
+  state.flag = true;
+  vi.mocked(getAllPrograms).mockClear();
   __resetProgressionRuleCacheForTests();
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
@@ -126,5 +140,26 @@ describe('getProgressionRuleForLevel', () => {
     const again = await getProgressionRuleForLevel('pull', 5, slugMap);
     expect(again.baseSessionGain).toBe(8);
     expect(state.reads.length).toBe(readsAfterFirst);
+  });
+});
+
+describe('PROGRESSION_RULES_FROM_ADMIN_V1 off (default) — today\'s behaviour exactly', () => {
+  it('single raw `${slug}_level_N` lookup: the doc-id rule is missed → defaults', async () => {
+    state.flag = false;
+    state.RULES['J0fLpmJhG0KDN2tQouxh_level_13'] = { baseSessionGain: 6, bonusPercent: 5, requiredSetsForFullGain: 10 };
+    const rule = await getProgressionRuleForLevel('push', 13, slugMap);
+    expect(rule).toEqual({ baseSessionGain: 4, bonusPercent: 15, requiredSetsForFullGain: 6, linkedPrograms: [] });
+    expect(state.reads).toEqual([
+      'progression_rules/push_level_13',
+      'programLevelSettings/push_level_13',
+    ]);
+    expect(getAllPrograms).not.toHaveBeenCalled();
+  });
+
+  it('no cache while off — every call reads again', async () => {
+    state.flag = false;
+    await getProgressionRuleForLevel('pull', 5, slugMap);
+    await getProgressionRuleForLevel('pull', 5, slugMap);
+    expect(state.reads.filter((r) => r.startsWith('progression_rules/')).length).toBe(2);
   });
 });
