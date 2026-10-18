@@ -34,8 +34,15 @@
  * Own channel rather than 'training_reminder' so this Saturday-night push
  * never rate-caps Sunday morning's training reminder (22h cap on that one).
  *
- * Copy rotates by week (everyone gets the same variant on a given Saturday),
- * gender-neutral, no emoji. Deep link: /home.
+ * COPY
+ * ────
+ * From the push library: resolvePushCopy('week_start', { uid: 'week-<n>' })
+ * (services/push-copy.service.ts). The broadcast key 'week-<n>' changes every
+ * week, so everyone gets the same row on a given Saturday and the row rotates
+ * week to week. No per-recipient values (one sendPush per page), so rows that
+ * need @שם are skipped for this push. Code defaults (gender-neutral, no emoji)
+ * live in the catalog (shared/push-library.core.ts). Default deep link: /home.
+ * No copy fits → nothing is sent that week (logged).
  *
  * ENVIRONMENT VARIABLES (optional)
  * ────────────────────────────────
@@ -46,6 +53,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { resolvePushCopy, pushCopyData } from './services/push-copy.service';
 import {
   isMotzeiShabbatWeekStartTime,
   isShabbatObserver,
@@ -63,18 +71,9 @@ const MAX_PAGES = 20; // 6000 observers per run
 const TEST_MODE = process.env.WEEK_START_TEST_MODE === 'true';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-export const WEEK_START_DEEP_LINK = '/home';
-
-export const WEEK_START_VARIANTS: ReadonlyArray<{ title: string; body: string }> = [
-  { title: 'שבוע טוב', body: 'שבוע חדש מתחיל. נקבע אימון ראשון למחר?' },
-  { title: 'שבוע טוב', body: 'מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל.' },
-  { title: 'שבוע חדש מתחיל', body: 'מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו.' },
-];
-
-/** Same variant for everyone on a given Saturday, rotating week to week. Exported for tests. */
-export function buildWeekStartMessage(now: Date = new Date()): { variant: number; title: string; body: string } {
-  const variant = Math.floor(now.getTime() / WEEK_MS) % WEEK_START_VARIANTS.length;
-  return { variant, ...WEEK_START_VARIANTS[variant] };
+/** Broadcast rotation key for resolvePushCopy: same for everyone in a run, new every week. Exported for tests. */
+export function weekStartCopyKey(now: Date = new Date()): string {
+  return `week-${Math.floor(now.getTime() / WEEK_MS)}`;
 }
 
 /**
@@ -109,7 +108,11 @@ export async function runWeekStart(now: Date = new Date()): Promise<WeekStartRun
   }
   out.ran = true;
 
-  const { variant, title, body } = buildWeekStartMessage(now);
+  const copy = await resolvePushCopy('week_start', { uid: weekStartCopyKey(now), now });
+  if (!copy) {
+    logger.warn('[weekStart] No push-library copy fits week_start — nothing sent this week.');
+    return out;
+  }
   const db = admin.firestore();
   let cursor: admin.firestore.QueryDocumentSnapshot | null = null;
 
@@ -137,16 +140,16 @@ export async function runWeekStart(now: Date = new Date()): Promise<WeekStartRun
 
     if (uids.length > 0) {
       if (TEST_MODE) {
-        logger.warn(`[weekStart] TEST_MODE — would push ${uids.length} uid(s), variant=${variant}`);
+        logger.warn(`[weekStart] TEST_MODE — would push ${uids.length} uid(s), row=${copy.rowId}`);
       } else {
         try {
           const r = await sendPush({
             toUids: uids,
             channel: 'week_start',
-            title,
-            body,
-            deepLink: WEEK_START_DEEP_LINK,
-            data: { triggerType: 'WeekStart', variant: String(variant) },
+            title: copy.title,
+            body: copy.body,
+            deepLink: copy.deepLink,
+            data: { triggerType: 'WeekStart', ...pushCopyData(copy) },
             rateCapHours: 72,
           });
           out.delivered += r.delivered;
@@ -165,7 +168,7 @@ export async function runWeekStart(now: Date = new Date()): Promise<WeekStartRun
 
   logger.info(
     `[weekStart] Run complete — candidates=${out.candidates} delivered=${out.delivered} ` +
-      `skipped=${out.skipped} variant=${variant}`,
+      `skipped=${out.skipped} row=${copy.rowId}`,
   );
   return out;
 }

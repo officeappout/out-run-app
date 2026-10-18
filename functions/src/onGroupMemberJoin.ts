@@ -5,15 +5,13 @@
  *
  * TWO TARGETED PUSHES — no broadcast to all members (too noisy):
  *
- *  1. WELCOME → the new joiner
- *     Copy templates (Hebrew to be filled in later):
- *       title: "ברוך הבא ל{group_name}!"
- *       body:  "הקבוצה מחכה לך. פתח את האפליקציה ותראה את לוח הזמנים."
+ *  1. WELCOME → the new joiner        (push library 'group_join_welcome')
+ *  2. NEW-MEMBER ALERT → group leader/admin, only when different from the
+ *     joiner                          (push library 'group_join_admin')
  *
- *  2. NEW-MEMBER ALERT → group leader/admin (only when different from joiner)
- *     Copy templates (Hebrew to be filled in later):
- *       title: "{user_name} הצטרף/ה!"
- *       body:  "חבר/ה חדש/ה הצטרף/ה ל{group_name}."
+ * COPY: push-copy.service.ts — the admin-editable library, falling back to
+ * the code defaults in shared/push-library.core.ts. Deep link default: the
+ * group page (/community/<groupId>).
  *
  * ADMIN RESOLUTION (priority order):
  *   1. group.leaderUserId — explicit coach / leader set in admin panel
@@ -37,26 +35,13 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
-
-// ─── Copy templates (placeholder — Hebrew copy to be finalised separately) ────
-
-const JOINER_TITLE = 'ברוך הבא ל{group_name}!';
-const JOINER_BODY  = 'הקבוצה מחכה לך.';
-
-const ADMIN_TITLE  = '{user_name} הצטרף/ה!';
-const ADMIN_BODY   = 'חבר/ה חדש/ה הצטרף/ה ל{group_name}.';
-
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
-}
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
@@ -107,17 +92,23 @@ export const onGroupMemberJoin = onDocumentCreated(
       return;
     }
 
-    const vars = { group_name: groupName, user_name: joinerName };
-
     // ── 1. Welcome push → joiner ────────────────────────────────────────────
     try {
+      const joiner = await loadPushRecipient(joinerUid);
+      const copy = await resolvePushCopy('group_join_welcome', {
+        uid: joinerUid,
+        audience: joiner.audience,
+        vars: { '@שם': joiner.firstName, '@קבוצה': groupName },
+        params: { groupId },
+      });
+      if (!copy) throw new Error('no push copy fits group_join_welcome');
       const welcomeResult = await sendPush({
         toUids: [joinerUid],
         channel: 'social',
-        title: interpolate(JOINER_TITLE, vars),
-        body: interpolate(JOINER_BODY, vars),
-        deepLink: `/community/${groupId}`,
-        data: { triggerType: 'GroupJoin_Welcome', groupId },
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { triggerType: 'GroupJoin_Welcome', groupId, ...pushCopyData(copy) },
         rateCapHours: 0, // intentional action — always deliver
         // Stage 2 — a direct confirmation of the user's OWN intentional
         // action, already designed to "always deliver" (rateCapHours: 0
@@ -136,13 +127,21 @@ export const onGroupMemberJoin = onDocumentCreated(
     if (!adminUid || adminUid === joinerUid) return;
 
     try {
+      const leader = await loadPushRecipient(adminUid);
+      const copy = await resolvePushCopy('group_join_admin', {
+        uid: adminUid,
+        audience: leader.audience,
+        vars: { '@שם': leader.firstName, '@מצטרף': joinerName.trim().split(/\s+/)[0] ?? '', '@קבוצה': groupName },
+        params: { groupId },
+      });
+      if (!copy) throw new Error('no push copy fits group_join_admin');
       const adminResult = await sendPush({
         toUids: [adminUid],
         channel: 'social',
-        title: interpolate(ADMIN_TITLE, vars),
-        body: interpolate(ADMIN_BODY, vars),
-        deepLink: `/community/${groupId}`,
-        data: { triggerType: 'GroupJoin_AdminAlert', groupId, joinerUid },
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { triggerType: 'GroupJoin_AdminAlert', groupId, joinerUid, ...pushCopyData(copy) },
         rateCapHours: 1, // deduplicate concurrent joins: max 1 alert / hour
         // Stage 2 — a specific person (the joiner) just joined a group this
         // recipient leads, the canonical PERSONAL-interaction event. Exempt

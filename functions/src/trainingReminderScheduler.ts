@@ -17,12 +17,17 @@
  * program document. This fulfils the requirement to connect content to the actual
  * workout ("הכל קשור להכל").
  *
- * Category → Hebrew label mapping:
+ * Category → Hebrew label mapping (the @אימון variable of the push library):
  *   strength    → "אימון כוח"
  *   cardio      → "ריצה"
- *   maintenance → "תרגול החזקה"
+ *   maintenance → "אימון קל"   (was "תרגול החזקה", copy audit 10.2026)
  *   walking     → "הליכה"
  *   (none)      → "אימון"
+ *
+ * COPY — the push library (push-copy.service.ts, pushType
+ * 'workout_reminder_day'). This file only decides WHO and WHEN; the title
+ * and body come from the admin-editable library, falling back to the code
+ * defaults in shared/push-library.core.ts.
  *
  * SCHEDULE — PERSONALIZED PER-USER HOUR (was: single fixed 07:30 cron)
  * ──────────────────────────────────────────────────────────────────
@@ -80,15 +85,23 @@
  * OLD behavior) — unlike reminderSweepScheduler's own fail-closed flag
  * read, a transient error here must never silently stop an
  * already-relied-upon, already-live reminder from firing.
- * `categoryLabel`/`buildMessage` are exported so reminderSweepScheduler
- * can reuse the exact same category-aware copy for workout-entry sends,
- * rather than duplicating it.
+ * `categoryLabel`/`resolveWorkoutReminderCopy`/`groupByCopy` are exported so
+ * reminderSweepScheduler can reuse the same category-aware copy path for
+ * workout-entry sends, rather than duplicating it.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+  type ResolvedPushCopy,
+} from './services/push-copy.service';
+import type { PushAudience } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -115,7 +128,7 @@ const GUARD_WRITE_BATCH = 400; // mirrors push.service.ts's PRUNE_BATCH_SIZE
 const CATEGORY_LABEL: Record<string, string> = {
   strength: 'אימון כוח',
   cardio: 'ריצה',
-  maintenance: 'תרגול החזקה',
+  maintenance: 'אימון קל',
   walking: 'הליכה',
 };
 
@@ -127,41 +140,45 @@ export function categoryLabel(categories: string[] | undefined): string {
   return labels.length > 0 ? labels.join(' + ') : 'אימון';
 }
 
-// ─── Body templates ───────────────────────────────────────────────────────────
-// Rotated once per day (not per-user) so the copy stays fresh day-to-day while
-// preserving same-day batching (all users on a given day share one message key).
-const BODY_VARIANTS: string[] = [
-  'האימון שלך מחכה — פתח את האפליקציה ותתחיל.',
-  'הזמן שלך להתאמן הגיע. אפילו 15 דקות עושות את ההבדל 💪',
-  'רגע קטן לעצמך היום — האימון שלך מוכן ומחכה בפארק.',
-];
+// ─── Copy (push library) ──────────────────────────────────────────────────────
 
-/** Deterministic day-of-year index so every user in a single run gets the same body. */
-function pickBodyIndex(): number {
-  const now = new Date();
-  const dayOfYear = Math.floor(
-    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
-  );
-  return dayOfYear % BODY_VARIANTS.length;
+/** What the push library needs about one recipient (from the users/{uid} doc). */
+export interface ReminderRecipient {
+  uid: string;
+  firstName: string;
+  audience: PushAudience;
 }
 
 /**
- * Build push content from a scheduled entry's categories. `bodyIndex` is
- * additive (07.10.2026, push-performance instrumentation) — `title` alone
- * was being used as the measurement `variantId` at both call sites of this
- * function, which made the 3 rotating bodies invisible to the push-
- * performance table (two different bodies under the same category+time
- * collapsed to one "variant"). Callers now fold `bodyIndex` into their own
- * variantId instead.
+ * The reminder copy for one recipient. Shared with reminderSweepScheduler's
+ * workout-entry pass ('workout_reminder_before'), which carries a startTime.
+ * Rotates per user per day (was: one body for everyone per day); identical
+ * results are still batched into one sendPush by the callers.
  */
-export function buildMessage(workoutLabel: string, startTime?: string): { title: string; body: string; bodyIndex: number } {
-  const timeHint = startTime ? ` ב-${startTime}` : ' היום';
-  const bodyIndex = pickBodyIndex();
-  return {
-    title: `📅 ${workoutLabel}${timeHint}`,
-    body: BODY_VARIANTS[bodyIndex],
-    bodyIndex,
-  };
+export async function resolveWorkoutReminderCopy(
+  pushType: 'workout_reminder_day' | 'workout_reminder_before',
+  recipient: ReminderRecipient,
+  workoutLabel: string,
+  startTime?: string,
+): Promise<ResolvedPushCopy | null> {
+  return resolvePushCopy(pushType, {
+    uid: recipient.uid,
+    audience: recipient.audience,
+    vars: { '@שם': recipient.firstName, '@אימון': workoutLabel, '@שעה': startTime },
+  });
+}
+
+/** Groups identical resolved copy so each distinct message is one sendPush. */
+export function groupByCopy<T extends { uid: string }>(
+  items: Array<{ item: T; copy: ResolvedPushCopy }>,
+): Array<{ copy: ResolvedPushCopy; uids: string[] }> {
+  const groups = new Map<string, { copy: ResolvedPushCopy; uids: string[] }>();
+  for (const { item, copy } of items) {
+    const key = `${copy.rowId}|${copy.title}|${copy.body}|${copy.deepLink}`;
+    if (!groups.has(key)) groups.set(key, { copy, uids: [] });
+    groups.get(key)!.uids.push(item.uid);
+  }
+  return Array.from(groups.values());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -303,6 +320,7 @@ export const trainingReminderScheduler = onSchedule(
 
     // ── Pass 2: resolve each candidate's preferred hour, keep only this run's hour ──
     const preferredHourByUid = new Map<string, number>();
+    const recipientByUid = new Map<string, ReminderRecipient>();
     for (let i = 0; i < candidates.length; i += USER_FETCH_BATCH) {
       const slice = candidates.slice(i, i + USER_FETCH_BATCH);
       const refs = slice.map((c) => db.collection('users').doc(c.uid));
@@ -316,9 +334,13 @@ export const trainingReminderScheduler = onSchedule(
       }
       userDocs.forEach((snap, idx) => {
         const uid = slice[idx].uid;
-        const runningTime = snap.exists
-          ? (snap.data() as Record<string, any>)?.lifestyle?.reminders?.runningTime
-          : undefined;
+        const userData = snap.exists ? (snap.data() as Record<string, any>) : undefined;
+        recipientByUid.set(uid, {
+          uid,
+          firstName: firstNameFromUserData(userData),
+          audience: audienceFromUserData(userData),
+        });
+        const runningTime = userData?.lifestyle?.reminders?.runningTime;
         const parsed = parsePreferredHour(runningTime);
         preferredHourByUid.set(uid, parsed ?? DEFAULT_HOUR);
       });
@@ -372,60 +394,48 @@ export const trainingReminderScheduler = onSchedule(
       return;
     }
 
-    // ── Group by message so we batch-send identical content together ──────
-    // Key = "title|body" to allow reuse of same sendPush call for same workout type
-    const byMessage = new Map<string, { uids: string[]; title: string; body: string; bodyIndex: number }>();
-
+    // ── Copy per recipient (push library), then batch identical messages ──
+    const resolved: Array<{ item: (typeof targets)[number]; copy: ResolvedPushCopy }> = [];
     for (const t of targets) {
-      const msg = buildMessage(t.workoutLabel, t.startTime);
-      const key = `${msg.title}|${msg.body}`;
-      if (!byMessage.has(key)) {
-        byMessage.set(key, { uids: [], title: msg.title, body: msg.body, bodyIndex: msg.bodyIndex });
-      }
-      byMessage.get(key)!.uids.push(t.uid);
+      const recipient = recipientByUid.get(t.uid) ?? { uid: t.uid, firstName: '', audience: {} };
+      const copy = await resolveWorkoutReminderCopy('workout_reminder_day', recipient, t.workoutLabel, t.startTime);
+      if (copy) resolved.push({ item: t, copy });
     }
 
     let totalDelivered = 0;
 
-    for (const [, { uids, title, body, bodyIndex }] of Array.from(byMessage.entries()) as [string, { uids: string[]; title: string; body: string; bodyIndex: number }][]) {
+    for (const { copy, uids } of groupByCopy(resolved)) {
       try {
         const result = await sendPush({
           toUids: uids,
           channel: 'training_reminder',
-          title,
-          body,
-          deepLink: '/',
-          data: { triggerType: 'ScheduledWorkout', date: dateStr },
+          title: copy.title,
+          body: copy.body,
+          deepLink: copy.deepLink,
+          data: { triggerType: 'ScheduledWorkout', date: dateStr, ...pushCopyData(copy) },
           rateCapHours: 22, // ~1 per day — slightly under 24h to avoid drift
           // Personalized-hour sends must respect quiet hours — unlike the old
           // single blanket 07:30 run (always safely outside 22:00-07:00), a
           // user-chosen hour can legitimately fall inside the quiet window.
           skipQuietHours: false,
-          // Task 3 fast-follow (04.10.2026) — extends push_events logging to
-          // this sender, closing the "only 2 of 12 senders measured" gap for
-          // the retention workhorse. `persona` is 'generic' since this
-          // scheduler doesn't resolve persona at all today (same as every
-          // other pre-Wave-1 sender). No activityType/timeOfDay — optional
-          // fields, the generic "started a workout" outcome checker doesn't
-          // need them.
-          //
-          // `variantId` folds in `bodyIndex` (07.10.2026) — title alone
-          // collapsed the 3 rotating bodies into one indistinguishable
-          // "variant" for the push-performance table; see buildMessage()'s
-          // own doc comment.
+          // push_events logging (Task 3, 04.10.2026). variantId = the push
+          // library row the copy came from (was `${title}__b${bodyIndex}`),
+          // so the push-performance table is per library row.
           measurement: {
-            variantId: `${title}__b${bodyIndex}`,
+            variantId: copy.rowId,
             category: 'ScheduledWorkout',
             persona: 'generic',
+            pushType: copy.pushType,
+            copyRowId: copy.rowId,
           },
         });
         totalDelivered += result.delivered;
         logger.info(
-          `[training-reminder] "${title}" uids=${uids.length} ` +
+          `[training-reminder] "${copy.title}" row=${copy.rowId} uids=${uids.length} ` +
             `result=${JSON.stringify(result)}`,
         );
       } catch (err: unknown) {
-        logger.error(`[training-reminder] sendPush failed for "${title}"`, err);
+        logger.error(`[training-reminder] sendPush failed for "${copy.title}"`, err);
       }
     }
 

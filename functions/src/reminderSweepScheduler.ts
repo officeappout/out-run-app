@@ -107,6 +107,12 @@
  *   the sibling scheduler's gated replacement for entries with a
  *   startTime, by design.
  *
+ * COPY
+ * ────
+ * From the push library (push-copy.service.ts): pass 1 = pushType
+ * 'workout_reminder_slot', pass 2 = 'workout_reminder_before'. Resolved per
+ * recipient (audience + name), identical messages batched into one send.
+ *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
  *   REMINDER_SWEEP_BATCH      — max matched docs to process per run (default 500)
@@ -118,7 +124,19 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
-import { categoryLabel, buildMessage } from './trainingReminderScheduler';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+  type ResolvedPushCopy,
+} from './services/push-copy.service';
+import {
+  categoryLabel,
+  resolveWorkoutReminderCopy,
+  groupByCopy,
+  type ReminderRecipient,
+} from './trainingReminderScheduler';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -150,29 +168,25 @@ function resolveCurrentSlot(): { day: ReminderWeekday; time: string; dateStr: st
   return { day, time, dateStr, slotKey };
 }
 
-// Generic — this reminder slot carries no specific workout detail (unlike
-// trainingReminderScheduler's userSchedule entries, which know a category).
-// Rotated by day-of-year, same pattern as the sibling scheduler.
-const BODY_VARIANTS: string[] = [
-  'הזמן שקבעת לאימון הגיע — בוא נזוז 💪',
-  'תזכורת: זה הזמן שלך להתאמן.',
-  'רגע קטן לעצמך — האימון שקבעת מחכה.',
-];
+const USER_FETCH_BATCH = 100; // Firestore getAll() limit
 
-/**
- * Returns both the chosen body and its index (07.10.2026, push-performance
- * instrumentation) — Pass 1's `variantId` used to be the constant title
- * string alone, meaning every one of the 3 rotating bodies reported as the
- * identical "variant." The index lets the caller fold it into a real
- * per-body variantId instead.
- */
-function pickBody(): { body: string; index: number } {
-  const now = new Date();
-  const dayOfYear = Math.floor(
-    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
-  );
-  const index = dayOfYear % BODY_VARIANTS.length;
-  return { body: BODY_VARIANTS[index], index };
+/** users/{uid} docs → push-library recipients (best effort: a failed batch gets generic copy). */
+async function loadRecipients(db: admin.firestore.Firestore, uids: string[]): Promise<Map<string, ReminderRecipient>> {
+  const out = new Map<string, ReminderRecipient>();
+  const unique = Array.from(new Set(uids));
+  for (let i = 0; i < unique.length; i += USER_FETCH_BATCH) {
+    const slice = unique.slice(i, i + USER_FETCH_BATCH);
+    try {
+      const snaps = await db.getAll(...slice.map((uid) => db.collection('users').doc(uid)));
+      snaps.forEach((snap, idx) => {
+        const data = snap.exists ? (snap.data() as Record<string, unknown>) : undefined;
+        out.set(slice[idx], { uid: slice[idx], firstName: firstNameFromUserData(data), audience: audienceFromUserData(data) });
+      });
+    } catch (err) {
+      logger.warn('[reminder-sweep] users getAll failed for a batch, generic copy for it', err);
+    }
+  }
+  return out;
 }
 
 /** Fallback lead-time (minutes) when reminderSweepLeadMinutes is absent/invalid. */
@@ -206,6 +220,7 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
 
   // ── Match query ─────────────────────────────────────────────────────
   let matchedUids: string[];
+  const recipientByUid = new Map<string, ReminderRecipient>();
   try {
     const snap = await db
       .collection('users')
@@ -213,6 +228,10 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
       .limit(BATCH_LIMIT)
       .get();
     matchedUids = snap.docs.map((d) => d.id);
+    snap.docs.forEach((d) => {
+      const data = d.data() as Record<string, unknown>;
+      recipientByUid.set(d.id, { uid: d.id, firstName: firstNameFromUserData(data), audience: audienceFromUserData(data) });
+    });
   } catch (err) {
     logger.error('[reminder-sweep] Pass 1 — users query failed', err);
     return;
@@ -251,31 +270,42 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
   logger.info(`[reminder-sweep] Pass 1 — ${claimedUids.length}/${matchedUids.length} uid(s) claimed (not already fired today)`);
   if (claimedUids.length === 0) return;
 
-  const title = '⏰ זמן להתאמן';
-  const { body, index: bodyIndex } = pickBody();
-
-  try {
-    const result = await sendPush({
-      toUids: claimedUids,
-      channel: 'training_reminder',
-      title,
-      body,
-      deepLink: '/',
-      data: { triggerType: 'ReminderSweep', day, time },
-      rateCapHours: 22, // same tolerance as trainingReminderScheduler
-      skipQuietHours: false, // a user-chosen slot can legitimately fall in quiet hours — suppress, don't reroute
-      measurement: {
-        // title is a constant for this pass — variantId folds in bodyIndex
-        // (07.10.2026) so the 3 rotating bodies are distinguishable in the
-        // push-performance table; previously every send reported identically.
-        variantId: `${title}__b${bodyIndex}`,
-        category: 'ReminderSweep', // distinct from trainingReminderScheduler's 'ScheduledWorkout' — by explicit decision, not de-duped
-        persona: 'generic',
-      },
+  // ── Copy per recipient (push library 'workout_reminder_slot'), batched ──
+  const resolved: Array<{ item: { uid: string }; copy: ResolvedPushCopy }> = [];
+  for (const uid of claimedUids) {
+    const r = recipientByUid.get(uid) ?? { uid, firstName: '', audience: {} };
+    const copy = await resolvePushCopy('workout_reminder_slot', {
+      uid,
+      audience: r.audience,
+      vars: { '@שם': r.firstName, '@שעה': time },
     });
-    logger.info(`[reminder-sweep] Pass 1 — day=${day} time=${time} claimed=${claimedUids.length} result=${JSON.stringify(result)}`);
-  } catch (err) {
-    logger.error('[reminder-sweep] Pass 1 — sendPush failed', err);
+    if (copy) resolved.push({ item: { uid }, copy });
+  }
+
+  for (const { copy, uids } of groupByCopy(resolved)) {
+    try {
+      const result = await sendPush({
+        toUids: uids,
+        channel: 'training_reminder',
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { triggerType: 'ReminderSweep', day, time, ...pushCopyData(copy) },
+        rateCapHours: 22, // same tolerance as trainingReminderScheduler
+        skipQuietHours: false, // a user-chosen slot can legitimately fall in quiet hours — suppress, don't reroute
+        measurement: {
+          // variantId = the push library row (was `${title}__b${bodyIndex}`).
+          variantId: copy.rowId,
+          category: 'ReminderSweep', // distinct from trainingReminderScheduler's 'ScheduledWorkout' — by explicit decision, not de-duped
+          persona: 'generic',
+          pushType: copy.pushType,
+          copyRowId: copy.rowId,
+        },
+      });
+      logger.info(`[reminder-sweep] Pass 1 — day=${day} time=${time} row=${copy.rowId} uids=${uids.length} result=${JSON.stringify(result)}`);
+    } catch (err) {
+      logger.error('[reminder-sweep] Pass 1 — sendPush failed', err);
+    }
   }
 }
 
@@ -374,39 +404,39 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
   logger.info(`[reminder-sweep] Pass 2 — ${claimed.length}/${candidates.length} entr(y/ies) claimed (not already fired)`);
   if (claimed.length === 0) return;
 
-  // ── Group by message, same reuse-the-category-copy approach as
-  // trainingReminderScheduler — a user with a unique category/time gets
-  // its own sendPush call, but identical messages batch together. ──────
-  const byMessage = new Map<string, { uids: string[]; title: string; body: string; bodyIndex: number }>();
+  // ── Copy per recipient (push library 'workout_reminder_before', same
+  // category-aware path as trainingReminderScheduler), identical messages
+  // batched together. ───────────────────────────────────────────────────
+  const recipients = await loadRecipients(db, claimed.map((c) => c.uid));
+  const resolved: Array<{ item: WorkoutEntryCandidate; copy: ResolvedPushCopy }> = [];
   for (const c of claimed) {
-    const msg = buildMessage(c.workoutLabel, c.startTime);
-    const key = `${msg.title}|${msg.body}`;
-    if (!byMessage.has(key)) byMessage.set(key, { uids: [], title: msg.title, body: msg.body, bodyIndex: msg.bodyIndex });
-    byMessage.get(key)!.uids.push(c.uid);
+    const r = recipients.get(c.uid) ?? { uid: c.uid, firstName: '', audience: {} };
+    const copy = await resolveWorkoutReminderCopy('workout_reminder_before', r, c.workoutLabel, c.startTime);
+    if (copy) resolved.push({ item: c, copy });
   }
 
-  for (const [, { uids, title, body, bodyIndex }] of byMessage) {
+  for (const { copy, uids } of groupByCopy(resolved)) {
     try {
       const result = await sendPush({
         toUids: uids,
         channel: 'training_reminder',
-        title,
-        body,
-        deepLink: '/',
-        data: { triggerType: 'ReminderSweepWorkout', leadMinutes: String(leadMinutes) },
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { triggerType: 'ReminderSweepWorkout', leadMinutes: String(leadMinutes), ...pushCopyData(copy) },
         rateCapHours: 22,
         skipQuietHours: false, // same reasoning as trainingReminderScheduler — a near-workout reminder can legitimately fall in quiet hours; suppress, don't reroute
         measurement: {
-          // variantId folds in bodyIndex (07.10.2026) — see buildMessage()'s
-          // own doc comment; title alone hid the 3 rotating bodies.
-          variantId: `${title}__b${bodyIndex}`,
+          variantId: copy.rowId, // the push library row (was `${title}__b${bodyIndex}`)
           category: 'ReminderSweepWorkout', // distinct from Pass 1's 'ReminderSweep' and the sibling scheduler's 'ScheduledWorkout'
           persona: 'generic',
+          pushType: copy.pushType,
+          copyRowId: copy.rowId,
         },
       });
-      logger.info(`[reminder-sweep] Pass 2 — "${title}" uids=${uids.length} result=${JSON.stringify(result)}`);
+      logger.info(`[reminder-sweep] Pass 2 — "${copy.title}" row=${copy.rowId} uids=${uids.length} result=${JSON.stringify(result)}`);
     } catch (err) {
-      logger.error(`[reminder-sweep] Pass 2 — sendPush failed for "${title}"`, err);
+      logger.error(`[reminder-sweep] Pass 2 — sendPush failed for "${copy.title}"`, err);
     }
   }
 }

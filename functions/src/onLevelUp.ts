@@ -17,7 +17,11 @@
  * every message on this channel celebrates the user's own completed
  * progress, never an app-initiated ask to do something.
  *
- * Deep-link: '/' (home / league) — users see their new rank on return.
+ * Copy + deep link: the push library (push-copy.service.ts, pushType
+ * 'level_up'), with the level as a condition (per-level copy beats the
+ * generic "@רמה" copy). Default deep link: the active program's progression
+ * map (/progression-map/<templateId>), or /progression when there is no
+ * active program.
  *
  * Axiom compliance:
  *   • progression.globalLevel is the server-canonical value written only by
@@ -30,28 +34,38 @@ import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+} from './services/push-copy.service';
+import type { PushCopyContext } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-/** Maps level numbers to copy. Level 1 is the initial state — never pushes on first sign-up. */
-const LEVEL_MESSAGES: Record<number, { title: string; body: string }> = {
-  2:  { title: '🏅 עלית לרמה 2!', body: 'אתה בדרך הנכונה — המשך לאמן ותראה שינוי אמיתי.' },
-  3:  { title: '💪 רמה 3 הושגה!', body: 'שלושה שבועות של עקביות. אתה לא ממוצע.' },
-  4:  { title: '⚡ רמה 4!', body: 'רבע מהדרך לרמה 5 — כל אימון מוסיף.' },
-  5:  { title: '🔥 רמה 5 — נגע יותר חזק!', body: 'הגעת לרמה חשובה. הגוף שלך כבר שונה מלפני חודש.' },
-  6:  { title: '🎯 רמה 6', body: 'תמשיך ברצף שלך — כל יום ספירה.' },
-  7:  { title: '⭐ רמה 7', body: 'אתה בטופ של הרשות שלך. מרשים.' },
-  8:  { title: '🚀 רמה 8!', body: 'רק 2 רמות לסיום הליגה — תשאר ממוקד.' },
-  9:  { title: '👑 רמה 9!', body: 'כמעט שם. רמה 10 היא מטרה שמעטים מגיעים אליה.' },
-  10: { title: '🏆 רמה 10 — מקסימום!', body: 'הגעת לרמה הגבוהה ביותר. ברכות, זה מסע אמיתי.' },
-};
+/** The user's first active program (raw users/{uid}.progression.activePrograms[0]). */
+function firstActiveProgram(user: Record<string, unknown>): { id: string; name: string } | null {
+  const list = (user.progression as Record<string, unknown> | undefined)?.activePrograms;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const p = list[0] as Record<string, unknown>;
+  const id = typeof p.templateId === 'string' && p.templateId ? p.templateId : typeof p.id === 'string' ? p.id : '';
+  return id ? { id, name: typeof p.name === 'string' ? p.name : '' } : null;
+}
 
-const DEFAULT_LEVEL_MESSAGE = (level: number) => ({
-  title: `⚡ עלית לרמה ${level}!`,
-  body: 'כל אימון מוסיף — המשך.',
-});
+/** Push-library context for a level-up. Exported for tests. */
+export function levelUpCopyContext(uid: string, newLevel: number, user: Record<string, unknown>): PushCopyContext {
+  const program = firstActiveProgram(user);
+  return {
+    uid,
+    audience: audienceFromUserData(user),
+    vars: { '@שם': firstNameFromUserData(user), '@רמה': String(newLevel), '@תוכנית': program?.name },
+    conditions: { level: String(newLevel) },
+    params: { programId: program?.id },
+  };
+}
 
 export const onLevelUp = onDocumentUpdated(
   {
@@ -82,18 +96,18 @@ export const onLevelUp = onDocumentUpdated(
     // Never push for level 1 (initial state on account creation)
     if (newLevel <= 1) return;
 
-    const msg = LEVEL_MESSAGES[newLevel] ?? DEFAULT_LEVEL_MESSAGE(newLevel);
-
     logger.info(`[onLevelUp] uid=${uid} level ${prevLevel} → ${newLevel}`);
 
     try {
+      const copy = await resolvePushCopy('level_up', levelUpCopyContext(uid, newLevel, after));
+      if (!copy) return;
       const result = await sendPush({
         toUids: [uid],
         channel: 'progression',
-        title: msg.title,
-        body: msg.body,
-        deepLink: '/',
-        data: { newLevel: String(newLevel), prevLevel: String(prevLevel) },
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { newLevel: String(newLevel), prevLevel: String(prevLevel), ...pushCopyData(copy) },
         rateCapHours: 24,
       });
       logger.info(`[onLevelUp] uid=${uid} result=${JSON.stringify(result)}`);
