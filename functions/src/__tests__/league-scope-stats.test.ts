@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   activityOf,
   creditOf,
+  distanceMetersOfDay,
+  isCountedMember,
   minutesOf,
   periodKeysFor,
   scopeTargetsFor,
   statsDocId,
+  stepsDayDelta,
+  STEPS_PER_KM_ESTIMATE,
 } from '../lib/league-scope-stats';
 
 describe('activityOf', () => {
@@ -71,4 +75,43 @@ describe('scopeTargetsFor', () => {
 
 it('statsDocId', () => {
   expect(statsDocId('weekly', 'W2026-10-11', { granularity: 'neighborhood', scopeId: 'n1' })).toBe('weekly_W2026-10-11_neighborhood_n1');
+});
+
+describe('distanceMetersOfDay', () => {
+  it('prefers the synced distance', () => {
+    expect(distanceMetersOfDay(5000, 4210.6)).toBe(4211);
+  });
+  it('falls back to the steps estimate (same 1,300 steps/km as the steps screen)', () => {
+    expect(STEPS_PER_KM_ESTIMATE).toBe(1300);
+    expect(distanceMetersOfDay(1300, undefined)).toBe(1000);
+    expect(distanceMetersOfDay(6500, 0)).toBe(5000);
+    expect(distanceMetersOfDay(650, null)).toBe(500);
+  });
+  it('nothing → 0', () => {
+    expect(distanceMetersOfDay(undefined, undefined)).toBe(0);
+    expect(distanceMetersOfDay('x', -3)).toBe(0);
+    expect(distanceMetersOfDay(NaN, NaN)).toBe(0);
+  });
+});
+
+describe('stepsDayDelta', () => {
+  it('first run adds everything', () => {
+    expect(stepsDayDelta(undefined, 15, 4000)).toEqual({ credit: 15, distanceMeters: 4000 });
+  });
+  it('old markers without distance add the whole day once', () => {
+    expect(stepsDayDelta({ credit: 15 }, 15, 4000)).toEqual({ credit: 0, distanceMeters: 4000 });
+  });
+  it('adds only what grew, never subtracts, each independently', () => {
+    expect(stepsDayDelta({ credit: 15, distanceMeters: 4000 }, 21, 3500)).toEqual({ credit: 6, distanceMeters: 0 });
+    expect(stepsDayDelta({ credit: 15, distanceMeters: 4000 }, 12, 4600)).toEqual({ credit: 0, distanceMeters: 600 });
+  });
+});
+
+describe('isCountedMember', () => {
+  it('only members with points are active', () => {
+    expect(isCountedMember(undefined)).toBe(false);
+    expect(isCountedMember({})).toBe(false);
+    expect(isCountedMember({ credit: 0 })).toBe(false);
+    expect(isCountedMember({ credit: 3 })).toBe(true);
+  });
 });

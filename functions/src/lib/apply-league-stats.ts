@@ -9,11 +9,14 @@ import type { firestore } from 'firebase-admin';
 import {
   activityOf,
   creditOf,
+  distanceMetersOfDay,
+  isCountedMember,
   minutesOf,
   periodKeysFor,
   scopeTargetsFor,
   statsDocId,
   stepsCreditOf,
+  stepsDayDelta,
   type LeagueActivity,
   type LeagueWindow,
 } from './league-scope-stats';
@@ -58,7 +61,8 @@ export async function applyWorkoutToLeagueStats(
     for (const { w, t, ref, member, stat, mem } of reads) {
       const s = stat.data() ?? {};
       const m = mem.data() ?? {};
-      const newMember = !mem.exists;
+      // Not yet counted (no doc, or a km-only doc from leagueStepsRollup).
+      const newMember = !isCountedMember(m);
       const activities: string[] = Array.isArray(m.activities) ? m.activities : [];
       const newInActivity = !activities.includes(activity);
       const byActivity = { ...(s.byActivity ?? {}) } as Record<string, Bucket>;
@@ -82,12 +86,15 @@ export async function applyWorkoutToLeagueStats(
         // Invite bonuses (apply-referral-bonus.ts) live inside totalCredit;
         // keep their separate tally across this full-doc write.
         ...(typeof s.bonusCredit === 'number' ? { bonusCredit: s.bonusCredit } : {}),
+        // The km (leagueStepsRollup) — kept across this full-doc write too.
+        ...(typeof s.distanceMeters === 'number' ? { distanceMeters: s.distanceMeters } : {}),
         updatedAt: serverTimestamp(),
       });
       tx.set(member, {
         credit: (typeof m.credit === 'number' ? m.credit : 0) + credit,
         activities: newInActivity ? [...activities, activity] : activities,
         gender,
+        ...(typeof m.distanceMeters === 'number' ? { distanceMeters: m.distanceMeters } : {}),
         updatedAt: serverTimestamp(),
       });
     }
@@ -100,11 +107,14 @@ export type StepsApplyResult = 'applied' | 'no-change' | 'no-scope' | 'no-user';
 
 /**
  * applyStepsToLeagueStats — a day's steps into the league aggregates, as the
- * 'steps' bucket (stepsCreditOf: 3 points per 1,000). Steps grow during the
- * day, so this is idempotent by DELTA: league_steps_applied/{uid}_{date}
- * remembers the credit already added for that day, and each run adds only
- * the difference (never subtracts). A day with steps counts its walker as an
- * active member, like a workout does.
+ * 'steps' bucket (stepsCreditOf: 3 points per 1,000), plus the day's
+ * distance as a separate km tally (distanceMetersOfDay — shown next to the
+ * points, never part of them). Steps grow during the day, so this is
+ * idempotent by DELTA: league_steps_applied/{uid}_{date} remembers the credit
+ * AND the meters already added for that day, and each run adds only the
+ * differences (never subtracts). A day with step points counts its walker as
+ * an active member, like a workout does; distance alone (under 1,000 steps)
+ * adds km but never points, members or activities.
  */
 export async function applyStepsToLeagueStats(
   db: firestore.Firestore,
@@ -112,10 +122,12 @@ export async function applyStepsToLeagueStats(
   uid: string,
   date: string,
   steps: unknown,
+  distanceMeters?: unknown,
 ): Promise<StepsApplyResult> {
   if (!uid || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'no-user';
   const credit = stepsCreditOf(steps);
-  if (credit <= 0) return 'no-change';
+  const meters = distanceMetersOfDay(steps, distanceMeters);
+  if (credit <= 0 && meters <= 0) return 'no-change';
 
   const u = (await db.collection('users').doc(uid).get()).data();
   if (!u) return 'no-user';
@@ -130,9 +142,9 @@ export async function applyStepsToLeagueStats(
 
   return db.runTransaction(async (tx) => {
     const applied = (await tx.get(appliedRef)).data();
-    const prev = typeof applied?.credit === 'number' ? applied.credit : 0;
-    const delta = credit - prev;
-    if (delta <= 0) return 'no-change' as const;
+    const d = stepsDayDelta(applied, credit, meters);
+    if (d.credit <= 0 && d.distanceMeters <= 0) return 'no-change' as const;
+    const delta = d.credit;
     const refs = WINDOWS.flatMap((w) =>
       targets.map((t) => {
         const ref = db.collection('league_scope_stats').doc(statsDocId(w, keys[w], t));
@@ -143,7 +155,25 @@ export async function applyStepsToLeagueStats(
     for (const { w, t, ref, member, stat, mem } of reads) {
       const s = stat.data() ?? {};
       const m = mem.data() ?? {};
-      const newMember = !mem.exists;
+      const docMeters = (typeof s.distanceMeters === 'number' ? s.distanceMeters : 0) + d.distanceMeters;
+      const memberMeters = (typeof m.distanceMeters === 'number' ? m.distanceMeters : 0) + d.distanceMeters;
+      if (delta <= 0) {
+        // Km only — points, members, activities and gender buckets untouched.
+        tx.set(
+          ref,
+          { window: w, periodKey: keys[w], granularity: t.granularity, scopeId: t.scopeId, parentId: t.parentId, distanceMeters: docMeters, updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+        tx.set(
+          member,
+          mem.exists
+            ? { distanceMeters: memberMeters, updatedAt: serverTimestamp() }
+            : { credit: 0, activities: [], gender, distanceMeters: memberMeters, updatedAt: serverTimestamp() },
+          { merge: true },
+        );
+        continue;
+      }
+      const newMember = !isCountedMember(m);
       const activities: string[] = Array.isArray(m.activities) ? m.activities : [];
       const newInActivity = !activities.includes(activity);
       const byActivity = { ...(s.byActivity ?? {}) } as Record<string, Bucket>;
@@ -165,16 +195,26 @@ export async function applyStepsToLeagueStats(
         byActivity,
         byGender,
         ...(typeof s.bonusCredit === 'number' ? { bonusCredit: s.bonusCredit } : {}),
+        ...(docMeters > 0 ? { distanceMeters: docMeters } : {}),
         updatedAt: serverTimestamp(),
       });
       tx.set(member, {
         credit: (typeof m.credit === 'number' ? m.credit : 0) + delta,
         activities: newInActivity ? [...activities, activity] : activities,
         gender,
+        ...(memberMeters > 0 ? { distanceMeters: memberMeters } : {}),
         updatedAt: serverTimestamp(),
       });
     }
-    tx.set(appliedRef, { uid, date, credit, steps: typeof steps === 'number' ? steps : null, updatedAt: serverTimestamp() });
+    // Remember the max applied so far for each (deltas never go negative).
+    tx.set(appliedRef, {
+      uid,
+      date,
+      credit: Math.max(credit, typeof applied?.credit === 'number' ? applied.credit : 0),
+      distanceMeters: Math.max(meters, typeof applied?.distanceMeters === 'number' ? applied.distanceMeters : 0),
+      steps: typeof steps === 'number' ? steps : null,
+      updatedAt: serverTimestamp(),
+    });
     return 'applied' as const;
   });
 }

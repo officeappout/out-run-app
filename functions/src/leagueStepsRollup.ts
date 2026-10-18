@@ -5,6 +5,10 @@
  * so re-running only adds what's new). Yesterday is included so the steps
  * walked after the last run before midnight still count.
  *
+ * The same pass adds the day's distance (dailyActivity.distanceMeters, or the
+ * steps estimate) as a separate km tally — shown next to the points, never
+ * part of them. A day under 1,000 steps still adds its km (no points).
+ *
  * Scheduled, not a dailyActivity write trigger, for the same reason as
  * dailyActivityPublicSync: passive health sync writes that doc many times a
  * day, and the leagues are not a real-time screen.
@@ -13,6 +17,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { applyStepsToLeagueStats } from './lib/apply-league-stats';
+import { distanceMetersOfDay } from './lib/league-scope-stats';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -30,9 +35,10 @@ export const leagueStepsRollup = onSchedule({ schedule: '15 * * * *', timeZone: 
     for (const doc of snap.docs) {
       const d = doc.data();
       const uid = typeof d.userId === 'string' ? d.userId : '';
-      if (!uid || !(typeof d.steps === 'number' && d.steps >= 1000)) continue;
+      const hasStepPoints = typeof d.steps === 'number' && d.steps >= 1000;
+      if (!uid || !(hasStepPoints || distanceMetersOfDay(d.steps, d.distanceMeters) > 0)) continue;
       try {
-        const r = await applyStepsToLeagueStats(db, () => admin.firestore.FieldValue.serverTimestamp(), uid, date, d.steps);
+        const r = await applyStepsToLeagueStats(db, () => admin.firestore.FieldValue.serverTimestamp(), uid, date, d.steps, d.distanceMeters);
         tally[r] = (tally[r] ?? 0) + 1;
       } catch (e) {
         tally.error = (tally.error ?? 0) + 1;

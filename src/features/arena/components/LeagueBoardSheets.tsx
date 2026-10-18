@@ -265,6 +265,8 @@ export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
  *    (MAX_BONUSES_PER_WEEK) per referrer per week; not an active member.
  *  - order: per active member (totalScore ÷ activeMemberCount) is the
  *    official order; week = from Sunday, month = calendar, Asia/Jerusalem.
+ *  - km: a separate distanceMeters tally (leagueStepsRollup — synced
+ *    distance, or steps ÷ 1,300), never added to totalCredit.
  */
 export function ScopePointsContent() {
   const rows: HowRow[] = [
@@ -305,6 +307,7 @@ export function ScopePointsContent() {
         </div>
       ))}
       <p className="text-[12px] text-v2-muted px-1 pt-1">נקודות XP ורמות לא נספרות בדירוג הליגה.</p>
+      <p className="text-[12px] text-v2-muted px-1">הק״מ שמוצגים ליד הנקודות הם בשביל הכיף — הם לא משפיעים על הנקודות או על הדירוג.</p>
     </div>
   );
 }

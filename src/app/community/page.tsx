@@ -83,6 +83,8 @@ import type {
   LeaderboardEntry,
   ScopeCompetitionEntry,
 } from '@/features/arena/services/ranking.service';
+import { getMyLeagueContribution } from '@/features/arena/services/ranking.service';
+import { formatKm } from '@/features/arena/components/league-board-logic';
 import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import { CATEGORY_UNIT_LABEL } from '@/features/arena/components/scope-category-unit-label';
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
@@ -283,6 +285,25 @@ export default function CommunityPage() {
   useEffect(() => {
     setActiveMyEntry(null);
   }, [selectedLeague]);
+
+  // Home v2: your own km for the bubbled scope this week / month — the
+  // contribution card's "תרמת X ק״מ" line (your member row only, via
+  // /api/leagues/my-contribution). Shown for fun; never part of the points.
+  const [myScopeKm, setMyScopeKm] = useState<{ key: string; km: number } | null>(null);
+  const myScopeKmGranularity: 'city' | 'neighborhood' =
+    activeScopeEntry && activeScopeEntry.scopeId === access.neighborhoodAuthorityId ? 'neighborhood' : 'city';
+  const myScopeKmKey = activeScopeEntry ? `${myScopeKmGranularity}:${activeScopeEntry.scopeId}:${leaderboardTimeWindow}` : '';
+  useEffect(() => {
+    if (!featureFlags.enableHomeV2 || !activeScopeEntry || leaderboardTimeWindow === 'daily') return;
+    let alive = true;
+    const key = myScopeKmKey;
+    getMyLeagueContribution({ granularity: myScopeKmGranularity, scopeId: activeScopeEntry.scopeId, timeWindow: leaderboardTimeWindow }).then((r) => {
+      if (alive && r) setMyScopeKm({ key, km: r.totalKm });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [featureFlags.enableHomeV2, myScopeKmKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Social groups (family/friends) for the league carousel ───────────────
   // Loaded once from profile.social.groupIds — only groups of type 'family'
@@ -1467,6 +1488,7 @@ export default function CommunityPage() {
   function renderScopeContribution(scopeTypeLabel: string) {
     if (!activeScopeEntry) return null;
     const windowPhrase = leaderboardTimeWindow === 'daily' ? 'היום' : leaderboardTimeWindow === 'weekly' ? 'השבוע' : 'החודש';
+    const myKm = myScopeKm && myScopeKm.key === myScopeKmKey && leaderboardTimeWindow !== 'daily' ? myScopeKm.km : 0;
     return (
       <div
         className="rounded-v2-card p-4 text-v2-ink relative overflow-hidden mb-3 border border-v2-hairline-cool bg-gradient-to-br from-[#e8f9fe] to-[#e9fdfb]"
@@ -1487,6 +1509,11 @@ export default function CommunityPage() {
                 ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
                 : CATEGORY_UNIT_LABEL[leaderboardCategory]}
             </p>
+            {featureFlags.enableHomeV2 && myKm > 0 && (
+              <p className="mt-0.5 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2 tabular-nums">
+                תרמת {formatKm(myKm)} ק״מ {myScopeKmGranularity === 'neighborhood' ? 'לשכונה' : 'לעיר'} {windowPhrase}
+              </p>
+            )}
           </div>
           <div
             className="text-center rounded-v2-tile px-3 py-1.5 flex-shrink-0 bg-white shadow-v2-ring"
