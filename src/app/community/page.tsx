@@ -41,6 +41,7 @@ import {
   readPendingShare,
   saveFeedPrefs,
   type FeedPrefs,
+  type ShareChoice,
 } from '@/features/social/services/feed-prefs';
 import { FeedPrivacySheet, FeedShareSheet, SharePromptCard, type ShareableWorkout } from '@/features/social/components/FeedPublishSheets';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
@@ -775,11 +776,11 @@ export default function CommunityPage() {
   // ─── Feed tab ───────────────────────────────────────────────────────────
 
 
-  async function handlePublishPending(choice: { audience: FeedPrefs['audience']; showPark: boolean; showRoute: boolean; title?: string }) {
+  async function handlePublishPending(choice: ShareChoice) {
     if (!pendingShare || publishBusy) return;
     setPublishBusy(true);
     const params = applyShareChoice(pendingShare, choice);
-    const id = await createWorkoutPost(params, { manual: true });
+    const id = await createWorkoutPost(params, { manual: true, photo: choice.photo ?? null });
     setPublishBusy(false);
     if (id) {
       clearPendingShare();
@@ -834,6 +835,7 @@ export default function CommunityPage() {
             setShareOpen(false);
             setPrivacyOpen(true);
           }}
+          allowPhoto
         />
         <FeedPrivacySheet
           open={privacyOpen}

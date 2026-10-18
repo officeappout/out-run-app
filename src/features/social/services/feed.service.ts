@@ -18,6 +18,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { applyFeedPrefs, feedPrefsFrom, savePendingShare } from './feed-prefs';
 import { alignScopeWithAuthorDoc } from './feed-scope.utils';
+import { postDetailsForWrite, withoutPostDetails, type FeedPostDetails } from './feed-post-details';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -26,7 +27,7 @@ import { alignScopeWithAuthorDoc } from './feed-scope.utils';
 export type FeedPostType = 'workout';
 export type FeedAudience = 'public' | 'partners' | 'private';
 
-export interface FeedPost {
+export interface FeedPost extends FeedPostDetails {
   id: string;
   authorUid: string;
   authorName: string;
@@ -104,13 +105,19 @@ export async function createWorkoutPost(params: {
   groupIds?: string[];
   /** Location-free route line (feed-route.ts) — cardio, home v2 only. */
   routeShape?: number[];
-}, opts: {
+} & FeedPostDetails, opts: {
   /**
    * The user tapped "share" (the feed's share prompt). Without it a post is
    * published only when the author turned auto-publish on for this activity
    * (users/{uid}.social.feedPrefs); otherwise it's kept as a pending share.
    */
   manual?: boolean;
+  /**
+   * Home v2: one photo the user picked in the share sheet (already
+   * compressed — feed-photo.ts). Uploaded only when the post is published;
+   * an upload failure publishes the post without it.
+   */
+  photo?: Blob | null;
 } = {}): Promise<string | null> {
   try {
     // Feature flag guard — skip post creation when community feed is disabled
@@ -141,9 +148,14 @@ export async function createWorkoutPost(params: {
       return null;
     }
     // The route line is a home v2 post (enable_home_v2, super admins always).
-    if (params.routeShape && !(flags.enable_home_v2 === true || isSuperAdmin)) {
-      params = { ...params };
-      delete params.routeShape;
+    // So are the detail fields (feed-post-details.ts) and the photo.
+    const homeV2 = flags.enable_home_v2 === true || isSuperAdmin;
+    if (!homeV2) {
+      params = withoutPostDetails(params);
+      if (params.routeShape) {
+        params = { ...params };
+        delete params.routeShape;
+      }
     }
     // Opt-in publishing (feed-prefs.ts).
     const prefsRaw = (me?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs;
@@ -155,6 +167,17 @@ export async function createWorkoutPost(params: {
     }
     // Rule-checked scope fields must equal the author's doc (feed-scope.utils).
     params = alignScopeWithAuthorDoc(decision.params, me);
+
+    // The photo goes up only now that the post is really being published.
+    if (homeV2 && opts.photo) {
+      try {
+        const { uploadFeedPhoto } = await import('./feed-photo');
+        const up = await uploadFeedPhoto(params.authorUid, opts.photo);
+        params = { ...params, photoUrl: up.url, photoPath: up.path };
+      } catch (photoErr) {
+        console.warn('[FeedService] Photo upload failed — publishing without it:', photoErr);
+      }
+    }
 
     const multiplier = CREDIT_MULTIPLIER[params.activityCategory] ?? 1;
     const activityCredit = params.durationMinutes * multiplier;
@@ -185,6 +208,7 @@ export async function createWorkoutPost(params: {
       ...(params.activityCategory === 'cardio' && params.routeShape && params.routeShape.length >= 6
         ? { routeShape: params.routeShape }
         : {}),
+      ...postDetailsForWrite(params),
       createdAt: serverTimestamp(),
     });
 
@@ -262,6 +286,11 @@ export async function getUserPosts(
  * because we'd have to read & batch-delete an unbounded subcollection
  * from an authenticated user that may not even own those reaction docs.
  */
-export async function deleteFeedPost(postId: string): Promise<void> {
+export async function deleteFeedPost(postId: string, photoPath?: string): Promise<void> {
   await deleteDoc(doc(db, 'feed_posts', postId));
+  // Home v2: the post's photo (feed-photo.ts) goes with it — best-effort.
+  if (photoPath) {
+    const { deleteFeedPhoto } = await import('./feed-photo');
+    await deleteFeedPhoto(photoPath);
+  }
 }

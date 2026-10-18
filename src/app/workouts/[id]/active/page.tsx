@@ -42,6 +42,10 @@ import { calculateStrengthWorkoutXP } from '@/features/user/progression/services
 import { createWorkoutPost } from '@/features/social/services/feed.service';
 import { extractFeedScope, extractGroupIds } from '@/features/social/services/feed-scope.utils';
 import { postPlanForDecision, type SummaryShareDecision } from '@/features/social/services/feed-prefs';
+import { buildStrengthPostDetails, type FeedPostDetails } from '@/features/social/services/feed-post-details';
+import { buildPhaseSummary } from '@/features/workout-engine/components/strength/utils/phase-summary';
+import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { IS_COMMUNITY_FEED_ENABLED, STRENGTH_SUMMARY_V2_ENABLED, STRENGTH_RESUME_CHECKPOINT_ENABLED, RECOVERY_WORKOUT_CATEGORIZATION_ENABLED, RECOVERY_VIDEO_SKIP_SUMMARY_ENABLED, RECOVERY_VIDEO_EXIT_BUTTON_ENABLED, RECOVERY_VIDEO_DEFAULT_AUDIO_ENABLED } from '@/config/feature-flags';
 import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared/utils/recovery-video-trio.utils';
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
@@ -714,6 +718,13 @@ export default function ActiveWorkoutPage() {
       programId: activeProgramId,
       currentLevel,
       maxLevel: domain?.maxLevel ?? 25,
+      // Home v2 feed post only: the level count when it's really known (the
+      // master cap, or the seeded domain.maxLevel) — never the 25 fallback.
+      knownLevelCount: masterChildren
+        ? MASTER_LEVEL_CAP
+        : typeof domain?.maxLevel === 'number' && domain.maxLevel > 0
+          ? (domain.maxLevel as number)
+          : null,
       percent,
       streak: prog?.globalStreak ?? 0,
     };
@@ -1478,6 +1489,28 @@ export default function ActiveWorkoutPage() {
       // No card choice → exactly as before. "לא הפעם" on the summary card →
       // no post (and no pending share); "פרסום" → a manual post with the
       // sheet's audience / park / title.
+      // Home v2 post details (feed-post-details.ts) — only what this
+      // summary already knows; createWorkoutPost drops them for users
+      // without enable_home_v2.
+      let postDetails: FeedPostDetails = {};
+      try {
+        postDetails = buildStrengthPostDetails({
+          phases: buildPhaseSummary({
+            completedExercises: workoutStats.completedExercises,
+            rawLog: workoutStats.rawExerciseLog,
+            segments: stableWorkoutPlan?.segments,
+            previousSets: exerciseHistoryMap,
+          }),
+          programName: PROGRAM_NAME_HE[resolveToSlug(userProgression.programId)] ?? PROGRAM_NAME_HE[userProgression.programId] ?? null,
+          levelIndex: userProgression.knownLevelCount ? userProgression.currentLevel : null,
+          levelCount: userProgression.knownLevelCount,
+          // After runActivitySync above — the same streak the home shows.
+          streakDays: useActivityStore.getState().currentStreak,
+        });
+      } catch (detailErr) {
+        console.warn('[ActiveWorkoutPage] Feed post details skipped:', detailErr);
+      }
+
       const postPlan = postPlanForDecision({
         authorUid: currentUser.uid,
         authorName: profile.core.name,
@@ -1491,9 +1524,11 @@ export default function ActiveWorkoutPage() {
         ...(detectedPark
           ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
           : {}),
+        ...postDetails,
       }, feedShare);
       if (postPlan.post) {
-        createWorkoutPost(postPlan.params, postPlan.manual ? { manual: true } : undefined)
+        const photo = feedShare?.kind === 'publish' ? feedShare.choice.photo ?? null : null;
+        createWorkoutPost(postPlan.params, postPlan.manual ? { manual: true, photo } : undefined)
           .catch((err) => console.warn('[ActiveWorkoutPage] Feed post failed:', err));
       }
     }
@@ -1524,7 +1559,7 @@ export default function ActiveWorkoutPage() {
     } finally {
       _summaryFinishInFlight = false;
     }
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression, exerciseHistoryMap]);
 
   // Handle pause
   const handlePause = () => {

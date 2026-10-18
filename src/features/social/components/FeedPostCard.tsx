@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Trash2, Flag, Loader2, Flame, Users, Globe, Lock, MapPin, Trophy } from 'lucide-react';
+import { MoreHorizontal, Trash2, Flag, Loader2 } from 'lucide-react';
 import { toggleReaction, hasUserReacted } from '../services/reactions.service';
 import { deleteFeedPost, type FeedPost } from '../services/feed.service';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
-import RouteLine from './RouteLine';
+import FeedPostCardV2 from './FeedPostCardV2';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   strength: '💪',
@@ -50,28 +50,6 @@ interface FeedPostCardProps {
   onDeleted?: (postId: string) => void;
   /** Home v2 look (enable_home_v2): the design-lab post card. */
   v2?: boolean;
-}
-
-/** Activity colours — the same as the home flames. */
-const V2_ACTIVITY: Record<string, { label: string; hex: string; rgb: string; icon: string }> = {
-  strength: { label: 'כוח', hex: '#00baf7', rgb: '0,186,247', icon: '/icons/programs/muscle.svg' },
-  cardio: { label: 'אירובי', hex: '#65a30d', rgb: '132,204,22', icon: '/icons/programs/Run.svg' },
-  maintenance: { label: 'תחזוקה', hex: '#8b5cf6', rgb: '139,92,246', icon: '/icons/programs/walking.svg' },
-};
-
-const V2_AUDIENCE: Record<string, { label: string; Icon: typeof Users }> = {
-  partners: { label: 'שותפים', Icon: Users },
-  public: { label: 'כולם', Icon: Globe },
-  private: { label: 'רק אני', Icon: Lock },
-};
-
-function V2Stat({ value, unit }: { value: string; unit: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-[20px] font-black leading-none !tracking-[-0.02em] tabular-nums text-v2-ink">{value}</div>
-      <div className="mt-1 whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{unit}</div>
-    </div>
-  );
 }
 
 export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }: FeedPostCardProps) {
@@ -120,7 +98,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
     if (deleting) return;
     setDeleting(true);
     try {
-      await deleteFeedPost(post.id);
+      await deleteFeedPost(post.id, post.photoPath);
       onDeleted?.(post.id);
     } catch (err) {
       console.error('[FeedPostCard] delete failed:', err);
@@ -131,7 +109,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
     }
     // On success the card is unmounted by the parent via onDeleted, so
     // we deliberately do not reset the spinner.
-  }, [deleting, post.id, onDeleted]);
+  }, [deleting, post.id, post.photoPath, onDeleted]);
 
   const handleKudos = useCallback(
     async (e: React.MouseEvent) => {
@@ -265,99 +243,20 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
       );
 
   if (v2) {
-    const act = V2_ACTIVITY[post.activityCategory] ?? V2_ACTIVITY.strength;
-    const aud = V2_AUDIENCE[post.audience ?? 'partners'] ?? V2_AUDIENCE.partners;
-    const AudIcon = aud.Icon;
     return (
-      <article className="rounded-v2-card bg-white shadow-v2-ring" dir="rtl">
-        <div className="flex items-center gap-2.5 px-4 pb-2 pt-3.5">
-          <button type="button" onClick={navigateToProfile} className="flex min-w-0 flex-1 items-center gap-2.5 text-start">
-            <span
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[16px] font-black text-white ring-2 ring-white"
-              style={{ background: `linear-gradient(135deg, ${act.hex}, #0284c7)` }}
-              aria-hidden
-            >
-              {post.authorName.charAt(0)}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-black text-v2-ink">{post.authorName}</span>
-              <span className="flex items-center gap-1 whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                {post.parkName ? `${post.parkName} · ` : ''}
-                {timeAgo(post.createdAt)} ·
-                <AudIcon size={12} strokeWidth={2.6} aria-label={aud.label} />
-              </span>
-            </span>
-          </button>
-          {menuBlock}
-        </div>
-        {reportSheet}
-
-        <div className="px-4 pb-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[12px] font-extrabold"
-              style={{ background: `rgba(${act.rgb},0.14)`, color: act.hex }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: act.hex }} />
-              {act.label}
-            </span>
-            {post.runSegment && (
-              <span className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-full bg-[#fef3c7] px-2 text-[12px] font-extrabold text-[#92400e]">
-                <Trophy size={12} strokeWidth={2.6} aria-hidden />
-                {post.runSegment.replace('k', ' ק״מ')}
-              </span>
-            )}
-          </div>
-          {post.title && <h3 className="mt-2 text-[17px] font-black leading-snug text-v2-ink">{post.title}</h3>}
-        </div>
-
-        {isCardio && post.routeShape && (
-          <div className="px-4 pt-2">
-            <RouteLine shape={post.routeShape} label={`קו המסלול של ${post.authorName}`} />
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-2 px-4 py-3">
-          {isCardio ? (
-            <>
-              <V2Stat value={post.distanceKm != null ? post.distanceKm.toFixed(1) : '—'} unit="ק״מ" />
-              <V2Stat value={post.paceMinPerKm != null ? formatPace(post.paceMinPerKm) : '—'} unit="דק׳/ק״מ" />
-              <V2Stat value={String(post.durationMinutes)} unit="דק׳" />
-            </>
-          ) : (
-            <>
-              <V2Stat value={String(post.durationMinutes)} unit="דק׳" />
-              <V2Stat value={String(post.activityCredit)} unit="נקודות" />
-              <V2Stat value={post.intensityLevel != null ? String(post.intensityLevel) : '—'} unit="עצימות" />
-            </>
-          )}
-        </div>
-
-        {post.parkName && (
-          <div className="flex items-center gap-1 px-4 pb-3 text-[12.5px] font-bold text-v2-ink-2">
-            <MapPin size={13} strokeWidth={2.6} aria-hidden />
-            {post.parkName}
-          </div>
-        )}
-
-        {currentUid && (
-          <div className="flex items-center gap-1 border-t border-v2-hairline px-2 py-1.5">
-            <button
-              type="button"
-              aria-pressed={reacted}
-              onClick={handleKudos}
-              disabled={toggling}
-              className={`flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] font-extrabold transition-[transform,background-color,color] duration-150 ease-v2 active:scale-[0.96] ${
-                reacted ? 'bg-[#fff1e6] text-[#ea580c]' : 'text-v2-ink-2'
-              }`}
-            >
-              <Flame size={18} strokeWidth={2.4} fill={reacted ? 'currentColor' : 'none'} aria-hidden />
-              {reacted ? 'עודדת' : 'עידוד'}
-              {count > 0 && <span className="tabular-nums"> · {count}</span>}
-            </button>
-          </div>
-        )}
-      </article>
+      <FeedPostCardV2
+        post={post}
+        timeLabel={timeAgo(post.createdAt)}
+        isAuthor={isAuthor}
+        signedIn={!!currentUid}
+        reacted={reacted}
+        count={count}
+        toggling={toggling}
+        onKudos={handleKudos}
+        onProfile={navigateToProfile}
+        menu={menuBlock}
+        report={reportSheet}
+      />
     );
   }
 

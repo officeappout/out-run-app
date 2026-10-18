@@ -27,6 +27,8 @@ import {
 } from '../services/feed-prefs';
 import { createWorkoutPost } from '../services/feed.service';
 import { FeedPrivacySheet, FeedShareSheet, SummaryShareCard, type ShareableWorkout } from './FeedPublishSheets';
+import ShareImageSheet from './ShareImageSheet';
+import { shareInputFromPost } from '../services/share-image';
 
 export interface SummaryFeedShareProps {
   workout: ShareableWorkout;
@@ -46,6 +48,10 @@ export default function SummaryFeedShare({ workout, onPublish, onSkip }: Summary
   const [shareOpen, setShareOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  // The photo picked in the share sheet, offered as the share image's background.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
 
   if (status === 'skipped') return null;
 
@@ -57,6 +63,7 @@ export default function SummaryFeedShare({ workout, onPublish, onSkip }: Summary
       if (result) {
         setStatus(result);
         setShareOpen(false);
+        if (choice.photo) setPhotoUrl(URL.createObjectURL(choice.photo));
       }
     } finally {
       setBusy(false);
@@ -102,6 +109,13 @@ export default function SummaryFeedShare({ workout, onPublish, onSkip }: Summary
           setShareOpen(false);
           setPrivacyOpen(true);
         }}
+        allowPhoto
+      />
+      <ShareImageSheet
+        open={imageOpen}
+        onClose={() => setImageOpen(false)}
+        input={imageOpen ? shareInputFromPost(workout) : null}
+        photoUrl={photoUrl}
       />
       <FeedPrivacySheet
         open={privacyOpen}
@@ -120,6 +134,7 @@ export default function SummaryFeedShare({ workout, onPublish, onSkip }: Summary
         status={status}
         onShare={() => setShareOpen(true)}
         onDismiss={handleSkip}
+        onShareImage={() => setImageOpen(true)}
       />
       {typeof document !== 'undefined' ? createPortal(sheets, document.body) : null}
     </>
@@ -156,12 +171,15 @@ export function PendingSummaryFeedShare({ activity }: { activity: PendingParams[
         activityCategory: pending.activityCategory,
         durationMinutes: pending.durationMinutes,
         distanceKm: pending.distanceKm,
+        paceSecPerKm: pending.paceSecPerKm,
         title: pending.title,
         parkName: pending.parkName,
         routeShape: pending.routeShape,
+        paceSplits: pending.paceSplits,
+        streakDays: pending.streakDays,
       }}
       onPublish={async (choice) => {
-        const id = await createWorkoutPost(applyShareChoice(pending, choice), { manual: true });
+        const id = await createWorkoutPost(applyShareChoice(pending, choice), { manual: true, photo: choice.photo ?? null });
         if (!id) return false;
         clearPendingShare();
         return 'published';

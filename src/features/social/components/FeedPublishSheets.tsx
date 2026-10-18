@@ -9,10 +9,13 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Check, Globe, Lock, Settings2, Users, X } from 'lucide-react';
+import { Check, Globe, ImagePlus, Lock, Settings2, Share2, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
-import type { FeedActivity, FeedPrefs, FeedPrefsAudience } from '../services/feed-prefs';
+import { useToast } from '@/components/ui/Toast';
+import type { FeedActivity, FeedPrefs, FeedPrefsAudience, ShareChoice } from '../services/feed-prefs';
 import { routeShapeToSvg } from '../services/feed-route';
+import type { FeedPostDetails } from '../services/feed-post-details';
+import { pickFeedPhoto, type PickedPhoto } from '../services/feed-photo';
 import RouteLine from './RouteLine';
 
 const ACTIVITY: Record<FeedActivity, { label: string; rgb: string; icon: string }> = {
@@ -27,10 +30,12 @@ const AUDIENCE: Record<FeedPrefsAudience, { label: string; hint: string; Icon: t
   private: { label: 'רק אני', hint: 'נשמר אצלך, לא מתפרסם', Icon: Lock },
 };
 
-export interface ShareableWorkout {
+export interface ShareableWorkout extends FeedPostDetails {
   activityCategory: FeedActivity;
   durationMinutes: number;
   distanceKm?: number;
+  /** Average pace, seconds per km (cardio) — for the share image. */
+  paceSecPerKm?: number;
   title?: string;
   parkName?: string;
   /** Location-free route line (feed-route.ts), cardio only. */
@@ -78,12 +83,25 @@ export function SummaryShareCard({
   status,
   onShare,
   onDismiss,
+  onShareImage,
 }: {
   workout: ShareableWorkout;
   status: 'ask' | 'published' | 'queued';
   onShare: () => void;
   onDismiss: () => void;
+  /** Home v2: "שיתוף לרשתות" — the story / square image sheet. */
+  onShareImage?: () => void;
 }) {
+  const shareImageButton = onShareImage ? (
+    <button
+      type="button"
+      onClick={onShareImage}
+      aria-label="שיתוף לרשתות"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+    >
+      <Share2 size={16} strokeWidth={2.6} aria-hidden />
+    </button>
+  ) : null;
   if (status !== 'ask') {
     return (
       <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl" aria-live="polite">
@@ -98,6 +116,15 @@ export function SummaryShareCard({
             {status === 'published' ? summary(workout) : 'ברגע שתסיים/י את הסיכום'}
           </div>
         </div>
+        {onShareImage && (
+          <button
+            type="button"
+            onClick={onShareImage}
+            className="h-9 shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          >
+            שיתוף לרשתות
+          </button>
+        )}
       </div>
     );
   }
@@ -115,6 +142,7 @@ export function SummaryShareCard({
       >
         שיתוף
       </button>
+      {shareImageButton}
       <button
         type="button"
         onClick={onDismiss}
@@ -127,7 +155,7 @@ export function SummaryShareCard({
   );
 }
 
-function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
   const reduce = useReducedMotion();
   return (
     <AnimatePresence>
@@ -224,16 +252,21 @@ export function FeedShareSheet({
   onSkip,
   onClose,
   onOpenPrivacy,
+  allowPhoto = false,
 }: {
   open: boolean;
   workout: ShareableWorkout | null;
   defaults: FeedPrefs;
   busy?: boolean;
-  onPublish: (choice: { audience: FeedPrefsAudience; showPark: boolean; showRoute: boolean; title?: string }) => void;
+  onPublish: (choice: ShareChoice) => void;
   onSkip: () => void;
   onClose: () => void;
   onOpenPrivacy: () => void;
+  /** Home v2: offer "הוספת תמונה" (one photo on the post). */
+  allowPhoto?: boolean;
 }) {
+  const { showToast } = useToast();
+  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [audience, setAudience] = useState<FeedPrefsAudience>(defaults.audience);
   const [showPark, setShowPark] = useState(defaults.showPark);
   const [showRoute, setShowRoute] = useState(defaults.showRoute);
@@ -244,7 +277,17 @@ export function FeedShareSheet({
     setShowPark(defaults.showPark);
     setShowRoute(defaults.showRoute);
     setTitle(workout?.title ?? '');
+    setPhoto(null);
   }, [open, defaults.audience, defaults.showPark, defaults.showRoute, workout?.title]);
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.previewUrl); }, [photo]);
+  const handlePickPhoto = async () => {
+    try {
+      const picked = await pickFeedPhoto();
+      if (picked) setPhoto(picked);
+    } catch {
+      showToast('error', 'לא הצלחנו לפתוח את התמונה');
+    }
+  };
   const hasRoute = workout?.activityCategory === 'cardio' && !!routeShapeToSvg(workout.routeShape, 320, 150);
 
   return (
@@ -271,6 +314,32 @@ export function FeedShareSheet({
             />
           </label>
 
+          {allowPhoto && (
+            photo ? (
+              <div className="relative mt-3 overflow-hidden rounded-[18px] shadow-v2-ring">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.previewUrl} alt="התמונה שתצורף לפוסט" className="block aspect-[4/3] w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setPhoto(null)}
+                  aria-label="הסרת התמונה"
+                  className="absolute end-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-v2-ink shadow-v2-ring"
+                >
+                  <X size={16} strokeWidth={2.6} aria-hidden />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handlePickPhoto()}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[16px] bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]"
+              >
+                <ImagePlus size={17} strokeWidth={2.6} aria-hidden />
+                הוספת תמונה
+              </button>
+            )
+          )}
+
           <div className="mt-4 text-[13px] font-extrabold text-v2-deep">מי יראה</div>
           <AudiencePicker value={audience} onChange={setAudience} />
           {workout.parkName && (
@@ -289,7 +358,15 @@ export function FeedShareSheet({
           )}
 
           <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
-            <Button size="lg" disabled={busy} onClick={() => onPublish({ audience, showPark, showRoute: hasRoute && showRoute, title: title.trim() || undefined })}>
+            <Button size="lg" disabled={busy} onClick={() =>
+                onPublish({
+                  audience,
+                  showPark,
+                  showRoute: hasRoute && showRoute,
+                  title: title.trim() || undefined,
+                  ...(allowPhoto && photo ? { photo: photo.blob } : {}),
+                })
+              }>
               {audience === 'private' ? 'שמירה אצלי' : 'פרסום'}
             </Button>
             <Button size="lg" variant="ghost" disabled={busy} onClick={onSkip}>

@@ -6,6 +6,7 @@
  * now loads through /api/feed (Admin SDK), which applies this check per post,
  * so 'partners' really means partners (a mutual follow) whatever the rules say.
  */
+import { sanitizePostDetails } from './feed-post-details';
 
 export interface PostAccessFields {
   authorUid: string;
@@ -68,6 +69,8 @@ export function feedPostJson(id: string, data: Record<string, unknown>): Record<
     programId: pick('programId'),
     groupIds: Array.isArray(data.groupIds) ? data.groupIds : undefined,
     routeShape: Array.isArray(data.routeShape) ? data.routeShape : undefined,
+    // Home v2 detail fields + photo (feed-post-details.ts) — well-formed only.
+    ...sanitizePostDetails(data),
     createdAt,
   };
 }
