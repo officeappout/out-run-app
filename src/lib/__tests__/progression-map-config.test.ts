@@ -6,6 +6,7 @@ import {
   PROGRESSION_MAP_LEAF_PROGRAMS,
   PROGRESSION_MAP_HUB_PROGRAMS,
   resolveProgressionMapDestination,
+  resolveExerciseProgressionMapHref,
 } from '../progression-map-config';
 import { isHiddenProgram, HIDDEN_PROGRAM_SLUGS } from '../hidden-programs';
 import { buildIdToSlugMapFromPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
@@ -149,6 +150,20 @@ describe('resolveProgressionMapDestination', () => {
     expect(resolveProgressionMapDestination('RAW_full_body')).toBeNull();
     expect(resolveProgressionMapDestination('upper_body')).toBeNull();
     expect(resolveProgressionMapDestination('calisthenics_upper')).toBeNull();
+  });
+});
+
+describe('resolveExerciseProgressionMapHref (exercise sheet "מפה מלאה" link)', () => {
+  it('a path with a progression map links to it', () => {
+    expect(resolveExerciseProgressionMapHref(FRONT_LEVER)).toBe(`/progression-map/${FRONT_LEVER}`);
+  });
+
+  it('no map for the path (or no path) → null, so the link is hidden — never /exercises/roadmap', () => {
+    expect(resolveExerciseProgressionMapHref(null)).toBeNull();
+    expect(resolveExerciseProgressionMapHref(undefined)).toBeNull();
+    expect(resolveExerciseProgressionMapHref('')).toBeNull();
+    expect(resolveExerciseProgressionMapHref('full_body')).toBeNull();
+    expect(resolveExerciseProgressionMapHref('not-a-program')).toBeNull();
   });
 });
 

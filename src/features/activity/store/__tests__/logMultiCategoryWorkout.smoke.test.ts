@@ -55,6 +55,9 @@ describe('logMultiCategoryWorkout — hybrid atomic activity write', () => {
     setDocSpy.mockClear();
     updateDocSpy.mockClear();
     useActivityStore.getState().initialize('u1');
+    // initialize() keeps a same-day `today`, so the previous test's minutes
+    // would leak in and the threshold would never be "crossed" — start empty.
+    useActivityStore.getState().resetToday();
     useActivityStore.setState({ currentStreak: 0, longestStreak: 0, lastStreakDate: '' });
   });
 

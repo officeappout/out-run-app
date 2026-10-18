@@ -45,6 +45,11 @@ import {
   ACTIVITY_COLORS,
 } from '../types/activity.types';
 import { activityPriorityService } from '../services/ActivityPriorityService';
+import {
+  advanceStreakForDay,
+  dayQualifiesBySteps,
+  dayQualifiesForStreak,
+} from '../lib/streak-rules';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 // ============================================================================
@@ -176,7 +181,19 @@ interface ActivityActions {
   // convention, then pushes the correction via the existing syncToServer.
   // No-ops (returns { reversed: false }) if lastStreakDate isn't today —
   // i.e. there is nothing to reverse.
+  // Also a no-op when today still qualifies by the STEPS rule (steps ≥ the
+  // day's step goal) — deleting a workout must not un-count a day the user
+  // earned by walking.
   reverseStreakForToday: () => Promise<{ reversed: boolean; newStreak?: number }>;
+
+  // Steps path of the streak (owner decision, Oct 2026): a day also counts
+  // when today's steps reach today's step goal. Called whenever fresh step
+  // data lands in the store (logSteps, the dailyActivity snapshot listener,
+  // loadFromServer — passive steps arrive server-side via the
+  // ingestHealthSamples Cloud Function on health sync). Idempotent with the
+  // minutes path via lastStreakDate === today. Returns true when it counted
+  // today (and kicks off a sync).
+  countTodayIfStepGoalMet: () => boolean;
 
   // Set daily goals
   setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => void;
@@ -468,6 +485,9 @@ export const useActivityStore = create<ActivityStore>()(
         });
         
         get().recalculate();
+
+        // Steps path of the streak — syncs immediately itself when it counts.
+        if (get().countTodayIfStepGoalMet()) return;
         
         // Auto-sync to Firestore (debounced)
         debouncedSync(() => get().syncToServer());
@@ -540,32 +560,15 @@ export const useActivityStore = create<ActivityStore>()(
           totalMinutes >= STREAK_MINIMUM_MINUTES;
 
         if (justCrossedThreshold) {
-          const todayStr = getTodayString();
-
-          if (newLastStreakDate === todayStr) {
-            // Already counted today — no-op (safety net; prevTotal guard above
-            // normally prevents reaching here, but belt-and-suspenders)
-          } else if (newLastStreakDate) {
-            const daysDiff = Math.floor(
-              (new Date(todayStr).getTime() - new Date(newLastStreakDate).getTime())
-              / (1000 * 60 * 60 * 24),
-            );
-            if (daysDiff > 1) {
-              // Missed at least one day → reset streak to 1 rather than N+1
-              newStreak = 1;
-              console.log(
-                `[ActivityStore] Streak reset to 1 (${daysDiff} day gap since ${newLastStreakDate})`,
-              );
-            } else {
-              // Yesterday was active → continue the streak
-              newStreak = state.currentStreak + 1;
-            }
-          } else {
-            // No prior streak date on record → start fresh
-            newStreak = 1;
-          }
-
-          newLastStreakDate = todayStr;
+          // Shared policy (streak-rules.ts): no-op if today was already
+          // counted (e.g. by the steps path), restart at 1 after a gap of
+          // more than one day, +1 after yesterday, 1 with no prior date.
+          const advanced = advanceStreakForDay(
+            { currentStreak: state.currentStreak, lastStreakDate: newLastStreakDate },
+            getTodayString(),
+          );
+          newStreak = advanced.currentStreak;
+          newLastStreakDate = advanced.lastStreakDate;
         }
 
         set({
@@ -631,19 +634,12 @@ export const useActivityStore = create<ActivityStore>()(
           totalMinutes >= STREAK_MINIMUM_MINUTES;
 
         if (justCrossedThreshold) {
-          const todayStr = getTodayString();
-          if (newLastStreakDate === todayStr) {
-            // Already counted today — no-op (safety net).
-          } else if (newLastStreakDate) {
-            const daysDiff = Math.floor(
-              (new Date(todayStr).getTime() - new Date(newLastStreakDate).getTime())
-              / (1000 * 60 * 60 * 24),
-            );
-            newStreak = daysDiff > 1 ? 1 : state.currentStreak + 1;
-          } else {
-            newStreak = 1;
-          }
-          newLastStreakDate = todayStr;
+          const advanced = advanceStreakForDay(
+            { currentStreak: state.currentStreak, lastStreakDate: newLastStreakDate },
+            getTodayString(),
+          );
+          newStreak = advanced.currentStreak;
+          newLastStreakDate = advanced.lastStreakDate;
         }
 
         set({
@@ -699,6 +695,15 @@ export const useActivityStore = create<ActivityStore>()(
           return { reversed: false };
         }
 
+        // The caller (workoutDeletion.ts) has already established that no
+        // workout remains today, i.e. the minutes rule no longer holds (the
+        // dailyActivity minutes themselves are not decremented on delete, so
+        // they can't be re-checked here). Only reverse if the STEPS rule
+        // doesn't hold either — a steps-qualified day stays counted.
+        if (state.today && state.today.date === todayStr && dayQualifiesBySteps(state.today)) {
+          return { reversed: false };
+        }
+
         const newStreak = Math.max(0, state.currentStreak - 1);
         const newLastStreakDate = newStreak > 0 ? getYesterdayString() : '';
 
@@ -712,6 +717,32 @@ export const useActivityStore = create<ActivityStore>()(
         );
 
         return { reversed: true, newStreak };
+      },
+
+      countTodayIfStepGoalMet: () => {
+        const state = get();
+        const todayStr = getTodayString();
+        if (!state.today || state.today.date !== todayStr || !state.today.userId) return false;
+        if (state.lastStreakDate === todayStr) return false; // already counted today
+        if (!dayQualifiesBySteps(state.today)) return false;
+
+        const advanced = advanceStreakForDay(
+          { currentStreak: state.currentStreak, lastStreakDate: state.lastStreakDate },
+          todayStr,
+        );
+        if (!advanced.advanced) return false;
+
+        set({
+          currentStreak: advanced.currentStreak,
+          longestStreak: Math.max(state.longestStreak, advanced.currentStreak),
+          lastStreakDate: advanced.lastStreakDate,
+        });
+        console.log('[ActivityStore] Streak counted today via step goal:', advanced.currentStreak);
+
+        get().syncToServer().catch(err =>
+          console.error('[ActivityStore] Step-goal streak sync failed:', err)
+        );
+        return true;
       },
 
       setDailyGoals: (goals: Partial<Record<ActivityCategory, number>>) => {
@@ -999,14 +1030,14 @@ export const useActivityStore = create<ActivityStore>()(
           if (currentStreak === 0 && Object.keys(weekActivities).length > 0) {
             const sortedDates = Object.keys(weekActivities).sort().reverse();
             let calculatedStreak = 0;
+            let latestCountedDate = '';
             
             for (const activityDate of sortedDates) {
               const activity = weekActivities[activityDate];
-              const totalMinutes = Object.values(activity.categories)
-                .reduce((sum, cat) => sum + cat.minutes, 0);
-              
-              if (totalMinutes >= STREAK_MINIMUM_MINUTES) {
+              // Same rule as the live paths: ≥10 active minutes OR step goal met.
+              if (dayQualifiesForStreak(activity)) {
                 calculatedStreak++;
+                if (!latestCountedDate) latestCountedDate = activityDate;
               } else if (activityDate !== targetDate) {
                 // Don't break on today (day not finished yet)
                 break;
@@ -1014,6 +1045,9 @@ export const useActivityStore = create<ActivityStore>()(
             }
             
             currentStreak = calculatedStreak;
+            // Record the last counted day so the live paths don't count it a
+            // second time (or restart at 1 because lastStreakDate is empty).
+            if (calculatedStreak > 0) restoredLastStreakDate = latestCountedDate;
           }
           
           // 5. Update store — merge today with local state to avoid losing
@@ -1050,6 +1084,13 @@ export const useActivityStore = create<ActivityStore>()(
           
           // 6. Recalculate derived values
           get().recalculate();
+
+          // 7. Steps path — passive steps land server-side (health sync on
+          //    app open → ingestHealthSamples), so this load is one of the
+          //    moments today's step goal can first be seen as met.
+          if (targetDate === getTodayString()) {
+            get().countTodayIfStepGoalMet();
+          }
           
           console.log('[ActivityStore] Loaded from Firestore - Streak:', currentStreak);
         } catch (error) {
@@ -1140,6 +1181,8 @@ export const useActivityStore = create<ActivityStore>()(
                   set({ today: data });
                   get().recalculate();
                   console.log('[ActivityStore] Updated from Firestore real-time');
+                  // Steps path — fresh passive steps may have just met the goal.
+                  get().countTodayIfStepGoalMet();
                 }
               }
             },
