@@ -751,7 +751,7 @@ export default function DynamicOnboardingPage() {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className={`w-full font-simpler ${
               isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-            } transition-all duration-300`}
+            } transition-all duration-300${v2 ? ' flex min-h-full flex-col' : ''}`}
           >
             {/* Personalized Welcome Header - Only on first question */}
             {welcomeMessage && (

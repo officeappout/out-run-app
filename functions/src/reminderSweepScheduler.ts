@@ -292,6 +292,9 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
         deepLink: copy.deepLink,
         data: { triggerType: 'ReminderSweep', day, time, ...pushCopyData(copy) },
         rateCapHours: 22, // same tolerance as trainingReminderScheduler
+        // Lapsed users (> 30 days away) and same-day retention recipients are held
+        // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
+        suppressIfLapsed: true,
         skipQuietHours: false, // a user-chosen slot can legitimately fall in quiet hours — suppress, don't reroute
         measurement: {
           // variantId = the push library row (was `${title}__b${bodyIndex}`).
@@ -425,6 +428,9 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
         deepLink: copy.deepLink,
         data: { triggerType: 'ReminderSweepWorkout', leadMinutes: String(leadMinutes), ...pushCopyData(copy) },
         rateCapHours: 22,
+        // Lapsed users (> 30 days away) and same-day retention recipients are held
+        // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
+        suppressIfLapsed: true,
         skipQuietHours: false, // same reasoning as trainingReminderScheduler — a near-workout reminder can legitimately fall in quiet hours; suppress, don't reroute
         measurement: {
           variantId: copy.rowId, // the push library row (was `${title}__b${bodyIndex}`)

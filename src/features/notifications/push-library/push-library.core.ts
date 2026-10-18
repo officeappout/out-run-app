@@ -419,13 +419,29 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     lever: 'routine',
     channel: 'retention',
     sender: 'retentionScheduler',
-    description: 'סיימו אונבורדינג ולא התאמנו כמה ימים.',
+    description:
+      'סיימו אונבורדינג ולא התאמנו כמה ימים (לפי האימון האחרון או פתיחת האפליקציה האחרונה). בלי ספירת ימים ובלי אשמה.',
     whenSent:
-      'כל יום ב-10:00, למי שלא היה פעיל 7 ימים ומעלה. לכל היותר פעם ב-48 שעות. לא בשבת ובחג.',
-    vars: ['@שם', '@ימים'],
+      'כל יום ב-10:00, למי שלא התאמן ולא פתח את האפליקציה 7 ימים ומעלה, לכל היותר פעם ב-48 שעות. כשהדגל retentionMilestoneCadence דולק: פעם אחת בכל שלב (יום 4 עד 6, שבוע, שבועיים, חודש: יום 30 עד 35) ואחרי יום 35 מפסיקים. לא בשבת ובחג.',
+    // No @ימים: the day count is not filled any more (owner, 18.10.2026), so
+    // a row that uses it never renders.
+    vars: ['@שם'],
+    conditions: [
+      {
+        key: 'milestone',
+        label: 'שלב בהפסקה',
+        options: [
+          { value: 'd4', label: 'יום 4 עד 6' },
+          { value: 'd7', label: 'שבוע (שבוע חדש)' },
+          { value: 'd14', label: 'שבועיים' },
+          { value: 'd30', label: 'חודש (האחרון)' },
+        ],
+      },
+    ],
     deepLinks: ['home', 'map'],
     defaults: [
-      { title: 'פספסת כמה ימים? זה בסדר', body: 'מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, ונחזור לשגרה.' },
+      // Index 0 rewritten in place (was "פספסת כמה ימים? זה בסדר") so ids keep their order.
+      { title: 'רגע קטן בשבילך היום', body: 'מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך.' },
       { title: '@שם, הגינה עדיין שם', body: 'אימון קצר של 10 דקות, בלי ציוד. חוזרים?' },
       { title: 'חוזרים בקטנה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, וההרגל חוזר.' },
@@ -436,6 +452,20 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'מוכנה לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.', gender: 'female', pair: 'back' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואתה שוב בעניינים.', gender: 'male', pair: 'fresh' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואת שוב בעניינים.', gender: 'female', pair: 'fresh' },
+      // Milestone copy (retentionMilestoneCadence on; the sender passes
+      // conditions.milestone). More specific, so it wins over the rows above.
+      { title: 'רגע קטן בשבילך?', body: 'אימון קל של 15 דקות ליד הבית. בלי לחץ, בקצב שלך.', conditions: { milestone: ['d4'] } },
+      { title: 'בא לך אימון קצר היום?', body: '15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצה.', gender: 'male', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
+      { title: 'בא לך אימון קצר היום?', body: '15 דקות ליד הבית, בקצב שלך. אנחנו כאן כשתרצי.', gender: 'female', conditions: { milestone: ['d4'] }, pair: 'm_d4' },
+      { title: 'שבוע חדש מתחיל היום', body: '15 דקות זה כל מה שצריך כדי לפתוח אותו. יוצאים?', conditions: { milestone: ['d7'] } },
+      { title: 'שבוע חדש מתחיל היום. 15 דקות?', body: 'אימון קל אחד, ואתה פותח את השבוע ברגל ימין.', gender: 'male', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
+      { title: 'שבוע חדש מתחיל היום. 15 דקות?', body: 'אימון קל אחד, ואת פותחת את השבוע ברגל ימין.', gender: 'female', conditions: { milestone: ['d7'] }, pair: 'm_d7' },
+      { title: 'מתחילים מחדש, בקטנה', body: 'בנינו אימון קל לחזרה. 15 דקות, בקצב שלך.', conditions: { milestone: ['d14'] } },
+      { title: 'מוכן להתחלה חדשה?', body: 'אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.', gender: 'male', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
+      { title: 'מוכנה להתחלה חדשה?', body: 'אימון קל של 15 דקות, בלי ציוד. מתחילים מאיפה שנוח לך.', gender: 'female', conditions: { milestone: ['d14'] }, pair: 'm_d14' },
+      { title: 'הדלת תמיד פתוחה', body: 'כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.', conditions: { milestone: ['d30'] } },
+      { title: 'הדלת תמיד פתוחה', body: 'כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'male', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
+      { title: 'הדלת תמיד פתוחה', body: 'כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'female', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
     ],
   },
   {

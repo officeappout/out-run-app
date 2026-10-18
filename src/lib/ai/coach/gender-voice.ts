@@ -83,8 +83,12 @@ const FORMS = Object.keys(FEMININE_TO_MASCULINE).join('|');
 const ADVERBS = '(?:(?:לא|גם|רק|כן|עדיין|ממש|די|פשוט|באמת|כבר|תמיד|ממש\\s+לא|בכלל\\s+לא)\\s+){0,2}';
 const HE = '\\u05D0-\\u05EA';
 
-/** "אני" + adverbs + form. Group 1 = the form. */
-const EXPLICIT_RE = new RegExp(`(?<![${HE}])אני\\s+${ADVERBS}(${FORMS})(?![${HE}])`, 'g');
+/**
+ * "אני" (bare or with a one-letter-prefix conjunction: ואני, שאני, כשאני, ושאני) + adverbs +
+ * form. Group 1 = the form. Owner thread 18.10.2026 after #437: "ואני לא יכולה לראות… מה
+ * שאני יכולה לבדוק" passed the guard because the prefixed "אני" was not matched.
+ */
+const EXPLICIT_RE = new RegExp(`(?<![${HE}])(?:ו|ש|וש|כש|וכש)?אני\\s+${ADVERBS}(${FORMS})(?![${HE}])`, 'g');
 
 /**
  * Clause start + optional connector + adverbs + form. The clause start is the beginning of

@@ -53,6 +53,11 @@
  *    (level-up/streak/PR) is excluded at the channel level as pure
  *    validation — see ENGAGEMENT_CHANNELS's own doc comment for the full
  *    per-channel mapping and reasoning.
+ * 8. Lapsed-user suppression (18.10.2026, opt-in per call via suppressIfLapsed,
+ *    flag app_config/feature_flags.lapsedPushSuppression, default OFF) — the
+ *    daily nudges (training reminders, step-goal) skip a user away > 30 days
+ *    by their real last activity, and anyone who got a retention push today.
+ *    See lib/user-activity.ts.
  *
  * RATE CAP STORAGE
  * ────────────────
@@ -62,6 +67,8 @@
  *             `{channel}_count: number`  (lifetime counter, for analytics)
  *             `dailyEngagementDate: string`   ('YYYY-MM-DD', Asia/Jerusalem — feature 7)
  *             `dailyEngagementCount: number`  (resets to 1 when the stored date != today)
+ *             `retention_absenceAnchor: number`, `retention_milestonesSent: string[]`
+ *                 (retentionScheduler's milestone cadence — written there, not here)
  *
  * QUIET HOURS
  * ───────────
@@ -77,6 +84,13 @@ import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
 import { writePushSentEvent } from './push-events.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './shabbat.service';
+import {
+  RETENTION_LAST_DAY,
+  lapsedSuppressionReason,
+  lastActivityFromUserData,
+  readActivityFlags,
+  resolveLastActivityMs,
+} from '../lib/user-activity';
 
 // Lazy accessors — admin is initialized by the calling Cloud Function entry point.
 const getDb = () => admin.firestore();
@@ -333,6 +347,16 @@ export interface SendPushOpts {
    * report (07.09.2026) mapping every real caller to PERSONAL vs NUDGE.
    */
   isPersonalInteraction?: boolean;
+  /**
+   * 18.10.2026 — opt-in, for the daily nudges (training reminders, step-goal
+   * nudges). When app_config/feature_flags.lapsedPushSuppression === true
+   * (default OFF), skips a recipient who (a) got a retention push today
+   * (push_rate.retention_lastSentAt on today's Israel date), or (b) has been
+   * away more than 30 days by their REAL last activity (lib/user-activity.ts:
+   * user-doc signals, confirmed against the workouts collection; a failed
+   * lookup sends as before). Flag off or option absent = no change.
+   */
+  suppressIfLapsed?: boolean;
 }
 
 export interface SendPushResult {
@@ -351,6 +375,8 @@ export interface SendPushResult {
   /** Skipped by the Stage 2 daily engagement cap (ENGAGEMENT_CHANNELS only —
    *  always 0 for chat/system/other channels). */
   skippedDailyCap: number;
+  /** Held back by suppressIfLapsed (flag lapsedPushSuppression). Absent when not applied. */
+  skippedLapsed?: number;
   tokensPruned: number;
   /** Present only when opts.measurement was provided — the pushId used to
    *  correlate push_events records for this send. */
@@ -435,6 +461,11 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const isEngagementChannel = ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction;
   const todayKey = isEngagementChannel ? getJerusalemDateKey() : '';
 
+  // Lapsed-user suppression (opt-in per call + flag, default off).
+  const suppressLapsed =
+    !isSystem && opts.suppressIfLapsed === true && (await readActivityFlags(db)).lapsedSuppression;
+  if (suppressLapsed) result.skippedLapsed = 0;
+
   // Fetch user docs in batches of 100 (Firestore getAll limit)
   for (let i = 0; i < toUids.length; i += TOKEN_FETCH_BATCH) {
     const slice = toUids.slice(i, i + TOKEN_FETCH_BATCH);
@@ -443,7 +474,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
 
     // Fetch rate cap docs for this slice — also needed (independent of
     // rateCapHours) when the daily engagement cap applies to this channel.
-    const rateRefs = (rateCapHours > 0 || isEngagementChannel)
+    const rateRefs = (rateCapHours > 0 || isEngagementChannel || suppressLapsed)
       ? slice.map((uid) => db.collection('push_rate').doc(uid))
       : [];
     const rateDocs = rateRefs.length > 0 ? await db.getAll(...rateRefs) : [];
@@ -470,6 +501,28 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
         // ── Shabbat / yom tov — observers only (see header §2b) ──────────
         if (inShabbatWindow && isShabbatObserver(settings)) {
           result.skippedShabbat++;
+          continue;
+        }
+      }
+
+      // ── Lapsed-user suppression (suppressIfLapsed + flag) ─────────────────
+      if (suppressLapsed) {
+        const nowMs = Date.now();
+        let lastMs = lastActivityFromUserData(userData);
+        let reason = lapsedSuppressionReason(lastMs, rateByUid.get(uid), nowMs);
+        if (reason === 'lapsed_30') {
+          // Doc signals say > 30 days — confirm with the workouts collection.
+          try {
+            lastMs = await resolveLastActivityMs(db, uid, userData, nowMs, RETENTION_LAST_DAY + 1);
+            reason = lapsedSuppressionReason(lastMs, rateByUid.get(uid), nowMs);
+          } catch (e: unknown) {
+            reason = null; // unknown → send as before
+            logger.warn(`[push.service] workouts lookup failed uid=${uid}, not suppressing`, e);
+          }
+        }
+        if (reason) {
+          result.skippedLapsed = (result.skippedLapsed ?? 0) + 1;
+          logger.info(`[push.service] uid=${uid} suppressed on channel=${channel} (${reason})`);
           continue;
         }
       }

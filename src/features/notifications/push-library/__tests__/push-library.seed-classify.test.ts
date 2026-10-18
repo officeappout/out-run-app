@@ -10,7 +10,7 @@ describe('seedInsertRows', () => {
 
   it('one row per code default, ids by index (appended gendered defaults never rename a row)', () => {
     expect(rows).toHaveLength(PUSH_CATALOG.reduce((n, e) => n + e.defaults.length, 0));
-    expect(rows.find((r) => r.id === 'lib_retention_lapse_0')?.data.title).toBe('פספסת כמה ימים? זה בסדר');
+    expect(rows.find((r) => r.id === 'lib_retention_lapse_0')?.data.title).toBe('רגע קטן בשבילך היום');
     expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
   });
 
