@@ -38,8 +38,8 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
-import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
-import type { PushCopyContext } from './shared/push-library.core';
+import { resolvePushCopy, pushCopyData, loadPushRecipient, loadPushSubjectGender } from './services/push-copy.service';
+import type { PushCopyContext, PushGender } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -61,6 +61,8 @@ export function kudosCopyRequest(
   unreadCount: number,
   senderName: string,
   recipient: { firstName: string; audience: PushCopyContext['audience'] },
+  /** The sender's gender: "@שולח שלח" / "@שולח שלחה". */
+  senderGender: PushGender | null = null,
 ): { pushType: 'kudos_single' | 'kudos_bundle'; ctx: PushCopyContext } {
   const others = Math.max(0, unreadCount - 1);
   return {
@@ -75,6 +77,7 @@ export function kudosCopyRequest(
         '@עוד': String(others),
       },
       conditions: { others: others === 1 ? 'one' : 'many' },
+      subjectGender: senderGender,
     },
   };
 }
@@ -129,7 +132,8 @@ export const onKudosCreated = onDocumentCreated(
 
     try {
       const recipient = await loadPushRecipient(recipientUid);
-      const { pushType, ctx } = kudosCopyRequest(recipientUid, unreadCount, senderName, recipient);
+      const senderGender = kudoData.fromName ? await loadPushSubjectGender(kudoData.fromUid) : null;
+      const { pushType, ctx } = kudosCopyRequest(recipientUid, unreadCount, senderName, recipient, senderGender);
       const copy = await resolvePushCopy(pushType, ctx);
       if (!copy) return;
       const result = await sendPush({

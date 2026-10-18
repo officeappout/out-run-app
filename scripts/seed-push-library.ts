@@ -18,15 +18,22 @@
  *      (src/features/notifications/push-library/push-library.core.ts =
  *      title_after/body_after of training-audit/copy/push_copy.csv), doc id
  *      `lib_<pushType>_<n>`, with Firestore `create()` — a row that already
- *      exists is never overwritten (an admin may have edited it).
- *   3. ARCHIVES the original content-library rows the rewritten copy
- *      replaces (Daily_Goal / Future_Partner_Plan, no pushType yet):
- *      active:false, archived:true, archivedReason. Text untouched.
+ *      exists is never overwritten (an admin may have edited it). Gendered
+ *      defaults carry gender / subjectGender and a shared pairId
+ *      (`lib_<pushType>_pair_<name>`), so the panel shows them as a pair.
+ *   3. ARCHIVES the 18 original content-library rows the rewritten copy
+ *      replaces (Daily_Goal / Future_Partner_Plan, no pushType yet; most of
+ *      them carry slashes, em dashes or emoji and are already skipped at
+ *      send time): active:false, archived:true, archivedReason. Text untouched.
  *   4. CLASSIFIES the dormant Inactivity rows (never sent by any code):
  *        keep    → pushType 'retention_lapse', needsRewrite:true, active:false,
- *                  rewriteReasons[], persona → audience. Text NOT rewritten.
+ *                  rewriteReasons[], persona → audience, gender for rows
+ *                  that address one gender. Text NOT rewritten.
  *        archive → active:false, archived:true, archivedReason.
  *   5. Writes a CSV report of every classification to scripts/output/.
+ *
+ * The classification itself is pure and unit-tested:
+ * src/features/notifications/push-library/push-library.seed-classify.ts.
  *
  * Safety (the seed-hybrid-slot-flags lesson, CLAUDE.md): rows are read first
  * and only rows that are still unclassified (no pushType, not archived) are
@@ -39,82 +46,20 @@ import * as path from 'path';
 import * as admin from 'firebase-admin';
 import {
   PUSH_CATALOG,
-  PUSH_CATALOG_BY_TYPE,
   PUSH_LIBRARY_COLLECTION,
-  extractVarTokens,
   legacyPushMapping,
-  validatePushCopyDraft,
 } from '../src/features/notifications/push-library/push-library.core';
+import {
+  classifyDormant,
+  classifyLegacyInUse,
+  seedInsertRows,
+  type Classification,
+} from '../src/features/notifications/push-library/push-library.seed-classify';
 import { normalizePersonaValue } from '../src/features/user/onboarding/services/persona-alias-map.service';
 
 const WRITE = process.argv.includes('--write');
 const ACTOR = 'seed-push-library';
 const ROOT = path.resolve(__dirname, '..');
-
-// ─── Dormant-row classification rules ─────────────────────────────────────────
-
-/** Tags that are really broken gender slashes ("@בוא/י", "@את/ה") — fixable by rewording. */
-const SLASH_ARTIFACT_TAGS = new Set(['@בוא', '@את', '@מוכן']);
-/** Tags a rewrite can replace without changing the message (fixed number / renamed variable). */
-const REWRITABLE_TAGS: Record<string, string> = {
-  '@זמן_אימון': 'replace @זמן_אימון with a fixed number of minutes',
-  '@ימי_אי_פעילות': 'rename @ימי_אי_פעילות to @ימים',
-};
-/** Addresses one gender while the row targets both. */
-const GENDERED_WORDS = /(^|[\s,.])(אבא|אמא|לוחם|לוחמת)(?=[\s,.!?]|$)/;
-/** Retention fills these. */
-const RETENTION_VARS = new Set(PUSH_CATALOG_BY_TYPE.retention_lapse.vars as readonly string[]);
-
-export interface Classification {
-  id: string;
-  persona: string;
-  decision: 'keep' | 'archive';
-  pushType: string;
-  reasons: string[];
-  text: string;
-}
-
-function normalizeText(t: string): string {
-  return t.replace(/\s+/g, ' ').replace(/[.!?,]+$/g, '').trim();
-}
-
-/** Pure — exported for a dry check. Order of `rows` decides which duplicate is kept (first wins). */
-export function classifyDormant(rows: Array<{ id: string; data: Record<string, unknown> }>): Classification[] {
-  const seen = new Map<string, string>();
-  return rows.map(({ id, data }) => {
-    const text = typeof data.text === 'string' ? data.text : '';
-    const persona = typeof data.persona === 'string' ? data.persona : '';
-    const tokens = extractVarTokens(text);
-    const unfillable = tokens.filter((t) => !RETENTION_VARS.has(t) && !SLASH_ARTIFACT_TAGS.has(t) && !(t in REWRITABLE_TAGS));
-    const norm = normalizeText(text);
-    const base = { id, persona, text, pushType: '' };
-
-    if (/[A-Za-z]{2,}/.test(text)) return { ...base, decision: 'archive' as const, reasons: ['english text'] };
-    if (seen.has(norm)) return { ...base, decision: 'archive' as const, reasons: [`duplicate of ${seen.get(norm)}`] };
-    seen.set(norm, id);
-    if (unfillable.length > 0) {
-      return {
-        ...base,
-        decision: 'archive' as const,
-        reasons: [`needs data the retention push doesn't have: ${unfillable.join(' ')}`],
-      };
-    }
-
-    const reasons: string[] = ['needs a title (old rows had body only)'];
-    if (tokens.some((t) => SLASH_ARTIFACT_TAGS.has(t)) || text.includes('/')) reasons.push('gender slash');
-    if (GENDERED_WORDS.test(text)) reasons.push('gendered address (אבא/אמא/לוחם)');
-    for (const t of tokens) if (REWRITABLE_TAGS[t]) reasons.push(REWRITABLE_TAGS[t]);
-    const issues = validatePushCopyDraft({ pushType: 'retention_lapse', title: 'x', body: text, deepLink: 'home' });
-    for (const i of issues) {
-      if (/לוכסן|משתנה/.test(i.message)) continue; // already covered above
-      if (/קו מפריד/.test(i.message)) reasons.push('em/en dash');
-      else if (/אימוג/.test(i.message)) reasons.push('emoji');
-      else if (/ארוכה/.test(i.message)) reasons.push('too long (>90)');
-      else reasons.push(i.message);
-    }
-    return { ...base, decision: 'keep' as const, pushType: 'retention_lapse', reasons: Array.from(new Set(reasons)) };
-  });
-}
 
 function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
@@ -156,39 +101,9 @@ async function main(): Promise<void> {
 
   const byId = new Map(snap.docs.map((d) => [d.id, d]));
 
-  // 2. Inserts
-  const inserts: Array<{ id: string; data: Record<string, unknown> }> = [];
-  const insertSkipped: string[] = [];
-  for (const entry of PUSH_CATALOG) {
-    entry.defaults.forEach((d, i) => {
-      const id = `lib_${entry.pushType}_${i}`;
-      if (byId.has(id)) {
-        insertSkipped.push(id);
-        return;
-      }
-      inserts.push({
-        id,
-        data: {
-          pushType: entry.pushType,
-          lever: entry.lever,
-          title: d.title,
-          body: d.body,
-          text: d.body,
-          deepLink: entry.deepLinks[0],
-          audience: d.audience ?? null,
-          conditions: d.conditions ?? null,
-          timeWindow: null,
-          fallbackOnly: d.fallbackOnly === true,
-          active: true,
-          archived: false,
-          needsRewrite: false,
-          version: 1,
-          bundleId: id,
-          source: 'push_copy.csv (title_after/body_after)',
-        },
-      });
-    });
-  }
+  // 2. Inserts (code defaults incl. the gendered pairs; an existing row is never overwritten)
+  const inserts = seedInsertRows().filter((r) => !byId.has(r.id));
+  const insertSkipped = seedInsertRows().filter((r) => byId.has(r.id)).map((r) => r.id);
 
   // 3 + 4. Classify the rows that predate the library
   const unclassified = snap.docs.filter((d) => {
@@ -199,17 +114,7 @@ async function main(): Promise<void> {
   const dormant = unclassified.filter((d) => !legacyPushMapping(d.data()) && d.data().triggerType === 'Inactivity');
   const otherUnclassified = unclassified.length - superseded.length - dormant.length;
 
-  const supersededRows: Classification[] = superseded.map((d) => {
-    const m = legacyPushMapping(d.data())!;
-    return {
-      id: d.id,
-      persona: String(d.data().persona ?? ''),
-      decision: 'archive',
-      pushType: m.pushType,
-      reasons: [`superseded by the rewritten ${m.pushType} copy (lib_${m.pushType}_*)`],
-      text: String(d.data().text ?? ''),
-    };
-  });
+  const supersededRows: Classification[] = classifyLegacyInUse(superseded.map((d) => ({ id: d.id, data: d.data() })));
   const dormantRows = classifyDormant(
     [...dormant].sort((a, b) => a.id.localeCompare(b.id)).map((d) => ({ id: d.id, data: d.data() })),
   );
@@ -240,10 +145,14 @@ async function main(): Promise<void> {
   console.log('\nSUMMARY');
   console.log(`  new library rows to insert : ${inserts.length} (${PUSH_CATALOG.length} pushTypes)` + (insertSkipped.length ? `, ${insertSkipped.length} already exist (left as is)` : ''));
   for (const entry of PUSH_CATALOG) {
-    const n = inserts.filter((x) => x.data.pushType === entry.pushType).length;
-    console.log(`      ${entry.pushType.padEnd(24)} ${n}`);
+    const rows = inserts.filter((x) => x.data.pushType === entry.pushType);
+    const gendered = rows.filter((x) => x.data.gender !== 'both' || x.data.subjectGender !== 'any').length;
+    console.log(`      ${entry.pushType.padEnd(24)} ${String(rows.length).padStart(2)}` + (gendered ? `  (${gendered} gendered: ${gendered / 2} male/female pairs)` : ''));
   }
-  console.log(`  legacy rows in use → archive (superseded): ${supersededRows.length}`);
+  const brokenCounts = new Map<string, number>();
+  for (const r of supersededRows) for (const reason of r.reasons.slice(1)) brokenCounts.set(reason, (brokenCounts.get(reason) ?? 0) + 1);
+  console.log(`  legacy rows in use → archive (superseded): ${supersededRows.length}` + ` (${supersededRows.filter((r) => r.reasons.length > 1).length} break the write rules today, skipped at send time)`);
+  for (const [k, v] of Array.from(brokenCounts)) console.log(`      ${k}: ${v}`);
   console.log(`  dormant Inactivity rows: ${dormantRows.length} → keep (needs rewrite) ${keep.length}, archive ${archive.length}`);
   for (const [k, v] of Array.from(reasonCounts)) console.log(`      archive · ${k}: ${v}`);
   for (const [k, v] of Array.from(rewriteCounts)) console.log(`      keep · ${k}: ${v}`);
@@ -295,6 +204,8 @@ async function main(): Promise<void> {
         body: r.text,
         deepLink: 'home',
         audience: persona ? { persona } : null,
+        gender: r.gender ?? 'both',
+        subjectGender: 'any',
         active: false,
         archived: false,
         needsRewrite: true,

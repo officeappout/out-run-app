@@ -5,7 +5,9 @@
  * Same collection as the original Notification Manager
  * (`workoutMetadata/notifications/notifications`), one doc per variant,
  * extended with pushType / title / body / deepLink / audience / conditions /
- * timeWindow / active / archived / version. Writes go through the client SDK
+ * timeWindow / active / archived / version, and gender / subjectGender /
+ * pairId (a male/female pair is two docs sharing a pairId, see
+ * push-library.core.ts "Gender"). Writes go through the client SDK
  * like the existing editor (`firestore.rules`: workoutMetadata writes are
  * isAdmin()). Rows are never deleted — archived instead.
  *
@@ -30,10 +32,16 @@ import {
   PUSH_LIBRARY_COLLECTION,
   legacyPushMapping,
   normalizeLegacyPlaceholders,
+  pairDraftRows,
   validatePushCopyDraft,
+  validatePushCopyPair,
   type PushAudienceFilter,
   type PushCopyDraft,
   type PushCopyIssue,
+  type PushCopyPairDraft,
+  type PushGender,
+  type PushRowGender,
+  type PushRowSubjectGender,
   type PushTimeWindow,
 } from '@/features/notifications/push-library/push-library.core';
 import { normalizePersonaValue } from '@/features/user/onboarding/services/persona-alias-map.service';
@@ -59,6 +67,12 @@ export interface PushLibraryRow {
   rewriteReasons: string[];
   version: number;
   updatedAt: Date | null;
+  /** Recipient gender this copy is written for ('both' = everyone). */
+  gender: PushRowGender;
+  /** Gender of the person the push talks about ('any' = neutral). */
+  subjectGender: PushRowSubjectGender;
+  /** Shared by a male row and its female twin. */
+  pairId: string | null;
 }
 
 function strList(v: unknown): string[] | undefined {
@@ -100,6 +114,9 @@ export function toPushLibraryRow(id: string, data: DocumentData): PushLibraryRow
     version: typeof data.version === 'number' ? data.version : 0,
     updatedAt: toDate(data.updatedAt),
     fallbackOnly: data.fallbackOnly === true,
+    gender: (data.gender === 'male' || data.gender === 'female' ? data.gender : 'both') as PushRowGender,
+    subjectGender: (data.subjectGender === 'male' || data.subjectGender === 'female' ? data.subjectGender : 'any') as PushRowSubjectGender,
+    pairId: typeof data.pairId === 'string' && data.pairId ? data.pairId : null,
   };
   if (typeof data.pushType === 'string' && PUSH_CATALOG_BY_TYPE[data.pushType]) {
     const a = (data.audience ?? {}) as Record<string, unknown>;
@@ -166,7 +183,7 @@ export class PushCopyValidationError extends Error {
 export async function savePushCopy(
   id: string | null,
   draft: PushCopyDraft & { lever: string },
-  opts: { previousVersion?: number; uid: string | null; active?: boolean; fallbackOnly?: boolean },
+  opts: { previousVersion?: number; uid: string | null; active?: boolean; fallbackOnly?: boolean; pairId?: string | null },
 ): Promise<string> {
   const issues = validatePushCopyDraft(draft);
   if (issues.length > 0) throw new PushCopyValidationError(issues);
@@ -182,6 +199,9 @@ export async function savePushCopy(
     audience: cleanAudience(draft.audience),
     conditions: cleanConditions(draft.conditions),
     timeWindow: draft.timeWindow && draft.timeWindow.start && draft.timeWindow.end ? draft.timeWindow : null,
+    gender: draft.gender ?? 'both',
+    subjectGender: draft.subjectGender ?? 'any',
+    pairId: opts.pairId ?? null,
     fallbackOnly: opts.fallbackOnly === true,
     active: opts.active ?? true,
     archived: false,
@@ -214,6 +234,8 @@ export async function setPushRowActive(row: PushLibraryRow, active: boolean, uid
       audience: row.audience,
       conditions: row.conditions,
       timeWindow: row.timeWindow,
+      gender: row.gender,
+      subjectGender: row.subjectGender,
     });
     if (issues.length > 0 || row.needsRewrite) throw new PushCopyValidationError(issues.length ? issues : [{ field: 'body', message: 'השורה מסומנת לשכתוב. עורכים ושומרים, ואז מפעילים' }]);
   }
@@ -248,4 +270,51 @@ export async function unarchivePushRow(row: PushLibraryRow, uid: string | null):
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });
+}
+
+/**
+ * Save what the editor edits: a neutral variant, or a male/female pair (two
+ * docs, one pairId). `existing` are the rows being edited (the row and its
+ * twin). Each filled side reuses the existing doc of that gender (or of no
+ * gender, or any spare one) so ids and analytics stay put; an existing row
+ * whose side is now empty is archived, never deleted.
+ */
+export async function savePushCopyPair(
+  existing: PushLibraryRow[],
+  pair: PushCopyPairDraft & { lever: string },
+  opts: { uid: string | null; active: boolean; fallbackOnly: boolean },
+): Promise<string[]> {
+  const { issues } = validatePushCopyPair(pair);
+  if (issues.length > 0) throw new PushCopyValidationError(issues);
+  const sides = pairDraftRows(pair);
+  const unused = [...existing];
+  const take = (side: 'neutral' | PushGender): PushLibraryRow | undefined => {
+    const sideOf = (r: PushLibraryRow) =>
+      r.subjectGender !== 'any' ? r.subjectGender : r.gender !== 'both' ? r.gender : 'neutral';
+    const i = unused.findIndex((r) => sideOf(r) === side);
+    const j = i >= 0 ? i : unused.findIndex((r) => sideOf(r) === 'neutral');
+    const k = j >= 0 ? j : unused.length > 0 ? 0 : -1;
+    return k >= 0 ? unused.splice(k, 1)[0] : undefined;
+  };
+  const pairId =
+    sides.length > 1 || pair.axis !== 'none'
+      ? existing.find((r) => r.pairId)?.pairId ?? `pair_${pair.pushType}_${Date.now().toString(36)}`
+      : null;
+  const ids: string[] = [];
+  for (const { side, draft } of sides) {
+    const row = take(side);
+    ids.push(
+      await savePushCopy(row?.id ?? null, { ...draft, lever: pair.lever }, {
+        previousVersion: row?.version,
+        uid: opts.uid,
+        active: opts.active,
+        fallbackOnly: opts.fallbackOnly,
+        pairId,
+      }),
+    );
+  }
+  for (const row of unused) {
+    if (!row.archived) await archivePushRow(row, 'הנוסח הוסר בעורך (זוג זכר/נקבה)', opts.uid);
+  }
+  return ids;
 }

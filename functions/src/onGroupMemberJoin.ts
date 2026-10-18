@@ -36,6 +36,7 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
+import type { PushGender } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -93,8 +94,11 @@ export const onGroupMemberJoin = onDocumentCreated(
     }
 
     // ── 1. Welcome push → joiner ────────────────────────────────────────────
+    // The joiner's gender also drives the admin alert's copy ("הצטרף" / "הצטרפה").
+    let joinerGender: PushGender | null = null;
     try {
       const joiner = await loadPushRecipient(joinerUid);
+      joinerGender = joiner.audience.gender ?? null;
       const copy = await resolvePushCopy('group_join_welcome', {
         uid: joinerUid,
         audience: joiner.audience,
@@ -133,6 +137,7 @@ export const onGroupMemberJoin = onDocumentCreated(
         audience: leader.audience,
         vars: { '@שם': leader.firstName, '@מצטרף': joinerName.trim().split(/\s+/)[0] ?? '', '@קבוצה': groupName },
         params: { groupId },
+        subjectGender: joinerGender,
       });
       if (!copy) throw new Error('no push copy fits group_join_admin');
       const adminResult = await sendPush({

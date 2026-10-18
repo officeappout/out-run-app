@@ -67,8 +67,9 @@ import {
   pushCopyData,
   audienceFromUserData,
   firstNameFromUserData,
+  loadPushSubjectGender,
 } from './services/push-copy.service';
-import { israelHHMM, type PushCopyContext } from './shared/push-library.core';
+import { israelHHMM, type PushCopyContext, type PushGender } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -123,6 +124,8 @@ export function partnerPlanCopyContext(
   uid: string,
   recipientData: Record<string, unknown>,
   session: PlannedSessionDoc,
+  /** The creator's gender: the copy's verb agrees with them ("יוצא" / "יוצאת"). */
+  creatorGender: PushGender | null = null,
 ): PushCopyContext {
   const creatorFirst = (session.displayName ?? '').trim().split(/\s+/)[0] ?? '';
   return {
@@ -136,6 +139,7 @@ export function partnerPlanCopyContext(
     },
     conditions: { activity: toLibraryActivityType(session.activityType) },
     params: { parkId: session.parkId, routeId: session.routeId },
+    subjectGender: creatorGender,
   };
 }
 
@@ -285,6 +289,9 @@ export const onPlannedActivityCreated = onDocumentCreated(
     // Promise.all) — v1 scale is small ("very few users right now" per the
     // plan), and sendPush's own per-call Firestore reads (prefs, rate cap,
     // tokens) make unbounded concurrency here more costly than useful. ───
+    // The creator's gender, once for every recipient (gendered copy: "@שולח יוצאת לרוץ").
+    const creatorGender = await loadPushSubjectGender(creatorUid);
+
     let sent = 0;
     let noContent = 0;
     let failed = 0;
@@ -296,7 +303,7 @@ export const onPlannedActivityCreated = onDocumentCreated(
         const userData = userSnap.data() as Record<string, unknown>;
 
         const persona = resolveCanonicalPersona(userData as PersonaResolvableProfile);
-        const copy = await resolvePushCopy('partner_plan', partnerPlanCopyContext(uid, userData, session));
+        const copy = await resolvePushCopy('partner_plan', partnerPlanCopyContext(uid, userData, session, creatorGender));
 
         if (!copy) {
           noContent++;
