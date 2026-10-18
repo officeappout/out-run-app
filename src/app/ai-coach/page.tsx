@@ -21,14 +21,14 @@ export default function AiCoachPage() {
   };
 
   if (!profile || loading) {
-    return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוענת...</div>;
+    return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
 
   if (!canUseAi) {
     return (
       <div className="fixed inset-0 z-[56] flex flex-col items-center justify-center gap-3 bg-[#F8FAFC] px-8 text-center text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
         <p className="text-base font-black text-gray-900">קלי AI עוד לא פתוח כאן</p>
-        <p className="text-sm text-gray-500">כשהיא תיפתח לחשבון הזה, היא תופיע בהודעות ובמסך הבית.</p>
+        <p className="text-sm text-gray-500">כשקלי AI ייפתח לחשבון הזה, הוא יופיע בהודעות ובמסך הבית.</p>
         <button type="button" onClick={() => router.replace('/home')} className="mt-2 rounded-full bg-cyan-500 px-5 py-2.5 text-sm font-black text-white">
           חזרה לבית
         </button>

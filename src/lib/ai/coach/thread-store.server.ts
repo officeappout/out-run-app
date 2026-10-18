@@ -3,7 +3,9 @@
  * writes).
  *
  *   ai_coach_threads/{uid}                 { summary, summarizedUntil, pending, messageCount, updatedAt }
- *   ai_coach_threads/{uid}/messages/{id}   { role, text, cards[], log?, createdAt, expireAt }
+ *   ai_coach_threads/{uid}/messages/{id}   { role, text, cards[], actions?, log?, createdAt, expireAt }
+ *
+ * `actions` (assistant messages only): action chip ids (action-chips.ts), e.g. ['open_schedule'].
  *
  * `log` (assistant messages only, for the conversation-review agent; the app never
  * renders it): { model, usage: { in, out, cacheRead }, toolCalls: [{ name, input,
@@ -25,6 +27,7 @@ import { COACH_HISTORY_TURNS } from './persona';
 import type { WorkoutCard } from './protocol';
 import type { HistoryMessage, TurnLog, TurnState } from './turn-engine';
 import type { WorkoutToolResult } from './tools';
+import type { CoachActionId } from './action-chips';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
 export const AI_COACH_RETENTION_DAYS = 90;
@@ -122,7 +125,7 @@ export async function loadThread(db: Firestore, uid: string, now = Date.now()): 
 export async function appendMessage(
   db: Firestore,
   uid: string,
-  msg: { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; log?: TurnLog },
+  msg: { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; actions?: CoachActionId[]; log?: TurnLog },
   now = Date.now(),
 ): Promise<string> {
   const ref = messagesCol(db, uid).doc();
@@ -131,6 +134,7 @@ export async function appendMessage(
     role: msg.role,
     text: msg.text.slice(0, 4000),
     cards: (msg.cards ?? []).map((c) => JSON.parse(JSON.stringify(c))),
+    ...(msg.actions?.length ? { actions: [...msg.actions] } : {}),
     ...(msg.log ? { log: JSON.parse(JSON.stringify(msg.log)) } : {}),
     createdAt: Timestamp.fromMillis(now),
     expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000),

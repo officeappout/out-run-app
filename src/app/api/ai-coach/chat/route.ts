@@ -28,7 +28,8 @@ import {
 import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
-import { applyUserIntent } from '@/lib/ai/coach/intent';
+import { applyUserIntent, typoHints } from '@/lib/ai/coach/intent';
+import { chipsForTurn } from '@/lib/ai/coach/action-chips';
 import type { UserContextSheet } from '@/lib/ai/coach/context-sheet';
 import {
   clientOutcomeToToolResult,
@@ -179,6 +180,7 @@ export async function POST(request: Request) {
     }
   }
   const todayDow = getIsraelDayOfWeek(now);
+  const userTextThisTurn = turnUserText(state);
 
   const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions() });
   const system: Anthropic.TextBlockParam[] = [
@@ -193,6 +195,7 @@ export async function POST(request: Request) {
         israelHour: getIsraelHour(now),
         summary: thread.summary,
         sheet,
+        typoHints: typoHints(userTextThisTurn),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -235,7 +238,7 @@ export async function POST(request: Request) {
             history,
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: COACH_MODEL_MAX_TOKENS,
-            guards: { sheet, todayDow },
+            guards: { sheet, todayDow, userGender: gender },
           },
           state,
           {
@@ -275,11 +278,20 @@ export async function POST(request: Request) {
           return;
         }
 
+        // Action chips (e.g. "פתח את הלו״ז" under a schedule answer), decided from the turn.
+        const actions = chipsForTurn({
+          userText: userTextThisTurn,
+          toolNames: (outcome.state.log?.toolCalls ?? []).map((c) => c.name),
+          sheet,
+        });
+        if (actions.length) emit({ type: 'actions', actions });
+
         // Final: ONE assistant message for the whole turn (every round), with its cards.
         const id = await appendMessage(db, uid, {
           role: 'assistant',
           text: outcome.state.turnText.trim(),
           cards: turnCards,
+          actions,
           log: outcome.state.log,
         });
         if ('toolResult' in body) await clearPending(db, uid);

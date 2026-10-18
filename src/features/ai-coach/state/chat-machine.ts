@@ -10,6 +10,7 @@
  * The live assistant bubble has id LIVE_ID until `done` gives it the stored message id.
  */
 import type { CoachStreamEvent, CoachErrorInput, WorkoutCard } from '@/lib/ai/coach/protocol';
+import type { CoachActionId } from '@/lib/ai/coach/action-chips';
 
 export const LIVE_ID = '__live__';
 
@@ -18,6 +19,8 @@ export interface UiMessage {
   role: 'user' | 'assistant';
   text: string;
   cards: WorkoutCard[];
+  /** Action chips under an assistant reply ("פתח את הלו״ז"). */
+  actions?: CoachActionId[];
 }
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';
@@ -97,6 +100,8 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
               m.cards.some((c) => c.workoutId === ev.card.workoutId) ? m : { ...m, cards: [...m.cards, ev.card] },
             ),
           };
+        case 'actions':
+          return { ...s, messages: withLive(s.messages, (m) => ({ ...m, actions: Array.from(new Set([...(m.actions ?? []), ...ev.actions])) })) };
         case 'client_tool':
           return { ...s, phase: 'running_tool', toolStatus: null, toolCall: { id: ev.id, name: ev.name, input: ev.input } };
         case 'done':

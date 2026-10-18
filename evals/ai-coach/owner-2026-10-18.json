@@ -4,7 +4,7 @@
     "name": "\"מה בתוכנית השבוע?\" must read the schedule, no invented days, no English",
     "source": {
       "kind": "fixture",
-      "note": "Owner's own thread, 18.10.2026, failure 1. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: answering without get_schedule, naming unplanned days, English in the reply."
+      "note": "Owner's own thread, 18.10.2026, failure 1. User message verbatim; the context sheet is synthetic (no real profile data). Guards against: answering without get_schedule, naming unplanned days, English in the reply. Round 2: the week is pre-loaded into every turn (user sheet), so get_schedule is no longer required; the answer must name every planned day and carry the open-schedule chip."
     },
     "history": [],
     "message": "מה בתוכנית השבוע?",
@@ -81,8 +81,11 @@
       }
     },
     "assertions": {
-      "mustCallTool": "get_schedule",
       "noInventedDays": true,
+      "namesAllScheduledDays": true,
+      "chips": [
+        "open_schedule"
+      ],
       "noEnglish": true,
       "noSafetyReply": true,
       "masculineSelfReference": true

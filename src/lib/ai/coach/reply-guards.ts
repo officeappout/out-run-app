@@ -8,25 +8,37 @@
  *              Owner review 18.10.2026: "מה בתוכנית השבוע?" was answered with three
  *              invented workouts ("ראשון ב-15:00, שלישי, חמישי") while the week held four.
  *   foreign    Latin-letter words in the Hebrew reply ("ביום suspicious..."), except a
- *              short allow list, single letters (ישיבת L) and words that appear in this
- *              turn's evidence (an exercise name that really contains Latin letters).
+ *              short allow list, single letters (ישיבת L) and words that appear as a VALUE
+ *              in this turn's evidence (an exercise name that really contains Latin
+ *              letters). Internal identifiers are never allowed, even when the evidence
+ *              holds them: JSON keys ("workoutId" leaked into a reply, review 18.10.2026),
+ *              ids like "ai-1734…", snake_case tool names, camelCase, letters mixed with digits.
+ *   feminine   Kelly (a man) speaking about himself in the feminine ("לא בטוחה שהבנתי");
+ *              detector shared with the review agent (gender-voice.ts).
  *
- * The turn engine re-prompts ONCE on any issue; foreign words left after that are stripped.
+ * The turn engine re-prompts ONCE on any issue; after that, foreign words are stripped and
+ * feminine self-references are rewritten to the masculine deterministically.
  */
 import type { UserContextSheet } from './context-sheet';
+import type { CoachGender } from './persona';
+import { findFeminineSelfReferences } from './gender-voice';
 
 export interface GroundingFacts {
   times: Set<string>;
   counts: Set<number>;
   levels: Set<number>;
   weekdays: Set<number>;
-  /** All evidence as one lower-cased string (sheet JSON + tool results). */
+  /**
+   * The evidence's string VALUES, lower-cased (never the JSON keys: a key like "workoutId"
+   * is not a word the reply may use).
+   */
   text: string;
 }
 
 export type ReplyIssue =
   | { kind: 'ungrounded'; claims: string[] }
-  | { kind: 'foreign'; words: string[] };
+  | { kind: 'foreign'; words: string[] }
+  | { kind: 'feminine'; forms: string[] };
 
 const ALLOWED_LATIN = new Set(['ai', 'out', 'emom', 'amrap', 'hiit', 'trx']);
 
@@ -77,6 +89,7 @@ function walk(v: unknown, f: GroundingFacts, key = ''): void {
     return;
   }
   if (typeof v === 'string') {
+    f.text += `${v.toLowerCase()}\n`;
     if (key === 'date' || key === 'from' || key === 'to') {
       const d = dowOf(v);
       if (d !== null) f.weekdays.add(d);
@@ -92,21 +105,17 @@ export function factsFromEvidence(
   todayDow: number | null,
 ): GroundingFacts {
   const f: GroundingFacts = { times: new Set(), counts: new Set(), levels: new Set(), weekdays: new Set(), text: '' };
-  const parts: string[] = [];
-  if (sheet) {
-    walk(sheet, f);
-    parts.push(JSON.stringify(sheet));
-  }
+  if (sheet) walk(sheet, f);
   for (const t of toolResultTexts) {
-    parts.push(t);
     try {
       walk(JSON.parse(t), f);
     } catch {
+      // Plain-text tool results (errors, notes) are prose: all of it is a value.
+      f.text += `${t.toLowerCase()}\n`;
       addTimesFromText(t, f.times);
     }
   }
   if (todayDow !== null) f.weekdays.add(todayDow);
-  f.text = parts.join('\n').toLowerCase();
   return f;
 }
 
@@ -157,12 +166,30 @@ export function findUngroundedClaims(reply: string, f: GroundingFacts): string[]
   return Array.from(new Set(out));
 }
 
-/** Latin-letter words that don't belong in a Hebrew reply. */
+/** Tokens that are internal identifiers, never words: always flagged. */
+export function isInternalIdentifier(w: string): boolean {
+  return (
+    /_/.test(w) || // get_schedule, pullup_bar
+    /[a-z][A-Z]/.test(w) || // workoutId, programIds
+    /[A-Za-z]\d|\d[A-Za-z]/.test(w) || // ai-1734abc, H2279XsRGDg9
+    /^ai-/i.test(w) || // ai-stub-park-20
+    /^(workout|program|entry|user|tool|exercise)ids?$/i.test(w)
+  );
+}
+
+/** A Latin word, or an id glued to leading digits ("5Rkhx…"). */
+const LATIN_TOKEN = /(?<![A-Za-z0-9_])[0-9]*[A-Za-z][A-Za-z0-9_]*(?:['’-][A-Za-z0-9_]+)*/g;
+
+/** Latin-letter words (and internal ids) that don't belong in a Hebrew reply. */
 export function findForeignWords(reply: string, evidenceText: string): string[] {
   const out: string[] = [];
-  for (const m of Array.from((reply ?? '').matchAll(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g))) {
+  for (const m of Array.from((reply ?? '').matchAll(LATIN_TOKEN))) {
     const w = m[0];
     const lw = w.toLowerCase();
+    if (isInternalIdentifier(w)) {
+      out.push(w);
+      continue;
+    }
     if (w.length === 1) continue; // ישיבת L, V-sit as "V"
     if (ALLOWED_LATIN.has(lw)) continue;
     if (evidenceText && new RegExp(`(^|[^a-z])${lw.replace(/[^a-z]/g, '.')}([^a-z]|$)`).test(evidenceText)) continue;
@@ -174,15 +201,17 @@ export function findForeignWords(reply: string, evidenceText: string): string[] 
 /** Last resort after the one re-prompt: drop the foreign words and tidy the spacing. */
 export function stripForeignWords(reply: string, words: string[]): string {
   let s = reply;
-  for (const w of words) s = s.split(w).join('');
+  // Longest first, so "workoutId=ai-1" goes before "ai".
+  for (const w of [...words].sort((a, b) => b.length - a.length)) s = s.split(w).join('');
   return s
+    .replace(/\s*=\s*(?=[\s.,!?)\]]|$)/g, '') // "workoutId=" left with nothing after it
+    .replace(/\(\s*\)|\[\s*\]/g, '')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\s+([.,!?])/g, '$1')
-    .replace(/\(\s*\)/g, '')
     .trim();
 }
 
-export function checkReply(reply: string, f: GroundingFacts | null): ReplyIssue[] {
+export function checkReply(reply: string, f: GroundingFacts | null, userGender?: CoachGender | null): ReplyIssue[] {
   const issues: ReplyIssue[] = [];
   if (f) {
     const claims = findUngroundedClaims(reply, f);
@@ -190,6 +219,8 @@ export function checkReply(reply: string, f: GroundingFacts | null): ReplyIssue[
   }
   const words = findForeignWords(reply, f?.text ?? '');
   if (words.length) issues.push({ kind: 'foreign', words });
+  const fem = findFeminineSelfReferences(reply, userGender);
+  if (fem.length) issues.push({ kind: 'feminine', forms: fem.map((h) => h.text) });
   return issues;
 }
 
@@ -204,7 +235,14 @@ export function correctionNote(issues: ReplyIssue[]): string {
       );
     }
     if (i.kind === 'foreign') {
-      lines.push(`Your reply contained non-Hebrew words: ${i.words.join(', ')}. Write the whole reply in Hebrew.`);
+      lines.push(
+        `Your reply contained non-Hebrew words or internal ids: ${i.words.join(', ')}. Write the whole reply in Hebrew and never mention ids, field names or tool names.`,
+      );
+    }
+    if (i.kind === 'feminine') {
+      lines.push(
+        `You spoke about yourself in the feminine: ${i.forms.join(', ')}. Kelly is a man: use masculine first person (אני בטוח, אני בודק, אני מבין, אני יכול). Keep how you address the user unchanged.`,
+      );
     }
   }
   lines.push('Write the reply to the user again, short, in Hebrew.');

@@ -186,3 +186,111 @@ export function aiWorkoutTitle(domains: readonly string[], location: CoachLocati
   }
   return `${what} ${LOCATION_TITLE[location]}`;
 }
+
+// ─── Schedule questions ──────────────────────────────────────────────────────
+
+const SCHEDULE_Q =
+  /בתוכנית|התוכנית\s+(שלי|השבוע)|לוח\s+(ה)?זמנים|לו["״׳']?ז|ביומן|מתוכנן|מה\s+(מחכה|מצפה)\s+לי|מה\s+יש\s+לי|אילו\s+אימונים|איזה\s+אימונים|מתי\s+(יש\s+לי\s+)?(ה)?אימון|האימונים\s+שלי|השבוע\s+שלי/;
+const BUILD_REQ = /תבנה|תבני|תבנו|בנה\s+לי|תכין|תן\s+לי\s+אימון|תני\s+לי\s+אימון/;
+
+/** "מה מצפה לי השבוע?", "מה בתוכנית השבוע?" — a question about the user's own schedule. */
+export function inferScheduleQuestion(text: string): boolean {
+  const t = (text ?? '').normalize('NFC').replace(NIQQUD, '');
+  return SCHEDULE_Q.test(t) && !BUILD_REQ.test(t);
+}
+
+// ─── Typo hints ──────────────────────────────────────────────────────────────
+//
+// Owner thread after #434: "היי חזרתי השצפרת" (meant "השתפרת", צ and ת are neighbours on
+// the Hebrew keyboard) → Kelly guessed "הצפרת". The server never rewrites the user's words:
+// it only lists likely intended words as a HINT in the session context, and the prompt tells
+// Kelly to confirm briefly when relying on one ("התכוונת 'השתפרת'?").
+
+/** Keys next to each other on the Hebrew (SI-1452) keyboard, plus sound-alike letters. */
+const CONFUSABLE_PAIRS: ReadonlyArray<string> = [
+  // keyboard rows: ק ר א ט ו ן ם פ / ש ד ג כ ע י ח ל ך ף / ז ס ב ה נ מ צ ת ץ
+  'קר', 'רא', 'אט', 'טו', 'ון', 'ןם', 'םפ',
+  'שד', 'דג', 'גכ', 'כע', 'עי', 'יח', 'חל', 'לך', 'ךף',
+  'זס', 'סב', 'בה', 'הנ', 'נמ', 'מצ', 'צת', 'תץ',
+  // sound-alike
+  'טת', 'כח', 'כק', 'סש', 'אע', 'בו', 'צס',
+];
+
+const CONFUSABLE: Record<string, string[]> = (() => {
+  const m: Record<string, string[]> = {};
+  for (const pair of CONFUSABLE_PAIRS) {
+    const a = pair[0];
+    const b = pair[1];
+    (m[a] ??= []).push(b);
+    (m[b] ??= []).push(a);
+  }
+  return m;
+})();
+
+/** Words users of a coaching app type (full forms, 4+ letters). */
+const COACH_LEXICON: ReadonlySet<string> = new Set([
+  'השתפרת', 'השתפרתי', 'השתפר', 'השתפרה', 'השתפרו', 'משתפר', 'משתפרת', 'להשתפר', 'שיפור', 'שיפרו', 'שיפרת',
+  'התקדמת', 'התקדמתי', 'התקדמות', 'מתקדם', 'מתקדמת', 'להתקדם',
+  'אימון', 'אימונים', 'האימון', 'האימונים', 'להתאמן', 'מתאמן', 'מתאמנת', 'התאמנתי', 'התאמנת',
+  'תוכנית', 'התוכנית', 'השבוע', 'שבוע', 'היום', 'אתמול', 'מחרתיים',
+  'רגליים', 'כתפיים', 'ידיים', 'ישבן', 'ליבה', 'לחזק', 'לחיזוק', 'חיזוק', 'שכיבות', 'סמיכה', 'מתחים',
+  'סקוואט', 'פלאנק', 'מתיחות', 'גמישות', 'ריצה', 'הליכה', 'לרוץ', 'ללכת', 'כושר', 'מאמן',
+  'תבנה', 'לבנות', 'בניתי', 'אפליקציה', 'זמנים', 'פארק', 'בבית', 'בפארק', 'דקות',
+  'קליל', 'עייף', 'עייפה', 'כואב', 'שרירים', 'חימום', 'להתחיל', 'תודה', 'חזרתי', 'זוכר', 'זכרון',
+  'למדת', 'לומד', 'מבין', 'הבנת', 'חזרה', 'מצוין', 'מעולה',
+]);
+
+/** Common words that must never be "corrected". */
+const COMMON: ReadonlySet<string> = new Set(['היי', 'הלו', 'שלום', 'אחי', 'אחלה', 'סבבה', 'יאללה', 'תודה', 'רגע', 'בוקר', 'ערב', 'לילה', 'טוב', 'אני', 'אתה', 'שלי', 'שלך']);
+
+const PREFIX_LETTERS = 'והשבלמכ';
+
+function oneEditVariants(w: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < w.length; i++) {
+    for (const r of CONFUSABLE[w[i]] ?? []) out.push(w.slice(0, i) + r + w.slice(i + 1));
+    if (i + 1 < w.length && w[i] !== w[i + 1]) out.push(w.slice(0, i) + w[i + 1] + w[i] + w.slice(i + 2));
+  }
+  return out;
+}
+
+/** The token is a lexicon / common word, with up to two prefix letters ("באימונים"). */
+function isKnown(tok: string, depth = 0): boolean {
+  if (COACH_LEXICON.has(tok) || COMMON.has(tok)) return true;
+  return depth < 2 && tok.length > 3 && PREFIX_LETTERS.includes(tok[0]) && isKnown(tok.slice(1), depth + 1);
+}
+
+function correctToken(tok: string): string | null {
+  if (tok.length < 4 || isKnown(tok)) return null;
+  for (const v of oneEditVariants(tok)) if (COACH_LEXICON.has(v)) return v;
+  // One leading prefix letter (ו / ש / ה …) + a lexicon word.
+  if (PREFIX_LETTERS.includes(tok[0]) && tok.length >= 5) {
+    const rest = tok.slice(1);
+    for (const v of oneEditVariants(rest)) if (COACH_LEXICON.has(v)) return tok[0] + v;
+  }
+  return null;
+}
+
+export interface TypoHint {
+  /** As the user typed it. */
+  word: string;
+  /** The likely intended word. */
+  suggestion: string;
+}
+
+/**
+ * Likely typos in the user's message (one keyboard-neighbour / sound-alike swap or one
+ * transposition away from a coaching word). A hint for the model only, never applied.
+ */
+export function typoHints(text: string): TypoHint[] {
+  const out: TypoHint[] = [];
+  const seen = new Set<string>();
+  for (const tok of (text ?? '').normalize('NFC').replace(NIQQUD, '').split(/[^א-ת]+/)) {
+    if (!tok || seen.has(tok)) continue;
+    seen.add(tok);
+    const s = correctToken(tok);
+    if (s && s !== tok) out.push({ word: tok, suggestion: s });
+    if (out.length >= 3) break;
+  }
+  return out;
+}

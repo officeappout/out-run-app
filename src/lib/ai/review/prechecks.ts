@@ -182,6 +182,19 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
     });
   }
 
+  // A schedule question answered with counts only (owner thread after #434: "מה מצפה לי
+  // השבוע?" → "יש לך 3 אימונים"): the user needs the days.
+  if (req.isScheduleQuestion && turn.cards.length === 0 && weekdaysMentioned(reply).length === 0 && /\d|אימונים|אימון\s+אחד/.test(reply)) {
+    out.push({
+      category: 'unhelpful',
+      severity: 1,
+      evidence: quote(reply),
+      expected: 'A short per-day list of the planned sessions (day, time, what), plus the "פתח את הלו״ז" chip.',
+      likelyRootCause: 'prompt',
+      suggestedFix: 'Answer schedule questions with one line per planned day from the user sheet, never only a count.',
+    });
+  }
+
   // ── Workout request vs. what was built ────────────────────────────────────
   if (!req.isWorkoutRequest) return out;
   if (looksLikeSafetyReply(reply)) return out; // covered by the safety checks above

@@ -11,8 +11,12 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { EvalCaseSchema, checkAssertions, defaultAssertions, caseIdFor, type EvalCase, type EvalRunResult } from '../eval-case';
 import { runEvalCase, scriptedMockModel, simulateServerTool, stubWorkoutGenerator, type CallModel } from '../eval-runner';
 
-const FIXTURE = path.join(process.cwd(), 'evals', 'ai-coach', 'owner-2026-10-18.json');
-const cases: EvalCase[] = (JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as unknown[]).map((c) => EvalCaseSchema.parse(c));
+const FIXTURE_DIR = path.join(process.cwd(), 'evals', 'ai-coach');
+const cases: EvalCase[] = fs
+  .readdirSync(FIXTURE_DIR)
+  .filter((f) => f.endsWith('.json'))
+  .sort()
+  .flatMap((f) => (JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, f), 'utf8')) as unknown[]).map((c) => EvalCaseSchema.parse(c)));
 const byId = (id: string) => cases.find((c) => c.id === id)!;
 
 function message(content: unknown[], stop: Anthropic.StopReason): Anthropic.Message {
@@ -42,19 +46,24 @@ function script(steps: Array<{ tools?: Array<{ name: string; input: unknown }>; 
 }
 
 describe('fixtures', () => {
-  it('the six owner cases parse and are unique', () => {
-    expect(cases.map((c) => c.id)).toEqual([
+  it('the owner cases (round 1 + round 2) parse and are unique', () => {
+    expect(cases.map((c) => c.id).sort()).toEqual([
       'owner-01-week-plan',
       'owner-02-doctor-question',
       'owner-03-home-10min',
       'owner-04-hard-home-10min',
       'owner-05-abs',
       'owner-06-memory',
+      'owner-07-feminine-slip',
+      'owner-08-female-user-no-false-positive',
+      'owner-09-typo-improved',
+      'owner-10-week-per-day',
+      'owner-11-abs-strengthen',
     ]);
-    for (const c of cases) expect(c.context.firstName).toBe('דוד');
+    expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it('a GOOD (scripted mock) coach passes all six through the real turn engine', async () => {
+  it('a GOOD (scripted mock) coach passes every case through the real turn engine', async () => {
     for (const c of cases) {
       const r = await runEvalCase(c, { callModel: scriptedMockModel(c), model: 'claude-haiku-5-5' });
       expect({ id: c.id, pass: r.pass, failed: r.assertions.filter((a) => !a.pass) }).toEqual({ id: c.id, pass: true, failed: [] });
@@ -64,13 +73,14 @@ describe('fixtures', () => {
 });
 
 describe('the owner failure modes fail', () => {
-  it('case 1: no get_schedule, invented days, English', async () => {
+  it('case 1: invented days fail (the English word is stripped by the reply guard)', async () => {
     const r = await runEvalCase(byId('owner-01-week-plan'), {
       model: 'claude-haiku-5-5',
       callModel: script([{ text: 'השבוע יש לך workout ביום שני וביום רביעי.' }]),
     });
     expect(r.pass).toBe(false);
-    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name).sort()).toEqual(['mustCallTool', 'noEnglish', 'noInventedDays']);
+    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name).sort()).toEqual(['namesAllScheduledDays', 'noInventedDays']);
+    expect(r.run.finalText).not.toContain('workout');
     expect(r.costUsd).toBeGreaterThan(0);
   });
 
@@ -144,12 +154,43 @@ describe('the owner failure modes fail', () => {
     expect(offDomain.assertions.find((a) => a.name === 'domains')).toMatchObject({ pass: false, detail: 'off-domain exercises: push' });
   });
 
-  it('case 6: feminine and long fails', async () => {
+  it('case 6: too long fails; the feminine voice is rewritten by the reply guard', async () => {
     const r = await runEvalCase(byId('owner-06-memory'), {
       model: 'claude-haiku-5-5',
       callModel: script([{ text: 'כן! אני זוכרת הכל. אני שומרת סיכום. אני יכולה לעזור. מה עוד? בוא נתחיל.' }]),
     });
-    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name).sort()).toEqual(['masculineSelfReference', 'maxSentences']);
+    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name).sort()).toEqual(['maxSentences']);
+    expect(r.run.finalText).toContain('אני זוכר הכל');
+    expect(r.run.finalText).toContain('אני יכול לעזור');
+  });
+
+  it('round 2, weekly plan: a count-only answer fails (no days named), the chips are still there', async () => {
+    const r = await runEvalCase(byId('owner-10-week-per-day'), {
+      model: 'claude-haiku-5-5',
+      callModel: script([{ text: 'השבוע מתוכננים לך 3 אימונים. בהצלחה!' }]),
+    });
+    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name)).toEqual(['namesAllScheduledDays']);
+    expect(r.run.chips).toEqual(['open_schedule', 'build_today']);
+  });
+
+  it('round 2, typo: guessing "הצפרת" fails', async () => {
+    const r = await runEvalCase(byId('owner-09-typo-improved'), {
+      model: 'claude-haiku-5-5',
+      callModel: script([{ text: 'אני מניח שאתה מתכוון להצפרת. לא בטוח שהבנתי.' }]),
+    });
+    expect(r.assertions.filter((a) => !a.pass).map((a) => a.name).sort()).toEqual(['mustMatch /השתפרת/', 'mustMatch /הצוות/', 'mustNotMatch /הצפרת/'].sort());
+  });
+
+  it('round 2, typo: the session context carries the hint for the model', async () => {
+    let system = '';
+    await runEvalCase(byId('owner-09-typo-improved'), {
+      model: 'claude-haiku-5-5',
+      callModel: async (params, onText) => {
+        system = (params.system as Anthropic.TextBlockParam[]).map((b) => b.text).join('\n');
+        return script([{ text: 'התכוונת "השתפרת"? כן, הצוות משפר אותי לפי השיחות.' }])(params, onText);
+      },
+    });
+    expect(system).toContain('"השצפרת" probably means "השתפרת"');
   });
 
   it('the deterministic safety gate runs first (no model call)', async () => {
@@ -193,7 +234,8 @@ describe('assertion engine + helpers', () => {
     });
     expect(defaultAssertions('תבנה לי אימון בטן')).toMatchObject({ domains: ['core'], minExercises: 3 });
     expect(defaultAssertions('אימון ברמה גבוהה לבית 10 דק')).toMatchObject({ difficulty: 3, mentionLevelCeilingIfPresent: true });
-    expect(defaultAssertions('מה בתוכנית השבוע?')).toMatchObject({ mustCallTool: 'get_schedule', noInventedDays: true });
+    expect(defaultAssertions('מה בתוכנית השבוע?')).toMatchObject({ noInventedDays: true, namesAllScheduledDays: true, chips: ['open_schedule'] });
+    expect(defaultAssertions('מה בתוכנית השבוע?').mustCallTool).toBeUndefined();
     expect(defaultAssertions('יש לי כאב בחזה')).toMatchObject({ safetyReply: true });
     expect(defaultAssertions('רגע יש לך זכרון?', 'tone_gender')).toMatchObject({ maxSentences: 4, noSafetyReply: true });
   });

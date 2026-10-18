@@ -26,7 +26,9 @@ import {
   type ToolExecResult,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
-import { daysBetween } from '@/lib/ai/coach/context-sheet';
+import { daysBetween, type UserContextSheet } from '@/lib/ai/coach/context-sheet';
+import { typoHints } from '@/lib/ai/coach/intent';
+import { chipsForTurn } from '@/lib/ai/coach/action-chips';
 import { estimateCostUsd, usageFromSdk, type AiUsage } from '@/lib/ai/ai-pricing';
 import { checkAssertions, type AssertionResult, type EvalCase, type EvalRunResult, type EvalToolCall } from './eval-case';
 
@@ -182,6 +184,7 @@ function addDays(key: string, n: number): string {
  */
 export function scriptedMockModel(c: EvalCase): CallModel {
   let round = 0;
+  let textRound = 0;
   return async (params, onText) => {
     round++;
     const a = c.assertions;
@@ -208,14 +211,38 @@ export function scriptedMockModel(c: EvalCase): CallModel {
       });
       return { ...base, content, stop_reason: 'tool_use' } as unknown as Anthropic.Message;
     }
-    const text = need.includes('generate_workout')
-      ? 'בניתי לך אימון ברמה המתאימה לך. אפשר ללחוץ על הכרטיס כדי להתחיל.'
-      : need.includes('get_schedule')
-        ? 'בדקתי את התוכנית שלך לשבוע הקרוב.'
-        : 'אני זוכר את מה שכתבנו בשיחה הזאת.';
+    const text = c.mock ? c.mock.replies[Math.min(textRound, c.mock.replies.length - 1)] : goodMockReply(c, params);
+    textRound++;
     onText(text);
     return { ...base, content: [{ type: 'text', text, citations: null }], stop_reason: 'end_turn' } as unknown as Anthropic.Message;
   };
+}
+
+function systemText(params: Anthropic.MessageStreamParams): string {
+  const sys = params.system;
+  if (typeof sys === 'string') return sys;
+  return (sys ?? []).map((b) => b.text).join('\n');
+}
+
+/** What a good coach would say, from what the turn actually has (system context + tools). */
+function goodMockReply(c: EvalCase, params: Anthropic.MessageStreamParams): string {
+  const a = c.assertions;
+  const need = a.mustCallTool ? (Array.isArray(a.mustCallTool) ? a.mustCallTool : [a.mustCallTool]) : [];
+  const sys = systemText(params);
+  if (need.includes('generate_workout')) return 'בניתי לך אימון ברמה המתאימה לך. אפשר ללחוץ על הכרטיס כדי להתחיל.';
+  // A typo hint in the session context → confirm the intended word first.
+  const typo = sys.match(/Likely typos[^\n]*?"([^"]+)" probably means "([^"]+)"/);
+  if (typo) return `התכוונת "${typo[2]}"? כן, הצוות משפר אותי לפי השיחות.`;
+  // Schedule: the per-day lines of the pre-loaded sheet (renderSheet), without the ISO date.
+  if (a.namesAllScheduledDays || need.includes('get_schedule')) {
+    const lines = sys
+      .split('\n')
+      .filter((l) => /^ {2}יום /.test(l))
+      .map((l) => l.trim().replace(/\s\d{4}-\d{2}-\d{2}/, '').replace(/, completed$/, ', בוצע'))
+      .slice(0, 5);
+    return lines.length ? `${lines.join('\n')}\nאפשר לפתוח את הלו״ז בכפתור למטה.` : 'השבוע אין אימונים מתוכננים.';
+  }
+  return 'אני זוכר את מה שכתבנו בשיחה הזאת.';
 }
 
 // ─── Replay ──────────────────────────────────────────────────────────────────
@@ -253,6 +280,19 @@ export async function runEvalCase(
     };
   };
 
+  const sheet = (ctx.sheet ?? minimalSheet(ctx)) as unknown as UserContextSheet;
+  const sheetWeekDates = (Array.isArray(sheet.thisWeek) ? sheet.thisWeek : [])
+    .filter((e) => e && e.type !== 'rest' && typeof e.date === 'string')
+    .map((e) => e.date);
+  const finalRun = (finalText: string): EvalRunResult => ({
+    finalText,
+    safetyGate: false,
+    toolCalls,
+    todayDayOfWeek: ctx.israelDayOfWeek,
+    sheetWeekDates,
+    chips: chipsForTurn({ userText: c.message, toolNames: toolCalls.map((t) => t.name), sheet }),
+  });
+
   // The route's deterministic safety gate runs before the model.
   const trigger = detectSafetyTrigger(c.message);
   if (trigger) {
@@ -269,6 +309,9 @@ export async function runEvalCase(
         todayKey: ctx.todayKey,
         israelDayOfWeek: ctx.israelDayOfWeek,
         israelHour: ctx.israelHour,
+        // Like the route: the user sheet and the typo hints are in every turn's context.
+        sheet,
+        typoHints: typoHints(c.message),
       }),
     },
   ];
@@ -279,6 +322,7 @@ export async function runEvalCase(
     history: historyToModelMessages(c.history.map((h) => ({ role: h.role, text: h.text }))),
     maxRounds: COACH_MAX_TOOL_ROUNDS,
     maxTokens: COACH_MODEL_MAX_TOKENS,
+    guards: { sheet, todayDow: ctx.israelDayOfWeek, userGender: ctx.gender },
   };
 
   const callModel: CallModel = async (params, onText) => {
@@ -305,7 +349,7 @@ export async function runEvalCase(
         },
       });
       if (outcome.kind === 'final') {
-        return finish({ finalText: outcome.state.turnText.trim(), safetyGate: false, toolCalls, todayDayOfWeek: ctx.israelDayOfWeek }, null);
+        return finish(finalRun(outcome.state.turnText.trim()), null);
       }
       // Client tool round trip (the device's part).
       const sim = await simulate(outcome.call.input as GenerateWorkoutInputT, ctx);
