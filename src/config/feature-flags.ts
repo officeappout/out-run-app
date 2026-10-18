@@ -393,6 +393,20 @@ export const POST_WORKOUT_LANDING_V1 = false;
 // unwired.
 export const HOME_DAY_SELECT_SCOPE_V1 = false;
 
+// WORKOUT_COACH_NOTE_V1: the "דגשי האימון" block on the workout overview — 2–4
+// short Hebrew sentences explaining WHY this workout was built (recovery /
+// returning / cycle week / weekly gap / focus / location …) and WHAT to expect
+// (exercises, sets × reps, rest, intensity, protocol). Rendered from the
+// engine's DecisionRecord (workout-engine/services/decision-record.ts) by the
+// template phrasebook in coach-note.ts. Also feeds the weekly-gap signal into
+// the admin content tag @פער_שבועי (workout-metadata weeklyGapDomain/Percent),
+// which today always resolves to "מאוזן".
+// While FALSE: the overview shows logicCue || description exactly as before and
+// the metadata context is unchanged (BYTE-IDENTICAL UI/copy). The
+// DecisionRecord itself is still computed and carried on the workout (pure,
+// light scalars, never rendered) so it can be inspected before the flip.
+export const WORKOUT_COACH_NOTE_V1 = false;
+
 // BLOCK_B_SMART_CLOSE_V1: originally gated the post-workout "smart close"
 // recommendation (hero + 2 alternatives) as its own standalone assembler — this
 // approach is SUPERSEDED by the unified suggestion engine actually built and

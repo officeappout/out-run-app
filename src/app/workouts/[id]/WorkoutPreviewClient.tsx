@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Play, Home, Link2, X } from 'lucide-react';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import WorkoutPreviewHeader from '@/features/workout-engine/components/WorkoutPreviewHeader';
+import CoachNoteBlock, { useCoachNote } from '@/features/workout-engine/components/CoachNoteBlock';
+import type { DecisionRecord } from '@/features/workout-engine/services/decision-record';
 import StrengthExerciseCard from '@/features/workout-engine/components/cards/StrengthExerciseCard';
 import RunningSegmentCard from '@/features/workout-engine/components/cards/RunningSegmentCard';
 import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
@@ -455,6 +457,8 @@ export default function WorkoutPreviewClient({
   const [heroMedia, setHeroMedia] = useState<{ thumbnailUrl?: string; videoUrl?: string } | null>(null);
   const [storedSegments, setStoredSegments] = useState<StoredSegment[] | null>(null);
   const [logicCue, setLogicCue] = useState<string | null>(null);
+  const [decisionRecord, setDecisionRecord] = useState<DecisionRecord | null>(null);
+  const coachNote = useCoachNote(decisionRecord);
 
   // Hydrate sessionStorage data on mount
   useEffect(() => {
@@ -471,6 +475,7 @@ export default function WorkoutPreviewClient({
         const plan = JSON.parse(raw);
         if (plan?.segments) setStoredSegments(plan.segments);
         if (plan?.logicCue) setLogicCue(plan.logicCue);
+        if (plan?.decisionRecord) setDecisionRecord(plan.decisionRecord);
         if (plan?.name || plan?.totalDuration) {
           setWorkout((prev) => prev ?? {
             id: workoutId,
@@ -579,7 +584,7 @@ export default function WorkoutPreviewClient({
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <WorkoutPreviewHeader
         title={workout?.title || 'אימון כוח מותאם'}
-        description={logicCue || workout?.description}
+        description={coachNote ? workout?.description : logicCue || workout?.description}
         difficulty={workout?.difficulty === 'easy' ? 1 : workout?.difficulty === 'hard' ? 3 : 2}
         estimatedDuration={workout?.duration}
         heroMediaUrl={heroMedia?.thumbnailUrl}
@@ -591,6 +596,8 @@ export default function WorkoutPreviewClient({
       {/* ── Exercise List ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto pb-28">
         <div className="px-4 py-5 space-y-3">
+          {/* דגשי האימון — WORKOUT_COACH_NOTE_V1 (renders nothing while off) */}
+          <CoachNoteBlock note={coachNote} className="pb-2" />
 
           {hasStructuredGroups ? (
             displayGroups.map((group) => (
