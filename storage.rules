@@ -220,6 +220,16 @@ service firebase.storage {
       allow delete: if isOwner(userId);
     }
 
+    // Feed post photos (home v2, PR #420). Owner uploads to their own
+    // folder; any signed-in user can read (posts are shown to their
+    // audience through /api/feed). Delete is a separate rule because
+    // request.resource is null on delete (see contribution-photos above).
+    match /feed-photos/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isImage() && isImageSize();
+      allow delete: if isOwner(userId);
+    }
+
     // ── 4. User Private: Health Declarations (Owner + Admin Read) ────
     //
     // PDFs of signed health questionnaires. Owner read/write; admins may
