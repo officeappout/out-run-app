@@ -7,6 +7,10 @@
  * so it sits next to the existing chips without competing with them.
  *
  * Renders nothing when there is no weather (flag off, offline, no location, error).
+ *
+ * IMS attribution: when the snapshot came from the Israel Meteorological Service, its
+ * terms of use (§3) require a visible credit wherever the data is shown, plus a note that
+ * IMS is not responsible for it — a tiny caption under the pill + the full note in title.
  */
 
 import React from 'react';
@@ -24,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import type { HomeWeather } from '../hooks/useWeather';
+import { IMS_ATTRIBUTION_HE, IMS_DISCLAIMER_HE } from '../core/provider-attribution';
 
 /** WMO weather code → lucide icon. */
 export function iconForWeatherCode(code: number | null, isNight: boolean): LucideIcon {
@@ -53,7 +58,7 @@ export default function WeatherChip({ weather }: { weather: HomeWeather | null }
     ? 'text-amber-500'
     : v2 ? 'text-[#0284c7]' : 'text-[#00C9F2]';
 
-  return (
+  const pill = (
     <div
       dir="rtl"
       role="status"
@@ -70,6 +75,16 @@ export default function WeatherChip({ weather }: { weather: HomeWeather | null }
           {hint}
         </span>
       )}
+    </div>
+  );
+
+  if (weather.snapshot.provider !== 'ims') return pill;
+  return (
+    <div dir="rtl" className="inline-flex max-w-full flex-col items-start gap-0.5" title={IMS_DISCLAIMER_HE}>
+      {pill}
+      <span className="ps-2 text-[10px] font-medium leading-none text-gray-500 dark:text-gray-400">
+        {IMS_ATTRIBUTION_HE}
+      </span>
     </div>
   );
 }
