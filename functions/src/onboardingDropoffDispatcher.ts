@@ -36,10 +36,12 @@
  *  hit the cap — they stay IN_PROGRESS forever — can't fill the batch and
  *  starve new drop-outs. Composite index: onboardingStatus ASC + createdAt DESC.
  *
- *  Quiet hours (22:00–07:00) and Shabbat/yom tov: the whole run exits early,
- *  on BOTH paths, before anything is read or stamped (so a skipped window
- *  never burns one of the user's two sends). The run is every 30 minutes, so
- *  the next active-hours run picks the user up.
+ *  Quiet hours (22:00–07:00): the whole run exits early, on BOTH paths,
+ *  before anything is read or stamped (so a skipped window never burns one
+ *  of the user's two sends). Shabbat/yom tov (opt-in since 18.10.2026): only
+ *  users with settings.shabbatObserver === true are skipped, in Step 2,
+ *  before anything is stamped. The run is every 30 minutes, so the next
+ *  eligible run picks the user up.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * PUSH STRATEGY
@@ -111,7 +113,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, isQuietHours } from './services/push.service';
-import { isShabbatOrYomTov } from './services/shabbat.service';
+import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -328,16 +330,15 @@ export const onboardingDropoffDispatcher = onSchedule(
       logger.warn('[dropoff] TEST_MODE=true — all writes and FCM calls are suppressed.');
     }
 
-    // ── Step 0: quiet hours / Shabbat / yom tov — skip the whole run (both
-    // paths) before anything is read or stamped. See header.
+    // ── Step 0: quiet hours — skip the whole run (both paths) before
+    // anything is read or stamped. See header.
     if (isQuietHours()) {
       logger.info('[dropoff] Quiet hours (22:00–07:00 Israel) — skipping run.');
       return;
     }
-    if (isShabbatOrYomTov()) {
-      logger.info('[dropoff] Shabbat/yom tov — skipping run.');
-      return;
-    }
+    // Shabbat/yom tov: observers only (settings.shabbatObserver) — filtered
+    // per user in Step 2 below; everyone else gets the nudge as on any day.
+    const inShabbatWindow = isShabbatOrYomTov();
 
     const staleBefore = cutoffTimestamp(STALE_HOURS);
 
@@ -411,6 +412,13 @@ export const onboardingDropoffDispatcher = onSchedule(
       // Missing field defaults to enabled (opt-out model), matching all other senders.
       if (data?.settings?.notificationPrefs?.training_reminder === false) {
         logger.info(`[dropoff] uid=${uid} — skipping (training_reminder opt-out)`);
+        continue;
+      }
+
+      // Shabbat/yom tov — before anything is stamped, so the user is simply
+      // picked up by the first run after havdalah.
+      if (inShabbatWindow && isShabbatObserver(data?.settings)) {
+        logger.info(`[dropoff] uid=${uid} — skipping (Shabbat observer, Shabbat/yom tov)`);
         continue;
       }
 

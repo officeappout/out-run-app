@@ -25,7 +25,9 @@ export type PushChannel =
   | 'social'
   | 'progression'
   | 'community'
-  | 'retention';
+  | 'retention'
+  /** Motzei-Shabbat "שבוע טוב" nudge — only ever sent to Shabbat observers (functions/src/weekStartScheduler.ts). */
+  | 'week_start';
 
 /** Maps to functions/src/services/push.service.ts's per-user daily engagement cap (min=1, balanced=3, high=6). */
 export type NotificationFrequency = 'min' | 'balanced' | 'high';
@@ -37,6 +39,10 @@ export interface NotificationPreferences {
    *  never sets this — frequency is independent of the channel toggles).
    *  getNotificationPrefs always resolves a concrete value on read. */
   notificationFrequency?: NotificationFrequency;
+  /** "שמירת שבת" — mirrors `settings.shabbatObserver` (default false). When true the
+   *  server sends no pushes from Friday/erev-chag afternoon until motzei Shabbat/chag
+   *  (functions/src/services/shabbat.service.ts). Optional on input, like frequency. */
+  shabbatObserver?: boolean;
 }
 
 const DEFAULT_PREFS: NotificationPreferences = {
@@ -51,8 +57,10 @@ const DEFAULT_PREFS: NotificationPreferences = {
     progression: true,
     community: true,
     retention: true,
+    week_start: true,
   },
   notificationFrequency: 'balanced',
+  shabbatObserver: false,
 };
 
 /**
@@ -82,8 +90,10 @@ export async function getNotificationPrefs(
         progression: prefs.progression ?? true,
         community: prefs.community ?? true,
         retention: prefs.retention ?? true,
+        week_start: prefs.week_start ?? true,
       },
       notificationFrequency: freq === 'min' || freq === 'balanced' || freq === 'high' ? freq : 'balanced',
+      shabbatObserver: settings.shabbatObserver === true,
     };
   } catch (err) {
     console.warn('[notification-prefs] read failed:', err);
@@ -139,13 +149,29 @@ export async function setNotificationFrequency(
 }
 
 /**
+ * "שמירת שבת" — `settings.shabbatObserver`. Dotted-path write, independent of
+ * the channel toggles and the master switch. Read server-side by push.service.ts
+ * (and the legacy push paths) to hold pushes during Shabbat/yom tov for this
+ * user only, and by weekStartScheduler for the motzei-Shabbat nudge.
+ */
+export async function setShabbatObserver(uid: string, observer: boolean): Promise<void> {
+  if (!uid) return;
+  await updateDoc(doc(db, 'users', uid), {
+    'settings.shabbatObserver': observer,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
  * Bulk-write the entire prefs object. Useful for the onboarding
  * "Notifications" step which lets the user accept/decline all
  * channels at once.
  */
 export async function saveNotificationPrefs(
   uid: string,
-  prefs: NotificationPreferences,
+  // Partial channel map: a missing channel reads as enabled (opt-out model)
+  // both here (getNotificationPrefs) and server-side.
+  prefs: Omit<NotificationPreferences, 'channels'> & { channels: Partial<Record<PushChannel, boolean>> },
 ): Promise<void> {
   if (!uid) return;
   await updateDoc(doc(db, 'users', uid), {

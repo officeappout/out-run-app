@@ -39,19 +39,24 @@
  * (admin broadcasts have neither today, by design — one-off sends, any hour).
  * When the flag is false (default), the legacy inline path runs unchanged.
  *
- * Shabbat / yom tov (owner decision 17.10.2026, see services/shabbat.service.ts):
- * a broadcast created inside the window is NOT sent, on either path (`system`
- * channel exempt). The queue is onCreate-triggered with no re-dispatch
- * mechanism, so it can't simply be held for after havdalah — the doc is
- * marked `status: 'failed'` with `error` starting `blocked_shabbat_yom_tov`
- * (so it shows up in the admin push history) and the admin resends later.
+ * Shabbat / yom tov (owner decision 17.10.2026, opt-in since 18.10.2026 —
+ * see services/shabbat.service.ts): a broadcast inside the window still goes
+ * out, but every recipient with `settings.shabbatObserver === true` is
+ * excluded PER RECIPIENT (`system` channel exempt) — on the legacy path in
+ * collectTokens() (which already reads each user doc), on the routed path by
+ * sendPush()'s own per-user filter. The number excluded is written to the
+ * queue doc as `skippedShabbatCount` so the admin push history can show it.
+ * (Before 18.10.2026 the WHOLE broadcast was marked failed with
+ * `blocked_shabbat_yom_tov`; per-user filtering made that unnecessary.)
+ * Observers aren't re-sent the broadcast after havdalah — dropped, not
+ * delayed, same as every other push in the window.
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, type PushChannel } from './services/push.service';
-import { isShabbatOrYomTov } from './services/shabbat.service';
+import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -141,16 +146,6 @@ export const sendPushFromQueue = onDocumentCreated(
       return;
     }
 
-    // ── Step 2b: Shabbat / yom tov — no broadcasts (system exempt) ───
-    if (channel !== 'system' && isShabbatOrYomTov()) {
-      logger.info(`[sendPushFromQueue] ${messageId} — Shabbat/yom tov, broadcast not sent`);
-      await markFailed(
-        snap.ref,
-        'blocked_shabbat_yom_tov — not sent on Shabbat/yom tov; resend after havdalah',
-      );
-      return;
-    }
-
     // ── Step 3: resolve audience → user uids ─────────────────────────
     let candidateUids: Set<string>;
     try {
@@ -212,19 +207,27 @@ export const sendPushFromQueue = onDocumentCreated(
         failedCount: result.failed,
         tokensRemoved: result.tokensPruned,
         recipientCount: candidateUids.size,
+        skippedShabbatCount: result.skippedShabbat,
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       logger.info(
         `[sendPushFromQueue] (routed) ${messageId} done: delivered=${result.delivered} ` +
           `failed=${result.failed} skippedPrefs=${result.skippedPrefs} ` +
-          `skippedGlobalKill=${result.skippedGlobalKill} pruned=${result.tokensPruned}`,
+          `skippedGlobalKill=${result.skippedGlobalKill} skippedShabbat=${result.skippedShabbat} ` +
+          `pruned=${result.tokensPruned}`,
       );
       return;
     }
 
     // ── Legacy path — direct FCM, active while pushRouting_sendPushFromQueue
     // is false. Step 4: collect tokens, applying per-user pref filter ────────
-    const { tokens, tokenOwners } = await collectTokens(candidateUids, channel);
+    // Shabbat/yom-tov window: observers are excluded per recipient (see header).
+    const excludeShabbatObservers = channel !== 'system' && isShabbatOrYomTov();
+    const { tokens, tokenOwners, skippedShabbat } = await collectTokens(
+      candidateUids,
+      channel,
+      excludeShabbatObservers,
+    );
 
     if (tokens.length === 0) {
       logger.info(`[sendPushFromQueue] ${messageId} matched 0 tokens`);
@@ -234,6 +237,7 @@ export const sendPushFromQueue = onDocumentCreated(
         failedCount: 0,
         tokensRemoved: 0,
         recipientCount: candidateUids.size,
+        skippedShabbatCount: skippedShabbat,
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       return;
@@ -320,12 +324,13 @@ export const sendPushFromQueue = onDocumentCreated(
       tokensRemoved: tokensToRemove.length,
       recipientCount: candidateUids.size,
       tokenCount: tokens.length,
+      skippedShabbatCount: skippedShabbat,
       processedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     logger.info(
       `[sendPushFromQueue] ${messageId} done: delivered=${deliveredCount} ` +
-        `failed=${failedCount} pruned=${tokensToRemove.length}`,
+        `failed=${failedCount} pruned=${tokensToRemove.length} skippedShabbat=${skippedShabbat}`,
     );
   },
 );
@@ -458,13 +463,19 @@ function toMillis(v: unknown): number | null {
  * batches of 100 to keep latency bounded even for very large
  * audiences. A future optimisation could push the pref check into a
  * Firestore composite index ("settings.pushEnabled" + "core.authorityId").
+ *
+ * `excludeShabbatObservers` (true only inside the Shabbat/yom-tov window, never
+ * for `system`) drops users with settings.shabbatObserver === true — read from
+ * the same doc, no extra I/O. Exported for tests.
  */
-async function collectTokens(
+export async function collectTokens(
   uids: Set<string>,
   channel: PushChannel,
-): Promise<{ tokens: string[]; tokenOwners: Map<string, string> }> {
+  excludeShabbatObservers: boolean = false,
+): Promise<{ tokens: string[]; tokenOwners: Map<string, string>; skippedShabbat: number }> {
   const tokenOwners = new Map<string, string>();
   const tokenSet = new Set<string>();
+  let skippedShabbat = 0;
   const uidArr = Array.from(uids);
 
   for (let i = 0; i < uidArr.length; i += 100) {
@@ -486,6 +497,12 @@ async function collectTokens(
         if (channelEnabled === false) return;
       }
 
+      // Shabbat/yom tov — observers only (see header).
+      if (excludeShabbatObservers && isShabbatObserver(settings)) {
+        skippedShabbat += 1;
+        return;
+      }
+
       const tokens: unknown = data?.fcmTokens;
       if (!Array.isArray(tokens)) return;
       tokens.forEach((t) => {
@@ -498,7 +515,7 @@ async function collectTokens(
     });
   }
 
-  return { tokens: Array.from(tokenSet), tokenOwners };
+  return { tokens: Array.from(tokenSet), tokenOwners, skippedShabbat };
 }
 
 /**

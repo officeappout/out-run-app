@@ -2,11 +2,19 @@
  * shabbat.service — "is it Shabbat or a yom tov in Israel right now?"
  *
  * Owner decision (17.10.2026): NO pushes on Shabbat or on Jewish holidays
- * (yom tov). Used by push.service.ts's sendPush() and by the three legacy
- * direct-FCM paths (sendPushFromQueue, chatMessageNotification,
- * onboardingDropoffDispatcher). Exemptions (the `system` channel, 1:1 chat
- * between two people) are decided by the CALLERS, not here — this module only
- * answers the calendar question.
+ * (yom tov). Refined 18.10.2026: this applies ONLY to users who opted in via
+ * Settings → "שמירת שבת" (`users/{uid}.settings.shabbatObserver === true`,
+ * default false — many users don't keep Shabbat and Friday is a normal
+ * training day for them). For everyone else Shabbat is a normal day (quiet
+ * hours and the daily cap still apply as on any day).
+ *
+ * Used by push.service.ts's sendPush() and by the three legacy direct-FCM
+ * paths (sendPushFromQueue, chatMessageNotification,
+ * onboardingDropoffDispatcher), all of which filter PER RECIPIENT with
+ * isShabbatObserver() on the user doc they already read. Exemptions (the
+ * `system` channel, 1:1 chat between two people) are decided by the CALLERS,
+ * not here — this module only answers the calendar question and reads the
+ * opt-in flag.
  *
  * WINDOW (conservative fixed window, Asia/Jerusalem wall-clock)
  * ─────────────────────────────────────────────────────────────
@@ -173,4 +181,44 @@ export function isShabbatOrYomTov(now: Date = new Date(), useIcu: boolean = ICU_
 export function isYomTovDate(dateKey: string, useIcu: boolean = ICU_HEBREW_OK): boolean {
   const [y, m, d] = dateKey.split('-').map(Number);
   return isYomTovCivilDate(new Date(Date.UTC(y, m - 1, d, 12)), useIcu);
+}
+
+// ─── Per-user opt-in (18.10.2026) ────────────────────────────────────────────
+
+/** Firestore dotted path of the opt-in flag (users/{uid}). Default (absent) = false. */
+export const SHABBAT_OBSERVER_FIELD = 'settings.shabbatObserver';
+
+/**
+ * Does this user keep Shabbat (opted in via Settings → "שמירת שבת")?
+ * Takes the user doc's `settings` map — every push path already has it in
+ * memory, so this costs no extra read. Only an explicit `true` counts.
+ */
+export function isShabbatObserver(settings: unknown): boolean {
+  return (
+    !!settings &&
+    typeof settings === 'object' &&
+    (settings as Record<string, unknown>).shabbatObserver === true
+  );
+}
+
+/** Earliest local time on motzei Shabbat for the week-start push (window end + 30 min). */
+export const WEEK_START_EARLIEST_MINUTES = SHABBAT_END_MINUTES + 30; // 21:00
+/** Latest local time (exclusive) — quiet hours start at 22:00. */
+export const WEEK_START_LATEST_MINUTES = 22 * 60;
+
+/**
+ * True on motzei Shabbat, inside the week-start send slot (Saturday 21:00–
+ * 21:59 Israel time), when the rest window has actually ended — i.e. NOT when
+ * a yom tov starts on Sunday (the window then continues through Saturday
+ * night, and isShabbatOrYomTov() is still true).
+ */
+export function isMotzeiShabbatWeekStartTime(
+  now: Date = new Date(),
+  useIcu: boolean = ICU_HEBREW_OK,
+): boolean {
+  const { year, month, day, minutes } = jerusalemParts(now);
+  const today = new Date(Date.UTC(year, month - 1, day, 12));
+  if (today.getUTCDay() !== 6) return false;
+  if (minutes < WEEK_START_EARLIEST_MINUTES || minutes >= WEEK_START_LATEST_MINUTES) return false;
+  return !isShabbatOrYomTov(now, useIcu);
 }

@@ -41,8 +41,10 @@
  * SCHEDULE
  * ────────
  * Runs daily at 10:00 Asia/Jerusalem. Quiet hours are NOT bypassed (10:00 is
- * an active window anyway — one uniform policy). On Shabbat/yom tov the run
- * exits early (sendPush() would drop every send anyway).
+ * an active window anyway — one uniform policy). On Shabbat/yom tov (opt-in
+ * since 18.10.2026) only Shabbat observers (settings.shabbatObserver === true)
+ * are skipped — in toRetentionCandidate(), from the doc already in memory;
+ * sendPush() would drop them anyway. Everyone else runs as on any day.
  *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
-import { isShabbatOrYomTov } from './services/shabbat.service';
+import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -152,16 +154,19 @@ export function buildRetentionMessage(c: RetentionCandidate): {
 
 /**
  * Inactivity candidate from a users/{uid} doc, or null when the user should
- * be skipped (push/retention opted out, no usable lastActive, or active more
- * recently than INACTIVITY_DAYS). Exported for tests.
+ * be skipped (push/retention opted out, no usable lastActive, active more
+ * recently than INACTIVITY_DAYS, or a Shabbat observer while
+ * `inShabbatWindow`). Exported for tests.
  */
 export function toRetentionCandidate(
   uid: string,
   data: Record<string, unknown>,
   nowMs: number = Date.now(),
+  inShabbatWindow: boolean = false,
 ): RetentionCandidate | null {
   const settings = data?.settings as Record<string, unknown> | undefined;
   if (settings?.pushEnabled === false) return null;
+  if (inShabbatWindow && isShabbatObserver(settings)) return null;
   const prefs = settings?.notificationPrefs as Record<string, unknown> | undefined;
   if (prefs?.retention === false) return null;
 
@@ -194,10 +199,8 @@ export const retentionScheduler = onSchedule(
         `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
     );
 
-    if (isShabbatOrYomTov()) {
-      logger.info('[retention] Shabbat/yom tov — skipping run.');
-      return;
-    }
+    // Shabbat/yom tov: observers only — filtered per user below.
+    const inShabbatWindow = isShabbatOrYomTov();
 
     const nowMs = Date.now();
     const cutoff = admin.firestore.Timestamp.fromMillis(nowMs - INACTIVITY_DAYS * MS_PER_DAY);
@@ -220,7 +223,12 @@ export const retentionScheduler = onSchedule(
         const snap = await q.get();
         fetched += snap.docs.length;
         for (const doc of snap.docs) {
-          const c = toRetentionCandidate(doc.id, doc.data() as Record<string, unknown>, nowMs);
+          const c = toRetentionCandidate(
+            doc.id,
+            doc.data() as Record<string, unknown>,
+            nowMs,
+            inShabbatWindow,
+          );
           if (c) candidates.push(c);
         }
         if (snap.docs.length < BATCH_LIMIT) break;

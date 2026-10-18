@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
- * Shabbat / yom-tov guard in sendPush() (owner decision 17.10.2026):
- *   - drops every non-exempt send inside the window, INCLUDING ones that pass
+ * Shabbat / yom-tov guard in sendPush() (owner decision 17.10.2026, opt-in
+ * since 18.10.2026 — applies ONLY to recipients with
+ * settings.shabbatObserver === true):
+ *   - a non-observer gets pushes on Shabbat like any day
+ *   - in a mixed send, only the observers are dropped
+ *   - for observers, drops every non-exempt send inside the window, INCLUDING ones that pass
  *     skipQuietHours: true (the guard must not be bypassable)
  *   - drops personal interactions (kudos etc.) too — the daily-cap exemption
  *     is unrelated
@@ -114,8 +118,11 @@ import { sendPush } from '../push.service';
 
 const UID = 'uid-shabbat-test';
 
-function seedUser(uid: string) {
-  state.store.set(pathKey('users', uid), { fcmTokens: ['tok-1'], settings: {} });
+function seedUser(uid: string, shabbatObserver = true, token = 'tok-1') {
+  state.store.set(pathKey('users', uid), {
+    fcmTokens: [token],
+    settings: shabbatObserver ? { shabbatObserver: true } : {},
+  });
 }
 
 // Sat 16.01.2027 12:00 Israel (+2) — inside the Shabbat window.
@@ -134,7 +141,47 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('sendPush — Shabbat/yom-tov guard', () => {
+describe('sendPush — Shabbat/yom-tov guard is opt-in', () => {
+  const OTHER = 'uid-not-observer';
+
+  it('a non-observer gets an engagement push on Shabbat', async () => {
+    vi.setSystemTime(SHABBAT_NOON);
+    seedUser(OTHER, false, 'tok-other');
+    const r = await sendPush({ toUids: [OTHER], channel: 'retention', title: 't', body: 'b', rateCapHours: 0 });
+    expect(r.skippedShabbat).toBe(0);
+    expect(r.delivered).toBe(1);
+  });
+
+  it('shabbatObserver: false (explicit) behaves like unset', async () => {
+    vi.setSystemTime(SHABBAT_NOON);
+    state.store.set(pathKey('users', OTHER), { fcmTokens: ['tok-other'], settings: { shabbatObserver: false } });
+    const r = await sendPush({ toUids: [OTHER], channel: 'social', title: 't', body: 'b', rateCapHours: 0 });
+    expect(r.skippedShabbat).toBe(0);
+    expect(r.delivered).toBe(1);
+  });
+
+  it('a mixed send drops only the observer', async () => {
+    vi.setSystemTime(SHABBAT_NOON);
+    seedUser(OTHER, false, 'tok-other');
+    const r = await sendPush({
+      toUids: [UID, OTHER], channel: 'encouragement', title: 't', body: 'b', rateCapHours: 0, skipQuietHours: true,
+    });
+    expect(r.skippedShabbat).toBe(1);
+    expect(r.delivered).toBe(1);
+    const sentTokens = fakeMessaging.sendEachForMulticast.mock.calls.flatMap((c: any[]) => c[0].tokens);
+    expect(sentTokens).toEqual(['tok-other']);
+  });
+
+  it('a non-observer is still subject to quiet hours on Shabbat night', async () => {
+    vi.setSystemTime(new Date('2027-01-15T21:00:00.000Z')); // Fri 23:00 Israel
+    seedUser(OTHER, false, 'tok-other');
+    const r = await sendPush({ toUids: [OTHER], channel: 'retention', title: 't', body: 'b', rateCapHours: 0 });
+    expect(r.skippedQuietHours).toBe(1);
+    expect(r.delivered).toBe(0);
+  });
+});
+
+describe('sendPush — Shabbat/yom-tov guard (observers)', () => {
   it('drops an engagement push on Shabbat', async () => {
     vi.setSystemTime(SHABBAT_NOON);
     const r = await sendPush({ toUids: [UID], channel: 'retention', title: 't', body: 'b', rateCapHours: 0 });

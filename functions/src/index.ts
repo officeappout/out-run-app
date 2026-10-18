@@ -61,6 +61,8 @@ export { onLevelUp } from './onLevelUp';
 export { onContributionApproved } from './onContributionApproved';
 export { retentionScheduler } from './retentionScheduler';
 export { trainingReminderScheduler } from './trainingReminderScheduler';
+// Motzei-Shabbat "שבוע טוב" nudge — Shabbat observers only (settings.shabbatObserver). New function: needs its own deploy.
+export { weekStartScheduler } from './weekStartScheduler';
 // Reminder-sweep (workout-reminders build, Part B) — flag-gated
 // (app_config/feature_flags.enableReminderSweepPush, default false) — see
 // reminderSweepScheduler.ts header. NOT deployed yet; exported here so

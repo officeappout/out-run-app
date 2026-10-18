@@ -33,7 +33,8 @@ export type ChannelKey =
   | 'chat'
   | 'health_milestone'
   | 'community'
-  | 'contribution_status';
+  | 'contribution_status'
+  | 'week_start';
 
 export interface CatalogSource {
   label: string;
@@ -206,6 +207,18 @@ export const PUSH_CATALOG: CatalogEntry[] = [
     rateCapHours: 0,
     deployed: true,
     measured: false,
+  },
+  {
+    channel: 'week_start',
+    label: 'תחילת שבוע (שומרי שבת)',
+    type: 'auto',
+    trigger: 'Scheduler — מוצאי שבת 21:15 (weekStartScheduler), רק settings.shabbatObserver; לא נשלח כשחג ממשיך אחרי שבת',
+    defaultTitle: 'שבוע טוב',
+    defaultBody: 'שבוע חדש מתחיל. נקבע אימון ראשון למחר?',
+    rateCapHours: 72,
+    deployed: false,
+    measured: false,
+    note: 'נוסף 18.10.2026 — דורש deploy של functions (פונקציה חדשה)',
   },
 ];
 

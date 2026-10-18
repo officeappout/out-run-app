@@ -91,6 +91,7 @@ const CHANNEL_UI: Record<ChannelKey, { icon: React.ElementType; iconBg: string }
   health_milestone: { icon: Footprints, iconBg: 'bg-lime-100 text-lime-700' },
   community: { icon: Radar, iconBg: 'bg-sky-100 text-sky-700' },
   contribution_status: { icon: MapPinCheck, iconBg: 'bg-teal-100 text-teal-700' },
+  week_start: { icon: Calendar, iconBg: 'bg-indigo-100 text-indigo-700' },
 };
 
 const AUDIENCE_LABELS: Record<string, string> = {
