@@ -61,7 +61,16 @@ function toMillis(v: unknown): number {
 export async function isRateLimited(
   db: Firestore,
   key: string,
-  opts: { windowMs: number; maxRequests: number },
+  opts: {
+    windowMs: number;
+    maxRequests: number;
+    /**
+     * 18.10.2026 (OUT AI Phase 0) — opt-in fail-CLOSED for cost-control callers
+     * (src/lib/ai/): when the check itself fails, report "limited" instead of letting the
+     * request through. Every existing caller omits this and keeps failing OPEN (see above).
+     */
+    failClosed?: boolean;
+  },
 ): Promise<boolean> {
   const now = Date.now();
 
@@ -92,6 +101,10 @@ export async function isRateLimited(
       return false;
     });
   } catch (err) {
+    if (opts.failClosed) {
+      console.warn(`[rateLimit] check failed for keyHash=${hashKey(key)} — failing CLOSED (request blocked)`, err);
+      return true;
+    }
     console.warn(`[rateLimit] check failed for keyHash=${hashKey(key)} — failing OPEN (request allowed)`, err);
     return false;
   }

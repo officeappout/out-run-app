@@ -1,0 +1,49 @@
+/**
+ * ai-config — app_config/ai (cost controls for every AI call), pure parsing + defaults.
+ *
+ *   app_config/ai = {
+ *     dailyBudgetUsd:   number   // estimated spend cap per Israel day, all users together
+ *     killSwitch:       boolean  // true = no AI calls at all, immediately
+ *     rateLimitPerHour: number   // per user
+ *     rateLimitPerDay:  number   // per user
+ *   }
+ *
+ * A missing document or a missing/invalid field falls back to DEFAULT_AI_CONFIG (these are
+ * the values the owner should seed the document with). A failed READ is not handled here —
+ * the server-side callers treat it as "AI unavailable" (fail closed).
+ */
+
+export interface AiConfig {
+  dailyBudgetUsd: number;
+  killSwitch: boolean;
+  rateLimitPerHour: number;
+  rateLimitPerDay: number;
+}
+
+export const DEFAULT_AI_CONFIG: AiConfig = {
+  dailyBudgetUsd: 5,
+  killSwitch: false,
+  rateLimitPerHour: 20,
+  rateLimitPerDay: 40,
+};
+
+function nonNegative(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback;
+}
+
+function positiveInt(v: unknown, fallback: number): number {
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : fallback;
+}
+
+export function parseAiConfig(data: Record<string, unknown> | undefined | null): AiConfig {
+  const d = data ?? {};
+  return {
+    dailyBudgetUsd: nonNegative(d.dailyBudgetUsd, DEFAULT_AI_CONFIG.dailyBudgetUsd),
+    // Only an explicit boolean counts; anything else keeps the default (off). A malformed
+    // value can't silently disable the switch because the default is already "not killed"
+    // and an operator flipping it always writes a real boolean from the panel.
+    killSwitch: typeof d.killSwitch === 'boolean' ? d.killSwitch : DEFAULT_AI_CONFIG.killSwitch,
+    rateLimitPerHour: positiveInt(d.rateLimitPerHour, DEFAULT_AI_CONFIG.rateLimitPerHour),
+    rateLimitPerDay: positiveInt(d.rateLimitPerDay, DEFAULT_AI_CONFIG.rateLimitPerDay),
+  };
+}
