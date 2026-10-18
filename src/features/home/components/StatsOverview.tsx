@@ -447,7 +447,8 @@ export default function StatsOverview({
     const runProgram = profile?.running?.activeProgram;
     if (!runProgram) return;
     // Calm return: no realign / rebuild popup and no missed-workout banner — a 7+ day gap
-    // is re-planned silently (startCalmReturnEpisode below), shorter gaps change nothing.
+    // is re-planned silently (the home page's useCalmReturn → startCalmReturnEpisode),
+    // shorter gaps change nothing.
     if (calmReturnOn) {
       setAlignmentAction({ type: 'none' });
       setShowRealignPopup(false);
@@ -459,7 +460,6 @@ export default function StatsOverview({
     if (action.type === 'plan_realign') setShowRealignPopup(true);
     if (action.type === 'rebuild') setShowRebuildPopup(true);
   }, [profile?.running?.activeProgram, lastWorkoutDate, calmReturnOn]);
-
 
   const handleRollBack = useCallback(async () => {
     const uid = getCurrentUid();

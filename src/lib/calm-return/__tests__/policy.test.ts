@@ -27,11 +27,12 @@ describe('tier selection (owner-approved table)', () => {
     expect(tierForDaysAway(days)).toBe(tier);
   });
 
-  it('thresholds match the schedule advisor (#440) so both name the same day the same way', () => {
-    expect(MAKEUP_MAX_AGE_DAYS).toBe(2);
-    expect(WELCOME_BACK_GAP_DAYS).toBe(4);
-    expect(FRESH_START_GAP_DAYS).toBe(7);
-    expect(RE_ENTRY_GAP_DAYS).toBe(28);
+  it('thresholds match the schedule advisor (#440) so both name the same day the same way', async () => {
+    const advisor = await import('@/features/schedule/advisor/advisor');
+    expect(MAKEUP_MAX_AGE_DAYS).toBe(advisor.MAKEUP_MAX_AGE_DAYS);
+    expect(WELCOME_BACK_GAP_DAYS).toBe(advisor.WELCOME_BACK_GAP_DAYS);
+    expect(FRESH_START_GAP_DAYS).toBe(advisor.FRESH_START_GAP_DAYS);
+    expect([MAKEUP_MAX_AGE_DAYS, WELCOME_BACK_GAP_DAYS, FRESH_START_GAP_DAYS, RE_ENTRY_GAP_DAYS]).toEqual([2, 4, 7, 28]);
   });
 });
 

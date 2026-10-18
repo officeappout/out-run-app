@@ -61,8 +61,9 @@ export function buildFreshWeekRunningProgram<E extends FreshWeekScheduleEntry>(
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (resumeWeek - 1) * 7);
   const schedule = program.schedule.map((entry) => {
     if (entry.week < resumeWeek) return entry;
-    const { actualPerformance: _drop, ...rest } = entry;
-    return { ...rest, status: 'pending' } as E;
+    const rest: FreshWeekScheduleEntry = { ...entry, status: 'pending' };
+    delete rest.actualPerformance; // the resumed week is not done yet
+    return rest as E;
   });
   return { startDate: start.toISOString(), currentWeek: resumeWeek, schedule, resumeWeek };
 }
