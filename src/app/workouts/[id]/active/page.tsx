@@ -51,7 +51,7 @@ import { isPureRecoveryVideoTrioWorkout } from '@/features/workout-engine/shared
 import { detectNearbyPark } from '@/features/workout-engine/services/park-detection.service';
 import { runActivitySync } from '@/features/workout-engine/components/strength/hooks/useActivitySync';
 import { calculateCalories, calculateCoins } from '@/features/workout-engine/components/strength/utils/summary.utils';
-import { Target, Sparkles, Flame, X } from 'lucide-react';
+import { Target, Sparkles, Flame, X, CircleAlert } from 'lucide-react';
 import { useSmartMessage } from '@/features/messages/hooks/useSmartGreeting';
 import { useGoalCelebration } from '@/features/home/hooks/useGoalCelebration';
 import { MASTER_PROGRAM_CHILDREN, MASTER_LEVEL_CAP } from '@/features/home/hooks/useProgramProgress';
@@ -954,6 +954,9 @@ export default function ActiveWorkoutPage() {
   const tourIsSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   const { flags: tourFlags, loading: tourFlagsLoading } = useFeatureFlags(tourIsSuperAdmin);
   const playerToursOn = !tourFlagsLoading && firstRunToursEnabled(tourFlags);
+  // enable_home_v2 — styling only, for this page's own loading/error screens (the player
+  // itself reads the flag in StrengthRunner).
+  const pageV2 = tourFlags.enableHomeV2;
   const [playerTourUnseen, setPlayerTourUnseen] = useState(false);
   useEffect(() => {
     const uid = profile?.id;
@@ -1786,6 +1789,17 @@ export default function ActiveWorkoutPage() {
 
   // === LOADING STATE ===
   if (isLoading) {
+    if (pageV2) {
+      return (
+        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface" dir="rtl">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-v2-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[15px] font-extrabold text-v2-ink whitespace-nowrap">טוען את האימון...</p>
+            <p className="text-[12.5px] font-bold text-v2-muted mt-1 whitespace-nowrap">מכין את התרגילים שלך</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
         <div className="text-center">
@@ -1799,6 +1813,25 @@ export default function ActiveWorkoutPage() {
 
   // === ERROR STATE ===
   if (error || !stableWorkoutPlan) {
+    if (pageV2) {
+      return (
+        <div className="w-full h-[100dvh] flex items-center justify-center bg-v2-surface" dir="rtl">
+          <div className="text-center px-6">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-white shadow-v2-ring mx-auto mb-4">
+              <CircleAlert className="h-8 w-8 text-v2-down" strokeWidth={2.25} aria-hidden />
+            </div>
+            <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink mb-2">לא הצלחנו לטעון את האימון</h2>
+            <p className="text-[14px] font-bold text-v2-muted mb-6">{error || 'נסה שוב מאוחר יותר'}</p>
+            <button
+              onClick={() => router.push('/home')}
+              className="h-12 px-8 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
+            >
+              חזרה לדף הבית
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="w-full h-[100dvh] flex items-center justify-center bg-gradient-to-b from-white to-gray-50" dir="rtl">
         <div className="text-center px-6">

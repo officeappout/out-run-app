@@ -60,6 +60,8 @@ import { usePlayerLifecycle } from './hooks/usePlayerLifecycle';
 import { usePlayerMediaSession } from './hooks/usePlayerMediaSession';
 import { hapticMedium } from '@/lib/haptics';
 import { useUserStore } from '@/features/user';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { StrengthPlayerV2Provider } from './context/StrengthPlayerV2Context';
 import { g } from '@/lib/utils/gendered-text';
 import { guidanceLine } from '@/features/workout-engine/hybrid/guided-station';
 import DemoGateOverlay from './components/DemoGateOverlay';
@@ -415,6 +417,10 @@ export default function StrengthRunner({
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const profileId = useUserStore((s) => s.profile?.id);
+  // enable_home_v2 — read ONCE here (the player root) and provided to every player component
+  // via StrengthPlayerV2Context. Styling only: no handler/timer/audio/gesture/data forks on it.
+  const isSuperAdminV2 = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
 
   // ── PR-B2 demo gate (guided only) ───────────────────────────────────────
   // Held in the player's EXISTING pause — every clock already honours isPaused (elapsed +
@@ -759,6 +765,7 @@ export default function StrengthRunner({
   // ========================================================================
 
   return (
+    <StrengthPlayerV2Provider value={playerV2}>
     <div
       className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden"
       style={{ overscrollBehavior: 'none' }}
@@ -899,5 +906,6 @@ export default function StrengthRunner({
       />
 
     </div>
+    </StrengthPlayerV2Provider>
   );
 }

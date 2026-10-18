@@ -3,6 +3,8 @@
 import React from 'react';
 import HorizontalPicker from './HorizontalPicker';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
+import { Hand } from 'lucide-react';
+import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
 
 /**
  * InputStateView — Big-Screen INPUT phase.
@@ -84,6 +86,8 @@ export default function InputStateView({
   onVideoProgress,
   onSave,
 }: InputStateViewProps) {
+  // enable_home_v2 — styling only (provided once by StrengthRunner).
+  const v2 = useStrengthPlayerV2();
   const { targetValue, unitType, max } = pickerConfig;
   const pickerMin = unitType === 'time' ? 0 : 1;
 
@@ -106,18 +110,20 @@ export default function InputStateView({
 
       {/* Wheel overlay — bottom sheet anchored above safe area */}
       <div
-        className="absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-slate-900 rounded-t-[28px] shadow-2xl px-5 pt-4"
+        className={v2
+          ? 'absolute inset-x-0 bottom-0 z-20 bg-white rounded-t-[28px] shadow-v2-sheet px-5 pt-4'
+          : 'absolute inset-x-0 bottom-0 z-20 bg-white dark:bg-slate-900 rounded-t-[28px] shadow-2xl px-5 pt-4'}
         dir="rtl"
         style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
       >
         {/* Drag handle */}
         <div className="flex justify-center mb-3">
-          <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full" />
+          <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full'} />
         </div>
 
         {/* Heading — mirrors logDrawerContent wording */}
         <h2
-          className="text-base font-bold text-slate-900 dark:text-white text-center mb-0.5"
+          className={v2 ? 'text-[17px] font-black text-v2-ink text-center mb-0.5 whitespace-nowrap' : 'text-base font-bold text-slate-900 dark:text-white text-center mb-0.5'}
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {unitType === 'time'
@@ -131,9 +137,9 @@ export default function InputStateView({
             {/* Right side */}
             <div>
               <div className="flex items-center gap-1.5 justify-center mb-0.5">
-                <span className="text-sm">✋</span>
-                <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
-                <span className="text-xs font-semibold text-[#00B4FF]">
+                {v2 ? <Hand size={16} strokeWidth={2.5} className="text-v2-accent" aria-hidden /> : <span className="text-sm">✋</span>}
+                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>ימין</p>
+                <span className={v2 ? 'text-[13px] font-extrabold text-v2-deep tabular-nums' : 'text-xs font-semibold text-[#00B4FF]'}>
                   {inputRepsRight}{unitType === 'time' ? '"' : ''}
                 </span>
               </div>
@@ -147,14 +153,14 @@ export default function InputStateView({
               />
             </div>
 
-            <div className="h-px bg-slate-200 dark:bg-zinc-700 mx-6" />
+            <div className={v2 ? 'h-px bg-v2-hairline mx-6' : 'h-px bg-slate-200 dark:bg-zinc-700 mx-6'} />
 
             {/* Left side */}
             <div>
               <div className="flex items-center gap-1.5 justify-center mb-0.5">
-                <span className="text-sm" style={{ transform: 'scaleX(-1)' }}>✋</span>
-                <p className="text-sm font-bold text-slate-700 dark:text-zinc-300" style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
-                <span className="text-xs font-semibold text-[#00B4FF]">
+                {v2 ? <Hand size={16} strokeWidth={2.5} className="text-v2-accent" style={{ transform: 'scaleX(-1)' }} aria-hidden /> : <span className="text-sm" style={{ transform: 'scaleX(-1)' }}>✋</span>}
+                <p className={v2 ? 'text-sm font-extrabold text-v2-ink-2 whitespace-nowrap' : 'text-sm font-bold text-slate-700 dark:text-zinc-300'} style={{ fontFamily: 'var(--font-simpler)' }}>שמאל</p>
+                <span className={v2 ? 'text-[13px] font-extrabold text-v2-deep tabular-nums' : 'text-xs font-semibold text-[#00B4FF]'}>
                   {inputRepsLeft}{unitType === 'time' ? '"' : ''}
                 </span>
               </div>
@@ -183,8 +189,10 @@ export default function InputStateView({
         <button
           type="button"
           onClick={onSave}
-          className="w-full mt-3 h-12 rounded-full font-bold text-base text-white shadow-lg active:scale-[0.97] transition-transform"
-          style={{
+          className={v2
+            ? 'w-full mt-3 h-12 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
+            : 'w-full mt-3 h-12 rounded-full font-bold text-base text-white shadow-lg active:scale-[0.97] transition-transform'}
+          style={v2 ? { fontFamily: 'var(--font-simpler)' } : {
             background: 'linear-gradient(to left, #00C9F2, #00AEEF)',
             fontFamily: 'var(--font-simpler)',
           }}
