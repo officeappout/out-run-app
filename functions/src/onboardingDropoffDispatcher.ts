@@ -174,9 +174,16 @@ const MESSAGE_VARIANTS: Array<{ title: string; body: string }> = [
 ];
 
 // Deep-link that the native push handler navigates to on tap.
-// Routes through /onboarding-new/selection which re-hydrates the wizard
-// at the last completed step.
-const DEEP_LINK = '/onboarding-new/selection';
+// /gateway is the app's onboarding resume entry: its onAuthStateChange
+// listener (src/app/gateway/page.tsx) reads onboardingStatus/onboardingStep
+// and sends an IN_PROGRESS user straight to their saved step (IDENTITY →
+// profile, ASSESSMENT → assessment-visual, VISUAL_ASSESSMENT_COMPLETE/HEALTH
+// → health), a finished user to /home, and leaves anyone else on the track
+// picker. Was '/onboarding-new/selection' — deleted with the pre-08.2026
+// onboarding chain (e806cb42), so every tap landed on a 404; next.config.mjs
+// now redirects that old path here for pushes already delivered.
+export const ONBOARDING_DROPOFF_DEEP_LINK = '/gateway';
+const DEEP_LINK = ONBOARDING_DROPOFF_DEEP_LINK;
 
 // ─── Types (local mirrors of user.types.ts — Admin SDK doesn't import FE types) ─
 

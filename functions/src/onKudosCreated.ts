@@ -144,7 +144,11 @@ export const onKudosCreated = onDocumentCreated(
         channel: 'social',
         title,
         body,
-        deepLink: '/activity',
+        // Was '/activity' — no such route (src/app/activity has only
+        // /activity/steps), so taps 404'd. The kudos inbox is the global
+        // ActivityPanel opened from AppHeader's bell on /home; next.config.mjs
+        // redirects /activity → /home for pushes already delivered.
+        deepLink: '/home',
         data: {
           triggerType: 'Kudos',
           kudoType,

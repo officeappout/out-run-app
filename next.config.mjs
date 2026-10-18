@@ -73,6 +73,18 @@ const nextConfig = {
         destination: '/gateway',
         permanent: true,
       },
+      // Push deep links that pointed at routes which don't exist (taps landed
+      // on a 404). The senders now use the right path; these catch pushes
+      // already delivered / sitting in a notification tray. Not permanent —
+      // a 308 would be cached by the WebView.
+      //   - onboarding drop-off push (functions/src/onboardingDropoffDispatcher.ts)
+      //     used /onboarding-new/selection, deleted with the pre-08.2026 chain
+      //     (e806cb42). /gateway resumes the wizard at the saved step — same
+      //     reasoning as /onboarding-dynamic above.
+      //   - kudos push (functions/src/onKudosCreated.ts) used /activity, which
+      //     never had a page; the kudos inbox is the ActivityPanel on /home.
+      { source: '/onboarding-new/selection', destination: '/gateway', permanent: false },
+      { source: '/activity', destination: '/home', permanent: false },
       // Admin consolidation (owner, 15.10.2026): the old growth screens folded
       // into the Journey hub — "מקורות הגעה" / "הצטרפות והפעלה" / "מעורבות
       // ושימור" cover the funnel, sources, link/QR conversions and retention.
