@@ -20,18 +20,30 @@ import { createHash } from 'crypto';
 import * as readline from 'readline';
 import type { App } from 'firebase-admin/app';
 import type { Firestore } from 'firebase-admin/firestore';
-import { normalizeCityName } from '../../../src/lib/route-collections';
+import { buildValidatedDoc, normalizeCityName } from '../../../src/lib/route-collections';
 import {
   authorityNameCandidates,
   chunk,
-  OFFICIAL_ROUTES_COLLECTION,
-  routeDoc,
   segmentDoc,
   stableStringify,
-  TRAIL_SEGMENTS_COLLECTION,
   type TrailDoc,
 } from '../../../src/lib/trail-graph/firestore-docs';
-import type { TrailRoute, TrailSegment } from '../../../src/lib/trail-graph/types';
+import type { TrailSegment } from '../../../src/lib/trail-graph/types';
+
+/** The only two collections this pipeline ever writes. */
+export type TrailsCollection = 'trail_segments' | 'official_routes';
+
+/**
+ * Explicit, literal collection refs — no `db.collection(variable)` anywhere
+ * in this file, so scripts/safety-check.sh's route-collection check sees
+ * every official_routes access.
+ */
+function collectionRef(db: Firestore, name: TrailsCollection) {
+  switch (name) {
+    case 'trail_segments': return db.collection('trail_segments');
+    case 'official_routes': return db.collection('official_routes');
+  }
+}
 
 export const PRODUCTION_PROJECT = 'appout-1';
 export const BATCH_SIZE = 400;
@@ -118,7 +130,7 @@ export const contentHash = (data: Record<string, unknown>) => createHash('sha1')
 export type WriteMode = 'upsert' | 'create_only';
 
 export interface CollectionPlan {
-  collection: string;
+  collection: TrailsCollection;
   mode: WriteMode;
   inRun: number;
   create: TrailDoc[];
@@ -127,19 +139,22 @@ export interface CollectionPlan {
   skippedExisting: number;
   /** upsert only: docs of this authority in the DB that this run no longer produces (reported, NOT deleted). */
   staleInDb: number;
+  /** official_routes: every authority id that exists — the executor re-runs buildValidatedDoc with it. */
+  knownAuthorityIds?: Set<string>;
 }
 
-async function existingDocs(db: Firestore, collection: string, ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+async function existingDocs(db: Firestore, collection: TrailsCollection, ids: string[]): Promise<Map<string, Record<string, unknown>>> {
   const out = new Map<string, Record<string, unknown>>();
   for (const part of chunk(ids, 300)) {
     if (!part.length) continue;
-    const snaps = await db.getAll(...part.map((id) => db.collection(collection).doc(id)));
+    const snaps = await db.getAll(...part.map((id) => collectionRef(db, collection).doc(id)));
     for (const s of snaps) if (s.exists) out.set(s.id, s.data() as Record<string, unknown>);
   }
   return out;
 }
 
-export async function planCollection(db: Firestore, collection: string, docs: TrailDoc[], mode: WriteMode, authorityId: string): Promise<CollectionPlan> {
+export async function planCollection(db: Firestore, collection: TrailsCollection, docs: TrailDoc[], mode: WriteMode, authorityId: string): Promise<CollectionPlan> {
+  if (collection === 'official_routes' && mode !== 'create_only') throw new Error('official_routes is create-only in the trails pipeline');
   const ids = docs.map((d) => d.id);
   if (new Set(ids).size !== ids.length) throw new Error(`${collection}: duplicate doc ids in this run`);
   const existing = await existingDocs(db, collection, ids);
@@ -158,7 +173,7 @@ export async function planCollection(db: Firestore, collection: string, docs: Tr
     else plan.update.push(withHash);
   }
   if (mode === 'upsert') {
-    const inDb = await db.collection(collection).where('authorityId', '==', authorityId).select().get();
+    const inDb = await collectionRef(db, collection).where('authorityId', '==', authorityId).select().get();
     const run = new Set(ids);
     plan.staleInDb = inDb.docs.filter((d) => !run.has(d.id)).length;
   }
@@ -185,11 +200,20 @@ export async function executePlan(db: Firestore, p: CollectionPlan, log: (s: str
     const part = parts[i];
     const batch = db.batch();
     for (const { d, isNew } of part) {
-      const ref = db.collection(p.collection).doc(d.id);
-      const stamped = { ...d.data, updatedAt: FieldValue.serverTimestamp(), ...(isNew ? { createdAt: FieldValue.serverTimestamp() } : {}) };
-      if (p.mode === 'create_only') batch.create(ref, stamped);
-      else if (isNew) batch.create(ref, stamped);
-      else batch.set(ref, stamped, { mergeFields: Object.keys(stamped) });
+      const stamp = { updatedAt: FieldValue.serverTimestamp(), ...(isNew ? { createdAt: FieldValue.serverTimestamp() } : {}) };
+      if (p.collection === 'official_routes') {
+        // Stage-1B chokepoint at the write site: every official_routes doc is
+        // re-validated immediately before batch.create (the builder in
+        // import-named-routes.ts validated it once already).
+        if (!p.knownAuthorityIds) throw new Error('official_routes plan is missing knownAuthorityIds');
+        const validated = buildValidatedDoc('official_routes', d.data, { mode: 'create', knownAuthorityIds: p.knownAuthorityIds });
+        batch.create(db.collection('official_routes').doc(d.id), { ...validated, ...stamp });
+      } else {
+        const ref = db.collection('trail_segments').doc(d.id);
+        const stamped = { ...d.data, ...stamp };
+        if (isNew) batch.create(ref, stamped);
+        else batch.set(ref, stamped, { mergeFields: Object.keys(stamped) });
+      }
     }
     await batch.commit();
     written += part.length;
@@ -226,7 +250,7 @@ export interface ApplyRunOptions {
 
 export interface ApplyResult { plans: CollectionPlan[]; written: number; aborted: boolean }
 
-async function runApply(opts: ApplyRunOptions, build: (auth: ResolvedAuthority) => Array<{ collection: string; docs: TrailDoc[]; mode: WriteMode }>): Promise<ApplyResult> {
+async function runApply(opts: ApplyRunOptions, build: (auth: ResolvedAuthority) => Array<{ collection: TrailsCollection; docs: TrailDoc[]; mode: WriteMode }>): Promise<ApplyResult> {
   const log = opts.log ?? console.log;
   const { db } = opts.target;
   log(`\nTARGET: ${describeTarget(opts.target)}`);
@@ -236,7 +260,11 @@ async function runApply(opts: ApplyRunOptions, build: (auth: ResolvedAuthority) 
   }
   log(`authority: ${auth.id} (${auth.name}) — matches the read-only name lookup ✓`);
   const plans: CollectionPlan[] = [];
-  for (const b of build(auth)) plans.push(await planCollection(db, b.collection, b.docs, b.mode, auth.id));
+  for (const b of build(auth)) {
+    const plan = await planCollection(db, b.collection, b.docs, b.mode, auth.id);
+    if (b.collection === 'official_routes') plan.knownAuthorityIds = auth.knownAuthorityIds;
+    plans.push(plan);
+  }
   const total = plans.reduce((a, p) => a + writesIn(p), 0);
   log('\n── SUMMARY (nothing written yet) ──');
   for (const p of plans) log(`  ${formatPlan(p)}`);
@@ -258,18 +286,19 @@ async function runApply(opts: ApplyRunOptions, build: (auth: ResolvedAuthority) 
 
 export function applyTrailSegments(segments: TrailSegment[], opts: ApplyRunOptions): Promise<ApplyResult> {
   return runApply(opts, (auth) => [{
-    collection: TRAIL_SEGMENTS_COLLECTION,
+    collection: 'trail_segments',
     mode: 'upsert',
     docs: segments.map((s) => segmentDoc(s, { authorityId: auth.id, osmTimestamp: opts.osmTimestamp })),
   }]);
 }
 
-export function applyTrailRoutes(routes: TrailRoute[], opts: ApplyRunOptions & { importBatchId: string }): Promise<ApplyResult> {
-  return runApply(opts, (auth) => [{
-    collection: OFFICIAL_ROUTES_COLLECTION,
-    mode: 'create_only',
-    docs: routes.map((r) => routeDoc(r, { authorityId: auth.id, city: auth.name, knownAuthorityIds: auth.knownAuthorityIds, osmTimestamp: opts.osmTimestamp, importBatchId: opts.importBatchId })),
-  }]);
+/**
+ * official_routes, create-only. `buildDocs` must return docs already passed
+ * through buildValidatedDoc (scripts/trails/import-named-routes.ts
+ * validatedRouteDocs); the executor validates each again before writing.
+ */
+export function applyOfficialRoutes(buildDocs: (auth: ResolvedAuthority) => TrailDoc[], opts: ApplyRunOptions): Promise<ApplyResult> {
+  return runApply(opts, (auth) => [{ collection: 'official_routes', mode: 'create_only', docs: buildDocs(auth) }]);
 }
 
 /** Read-only: print the authority the name lookup resolves to (for choosing --authority). */

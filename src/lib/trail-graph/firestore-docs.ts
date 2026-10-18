@@ -7,7 +7,7 @@
  * Firestore rejects nested arrays, so every geometry is stored as
  * {lng,lat}[] (same convention as official_routes.path everywhere else).
  */
-import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
+import { stripUndefined } from '@/lib/route-collections';
 import type { SurfaceType } from '@/lib/route-collections/surface-type';
 import { COPERNICUS_DEM_ATTRIBUTION_SHORT } from '@/lib/dem-tile-cache/copernicus-glo30';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from './types';
@@ -16,7 +16,6 @@ import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailRoute, type TrailS
 export type AppRouteShape = 'loop' | 'out_and_back' | 'point_to_point';
 
 export const TRAIL_SEGMENTS_COLLECTION = 'trail_segments';
-export const OFFICIAL_ROUTES_COLLECTION = 'official_routes';
 export const TRAIL_SEGMENT_SOURCE = 'osm_geofabrik_v1';
 export const TRAILS_PIPELINE = 'trails_v1';
 
@@ -82,16 +81,18 @@ const PACE_M_PER_MIN = { walking: 90, cycling: 250 } as const;
 export interface RouteDocContext {
   authorityId: string;
   city: string;
-  knownAuthorityIds: Set<string>;
   osmTimestamp: string | null;
   importBatchId: string;
 }
 
 /**
- * official_routes CREATE payload (validated through the Stage-1B chokepoint).
- * Always status:'pending', published:false — lands in the Approval Center.
+ * official_routes CREATE payload — RAW, NOT yet validated. The only caller
+ * (scripts/trails/import-named-routes.ts) passes it through
+ * buildValidatedDoc('official_routes', …) itself, and the executor
+ * (scripts/trails/lib/trails-apply.node.ts) re-validates every doc right
+ * before the write. Always status:'pending', published:false.
  */
-export function routeDoc(r: TrailRoute, ctx: RouteDocContext): TrailDoc {
+export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: string; raw: Record<string, unknown> } {
   const km = Math.round(r.stats.lengthM / 10) / 100;
   const shape = toRouteShape(r.shape);
   const offroad = r.stats.trailPct >= 50;
@@ -159,7 +160,7 @@ export function routeDoc(r: TrailRoute, ctx: RouteDocContext): TrailDoc {
     status: 'pending',
     published: false,
   };
-  return { id: r.id, data: buildValidatedDoc('official_routes', raw, { mode: 'create', knownAuthorityIds: ctx.knownAuthorityIds }) };
+  return { id: r.id, raw };
 }
 
 /** Deterministic JSON (sorted keys) — the idempotency fingerprint. */

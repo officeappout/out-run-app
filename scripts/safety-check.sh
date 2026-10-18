@@ -153,6 +153,17 @@ AUTHORIZED_ROUTE_WRITERS=(
   # payload only ({featureTags: arrayUnion(...), updatedAt}), same chokepoint
   # exemption as bulkTagRoutes (inventory.service.ts) — no free-form field.
   "scripts/backfill-route-lit-tag-tlv.ts"
+  # National trails pipeline (feat/trails-apply, 18.10.2026). import-named-routes.ts
+  # BUILDS every official_routes doc through buildValidatedDoc (validatedRouteDocs);
+  # trails-apply.node.ts is the executor that holds the only literal
+  # .collection('official_routes') write (create-only, re-validated via
+  # buildValidatedDoc immediately before batch.create). build-segment-graph.ts
+  # writes trail_segments only (not a route collection) — deliberately not listed.
+  "scripts/trails/import-named-routes.ts"
+  "scripts/trails/lib/trails-apply.node.ts"
+  # emulator-only test fixture — reads/updates official_routes on the Firestore
+  # emulator (project trails-apply-test), self-skips without FIRESTORE_EMULATOR_HOST.
+  "tests/trails-apply.emulator.test.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -169,6 +180,9 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # migrated from birth (which is exactly why it's safe to run AFTER the fix
   # lands, not before — see the script's own header comment).
   "scripts/backfill-corrupted-timestamps.ts"
+  # National trails pipeline (18.10.2026) — chokepoint-migrated from birth.
+  "scripts/trails/import-named-routes.ts"
+  "scripts/trails/lib/trails-apply.node.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

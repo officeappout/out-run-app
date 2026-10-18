@@ -17,7 +17,8 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { deleteApp } from 'firebase-admin/app';
-import { applyTrailRoutes, applyTrailSegments, openTarget, type Target } from '../scripts/trails/lib/trails-apply.node';
+import { applyTrailSegments, openTarget, type Target } from '../scripts/trails/lib/trails-apply.node';
+import { applyNamedRoutes as applyTrailRoutes } from '../scripts/trails/import-named-routes';
 import { rateDifficulty, starPrior } from '../src/lib/trail-graph/difficulty';
 import { routeStats } from '../src/lib/trail-graph/route-stats';
 import { OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from '../src/lib/trail-graph/types';

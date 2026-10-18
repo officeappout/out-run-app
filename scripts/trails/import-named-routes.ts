@@ -27,7 +27,9 @@ import { isTrailRouteRelation } from '../../src/lib/trail-graph/segment-graph';
 import { trailColour } from '../../src/lib/trail-graph/tags';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type NameSource, type TrailRoute, type TrailSegment } from '../../src/lib/trail-graph/types';
 import { loadPilot, readSegmentsFile } from './build-segment-graph';
-import { applyTrailRoutes, confirmTypedYes, openTarget, parseApplyFlags, validateApplyFlags } from './lib/trails-apply.node';
+import { applyOfficialRoutes, confirmTypedYes, openTarget, parseApplyFlags, validateApplyFlags, type ApplyResult, type ApplyRunOptions, type ResolvedAuthority } from './lib/trails-apply.node';
+import { buildValidatedDoc } from '../../src/lib/route-collections';
+import { routeDocPayload, type TrailDoc } from '../../src/lib/trail-graph/firestore-docs';
 import { SHAAR_HANEGEV_RELATION_ID } from './lib/pilot-osm.node';
 import type { PilotContext } from './lib/pilot-context';
 
@@ -285,6 +287,20 @@ export function applyPlan(segments: number, named: number, generated: number) {
   };
 }
 
+// ── official_routes write path (Stage-1B chokepoint) ─────────────────────
+/** Every official_routes doc this pipeline writes is built HERE, through buildValidatedDoc. */
+export function validatedRouteDocs(routes: TrailRoute[], auth: ResolvedAuthority, ctx: { osmTimestamp: string | null; importBatchId: string }): TrailDoc[] {
+  return routes.map((r) => {
+    const { id, raw } = routeDocPayload(r, { authorityId: auth.id, city: auth.name, osmTimestamp: ctx.osmTimestamp, importBatchId: ctx.importBatchId });
+    return { id, data: buildValidatedDoc('official_routes', raw, { mode: 'create', knownAuthorityIds: auth.knownAuthorityIds }) };
+  });
+}
+
+/** Create-only apply of the named + generated routes (status:'pending', published:false). */
+export function applyNamedRoutes(routes: TrailRoute[], opts: ApplyRunOptions & { importBatchId: string }): Promise<ApplyResult> {
+  return applyOfficialRoutes((auth) => validatedRouteDocs(routes, auth, opts), opts);
+}
+
 async function cli() {
   const argv = process.argv.slice(2);
   const relationId = Number(arg('relation') ?? SHAAR_HANEGEV_RELATION_ID);
@@ -306,7 +322,7 @@ async function cli() {
   const { meta } = readSegmentsFile(outRoot, area);
   const named = JSON.parse(fs.readFileSync(path.join(outRoot, area, 'named-routes.json'), 'utf8')).routes as TrailRoute[];
   const gen = JSON.parse(fs.readFileSync(path.join(outRoot, area, 'generated-routes.json'), 'utf8')).routes as TrailRoute[];
-  const res = await applyTrailRoutes([...named, ...gen], {
+  const res = await applyNamedRoutes([...named, ...gen], {
     target: await openTarget(flags.project!),
     authorityId: flags.authority!,
     areaName: meta.areaName ?? area,
