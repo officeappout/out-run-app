@@ -1,0 +1,19 @@
+[
+  {
+    "_note": "Hand-made in the documented Envista shape: GET /v1/envista/stations (trimmed to 3).",
+    "stationId": 178, "name": "TEL AVIV COAST", "shortName": "TEL AVIV CO", "stationsTag": "(None)",
+    "location": { "latitude": 32.058, "longitude": 34.7588 }, "timebase": 10, "active": true, "owner": "ims", "regionId": 6,
+    "monitors": [
+      { "channelId": 1, "name": "Rain", "alias": null, "active": true, "typeId": 1, "pollutantId": 2, "units": "mm", "description": null },
+      { "channelId": 7, "name": "TD", "alias": null, "active": true, "typeId": 1, "pollutantId": 7, "units": "degC", "description": null }
+    ]
+  },
+  {
+    "stationId": 999, "name": "RAIN ONLY", "location": { "latitude": 32.0, "longitude": 34.8 }, "active": true,
+    "monitors": [ { "channelId": 1, "name": "Rain", "active": true } ]
+  },
+  {
+    "stationId": 998, "name": "CLOSED", "location": { "latitude": 32.0, "longitude": 34.8 }, "active": false,
+    "monitors": [ { "channelId": 7, "name": "TD", "active": true } ]
+  }
+]

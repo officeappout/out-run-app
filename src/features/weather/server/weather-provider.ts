@@ -5,7 +5,9 @@
  * getWeatherProvider(); nothing else changes.
  *
  * Selected by env WEATHER_PROVIDER (default 'open-meteo'); WEATHER_API_KEY switches
- * Open-Meteo to its commercial endpoint.
+ * Open-Meteo to its commercial endpoint. WEATHER_PROVIDER='ims' selects the Israel
+ * Meteorological Service (ims-provider.ts) and needs IMS_API_TOKEN (server-only); without
+ * the token it falls back to Open-Meteo and logs that once per instance.
  *
  * Licensing: the free api.open-meteo.com endpoint is for NON-COMMERCIAL use only. OUT
  * is a commercial product, so production needs either an Open-Meteo API subscription
@@ -16,6 +18,7 @@
  */
 
 import type { WeatherPoint, WeatherSnapshot } from '../core/weather.types';
+import { ImsWeatherProvider } from './ims-provider';
 
 export interface WeatherProvider {
   readonly id: string;
@@ -130,12 +133,22 @@ export class OpenMeteoProvider implements WeatherProvider {
   }
 }
 
-/** env → provider. Unknown ids fall back to Open-Meteo (logged once by the caller). */
+let warnedImsWithoutToken = false;
+
+/** env → provider. Unknown ids fall back to Open-Meteo. */
 export function getWeatherProvider(env: Record<string, string | undefined> = process.env): WeatherProvider {
   const id = (env.WEATHER_PROVIDER ?? 'open-meteo').trim().toLowerCase();
   const apiKey = env.WEATHER_API_KEY?.trim() || undefined;
   switch (id) {
-    // case 'ims': return new ImsProvider(apiKey);   ← add when the owner chooses IMS
+    case 'ims': {
+      const token = env.IMS_API_TOKEN?.trim();
+      if (token) return new ImsWeatherProvider(token);
+      if (!warnedImsWithoutToken) {
+        warnedImsWithoutToken = true;
+        console.warn('[weather] WEATHER_PROVIDER=ims but IMS_API_TOKEN is not set — using open-meteo');
+      }
+      return new OpenMeteoProvider(apiKey);
+    }
     case 'open-meteo':
     default:
       return new OpenMeteoProvider(apiKey);

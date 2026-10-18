@@ -1,0 +1,17 @@
+{
+  "_note": "Hand-made in the documented Envista shape (IMS API_Explanation_en.pdf + the open-source ims-envista client): GET /v1/envista/stations/{id}/data/latest. Values are illustrative.",
+  "stationId": 178,
+  "data": [
+    {
+      "datetime": "2026-10-18T11:20:00+03:00",
+      "channels": [
+        { "id": 1, "name": "Rain", "alias": null, "value": 0.1, "status": 1, "valid": true, "description": null },
+        { "id": 4, "name": "WS", "alias": null, "value": 3.5, "status": 1, "valid": true, "description": null },
+        { "id": 6, "name": "WD", "alias": null, "value": 270, "status": 1, "valid": true, "description": null },
+        { "id": 7, "name": "TD", "alias": null, "value": 25.4, "status": 1, "valid": true, "description": null },
+        { "id": 8, "name": "RH", "alias": null, "value": 62, "status": 1, "valid": true, "description": null },
+        { "id": 10, "name": "BP", "alias": null, "value": -9999, "status": 2, "valid": false, "description": null }
+      ]
+    }
+  ]
+}
