@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
-import { AGENT_REGISTRY } from '@/features/admin/agents/agent-registry';
+import { AGENT_REGISTRY, agentLabel } from '@/features/admin/agents/agent-registry';
 import { isAgentStale } from '@/features/admin/agents/agents-panel.logic';
 import type { AgentOverview } from '@/features/admin/agents/agent-findings.types';
 
@@ -14,14 +14,17 @@ interface Props {
   agents: AgentOverview[];
   selectedId: string | null;
   onSelect: (agentId: string) => void;
+  /** Limit to these agents (e.g. the selected one above its findings). Default: all. */
+  agentIds?: string[];
 }
 
 /** One card per registered agent: health + unread counter. Click → its findings. */
-export default function AgentList({ agents, selectedId, onSelect }: Props) {
+export default function AgentList({ agents, selectedId, onSelect, agentIds }: Props) {
   const now = Date.now();
+  const defs = agentIds ? AGENT_REGISTRY.filter((d) => agentIds.includes(d.id)) : AGENT_REGISTRY;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {AGENT_REGISTRY.map((def) => {
+      {defs.map((def) => {
         const a = agents.find((x) => x.agentId === def.id);
         const stale = a ? isAgentStale(a, now) : true;
         const failing = (a?.consecutiveFailures ?? 0) > 0;
@@ -38,7 +41,7 @@ export default function AgentList({ agents, selectedId, onSelect }: Props) {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-black text-slate-900">{def.label}</p>
+                <p className="font-black text-slate-900">{agentLabel(def)}</p>
                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{def.description}</p>
               </div>
               {(a?.unreadCount ?? 0) > 0 && (
