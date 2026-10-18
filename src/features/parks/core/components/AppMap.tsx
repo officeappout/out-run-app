@@ -701,9 +701,9 @@ export default function AppMap({
           // Match the immersive "approaching turn" camera state so the
           // swipe-preview lands at the same pitch the auto-camera would
           // use if the runner were physically near this turn (75°).
-          pitch: 75,
+          pitch: safeNumber(turnFlyToTarget.pitch, 75),
           duration: 800,
-          maxZoom: 18.5,
+          maxZoom: safeNumber(turnFlyToTarget.maxZoom, 18.5),
         });
       } else {
         if (!isFiniteLngLat(turnFlyToTarget.center)) {
@@ -724,8 +724,8 @@ export default function AppMap({
           // the same zoom/pitch the auto-camera uses when the runner is
           // approaching a maneuver. Eliminates the visual mismatch
           // between user-driven and GPS-driven turn previews.
-          zoom: 18.5,
-          pitch: 75,
+          zoom: safeNumber(turnFlyToTarget.zoom, 18.5),
+          pitch: safeNumber(turnFlyToTarget.pitch, 75),
           duration: 800,
         });
       }

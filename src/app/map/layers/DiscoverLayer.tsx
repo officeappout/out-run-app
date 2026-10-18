@@ -61,6 +61,8 @@ import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
 import SetSavedPlaceSheet from '@/features/user/places/components/SetSavedPlaceSheet';
 import type { SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore } from '@/features/parks/core/store/useRecentSearchesStore';
+import { SearchDestinationCard, SearchRouteCard, type SearchDestinationPick } from '@/features/parks/core/components/SearchPickCards';
+import { findOfficialRouteById } from '@/features/parks/core/hooks/useSearchNavigation';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import {
   PartnerBubbles,
@@ -575,6 +577,21 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // SetSavedPlaceSheet host state — null = closed, kind = open for that slot.
   const [setPlaceSheetKind, setSetPlaceSheetKind] = useState<SavedPlaceKind | null>(null);
 
+  // ── v2 search pick (enable_home_v2 only) ──────────────────────────────
+  // After a search pick, v2 shows a card first instead of jumping straight
+  // into the A→B route cards (address) / RouteDetailSheet (route). Every
+  // action on the card hands off to the existing flow. Always null with the
+  // flag off, so the SEARCH_PICK screen below never renders there.
+  const [searchPick, setSearchPick] = useState<
+    | { kind: 'place'; place: SearchDestinationPick }
+    | { kind: 'route'; route: Route }
+    | null
+  >(null);
+  // Read by the empty-map-tap effect below (declared before the handlers).
+  const searchPickRef = useRef(searchPick);
+  searchPickRef.current = searchPick;
+  const closeSearchPickRef = useRef<() => void>(() => {});
+
   // Mirror the commute destination into useMapStore so AppMap can render
   // the destination pin without prop-drilling. SET-ONLY here — the
   // active session needs the pin to remain visible after the user
@@ -609,6 +626,11 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   useEffect(() => {
     if (mapEmptyTapTick === lastEmptyTapTickRef.current) return;
     lastEmptyTapTickRef.current = mapEmptyTapTick;
+    // v2 search pick card — tap on the map dismisses it (same gesture as commute).
+    if (searchPickRef.current) {
+      closeSearchPickRef.current();
+      return;
+    }
     if (mapMode === 'commute') {
       // Same teardown as the carousel's onBack — keeps the two exit
       // paths bit-identical so the user never lands in a half-state.
@@ -1248,7 +1270,75 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     [],
   );
 
+  // ── v2 search pick card helpers (enable_home_v2) ──────────────────────
+  const searchV2 = mapFeatureFlags.enableHomeV2;
+
+  const closeSearchPick = useCallback(() => {
+    const pick = searchPickRef.current;
+    if (!pick) return;
+    if (pick.kind === 'place') useMapStore.getState().setCommuteDestination(null);
+    else logic.setFocusedRoute(null);
+    setSearchPick(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  closeSearchPickRef.current = closeSearchPick;
+
+  /** Show the destination card for an address / street / place pick. */
+  const openPlacePick = (addr: { text: string; coords: [number, number]; placeType?: SearchDestinationPick['placeType'] }) => {
+    const [lng, lat] = addr.coords;
+    logic.setSelectedRoute(null);
+    logic.setFocusedRoute(null);
+    setSearchPick({ kind: 'place', place: { text: addr.text, coords: addr.coords, placeType: addr.placeType } });
+    // Same pin the commute flow shows (DestinationMarker), and a flat camera
+    // move that frames the user + the place (or just the place).
+    useMapStore.getState().setCommuteDestination({ coords: addr.coords, label: addr.text });
+    const me = logic.currentUserPos;
+    if (me && Number.isFinite(me.lat) && Number.isFinite(me.lng)) {
+      useMapStore.getState().setTurnFlyToTarget({
+        kind: 'fitBounds',
+        bounds: [
+          [Math.min(me.lng, lng), Math.min(me.lat, lat)],
+          [Math.max(me.lng, lng), Math.max(me.lat, lat)],
+        ],
+        bearing: 0,
+        pitch: 0,
+        maxZoom: 16,
+      });
+    } else {
+      useMapStore.getState().setTurnFlyToTarget({ kind: 'flyTo', center: addr.coords, bearing: 0, zoom: 15, pitch: 0 });
+    }
+  };
+
+  /** Show the v2 route card; the route is focused (drawn + framed) like today's pick. */
+  const openRoutePick = (route: Route) => {
+    useMapStore.getState().setCommuteDestination(null);
+    logic.setSelectedRoute(null);
+    logic.setFocusedRoute(route);
+    setSearchPick({ kind: 'route', route });
+  };
+
   const handleAddressSelect = async (addr: any) => {
+    // v2: an official-route pick opens the v2 route card (route focused on
+    // the map) instead of RouteDetailSheet — the card's "פרטי המסלול" still
+    // opens that sheet. Same search teardown logic.handleAddressSelect does.
+    if (searchV2 && addr?._source === 'route' && addr?._id) {
+      logic.setSearchQuery('');
+      logic.setSuggestions([]);
+      // setNavState('idle') also clears selected/focused route — call it first.
+      logic.setNavState('idle');
+      const route = await findOfficialRouteById(addr._id).catch(() => null);
+      if (route) openRoutePick(route);
+      if (Array.isArray(addr?.coords) && addr?.text) {
+        useRecentSearchesStore.getState().pushRecent({
+          text: addr.text,
+          coords: addr.coords as [number, number],
+          source: 'route',
+          id: addr._id,
+        });
+      }
+      return;
+    }
+
     // Run the legacy hook first — it handles park / route / mapbox
     // suggestion sources (clears search, opens entity cards, etc.).
     await logic.handleAddressSelect(addr);
@@ -1267,6 +1357,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         text: addr.text,
         coords: addr.coords as [number, number],
         source: sourceForRecent,
+        // v2 keeps the park / route id so the recent can reopen its card.
+        ...(searchV2 && sourceForRecent !== 'mapbox' && addr._id ? { id: addr._id as string } : {}),
       });
     }
 
@@ -1310,6 +1402,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         // init reads isComposing and reopens GoalSheet automatically,
         // showing the pending address with confirm/cancel actions.
         setMapMode('freeRun');
+      } else if (searchV2) {
+        // v2: the destination card first (navigate / run / walk / save).
+        openPlacePick({ text: addr.text, coords: addr.coords as [number, number], placeType: addr.placeType });
       } else {
         // Plain top-search-bar / other entry points untouched by either
         // flow above — still commutes immediately, exactly as before.
@@ -1332,6 +1427,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     isSearching: logic.isSearching,
     inputRef: logic.searchInputRef,
     onSetSavedPlace: (kind: SavedPlaceKind) => setSetPlaceSheetKind(kind),
+    userPos: logic.currentUserPos ?? null,
   } as const;
 
   // ── Community enrichment — reactive via onSnapshot ──
@@ -1442,7 +1538,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // ── THE LAW: SINGLE SCREEN STATE ──
   const selectedPark = useMapStore((s) => s.selectedPark);
   const mapGlobalSheet = useMapStore((s) => s.globalSheet);
-  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'PARK_CARD' | 'COMMUTE' | 'DISCOVERY';
+  type Screen = 'SEARCH' | 'NAV' | 'ROUTE_CARD' | 'PARK_CARD' | 'SEARCH_PICK' | 'COMMUTE' | 'DISCOVERY';
   const screen: Screen = (() => {
     if (logic.navState === 'searching') return 'SEARCH';
     // 'navigating' is now a no-op (NavigationHub returns null on this
@@ -1465,9 +1561,23 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       if (mapMode !== 'idle' && mapMode !== 'discover') setMapMode('idle');
       return 'PARK_CARD';
     }
+    // v2 search pick card — only over the plain map (any drawer mode wins
+    // and the effect below drops the stale pick).
+    if (searchPick && mapMode === 'idle') return 'SEARCH_PICK';
     if (mapMode === 'commute' && commuteRouteConfig) return 'COMMUTE';
     return 'DISCOVERY';
   })();
+
+  // A park / route card or any drawer mode replaces the v2 pick card — drop
+  // it so it never resurfaces stale when that surface closes.
+  useEffect(() => {
+    if (!searchPick) return;
+    if (selectedPark || logic.selectedRoute || mapMode !== 'idle') {
+      if (searchPick.kind === 'place' && mapMode !== 'commute') useMapStore.getState().setCommuteDestination(null);
+      setSearchPick(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPark, logic.selectedRoute, mapMode]);
 
   // ── Shared top bar: glassmorphic search + saved-places quick row + mode pills ──
   function renderTopBar() {
@@ -1513,7 +1623,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
               {/* Mode header pills — also hidden in commute mode so the
                   top surface stays focused on the active navigation flow. */}
-              {mapMode !== 'commute' && (
+              {mapMode !== 'commute' && screen !== 'SEARCH_PICK' && (
                 <div className="pointer-events-auto">
                   <MapModeHeader
                     activeMode={mapMode}
@@ -1619,6 +1729,73 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
             <ParkPreview userLocation={logic.currentUserPos ?? null} />
           </>
         );
+
+      case 'SEARCH_PICK': {
+        // v2 only (searchPick is never set with enable_home_v2 off).
+        if (!searchPick) return null;
+        return (
+          <>
+            {!topChromeFolded && renderTopBar()}
+            {searchPick.kind === 'place' ? (
+              <SearchDestinationCard
+                key={`${searchPick.place.coords[0]},${searchPick.place.coords[1]}`}
+                place={searchPick.place}
+                userPos={logic.currentUserPos ?? null}
+                onClose={closeSearchPick}
+                onNavigate={() => {
+                  // Today's A→B route cards (commute RouteCarousel).
+                  const { coords, text } = searchPick.place;
+                  setSearchPick(null);
+                  startCommute({ coords, label: text });
+                }}
+                onStartActivity={(activity) => {
+                  // The free-run drawer with this place as its destination —
+                  // the same pending-address path its own "יעד: כתובת" option
+                  // uses; GoalSheet reopens with "התחל לכתובת הזו".
+                  const { coords, text } = searchPick.place;
+                  setSearchPick(null);
+                  useMapStore.getState().setCommuteDestination(null);
+                  logic.handleActivityChange(activity);
+                  const pending = usePendingAddressStore.getState();
+                  pending.startComposing();
+                  pending.setPending({ lat: coords[1], lng: coords[0], label: text });
+                  handleMapModeChange('freeRun');
+                }}
+                onOpenRoute={openRoutePick}
+              />
+            ) : (
+              <SearchRouteCard
+                key={searchPick.route.id}
+                route={searchPick.route}
+                userPos={logic.currentUserPos ?? null}
+                onClose={closeSearchPick}
+                onStart={() => {
+                  // Same as RouteDetailSheet's onStartWorkout.
+                  const r = searchPick.route;
+                  setSearchPick(null);
+                  logic.setFocusedRoute(r);
+                  logic.startActiveWorkoutForRoute(r);
+                }}
+                onNavigateToStart={() => {
+                  // Same as RouteDetailSheet's onNavigate (trailhead commute).
+                  const r = searchPick.route;
+                  const startPoint = Array.isArray(r.path) && r.path.length > 0 ? r.path[0] : null;
+                  if (!startPoint) return;
+                  setSearchPick(null);
+                  startCommute({ coords: [startPoint[0], startPoint[1]], label: r.name });
+                }}
+                onDetails={() => {
+                  // The full RouteDetailSheet (ROUTE_CARD screen).
+                  const r = searchPick.route;
+                  setSearchPick(null);
+                  logic.setSelectedRoute(r);
+                  logic.setFocusedRoute(r);
+                }}
+              />
+            )}
+          </>
+        );
+      }
 
       case 'COMMUTE': {
         // The unified RouteCarousel mounted in commute mode. Top bar
