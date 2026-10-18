@@ -395,6 +395,35 @@ export interface RouteAmenityRef {
   location: { lat: number; lng: number };
 }
 
+/** Persisted route shape — see `Route.routeShape`. */
+export type RouteShape = 'loop' | 'out_and_back' | 'point_to_point';
+
+/**
+ * Where a route's data came from — written by scripts/trails (national
+ * trails pipeline). Drives the data-source credit lines in the route detail
+ * sheet (see route-attribution.ts). Absent on every pre-trails route.
+ */
+export interface RouteProvenance {
+  pipeline?: string;
+  /** Geometry/tags derived from OpenStreetMap (ODbL) — credit required. */
+  osm?: { license: 'ODbL-1.0'; snapshot?: string | null; extract?: string };
+  /** Stored elevation numbers came from this DEM — credit required. */
+  elevation?: { provider: 'copernicus-glo30' | string };
+}
+
+/** Trail-pipeline details (scripts/trails/import-named-routes.ts). All optional on read. */
+export interface RouteTrailInfo {
+  kind?: 'osm_relation' | 'generated';
+  nameSource?: string;
+  needsName?: boolean;
+  /** Point-to-point routes: nearest named places at each end (null when none ≤ 1.5 km). */
+  endpoints?: { from: string | null; to: string | null };
+  segmentIds?: string[];
+  stars?: number;
+  license?: string;
+  attribution?: string;
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -423,11 +452,17 @@ export interface Route {
    * in geoUtils.ts). Undefined when neither shape applies (e.g. a
    * point-to-point commute, or a linear OSM-discovered trail).
    *
+   * `'point_to_point'` (trails pipeline, 18.10.2026 — owner-approved): an
+   * explicitly ONE-WAY route from A to B (a marked trail that doesn't close).
+   * Its `distance` is the one-way length. Never a loop: every loop consumer
+   * goes through `isLoopRoute()` (geoUtils.ts), which returns false for it.
+   * Endpoint names for the "A → B" label live on `trail.endpoints`.
+   *
    * Distinct from `RouteGenerationOptions.returnShape` (route-generator.service.ts)
    * — that's a generation-time *request* knob for one specific corridor-flow
    * mode, not a record of what was actually built. Don't conflate the two.
    */
-  routeShape?: 'loop' | 'out_and_back';
+  routeShape?: RouteShape;
 
   /** DEM-derived total elevation gain in meters (see demProfile() in scripts/geo-discovery-routes.ts). */
   elevationGain?: number;
@@ -526,6 +561,11 @@ export interface Route {
     computedAt: unknown; // FieldValue.serverTimestamp() at write time (climb-segment.types.ts's updatedAt convention)
     source: 'osm_overpass_v1';
   };
+
+  /** Data provenance (trails pipeline) — see RouteProvenance. */
+  provenance?: RouteProvenance;
+  /** Trail-pipeline metadata — see RouteTrailInfo. */
+  trail?: RouteTrailInfo;
 
   // Ratings
   /** User-facing star rating (1–5, decimal precision e.g. 4.3). */

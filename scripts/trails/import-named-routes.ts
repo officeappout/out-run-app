@@ -4,25 +4,32 @@
  * operator=itc/kkl/rtg) over the segment graph into NAMED routes, then
  * generate candidate loops / out-and-backs from each יישוב.
  *
- * DRY-RUN ONLY. Reads `.trails-out/<area>/segments.json` (run
+ * Default = DRY-RUN. Reads `.trails-out/<area>/segments.json` (run
  * build-segment-graph.ts first) and writes local JSON next to it:
  *   named-routes.json · generated-routes.json · summary.json · apply-plan.json
- * `--apply` is refused (no Firestore code in this file).
+ * `--apply` (owner-approved 18.10.2026) additionally CREATES the routes in
+ * `official_routes` (create-only, status:'pending', published:false) via
+ * scripts/trails/lib/trails-apply.node.ts — see its header for the guard rails.
  *
- * Usage: npx tsx scripts/trails/import-named-routes.ts [--relation=1473954 --area=shaar-hanegev]
+ * Usage:
+ *   npx tsx scripts/trails/import-named-routes.ts [--relation=1473954 --area=shaar-hanegev]
+ *   npx tsx scripts/trails/import-named-routes.ts --apply --project appout-1 --authority <authorityId>
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { COPERNICUS_DEM_ATTRIBUTION } from '../../src/lib/dem-tile-cache/copernicus-glo30';
 import { isOfficialOperator, rateDifficulty, starPrior, type StarInput } from '../../src/lib/trail-graph/difficulty';
 import { distM, midpointAlong } from '../../src/lib/trail-graph/geo';
-import { generatedRouteName, nameRoute, nearestFeature, officialName } from '../../src/lib/trail-graph/naming';
+import { disambiguateDuplicateNames, endpointNames, generatedRouteName, nameRoute, nearestFeature, officialName } from '../../src/lib/trail-graph/naming';
 import { classifyShape, dedupBySegments, generateFromStart, orderSegments, SegmentGraph, stepsGeometry } from '../../src/lib/trail-graph/route-assembly';
 import { routeStats } from '../../src/lib/trail-graph/route-stats';
 import { isTrailRouteRelation } from '../../src/lib/trail-graph/segment-graph';
 import { trailColour } from '../../src/lib/trail-graph/tags';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type NameSource, type TrailRoute, type TrailSegment } from '../../src/lib/trail-graph/types';
-import { loadPilot } from './build-segment-graph';
+import { loadPilot, readSegmentsFile } from './build-segment-graph';
+import { applyOfficialRoutes, confirmTypedYes, openTarget, parseApplyFlags, validateApplyFlags, type ApplyResult, type ApplyRunOptions, type ResolvedAuthority } from './lib/trails-apply.node';
+import { buildValidatedDoc } from '../../src/lib/route-collections';
+import { routeDocPayload, type TrailDoc } from '../../src/lib/trail-graph/firestore-docs';
 import { SHAAR_HANEGEV_RELATION_ID } from './lib/pilot-osm.node';
 import type { PilotContext } from './lib/pilot-context';
 
@@ -134,6 +141,7 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
         clippedToPilotArea: clipped,
         continuity: ord.continuity,
       },
+      ...(shape === 'linear' ? { endpoints: endpointNames(ord.geometry, ctx.places) } : {}),
       license: OSM_LICENSE,
       attribution: ATTRIBUTION,
     });
@@ -201,6 +209,17 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
   const keptIds = new Set(all.kept.map((r) => r.id));
   const genKept = generated.filter((r) => keptIds.has(r.id));
 
+  // ── 3. Duplicate names → disambiguate (naming.ts rule: ref, else next distinct toponym) ──
+  const finalRoutes = [...namedDedup.kept, ...genKept];
+  const renamed = disambiguateDuplicateNames(
+    finalRoutes.map((r) => ({ id: r.id, name: r.name, ref: r.osm?.ref ?? null, geometry: r.geometry })),
+    [...ctx.toponyms, ...ctx.places],
+  );
+  for (const r of finalRoutes) {
+    const n = renamed.get(r.id);
+    if (n) { r.nameDisambiguatedFrom = r.name; r.name = n; }
+  }
+
   fs.writeFileSync(path.join(outDir, 'named-routes.json'), JSON.stringify({ meta: meta(), routes: namedDedup.kept, merged: namedDedup.merged, skipped }));
   fs.writeFileSync(path.join(outDir, 'generated-routes.json'), JSON.stringify({ meta: meta(), routes: genKept, droppedAsDuplicates: all.merged.filter((m) => m.id.startsWith('gen_')), settlementsWithoutStart: noStart }));
 
@@ -247,33 +266,73 @@ function summarize(segments: TrailSegment[], named: TrailRoute[], gen: TrailRout
 /** Exactly what an approved `--apply` would write. Nothing here is executed. */
 export function applyPlan(segments: number, named: number, generated: number) {
   return {
-    status: 'NOT EXECUTED — dry-run plan for owner approval',
+    status: 'dry-run plan — the owner runs --apply (see docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6)',
     writes: [
       {
         collection: 'trail_segments',
         docId: 'segment.id (deterministic: seg_<firstWayId>_<startNode>_<endNode>)',
+        mode: 'upsert — skipped when contentHash unchanged; never deleted',
         count: segments,
-        fields: ['geometry ({lng,lat}[])', 'startNode', 'endNode', 'lengthM', 'elevation{provider,gainFwdM,gainRevM,maxGrade50mFwdPct,maxGrade50mRevPct,minEleM,maxEleM}', 'highwayClass', 'surface', 'surfaceRaw', 'surfaceConfidence', 'lit', 'litSource', 'sacScale', 'mtbScale', 'tracktype', 'colour', 'itcRef', 'name', 'inBuiltUp', 'osmWayIds', 'routeRelationIds', 'foot', 'bicycle', 'license', 'authorityId', 'source:"osm_geofabrik_v1"', 'osmTimestamp', 'updatedAt'],
+        fields: ['geometry ({lng,lat}[])', 'startNode', 'endNode', 'lengthM', 'elevation{provider,gainFwdM,gainRevM,maxGrade50mFwdPct,maxGrade50mRevPct,minEleM,maxEleM}', 'highwayClass', 'surface', 'surfaceRaw', 'surfaceConfidence', 'lit', 'litSource', 'sacScale', 'mtbScale', 'tracktype', 'colour', 'itcRef', 'name', 'inBuiltUp', 'osmWayIds', 'routeRelationIds', 'foot', 'bicycle', 'license', 'authorityId', 'source:"osm_geofabrik_v1"', 'osmTimestamp', 'contentHash', 'createdAt', 'updatedAt'],
       },
       {
         collection: 'official_routes',
         docId: 'osm_rel_<relationId> | gen_<placeNodeId>_<n>',
+        mode: 'create-only — an existing id is skipped, never overwritten',
         count: named + generated,
-        fields: ['name', 'distance (km)', 'duration (min, from activity pace)', "difficulty ('easy'|'medium'|'hard')", "type ('walking'|'cycling')", 'path ({lng,lat}[])', "routeShape ('loop'|'out_and_back'; linear → see doc)", 'surfaceType (dominant)', 'elevationGain', 'maxGrade', 'authorityId', 'city', "status:'pending'", 'published:false', 'trail{kind,nameSource,needsName,segmentIds,segmentForward,stars,difficultyBreakdown,osm,license,attribution}'],
+        fields: ['name', 'distance (km)', 'duration (min, from activity pace)', "difficulty ('easy'|'medium'|'hard')", "type ('walking'|'cycling')", 'path ({lng,lat}[])', "routeShape ('loop'|'out_and_back'|'point_to_point' — linear OSM trails are point_to_point, one-way distance)", 'surfaceType (dominant)', 'elevationGain', 'maxGrade', 'authorityId', 'city', "status:'pending'", 'published:false', "origin:'osm_import'", 'source{type,name,externalId,externalLink}', 'provenance{pipeline,osm{license,snapshot,extract},elevation{provider}}', 'attribution{osm,elevation}', 'trail{kind,nameSource,needsName,nameDisambiguatedFrom?,endpoints?,settlement,segmentIds,segmentForward,stars,starBreakdown,difficultyBreakdown,stats,osm,license,attribution}', 'importBatchId', 'createdAt', 'updatedAt'],
       },
     ],
-    neverWritten: ['firestore.rules', 'indexes', 'any existing official_routes doc (create-only, skip if id exists)', 'published:true'],
+    neverWritten: ['any existing official_routes doc (create-only, skip if id exists)', 'published:true', 'any delete'],
   };
 }
 
-if (process.argv[1] && /import-named-routes\.ts$/.test(process.argv[1])) {
-  if (process.argv.includes('--apply')) {
-    console.error('--apply is not enabled for the trails pilot. See docs/TRAILS-PILOT-SHAAR-HANEGEV.md §"What --apply would write"; nothing was written.');
-    process.exit(2);
-  }
+// ── official_routes write path (Stage-1B chokepoint) ─────────────────────
+/** Every official_routes doc this pipeline writes is built HERE, through buildValidatedDoc. */
+export function validatedRouteDocs(routes: TrailRoute[], auth: ResolvedAuthority, ctx: { osmTimestamp: string | null; importBatchId: string }): TrailDoc[] {
+  return routes.map((r) => {
+    const { id, raw } = routeDocPayload(r, { authorityId: auth.id, city: auth.name, osmTimestamp: ctx.osmTimestamp, importBatchId: ctx.importBatchId });
+    return { id, data: buildValidatedDoc('official_routes', raw, { mode: 'create', knownAuthorityIds: auth.knownAuthorityIds }) };
+  });
+}
+
+/** Create-only apply of the named + generated routes (status:'pending', published:false). */
+export function applyNamedRoutes(routes: TrailRoute[], opts: ApplyRunOptions & { importBatchId: string }): Promise<ApplyResult> {
+  return applyOfficialRoutes((auth) => validatedRouteDocs(routes, auth, opts), opts);
+}
+
+async function cli() {
+  const argv = process.argv.slice(2);
   const relationId = Number(arg('relation') ?? SHAAR_HANEGEV_RELATION_ID);
   const area = arg('area') ?? 'shaar-hanegev';
-  runImportNamedRoutes({ relationId, area, outRoot: path.resolve(process.cwd(), '.trails-out') })
-    .then((s) => console.log(JSON.stringify(s, null, 2)))
-    .catch((e) => { console.error(e); process.exit(1); });
+  const outRoot = path.resolve(process.cwd(), '.trails-out');
+  const flags = parseApplyFlags(argv);
+  if (flags.apply) {
+    const dotenv = await import('dotenv');
+    dotenv.config({ path: '.env.local' });
+    const errs = validateApplyFlags(flags);
+    if (errs.length) {
+      console.error(`Refusing:\n  - ${errs.join('\n  - ')}\nNothing was written.`);
+      process.exit(2);
+    }
+  }
+  const summary = await runImportNamedRoutes({ relationId, area, outRoot });
+  console.log(JSON.stringify(summary, null, 2));
+  if (!flags.apply) return;
+  const { meta } = readSegmentsFile(outRoot, area);
+  const named = JSON.parse(fs.readFileSync(path.join(outRoot, area, 'named-routes.json'), 'utf8')).routes as TrailRoute[];
+  const gen = JSON.parse(fs.readFileSync(path.join(outRoot, area, 'generated-routes.json'), 'utf8')).routes as TrailRoute[];
+  const res = await applyNamedRoutes([...named, ...gen], {
+    target: await openTarget(flags.project!),
+    authorityId: flags.authority!,
+    areaName: meta.areaName ?? area,
+    osmTimestamp: meta.osmTimestamp,
+    importBatchId: `trails_${area}_${(meta.osmTimestamp ?? 'unknown').slice(0, 10)}`,
+    confirm: confirmTypedYes,
+  });
+  if (res.aborted) process.exit(3);
+}
+
+if (process.argv[1] && /import-named-routes\.ts$/.test(process.argv[1])) {
+  cli().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
 }

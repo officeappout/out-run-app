@@ -15,7 +15,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
-  Clock, Plus, Accessibility, ListChecks, Footprints, Moon,
+  Clock, Plus, Accessibility, ListChecks, Footprints, Moon, Map as MapIcon,
 } from 'lucide-react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { setStepGoalChoice } from '@/features/activity/services/step-goal.service';
@@ -2314,6 +2314,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     icon={<Accessibility size={20} className="text-gray-700" />}
                     label="הצהרת נגישות"
                     onClick={() => { onClose(); router.push('/accessibility'); }}
+                  />
+                  {/* About data sources — map/trail + elevation credits (ODbL / Copernicus). */}
+                  <SettingsRow
+                    icon={<MapIcon size={20} className="text-gray-700" />}
+                    label="מקורות מידע"
+                    sublabel="מפות ושבילים: © OpenStreetMap contributors · גובה: Copernicus WorldDEM-30 © DLR/Airbus"
+                    onClick={() => window.open('https://www.openstreetmap.org/copyright', '_blank', 'noopener,noreferrer')}
                   />
                   <SettingsRow
                     icon={<Mail size={20} className="text-gray-700" />}

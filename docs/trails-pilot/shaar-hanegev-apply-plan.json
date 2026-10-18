@@ -1,9 +1,10 @@
 {
-  "status": "NOT EXECUTED — dry-run plan for owner approval",
+  "status": "dry-run plan — the owner runs --apply (see docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6)",
   "writes": [
     {
       "collection": "trail_segments",
       "docId": "segment.id (deterministic: seg_<firstWayId>_<startNode>_<endNode>)",
+      "mode": "upsert — skipped when contentHash unchanged; never deleted",
       "count": 4001,
       "fields": [
         "geometry ({lng,lat}[])",
@@ -32,12 +33,15 @@
         "authorityId",
         "source:\"osm_geofabrik_v1\"",
         "osmTimestamp",
+        "contentHash",
+        "createdAt",
         "updatedAt"
       ]
     },
     {
       "collection": "official_routes",
       "docId": "osm_rel_<relationId> | gen_<placeNodeId>_<n>",
+      "mode": "create-only — an existing id is skipped, never overwritten",
       "count": 49,
       "fields": [
         "name",
@@ -46,7 +50,7 @@
         "difficulty ('easy'|'medium'|'hard')",
         "type ('walking'|'cycling')",
         "path ({lng,lat}[])",
-        "routeShape ('loop'|'out_and_back'; linear → see doc)",
+        "routeShape ('loop'|'out_and_back'|'point_to_point' — linear OSM trails are point_to_point, one-way distance)",
         "surfaceType (dominant)",
         "elevationGain",
         "maxGrade",
@@ -54,14 +58,20 @@
         "city",
         "status:'pending'",
         "published:false",
-        "trail{kind,nameSource,needsName,segmentIds,segmentForward,stars,difficultyBreakdown,osm,license,attribution}"
+        "origin:'osm_import'",
+        "source{type,name,externalId,externalLink}",
+        "provenance{pipeline,osm{license,snapshot,extract},elevation{provider}}",
+        "attribution{osm,elevation}",
+        "trail{kind,nameSource,needsName,nameDisambiguatedFrom?,endpoints?,settlement,segmentIds,segmentForward,stars,starBreakdown,difficultyBreakdown,stats,osm,license,attribution}",
+        "importBatchId",
+        "createdAt",
+        "updatedAt"
       ]
     }
   ],
   "neverWritten": [
-    "firestore.rules",
-    "indexes",
     "any existing official_routes doc (create-only, skip if id exists)",
-    "published:true"
+    "published:true",
+    "any delete"
   ]
 }

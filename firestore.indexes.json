@@ -1220,6 +1220,16 @@
       "indexes": [
         { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION_GROUP" }
       ]
+    },
+    // NEW — trails pipeline (feat/trails-apply, 18.10.2026). trail_segments
+    // is a new collection; its {lng,lat}[] geometry is never queried, so it
+    // is exempt from indexing (no per-point index entries, cheaper writes).
+    // No composite index is needed: the only query today is the apply
+    // script's single-field `authorityId ==` (automatic index).
+    {
+      "collectionGroup": "trail_segments",
+      "fieldPath": "geometry",
+      "indexes": []
     }
   ]
 }
