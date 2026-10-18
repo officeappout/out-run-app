@@ -1203,6 +1203,34 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // AI COACH REVIEW AGENT (18.10.2026) — daily QA of the "קלי AI" chat
+    //   ai_coach_reviews/{uid}_{reviewId}  reviewed turns + issues + proposed fixes (TTL expireAt, 90 days)
+    //   ai_coach_review_stats/{day}        daily counters by category / root cause / cost
+    //   ai_coach_review_cursors/{uid}      { reviewedUntil } — review progress per thread
+    //   ai_coach_eval_cases/{id}           regression cases converted from flagged turns
+    // Written ONLY by the Admin SDK (/api/admin/ai-coach/reviews/**, the
+    // aiCoachReviewScheduler run). They hold conversation excerpts of OTHER
+    // users, so nobody but a super/system admin may read them, and no client
+    // may write (the panel goes through the super-admin API routes).
+    // ============================================================
+    match /ai_coach_reviews/{docId} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+    match /ai_coach_review_stats/{day} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+    match /ai_coach_review_cursors/{userId} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+    match /ai_coach_eval_cases/{caseId} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+
+    // ============================================================
     // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
     // ============================================================
     match /workoutMetadata/{docId} {

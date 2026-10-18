@@ -137,6 +137,18 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     counts.aiCoachThreads = 0;
   }
 
+  // 2d. AI coach review agent: reviews of this user's conversation (chat excerpts; TTL
+  //     90 days anyway), the review cursor, and regression cases converted from those
+  //     reviews (they carry the user's message + a context sheet; sourceUid marks them).
+  //     Committed fixtures (evals/ai-coach/*.json) are not in Firestore and not affected.
+  try {
+    counts.aiCoachReviews = await deleteQueryBatch(db.collection('ai_coach_reviews').where('uid', '==', uid));
+    counts.aiCoachEvalCases = await deleteQueryBatch(db.collection('ai_coach_eval_cases').where('sourceUid', '==', uid));
+    await db.collection('ai_coach_review_cursors').doc(uid).delete();
+  } catch (e) {
+    logger.warn(`[purgeUserData] ai_coach review data for ${uid} failed`, e);
+  }
+
   // 3. Presence, social graph, personal activity feed, kudos inbox.
   //    Each is owned exclusively by the deleted user.
   for (const top of ['presence', 'connections', 'activity', 'kudos'] as const) {
