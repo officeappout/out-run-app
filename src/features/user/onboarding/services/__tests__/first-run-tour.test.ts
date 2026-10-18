@@ -8,6 +8,9 @@ import {
   firstRunToursEnabled,
   hasMapDeepLink,
   isMapTourBlocked,
+  isNewUserForTours,
+  toCreationMs,
+  FIRST_RUN_NEW_USER_DAYS,
   presentSteps,
   shouldArmPlayerTour,
   shouldShowFirstRunTour,
@@ -142,5 +145,37 @@ describe('player tour — before the first set only', () => {
     expect(shouldArmPlayerTour({ ...base, resumed: true })).toBe(false);
     expect(shouldArmPlayerTour({ ...base, guidedGates: true })).toBe(false);
     expect(shouldArmPlayerTour({ ...base, eligible: false })).toBe(false);
+  });
+});
+
+describe('new users only (≤ 14 days since account creation)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.UTC(2026, 9, 18, 12);
+  it('account created within 14 days → new; older → never (even if never trained)', () => {
+    expect(FIRST_RUN_NEW_USER_DAYS).toBe(14);
+    expect(isNewUserForTours({ createdAtMs: now - 1 * DAY, nowMs: now, everTrained: true })).toBe(true);
+    expect(isNewUserForTours({ createdAtMs: now - 14 * DAY, nowMs: now, everTrained: null })).toBe(true);
+    expect(isNewUserForTours({ createdAtMs: now - 15 * DAY, nowMs: now, everTrained: false })).toBe(false);
+    expect(isNewUserForTours({ createdAtMs: now - 400 * DAY, nowMs: now, everTrained: null })).toBe(false);
+  });
+  it('missing date → falls back to Gate 1 (never trained = new); unknown stays null', () => {
+    expect(isNewUserForTours({ createdAtMs: null, nowMs: now, everTrained: false })).toBe(true);
+    expect(isNewUserForTours({ createdAtMs: null, nowMs: now, everTrained: true })).toBe(false);
+    expect(isNewUserForTours({ createdAtMs: null, nowMs: now, everTrained: null })).toBeNull();
+  });
+  it('parses Firebase Auth creationTime and other shapes', () => {
+    expect(toCreationMs('Sat, 17 Oct 2026 09:00:00 GMT')).toBe(Date.UTC(2026, 9, 17, 9));
+    expect(toCreationMs(new Date(5))).toBe(5);
+    expect(toCreationMs({ toMillis: () => 7 })).toBe(7);
+    expect(toCreationMs({ seconds: 2 })).toBe(2000);
+    expect(toCreationMs(undefined)).toBeNull();
+    expect(toCreationMs('not a date')).toBeNull();
+  });
+  it('FirstRunTour and the player page both require a new user', () => {
+    const c = src('../../components/FirstRunTour.tsx');
+    expect(c).toContain('useIsNewUserForTours(everActive)');
+    expect(c).toContain("onCloseRef.current?.('not-new')");
+    const page = src('../../../../../app/workouts/[id]/active/page.tsx');
+    expect(page).toContain('playerTourNewUser === true');
   });
 });

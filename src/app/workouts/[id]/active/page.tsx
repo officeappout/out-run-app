@@ -30,6 +30,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { firstRunTourSeenKey, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
+import { useIsNewUserForTours } from '@/features/user/onboarding/hooks/useIsNewUserForTours';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { processWorkoutCompletion } from '@/features/user/progression/services/progression.service';
 import type { WorkoutCompletionResult, WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
@@ -907,7 +908,9 @@ export default function ActiveWorkoutPage() {
     });
     return () => { alive = false; };
   }, [playerToursOn, profile?.id]);
-  const playerTourEligible = playerTourUnseen && !isPureRecoveryVideoTrioWorkout(stableWorkoutPlan);
+  // New users only (≤ 14 days since account creation) — an older account never arms the hold.
+  const playerTourNewUser = useIsNewUserForTours(playerTourUnseen);
+  const playerTourEligible = playerTourUnseen && playerTourNewUser === true && !isPureRecoveryVideoTrioWorkout(stableWorkoutPlan);
 
   // Mirror into useSessionStore so Android (plain JS, src/lib/native/init.ts)
   // and, via WorkoutExitGuardTracker's @capacitor/preferences mirror, iOS's

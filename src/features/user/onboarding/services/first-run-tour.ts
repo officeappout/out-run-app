@@ -165,3 +165,46 @@ export function shouldArmPlayerTour(input: {
     input.exerciseIndex === 0
   );
 }
+
+// ── Who gets the tours: NEW users only (owner, 18.10.2026) ──────────────────────────────────
+/** "New" = the account was created within this many days. */
+export const FIRST_RUN_NEW_USER_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Parse a creation time (Firebase Auth `metadata.creationTime` is an RFC-2822 string; Date /
+ *  epoch ms / Firestore Timestamp also accepted). Unparseable → null. */
+export function toCreationMs(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null;
+  if (typeof v === 'string') {
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? t : null;
+  }
+  const o = v as { toMillis?: () => number; seconds?: number };
+  if (typeof o.toMillis === 'function') {
+    const t = o.toMillis();
+    return Number.isFinite(t) ? t : null;
+  }
+  if (typeof o.seconds === 'number') return o.seconds * 1000;
+  return null;
+}
+
+/**
+ * New user for the first-run tours? Primary signal: the Firebase Auth account creation time
+ * (immutable — unlike users/{uid}.createdAt, which onboarding-sync backfills for old docs that
+ * lack it). Within FIRST_RUN_NEW_USER_DAYS → new; older → never. Only when the date is missing
+ * do we fall back to Gate 1 ("never trained"); `everTrained` null = still unknown → null.
+ */
+export function isNewUserForTours(input: {
+  createdAtMs: number | null;
+  nowMs: number;
+  everTrained: boolean | null;
+}): boolean | null {
+  if (input.createdAtMs != null) {
+    const age = input.nowMs - input.createdAtMs;
+    return age >= -DAY_MS && age <= FIRST_RUN_NEW_USER_DAYS * DAY_MS;
+  }
+  if (input.everTrained == null) return null;
+  return !input.everTrained;
+}
