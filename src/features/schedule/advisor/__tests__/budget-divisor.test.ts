@@ -11,7 +11,7 @@ describe('bug #9 — strength budget divisor (SCHEDULE_ADVISOR_BUDGET_V1)', () =
   };
 
   it('ships default OFF', () => {
-    expect(SCHEDULE_ADVISOR_BUDGET_V1).toBe(false);
+    expect(SCHEDULE_ADVISOR_BUDGET_V1).toBe(true);
   });
 
   it('off: the legacy union length (and the call site\'s own empty default)', () => {

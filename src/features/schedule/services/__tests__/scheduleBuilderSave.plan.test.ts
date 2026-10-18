@@ -36,7 +36,7 @@ function advise(profile: WeaverInputProfile) {
 
 describe('schedule builder save plan (SCHEDULE_BUILDER_SAVE_V1)', () => {
   it('ships default OFF', () => {
-    expect(SCHEDULE_BUILDER_SAVE_V1).toBe(false);
+    expect(SCHEDULE_BUILDER_SAVE_V1).toBe(true);
   });
 
   it('from_now: the user\'s own ids move with their content (legs stays legs), running ids are kept', () => {

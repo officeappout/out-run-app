@@ -1699,7 +1699,7 @@ export const POST_WORKOUT_SURVEY_V1 = false;
 // week loses category / workoutName / slotType / isQualityWorkout / priority, so the
 // next-run card and the schedule rules read it as unknown). True = the pure
 // buildRolledBackSchedule (running-alignment.ts) keeps those fields.
-export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = false;
+export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = true;
 
 // SCHEDULE_BUILDER_SAVE_V1 — the schedule-builder drawer's "approve" button. While false
 // the drawer stays preview-only (button disabled, nothing written — today's behaviour).
@@ -1710,7 +1710,7 @@ export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = false;
 // lifestyle.scheduleAdvisorPrefs. "Only this week" writes userSchedule day overrides.
 // localStorage override for testing on one device: localStorage['OUT_SCHEDULE_SAVE'] = '1' | '0'
 // (helper isScheduleBuilderSaveEnabled lives in the consumer, scheduleBuilderSave.ts).
-export const SCHEDULE_BUILDER_SAVE_V1 = false;
+export const SCHEDULE_BUILDER_SAVE_V1 = true;
 
 // SCHEDULE_ADVISOR_BUDGET_V1 — the strength generator's weekly-budget divisor (how many
 // days the weekly set budget is spread over: home-workout.service.ts's scheduleDays,
@@ -1721,4 +1721,4 @@ export const SCHEDULE_BUILDER_SAVE_V1 = false;
 // strength budget is split over 3 days, not 6. Overrides for testing:
 // localStorage['OUT_SCHEDULE_ADVISOR_BUDGET'] = '1' | '0' (one device), and the offline
 // bench's env OUT_SCHEDULE_ADVISOR_BUDGET_V1=1 (node only).
-export const SCHEDULE_ADVISOR_BUDGET_V1 = false;
+export const SCHEDULE_ADVISOR_BUDGET_V1 = true;
