@@ -27,7 +27,7 @@ import type { DevSimulationState } from '@/features/parks/core/hooks/useDevSimul
 import { bunnyImg } from '@/lib/bunny-image';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
-import { computeQualityBadges } from '@/features/parks/core/services/route-quality-badges.service';
+import { computeQualityBadges, isRouteLitVerified } from '@/features/parks/core/services/route-quality-badges.service';
 import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
 import { formatTooFarLabels } from '@/features/parks/core/services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
@@ -907,24 +907,28 @@ export default function RouteDetailSheet({
                                   {/* Feature chips — mirror the existing
                                       "תכונות מסלול" chip style further down,
                                       restricted to the three core attributes
-                                      surface / environment / lit. */}
-                                  {route.features && (
-                                    route.features.surface ||
-                                    route.features.environment ||
-                                    route.features.lit === true
+                                      surface / environment / lighting.
+                                      Lighting comes ONLY from the computed
+                                      qualitySignals.lighting (positive-only)
+                                      — features.lit was a surface/urban
+                                      heuristic, not a measurement. */}
+                                  {(
+                                    route.features?.surface ||
+                                    route.features?.environment ||
+                                    isRouteLitVerified(route)
                                   ) && (
                                     <div className="flex flex-wrap gap-2">
-                                      {route.features.environment && (
+                                      {route.features?.environment && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
                                           {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
                                         </span>
                                       )}
-                                      {route.features.surface && (
+                                      {route.features?.surface && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
                                           {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
                                         </span>
                                       )}
-                                      {route.features.lit === true && (
+                                      {isRouteLitVerified(route) && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
                                           מואר
                                         </span>
@@ -1022,16 +1026,17 @@ export default function RouteDetailSheet({
                   {(() => {
                     const hasFeatures = route.features && (
                       route.features.surface ||
-                      route.features.environment ||
-                      route.features.lit === true
+                      route.features.environment
                     );
                     const hasTags = route.featureTags && route.featureTags.length > 0;
-                    // qualitySignals-derived badges are a separate data source
-                    // (OSM-computed) from route.features (manually curated) —
-                    // dedupe the lighting badge against features.lit === true
-                    // so a route with both never shows "מואר" twice.
+                    // Lighting is shown ONLY from qualitySignals.lighting (via
+                    // computeQualityBadges, positive-only) or from an admin's
+                    // deliberate manual `night_lighting` tag — never from
+                    // features.lit (a surface/urban heuristic). When both
+                    // exist, the manual tag's chip wins so "lit" never
+                    // appears twice.
                     const qualityBadges = computeQualityBadges(route.qualitySignals).filter(
-                      (b) => !(b.key === 'lighting' && route.features?.lit === true),
+                      (b) => !(b.key === 'lighting' && route.featureTags?.includes('night_lighting')),
                     );
                     if (!hasFeatures && !hasTags && qualityBadges.length === 0) return null;
                     return (
@@ -1046,11 +1051,6 @@ export default function RouteDetailSheet({
                           {route.features?.surface && (
                             <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
                               {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
-                            </span>
-                          )}
-                          {route.features?.lit === true && (
-                            <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                              מואר
                             </span>
                           )}
                           {route.featureTags?.map((tag) => (

@@ -81,6 +81,19 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
                   </button>
                 ))}
               </div>
+            ) : logic.shuffleOutcome === 'error' ? (
+              // Honest error state (routes phase 1.2) — generation failed;
+              // previously this silently fell back to MOCK_ROUTES.
+              <div className="text-center py-4">
+                <p className="text-sm text-gray-500 font-bold">לא הצלחנו לייצר מסלולים כרגע.</p>
+                <button
+                  type="button"
+                  onClick={() => logic.handleShuffle(logic.preferences.activity)}
+                  className="mt-2 px-4 py-1.5 rounded-full border border-gray-200 text-gray-600 font-bold text-xs active:scale-[0.97] transition-transform"
+                >
+                  נסה שוב
+                </button>
+              </div>
             ) : (
               <p className="text-center text-sm text-gray-400 py-4">אין מסלולים זמינים. נסה להגדיר מחדש.</p>
             )}

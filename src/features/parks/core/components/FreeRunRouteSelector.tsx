@@ -40,6 +40,7 @@ import {
   MIN_GENERATION_KM,
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
+import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import type { ActivityType, Route } from '../types/route.types';
 
 const ACCENT = '#00ADEF';
@@ -528,6 +529,7 @@ function routeHighlight(route: Route): string {
   if (f?.hasGym) return 'עובר ליד גינת כושר';
   if (f?.scenic) return 'מסלול ירוק ונופי';
   if (f?.hasBenches) return 'יש ספסלים בדרך';
-  if (f?.lit) return 'מואר היטב';
+  // Lighting only from computed qualitySignals — features.lit is a heuristic.
+  if (isRouteLitVerified(route)) return 'מואר היטב';
   return 'מסלול מעגלי חוזר אליך';
 }

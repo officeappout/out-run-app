@@ -4,6 +4,7 @@ import {
   GENUINE_BADGE_STRONG_PCT,
   GENUINE_BADGE_MODERATE_PCT,
   CARD_BADGE_CAP,
+  isRouteLitVerified,
 } from '../route-quality-badges.service';
 
 // Minimal shape matching Route['qualitySignals'] — the real type import
@@ -172,5 +173,20 @@ describe('computeQualityBadges', () => {
     const all = computeQualityBadges(sig, Infinity);
     expect(all.map((b) => b.key)).toEqual(['lighting', 'drinking_water', 'composition', 'fitness_station', 'bench', 'court', 'dog_park']);
     expect(computeQualityBadges(sig)).toHaveLength(CARD_BADGE_CAP); // default unchanged
+  });
+});
+
+describe('isRouteLitVerified — lighting only from computed qualitySignals (routes phase 1.1)', () => {
+  it('true only when lighting is computed AND isLit === true', () => {
+    expect(isRouteLitVerified({ qualitySignals: signals({ lighting: { status: 'computed', litCoveragePct: 80, isLit: true } }) as never })).toBe(true);
+    expect(isRouteLitVerified({ qualitySignals: signals({ lighting: { status: 'computed', litCoveragePct: 10, isLit: false } }) as never })).toBe(false);
+    expect(isRouteLitVerified({ qualitySignals: signals({ lighting: { status: 'unknown', litCoveragePct: null, isLit: null } }) as never })).toBe(false);
+    expect(isRouteLitVerified({ qualitySignals: undefined })).toBe(false);
+    expect(isRouteLitVerified(null)).toBe(false);
+  });
+
+  it('ignores the legacy features.lit heuristic entirely', () => {
+    const route = { qualitySignals: undefined, features: { lit: true } };
+    expect(isRouteLitVerified(route)).toBe(false);
   });
 });
