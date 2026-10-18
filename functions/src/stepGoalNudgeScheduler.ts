@@ -290,6 +290,9 @@ async function dispatchToUser(
     deepLink: copy.deepLink,
     data: { triggerType: 'DailyGoal', bundleId: copy.rowId, ...pushCopyData(copy) },
     rateCapHours: 24,
+    // Lapsed users (> 30 days away) and same-day retention recipients are held
+    // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
+    suppressIfLapsed: true,
     measurement: {
       variantId: copy.rowId,
       category: TRIGGER_TYPE,

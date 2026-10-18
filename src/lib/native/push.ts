@@ -185,6 +185,9 @@ async function saveTokenToFirestore(uid: string, token: string): Promise<void> {
       platform,
       lastSeenAt: serverTimestamp(),
     },
+    // This runs on every native app launch (auth bridge), so it doubles as
+    // the "last app open" stamp the push schedulers read (18.10.2026).
+    lastActive: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 

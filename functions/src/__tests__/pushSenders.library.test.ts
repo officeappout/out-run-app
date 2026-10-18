@@ -184,8 +184,45 @@ describe('every sender takes its copy from the push library', () => {
   it('retentionScheduler → retention_lapse', async () => {
     state.queries.set('users', [{ id: 'u1', data: { ...USER, lastActive: { toMillis: () => NOW.getTime() - 9 * 86_400_000 } } }]);
     await run(retentionScheduler);
-    expect(ctxFor('retention_lapse').vars).toMatchObject({ '@שם': 'דנה', '@ימים': '9' });
+    // Name only — no day count in retention copy since 18.10.2026.
+    expect(ctxFor('retention_lapse').vars).toEqual({ '@שם': 'דנה' });
+    expect(ctxFor('retention_lapse').conditions).toBeUndefined();
     expect(sentWith('retention_lapse').toUids).toEqual(['u1']);
+  });
+
+  it('retentionScheduler skips a user whose old lastActive hides a recent workout (guard, default on)', async () => {
+    state.queries.set('users', [{ id: 'u1', data: { ...USER, lastActive: { toMillis: () => NOW.getTime() - 9 * 86_400_000 } } }]);
+    state.queries.set('workouts', [{ id: 'w1', data: { userId: 'u1', date: { toMillis: () => NOW.getTime() - 86_400_000 } } }]);
+    await run(retentionScheduler);
+    expect(resolveMock).not.toHaveBeenCalled();
+    expect(sendPushMock).not.toHaveBeenCalled();
+  });
+
+  it('retentionScheduler with the cadence flag: milestone condition, sent log written once', async () => {
+    state.docs.set('app_config/feature_flags', { retentionMilestoneCadence: true });
+    state.queries.set('users', [{ id: 'u1', data: { ...USER, lastActive: { toMillis: () => NOW.getTime() - 7 * 86_400_000 } } }]);
+    await run(retentionScheduler);
+    expect(ctxFor('retention_lapse').conditions).toEqual({ milestone: 'd7' });
+    const sent = sentWith('retention_lapse');
+    expect(sent.data).toMatchObject({ milestone: 'd7' });
+    expect(sent.rateCapHours).toBe(24);
+
+    // Already sent d7 for this absence → nothing the next run.
+    sendPushMock.mockClear();
+    resolveMock.mockClear();
+    state.docs.set('push_rate/u1', {
+      retention_absenceAnchor: NOW.getTime() - 7 * 86_400_000,
+      retention_milestonesSent: ['d7'],
+    });
+    await run(retentionScheduler);
+    expect(sendPushMock).not.toHaveBeenCalled();
+  });
+
+  it('retentionScheduler with the cadence flag: silent after day 30', async () => {
+    state.docs.set('app_config/feature_flags', { retentionMilestoneCadence: true });
+    state.queries.set('users', [{ id: 'u1', data: { ...USER, lastActive: { toMillis: () => NOW.getTime() - 45 * 86_400_000 } } }]);
+    await run(retentionScheduler);
+    expect(sendPushMock).not.toHaveBeenCalled();
   });
 
   it('onboardingDropoffDispatcher → onboarding_dropoff (routed path)', async () => {

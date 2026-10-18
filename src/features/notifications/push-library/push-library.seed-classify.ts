@@ -112,7 +112,7 @@ const SLASH_ARTIFACT_TAGS = new Set(['@בוא', '@את', '@מוכן']);
 /** Tags a rewrite can replace without changing the message (fixed number / renamed variable). */
 const REWRITABLE_TAGS: Record<string, string> = {
   '@זמן_אימון': 'replace @זמן_אימון with a fixed number of minutes',
-  '@ימי_אי_פעילות': 'rename @ימי_אי_פעילות to @ימים',
+  '@ימי_אי_פעילות': 'drop the day count (@ימי_אי_פעילות): retention copy has none since 18.10.2026',
 };
 /** Addresses one gender. Now kept as a row for that recipient gender instead of a rewrite reason. */
 const MALE_WORDS = /(^|[\s,.])(אבא|לוחם)(?=[\s,.!?]|$)/;

@@ -414,6 +414,9 @@ export const trainingReminderScheduler = onSchedule(
           deepLink: copy.deepLink,
           data: { triggerType: 'ScheduledWorkout', date: dateStr, ...pushCopyData(copy) },
           rateCapHours: 22, // ~1 per day — slightly under 24h to avoid drift
+          // Lapsed users (> 30 days away) and same-day retention recipients are held
+          // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
+          suppressIfLapsed: true,
           // Personalized-hour sends must respect quiet hours — unlike the old
           // single blanket 07:30 run (always safely outside 22:00-07:00), a
           // user-chosen hour can legitimately fall inside the quiet window.

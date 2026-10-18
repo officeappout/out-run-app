@@ -1,5 +1,5 @@
 // Workout Storage Service - Saves workout history to Firestore
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
@@ -419,6 +419,17 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
         console.error('❌ [DB] Failed to enqueue workout offline:', queueError);
         throw saveError;
       }
+    }
+
+    // users/{uid}.lastActive = the last real activity (18.10.2026). It used to
+    // be written only at signup/onboarding, so the push schedulers saw
+    // everyone as inactive. Fire-and-forget: never blocks or fails the save.
+    try {
+      void updateDoc(doc(db, 'users', workoutData.userId), { lastActive: serverTimestamp() }).catch((e) =>
+        console.warn('[DB] lastActive stamp failed (non-blocking):', e),
+      );
+    } catch (e) {
+      console.warn('[DB] lastActive stamp failed (non-blocking):', e);
     }
 
     console.log(`✅ [DB] Workout saved successfully with ID: ${docRef.id} (Type: ${metadata.workoutType}, Category: ${metadata.category}, Icon: ${metadata.displayIcon})`);
