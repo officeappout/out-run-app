@@ -77,6 +77,9 @@ export const HandoffToHumanInput = z.object({
   summary: z.string().trim().min(5).max(500),
 });
 
+export const RecommendWeekInput = z.object({});
+export const RecommendTodayInput = z.object({});
+
 export const GenerateWorkoutInput = z.object({
   durationMin: z.number().int().min(5).max(90),
   location: z.enum(COACH_LOCATIONS),
@@ -206,7 +209,28 @@ export const COACH_TOOLS = {
     },
     zod: HandoffToHumanInput,
   },
+  // ── Schedule advisor (phase A, read-only) — offered only while
+  // system_config/feature_flags.ai_coach_schedule_advisor is on (coachToolDefinitions).
+  recommend_week: {
+    name: 'recommend_week',
+    kind: 'server',
+    description:
+      "Recommends how the user's week should look, from the app's schedule rules (strength and running together: no strength on the long-run day, no legs the day before a key run, quality run before strength on a shared day, at least 2 strength days). Returns per weekday the strength program names and the run type, short Hebrew reasons (text), and reason codes. A proposal only: it changes nothing. To apply it, the user opens the schedule builder (a button under your reply). Use it for \"how should I arrange my week\", \"I can only train 3 days\", or when adding running to strength.",
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    zod: RecommendWeekInput,
+  },
+  recommend_today: {
+    name: 'recommend_today',
+    kind: 'server',
+    description:
+      "Recommends what to do today from the plan and the last 14 days: strength, run, combined, walk or rest, with generate_workout settings (buildNow) for a strength session, whether today's session is already done (doneToday), the mode (on_track, makeup, welcome_back, fresh_start) and short Hebrew reasons. Never lists or counts missed workouts: after a break, welcome the user back without guilt. Read-only. Use it for \"what should I do today\" before building a workout.",
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    zod: RecommendTodayInput,
+  },
 } as const satisfies Record<string, CoachToolSpec>;
+
+/** Tools that exist only while the schedule advisor flag (ai_coach_schedule_advisor) is on. */
+export const SCHEDULE_ADVISOR_TOOL_NAMES: readonly string[] = ['recommend_week', 'recommend_today'];
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
 
@@ -218,9 +242,14 @@ export function toolKind(name: string): CoachToolKind | null {
   return isCoachToolName(name) ? COACH_TOOLS[name].kind : null;
 }
 
-/** Tool definitions for the Messages API, fixed order (cache-stable). */
-export function coachToolDefinitions(): Anthropic.Tool[] {
-  return Object.values(COACH_TOOLS).map((t) => ({
+/**
+ * Tool definitions for the Messages API, fixed order (cache-stable per flag state). The
+ * schedule advisor tools are appended only with `scheduleAdvisor` — off = exactly today's list.
+ */
+export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean } = {}): Anthropic.Tool[] {
+  return Object.values(COACH_TOOLS)
+    .filter((t) => opts.scheduleAdvisor || !SCHEDULE_ADVISOR_TOOL_NAMES.includes(t.name))
+    .map((t) => ({
     name: t.name,
     description: t.description,
     input_schema: t.inputSchema,

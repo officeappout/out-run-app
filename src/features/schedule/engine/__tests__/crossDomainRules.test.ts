@@ -50,7 +50,10 @@ describe('validateCrossDomain — R1 (a shared day is permitted on its own)', ()
     // 3rd strength day elsewhere so R7's floor (2) isn't what's being tested here.
     const withThirdDay: CrossDomainWeek = { ...week, strength: withStrengthSession(week.strength, 2) };
     const result = validateCrossDomain(withThirdDay, DEFAULT_CONTEXT);
-    expect(result.violations.filter((v) => v.affectedDays.includes(0))).toEqual([]);
+    // R5 (a double day on an EASY run) is a soft preference since phase A — a WARN that
+    // never blocks; R1 itself still contributes nothing.
+    expect(result.violations.filter((v) => v.affectedDays.includes(0) && v.code !== 'R5')).toEqual([]);
+    expect(result.valid).toBe(true);
   });
 });
 

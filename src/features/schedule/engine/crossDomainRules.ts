@@ -5,21 +5,22 @@
  * (ruleFamily.ts), but its scope is the PAIR, not one domain. Source:
  * R1-R8 in .claude/knowledge/running-strength-weekly-research.md.
  *
- * Implements: R1, R3, R6 (first half), R7, R8 in validate(); R2 as a
- * separate decision function, resolveDoubleDayOrder (see below — R2 is a
- * decision the weaver needs, not a finding to fail a candidate on).
- * Deliberately NOT implemented (documented, not silently skipped):
- *   - R4 (no heavy-legs-day-before-quality/long-run) — there is no leg
- *     identifier anywhere in the strength type system (SkillId is all
- *     upper-body: PLANCHE/HSPU/FRONT_LEVER/OAPU/MUSCLE_UP/HANDSTAND;
- *     ProgramId has no lower-body value at all — confirmed by direct
- *     search, not assumed). Not blocked — not relevant yet. Revisit when
- *     a lower-body program/skill exists.
- *   - R6's second half (no heavy-legs-day-before-the-long-run) — same
- *     blocker as R4, since it needs the identical leg identifier.
- *   - R5 (double day lands on an already-hard day) — no day-level
- *     intensity/hardness concept exists on the strength side at all
- *     (grepped smartSchedule.types.ts: no intensity/hardness/load field).
+ * Implements: R1, R3, R4, R5, R6 (both halves: R6 same day, R6b the day before), R7, R8
+ * in validate(); R2 as a separate decision function, resolveDoubleDayOrder (see below —
+ * R2 is a decision the weaver needs, not a finding to fail a candidate on).
+ *
+ * R4 / R6b / R5 were "deliberately not implemented" until the schedule advisor phase A
+ * (18.10.2026): there was no leg identifier in the strength taxonomy. There is now —
+ * strengthVocabulary.ts maps the real legs / lower_body programs to LOWER_BODY and gives
+ * every schedule id a leg load (LOWER_BODY heavy, FULL_BODY moderate, the rest none):
+ *   - R4  (heavy legs the day before a quality run)  — ERROR for a heavy day, WARN for a
+ *         moderate (full body) one.
+ *   - R6b (heavy legs the day before the long run)   — same severities, its own code so
+ *         the reason the user reads names the long run.
+ *   - R5  (a double day should land on an already-hard day) — WARN only: a shared day
+ *         whose run is easy / recovery is legal (the existing weaver tests rely on it),
+ *         just not the preferred shape.
+ * Week is linear (Saturday → Sunday does not wrap), same convention as WARN_01/RUN-01.
  *
  * "Quality running workout" / "long run" derivation, and the running-day
  * shape itself (RunningWeekDay), are imported from runningRules.ts, not
@@ -52,6 +53,7 @@ import {
   isTrainingDay,
   type RunningWeekDay,
 } from './runningRules';
+import { dayLegLoad } from './strengthVocabulary';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Types
@@ -219,6 +221,44 @@ export function validateCrossDomain(
         code: 'R6',
         severity: 'ERROR',
         message: 'כוח וריצה ארוכה באותו יום — הריצה הארוכה מוגנת.',
+        affectedDays: [dow],
+      });
+    }
+  }
+
+  // R4 / R6b — no (heavy) legs the day before a quality run / the long run.
+  for (let dow = 0; dow < 6; dow++) {
+    const load = dayLegLoad(week.strength[dow]?.sessions ?? []);
+    if (load === 'none') continue;
+    const next = week.running.find((d) => d.dayOfWeek === dow + 1);
+    if (!next || next.category === null) continue;
+    const severity = load === 'heavy' ? 'ERROR' : 'WARN';
+    if (isLongRunDay(next)) {
+      violations.push({
+        code: 'R6b',
+        severity,
+        message: 'אימון רגליים יום לפני הריצה הארוכה — הרגליים לא יגיעו רעננות.',
+        affectedDays: [dow, dow + 1],
+      });
+    } else if (isQualityDay(next)) {
+      violations.push({
+        code: 'R4',
+        severity,
+        message: 'אימון רגליים יום לפני אימון איכות בריצה — הרגליים לא יגיעו רעננות.',
+        affectedDays: [dow, dow + 1],
+      });
+    }
+  }
+
+  // R5 — a double day should be a hard day, not an easy / recovery run day (soft).
+  for (let dow = 0; dow < 7; dow++) {
+    const runningDay = week.running.find((d) => d.dayOfWeek === dow);
+    if (!strengthHasSession(week.strength, dow) || !runningDay || runningDay.category === null) continue;
+    if (!isQualityDay(runningDay) && !isLongRunDay(runningDay)) {
+      violations.push({
+        code: 'R5',
+        severity: 'WARN',
+        message: 'יום כפול עם ריצה קלה — עדיף לחבר כוח ליום שכבר קשה, ולהשאיר את הימים הקלים קלים.',
         affectedDays: [dow],
       });
     }

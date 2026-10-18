@@ -2,7 +2,9 @@
 
 /**
  * ScheduleBuilderDrawer — schedule-drawer-screen-spec.md, stage 1
- * (screen + engine, no drag, no save).
+ * (screen + engine, no drag). Schedule advisor phase A: the week comes from the pure
+ * advisor (adviseWeek, src/features/schedule/advisor), the controls' defaults from the
+ * profile, the notes from typed reasons. Still no save (the approve button stays disabled).
  *
  * Sheet mechanics: `useMotionValue(0)` + `drag="y"` on the handle +
  * `useSheetScrollChain` for swipe-to-dismiss from inside the scroll body —
@@ -50,16 +52,19 @@
  * didn't actually reach the engine correctly.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { X, Lock } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import AgendaDayCard, { type ResolvedRunningWorkout } from '@/features/home/components/agenda/AgendaDayCard';
 import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/AerobicStrengthSlider';
-import type { WeaveWeekResult } from '../engine/scheduleWeaver';
-import { computeWeaveResultSafely } from '../engine/computeWeaveResultSafely';
-import type { WeaveMode } from '../engine/weaverInput';
+import { defaultWeaveControls, type WeaveMode, type WeaverInputProfile } from '../engine/weaverInput';
+import { scheduleIdNameHe } from '../engine/strengthVocabulary';
+import { adviseWeek } from '../advisor/advisor';
+import { toAdvisorInputFromClient } from '../advisor/adapters/client';
+import type { WeekAdvice } from '../advisor/types';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
@@ -128,41 +133,38 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   };
   const { scrollRef } = useSheetScrollChain({ isOpen, y, onClose: handleClose });
 
-  // Local-only for this stage — no persisted default yet (schedule-drawer-
-  // screen-spec.md's "שמירת הפקדים" section is a later stage, not this one;
-  // "no save" here covers these controls too, not just the final approval).
-  //
-  // `mode` is the tab's own explicit state — it no longer derives from
-  // `focus`. The tab is a domain SELECTION fed into the engine ("build me a
-  // strength week"), not a display filter ("hide the running rows") — see
-  // weaverInput.ts's own doc for why requestedCount alone isn't enough and
-  // existingWeek has to be reset too. `focus` keeps its existing, unrelated
-  // role (the Area B dosage dial, mixed-mode dominance) — the two are
-  // orthogonal on purpose; clicking a tab does not touch `focus`, and a
-  // stale `focus` value left over from mixed mode has no effect on a
-  // single-domain mode's result (confirmed before writing this: the
-  // "dominant" side's own preferredDays(0) already returns [] correctly on
-  // both domains, and the excluded side's existingWeek is all-rest either
-  // way, so nothing about the search depends on which side focus happens
-  // to call dominant when one side's count is forced to 0).
-  // ⚠️ Flagging, not deciding: the default stays 'mixed' even for a
-  // single-track user, for whom 'mixed' is locked. That user would see the
-  // locked tab rendered as the active one on first open. Not addressed here
-  // — out of this commit's stated scope (lock visuals + no-op click only) —
-  // and functionally harmless (computeWeaveResultSafely already returns a
-  // correct, single-domain-only result for 'mixed' when the other track
-  // isn't owned), but worth David's call on whether the initial mode should
-  // instead be derived from ownership.
+  // `mode` is the tab's own explicit state — a domain SELECTION fed into the engine
+  // ("build me a strength week"), not a display filter. `focus` is the mixed-mode dosage
+  // dial (dominance). Schedule advisor phase A (bug #2): none of the three is hardcoded
+  // any more — the defaults come from the profile (defaultWeaveControls: the tab from
+  // ownership, the days from the questionnaires' sum, focus from lifestyle.primaryTrack,
+  // or the drawer's own saved prefs), re-read every time the drawer opens.
   const [mode, setMode] = useState<WeaveMode>('mixed');
   const [focus, setFocus] = useState(50);
   const [availableDayCount, setAvailableDayCount] = useState(3);
+  useEffect(() => {
+    if (!isOpen) return;
+    const d = defaultWeaveControls(profile as WeaverInputProfile | null, { resolveSlug: resolveToSlug });
+    setMode(d.mode);
+    setFocus(d.focus);
+    setAvailableDayCount(d.availableDayCount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- defaults are taken once per open, not on every profile refresh
+  }, [isOpen]);
 
   const asOfDate = useMemo(() => new Date(), []); // one fixed anchor per mount, not re-read on every render
 
-  const result: WeaveWeekResult | null = useMemo(
-    () => computeWeaveResultSafely(profile, mode, focus, availableDayCount, asOfDate),
-    [profile, mode, focus, availableDayCount, asOfDate],
-  );
+  // The schedule advisor (pure) over the client adapter — the same rule families, plus
+  // typed reasons rendered in Hebrew. Fails soft: a throw shows "no data", never a crash.
+  const result: WeekAdvice | null = useMemo(() => {
+    try {
+      return adviseWeek(
+        toAdvisorInputFromClient({ profile, now: asOfDate, controls: { mode, focus, availableDayCount }, resolveSlug: resolveToSlug }),
+      );
+    } catch (err) {
+      console.error('[ScheduleBuilderDrawer] adviseWeek threw — showing no data instead of crashing:', err);
+      return null;
+    }
+  }, [profile, mode, focus, availableDayCount, asOfDate]);
 
   if (!isOpen) return null;
 
@@ -274,7 +276,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
                 </div>
               )}
 
-              {/* Approval button — inactive at this stage. No write, per spec. */}
+              {/* Approval button — inactive at this stage. No write, per spec (the save path is phase A2, behind its own flag). */}
               <button
                 type="button"
                 disabled
@@ -347,15 +349,16 @@ function AvailabilityStepper({ value, onChange }: { value: number; onChange: (n:
  * add/remove here — "a program that wasn't opened isn't shown and can't be
  * manually added" (spec's own wording).
  */
-function OwnedProgramsList({ result }: { result: WeaveWeekResult | null }) {
+function OwnedProgramsList({ result }: { result: WeekAdvice | null }) {
   if (!result) return null;
   const programs = result.week.strength.flatMap((d) => d.sessions.map((s) => s.skillId));
   const unique = Array.from(new Set(programs));
   if (unique.length === 0) return null;
+  // Bug #6: Hebrew names only — never an internal id like "UPPER_BODY".
   return (
     <div className="mb-3 flex flex-wrap gap-1.5">
       {unique.map((id) => (
-        <span key={id} className="text-[11px] font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 text-gray-600">{id}</span>
+        <span key={id} className="text-[11px] font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 text-gray-600">{scheduleIdNameHe(id)}</span>
       ))}
     </div>
   );
@@ -384,7 +387,7 @@ function DayRow({
 }: {
   dayOfWeek: number;
   asOfDate: Date;
-  result: WeaveWeekResult;
+  result: Pick<WeekAdvice, 'week' | 'sharedDays'>;
   userId: string;
 }) {
   const date = isoDateForDayOfWeek(asOfDate, dayOfWeek);

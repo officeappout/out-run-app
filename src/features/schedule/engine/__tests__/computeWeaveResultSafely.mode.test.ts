@@ -58,7 +58,8 @@ describe('computeWeaveResultSafely — mode, real integration (no mocks)', () =>
 
   it('mode="running" adds the coach note when the user actually owns a strength track', () => {
     const result = computeWeaveResultSafely(dualOwningProfile(), 'running', 100, 3, ASOF);
-    expect(result!.notes[0]).toBe('לא נבנו אימוני כוח השבוע — כי זה מה שבחרת (טאב ריצה).');
+    expect(result!.reasons[0]).toEqual({ code: 'DOMAIN_EXCLUDED_BY_TAB', domain: 'strength' });
+    expect(result!.notes[0]).toBe('לא נבנו אימוני כוח השבוע, כי זה מה שבחרת (טאב ריצה).');
   });
 
   it('mode="running" adds NO coach note when the user never owned a strength track — there is nothing choice-driven to explain', () => {
@@ -77,7 +78,8 @@ describe('computeWeaveResultSafely — mode, real integration (no mocks)', () =>
 
   it('mode="strength" adds the symmetric coach note when the user actually owns a running track', () => {
     const result = computeWeaveResultSafely(dualOwningProfile(), 'strength', 0, 3, ASOF);
-    expect(result!.notes[0]).toBe('לא נבנו אימוני ריצה השבוע — כי זה מה שבחרת (טאב כוח).');
+    expect(result!.reasons[0]).toEqual({ code: 'DOMAIN_EXCLUDED_BY_TAB', domain: 'running' });
+    expect(result!.notes[0]).toBe('לא נבנו אימוני ריצה השבוע, כי זה מה שבחרת (טאב כוח).');
   });
 
   it('mode="strength" adds NO coach note when the user never owned a running track — there is nothing choice-driven to explain', () => {

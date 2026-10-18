@@ -143,6 +143,13 @@ export const FLAG_DEFS = [
   // flipping weather_enabled on can never reach every user by accident — opening it to all is
   // a second, explicit flip of this toggle to OFF.
   { key: 'weatherAdminsOnly', firestoreKey: 'weather_admins_only', defaultValue: true, superAdminValue: true },
+  // aiCoachScheduleAdvisor (18.10.2026, schedule advisor phase A) — Kelly's schedule
+  // advisor: the read-only recommend_week / recommend_today tools, the "open the builder"
+  // chip, the sheet's plan section (template days, running week, missed sessions, WHO gap)
+  // and the derived "done" for today (no "build today's workout" chip after a strength
+  // workout today). The server is the enforcer (route.ts reads it via the Admin SDK).
+  // Fail-closed; superAdminValue false — the panel toggle is the one switch.
+  { key: 'aiCoachScheduleAdvisor', firestoreKey: 'ai_coach_schedule_advisor', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

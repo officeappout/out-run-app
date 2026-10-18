@@ -15,9 +15,10 @@
  * drawer is two layers: this function for the engine, ErrorBoundary
  * (TrainingPlannerOverlay.tsx) for render.
  */
-import { buildWeaverInput, type WeaverInputProfile, type WeaveMode } from './weaverInput';
+import { buildWeaverInput, type WeaverInputProfile, type WeaveMode, type WeaverInputOptions } from './weaverInput';
 import { weaveWeek, type WeaveWeekResult } from './scheduleWeaver';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
+import { renderScheduleReasonsHe, sortScheduleReasons, type ScheduleReason } from './reasons';
 
 /**
  * A single-domain mode forces the OTHER side to zero (weaverInput.ts's own
@@ -37,13 +38,9 @@ import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
  * why a track they own produced nothing this week. That confusion is
  * exactly as real in either direction).
  */
-function coachNoteForMode(mode: WeaveMode, profile: WeaverInputProfile): string | null {
-  if (mode === 'running' && hasStrengthTrack(profile)) {
-    return 'לא נבנו אימוני כוח השבוע — כי זה מה שבחרת (טאב ריצה).';
-  }
-  if (mode === 'strength' && hasRunningTrack(profile)) {
-    return 'לא נבנו אימוני ריצה השבוע — כי זה מה שבחרת (טאב כוח).';
-  }
+function reasonForMode(mode: WeaveMode, profile: WeaverInputProfile): ScheduleReason | null {
+  if (mode === 'running' && hasStrengthTrack(profile)) return { code: 'DOMAIN_EXCLUDED_BY_TAB', domain: 'strength' };
+  if (mode === 'strength' && hasRunningTrack(profile)) return { code: 'DOMAIN_EXCLUDED_BY_TAB', domain: 'running' };
   return null;
 }
 
@@ -53,14 +50,17 @@ export function computeWeaveResultSafely(
   focus: number,
   availableDayCount: number,
   asOfDate: Date,
+  opts: WeaverInputOptions = {},
 ): WeaveWeekResult | null {
   try {
     const typedProfile = profile as WeaverInputProfile | null | undefined;
-    const input = buildWeaverInput(typedProfile, mode, focus, availableDayCount, asOfDate);
+    const input = buildWeaverInput(typedProfile, mode, focus, availableDayCount, asOfDate, opts);
     if (!input) return null;
     const result = weaveWeek(input);
-    const note = typedProfile ? coachNoteForMode(mode, typedProfile) : null;
-    return note ? { ...result, notes: [note, ...result.notes] } : result;
+    const extra = typedProfile ? reasonForMode(mode, typedProfile) : null;
+    if (!extra) return result;
+    const reasons = sortScheduleReasons([extra, ...result.reasons]);
+    return { ...result, reasons, notes: renderScheduleReasonsHe(reasons) };
   } catch (err) {
     console.error('[ScheduleBuilderDrawer] buildWeaverInput/weaveWeek threw — showing no data instead of crashing:', err);
     return null;

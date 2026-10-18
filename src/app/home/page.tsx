@@ -9,7 +9,6 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import AlertModal from '@/features/home/components/AlertModal';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
-import { useSmartSchedule } from '@/features/home/hooks/useSmartSchedule';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
 import WelcomeDrawer from '@/features/user/onboarding/components/WelcomeDrawer';
@@ -383,7 +382,7 @@ export default function HomePage() {
   const firstRunToursOn = !flagsLoading && firstRunToursEnabled(featureFlags);
   const [homeTourRequested, setHomeTourRequested] = useState(false);
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
-  const scheduleState = useSmartSchedule();
+  // (useSmartSchedule removed — mock-driven, see the Alerts note below.)
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const [selectedWorkout, setSelectedWorkout] = useState<any | null>(null);
@@ -474,6 +473,7 @@ export default function HomePage() {
 
   // Training Planner Overlay (calendar icon → full-screen planner)
   const [showPlanner, setShowPlanner] = useState(false);
+  const [openBuilderInPlanner, setOpenBuilderInPlanner] = useState(false);
 
   // Reopen the planner after a round-trip navigation away from it (23.08.2026,
   // AGENDA_UNPLANNED_COMPLETION_FIX). showPlanner is plain React state, not
@@ -1525,6 +1525,9 @@ export default function HomePage() {
       if (params.get('openPlanner') === 'true') {
         window.history.replaceState({}, '', '/home');
         setShowPlanner(true);
+        // &openBuilder=true — Kelly's "סדר לי את השבוע" chip (only offered behind
+        // ai_coach_schedule_advisor): the planner opens with the schedule-builder drawer on top.
+        setOpenBuilderInPlanner(params.get('openBuilder') === 'true');
       }
       if (params.get('startWorkout') === 'true') {
         window.history.replaceState({}, '', '/home');
@@ -2082,11 +2085,11 @@ export default function HomePage() {
     return todayTemplateId ?? profile?.progression?.activePrograms?.[0]?.templateId;
   }, [profile?.lifestyle?.recurringTemplate, profile?.progression?.activePrograms]);
 
-  // Alerts
-  useEffect(() => {
-    if (scheduleState.showMissedAlert) setShowAlert('missed');
-    else if (scheduleState.showComebackAlert) setShowAlert('comeback');
-  }, [scheduleState.showMissedAlert, scheduleState.showComebackAlert]);
+  // Alerts — the old missed / comeback wiring read useSmartSchedule's mock scenario
+  // (mock-schedule-data.ts CURRENT_SCENARIO = 'standard', so both flags were always false)
+  // and was removed in schedule advisor phase A (bug #11). Real missed-session detection is
+  // the advisor's detectMissed / adviseToday().mode (src/features/schedule/advisor) — not
+  // wired to this alert yet; when it is, it goes behind its own flag.
 
   // Refresh profile from Firestore
   useEffect(() => {
@@ -3605,7 +3608,8 @@ export default function HomePage() {
       {/* ── Training Planner Full-Screen Overlay ── */}
       <TrainingPlannerOverlay
         isOpen={showPlanner}
-        onClose={() => setShowPlanner(false)}
+        openScheduleBuilder={openBuilderInPlanner}
+        onClose={() => { setShowPlanner(false); setOpenBuilderInPlanner(false); }}
         userId={profile.id}
         recurringTemplate={profile.lifestyle?.recurringTemplate}
         scheduleDays={userScheduleDays}

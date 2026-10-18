@@ -10,3 +10,8 @@
  * comment — not re-derived here, just relocated.
  */
 export const WHO_STRENGTH_TARGET_DAYS = 2;
+
+/** WHO 2020 weekly aerobic target, moderate-equivalent minutes (relocated alongside the strength target, same reason). */
+export const WHO_AEROBIC_TARGET_MIN = 150;
+/** 1 vigorous (running) minute ≡ 2 moderate minutes (WHO equivalence, approved 08.07.2026). */
+export const RUNNING_MODERATE_EQUIV_FACTOR = 2;

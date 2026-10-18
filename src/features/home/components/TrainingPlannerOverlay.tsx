@@ -78,6 +78,8 @@ function getWeekDateRange(sundayISO: string): string {
 
 interface TrainingPlannerOverlayProps {
   isOpen: boolean;
+  /** Open the schedule-builder drawer on top as soon as the planner opens (Kelly's "בנה לי שבוע" chip). */
+  openScheduleBuilder?: boolean;
   onClose: () => void;
   userId: string;
   recurringTemplate?: RecurringTemplate;
@@ -103,6 +105,7 @@ interface TrainingPlannerOverlayProps {
 
 export default function TrainingPlannerOverlay({
   isOpen,
+  openScheduleBuilder,
   onClose,
   userId,
   recurringTemplate,
@@ -122,6 +125,9 @@ export default function TrainingPlannerOverlay({
   // point comes in stage 3) — gated by the flag, default off, zero change
   // to existing behavior when off.
   const [showScheduleBuilder, setShowScheduleBuilder] = useState(false);
+  useEffect(() => {
+    if (isOpen && openScheduleBuilder && isScheduleBuilderDrawerEnabled()) setShowScheduleBuilder(true);
+  }, [isOpen, openScheduleBuilder]);
   const [addModalDate, setAddModalDate]           = useState<string | undefined>(undefined);
   const [editEntry, setEditEntry]                 = useState<UserScheduleEntry | null>(null);
   const [refreshKey, setRefreshKey]               = useState(0);

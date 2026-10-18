@@ -182,28 +182,28 @@ describe('RUN-06 — a day set is not approved before validation', () => {
 describe('runningCriticalityOrder — RUN-05 (boundary is 5km, not 10km)', () => {
   it('above 5km uses the long-distance order (long run protected until the end)', () => {
     expect(runningCriticalityOrder({ targetDistanceKm: 21 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+      'recovery', 'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
     expect(runningCriticalityOrder({ targetDistanceKm: 10 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+      'recovery', 'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
     // The 5-10km range used to be undefined — now explicitly long-order,
     // same as 10km and above, not a third order of its own.
     expect(runningCriticalityOrder({ targetDistanceKm: 8 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+      'recovery', 'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
     // Just above the boundary itself.
     expect(runningCriticalityOrder({ targetDistanceKm: 5.1 })).toEqual([
-      'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+      'recovery', 'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
     ]);
   });
 
   it('at or below 5km uses the short-distance order (quality protected until the end)', () => {
     expect(runningCriticalityOrder({ targetDistanceKm: 5 })).toEqual([
-      'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
+      'recovery', 'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
     ]);
     expect(runningCriticalityOrder({ targetDistanceKm: 3 })).toEqual([
-      'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
+      'recovery', 'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
     ]);
   });
 });

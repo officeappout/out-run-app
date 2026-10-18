@@ -108,7 +108,13 @@ export interface SessionContextInput {
    * the sheet has assessmentGaps. Default true.
    */
   assessmentNudgeAllowed?: boolean;
+  /** ai_coach_schedule_advisor on: how to use recommend_week / recommend_today (after the cache breakpoint, so off = today's prompt). */
+  scheduleAdvisor?: boolean;
 }
+
+/** Session note while the schedule advisor flag is on. */
+export const SCHEDULE_ADVISOR_NOTE =
+  '- Schedule advisor: for arranging the week (days, adding running to strength, fewer days) call recommend_week; for "what should I do today" call recommend_today before building. Say the plan per day in short lines from its result and use its Hebrew reasons in your own words. You never change the schedule: the user applies a recommended week in the schedule builder (a button under your reply). If the sheet plan says today\'s session is done, say so and do not offer to build it again. Never count or list missed workouts; after a break, welcome the user back warmly and suggest one light session.';
 
 /** The volatile system block (after the cache breakpoint). */
 export function buildSessionContext(i: SessionContextInput): string {
@@ -125,6 +131,7 @@ export function buildSessionContext(i: SessionContextInput): string {
     const list = i.typoHints.map((h) => `"${h.word}" probably means "${h.suggestion}"`).join('; ');
     lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (התכוונת "${i.typoHints[0].suggestion}"?).`);
   }
+  if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);
   if (i.sheet) {
