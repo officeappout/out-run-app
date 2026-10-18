@@ -26,6 +26,7 @@ export interface ClientAdvisorArgs {
   scheduleDays?: AdvisorScheduleDay[] | null;
   resolveSlug?: ResolveSlug;
   weeklyDomainSets?: Record<string, number> | null;
+  unarrangedStrengthDays?: number;
 }
 
 export function toAdvisorInputFromClient(a: ClientAdvisorArgs): AdvisorInput {
@@ -37,5 +38,6 @@ export function toAdvisorInputFromClient(a: ClientAdvisorArgs): AdvisorInput {
     scheduleDays: a.scheduleDays ?? null,
     resolveSlug: a.resolveSlug,
     weeklyDomainSets: a.weeklyDomainSets ?? null,
+    ...(a.unarrangedStrengthDays !== undefined ? { unarrangedStrengthDays: a.unarrangedStrengthDays } : {}),
   };
 }

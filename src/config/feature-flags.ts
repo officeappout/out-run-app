@@ -1710,6 +1710,12 @@ export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = true;
 // lifestyle.scheduleAdvisorPrefs. "Only this week" writes userSchedule day overrides.
 // localStorage override for testing on one device: localStorage['OUT_SCHEDULE_SAVE'] = '1' | '0'
 // (helper isScheduleBuilderSaveEnabled lives in the consumer, scheduleBuilderSave.ts).
+// Also gates the SECOND-TRACK route (with RUNNING_ONBOARDING_GATE_ENABLED and
+// SCHEDULE_BUILDER_DRAWER_ENABLED): a user who owns strength AND running and already answered
+// persona gets the drawer from the home card's CTA instead of LifestyleWizard (never re-asked
+// persona); approving there saves "from now on", confirms the running days ('user-chosen') with
+// a time picker, and a runner who added strength is proposed the WHO-minimum strength days.
+// resolveScheduleCardDecision (src/lib/running-onboarding-gate.ts). First registration unchanged.
 export const SCHEDULE_BUILDER_SAVE_V1 = true;
 
 // SCHEDULE_ADVISOR_BUDGET_V1 — the strength generator's weekly-budget divisor (how many

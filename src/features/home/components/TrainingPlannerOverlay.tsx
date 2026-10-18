@@ -602,7 +602,13 @@ export default function TrainingPlannerOverlay({
         // buildWeaverInput/weaveWeek, which fails soft at the data layer
         // before a throw could ever reach this render boundary.
         <ErrorBoundary fallback={null}>
-          <ScheduleBuilderDrawer isOpen={showScheduleBuilder} onClose={() => setShowScheduleBuilder(false)} />
+          <ScheduleBuilderDrawer
+            isOpen={showScheduleBuilder}
+            onClose={() => setShowScheduleBuilder(false)}
+            // A save changes lifestyle/running on the user doc; the store is getDoc-based,
+            // so refresh it (the home card's gate and this planner read it).
+            onSaved={() => { useUserStore.getState().refreshProfile().catch(() => {}); }}
+          />
         </ErrorBoundary>
       )}
     </>

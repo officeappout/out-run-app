@@ -129,7 +129,7 @@ function periodizationReasons(p: PeriodizationView): ScheduleReason[] {
 // ── adviseWeek ───────────────────────────────────────────────────────────────
 
 export function resolveControls(input: AdvisorInput): WeaveControls {
-  const d = defaultWeaveControls(input.profile, { resolveSlug: input.resolveSlug });
+  const d = defaultWeaveControls(input.profile, { resolveSlug: input.resolveSlug, unarrangedStrengthDays: input.unarrangedStrengthDays });
   return { ...d, ...(input.controls ?? {}) };
 }
 
@@ -139,6 +139,7 @@ export function adviseWeek(input: AdvisorInput): WeekAdvice | null {
   const at = keyToDate(input.todayKey);
   const weaveInput = buildWeaverInput(input.profile, controls.mode, controls.focus, controls.availableDayCount, at, {
     resolveSlug: input.resolveSlug,
+    unarrangedStrengthDays: input.unarrangedStrengthDays,
   });
   if (!weaveInput) return null;
   const woven = weaveWeek(weaveInput);

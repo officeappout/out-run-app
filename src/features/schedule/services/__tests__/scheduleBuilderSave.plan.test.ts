@@ -17,6 +17,7 @@ function hybrid(): WeaverInputProfile {
     running: {
       isUnlocked: true,
       scheduleDays: ['ב', 'ד', 'ש'],
+      scheduleDaysSource: 'user-chosen',
       activeProgram: {
         startDate: '2026-10-11T00:00:00',
         programId: 'run_plan_10k',
@@ -35,7 +36,7 @@ function advise(profile: WeaverInputProfile) {
 }
 
 describe('schedule builder save plan (SCHEDULE_BUILDER_SAVE_V1)', () => {
-  it('ships default OFF', () => {
+  it('ships default ON (owner, #441 a6c3fba2)', () => {
     expect(SCHEDULE_BUILDER_SAVE_V1).toBe(true);
   });
 
@@ -72,5 +73,67 @@ describe('schedule builder save plan (SCHEDULE_BUILDER_SAVE_V1)', () => {
     const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU });
     expect(plan.recurringTemplate!['א']).toContain('push');
     expect(plan.recurringTemplate!['ו']).toContain('legs');
+  });
+
+  // ── Second track (a strength user who just added running): running.scheduleDays is the
+  // system's smart default; approving the drawer is the user's first real choice. ──
+  function strengthUserAddedRunning(): WeaverInputProfile {
+    const p = hybrid();
+    p.running = { ...p.running!, scheduleDaysSource: 'system-default' };
+    return p;
+  }
+
+  it('second track, from_now: unconfirmed running days are saved even when the letters do not change', () => {
+    const profile = strengthUserAddedRunning();
+    const advice = advise(profile);
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU });
+    const proposedRuns = advice.week.running.filter((d) => d.category !== null).length;
+    expect(plan.runningScheduleDays).not.toBeNull();
+    expect(plan.runningScheduleDays!.length).toBe(proposedRuns);
+    expect(plan.runningFrequency).toBe(proposedRuns);
+    expect(plan.runningSkipped).toBeNull();
+    // Strength is saved in the same plan (one approval writes both halves).
+    const strengthIds = Object.values(plan.recurringTemplate!).flat().filter((id) => ['push', 'pull', 'legs'].includes(id));
+    expect(strengthIds.sort()).toEqual(['legs', 'pull', 'push']);
+    // lifestyle.scheduleDays = strength ∪ running.
+    for (const l of plan.runningScheduleDays!) expect(plan.lifestyleScheduleDays).toContain(l);
+  });
+
+  it('second track, missing scheduleDaysSource (a pre-field runner) counts as unconfirmed too', () => {
+    const profile = hybrid();
+    delete (profile.running as { scheduleDaysSource?: unknown }).scheduleDaysSource;
+    const advice = advise(profile);
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU });
+    expect(plan.runningScheduleDays).not.toBeNull();
+  });
+
+  it('second track, this_week: runs are still never written in this scope', () => {
+    const profile = strengthUserAddedRunning();
+    const advice = advise(profile);
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'this_week', todayKey: THU });
+    expect(plan.runningScheduleDays).toBeNull();
+    expect(plan.runningFrequency).toBeNull();
+  });
+
+  it('the strength tab never writes running, confirmed or not', () => {
+    const profile = strengthUserAddedRunning();
+    const advice = adviseWeek({ todayKey: THU, profile, workouts: [], scheduleDays: null, controls: { mode: 'strength', availableDayCount: 3, focus: 50 } })!;
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU });
+    expect(plan.runningScheduleDays).toBeNull();
+  });
+
+  it('a runner who added strength (no strength id in the template yet) gets strength days from the active programs', () => {
+    const profile = hybrid();
+    profile.lifestyle = { ...profile.lifestyle, recurringTemplate: { ב: ['run_plan_10k'], ד: ['run_plan_10k'], ש: ['run_plan_10k'] }, scheduleDays: ['ב', 'ד', 'ש'] };
+    // Legacy (option omitted): the template's 0 strength days → an all-rest strength week.
+    expect(advise(profile).week.strength.every((d) => d.sessions.length === 0)).toBe(true);
+    // The drawer (SCHEDULE_BUILDER_SAVE_V1) proposes the WHO minimum instead.
+    const advice = adviseWeek({ todayKey: THU, profile, workouts: [], scheduleDays: null, unarrangedStrengthDays: 2, controls: { mode: 'mixed', availableDayCount: 5, focus: 50 } })!;
+    expect(advice.week.strength.filter((d) => d.sessions.length > 0).length).toBe(2);
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU });
+    const strengthDays = Object.values(plan.recurringTemplate!).filter((ids) => ids.includes('push'));
+    expect(strengthDays.length).toBe(2);
+    // The running ids stay on the running days.
+    for (const l of ['ב', 'ד', 'ש']) expect(plan.recurringTemplate![l] ?? []).toContain('run_plan_10k');
   });
 });

@@ -24,6 +24,7 @@ import { strengthIdsForNewDays } from '../advisor/programTags';
 import type { RunningWeekDay } from '../engine/runningRules';
 import { mergeDayItems } from './mergeDayItems';
 import type { WeaveControls, WeaverInputProfile } from '../engine/weaverInput';
+import { isRunningScheduleUserConfirmed } from '@/lib/running-schedule-source';
 
 export type SaveScope = 'this_week' | 'from_now';
 
@@ -79,6 +80,14 @@ export function planScheduleSave(i: PlanInput): SchedulePlan {
   const oldRunLetters = i.profile.running?.scheduleDays ?? [];
   const runningOwned = !!i.profile.running?.isUnlocked;
   const runningChanged = runningOwned && i.controls.mode !== 'strength' && !sameSet(newRunLetters, oldRunLetters);
+  // Second track (a strength user who just added running): running.scheduleDays holds the
+  // system's smart default, never chosen by the user. Approving the drawer's week IS the
+  // user's first real choice, even when the proposal lands on the very same letters —
+  // so it is saved (and marked 'user-chosen' by completeRunningScheduleFirstChoice), or
+  // the home card would stay blurred forever. from_now only: "this week" never touches runs.
+  const runningUnconfirmed = runningOwned && i.controls.mode !== 'strength'
+    && !isRunningScheduleUserConfirmed(i.profile)
+    && newRunLetters.length > 0;
 
   if (i.scope === 'this_week') {
     const weekStart = addDays(i.todayKey, -new Date(`${i.todayKey}T12:00:00Z`).getUTCDay());
@@ -106,8 +115,9 @@ export function planScheduleSave(i: PlanInput): SchedulePlan {
   // from_now — merge every letter with mergeDayItems (strength replaced, running kept),
   // and move the running ids with the running days when those change.
   const runningIds = Array.from(new Set(Object.values(template).flatMap((ids) => (ids ?? []).filter((id) => !isStrength(id)))));
-  const singleRun = runningChanged && newRunLetters.length === 1;
-  const saveRunning = runningChanged && !singleRun;
+  const runningToSave = runningChanged || runningUnconfirmed;
+  const singleRun = runningToSave && newRunLetters.length === 1;
+  const saveRunning = runningToSave && !singleRun;
   const next: Record<string, string[]> = {};
   DAY_LETTERS.forEach((letter, dow) => {
     let ids = mergeDayItems(template[letter] ?? [], newStrength.get(dow) ?? [], 'strength', isStrength);

@@ -51,6 +51,8 @@ export interface AdvisorInput {
   /** userSchedule day docs for the window; null = not read (template only). */
   scheduleDays: AdvisorScheduleDay[] | null;
   resolveSlug?: ResolveSlug;
+  /** See WeaverInputOptions.unarrangedStrengthDays (the drawer, behind SCHEDULE_BUILDER_SAVE_V1). */
+  unarrangedStrengthDays?: number;
   /** Device-local per-domain sets this week (useWeeklyVolumeStore). null = unknown (server). */
   weeklyDomainSets?: Record<string, number> | null;
 }

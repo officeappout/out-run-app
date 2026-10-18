@@ -54,7 +54,11 @@ import { doc as firestoreDoc, getDoc, updateDoc, setDoc } from 'firebase/firesto
 import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOME_RECOVERY_START_SHORTCUT_ENABLED, POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED, RUNNING_ONBOARDING_GATE_ENABLED } from '@/config/feature-flags';
 import { setOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
-import { resolveCardHasScheduleAndPersona } from '@/lib/running-onboarding-gate';
+import { resolveScheduleCardDecision } from '@/lib/running-onboarding-gate';
+import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/features/schedule/components/ScheduleBuilderDrawer';
+import { isScheduleBuilderSaveEnabled } from '@/features/schedule/services/scheduleBuilderSave';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
@@ -2758,11 +2762,22 @@ export default function HomePage() {
   // running the active dashboard mode right now" — a dual-track user
   // stuck on system-default running days must still see the overlay even
   // while their dashboard is showing strength.
-  const cardHasScheduleAndPersona = resolveCardHasScheduleAndPersona(
-    profile,
-    hasSchedule,
-    isRunningOnboardingGateEnabled(),
-  );
+  //
+  // Second track (schedule-builder drawer, behind SCHEDULE_BUILDER_SAVE_V1 +
+  // SCHEDULE_BUILDER_DRAWER_ENABLED): a user who owns BOTH tracks and already
+  // answered persona is routed to ScheduleBuilderDrawer instead of the wizard —
+  // the card's CTA and the ?openWizard=true link both read scheduleCard.ctaTarget.
+  // Flags off → resolveCardHasScheduleAndPersona + the wizard, byte for byte.
+  const scheduleCard = resolveScheduleCardDecision(profile, hasSchedule, {
+    gateEnabled: isRunningOnboardingGateEnabled(),
+    secondTrackDrawer: isScheduleBuilderSaveEnabled() && isScheduleBuilderDrawerEnabled(),
+    resolveSlug: resolveToSlug,
+  });
+  const cardHasScheduleAndPersona = scheduleCard.hasScheduleAndPersona;
+  // The wizard's open state doubles as "the user asked to set their schedule";
+  // which screen answers it is decided here, at render, from the live profile.
+  const showWizardScreen = showLifestyleWizard && scheduleCard.ctaTarget === 'wizard';
+  const showSecondTrackDrawer = showLifestyleWizard && scheduleCard.ctaTarget === 'drawer';
   const WEEK_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
   const todayIndex = new Date().getDay();
   const realSchedule: DaySchedule[] = WEEK_DAYS.map((day, i) => {
@@ -3646,7 +3661,7 @@ export default function HomePage() {
 
       {/* ── Lifestyle Wizard (Full Screen) ── */}
       <AnimatePresence>
-        {showLifestyleWizard && (
+        {showWizardScreen && (
           <LifestyleWizard
             onComplete={handleWizardComplete}
             onSkip={() => {
@@ -3656,6 +3671,21 @@ export default function HomePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── Second track: the schedule-builder drawer instead of the wizard ── */}
+      {showSecondTrackDrawer && (
+        <ErrorBoundary fallback={null}>
+          <ScheduleBuilderDrawer
+            isOpen
+            entry="second_track"
+            onClose={() => {
+              setShowLifestyleWizard(false);
+              refreshProfile().catch(() => {});
+            }}
+            onSaved={() => { refreshProfile().catch(() => {}); }}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* ── Modals & Drawers ── */}
 
