@@ -408,6 +408,7 @@ export default function WorkoutSimulatorPage() {
           sportType: snapshot?.sportType,
           motivationStyle: snapshot?.motivationStyle,
           currentProgram: snapshot?.currentProgram,
+          situation: snapshot?.situation,
           location,
           daysInactive,
           isStudying: location === 'library',

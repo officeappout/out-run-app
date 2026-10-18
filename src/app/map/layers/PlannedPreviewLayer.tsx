@@ -83,6 +83,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
           targetDistance: profile?.running?.generatedProgramTemplate?.targetDistance,
           weekNumber,
           totalWeeks: profile?.running?.generatedProgramTemplate?.canonicalWeeks,
+          lastWorkoutDate: profile?.running?.lastWorkoutDate,
           userAge: (() => {
             const bd = profile?.core?.birthDate;
             if (!bd) return undefined;

@@ -22,7 +22,9 @@ import {
   resolveWorkoutMetadata,
   detectTimeOfDay,
   detectDayPeriod,
+  resolveRunningContentSituation,
 } from '@/features/workout-engine/services/workout-metadata.service';
+import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
@@ -92,7 +94,12 @@ function formatDate(): string {
 
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
 
-export default function NextRunWorkoutCard() {
+interface NextRunWorkoutCardProps {
+  /** Weather flag at the user's cell (home's useWeather, `weather_enabled`); null/undefined = none. */
+  weatherFlag?: WeatherFlag | null;
+}
+
+export default function NextRunWorkoutCard({ weatherFlag = null }: NextRunWorkoutCardProps = {}) {
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const running = profile?.running;
@@ -275,6 +282,10 @@ export default function NextRunWorkoutCard() {
               const week = pendingWeek ?? 1;
               return week >= p.startWeek && week <= p.endWeek;
             })?.name,
+            // Copy "moments": 7+ days since the last run → 'returning' rows; weather rows
+            // only for the flagged weather.
+            situation: resolveRunningContentSituation(running?.lastWorkoutDate),
+            weather: weatherFlag ?? undefined,
           });
 
           if (metadata.title) w.title = metadata.title;
@@ -291,7 +302,7 @@ export default function NextRunWorkoutCard() {
         setBriefingLoading(false);
       })
       .catch(() => setBriefingLoading(false));
-  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek]);
+  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag]);
 
   const handleBriefingGo = () => {
     setBriefingOpen(false);

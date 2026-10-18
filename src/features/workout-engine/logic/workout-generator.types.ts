@@ -270,6 +270,8 @@ export interface WorkoutMetadataSnapshot {
   sportType?: string;
   motivationStyle?: string;
   currentProgram?: string;
+  /** Session situation ('returning' | 'deload') — WorkoutMetadataContext.situation. */
+  situation?: 'returning' | 'deload';
 }
 
 export interface GeneratedWorkout {

@@ -27,6 +27,7 @@ import {
   Bell, Eye, Upload, Download, AlertTriangle, ShieldAlert,
   BarChart2, Send, Users, TrendingUp, Clock, XCircle, RefreshCw, MessageSquare,
 } from 'lucide-react';
+import MomentFieldSelects from './MomentFieldSelects';
 import Link from 'next/link';
 import { resolveContentTags, getAvailableTags, resolveDescription, getAvailableDescriptionTags, TagResolverContext } from '@/features/content/branding/core/branding.utils';
 import { injectParentPersonaData } from './inject-parent-data';
@@ -107,6 +108,12 @@ interface WorkoutTitle {
   experienceLevel?: string;
   progressRange?: string; // '0-20' | '20-90' | '90-100'
   dayPeriod?: string; // 'start_of_week' | 'mid_week' | 'weekend' | 'all'
+  /** 'rain' | 'heat' | 'cold' | 'uv' — shown only in that weather (engine hard filter). '' = any. */
+  weather?: string;
+  /** 'returning' | 'deload' — shown only in that session situation (engine hard filter). '' = any. */
+  situation?: string;
+  /** Archived by scripts/import-workout-copy-v2.ts — kept for restore, never shown by the engine. */
+  archived?: boolean;
   programId?: string; // Target program (e.g., 'pulling', 'pushing') or 'all' for general
   minLevel?: number;  // Min user level within the specified program
   maxLevel?: number;  // Max user level within the specified program
@@ -186,6 +193,11 @@ interface SmartDescription {
   location: string;
   persona: string;
   description: string;
+  /** morning | afternoon | evening | night | any — hard filter when set. */
+  timeOfDay?: string;
+  weather?: string;
+  situation?: string;
+  archived?: boolean;
   clickCount?: number;
   completionRate?: number;
   gender?: string;
@@ -849,7 +861,7 @@ export default function WorkoutSettingsPage() {
   };
 
   const resetTitleForm = () => {
-    setTitleForm({ category: 'general', text: '', persona: '', location: 'home', timeOfDay: 'any', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', programId: '', minLevel: undefined, maxLevel: undefined });
+    setTitleForm({ category: 'general', text: '', persona: '', location: 'home', timeOfDay: 'any', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', weather: '', situation: '', programId: '', minLevel: undefined, maxLevel: undefined });
   };
 
   const resetPhraseForm = () => {
@@ -979,6 +991,7 @@ export default function WorkoutSettingsPage() {
     morning: 'בוקר',
     afternoon: 'צהריים',
     evening: 'ערב',
+    night: 'לילה',
     any: 'כל היום',
   };
 
@@ -1475,6 +1488,11 @@ export default function WorkoutSettingsPage() {
                     </p>
                   </div>
                 </div>
+                {/* Row 4.2: Moment — weather + situation (hard filters) */}
+                <MomentFieldSelects
+                  value={{ weather: titleForm.weather, situation: titleForm.situation }}
+                  onChange={(patch) => setTitleForm({ ...titleForm, ...patch })}
+                />
                 {/* Row 4.5: Program + Level Range */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -1651,7 +1669,7 @@ export default function WorkoutSettingsPage() {
                         {title.gender === 'male' ? 'זכר' : title.gender === 'female' ? 'נקבה' : 'שניהם'}
                       </span>
                     </td>
-                    <td className="px-4 py-4 font-medium text-gray-900">{title.text}</td>
+                    <td className="px-4 py-4 font-medium text-gray-900">{title.text}{title.archived && <span className="mr-2 px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs font-bold">בארכיון</span>}</td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
                         <button
@@ -1669,6 +1687,8 @@ export default function WorkoutSettingsPage() {
                               experienceLevel: title.experienceLevel || '',
                               progressRange: title.progressRange || '',
                               dayPeriod: title.dayPeriod || '',
+                              weather: title.weather || '',
+                              situation: title.situation || '',
                               programId: title.programId || '',
                               minLevel: title.minLevel,
                               maxLevel: title.maxLevel,
@@ -2560,7 +2580,7 @@ export default function WorkoutSettingsPage() {
               onClick={() => {
                 setShowNewDescriptionForm(true);
                 setEditingDescription(null);
-                setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', description: '' });
+                setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', timeOfDay: 'any', weather: '', situation: '', description: '' });
               }}
               className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-xl font-bold hover:bg-cyan-600 transition-colors"
             >
@@ -2678,6 +2698,12 @@ export default function WorkoutSettingsPage() {
                     </p>
                   </div>
                 </div>
+                {/* Moment — time of day + weather + situation (hard filters) */}
+                <MomentFieldSelects
+                  value={{ timeOfDay: descriptionForm.timeOfDay, weather: descriptionForm.weather, situation: descriptionForm.situation }}
+                  onChange={(patch) => setDescriptionForm({ ...descriptionForm, ...patch })}
+                  timeOfDayLabels={timeOfDayLabels}
+                />
                 {/* Program + Level Range */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -2785,7 +2811,7 @@ export default function WorkoutSettingsPage() {
                         await loadData();
                         setEditingDescription(null);
                         setShowNewDescriptionForm(false);
-                        setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', description: '' });
+                        setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', timeOfDay: 'any', weather: '', situation: '', description: '' });
                       } catch (error) {
                         console.error('Error saving description:', error);
                         alert('שגיאה בשמירת התיאור');
@@ -2800,7 +2826,7 @@ export default function WorkoutSettingsPage() {
                     onClick={() => {
                       setShowNewDescriptionForm(false);
                       setEditingDescription(null);
-                      setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', description: '' });
+                      setDescriptionForm({ location: 'home', persona: '', gender: 'both', sportType: '', motivationStyle: '', experienceLevel: '', progressRange: '', dayPeriod: '', timeOfDay: 'any', weather: '', situation: '', description: '' });
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300"
                   >
@@ -2880,7 +2906,7 @@ export default function WorkoutSettingsPage() {
                         {description.gender === 'male' ? 'זכר' : description.gender === 'female' ? 'נקבה' : 'שניהם'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{description.description}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{description.description}{description.archived && <span className="mr-2 px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs font-bold">בארכיון</span>}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button
@@ -2895,6 +2921,9 @@ export default function WorkoutSettingsPage() {
                               experienceLevel: description.experienceLevel || '',
                               progressRange: description.progressRange || '',
                               dayPeriod: description.dayPeriod || '',
+                              timeOfDay: description.timeOfDay || 'any',
+                              weather: description.weather || '',
+                              situation: description.situation || '',
                               programId: description.programId || '',
                               minLevel: description.minLevel,
                               maxLevel: description.maxLevel,

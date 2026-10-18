@@ -151,6 +151,95 @@ export interface WorkoutMetadataContext {
    * home trio for the recommended card only.
    */
   allowWeatherFallbackTitle?: boolean;
+
+  // === Session situation (copy "moments", 18.10.2026) ===
+  /**
+   * The session's training situation, derived from the periodization policy
+   * (resolveContentSituation): 'returning' after a break (detraining / long-gap
+   * deload / rebuild), 'deload' on the planned deload week. A content row with a
+   * `situation` field is targeted copy: +SITUATION_MATCH_BOOST when it matches,
+   * hard-excluded otherwise (like `weather`). Rows without the field are unaffected.
+   */
+  situation?: ContentSituation;
+}
+
+// ============================================================================
+// SITUATION / TIME-OF-DAY / ARCHIVE GUARDS (copy "moments", 18.10.2026)
+// ============================================================================
+
+export type ContentSituation = 'returning' | 'deload';
+
+/**
+ * Boost for a content row whose `situation` field matches the session's situation.
+ * Large on purpose: a returning / deload session should always get its targeted
+ * copy over untargeted copy, including rows carrying the +40 running-category,
+ * +30 running-phase or +50 generic-persona boosts (found by
+ * scripts/sweep-workout-copy-v2.ts: at +5, an easy-run returning session kept
+ * showing regular easy-run copy). Untargeted rows are unaffected (0).
+ */
+export const SITUATION_MATCH_BOOST = 100;
+
+/**
+ * Pure: map the periodization policy reason (periodization.service.ts
+ * SessionPolicy.reason) to the content situation. A break of 4+ days
+ * (detraining / long_gap_deload / rebuild) → 'returning'; the planned
+ * deload week → 'deload'; build/peak → undefined (regular session).
+ */
+export function resolveContentSituation(policyReason: string | undefined | null): ContentSituation | undefined {
+  switch (policyReason) {
+    case 'detraining':
+    case 'long_gap_deload':
+    case 'rebuild':
+      return 'returning';
+    case 'deload':
+      return 'deload';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Running counterpart of resolveContentSituation: the running plan has no
+ * periodization policy, so the break signal is the days since the last run,
+ * on the same threshold the running alignment brain uses for its realign
+ * popup (handleProgramAlignment: 7+ days → plan_realign / rebuild).
+ */
+export const RUNNING_RETURNING_GAP_DAYS = 7;
+
+export function resolveRunningContentSituation(
+  lastWorkoutDate: string | Date | number | null | undefined,
+  now: Date = new Date(),
+): ContentSituation | undefined {
+  if (lastWorkoutDate == null || lastWorkoutDate === '') return undefined;
+  const last = lastWorkoutDate instanceof Date ? lastWorkoutDate : new Date(lastWorkoutDate);
+  if (isNaN(last.getTime())) return undefined;
+  const gapDays = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+  return gapDays >= RUNNING_RETURNING_GAP_DAYS ? 'returning' : undefined;
+}
+
+/** Pure: situation contribution to a row's score — +boost, 0, or null (= hard-exclude). */
+export function scoreSituationField(rowSituation: unknown, ctxSituation: ContentSituation | undefined): number | null {
+  if (typeof rowSituation !== 'string' || rowSituation === '' || rowSituation === 'any') return 0;
+  return rowSituation === ctxSituation ? SITUATION_MATCH_BOOST : null;
+}
+
+/**
+ * Pure: a row that names a time of day only shows at that time ("בוקר טוב" never
+ * shows in the evening). Rows with no timeOfDay ('', 'any', 'all') stay eligible
+ * at any time. Before 18.10.2026 a mismatch only scored 0 and could still win.
+ */
+export function isTimeOfDayCompatible(rowTimeOfDay: unknown, ctxTimeOfDay: TimeOfDay | undefined): boolean {
+  if (typeof rowTimeOfDay !== 'string' || rowTimeOfDay === '' || rowTimeOfDay === 'any' || rowTimeOfDay === 'all') return true;
+  if (!ctxTimeOfDay) return true;
+  return rowTimeOfDay === ctxTimeOfDay;
+}
+
+/**
+ * Pure: archived rows (`archived: true`, set by scripts/import-workout-copy-v2.ts
+ * instead of deleting) never compete. Kept in Firestore so they can be restored.
+ */
+export function isArchivedContentRow(row: { archived?: unknown } | null | undefined): boolean {
+  return row?.archived === true;
 }
 
 // ============================================================================
@@ -288,10 +377,36 @@ export type TrioVariant = 'balanced' | 'intense' | 'naked' | 'easy';
  */
 let localContentOverlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null = null;
 
+/**
+ * Simulator/sweep-only companion to the overlay: per-doc patches applied to the
+ * LIVE rows before scoring, keyed by Firestore doc id — an object is merged into
+ * the row (e.g. `{ archived: true }`, a retag), `null` drops the row. Lets a
+ * harness preview the state AFTER an import (archive + field fixes) without
+ * writing. `null` in every production call site.
+ */
+let localDocPatches: Partial<Record<'workoutTitles' | 'smartDescriptions', Record<string, Record<string, unknown> | null>>> | null = null;
+
 export function setLocalContentOverlay(
   overlay: Partial<Record<'workoutTitles' | 'smartDescriptions' | 'logicCues', any[]>> | null,
+  docPatches: Partial<Record<'workoutTitles' | 'smartDescriptions', Record<string, Record<string, unknown> | null>>> | null = null,
 ): void {
   localContentOverlay = overlay;
+  localDocPatches = docPatches;
+}
+
+function applyLocalDocPatches(parentDoc: string, docs: Array<{ id: string; data: () => any }>): any[] {
+  const patches = (parentDoc === 'workoutTitles' || parentDoc === 'smartDescriptions')
+    ? localDocPatches?.[parentDoc]
+    : undefined;
+  if (!patches) return docs.map(d => d.data());
+  const out: any[] = [];
+  for (const d of docs) {
+    if (!(d.id in patches)) { out.push(d.data()); continue; }
+    const patch = patches[d.id];
+    if (patch === null) continue;
+    out.push({ ...d.data(), ...patch });
+  }
+  return out;
 }
 
 /** Enable detailed console logs for Title/Description resolution (debugging). */
@@ -476,6 +591,19 @@ const PERSONA_ID_PREFIXES = [
  */
 const SOFT_PERSONA_MISMATCH_PENALTY = -3;
 
+/**
+ * Extra points for a row tagged with the user's own persona (on top of the
+ * field's +1), so persona copy outranks a general location+time match (+2).
+ * See the PERSONA PRIORITY BONUS block in scoreContentRow.
+ */
+export const PERSONA_PRIORITY_BONUS = 2;
+
+/** Row location is neutral ('', 'any', 'all') or equals the session's location. */
+function isLocationCompatible(rowLocation: unknown, ctxLocation: string | undefined): boolean {
+  if (typeof rowLocation !== 'string' || rowLocation === '' || rowLocation === 'any' || rowLocation === 'all') return true;
+  return rowLocation === ctxLocation;
+}
+
 // ============================================================================
 // SPORT / AIRPORT CONTENT CLASSIFICATION
 // ============================================================================
@@ -558,10 +686,21 @@ function includesWholeWord(haystack: string, keyword: string): boolean {
 function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
   let score = 0;
 
+  // ── ARCHIVE GUARD ── archived rows are kept for restore only, never shown.
+  if (isArchivedContentRow(row)) return -1;
+
   // ── WEATHER GUARD ── weather-tagged rows only for that weather (see scoreWeatherField).
   const weatherScore = scoreWeatherField(row.weather, ctx.weather);
   if (weatherScore === null) return -1;
   score += weatherScore;
+
+  // ── SITUATION GUARD ── returning/deload rows only in that situation (see scoreSituationField).
+  const situationScore = scoreSituationField(row.situation, ctx.situation);
+  if (situationScore === null) return -1;
+  score += situationScore;
+
+  // ── TIME-OF-DAY GUARD ── a row that names a time only shows at that time.
+  if (!isTimeOfDayCompatible(row.timeOfDay, ctx.timeOfDay)) return -1;
 
   // ── PERSONA-NEUTRAL GUARD ("David Clause") ──
   // Two layers of protection for persona-free users:
@@ -692,6 +831,17 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
     if (rowVal === ctxVal) {
       score += 1;
     }
+  }
+
+  // ── PERSONA PRIORITY BONUS ──
+  // The persona match above is +1 like any field, so a general row matching
+  // location + time (+2) beat a row written for the user's own persona. A row
+  // tagged for the user's persona now earns +PERSONA_PRIORITY_BONUS on top
+  // (+3 total), unless it names a DIFFERENT location than the session (a
+  // gym-only parent row should not beat a home row for a parent at home).
+  // No-persona users never match a persona → unaffected.
+  if (!userHasNoPersona && rowPersona && rowPersona === ctx.persona && isLocationCompatible(row.location, ctx.location)) {
+    score += PERSONA_PRIORITY_BONUS;
   }
 
   // ── GENERIC PERSONA BONUS ──
@@ -1144,9 +1294,16 @@ function scoreContentRow(row: any, ctx: WorkoutMetadataContext): number {
 function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   const reasons: string[] = [];
 
+  if (isArchivedContentRow(row)) reasons.push('archived_EXCLUDED');
   const ws = scoreWeatherField(row.weather, ctx.weather);
   if (ws === null) reasons.push(`weather_EXCLUDED(row=${row.weather}, ctx=${ctx.weather ?? 'none'})`);
   else if (ws > 0) reasons.push(`weather=${row.weather}(+${ws})`);
+  const ss = scoreSituationField(row.situation, ctx.situation);
+  if (ss === null) reasons.push(`situation_EXCLUDED(row=${row.situation}, ctx=${ctx.situation ?? 'none'})`);
+  else if (ss > 0) reasons.push(`situation=${row.situation}(+${ss})`);
+  if (!isTimeOfDayCompatible(row.timeOfDay, ctx.timeOfDay)) {
+    reasons.push(`timeOfDay_EXCLUDED(row=${row.timeOfDay}, ctx=${ctx.timeOfDay})`);
+  }
 
   const userHasNoPersona = !ctx.persona || ctx.persona === '';
   const rp = row.persona;
@@ -1159,6 +1316,9 @@ function getMatchReasons(row: any, ctx: WorkoutMetadataContext): string[] {
   }
   if (!userHasNoPersona && rp && rp !== '' && rp !== 'any' && rp !== ctx.persona && DEMOGRAPHIC_PERSONA_TAGS.has(rp)) {
     reasons.push(`personaMismatch_penalty(${SOFT_PERSONA_MISMATCH_PENALTY})`);
+  }
+  if (!userHasNoPersona && rp && rp === ctx.persona && isLocationCompatible(row.location, ctx.location)) {
+    reasons.push(`personaPriority(+${PERSONA_PRIORITY_BONUS})`);
   }
 
   for (const field of SCORABLE_FIELDS) {
@@ -1400,7 +1560,7 @@ async function scoredFetch(
       : [];
     if (snap.empty && overlayRows.length === 0) return { text: null };
 
-    const allRows = [...snap.docs.map(d => d.data()), ...overlayRows];
+    const allRows = [...applyLocalDocPatches(parentDoc, snap.docs), ...overlayRows];
 
     let bestScore = -1;
     let bestRows: any[] = [];

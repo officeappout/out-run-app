@@ -13,6 +13,7 @@ import type { PaceProfile } from '../core/types/running.types';
 import {
   resolveWorkoutMetadata,
   detectTimeOfDay,
+  resolveRunningContentSituation,
   type WorkoutMetadataContext,
 } from './workout-metadata.service';
 import type { LifestylePersona } from '../logic/ContextualEngine';
@@ -39,6 +40,10 @@ export interface RunningMetadataInput {
   recentBundleIds?: string[];
   weekNumber?: number;
   totalWeeks?: number;
+  /** profile.running.lastWorkoutDate — a 7+ day gap selects 'returning' copy. */
+  lastWorkoutDate?: string | Date | null;
+  /** Weather flag at the user's cell (weather-tagged rows only match it). */
+  weather?: WorkoutMetadataContext['weather'];
 }
 
 /**
@@ -48,7 +53,7 @@ export interface RunningMetadataInput {
 export async function resolveRunningWorkoutMetadata(
   input: RunningMetadataInput,
 ): Promise<RunWorkout> {
-  const { workout, paceProfile, persona, gender, targetDistance, programPhase, userAge, isAbroad, recentBundleIds, weekNumber, totalWeeks } = input;
+  const { workout, paceProfile, persona, gender, targetDistance, programPhase, userAge, isAbroad, recentBundleIds, weekNumber, totalWeeks, lastWorkoutDate, weather } = input;
 
   const category = workout.category;
   const categoryLabel = category ? (RUN_CATEGORY_LABELS_HE[category as keyof typeof RUN_CATEGORY_LABELS_HE] || category) : undefined;
@@ -71,6 +76,8 @@ export async function resolveRunningWorkoutMetadata(
     recentBundleIds,
     weekNumber,
     totalWeeks,
+    situation: resolveRunningContentSituation(lastWorkoutDate),
+    weather: weather ?? undefined,
   };
 
   try {

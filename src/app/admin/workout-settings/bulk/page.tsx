@@ -8,6 +8,10 @@ import { db } from '@/lib/firebase';
 import { Upload, FileText, CheckCircle2, AlertTriangle, Loader, Bug, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { getAvailableContentTags } from '@/features/content/branding/core/branding.utils';
+import {
+  generateMetadataDocId,
+  readMomentFields,
+} from '@/features/workout-engine/services/workout-metadata-content-fields';
 
 const WORKOUT_METADATA_COLLECTION = 'workoutMetadata';
 const BATCH_SIZE = 400;
@@ -66,28 +70,10 @@ const COLLECTION_PATHS: Record<ContentType, string> = {
 };
 
 /**
- * FNV-1a 32-bit hash → hex string.
- * Deterministic, fast, good distribution for short strings.
+ * Deterministic Firestore doc id: text + persona + bundleId + gender, FNV-1a
+ * hashed (shared with scripts/import-workout-copy-v2.ts — same content → same id).
  */
-function fnv1aHash(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
-
-/**
- * Generate a deterministic Firestore document ID from content fields.
- * Same content → same ID → re-upload overwrites instead of duplicating.
- */
-function generateDocId(text: string, persona: string, bundleId: string, gender: string): string {
-  const raw = [text.trim(), persona.trim(), bundleId.trim(), gender.trim()]
-    .filter(Boolean)
-    .join('|');
-  return fnv1aHash(raw);
-}
+const generateDocId = generateMetadataDocId;
 
 export default function BulkUploadPage() {
   const [csvInput, setCsvInput] = useState<string>('');
@@ -249,6 +235,10 @@ export default function BulkUploadPage() {
       }
     }
 
+    // Moment fields (weather / situation / timeOfDay): an unknown value is dropped,
+    // since the engine hard-excludes rows whose value doesn't match the session.
+    warnings.push(...readMomentFields(item).warnings);
+
     // Per-type content field validation
     let textContent = '';
 
@@ -372,6 +362,7 @@ export default function BulkUploadPage() {
         const enrichMinLevel = item.minLevel ?? item.רמה_מינימלית ?? item.min_level ?? '';
         const enrichMaxLevel = item.maxLevel ?? item.רמה_מקסימלית ?? item.max_level ?? '';
         const enrichBundleId = item.bundleId || item.באנדל || item.id_באנדל || '';
+        const moment = readMomentFields(item);
 
         const applySharedFields = () => {
           if (enrichSportType) data.sportType = enrichSportType;
@@ -383,6 +374,10 @@ export default function BulkUploadPage() {
           if (enrichMinLevel !== '' && enrichMinLevel !== undefined) data.minLevel = parseInt(String(enrichMinLevel)) || undefined;
           if (enrichMaxLevel !== '' && enrichMaxLevel !== undefined) data.maxLevel = parseInt(String(enrichMaxLevel)) || undefined;
           if (enrichBundleId) data.bundleId = enrichBundleId;
+          // weather ('rain'|'heat'|'cold'|'uv') and situation ('returning'|'deload'):
+          // targeted rows — shown only in that weather / situation (engine hard filter).
+          if (moment.weather) data.weather = moment.weather;
+          if (moment.situation) data.situation = moment.situation;
         };
 
         if (contentType === 'titles') {
@@ -390,7 +385,7 @@ export default function BulkUploadPage() {
           data.category = item.category || item.קטגוריה || 'general';
           data.location = item.location || item.מיקום || '';
           data.persona = item.persona || item.פרסונה || '';
-          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.timeOfDay = moment.timeOfDay || 'any';
           data.gender = item.gender || item.מגדר || 'both';
           data.text = item.text || item.טקסט || item.title || item.כותרת || '';
           applySharedFields();
@@ -398,7 +393,7 @@ export default function BulkUploadPage() {
           collectionPath = `${WORKOUT_METADATA_COLLECTION}/motivationalPhrases/phrases`;
           data.location = item.location || item.מיקום || 'home';
           data.persona = item.persona || item.פרסונה || '';
-          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.timeOfDay = moment.timeOfDay || 'any';
           data.gender = item.gender || item.מגדר || 'both';
           data.phrase = item.phrase || item.משפט || item.text || item.טקסט || '';
           applySharedFields();
@@ -429,13 +424,16 @@ export default function BulkUploadPage() {
           data.persona = item.persona || item.פרסונה || '';
           data.gender = item.gender || item.מגדר || 'both';
           data.description = item.description || item.תיאור || item.text || item.טקסט || '';
+          // timeOfDay on descriptions (was dropped before 18.10.2026): only written
+          // when the row sets it, so an untargeted description stays "any time".
+          if (moment.timeOfDay) data.timeOfDay = moment.timeOfDay;
           applySharedFields();
         } else if (contentType === 'coachTips') {
           collectionPath = `${WORKOUT_METADATA_COLLECTION}/logicCues/cues`;
           data.variant = item.variant || item.וריאנט || 'all';
           data.persona = item.persona || item.פרסונה || '';
           data.location = item.location || item.מיקום || '';
-          data.timeOfDay = item.timeOfDay || item.שעת_יום || 'any';
+          data.timeOfDay = moment.timeOfDay || 'any';
           data.gender = item.gender || item.מגדר || 'both';
           data.text = item.text || item.טקסט || item.cue || item.הערה || '';
           applySharedFields();
@@ -547,10 +545,12 @@ export default function BulkUploadPage() {
 
   const getCSVTemplate = () => {
     if (contentType === 'titles') {
-      return `category,location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
-strength,home,parent,morning,both,calisthenics,encouraging,beginner,0-20,start_of_week,,,,morning_parent,"אימון כוח בוקר ל@פרסונה"
-general,park,,any,both,,,,90-100,all,push,5,10,levelup_push,"אימון בפארק — @זמן_יום טוב! @את/ה כמעט ב-@רמה_הבאה!"
-mobility,library,student,any,both,flexibility,zen,beginner,,weekend,,,,,"הפסקת @קטגוריה של @זמן_אימון דקות — @עצימות"`;
+      return `category,location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,weather,situation,text
+strength,home,parent,morning,both,calisthenics,encouraging,beginner,0-20,start_of_week,,,,morning_parent,,,"אימון כוח בוקר ל@פרסונה"
+general,park,,any,both,,,,90-100,all,push,5,10,levelup_push,,,"אימון בפארק — @זמן_יום טוב! @את/ה כמעט ב-@רמה_הבאה!"
+mobility,library,student,any,both,flexibility,zen,beginner,,weekend,,,,,,,"הפסקת @קטגוריה של @זמן_אימון דקות — @עצימות"
+general,home,any,evening,both,calisthenics,,,,,,,,rain_home_evening_1,rain,,"גשום בחוץ, מתאמנים בבית"
+general,home,any,any,both,calisthenics,,,,,,,,returning_home_1,,returning,"חוזרים לאט ובטוח"`;
     } else if (contentType === 'phrases') {
       return `location,persona,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,phrase
 home,parent,morning,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,גם ביום עמוס, 5 דקות זה כל מה שצריך
@@ -561,9 +561,10 @@ Inactivity,parent,2,,,,both,FOMO,,,beginner,0-20,start_of_week,,,,,כבר @ימ�
 Proximity,student,,500,,,female,Challenge,running,tough,advanced,90-100,,push,5,15,,@את/ה במרחק @מרחק מהפארק. זמן ל-@שם_תוכנית!
 Daily_Goal,generic,,,close,walking,both,Support,,,,,,,,,steps_evening_generic_close_01,נשארו לך @צעדים_שנותרו צעדים ליעד היום 👟`;
     } else if (contentType === 'descriptions') {
-      return `location,persona,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,description
-home,parent,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,אימון מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר
-park,student,male,running,tough,advanced,90-100,,legs,5,12,,אימון @קטגוריה שמתאים ל-@מטרה שלך. @את/ה ב-@אחוז_התקדמות!`;
+      return `location,persona,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,timeOfDay,weather,situation,description
+home,parent,both,,encouraging,beginner,0-20,start_of_week,,,,morning_parent,morning,,,אימון מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר
+park,student,male,running,tough,advanced,90-100,,legs,5,12,,,,,אימון @קטגוריה שמתאים ל-@מטרה שלך. @את/ה ב-@אחוז_התקדמות!
+home,any,both,calisthenics,,,,,,,,returning_home_1,any,,returning,עבר זמן מאז האימון האחרון, וזה בסדר. מתחילים בעדינות.`;
     } else {
       // coachTips
       return `variant,persona,location,timeOfDay,gender,sportType,motivationStyle,experienceLevel,progressRange,dayPeriod,programId,minLevel,maxLevel,bundleId,text
@@ -819,6 +820,7 @@ all,parent,,morning,both,,encouraging,beginner,,start_of_week,,,,morning_parent,
                   <li>persona / פרסונה</li>
                   <li>description / תיאור / טקסט</li>
                   <li>gender / מגדר (male, female, both)</li>
+                  <li>timeOfDay / שעת_יום (אופציונלי: morning, afternoon, evening, night, any)</li>
                 </>
               )}
               {contentType === 'coachTips' && (
@@ -833,6 +835,9 @@ all,parent,,morning,both,,encouraging,beginner,,start_of_week,,,,morning_parent,
               )}
 
               <li className="font-bold mt-2">שדות משותפים (אופציונלי, כל הסוגים):</li>
+              <li className="text-amber-700 font-bold">timeOfDay — שורה עם שעה מוצגת רק בשעה הזו (סינון קשיח). ריק / any = כל היום</li>
+              <li className="text-amber-700 font-bold">weather / מזג_אוויר (rain, heat, cold, uv) — מוצג רק במזג האוויר הזה (+5). ריק = כל מזג אוויר</li>
+              <li className="text-amber-700 font-bold">situation / מצב (returning = חוזרים אחרי הפסקה, deload = שבוע הורדת עומס) — מוצג רק במצב הזה (+5). ריק = כל אימון</li>
               <li className="text-indigo-700 font-bold">bundleId / באנדל / id_באנדל — מזהה באנדל לסנכרון תוכן (כותרת + תיאור + משפט + הערה באותו סיפור). הכותרת היא ה-Anchor — התיאורים והמשפטים שחולקים את אותו bundleId מקבלים +50 בניקוד</li>
               <li>sportType / סוג_ספורט (basketball, soccer, tennis, padel, running, walking, cycling, swimming, calisthenics, crossfit, functional, movement, yoga, pilates, flexibility, climbing, skate_roller, martial_arts)</li>
               <li>motivationStyle / סגנון_מוטיבציה (tough, encouraging, scientific, funny, military, zen)</li>
