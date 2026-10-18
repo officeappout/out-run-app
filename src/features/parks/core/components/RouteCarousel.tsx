@@ -102,6 +102,7 @@ import {
   generateDynamicRoutes,
 } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
+import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import { useMapStore } from '../store/useMapStore';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
@@ -1224,6 +1225,7 @@ function routeHighlight(route: Route): string {
   if (f?.hasGym) return 'עובר ליד גינת כושר';
   if (f?.scenic) return 'מסלול ירוק ונופי';
   if (f?.hasBenches) return 'יש ספסלים בדרך';
-  if (f?.lit) return 'מואר היטב';
+  // Lighting only from computed qualitySignals — features.lit is a heuristic.
+  if (isRouteLitVerified(route)) return 'מואר היטב';
   return 'מסלול מעגלי חוזר אליך';
 }

@@ -1769,7 +1769,9 @@ function buildRouteDoc(
     features: {
       hasGym: false, hasBenches: false,
       scenic: c.surface === 'trail' || c.kind === 'trail',
-      lit: c.surface === 'road',
+      // `lit` intentionally omitted (routes phase 1.1): it used to be
+      // `c.surface === 'road'` — a heuristic, not a measurement. Real
+      // lighting lives in qualitySignals.lighting (computed below).
       terrain: c.surface === 'trail' ? 'dirt' : 'asphalt',
       environment: c.surface === 'trail' ? 'nature' : 'urban',
       trafficLoad: 'none',

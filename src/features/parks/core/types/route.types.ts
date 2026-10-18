@@ -266,7 +266,13 @@ export interface PlannedRoute {
 export interface RouteFeatures {
   hasGym: boolean;
   hasBenches: boolean;
-  lit: boolean;
+  /**
+   * Legacy / NOT a lighting measurement. Older writers filled it from a
+   * heuristic (surface === 'road', environment === 'urban'); new writers
+   * leave it undefined unless an admin tagged night_lighting. UI must read
+   * qualitySignals.lighting (isRouteLitVerified) instead.
+   */
+  lit?: boolean | null;
   scenic: boolean;
   terrain: string;      
   environment: string;

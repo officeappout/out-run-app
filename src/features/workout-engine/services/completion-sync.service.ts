@@ -76,6 +76,22 @@ export interface CompletionPayload {
   categorySplits?: Array<{ category: ActivityCategory; durationMinutes: number; calories: number }>;
 }
 
+/**
+ * Labels for a finished free-run-player session (useRunningPlayer). A WALK
+ * is recorded as a walk; every other activity (running, and — unchanged,
+ * out of scope — cycling) keeps the historical 'running' / 'run-fast'.
+ * Before routes phase 1.4 the player hardcoded 'running' for walks too,
+ * which mislabelled dailyProgress and fed walks into the running
+ * weekly-volume tracker (see __tests__/walking-completion-label.test.ts).
+ */
+export function aerobicCompletionLabels(
+  activityType: string | null | undefined,
+): { workoutType: 'walking' | 'running'; displayIcon: 'walk' | 'run-fast' } {
+  return activityType === 'walking'
+    ? { workoutType: 'walking', displayIcon: 'walk' }
+    : { workoutType: 'running', displayIcon: 'run-fast' };
+}
+
 const SESSION_KEY = 'post_workout_completed';
 
 export async function syncWorkoutCompletion(payload: CompletionPayload): Promise<void> {

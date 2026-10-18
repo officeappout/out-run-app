@@ -160,6 +160,7 @@ export const useMapLogic = (
     preferences: routes.preferences,
     updateFilter: routes.updateFilter,
     handleShuffle: routes.handleShuffle,
+    shuffleOutcome: routes.shuffleOutcome,
     handleActivityChange: routes.handleActivityChange,
     navigationRoutes: routes.navigationRoutes,
     selectedNavActivity: routes.selectedNavActivity,

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
-import { MOCK_ROUTES } from '../data/mock-routes';
 import { fetchRealParks } from '../services/parks.service';
 import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
 import { Route, ActivityType } from '../types/route.types';
@@ -12,6 +11,7 @@ import { useUserCityName } from './useUserCityName';
 import { NavHubState } from '../components/NavigationHub';
 import { isRouteNearby, isRouteInBounds, distanceToRouteStart } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
+import { routeHasActivity, routeMatchesActivity } from '../utils/route-activity-match';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -36,6 +36,12 @@ export interface RouteGenerationState {
   preferences: FilterPreferences;
   updateFilter: (p: Partial<FilterPreferences>) => void;
   handleShuffle: (activity?: ActivityType) => Promise<void>;
+  /**
+   * Outcome of the last handleShuffle: 'empty' when nothing matched and the
+   * generator returned nothing, 'error' when it threw. null otherwise. Lets
+   * the UI show an honest empty / error state (there is no mock fallback).
+   */
+  shuffleOutcome: 'empty' | 'error' | null;
   handleActivityChange: (t: ActivityType) => void;
   navigationRoutes: Record<ActivityType, Route | null>;
   setNavigationRoutes: (r: Record<ActivityType, Route | null>) => void;
@@ -58,6 +64,7 @@ export function useRouteGeneration(
   const [loadingRouteIds] = useState<Set<string>>(new Set());
   const [smartPaths, setSmartPaths] = useState<Record<string, any>>({});
   const [isGeneratingRoutes, setIsGeneratingRoutes] = useState(false);
+  const [shuffleOutcome, setShuffleOutcome] = useState<'empty' | 'error' | null>(null);
   const [navigationRoutes, setNavigationRoutes] = useState<Record<ActivityType, Route | null>>({
     walking: null, running: null, cycling: null, workout: null,
   });
@@ -140,6 +147,7 @@ export function useRouteGeneration(
   const handleShuffle = useCallback(async (activity?: ActivityType) => {
     if (!currentUserPos) return;
     setIsGeneratingRoutes(true);
+    setShuffleOutcome(null);
     const newIndex = routeGenerationIndex + 1;
     setRouteGenerationIndex(newIndex);
     const act = activity || preferences.activity || 'running';
@@ -155,7 +163,9 @@ export function useRouteGeneration(
       const official = await getCachedOfficialRoutes();
       const matched = official
         .filter(r => {
-          const actOk = !r.activityType || r.activityType === act;
+          // Untyped routes stay eligible (as before); walking/running match
+          // the whole on-foot family (phase 1.3), cycling stays strict.
+          const actOk = !routeHasActivity(r) || routeMatchesActivity(r, act);
           const distOk = Math.abs((r.distance || 0) - targetKm) <= targetKm * 0.6;
           return actOk && distOk;
         })
@@ -186,9 +196,17 @@ export function useRouteGeneration(
         // while IS_ROUTE_ADJACENCY_ENABLED is false (kill-switch).
         userAnchoredCorridorFlow: targetKm >= MIN_GENERATION_KM,
       });
+      // No MOCK_ROUTES fallback (phase 1.2). MOCK_ROUTES is an empty array
+      // today, but the fallback silently swallowed generator errors and would
+      // show fake routes the moment anyone filled that file. Empty / error is
+      // reported honestly via shuffleOutcome instead.
       if (newRoutes.length > 0) { setAllRoutes(newRoutes); setFocusedRoute(newRoutes[0]); }
-      else { setAllRoutes(MOCK_ROUTES); if (MOCK_ROUTES.length > 0) setFocusedRoute(MOCK_ROUTES[0]); }
-    } catch { setAllRoutes(MOCK_ROUTES); } finally { setIsGeneratingRoutes(false); }
+      else { setAllRoutes([]); setShuffleOutcome('empty'); }
+    } catch (err) {
+      console.error('[Builder] Route generation failed:', err);
+      setAllRoutes([]);
+      setShuffleOutcome('error');
+    } finally { setIsGeneratingRoutes(false); }
   }, [currentUserPos, routeGenerationIndex, preferences, userCityName]);
 
   const handleActivityChange = useCallback((t: ActivityType) => updateFilter({ activity: t }), [updateFilter]);
@@ -201,7 +219,7 @@ export function useRouteGeneration(
     loadingRouteIds, smartPaths, setSmartPaths,
     isGenerating: isGenerating || isGeneratingRoutes,
     routesToDisplay, preferences, updateFilter,
-    handleShuffle, handleActivityChange,
+    handleShuffle, shuffleOutcome, handleActivityChange,
     navigationRoutes, setNavigationRoutes: setNavigationRoutes as any,
     selectedNavActivity, setSelectedNavActivity,
     setEffectiveUserPos,
