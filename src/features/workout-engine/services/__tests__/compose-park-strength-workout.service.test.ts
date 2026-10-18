@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { Park } from '@/features/parks/core/types/park.types';
+import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { calculateEstimatedDuration } from '../../logic/workout-budgeting.utils';
 import { calculateWeeklyBudget } from '../../core/store/useWeeklyVolumeStore';
 
@@ -294,6 +295,34 @@ describe('buildMachinePseudoExercise', () => {
   it('omits symmetry/injuryShield — both are optional on Exercise and safely absent for machines', () => {
     const result = buildMachinePseudoExercise(machine({ id: 'm2', movementPattern: 'core' }), config);
     expect((result.exercise as any).symmetry).toBeUndefined();
+  });
+
+  it('carries the machine\'s cues / tips / prepNote on the method fields the player reads', () => {
+    const withText = {
+      ...machine({ id: 'm4', movementPattern: 'horizontal_push' }),
+      cues: ['גב צמוד למשענת', 'נשפו בדחיפה', 'חזרה איטית'],
+      tips: ['קשה לכם? קצרו את הטווח'],
+      prepNote: 'כוונו את המושב לגובה החזה',
+      description: 'שלב ישן',
+    } as GymEquipment;
+    const result = buildMachinePseudoExercise(withText, config);
+    expect(resolveExerciseCues(result.exercise, result.method)).toEqual({
+      highlights: ['גב צמוד למשענת', 'נשפו בדחיפה', 'חזרה איטית'],
+      tips: ['קשה לכם? קצרו את הטווח'],
+    });
+    expect(result.method.notificationText).toBe('כוונו את המושב לגובה החזה');
+  });
+
+  it('falls back to description lines for cues; a text-less machine adds no text fields', () => {
+    const legacy = { ...machine({ id: 'm5', movementPattern: 'core' }), description: 'שבו על המושב\nאחזו בידיות' } as GymEquipment;
+    expect(resolveExerciseCues(null, buildMachinePseudoExercise(legacy, config).method).highlights).toEqual([
+      'שבו על המושב',
+      'אחזו בידיות',
+    ]);
+    const bare = buildMachinePseudoExercise(machine({ id: 'm6', movementPattern: 'core' }), config).method as any;
+    expect(bare.specificCues).toBeUndefined();
+    expect(bare.highlights).toBeUndefined();
+    expect(bare.notificationText).toBeUndefined();
   });
 
   it('produces an empty targetPrograms when the machine has no movementPattern-derivable domain', () => {

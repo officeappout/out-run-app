@@ -52,6 +52,24 @@ export interface GymEquipment {
   iconKey?: string;
   /** Program + level assignments (metadata-only; not used by workout engine yet). */
   targetPrograms?: TargetProgramRef[];
+  /**
+   * "דגשים" — 3–5 short how-to cues. Shown in the park equipment drawer and,
+   * via the machine pseudo-exercise's method.specificCues, in the live player.
+   * Read through gym-equipment-text.utils (falls back to `description` lines).
+   */
+  cues?: string[];
+  /** "טיפים" — 0–2 regressions/progressions ("קשה לכם? …" / "קל לכם? …"). */
+  tips?: string[];
+  /**
+   * ≤40-char setup line shown before the machine block in a workout
+   * (e.g. "כוונו את המושב לגובה החזה"). `null` = explicitly cleared in the editor.
+   */
+  prepNote?: string | null;
+  /**
+   * Legacy newline-separated usage steps (old CSV import, most docs). Still read
+   * as the cues fallback. `null` = explicitly cleared in the editor.
+   */
+  description?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

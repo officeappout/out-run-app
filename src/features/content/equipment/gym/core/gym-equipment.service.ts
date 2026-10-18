@@ -247,6 +247,10 @@ export async function duplicateGymEquipment(equipmentId: string): Promise<string
       recommendedLevel: originalEquipment.recommendedLevel,
       isFunctional: originalEquipment.isFunctional,
       muscleGroups: [...originalEquipment.muscleGroups],
+      ...(originalEquipment.cues?.length ? { cues: [...originalEquipment.cues] } : {}),
+      ...(originalEquipment.tips?.length ? { tips: [...originalEquipment.tips] } : {}),
+      ...(originalEquipment.prepNote ? { prepNote: originalEquipment.prepNote } : {}),
+      ...(originalEquipment.description ? { description: originalEquipment.description } : {}),
       brands: originalEquipment.brands.map((brand) => ({
         ...brand,
       })),

@@ -89,6 +89,10 @@ export default function EditGymEquipmentPage() {
     availableInLocations: equipment.availableInLocations || [],
     defaultLocation: equipment.defaultLocation || undefined,
     iconKey: equipment.iconKey || '',
+    cues: equipment.cues,
+    tips: equipment.tips,
+    prepNote: equipment.prepNote,
+    description: equipment.description,
   };
 
   return (

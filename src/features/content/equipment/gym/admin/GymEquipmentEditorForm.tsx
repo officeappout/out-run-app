@@ -29,6 +29,14 @@ import {
 import { EquipmentLocation } from '../core/gym-equipment.types';
 import { safeRenderText } from '@/utils/render-helpers';
 import { getAllOutdoorBrands, OutdoorBrand } from '../../../equipment/brands';
+import EquipmentTextListEditor from './EquipmentTextListEditor';
+import {
+  buildEquipmentTextFields,
+  EQUIPMENT_CUES_MAX,
+  EQUIPMENT_TIPS_MAX,
+  EQUIPMENT_CUE_WARN_CHARS,
+  EQUIPMENT_PREP_NOTE_MAX_CHARS,
+} from '../core/gym-equipment-text.utils';
 
 interface GymEquipmentEditorFormProps {
   onSubmit: (data: GymEquipmentFormData) => void;
@@ -97,6 +105,10 @@ export default function GymEquipmentEditorForm({
     availableInLocations: [],
     defaultLocation: undefined,
     iconKey: '',
+    cues: [],
+    tips: [],
+    prepNote: '',
+    description: '',
     ...initialData,
   });
   const [svgIcons, setSvgIcons] = useState<{ slug: string; label: string }[]>([]);
@@ -135,6 +147,10 @@ export default function GymEquipmentEditorForm({
           brandId: brand.brandId || undefined,
         })) || [],
         iconKey: initialData.iconKey || '',
+        cues: Array.isArray(initialData.cues) ? initialData.cues : [],
+        tips: Array.isArray(initialData.tips) ? initialData.tips : [],
+        prepNote: initialData.prepNote ?? '',
+        description: initialData.description ?? '',
       };
       setFormData(sanitizedData);
       setTargetPrograms(initialData.targetPrograms || []);
@@ -161,7 +177,9 @@ export default function GymEquipmentEditorForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ ...formData, targetPrograms });
+    // Text fields: trimmed, empties dropped; cleared-vs-never-set per
+    // buildEquipmentTextFields (undefined is omitted by the service's stripUndefined).
+    onSubmit({ ...formData, targetPrograms, ...buildEquipmentTextFields(formData, initialData) });
   };
 
   const toggleArrayItem = <T,>(array: T[], item: T): T[] => {
@@ -409,6 +427,82 @@ export default function GymEquipmentEditorForm({
               <Heart size={16} className="text-gray-400" />
               <span className="text-sm font-bold text-gray-700">מכונת קרדיו (Cardio)</span>
             </label>
+          </div>
+        </div>
+      </div>
+
+      {/* How-to text Section — דגשים / טיפים / הכנה / תיאור */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 mb-2">
+          <span className="w-1 h-6 bg-cyan-500 rounded-full"></span>
+          הנחיות שימוש
+        </h2>
+        <p className="text-xs text-gray-400 mb-6">
+          מוצגות בכרטיס המתקן בפארק ובנגן האימון. בלי דגשים — האפליקציה מציגה את שורות התיאור.
+        </p>
+
+        <div className="space-y-8">
+          <EquipmentTextListEditor
+            label="דגשים"
+            hint="3–5 משפטים קצרים — איך לבצע נכון."
+            items={formData.cues ?? []}
+            onChange={(cues) => setFormData({ ...formData, cues })}
+            max={EQUIPMENT_CUES_MAX}
+            warnChars={EQUIPMENT_CUE_WARN_CHARS}
+            placeholder="לדוגמה: גב צמוד למשענת לאורך כל התנועה"
+            addLabel="הוסף דגש"
+          />
+
+          <EquipmentTextListEditor
+            label="טיפים"
+            hint="עד 2 — הקלה / הקשחה."
+            items={formData.tips ?? []}
+            onChange={(tips) => setFormData({ ...formData, tips })}
+            max={EQUIPMENT_TIPS_MAX}
+            warnChars={EQUIPMENT_CUE_WARN_CHARS}
+            placeholder="לדוגמה: קשה לכם? קצרו את הטווח"
+            addLabel="הוסף טיפ"
+          />
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">הכנה לפני המתקן</label>
+            <p className="text-xs text-gray-400 mb-3">שורה אחת שמוצגת לפני תחנת המתקן באימון.</p>
+            {(() => {
+              const len = (formData.prepNote ?? '').trim().length;
+              const over = len > EQUIPMENT_PREP_NOTE_MAX_CHARS;
+              return (
+                <>
+                  <input
+                    type="text"
+                    value={formData.prepNote ?? ''}
+                    onChange={(e) => setFormData({ ...formData, prepNote: e.target.value })}
+                    dir="rtl"
+                    className={`w-full px-4 py-3 text-base border rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${
+                      over ? 'border-amber-400' : 'border-gray-300'
+                    }`}
+                    placeholder="לדוגמה: כוונו את המושב לגובה החזה"
+                  />
+                  <p className={`text-xs mt-1 ${over ? 'text-amber-600 font-bold' : 'text-gray-400'}`}>
+                    {len}/{EQUIPMENT_PREP_NOTE_MAX_CHARS}
+                    {over && ' — ארוך מדי, כדאי לקצר'}
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">תיאור</label>
+            <p className="text-xs text-gray-400 mb-3">
+              שלבי שימוש, שורה לכל שלב (מהייבוא הישן). משמש כגיבוי כשאין דגשים.
+            </p>
+            <textarea
+              value={formData.description ?? ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={5}
+              dir="rtl"
+              className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl resize-y focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            />
           </div>
         </div>
       </div>
