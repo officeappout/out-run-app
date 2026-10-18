@@ -46,6 +46,9 @@ export default defineConfig({
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
+      'tests/firestore-trail-segments.rules.test.ts',
+      // trails --apply write path on the emulator — self-skips unless FIRESTORE_EMULATOR_HOST is set.
+      'tests/trails-apply.emulator.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in
       // this root's node_modules) — only files with zero external
       // imports (pure logic, like accessCodeRateLimit.ts) can run here.

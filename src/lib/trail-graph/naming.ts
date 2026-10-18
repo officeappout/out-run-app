@@ -130,9 +130,87 @@ export function nameRoute(input: NamingInput): NamingResult {
   return { name: `מסלול ${s} #${input.nextPlaceholderIndex(s)}`, nameSource: 'placeholder', needsName: true, toponym };
 }
 
+/** Nearest named place to each end of a line (≤ ENDPOINT_RADIUS_M), for "A → B" labels. */
+export function endpointNames(geometry: LngLat[], places: NamedFeature[]): { from: string | null; to: string | null } {
+  if (geometry.length < 2) return { from: null, to: null };
+  return {
+    from: nearestFeature([geometry[0]], places, ENDPOINT_RADIUS_M)?.name ?? null,
+    to: nearestFeature([geometry[geometry.length - 1]], places, ENDPOINT_RADIUS_M)?.name ?? null,
+  };
+}
+
 /** Honest descriptive name for a graph-generated route. */
 export function generatedRouteName(args: { settlement: string; shape: 'loop' | 'out_and_back'; lengthM: number; via: string | null }): string {
   const km = (args.lengthM / 1000).toFixed(1);
   const head = args.shape === 'loop' ? `לולאת ${args.settlement}` : `הלוך-חזור מ${args.settlement}`;
   return args.via ? `${head} · ${args.via} · ${km} ק״מ` : `${head} · ${km} ק״מ`;
+}
+
+// ── Duplicate-name disambiguation ─────────────────────────────────────────
+// Two different OSM relations can earn the same rule-built name (pilot:
+// two unref'd red trails both nearest "חורבת ג'ממה"). Rule, applied ONLY
+// to names shared by ≥2 routes, members processed in id order:
+//   a. the ITC/KKL `ref`, when this member has one, it's not already in the
+//      name and no other member of the group has the same ref → "… · 9251"
+//   b. the next distinct toponym: nearest named feature (≤ 3 km) whose name
+//      is not already in the name, not taken by an earlier member, and is
+//      closer to THIS route than to any other member (so it actually tells
+//      them apart) → "… · נחל X"; if none is distinctive, the nearest unused
+//   c. last resort, an ordinal "… (2)" — deterministic, never a guess.
+// Non-duplicated names are returned untouched.
+
+export const DISAMBIGUATE_RADIUS_M = 3000;
+
+export interface DisambiguationItem {
+  id: string;
+  name: string;
+  ref: string | null;
+  geometry: LngLat[];
+}
+
+function featureDistM(f: NamedFeature, line: LngLat[]): number {
+  if (f.geometry.length === 1) return pointPolylineDistM(f.geometry[0], line);
+  const stride = Math.max(1, Math.floor(line.length / 60));
+  let d = Infinity;
+  for (let i = 0; i < line.length; i += stride) d = Math.min(d, pointPolylineDistM(line[i], f.geometry));
+  return d;
+}
+
+/** Returns id → disambiguated name, only for ids whose name changed. */
+export function disambiguateDuplicateNames(items: DisambiguationItem[], features: NamedFeature[], radiusM = DISAMBIGUATE_RADIUS_M): Map<string, string> {
+  const out = new Map<string, string>();
+  const groups = new Map<string, DisambiguationItem[]>();
+  for (const it of items) {
+    const g = groups.get(it.name) ?? [];
+    g.push(it);
+    groups.set(it.name, g);
+  }
+  const taken = new Set(items.map((i) => i.name));
+  for (const [name, group] of Array.from(groups)) {
+    if (group.length < 2) continue;
+    const members = [...group].sort((a, b) => a.id.localeCompare(b.id));
+    const used = new Set<string>();
+    const refCount = new Map<string, number>();
+    for (const m of members) if (m.ref) refCount.set(m.ref, (refCount.get(m.ref) ?? 0) + 1);
+    members.forEach((m, idx) => {
+      let suffix: string | null = null;
+      if (m.ref && !name.includes(m.ref) && refCount.get(m.ref) === 1) suffix = m.ref;
+      if (!suffix) {
+        const others = members.filter((o) => o !== m);
+        const ranked = features
+          .filter((f) => f.name && !name.includes(f.name) && !used.has(f.name))
+          .map((f) => ({ f, d: featureDistM(f, m.geometry) }))
+          .filter((x) => x.d <= radiusM)
+          .sort((a, b) => a.d - b.d || a.f.name.localeCompare(b.f.name, 'he'));
+        const distinctive = ranked.find((x) => others.every((o) => featureDistM(x.f, o.geometry) > x.d));
+        suffix = (distinctive ?? ranked[0])?.f.name ?? null;
+      }
+      let next = suffix ? `${name} · ${suffix}` : `${name} (${idx + 1})`;
+      if (taken.has(next)) next = `${next} (${idx + 1})`;
+      if (suffix) used.add(suffix);
+      taken.add(next);
+      out.set(m.id, next);
+    });
+  }
+  return out;
 }

@@ -2,14 +2,18 @@
  * scripts/trails/build-segment-graph.ts — national trails pipeline, step 1:
  * OSM foot/bike ways → trail SEGMENT graph with Copernicus elevation.
  *
- * DRY-RUN ONLY. Writes local JSON to `.trails-out/<area>/` (gitignored).
- * There is no Firestore/Storage code path in this file — `--apply` is
- * refused until the owner approves the schema in
- * docs/TRAILS-PILOT-SHAAR-HANEGEV.md §"What --apply would write".
+ * Default = DRY-RUN: writes local JSON to `.trails-out/<area>/` (gitignored),
+ * nothing else. `--apply` (owner-approved 18.10.2026) additionally upserts
+ * the segments into `trail_segments` through scripts/trails/lib/trails-apply.node.ts
+ * — see that file's header for every guard rail (explicit flags, name-resolved
+ * authority, summary + typed YES, ≤400/batch, idempotent, no deletes).
  *
  * Usage:
- *   npx tsx scripts/trails/build-segment-graph.ts                 # pilot: שער הנגב
+ *   npx tsx scripts/trails/build-segment-graph.ts                 # dry-run, pilot: שער הנגב
  *   npx tsx scripts/trails/build-segment-graph.ts --relation=1473954 --area=shaar-hanegev
+ *   npx tsx scripts/trails/build-segment-graph.ts --resolve-authority --project appout-1      # read-only
+ *   npx tsx scripts/trails/build-segment-graph.ts --apply --project appout-1 --authority <authorityId>
+ *   (FIRESTORE_EMULATOR_HOST=127.0.0.1:8089 → the same commands hit the emulator instead)
  *
  * Sources (public, downloaded once into gitignored .cache/):
  *   OSM   — Geofabrik israel-and-palestine PBF (ODbL, © OpenStreetMap contributors),
@@ -26,6 +30,7 @@ import { buildRouteMembership, buildSegments } from '../../src/lib/trail-graph/s
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type TrailSegment } from '../../src/lib/trail-graph/types';
 import { assertOsmium, ensureIsraelPbf, extractPilot, fetchAdminBoundary, pbfTimestamp, SHAAR_HANEGEV_RELATION_ID } from './lib/pilot-osm.node';
 import { PilotContext } from './lib/pilot-context';
+import { applyTrailSegments, confirmTypedYes, openTarget, parseApplyFlags, printResolvedAuthority, validateApplyFlags } from './lib/trails-apply.node';
 
 export interface BuildGraphOptions {
   relationId: number;
@@ -78,8 +83,9 @@ export async function runBuildSegmentGraph(opts: BuildGraphOptions) {
   function meta() {
     return {
       generatedAt: new Date().toISOString(),
-      dryRun: true,
+      dryRun: true, // the JSON itself is always a local dry-run artifact; --apply writes from it
       osmTimestamp,
+      areaName: boundary.tags['name:he'] ?? boundary.tags.name ?? opts.area,
       license: OSM_LICENSE,
       attribution: [OSM_ATTRIBUTION, COPERNICUS_DEM_ATTRIBUTION],
       relationId: opts.relationId,
@@ -107,14 +113,48 @@ export function summarizeSegments(segs: TrailSegment[]) {
   };
 }
 
-if (process.argv[1] && /build-segment-graph\.ts$/.test(process.argv[1])) {
-  if (process.argv.includes('--apply')) {
-    console.error('--apply is not enabled for the trails pilot. Owner approval of the write plan in docs/TRAILS-PILOT-SHAAR-HANEGEV.md is required first; nothing was written.');
-    process.exit(2);
-  }
+/** `.trails-out/<area>/segments.json` as written by runBuildSegmentGraph. */
+export function readSegmentsFile(outRoot: string, area: string): { meta: { osmTimestamp: string | null; areaName?: string; relationId: number }; segments: TrailSegment[] } {
+  const f = path.join(outRoot, area, 'segments.json');
+  if (!fs.existsSync(f)) throw new Error(`Missing ${f} — run scripts/trails/build-segment-graph.ts (dry-run) first.`);
+  return JSON.parse(fs.readFileSync(f, 'utf8'));
+}
+
+async function cli() {
+  const argv = process.argv.slice(2);
   const relationId = Number(arg('relation') ?? SHAAR_HANEGEV_RELATION_ID);
   const area = arg('area') ?? 'shaar-hanegev';
-  runBuildSegmentGraph({ relationId, area, outRoot: path.resolve(process.cwd(), '.trails-out') })
-    .then((s) => console.log(JSON.stringify(s, null, 2)))
-    .catch((e) => { console.error(e); process.exit(1); });
+  const outRoot = path.resolve(process.cwd(), '.trails-out');
+  const flags = parseApplyFlags(argv);
+  const resolveOnly = argv.includes('--resolve-authority');
+  if (flags.apply || resolveOnly) {
+    const dotenv = await import('dotenv');
+    dotenv.config({ path: '.env.local' });
+    const errs = validateApplyFlags(resolveOnly ? { ...flags, authority: flags.authority ?? '(resolve)' } : flags);
+    if (errs.length) {
+      console.error(`Refusing:\n  - ${errs.join('\n  - ')}\nNothing was written.`);
+      process.exit(2);
+    }
+  }
+  if (resolveOnly) {
+    const { meta } = readSegmentsFile(outRoot, area);
+    await printResolvedAuthority(await openTarget(flags.project!), meta.areaName ?? area);
+    return;
+  }
+  const summary = await runBuildSegmentGraph({ relationId, area, outRoot });
+  console.log(JSON.stringify(summary, null, 2));
+  if (!flags.apply) return;
+  const { meta, segments } = readSegmentsFile(outRoot, area);
+  const res = await applyTrailSegments(segments, {
+    target: await openTarget(flags.project!),
+    authorityId: flags.authority!,
+    areaName: meta.areaName ?? area,
+    osmTimestamp: meta.osmTimestamp,
+    confirm: confirmTypedYes,
+  });
+  if (res.aborted) process.exit(3);
+}
+
+if (process.argv[1] && /build-segment-graph\.ts$/.test(process.argv[1])) {
+  cli().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
 }

@@ -1405,6 +1405,26 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // >>> NEW BLOCK — trails pipeline (feat/trails-apply, 18.10.2026) >>>
+    // TRAIL SEGMENTS — OSM (ODbL) foot/bike segment graph with Copernicus
+    // elevation, written ONLY by scripts/trails/build-segment-graph.ts
+    // --apply through the Admin SDK (which bypasses rules). Readable by any
+    // signed-in user; NO client may create/update/delete — not even an
+    // admin from the panel (the collection stays pure-OSM, see
+    // docs/TRAILS-PILOT-SHAAR-HANEGEV.md §5 on ODbL share-alike).
+    // ⚠️ Same limitation as agents/** below: the ROOT ADMIN FALLBACK at the
+    // end of this file also matches here (Firestore ORs rules), so the two
+    // root accounts (david@/office@) can still write from a client. Every
+    // other caller — users, admins, anonymous — is denied writes.
+    // Tests: tests/firestore-trail-segments.rules.test.ts.
+    // ============================================================
+    match /trail_segments/{segmentId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    // <<< END NEW BLOCK — trails pipeline <<<
+
+    // ============================================================
     // ROUTE DECISIONS — append-only accuracy-agent decision log (Stage 2,
     // .claude/plans/vectorized-twirling-tiger.md). A record of every human
     // approve/edit/drop verdict on a route, with the composition/lighting

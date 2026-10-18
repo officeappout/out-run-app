@@ -1,6 +1,6 @@
 # פיילוט שבילים ארצי — מועצה אזורית שער הנגב (dry-run)
 
-**סטטוס:** נבנה 18.10.2026, **dry-run בלבד — שום דבר לא נכתב לפרודקשן**. אין בקוד הזה נתיב כתיבה ל-Firestore/Storage; `--apply` מסורב במפורש עד שדוד מאשר את §6 ("מה `--apply` היה כותב").
+**סטטוס:** נבנה 18.10.2026. עד 18.10 (PR #424) — dry-run בלבד. **מ-`feat/trails-apply`:** קיים נתיב כתיבה (`--apply`) שאושר ע״י דוד, נבדק על האמולטור בלבד — **שום דבר לא נכתב לפרודקשן**. את ההרצה לפרודקשן מריץ דוד בעצמו (§8).
 **מקורות:** OSM — Geofabrik `israel-and-palestine` (חותמת נתונים `2026-10-17T20:20:51Z`), גבולות: relation `1473954` (`admin_level=8`, "מועצה אזורית שער הנגב"). גובה — Copernicus DEM GLO-30.
 
 ---
@@ -114,30 +114,88 @@ npx tsx scripts/trails/import-named-routes.ts     # → named-routes.json, gener
 
 ---
 
-## 6. מה `--apply` היה כותב (לאישור דוד — לא מומש, לא הורץ)
+## 6. מה `--apply` כותב (אושר ע״י דוד 18.10.2026 — ממומש, נבדק רק באמולטור)
 
-גם `docs/trails-pilot/shaar-hanegev-apply-plan.json`. כרגע `--apply` יוצא עם קוד 2 והודעה, בלי שום קוד Firestore.
+גם `docs/trails-pilot/shaar-hanegev-apply-plan.json`. הקוד: `scripts/trails/lib/trails-apply.node.ts` (הנתיב היחיד שכותב), המיפוי הטהור: `src/lib/trail-graph/firestore-docs.ts`.
 
-**קולקציה חדשה `trail_segments`** — 4,001 מסמכים, מזהה דטרמיניסטי `seg_<firstWayId>_<startNode>_<endNode>`:
-`geometry` ({lng,lat}[]), `startNode`, `endNode`, `lengthM`, `elevation{provider,gainFwdM,gainRevM,maxGrade50mFwdPct,maxGrade50mRevPct,minEleM,maxEleM}`, `highwayClass`, `surface`, `surfaceRaw`, `surfaceConfidence`, `lit`, `litSource`, `sacScale`, `mtbScale`, `tracktype`, `colour`, `itcRef`, `name`, `inBuiltUp`, `osmWayIds`, `routeRelationIds`, `foot`, `bicycle`, `license`, `authorityId`, `source: "osm_geofabrik_v1"`, `osmTimestamp`, `updatedAt`.
-→ דורש חוקי Firestore + אינדקסים חדשים (`authorityId`, ואולי geohash) — **לא נגעתי ב-`firestore.rules`/`firestore.indexes.json`**; צריך: קריאה ציבורית, כתיבה רק admin.
+**מעקות בטיחות (נאכפים בקוד):**
+- דגלים מפורשים: `--apply --project appout-1 --authority <authorityId>`. בלי אחד מהם — יציאה בלי כתיבה.
+- יעד: אם `FIRESTORE_EMULATOR_HOST` מוגדר → האמולטור; אחרת **פרודקשן**, ואז רק `--project appout-1` ורק עם מפתח service account שה-`project_id` שלו תואם. השורה `TARGET:` מודפסת ראשונה.
+- `authorityId` **לא מקודד בשום מקום**: בזמן ריצה הסקריפט קורא (קריאה בלבד) את `authorities` ומחפש התאמה מדויקת לשם הגבול מ-OSM ("מועצה אזורית שער הנגב" או "שער הנגב"). 0 או ≥2 התאמות → עצירה. אם `--authority` שונה מהתוצאה → עצירה.
+- סיכום מלא לפני כתיבה (כמה ייווצרו / יעודכנו / ללא שינוי / קיימים), ואז צריך להקליד `YES`. בלי טרמינל אינטראקטיבי — לא נכתב כלום.
+- batches של ≤400. אין שום מחיקה.
 
-**`official_routes`** — 49 מסמכים חדשים (23 מסומנים + 26 מחוללים), מזהים `osm_rel_<id>` / `gen_<placeNodeId>_<n>`, **create-only** (מדלגים אם המזהה קיים), `status: 'pending'`, `published: false` — כלומר נכנסים למרכז האישורים ולא לאפליקציה עד שדוד מאשר, בדיוק כמו `geo-discovery-routes.ts`. שדות: `name`, `distance` (ק״מ), `duration` (דק', לפי קצב הפעילות), `difficulty` (`easy|medium|hard`), `type` (`walking|cycling`), `path`, `routeShape`, `surfaceType` (הדומיננטי), `elevationGain`, `maxGrade`, `authorityId`, `city`, ועוד אובייקט `trail{kind,nameSource,needsName,segmentIds,segmentForward,stars,difficultyBreakdown,osm,license,attribution}`. הכול יעבור דרך `buildValidatedDoc` (Zod) הקיים.
+**`trail_segments`** — 4,001 מסמכים, מזהה דטרמיניסטי `seg_<firstWayId>_<startNode>_<endNode>`, **upsert אידמפוטנטי**: לכל מסמך נשמר `contentHash`; ריצה חוזרת עם אותם נתונים כותבת 0. מקטע שהשתנה מתעדכן (`createdAt` נשמר). מקטע שנעלם מהריצה **לא נמחק** — רק נספר בסיכום ("older docs … left as-is").
+שדות: `geometry` ({lng,lat}[]), `startNode`, `endNode`, `lengthM`, `elevation{provider,gainFwdM,gainRevM,maxGrade50mFwdPct,maxGrade50mRevPct,minEleM,maxEleM}`, `highwayClass`, `surface`, `surfaceRaw`, `surfaceConfidence`, `lit`, `litSource`, `sacScale`, `mtbScale`, `tracktype`, `colour`, `itcRef`, `name`, `inBuiltUp`, `osmWayIds`, `routeRelationIds`, `foot`, `bicycle`, `license`, `authorityId`, `source: "osm_geofabrik_v1"`, `osmTimestamp`, `contentHash`, `createdAt`, `updatedAt`.
+חוקים: קריאה לכל משתמש מחובר, כתיבה — אף לקוח (רק Admin SDK). אינדקס: `geometry` פטור מאינדוקס (fieldOverride); אין צורך באינדקס מורכב.
 
-**שאלות פתוחות לדוד לפני apply:**
-1. **מסלולים לינאריים:** כל 23 המסומנים יצאו `linear` (A→B, או חתוכים בגבול המועצה). ל-`Route.routeShape` יש רק `loop|out_and_back`. אפשרויות: (א) להוסיף `'linear'` ל-enum (שינוי סכמה + UI), (ב) לשמור כ-`out_and_back` עם מרחק כפול, (ג) לשמור את המרחק החד-כיווני ולהוסיף `trail.oneWay: true`. ההמלצה שלי: (ג).
-2. **מסלולים חתוכים:** 12 מסלולים (`clippedToPilotArea: true`) ממשיכים מחוץ למועצה (למשל שביל גולני, דרך נוף נחל שקמה). בפיילוט הם חתוכים לגבול; בהרצה ארצית הם יתחברו. להעלות חתוכים עכשיו, או לחכות להרצה הארצית?
-3. `authorityId` של שער הנגב בקולקציית `authorities` — לא קראתי מפרודקשן; צריך מיפוי relation 1473954 → מזהה הרשות.
-4. אישור להוסיף `highway=service` לגרף (§4).
+**`official_routes`** — 49 מסמכים (23 מסומנים + 26 מחוללים), מזהים `osm_rel_<id>` / `gen_<placeNodeId>_<n>`, **create-only** (מזהה קיים → מדלגים, גם אם נערך בפאנל), `status: 'pending'`, `published: false`, `origin: 'osm_import'` — נכנסים למרכז האישורים. הכול עובר דרך `buildValidatedDoc` (Zod).
+שדות: `name`, `description`, `distance` (ק״מ, **חד-כיווני** למסלול לינארי), `duration`, `score`, `rating` (= כוכבי ה-prior), `calories`, `type`/`activityType`/`activityTypes`, `difficulty`, `path`, `segments: []`, `features`, `routeShape` (`loop`|`out_and_back`|**`point_to_point`**), `surfaceType`, `elevationGain`, `maxGrade`, `source{type,name,externalId,externalLink}`, `provenance{pipeline,osm{license,snapshot,extract},elevation{provider}}`, `attribution{osm,elevation}`, `trail{kind,nameSource,needsName,nameDisambiguatedFrom?,endpoints?,settlement,segmentIds,segmentForward,stars,starBreakdown,difficultyBreakdown,stats,osm,license,attribution}`, `city`, `authorityId`, `importBatchId`, `createdAt`, `updatedAt`.
+
+**החלטות דוד (18.10):**
+1. מסלולים לינאריים → ערך חדש `routeShape: 'point_to_point'` (חד-כיווני). באפליקציה: "מסלול חד-כיווני · A → B" (שמות הקצוות מ-`trail.endpoints`), ושום מקום לא מתייחס אליו כלולאה (`isLoopRoute()`).
+2. `highway=service` — נכלל.
+3. נתיב השמירה ל-DB — נבנה (למעלה).
+
+**עדיין פתוח:** 12 מסלולים חתוכים בגבול המועצה (`trail.osm.clippedToPilotArea: true`) ייכנסו כ-pending כמו כולם — אפשר לדחות אותם במרכז האישורים עד ההרצה הארצית.
+
+**קרדיט באפליקציה:** בגיליון פרטי המסלול, כשיש למסלול `provenance` — "© OpenStreetMap contributors" (קישור ל-openstreetmap.org/copyright) ו-"Elevation: Copernicus WorldDEM-30 © DLR/Airbus". בהגדרות → כללי → "מקורות מידע". המפה עצמה (Mapbox) כבר מציגה את קרדיט OSM ב-attribution control שלה.
 
 ---
 
 ## 7. מגבלות ידועות והמשך
 
-- **כפל שמות:** שני relations שונים קיבלו "שביל אדום · חורבת ג'ממה" (ללא `ref` ב-OSM). צריך כלל הבחנה (למשל קצה מזרחי/מערבי) או עריכה ידנית בפאנל.
+- **כפל שמות — תוקן:** כלל `disambiguateDuplicateNames` (naming.ts): כששם זהה ליותר ממסלול אחד — מוסיפים `ref` ייחודי אם יש, אחרת את הטופונים הבא הקרוב שלא מופיע בשם וקרוב יותר למסלול הזה מאשר לאחרים, אחרת מספר סידורי. בפיילוט: "שביל אדום · חורבת ג'ממה · מערות הכורכר" ו-"שביל אדום · חורבת ג'ממה · קלחים". השם המקורי נשמר ב-`trail.nameDisambiguatedFrom`.
 - **2 `needsName`** (מסלול איבים #1, מסלול רוחמה #1) — לעריכה ידנית בפאנל, לא בניחוש.
 - **"סובב …" של קק"ל** יצאו `linear` ולא `loop` כי ה-relations ב-OSM חתוכים/לא רציפים (`continuity` 0.55–0.83 בחלקם). שווה תיקון ב-OSM עצמו (תרומה לקהילה).
 - **איבים** — אין מסלול מחולל (הצומת הקרוב לא מחובר מספיק). שאר 11 היישובים קיבלו 1–3.
 - **ארכיטקטורה:** לפי `docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md`, יכולת מיפוי חדשה צריכה להיכנס כשלב ב-`/admin/city-mapping`, לא רק כ-CLI. שני הסקריפטים חושפים `runBuildSegmentGraph()` / `runImportNamedRoutes()` בדיוק כדי שהאורקסטרטור יקרא להם — החיווט הוא PR נפרד (אחרי אישור §6).
 - **מעבר הגובה השמור ל-Copernicus** בצינור הקיים (backfill של `elevationGain/maxGrade` ל-`official_routes` הקיימים + חימום מחדש של `dem-tiles/` ב-Storage מ-`copernicusToElevationGrid`) — PR נפרד עם dry-run משלו.
 - **הרחבה ארצית:** `--relation=<admin relation>` לכל רשות, או ריצה אחת על כל ה-PBF (osmium מטפל בזה בקלות; אריחי ה-DEM לכל הארץ כבר מוגדרים ב-`ISRAEL_COPERNICUS_TILES`).
+
+---
+
+## 8. פקודות הרצה לדוד — לפי הסדר
+
+כל הפקודות מתיקיית הריפו (`out-run-app`), אחרי מיזוג ה-PR ל-main. דרוש פעם אחת: `brew install osmium-tool`, `firebase login`, ו-`FIREBASE_SERVICE_ACCOUNT_KEY` ב-`.env.local` (רק לשלב 5).
+
+**1. dry-run (מקומי, לא נוגע ב-Firestore):**
+```bash
+npx tsx scripts/trails/build-segment-graph.ts
+npx tsx scripts/trails/import-named-routes.ts
+# לבדוק: .trails-out/shaar-hanegev/summary.json , named-routes.json
+```
+
+**2. חזרה גנרלית על האמולטור (מומלץ):**
+```bash
+# טרמינל 1 — אמולטור מבודד על 8089:
+firebase emulators:start --only firestore --config firebase-audit.json --project appout-1-audit-test
+# טרמינל 2:
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8089
+npx vitest run tests/trails-apply.emulator.test.ts tests/firestore-trail-segments.rules.test.ts
+npx tsx scripts/trails/seed-emulator-authority.ts --project trails-rehearsal --id emu_shaar_hanegev --name "שער הנגב"
+npx tsx scripts/trails/build-segment-graph.ts --apply --project trails-rehearsal --authority emu_shaar_hanegev   # להקליד YES
+npx tsx scripts/trails/import-named-routes.ts --apply --project trails-rehearsal --authority emu_shaar_hanegev   # להקליד YES
+# שוב את שתי הפקודות האחרונות → אמור להופיע "Nothing to write — already up to date."
+unset FIRESTORE_EMULATOR_HOST
+```
+
+**3. אינדקסים (לפני הכתיבה לפרודקשן, כדי שה-geometry לא יאונדקס):**
+```bash
+firebase deploy --only firestore:indexes --project appout-1
+# אם ה-CLI מציע למחוק אינדקסים שקיימים בפרודקשן ולא בקובץ — לענות No.
+```
+
+**4. חוקים (`firestore.rules`) — לא חובה לפני שלב 5** (הכתיבה היא Admin SDK ועוקפת חוקים; עדיין אין קורא של `trail_segments` באפליקציה). ⚠️ `firebase deploy --only firestore:rules` מעלה את **כל** הקובץ שב-main, כולל שינויים אחרים שאולי עוד לא הועלו (ראו דוח ה-PR). להשוות קודם מול הגרסה הפעילה ב-Firebase Console → Firestore → Rules, ורק אז:
+```bash
+firebase deploy --only firestore:rules --project appout-1
+```
+
+**5. פרודקשן — רק דוד מריץ:**
+```bash
+echo "$FIRESTORE_EMULATOR_HOST"     # חייב להיות ריק
+npx tsx scripts/trails/build-segment-graph.ts --resolve-authority --project appout-1   # קריאה בלבד → מדפיס authorityId
+npx tsx scripts/trails/build-segment-graph.ts --apply --project appout-1 --authority <authorityId>   # TARGET: PRODUCTION … → סיכום → YES
+npx tsx scripts/trails/import-named-routes.ts --apply --project appout-1 --authority <authorityId>   # 49 מסלולים pending → YES
+```
+אחר כך: מרכז האישורים בפאנל — לאשר/לערוך/לדחות. הרצה חוזרת של שלב 5 בטוחה (אידמפוטנטית; מסלולים קיימים לא נדרסים).

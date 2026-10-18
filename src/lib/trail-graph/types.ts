@@ -141,6 +141,10 @@ export interface TrailRoute {
     continuity: number;
   };
   dedupedRelationIds?: number[];
+  /** Linear (one-way) routes: nearest named place at each end (≤ 1.5 km), for the "A → B" label. */
+  endpoints?: { from: string | null; to: string | null };
+  /** Set when the duplicate-name rule changed `name` (naming.ts disambiguateDuplicateNames). */
+  nameDisambiguatedFrom?: string;
   license: typeof OSM_LICENSE;
   attribution: string;
 }

@@ -22,7 +22,9 @@ import { ALL_SURFACE_TYPES } from './surface-type';
 
 export const DifficultySchema = z.enum(['easy', 'medium', 'hard']);
 export const ActivityTypeSchema = z.enum(['running', 'walking', 'cycling', 'workout']);
-export const RouteShapeSchema = z.enum(['loop', 'out_and_back']);
+/** Mirrors RouteShape (route.types.ts). 'point_to_point' = one-way A→B
+ *  (trails pipeline, 18.10.2026); existing values unchanged. */
+export const RouteShapeSchema = z.enum(['loop', 'out_and_back', 'point_to_point']);
 /** Mirrors SurfaceType (surface-type.ts) verbatim — same "enum copied
  *  verbatim from the TS union" discipline as every other schema here. */
 export const SurfaceTypeSchema = z.enum(ALL_SURFACE_TYPES as [string, ...string[]]);

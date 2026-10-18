@@ -5,11 +5,13 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import {
   X, Play, Navigation, MapPin, ChevronLeft,
   Calendar, Users, Footprints, Activity, Bike,
-  PersonStanding, Crosshair, Flag, RefreshCw, Check, Flame, Clock, Ruler,
+  PersonStanding, Crosshair, Flag, RefreshCw, Check, Flame, Clock, Ruler, MoveLeft,
 } from 'lucide-react';
 import { Route, ActivityType, ROUTE_FEATURE_TAG_LABELS } from '@/features/parks/core/types/route.types';
 import { haversineKm, distanceLabel } from '@/features/arena/utils/distance';
 import { computeRouteTurns } from '@/features/parks/core/services/geoUtils';
+import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
+import { routeDataCredits } from '@/features/parks/core/services/route-attribution';
 import {
   useCommunityEnrichment,
   matchesDayFilter,
@@ -407,6 +409,8 @@ export default function RouteDetailSheet({
   if (!route) return null;
 
   const activityLabel = ACTIVITY_LABELS[route.activityType || route.type] || '';
+  const oneWayLabel = pointToPointLabel(route);
+  const dataCredits = routeDataCredits(route);
   // 800 matches bunny-image.ts's own documented "park detail hero" width.
   // No-op passthrough for a non-Bunny (legacy Firebase Storage) url — same
   // known limitation as the other image-memory fixes in this batch
@@ -549,6 +553,15 @@ export default function RouteDetailSheet({
                           <Navigation size={12} />{distToStart} עד תחילת המסלול
                         </span>
                       )}
+                    </div>
+                  )}
+
+                  {/* One-way trail (routeShape 'point_to_point', trails pipeline) —
+                      data-gated: renders only for routes that carry that shape. */}
+                  {oneWayLabel && (
+                    <div className="flex items-center gap-1 mb-3 text-xs font-bold text-gray-500 whitespace-nowrap overflow-hidden">
+                      <MoveLeft size={12} className="flex-shrink-0" />
+                      <span className="truncate">{oneWayLabel}</span>
                     </div>
                   )}
 
@@ -1073,6 +1086,23 @@ export default function RouteDetailSheet({
                       </section>
                     );
                   })()}
+
+                  {/* Data-source credits (ODbL / Copernicus) — data-gated on the
+                      route's own provenance, so every other route is unchanged. */}
+                  {dataCredits.length > 0 && (
+                    <p dir="ltr" className="mb-6 text-[11px] leading-relaxed text-gray-400 text-center">
+                      {dataCredits.map((c, i) => (
+                        <React.Fragment key={c.key}>
+                          {i > 0 && <span aria-hidden> · </span>}
+                          {c.href ? (
+                            <a href={c.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{c.text}</a>
+                          ) : (
+                            <span>{c.text}</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </p>
+                  )}
 
                   {/* Dev simulation controls — hidden in production builds */}
                   {process.env.NODE_ENV !== 'production' && devSim && (

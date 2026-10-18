@@ -113,6 +113,7 @@ import { haversineKm } from '../services/geoUtils';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
 import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
+import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -1221,6 +1222,9 @@ function scoreToStars(score: number): number {
 }
 
 function routeHighlight(route: Route): string {
+  // One-way trail (routeShape 'point_to_point') — say so first; never "חוזר אליך".
+  const oneWay = pointToPointLabel(route);
+  if (oneWay) return oneWay;
   const f = route.features;
   if (f?.hasGym) return 'עובר ליד גינת כושר';
   if (f?.scenic) return 'מסלול ירוק ונופי';

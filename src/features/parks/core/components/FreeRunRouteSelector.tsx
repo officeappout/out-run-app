@@ -42,6 +42,7 @@ import {
 import { fetchRealParks } from '../services/parks.service';
 import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import type { ActivityType, Route } from '../types/route.types';
+import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 
 const ACCENT = '#00ADEF';
 
@@ -525,6 +526,9 @@ function scoreToStars(score: number): number {
  * gym > scenic > benches > generic loop. Stays in Hebrew per app convention.
  */
 function routeHighlight(route: Route): string {
+  // One-way trail (routeShape 'point_to_point') — say so first; never "חוזר אליך".
+  const oneWay = pointToPointLabel(route);
+  if (oneWay) return oneWay;
   const f = route.features;
   if (f?.hasGym) return 'עובר ליד גינת כושר';
   if (f?.scenic) return 'מסלול ירוק ונופי';

@@ -5,7 +5,8 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useSessionStore } from '@/features/workout-engine';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { Route } from '../types/route.types';
-import { computeRouteTurns, classifyRouteShape } from '../services/geoUtils';
+import { computeRouteTurns } from '../services/geoUtils';
+import { isLoopRoute } from '../services/route-shape';
 import { planFromPoint } from '@/features/workout-engine/hybrid/plan-from-point';
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -266,7 +267,9 @@ export function useWorkoutSession(
     // setActiveRoutePath below — never two parallel versions of "the route"
     // for the same session.
     const rawPath = route?.path;
-    const isLoop = !!rawPath && rawPath.length >= 3 && classifyRouteShape(rawPath) === 'loop';
+    // isLoopRoute = the same classifyRouteShape test, except a stored one-way
+    // ('point_to_point', trails pipeline) or out-and-back shape is never rotated.
+    const isLoop = !!rawPath && rawPath.length >= 3 && isLoopRoute(route);
     const sessionPath = isLoop && currentUserPos
       ? planFromPoint({
           canonical: { path: rawPath! },
