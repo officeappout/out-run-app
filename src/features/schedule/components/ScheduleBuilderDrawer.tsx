@@ -4,7 +4,9 @@
  * ScheduleBuilderDrawer — schedule-drawer-screen-spec.md, stage 1
  * (screen + engine, no drag). Schedule advisor phase A: the week comes from the pure
  * advisor (adviseWeek, src/features/schedule/advisor), the controls' defaults from the
- * profile, the notes from typed reasons. Still no save (the approve button stays disabled).
+ * profile, the notes from typed reasons; saving exists only behind SCHEDULE_BUILDER_SAVE_V1
+ * (off → the approve button stays disabled, exactly as before). Also opened from the home
+ * card for a second-track user (entry='second_track', resolveScheduleCardDecision).
  *
  * Sheet mechanics: `useMotionValue(0)` + `drag="y"` on the handle +
  * `useSheetScrollChain` for swipe-to-dismiss from inside the scroll body —
@@ -54,7 +56,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
-import { X, Lock } from 'lucide-react';
+import { X, Lock, Sunrise, Sun, Sunset, Clock } from 'lucide-react';
+import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import { useUserStore } from '@/features/user';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import AgendaDayCard, { type ResolvedRunningWorkout } from '@/features/home/components/agenda/AgendaDayCard';
@@ -62,13 +65,16 @@ import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/Aerob
 import { defaultWeaveControls, type WeaveMode, type WeaverInputProfile } from '../engine/weaverInput';
 import { scheduleIdNameHe } from '../engine/strengthVocabulary';
 import { adviseWeek } from '../advisor/advisor';
-import { toAdvisorInputFromClient } from '../advisor/adapters/client';
+import { toAdvisorInputFromClient, localDateKey } from '../advisor/adapters/client';
 import type { WeekAdvice } from '../advisor/types';
+import { planScheduleSave, type SaveScope } from '../services/scheduleBuilderSave.plan';
+import { isScheduleBuilderSaveEnabled, saveScheduleProposal } from '../services/scheduleBuilderSave';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
 import { resolveTabLocks } from '@/lib/resolveTabLocks';
+import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
 const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const CLOSE_THRESHOLD = 220;
@@ -105,12 +111,35 @@ export function isScheduleBuilderDrawerEnabled(): boolean {
   return SCHEDULE_BUILDER_DRAWER_ENABLED;
 }
 
+/**
+ * Running-time presets — the same three RunningScheduleStep's v2 picker offers (a preset
+ * only sets the "HH:MM" string; "אחר" opens the drum picker). Owner rule 01.09.2026: the
+ * running step always carries a time picker, and the drawer is that step for a second track.
+ */
+const RUNNING_TIME_PRESETS = [
+  { id: 'morning', label: 'בוקר', time: '07:00', Icon: Sunrise },
+  { id: 'noon', label: 'צהריים', time: '12:30', Icon: Sun },
+  { id: 'evening', label: 'ערב', time: '19:00', Icon: Sunset },
+] as const;
+/** Same default as RunningScheduleStep (morning) when the user never picked a time. */
+const DEFAULT_RUNNING_TIME = '07:00';
+
 interface ScheduleBuilderDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * 'planner' (default) — opened from the schedule editor: approve offers
+   * "רק השבוע / מכאן והלאה", as before.
+   * 'second_track' — opened from the home card for a user who just added their second
+   * track (resolveScheduleCardDecision): this is setting up the fixed week, so approve
+   * saves "מכאן והלאה" directly (a this-week-only save would leave the week un-arranged).
+   */
+  entry?: 'planner' | 'second_track';
+  /** Called after a successful save (the home page refreshes the profile so its card un-blurs). */
+  onSaved?: () => void;
 }
 
-export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuilderDrawerProps) {
+export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planner', onSaved }: ScheduleBuilderDrawerProps) {
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
 
@@ -142,12 +171,26 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const [mode, setMode] = useState<WeaveMode>('mixed');
   const [focus, setFocus] = useState(50);
   const [availableDayCount, setAvailableDayCount] = useState(3);
+  const [saveState, setSaveState] = useState<'idle' | 'choose' | 'saving' | 'saved' | 'failed'>('idle');
+  const [runningNote, setRunningNote] = useState<string | null>(null);
+  const [runningTime, setRunningTime] = useState(DEFAULT_RUNNING_TIME);
+  const [customTimeOpen, setCustomTimeOpen] = useState(false);
+  // Behind SCHEDULE_BUILDER_SAVE_V1: a runner who just added strength has no strength day
+  // in the template yet; propose the WHO minimum instead of an all-rest strength week.
+  const unarrangedStrengthDays = isScheduleBuilderSaveEnabled() ? WHO_STRENGTH_TARGET_DAYS : undefined;
   useEffect(() => {
     if (!isOpen) return;
-    const d = defaultWeaveControls(profile as WeaverInputProfile | null, { resolveSlug: resolveToSlug });
+    setRunningTime(
+      (profile as { lifestyle?: { reminders?: { runningTime?: string } } } | null)?.lifestyle?.reminders?.runningTime
+        || DEFAULT_RUNNING_TIME,
+    );
+    setCustomTimeOpen(false);
+    setRunningNote(null);
+    const d = defaultWeaveControls(profile as WeaverInputProfile | null, { resolveSlug: resolveToSlug, unarrangedStrengthDays });
     setMode(d.mode);
     setFocus(d.focus);
     setAvailableDayCount(d.availableDayCount);
+    setSaveState('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- defaults are taken once per open, not on every profile refresh
   }, [isOpen]);
 
@@ -158,13 +201,47 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
   const result: WeekAdvice | null = useMemo(() => {
     try {
       return adviseWeek(
-        toAdvisorInputFromClient({ profile, now: asOfDate, controls: { mode, focus, availableDayCount }, resolveSlug: resolveToSlug }),
+        toAdvisorInputFromClient({ profile, now: asOfDate, controls: { mode, focus, availableDayCount }, resolveSlug: resolveToSlug, unarrangedStrengthDays }),
       );
     } catch (err) {
       console.error('[ScheduleBuilderDrawer] adviseWeek threw — showing no data instead of crashing:', err);
       return null;
     }
-  }, [profile, mode, focus, availableDayCount, asOfDate]);
+  }, [profile, mode, focus, availableDayCount, asOfDate, unarrangedStrengthDays]);
+
+  // ── Save (SCHEDULE_BUILDER_SAVE_V1; off → the approve button stays disabled) ──
+  const saveEnabled = isScheduleBuilderSaveEnabled();
+  const handleSave = async (scope: SaveScope) => {
+    if (!result || !profile || !userId) return;
+    setSaveState('saving');
+    const plan = planScheduleSave({
+      profile: profile as WeaverInputProfile,
+      week: result.week,
+      controls: result.controls,
+      scope,
+      todayKey: localDateKey(asOfDate),
+      resolveSlug: resolveToSlug,
+    });
+    const outcome = await saveScheduleProposal(plan, { uid: userId, runningTime });
+    setRunningNote(
+      outcome.runningSkipped === 'this_week_scope'
+        ? 'הריצות זזות רק ב"מכאן והלאה" — השבוע נשארו במקומן.'
+        : outcome.runningSkipped === 'single_run'
+          ? 'ריצה אחת בשבוע היא לא תוכנית — ימי הריצה לא שונו.'
+          : outcome.running && !outcome.running.ok
+            // The days + time are saved either way (completeRunningScheduleFirstChoice
+            // writes them even when the plan build fails, with planBuildFailedAt);
+            // the next-run card's existing retry rebuilds the plan.
+            ? 'ימי הריצה נשמרו. את תוכנית הריצה נשלים ברקע.'
+            : null,
+    );
+    setSaveState(outcome.ok ? 'saved' : 'failed');
+    if (outcome.ok) onSaved?.();
+  };
+  // The time picker shows whenever this save can write running days (the running or
+  // mixed tab of a user who owns running) — never for a strength-only week.
+  const showRunningTime = saveEnabled && !runningLocked && mode !== 'strength';
+  const matchedTimePreset = RUNNING_TIME_PRESETS.find((p) => p.time === runningTime)?.id ?? null;
 
   if (!isOpen) return null;
 
@@ -252,6 +329,48 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
               )}
               <AvailabilityStepper value={availableDayCount} onChange={setAvailableDayCount} />
 
+              {/* ── Running time — the running step's time picker (owner rule 01.09.2026) ── */}
+              {showRunningTime && (
+                <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
+                  <span className="text-sm font-black text-gray-700">באיזו שעה תרוץ?</span>
+                  <div className="mt-2 flex gap-2">
+                    {RUNNING_TIME_PRESETS.map(({ id, label, time, Icon }) => {
+                      const on = !customTimeOpen && matchedTimePreset === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => { setCustomTimeOpen(false); setRunningTime(time); }}
+                          className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
+                            on ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
+                          }`}
+                        >
+                          <Icon size={14} />
+                          {label}
+                          <span dir="ltr" className="text-[11px] font-bold opacity-80">{time}</span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setCustomTimeOpen(true)}
+                      className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
+                        customTimeOpen || matchedTimePreset === null ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
+                      }`}
+                    >
+                      <Clock size={14} />
+                      אחר
+                      <span dir="ltr" className="text-[11px] font-bold opacity-80">{matchedTimePreset === null ? runningTime : '—'}</span>
+                    </button>
+                  </div>
+                  {(customTimeOpen || matchedTimePreset === null) && (
+                    <div className="mt-2">
+                      <DrumTimePicker value={runningTime} onChange={setRunningTime} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Area C — the resulting week ── */}
               <div className="mt-4 space-y-2">
                 {result && Array.from({ length: 7 }, (_, dayOfWeek) => (
@@ -276,14 +395,40 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose }: ScheduleBuild
                 </div>
               )}
 
-              {/* Approval button — inactive at this stage. No write, per spec (the save path is phase A2, behind its own flag). */}
-              <button
-                type="button"
-                disabled
-                className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
-              >
-                אישור (בקרוב)
-              </button>
+              {/* Approval — disabled unless SCHEDULE_BUILDER_SAVE_V1 (default OFF: preview only, no write). */}
+              {!saveEnabled && (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
+                >
+                  אישור (בקרוב)
+                </button>
+              )}
+              {saveEnabled && result && (saveState === 'idle' || saveState === 'failed') && (
+                <button
+                  type="button"
+                  onClick={() => (entry === 'second_track' ? handleSave('from_now') : setSaveState('choose'))}
+                  className="w-full mt-4 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm"
+                >
+                  זה מתאים לי
+                </button>
+              )}
+              {saveEnabled && result && saveState === 'choose' && (
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => handleSave('this_week')} className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 font-black text-sm text-gray-700">
+                    רק השבוע
+                  </button>
+                  <button type="button" onClick={() => handleSave('from_now')} className="flex-1 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm">
+                    מכאן והלאה
+                  </button>
+                </div>
+              )}
+              {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">שומר…</p>}
+              {saveEnabled && saveState === 'saved' && (
+                <p className="mt-4 text-sm font-black text-gray-700 text-center">נשמר.{runningNote ? ` ${runningNote}` : ''}</p>
+              )}
+              {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">השמירה לא הצליחה. אפשר לנסות שוב.</p>}
             </div>
           </motion.div>
         </>

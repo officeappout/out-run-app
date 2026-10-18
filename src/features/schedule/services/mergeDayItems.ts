@@ -47,10 +47,18 @@ export function mergeDayItems(
   existingIds: string[],
   nextIds: string[],
   owner: ScheduleItemOwner,
+  /**
+   * Optional strength-identity predicate (schedule advisor phase A). Default: the closed
+   * schedule-taxonomy set above — byte-for-byte today's behaviour for every existing
+   * caller. The builder drawer's save path passes the unified strength vocabulary
+   * (strengthVocabulary.ts isStrengthTemplateId), so program slugs / raw Firestore ids
+   * (push, legs, …) are recognised as strength and never mistaken for running ids.
+   */
+  isStrengthId: (id: string) => boolean = isStrengthOwnedId,
 ): string[] {
   const isOwnedByCaller = owner === 'strength'
-    ? isStrengthOwnedId
-    : (id: string) => !isStrengthOwnedId(id);
+    ? isStrengthId
+    : (id: string) => !isStrengthId(id);
 
   const kept = existingIds.filter((id) => !isOwnedByCaller(id));
   return [...kept, ...nextIds];

@@ -26,7 +26,8 @@ import { calculateWeeklyBudget } from '@/features/workout-engine/core/store/useW
 import { HEBREW_DAYS } from '@/features/user/scheduling/utils/dateUtils';
 
 import { getBaseUserLevel } from '../level-resolution.utils';
-import { resolveChildDomainsForParent } from '../program-hierarchy.utils';
+import { resolveChildDomainsForParent, resolveToSlug } from '../program-hierarchy.utils';
+import { resolveStrengthBudgetDays } from '@/features/schedule/advisor/budget-divisor';
 /**
  * Progression v2 Phase 3 — deliberate cross-domain reuse of progression-map's
  * gating logic (explicit instruction: "reuse Phase 1's getProgramState"),
@@ -382,7 +383,9 @@ export function getWorkoutContext(input: GetWorkoutContextInput): SplitWorkoutCo
           domainSetsCompletedThisWeek, remainingScheduleDays, isManualOverride } = input;
   // ③: empty schedule → default 2 training days (was 3) → a denser first-workout budget
   // (ceil(weekly/2) instead of ceil(weekly/3)) for a stronger first impression.
-  const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 2;
+  // Same divisor as home-workout.service (budget-divisor.ts): the legacy union length, or
+  // with SCHEDULE_ADVISOR_BUDGET_V1 the strength-day count (bug #9).
+  const scheduleDays = resolveStrengthBudgetDays(userProfile, 2, { resolveSlug: resolveToSlug });
   const userLevel = getBaseUserLevel(userProfile);
 
   // ── DEBUG: Log input data for level troubleshooting ──

@@ -44,6 +44,8 @@ export interface WeaverInputProfile {
   running?: {
     isUnlocked?: unknown;
     scheduleDays?: string[];
+    /** 'user-chosen' | 'system-default' (running-schedule-source.ts) — read by the builder's save planner. */
+    scheduleDaysSource?: unknown;
     /** RunnerProfileType 1-4 — read by resolveRunningLevel (bug #10). */
     paceProfile?: { profileType?: number } | null;
     onboardingData?: { currentAbility?: { abilityTier?: string } | null } | null;
@@ -79,6 +81,27 @@ export interface WeaverInputProfile {
 export interface WeaverInputOptions {
   /** Raw Firestore program id → slug (client resolveToSlug / server program index). */
   resolveSlug?: ResolveSlug;
+  /**
+   * Strength days to propose when the user OWNS strength but the recurring template holds
+   * no strength day yet — a runner who just added strength never went through
+   * ScheduleStep, so the template has only running ids and the count read 0 (an all-rest
+   * strength week). Omitted = that legacy 0, byte for byte. The schedule-builder drawer
+   * passes WHO_STRENGTH_TARGET_DAYS behind SCHEDULE_BUILDER_SAVE_V1.
+   */
+  unarrangedStrengthDays?: number;
+}
+
+/**
+ * The strength-day count a profile asks for, given it owns strength: the template's
+ * strength days; no template at all → lifestyle.scheduleDays (legacy); a template with no
+ * strength day → opts.unarrangedStrengthDays when given, else 0 (legacy).
+ */
+function strengthDayCount(profile: WeaverInputProfile, opts: WeaverInputOptions): number {
+  const fromTemplate = countStrengthTemplateDays(profile.lifestyle?.recurringTemplate, opts.resolveSlug);
+  if (fromTemplate === 0 && typeof opts.unarrangedStrengthDays === 'number' && opts.unarrangedStrengthDays > 0) {
+    return Math.min(7, Math.round(opts.unarrangedStrengthDays));
+  }
+  return fromTemplate ?? profile.lifestyle?.scheduleDays?.length ?? 0;
 }
 
 function allRestStrengthWeek(): ScheduleDay[] {
@@ -193,10 +216,7 @@ function buildStrengthSide(
     // resolver): a generic upper-body day is the user's own domain, not an invented one.
     if (programs.length === 0 && skills.length === 0) programs = ['UPPER_BODY'];
   }
-  const requestedCount =
-    countStrengthTemplateDays(profile.lifestyle?.recurringTemplate, opts.resolveSlug) ??
-    profile.lifestyle?.scheduleDays?.length ??
-    0;
+  const requestedCount = strengthDayCount(profile, opts);
   const existingWeek =
     requestedCount === 0
       ? allRestStrengthWeek()
@@ -207,11 +227,7 @@ function buildStrengthSide(
 /** The strength days a profile asks for (0 when strength isn't owned). Same count the weaver uses. */
 export function requestedStrengthDays(profile: WeaverInputProfile | null | undefined, opts: WeaverInputOptions = {}): number {
   if (!profile || !hasStrengthTrack(profile)) return 0;
-  return (
-    countStrengthTemplateDays(profile.lifestyle?.recurringTemplate, opts.resolveSlug) ??
-    profile.lifestyle?.scheduleDays?.length ??
-    0
-  );
+  return strengthDayCount(profile, opts);
 }
 
 /**

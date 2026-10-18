@@ -45,6 +45,8 @@
  * between surfaces. Keep this builder in sync with buildMapUserContext's shape/defaults.
  */
 
+import { resolveStrengthBudgetDays } from '@/features/schedule/advisor/budget-divisor';
+import { resolveToSlug as resolveToSlugForBudget } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import type { UserContext, GeoLocation, UserContextSurface } from '../types/user-context.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
@@ -88,7 +90,8 @@ function resolveTodayCompletedDomains(profile: UserFullProfile, date?: Date): st
   const dateISO = date ? toISODate(date) : undefined;
   const { byDomain } = summarizeTodayStrengthVolume(useWeeklyVolumeStore.getState().sessionLogs, dateISO);
   const { levels: userProgramLevels } = buildUserProgramLevels(profile, new Set(), '[HomeContext]');
-  const scheduleDays = (profile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+  // Same budget divisor as home-workout.service (budget-divisor.ts, SCHEDULE_ADVISOR_BUDGET_V1).
+  const scheduleDays = resolveStrengthBudgetDays(profile, 3, { resolveSlug: resolveToSlugForBudget });
 
   return FULL_BODY_DOMAINS.filter((domain) => {
     const level = userProgramLevels.get(domain);

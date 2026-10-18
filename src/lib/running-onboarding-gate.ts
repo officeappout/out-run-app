@@ -1,6 +1,7 @@
 import { hasAnsweredPersona } from './persona-declaration';
 import { isRunningScheduleUserConfirmed } from './running-schedule-source';
-import { hasRunningTrack } from './track-ownership';
+import { hasRunningTrack, hasStrengthTrack } from './track-ownership';
+import { countStrengthTemplateDays, type ResolveSlug } from '@/features/schedule/engine/strengthVocabulary';
 
 type GateProfile = {
   running?: { isUnlocked?: unknown; scheduleDaysSource?: unknown };
@@ -47,4 +48,69 @@ export function resolveCardHasScheduleAndPersona(
   return hasRunningTrack(profile)
     ? hasAnsweredPersona(profile) && isRunningScheduleUserConfirmed(profile)
     : hasSchedule && hasAnsweredPersona(profile);
+}
+
+// ── Second track → the schedule-builder drawer, not the wizard ─────────────
+// Owner decision 01.09.2026 (+ schedule-builder-drawer-spec.md ת6): the FIRST
+// registration (one track) keeps the blurred card + LifestyleWizard exactly as
+// today. A user who ADDS a second track (a strength user who adds running, or a
+// runner who adds strength) is sent to ScheduleBuilderDrawer instead, and is never
+// asked the persona question again ("מה שכבר עניתי עליו פעם אחת — לא שואלים אותי שוב").
+//
+// The signal is the one the spec itself names (ת6: "two domains via two separate
+// events"; "there is no state of picking two tracks in one registration"): the user
+// owns BOTH tracks (track-ownership.ts's hasStrengthTrack + hasRunningTrack — the same
+// predicates resolveTabLocks / the weaver gate on) AND already answered persona. No new
+// field, no stored isHybrid (the spec forbids one) — the decision is computed.
+//
+// "Done arranging" for a second-track user = both halves are real choices:
+//   running  — isRunningScheduleUserConfirmed (running.scheduleDaysSource === 'user-chosen')
+//   strength — the recurring template carries at least one strength id
+//              (countStrengthTemplateDays, the one strength vocabulary). A runner who
+//              added strength never went through ScheduleStep, so their template only
+//              holds running ids until the drawer saves.
+
+export type ScheduleCardCtaTarget = 'wizard' | 'drawer';
+
+export interface ScheduleCardDecision {
+  /** The value for SmartWeeklySchedule's hasSchedule prop (false = blurred card + CTA). */
+  hasScheduleAndPersona: boolean;
+  /** Where the card's CTA (and the ?openWizard=true deep link) leads. */
+  ctaTarget: ScheduleCardCtaTarget;
+}
+
+type SecondTrackProfile = GateProfile & {
+  progression?: {
+    domains?: Record<string, { currentLevel?: number; level?: number } | null | undefined>;
+    tracks?: Record<string, { currentLevel?: number; level?: number } | null | undefined>;
+  };
+  lifestyle?: { recurringTemplate?: Partial<Record<string, string[] | undefined>> | null } | null;
+};
+
+/** Owns both tracks and already answered persona — the second-track case. */
+export function isSecondTrackUser(profile: SecondTrackProfile | null | undefined): boolean {
+  return hasAnsweredPersona(profile) && hasStrengthTrack(profile) && hasRunningTrack(profile);
+}
+
+/**
+ * @param opts.gateEnabled        RUNNING_ONBOARDING_GATE_ENABLED (resolved, incl. its localStorage override)
+ * @param opts.secondTrackDrawer  SCHEDULE_BUILDER_SAVE_V1 && SCHEDULE_BUILDER_DRAWER_ENABLED (resolved)
+ *
+ * Either flag off → byte-identical to resolveCardHasScheduleAndPersona + the wizard.
+ */
+export function resolveScheduleCardDecision(
+  profile: SecondTrackProfile | null | undefined,
+  hasSchedule: boolean,
+  opts: { gateEnabled: boolean; secondTrackDrawer: boolean; resolveSlug?: ResolveSlug },
+): ScheduleCardDecision {
+  const legacy: ScheduleCardDecision = {
+    hasScheduleAndPersona: resolveCardHasScheduleAndPersona(profile, hasSchedule, opts.gateEnabled),
+    ctaTarget: 'wizard',
+  };
+  if (!opts.gateEnabled || !opts.secondTrackDrawer || !isSecondTrackUser(profile)) return legacy;
+  const strengthArranged = (countStrengthTemplateDays(profile?.lifestyle?.recurringTemplate, opts.resolveSlug) ?? 0) > 0;
+  return {
+    hasScheduleAndPersona: strengthArranged && isRunningScheduleUserConfirmed(profile),
+    ctaTarget: 'drawer',
+  };
 }

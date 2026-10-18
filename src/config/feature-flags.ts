@@ -1691,7 +1691,7 @@ export function shouldProcessCoinRewards(): boolean {
 // rep-provenance fields are NOT behind this flag (they add no UI).
 export const POST_WORKOUT_SURVEY_V1 = false;
 
-// ── Schedule advisor, phase A (18.10.2026) — launch gates, all default OFF ──
+// ── Schedule advisor, phase A (18.10.2026) — three launch gates, all default OFF ──
 //
 // RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 — "back 1 week" (rollBackOneWeek,
 // workout-completion.service.ts) rewrites the current running week from the previous
@@ -1699,4 +1699,32 @@ export const POST_WORKOUT_SURVEY_V1 = false;
 // week loses category / workoutName / slotType / isQualityWorkout / priority, so the
 // next-run card and the schedule rules read it as unknown). True = the pure
 // buildRolledBackSchedule (running-alignment.ts) keeps those fields.
-export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = false;
+export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = true;
+
+// SCHEDULE_BUILDER_SAVE_V1 — the schedule-builder drawer's "approve" button. While false
+// the drawer stays preview-only (button disabled, nothing written — today's behaviour).
+// True = the approve button opens "רק השבוע / מכאן והלאה" and writes through the existing
+// writers only (scheduleBuilderSave.ts): lifestyle.recurringTemplate via mergeDayItems +
+// lifestyle.scheduleDays, running days via completeRunningScheduleFirstChoice (which
+// rebuilds the plan with mergePreservedHistory), and the drawer's own controls to
+// lifestyle.scheduleAdvisorPrefs. "Only this week" writes userSchedule day overrides.
+// localStorage override for testing on one device: localStorage['OUT_SCHEDULE_SAVE'] = '1' | '0'
+// (helper isScheduleBuilderSaveEnabled lives in the consumer, scheduleBuilderSave.ts).
+// Also gates the SECOND-TRACK route (with RUNNING_ONBOARDING_GATE_ENABLED and
+// SCHEDULE_BUILDER_DRAWER_ENABLED): a user who owns strength AND running and already answered
+// persona gets the drawer from the home card's CTA instead of LifestyleWizard (never re-asked
+// persona); approving there saves "from now on", confirms the running days ('user-chosen') with
+// a time picker, and a runner who added strength is proposed the WHO-minimum strength days.
+// resolveScheduleCardDecision (src/lib/running-onboarding-gate.ts). First registration unchanged.
+export const SCHEDULE_BUILDER_SAVE_V1 = true;
+
+// SCHEDULE_ADVISOR_BUDGET_V1 — the strength generator's weekly-budget divisor (how many
+// days the weekly set budget is spread over: home-workout.service.ts's scheduleDays,
+// SplitDecisionService's getWorkoutContext). While false it stays
+// lifestyle.scheduleDays.length (a strength∪running union with different empty-defaults,
+// 3 vs 2) — today's numbers. True = the STRENGTH day count from the recurring template
+// (resolveStrengthBudgetDays, schedule/advisor/budget-divisor.ts), so a hybrid 3+3 user's
+// strength budget is split over 3 days, not 6. Overrides for testing:
+// localStorage['OUT_SCHEDULE_ADVISOR_BUDGET'] = '1' | '0' (one device), and the offline
+// bench's env OUT_SCHEDULE_ADVISOR_BUDGET_V1=1 (node only).
+export const SCHEDULE_ADVISOR_BUDGET_V1 = true;

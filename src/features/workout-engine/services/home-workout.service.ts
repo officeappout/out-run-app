@@ -93,6 +93,7 @@ import {
 } from './user-profile.utils';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
+import { resolveStrengthBudgetDays } from '@/features/schedule/advisor/budget-divisor';
 import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED, WORKOUT_COACH_NOTE_V1 } from '@/config/feature-flags';
 import { buildDecisionRecord, computeWeeklyGap, pickSkillFocus, type DecisionContext } from './decision-record';
 import { DOMAIN_NAME_HE } from './coach-note';
@@ -2324,7 +2325,9 @@ async function _buildSharedPipeline(
   ]);
 
   // ── 2c. Split Decision Engine ────────────────────────────────────────
-  const scheduleDays = (userProfile.lifestyle?.scheduleDays?.length ?? 0) || 3;
+  // Budget divisor: lifestyle.scheduleDays.length (strength∪running union, empty → 3) —
+  // or, with SCHEDULE_ADVISOR_BUDGET_V1, the strength-day count (budget-divisor.ts, bug #9).
+  const scheduleDays = resolveStrengthBudgetDays(userProfile, 3, { resolveSlug: resolveToSlug });
 
   // Full-body master: the static push/pull/legs/core quartet.
   const isFullBodyMaster =
