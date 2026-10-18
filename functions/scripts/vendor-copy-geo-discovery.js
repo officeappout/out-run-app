@@ -247,10 +247,13 @@ if (missingPackages.size > 0) {
 // root `tsc` (which type-checks functions/src too, with no build step) resolves
 // them. Refreshed on every functions build, so a deploy always ships the
 // current app source; a root vitest asserts the committed copy is identical
-// (src/features/activity/lib/__tests__/step-goal.test.ts), so drift can't merge.
+// (src/features/activity/lib/__tests__/step-goal.test.ts,
+// src/features/notifications/push-library/__tests__/push-library.core.test.ts), so drift can't merge.
 const COMMITTED_MIRRORS = {
   // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.
   'src/features/activity/lib/step-goal.ts': 'functions/src/shared/step-goal.ts',
+  // The push library core — catalog, write rules, selection. Panel + push-copy.service.
+  'src/features/notifications/push-library/push-library.core.ts': 'functions/src/shared/push-library.core.ts',
 };
 for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');

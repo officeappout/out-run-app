@@ -23,6 +23,13 @@ vi.mock('firebase-functions', () => ({
 vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_o: unknown, fn: unknown) => fn }));
 
 import { ONBOARDING_DROPOFF_DEEP_LINK } from '../onboardingDropoffDispatcher';
+import {
+  PUSH_CATALOG,
+  PUSH_DEEP_LINK_ROUTES,
+  SAMPLE_LINK_PARAMS,
+  buildDeepLink,
+  selectPushCopy,
+} from '../shared/push-library.core';
 
 const FUNCTIONS_SRC = path.resolve(__dirname, '..');
 const APP_DIR = path.resolve(FUNCTIONS_SRC, '../../src/app');
@@ -78,11 +85,69 @@ describe('every push sender in functions/src', () => {
   }
 
   it('finds the senders (sanity check on the scan itself)', () => {
-    expect(links.length).toBeGreaterThan(5);
+    // Since the push library (10.2026) most senders take their deep link from
+    // the library (covered below), so fewer literals remain to scan.
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.some((l) => l.link === '/gateway')).toBe(true);
   });
 
   it('deep-links only to routes that exist under src/app', () => {
     const broken = links.filter(({ link }) => !routeExists(link));
     expect(broken).toEqual([]);
+  });
+});
+
+describe('push library deep links (shared/push-library.core.ts)', () => {
+  it('every path of every route in the list exists under src/app', () => {
+    const broken = PUSH_DEEP_LINK_ROUTES.flatMap((r) =>
+      r.paths.map((p) => p.replace(/\{\w+\}/g, 'x')).filter((p) => !routeExists(p)).map((p) => `${r.id}: ${p}`),
+    );
+    expect(broken).toEqual([]);
+  });
+
+  it("every pushType's allowed links resolve to a real route, with and without params", () => {
+    const broken: string[] = [];
+    for (const entry of PUSH_CATALOG) {
+      expect(entry.deepLinks.length).toBeGreaterThan(0);
+      for (const id of entry.deepLinks) {
+        for (const params of [SAMPLE_LINK_PARAMS, {}]) {
+          const link = buildDeepLink(id, params);
+          if (!link || !routeExists(link)) broken.push(`${entry.pushType} → ${id} → ${link}`);
+        }
+      }
+    }
+    expect(broken).toEqual([]);
+  });
+
+  it('the drop-off library default is the onboarding resume entry', () => {
+    const copy = selectPushCopy('onboarding_dropoff', [], { uid: 'u1', vars: { '@שם': 'דנה' } });
+    expect(copy?.deepLink).toBe(ONBOARDING_DROPOFF_DEEP_LINK);
+  });
+
+  it('each push leads to the right place by default (spec: "כל פוש מוביל למקום הנכון")', () => {
+    const link = (pushType: string, ctx: Parameters<typeof selectPushCopy>[2]) =>
+      selectPushCopy(pushType, [], ctx)?.deepLink;
+    const all = {
+      '@שם': 'דנה', '@אימון': 'אימון כוח', '@שעה': '18:30', '@ימים': '9', '@רמה': '5',
+      '@שולח': 'נועה', '@כמות': '3', '@עוד': '2', '@קבוצה': 'רצים', '@מצטרף': 'יואב',
+      '@מקום': 'גן הבנים', '@צעדים_שנותרו': '2,000', '@דקות': '18', '@מרחק': '1.5 ק"מ',
+    } as const;
+    expect(link('workout_reminder_day', { uid: 'u', vars: all })).toBe('/home');
+    expect(link('workout_reminder_before', { uid: 'u', vars: all })).toBe('/home');
+    expect(link('workout_reminder_slot', { uid: 'u', vars: all })).toBe('/home');
+    expect(link('retention_lapse', { uid: 'u', vars: all })).toBe('/home');
+    expect(link('level_up', { uid: 'u', vars: all, conditions: { level: '5' }, params: { programId: 'program123' } }))
+      .toBe('/progression-map/program123');
+    expect(link('level_up', { uid: 'u', vars: all, conditions: { level: '5' } })).toBe('/progression');
+    expect(link('kudos_single', { uid: 'u', vars: all })).toBe('/home');
+    expect(link('kudos_bundle', { uid: 'u', vars: all, conditions: { others: 'many' } })).toBe('/home');
+    expect(link('contribution_approved', { uid: 'u', vars: all, params: { parkId: 'p1' } })).toBe('/map?openPark=p1');
+    expect(link('group_join_admin', { uid: 'u', vars: all, params: { groupId: 'g1' } })).toBe('/community/g1');
+    expect(link('group_join_welcome', { uid: 'u', vars: all, params: { groupId: 'g1' } })).toBe('/community/g1');
+    expect(link('step_goal', { uid: 'u', vars: all, conditions: { bucket: 'mid' }, params: { targetSteps: 2000 } }))
+      .toBe('/map?openRun=walking&targetSteps=2000');
+    expect(link('partner_plan', { uid: 'u', vars: all, conditions: { activity: 'running' }, params: { routeId: 'r1' } }))
+      .toBe('/map?openRoute=r1');
+    expect(link('week_start', { uid: 'u', vars: all })).toBe('/home');
   });
 });

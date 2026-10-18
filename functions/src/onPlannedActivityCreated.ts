@@ -44,6 +44,12 @@
  * one of parkId/routeId) falls back to plain '/map'. Flagged here,
  * not silently left as if it were fully wired.
  *
+ * COPY: the push library (push-copy.service.ts, pushType 'partner_plan',
+ * condition activity = running|walking|strength), per recipient: their
+ * audience, the creator's first name (@שולח), the place (@מקום) and the
+ * session's start time (@שעה, Israel time). Original content-library rows
+ * (triggerType 'Future_Partner_Plan') are still read, adapted.
+ *
  * FLAG: app_config/feature_flags.socialActivityNearbyPushEnabled, same
  * doc/pattern as stepGoalNudgeScheduler.ts's socialActivityNearbyPushEnabled-
  * style master flag. Default false/absent — this function is a no-op until
@@ -55,8 +61,14 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { geohashQueryBounds, distanceBetween } from 'geofire-common';
 import { sendPush } from './services/push.service';
-import { selectNotificationContent, personaliseNotificationText } from './services/notification-content.service';
 import { resolveCanonicalPersona, type PersonaResolvableProfile } from './services/persona-alias-map.service';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+} from './services/push-copy.service';
+import { israelHHMM, type PushCopyContext } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -79,6 +91,7 @@ const RATE_CAP_HOURS = 2;
 
 interface PlannedSessionDoc {
   userId?: string;
+  startTime?: { toDate?: () => Date } | Date | null;
   displayName?: string;
   parkId?: string;
   parkName?: string;
@@ -99,6 +112,33 @@ interface PlannedSessionDoc {
 // bucket — omitted (undefined) rather than guessed, since selecting without
 // an activityType filter is a safe, valid fallback (matches any/untagged
 // copy) whereas guessing a bucket is not.
+function sessionStartHHMM(startTime: PlannedSessionDoc['startTime']): string | undefined {
+  if (!startTime) return undefined;
+  const d = startTime instanceof Date ? startTime : typeof startTime.toDate === 'function' ? startTime.toDate() : null;
+  return d && Number.isFinite(d.getTime()) ? israelHHMM(d) : undefined;
+}
+
+/** Push-library context for one recipient of one session. Exported for tests. */
+export function partnerPlanCopyContext(
+  uid: string,
+  recipientData: Record<string, unknown>,
+  session: PlannedSessionDoc,
+): PushCopyContext {
+  const creatorFirst = (session.displayName ?? '').trim().split(/\s+/)[0] ?? '';
+  return {
+    uid,
+    audience: audienceFromUserData(recipientData),
+    vars: {
+      '@שם': firstNameFromUserData(recipientData),
+      '@שולח': creatorFirst,
+      '@מקום': (session.parkName ?? session.routeName ?? '').trim(),
+      '@שעה': sessionStartHHMM(session.startTime),
+    },
+    conditions: { activity: toLibraryActivityType(session.activityType) },
+    params: { parkId: session.parkId, routeId: session.routeId },
+  };
+}
+
 function toLibraryActivityType(activityType: string | undefined): string | undefined {
   if (activityType === 'workout') return 'strength';
   if (activityType === 'running' || activityType === 'walking') return activityType;
@@ -234,11 +274,6 @@ export const onPlannedActivityCreated = onDocumentCreated(
     }
 
     const libraryActivityType = toLibraryActivityType(session.activityType);
-    const deepLink = session.parkId
-      ? `/map?openPark=${encodeURIComponent(session.parkId)}`
-      : session.routeId
-      ? `/map?openRoute=${encodeURIComponent(session.routeId)}`
-      : '/map';
     const baseData: Record<string, string> = {
       triggerType: TRIGGER_TYPE,
       sessionId,
@@ -261,40 +296,31 @@ export const onPlannedActivityCreated = onDocumentCreated(
         const userData = userSnap.data() as Record<string, unknown>;
 
         const persona = resolveCanonicalPersona(userData as PersonaResolvableProfile);
-        const selected = await selectNotificationContent({
-          triggerType: TRIGGER_TYPE,
-          persona,
-          activityType: libraryActivityType,
-          uid,
-        });
+        const copy = await resolvePushCopy('partner_plan', partnerPlanCopyContext(uid, userData, session));
 
-        if (!selected) {
+        if (!copy) {
           noContent++;
           continue;
         }
 
-        const recipientName =
-          (userData?.core as Record<string, unknown> | undefined)?.name;
-        const body = personaliseNotificationText(selected.text, {
-          name: typeof recipientName === 'string' ? recipientName : undefined,
-          creatorName: session.displayName,
-          placeName: session.parkName ?? session.routeName,
-        });
-
+        // Deep link default 'map_place': /map?openPark=<id> or
+        // /map?openRoute=<id> (MapShell's openParkId/openRouteId effects),
+        // plain /map when the session has neither.
         const result = await sendPush({
           toUids: [uid],
           channel: CHANNEL,
-          title: 'מישהו מתאמן לידך',
-          body,
-          deepLink,
-          data: { ...baseData, messageDocId: selected.docId },
+          title: copy.title,
+          body: copy.body,
+          deepLink: copy.deepLink,
+          data: { ...baseData, messageDocId: copy.rowId, ...pushCopyData(copy) },
           rateCapHours: RATE_CAP_HOURS,
           measurement: {
-            variantId: selected.bundleId,
+            variantId: copy.rowId,
             category: TRIGGER_TYPE,
             persona,
             activityType: libraryActivityType,
-            framing: selected.psychologicalTrigger,
+            pushType: copy.pushType,
+            copyRowId: copy.rowId,
           },
         });
 

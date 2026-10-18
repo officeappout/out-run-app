@@ -39,7 +39,9 @@ export type WorkoutContextSource =
   | 'non-park'
   | 'equipped-park'
   | 'no-equipped-park-home'
-  | 'gps-timeout-home';
+  | 'gps-timeout-home'
+  /** Rain flagged at the user's cell (weather_enabled) → an INFERRED park workout goes home. */
+  | 'weather-rain-home';
 
 export interface ResolvedWorkoutContext {
   location: ExecutionLocation;
@@ -58,6 +60,12 @@ export interface ResolveWorkoutContextOptions {
    * Default true (inferred flow).
    */
   allowHomeOverride?: boolean;
+  /**
+   * Weather flag at the user's cell (useWeather, behind the `weather_enabled` flag). 'rain' sends
+   * an inferred park/street workout home before any GPS/park lookup. Ignored when
+   * allowHomeOverride is false — an explicit location choice is never overridden.
+   */
+  weatherFlag?: 'rain' | 'heat' | 'cold' | 'uv' | null;
 }
 
 /** Snapshot → else race a courtesy permission request against a short timeout. */
@@ -81,6 +89,12 @@ export async function resolveWorkoutContext(
   options: ResolveWorkoutContextOptions = {},
 ): Promise<ResolvedWorkoutContext> {
   const isPark = requestedLocation === 'park' || requestedLocation === 'street';
+
+  // Rain → home, inferred flow only. Runs before the legacy/context-aware split so it
+  // behaves the same either way, and skips the GPS wait entirely (nothing to resolve).
+  if (isPark && options.weatherFlag === 'rain' && (options.allowHomeOverride ?? true)) {
+    return { location: 'home', availableGear: [], source: 'weather-rain-home' };
+  }
 
   // Flag OFF → legacy: keep the requested location; park gear only if the caller
   // supplied a fix (mirrors the old StatsOverview behaviour exactly).

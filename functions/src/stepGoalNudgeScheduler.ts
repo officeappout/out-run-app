@@ -15,14 +15,16 @@
  * ELIGIBILITY (normal mode)
  * ═══════════════════════════════════════════════════════════════════════
  *   1. `onboardingStatus === 'COMPLETED'`
- *   2. A matching message exists in the content library for the user's
- *      resolved persona + the bucket they're actually in right now
- *      (triggerType='Daily_Goal', activityType='walking', dailyGoalBucket=
- *      computed from `dailyActivity/{uid}_{today}.steps` / the user's ONE
- *      step goal — see `computeDailyGoalBucket` and lib/resolveUserStepGoal)
- *      — if none, the user is silently skipped, not an error. Wave 1 only
- *      seeds start/mid/close copy, so hit/over-bucket users are skipped in
- *      practice today (no celebration content yet), not specially excluded.
+ *   2. Copy exists in the push library (push-copy.service.ts, pushType
+ *      'step_goal') for the bucket the user is actually in right now
+ *      (condition bucket = computed from `dailyActivity/{uid}_{today}.steps`
+ *      / the user's ONE step goal — see `computeDailyGoalBucket` and
+ *      lib/resolveUserStepGoal), library rows first, then the code
+ *      defaults — if none, the user is silently skipped, not an error. Only
+ *      start/mid/close copy exists, so hit/over-bucket users are skipped in
+ *      practice today (no celebration copy yet), not specially excluded.
+ *      Original content-library rows (triggerType 'Daily_Goal') are still
+ *      read, adapted by push-copy.service.ts.
  *      The goal comes from the same resolver the app's home ring and streak
  *      use (src/features/activity/lib/step-goal.ts, vendored): the user's
  *      manual choice, else the weekly adaptive goal (base 8000) — so the
@@ -78,11 +80,14 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { resolveCanonicalPersona } from './services/notification-content.service';
 import {
-  selectNotificationContent,
-  personaliseNotificationText,
-  resolveCanonicalPersona,
-} from './services/notification-content.service';
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+} from './services/push-copy.service';
+import type { PushAudience, PushCopyContext } from './shared/push-library.core';
 import { DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
 import type { PersonaResolvableProfile } from './services/persona-alias-map.service';
 import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
@@ -103,7 +108,6 @@ const BATCH_LIMIT = (() => {
 
 const TRIGGER_TYPE = 'Daily_Goal';
 const ACTIVITY_TYPE = 'walking';
-const PUSH_TITLE = '💪 יעד הצעדים היומי';
 const TOKEN_FETCH_BATCH = 100;
 
 /** Mirrors route-request.utils.ts's stepsToTargetKm() — src/ code, not
@@ -175,9 +179,11 @@ function todayDateStringIsrael(): string {
   return `${y}-${m}-${d}`;
 }
 
-interface CandidateUser {
+export interface CandidateUser {
   uid: string;
+  /** First name ('' when unknown). */
   name: string;
+  audience: PushAudience;
   personaProfile: PersonaResolvableProfile;
   /** Raw users/{uid}.progression — resolved to `dailyStepGoal` by withResolvedGoals(). */
   progression: Record<string, unknown>;
@@ -192,11 +198,11 @@ interface CandidateUser {
  * todaySteps is NOT set here (this fires before the steps fetch) — callers
  * must merge it in via fetchTodaySteps() before dispatching. */
 function toCandidateUser(uid: string, data: Record<string, unknown>): CandidateUser {
-  const core = (data.core ?? {}) as Record<string, unknown>;
   const progression = (data.progression ?? {}) as Record<string, unknown>;
   return {
     uid,
-    name: typeof core.name === 'string' ? core.name : '',
+    name: firstNameFromUserData(data),
+    audience: audienceFromUserData(data),
     personaProfile: {
       personas: Array.isArray(data.personas) ? (data.personas as { id?: string | null }[]) : null,
       lifestyle: (data.lifestyle ?? null) as PersonaResolvableProfile['lifestyle'],
@@ -236,6 +242,32 @@ async function withResolvedGoals(users: CandidateUser[], dateStr: string): Promi
   return out;
 }
 
+/** @מרחק — same formatting the client-side tag used (meters under 1 km). */
+function formatDistance(meters: number): string {
+  return meters < 1000 ? `${meters} מטר` : `${(meters / 1000).toFixed(1)} ק"מ`;
+}
+
+/** Push-library context for one user at one bucket. Exported for tests. */
+export function stepGoalCopyContext(user: CandidateUser, bucket: string): PushCopyContext {
+  const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
+  return {
+    uid: user.uid,
+    audience: user.audience,
+    conditions: { bucket },
+    vars: {
+      '@שם': user.name,
+      '@צעדים_שנותרו': stepsLeft.toLocaleString('he-IL'),
+      '@דקות': String(stepsToWalkMinutes(stepsLeft)),
+      '@מרחק': formatDistance(stepsToDistanceMeters(stepsLeft)),
+      // "0 ימים ברצף" / "1 ימים ברצף" read wrong — streak copy only from 2.
+      '@רצף': user.currentStreak >= 2 ? String(user.currentStreak) : undefined,
+    },
+    // Carries the gap so the map side (behind IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED,
+    // src/config/feature-flags.ts) can pre-build a route sized to it.
+    params: { targetSteps: stepsLeft },
+  };
+}
+
 async function dispatchToUser(
   user: CandidateUser,
 ): Promise<{ sent: boolean; reason?: string; bucket: string; morningOnly?: boolean }> {
@@ -244,57 +276,34 @@ async function dispatchToUser(
   if (isMorningOnlyBucketAtThisHour(bucket, hourIsrael())) {
     return { sent: false, bucket, reason: 'morning-only bucket at an afternoon/evening run', morningOnly: true };
   }
-  const selected = await selectNotificationContent({
-    triggerType: TRIGGER_TYPE,
-    activityType: ACTIVITY_TYPE,
-    dailyGoalBucket: bucket,
-    persona,
-    uid: user.uid,
-  });
+  const copy = await resolvePushCopy('step_goal', stepGoalCopyContext(user, bucket));
 
-  if (!selected) {
+  if (!copy) {
     return { sent: false, bucket, reason: `no content for persona=${persona} bucket=${bucket}` };
   }
-
-  const stepsLeft = Math.max(0, user.dailyStepGoal - user.todaySteps);
-  const distanceMeters = stepsToDistanceMeters(stepsLeft);
-  const walkMinutes = stepsToWalkMinutes(stepsLeft);
-  const body = personaliseNotificationText(selected.text, {
-    name: user.name,
-    stepsLeft,
-    distanceMeters,
-    walkMinutes,
-    streakDays: user.currentStreak,
-    steps_left: String(stepsLeft), // legacy {steps_left} form, kept for any older seeded copy
-  });
-
-  // Carries the gap so the map side (behind IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED,
-  // src/config/feature-flags.ts) can pre-build a route sized to it instead of
-  // landing on the empty config drawer. Raw gap only for this test — no
-  // time-of-day chunking yet, that's a later design decision.
-  const deepLink = `/map?openRun=walking&targetSteps=${stepsLeft}`;
 
   const result = await sendPush({
     toUids: [user.uid],
     channel: 'health_milestone',
-    title: PUSH_TITLE,
-    body,
-    deepLink,
-    data: { triggerType: 'DailyGoal', bundleId: selected.bundleId },
+    title: copy.title,
+    body: copy.body,
+    deepLink: copy.deepLink,
+    data: { triggerType: 'DailyGoal', bundleId: copy.rowId, ...pushCopyData(copy) },
     rateCapHours: 24,
     measurement: {
-      variantId: selected.bundleId,
+      variantId: copy.rowId,
       category: TRIGGER_TYPE,
       persona,
       activityType: ACTIVITY_TYPE,
-      framing: selected.psychologicalTrigger,
       timeOfDay: timeOfDayIsrael(),
       outcomeWindowHours: DEFAULT_OUTCOME_WINDOW_HOURS,
+      pushType: copy.pushType,
+      copyRowId: copy.rowId,
     },
   });
 
   logger.info(
-    `[stepGoalNudge] uid=${user.uid} persona=${persona} bucket=${bucket} bundleId=${selected.bundleId} ` +
+    `[stepGoalNudge] uid=${user.uid} persona=${persona} bucket=${bucket} row=${copy.rowId} ` +
       `pushId=${result.pushId ?? '(none)'} delivered=${result.delivered} failed=${result.failed} ` +
       `skippedGlobalKill=${result.skippedGlobalKill} skippedPrefs=${result.skippedPrefs} ` +
       `skippedRateCap=${result.skippedRateCap}`,

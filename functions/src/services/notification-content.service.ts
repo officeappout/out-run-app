@@ -7,6 +7,11 @@
  * (`src/app/admin/workout-settings/page.tsx`). This module does not create
  * a parallel store; it's a read-only query layer on top of the existing one.
  *
+ * SUPERSEDED for sending (10.2026): every push sender now goes through
+ * push-copy.service.ts (the push library — same collection, extended rows).
+ * This selector remains only for the admin simulator's
+ * previewNotificationContent callable, and skips archived/inactive rows.
+ *
  * Built GENERICALLY (any triggerType / bundleIdPrefix / persona combination),
  * but its FIRST live caller is `stepGoalNudgeScheduler.ts` only — the 3
  * existing hardcoded schedulers (retentionScheduler, onboardingDropoffDispatcher,
@@ -58,6 +63,8 @@ interface NotificationLibraryDoc {
   dailyGoalBucket?: string;
   activityType?: string;
   psychologicalTrigger?: string;
+  /** Push library (push-copy.service.ts): archived / switched-off rows are never selected. */
+  live: boolean;
 }
 
 let contentCache: { docs: NotificationLibraryDoc[]; fetchedAt: number } | null = null;
@@ -84,6 +91,7 @@ async function getAllNotifications(): Promise<NotificationLibraryDoc[]> {
       dailyGoalBucket: typeof data.dailyGoalBucket === 'string' ? data.dailyGoalBucket : undefined,
       activityType: typeof data.activityType === 'string' ? data.activityType : undefined,
       psychologicalTrigger: typeof data.psychologicalTrigger === 'string' ? data.psychologicalTrigger : undefined,
+      live: data.archived !== true && data.active !== false,
     };
   });
   contentCache = { docs, fetchedAt: now };
@@ -159,6 +167,7 @@ export async function selectNotificationContent(
   const all = await getAllNotifications();
 
   const candidates = all.filter((doc) => {
+    if (!doc.live) return false;
     if (doc.triggerType !== opts.triggerType) return false;
     if (opts.bundleIdPrefix && !(doc.bundleId ?? '').startsWith(opts.bundleIdPrefix)) return false;
     if (opts.dailyGoalBucket && doc.dailyGoalBucket !== opts.dailyGoalBucket) return false;

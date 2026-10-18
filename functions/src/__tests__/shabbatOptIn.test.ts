@@ -78,13 +78,22 @@ vi.mock('firebase-functions', () => ({
 vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_o: unknown, fn: unknown) => fn }));
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: (_o: unknown, fn: unknown) => fn }));
 vi.mock('../services/push.service', () => ({ sendPush: sendPushMock, isQuietHours: () => false }));
+// Copy comes from the push library; here it's the catalog's code defaults
+// (the library read itself is covered by push-copy.service.test.ts).
+vi.mock('../services/push-copy.service', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../services/push-copy.service')>();
+  const core = await import('../shared/push-library.core');
+  return {
+    ...orig,
+    resolvePushCopy: async (pushType: string, ctx: any) => core.selectPushCopy(pushType, [], ctx),
+  };
+});
 
 import {
   runWeekStart,
   isWeekStartRecipient,
-  buildWeekStartMessage,
-  WEEK_START_VARIANTS,
 } from '../weekStartScheduler';
+import { PUSH_CATALOG_BY_TYPE } from '../shared/push-library.core';
 import { collectTokens } from '../sendPushFromQueue';
 import { toRetentionCandidate } from '../retentionScheduler';
 
@@ -154,13 +163,20 @@ describe('weekStartScheduler', () => {
     expect(new Set(sent).size).toBe(650);
   });
 
-  it('copy: gender-neutral variants, no emoji, same variant for everyone in a run', () => {
-    expect(WEEK_START_VARIANTS.length).toBeGreaterThanOrEqual(2);
-    for (const v of WEEK_START_VARIANTS) {
+  it('copy: library default variants are gender-neutral-safe (no emoji), same row for everyone in a run', async () => {
+    const defaults = PUSH_CATALOG_BY_TYPE.week_start.defaults;
+    expect(defaults.length).toBeGreaterThanOrEqual(2);
+    for (const v of defaults) {
       // Emoji are astral-plane characters → surrogate pairs; Hebrew is BMP.
       expect(`${v.title}${v.body}`).not.toMatch(/[\uD800-\uDFFF\u2600-\u27BF]/);
     }
-    expect(buildWeekStartMessage(MOTZEI)).toEqual(buildWeekStartMessage(MOTZEI));
+    for (let i = 0; i < 650; i++) state.users.set(`obs-${String(i).padStart(4, '0')}`, observer());
+    await runWeekStart(MOTZEI);
+    expect(sendPushMock.mock.calls.length).toBeGreaterThan(1);
+    const copies = new Set(sendPushMock.mock.calls.map((c: any[]) => `${c[0].title}|${c[0].body}|${c[0].data.copyRowId}`));
+    expect(copies.size).toBe(1);
+    const sent = sendPushMock.mock.calls[0][0] as any;
+    expect(defaults.some((d) => d.title === sent.title && d.body === sent.body)).toBe(true);
   });
 });
 

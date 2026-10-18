@@ -45,6 +45,7 @@
  * between surfaces. Keep this builder in sync with buildMapUserContext's shape/defaults.
  */
 
+import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import type { UserContext, GeoLocation, UserContextSurface } from '../types/user-context.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { HYBRID_PRESETS } from '../../hybrid/hybrid-slots';
@@ -140,6 +141,11 @@ export interface BuildHomeUserContextInput {
    * every existing caller that doesn't pass this keeps today's exact stepsRemaining behavior.
    */
   healthConnected?: boolean | null;
+  /**
+   * Weather at the user's cell (useWeather on home, `weather_enabled` flag). Passed straight
+   * through to UserContext.weather. Optional — every caller that doesn't pass it is unchanged.
+   */
+  weather?: WorkoutWeather | null;
 }
 
 export function buildHomeUserContext({
@@ -149,6 +155,7 @@ export function buildHomeUserContext({
   date,
   todayScheduleEntries,
   healthConnected,
+  weather,
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today, healthConnected);
 
@@ -212,5 +219,6 @@ export function buildHomeUserContext({
     transitState: null,
     workdayState: detectWorkdayState(),
     activitySignal: null,
+    ...(weather ? { weather } : {}),
   };
 }

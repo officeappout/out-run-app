@@ -51,10 +51,10 @@
  *  exactly like `sendPushFromQueue` does — same token fan-out, same dead
  *  token pruning, same `MULTICAST_BATCH_SIZE = 500` ceiling.
  *
- *  Notification content rotates across 5 message variants so repeat
- *  visitors see fresh copy (index = hash(uid) % variants.length ensures
- *  the same user always gets the same variant within a run — deterministic
- *  for debugging — but rotates across re-notify windows).
+ *  Notification copy comes from the push library (push-copy.service.ts,
+ *  pushType 'onboarding_dropoff'): the user's first name and audience,
+ *  rotated per user per day, falling back to the code defaults. Both
+ *  delivery paths below send the same resolved copy.
  *
  * ═══════════════════════════════════════════════════════════════════════
  * AUDIT TRAIL
@@ -114,6 +114,13 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, isQuietHours } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+} from './services/push-copy.service';
+import type { PushAudience } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -147,34 +154,6 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 /** Lifetime cap on drop-off pushes per user (criterion 6 in the header). */
 export const MAX_DROPOFF_NOTIFICATIONS = 2;
 
-// ─── Message variants ─────────────────────────────────────────────────────────
-// Personalised Hebrew copy. `{name}` is replaced at dispatch time.
-// The array index is selected deterministically from the user's uid so
-// the same user always sees the same variant within a cron window, making
-// it easy to A/B test by deploying two function versions with different arrays.
-const MESSAGE_VARIANTS: Array<{ title: string; body: string }> = [
-  {
-    title: '🏃 {name}, האימון שלך מחכה!',
-    body: 'רק עוד כמה שניות ותסיים את ההרשמה — הגוף שלך מוכן להתחיל.',
-  },
-  {
-    title: '💪 {name}, אנחנו שמרנו לך מקום',
-    body: 'התוכנית האישית שלך מוכנה. פתח את האפליקציה וקבל את האימון הראשון.',
-  },
-  {
-    title: '🔥 {name}, לא ויתרנו עליך',
-    body: 'עצרת באמצע — נמשיך מאיפה שעצרת, בדיוק בשבילך.',
-  },
-  {
-    title: '⚡ {name}, שלב אחד לפני הגמר',
-    body: 'ההרשמה שלך כמעט מוכנה. לחץ כדי להשלים ולקבל את תוכנית האימון שלך.',
-  },
-  {
-    title: '🎯 {name}, מישהו כבר מחכה לך',
-    body: 'אחרים ברשותך כבר מתאמנים — בוא להצטרף לליגה שלך.',
-  },
-];
-
 // Deep-link that the native push handler navigates to on tap.
 // /gateway is the app's onboarding resume entry: its onAuthStateChange
 // listener (src/app/gateway/page.tsx) reads onboardingStatus/onboardingStep
@@ -184,14 +163,16 @@ const MESSAGE_VARIANTS: Array<{ title: string; body: string }> = [
 // picker. Was '/onboarding-new/selection' — deleted with the pre-08.2026
 // onboarding chain (e806cb42), so every tap landed on a 404; next.config.mjs
 // now redirects that old path here for pushes already delivered.
+// The push library's only allowed route for 'onboarding_dropoff' is
+// 'gateway' → this same path (pinned in pushDeepLinks.test.ts).
 export const ONBOARDING_DROPOFF_DEEP_LINK = '/gateway';
-const DEEP_LINK = ONBOARDING_DROPOFF_DEEP_LINK;
 
 // ─── Types (local mirrors of user.types.ts — Admin SDK doesn't import FE types) ─
 
 interface StaleUser {
   uid: string;
   name: string;
+  audience: PushAudience;
   authorityId: string | null;
   onboardingStep: string | null;
   tokens: string[];
@@ -237,20 +218,6 @@ export function dropoffCapSkipReason(
     return `notified ${Math.round((nowMs - notifiedMs) / MS_PER_HOUR)}h ago, cooldown=${RE_NOTIFY_HOURS}h`;
   }
   return null;
-}
-
-/** Personalise a message variant for a specific user. */
-function personalise(template: string, name: string): string {
-  return template.replace(/{name}/g, name || 'חבר');
-}
-
-/** Deterministic variant index — same user → same variant within a cron window. */
-function variantIndex(uid: string): number {
-  let hash = 0;
-  for (let i = 0; i < uid.length; i++) {
-    hash = ((hash << 5) - hash + uid.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % MESSAGE_VARIANTS.length;
 }
 
 /**
@@ -433,7 +400,8 @@ export const onboardingDropoffDispatcher = onSchedule(
 
       eligible.push({
         uid,
-        name: String(data?.core?.name ?? ''),
+        name: firstNameFromUserData(data),
+        audience: audienceFromUserData(data),
         authorityId: String(data?.core?.authorityId ?? '') || null,
         onboardingStep: typeof data.onboardingStep === 'string' ? data.onboardingStep : null,
         tokens,
@@ -457,21 +425,27 @@ export const onboardingDropoffDispatcher = onSchedule(
     let totalTokensPruned = 0;
 
     for (const user of eligible) {
-      const idx = variantIndex(user.uid);
-      const variant = MESSAGE_VARIANTS[idx];
-      const title = personalise(variant.title, user.name);
-      const body = personalise(variant.body, user.name);
+      const copy = await resolvePushCopy('onboarding_dropoff', {
+        uid: user.uid,
+        audience: user.audience,
+        vars: { '@שם': user.name },
+      });
+      if (!copy) {
+        logger.warn(`[dropoff] uid=${user.uid} — no push copy fits, skipping`);
+        continue;
+      }
+      const { title, body, deepLink } = copy;
 
       logger.info(
         `[dropoff] Dispatching uid=${user.uid} name="${user.name}" ` +
           `step=${user.onboardingStep ?? 'unknown'} ` +
-          `tokens=${user.tokens.length} variant=${idx}`,
+          `tokens=${user.tokens.length} row=${copy.rowId}`,
       );
 
       if (TEST_MODE) {
         logger.warn(
           `[dropoff] TEST_MODE — would send: title="${title}" body="${body}" ` +
-            `deep_link=${DEEP_LINK} tokens=${user.tokens.join(', ')}`,
+            `deep_link=${deepLink} tokens=${user.tokens.join(', ')}`,
         );
         totalSkipped += 1;
         continue;
@@ -490,11 +464,12 @@ export const onboardingDropoffDispatcher = onSchedule(
           channel: 'onboarding_dropoff',
           title,
           body,
-          deepLink: DEEP_LINK,
+          deepLink,
           data: {
             triggerType: 'Inactivity',
             onboardingStep: user.onboardingStep ?? '',
             ...(user.authorityId ? { authorityId: user.authorityId } : {}),
+            ...pushCopyData(copy),
           },
           rateCapHours: 0,
         });
@@ -515,9 +490,10 @@ export const onboardingDropoffDispatcher = onSchedule(
           data: {
             channel: 'training_reminder',
             triggerType: 'Inactivity',
-            deepLink: DEEP_LINK,
+            deepLink,
             onboardingStep: user.onboardingStep ?? '',
             ...(user.authorityId ? { authorityId: user.authorityId } : {}),
+            ...pushCopyData(copy),
           },
           apns: {
             payload: {

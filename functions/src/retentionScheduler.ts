@@ -53,10 +53,13 @@
  *   RETENTION_MAX_PAGES        — max pages per run (default 10 → 2000 users)
  *   RETENTION_TEST_MODE        — if 'true', logs intent but skips FCM + Firestore writes
  *
- * COPY TEMPLATE
- * ─────────────
- * {days_since} placeholder is interpolated with the actual days-since-last-workout.
- * Messages rotate deterministically by uid to reduce repetition.
+ * COPY
+ * ────
+ * From the push library (push-copy.service.ts, pushType 'retention_lapse'):
+ * the recipient's own first name (@שם) and days since (@ימים), their audience
+ * for targeted rows, rotated per user per day. Copy that needs a value the
+ * user doesn't have (e.g. no name) is skipped for that user, never sent with
+ * a hole in it.
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -64,6 +67,13 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
+import {
+  resolvePushCopy,
+  pushCopyData,
+  audienceFromUserData,
+  firstNameFromUserData,
+} from './services/push-copy.service';
+import type { PushAudience, PushCopyContext } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -94,61 +104,21 @@ const SEND_CONCURRENCY = 10;
 const TEST_MODE = process.env.RETENTION_TEST_MODE === 'true';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// ─── Message variants ─────────────────────────────────────────────────────────
-// {days_since} — interpolated; {name} — interpolated if available.
-
-const VARIANTS: Array<{ title: string; body: string }> = [
-  {
-    title: '💪 {name}, {days_since} ימים בלי אימון',
-    body: 'הגוף שלך מחכה לך. אפילו 15 דקות ישנו את מצב הרוח שלך.',
-  },
-  {
-    title: '🏃 {name}, הרצף שלך מחכה',
-    body: 'עברו {days_since} ימים — לא מאוחר. צא לאימון אחד ותחזור לקצב.',
-  },
-  {
-    title: '🔥 {name}, חזרת לאימון היום?',
-    body: '{days_since} ימים אחרי — הפארק שלך מחכה. 10 דקות שמורות לך.',
-  },
-  {
-    title: '⚡ {days_since} ימים — תפסיק את הנשירה',
-    body: 'משתמשים שחוזרים אחרי הפסקה מגיעים לרמות גבוהות יותר. בוא נחזיר אותך.',
-  },
-];
-
-function variantIndex(uid: string): number {
-  let hash = 0;
-  for (let i = 0; i < uid.length; i++) {
-    hash = ((hash << 5) - hash + uid.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % VARIANTS.length;
-}
-
-function interpolate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
-}
-
 export interface RetentionCandidate {
   uid: string;
+  /** First name ('' when unknown). */
   name: string;
   daysSince: number;
+  audience?: PushAudience;
 }
 
-/**
- * The push for ONE user — their own name (fallback 'חבר', as before) and
- * their own days-since. Exported for tests.
- */
-export function buildRetentionMessage(c: RetentionCandidate): {
-  variant: number;
-  title: string;
-  body: string;
-} {
-  const variant = variantIndex(c.uid);
-  const vars = { name: c.name.trim() || 'חבר', days_since: String(c.daysSince) };
+/** The push-library context for ONE user — their own name and days-since. Exported for tests. */
+export function retentionCopyContext(c: RetentionCandidate, now: Date = new Date()): PushCopyContext {
   return {
-    variant,
-    title: interpolate(VARIANTS[variant].title, vars),
-    body: interpolate(VARIANTS[variant].body, vars),
+    uid: c.uid,
+    now,
+    audience: c.audience ?? {},
+    vars: { '@שם': c.name.trim(), '@ימים': String(c.daysSince) },
   };
 }
 
@@ -178,8 +148,9 @@ export function toRetentionCandidate(
 
   return {
     uid,
-    name: String((data?.core as Record<string, unknown> | undefined)?.name ?? ''),
+    name: firstNameFromUserData(data),
     daysSince,
+    audience: audienceFromUserData(data, new Date(nowMs)),
   };
 }
 
@@ -262,15 +233,16 @@ export const retentionScheduler = onSchedule(
     let totalSkipped = 0;
 
     const sendOne = async (c: RetentionCandidate): Promise<void> => {
-      const { variant, title, body } = buildRetentionMessage(c);
       try {
+        const copy = await resolvePushCopy('retention_lapse', retentionCopyContext(c));
+        if (!copy) return;
         const result = await sendPush({
           toUids: [c.uid],
           channel: 'retention',
-          title,
-          body,
-          deepLink: '/',
-          data: { triggerType: 'Inactivity', daysSince: String(c.daysSince) },
+          title: copy.title,
+          body: copy.body,
+          deepLink: copy.deepLink,
+          data: { triggerType: 'Inactivity', daysSince: String(c.daysSince), ...pushCopyData(copy) },
           rateCapHours: 48,
         });
         totalDelivered += result.delivered;
@@ -278,7 +250,7 @@ export const retentionScheduler = onSchedule(
           result.skippedRateCap + result.skippedPrefs + result.skippedDailyCap +
           result.skippedQuietHours + result.skippedShabbat + result.skippedGlobalKill;
       } catch (err: unknown) {
-        logger.error(`[retention] sendPush failed for uid=${c.uid} variant=${variant}`, err);
+        logger.error(`[retention] sendPush failed for uid=${c.uid}`, err);
       }
     };
 

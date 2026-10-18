@@ -359,6 +359,21 @@ service cloud.firestore {
              == resource.data.get('social', {}).get('groupIds', []);
     }
 
+    // Group F — monetization / entitlement (OUT AI Phase 0, 18.10.2026).
+    // `subscriptionTier` ('base' | 'premium_ai') used to fall through the
+    // owner-may-write-everything-else update rule, so any signed-in user
+    // could set their own tier to 'premium_ai' with one raw client write.
+    // No client code writes it (verified by grep at the time of this fix);
+    // the only authorized writers are admins and the Admin SDK (server
+    // routes / Cloud Functions bypass these rules). The actual AI gate lives
+    // in entitlements/{uid} (below) and is enforced server-side; this lock
+    // keeps the user-doc field from being a self-service upgrade switch for
+    // anything that reads it in the future.
+    function noEntitlementFieldsChanged() {
+      return request.resource.data.get('subscriptionTier', null)
+             == resource.data.get('subscriptionTier', null);
+    }
+
     // Group D — passive sensor fields on `dailyActivity`. Native Phase
     // (Apr 2026): HealthKit / Health Connect samples are written ONLY
     // by the `ingestHealthSamples` Cloud Function (Admin SDK bypasses
@@ -471,6 +486,8 @@ service cloud.firestore {
                     && request.resource.data.get('core', {}).get('role', '') == ''
                     && request.resource.data.get('core', {}).get('managedVertical', '') == ''
                     && request.resource.data.get('core', {}).get('isReadinessChiefOfficer', false) == false
+                    // Group F — no self-assigned subscription tier at creation.
+                    && !('subscriptionTier' in request.resource.data)
                     // Same fix as noTenantFieldsChanged() (Group B, below) —
                     // the create path had NO guard on these fields at all
                     // before this fix, not even an "initial-write allowance".
@@ -479,8 +496,9 @@ service cloud.firestore {
                     && (isAdmin() || request.resource.data.get('core', {}).get('unitId', '') == '')
                     && (isAdmin() || request.resource.data.get('core', {}).get('unitPath', []).size() == 0);
 
-      // UPDATE — owner may write everything EXCEPT the four protected
-      // groups (admin/role, tenant, game-integrity, social-group-ids). The
+      // UPDATE — owner may write everything EXCEPT the protected groups
+      // (admin/role, tenant, game-integrity, social-group-ids, and — since
+      // 18.10.2026 — Group F monetization/entitlement). The
       // Guardian Cloud Function uses the Admin SDK to award XP/coins/calories
       // and bypasses Group C; /api/social/group-membership (Admin SDK) owns
       // Group E. See the helper comments above for authorized write paths.
@@ -489,7 +507,8 @@ service cloud.firestore {
                     && noTenantFieldsChanged()
                     && noGameIntegrityFieldsChanged()
                     && noSocialGroupIdsChanged()
-                    && noLockedCoreFieldsChanged();
+                    && noLockedCoreFieldsChanged()
+                    && noEntitlementFieldsChanged();
 
       // DELETE — owner can delete their own doc.
       allow delete: if isOwner(userId);
@@ -1140,8 +1159,27 @@ service cloud.firestore {
     // APP CONFIG — הגדרות גלובליות (XP multipliers וכו׳)
     // ============================================================
     match /app_config/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      // app_config/ai (OUT AI Phase 0, 18.10.2026) holds the AI cost
+      // controls — dailyBudgetUsd, killSwitch, per-user rate limits. Read
+      // only by the server (Admin SDK) and the panel, so it is NOT public
+      // like the rest of app_config, and only a super/system admin may
+      // change the budget or flip the kill switch.
+      allow read: if docId != 'ai' || isAdmin();
+      allow write: if (docId != 'ai' && isAdmin())
+                   || (docId == 'ai' && isSuperAdminOnly());
+    }
+
+    // ============================================================
+    // ENTITLEMENTS — entitlements/{uid} (OUT AI Phase 0, 18.10.2026)
+    //   { aiCoach: { active, source: 'free_launch'|'paid'|'authority', until? } }
+    // Written by the server (Admin SDK — purchase / authority grant flows)
+    // or a super/system admin from the panel. The owner may READ their own
+    // doc (UI only — every AI route re-checks it server-side) and can never
+    // write it: a client-writable entitlement is a free upgrade.
+    // ============================================================
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isSuperAdminOnly();
     }
 
     // ============================================================

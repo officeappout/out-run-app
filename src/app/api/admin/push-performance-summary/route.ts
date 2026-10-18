@@ -62,6 +62,7 @@ import {
 } from '@/features/admin/services/push-catalog.service';
 import {
   resolveSyntheticVariant,
+  resolveDefaultRowVariant,
   isContentLibraryCategory,
   contentLibraryTitleFor,
 } from '@/features/admin/services/push-copy-resolver.service';
@@ -237,7 +238,7 @@ export async function computePushPerformanceSummary(
   const bundleIdsToResolve = new Set<string>();
   for (const row of measuredRows) {
     if (!row.funnelCategory || !row.variantId) continue;
-    const synthetic = resolveSyntheticVariant(row.funnelCategory, row.variantId);
+    const synthetic = resolveDefaultRowVariant(row.variantId) ?? resolveSyntheticVariant(row.funnelCategory, row.variantId);
     if (synthetic) {
       row.copyTitle = synthetic.title;
       row.copyBody = synthetic.body;
@@ -274,6 +275,40 @@ export async function computePushPerformanceSummary(
         row.copyBody = body;
       }
       // else: left null — fallback to raw variantId on the client, not a crash.
+    }
+  }
+
+  // Pass 3 — push library rows (10.2026): variantId is the library doc id.
+  const docIdsToResolve = Array.from(new Set(
+    measuredRows
+      .filter((r) => r.variantId && r.copyBody === null && !r.variantId.startsWith('default:'))
+      .map((r) => r.variantId as string),
+  ));
+  if (docIdsToResolve.length > 0) {
+    const copyByDocId = new Map<string, { title: string | null; body: string }>();
+    for (let i = 0; i < docIdsToResolve.length; i += 100) {
+      const refs = docIdsToResolve.slice(i, i + 100)
+        .filter((id) => !id.includes('/'))
+        .map((id) => db.collection(NOTIFICATION_LIBRARY_COLLECTION).doc(id));
+      if (refs.length === 0) continue;
+      try {
+        const snaps = await db.getAll(...refs);
+        snaps.forEach((snap) => {
+          if (!snap.exists) return;
+          const data = snap.data() as Record<string, unknown>;
+          const body = typeof data.body === 'string' && data.body ? data.body : typeof data.text === 'string' ? data.text : '';
+          if (body) copyByDocId.set(snap.id, { title: typeof data.title === 'string' ? data.title : null, body });
+        });
+      } catch (err) {
+        console.error('[/api/admin/push-performance-summary] push-library row lookup failed:', err);
+      }
+    }
+    for (const row of measuredRows) {
+      const hit = row.variantId ? copyByDocId.get(row.variantId) : undefined;
+      if (hit && row.copyBody === null) {
+        row.copyTitle = hit.title ?? (row.funnelCategory ? contentLibraryTitleFor(row.funnelCategory) : null);
+        row.copyBody = hit.body;
+      }
     }
   }
 

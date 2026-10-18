@@ -38,6 +38,10 @@ export type DecisionReason =
   | { code: 'WEEKLY_GAP'; domain: string; pct: number }
   | { code: 'SKILL_FOCUS'; skill: string }
   | { code: 'PROGRAM_FOCUS'; program: string; level: number }
+  | { code: 'WEATHER_RAIN' }
+  | { code: 'WEATHER_HEAT' }
+  | { code: 'WEATHER_COLD' }
+  | { code: 'WEATHER_UV' }
   | { code: 'LOCATION'; loc: string; gearSummary: GearSummary }
   | { code: 'TIME'; slot: DayTimeSlot }
   | { code: 'DIFFICULTY'; level: IntensityWord }
@@ -55,6 +59,10 @@ export const REASON_RANK: readonly DecisionReasonCode[] = [
   'WEEKLY_GAP',
   'SKILL_FOCUS',
   'PROGRAM_FOCUS',
+  'WEATHER_RAIN',
+  'WEATHER_HEAT',
+  'WEATHER_COLD',
+  'WEATHER_UV',
   'LOCATION',
   'TIME',
   'DIFFICULTY',
@@ -108,6 +116,12 @@ export interface DecisionContext {
   programFocus?: { program: string; level: number } | null;
   location?: string | null;
   timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'night';
+  /**
+   * Weather flag the generator adapted to (HomeWorkoutOptions.weather, only set
+   * while `weather_enabled` is on). See weather-adaptation.ts for what each flag
+   * changes; the reason is emitted only when that change is true of the workout.
+   */
+  weatherFlag?: 'rain' | 'heat' | 'cold' | 'uv' | null;
   /** No producer yet — reserved for a future muscle-recovery signal. */
   restedMuscles?: string[];
 }
@@ -279,6 +293,21 @@ export function buildDecisionRecord(
   }
 
   const loc = workout.executionLocation ?? ctx.location ?? null;
+
+  // Weather — each code only when its adaptation is true of THIS workout:
+  // rain → a home workout (the resolver sent an inferred park workout home);
+  // heat / uv → shorter + more rest (applied to every option);
+  // cold → longer warm-up.
+  if (ctx.weatherFlag === 'rain' && loc === 'home') {
+    reasons.push({ code: 'WEATHER_RAIN' });
+  } else if (ctx.weatherFlag === 'heat') {
+    reasons.push({ code: 'WEATHER_HEAT' });
+  } else if (ctx.weatherFlag === 'uv') {
+    reasons.push({ code: 'WEATHER_UV' });
+  } else if (ctx.weatherFlag === 'cold') {
+    reasons.push({ code: 'WEATHER_COLD' });
+  }
+
   if (loc && main.length > 0) {
     const usesGear = main.some((e) => collectMethodGear(e.method as never).length > 0);
     reasons.push({ code: 'LOCATION', loc, gearSummary: usesGear ? 'equipment' : 'bodyweight' });

@@ -23,7 +23,7 @@ import {
   HOME_EXCLUSIVE_GEAR_IDS,
 } from './trio-modifiers.service';
 import { collectMethodGear } from '../shared/constants/domain-mapping.constants';
-import { warmupSlotBudget } from '../logic/session-frame.utils';
+import { warmupSlotBudget, WARMUP_SLOT_SECONDS } from '../logic/session-frame.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
 import { CONTEXT_AWARE_SELECTION_ENABLED } from '@/config/feature-flags';
 import { isExerciseSkillEligible } from '../core/middleware/InputSanitizerMiddleware';
@@ -431,6 +431,12 @@ function isPotentiationCandidate(ex: Exercise, userLevel: number): boolean {
   return numLevel >= 1 && numLevel <= zoneMax;
 }
 
+/** Extra warm-up slots for `extraWarmupMinutes` (weather: cold). 0 for 0/undefined/invalid. */
+export function extraWarmupSlots(extraWarmupMinutes: number | undefined): number {
+  if (!extraWarmupMinutes || !Number.isFinite(extraWarmupMinutes) || extraWarmupMinutes <= 0) return 0;
+  return Math.floor((extraWarmupMinutes * 60) / WARMUP_SLOT_SECONDS);
+}
+
 /**
  * Perfect Warmup Recipe:
  *   Part A: EXACTLY 1 general warmup (exerciseRole === 'warmup' OR tags.includes('mobility'))
@@ -477,6 +483,14 @@ export function prependWarmupExercises(
    * it.
    */
   idToSlug?: Map<string, string>,
+  /**
+   * Weather (cold, 18.10.2026): extra warm-up minutes ON TOP of the time-scaled budget —
+   * raises the trim ceiling by floor(extra·60 / WARMUP_SLOT_SECONDS) slots. It only lifts
+   * the ceiling: a ladder that already fits keeps its size (the David Scale ladder itself
+   * is unchanged), so the effect shows on shorter sessions where the trim would bite.
+   * 0/undefined → unchanged.
+   */
+  extraWarmupMinutes?: number,
 ): void {
   if (idToSlug) {
     allExercises = allExercises.filter((ex) => isExerciseSkillEligible(ex, userProgramLevels, idToSlug));
@@ -964,7 +978,7 @@ export function prependWarmupExercises(
   // touches every pattern the workout trains — incl. the Mandatory Legs slot,
   // which is its family's first). Runs AFTER the full build so all safety
   // guarantees above are inputs to the trim, never bypassed by it.
-  const maxSlots = warmupSlotBudget(availableTimeMin);
+  const maxSlots = warmupSlotBudget(availableTimeMin) + extraWarmupSlots(extraWarmupMinutes);
   let finalBlock = warmupBlock;
   if (warmupBlock.length > maxSlots) {
     const familyOf = (we: WorkoutExercise): string =>

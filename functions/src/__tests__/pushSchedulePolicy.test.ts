@@ -25,7 +25,15 @@ vi.mock('firebase-functions', () => ({
 vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: (_o: unknown, fn: unknown) => fn }));
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: (_o: unknown, fn: unknown) => fn }));
 
-import { buildRetentionMessage, toRetentionCandidate } from '../retentionScheduler';
+import { retentionCopyContext, toRetentionCandidate } from '../retentionScheduler';
+import { selectPushCopy } from '../shared/push-library.core';
+
+/** The retention copy a user would get from the code defaults (empty library). */
+function buildRetentionMessage(c: { uid: string; name: string; daysSince: number }) {
+  const copy = selectPushCopy('retention_lapse', [], retentionCopyContext(c, new Date(NOW)));
+  if (!copy) throw new Error('retention copy missing');
+  return copy;
+}
 import { dropoffCapSkipReason, MAX_DROPOFF_NOTIFICATIONS } from '../onboardingDropoffDispatcher';
 import { isDirectPersonMessage } from '../chatMessageNotification';
 import { isMorningOnlyBucketAtThisHour } from '../stepGoalNudgeScheduler';
@@ -33,36 +41,30 @@ import { isMorningOnlyBucketAtThisHour } from '../stepGoalNudgeScheduler';
 const DAY = 86_400_000;
 const NOW = Date.UTC(2027, 0, 13, 10);
 
-describe('retentionScheduler — per-user message', () => {
-  it("uses each user's own name and days, never another user's", () => {
-    // Same uid hash bucket is irrelevant — the name/days come from the user.
-    const a = buildRetentionMessage({ uid: 'u-a', name: 'דנה', daysSince: 9 });
-    const b = buildRetentionMessage({ uid: 'u-b', name: 'יוסי', daysSince: 30 });
-    expect(`${a.title} ${a.body}`).not.toContain('יוסי');
-    expect(`${b.title} ${b.body}`).not.toContain('דנה');
-    expect(`${a.title} ${a.body}`).toContain('9');
-    expect(`${b.title} ${b.body}`).toContain('30');
-  });
-
-  it('puts the name in the title for every variant that has {name}', () => {
-    // Find uids that land on each of the 4 variants, then check.
-    const seen = new Map<number, string>();
-    for (let i = 0; seen.size < 4 && i < 500; i++) {
-      const uid = `uid-${i}`;
-      const v = buildRetentionMessage({ uid, name: 'x', daysSince: 7 }).variant;
-      if (!seen.has(v)) seen.set(v, uid);
-    }
-    expect(seen.size).toBe(4);
-    for (const [variant, uid] of Array.from(seen)) {
-      const { title } = buildRetentionMessage({ uid, name: 'מיכל', daysSince: 7 });
-      if (variant !== 3) expect(title).toContain('מיכל'); // variant 3's title has no {name}
+describe('retentionScheduler — per-user message (push library)', () => {
+  it("uses each user's own name, never another user's", () => {
+    for (let i = 0; i < 40; i++) {
+      const a = buildRetentionMessage({ uid: `a-${i}`, name: 'דנה', daysSince: 9 });
+      const b = buildRetentionMessage({ uid: `b-${i}`, name: 'יוסי', daysSince: 30 });
+      expect(`${a.title} ${a.body}`).not.toContain('יוסי');
+      expect(`${b.title} ${b.body}`).not.toContain('דנה');
     }
   });
 
-  it("falls back to 'חבר' when the user has no name (no leftover placeholder)", () => {
-    for (let i = 0; i < 20; i++) {
-      const { title, body } = buildRetentionMessage({ uid: `n-${i}`, name: '  ', daysSince: 8 });
-      expect(`${title}${body}`).not.toMatch(/\{\w+\}/);
+  it('puts the name in the copy that has @שם', () => {
+    const named = Array.from({ length: 200 }, (_, i) =>
+      buildRetentionMessage({ uid: `uid-${i}`, name: 'מיכל', daysSince: 7 }),
+    ).filter((c) => c.rowId === 'default:retention_lapse:1');
+    expect(named.length).toBeGreaterThan(0);
+    for (const c of named) expect(c.title).toContain('מיכל');
+  });
+
+  it('a user with no name never gets the @שם copy, and nothing is left unfilled', () => {
+    for (let i = 0; i < 50; i++) {
+      const c = buildRetentionMessage({ uid: `n-${i}`, name: '  ', daysSince: 8 });
+      expect(c.rowId).not.toBe('default:retention_lapse:1');
+      expect(`${c.title}${c.body}`).not.toMatch(/\{\w+\}|@[\u05D0-\u05EA_]+/);
+      expect(c.deepLink).toBe('/home');
     }
   });
 });
@@ -76,7 +78,7 @@ describe('retentionScheduler — candidate filter', () => {
 
   it('keeps a user inactive for >= 7 days, with their own daysSince', () => {
     const c = toRetentionCandidate('u2', { core: { name: 'a' }, lastActive: ts(NOW - 10 * DAY) }, NOW);
-    expect(c).toEqual({ uid: 'u2', name: 'a', daysSince: 10 });
+    expect(c).toMatchObject({ uid: 'u2', name: 'a', daysSince: 10 });
   });
 
   it('skips a recently active user and opted-out users', () => {
