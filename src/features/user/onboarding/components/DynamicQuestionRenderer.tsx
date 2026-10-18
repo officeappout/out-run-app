@@ -10,6 +10,7 @@ import { getExercise } from '@/features/content/exercises/core/exercise.service'
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { RunningAbilityPickerV2, RunningGoalPickerV2 } from './running-v2/RunningChoiceV2';
 
 interface DynamicQuestionRendererProps {
   question: DynamicQuestionNode;
@@ -147,6 +148,25 @@ export default function DynamicQuestionRenderer({
     question.type === 'choice' ||
     (question as any).type === 'multiple_choice' ||
     (Array.isArray((question as any).answers) && (question as any).answers.length > 0);
+
+  // ── v2 running screens (enable_home_v2) — owner-approved designs for the
+  // running goal and the continuous-run ability questions. Same answers,
+  // same onAnswer(answerId); tap selects, "המשך" submits.
+  if (isChoiceLike && v2 && question.answers.length > 0) {
+    const runProps = {
+      question,
+      title,
+      description,
+      selectedAnswerId,
+      onAnswer,
+      answerText: (a: DynamicQuestionNode['answers'][number]) => getTextValue(a.text as any, language, gender),
+      isFemale: gender === 'female',
+    };
+    if (question.id === 'q_run_goal') return <RunningGoalPickerV2 {...runProps} />;
+    if (question.id === 'q_run_beginner_ability' || question.id === 'q_run_maintain_ability') {
+      return <RunningAbilityPickerV2 {...runProps} />;
+    }
+  }
 
   // ── v2 (enable_home_v2) — same answers, same onAnswer; v2 cards ──
   // (white + ring, selected = accent ring, never black; no borders).
