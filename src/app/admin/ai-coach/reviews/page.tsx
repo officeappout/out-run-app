@@ -44,6 +44,43 @@ const SEVERITY_CLASS: Record<number, string> = {
   3: 'bg-red-100 text-red-700',
 };
 const STATUS_LABEL: Record<FlaggedRow['status'], string> = { open: 'פתוח', fixed: 'תוקן', converted: 'הוסב לבדיקה' };
+const LOCATION_LABEL: Record<string, string> = { home: 'בית', park: 'פארק', office: 'משרד', street: 'רחוב' };
+const STOP_LABEL: Record<string, string> = {
+  review_off: 'הסקירה כבויה',
+  kill_switch: 'מתג הכיבוי פעיל',
+  over_budget: 'התקציב הכללי נגמר',
+  review_budget: 'תקציב הסקירה היומי נגמר',
+  time: 'נגמר הזמן',
+  cap: 'הגיע למכסת השיחות',
+};
+
+const ERROR_LABEL: Record<string, string> = {
+  load_failed: 'הטעינה נכשלה',
+  bad_request: 'בקשה לא תקינה',
+  review_failed: 'הסקירה נכשלה',
+  not_found: 'הסקירה לא נמצאה',
+  issue_not_found: 'הממצא לא נמצא',
+  turn_has_no_user_message: 'אין בתור הזה הודעה של המשתמש',
+  action_failed: 'הפעולה נכשלה',
+};
+const errorText = (code: unknown, status: number): string =>
+  typeof code === 'string' ? (ERROR_LABEL[code] ?? code) : `שגיאה ${status}`;
+
+/** Older reviews were written in English (before 19.10.2026): mark them, don't rewrite them. */
+function isMostlyLatin(text: string): boolean {
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  const hebrew = (text.match(/[\u05D0-\u05EA]/g) ?? []).length;
+  return latin > hebrew;
+}
+
+function EnBadge({ text }: { text: string }) {
+  if (!isMostlyLatin(text)) return null;
+  return (
+    <span title="נכתב באנגלית לפני שהסוקר עבר לעברית" className="ms-1 text-[10px] font-bold px-1 rounded bg-slate-200 text-slate-600">
+      EN
+    </span>
+  );
+}
 
 async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = await auth.currentUser?.getIdToken();
@@ -124,7 +161,7 @@ function RowCard({ row, busy, onAction }: { row: FlaggedRow; busy: boolean; onAc
               <ul className="text-xs text-slate-700 space-y-0.5">
                 {row.cards.map((c) => (
                   <li key={c.workoutId}>
-                    {c.title} · {c.minutes} דק׳ · {c.exerciseCount} תרגילים · {c.location}
+                    {c.title} · {c.minutes} דק׳ · {c.exerciseCount} תרגילים · {LOCATION_LABEL[c.location] ?? c.location}
                     {c.reasonCodes.length ? ` · ${c.reasonCodes.join(', ')}` : ''}
                   </li>
                 ))}
@@ -145,8 +182,8 @@ function RowCard({ row, busy, onAction }: { row: FlaggedRow; busy: boolean; onAc
           </div>
           <div className="rounded-lg bg-amber-50 border border-amber-100 p-2 space-y-1">
             <p className="text-xs"><b>ציטוט:</b> <span dir="auto">{i.evidence}</span></p>
-            <p className="text-xs"><b>מה היה צריך:</b> <span dir="auto">{i.expected}</span></p>
-            <p className="text-xs"><b>הצעת תיקון:</b> <span dir="auto">{i.suggestedFix}</span></p>
+            <p className="text-xs"><b>מה היה צריך:</b> <span dir="auto">{i.expected}</span><EnBadge text={i.expected} /></p>
+            <p className="text-xs"><b>הצעת תיקון:</b> <span dir="auto">{i.suggestedFix}</span><EnBadge text={i.suggestedFix} /></p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -222,7 +259,7 @@ export default function AiCoachReviewsPage() {
     setError(null);
     try {
       const res = await authedFetch(`/api/admin/ai-coach/reviews?days=${days}`);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(errorText((await res.json().catch(() => ({}))).error, res.status));
       setData((await res.json()) as ListResponse);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'שגיאה בטעינה');
@@ -243,9 +280,9 @@ export default function AiCoachReviewsPage() {
     try {
       const res = await authedFetch('/api/admin/ai-coach/reviews/run', { method: 'POST', body: JSON.stringify({ maxThreads: 25 }) });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(errorText(body.error, res.status));
       setNotice(
-        `נסקרו ${body.reviewed} שיחות · דולגו ${body.skippedOptOut} (ויתרו) · ${body.failed} נכשלו · עלות $${Number(body.costUsd ?? 0).toFixed(3)}${body.stoppedBy ? ` · נעצר: ${body.stoppedBy}` : ''}${body.remaining ? ' · נשארו שיחות, אפשר להריץ שוב' : ''}`,
+        `נסקרו ${body.reviewed} שיחות · דולגו ${body.skippedOptOut} (ויתרו) · ${body.failed} נכשלו · עלות $${Number(body.costUsd ?? 0).toFixed(3)}${body.stoppedBy ? ` · נעצר: ${STOP_LABEL[body.stoppedBy] ?? body.stoppedBy}` : ''}${body.remaining ? ' · נשארו שיחות, אפשר להריץ שוב' : ''}`,
       );
       await load();
     } catch (err) {
@@ -264,7 +301,7 @@ export default function AiCoachReviewsPage() {
         body: JSON.stringify({ action, reviewDocId: row.reviewDocId, issueId: row.issue.id }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(errorText(body.error, res.status));
       if (action === 'convert') setNotice(`נשמרה בדיקת רגרסיה ${body.caseId}`);
       await load();
     } catch (err) {

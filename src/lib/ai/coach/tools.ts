@@ -104,7 +104,7 @@ export const COACH_TOOLS = {
     name: 'get_user_context',
     kind: 'server',
     description:
-      "Returns a compact sheet about the user: first name, grammatical gender, age band, goals, active programs with levels, injuries, streak, the last 5 workouts, today's and this week's schedule, preferred training time, the user's own equipment ids per location, and a coarse area name. The same sheet is already in the session context at the start of every turn; call this only to refresh it.",
+      "Returns a compact sheet about the user: first name, grammatical gender, age band, goals, active programs with levels, injuries, streak, the last 5 workouts, today's and this week's schedule, preferred training time, the user's own equipment ids per location, a coarse area name, and the user's persona(s) (the daily routine they chose at sign-up: label and meaning). The same sheet (with a plain block of what you know about this user) is already in the session context every turn: answer questions about the user from it, and call this only when the session context has no user sheet or to refresh it.",
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     zod: GetUserContextInput,
   },
@@ -125,7 +125,7 @@ export const COACH_TOOLS = {
     name: 'get_schedule',
     kind: 'server',
     description:
-      "Returns the user's planned schedule entries between two dates (inclusive, YYYY-MM-DD, at most 14 days), one per planned session: date, weekday, type, kind (strength, cardio, walking), program names, start time, planned minutes when known, title, completed, and buildNow (generate_workout settings for a strength session that can be built now).",
+      "Call it for any question about the plan or what to do now (today, tonight, tomorrow, this week, should I skip, the workout shown in the app). Returns the user's planned schedule entries between two dates (inclusive, YYYY-MM-DD, at most 14 days), one per planned session: date, weekday, type, kind (strength, cardio, walking), program names, start time, planned minutes when known, title, completed, and buildNow (generate_workout settings for a strength session that can be built now).",
     inputSchema: {
       type: 'object',
       properties: {

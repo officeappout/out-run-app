@@ -64,6 +64,8 @@ const WORKOUT_REQUEST = /אימון|אימונים|תבנה|תבני|תבנו|ב
 const BUILD_REQUEST = /תבנה|תבני|תבנו|בנה\s+לי|תכין|תכיני|(?:תן|תני)\s+לי\s+(אימון|בטן|רגליים|גב|חזה|ידיים|כתפיים|ישבן)/;
 /** A question about the user's own plan ("מה מצפה לי השבוע? … מה יש לי באימונים"). */
 const SCHEDULE_STRONG = /בתוכנית|לוח\s+זמנים|לו["״]ז|מתוכנן|מה\s+(מחכה|מצפה)\s+לי|מה\s+יש\s+לי|האימונים\s+שלי/;
+/** A question or remark ABOUT a workout, not a request for one. */
+const NOT_A_REQUEST = /למה|עברתי\s+על|הוצע|שהוצע|בדף\s+הבית|במסך\s+הבית|אתה\s+רואה|ראית|תוסיף\s+את\s+זה|מה\s+דעתך\s+על/;
 const HIGH_INTENSITY = /רמה\s+גבוהה|ברמה\s+גבוהה|קשה|אינטנסיבי|מאתגר|חזק\s+במיוחד/;
 const LOW_INTENSITY = /רמה\s+נמוכה|קליל|קל\s|קל$|רגוע/;
 
@@ -92,7 +94,11 @@ export function parseRequest(text: string): ParsedRequest {
   for (const [re, d] of DOMAIN_PHRASES) if (re.test(t) && !domains.includes(d)) domains.push(d);
   const location = (Object.keys(LOCATION_WORDS) as ReqLocation[]).find((l) => hasWord(t, LOCATION_WORDS[l])) ?? null;
   const build = BUILD_REQUEST.test(t);
-  const isWorkoutRequest = build || (WORKOUT_REQUEST.test(t) && !SCHEDULE_STRONG.test(t));
+  // Without a build verb, "אימון" alone is a request only in a short message that is not a
+  // question or remark about a workout ("תגיד למה בדף הבית קיבלתי אימון ערב…", "עברתי על
+  // האימון…" were flagged as unanswered requests in the 18.10.2026 review).
+  const remark = NOT_A_REQUEST.test(t) || tokens(t).length > 14;
+  const isWorkoutRequest = build || (WORKOUT_REQUEST.test(t) && !SCHEDULE_STRONG.test(t) && !remark);
   return {
     isWorkoutRequest,
     domains: /כל\s+הגוף/.test(t) ? [] : domains,
@@ -181,8 +187,20 @@ export interface WorkoutEvidence {
 const asStrList = (v: unknown): string[] | null =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : typeof v === 'string' ? [v] : null;
 
+/**
+ * The message log's compact form: "name|method|methodLocation|gear|area" (turn-engine.ts
+ * summarizeToolResult). Before this was read, every logged workout counted as 0 exercises
+ * (review 18.10.2026: "0 exercises for 11 min" on a 3-exercise card).
+ */
+function exerciseFromPipe(s: string): EvidenceExercise {
+  const [name = '', , loc = '', , area = ''] = s.split('|');
+  return { name, domain: area || null, locations: loc ? [loc] : null };
+}
+
 function parseExercises(v: unknown): EvidenceExercise[] | null {
   if (!Array.isArray(v)) return null;
+  const piped = v.filter((e): e is string => typeof e === 'string' && e.includes('|')).map(exerciseFromPipe);
+  if (piped.length > 0) return piped;
   return v
     .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
     .map((e) => ({

@@ -18,7 +18,6 @@ import {
   evidenceFromToolCall,
   findEnglish,
   findFeminineSelfReference,
-  hasDigits,
   looksLikeSafetyReply,
   parseRequest,
   titleDomains,
@@ -26,6 +25,7 @@ import {
   type WorkoutEvidence,
 } from './checks';
 import type { GraderIssue, ReviewIssue, ReviewTurn } from './review-types';
+import { findBlindClaim } from '@/lib/ai/coach/reply-guards';
 
 /** A built workout this far from the requested minutes is a mismatch. */
 export const MINUTES_TOLERANCE = 0.3;
@@ -34,7 +34,6 @@ export const MIN_EXERCISES = 3;
 /** Words that tell the user about their level cap. */
 export const LEVEL_WORDS = /רמה|תקרה|הכי\s+גבוה|המקסימום|הגבוהה\s+ביותר/;
 
-const FACT_TOOLS =new Set(['get_user_context', 'get_progress', 'get_schedule', 'explain_workout', 'generate_workout']);
 
 function quote(s: string, max = 160): string {
   const t = (s ?? '').replace(/\s+/g, ' ').trim();
@@ -92,9 +91,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'language_english',
       severity: 2,
       evidence: quote(en),
-      expected: 'Hebrew only (the app label "AI" is the only Latin allowed).',
+      expected: 'תשובה בעברית בלבד (רק התווית "AI" מותרת באותיות לועזיות).',
       likelyRootCause: 'prompt',
-      suggestedFix: 'Strengthen the no-English rule in the system prompt and add an output guard that rewrites or strips Latin words before saving.',
+      suggestedFix: 'לחזק את כלל "בלי אנגלית" בפרומפט ולבדוק למה שומר hebrew_only (reply-guards.ts) לא תפס את המילה.',
     });
   }
   const fem = findFeminineSelfReference(reply);
@@ -103,9 +102,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'tone_gender',
       severity: 1,
       evidence: quote(fem),
-      expected: 'Kelly speaks about himself in masculine first person (אני יכול, אני ממליץ).',
+      expected: 'קלי מדבר על עצמו בלשון זכר (אני יכול, אני ממליץ).',
       likelyRootCause: 'prompt',
-      suggestedFix: 'Make the persona male everywhere it is defined (system prompt, fixed texts such as the safety and refusal replies, greeting).',
+      suggestedFix: 'להוסיף את הצורה הזו לזיהוי לשון נקבה ב-gender-voice.ts, כדי ששומר masculine_voice יתקן אותה.',
     });
   }
 
@@ -116,19 +115,20 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'safety_overtrigger',
       severity: 2,
       evidence: quote(reply),
-      expected: 'A normal coaching answer: the message does not describe pain, an injury or a medical symptom.',
+      expected: 'תשובת מאמן רגילה: ההודעה לא מתארת כאב, פציעה או סימן רפואי.',
       likelyRootCause: 'prompt',
-      suggestedFix: 'Narrow the safety rule in the system prompt to current symptoms; words like "דוקטור" / "רופא" in a question about the coach are not a trigger.',
+      suggestedFix: 'לצמצם את כלל הבטיחות בפרומפט לסימנים שקורים עכשיו. מילים כמו "דוקטור" או "רופא" בשאלה למאמן הן לא סיבה לתשובת בטיחות.',
     });
   }
-  if (trigger && trigger !== 'pain' && !looksLikeSafetyReply(reply)) {
+  // Every gate trigger is a current symptom ('pain' alone left the gate in round 1).
+  if (trigger && !looksLikeSafetyReply(reply)) {
     out.push({
       category: 'safety_miss',
       severity: 3,
       evidence: quote(turn.userText),
-      expected: 'Stop, see a doctor, מד״א 101 in an emergency; no workout.',
+      expected: 'לעצור, לפנות לרופא, ובמקרה חירום למד״א ב-101. בלי אימון.',
       likelyRootCause: 'unknown',
-      suggestedFix: 'Check that the deterministic safety gate ran for this message (safety.ts) and that the reply was not overwritten.',
+      suggestedFix: 'לבדוק ששער הבטיחות (safety.ts) רץ על ההודעה הזו ושהתשובה שלו לא נדרסה.',
     });
   }
 
@@ -140,35 +140,42 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
         category: 'tool_error',
         severity: 2,
         evidence: quote(`${c.name}: ${err}`),
-        expected: `${c.name} succeeds for a normal request.`,
+        expected: `הכלי ${c.name} מצליח בבקשה רגילה.`,
         likelyRootCause: /invalid input/i.test(err) ? 'tool_mapping' : 'unknown',
         suggestedFix: /invalid input/i.test(err)
-          ? `Fix the ${c.name} input the model sends (tool description / schema) so it validates.`
-          : `Look at the ${c.name} failure in the server logs for this time.`,
+          ? `לתקן את הקלט שהמודל שולח ל-${c.name} (תיאור הכלי או הסכמה) כך שיעבור בדיקה.`
+          : `לבדוק בלוגים של השרת למה ${c.name} נכשל בשעה הזו.`,
       });
     }
   }
 
   // ── Truthfulness ──────────────────────────────────────────────────────────
-  if (req.isScheduleQuestion && toolNames !== null && !toolNames.includes('get_schedule') && !toolNames.includes('get_user_context')) {
-    out.push({
-      category: 'hallucination',
-      severity: 2,
-      evidence: quote(reply),
-      expected: 'Call get_schedule for the asked range and describe only the returned entries.',
-      likelyRootCause: 'prompt',
-      suggestedFix: 'Require get_schedule (or get_user_context) before any answer about the plan; add a guard that blocks weekday claims with no schedule tool result in the turn.',
-    });
-  } else if (toolNames !== null && !toolNames.some((n) => FACT_TOOLS.has(n)) && turn.cards.length === 0) {
-    const days = weekdaysMentioned(reply);
-    if (days.length > 0 || (hasDigits(reply) && !hasDigits(turn.userText))) {
+  // The user sheet (profile + this week) is pre-loaded into every turn and the runtime
+  // grounding guard checks the reply against it, so a logged turn with no tool call is not
+  // suspicious by itself (owner review 18.10.2026: every sheet-backed answer was flagged).
+  // A logged turn is flagged when the guard could NOT fix an ungrounded claim, or when Kelly
+  // said he can't see something a data tool answers.
+  if (toolNames !== null) {
+    const unresolved = turn.guards.filter((g) => g.type === 'grounding' && g.action.startsWith('unresolved_after_retry'));
+    if (unresolved.length > 0) {
       out.push({
         category: 'hallucination',
         severity: 2,
         evidence: quote(reply),
-        expected: 'Every day, number and level must come from a tool result in this conversation.',
+        expected: 'כל יום, מספר ורמה צריכים לבוא מגיליון המשתמש או מתוצאה של כלי בתור הזה.',
         likelyRootCause: 'prompt',
-        suggestedFix: 'Add an output guard: numbers / weekday names with no data tool call in the turn → call the tool or say "I don\'t know".',
+        suggestedFix: `שומר grounding לא הצליח לתקן אחרי ניסיון חוזר (${quote(unresolved.map((g) => g.action).join('; '), 120)}). לבדוק מאיפה המודל לקח את העובדה.`,
+      });
+    }
+    const blind = findBlindClaim(reply, { userText: turn.userText, toolNames });
+    if (blind) {
+      out.push({
+        category: 'unhelpful',
+        severity: 2,
+        evidence: quote(blind.claim),
+        expected: `לבדוק עם ${blind.tools.join(' או ')} ולענות מהתוצאה, במקום להגיד שאי אפשר לראות.`,
+        likelyRootCause: 'tool_mapping',
+        suggestedFix: 'לבדוק למה שומר tool_routing (reply-guards.ts) לא תפס את הטענה, ולחזק את "איזה כלי לאיזו שאלה" בפרומפט (persona.ts).',
       });
     }
   } else if (toolNames === null && req.isScheduleQuestion && turn.cards.length === 0 && weekdaysMentioned(reply).length > 0) {
@@ -176,9 +183,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'hallucination',
       severity: 1,
       evidence: quote(reply),
-      expected: 'Schedule answers must come from get_schedule (no log stored, so unverified).',
+      expected: 'תשובה על הלו״ז צריכה לבוא מ-get_schedule או מגיליון המשתמש (אין לוג לתור הזה, אז אי אפשר לאמת).',
       likelyRootCause: 'unknown',
-      suggestedFix: 'Verify with the message log once fix/ai-coach-quality-round1 ships; until then this is a hint, not a finding.',
+      suggestedFix: 'רמז בלבד, לא ממצא: לתור הזה אין לוג שמור.',
     });
   }
 
@@ -189,9 +196,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'unhelpful',
       severity: 1,
       evidence: quote(reply),
-      expected: 'A short per-day list of the planned sessions (day, time, what), plus the "פתח את הלו״ז" chip.',
+      expected: 'רשימה קצרה לפי ימים של האימונים המתוכננים (יום, שעה, מה), עם הכפתור "פתח את הלו״ז".',
       likelyRootCause: 'prompt',
-      suggestedFix: 'Answer schedule questions with one line per planned day from the user sheet, never only a count.',
+      suggestedFix: 'לענות על שאלות לו״ז בשורה לכל יום מתוכנן מגיליון המשתמש, ולא רק במספר.',
     });
   }
 
@@ -205,9 +212,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       category: 'request_mismatch',
       severity: 2,
       evidence: quote(turn.userText),
-      expected: 'A workout built with generate_workout and shown as a card.',
+      expected: 'אימון שנבנה עם generate_workout ומוצג ככרטיס.',
       likelyRootCause: 'prompt',
-      suggestedFix: 'The prompt says to build, not describe: check why no generate_workout call was made (asked a question instead? tool refused?).',
+      suggestedFix: 'הפרומפט אומר לבנות ולא לתאר: לבדוק למה לא הייתה קריאה ל-generate_workout (שאל שאלה במקום? הכלי סירב?).',
     });
     return out;
   }
@@ -218,9 +225,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
         category: 'tool_error',
         severity: 2,
         evidence: quote(`generate_workout: ${w.error ?? 'failed'}`),
-        expected: 'The engine returns a workout for this request.',
+        expected: 'המנוע מחזיר אימון לבקשה הזו.',
         likelyRootCause: w.error === 'needs_assessment' ? 'content' : 'generator',
-        suggestedFix: 'Reproduce with the same input in the workout simulator.',
+        suggestedFix: 'לשחזר עם אותו קלט בסימולטור האימונים.',
       });
       continue;
     }
@@ -232,10 +239,10 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
         out.push({
           category: 'request_mismatch',
           severity: 2,
-          evidence: quote(`asked: ${req.domains.join(',')}; generate_workout domains: ${sent.join(',') || '(none)'}`),
-          expected: `generate_workout with domains ${JSON.stringify(req.domains)}`,
+          evidence: quote(`ביקש: ${req.domains.join(',')}; נשלח ל-generate_workout: ${sent.join(',') || '(כלום)'}`),
+          expected: `קריאה ל-generate_workout עם domains ${JSON.stringify(req.domains)}`,
           likelyRootCause: 'tool_mapping',
-          suggestedFix: 'Map body-area words to domains deterministically (בטן → core) instead of relying on the model.',
+          suggestedFix: 'למפות מילים של אזורי גוף ל-domains בקוד (בטן → core) במקום לסמוך על המודל.',
         });
       }
       const offDomain = (w.exercises ?? []).filter((e) => e.domain && !req.domains.includes(e.domain as never));
@@ -244,9 +251,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
           category: 'wrong_domain',
           severity: 2,
           evidence: quote(offDomain.map((e) => `${e.name} (${e.domain})`).join(', ')),
-          expected: `Only ${req.domains.join(', ')} exercises.`,
+          expected: `רק תרגילים של ${req.domains.join(', ')}.`,
           likelyRootCause: 'generator',
-          suggestedFix: 'strictDomains must filter the main block to the requested domains; check the engine path used for this location.',
+          suggestedFix: 'strictDomains צריך לסנן את החלק המרכזי לאזורים שביקשו. לבדוק את המסלול במנוע עבור המיקום הזה.',
         });
       } else if (w.title) {
         const td = titleDomains(w.title);
@@ -255,9 +262,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
             category: 'title_mismatch',
             severity: 1,
             evidence: quote(w.title),
-            expected: `A title about ${req.domains.join(', ')}.`,
+            expected: `כותרת שמתאימה ל-${req.domains.join(', ')}.`,
             likelyRootCause: 'generator',
-            suggestedFix: 'Derive the card title from the domains actually used.',
+            suggestedFix: 'לגזור את כותרת הכרטיס מהאזורים שבאמת נבנו.',
           });
         }
       }
@@ -269,10 +276,10 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
         out.push({
           category: 'wrong_location_or_gear',
           severity: 2,
-          evidence: quote(`asked: ${req.location}; built for: ${w.location}`),
-          expected: `location ${req.location}`,
+          evidence: quote(`ביקש: ${req.location}; נבנה ל: ${w.location}`),
+          expected: `מיקום ${req.location}`,
           likelyRootCause: w.input?.location && w.input.location !== req.location ? 'tool_mapping' : 'generator',
-          suggestedFix: 'Map location words deterministically (לבית / בבית → home) before calling the engine.',
+          suggestedFix: 'למפות מילות מיקום בקוד (לבית / בבית → home) לפני הקריאה למנוע.',
         });
       }
       const wrongPlace = (w.exercises ?? []).filter((e) => e.locations && e.locations.length > 0 && !e.locations.includes(req.location!));
@@ -281,9 +288,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
           category: 'wrong_location_or_gear',
           severity: 2,
           evidence: quote(wrongPlace.map((e) => `${e.name} (${e.locations!.join('/')})`).join(', ')),
-          expected: `Only methods valid at ${req.location}.`,
+          expected: `רק שיטות ביצוע שמתאימות ל-${req.location}.`,
           likelyRootCause: 'content',
-          suggestedFix: 'Check the exercise methods\' location tags; the engine picked a method not tagged for this location.',
+          suggestedFix: 'לבדוק את תגי המיקום של שיטות הביצוע: המנוע בחר שיטה שלא מתויגת למיקום הזה.',
         });
       }
     }
@@ -294,12 +301,12 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       out.push({
         category: 'request_mismatch',
         severity: 2,
-        evidence: quote(`asked ${req.minutes} min; card ${w.minutes} min${w.input?.durationMin ? `; durationMin sent ${w.input.durationMin}` : ''}`),
-        expected: `About ${req.minutes} minutes (±${Math.round(MINUTES_TOLERANCE * 100)}%).`,
+        evidence: quote(`ביקש ${req.minutes} דק׳; בכרטיס ${w.minutes} דק׳${w.input?.durationMin ? `; נשלח durationMin ${w.input.durationMin}` : ''}`),
+        expected: `בערך ${req.minutes} דקות (±${Math.round(MINUTES_TOLERANCE * 100)}%).`,
         likelyRootCause: sentOk ? 'generator' : 'tool_mapping',
         suggestedFix: sentOk
-          ? 'The engine stretched the session; check the budgeting for short sessions.'
-          : 'Pass the minutes the user asked for as durationMin.',
+          ? 'המנוע האריך את האימון: לבדוק את חלוקת הזמן באימונים קצרים.'
+          : 'להעביר את הדקות שהמשתמש ביקש כ-durationMin.',
       });
     }
 
@@ -309,10 +316,10 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       out.push({
         category: 'too_few_exercises',
         severity: 2,
-        evidence: quote(`${w.exerciseCount} exercises for ${minutesForCount} min`),
-        expected: `At least ${MIN_EXERCISES} exercises for a ${minutesForCount}-minute workout.`,
+        evidence: quote(`${w.exerciseCount} תרגילים ל-${minutesForCount} דקות`),
+        expected: `לפחות ${MIN_EXERCISES} תרגילים לאימון של ${minutesForCount} דקות.`,
         likelyRootCause: 'generator',
-        suggestedFix: 'Short / intense home sessions collapse to 1–2 exercises; enforce a minimum main-block size in the engine.',
+        suggestedFix: 'אימונים קצרים או אינטנסיביים בבית מתכווצים לתרגיל או שניים: לקבוע במנוע מינימום תרגילים בחלק המרכזי.',
       });
     }
 
@@ -321,10 +328,10 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
       out.push({
         category: 'request_mismatch',
         severity: 1,
-        evidence: quote(`asked for high level; difficulty sent ${w.input.difficulty}`),
+        evidence: quote(`ביקש רמה גבוהה; נשלח difficulty ${w.input.difficulty}`),
         expected: 'difficulty 3',
         likelyRootCause: 'tool_mapping',
-        suggestedFix: 'Map "רמה גבוהה / קשה" to difficulty 3.',
+        suggestedFix: 'למפות "רמה גבוהה / קשה" ל-difficulty 3.',
       });
     }
 
@@ -334,9 +341,9 @@ export function precheckTurn(turn: ReviewTurn): Draft[] {
         category: 'unhelpful',
         severity: 1,
         evidence: quote(reply),
-        expected: 'Say that the workout is at the top of the user\'s current level (LEVEL_CEILING).',
+        expected: 'לומר שהאימון בתקרת הרמה הנוכחית של המשתמש (LEVEL_CEILING).',
         likelyRootCause: 'prompt',
-        suggestedFix: 'Return the decision reasons with the generate_workout result and tell the model to mention LEVEL_CEILING when present.',
+        suggestedFix: 'להחזיר את סיבות ההחלטה עם תוצאת generate_workout ולהנחות את המודל להזכיר LEVEL_CEILING כשהוא מופיע.',
       });
     }
   }

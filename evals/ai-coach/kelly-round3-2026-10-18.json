@@ -1,0 +1,2161 @@
+[
+  {
+    "id": "r3-01-persona",
+    "name": "Persona question: answered from the sheet in plain Hebrew, never \"I can't see it\"",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: \"מה הפרסונה שלי?\" got \"אני לא יכול לראות אותה\"."
+    },
+    "history": [],
+    "message": "מה הפרסונה שלי?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "צה״ל|צה\"ל"
+      ],
+      "mustNotMatch": [
+        "לא (יכול|יכולה) לראות|אין לי גישה|לא רואה את"
+      ],
+      "maxSentences": 4
+    },
+    "mock": {
+      "replies": [
+        "הפרסונה שלך היא צה״ל. זה אומר שהאפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר."
+      ]
+    }
+  },
+  {
+    "id": "r3-02-goal",
+    "name": "Goal question: the user's goals from the sheet",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner request 18.10.2026: Kelly should know the user's goals without a tool call."
+    },
+    "history": [],
+    "message": "מה המטרה שלי?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "אורח חיים בריא"
+      ],
+      "mustNotMatch": [
+        "לא (יכול|יכולה) לראות|אין לי גישה|לא רואה את"
+      ],
+      "maxSentences": 4
+    },
+    "mock": {
+      "replies": [
+        "המטרה שלך היא אורח חיים בריא, ובחרת גם בניית מסה."
+      ]
+    }
+  },
+  {
+    "id": "r3-03-age-known",
+    "name": "Age question with an age range: says the range, never an exact age",
+    "source": {
+      "kind": "fixture",
+      "note": "Only the age band is in the sheet (30-44); Kelly must not invent an exact age."
+    },
+    "history": [],
+    "message": "כמה אני בן?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "30",
+        "44"
+      ],
+      "mustNotMatch": [
+        "אתה בן \\d{2}(?!\\s*(עד|ל|-))"
+      ],
+      "maxSentences": 3
+    },
+    "mock": {
+      "replies": [
+        "לפי הפרופיל שלך אתה בטווח הגילים 30 עד 44. את הגיל המדויק אני לא יודע."
+      ]
+    }
+  },
+  {
+    "id": "r3-04-age-unknown",
+    "name": "Age question with no age in the profile: says he doesn't know, no number",
+    "source": {
+      "kind": "fixture",
+      "note": "Answer only if known."
+    },
+    "history": [],
+    "message": "כמה אני בן?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": null,
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "לא יודע|לא ידוע|אין לי"
+      ],
+      "mustNotMatch": [
+        "\\d{2}"
+      ],
+      "maxSentences": 3
+    },
+    "mock": {
+      "replies": [
+        "את הגיל שלך אני לא יודע, הוא לא מופיע בפרופיל."
+      ]
+    }
+  },
+  {
+    "id": "r3-05-tired-evening-persona",
+    "name": "Tired in the evening + persona (owner screenshot): checks today's schedule, offers light or rest, explains the persona",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: advised skipping without get_schedule and said he can't see the persona."
+    },
+    "history": [],
+    "message": "עכשיו ערב ואני מרגיש עייף מה אתה ממליץ לי להשעות ואגב מה הפרסונה שלי?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustCallTool": "get_schedule",
+      "mustMatch": [
+        "צה״ל|צה\"ל",
+        "קל|קצר|לנוח|מנוחה"
+      ],
+      "mustNotMatch": [
+        "לא (יכול|יכולה) לראות|אין לי גישה|לא רואה את"
+      ],
+      "mustNotCallTool": [
+        "generate_workout"
+      ],
+      "maxSentences": 5
+    },
+    "mock": {
+      "replies": [
+        "היום היה מתוכנן לך אימון כל הגוף ב-15:00 והוא עוד לא בוצע. אם אתה עייף, אפשר אימון קל וקצר של 10 דקות, או לנוח הערב ולהתאמן ביום שלישי. הפרסונה שלך היא צה״ל, כלומר האפליקציה מתאימה לך אימונים לשגרה צבאית."
+      ]
+    }
+  },
+  {
+    "id": "r3-06-home-screen-workout",
+    "name": "The workout on the home screen: checks today's schedule instead of \"I can't see your home page\"",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: three replies of \"I can't see your home page\"."
+    },
+    "history": [],
+    "message": "בדף הבית מופיע לי עכשיו אימון ערב בשטח, אתה רואה אותו?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustCallTool": "get_schedule",
+      "mustMatch": [
+        "היום"
+      ],
+      "maxSentences": 4
+    },
+    "mock": {
+      "replies": [
+        "את המסך עצמו אני לא רואה, אבל בלו״ז שלך להיום מתוכנן אימון כל הגוף ב-15:00. אם תרצה, אני יכול לבנות לך עכשיו אימון לבית או לפארק."
+      ]
+    }
+  },
+  {
+    "id": "r3-07-tabata-honest",
+    "name": "Tabata request: says the engine can't build Tabata and offers the closest thing, never claims it",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: \"כן, אני יכול לבנות לך אימון בסגנון טבטה\" and the card was not Tabata."
+    },
+    "history": [],
+    "message": "אתה יכול לבנות לי אימון בטן בסגנון טבטה?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustNotMatch": [
+        "^כן,? אני יכול לבנות לך אימון בסגנון טבטה",
+        "בניתי לך אימון (בטן )?בסגנון טבטה"
+      ],
+      "mustMatch": [
+        "טבטה"
+      ]
+    },
+    "mock": {
+      "replies": [
+        "אני לא יכול לבנות טבטה, המנוע בוחר את הסטים והמנוחות בעצמו. אני יכול לבנות לך אימון בטן קצר ואינטנסיבי, רוצה?"
+      ]
+    }
+  },
+  {
+    "id": "r3-08-above-level",
+    "name": "Asks for exercises far above his level: says plainly the workouts stay at his level",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: core level 1 asked for level 8; Kelly built at level and called it high-level."
+    },
+    "history": [],
+    "message": "אני בליבה רמה 1, אתה יכול לבנות לי תרגילים ברמה 8?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "רמה"
+      ],
+      "mustNotMatch": [
+        "בניתי לך אימון (ליבה |בטן )?ברמה 8",
+        "בניתי לך אימון[^.]{0,20}ברמה גבוהה"
+      ]
+    },
+    "mock": {
+      "replies": [
+        "האימונים נשארים ברמה הנוכחית שלך בליבה, רמה 1. הדרך לעלות היא בדיקת רמה קצרה או התקדמות בתוכנית הליבה."
+      ]
+    }
+  },
+  {
+    "id": "r3-09-levels-named",
+    "name": "Levels question: only named programs, never \"programs without a name\"",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026: \"יש גם שתי תוכניות נוספות ברמות 21 ו-15 בלי שם מוגדר\"."
+    },
+    "history": [],
+    "message": "מה הרמות שלי בתוכניות?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustNotMatch": [
+        "בלי שם",
+        "ללא שם",
+        "לא (יכול|יכולה) לראות|אין לי גישה|לא רואה את"
+      ],
+      "mustMatch": [
+        "רמה 13|ברמה 13"
+      ],
+      "maxLines": 6
+    },
+    "mock": {
+      "replies": [
+        "קליסטניקס עליון ברמה 13, כל הגוף ברמה 15, משיכה ברמה 22 וליבה ברמה 1."
+      ]
+    }
+  },
+  {
+    "id": "r3-10-female-user-address",
+    "name": "Female user: Kelly builds the workout, addresses her in the feminine and stays male himself",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner request 18.10.2026: a female-user conversation checking feminine address."
+    },
+    "history": [],
+    "message": "תבנה לי אימון רגליים לבית",
+    "context": {
+      "firstName": "נועה",
+      "gender": "female",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 18,
+      "sheet": {
+        "firstName": "נועה",
+        "gender": "female",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "עובדת משרד",
+            "meaning": "עובד במשרד ויושב הרבה, אז האפליקציה מתאימה לך אימונים לפני או אחרי העבודה ותרגילים שאפשר לעשות גם במשרד"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustCallTool": "generate_workout",
+      "domains": [
+        "legs"
+      ],
+      "location": "home",
+      "mustMatch": [
+        "תלחצי|את |לך"
+      ],
+      "mustNotMatch": [
+        "תלחץ(?!י)",
+        "אתה ",
+        "יכולה",
+        "בונה לך אימון ברמה גבוהה"
+      ]
+    },
+    "mock": {
+      "replies": [
+        "בניתי לך אימון רגליים לבית. אפשר ללחוץ על הכרטיס, ותלחצי עליו כדי להתחיל."
+      ]
+    }
+  },
+  {
+    "id": "r3-11-female-user-persona",
+    "name": "Female user persona question: feminine label and address",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner request 18.10.2026: feminine address in a profile answer."
+    },
+    "history": [],
+    "message": "מה הפרסונה שלי?",
+    "context": {
+      "firstName": "נועה",
+      "gender": "female",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 18,
+      "sheet": {
+        "firstName": "נועה",
+        "gender": "female",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "עובדת משרד",
+            "meaning": "עובד במשרד ויושב הרבה, אז האפליקציה מתאימה לך אימונים לפני או אחרי העבודה ותרגילים שאפשר לעשות גם במשרד"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustMatch": [
+        "עובדת משרד"
+      ],
+      "mustNotMatch": [
+        "לא (יכול|יכולה) לראות|אין לי גישה|לא רואה את",
+        "אתה "
+      ],
+      "maxSentences": 4
+    },
+    "mock": {
+      "replies": [
+        "הפרסונה שלך היא עובדת משרד. זה אומר שהאפליקציה מתאימה לך אימונים לפני או אחרי העבודה, ותרגילים שאפשר לעשות גם במשרד."
+      ]
+    }
+  },
+  {
+    "id": "r3-12-feminine-after-prefix-guard",
+    "name": "Mock replay of the slip the guard missed (\"ואני לא יכולה\"): the guard fixes it",
+    "source": {
+      "kind": "fixture",
+      "note": "Owner thread 18.10.2026 after #437: the prefixed \"אני\" was not matched."
+    },
+    "history": [],
+    "message": "תגיד למה בדף הבית עכשיו קיבלתי אימון ערב שהוא בשטח יצא.",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-18",
+      "israelDayOfWeek": 0,
+      "israelHour": 22,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": "healthy_lifestyle",
+          "selected": [
+            "mass_building"
+          ]
+        },
+        "goalsHe": [
+          "אורח חיים בריא",
+          "בניית מסה"
+        ],
+        "primaryTrack": "health",
+        "programs": [
+          {
+            "id": "calisthenics_upper",
+            "name": "קליסטניקס עליון",
+            "level": 13,
+            "percentToNext": 20
+          },
+          {
+            "id": "full_body",
+            "name": "כל הגוף",
+            "level": 15,
+            "percentToNext": 40
+          },
+          {
+            "id": "core",
+            "name": "ליבה",
+            "level": 1,
+            "percentToNext": 0
+          },
+          {
+            "id": "pull",
+            "name": "משיכה",
+            "level": 22,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 0,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-16",
+            "type": "strength",
+            "minutes": 25
+          }
+        ],
+        "today": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "thisWeek": [
+          {
+            "date": "2026-10-18",
+            "weekday": "ראשון",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": "15:00",
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "כל הגוף"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": "18:00",
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": [
+            "pullup_bar"
+          ]
+        },
+        "area": null,
+        "personas": [
+          {
+            "label": "צה״ל",
+            "meaning": "משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר"
+          }
+        ],
+        "trainingDays": [
+          "ראשון",
+          "שלישי",
+          "חמישי"
+        ],
+        "dailyStepGoal": 8000,
+        "assessmentGaps": []
+      }
+    },
+    "assertions": {
+      "noEnglish": true,
+      "noSafetyReply": true,
+      "masculineSelfReference": true,
+      "mustNotMatch": [
+        "יכולה"
+      ]
+    },
+    "mock": {
+      "replies": [
+        "את המסך אני לא רואה, ואני לא יכולה לבדוק אותו. מה שאני יכולה לבדוק זה הלו״ז להיום.",
+        "את המסך אני לא רואה, ואני לא יכול לבדוק אותו. מה שאני יכול לבדוק זה הלו״ז להיום."
+      ]
+    }
+  }
+]

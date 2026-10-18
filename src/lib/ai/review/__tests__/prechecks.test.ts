@@ -73,10 +73,14 @@ describe('reply detectors', () => {
 
 describe('owner case 1 — "מה בתוכנית השבוע?"', () => {
   const userText = 'מה בתוכנית השבוע?';
-  it('flags an answer with no schedule tool + English', () => {
-    const bad = turn({ userText, assistantText: 'השבוע יש לך workout ביום שני, יום רביעי ויום שישי.', toolCalls: [] });
+  it('flags an answer the grounding guard could not fix + English', () => {
+    const bad = turn({ userText, assistantText: 'השבוע יש לך workout ביום שני, יום רביעי ויום שישי.', toolCalls: [], guards: [{ type: 'grounding', action: 'unresolved_after_retry: weekday שני' }] });
     expect(cats(bad)).toEqual(['hallucination', 'language_english']);
     expect(precheckTurn(bad).find((i) => i.category === 'hallucination')?.likelyRootCause).toBe('prompt');
+  });
+  it('a sheet-backed answer with no tool call is clean (the sheet is pre-loaded; the guard passed it)', () => {
+    const t = turn({ userText, assistantText: 'השבוע מתוכננים לך אימונים ביום שלישי וביום חמישי.', toolCalls: [] });
+    expect(cats(t)).toEqual([]);
   });
   it('a get_schedule-backed answer is clean', () => {
     const good = turn({
@@ -117,7 +121,7 @@ describe('owner case 2 — "תגיד למה דוקטור הצעת 20 דק?"', ()
     expect(detectSafetyTrigger(userText)).toBeNull();
   });
   it('flags a safety reply as an over-trigger', () => {
-    const bad = turn({ userText, assistantText: safetyReply('pain', 'male') });
+    const bad = turn({ userText, assistantText: safetyReply('injury', 'male') });
     expect(cats(bad)).toContain('safety_overtrigger');
   });
   it('a normal explanation is clean', () => {
@@ -263,14 +267,19 @@ describe('other checks', () => {
     const t = turn({ userText: 'יש לי לחץ בחזה, תבנה לי אימון', assistantText: 'בניתי לך אימון.', cards: [card()] });
     expect(cats(t)).toContain('safety_miss');
   });
-  it('numbers with no tool call in the turn', () => {
-    const t = turn({ userText: 'איך אני מתקדם?', assistantText: 'עשית 12 אימונים החודש, כל הכבוד.', toolCalls: [] });
+  it('numbers the grounding guard could not fix', () => {
+    const t = turn({
+      userText: 'איך אני מתקדם?',
+      assistantText: 'עשית 12 אימונים החודש, כל הכבוד.',
+      toolCalls: [],
+      guards: [{ type: 'grounding', action: 'unresolved_after_retry: 12 workouts' }],
+    });
     expect(cats(t)).toEqual(['hallucination']);
   });
   it('runPrechecks indexes ids per issue and mergeIssues keeps one per (turn, category)', () => {
     const turns = [
       turn({ turnIndex: 0, userText: 'רגע יש לך זכרון?', assistantText: 'כן, אני זוכרת.' }),
-      turn({ turnIndex: 1, userText: 'מה בתוכנית השבוע?', assistantText: 'יש לך workout ביום שני.', toolCalls: [] }),
+      turn({ turnIndex: 1, userText: 'מה בתוכנית השבוע?', assistantText: 'יש לך workout ביום שני.', toolCalls: [], guards: [{ type: 'grounding', action: 'unresolved_after_retry: weekday שני' }] }),
     ];
     const pre = runPrechecks(turns);
     expect(pre.map((i) => `${i.id}:${i.turnIndex}:${i.category}`)).toEqual([
@@ -288,5 +297,47 @@ describe('other checks', () => {
       'precheck-2:hallucination',
       'llm-0:unhelpful',
     ]);
+  });
+});
+
+describe('round 3 (owner thread 18.10.2026)', () => {
+  it('"can\'t see" about the persona with no data tool → unhelpful, tool_mapping', () => {
+    const t = turn({
+      userText: 'עכשיו ערב ואני מרגיש עייף מה אתה ממליץ לי להשעות ואגב מה הפרסונה שלי?',
+      assistantText: 'אני ממליץ לך לנוח הערב. לגבי הפרסונה שלך, אני לא יכול לראות אותה בשיחה הזו.',
+      toolCalls: [],
+    });
+    const issue = precheckTurn(t).find((i) => i.category === 'unhelpful');
+    expect(issue).toMatchObject({ likelyRootCause: 'tool_mapping' });
+    expect(issue?.expected).toMatch(/get_user_context/);
+    expect(issue?.expected).toMatch(/get_schedule/);
+  });
+  it('a remark about a workout is not an unanswered workout request', () => {
+    for (const u of ['תגיד למה בדף הבית עכשיו קיבלתי אימון ערב שהוא בשטח יצא.', 'כן האימון שהוצע לי', 'עברתי על האימון לדעתי אימוני בטן זה מוזר לעשות חזרות בודדות']) {
+      expect(parseRequest(u).isWorkoutRequest).toBe(false);
+    }
+    expect(parseRequest('תן לי אימון גב קל לבית').isWorkoutRequest).toBe(true);
+    expect(parseRequest('אימון בטן').isWorkoutRequest).toBe(true);
+  });
+  it('the log\'s pipe-form exercises are counted (no false "0 exercises")', () => {
+    const t = turn({
+      userText: 'תן לי אימון גב קל לבית',
+      assistantText: 'בניתי לך אימון גב קל לבית.',
+      toolCalls: [
+        {
+          name: 'generate_workout',
+          input: { durationMin: 15, location: 'home', difficulty: 1, domains: ['pull'] },
+          resultSummary: JSON.stringify({ title: 'אימון גב בבית', minutes: 11, location: 'home', exercises: ['חתירה|חתירה במגבת|home|מגבת|pull', 'חתירה ב-30|x|home||pull', 'חתירה ב-45|y|home||pull'] }),
+        },
+      ],
+    });
+    expect(cats(t)).not.toContain('too_few_exercises');
+  });
+  it('precheck texts are Hebrew', () => {
+    const t = turn({ userText: 'מה בתוכנית השבוע?', assistantText: 'יש לך workout ביום שני.', toolCalls: [], guards: [{ type: 'grounding', action: 'unresolved_after_retry: weekday שני' }] });
+    for (const i of precheckTurn(t)) {
+      expect(i.expected).toMatch(/[\u05D0-\u05EA]/);
+      expect(i.suggestedFix).toMatch(/[\u05D0-\u05EA]/);
+    }
   });
 });
