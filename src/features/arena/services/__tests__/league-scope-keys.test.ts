@@ -148,3 +148,42 @@ describe('km (distance next to the points)', () => {
     expect(buildDistanceEntries(docs, new Map(), 1)).toHaveLength(1);
   });
 });
+
+import { buildGroupBoard } from '../league-scope-keys';
+
+describe('buildGroupBoard (group leagues — steps points + km)', () => {
+  const doc = {
+    scopeId: 'g1',
+    totalCredit: 120,
+    activeMemberCount: 2,
+    distanceMeters: 18_400,
+    byActivity: { steps: { credit: 45, members: 2 }, strength: { credit: 75, members: 1 } },
+  };
+  const rows = [
+    { uid: 'a', credit: 30, stepsCredit: 30, distanceMeters: 9_000 },
+    { uid: 'b', credit: 90, stepsCredit: 15, distanceMeters: 8_600 },
+    { uid: 'c', credit: 0, distanceMeters: 800 },
+    { uid: 'd', credit: 0 },
+    { uid: 'e', credit: 12, stepsCredit: 40 },
+  ];
+  const r = buildGroupBoard(doc, rows, new Map([['a', 'אנה'], ['b', 'בני']]), 'a');
+
+  it('totals: points, the steps share, km, active members', () => {
+    expect(r.totals).toEqual({ points: 120, stepsPoints: 45, km: 18.4, activeMembers: 2 });
+  });
+
+  it('members ranked by points; km-only rows kept, empty rows dropped; names fall back', () => {
+    expect(r.members.map((m) => [m.uid, m.points, m.stepsPoints, m.km, m.isMe])).toEqual([
+      ['b', 90, 15, 8.6, false],
+      ['a', 30, 30, 9, true],
+      ['e', 12, 12, 0, false], // steps share never above the points
+      ['c', 0, 0, 0.8, false],
+    ]);
+    expect(r.members[0].name).toBe('בני');
+    expect(r.members[2].name).toBe('חבר/ת קבוצה');
+  });
+
+  it('no doc yet → zeros', () => {
+    expect(buildGroupBoard(null, [], new Map(), 'a')).toEqual({ totals: { points: 0, stepsPoints: 0, km: 0, activeMembers: 0 }, members: [] });
+  });
+});

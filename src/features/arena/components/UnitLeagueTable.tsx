@@ -6,6 +6,9 @@ import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, B
 import { getUnitLeagueLeaderboard, type UnitLeagueRange, type UnitLeagueResult } from '../services/unit-league.service';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { getRelativeTime } from '@/lib/utils/date-formatter';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import { formatKm } from './league-board-logic';
 
 const RANGE_OPTIONS: { value: UnitLeagueRange; label: string }[] = [
   { value: 'my_battalion_companies', label: 'הפלוגות בגדוד שלי' },
@@ -35,6 +38,8 @@ interface UnitLeagueTableProps {
  * 05.09.2026 request not to introduce an inconsistent variant).
  */
 export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTableProps) {
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const [range, setRange] = useState<UnitLeagueRange>('my_brigade_battalions');
   const [result, setResult] = useState<UnitLeagueResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +62,7 @@ export default function UnitLeagueTable({ myOrgId, myUnitPathIds }: UnitLeagueTa
       isLoading={isLoading}
       result={result}
       onRefresh={fetchData}
+      showKm={v2}
     />
   );
 }
@@ -69,6 +75,12 @@ export interface UnitLeagueTableViewProps {
   isLoading: boolean;
   result: UnitLeagueResult | null;
   onRefresh: () => void;
+  /**
+   * Home v2: each unit's average daily km per active reservist next to the
+   * steps ("· 5.4 ק״מ ליום", unitLeagueRollup's avgDistanceMeters). Display
+   * only — the ranking stays by steps.
+   */
+  showKm?: boolean;
 }
 
 export function UnitLeagueTableView({
@@ -77,7 +89,9 @@ export function UnitLeagueTableView({
   isLoading,
   result,
   onRefresh: fetchData,
+  showKm = false,
 }: UnitLeagueTableViewProps) {
+  const kmText = (avgKm: number | null) => (showKm && avgKm && avgKm > 0 ? `${formatKm(avgKm)} ק״מ ליום` : null);
   const [isOpen, setIsOpen] = useState(false);
   const activeOpt = RANGE_OPTIONS.find((o) => o.value === range) ?? RANGE_OPTIONS[0];
 
@@ -141,7 +155,7 @@ export function UnitLeagueTableView({
                   value: e.avgSteps.toLocaleString('he-IL'),
                   unit: 'צעדים',
                   isMe: e.isMyUnit,
-                  sub: `${e.activeParticipantCount} פעילים`,
+                  sub: [`${e.activeParticipantCount} פעילים`, kmText(e.avgKm)].filter(Boolean).join(' · '),
                 })) as [PodiumEntry, PodiumEntry, PodiumEntry]
               }
             />
@@ -155,7 +169,7 @@ export function UnitLeagueTableView({
                 nameTag={entry.isMyUnit ? '(היחידה שלך)' : undefined}
                 isMe={entry.isMyUnit}
                 leading={<UnitIconBadge unitId={entry.unitId} iconUrl={entry.iconUrl} name={entry.name} size={32} />}
-                sub={[entry.parentBreadcrumb, `${entry.activeParticipantCount} משתתפים פעילים`].filter(Boolean).join(' · ')}
+                sub={[entry.parentBreadcrumb, `${entry.activeParticipantCount} משתתפים פעילים`, kmText(entry.avgKm)].filter(Boolean).join(' · ')}
                 value={entry.avgSteps.toLocaleString('he-IL')}
                 unit="צעדים"
               />

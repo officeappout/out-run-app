@@ -147,3 +147,42 @@ describe('applyStepsToLeagueStats — distance (km, never points)', () => {
     expect((await db.doc(`${hood}/members/u1`).get()).data()!.distanceMeters).toBe(650);
   });
 });
+
+describe('group leagues — steps points + km flow into the user\'s groups (social.groupIds)', () => {
+  const group = 'league_scope_stats/weekly_W2026-10-11_group_g1';
+
+  beforeEach(async () => {
+    await db.doc('users/u1').set({ core: { authorityId: 'tlv', neighborhoodId: 'n1', gender: 'male' }, social: { groupIds: ['g1'] } });
+  });
+
+  it('the group gets the steps bucket and the km; the member row keeps stepsCredit by delta', async () => {
+    await applyStepsToLeagueStats(db, ts, 'u1', '2026-10-16', 5200, 4100);
+    await applyStepsToLeagueStats(db, ts, 'u1', '2026-10-16', 8100, 6000);
+    const d = (await db.doc(group).get()).data()!;
+    expect(d).toMatchObject({ granularity: 'group', scopeId: 'g1', totalCredit: 24, activeMemberCount: 1, distanceMeters: 6000 });
+    expect(d.byActivity.steps).toEqual({ credit: 24, members: 1 });
+    const m = (await db.doc(`${group}/members/u1`).get()).data()!;
+    expect(m).toMatchObject({ credit: 24, stepsCredit: 24, distanceMeters: 6000 });
+    // Same for the neighborhood — stepsCredit is on every scope's member row.
+    expect((await db.doc(`${hood}/members/u1`).get()).data()!.stepsCredit).toBe(24);
+  });
+
+  it('a workout adds points but keeps the member\'s stepsCredit and km', async () => {
+    await applyStepsToLeagueStats(db, ts, 'u1', '2026-10-16', 5200, 4100);
+    await applyWorkoutToLeagueStats(db, ts, 'w-g1', {
+      userId: 'u1',
+      category: 'strength',
+      duration: 20 * 60,
+      date: { toDate: () => new Date('2026-10-16T09:00:00Z') },
+    });
+    const m = (await db.doc(`${group}/members/u1`).get()).data()!;
+    expect(m).toMatchObject({ credit: 15 + 40, stepsCredit: 15, distanceMeters: 4100 });
+  });
+
+  it('km-only days write no stepsCredit', async () => {
+    await applyStepsToLeagueStats(db, ts, 'u1', '2026-10-16', 800, 650);
+    const m = (await db.doc(`${group}/members/u1`).get()).data()!;
+    expect(m.stepsCredit).toBeUndefined();
+    expect(m.distanceMeters).toBe(650);
+  });
+});

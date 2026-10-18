@@ -95,3 +95,17 @@ describe('selectUnitLeagueEntries — isMyUnit + updatedAt', () => {
     expect(result.updatedAt).toEqual(newer.updatedAt);
   });
 });
+
+describe('selectUnitLeagueEntries — km next to the steps (18.10.2026)', () => {
+  it('avgKm from avgDistanceMeters (one decimal), null when missing; ranking stays by steps', () => {
+    const aggregates: UnitAggregateDoc[] = [
+      { ...agg('brigade810__coA', 4, 7000), avgDistanceMeters: 5384 },
+      { ...agg('brigade810__coB', 3, 9000) },
+    ];
+    const result = selectUnitLeagueEntries('my_battalion_companies', UNITS, aggregates, 'brigade810', ['bat9307']);
+    expect(result.entries.map((e) => [e.directoryId, e.avgKm])).toEqual([
+      ['brigade810__coB', null],
+      ['brigade810__coA', 5.4],
+    ]);
+  });
+});

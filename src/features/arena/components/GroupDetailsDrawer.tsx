@@ -45,6 +45,7 @@ import { useGroupLiveSession } from '@/features/arena/hooks/useGroupLiveSession'
 import { setMyAttendeeStatus } from '@/features/arena/services/session-phase.service';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import GroupLeagueStatsBoard from './GroupLeagueStatsBoard';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import NavigationSheet from './NavigationSheet';
 import ReportContentSheet from './ReportContentSheet';
@@ -1117,6 +1118,9 @@ export default function GroupDetailsDrawer({
                     {group.description}
                   </p>
                 )}
+
+                {/* ── v2: the group's league this week — points, steps points, km ── */}
+                {v2 && (isJoined || isCreator) && <GroupLeagueStatsBoard groupId={group.id} timeWindow="weekly" />}
 
                 {/* ── Member List ──────────────────────────────────── */}
                 {(isJoined || isCreator) && (

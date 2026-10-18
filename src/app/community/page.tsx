@@ -85,6 +85,7 @@ import type {
 } from '@/features/arena/services/ranking.service';
 import { getMyLeagueContribution } from '@/features/arena/services/ranking.service';
 import { formatKm } from '@/features/arena/components/league-board-logic';
+import GroupLeagueStatsBoard from '@/features/arena/components/GroupLeagueStatsBoard';
 import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import { CATEGORY_UNIT_LABEL } from '@/features/arena/components/scope-category-unit-label';
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
@@ -1954,6 +1955,8 @@ export default function CommunityPage() {
   function renderLeagueSegment(groupId: string) {
     return (
       <div className="space-y-4" dir="rtl">
+        {/* Home v2: the group's own points / steps points / km (server aggregates). */}
+        {featureFlags.enableHomeV2 && <GroupLeagueStatsBoard groupId={groupId} timeWindow={leaderboardTimeWindow} />}
         <NeighborhoodLeaderboard
           scope="league"
           scopeId={groupId}

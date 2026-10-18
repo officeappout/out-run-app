@@ -192,3 +192,72 @@ export function scopeKindOf(type: unknown, parentAuthorityId: unknown): ScopeKin
   if (t === 'city' || t === 'regional_council' || t === 'local_council' || t === 'neighborhood') return t;
   return 'other';
 }
+
+// ── Group leagues (home v2, 18.10.2026) ─────────────────────────────────────
+
+/** One member row of a group's league_scope_stats doc (members/{uid}). */
+export interface GroupMemberStatsRow {
+  uid: string;
+  credit?: unknown;
+  /** The part of `credit` that came from steps (leagueStepsRollup). */
+  stepsCredit?: unknown;
+  distanceMeters?: unknown;
+}
+
+export interface GroupBoardMember {
+  uid: string;
+  name: string;
+  /** All league points this period (workouts + steps). */
+  points: number;
+  /** Of those, the points from steps (3 per 1,000). */
+  stepsPoints: number;
+  /** km this period — shown, never points. */
+  km: number;
+  isMe: boolean;
+}
+
+export interface GroupBoard {
+  totals: { points: number; stepsPoints: number; km: number; activeMembers: number };
+  members: GroupBoardMember[];
+}
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+
+/**
+ * A group's own league board for one period, from its aggregate doc and its
+ * member rows: totals (points, the steps share, km) and members ranked by
+ * points — km and steps points ride along for display, never re-rank it.
+ * Rows with neither points nor km are dropped; ties keep the input order.
+ */
+export function buildGroupBoard(
+  doc: (ScopeStatsDoc & { byActivity?: Record<string, { credit?: number } | undefined> }) | null | undefined,
+  rows: GroupMemberStatsRow[],
+  names: Map<string, string>,
+  myUid: string,
+): GroupBoard {
+  const members = rows
+    .map((r, i) => ({
+      i,
+      m: {
+        uid: r.uid,
+        name: names.get(r.uid) ?? 'חבר/ת קבוצה',
+        points: num(r.credit),
+        // Never more than the points themselves (older rows have no split).
+        stepsPoints: Math.min(num(r.stepsCredit), num(r.credit)),
+        km: kmOf(r.distanceMeters),
+        isMe: r.uid === myUid,
+      },
+    }))
+    .filter(({ m }) => m.points > 0 || m.km > 0)
+    .sort((a, b) => b.m.points - a.m.points || a.i - b.i)
+    .map(({ m }) => m);
+  return {
+    totals: {
+      points: num(doc?.totalCredit),
+      stepsPoints: num(doc?.byActivity?.steps?.credit),
+      km: kmOf(doc?.distanceMeters),
+      activeMembers: num(doc?.activeMemberCount),
+    },
+    members,
+  };
+}

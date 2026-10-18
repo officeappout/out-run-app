@@ -7,7 +7,7 @@
  * soldiers arriving this week, needs to be live before they do).
  *
  * Writes ONE aggregate doc per real unit to `unit_league_aggregates`:
- * `{ activeParticipantCount, avgSteps, updatedAt }`. NO uid, NO
+ * `{ activeParticipantCount, avgSteps, avgDistanceMeters, updatedAt }`. NO uid, NO
  * displayName, no personal identifier of any kind — that's the entire
  * point of this design (see the research doc's §12א): the client never
  * reads a per-user document scoped by unit, so the community_groups/
@@ -47,6 +47,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { computeUnitAggregates, type UnitDirectoryEntry, type ReservistActivity } from './unit-league-aggregation';
+import { distanceMetersOfDay } from './lib/league-scope-stats';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -95,11 +96,15 @@ async function loadReservistActivity(): Promise<ReservistActivity[]> {
       const snaps = refs.length > 0 ? await db.getAll(...refs) : [];
 
       let totalSteps = 0;
+      let totalMeters = 0;
       let isActive = false;
       for (const snap of snaps) {
         if (!snap.exists) continue;
-        const steps = (snap.data()?.steps as number) || 0;
+        const data = snap.data();
+        const steps = (data?.steps as number) || 0;
         totalSteps += steps;
+        // The leagues' km: synced distance, or the steps estimate.
+        totalMeters += distanceMetersOfDay(data?.steps, data?.distanceMeters);
         if (steps > 0) isActive = true;
       }
 
@@ -108,6 +113,7 @@ async function loadReservistActivity(): Promise<ReservistActivity[]> {
         unitPathIds,
         isActive,
         avgSteps: Math.round(totalSteps / WINDOW_DAYS),
+        avgDistanceMeters: Math.round(totalMeters / WINDOW_DAYS),
       };
     }),
   );
@@ -130,6 +136,8 @@ export const unitLeagueRollup = onSchedule(
       batch.set(db.doc(`unit_league_aggregates/${agg.directoryId}`), {
         activeParticipantCount: agg.activeParticipantCount,
         avgSteps: agg.avgSteps,
+        // km next to the steps (18.10.2026) — display only, never the ranking.
+        avgDistanceMeters: agg.avgDistanceMeters,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     }

@@ -14,7 +14,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, UserPlus, Swords, Zap, Footprints } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
-import { battleSplit, formatTimeLeft, getPeriodEnd, perMember } from './league-board-logic';
+import { battleSplit, formatKm, formatTimeLeft, getPeriodEnd, perMember } from './league-board-logic';
 import {
   getScopeCompetitionLeaderboard,
   type ScopeCompetitionResult,
@@ -24,6 +24,8 @@ import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilte
 import OpponentPickerSheet from './OpponentPickerSheet';
 import { pickDefaultOpponent } from './pick-default-opponent';
 import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 
 // Battle-bar "opponent" side — none of the 5 brand tokens reads as a
 // neutral "vs" color without implying success/failure (emerald = good,
@@ -59,6 +61,8 @@ interface ScopeBattleCardProps {
 }
 
 export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, cityAuthorityId, category = 'overall', genderFilter = 'all', onMyScopeEntryChange, onGroupWalk }: ScopeBattleCardProps) {
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opponentScopeId, setOpponentScopeId] = useState<string | null>(null);
@@ -104,6 +108,7 @@ export default function ScopeBattleCard({ granularity, timeWindow, myScopeId, ci
       category={category}
       timeWindow={timeWindow}
       onGroupWalk={onGroupWalk}
+      showKm={v2}
     />
   );
 }
@@ -122,6 +127,8 @@ export interface ScopeBattleCardViewProps {
   timeWindow?: LeaderboardTimeWindow;
   /** See ScopeBattleCardProps.onGroupWalk. */
   onGroupWalk?: () => void;
+  /** Home v2: each side's km next to its total ("· 1,240 ק״מ") — shown, never part of the battle. */
+  showKm?: boolean;
 }
 
 /** Secondary white pill — "go walk together" for your scope (home v2). */
@@ -166,6 +173,7 @@ export function ScopeBattleCardView({
   category,
   timeWindow,
   onGroupWalk,
+  showKm = false,
 }: ScopeBattleCardViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const now = new Date();
@@ -256,7 +264,12 @@ export function ScopeBattleCardView({
       <div className="mt-3 grid grid-cols-2 gap-2">
         {[myEntry, opponent].map((e) => (
           <div key={e.scopeId} className="rounded-[16px] bg-white/80 px-3 py-2 min-w-0">
-            <div className="text-[17px] font-black leading-tight tabular-nums text-v2-ink">{e.totalScore.toLocaleString('he-IL')}</div>
+            <div className="truncate whitespace-nowrap text-[17px] font-black leading-tight tabular-nums text-v2-ink">
+              {e.totalScore.toLocaleString('he-IL')}
+              {showKm && (e.totalKm ?? 0) > 0 && (
+                <span className="text-[12.5px] font-extrabold text-v2-ink-2"> · {formatKm(e.totalKm)} ק״מ</span>
+              )}
+            </div>
             <div className="text-[11.5px] font-bold text-v2-muted truncate">סה״כ {CATEGORY_UNIT_LABEL[category]} · {e.scopeName}</div>
           </div>
         ))}
