@@ -57,6 +57,7 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, type PushChannel } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
+import { activityToMillis, lastActivityFromUserData, readActivityFlags } from './lib/user-activity';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -381,15 +382,40 @@ async function resolveAudience(
     // composite index, so we fan out client-side after the authority
     // filter. The active/inactive cohort is small relative to total
     // users (typically < 30%) so this is acceptable for Sprint 3.
-    // .select('lastActive') — only field this branch reads, avoids a full
-    // document fetch (Phase 0 prereq fix, unrelated to the routing flag).
-    const snap = await baseQuery.select('lastActive').get();
-    const cutoffActive = Date.now() - ACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const cutoffInactive = Date.now() - INACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const cutoffActive = nowMs - ACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const cutoffInactive = nowMs - INACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+    // 18.10.2026 — users.lastActive alone is written only at signup/onboarding,
+    // so "active"/"inactive" by it was wrong for nearly everyone. With the
+    // guard (app_config/feature_flags.retentionRealActivityGuard, default ON)
+    // the cohorts use the real last activity: every activity signal on the
+    // user doc (lib/user-activity.ts) + workouts in the last
+    // INACTIVE_WINDOW_DAYS (one query; both cutoffs fall inside that window).
+    const { realActivityGuard } = await readActivityFlags(db, nowMs);
+    let lastWorkoutByUid = new Map<string, number>();
+    let snap: admin.firestore.QuerySnapshot;
+    if (realActivityGuard) {
+      snap = await baseQuery
+        .select('lastActive', 'progression.lastActiveDate', 'running.lastWorkoutDate', 'fcmTokenMeta')
+        .get();
+      try {
+        lastWorkoutByUid = await latestWorkoutsSince(cutoffInactive);
+      } catch (e) {
+        // Doc signals alone are still far better than lastActive alone.
+        logger.warn('[sendPushFromQueue] workouts lookup failed, using user-doc activity only', e);
+      }
+    } else {
+      // .select('lastActive') — only field this branch reads (legacy).
+      snap = await baseQuery.select('lastActive').get();
+    }
+
     const out = new Set<string>();
     snap.docs.forEach((d) => {
-      const lastActive = (d.data() as any)?.lastActive;
-      const ts = toMillis(lastActive);
+      const docData = d.data() as Record<string, unknown>;
+      const ts = realActivityGuard
+        ? latestOf(lastActivityFromUserData(docData), lastWorkoutByUid.get(d.id) ?? null)
+        : toMillis(docData?.lastActive);
       if (audience === 'active_users') {
         if (ts !== null && ts >= cutoffActive) out.add(d.id);
       } else {
@@ -442,6 +468,31 @@ async function resolveAudience(
  * Convert a Firestore Timestamp / number / Date into millis-since-epoch.
  * Returns null when the value is missing or unrecognised.
  */
+function latestOf(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.max(a, b);
+}
+
+/** uid → latest workouts.date since `sinceMs` (single-field index on date). */
+async function latestWorkoutsSince(sinceMs: number): Promise<Map<string, number>> {
+  const snap = await db
+    .collection('workouts')
+    .where('date', '>=', admin.firestore.Timestamp.fromMillis(sinceMs))
+    .select('userId', 'date')
+    .get();
+  const out = new Map<string, number>();
+  snap.docs.forEach((d) => {
+    const w = d.data() as Record<string, unknown>;
+    const uid = w?.userId;
+    const ms = activityToMillis(w?.date);
+    if (typeof uid !== 'string' || ms === null) return;
+    const prev = out.get(uid);
+    if (prev === undefined || ms > prev) out.set(uid, ms);
+  });
+  return out;
+}
+
 function toMillis(v: unknown): number | null {
   if (!v) return null;
   if (v instanceof Date) return v.getTime();

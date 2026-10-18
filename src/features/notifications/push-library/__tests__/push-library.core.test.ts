@@ -79,7 +79,10 @@ describe('validatePushCopyDraft (enforced on save)', () => {
   });
 
   it('only known variables, and only those this push fills', () => {
-    expect(fields({ ...base, body: 'עברו @ימים ימים' })).toEqual([]);
+    // Retention no longer fills a day count (18.10.2026): @ימים is rejected for it.
+    const dayCount = validatePushCopyDraft({ ...base, body: 'עברו @ימים ימים' });
+    expect(dayCount.some((i) => i.message.includes('@ימים'))).toBe(true);
+    expect(fields({ ...base, body: '@שם, חוזרים?' })).toEqual([]);
     const unknown = validatePushCopyDraft({ ...base, body: '@זמן_אימון דקות מחכות' });
     expect(unknown.some((i) => i.message.includes('@זמן_אימון'))).toBe(true);
     const notFilled = validatePushCopyDraft({ ...base, body: 'נשארו @צעדים_שנותרו צעדים' });
