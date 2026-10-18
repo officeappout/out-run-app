@@ -35,6 +35,10 @@ export type CoachPhraseKey =
   | 'WEEKLY_GAP'
   | 'SKILL_FOCUS'
   | 'PROGRAM_FOCUS'
+  | 'WEATHER_RAIN'
+  | 'WEATHER_HEAT'
+  | 'WEATHER_COLD'
+  | 'WEATHER_UV'
   | 'LOCATION_bodyweight'
   | 'LOCATION_equipment'
   | 'TIME_morning'
@@ -98,6 +102,26 @@ export const DEFAULT_COACH_PHRASEBOOK: Record<CoachPhraseKey, string[]> = {
     'האימון מותאם לרמה {level} בתוכנית {program}.',
     'התרגילים נבחרו לפי הרמה שלך, רמה {level} בתוכנית {program}.',
     'הכול בנוי סביב רמה {level} בתוכנית {program}.',
+  ],
+  WEATHER_RAIN: [
+    'גשום היום, אז בנינו לך אימון לבית.',
+    'בחוץ יורד גשם, ולכן האימון היום בבית.',
+    'היום גשום, אז מתאמנים בבית ונשארים יבשים.',
+  ],
+  WEATHER_HEAT: [
+    'חם מאוד היום, אז האימון קצר יותר ועם יותר מנוחה.',
+    'בחום כזה מקצרים את האימון ונותנים יותר זמן למנוחה.',
+    'היום חם במיוחד, ולכן האימון קצר יותר והמנוחות ארוכות יותר.',
+  ],
+  WEATHER_COLD: [
+    'קר בחוץ, אז מתחילים בחימום ארוך יותר.',
+    'ביום קר הגוף צריך יותר זמן להתחמם, ולכן החימום ארוך יותר.',
+    'היום קר, אז מקדישים עוד כמה דקות לחימום.',
+  ],
+  WEATHER_UV: [
+    'השמש חזקה היום, אז האימון קצר יותר ועם יותר מנוחה.',
+    'קרינת השמש גבוהה היום, ולכן מקצרים את האימון ומוסיפים מנוחה.',
+    'בשמש חזקה כזו עדיף אימון קצר יותר, עם מנוחות ארוכות יותר.',
   ],
   LOCATION_bodyweight: [
     'בנינו לך אימון {locIn} עם משקל הגוף בלבד, בלי ציוד.',
@@ -344,6 +368,10 @@ function reasonSentence(
     case 'PEAK_WEEK':
     case 'LEVEL_CEILING':
     case 'MUSCLES_RESTED':
+    case 'WEATHER_RAIN':
+    case 'WEATHER_HEAT':
+    case 'WEATHER_COLD':
+    case 'WEATHER_UV':
       return pick(book, r.code, seed, {});
     case 'RETURNING':
       return pick(book, 'RETURNING', seed, { days: r.days });
@@ -387,6 +415,7 @@ export function renderCoachNoteSentences(
   //    calm line instead of spending a "why" slot on it.
   const why: string[] = [];
   const hasLevelNews = record.reasons.some((r) => r.code === 'LEVEL_CEILING');
+  const hasRainHome = record.reasons.some((r) => r.code === 'WEATHER_RAIN');
   for (const r of record.reasons) {
     if (why.length >= 2) break;
     if (r.code === 'TIME' && r.slot !== 'morning') continue;
@@ -394,6 +423,8 @@ export function renderCoachNoteSentences(
     // nothing — only worth a slot when the level itself is news (the content
     // ceiling clamped it).
     if (r.code === 'PROGRAM_FOCUS' && !hasLevelNews) continue;
+    // Rain already said "a home workout" — LOCATION would repeat it.
+    if (r.code === 'LOCATION' && hasRainHome) continue;
     const s = reasonSentence(book, r, seed);
     if (s) why.push(s);
   }

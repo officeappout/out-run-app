@@ -3249,6 +3249,7 @@ async function _buildSharedPipeline(
     programFocus: focusProgramSlug ? { program: focusProgramSlug, level: childTrackLevel } : null,
     location: effectiveFilterLocation,
     timeOfDay,
+    weatherFlag: weather?.flag ?? null,
     candidateSkills: resolvedChildDomains.filter((d) => d in DOMAIN_RESOLUTION_SKILL_PARENT_MAP),
   };
 
