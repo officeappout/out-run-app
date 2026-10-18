@@ -15,8 +15,15 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
-  Clock, Plus, Accessibility, ListChecks,
+  Clock, Plus, Accessibility, ListChecks, Footprints,
 } from 'lucide-react';
+import { useActivityStore } from '@/features/activity/store/useActivityStore';
+import { setStepGoalChoice } from '@/features/activity/services/step-goal.service';
+import {
+  MANUAL_STEP_GOAL_MAX,
+  MANUAL_STEP_GOAL_MIN,
+  STEP_GOAL_INCREMENT,
+} from '@/features/activity/lib/step-goal';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -987,6 +994,25 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       useUserStore.getState().updateProfile({ settings: { ...(current.settings ?? {}), guidedStation: v } } as never);
     }
   }, [store, scheduleSave]);
+
+  // ── Daily step goal — the ONE goal (features/activity/lib/step-goal.ts) ──
+  // Ring, streak, step-deficit card and the evening push all follow it.
+  const resolvedStepGoal = useActivityStore((st) => st.resolvedStepGoal);
+  const stepGoalMode: 'auto' | 'manual' =
+    (profile?.progression as { stepGoalMode?: unknown } | undefined)?.stepGoalMode === 'manual' ? 'manual' : 'auto';
+  const [stepGoalSaving, setStepGoalSaving] = useState(false);
+  const handleStepGoalChange = useCallback(async (value: string) => {
+    if (!profile?.id) return;
+    setStepGoalSaving(true);
+    try {
+      await setStepGoalChoice(profile.id, value === 'auto' ? 'auto' : Number(value));
+    } catch (err) {
+      console.error('[Settings] setStepGoalChoice failed:', err);
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setStepGoalSaving(false);
+    }
+  }, [profile?.id, showToast]);
 
   // ── HealthKit disconnect (connect path is handled by useHealthWithDisclosure) ──
 
@@ -2149,6 +2175,38 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     חוויית אימון — guided hybrid-station layer (PR-B1)
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="חוויית אימון">
+                  <SettingsRow
+                    icon={<Footprints size={20} className="text-gray-700" />}
+                    label="יעד צעדים יומי"
+                    sublabel={
+                      stepGoalMode === 'manual'
+                        ? `${(resolvedStepGoal ?? 0).toLocaleString('en-US')} צעדים ביום, לפי הבחירה שלך`
+                        : resolvedStepGoal
+                          ? `${resolvedStepGoal.toLocaleString('en-US')} צעדים · מתעדכן פעם בשבוע לפי ההליכה שלך`
+                          : 'מתעדכן פעם בשבוע לפי ההליכה שלך'
+                    }
+                    right={
+                      <select
+                        aria-label="יעד צעדים יומי"
+                        value={stepGoalMode === 'manual' && resolvedStepGoal ? String(resolvedStepGoal) : 'auto'}
+                        disabled={stepGoalSaving || !profile?.id}
+                        onChange={(e) => void handleStepGoalChange(e.target.value)}
+                        className={
+                          v2
+                            ? 'max-w-[9.5rem] flex-shrink-0 rounded-full bg-v2-surface px-3 py-1.5 text-base font-extrabold text-v2-ink disabled:opacity-50'
+                            : 'max-w-[9.5rem] flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1 text-base font-semibold text-gray-900 disabled:opacity-50'
+                        }
+                      >
+                        <option value="auto">אוטומטי (מומלץ)</option>
+                        {Array.from(
+                          { length: (MANUAL_STEP_GOAL_MAX - MANUAL_STEP_GOAL_MIN) / STEP_GOAL_INCREMENT + 1 },
+                          (_, i) => MANUAL_STEP_GOAL_MIN + i * STEP_GOAL_INCREMENT,
+                        ).map((n) => (
+                          <option key={n} value={String(n)}>{n.toLocaleString('en-US')}</option>
+                        ))}
+                      </select>
+                    }
+                  />
                   <SettingsRow
                     icon={<ListChecks size={20} className="text-gray-700" />}
                     label="ליווי צעד-אחר-צעד"

@@ -113,7 +113,12 @@ export interface UserProgression {
   lemurStage: number;        // 1-10 (Lemur evolution stage based on daysActive)
 
   // --- Dynamic Goals (NEW in Two-Speed System) ---
-  dailyStepGoal: number;     // Adaptive step goal (starts at 3000, adjusts +10%/-5%)
+  /** The user's ONE daily step goal — see features/activity/lib/step-goal.ts. */
+  dailyStepGoal: number;
+  /** 'auto' (default when absent) = weekly adaptive goal; 'manual' = user's choice. */
+  stepGoalMode?: 'auto' | 'manual';
+  /** 'YYYY-MM-DD' of the last weekly auto recompute (null/absent = never). */
+  stepGoalComputedOn?: string | null;
   dailyFloorGoal: number;    // Adaptive floor goal (starts at 3, adjusts +10%/-5%)
   currentStreak: number;     // Days meeting at least baseline (1500 steps OR 1 floor)
   goalHistory: Array<{

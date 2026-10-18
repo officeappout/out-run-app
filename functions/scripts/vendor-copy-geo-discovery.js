@@ -242,6 +242,29 @@ if (missingPackages.size > 0) {
   hadError = true;
 }
 
+// ── Committed mirrors of pure, import-free app modules ──────────────────────
+// Unlike _vendor/ (gitignored, regenerated), these copies are COMMITTED so the
+// root `tsc` (which type-checks functions/src too, with no build step) resolves
+// them. Refreshed on every functions build, so a deploy always ships the
+// current app source; a root vitest asserts the committed copy is identical
+// (src/features/activity/lib/__tests__/step-goal.test.ts), so drift can't merge.
+const COMMITTED_MIRRORS = {
+  // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.
+  'src/features/activity/lib/step-goal.ts': 'functions/src/shared/step-goal.ts',
+};
+for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
+  const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
+  if (IMPORT_RE.test(src)) {
+    console.error(`[vendor-copy] ${from} must stay import-free to be mirrored into functions/`);
+    hadError = true;
+  }
+  IMPORT_RE.lastIndex = 0;
+  const header = `// AUTO-GENERATED from ${from} by functions/scripts/vendor-copy-geo-discovery.js — do not edit.\n`;
+  fs.mkdirSync(path.dirname(path.join(REPO_ROOT, to)), { recursive: true });
+  fs.writeFileSync(path.join(REPO_ROOT, to), header + src);
+  console.log(`[vendor-copy] mirrored ${from} -> ${to}`);
+}
+
 if (hadError) {
   console.error(`[vendor-copy] FAILED — see errors above. Nothing left half-written was intentional; re-run after fixing the source repo.`);
   process.exit(1);

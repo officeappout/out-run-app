@@ -22,8 +22,8 @@
  * step-goal) and marked every other category "unresolvable" without a real
  * check. `resolveOutcome()` now dispatches:
  *   - `category === 'Daily_Goal' && activityType === 'walking'` → the
- *     original specific check (did `dailyActivity.steps` reach
- *     `progression.dailyStepGoal`, for the Israel calendar day containing
+ *     original specific check (did `dailyActivity.steps` reach the user's
+ *     ONE step goal — lib/resolveUserStepGoal, same as the app — for the Israel calendar day containing
  *     the OPEN instant — previously the SEND instant).
  *   - everything else → a GENERIC "started a workout within the window of
  *     open" check: does a `workouts` doc exist for this uid with `date`
@@ -48,6 +48,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { writePostPushOutcomeEvent, computeOutcomeWindowBounds, DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
+import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
+
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -92,8 +94,8 @@ async function checkWalkingGoal(uid: string, openedAtMillis: number): Promise<bo
   const progression = (userSnap.exists ? (userSnap.data() as Record<string, unknown>)?.progression : {}) as
     | Record<string, unknown>
     | undefined;
-  const rawGoal = progression?.dailyStepGoal;
-  const goal = typeof rawGoal === 'number' && rawGoal > 0 ? rawGoal : 3000;
+  // Same ONE step goal the app and the nudge use (lib/resolveUserStepGoal).
+  const goal = await resolveUserStepGoal(db, uid, progression, dateStr);
   return Number.isFinite(steps) && steps >= goal;
 }
 
