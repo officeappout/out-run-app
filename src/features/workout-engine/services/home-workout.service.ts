@@ -92,7 +92,9 @@ import {
 } from './user-profile.utils';
 import { ensureEquipmentCachesLoaded } from '../shared/utils/gear-mapping.utils';
 import { selectMethodForContext } from '../shared/utils/method-selection.utils';
-import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED } from '@/config/feature-flags';
+import { CONTEXT_AWARE_SELECTION_ENABLED, SKILL_REPRESENTATION_GUARANTEE_ENABLED, HSPU_GENERATOR_EXCLUDED, WORKOUT_COACH_NOTE_V1 } from '@/config/feature-flags';
+import { buildDecisionRecord, computeWeeklyGap, pickSkillFocus, type DecisionContext } from './decision-record';
+import { DOMAIN_NAME_HE } from './coach-note';
 import { MG_TO_DOMAIN } from '../shared/constants/domain-mapping.constants';
 import {
   normalizeEquipmentArray,
@@ -1583,6 +1585,21 @@ export async function generateHomeWorkoutTrio(
     // staleness case.
     workout.mechanicalBalance = recomputeMechanicalBalance(workout.exercises);
 
+    // ── Decision Record (coach note "דגשי האימון") ─────────────────────────
+    // Pure + read-only over the FINAL workout: must run after every mutation
+    // above. Always computed (light scalars, never rendered while
+    // WORKOUT_COACH_NOTE_V1 is off); a failure here must never cost the user
+    // their workout, hence the swallow.
+    try {
+      const { candidateSkills, ...signals } = pipeline.decisionSignals;
+      workout.decisionRecord = buildDecisionRecord(workout, {
+        ...signals,
+        skillFocus: pickSkillFocus(workout, candidateSkills, pipeline.idToSlug),
+      });
+    } catch (e) {
+      console.warn('[WorkoutTrio] decision record skipped (non-blocking):', e);
+    }
+
     // Collect main exercise IDs into blacklist for next iteration
     workout.exercises
       .filter(ex => ex.exerciseRole !== 'warmup' && ex.exerciseRole !== 'cooldown')
@@ -1818,6 +1835,12 @@ interface SharedPipelineState {
    * see `buildNeedsAssessmentResult`.
    */
   needsAssessmentDomains?: string[];
+  /**
+   * Pipeline-level inputs for the per-option DecisionRecord (decision-record.ts)
+   * — the "why" signals the finished workout itself doesn't carry. Skill focus is
+   * resolved per option (it depends on the final exercise list).
+   */
+  decisionSignals: Omit<DecisionContext, 'skillFocus'> & { candidateSkills: string[] };
 }
 
 /**
@@ -3175,6 +3198,33 @@ async function _buildSharedPipeline(
     previewNow,
   };
 
+  // ── Weekly gap (the domain furthest behind its weekly set target) ──────
+  // Feeds the DecisionRecord always, and — only behind WORKOUT_COACH_NOTE_V1 —
+  // the long-dead weeklyGapDomain/weeklyGapPercent fields that the admin
+  // content tag @פער_שבועי reads (it resolves to "מאוזן" while they're unset,
+  // so populating them changes admin-authored copy → flag-gated).
+  const weeklyGap = computeWeeklyGap(resolvedDomainBudgets, domainSetsCompletedThisWeek);
+  if (WORKOUT_COACH_NOTE_V1 && weeklyGap && DOMAIN_NAME_HE[weeklyGap.domain]) {
+    metadataCtxBase.weeklyGapDomain = DOMAIN_NAME_HE[weeklyGap.domain];
+    metadataCtxBase.weeklyGapPercent = weeklyGap.pct;
+  }
+
+  const focusProgramSlug = activeChildProgramId
+    ? (idToSlug.get(activeChildProgramId) ?? activeChildProgramId)
+    : undefined;
+  const decisionSignals: SharedPipelineState['decisionSignals'] = {
+    isRecoveryDay: effectiveIsRecovery,
+    daysInactive,
+    policyReason: sessionPolicy.reason,
+    periodizationWeek: sessionPolicy.periodizationWeek,
+    hasActiveCycle: !!activeProgramForCycle,
+    weeklyGap,
+    programFocus: focusProgramSlug ? { program: focusProgramSlug, level: childTrackLevel } : null,
+    location: effectiveFilterLocation,
+    timeOfDay,
+    candidateSkills: resolvedChildDomains.filter((d) => d in DOMAIN_RESOLUTION_SKILL_PARENT_MAP),
+  };
+
   return {
     scoredExercises: filterResult.exercises,
     allExercises,
@@ -3201,6 +3251,7 @@ async function _buildSharedPipeline(
     metadataCtxBase,
     sessionPolicy,
     needsAssessmentDomains,
+    decisionSignals,
   };
 }
 

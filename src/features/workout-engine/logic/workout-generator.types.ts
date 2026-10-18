@@ -10,6 +10,7 @@
 import { Exercise, MechanicalType, ExecutionLocation, InjuryShieldArea } from '@/features/content/exercises/core/exercise.types';
 import { ScoredExercise, IntentMode, LifestylePersona, FilterStageCounts } from './ContextualEngine';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
+import type { DecisionRecord } from '../services/decision-record';
 
 // ============================================================================
 // CORE TYPES
@@ -341,6 +342,13 @@ export interface GeneratedWorkout {
    * pull from, not an error.
    */
   reserveExercises?: WorkoutExercise[];
+  /**
+   * WHY this workout was built + WHAT to expect, as typed light scalars
+   * (decision-record.ts). Set by generateHomeWorkoutTrio after the final
+   * mutation; rendered as the "דגשי האימון" coach note only while
+   * WORKOUT_COACH_NOTE_V1 is on. Absent on legacy/restored/other-path plans.
+   */
+  decisionRecord?: DecisionRecord;
 }
 
 export interface TabataBlockSpec {

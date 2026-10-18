@@ -393,6 +393,31 @@ export const POST_WORKOUT_LANDING_V1 = false;
 // unwired.
 export const HOME_DAY_SELECT_SCOPE_V1 = false;
 
+// PROGRESSION_RULES_FROM_ADMIN_V1: make the admin-tuned progression_rules actually
+// apply. Today getProgressionRuleForLevel looks up `<slug>_level_N` while the admin
+// saves `<programDocId>_level_N`, so every lookup misses and
+// DEFAULT_PROGRESSION_BY_LEVEL is used for every user. ON: resolve slug → doc id
+// (slug-keyed doc as fallback, 5-min cache) AND pay a level goal's progressBonus
+// once per goal per level instead of on every session that repeats it.
+// Both CHANGE PROGRESSION SPEED for real users (see PR #415 for the live-vs-default
+// table) — owner decision to ship dark. While FALSE: byte-identical to today
+// (single raw-id lookup → defaults; goal bonus re-paid each session).
+export const PROGRESSION_RULES_FROM_ADMIN_V1 = false;
+
+// WORKOUT_COACH_NOTE_V1: the "דגשי האימון" block on the workout overview — 2–4
+// short Hebrew sentences explaining WHY this workout was built (recovery /
+// returning / cycle week / weekly gap / focus / location …) and WHAT to expect
+// (exercises, sets × reps, rest, intensity, protocol). Rendered from the
+// engine's DecisionRecord (workout-engine/services/decision-record.ts) by the
+// template phrasebook in coach-note.ts. Also feeds the weekly-gap signal into
+// the admin content tag @פער_שבועי (workout-metadata weeklyGapDomain/Percent),
+// which today always resolves to "מאוזן".
+// While FALSE: the overview shows logicCue || description exactly as before and
+// the metadata context is unchanged (BYTE-IDENTICAL UI/copy). The
+// DecisionRecord itself is still computed and carried on the workout (pure,
+// light scalars, never rendered) so it can be inspected before the flip.
+export const WORKOUT_COACH_NOTE_V1 = false;
+
 // BLOCK_B_SMART_CLOSE_V1: originally gated the post-workout "smart close"
 // recommendation (hero + 2 alternatives) as its own standalone assembler — this
 // approach is SUPERSEDED by the unified suggestion engine actually built and

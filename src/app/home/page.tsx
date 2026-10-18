@@ -2299,6 +2299,9 @@ export default function HomePage() {
         name: gw.title || 'אימון כוח',
         description: gw.description || '',
         logicCue: gw.logicCue || '',
+        // "דגשי האימון" source (light scalars) — read by WorkoutPreviewClient,
+        // rendered only while WORKOUT_COACH_NOTE_V1 is on.
+        decisionRecord: gw.decisionRecord,
         segments,
         totalDuration: gw.estimatedDuration || 30,
         difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
