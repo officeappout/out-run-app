@@ -1,0 +1,233 @@
+/**
+ * AI coach — the compact, PII-free user sheets the server tools return. Pure.
+ *
+ * Allow-list only: every field below is picked explicitly from the profile. NEVER sent:
+ * full name (first name only), email, phone, photo, birth date (an age band instead),
+ * coordinates (anchorLat/Lng, commute.workLocation), ids of other people, tokens, tenant /
+ * unit / authority ids (a coarse area NAME instead).
+ */
+import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
+import { coachGenderOf, firstNameOf, type CoachGender } from './persona';
+
+export interface RawWorkout {
+  date: Date | null;
+  workoutType?: unknown;
+  category?: unknown;
+  /** seconds, as stored on workouts/{id}.duration */
+  durationSec?: unknown;
+}
+
+export interface RawScheduleEntry {
+  date: string;
+  type?: unknown;
+  programIds?: unknown;
+  startTime?: unknown;
+  completed?: unknown;
+  title?: unknown;
+}
+
+export interface SheetWorkout {
+  date: string;
+  type: string;
+  minutes: number;
+}
+
+export interface SheetScheduleEntry {
+  date: string;
+  type: string;
+  programs: string[];
+  startTime: string | null;
+  completed: boolean;
+  title: string | null;
+}
+
+export interface UserContextSheet {
+  firstName: string;
+  gender: CoachGender;
+  ageBand: string | null;
+  goals: { mainGoal: string | null; selected: string[] };
+  primaryTrack: string | null;
+  programs: Array<{ id: string; name: string | null; level: number; percentToNext: number | null }>;
+  injuries: string[];
+  streakDays: number | null;
+  lastWorkouts: SheetWorkout[];
+  today: SheetScheduleEntry[];
+  thisWeek: SheetScheduleEntry[];
+  preferredTrainingTime: string | null;
+  equipment: { home: string[]; office: string[]; outdoor: string[] };
+  area: string | null;
+}
+
+const str = (v: unknown, max = 40): string | null =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const strList = (v: unknown, cap: number, max = 40): string[] =>
+  Array.isArray(v) ? v.map((x) => str(x, max)).filter((x): x is string => !!x).slice(0, cap) : [];
+
+function toDate(v: unknown): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return Number.isFinite(v.getTime()) ? v : null;
+  if (typeof (v as { toDate?: unknown }).toDate === 'function') return (v as { toDate: () => Date }).toDate();
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  return null;
+}
+
+export function ageBandOf(birthDate: unknown, now: Date): string | null {
+  const d = toDate(birthDate);
+  if (!d) return null;
+  let age = now.getUTCFullYear() - d.getUTCFullYear();
+  const m = now.getUTCMonth() - d.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < d.getUTCDate())) age--;
+  if (age < 18) return null; // the gate already requires adult; never echo a minor's age
+  if (age < 30) return '18-29';
+  if (age < 45) return '30-44';
+  if (age < 60) return '45-59';
+  return '60+';
+}
+
+export function isoDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function programName(id: string): string | null {
+  return PROGRAM_NAME_HE[id] ?? null;
+}
+
+export function sheetWorkout(w: RawWorkout): SheetWorkout | null {
+  if (!w.date) return null;
+  const sec = num(w.durationSec) ?? 0;
+  return {
+    date: isoDay(w.date),
+    type: str(w.workoutType) ?? str(w.category) ?? 'workout',
+    minutes: Math.round(sec / 60),
+  };
+}
+
+export function sheetScheduleEntry(e: RawScheduleEntry): SheetScheduleEntry {
+  const ids = strList(e.programIds, 6, 60);
+  return {
+    date: e.date,
+    type: str(e.type) ?? 'training',
+    programs: ids.map((id) => programName(id) ?? id),
+    startTime: str(e.startTime, 5),
+    completed: e.completed === true,
+    title: str(e.title, 60),
+  };
+}
+
+export interface BuildSheetInput {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
+  profile: Record<string, any>;
+  workouts: RawWorkout[];
+  /** Entries for the Sunday-anchored week containing today. */
+  weekSchedule: RawScheduleEntry[];
+  todayKey: string;
+  areaName: string | null;
+  now: Date;
+}
+
+export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
+  const p = i.profile ?? {};
+  const core = p.core ?? {};
+  const prog = p.progression ?? {};
+  const life = p.lifestyle ?? {};
+  const eq = p.equipment ?? {};
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
+  const tracks = prog.tracks && typeof prog.tracks === 'object' ? (prog.tracks as Record<string, any>) : {};
+  const programs = Object.keys(tracks)
+    .sort()
+    .slice(0, 8)
+    .map((id) => ({
+      id,
+      name: programName(id),
+      level: num(tracks[id]?.currentLevel) ?? 0,
+      percentToNext: num(tracks[id]?.percent),
+    }))
+    .filter((x) => x.level > 0);
+
+  const week = i.weekSchedule.map(sheetScheduleEntry);
+
+  return {
+    firstName: firstNameOf(core.name),
+    gender: coachGenderOf(core.gender),
+    ageBand: ageBandOf(core.birthDate, i.now),
+    goals: { mainGoal: str(core.mainGoal), selected: strList(p.selectedGoals, 5) },
+    primaryTrack: str(life.primaryTrack),
+    programs,
+    injuries: strList(p.health?.injuries, 10),
+    streakDays: num(prog.currentStreak),
+    lastWorkouts: i.workouts.map(sheetWorkout).filter((x): x is SheetWorkout => !!x).slice(0, 5),
+    today: week.filter((e) => e.date === i.todayKey),
+    thisWeek: week,
+    preferredTrainingTime: str(life.trainingTime, 5) ?? str(life.reminders?.strengthTime, 5),
+    equipment: {
+      home: strList(eq.home, 20, 64),
+      office: strList(eq.office, 20, 64),
+      outdoor: strList(eq.outdoor, 20, 64),
+    },
+    area: str(i.areaName),
+  };
+}
+
+// ─── get_progress ────────────────────────────────────────────────────────────
+
+export type ProgressRange = 'week' | 'month' | 'quarter';
+export const RANGE_DAYS: Record<ProgressRange, number> = { week: 7, month: 30, quarter: 90 };
+
+export interface ProgressSummary {
+  range: ProgressRange;
+  days: number;
+  workouts: number;
+  totalMinutes: number;
+  activeDays: number;
+  byType: Record<string, { workouts: number; minutes: number }>;
+  programs: UserContextSheet['programs'];
+  streakDays: number | null;
+}
+
+export function summarizeProgress(
+  range: ProgressRange,
+  workouts: RawWorkout[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
+  profile: Record<string, any>,
+  now: Date,
+): ProgressSummary {
+  const sheet = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now });
+  const rows = workouts.map(sheetWorkout).filter((x): x is SheetWorkout => !!x);
+  const byType: ProgressSummary['byType'] = {};
+  for (const r of rows) {
+    const b = (byType[r.type] ??= { workouts: 0, minutes: 0 });
+    b.workouts++;
+    b.minutes += r.minutes;
+  }
+  return {
+    range,
+    days: RANGE_DAYS[range],
+    workouts: rows.length,
+    totalMinutes: rows.reduce((s, r) => s + r.minutes, 0),
+    activeDays: new Set(rows.map((r) => r.date)).size,
+    byType,
+    programs: sheet.programs,
+    streakDays: sheet.streakDays,
+  };
+}
+
+/** Every 'YYYY-MM-DD' from..to inclusive (UTC day arithmetic on date keys). */
+export function daysBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  const end = Date.parse(`${to}T00:00:00Z`);
+  for (let t = Date.parse(`${from}T00:00:00Z`); t <= end && out.length < 31; t += 86_400_000) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+/** Sunday-anchored week (7 date keys) containing todayKey, given today's weekday (0 = Sunday). */
+export function weekKeys(todayKey: string, dayOfWeek: number): string[] {
+  const start = Date.parse(`${todayKey}T00:00:00Z`) - dayOfWeek * 86_400_000;
+  return Array.from({ length: 7 }, (_, k) => new Date(start + k * 86_400_000).toISOString().slice(0, 10));
+}

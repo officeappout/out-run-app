@@ -1183,6 +1183,26 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // AI COACH THREADS — "קלי AI" chat (18.10.2026)
+    //   ai_coach_threads/{uid}                { summary, summarizedUntil, pending, messageCount, updatedAt }
+    //   ai_coach_threads/{uid}/messages/{id}  { role, text, cards[], createdAt, expireAt }
+    // Written ONLY by /api/ai-coach/chat (Admin SDK). The owner reads their own
+    // conversation; nobody writes from a client (a client-written assistant
+    // message or pending tool turn would let a user put words in Kelly's mouth
+    // and replay them to the model). Messages expire via a TTL policy on
+    // expireAt (90 days); account deletion removes the tree (onUserDelete.ts).
+    // ============================================================
+    match /ai_coach_threads/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    // ============================================================
     // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
     // ============================================================
     match /workoutMetadata/{docId} {

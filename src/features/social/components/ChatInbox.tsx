@@ -14,6 +14,7 @@ import type { ChatThread as ChatThreadType } from '../types/chat.types';
 import { getGroupById } from '@/features/arena/services/group.service';
 import { KELLY_UID, KELLY_NAME } from '../services/kelly-welcome-bot.service';
 import { isRootAdmin } from '@/config/feature-flags';
+import { AiCoachInboxRow } from '@/features/ai-coach/components/AiCoachEntry';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -341,6 +342,13 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                     className="overflow-y-auto h-full px-4 pb-8"
                     dir="rtl"
                   >
+                    {/* "קלי AI" — the AI coach, pinned above every human thread. A separate
+                        AI-labeled screen, never inside the human Kelly support DM. Renders
+                        nothing unless aiCoachEnabled + entitlement (useAiCoachAccess). */}
+                    {!isAdmin && filter === 'all' && !searchTerm.trim() && (
+                      <AiCoachInboxRow onNavigate={onClose} />
+                    )}
+
                     {isLoading && (
                       <p className="text-sm text-gray-400 text-center py-12 animate-pulse">
                         טוען שיחות...

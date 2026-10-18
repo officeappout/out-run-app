@@ -47,6 +47,7 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
       'tests/firestore-fix-ai-entitlements.rules.test.ts',
+      'tests/firestore-ai-coach-threads.rules.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in
       // this root's node_modules) — only files with zero external
       // imports (pure logic, like accessCodeRateLimit.ts) can run here.
