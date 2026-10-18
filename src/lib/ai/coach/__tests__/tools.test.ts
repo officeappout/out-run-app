@@ -18,6 +18,7 @@ describe('tool registry', () => {
       'get_schedule',
       'generate_workout',
       'explain_workout',
+      'get_workout_details',
       'handoff_to_human',
     ]);
     expect(toolKind('generate_workout')).toBe('client');

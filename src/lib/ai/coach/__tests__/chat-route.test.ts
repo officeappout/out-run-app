@@ -15,6 +15,7 @@ const st = vi.hoisted(() => ({
   appended: [] as any[],
   recordAiUsage: null as any,
   executeServerTool: null as any,
+  loadSheet: null as any,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -71,6 +72,7 @@ vi.mock('@/lib/ai/coach/thread-store.server', () => ({
 }));
 vi.mock('@/lib/ai/coach/server-tools.server', () => ({
   executeServerTool: (...a: any[]) => st.executeServerTool(...a),
+  loadUserContextSheet: (...a: any[]) => st.loadSheet(...a),
 }));
 
 import { POST } from '@/app/api/ai-coach/chat/route';
@@ -86,6 +88,13 @@ async function events(res: Response): Promise<CoachStreamEvent[]> {
   return createSseParser()(await res.text());
 }
 
+const SHEET = {
+  firstName: 'דנה', gender: 'female', ageBand: null, goals: { mainGoal: null, selected: [] }, primaryTrack: null,
+  programs: [{ id: 'full_body', name: 'גוף מלא', level: 15, percentToNext: 40 }], injuries: [], streakDays: 3,
+  lastWorkouts: [], today: [], thisWeek: [], preferredTrainingTime: null,
+  equipment: { home: ['mat'], office: [], outdoor: [] }, area: null,
+};
+
 const PROFILE = { core: { name: 'דנה כהן', gender: 'female', ageGroup: 'adult' }, equipment: { home: ['mat'], office: [], outdoor: [] } };
 
 beforeEach(() => {
@@ -96,6 +105,7 @@ beforeEach(() => {
   st.appended = [];
   st.recordAiUsage = vi.fn(async () => ({ costUsd: 0 }));
   st.executeServerTool = vi.fn(async () => ({ content: '{"firstName":"דנה"}' }));
+  st.loadSheet = vi.fn(async () => SHEET);
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -142,11 +152,13 @@ describe('POST /api/ai-coach/chat', () => {
     expect(st.thread.pending.toolUseId).toBe('gw1');
     expect(st.appended).toHaveLength(1); // only the user message so far
 
-    // Prompt caching: system has the cached stable block + a volatile session block.
+    // Prompt caching: the stable block + the per-turn session block (with the pre-loaded
+    // user sheet) each carry a breakpoint, so the turn's later rounds read both from cache.
     const p1 = st.streamCalls[0];
     expect(p1.system[0].cache_control).toEqual({ type: 'ephemeral' });
-    expect(p1.system[1].cache_control).toBeUndefined();
+    expect(p1.system[1].cache_control).toEqual({ type: 'ephemeral' });
     expect(p1.system[1].text).toContain('feminine');
+    expect(p1.system[1].text).toContain('User sheet');
     expect(p1.model).toBe('claude-haiku-5-5');
     expect(st.recordAiUsage).toHaveBeenCalledWith('u1', 'claude-haiku-5-5', expect.objectContaining({ inputTokens: 100, cacheReadTokens: 80 }), { feature: 'ai_coach_chat' });
 
@@ -188,6 +200,13 @@ describe('POST /api/ai-coach/chat', () => {
     expect(saved.role).toBe('assistant');
     expect(saved.text).toBe('בונה לך אימון.\nהנה אימון של 25 דקות. לחצי על הכרטיס כדי להתחיל.');
     expect(saved.cards[0]).toMatchObject({ workoutId: 'ai-abc-123456', decisionRecord: { v: 1 } });
+    // Review log: model, usage over both requests, both tool calls, the intent override.
+    expect(saved.log.model).toBe('claude-haiku-5-5');
+    expect(saved.log.usage).toEqual({ in: 200, out: 40, cacheRead: 160 });
+    expect(saved.log.toolCalls.map((c: any) => c.name).sort()).toEqual(['generate_workout', 'get_user_context']);
+    const gw = saved.log.toolCalls.find((c: any) => c.name === 'generate_workout');
+    expect(gw.input).toMatchObject({ domains: ['core', 'legs'], location: 'home', equipment: ['mat'] });
+    expect(gw.resultSummary).toContain('ai-abc-123456');
     expect(st.thread.pending).toBeNull();
   });
 

@@ -12,20 +12,20 @@ describe('safety gate', () => {
     ['קצת מסוחררת היום', 'dizziness'],
     ['אני בהריון, אפשר אימון?', 'pregnancy'],
     ['היריון שבוע 20', 'pregnancy'],
-    ['כואב לי הגב', 'pain'],
-    ['my knee hurts', 'pain'],
+    ['נפצעתי בברך באימון', 'injury'],
+    ['I think I sprained my ankle', 'injury'],
   ])('%s → %s', (text, trigger) => {
     expect(detectSafetyTrigger(text)).toBe(trigger);
   });
 
-  it.each(['תבני לי אימון בטן ורגליים בבית', 'איך אני מתקדם?', 'מה בתוכנית השבוע?', 'אימון רגליים קשה'])(
+  it.each(['תבנה לי אימון בטן ורגליים בבית', 'איך אני מתקדם?', 'מה בתוכנית השבוע?', 'אימון רגליים קשה'])(
     'no trigger: %s',
     (text) => expect(detectSafetyTrigger(text)).toBeNull(),
   );
 
   it('fixed reply: doctor + 101, brand voice, gendered', () => {
     for (const g of ['male', 'female', 'other'] as const) {
-      for (const t of ['chest', 'pregnancy', 'pain'] as const) {
+      for (const t of ['chest', 'pregnancy', 'injury'] as const) {
         const r = safetyReply(t, g);
         expect(r).toContain('101');
         expect(r).toMatch(/רופא/);
@@ -42,7 +42,7 @@ describe('persona', () => {
   it('system prompt is stable (no dates, no per-user data)', () => {
     expect(COACH_SYSTEM_PROMPT).not.toMatch(/\d{4}-\d{2}-\d{2}/);
     expect(COACH_SYSTEM_PROMPT).toContain('101');
-    expect(COACH_SYSTEM_PROMPT).toMatch(/Never invent numbers/);
+    expect(COACH_SYSTEM_PROMPT).toMatch(/Never invent/);
   });
   it('session context carries grammar, date and summary', () => {
     const s = buildSessionContext({ firstName: 'דוד', gender: 'male', todayKey: '2026-10-18', israelDayOfWeek: 0, israelHour: 9, summary: 'רוצה לחזק רגליים' });
@@ -84,7 +84,7 @@ describe('protocol', () => {
     expect(hour.body).toContain('בעוד שעה');
     expect(describeCoachError({ status: 429, retryAfterSec: 86_400 }, 'male').body).toContain('מחר');
     for (const code of ['kill_switch', 'over_budget', 'unavailable']) {
-      expect(describeCoachError({ status: 503, code }, 'female')).toMatchObject({ title: 'קלי AI לא זמינה כרגע', offerBuilder: true });
+      expect(describeCoachError({ status: 503, code }, 'female')).toMatchObject({ title: 'קלי AI לא זמין כרגע', offerBuilder: true });
     }
     expect(describeCoachError({ code: 'overloaded' }, 'other').offerBuilder).toBe(true);
     expect(describeCoachError({ offline: true }, 'male')).toMatchObject({ title: 'אין חיבור', offerBuilder: true });

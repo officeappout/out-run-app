@@ -7,7 +7,7 @@
  *
  * Response: text/event-stream, one JSON object per `data:` line:
  *   text         a chunk of Kelly's reply
- *   tool_status  a server tool is running (UI: "בודקת...")
+ *   tool_status  a server tool is running (UI: "בודק...")
  *   card         a workout card to render (after a generate_workout result came back)
  *   client_tool  run this tool on the device, then POST {toolResult}; the stream ends here
  *   done         the turn is complete and saved
@@ -112,7 +112,7 @@ export function describeCoachError(e: CoachErrorInput, gender: CoachGender): Coa
   if (e.offline) {
     return {
       title: 'אין חיבור',
-      body: 'קלי AI צריכה אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.',
+      body: 'קלי AI צריך אינטרנט. בינתיים אפשר לבנות אימון בבונה האימונים.',
       offerBuilder: true,
       retryable: true,
     };
@@ -130,7 +130,7 @@ export function describeCoachError(e: CoachErrorInput, gender: CoachGender): Coa
   }
   if (e.status === 503 || e.code === 'kill_switch' || e.code === 'over_budget' || e.code === 'unavailable' || e.code === 'overloaded') {
     return {
-      title: 'קלי AI לא זמינה כרגע',
+      title: 'קלי AI לא זמין כרגע',
       body: 'אפשר לבנות אימון בבונה האימונים הרגיל, ולחזור אליי מאוחר יותר.',
       offerBuilder: true,
       retryable: true,
@@ -138,7 +138,7 @@ export function describeCoachError(e: CoachErrorInput, gender: CoachGender): Coa
   }
   if (e.status === 403) {
     return {
-      title: 'קלי AI עוד לא פתוחה כאן',
+      title: 'קלי AI עוד לא פתוח כאן',
       body: 'הגישה לקלי AI עדיין לא פתוחה לחשבון הזה.',
       offerBuilder: true,
       retryable: false,

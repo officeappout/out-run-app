@@ -88,9 +88,9 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
     state.phase === 'running_tool'
       ? 'בונה אימון...'
       : state.toolStatus
-        ? 'בודקת...'
+        ? 'בודק...'
         : state.phase === 'sending'
-          ? 'קלי כותבת...'
+          ? 'קלי כותב...'
           : null;
 
   return (
@@ -118,7 +118,7 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
             <h1 className="text-base font-black text-gray-900">קלי AI</h1>
             <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">AI</span>
           </div>
-          <p className="truncate text-[11.5px] font-semibold text-gray-400">מאמנת דיגיטלית. התשובות נכתבות על ידי בינה מלאכותית</p>
+          <p className="truncate text-[11.5px] font-semibold text-gray-400">מאמן דיגיטלי. התשובות נכתבות על ידי בינה מלאכותית</p>
         </div>
       </div>
 

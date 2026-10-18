@@ -41,7 +41,7 @@ export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
           <span className="text-sm font-black text-gray-900">קלי AI</span>
           <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">AI</span>
         </div>
-        <p className="truncate text-xs text-gray-500">מאמנת דיגיטלית. אימון, התקדמות ותוכנית השבוע</p>
+        <p className="truncate text-xs text-gray-500">מאמן דיגיטלי. אימון, התקדמות ותוכנית השבוע</p>
       </div>
       <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
     </button>

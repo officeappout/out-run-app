@@ -28,12 +28,16 @@ import {
 import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
+import { applyUserIntent } from '@/lib/ai/coach/intent';
+import type { UserContextSheet } from '@/lib/ai/coach/context-sheet';
 import {
   clientOutcomeToToolResult,
   historyToModelMessages,
+  newTurnLog,
   newTurnState,
   resumeWithClientResult,
   runCoachTurn,
+  turnUserText,
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
 import {
@@ -45,7 +49,7 @@ import {
   type StoredCard,
   type StoredMessage,
 } from '@/lib/ai/coach/thread-store.server';
-import { executeServerTool, type ServerToolContext } from '@/lib/ai/coach/server-tools.server';
+import { executeServerTool, loadUserContextSheet, type ServerToolContext } from '@/lib/ai/coach/server-tools.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -108,6 +112,7 @@ export async function POST(request: Request) {
   /** Cards produced earlier in this same turn (a previous client round). */
   let carriedCards: StoredCard[] = [];
   let safetyText: string | null = null;
+  let safetyTrigger: string | null = null;
 
   if ('toolResult' in body) {
     const pending = thread.pending;
@@ -125,11 +130,19 @@ export async function POST(request: Request) {
         exerciseCount: r.exercises.length,
         location: r.location,
         decisionRecord: (r.decisionRecord as Record<string, unknown> | undefined) ?? null,
+        exercises: r.exercises,
+        requestedMinutes: r.requestedMinutes ?? null,
+        levelCeiling: r.levelCeiling === true,
       };
       knownCards.set(newCard.workoutId, newCard);
     }
     carriedCards = pending.cards;
-    state = resumeWithClientResult(pending.state, pending.pendingResults, clientOutcomeToToolResult(pending.toolUseId, outcome));
+    state = resumeWithClientResult(
+      pending.state,
+      pending.pendingResults,
+      clientOutcomeToToolResult(pending.toolUseId, outcome),
+      pending.toolName || 'generate_workout',
+    );
   } else {
     const text = body.message;
     try {
@@ -140,13 +153,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'unavailable' }, { status: 503 });
     }
     const trigger = detectSafetyTrigger(text);
-    if (trigger) safetyText = safetyReply(trigger, gender);
+    if (trigger) {
+      safetyText = safetyReply(trigger, gender);
+      safetyTrigger = trigger;
+    }
     state = newTurnState(text);
   }
 
   // `recent` was loaded before this request's user message was saved, so it holds only
   // earlier turns; this turn's messages travel in `state`.
   const history = historyToModelMessages(thread.recent);
+
+  const model = getAiModel('fast');
+  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false } };
+
+  // Grounding: the user sheet (programs, levels, recent workouts, today's and this week's
+  // schedule, gear) is read on EVERY request and put in the system prompt, so Kelly never
+  // answers a question about the user blind. Not needed for the fixed safety reply.
+  let sheet: UserContextSheet | null = null;
+  if (!safetyText) {
+    try {
+      sheet = await loadUserContextSheet(toolCtx);
+    } catch (err) {
+      console.warn('[ai-coach] user sheet unavailable this turn', err);
+    }
+  }
+  const todayDow = getIsraelDayOfWeek(now);
 
   const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions() });
   const system: Anthropic.TextBlockParam[] = [
@@ -157,14 +189,16 @@ export async function POST(request: Request) {
         firstName: firstNameOf(profile.core?.name),
         gender,
         todayKey: getIsraelDateKey(now),
-        israelDayOfWeek: getIsraelDayOfWeek(now),
+        israelDayOfWeek: todayDow,
         israelHour: getIsraelHour(now),
         summary: thread.summary,
+        sheet,
       }),
+      // Second breakpoint: the session block (with the sheet) is identical for every
+      // model call of this turn, so the tool rounds after the first read it from cache.
+      cache_control: { type: 'ephemeral' },
     },
   ];
-  const model = getAiModel('fast');
-  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false } };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -181,7 +215,9 @@ export async function POST(request: Request) {
         // Deterministic safety reply: no model call at all.
         if (safetyText) {
           emit({ type: 'text', delta: safetyText });
-          const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText });
+          const log = newTurnLog('none');
+          log.guards.push({ type: 'safety', action: `fixed_reply:${safetyTrigger}` });
+          const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText, log });
           emit({ type: 'done', messageId: id });
           return;
         }
@@ -199,6 +235,7 @@ export async function POST(request: Request) {
             history,
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: COACH_MODEL_MAX_TOKENS,
+            guards: { sheet, todayDow },
           },
           state,
           {
@@ -213,10 +250,14 @@ export async function POST(request: Request) {
               return final;
             },
             executeServerTool: (name, input) => executeServerTool(toolCtx, name, input),
-            prepareClientTool: (name, input) =>
-              name === 'generate_workout'
-                ? sanitizeWorkoutEquipment(GenerateWorkoutInput.parse(input), profile.equipment)
-                : input,
+            prepareClientTool: (name, input, turnState) => {
+              if (name !== 'generate_workout') return input;
+              // The user's own words win over the model's reading of them (body area,
+              // location, minutes, intensity), then gear the user doesn't own is dropped.
+              const { input: intended, changes } = applyUserIntent(GenerateWorkoutInput.parse(input), turnUserText(turnState));
+              if (changes.length) turnState.log?.guards.push({ type: 'intent_mapping', action: changes.join('; ') });
+              return sanitizeWorkoutEquipment(intended, profile.equipment);
+            },
           },
         );
 
@@ -235,7 +276,12 @@ export async function POST(request: Request) {
         }
 
         // Final: ONE assistant message for the whole turn (every round), with its cards.
-        const id = await appendMessage(db, uid, { role: 'assistant', text: outcome.state.turnText.trim(), cards: turnCards });
+        const id = await appendMessage(db, uid, {
+          role: 'assistant',
+          text: outcome.state.turnText.trim(),
+          cards: turnCards,
+          log: outcome.state.log,
+        });
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });
 

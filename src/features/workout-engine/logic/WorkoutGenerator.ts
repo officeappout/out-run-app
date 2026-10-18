@@ -61,6 +61,7 @@ import {
   selectExercisesForDifficulty,
   selectExercisesWithDomainQuotas,
   selectExercisesWithDominance,
+  matchesAnyRequiredDomain,
   applySABASelectionBias,
   hasExplicitCoreLevel,
   resolveExerciseDomain,
@@ -1001,6 +1002,9 @@ export class WorkoutGenerator {
     const selectedIdsForReserve = new Set(workoutExercises.map(e => e.exercise.id));
     const reserveCandidates = filteredExercises
       .filter(e => !selectedIdsForReserve.has(e.exercise.id))
+      // Strict domain requests: Phase D add-back must not re-introduce the domains
+      // the user excluded (same gate the quota selection uses).
+      .filter(e => !context.strictDomains || matchesAnyRequiredDomain(e.exercise, context))
       .sort((a, b) => b.score - a.score)
       .slice(0, RESERVE_POOL_SIZE);
     const reserveContext = context.domainBudgets?.length
