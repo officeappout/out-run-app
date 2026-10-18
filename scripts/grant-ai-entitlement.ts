@@ -9,7 +9,8 @@
  *                        fall back to the same defaults at runtime)
  *
  * Never writes feature flags. Flip them in the admin panel (system settings):
- *   ai_coach_enabled = ON, ai_coach_free_for_all = OFF
+ *   ai_coach_enabled = ON (ai_coach_free_for_all stays OFF, its default; turn it ON only
+ *   to open AI to every adult)
  * This script prints their current values so you can check.
  *
  * Usage:
@@ -57,9 +58,9 @@ async function run() {
   if (core.ageGroup !== 'adult') console.warn('  ⚠ core.ageGroup is not "adult": the server will refuse AI for this user.');
 
   const flags = flagsSnap.data() ?? {};
-  console.log(`flags: ai_coach_enabled=${flags.ai_coach_enabled ?? '(missing → false)'}  ai_coach_free_for_all=${flags.ai_coach_free_for_all ?? '(missing → TRUE)'}`);
+  console.log(`flags: ai_coach_enabled=${flags.ai_coach_enabled ?? '(missing → false)'}  ai_coach_free_for_all=${flags.ai_coach_free_for_all ?? '(missing → false)'}`);
   if (flags.ai_coach_enabled !== true) console.log('  → turn ai_coach_enabled ON in the admin panel.');
-  if (flags.ai_coach_free_for_all !== false) console.log('  → turn ai_coach_free_for_all OFF in the admin panel, or EVERY adult gets AI.');
+  if (flags.ai_coach_free_for_all === true) console.log('  → ai_coach_free_for_all is ON: EVERY adult gets AI. Turn it OFF to keep it to entitled users.');
 
   console.log(`entitlements/${uid} now: ${JSON.stringify(entSnap.data() ?? null)}`);
   const next = { aiCoach: { active: !isRevoke, source: 'free_launch' as const } };

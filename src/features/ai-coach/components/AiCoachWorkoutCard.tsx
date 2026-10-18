@@ -10,7 +10,7 @@ export default function AiCoachWorkoutCard({ card, onOpen }: { card: WorkoutCard
     <button
       type="button"
       onClick={() => onOpen(card)}
-      className="mt-2 w-full flex items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-3 py-3 text-right transition-transform active:scale-[0.98]"
+      className="mt-2 w-full flex items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 px-3 py-3 text-right text-gray-900 transition-transform active:scale-[0.98]"
       aria-label={`פתח אימון: ${workoutCardLabel(card)}`}
     >
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-cyan-600 shadow-sm">

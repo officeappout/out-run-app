@@ -94,7 +94,9 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
           : null;
 
   return (
-    <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC]" dir="rtl">
+    // Always LIGHT (owner): pinned text color + color-scheme so an OS dark mode (globals.css
+    // flips --foreground to near-white) never leaks into the screen, its inputs or scrollbars.
+    <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
       {/* Header */}
       <div
         className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 pb-3"
