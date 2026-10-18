@@ -112,7 +112,7 @@ const run = (fn: unknown, ...args: unknown[]) => (fn as (...a: unknown[]) => Pro
 // Tuesday 20.10.2026 12:02 Israel (09:02Z) — not Shabbat, not quiet hours.
 const NOW = new Date('2026-10-20T09:02:00Z');
 const USER = {
-  core: { name: 'דנה כהן', mainGoal: 'weight_loss' },
+  core: { name: 'דנה כהן', mainGoal: 'weight_loss', gender: 'female' },
   personas: [{ id: 'parent' }],
   onboardingStatus: 'COMPLETED',
   fcmTokens: ['tok'],
@@ -157,7 +157,7 @@ describe('every sender takes its copy from the push library', () => {
     await run(trainingReminderScheduler);
     const ctx = ctxFor('workout_reminder_day');
     expect(ctx.vars).toMatchObject({ '@שם': 'דנה', '@אימון': 'אימון כוח' });
-    expect(ctx.audience).toMatchObject({ persona: 'parent', primaryGoal: 'weight_loss' });
+    expect(ctx.audience).toMatchObject({ persona: 'parent', primaryGoal: 'weight_loss', gender: 'female' });
     const sent = sentWith('workout_reminder_day');
     expect(sent.toUids).toEqual(['u1']);
     expect(sent.measurement).toMatchObject({ variantId: 'row-workout_reminder_day', copyRowId: 'row-workout_reminder_day', category: 'ScheduledWorkout' });
@@ -211,9 +211,11 @@ describe('every sender takes its copy from the push library', () => {
 
   it('onKudosCreated → kudos_single, then kudos_bundle', async () => {
     state.docs.set('users/r1', USER);
+    state.docs.set('users/s1', { core: { name: 'נועה', gender: 'female' } });
     const event = { params: { recipientUid: 'r1', kudoId: 'k1' }, data: { data: () => ({ fromUid: 's1', fromName: 'נועה', type: 'high_five' }) } };
     await run(onKudosCreated, event);
     expect(ctxFor('kudos_single').vars).toMatchObject({ '@שולח': 'נועה' });
+    expect(ctxFor('kudos_single').subjectGender).toBe('female'); // "@שולח שלחה לך כיף"
     sentWith('kudos_single');
 
     state.count = 2;
@@ -232,6 +234,9 @@ describe('every sender takes its copy from the push library', () => {
     expect(ctxFor('group_join_welcome')).toMatchObject({ uid: 'j1', vars: { '@קבוצה': 'רצים בפארק' }, params: { groupId: 'g1' } });
     expect(sentWith('group_join_welcome').toUids).toEqual(['j1']);
     expect(ctxFor('group_join_admin')).toMatchObject({ uid: 'lead1', vars: { '@מצטרף': 'יואב', '@קבוצה': 'רצים בפארק' } });
+    // The joiner (users/j1 = USER, female) drives "הצטרף" / "הצטרפה"; the leader has no gender.
+    expect(ctxFor('group_join_admin').subjectGender).toBe('female');
+    expect(ctxFor('group_join_admin').audience.gender).toBeNull();
     expect(sentWith('group_join_admin').toUids).toEqual(['lead1']);
   });
 
@@ -264,6 +269,7 @@ describe('every sender takes its copy from the push library', () => {
     state.docs.set('app_config/feature_flags', { socialActivityNearbyPushEnabled: true });
     state.docs.set('connections/creator1', { followers: ['f1'] });
     state.docs.set('users/f1', USER);
+    state.docs.set('users/creator1', { core: { name: 'נועה ברק', gender: 'female' } });
     await run(onPlannedActivityCreated, {
       params: { sessionId: 's1' },
       data: {
@@ -281,6 +287,8 @@ describe('every sender takes its copy from the push library', () => {
     const ctx = ctxFor('partner_plan');
     expect(ctx.conditions).toEqual({ activity: 'running' });
     expect(ctx.vars).toMatchObject({ '@שולח': 'נועה', '@מקום': 'גן הבנים', '@שעה': '18:30' });
+    expect(ctx.subjectGender).toBe('female'); // the creator: "נועה יוצאת לרוץ"
+    expect(ctx.audience.gender).toBe('female'); // the recipient
     expect(ctx.params).toMatchObject({ parkId: 'p1' });
     sentWith('partner_plan');
   });

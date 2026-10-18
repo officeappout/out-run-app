@@ -40,6 +40,7 @@ import {
   adaptLibraryDoc,
   audienceFromUserData,
   firstNameFromUserData,
+  genderFromUserData,
   getPushLibraryRows,
   pushCopyData,
   resolvePushCopy,
@@ -74,6 +75,20 @@ describe('adaptLibraryDoc', () => {
       timeWindow: { start: '08:00', end: '21:00' },
       active: true,
       archived: false,
+    });
+  });
+
+  it('reads the gender fields (absent / unknown → both / any)', () => {
+    expect(
+      adaptLibraryDoc('g1', { pushType: 'partner_plan', title: 't', body: 'b', subjectGender: 'female', pairId: 'p1' }),
+    ).toMatchObject({ gender: 'both', subjectGender: 'female', pairId: 'p1' });
+    expect(adaptLibraryDoc('g2', { pushType: 'retention_lapse', title: 't', body: 'b', gender: 'male' })).toMatchObject({
+      gender: 'male',
+      subjectGender: 'any',
+      pairId: null,
+    });
+    expect(adaptLibraryDoc('g3', { pushType: 'retention_lapse', title: 't', body: 'b', gender: 'other' })).toMatchObject({
+      gender: 'both',
     });
   });
 
@@ -174,8 +189,15 @@ describe('recipient helpers', () => {
       { personas: [{ id: 'senior' }], core: { birthDate: { toMillis: () => Date.UTC(1990, 5, 1) }, mainGoal: 'weight_loss' } },
       new Date('2026-10-18T00:00:00Z'),
     );
-    expect(a).toEqual({ persona: 'vatikim', ageBand: '30_44', primaryGoal: 'weight_loss' });
-    expect(audienceFromUserData({})).toEqual({ persona: null, ageBand: null, primaryGoal: null });
+    expect(a).toEqual({ persona: 'vatikim', ageBand: '30_44', primaryGoal: 'weight_loss', gender: null });
+    expect(audienceFromUserData({})).toEqual({ persona: null, ageBand: null, primaryGoal: null, gender: null });
+  });
+
+  it("the recipient's gender: male / female; 'other' and unknown → null (neutral copy only)", () => {
+    expect(audienceFromUserData({ core: { gender: 'female' } }).gender).toBe('female');
+    expect(audienceFromUserData({ core: { gender: 'male' } }).gender).toBe('male');
+    expect(audienceFromUserData({ core: { gender: 'other' } }).gender).toBeNull();
+    expect(genderFromUserData(undefined)).toBeNull();
   });
 
   it('first name only', () => {

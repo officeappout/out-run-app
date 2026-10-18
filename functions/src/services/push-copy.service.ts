@@ -9,10 +9,13 @@
  *      (`workoutMetadata/notifications/notifications`, the same one
  *      notification-content.service.ts reads), cached in-process for 10 min.
  *   2. Only live rows (active, not archived, not flagged needsRewrite) of the
- *      pushType, matching the recipient's audience / conditions / time window.
+ *      pushType, matching the recipient's audience / conditions / time window
+ *      and gender (row `gender` vs the recipient's core.gender; row
+ *      `subjectGender` vs ctx.subjectGender, the person the push is about).
  *   3. Most specific wins; ties rotate deterministically per user per day.
  *   4. The row is filled with the recipient's values and checked (every
- *      variable resolved, no '/', not empty). A row that fails is skipped.
+ *      variable resolved, no '/', no em dash, no emoji, not empty). A row
+ *      that fails is skipped.
  *   5. Nothing fits → the pushType's CODE DEFAULT (the rewritten copy from
  *      the copy audit), by the same rules. Still nothing → null and the
  *      caller sends nothing (e.g. a step-goal bucket with no copy).
@@ -38,11 +41,15 @@ import {
   PUSH_CATALOG_BY_TYPE,
   ageBandFromBirthDate,
   legacyPushMapping,
+  normalizePushGender,
   normalizeLegacyPlaceholders,
   selectPushCopy,
   type PushAudience,
   type PushAudienceFilter,
   type PushCopyContext,
+  type PushGender,
+  type PushRowGender,
+  type PushRowSubjectGender,
   type PushCopyRow,
   type PushTimeWindow,
   type ResolvedPushCopy,
@@ -110,6 +117,14 @@ function adaptTimeWindow(v: unknown): PushTimeWindow | null {
   return start && end ? { start, end } : null;
 }
 
+function adaptGender(v: unknown): PushRowGender {
+  return v === 'male' || v === 'female' ? v : 'both';
+}
+
+function adaptSubjectGender(v: unknown): PushRowSubjectGender {
+  return v === 'male' || v === 'female' ? v : 'any';
+}
+
 /** Exported for tests. null = not a push-library row (e.g. a dormant Inactivity row). */
 export function adaptLibraryDoc(id: string, data: Record<string, unknown>): PushCopyRow | null {
   const pushType = str(data.pushType);
@@ -117,6 +132,10 @@ export function adaptLibraryDoc(id: string, data: Record<string, unknown>): Push
     active: data.active !== false,
     archived: data.archived === true,
     needsRewrite: data.needsRewrite === true,
+    // The original content library already carried gender ('both' on every row).
+    gender: adaptGender(data.gender),
+    subjectGender: adaptSubjectGender(data.subjectGender),
+    pairId: str(data.pairId) || null,
   };
 
   if (pushType) {
@@ -212,7 +231,12 @@ function toMillis(v: unknown): number | null {
   return null;
 }
 
-/** persona / ageBand / primaryGoal from a raw users/{uid} doc. */
+/** users/{uid}.core.gender → 'male' | 'female', or null ('other' / unknown → neutral copy only). */
+export function genderFromUserData(data: Record<string, unknown> | undefined): PushGender | null {
+  return normalizePushGender((data?.core as Record<string, unknown> | undefined)?.gender);
+}
+
+/** persona / ageBand / primaryGoal / gender from a raw users/{uid} doc. */
 export function audienceFromUserData(data: Record<string, unknown> | undefined, now: Date = new Date()): PushAudience {
   if (!data) return {};
   const core = (data.core ?? {}) as Record<string, unknown>;
@@ -221,7 +245,24 @@ export function audienceFromUserData(data: Record<string, unknown> | undefined, 
     persona: persona === 'generic' ? null : persona,
     ageBand: ageBandFromBirthDate(toMillis(core.birthDate), now),
     primaryGoal: typeof core.mainGoal === 'string' && core.mainGoal ? core.mainGoal : null,
+    gender: genderFromUserData(data),
   };
+}
+
+/**
+ * The gender of the person a push talks about (who planned / joined / sent),
+ * for ctx.subjectGender. One best-effort users/{uid} read; null when unknown
+ * or on any error (→ neutral copy). Never throws.
+ */
+export async function loadPushSubjectGender(uid: string | null | undefined): Promise<PushGender | null> {
+  if (!uid) return null;
+  try {
+    const snap = await getDb().collection('users').doc(uid).get();
+    return snap.exists ? genderFromUserData(snap.data() as Record<string, unknown>) : null;
+  } catch (err) {
+    logger.warn(`[push-copy] subject read failed uid=${uid}, neutral copy`, err);
+    return null;
+  }
 }
 
 /** @שם: the first name from users/{uid}.core.name ('' when unknown, so copy with @שם is skipped). */

@@ -20,6 +20,26 @@
  *     functions/scripts/vendor-copy-geo-discovery.js rewrites on every
  *     functions build (a root vitest pins it, so the two can't drift).
  *
+ * Gender (Hebrew verbs and adjectives agree with a person's gender). Copy
+ * never uses slashes ("יוצא/ת"). Instead a row can be written for one gender:
+ *
+ *   gender         'both' (default) | 'male' | 'female'
+ *                  the RECIPIENT's gender (users/{uid}.core.gender).
+ *                  'other' or unknown → only 'both' rows.
+ *   subjectGender  'any' (default) | 'male' | 'female'
+ *                  the gender of ANOTHER person the push talks about, for
+ *                  the pushTypes whose catalog entry declares `subject`:
+ *                  partner_plan → who planned the session (@שולח),
+ *                  group_join_admin → who joined (@מצטרף),
+ *                  kudos_single → who sent the kudos (@שולח).
+ *                  The sender passes it as ctx.subjectGender.
+ *   pairId         ties a male row to its female twin (the editor edits a
+ *                  pair side by side and warns when one side is missing).
+ *
+ * A row is gendered on ONE axis (recipient or subject), never both. A
+ * gendered row counts as one more dimension of specificity, so the chain is:
+ * exact gender → 'both'/'any' rows → code defaults (same rules).
+ *
  * KEEP THIS FILE IMPORT-FREE AND PURE: it is mirrored into Cloud Functions.
  */
 
@@ -30,6 +50,46 @@ export const PUSH_LIBRARY_COLLECTION = 'workoutMetadata/notifications/notificati
 /** Write rules (owner's spec, "ספריית הפושים בפאנל"). */
 export const PUSH_TITLE_MAX = 40;
 export const PUSH_BODY_MAX = 90;
+
+// ─── Gender ───────────────────────────────────────────────────────────────────
+
+export type PushGender = 'male' | 'female';
+/** Row field: whom the copy is written for (the recipient). */
+export type PushRowGender = 'both' | PushGender;
+/** Row field: the gender of the other person the copy talks about. */
+export type PushRowSubjectGender = 'any' | PushGender;
+/** Which person a gendered row agrees with. */
+export type PushGenderAxis = 'none' | 'recipient' | 'subject';
+
+export const PUSH_GENDER_LABEL: Record<PushGender, string> = { male: 'זכר', female: 'נקבה' };
+
+/** users/{uid}.core.gender ('male' | 'female' | 'other') → a gender copy can agree with, or null. */
+export function normalizePushGender(v: unknown): PushGender | null {
+  return v === 'male' || v === 'female' ? v : null;
+}
+
+function rowGender(v: unknown): PushRowGender {
+  return v === 'male' || v === 'female' ? v : 'both';
+}
+
+function rowSubjectGender(v: unknown): PushRowSubjectGender {
+  return v === 'male' || v === 'female' ? v : 'any';
+}
+
+/** The axis a row is gendered on ('none' = neutral copy). */
+export function genderAxisOf(row: { gender?: unknown; subjectGender?: unknown }): PushGenderAxis {
+  if (rowSubjectGender(row.subjectGender) !== 'any') return 'subject';
+  if (rowGender(row.gender) !== 'both') return 'recipient';
+  return 'none';
+}
+
+/** The gender a row is written for on its axis (null for a neutral row). */
+export function genderSideOf(row: { gender?: unknown; subjectGender?: unknown }): PushGender | null {
+  const sg = rowSubjectGender(row.subjectGender);
+  if (sg !== 'any') return sg;
+  const g = rowGender(row.gender);
+  return g === 'both' ? null : g;
+}
 
 // ─── Levers ───────────────────────────────────────────────────────────────────
 
@@ -82,6 +142,8 @@ export interface PushAudience {
   persona?: string | null;
   ageBand?: string | null;
   primaryGoal?: string | null;
+  /** The recipient's gender (users core.gender). null/'other' → only 'both' rows. */
+  gender?: PushGender | null;
 }
 
 export function ageBandFromBirthDate(birthMillis: number | null | undefined, now: Date = new Date()): string | null {
@@ -264,6 +326,19 @@ export interface PushDefaultCopy {
   conditions?: Record<string, string[]>;
   /** Only used when no other candidate renders (e.g. the variant without a name). */
   fallbackOnly?: boolean;
+  /** Written for a recipient of this gender (absent = both). */
+  gender?: PushGender;
+  /** Written for a subject (entry.subject) of this gender (absent = any). */
+  subjectGender?: PushGender;
+  /** Ties the male and female defaults of one pair (seeded as the row's pairId). */
+  pair?: string;
+}
+
+export interface PushSubject {
+  /** Who the subject is, e.g. 'מי שיזם את האימון'. */
+  label: string;
+  /** The variable that names them. */
+  var: PushVarKey;
 }
 
 export interface PushCatalogEntry {
@@ -283,6 +358,8 @@ export interface PushCatalogEntry {
   /** Allowed route ids; the first is the default. */
   deepLinks: ReadonlyArray<string>;
   defaults: ReadonlyArray<PushDefaultCopy>;
+  /** Another person this push talks about, whose gender the sender passes as ctx.subjectGender. */
+  subject?: PushSubject;
   /** Not live in production code yet (sender not merged / not deployed). */
   pending?: string;
 }
@@ -353,6 +430,13 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: '@שם, הגינה עדיין שם', body: 'אימון קצר של 10 דקות, בלי ציוד. חוזרים?' },
       { title: 'חוזרים בקטנה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, וההרגל חוזר.' },
+      // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
+      { title: '@שם, מוכן לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'male', pair: 'ready_name' },
+      { title: '@שם, מוכנה לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'female', pair: 'ready_name' },
+      { title: 'מוכן לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.', gender: 'male', pair: 'back' },
+      { title: 'מוכנה לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.', gender: 'female', pair: 'back' },
+      { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואתה שוב בעניינים.', gender: 'male', pair: 'fresh' },
+      { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואת שוב בעניינים.', gender: 'female', pair: 'fresh' },
     ],
   },
   {
@@ -372,6 +456,11 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'נמשיך מאיפה שעצרת?', body: 'שמרנו את מה שמילאת. עוד כמה שאלות וזהו.' },
       { title: 'האימון הראשון מחכה לך', body: 'לסיים את ההרשמה לוקח פחות מדקה.' },
       { title: 'אנשים לידך כבר מתאמנים', body: 'מסיימים להירשם ורואים מי מתאמן בגינה הקרובה.' },
+      // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
+      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואתה מקבל את האימון הראשון שלך.', gender: 'male', pair: 'step' },
+      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואת מקבלת את האימון הראשון שלך.', gender: 'female', pair: 'step' },
+      { title: 'מוכן לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'male', pair: 'ready' },
+      { title: 'מוכנה לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'female', pair: 'ready' },
     ],
   },
   {
@@ -407,8 +496,14 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     description: 'מישהו שלח כיף על אימון, ואין כיפים אחרים שלא נקראו.',
     whenSent: 'מיד כשמגיע כיף. לכל היותר פעם בחצי שעה (שאר הכיפים נאספים להודעה מקובצת).',
     vars: ['@שם', '@שולח'],
+    subject: { label: 'מי ששלח את הכיף', var: '@שולח' },
     deepLinks: ['home'],
-    defaults: [{ title: 'קיבלת כיף מ@שולח', body: 'על האימון האחרון שלך. אפשר להחזיר כיף.' }],
+    defaults: [
+      { title: 'קיבלת כיף מ@שולח', body: 'על האימון האחרון שלך. אפשר להחזיר כיף.' },
+      // Gendered pair (the sender).
+      { title: '@שולח שלח לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לו כיף.', subjectGender: 'male', pair: 'sent' },
+      { title: '@שולח שלחה לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לה כיף.', subjectGender: 'female', pair: 'sent' },
+    ],
   },
   {
     pushType: 'kudos_bundle',
@@ -456,6 +551,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     description: 'למוביל הקבוצה (או למי שיצר אותה) כשמישהו מצטרף.',
     whenSent: 'מיד עם ההצטרפות. לכל היותר פעם בשעה.',
     vars: ['@שם', '@מצטרף', '@קבוצה'],
+    subject: { label: 'מי שהצטרף', var: '@מצטרף' },
     deepLinks: ['community_group', 'community'],
     defaults: [
       { title: '@מצטרף איתכם ב@קבוצה', body: 'הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.' },
@@ -464,6 +560,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
         body: 'הקבוצה גדלה. אפשר לשלוח הודעת ברוכים הבאים בצ׳אט.',
         fallbackOnly: true,
       },
+      // Gendered pair (the joiner).
+      { title: '@מצטרף הצטרף ל@קבוצה', body: 'הקבוצה גדלה. אפשר לקבל אותו בברכה בצ׳אט.', subjectGender: 'male', pair: 'joined' },
+      { title: '@מצטרף הצטרפה ל@קבוצה', body: 'הקבוצה גדלה. אפשר לקבל אותה בברכה בצ׳אט.', subjectGender: 'female', pair: 'joined' },
     ],
   },
   {
@@ -576,6 +675,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     whenSent:
       'מיד כשנוצר אימון מתוכנן. לכל היותר פעם בשעתיים. רק כשהדגל socialActivityNearbyPushEnabled דולק.',
     vars: ['@שם', '@שולח', '@מקום', '@שעה'],
+    subject: { label: 'מי שיזם את האימון', var: '@שולח' },
     conditions: [
       {
         key: 'activity',
@@ -598,6 +698,21 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'מתאמנים לידך', body: 'אימון ב@מקום ב-@שעה עם @שולח. מצטרפים?' },
       { title: 'מתאמנים לידך', body: 'יש אימון קרוב אליך ב-@שעה. מצטרפים?', fallbackOnly: true },
       { title: 'מתאמנים לידך', body: 'יש אימון קרוב אליך. מצטרפים?', fallbackOnly: true },
+      // Gendered pairs (who planned the session). Appended, so the neutral rows keep their ids.
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא לרוץ ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run_name' },
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת לרוץ ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run_name' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצא לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.', subjectGender: 'male', conditions: { activity: ['running'] }, pair: 'run' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצאת לרוץ ב@מקום ב-@שעה. זה הזמן להצטרף.', subjectGender: 'female', conditions: { activity: ['running'] }, pair: 'run' },
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא להליכה ב@מקום ב-@שעה. באים?', subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk_name' },
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת להליכה ב@מקום ב-@שעה. באים?', subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk_name' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצא להליכה ב@מקום ב-@שעה. לא הולכים לבד.', subjectGender: 'male', conditions: { activity: ['walking'] }, pair: 'walk' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצאת להליכה ב@מקום ב-@שעה. לא הולכים לבד.', subjectGender: 'female', conditions: { activity: ['walking'] }, pair: 'walk' },
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצא לאימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength_name' },
+      { title: 'מתאמנים לידך', body: '@שם, @שולח יוצאת לאימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength_name' },
+      { title: 'מתאמנים לידך', body: '@שולח מתכנן אימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', conditions: { activity: ['strength'] }, pair: 'strength' },
+      { title: 'מתאמנים לידך', body: '@שולח מתכננת אימון כוח ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', conditions: { activity: ['strength'] }, pair: 'strength' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצא להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', pair: 'any' },
+      { title: 'מתאמנים לידך', body: '@שולח יוצאת להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', pair: 'any' },
     ],
   },
 ];
@@ -634,6 +749,12 @@ export interface PushCopyRow {
   archived?: boolean;
   needsRewrite?: boolean;
   fallbackOnly?: boolean;
+  /** Recipient gender this copy is written for. Absent = 'both'. */
+  gender?: PushRowGender | null;
+  /** Subject (entry.subject) gender this copy is written for. Absent = 'any'. */
+  subjectGender?: PushRowSubjectGender | null;
+  /** Ties a male row to its female twin. */
+  pairId?: string | null;
 }
 
 /**
@@ -676,6 +797,9 @@ export function defaultRowsFor(pushType: string): PushCopyRow[] {
     audience: d.audience ?? null,
     conditions: d.conditions ?? null,
     fallbackOnly: d.fallbackOnly === true,
+    gender: d.gender ?? 'both',
+    subjectGender: d.subjectGender ?? 'any',
+    pairId: d.pair ? `default:${pushType}:${d.pair}` : null,
     active: true,
   }));
 }
@@ -727,6 +851,59 @@ const EMOJI_RE = new RegExp('[\\p{Extended_Pictographic}\\u{1F1E6}-\\u{1F1FF}\\u
 /** Non-global twin of BRACE_TOKEN_RE for .test() (a /g regex keeps lastIndex between calls). */
 const BRACE_TEST_RE = /\{\w+\}/;
 
+/**
+ * The write rules a row can't be sent without, checked on the TEMPLATE
+ * (before values are filled): no '/' gender slash, no em/en dash, no emoji,
+ * no {placeholder}. Codes: 'slash' | 'dash' | 'emoji' | 'placeholder'.
+ */
+export function textRuleProblems(title: string, body: string): string[] {
+  const problems: string[] = [];
+  const t = `${title ?? ''}\n${body ?? ''}`;
+  if (SLASH_RE.test(t)) problems.push('slash');
+  if (DASH_RE.test(t)) problems.push('dash');
+  if (EMOJI_RE.test(t)) problems.push('emoji');
+  if (BRACE_TEST_RE.test(t)) problems.push('placeholder');
+  return problems;
+}
+
+export const SEND_PROBLEM_LABEL: Record<string, string> = {
+  slash: 'לוכסן',
+  dash: 'קו מפריד ארוך',
+  emoji: 'אימוג׳י',
+  placeholder: 'משתנה בסוגריים',
+  'empty-title': 'כותרת ריקה',
+  'empty-body': 'טקסט ריק',
+  'unknown-var': 'משתנה לא מוכר',
+  'unfilled-var': 'משתנה שהפוש לא ממלא',
+};
+
+/**
+ * Why a row will ALWAYS be skipped at send time, whatever the recipient's
+ * values (the panel flags these rows: not sent, the next variant or the code
+ * default goes instead). Codes as in SEND_PROBLEM_LABEL, a variable code
+ * carries the token: 'unknown-var:@x'.
+ */
+export function sendBlockers(row: { pushType: string; title: string; body: string }): string[] {
+  const title = (row.title ?? '').trim();
+  const body = (row.body ?? '').trim();
+  const problems = textRuleProblems(title, body);
+  if (!title) problems.push('empty-title');
+  if (!body) problems.push('empty-body');
+  const entry = PUSH_CATALOG_BY_TYPE[row.pushType];
+  for (const token of extractVarTokens(`${title} ${body}`)) {
+    if (!isKnownPushVar(token)) problems.push(`unknown-var:${token}`);
+    else if (entry && !entry.vars.includes(token)) problems.push(`unfilled-var:${token}`);
+  }
+  return problems;
+}
+
+/** 'unknown-var:@x' → 'משתנה לא מוכר @x'. */
+export function sendProblemLabel(code: string): string {
+  const [kind, token] = code.split(':');
+  const label = SEND_PROBLEM_LABEL[kind] ?? kind;
+  return token ? `${label} ${token}` : label;
+}
+
 export interface RenderOutcome {
   ok: boolean;
   title: string;
@@ -754,16 +931,15 @@ function renderText(template: string, vars: PushVars, unresolved: Set<string>): 
 
 /**
  * Fill a row with real values and check it can be sent: every variable
- * resolved, no leftover {placeholder}, no '/' gender slash, title and body
- * not empty. A failing row is skipped (the next candidate or the code
- * default is used), never sent half-filled.
+ * resolved, none of the text rules broken (no '/' gender slash, no em/en
+ * dash, no emoji, no leftover {placeholder}), title and body not empty. A
+ * failing row is skipped (the next candidate or the code default is used),
+ * never sent half-filled.
  */
 export function renderCopy(row: { title: string; body: string }, vars: PushVars): RenderOutcome {
-  const problems: string[] = [];
   const titleT = (row.title ?? '').trim();
   const bodyT = (row.body ?? '').trim();
-  if (SLASH_RE.test(titleT) || SLASH_RE.test(bodyT)) problems.push('slash');
-  if (BRACE_TEST_RE.test(titleT) || BRACE_TEST_RE.test(bodyT)) problems.push('placeholder');
+  const problems = textRuleProblems(titleT, bodyT);
   const unresolved = new Set<string>();
   const title = renderText(titleT, vars, unresolved).replace(/\s+/g, ' ').trim();
   const body = renderText(bodyT, vars, unresolved).replace(/\s+/g, ' ').trim();
@@ -785,6 +961,12 @@ export interface PushCopyContext {
   conditions?: Record<string, string | null | undefined>;
   /** Deep-link params, e.g. { parkId }, { programId }, { groupId }. */
   params?: PushLinkParams;
+  /**
+   * Gender of the push's subject (entry.subject: who planned / joined / sent).
+   * Unknown → only rows with subjectGender 'any'. The recipient's own gender
+   * is audience.gender.
+   */
+  subjectGender?: PushGender | null;
 }
 
 export type PushCopySource = 'library' | 'default';
@@ -823,6 +1005,14 @@ function audienceMatches(filter: PushAudienceFilter | null | undefined, audience
   return true;
 }
 
+function genderMatches(row: Pick<PushCopyRow, 'gender' | 'subjectGender'>, ctx: PushCopyContext): boolean {
+  const g = rowGender(row.gender);
+  if (g !== 'both' && g !== normalizePushGender(ctx.audience?.gender)) return false;
+  const sg = rowSubjectGender(row.subjectGender);
+  if (sg !== 'any' && sg !== normalizePushGender(ctx.subjectGender)) return false;
+  return true;
+}
+
 function conditionsMatch(
   rowConds: Record<string, string[]> | null | undefined,
   ctxConds: PushCopyContext['conditions'],
@@ -836,9 +1026,11 @@ function conditionsMatch(
   return true;
 }
 
-/** Number of constrained audience dimensions + conditions. Higher = more specific. */
-export function specificity(row: Pick<PushCopyRow, 'audience' | 'conditions'>): number {
+/** Number of constrained audience dimensions + conditions + gender. Higher = more specific. */
+export function specificity(row: Pick<PushCopyRow, 'audience' | 'conditions' | 'gender' | 'subjectGender'>): number {
   let n = 0;
+  if (rowGender(row.gender) !== 'both') n++;
+  if (rowSubjectGender(row.subjectGender) !== 'any') n++;
   if (row.audience) {
     for (const v of Object.values(row.audience)) if (nonEmpty(v as string[])) n++;
   }
@@ -867,6 +1059,7 @@ export function pickFromRows(
       isRowLive(r) &&
       conditionsMatch(r.conditions, ctx.conditions) &&
       audienceMatches(r.audience, ctx.audience) &&
+      genderMatches(r, ctx) &&
       isInTimeWindow(r.timeWindow, now),
   );
   const rendered = eligible
@@ -898,8 +1091,8 @@ export function pickFromRows(
 }
 
 /**
- * The library first (active, audience match, most specific wins, rotated per
- * user per day, must render cleanly), then the code defaults by the same
+ * The library first (active, audience + gender match, most specific wins,
+ * rotated per user per day, must render cleanly), then the code defaults by the same
  * rules. null only when neither has copy that fits (e.g. a step-goal bucket
  * with no copy) — the caller then sends nothing.
  */
@@ -927,19 +1120,34 @@ export interface PushCopyDraft {
   audience?: PushAudienceFilter | null;
   conditions?: Record<string, string[]> | null;
   timeWindow?: PushTimeWindow | null;
+  gender?: PushRowGender | null;
+  subjectGender?: PushRowSubjectGender | null;
 }
 
 export interface PushCopyIssue {
-  field: 'pushType' | 'lever' | 'title' | 'body' | 'deepLink' | 'timeWindow' | 'conditions' | 'audience';
+  field: 'pushType' | 'lever' | 'title' | 'body' | 'deepLink' | 'timeWindow' | 'conditions' | 'audience' | 'gender';
   message: string;
 }
 
-/** Sample values for a pushType's variables (the preview). */
-export function sampleVarsFor(pushType: string): PushVars {
+/** Sample first names that agree with a gender (the preview's @שם and the subject's variable). */
+const SAMPLE_NAME: Record<PushGender, string> = { male: 'יואב', female: 'נועה' };
+const SAMPLE_RECIPIENT_NAME: Record<PushGender, string> = { male: 'איתי', female: 'דנה' };
+
+export interface PushSampleGenders {
+  /** Recipient (fills @שם with a matching name). */
+  gender?: PushGender | null;
+  /** Subject (fills entry.subject.var with a matching name). */
+  subjectGender?: PushGender | null;
+}
+
+/** Sample values for a pushType's variables (the preview). Names follow the given genders. */
+export function sampleVarsFor(pushType: string, genders: PushSampleGenders = {}): PushVars {
   const entry = PUSH_CATALOG_BY_TYPE[pushType];
   const keys = entry ? entry.vars : PUSH_VARIABLES.map((v) => v.key);
   const out: PushVars = {};
   for (const k of keys) out[k] = VARIABLE_BY_KEY[k]?.sample;
+  if (genders.gender && keys.includes('@שם')) out['@שם'] = SAMPLE_RECIPIENT_NAME[genders.gender];
+  if (genders.subjectGender && entry?.subject) out[entry.subject.var] = SAMPLE_NAME[genders.subjectGender];
   return out;
 }
 
@@ -959,7 +1167,7 @@ function checkText(field: 'title' | 'body', text: string, max: number, entry: Pu
     issues.push({ field, message: `${name} ריקה` });
     return issues;
   }
-  if (SLASH_RE.test(t)) issues.push({ field, message: `${name}: בלי לוכסן (כמו "את/ה"). כותבים ברבים או בלי פנייה` });
+  if (SLASH_RE.test(t)) issues.push({ field, message: `${name}: בלי לוכסן (כמו "את/ה"). כותבים ברבים, או נוסח נפרד לזכר ולנקבה` });
   if (DASH_RE.test(t)) issues.push({ field, message: `${name}: בלי קו מפריד ארוך (— או –). נקודה או פסיק במקום` });
   if (EMOJI_RE.test(t)) issues.push({ field, message: `${name}: בלי אימוג׳י` });
   if (BRACE_TEST_RE.test(t)) issues.push({ field, message: `${name}: משתנים כותבים עם @ (למשל @שם), לא בסוגריים מסולסלים` });
@@ -986,6 +1194,16 @@ export function validatePushCopyDraft(draft: PushCopyDraft): PushCopyIssue[] {
   }
   issues.push(...checkText('title', draft.title, PUSH_TITLE_MAX, entry));
   issues.push(...checkText('body', draft.body, PUSH_BODY_MAX, entry));
+  const g = draft.gender ?? 'both';
+  const sg = draft.subjectGender ?? 'any';
+  if (!['both', 'male', 'female'].includes(g)) issues.push({ field: 'gender', message: 'ערך מגדר לא מוכר' });
+  if (!['any', 'male', 'female'].includes(sg)) issues.push({ field: 'gender', message: 'ערך מגדר לא מוכר' });
+  if (sg !== 'any' && entry && !entry.subject) {
+    issues.push({ field: 'gender', message: 'בפוש הזה אין אדם נוסף שהטקסט מדבר עליו' });
+  }
+  if (g !== 'both' && sg !== 'any') {
+    issues.push({ field: 'gender', message: 'וריאנט מותאם למגדר של אדם אחד בלבד (הנמען או האדם הנוסף)' });
+  }
   if (!draft.deepLink) {
     issues.push({ field: 'deepLink', message: 'חובה לבחור לאן הפוש מוביל' });
   } else if (entry && !entry.deepLinks.includes(draft.deepLink)) {
@@ -1023,9 +1241,17 @@ export function validatePushCopyDraft(draft: PushCopyDraft): PushCopyIssue[] {
   return issues;
 }
 
-/** Preview with sample values (the panel's live preview). */
-export function previewPushCopy(draft: PushCopyDraft): { title: string; body: string; deepLink: string | null } {
-  const vars = sampleVarsFor(draft.pushType);
+/** Preview with sample values (the panel's live preview). Sample names agree with the row's gender. */
+export function previewPushCopy(
+  draft: PushCopyDraft,
+  genders?: PushSampleGenders,
+): { title: string; body: string; deepLink: string | null } {
+  const g = rowGender(draft.gender);
+  const sg = rowSubjectGender(draft.subjectGender);
+  const vars = sampleVarsFor(
+    draft.pushType,
+    genders ?? { gender: g === 'both' ? null : g, subjectGender: sg === 'any' ? null : sg },
+  );
   const unresolved = new Set<string>();
   const entry = PUSH_CATALOG_BY_TYPE[draft.pushType];
   const routeId = entry ? resolveRouteId(entry, draft.deepLink) : draft.deepLink ?? '';
@@ -1034,4 +1260,154 @@ export function previewPushCopy(draft: PushCopyDraft): { title: string; body: st
     body: renderText((draft.body ?? '').trim(), vars, unresolved),
     deepLink: buildDeepLink(routeId, SAMPLE_LINK_PARAMS),
   };
+}
+
+// ─── Gender pairs (the editor) ────────────────────────────────────────────────
+
+export interface PushCopyText {
+  title: string;
+  body: string;
+}
+
+export type PushPairSide = 'neutral' | PushGender;
+
+/**
+ * What the editor edits: one neutral variant (axis 'none'), or a male/female
+ * pair on one axis. Saved as one row per filled side, the pair sharing a
+ * pairId. Everything except the text is shared by the pair.
+ */
+export interface PushCopyPairDraft extends Omit<PushCopyDraft, 'title' | 'body' | 'gender' | 'subjectGender'> {
+  axis: PushGenderAxis;
+  neutral: PushCopyText;
+  male: PushCopyText;
+  female: PushCopyText;
+}
+
+export interface PushPairIssue extends PushCopyIssue {
+  /** Which text the issue is about ('shared' = deep link, conditions, audience...). */
+  side: PushPairSide | 'shared';
+}
+
+function sideFilled(t: PushCopyText): boolean {
+  return !!((t.title ?? '').trim() || (t.body ?? '').trim());
+}
+
+/** The rows a pair draft saves: one draft per filled side, with its gender fields set. */
+export function pairDraftRows(p: PushCopyPairDraft): Array<{ side: PushPairSide; draft: PushCopyDraft }> {
+  const { axis, neutral, male, female, ...shared } = p;
+  if (axis === 'none') {
+    return [{ side: 'neutral', draft: { ...shared, ...neutral, gender: 'both', subjectGender: 'any' } }];
+  }
+  const out: Array<{ side: PushPairSide; draft: PushCopyDraft }> = [];
+  for (const side of ['male', 'female'] as const) {
+    const text = side === 'male' ? male : female;
+    if (!sideFilled(text)) continue;
+    out.push({
+      side,
+      draft: {
+        ...shared,
+        ...text,
+        gender: axis === 'recipient' ? side : 'both',
+        subjectGender: axis === 'subject' ? side : 'any',
+      },
+    });
+  }
+  return out;
+}
+
+const TEXT_FIELDS = new Set<PushCopyIssue['field']>(['title', 'body']);
+
+/**
+ * Save rules for a pair: every filled side passes validatePushCopyDraft
+ * (slashes are still rejected), at least one side is written. A gendered
+ * side without its counterpart is allowed but WARNED (that gender then gets
+ * a neutral variant or the code default).
+ */
+export function validatePushCopyPair(p: PushCopyPairDraft): { issues: PushPairIssue[]; warnings: string[] } {
+  const issues: PushPairIssue[] = [];
+  const warnings: string[] = [];
+  const entry = PUSH_CATALOG_BY_TYPE[p.pushType];
+  const rows = pairDraftRows(p);
+  const seenShared = new Set<string>();
+
+  if (p.axis === 'subject' && entry && !entry.subject) {
+    issues.push({ side: 'shared', field: 'gender', message: 'בפוש הזה אין אדם נוסף שהטקסט מדבר עליו' });
+  }
+  if (rows.length === 0) {
+    issues.push({ side: 'shared', field: 'body', message: 'כותבים לפחות נוסח אחד (זכר או נקבה)' });
+  }
+  for (const { side, draft } of rows) {
+    for (const issue of validatePushCopyDraft(draft)) {
+      if (TEXT_FIELDS.has(issue.field)) {
+        issues.push({ ...issue, side });
+      } else if (!seenShared.has(issue.message)) {
+        seenShared.add(issue.message);
+        issues.push({ ...issue, side: 'shared' });
+      }
+    }
+  }
+  if (p.axis !== 'none' && rows.length === 1) {
+    const missing: PushGender = rows[0].side === 'male' ? 'female' : 'male';
+    warnings.push(missingCounterpartMessage(p.axis, missing, entry));
+  }
+  return { issues, warnings };
+}
+
+/** The warning text for a gendered row whose other-gender twin is missing. */
+export function missingCounterpartMessage(
+  axis: PushGenderAxis,
+  missing: PushGender,
+  entry: PushCatalogEntry | undefined,
+): string {
+  if (axis === 'subject') {
+    const who = entry?.subject?.label ?? 'האדם הנוסף';
+    return `אין נוסח ל${PUSH_GENDER_LABEL[missing]} (${who}). במקרה כזה נשלח וריאנט כללי או ברירת המחדל שבקוד`;
+  }
+  const who = missing === 'female' ? 'נשים' : 'גברים';
+  return `אין נוסח ל${PUSH_GENDER_LABEL[missing]}. ${who} יקבלו וריאנט כללי או את ברירת המחדל שבקוד`;
+}
+
+/**
+ * Which text of a pair a recipient gets (the editor's preview toggles), or
+ * null when this variant isn't sent to them (another variant or the code
+ * default goes instead).
+ */
+export function pairSideFor(
+  p: Pick<PushCopyPairDraft, 'axis' | 'male' | 'female'>,
+  recipient: PushGender | null,
+  subject: PushGender | null,
+): PushPairSide | null {
+  if (p.axis === 'none') return 'neutral';
+  const g = p.axis === 'recipient' ? recipient : subject;
+  if (!g) return null;
+  return sideFilled(g === 'male' ? p.male : p.female) ? g : null;
+}
+
+/**
+ * Gendered rows whose other-gender twin is missing among the live rows (the
+ * panel's warning). Twins: same pairId, or (no pairId) same pushType, axis,
+ * conditions and audience. Returns row id → the missing gender.
+ */
+export function findUnpairedRows(rows: PushCopyRow[]): Map<string, PushGender> {
+  const live = rows.filter(isRowLive);
+  const key = (r: PushCopyRow) =>
+    r.pairId
+      ? `pair|${r.pushType}|${r.pairId}`
+      : `auto|${r.pushType}|${genderAxisOf(r)}|${JSON.stringify(r.conditions ?? null)}|${JSON.stringify(r.audience ?? null)}`;
+  const sidesByKey = new Map<string, Set<PushGender>>();
+  for (const r of live) {
+    const side = genderSideOf(r);
+    if (!side) continue;
+    const k = key(r);
+    if (!sidesByKey.has(k)) sidesByKey.set(k, new Set());
+    sidesByKey.get(k)!.add(side);
+  }
+  const out = new Map<string, PushGender>();
+  for (const r of live) {
+    const side = genderSideOf(r);
+    if (!side) continue;
+    const other: PushGender = side === 'male' ? 'female' : 'male';
+    if (!sidesByKey.get(key(r))?.has(other)) out.set(r.id, other);
+  }
+  return out;
 }
