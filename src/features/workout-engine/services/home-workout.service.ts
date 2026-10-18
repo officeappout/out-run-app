@@ -71,6 +71,7 @@ import {
   detectTimeOfDay,
   detectDayPeriod,
   resolveExperienceLevelFromUserLevel,
+  resolveContentSituation,
   TimeOfDay,
   WorkoutMetadataContext,
   TrioVariant,
@@ -846,6 +847,7 @@ function toMetadataSnapshot(ctx: WorkoutMetadataContext): WorkoutMetadataSnapsho
     sportType: ctx.sportType,
     motivationStyle: ctx.motivationStyle,
     currentProgram: ctx.currentProgram,
+    situation: ctx.situation,
   };
 }
 
@@ -3223,6 +3225,9 @@ async function _buildSharedPipeline(
     recentBundleIds,
     previewNow,
     weather: weather?.flag ?? undefined,
+    // Copy "moments" (18.10.2026): returning after a break / deload week → only
+    // rows tagged with that situation (or untagged rows) compete.
+    situation: resolveContentSituation(sessionPolicy.reason),
   };
 
   // ── Weekly gap (the domain furthest behind its weekly set target) ──────

@@ -247,21 +247,32 @@ function buildProfile() {
   });
 }
 
-export async function runHomeCell(personaId: PersonaId, time: typeof TIME_PRESETS[number], location: ExecutionLocation) {
+export async function runHomeCell(
+  personaId: PersonaId | null,
+  time: typeof TIME_PRESETS[number],
+  location: ExecutionLocation,
+  // Additive (scripts/sweep-workout-copy-v2.ts): extra options (weather,
+  // daysInactiveOverride, …) and a profile tweak (e.g. an active program in its
+  // deload week). Omitted by the main sweep → unchanged behavior.
+  extra?: { options?: Partial<HomeWorkoutOptions>; mutateProfile?: (p: ReturnType<typeof buildProfile>) => void },
+) {
   const previewNow = new Date();
   previewNow.setHours(time.hour, 0, 0, 0);
+  const userProfile = buildProfile();
+  extra?.mutateProfile?.(userProfile);
 
   const options: HomeWorkoutOptions = {
-    userProfile: buildProfile(),
+    userProfile,
     location,
     testLocation: location,
     availableTime: 30,
     difficulty: 2,
-    personaOverride: personaId as unknown as LifestylePersona,
+    personaOverride: (personaId ?? undefined) as unknown as LifestylePersona,
     timeOfDay: time.timeOfDay,
     previewNow,
     generateSingleOption: true,
     targetOptionIndex: 1,
+    ...extra?.options,
   };
 
   const result = await generateHomeWorkoutTrio(options);

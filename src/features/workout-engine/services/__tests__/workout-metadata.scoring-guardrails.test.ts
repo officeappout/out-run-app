@@ -126,7 +126,7 @@ describe('Seasonal Summer Boost — word-boundary fix', () => {
 });
 
 describe('Seasonal weight rebalance (SEASONAL_BOOST: 20 -> 2)', () => {
-  it('a full persona+location+timeOfDay match (3) beats a generic seasonal-only row (2)', async () => {
+  it('a full persona+location+timeOfDay match (5 = persona 1+2 priority, location, time) beats a generic seasonal-only row (2)', async () => {
     setTitles([
       { text: 'לפתוח את היום בעוצמה', persona: 'pro_athlete', location: 'park', timeOfDay: 'morning' },
       { text: 'לנצל את השמש: אימון בפארק', persona: 'generic' }, // 'שמש' — clean summer keyword
@@ -140,11 +140,25 @@ describe('Seasonal weight rebalance (SEASONAL_BOOST: 20 -> 2)', () => {
     expect(result.title).toBe('לפתוח את היום בעוצמה');
     const targeted = result.titleCandidates.find(c => c.persona === 'pro_athlete')!;
     const generic = result.titleCandidates.find(c => c.persona === 'generic')!;
-    expect(targeted.score).toBe(3);
+    expect(targeted.score).toBe(5);
     expect(generic.score).toBe(2);
   });
 
-  it('seasonal-alone (2) still edges out a single-field match (1) — the thin-inventory / "any"-tagged case', async () => {
+  it('seasonal-alone (2) still edges out a single non-persona field match (1) — the thin-inventory / "any"-tagged case', async () => {
+    setTitles([
+      { text: 'אימון חידוד ממוקד', persona: 'any', location: 'park', timeOfDay: 'any' }, // location-only match
+      { text: 'לנצל את השמש: אימון בפארק', persona: 'generic' },
+    ]);
+    setDescriptions([]);
+
+    const result = await resolveWorkoutMetadataWithCandidates({
+      persona: 'pro_athlete', location: 'park', timeOfDay: 'morning', previewNow: dateFor(6),
+    });
+
+    expect(result.title).toBe('לנצל את השמש: אימון בפארק');
+  });
+
+  it('a persona-only match (1 + 2 priority = 3) now beats seasonal-alone (2) — persona copy outranks general copy (18.10.2026)', async () => {
     setTitles([
       { text: 'אימון חידוד ממוקד', persona: 'pro_athlete', location: 'any', timeOfDay: 'any' }, // persona-only match
       { text: 'לנצל את השמש: אימון בפארק', persona: 'generic' },
@@ -155,7 +169,7 @@ describe('Seasonal weight rebalance (SEASONAL_BOOST: 20 -> 2)', () => {
       persona: 'pro_athlete', location: 'park', timeOfDay: 'morning', previewNow: dateFor(6),
     });
 
-    expect(result.title).toBe('לנצל את השמש: אימון בפארק');
+    expect(result.title).toBe('אימון חידוד ממוקד');
   });
 
   it('seasonal still breaks a tie between two otherwise-equally-targeted rows', async () => {
@@ -192,13 +206,13 @@ describe('Soft Persona Mismatch Guard', () => {
       // (workout-metadata.service.ts) for real wall-clock times between
       // 08:00-09:00, making this test fail exactly once a day, every day.
       persona: 'parent', location: 'home', timeOfDay: 'morning', gender: 'female', previewNow: dateFor(3),
-    })).titleCandidates[0].score; // persona(+1) + location(+1) + timeOfDay(+1) + gender(+1) = 4
+    })).titleCandidates[0].score; // persona(+1 +2 priority) + location(+1) + timeOfDay(+1) + gender(+1) = 6
 
     const mismatchScore = (await resolveWorkoutMetadataWithCandidates({
       persona: 'student', location: 'home', timeOfDay: 'morning', gender: 'female', previewNow: dateFor(3),
     })).titleCandidates[0].score; // location(+1) + timeOfDay(+1) + gender(+1) - penalty(3) = 0
 
-    expect(matchScore - mismatchScore).toBe(4); // the persona's own +1 AND the -3 penalty both apply
+    expect(matchScore - mismatchScore).toBe(6); // the persona's own +1+2 AND the -3 penalty both apply
     expect(mismatchScore).toBe(0);
   });
 

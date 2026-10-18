@@ -1376,7 +1376,7 @@ export default function StatsOverview({
         {/* ── Rest Day: show card FIRST when it's a rest day ── */}
         {!isRunDayToday && (
           <div className="w-full max-w-[358px] mx-auto">
-            <NextRunWorkoutCard />
+            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} />
           </div>
         )}
 
@@ -1393,7 +1393,7 @@ export default function StatsOverview({
         {/* ── Today's Workout Card (only on run days — rest day shown above) ── */}
         {isRunDayToday && (
           <div className="w-full max-w-[358px] mx-auto">
-            <NextRunWorkoutCard />
+            <NextRunWorkoutCard weatherFlag={weather?.flag ?? null} />
           </div>
         )}
 

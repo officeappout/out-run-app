@@ -88,7 +88,7 @@ describe('previewNow override — Desk Reset Boost (12:00-14:00, +30)', () => {
 
     const desk = result.titleCandidates.find(c => c.text.includes('שולחן'));
     expect(desk!.reasons.join(' ')).not.toContain('deskReset_boost');
-    expect(desk!.score).toBe(1); // persona match only, no time bonus
+    expect(desk!.score).toBe(3); // persona match only (+1 field, +2 PERSONA_PRIORITY_BONUS), no time bonus
   });
 });
 
@@ -116,7 +116,9 @@ describe('previewNow override — Parent Time-Window Boost (08:00-09:00 / 16:00-
     const parkRow = result.titleCandidates.find(c => c.text.includes('בפארק'));
     const morningRow = result.titleCandidates.find(c => c.text.includes('בוקר'));
     expect(parkRow!.reasons.join(' ')).toContain('parentPark');
-    expect(parkRow!.score).toBeGreaterThan(morningRow!.score);
+    // The morning row is not a candidate at all in an afternoon session
+    // (time-of-day hard filter, 18.10.2026), so it can never win.
+    expect(morningRow).toBeUndefined();
     expect(result.title).toContain('בפארק');
   });
 });

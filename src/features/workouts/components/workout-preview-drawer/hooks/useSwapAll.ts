@@ -287,6 +287,7 @@ export function useSwapAll({
               sportType: snap.sportType,
               motivationStyle: snap.motivationStyle,
               currentProgram: snap.currentProgram,
+              situation: snap.situation,
               location: newLocation,
               durationMinutes: estimatedDuration,
             };
