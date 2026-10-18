@@ -16,13 +16,17 @@
  * 1. User preference filter  — settings.pushEnabled + settings.notificationPrefs.{channel}
  *    `system` channel is force-on and bypasses all filters.
  * 2. Quiet hours             — 22:00–07:00 Asia/Jerusalem; skippable via skipQuietHours.
- * 2b. Shabbat / yom tov      — owner decision 17.10.2026: no pushes from Friday/erev-chag
- *    14:00 to 20:30 on the day itself (Israel time; see shabbat.service.ts for the
- *    exact window and holiday list). Dropped, not delayed (same as quiet hours).
- *    NOT bypassable by skipQuietHours. Exempt ONLY: the `system` channel, and a 1:1
- *    `chat` message between two people (caller passes isDirectMessage: true). Personal
- *    interactions (kudos, league, group alerts) ARE blocked — the daily-cap
- *    exemption in feature 7 is unrelated and unchanged.
+ * 2b. Shabbat / yom tov      — owner decision 17.10.2026, made opt-in 18.10.2026: for
+ *    users with settings.shabbatObserver === true ONLY (Settings → "שמירת שבת",
+ *    default false), no pushes from Friday/erev-chag 14:00 to 20:30 on the day itself
+ *    (Israel time; see shabbat.service.ts for the exact window and holiday list).
+ *    Applied PER RECIPIENT inside the user-doc loop (the doc is already read for the
+ *    pref filter — no extra read); everyone else is unaffected on Shabbat. Dropped,
+ *    not delayed (same as quiet hours). NOT bypassable by skipQuietHours. Exempt
+ *    ONLY: the `system` channel, and a 1:1 `chat` message between two people (caller
+ *    passes isDirectMessage: true). Personal interactions (kudos, league, group
+ *    alerts) ARE blocked for observers — the daily-cap exemption in feature 7 is
+ *    unrelated and unchanged.
  * 3. Rate cap                — max 1 push per (uid, channel) per N hours; stored in
  *    `push_rate/{uid}.{channel}_lastSentAt`. Default 24 h; pass rateCapHours=0 to disable.
  * 4. Dead token cleanup      — invalid tokens removed from user docs after every batch.
@@ -72,7 +76,7 @@
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
 import { writePushSentEvent } from './push-events.service';
-import { isShabbatOrYomTov } from './shabbat.service';
+import { isShabbatObserver, isShabbatOrYomTov } from './shabbat.service';
 
 // Lazy accessors — admin is initialized by the calling Cloud Function entry point.
 const getDb = () => admin.firestore();
@@ -152,6 +156,7 @@ const ENGAGEMENT_CHANNELS: ReadonlySet<PushChannel> = new Set([
   'community',
   'retention',
   'onboarding_dropoff',
+  'week_start',
 ]);
 
 // ─── Admin channel-config cache ───────────────────────────────────────────────
@@ -244,10 +249,14 @@ export type PushChannel =
                           // channel's independent rate-cap clock on
                           // push_rate/{uid}.training_reminder_lastSentAt
                           // (see onboardingDropoffDispatcher.ts)
-  | 'contribution_status'; // a user's own submitted contribution was approved
+  | 'contribution_status' // a user's own submitted contribution was approved
                            // (onContributionApproved.ts) — validation of the
                            // user's own action, not an engagement nudge; see
                            // that file's header for the full reasoning.
+  | 'week_start';          // motzei-Shabbat "שבוע טוב" nudge, Shabbat observers
+                           // only (weekStartScheduler.ts). Own channel so it
+                           // doesn't share training_reminder's rate-cap clock
+                           // (it would suppress Sunday morning's reminder).
 
 /**
  * Opt-in measurement (Wave 1 notification engine). When provided, sendPush()
@@ -333,7 +342,7 @@ export interface SendPushResult {
   skippedGlobalKill: number;
   skippedPrefs: number;
   skippedQuietHours: number;
-  /** Dropped by the Shabbat/yom-tov guard (see shabbat.service.ts). */
+  /** Dropped by the Shabbat/yom-tov guard — Shabbat observers only (see shabbat.service.ts). */
   skippedShabbat: number;
   skippedRateCap: number;
   /** Skipped by the Stage 2 daily engagement cap (ENGAGEMENT_CHANNELS only —
@@ -398,14 +407,12 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     return result;
   }
 
-  // ── Shabbat / yom tov (owner decision 17.10.2026) — deliberately NOT gated
-  // on skipQuietHours. Exempt: `system`, and 1:1 person-to-person chat only. ──
+  // ── Shabbat / yom tov (owner decision 17.10.2026, opt-in since 18.10.2026)
+  // — the calendar check runs once here; the per-user observer filter runs in
+  // the user-doc loop below. Deliberately NOT gated on skipQuietHours.
+  // Exempt: `system`, and 1:1 person-to-person chat only. ─────────────────
   const isDirectChat = channel === 'chat' && opts.isDirectMessage === true;
-  if (!isSystem && !isDirectChat && isShabbatOrYomTov()) {
-    result.skippedShabbat = toUids.length;
-    logger.info(`[push.service] ${channel} — Shabbat/yom tov, skipping ${toUids.length} uid(s)`);
-    return result;
-  }
+  const inShabbatWindow = !isSystem && !isDirectChat && isShabbatOrYomTov();
 
   // ── Check quiet hours once (single timezone for all Israel users) ─────────
   if (!isSystem && !skipQuietHours && isQuietHours()) {
@@ -455,6 +462,11 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
         const prefs = (settings.notificationPrefs ?? {}) as Record<string, unknown>;
         if (prefs[channel] === false) {
           result.skippedPrefs++;
+          continue;
+        }
+        // ── Shabbat / yom tov — observers only (see header §2b) ──────────
+        if (inShabbatWindow && isShabbatObserver(settings)) {
+          result.skippedShabbat++;
           continue;
         }
       }

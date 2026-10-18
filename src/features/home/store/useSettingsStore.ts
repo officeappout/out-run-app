@@ -26,6 +26,10 @@ export interface SettingsData {
   encouragementNotif: boolean;
   /** How many engagement-channel nudges/day — mirrors `settings.notificationFrequency` */
   notificationFrequency: 'min' | 'balanced' | 'high';
+  /** "שמירת שבת" — mirrors `settings.shabbatObserver` (default false) */
+  shabbatObserver: boolean;
+  /** Motzei-Shabbat week-start nudge — mirrors `notificationPrefs.week_start` (observers only) */
+  weekStartNotif: boolean;
 }
 
 interface SettingsState extends SettingsData {
@@ -56,6 +60,8 @@ const DEFAULTS: SettingsData = {
   trainingReminderNotif: true,
   encouragementNotif: true,
   notificationFrequency: 'balanced',
+  shabbatObserver: false,
+  weekStartNotif: true,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({

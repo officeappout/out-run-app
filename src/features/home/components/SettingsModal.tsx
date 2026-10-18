@@ -15,7 +15,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
-  Clock, Plus, Accessibility, ListChecks, Footprints,
+  Clock, Plus, Accessibility, ListChecks, Footprints, Moon,
 } from 'lucide-react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { setStepGoalChoice } from '@/features/activity/services/step-goal.service';
@@ -55,6 +55,7 @@ import {
   setPushEnabled,
   setChannelEnabled,
   setNotificationFrequency,
+  setShabbatObserver,
   type PushChannel,
   type NotificationFrequency,
 } from '@/features/notifications/services/notification-prefs.service';
@@ -565,6 +566,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Generic saving guard for new channels (keyed by PushChannel)
   const [channelSaving, setChannelSaving] = useState<Record<string, boolean>>({});
   const [frequencySaving, setFrequencySaving] = useState(false);
+  const [shabbatSaving, setShabbatSaving] = useState(false);
 
   // ── Native push permission status (App Store Guideline 4.5.4 — D1/D2) ─────
   // Source of truth for whether the OS will actually deliver notifications.
@@ -657,6 +659,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             trainingReminderNotif: prefs.channels.training_reminder ?? true,
             encouragementNotif: prefs.channels.encouragement ?? true,
             notificationFrequency: prefs.notificationFrequency ?? 'balanced',
+            shabbatObserver: prefs.shabbatObserver === true,
+            weekStartNotif: prefs.channels.week_start ?? true,
           });
         })
         .catch(() => {
@@ -976,6 +980,26 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setFrequencySaving(false);
     }
   }, [store, frequencySaving, showToast]);
+
+  // ── Shabbat observer ("שמירת שבת", settings.shabbatObserver) ─────────────
+  // Server-side: push.service.ts holds every push except 1:1 chat for this user
+  // from Friday/erev-chag afternoon until motzei Shabbat/chag; weekStartScheduler
+  // sends observers a short week-start nudge on motzei Shabbat.
+  const handleShabbatObserverToggle = useCallback(async (v: boolean) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || shabbatSaving) return;
+    store.patch({ shabbatObserver: v });
+    setShabbatSaving(true);
+    try {
+      await setShabbatObserver(uid, v);
+    } catch (err) {
+      console.error('[Settings] shabbatObserver write failed:', err);
+      store.patch({ shabbatObserver: !v });
+      showToast('error', 'שגיאה בשמירת ההגדרה');
+    } finally {
+      setShabbatSaving(false);
+    }
+  }, [store, shabbatSaving, showToast]);
 
   // ── Units (debounced Firestore) ──────────────────────────────────────────
 
@@ -1779,6 +1803,45 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       />
                     }
                   />
+                  {/* Shabbat observer — settings.shabbatObserver (default off). Not gated on
+                      pushEnabled: it only ever withholds pushes, never adds any. */}
+                  <SettingsRow
+                    icon={
+                      shabbatSaving
+                        ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                        : <Moon size={20} className="text-gray-700" />
+                    }
+                    label="שמירת שבת"
+                    sublabel="לא נשלח התראות משישי לפני כניסת שבת ועד מוצאי שבת, וכך גם בחגים"
+                    right={
+                      <Toggle
+                        label="שמירת שבת"
+                        checked={store.shabbatObserver}
+                        onChange={(v) => { void handleShabbatObserverToggle(v); }}
+                        disabled={!store.isLoaded || shabbatSaving}
+                      />
+                    }
+                  />
+                  {/* Week start — motzei-Shabbat nudge, sent to Shabbat observers only */}
+                  {store.shabbatObserver && (
+                    <SettingsRow
+                      icon={
+                        channelSaving['week_start']
+                          ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                          : <CalendarDays size={20} className="text-gray-700" />
+                      }
+                      label="תחילת שבוע"
+                      sublabel="תזכורת קצרה במוצאי שבת לתכנן את האימון הראשון"
+                      right={
+                        <Toggle
+                          label="תחילת שבוע"
+                          checked={store.weekStartNotif}
+                          onChange={(v) => { void handleChannelToggle('week_start', 'weekStartNotif', v); }}
+                          disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['week_start']}
+                        />
+                      }
+                    />
+                  )}
 
                   </div>
 
