@@ -26,9 +26,9 @@ async function it(name: string, fn: () => Promise<void>): Promise<void> {
     await fn();
     console.log(`  ✓ ${name}`);
     pass++;
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(`  ✗ ${name}`);
-    console.error(`    ${e?.message ?? e}`);
+    console.error(`    ${e instanceof Error ? e.message : String(e)}`);
     fail++;
     failures.push(name);
   }
