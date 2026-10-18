@@ -85,10 +85,10 @@ const GROUPS: GroupCompetitionEntry[] = [
 
 const UNITS: UnitLeagueResult = {
   entries: [
-    { directoryId: 'd1', unitId: 'u9255', name: 'גדוד 9255', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 11240, activeParticipantCount: 38, isMyUnit: false },
-    { directoryId: 'd2', unitId: 'u7008', name: 'גדוד 7008', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 10380, activeParticipantCount: 41, isMyUnit: true },
-    { directoryId: 'd3', unitId: 'u6310', name: 'גדוד 6310', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 8920, activeParticipantCount: 26, isMyUnit: false },
-    { directoryId: 'd4', unitId: 'u8101', name: 'גדוד 8101', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 7410, activeParticipantCount: 19, isMyUnit: false },
+    { directoryId: 'd1', unitId: 'u9255', name: 'גדוד 9255', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 11240, avgKm: null, activeParticipantCount: 38, isMyUnit: false },
+    { directoryId: 'd2', unitId: 'u7008', name: 'גדוד 7008', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 10380, avgKm: null, activeParticipantCount: 41, isMyUnit: true },
+    { directoryId: 'd3', unitId: 'u6310', name: 'גדוד 6310', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 8920, avgKm: null, activeParticipantCount: 26, isMyUnit: false },
+    { directoryId: 'd4', unitId: 'u8101', name: 'גדוד 8101', parentBreadcrumb: 'חטיבה 55', iconUrl: null, avgSteps: 7410, avgKm: null, activeParticipantCount: 19, isMyUnit: false },
   ],
   updatedAt: new Date(Date.now() - 23 * 60 * 1000),
   myUnitBelowFloor: null,

@@ -30,6 +30,13 @@ export interface ReservistActivity {
   isActive: boolean;
   /** Same formula as getStepsLeaderboard: totalSteps over the window / window length (not per-active-day). */
   avgSteps: number;
+  /**
+   * Same window, same formula, for distance in meters (18.10.2026): the
+   * day's synced distanceMeters, or the steps estimate (distanceMetersOfDay
+   * — the leagues' km), summed over the window / window length. Shown next
+   * to the steps; never changes the ranking. Optional for older callers.
+   */
+  avgDistanceMeters?: number;
 }
 
 export interface UnitAggregate {
@@ -37,6 +44,8 @@ export interface UnitAggregate {
   activeParticipantCount: number;
   /** null when activeParticipantCount is below the floor — unit still gets a doc (for the "X more needed" UI), just no comparable score yet. */
   avgSteps: number | null;
+  /** Average daily meters per active reservist — null under the floor, like avgSteps. */
+  avgDistanceMeters: number | null;
 }
 
 /** Company/battalion/brigade only — platoon is out of scope (David, 05.09.2026: only these 3 tiers were approved). */
@@ -63,11 +72,15 @@ export function computeUnitAggregates(
 
     const activeMembers = members.filter((m) => m.isActive);
     const activeParticipantCount = activeMembers.length;
-    const avgSteps = activeParticipantCount >= floor
+    const unlocked = activeParticipantCount >= floor;
+    const avgSteps = unlocked
       ? Math.round(activeMembers.reduce((sum, m) => sum + m.avgSteps, 0) / activeParticipantCount)
       : null;
+    const avgDistanceMeters = unlocked
+      ? Math.round(activeMembers.reduce((sum, m) => sum + (m.avgDistanceMeters ?? 0), 0) / activeParticipantCount)
+      : null;
 
-    aggregates.push({ directoryId: unit.directoryId, activeParticipantCount, avgSteps });
+    aggregates.push({ directoryId: unit.directoryId, activeParticipantCount, avgSteps, avgDistanceMeters });
   }
 
   return aggregates;

@@ -95,6 +95,8 @@ export async function applyWorkoutToLeagueStats(
         activities: newInActivity ? [...activities, activity] : activities,
         gender,
         ...(typeof m.distanceMeters === 'number' ? { distanceMeters: m.distanceMeters } : {}),
+        // The member's steps points (leagueStepsRollup) — kept as well.
+        ...(typeof m.stepsCredit === 'number' ? { stepsCredit: m.stepsCredit } : {}),
         updatedAt: serverTimestamp(),
       });
     }
@@ -114,7 +116,9 @@ export type StepsApplyResult = 'applied' | 'no-change' | 'no-scope' | 'no-user';
  * AND the meters already added for that day, and each run adds only the
  * differences (never subtracts). A day with step points counts its walker as
  * an active member, like a workout does; distance alone (under 1,000 steps)
- * adds km but never points, members or activities.
+ * adds km but never points, members or activities. Each member row also
+ * keeps stepsCredit — the part of its credit that came from steps (shown on
+ * the group boards, never extra points).
  */
 export async function applyStepsToLeagueStats(
   db: firestore.Firestore,
@@ -203,6 +207,10 @@ export async function applyStepsToLeagueStats(
         activities: newInActivity ? [...activities, activity] : activities,
         gender,
         ...(memberMeters > 0 ? { distanceMeters: memberMeters } : {}),
+        // This member's share of `credit` that came from steps — lets a
+        // group board show "X points from steps" per member. Same delta, so
+        // it never runs ahead of the points (older docs start counting now).
+        stepsCredit: (typeof m.stepsCredit === 'number' ? m.stepsCredit : 0) + delta,
         updatedAt: serverTimestamp(),
       });
     }

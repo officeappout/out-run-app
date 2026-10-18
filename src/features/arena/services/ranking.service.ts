@@ -18,6 +18,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import type { GroupBoard } from './league-scope-keys';
 import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -1091,6 +1092,8 @@ async function getScopeCompetitionFromStats(p: {
   category: LeaderboardCategory;
   genderFilter: LeaderboardGenderFilter;
   maxEntries: number;
+  /** distance = most km first (the route ignores category / gender for it). */
+  measure?: 'total' | 'distance';
 }): Promise<ScopeCompetitionResult | null> {
   if (p.category !== 'overall' && p.genderFilter !== 'all') return null;
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
@@ -1103,6 +1106,7 @@ async function getScopeCompetitionFromStats(p: {
     max: String(p.maxEntries),
   });
   if (p.cityAuthorityId) qs.set('parentId', p.cityAuthorityId);
+  if (p.measure === 'distance') qs.set('measure', 'distance');
   const res = await fetch(`/api/leagues/scope-stats?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
   if (!res.ok) throw new Error(`scope-stats ${res.status}`);
   const body = (await res.json()) as { entries: ScopeCompetitionEntry[] };
@@ -1188,6 +1192,32 @@ export async function getMyLeagueContribution(p: {
   }
 }
 
+/**
+ * A group's own league board this period (home v2, 18.10.2026) — points,
+ * the steps share and km for the group and each member, via
+ * /api/leagues/group-board (members only; the aggregates aren't
+ * client-readable). null for signed-out callers, non-members or any failure.
+ */
+export async function getGroupLeagueBoard(p: {
+  groupId: string;
+  timeWindow: 'weekly' | 'monthly';
+}): Promise<GroupBoard | null> {
+  try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!idToken) return null;
+    const qs = new URLSearchParams({ groupId: p.groupId, window: p.timeWindow });
+    const res = await fetch(`/api/leagues/group-board?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+    if (!res.ok) return null;
+    const body = (await res.json()) as Partial<GroupBoard>;
+    return {
+      totals: body.totals ?? { points: 0, stepsPoints: 0, km: 0, activeMembers: 0 },
+      members: body.members ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getScopeCompetitionLeaderboard(params: {
   granularity: 'city' | 'neighborhood';
   timeWindow: LeaderboardTimeWindow;
@@ -1198,11 +1228,26 @@ export async function getScopeCompetitionLeaderboard(params: {
   /** Filters by gender, same convention as getLeaderboard. Omitted or 'all' → every gender summed (unchanged default). */
   genderFilter?: LeaderboardGenderFilter;
   maxEntries?: number;
+  /**
+   * Home v2 (18.10.2026): 'distance' ranks the scopes by km (most first).
+   * km exist only on the server aggregates (weekly / monthly, unfiltered),
+   * so there is no feed_posts fallback — anything else returns no entries.
+   * Omitted / 'total' → the points board, unchanged.
+   */
+  measure?: 'total' | 'distance';
 }): Promise<ScopeCompetitionResult> {
-  const { granularity, timeWindow, cityAuthorityId, category = 'overall', genderFilter = 'all', maxEntries = 20 } = params;
+  const { granularity, timeWindow, cityAuthorityId, category = 'overall', genderFilter = 'all', maxEntries = 20, measure = 'total' } = params;
 
   if (granularity === 'neighborhood' && !cityAuthorityId) {
     return { entries: [], generatedAt: new Date() };
+  }
+
+  if (measure === 'distance') {
+    if (timeWindow === 'daily' || !(await readFeatureFlagOnce('enable_league_aggregates'))) {
+      return { entries: [], generatedAt: new Date() };
+    }
+    const km = await getScopeCompetitionFromStats({ granularity, timeWindow, cityAuthorityId, category: 'overall', genderFilter: 'all', maxEntries, measure });
+    return km ?? { entries: [], generatedAt: new Date() };
   }
 
   // League aggregates (enable_league_aggregates, 17.10.2026): read the

@@ -47,6 +47,7 @@ async function loadUnitAggregates(): Promise<UnitAggregateDoc[]> {
       directoryId: d.id,
       activeParticipantCount: (data.activeParticipantCount as number) ?? 0,
       avgSteps: (data.avgSteps as number | null) ?? null,
+      avgDistanceMeters: (data.avgDistanceMeters as number | null) ?? null,
       updatedAt,
     };
   });

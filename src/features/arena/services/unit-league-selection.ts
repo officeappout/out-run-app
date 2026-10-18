@@ -29,6 +29,8 @@ export interface UnitAggregateDoc {
   directoryId: string;
   activeParticipantCount: number;
   avgSteps: number | null;
+  /** Average daily meters per active reservist (unitLeagueRollup, 18.10.2026). Missing on docs written before that. */
+  avgDistanceMeters?: number | null;
   updatedAt: Date | null;
 }
 
@@ -38,6 +40,8 @@ export interface UnitLeagueEntry {
   /** e.g. "גדוד 9307 · חטיבה 810" — ancestor names, nearest first. Null for brigades (no parent). */
   parentBreadcrumb: string | null;
   avgSteps: number;
+  /** Average daily km per active reservist, one decimal — shown next to the steps, never the ranking. null = not computed yet. */
+  avgKm: number | null;
   activeParticipantCount: number;
   isMyUnit: boolean;
   /** Hash seed for UnitIconBadge's fallback color when iconUrl is absent — the
@@ -148,6 +152,7 @@ export function selectUnitLeagueEntries(
         name: unit.name,
         parentBreadcrumb: buildBreadcrumb(unit, unitsById),
         avgSteps: agg.avgSteps,
+        avgKm: typeof agg.avgDistanceMeters === 'number' && agg.avgDistanceMeters > 0 ? Math.round(agg.avgDistanceMeters / 100) / 10 : null,
         activeParticipantCount: agg.activeParticipantCount,
         isMyUnit: unit.directoryId === myScopedUnitId,
         unitId: unit.unitId ?? unit.orgId,
