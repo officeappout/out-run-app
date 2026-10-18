@@ -1,4 +1,5 @@
 // src/features/map/services/mapbox.service.ts
+import { placeTypeFromV5, placeTypeFromV6, type GeoPlaceType } from './geocode-place-type';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 const BASE_URL = 'https://api.mapbox.com/directions/v5/mapbox';
@@ -249,7 +250,8 @@ const getSmartPathAlternatives = async (
 //     numbers, neighborhoods, localities), autocomplete, biased to the user;
 //   • Geocoding v5 — kept for points of interest (v6 has no POIs).
 // Merged (v6 first), de-duplicated by name + ~50m, up to 8.
-type GeoHit = { text: string; coords: [number, number] };
+/** placeType: Mapbox result kind (v6 feature_type / v5 place_type), see geocode-place-type.ts. */
+type GeoHit = { text: string; coords: [number, number]; placeType?: GeoPlaceType };
 
 function toQuery(params: Record<string, string | undefined>): string {
   return Object.entries(params)
@@ -283,7 +285,9 @@ const searchAddress = async (
         const p = f.properties ?? {};
         const coords = (f.geometry?.coordinates ?? [p.coordinates?.longitude, p.coordinates?.latitude]) as [number, number];
         const text = p.full_address || [p.name, p.place_formatted].filter(Boolean).join(', ');
-        return text && Number.isFinite(coords?.[0]) ? { text, coords } : null;
+        if (!text || !Number.isFinite(coords?.[0])) return null;
+        const placeType = placeTypeFromV6(p.feature_type);
+        return placeType ? { text, coords, placeType } : { text, coords };
       })
       .filter(Boolean) as GeoHit[];
   };
@@ -301,7 +305,11 @@ const searchAddress = async (
     const res = await fetch(url, { signal: opts?.signal });
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.features ?? []).map((f: any) => ({ text: f.place_name as string, coords: f.center as [number, number] }));
+    return (data.features ?? []).map((f: any) => {
+      const placeType = placeTypeFromV5(f);
+      const hit: GeoHit = { text: f.place_name as string, coords: f.center as [number, number] };
+      return placeType ? { ...hit, placeType } : hit;
+    });
   };
 
   try {

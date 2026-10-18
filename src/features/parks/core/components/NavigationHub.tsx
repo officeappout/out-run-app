@@ -15,9 +15,19 @@ import {
     Search,
     Loader2,
     ChevronRight,
+    House,
+    Signpost,
+    Building2,
+    Map as MapIcon,
+    LandPlot,
+    Landmark,
 } from 'lucide-react';
 import { ActivityType } from '../types/route.types';
 import type { NavVariants, RouteVariant, SearchSuggestion } from '../hooks/useSearchNavigation';
+import { MIN_SEARCH_CHARS } from '../hooks/useSearchNavigation';
+import { suggestionRowLines, type GeoPlaceType } from '../services/geocode-place-type';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import { Route as RouteIcon } from 'lucide-react';
 import {
   useSavedPlacesStore,
@@ -31,6 +41,17 @@ const SUGGESTION_ICON: Record<string, typeof MapPin> = {
   park: Trees,
   route: RouteIcon,
   mapbox: MapPin,
+};
+
+/** v2 rows: a distinct icon per Mapbox result kind. */
+const PLACE_TYPE_ICON: Record<GeoPlaceType, typeof MapPin> = {
+  address: House,
+  street: Signpost,
+  place: Building2,
+  locality: MapIcon,
+  neighborhood: LandPlot,
+  poi: Landmark,
+  region: MapIcon,
 };
 
 interface NavigationHubProps {
@@ -110,6 +131,8 @@ export default function NavigationHub({
     const recents = useRecentSearchesStore((s) => s.recents);
     const removeRecent = useRecentSearchesStore((s) => s.removeRecent);
     const clearRecents = useRecentSearchesStore((s) => s.clearRecents);
+    const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+    const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
     // Replay a stored RecentSearch through the same `onAddressSelect`
     // pipeline as a fresh suggestion. Tagging the synthetic suggestion
@@ -159,7 +182,7 @@ export default function NavigationHub({
       onSearchChange(label);
     };
 
-    const displayItems = searchQuery.length >= 3 ? suggestions : [];
+    const displayItems = searchQuery.length >= MIN_SEARCH_CHARS ? suggestions : [];
 
     if (navState === 'searching') {
         return (
@@ -211,7 +234,7 @@ export default function NavigationHub({
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    {searchQuery.length < 3 ? (
+                    {searchQuery.length < MIN_SEARCH_CHARS ? (
                         <div className="px-5 pt-5 pb-6" dir="rtl">
                             {/* ── Quick action tiles ─────────────────────
                                 Compact 4-up grid (refinement pass — the
@@ -335,6 +358,42 @@ export default function NavigationHub({
                             ) : (
                                 <div className="space-y-1">
                                     {displayItems.map((item, idx) => {
+                                        if (v2) {
+                                            const { primary, secondary } = suggestionRowLines(item);
+                                            const isGeo = !item._source || item._source === 'mapbox';
+                                            const RowIcon = isGeo
+                                                ? (item.placeType ? PLACE_TYPE_ICON[item.placeType] : MapPin)
+                                                : (SUGGESTION_ICON[item._source!] ?? MapPin);
+                                            const tone = item._source === 'park'
+                                                ? 'bg-emerald-50 text-emerald-600'
+                                                : item._source === 'route'
+                                                    ? 'bg-v2-tint text-v2-deep'
+                                                    : item.placeType === 'poi'
+                                                        ? 'bg-amber-50 text-amber-600'
+                                                        : 'bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline';
+                                            return (
+                                                <button
+                                                    key={`suggestion-${idx}-${item._source ?? 'g'}-${item.coords[0]}-${item.coords[1]}`}
+                                                    onClick={() => onAddressSelect(item)}
+                                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[20px] text-start hover:bg-v2-tint/60 active:scale-[0.97] transition-transform duration-150 ease-v2"
+                                                >
+                                                    <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${tone}`}>
+                                                        <RowIcon size={18} />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 flex flex-col items-start">
+                                                        <span className="w-full truncate whitespace-nowrap text-start text-[15px] font-bold text-v2-ink">
+                                                            {primary}
+                                                        </span>
+                                                        {secondary && (
+                                                            <span className="w-full truncate whitespace-nowrap text-start text-[12px] font-bold text-v2-muted">
+                                                                {secondary}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <ChevronRight size={14} className="text-v2-muted/50 shrink-0" />
+                                                </button>
+                                            );
+                                        }
                                         const SugIcon = SUGGESTION_ICON[item._source ?? 'mapbox'] ?? MapPin;
                                         const iconBg = item._source === 'park'
                                           ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'

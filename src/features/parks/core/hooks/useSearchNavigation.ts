@@ -7,6 +7,12 @@ import { fetchRealParks } from '../services/parks.service';
 import type { Park } from '../types/park.types';
 import { getCachedOfficialRoutes, routePassesNearPoint, InventoryService } from '../services/inventory.service';
 import { withCancelPrevious } from '@/lib/requestGovernor';
+import type { GeoPlaceType } from '../services/geocode-place-type';
+
+/** Query length at which suggestions are fetched AND shown (NavigationHub reads it too). */
+export const MIN_SEARCH_CHARS = 2;
+/** Typing pause before a search fires. */
+const SEARCH_DEBOUNCE_MS = 400; // unchanged from before
 
 export type RouteVariant = 'recommended' | 'scenic' | 'facilityRich';
 
@@ -15,6 +21,8 @@ export interface SearchSuggestion {
   coords: [number, number];
   _source?: 'mapbox' | 'park' | 'route';
   _id?: string;
+  /** Mapbox result kind (address / street / place / poi …) — mapbox hits only. */
+  placeType?: GeoPlaceType;
 }
 
 export interface NavVariants {
@@ -77,9 +85,14 @@ export function useSearchNavigation(
   const [navActivity, setNavActivity] = useState<ActivityType>('walking');
 
   useEffect(() => {
-    if (searchQuery.length < 2) { setSuggestions([]); setIsSearching(false); return; }
+    if (searchQuery.length < MIN_SEARCH_CHARS) { setSuggestions([]); setIsSearching(false); return; }
+    // Spinner from the first keystroke (not only after the debounce), so the
+    // results pane never flashes "no results" while a search is pending.
+    // `cancelled` drops a superseded query's late result/finally so it can't
+    // overwrite a newer query's state.
+    let cancelled = false;
+    setIsSearching(true);
     const timer = setTimeout(async () => {
-      setIsSearching(true);
       try {
         const term = searchQuery.toLowerCase();
 
@@ -138,11 +151,11 @@ export function useSearchNavigation(
         // never gets buried under park/route noise — this matters most for
         // short queries (e.g. typing a city name alone), the only case where
         // the substring filter can match at all (see includes() above).
-        setSuggestions([...geoHits, ...parkHits, ...routeHits]);
-      } catch { setSuggestions([]); }
-      finally { setIsSearching(false); }
-    }, 400);
-    return () => clearTimeout(timer);
+        if (!cancelled) setSuggestions([...geoHits, ...parkHits, ...routeHits]);
+      } catch { if (!cancelled) setSuggestions([]); }
+      finally { if (!cancelled) setIsSearching(false); }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [searchQuery]);
 
   const fetchNavigationVariants = useCallback(async (
