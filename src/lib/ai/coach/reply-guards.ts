@@ -15,6 +15,10 @@
  *              ids like "ai-1734…", snake_case tool names, camelCase, letters mixed with digits.
  *   feminine   Kelly (a man) speaking about himself in the feminine ("לא בטוחה שהבנתי");
  *              detector shared with the review agent (gender-voice.ts).
+ *   blind      "I can't see it" about something a data tool answers, with no data tool
+ *              called this turn. Owner review 18.10.2026: "מה הפרסונה שלי?" → "אני לא יכול
+ *              לראות אותה בשיחה הזו" (persona is in get_user_context), and "מה אתה ממליץ
+ *              לי הערב?" answered without get_schedule. The re-prompt asks for the tool.
  *
  * The turn engine re-prompts ONCE on any issue; after that, foreign words are stripped and
  * feminine self-references are rewritten to the masculine deterministically.
@@ -38,7 +42,8 @@ export interface GroundingFacts {
 export type ReplyIssue =
   | { kind: 'ungrounded'; claims: string[] }
   | { kind: 'foreign'; words: string[] }
-  | { kind: 'feminine'; forms: string[] };
+  | { kind: 'feminine'; forms: string[] }
+  | { kind: 'blind'; claim: string; tools: string[] };
 
 const ALLOWED_LATIN = new Set(['ai', 'out', 'emom', 'amrap', 'hiit', 'trx']);
 
@@ -211,7 +216,48 @@ export function stripForeignWords(reply: string, words: string[]): string {
     .trim();
 }
 
-export function checkReply(reply: string, f: GroundingFacts | null, userGender?: CoachGender | null): ReplyIssue[] {
+// ─── "I can't see it" when a tool can ────────────────────────────────────────
+
+/** Kelly claiming he can't see / has no access to something. */
+const BLIND_CLAIM =
+  /(?:לא\s+(?:יכול|יכולה)\s+(?:לראות|לבדוק|לדעת)|לא\s+רואה|אין\s+לי\s+(?:גישה|מידע|אפשרות\s+לראות)|לא\s+מופיע(?:ה)?\s+(?:אצלי|לי|בשיחה)|לא\s+זמינ(?:ה)?\s+לי)[^.!?\n]{0,40}/;
+
+/** The user asks about their profile: persona, levels, goal, age, gear (get_user_context). */
+const PROFILE_TOPIC = /פרסונה|פרופיל|הרמה\s+שלי|הרמות\s+שלי|רמות|באיזו\s+רמה|מטרה|מטרות|בן\s+כמה|בת\s+כמה|הגיל\s+שלי|הציוד\s+שלי|הפרטים\s+שלי|מה\s+אתה\s+יודע\s+עלי/;
+/** The user asks about their plan or what to do now (get_schedule). */
+const SCHEDULE_TOPIC = /לו["״]?ז|לוח\s+(?:ה)?זמנים|בתוכנית|מתוכנ|היום|מחר|השבוע|עכשיו|הערב|בערב|דף\s+הבית|מסך\s+הבית|מה\s+(?:כדאי|לעשות|אתה\s+ממליץ)|להשקיע|לוותר|לדלג/;
+
+/** Data tools: one of them in the turn means the claim was made after looking. */
+export const DATA_TOOLS = ['get_user_context', 'get_schedule', 'get_progress', 'get_workout_details', 'explain_workout'] as const;
+
+export interface BlindContext {
+  /** This turn's user message. */
+  userText: string;
+  /** Tools already called this turn (any outcome). */
+  toolNames: string[];
+}
+
+/**
+ * A "can't see" claim about something a data tool answers, with no data tool called this
+ * turn → the tools that would have answered it. null = fine.
+ */
+export function findBlindClaim(reply: string, ctx: BlindContext): { claim: string; tools: string[] } | null {
+  const m = (reply ?? '').normalize('NFC').match(BLIND_CLAIM);
+  if (!m) return null;
+  if (ctx.toolNames.some((n) => (DATA_TOOLS as readonly string[]).includes(n))) return null;
+  const u = (ctx.userText ?? '').normalize('NFC');
+  const tools: string[] = [];
+  if (PROFILE_TOPIC.test(u)) tools.push('get_user_context');
+  if (SCHEDULE_TOPIC.test(u)) tools.push('get_schedule');
+  return tools.length ? { claim: m[0].trim(), tools } : null;
+}
+
+export function checkReply(
+  reply: string,
+  f: GroundingFacts | null,
+  userGender?: CoachGender | null,
+  blind?: BlindContext | null,
+): ReplyIssue[] {
   const issues: ReplyIssue[] = [];
   if (f) {
     const claims = findUngroundedClaims(reply, f);
@@ -221,6 +267,8 @@ export function checkReply(reply: string, f: GroundingFacts | null, userGender?:
   if (words.length) issues.push({ kind: 'foreign', words });
   const fem = findFeminineSelfReferences(reply, userGender);
   if (fem.length) issues.push({ kind: 'feminine', forms: fem.map((h) => h.text) });
+  const b = blind ? findBlindClaim(reply, blind) : null;
+  if (b) issues.push({ kind: 'blind', ...b });
   return issues;
 }
 
@@ -242,6 +290,13 @@ export function correctionNote(issues: ReplyIssue[]): string {
     if (i.kind === 'feminine') {
       lines.push(
         `You spoke about yourself in the feminine: ${i.forms.join(', ')}. Kelly is a man: use masculine first person (אני בטוח, אני בודק, אני מבין, אני יכול). Keep how you address the user unchanged.`,
+      );
+    }
+    if (i.kind === 'blind') {
+      lines.push(
+        `You told the user you can't see it ("${i.claim}"), but ${i.tools.join(' and ')} can answer this. Call ${i.tools.join(' and ')} now and answer from the result. ` +
+          'For a persona question, say which persona the user has and what it means in one plain sentence. For "what should I do now", use today\'s entries and the hour. ' +
+          'You can\'t see the app\'s screens, but today\'s schedule is what the app plans for the user: answer from it.',
       );
     }
   }

@@ -46,7 +46,7 @@ function script(steps: Array<{ tools?: Array<{ name: string; input: unknown }>; 
 }
 
 describe('fixtures', () => {
-  it('the owner cases (round 1 + round 2) and the level-check nudges parse and are unique', () => {
+  it('the owner cases (rounds 1 to 3) and the level-check nudges parse and are unique', () => {
     expect(cases.map((c) => c.id).sort()).toEqual([
       'nudge-01-core-workout-unassessed',
       'nudge-02-progress-mentions-gap',
@@ -61,6 +61,18 @@ describe('fixtures', () => {
       'owner-09-typo-improved',
       'owner-10-week-per-day',
       'owner-11-abs-strengthen',
+      'r3-01-persona',
+      'r3-02-goal',
+      'r3-03-age-known',
+      'r3-04-age-unknown',
+      'r3-05-tired-evening-persona',
+      'r3-06-home-screen-workout',
+      'r3-07-tabata-honest',
+      'r3-08-above-level',
+      'r3-09-levels-named',
+      'r3-10-female-user-address',
+      'r3-11-female-user-persona',
+      'r3-12-feminine-after-prefix-guard',
     ]);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });

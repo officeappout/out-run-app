@@ -16,7 +16,7 @@
  *
  * Reply guards (reply-guards.ts): a round's text is buffered and emitted when the round
  * ends, not per delta. The FINAL round's text is checked (grounding, Hebrew only / no
- * internal ids, Kelly's masculine voice); on an issue the model is re-prompted ONCE with an
+ * internal ids, Kelly's masculine voice, "I can't see it" when a data tool can); on an issue the model is re-prompted ONCE with an
  * internal note (the bad text is never shown). After the retry, foreign words and ids are
  * stripped and feminine self-references are rewritten to the masculine. A tool round's
  * short preamble only gets the strip + rewrite. Every intervention lands in
@@ -231,7 +231,11 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
           ? factsFromEvidence(cfg.guards.sheet, turnToolResultTexts(state), cfg.guards.todayDow)
           : null;
         const userGender = cfg.guards?.userGender ?? null;
-        const issues = checkReply(text, facts, userGender);
+        // "Can't see it" checks need the request and the tools used; only with guards on.
+        const blind = cfg.guards
+          ? { userText: turnUserText(state), toolNames: (state.log?.toolCalls ?? []).map((c) => c.name) }
+          : null;
+        const issues = checkReply(text, facts, userGender, blind);
         if (issues.length && !state.correctionUsed) {
           state.correctionUsed = true;
           for (const i of issues) log.guards.push({ type: guardType(i), action: `reprompt: ${issueDetail(i)}` });
@@ -301,11 +305,22 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
 }
 
 function guardType(i: ReplyIssue): string {
-  return i.kind === 'ungrounded' ? 'grounding' : i.kind === 'foreign' ? 'hebrew_only' : 'masculine_voice';
+  switch (i.kind) {
+    case 'ungrounded':
+      return 'grounding';
+    case 'foreign':
+      return 'hebrew_only';
+    case 'feminine':
+      return 'masculine_voice';
+    case 'blind':
+      return 'tool_routing';
+  }
 }
 
 function issueDetail(i: ReplyIssue): string {
-  return (i.kind === 'ungrounded' ? i.claims : i.kind === 'foreign' ? i.words : i.forms).join(', ').slice(0, 200);
+  const parts =
+    i.kind === 'ungrounded' ? i.claims : i.kind === 'foreign' ? i.words : i.kind === 'feminine' ? i.forms : [`${i.claim} → ${i.tools.join('+')}`];
+  return parts.join(', ').slice(0, 200);
 }
 
 /**
@@ -342,10 +357,16 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
     const { decisionRecord: _dr, ...result } = outcome.result;
     const notes: string[] = [];
     if (result.requestedMinutes && Math.abs(result.minutes - result.requestedMinutes) >= 2) {
-      notes.push(`The real length is ${result.minutes} minutes (warm-up and cool-down included); the user asked for ${result.requestedMinutes}. Say the real minutes.`);
+      // requestedMinutes is what the MODEL sent: often its own default, not the user's words
+      // (owner thread 18.10.2026: "11 דקות ולא 15 כמו שביקשת" when no length was asked).
+      notes.push(
+        `The real length is ${result.minutes} minutes (warm-up and cool-down included); you asked the engine for ${result.requestedMinutes}. Say the real minutes. Mention the difference only if the user named a length in this conversation; never say the user asked for ${result.requestedMinutes} if they did not.`,
+      );
     }
     if (result.levelCeiling) {
-      notes.push(`There is less content at the user's level for this location, so the engine built it a bit below their level. Say so in one short sentence, like: ${result.location === 'home' ? 'בבית יש פחות תרגילים ברמה שלך, אז בניתי' : 'כאן יש פחות תרגילים ברמה שלך, אז בניתי'} ...`);
+      notes.push(
+        `There is less content at the user's level for this location, so the engine built it a bit below their level. Say so in one short sentence, like: ${result.location === 'home' ? 'בבית יש פחות תרגילים ברמה שלך, אז בניתי' : 'כאן יש פחות תרגילים ברמה שלך, אז בניתי'} ... Never call it a high-level workout.`,
+      );
     }
     if (result.shortOfMinimum) {
       notes.push('Fewer exercises than usual were available for this request at this location. Say it simply and offer a different area or location.');

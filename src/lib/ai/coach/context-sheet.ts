@@ -64,6 +64,74 @@ export interface SheetScheduleEntry {
   buildNow?: SheetBuildNow | null;
 }
 
+export interface SheetPersona {
+  /** Hebrew label in the user's grammar ("עובד משרד" / "עובדת משרד"). */
+  label: string;
+  /** One plain-Hebrew line: who this persona is and what the app does with it. */
+  meaning: string;
+}
+
+/**
+ * Persona id → label (male / female) + meaning. Labels follow the onboarding PersonaStep;
+ * the meanings describe the user's routine and say only that the app fits workouts to it.
+ */
+export const PERSONA_SHEET: Record<string, { male: string; female: string; meaning: string }> = {
+  parent: { male: 'אבא', female: 'אמא', meaning: 'הורה עם שגרה עמוסה, אז האפליקציה מתאימה לך אימונים קצרים וגמישים שנכנסים בין הבית לילדים' },
+  student: { male: 'סטודנט', female: 'סטודנטית', meaning: 'סטודנט, אז האפליקציה מתאימה לך אימונים גמישים סביב לימודים ומבחנים' },
+  pupil: { male: 'תלמיד', female: 'תלמידה', meaning: 'תלמיד, אז האפליקציה מתאימה לך אימונים סביב יום הלימודים' },
+  office_worker: { male: 'עובד משרד', female: 'עובדת משרד', meaning: 'עובד במשרד ויושב הרבה, אז האפליקציה מתאימה לך אימונים לפני או אחרי העבודה ותרגילים שאפשר לעשות גם במשרד' },
+  military: { male: 'צה״ל', female: 'צה״ל', meaning: 'משרת בצה״ל, בסדיר, בקבע או במילואים, אז האפליקציה מתאימה לך אימונים לשגרה צבאית ולשמירה על כושר' },
+  vatikim: { male: 'גיל הזהב', female: 'גיל הזהב', meaning: 'בגיל הזהב, אז האפליקציה מתאימה לך אימונים מתונים ששומרים על כוח, יציבות ותנועה' },
+  pro_athlete: { male: 'ספורטאי קצה', female: 'ספורטאית קצה', meaning: 'ספורטאי שמתאמן ברמה גבוהה, אז האפליקציה מתאימה לך אימונים תובעניים' },
+};
+
+/** Goal ids → Hebrew (onboarding.goal.* and the selected-goals labels). */
+export const GOAL_HE: Record<string, string> = {
+  healthy_lifestyle: 'אורח חיים בריא',
+  performance_boost: 'שיפור ביצועים',
+  weight_loss: 'ירידה במשקל',
+  skill_mastery: 'שליטה במיומנויות',
+  glutes_abs: 'חיטוב ישבן ובטן',
+  skills: 'שיפור טכניקה',
+  mass_building: 'בניית מסה',
+  fat_loss: 'ירידה בשומן',
+};
+
+export function goalsHebrew(mainGoal: unknown, selected: unknown): string[] {
+  const ids = [typeof mainGoal === 'string' ? mainGoal : null, ...(Array.isArray(selected) ? selected : [])];
+  const out: string[] = [];
+  for (const id of ids) {
+    const he = typeof id === 'string' ? GOAL_HE[id] : undefined;
+    if (he && !out.includes(he)) out.push(he);
+  }
+  return out.slice(0, 5);
+}
+
+const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
+/** Sign-up training days: lifestyle.scheduleDays (Hebrew letters) or the recurring template's non-empty days. */
+export function trainingDaysOf(life: Record<string, unknown>): string[] {
+  const letters = new Set<string>();
+  if (Array.isArray(life.scheduleDays)) for (const d of life.scheduleDays) if (typeof d === 'string') letters.add(d.trim());
+  const tpl = life.recurringTemplate;
+  if (letters.size === 0 && tpl && typeof tpl === 'object') {
+    for (const [k, v] of Object.entries(tpl as Record<string, unknown>)) if (Array.isArray(v) && v.length > 0) letters.add(k);
+  }
+  return DAY_LETTERS.map((l, k) => (letters.has(l) ? WEEKDAY_NAMES_HE[k] : null)).filter((x): x is (typeof WEEKDAY_NAMES_HE)[number] => !!x);
+}
+
+export function sheetPersonas(raw: unknown, gender: CoachGender): SheetPersona[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SheetPersona[] = [];
+  for (const p of raw) {
+    const id = (p as { id?: unknown } | null)?.id;
+    const def = typeof id === 'string' ? PERSONA_SHEET[id] : undefined;
+    if (!def || out.some((x) => x.meaning === def.meaning)) continue;
+    out.push({ label: gender === 'female' ? def.female : def.male, meaning: def.meaning });
+  }
+  return out.slice(0, 4);
+}
+
 export interface UserContextSheet {
   firstName: string;
   gender: CoachGender;
@@ -79,6 +147,18 @@ export interface UserContextSheet {
   preferredTrainingTime: string | null;
   equipment: { home: string[]; office: string[]; outdoor: string[] };
   area: string | null;
+  /**
+   * The persona(s) the user picked at sign-up (users/{uid}.personas, ids only: the answers,
+   * e.g. a military unit, are never read). Hebrew label + what it means, in plain words, so
+   * Kelly can answer "מה הפרסונה שלי?". Absent on sheets built before this field existed.
+   */
+  personas?: SheetPersona[];
+  /** Main goal + selected goals in Hebrew ("אורח חיים בריא", "בניית מסה"). Absent on older sheets. */
+  goalsHe?: string[];
+  /** Weekdays the user said they train on (Hebrew names, from the sign-up schedule). */
+  trainingDays?: string[];
+  /** The daily step goal (progression.dailyStepGoal), null when unset. */
+  dailyStepGoal?: number | null;
   /**
    * Programs the user trains (or whose parent they train) but never checked a level for:
    * the progress tab's "עוד לא בדקת רמה". Kelly may suggest the mini level check once.
@@ -230,16 +310,31 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
   const tracks = prog.tracks && typeof prog.tracks === 'object' ? (prog.tracks as Record<string, any>) : {};
+  // Track keys may be raw program doc ids: resolve them to a slug for the Hebrew name.
+  const nameOf = (id: string): string | null => {
+    if (programName(id)) return programName(id);
+    try {
+      return i.resolveSlug ? programName(i.resolveSlug(id)) : null;
+    } catch {
+      return null;
+    }
+  };
   const programs = Object.keys(tracks)
     .sort()
-    .slice(0, 8)
     .map((id) => ({
       id,
-      name: programName(id),
+      name: nameOf(id),
       level: num(tracks[id]?.currentLevel) ?? 0,
       percentToNext: num(tracks[id]?.percent),
     }))
-    .filter((x) => x.level > 0);
+    // A program with no Hebrew name (a raw Firestore id) can't be named to the user: owner
+    // review 18.10.2026, "יש גם שתי תוכניות ברמות 21 ו-15 בלי שם מוגדר". Left out.
+    .filter((x) => x.level > 0 && !!x.name)
+    // A raw id and its slug key can both exist: one line per program name (the higher level).
+    .filter((x, k, all) => !all.some((y, j) => y.name === x.name && (y.level > x.level || (y.level === x.level && j < k))))
+    // The cap applies AFTER the filter (owner sheet: 13 tracks, raw ids sorted first, so the
+    // named ones were cut).
+    .slice(0, 10);
 
   const week = i.weekSchedule.map(sheetScheduleEntry).map((e) => {
     if (!i.doneToday || e.date !== i.todayKey || e.completed || e.type !== 'training') return e;
@@ -247,9 +342,10 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
     return done ? { ...e, completed: true, buildNow: null } : e;
   });
 
+  const gender = coachGenderOf(core.gender);
   return {
     firstName: firstNameOf(core.name),
-    gender: coachGenderOf(core.gender),
+    gender,
     ageBand: ageBandOf(core.birthDate, i.now),
     goals: { mainGoal: str(core.mainGoal), selected: strList(p.selectedGoals, 5) },
     primaryTrack: str(life.primaryTrack),
@@ -266,6 +362,10 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
       outdoor: strList(eq.outdoor, 20, 64),
     },
     area: str(i.areaName),
+    personas: sheetPersonas(p.personas, gender),
+    goalsHe: goalsHebrew(core.mainGoal, p.selectedGoals),
+    trainingDays: trainingDaysOf(life),
+    dailyStepGoal: num(prog.dailyStepGoal),
     assessmentGaps: deriveAssessmentGaps({ profile: p, resolveSlug: i.resolveSlug, subProgramsBySlug: i.subProgramsBySlug }),
     ...(i.plan ? { plan: i.plan } : {}),
   };
