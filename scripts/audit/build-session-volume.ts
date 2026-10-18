@@ -65,7 +65,7 @@ import * as path from 'path';
 import { MG_TO_DOMAIN } from '../../src/features/workout-engine/shared/constants/domain-mapping.constants';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SNAPSHOT_DB_PATH = path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
+const SNAPSHOT_DB_PATH = process.env.SNAPSHOT_DB ? path.resolve(process.env.SNAPSHOT_DB) : path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
 const CSV_PATH = path.join(REPO_ROOT, 'exercise-inventory.csv');
 
 const SECONDS_PER_REP_DEFAULT = 3;

@@ -101,6 +101,8 @@
  * snapshot.sqlite — run that script first.)
  */
 
+// Offline mode: the resolver guard must load before ANY engine module (see main()).
+if (process.env.SNAPSHOT_OFFLINE === '1') require('../../tests/invariants/hermetic/guard');
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
@@ -194,7 +196,8 @@ console.table = () => {};
 function report(msg: string) { rawWrite(`${msg}\n`); }
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SNAPSHOT_DB_PATH = path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
+// SNAPSHOT_DB overrides the output DB (e.g. to keep a baseline snapshot untouched).
+const SNAPSHOT_DB_PATH = process.env.SNAPSHOT_DB ? path.resolve(process.env.SNAPSHOT_DB) : path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
 const LEGACY_DB_PATH = path.join(REPO_ROOT, 'docs', 'workout-engine', 'legacy-workouts.sqlite');
 
 // ============================================================================
@@ -702,10 +705,28 @@ function copyLegacyTables(db: Database.Database) {
 // Main
 // ============================================================================
 
+/**
+ * Offline mode (2026-10-18): `npm run bench:snapshot` runs this file under
+ * tests/invariants/hermetic/tsconfig.json, which redirects '@/lib/firebase' and
+ * 'firebase/firestore' to read-only stubs replaying tests/invariants/hermetic/corpus.
+ * No Firebase app, no sign-in, no network: every fetch throws, every write is a
+ * logged no-op. programLevelSettings is replayed only if the corpus carries
+ * programLevelSettings.json (auth-only collection — see the hermetic README).
+ */
+const OFFLINE = process.env.SNAPSHOT_OFFLINE === '1';
+
 async function main() {
-  report('Authenticating headless client (custom token) so programLevelSettings reads succeed...');
-  await authenticateHeadlessClient();
-  report('Authenticated.');
+  if (OFFLINE) {
+    if (!(globalThis as any).__HERMETIC_FIREBASE__) {
+      throw new Error('SNAPSHOT_OFFLINE=1 but @/lib/firebase is NOT the hermetic stub — run with --tsconfig tests/invariants/hermetic/tsconfig.json');
+    }
+    (globalThis as any).fetch = async (u: unknown) => { throw new Error(`network disabled (offline snapshot): ${String(u).slice(0, 80)}`); };
+    report('Offline mode: hermetic Firestore stub, no auth, no network.');
+  } else {
+    report('Authenticating headless client (custom token) so programLevelSettings reads succeed...');
+    await authenticateHeadlessClient();
+    report('Authenticated.');
+  }
 
   const combos = buildCombos();
   const autoCombosCount = LEVELS.length * DURATIONS.length * LOCATIONS.length * DOMAIN_SUBSETS.length * DAYS_INACTIVE.length * TARGET_DIFFICULTIES.length;
@@ -765,6 +786,10 @@ async function main() {
 
   copyLegacyTables(db);
   db.close();
+  if (OFFLINE) {
+    const log = ((globalThis as any).__HERMETIC_FS_LOG ?? []) as { op: string; path: string }[];
+    report(`Hermetic I/O: reads=${log.filter(l => l.op === 'read').length}, blocked writes=${log.filter(l => l.op.startsWith('WRITE')).length}`);
+  }
   process.exit(0);
 }
 
