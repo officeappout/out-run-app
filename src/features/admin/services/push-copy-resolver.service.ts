@@ -33,9 +33,26 @@
  * a bad/unrecognized variant must never break the table.
  */
 
+import { PUSH_CATALOG_BY_TYPE } from '@/features/notifications/push-library/push-library.core';
+
 export interface ResolvedCopy {
   title: string;
   body: string;
+}
+
+// ── Path 0 (10.2026): the push library. Every sender now measures
+// `variantId` = the library row the copy came from: a Firestore doc id in
+// workoutMetadata/notifications/notifications (looked up by the caller), or
+// 'default:<pushType>:<n>' for a code default, resolved here from the
+// catalog (template text, with its @variables unfilled). Paths 1-2 below
+// stay for push_events written before the library.
+
+/** 'default:<pushType>:<n>' → that code default's template. null for anything else. */
+export function resolveDefaultRowVariant(variantId: string): ResolvedCopy | null {
+  const m = /^default:([a-z_]+):(\d+)$/.exec(variantId);
+  if (!m) return null;
+  const d = PUSH_CATALOG_BY_TYPE[m[1]]?.defaults[Number(m[2])];
+  return d ? { title: d.title, body: d.body } : null;
 }
 
 // ── Path 2: hand-mirrored BODY_VARIANTS — keep in sync by hand with: ──────

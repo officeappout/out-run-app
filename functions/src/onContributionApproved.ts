@@ -26,12 +26,17 @@
  * Deep-link: /map?openPark=<approvedParkId> — reuses the exact convention
  * onPlannedActivityCreated.ts already established for "open this specific
  * park on the map", not a new pattern.
+ *
+ * Copy: the push library (push-copy.service.ts, pushType
+ * 'contribution_approved'); the variant without the park name is used only
+ * when the contribution has no name.
  */
 
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -63,20 +68,25 @@ export const onContributionApproved = onDocumentUpdated(
     }
 
     const parkName = typeof after.parkName === 'string' ? after.parkName.trim() : '';
-    const body = parkName
-      ? `"${parkName}" על המפה — עכשיו כולם יכולים להתאמן שם`
-      : 'הפארק שהוספת על המפה — עכשיו כולם יכולים להתאמן שם';
 
     logger.info(`[onContributionApproved] contribution=${contributionId} userId=${userId} park=${approvedParkId}`);
 
     try {
+      const contributor = await loadPushRecipient(userId);
+      const copy = await resolvePushCopy('contribution_approved', {
+        uid: userId,
+        audience: contributor.audience,
+        vars: { '@שם': contributor.firstName, '@מקום': parkName },
+        params: { parkId: approvedParkId },
+      });
+      if (!copy) return;
       const result = await sendPush({
         toUids: [userId],
         channel: 'contribution_status',
-        title: '🎉 הפארק שלך אושר',
-        body,
-        deepLink: `/map?openPark=${encodeURIComponent(approvedParkId)}`,
-        data: { contributionId, approvedParkId },
+        title: copy.title,
+        body: copy.body,
+        deepLink: copy.deepLink,
+        data: { contributionId, approvedParkId, ...pushCopyData(copy) },
         rateCapHours: 0,
       });
       logger.info(`[onContributionApproved] contribution=${contributionId} result=${JSON.stringify(result)}`);

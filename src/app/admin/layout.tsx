@@ -1233,7 +1233,8 @@ function AdminLayoutInner({
                                             <SidebarLink href="/admin/web-traffic" icon={Globe} label="תנועה באתר" />
                                             <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
                                             <NavGroup label="תקשורת באפליקציה">
-                                                <SidebarLink href="/admin/notifications" icon={Bell} label="מרכז התראות" />
+                                                <SidebarLink href="/admin/notifications" icon={Bell} label="מרכז התראות" isActive={pathname === '/admin/notifications'} />
+                                                <SidebarLink href="/admin/notifications/library" icon={FileText} label="ספריית פושים" />
                                                 <SidebarLink href="/admin/messages" icon={MessageCircle} label="הודעות חכמות" />
                                                 <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
                                             </NavGroup>

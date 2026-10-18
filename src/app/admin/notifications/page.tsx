@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   Bell,
   Calendar,
@@ -502,6 +503,12 @@ export default function NotificationsPage() {
           <p className="text-sm text-gray-400 mt-1">ניהול כל ערוצי הפוש — אוטומטי וידני</p>
         </div>
         <div className="flex gap-3">
+          <Link
+            href="/admin/notifications/library"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-sm transition-colors"
+          >
+            ספריית פושים (הטקסטים)
+          </Link>
           <button
             onClick={() => { loadConfig(); loadRecentSends(); loadFunnelStats(); }}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-sm transition-colors"

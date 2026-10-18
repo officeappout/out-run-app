@@ -24,13 +24,9 @@
  *   12:00:05 — kudo #10 arrives → rate-capped — SKIPPED
  *   12:31:00 — kudo #11 arrives, count=11 (all unread) → "11 kudos" — SENT
  *
- * COPY TEMPLATES (placeholder — Hebrew copy to be finalised separately):
- *   Single kudos:
- *     title: "{sender_name} שלח/ה לך {kudo_emoji}!"
- *     body:  "פתח/י את האפליקציה לראות."
- *   Batched kudos (count > 1):
- *     title: "קיבלת {kudos_count} {kudo_emoji}!"
- *     body:  "{sender_name} ועוד אחרים שלחו לך."
+ * COPY: the push library (push-copy.service.ts) — pushType 'kudos_single'
+ * (one unread) or 'kudos_bundle' (several; condition others = one|many, so
+ * "ועוד מישהו" reads right when exactly one other person sent one).
  *
  * CHANNEL: 'social' — respects users' `notificationPrefs.social` setting.
  * RATE CAP: RATE_CAP_MINUTES (see constant below); configurable for testing.
@@ -42,6 +38,8 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
+import type { PushCopyContext } from './shared/push-library.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -57,34 +55,27 @@ const RATE_CAP_HOURS = (() => {
   return Number.isFinite(raw) && raw >= 0 ? raw : 0.5; // 30 min default
 })();
 
-/** Emoji per kudo type — extend when new types are added. */
-const KUDO_EMOJI: Record<string, string> = {
-  high_five: '🤚',
-};
-
-// ─── Copy templates (placeholder) ────────────────────────────────────────────
-
-function buildMessage(
+/** pushType + context for the current unread count. Exported for tests. */
+export function kudosCopyRequest(
+  recipientUid: string,
   unreadCount: number,
   senderName: string,
-  kudoType: string,
-): { title: string; body: string } {
-  const emoji = KUDO_EMOJI[kudoType] ?? '⭐';
-
-  if (unreadCount <= 1) {
-    return {
-      title: `{sender_name} שלח/ה לך ${emoji}!`
-        .replace('{sender_name}', senderName),
-      body: 'פתח/י את האפליקציה לראות.',
-    };
-  }
-
+  recipient: { firstName: string; audience: PushCopyContext['audience'] },
+): { pushType: 'kudos_single' | 'kudos_bundle'; ctx: PushCopyContext } {
+  const others = Math.max(0, unreadCount - 1);
   return {
-    title: `קיבלת {kudos_count} ${emoji}!`
-      .replace('{kudos_count}', String(unreadCount)),
-    body: `{sender_name} ועוד {others_count} שלחו לך.`
-      .replace('{sender_name}', senderName)
-      .replace('{others_count}', String(unreadCount - 1)),
+    pushType: unreadCount <= 1 ? 'kudos_single' : 'kudos_bundle',
+    ctx: {
+      uid: recipientUid,
+      audience: recipient.audience,
+      vars: {
+        '@שם': recipient.firstName,
+        '@שולח': senderName,
+        '@כמות': String(unreadCount),
+        '@עוד': String(others),
+      },
+      conditions: { others: others === 1 ? 'one' : 'many' },
+    },
   };
 }
 
@@ -136,24 +127,26 @@ export const onKudosCreated = onDocumentCreated(
       unreadCount = 1;
     }
 
-    const { title, body } = buildMessage(unreadCount, senderName, kudoType);
-
     try {
+      const recipient = await loadPushRecipient(recipientUid);
+      const { pushType, ctx } = kudosCopyRequest(recipientUid, unreadCount, senderName, recipient);
+      const copy = await resolvePushCopy(pushType, ctx);
+      if (!copy) return;
       const result = await sendPush({
         toUids: [recipientUid],
         channel: 'social',
-        title,
-        body,
-        // Was '/activity' — no such route (src/app/activity has only
-        // /activity/steps), so taps 404'd. The kudos inbox is the global
-        // ActivityPanel opened from AppHeader's bell on /home; next.config.mjs
-        // redirects /activity → /home for pushes already delivered.
-        deepLink: '/home',
+        title: copy.title,
+        body: copy.body,
+        // '/home' by default (was '/activity', which never existed). The kudos
+        // inbox is the global ActivityPanel opened from AppHeader's bell on
+        // /home; next.config.mjs redirects /activity → /home for old pushes.
+        deepLink: copy.deepLink,
         data: {
           triggerType: 'Kudos',
           kudoType,
           unreadCount: String(unreadCount),
           senderName,
+          ...pushCopyData(copy),
         },
         rateCapHours: RATE_CAP_HOURS,
         // Stage 2 — a kudos is someone else reacting to this user's workout,

@@ -61,6 +61,9 @@ export interface PushEventMetadata {
   framing?: string; // = psychologicalTrigger
   timeOfDay?: string;
   channel: string;
+  /** Push library: the pushType and the library row (or 'default:<pushType>:<n>') the copy came from. */
+  pushType?: string;
+  copyRowId?: string;
 }
 
 export interface WritePushSentOpts extends PushEventMetadata {
@@ -123,6 +126,8 @@ export async function writePushSentEvent(opts: WritePushSentOpts): Promise<void>
       framing: opts.framing ?? null,
       timeOfDay: opts.timeOfDay ?? null,
       channel: opts.channel,
+      ...(opts.pushType ? { pushType: opts.pushType } : {}),
+      ...(opts.copyRowId ? { copyRowId: opts.copyRowId } : {}),
       delivered: opts.delivered,
       sentAt: now,
       outcomeWindowHours: windowHours,
@@ -217,6 +222,7 @@ export async function writePostPushOutcomeEvent(opts: {
     framing: sent.framing ?? null,
     timeOfDay: sent.timeOfDay ?? null,
     channel: sent.channel ?? null,
+    ...(typeof sent.copyRowId === 'string' ? { copyRowId: sent.copyRowId, pushType: sent.pushType ?? null } : {}),
     goalCompleted: opts.outcomeAchieved,
     outcomeType: opts.outcomeType,
     actionAt: opts.actionAt ?? null,

@@ -277,6 +277,9 @@ export interface SendPushMeasurement {
   timeOfDay?: string;
   /** Hours after which post_push_outcome should be evaluated. Default 6. */
   outcomeWindowHours?: number;
+  /** Push library row the copy came from (push-copy.service.ts) — per-row analytics. */
+  pushType?: string;
+  copyRowId?: string;
 }
 
 export interface SendPushOpts {
@@ -629,6 +632,8 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
           framing: measurement.framing,
           timeOfDay: measurement.timeOfDay,
           outcomeWindowHours: measurement.outcomeWindowHours,
+          pushType: measurement.pushType,
+          copyRowId: measurement.copyRowId,
         }),
       ),
     );
