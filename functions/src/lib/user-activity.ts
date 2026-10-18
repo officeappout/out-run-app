@@ -151,11 +151,11 @@ export async function resolveLastActivityMs(
  *   d4  days 4–6   (one, a light check-in)
  *   d7  days 7–13  ("new week" framing)
  *   d14 days 14–29
- *   d30 day 30     (the last one, "the door is open")
- *   31+            nothing, until they train or open the app again
+ *   d30 days 30–35 (the last one, "the door is open")
+ *   36+            nothing, until they train or open the app again
  * The windows (instead of exact days) let a milestone that was skipped
- * (rate cap, daily cap, Shabbat, a failed run) go out the next day. d30 is a
- * single day on purpose: nothing ever goes out after day 30.
+ * (rate cap, daily cap, Shabbat, a failed run) go out the next day; still
+ * once per absence. Nothing ever goes out after day 35.
  */
 export type RetentionMilestone = 'd4' | 'd7' | 'd14' | 'd30';
 
@@ -163,12 +163,12 @@ export const RETENTION_MILESTONES: ReadonlyArray<{ id: RetentionMilestone; from:
   { id: 'd4', from: 4, to: 6 },
   { id: 'd7', from: 7, to: 13 },
   { id: 'd14', from: 14, to: 29 },
-  { id: 'd30', from: 30, to: 30 },
+  { id: 'd30', from: 30, to: 35 },
 ];
 
 /** First day any retention push can go out under the cadence. */
 export const RETENTION_FIRST_DAY = 4;
-/** After this many days away: no retention, and (suppression flag) no reminders/step nudges. */
+/** After this many days away (suppression flag): no reminders/step nudges. Retention itself stops after day 35 (end of the d30 window). */
 export const RETENTION_LAST_DAY = 30;
 
 export function retentionMilestoneFor(daysAway: number): RetentionMilestone | null {

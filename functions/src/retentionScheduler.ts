@@ -34,8 +34,8 @@
  * ─────────────────────────────────────────────────────
  * Off: the old cadence — every 48h while away >= 7 days, no stop.
  * On (owner-approved): one push per milestone per absence, then silence:
- *   d4 (days 4–6), d7 (7–13, "new week"), d14 (14–29), d30 (day 30, last).
- *   Nothing after day 30 until they train or open the app again. The sent
+ *   d4 (days 4–6), d7 (7–13, "new week"), d14 (14–29), d30 (30–35, last).
+ *   Nothing after day 35 until they train or open the app again. The sent
  *   milestones live on push_rate/{uid} (retention_absenceAnchor = the last
  *   activity the absence is measured from, retention_milestonesSent), so a
  *   new activity starts a fresh log. The milestone is passed to the push

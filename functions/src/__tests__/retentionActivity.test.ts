@@ -175,7 +175,7 @@ describe('retentionScheduler — active users get nothing', () => {
 
 // ─── milestone cadence ───────────────────────────────────────────────────────
 
-describe('milestone selection (d4 / d7 / d14 / d30, then stop)', () => {
+describe('milestone selection (d4 / d7 / d14 / d30 days 30–35, then stop)', () => {
   const anchor = NOW - 100 * DAY;
 
   it.each([
@@ -190,7 +190,9 @@ describe('milestone selection (d4 / d7 / d14 / d30, then stop)', () => {
     [14, 'd14'],
     [29, 'd14'],
     [30, 'd30'],
-    [31, null],
+    [31, 'd30'],
+    [35, 'd30'],
+    [36, null],
     [45, null],
     [400, null],
   ])('%i days away → %s', (days, expected) => {
@@ -209,6 +211,14 @@ describe('milestone selection (d4 / d7 / d14 / d30, then stop)', () => {
       }
     }
     expect(sent).toEqual(['4:d4', '7:d7', '14:d14', '30:d30']);
+  });
+
+  it('a d30 missed on day 30 (Shabbat, cap) still goes out by day 35, once; nothing after', () => {
+    let log = recordRetentionMilestone(anchor, EMPTY_LOG, 'd14');
+    expect(nextRetentionMilestone(33, anchor, log)).toBe('d30');
+    log = recordRetentionMilestone(anchor, log, 'd30');
+    expect(nextRetentionMilestone(34, anchor, log)).toBeNull();
+    expect(nextRetentionMilestone(36, anchor, EMPTY_LOG)).toBeNull();
   });
 
   it('a milestone skipped on its first day (caps, Shabbat) goes out the next day in its window', () => {
