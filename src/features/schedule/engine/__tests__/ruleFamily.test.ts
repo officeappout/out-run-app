@@ -202,17 +202,46 @@ describe('placeOn — running: pure relabeling, order preserved', () => {
   });
 });
 
-describe('placeOn — strength: only succeeds when the requested days match buildDefaultTemplate\'s own choice', () => {
+describe('placeOn — strength: relabels its own content onto any physically-sound day-set (bug #4)', () => {
   it('succeeds when the requested day-set is exactly what SCHEDULE_POLICY.PREFERRED_DAYS[3] would pick', () => {
     const week = strengthWeekOf(3);
     const placed = strengthRuleFamily.placeOn(week, [0, 2, 4], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS });
     expect(placed).not.toBeNull();
   });
 
-  it('fails when the requested day-set is a real 3-day set that buildDefaultTemplate would not have picked itself', () => {
+  it('bug #4: succeeds on a real 3-day set buildDefaultTemplate would not have picked itself (it used to return null)', () => {
     const week = strengthWeekOf(3);
     const placed = strengthRuleFamily.placeOn(week, [1, 3, 5], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS });
-    expect(placed).toBeNull();
+    expect(placed).not.toBeNull();
+    expect(placed!.filter((d) => d.sessions.length > 0).map((d) => d.dayOfWeek)).toEqual([1, 3, 5]);
+    expect(placed![1].sessions[0].skillId).toBe('PLANCHE');
+  });
+
+  it('rejects a placement that is physically worse than the preferred one (two push days in a row)', () => {
+    const week = strengthWeekOf(3);
+    expect(strengthRuleFamily.placeOn(week, [1, 2, 4], { programs: STRENGTH_PROGRAMS, skills: STRENGTH_SKILLS })).toBeNull();
+  });
+
+  it('supports 7 days — the week\'s own content repeats, nothing invented', () => {
+    const week = strengthWeekOf(3);
+    const placed = strengthRuleFamily.placeOn(week, [0, 1, 2, 3, 4, 5, 6], { programs: ['UPPER_BODY'], skills: [] });
+    // PLANCHE ×7 back-to-back would add WARN_01 vs the preferred 7-day set, which is the same set → accepted.
+    expect(placed).not.toBeNull();
+    expect(placed!.every((d) => d.sessions.length > 0)).toBe(true);
+    expect(new Set(placed!.flatMap((d) => d.sessions.map((s) => s.skillId)))).toEqual(new Set(['PLANCHE']));
+    expect(strengthRuleFamily.preferredDays(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('keeps a legs day when reducing (distinct content first), never rebuilding an unrelated template', () => {
+    const week: ScheduleDay[] = emptyStrengthWeek();
+    const mk = (dow: number, id: 'UPPER_BODY' | 'LOWER_BODY') => {
+      week[dow] = { dayOfWeek: dow as DayOfWeek, sessions: [{ skillId: id, volumePercent: 100, sessionType: 'FULL' }], isRestDay: false, warnings: [] };
+    };
+    mk(0, 'UPPER_BODY'); mk(2, 'UPPER_BODY'); mk(4, 'LOWER_BODY');
+    const reduced = strengthRuleFamily.reduceTo(week, 2, { programs: ['UPPER_BODY'], skills: [] });
+    const ids = reduced.week.flatMap((d) => d.sessions.map((s) => s.skillId));
+    expect(ids.sort()).toEqual(['LOWER_BODY', 'UPPER_BODY']);
+    expect(reduced.removed.join(' ')).not.toMatch(/[A-Z_]{4,}/); // Hebrew names only
   });
 });
 

@@ -111,7 +111,8 @@ describe('weaveWeek — ת3: R8 caps a candidate at one shared day, forcing a re
     expect(strengthDays.length).toBe(2); // strength untouched
     expect(runningDays.length).toBe(1); // running cut from 2 to 1
     expect(result.sharedDays.length).toBe(1);
-    expect(result.notes.some((n) => n.includes('R8'))).toBe(true);
+    expect(result.reasons.some((r) => r.code === 'ONE_SHARED_DAY_MAX')).toBe(true);
+    expect(result.notes.some((n) => /R\d/.test(n))).toBe(false); // no internal codes in user text
   });
 });
 
@@ -139,7 +140,7 @@ describe('weaveWeek — ת10 (revised): reduction always protects R7\'s floor, r
 
     const strengthDays = strengthOccupiedDays(result.week.strength);
     expect(strengthDays.length).toBe(2); // floor reached, never below — even though dropping to 1 would have actually fit availableDayCount=1.
-    expect(result.notes.some((n) => n.includes('R7'))).toBe(true);
+    expect(result.reasons.some((r) => r.code === 'STRENGTH_FLOOR' || r.code === 'NO_VALID_WEEK')).toBe(true);
   });
 });
 
@@ -216,7 +217,7 @@ describe('weaveWeek — R6: the long run is never placed on a day strength also 
     const runningWeek = result.week.running;
     const longRunDay = runningWeek.find((d) => d.category === 'long_run')!.dayOfWeek;
     expect(strengthDays.includes(longRunDay)).toBe(false);
-    expect(result.notes.some((n) => n.includes('R6'))).toBe(true);
+    expect(result.reasons.some((r) => r.code === 'LONG_RUN_PROTECTED')).toBe(true);
   });
 });
 
@@ -254,7 +255,7 @@ describe('weaveWeek — a zero-strength request (what mode=\'running\' will conf
     expect(strengthDays.length).toBe(0);
     expect(runningDays.length).toBe(3);
     expect(result.reductions).toEqual([]);
-    expect(result.notes.some((n) => n.includes('לא נמצא שילוב חוקי'))).toBe(false);
+    expect(result.reasons.some((r) => r.code === 'NO_VALID_WEEK')).toBe(false);
   });
 });
 

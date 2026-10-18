@@ -43,6 +43,7 @@ interface FlagState {
   ai_coach_enabled: boolean;
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
+  ai_coach_schedule_advisor: boolean;
   weather_enabled: boolean;
   weather_admins_only: boolean;
 }
@@ -216,6 +217,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'הערת מאמן מ-AI',
     description: 'הערת המאמן אחרי אימון נכתבת על ידי ה-AI במקום התבנית. עדיין לא מחובר. פועל רק כשהמתג הראשי דלוק.',
+  },
+  {
+    key: 'ai_coach_schedule_advisor',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — יועץ הלו״ז',
+    description: 'קלי ממליץ על שבוע ועל האימון של היום לפי אותם חוקים של בונה הלו״ז (קריאה בלבד, בלי לשנות לו״ז), רואה אימונים שפוספסו, ולא מציע לבנות את האימון של היום אם הוא כבר בוצע. כבוי = כמו היום. פועל רק כשהמתג הראשי דלוק.',
+    parentKey: 'ai_coach_enabled',
   },
   {
     key: 'weather_enabled',

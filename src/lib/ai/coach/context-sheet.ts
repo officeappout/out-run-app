@@ -9,6 +9,7 @@
 import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import { coachGenderOf, firstNameOf, type CoachGender } from './persona';
 import { deriveAssessmentGaps, type AssessmentGap } from './assessment-gaps';
+import type { SheetPlan } from './schedule-tools';
 
 export interface RawWorkout {
   date: Date | null;
@@ -84,6 +85,12 @@ export interface UserContextSheet {
    * Absent on sheets built before this field existed.
    */
   assessmentGaps?: AssessmentGap[];
+  /**
+   * Schedule advisor (only with ai_coach_schedule_advisor): recurring strength weekdays, the
+   * running plan's current week, today's mode + the one makeup on offer (never a list of
+   * misses), whether today's session is already done, WHO weekly targets so far.
+   */
+  plan?: SheetPlan;
 }
 
 const str = (v: unknown, max = 40): string | null =>
@@ -204,6 +211,14 @@ export interface BuildSheetInput {
   resolveSlug?: (id: string) => string;
   /** Parent slug → subPrograms (slug space), for the assessment gaps. */
   subProgramsBySlug?: Readonly<Record<string, readonly string[]>>;
+  /** Schedule advisor plan section (flag on only). */
+  plan?: SheetPlan;
+  /**
+   * Derived "done" for today (bug #8, flag on only): nothing ever marks a recurring strength
+   * entry completed, so a strength / run WORKOUT logged today marks today's matching
+   * entries done here — no "build today's workout" after it was already trained.
+   */
+  doneToday?: { strength: boolean; run: boolean };
 }
 
 export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
@@ -226,7 +241,11 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
     }))
     .filter((x) => x.level > 0);
 
-  const week = i.weekSchedule.map(sheetScheduleEntry);
+  const week = i.weekSchedule.map(sheetScheduleEntry).map((e) => {
+    if (!i.doneToday || e.date !== i.todayKey || e.completed || e.type !== 'training') return e;
+    const done = e.kind === 'cardio' ? i.doneToday.run : e.kind === 'walking' || e.kind === 'maintenance' ? false : i.doneToday.strength;
+    return done ? { ...e, completed: true, buildNow: null } : e;
+  });
 
   return {
     firstName: firstNameOf(core.name),
@@ -248,6 +267,7 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
     },
     area: str(i.areaName),
     assessmentGaps: deriveAssessmentGaps({ profile: p, resolveSlug: i.resolveSlug, subProgramsBySlug: i.subProgramsBySlug }),
+    ...(i.plan ? { plan: i.plan } : {}),
   };
 }
 

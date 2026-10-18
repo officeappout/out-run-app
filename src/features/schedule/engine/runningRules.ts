@@ -356,11 +356,14 @@ export function validateRunningWeek(
 // 3. runningCriticalityOrder — RUN-05
 // ──────────────────────────────────────────────────────────────────────────
 
+// 'recovery' leads both orders (schedule advisor phase A, bug #5): it was missing, so a
+// week holding a recovery run could never be reduced below that run's day — reduceTo
+// silently fell short of its target and the weaver's reduction sweep failed for it.
 const SHORT_DISTANCE_DROP_ORDER: RunningDayRole[] = [
-  'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
+  'recovery', 'easy_run', 'long_run', 'quality_secondary', 'quality_primary',
 ];
 const LONG_DISTANCE_DROP_ORDER: RunningDayRole[] = [
-  'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
+  'recovery', 'easy_run', 'quality_secondary', 'long_run', 'quality_primary',
 ];
 const SHORT_DISTANCE_THRESHOLD_KM = 5;
 
@@ -373,6 +376,15 @@ const SHORT_DISTANCE_THRESHOLD_KM = 5;
  * flip: an 8K target already leans on a real long run as its backbone the
  * same way a 10K does, unlike a 5K where speed/quality dominates.
  */
+/** Hebrew name of a running slot type — the only form a slot type may take in user text. */
+export const RUNNING_SLOT_NAME_HE: Record<RunningDayRole, string> = {
+  quality_primary: 'אימון איכות',
+  quality_secondary: 'אימון איכות משני',
+  long_run: 'ריצה ארוכה',
+  easy_run: 'ריצה קלה',
+  recovery: 'ריצת התאוששות',
+};
+
 export function runningCriticalityOrder(context: RunningCriticalityContext): RunningDayRole[] {
   return context.targetDistanceKm <= SHORT_DISTANCE_THRESHOLD_KM
     ? [...SHORT_DISTANCE_DROP_ORDER]

@@ -10,8 +10,14 @@
 
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 } from '@/config/feature-flags';
 import type { ActiveRunningProgram } from '../types/running.types';
 import { calculateCurrentWeek } from '@/lib/running-current-week';
+import {
+  buildRolledBackSchedule,
+  resolveProgramAlignment,
+  type AlignmentAction,
+} from './running-alignment';
 
 // Re-exported for existing importers (9 call sites across the app) — the
 // function itself now lives in src/lib/running-current-week.ts, a pure
@@ -31,28 +37,16 @@ export interface SessionSummary {
   durationSeconds: number;
 }
 
-export type AlignmentAction =
-  | { type: 'none' }
-  | { type: 'quality_makeup'; missedCount: number }
-  | { type: 'plan_realign'; daysSinceLastWorkout: number }
-  | { type: 'rebuild'; daysSinceLastWorkout: number };
+// Moved to the pure running-alignment.ts (schedule advisor phase A); re-exported for
+// the existing importers.
+export type { AlignmentAction };
+export { resolveProgramAlignment, buildRolledBackSchedule };
 
 // ── Calendar Logic ───────────────────────────────────────────────────
 // calculateCurrentWeek itself now lives in src/lib/running-current-week.ts
 // — imported above, re-exported for existing callers. See that file for
 // the full doc (unchanged) on the Math.max(1,...) clamp and why any caller
 // with an arbitrary asOfDate must use resolveWeekForDate instead.
-
-/**
- * Returns the number of days since a given date.
- */
-function daysSince(date: Date | string | number): number {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-}
 
 // ── Auto-skip missed workouts ────────────────────────────────────────
 
@@ -152,42 +146,9 @@ export function handleProgramAlignment(
   activeProgram: ActiveRunningProgram,
   lastWorkoutDate: string | Date | null | undefined,
 ): AlignmentAction {
-  if (!lastWorkoutDate) {
-    return { type: 'none' };
-  }
-
-  const gapDays = daysSince(lastWorkoutDate);
-
-  if (gapDays >= 21) {
-    return { type: 'rebuild', daysSinceLastWorkout: gapDays };
-  }
-
-  if (gapDays >= 7) {
-    return { type: 'plan_realign', daysSinceLastWorkout: gapDays };
-  }
-
-  const calendarWeek = calculateCurrentWeek(activeProgram.startDate);
-  const currentWeekEntries = activeProgram.schedule.filter(
-    (e) => e.week === calendarWeek,
-  );
-  const missedThisWeek = currentWeekEntries.filter(
-    (e) => e.status === 'skipped',
-  ).length;
-
-  const prevWeekEntries = activeProgram.schedule.filter(
-    (e) => e.week === calendarWeek - 1,
-  );
-  const missedPrevWeek = prevWeekEntries.filter(
-    (e) => e.status === 'skipped',
-  ).length;
-
-  const totalRecentMissed = missedThisWeek + missedPrevWeek;
-
-  if (totalRecentMissed >= 2) {
-    return { type: 'quality_makeup', missedCount: totalRecentMissed };
-  }
-
-  return { type: 'none' };
+  // Same behaviour as before — the logic is the pure resolveProgramAlignment (bug #12),
+  // anchored on the device clock here, at the edge.
+  return resolveProgramAlignment(activeProgram, lastWorkoutDate, new Date());
 }
 
 // ── Back 1 Week ──────────────────────────────────────────────────────
@@ -211,29 +172,14 @@ export async function rollBackOneWeek(
       return false;
     }
 
-    const prevWeekEntries = activeProgram.schedule.filter(
-      (e) => e.week === prevWeek,
-    );
-
-    if (prevWeekEntries.length === 0) {
+    // Pure rewrite (running-alignment.ts) — now preserves category / slotType /
+    // isQualityWorkout / priority / workoutName on the repeated entries (bug #7).
+    // Behind RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 (default OFF = the legacy workoutId-only copy).
+    const updatedSchedule = buildRolledBackSchedule(activeProgram.schedule, calendarWeek, RUNNING_ROLLBACK_PRESERVE_FIELDS_V1);
+    if (!updatedSchedule) {
       console.warn('[WorkoutCompletion] No entries found for previous week');
       return false;
     }
-
-    const currentWeekWorkoutIds = prevWeekEntries.map((e) => e.workoutId);
-
-    let updatedSchedule = activeProgram.schedule.filter(
-      (e) => e.week !== calendarWeek,
-    );
-
-    const newEntries = currentWeekWorkoutIds.map((wid, i) => ({
-      week: calendarWeek,
-      day: i + 1,
-      workoutId: wid,
-      status: 'pending' as const,
-    }));
-
-    updatedSchedule = [...updatedSchedule, ...newEntries];
 
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, {

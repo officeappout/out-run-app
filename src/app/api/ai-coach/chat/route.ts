@@ -51,6 +51,7 @@ import {
   type StoredMessage,
 } from '@/lib/ai/coach/thread-store.server';
 import { executeServerTool, loadUserContextSheet, type ServerToolContext } from '@/lib/ai/coach/server-tools.server';
+import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -168,7 +169,11 @@ export async function POST(request: Request) {
   const history = historyToModelMessages(thread.recent);
 
   const model = getAiModel('fast');
-  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false } };
+  // Schedule advisor (phase A): read-only recommend_week / recommend_today, the sheet's
+  // plan section, the derived "done" for today, the open_builder chip. Fail-closed: a flag
+  // read error returns the FLAG_DEFS defaults (off).
+  const scheduleAdvisor = (await getServerFeatureFlags(db)).aiCoachScheduleAdvisor === true;
+  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false }, scheduleAdvisor };
 
   // Grounding: the user sheet (programs, levels, recent workouts, today's and this week's
   // schedule, gear) is read on EVERY request and put in the system prompt, so Kelly never
@@ -190,7 +195,7 @@ export async function POST(request: Request) {
       ? (body.toolResult.outcome.domains ?? [])
       : [];
 
-  const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions() });
+  const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions({ scheduleAdvisor }) });
   const system: Anthropic.TextBlockParam[] = [
     ...cached.system,
     {
@@ -205,6 +210,7 @@ export async function POST(request: Request) {
         sheet,
         typoHints: typoHints(userTextThisTurn),
         assessmentNudgeAllowed: nudge.nudgeAllowed,
+        scheduleAdvisor,
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -299,6 +305,8 @@ export async function POST(request: Request) {
           needsAssessmentDomains: refusedForLevel,
           nudgeAllowed: nudge.nudgeAllowed,
           opening: nudge.opening,
+          scheduleAdvisor,
+          strengthDoneToday: sheet?.plan?.doneToday.strength === true,
         });
         if (actions.length) emit({ type: 'actions', actions });
 

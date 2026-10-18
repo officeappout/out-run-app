@@ -1690,3 +1690,13 @@ export function shouldProcessCoinRewards(): boolean {
 // owner turns it on after a device check. Swap logging and the per-set
 // rep-provenance fields are NOT behind this flag (they add no UI).
 export const POST_WORKOUT_SURVEY_V1 = false;
+
+// ── Schedule advisor, phase A (18.10.2026) — launch gates, all default OFF ──
+//
+// RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 — "back 1 week" (rollBackOneWeek,
+// workout-completion.service.ts) rewrites the current running week from the previous
+// one. While false it copies only workoutId per entry (today's behaviour: the repeated
+// week loses category / workoutName / slotType / isQualityWorkout / priority, so the
+// next-run card and the schedule rules read it as unknown). True = the pure
+// buildRolledBackSchedule (running-alignment.ts) keeps those fields.
+export const RUNNING_ROLLBACK_PRESERVE_FIELDS_V1 = false;

@@ -37,12 +37,14 @@
 
 import type { ProgramId, PrioritizedSkill, ScheduleDay } from '../types/smartSchedule.types';
 import { buildDefaultTemplate, validateSchedule, preferredDays } from './scheduleRules';
+import { scheduleIdNameHe } from './strengthVocabulary';
 import {
   preferredRunningDays,
   validateRunningWeek,
   runningCriticalityOrder,
   matchesSlotTypeForDrop,
   isTrainingDay,
+  RUNNING_SLOT_NAME_HE,
   type RunningWeekDay,
   type RunningWeekContext,
   type RunningCriticalityContext,
@@ -135,26 +137,97 @@ function strengthValidate(week: ScheduleDay[]): RuleFamilyValidation {
 
 function describeDaySessions(day: ScheduleDay | undefined): string {
   if (!day || day.sessions.length === 0) return 'מנוחה';
-  return day.sessions.map((s) => s.skillId).join('+');
+  return day.sessions.map((s) => scheduleIdNameHe(s.skillId)).join(' + ');
+}
+
+// ── Strength content helpers (schedule advisor phase A, bug #4) ─────────────
+
+function cloneDay(day: ScheduleDay, dayOfWeek: number): ScheduleDay {
+  return {
+    dayOfWeek: dayOfWeek as ScheduleDay['dayOfWeek'],
+    sessions: day.sessions.map((s) => ({ ...s })),
+    isRestDay: day.sessions.length === 0,
+    warnings: [],
+  };
+}
+
+function emptyStrengthDay(dayOfWeek: number): ScheduleDay {
+  return { dayOfWeek: dayOfWeek as ScheduleDay['dayOfWeek'], sessions: [], isRestDay: true, warnings: [] };
+}
+
+/** The week's training days, in day order (the content placeOn relabels). */
+function trainingDaysInOrder(week: ScheduleDay[]): ScheduleDay[] {
+  return [...week].sort((a, b) => a.dayOfWeek - b.dayOfWeek).filter((d) => d.sessions.length > 0);
+}
+
+function contentKey(day: ScheduleDay): string {
+  return day.sessions.map((s) => `${s.skillId}:${s.sessionType}`).join('+');
 }
 
 /**
- * Strength doesn't remove sessions from an existing week — it rebuilds a
- * fresh template for targetDayCount via the untouched buildDefaultTemplate,
- * per CLAUDE.md's own framing: a week of N days isn't "N+1 minus one."
- * `removed` is a day-by-day diff against the previous week, for the
- * coach-notes area — not a literal "days removed" list, since
- * buildDefaultTemplate's own day-selection can shift which specific days of
- * the week are used (the PULL+PULL 3-day special case already picks
- * 0/2/5, not a subset of the 4-day case's days — this isn't new behavior,
- * just the first place it needs to be explained to a user).
+ * The week's own training content resized to `count` days, never invented:
+ *   - fewer days: keep one of every distinct day-content first (a legs day is not dropped
+ *     before a second identical upper day), then the rest in day order; dropped from the
+ *     end of the week first.
+ *   - more days: repeat the week's own content in order (cycle) — how a 6-day template
+ *     becomes a 7-day one.
+ *   - an EMPTY base (no content to resize) falls back to buildDefaultTemplate's own
+ *     content for that count — the seed path the weaver already used.
+ */
+function resizeStrengthContent(week: ScheduleDay[], count: number, context: StrengthReduceContext): ScheduleDay[] {
+  if (count <= 0) return [];
+  let content = trainingDaysInOrder(week);
+  if (content.length === 0) {
+    content = trainingDaysInOrder(buildDefaultTemplate(context.programs, context.skills, Math.min(count, 6)));
+    if (content.length === 0) return [];
+  }
+  if (content.length === count) return content;
+  if (content.length > count) {
+    const seen = new Set<string>();
+    const keep = new Set<number>();
+    content.forEach((d, i) => {
+      const k = contentKey(d);
+      if (!seen.has(k) && keep.size < count) {
+        seen.add(k);
+        keep.add(i);
+      }
+    });
+    for (let i = 0; i < content.length && keep.size < count; i++) keep.add(i);
+    return content.filter((_, i) => keep.has(i));
+  }
+  const out: ScheduleDay[] = [];
+  for (let i = 0; i < count; i++) out.push(content[i % content.length]);
+  return out;
+}
+
+/** validateSchedule codes that mean "this placement is physically worse" (fatigue / spacing). */
+const STRENGTH_PLACEMENT_FATIGUE_CODES = new Set(['WARN_01', 'WARN_02', 'WARN_03', 'WARN_06', 'WARN_09', 'WARN_14']);
+
+function fatigueProfile(week: ScheduleDay[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const w of validateSchedule(week)) {
+    if (STRENGTH_PLACEMENT_FATIGUE_CODES.has(w.code)) m.set(w.code, (m.get(w.code) ?? 0) + 1);
+  }
+  return m;
+}
+
+/**
+ * Strength reduces by resizing its OWN content (resizeStrengthContent), not by rebuilding
+ * an unrelated default template: a push / pull / legs user keeps the legs day. The new
+ * content lands on the domain's preferred days for the new count. `removed` is a
+ * day-by-day diff against the previous week, for the coach-notes area.
  */
 function strengthReduceTo(
   week: ScheduleDay[],
   targetDayCount: number,
   context: StrengthReduceContext,
 ): RuleFamilyReduction<ScheduleDay[]> {
-  const rebuilt = buildDefaultTemplate(context.programs, context.skills, targetDayCount);
+  const content = resizeStrengthContent(week, targetDayCount, context);
+  const days = strengthPreferredDays(content.length);
+  const rebuilt: ScheduleDay[] = Array.from({ length: 7 }, (_, i) => emptyStrengthDay(i));
+  days.forEach((dow, idx) => {
+    if (content[idx]) rebuilt[dow] = cloneDay(content[idx], dow);
+  });
   const removed: string[] = [];
 
   for (let i = 0; i < 7; i++) {
@@ -173,20 +246,15 @@ function strengthReduceTo(
   return { week: rebuilt, removed, notes };
 }
 
-function occupiedDays(week: ScheduleDay[]): number[] {
-  return week.reduce<number[]>((acc, day, i) => {
-    if (day.sessions.length > 0) acc.push(i);
-    return acc;
-  }, []);
-}
-
 /**
- * Strength has no free day-placement — buildDefaultTemplate always derives
- * its own day-set from daysPerWeek via SCHEDULE_POLICY.PREFERRED_DAYS, it
- * cannot be told "use exactly these days." So placeOn can only ever succeed
- * when the requested dayIndices happen to equal what buildDefaultTemplate
- * would have picked anyway for that count — a real, narrow constraint, not
- * a placeholder: most arbitrary day-sets return null here.
+ * Bug #4 (schedule advisor phase A): placeOn used to succeed only when the requested days
+ * happened to equal buildDefaultTemplate's own PREFERRED_DAYS for that count, so strength
+ * could never move (and 7 days was impossible). Now it relabels the week's own content
+ * (resized to the requested count, see resizeStrengthContent) onto ANY day-set, in order,
+ * and accepts it unless validateSchedule reports more fatigue / spacing findings
+ * (STRENGTH_PLACEMENT_FATIGUE_CODES) than the same content on the domain's preferred days
+ * — i.e. a placement may never be physically worse than the default one. Saturday
+ * (WARN_15) is a note, never a block.
  */
 function strengthPlaceOn(
   week: ScheduleDay[],
@@ -195,16 +263,36 @@ function strengthPlaceOn(
 ): ScheduleDay[] | null {
   const requested = Array.from(new Set(dayIndices)).sort((a, b) => a - b);
   if (requested.length !== dayIndices.length || requested.some((d) => d < 0 || d > 6)) return null;
+  if (requested.length === 0) return Array.from({ length: 7 }, (_, i) => emptyStrengthDay(i));
 
-  const rebuilt = buildDefaultTemplate(context.programs, context.skills, requested.length);
-  const actual = occupiedDays(rebuilt);
-  const matches = actual.length === requested.length && actual.every((d, i) => d === requested[i]);
-  return matches ? rebuilt : null;
+  const content = resizeStrengthContent(week, requested.length, context);
+  if (content.length !== requested.length) return null;
+
+  const placeAt = (days: number[]): ScheduleDay[] => {
+    const out: ScheduleDay[] = Array.from({ length: 7 }, (_, i) => emptyStrengthDay(i));
+    days.forEach((dow, idx) => {
+      out[dow] = cloneDay(content[idx], dow);
+    });
+    return out;
+  };
+
+  const placed = placeAt(requested);
+  const baseline = fatigueProfile(placeAt(strengthPreferredDays(requested.length)));
+  for (const [code, n] of Array.from(fatigueProfile(placed))) {
+    if (n > (baseline.get(code) ?? 0)) return null;
+  }
+  return placed;
+}
+
+/** scheduleRules.preferredDays, plus a real 7-day answer (the wizard's own table stops at 6). */
+function strengthPreferredDays(count: number): number[] {
+  if (count >= 7) return [0, 1, 2, 3, 4, 5, 6];
+  return preferredDays(count);
 }
 
 export const strengthRuleFamily: RuleFamily<ScheduleDay[], StrengthValidateContext, StrengthReduceContext> = {
   id: 'strength',
-  preferredDays,
+  preferredDays: strengthPreferredDays,
   validate: strengthValidate,
   reduceTo: strengthReduceTo,
   placeOn: strengthPlaceOn,
@@ -271,7 +359,7 @@ function runningReduceTo(
       const match = matchesSlotTypeForDrop(day, slotType);
       if (match.matches) {
         if (match.slotTypeWasUnknown) anySlotTypeUnknown = true;
-        removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${slotType} הוסר`);
+        removed.push(`יום ${DAY_NAMES_HE[day.dayOfWeek]}: ${RUNNING_SLOT_NAME_HE[slotType]} הוסרה`);
         day.category = null;
         day.slotType = undefined;
         day.isQualityWorkout = undefined;

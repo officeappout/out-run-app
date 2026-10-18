@@ -20,7 +20,14 @@ export type SkillId =
   | 'MUSCLE_UP'
   | 'HANDSTAND';
 
-export type ProgramId = 'FULL_BODY' | 'UPPER_BODY' | 'UPPER_CALISTHENICS';
+/**
+ * LOWER_BODY (18.10.2026, schedule advisor phase A): the schedule taxonomy's first
+ * lower-body notion, so R4/R6b ("no heavy legs the day before a quality / long run")
+ * have something to read. Reached only through strengthVocabulary.ts's mapping of the
+ * real `legs` / `lower_body` programs — no wizard option offers it, and no existing
+ * writer has ever stored it, so adding it changes nothing for existing documents.
+ */
+export type ProgramId = 'FULL_BODY' | 'UPPER_BODY' | 'UPPER_CALISTHENICS' | 'LOWER_BODY';
 
 export type SessionType =
   | 'FULL'
@@ -124,6 +131,7 @@ export const ALL_PROGRAM_IDS: ProgramId[] = [
   'FULL_BODY',
   'UPPER_BODY',
   'UPPER_CALISTHENICS',
+  'LOWER_BODY',
 ];
 
 // ── Skill Cap Logic ────────────────────────────────────────────────────────
@@ -144,6 +152,7 @@ export const MIN_REST_HOURS: Record<string, number> = {
   FULL_BODY: 24,
   UPPER_BODY: 24,
   UPPER_CALISTHENICS: 24,
+  LOWER_BODY: 48,
   RUN: 0, // Phase 2
   WALK: 0,
 };
@@ -160,6 +169,7 @@ export const SESSION_ORDER_IN_DAY: ScheduleItemId[] = [
   'UPPER_CALISTHENICS',
   'UPPER_BODY',
   'FULL_BODY',
+  'LOWER_BODY',
 ];
 
 // ── Schedule Policy ────────────────────────────────────────────────────────
@@ -200,6 +210,7 @@ export const MOVEMENT_OF: Record<ScheduleItemId, MovementType | 'MIXED'> = {
   FULL_BODY: 'MIXED',
   UPPER_BODY: 'MIXED',
   UPPER_CALISTHENICS: 'MIXED',
+  LOWER_BODY: 'MIXED',
 };
 
 // ── UI Display Map ─────────────────────────────────────────────────────────
@@ -280,6 +291,13 @@ export const SKILL_DISPLAY: Record<ScheduleItemId, SkillDisplaySpec> = {
     shortName: 'קליסט. עליון',
     tint: 'bg-lime-100',
     iconColor: 'text-lime-700',
+  },
+  LOWER_BODY: {
+    icon: '🦵',
+    iconPath: '/icons/programs/leg.svg',
+    shortName: 'פ.ג. תחתון',
+    tint: 'bg-rose-100',
+    iconColor: 'text-rose-700',
   },
 };
 

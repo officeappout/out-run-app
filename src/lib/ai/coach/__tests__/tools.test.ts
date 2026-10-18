@@ -20,10 +20,20 @@ describe('tool registry', () => {
       'explain_workout',
       'get_workout_details',
       'handoff_to_human',
+      'recommend_week',
+      'recommend_today',
     ]);
     expect(toolKind('generate_workout')).toBe('client');
     expect(toolKind('get_progress')).toBe('server');
     expect(toolKind('generate_route')).toBeNull();
+  });
+
+  it('the schedule advisor tools are offered only with the flag (off = the exact pre-phase-A list)', () => {
+    const off = coachToolDefinitions().map((t) => t.name);
+    expect(off).toEqual(['get_user_context', 'get_progress', 'get_schedule', 'generate_workout', 'explain_workout', 'get_workout_details', 'handoff_to_human']);
+    const on = coachToolDefinitions({ scheduleAdvisor: true }).map((t) => t.name);
+    expect(on).toEqual([...off, 'recommend_week', 'recommend_today']);
+    expect(toolKind('recommend_week')).toBe('server');
   });
 
   it('definitions are deterministic (cache-stable) and carry no cache_control themselves', () => {

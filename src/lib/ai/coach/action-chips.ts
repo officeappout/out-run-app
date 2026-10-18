@@ -24,7 +24,7 @@ import { inferProgressQuestion, inferScheduleQuestion } from './intent';
 import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlug, type AssessableSlug } from './assessment-gaps';
 
 export type CheckLevelActionId = `check_level_${AssessableSlug}`;
-export type CoachActionId = 'open_schedule' | 'build_today' | CheckLevelActionId;
+export type CoachActionId = 'open_schedule' | 'build_today' | 'open_builder' | CheckLevelActionId;
 
 export const CHECK_LEVEL_PREFIX = 'check_level_';
 
@@ -32,10 +32,16 @@ export function checkLevelActionId(slug: AssessableSlug): CheckLevelActionId {
   return `${CHECK_LEVEL_PREFIX}${slug}` as CheckLevelActionId;
 }
 
-export const COACH_ACTION_IDS: readonly CoachActionId[] = ['open_schedule', 'build_today', ...ASSESSABLE_SLUGS.map(checkLevelActionId)];
+export const COACH_ACTION_IDS: readonly CoachActionId[] = ['open_schedule', 'build_today', 'open_builder', ...ASSESSABLE_SLUGS.map(checkLevelActionId)];
 
 /** The schedule screen: /home opens the full-screen training planner on this param. */
 export const SCHEDULE_DEEP_LINK = '/home?openPlanner=true';
+/**
+ * The schedule builder (schedule advisor phase A, flag ai_coach_schedule_advisor): the
+ * planner opens with the builder drawer on top — where a recommended week is applied by
+ * the user (Kelly never writes a schedule).
+ */
+export const SCHEDULE_BUILDER_DEEP_LINK = '/home?openPlanner=true&openBuilder=true';
 
 /**
  * The mini level check's page. Not a plain link: startMiniDomainAssessment seeds the single
@@ -91,6 +97,7 @@ const CHECK_LEVEL_ACTIONS = Object.fromEntries(
 export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
   open_schedule: { label: 'פתח את הלו״ז', href: SCHEDULE_DEEP_LINK },
   build_today: { label: 'בנה את האימון של היום', message: 'תבנה לי את האימון של היום' },
+  open_builder: { label: 'סדר לי את השבוע', href: SCHEDULE_BUILDER_DEEP_LINK },
   ...CHECK_LEVEL_ACTIONS,
 };
 
@@ -117,6 +124,10 @@ export interface ChipInput {
   nudgeAllowed?: boolean;
   /** The first turn of a new conversation (nothing said in the last hours). */
   opening?: boolean;
+  /** ai_coach_schedule_advisor is on (adds open_builder; off = exactly today's chips). */
+  scheduleAdvisor?: boolean;
+  /** recommend_today said today's strength session is already done (derived from workouts). */
+  strengthDoneToday?: boolean;
 }
 
 /** The level-check chip for this turn, if any (at most one). */
@@ -140,10 +151,12 @@ export function chipsForTurn(i: ChipInput): CoachActionId[] {
   const out: CoachActionId[] = [];
   if (!i.toolNames.includes('generate_workout')) {
     const aboutSchedule = inferScheduleQuestion(i.userText) || i.toolNames.includes('get_schedule');
-    if (aboutSchedule) {
+    const recommendedWeek = !!i.scheduleAdvisor && i.toolNames.includes('recommend_week');
+    if (aboutSchedule || recommendedWeek) {
       out.push('open_schedule');
-      if ((i.sheet?.today ?? []).some((e) => e.buildNow && !e.completed)) out.push('build_today');
+      if (!i.strengthDoneToday && (i.sheet?.today ?? []).some((e) => e.buildNow && !e.completed)) out.push('build_today');
     }
+    if (recommendedWeek) out.push('open_builder');
   }
   const check = checkLevelChipFor(i);
   if (check) out.push(check);

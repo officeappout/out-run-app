@@ -29,6 +29,7 @@ import {
 import { firstNameOf } from './persona';
 import type { StoredCard } from './thread-store.server';
 import type { ToolExecResult } from './turn-engine';
+import { recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './schedule-advisor.server';
 
 export interface ServerToolContext {
   db: Firestore;
@@ -40,6 +41,8 @@ export interface ServerToolContext {
   knownCards: Map<string, StoredCard>;
   /** Mutable per-turn flags. */
   turn: { handoffDone: boolean };
+  /** system_config/feature_flags.ai_coach_schedule_advisor (route.ts). Off → the advisor tools don't exist. */
+  scheduleAdvisor?: boolean;
 }
 
 const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });
@@ -149,11 +152,19 @@ export async function loadProgramIndex(db: Firestore, now = Date.now()): Promise
 export async function loadUserContextSheet(ctx: ServerToolContext): Promise<UserContextSheet> {
   const todayKey = getIsraelDateKey(ctx.now);
   const week = weekKeys(todayKey, getIsraelDayOfWeek(ctx.now));
-  const [workouts, weekSchedule, areaName, programIndex] = await Promise.all([
+  const [workouts, weekSchedule, areaName, programIndex, advisor] = await Promise.all([
     readWorkouts(ctx, null, 5),
     readSchedule(ctx, week),
     readAreaName(ctx),
     loadProgramIndex(ctx.db, ctx.now.getTime()),
+    // Schedule advisor (flag): the plan section + the derived "done" for today. A failure
+    // here never costs the sheet — it is simply built without them, as before.
+    ctx.scheduleAdvisor
+      ? runAdvisor(ctx).catch((err) => {
+          console.warn('[ai-coach] schedule advisor unavailable this turn', err);
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
   return buildUserContextSheet({
     profile: ctx.profile,
@@ -163,6 +174,7 @@ export async function loadUserContextSheet(ctx: ServerToolContext): Promise<User
     areaName,
     now: ctx.now,
     ...(programIndex ?? {}),
+    ...(advisor ? { plan: sheetPlanFromTurn(advisor), doneToday: advisor.today.doneToday } : {}),
   });
 }
 
@@ -277,6 +289,12 @@ export async function executeServerTool(ctx: ServerToolContext, name: string, in
       return explainWorkout(ctx, input as { workoutId: string });
     case 'handoff_to_human':
       return handoffToHuman(ctx, input as { summary: string });
+    case 'recommend_week':
+      if (!ctx.scheduleAdvisor) return { content: `unknown tool ${name}`, isError: true };
+      return json(await recommendWeek(ctx));
+    case 'recommend_today':
+      if (!ctx.scheduleAdvisor) return { content: `unknown tool ${name}`, isError: true };
+      return json(await recommendToday(ctx));
     default:
       return { content: `unknown tool ${name}`, isError: true };
   }

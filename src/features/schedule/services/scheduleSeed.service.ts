@@ -9,6 +9,7 @@ import {
   MIN_REST_HOURS,
   SKILL_DISPLAY,
 } from '@/features/schedule/types/smartSchedule.types';
+import { classifyStrengthId, type ResolveSlug } from '@/features/schedule/engine/strengthVocabulary';
 
 /**
  * Extracted from ScheduleStep.tsx (onboarding), 30.08.2026 — this was the
@@ -103,7 +104,7 @@ const DEFAULT_SEED_SKILLS: PrioritizedSkill[] = [];
  */
 export interface ScheduleSeedProfileInput {
   progression?: {
-    activePrograms?: Array<{ name?: string; templateId?: string }>;
+    activePrograms?: Array<{ name?: string; templateId?: string; id?: string; startDate?: unknown }>;
   } | null;
 }
 
@@ -123,6 +124,15 @@ export interface ScheduleSeedOverrides {
    * tab/session, so a stale value can still reach this override.
    */
   programPath?: string;
+  /**
+   * Schedule advisor phase A (bug #3): resolve active programs through the unified
+   * strength vocabulary (strengthVocabulary.ts) — push / pull / legs / core slugs and raw
+   * Firestore program ids (with `resolveSlug`) map into the schedule taxonomy instead of
+   * falling to the invented UPPER_BODY default. Opt-in: only the weaver / advisor path
+   * passes it; the onboarding wizard (ScheduleStep) keeps today's mapping byte for byte.
+   * When set and nothing resolves, the seed is EMPTY (no invented UPPER_BODY).
+   */
+  vocabulary?: { resolveSlug?: ResolveSlug };
 }
 
 export interface ScheduleSeedResult {
@@ -175,7 +185,11 @@ export function resolveScheduleSeed(
   // ── Source 3: existing user's Firestore active programs ────────────────
   if (resolved.length === 0) {
     for (const ap of profile?.progression?.activePrograms ?? []) {
-      const id = resolveScheduleId(ap.name ?? '', ap.templateId ?? '');
+      const id = overrides?.vocabulary
+        ? (classifyStrengthId(ap.templateId ?? '', overrides.vocabulary.resolveSlug).scheduleId ??
+            classifyStrengthId(ap.id ?? '', overrides.vocabulary.resolveSlug).scheduleId ??
+            resolveScheduleId(ap.name ?? '', ''))
+        : resolveScheduleId(ap.name ?? '', ap.templateId ?? '');
       if (id) addId(id);
     }
   }
@@ -228,7 +242,8 @@ export function resolveScheduleSeed(
 
   return {
     activeWizardOptions: options.length > 0 ? options : WIZARD_OPTIONS,
-    seedPrograms: programs.length > 0 ? programs : DEFAULT_SEED_PROGRAMS,
+    // The vocabulary path never invents a program the user doesn't have (bug #1/#3).
+    seedPrograms: programs.length > 0 ? programs : overrides?.vocabulary ? [] : DEFAULT_SEED_PROGRAMS,
     seedSkills: skills,
   };
 }

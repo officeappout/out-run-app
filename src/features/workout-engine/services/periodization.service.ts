@@ -75,6 +75,18 @@ const CYCLE_SANITY_FLOOR_MS = new Date('2024-01-01T00:00:00Z').getTime();
 export function derivePeriodizationWeek(
   activeProgram: UserActiveProgram | null | undefined,
 ): number {
+  return derivePeriodizationWeekAt(activeProgram, new Date());
+}
+
+/**
+ * derivePeriodizationWeek with the clock passed in (schedule advisor phase A — the
+ * advisor is pure and must never read the clock). Identical formula and guards;
+ * derivePeriodizationWeek is now this with `new Date()`.
+ */
+export function derivePeriodizationWeekAt(
+  activeProgram: Pick<UserActiveProgram, 'startDate'> | null | undefined,
+  asOf: Date,
+): number {
   if (!activeProgram?.startDate) {
     console.log('[Periodization] No active program startDate — defaulting to Week 1 (Build)');
     return 1;
@@ -127,7 +139,7 @@ export function derivePeriodizationWeek(
     return 1;
   }
   start.setHours(0, 0, 0, 0);
-  const today = new Date();
+  const today = new Date(asOf);
   today.setHours(0, 0, 0, 0);
 
   const daysSinceStart = Math.max(0, Math.floor((today.getTime() - start.getTime()) / MS_PER_DAY));
