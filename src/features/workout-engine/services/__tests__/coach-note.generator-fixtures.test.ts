@@ -121,6 +121,10 @@ const CELLS: Cell[] = [
   { name: 'home · easy option', options: { userProfile: profile({ weeksIntoCycle: 1 }), location: 'home', availableTime: 25, timeOfDay: 'afternoon', daysInactiveOverride: 2, targetDifficulty: 1 } },
   { name: 'office · morning · bodyweight', options: { userProfile: profile({ weeksIntoCycle: 2 }), location: 'office', availableTime: 15, timeOfDay: 'morning', daysInactiveOverride: 1 } },
   { name: 'home · recovery day', options: { userProfile: profile(), location: 'home', availableTime: 20, timeOfDay: 'evening', daysInactiveOverride: 1, isRecoveryDay: true } },
+  // Weather (weather_enabled): HomeWorkoutOptions.weather → DecisionContext.weatherFlag.
+  { name: 'park · heat', options: { userProfile: profile({ weeksIntoCycle: 1 }), location: 'park', availableTime: 30, timeOfDay: 'afternoon', daysInactiveOverride: 1, weather: { flag: 'heat', apparentC: 36 } } },
+  { name: 'park · cold', options: { userProfile: profile({ weeksIntoCycle: 1 }), location: 'park', availableTime: 30, timeOfDay: 'afternoon', daysInactiveOverride: 1, weather: { flag: 'cold', apparentC: 4 } } },
+  { name: 'home · rain', options: { userProfile: profile({ weeksIntoCycle: 1 }), location: 'home', availableTime: 30, timeOfDay: 'afternoon', daysInactiveOverride: 1, weather: { flag: 'rain', precipProb: 90 } } },
   { name: 'park · beginner · back after 30 days', options: { userProfile: profile({ level: 3, levels: { pull: 3, push: 4, legs: 3, core: 2 } }), location: 'park', availableTime: 30, timeOfDay: 'morning', daysInactiveOverride: 30 } },
 ];
 
@@ -180,6 +184,15 @@ describe('coach note over real generator output (hermetic corpus)', () => {
     expect(by['park · deload week (5)'][0]).toBe('DELOAD_WEEK');
     expect(by['park · peak week (4) · intense'][0]).toBe('PEAK_WEEK');
     expect(by['home · weekly gap (pull behind)']).toContain('WEEKLY_GAP');
+    expect(by['park · heat']).toContain('WEATHER_HEAT');
+    expect(by['park · cold']).toContain('WEATHER_COLD');
+    expect(by['home · rain']).toContain('WEATHER_RAIN');
+    for (const name of ['park · heat', 'park · cold', 'home · rain']) {
+      const codes = by[name];
+      const w = codes.findIndex((c) => c.startsWith('WEATHER_'));
+      const loc = codes.indexOf('LOCATION');
+      if (loc >= 0) expect(w, name).toBeLessThan(loc);
+    }
   });
 });
 

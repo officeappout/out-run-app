@@ -6,7 +6,7 @@ import {
   refreshDecisionExpect,
   REASON_RANK,
 } from '../decision-record';
-import { renderCoachNote, renderCoachNoteSentences, violatesVoice, fmtRest } from '../coach-note';
+import { renderCoachNote, renderCoachNoteSentences, violatesVoice, fmtRest, DEFAULT_COACH_PHRASEBOOK } from '../coach-note';
 import type { GeneratedWorkout, WorkoutExercise } from '../../logic/workout-generator.types';
 
 function ex(id: string, over: Partial<WorkoutExercise> = {}): WorkoutExercise {
@@ -266,5 +266,58 @@ describe('coach note', () => {
     expect(text).not.toMatch(/\d+ עד \d+ סטים/); // 3..4 sets → one value
     expect(text).not.toMatch(/5 עד 6/); // 5..6 reps → one value
     expect(text).not.toContain('מנוחה'); // rest only when there are no reps to quote
+  });
+});
+
+describe('weather reasons (weather_enabled)', () => {
+  const codesOf = (w: GeneratedWorkout, ctx: Parameters<typeof buildDecisionRecord>[1]) =>
+    buildDecisionRecord(w, ctx).reasons.map((x) => x.code);
+
+  it('rank: just before LOCATION, after the training-story reasons', () => {
+    const at = (c: (typeof REASON_RANK)[number]) => REASON_RANK.indexOf(c);
+    for (const c of ['WEATHER_RAIN', 'WEATHER_HEAT', 'WEATHER_COLD', 'WEATHER_UV'] as const) {
+      expect(at(c)).toBeGreaterThan(at('PROGRAM_FOCUS'));
+      expect(at(c)).toBeLessThan(at('LOCATION'));
+    }
+    expect(at('WEATHER_UV') + 1).toBe(at('LOCATION'));
+  });
+
+  it('each flag maps to its own code, ranked ahead of LOCATION', () => {
+    expect(codesOf(workout(), { weatherFlag: 'rain', location: 'home' })).toEqual(['WEATHER_RAIN', 'LOCATION', 'DIFFICULTY']);
+    expect(codesOf(workout(), { weatherFlag: 'heat', location: 'park' })).toEqual(['WEATHER_HEAT', 'LOCATION', 'DIFFICULTY']);
+    expect(codesOf(workout(), { weatherFlag: 'uv', location: 'park' })).toEqual(['WEATHER_UV', 'LOCATION', 'DIFFICULTY']);
+    expect(codesOf(workout(), { weatherFlag: 'cold', location: 'park' })).toEqual(['WEATHER_COLD', 'LOCATION', 'DIFFICULTY']);
+  });
+
+  it('rain only when the workout is actually at home; no flag → no weather reason', () => {
+    expect(codesOf(workout(), { weatherFlag: 'rain', location: 'park' })).not.toContain('WEATHER_RAIN');
+    expect(codesOf(workout({ executionLocation: 'gym' } as never), { weatherFlag: 'rain', location: 'home' }))
+      .not.toContain('WEATHER_RAIN');
+    const none = codesOf(workout(), { weatherFlag: null, location: 'home' });
+    expect(none.some((c) => c.startsWith('WEATHER_'))).toBe(false);
+  });
+
+  it('coach note leads with the weather sentence, voice-clean, and rain does not repeat the location', () => {
+    const keyOf = { rain: 'WEATHER_RAIN', heat: 'WEATHER_HEAT', cold: 'WEATHER_COLD', uv: 'WEATHER_UV' } as const;
+    for (const flag of ['rain', 'heat', 'cold', 'uv'] as const) {
+      const s = renderCoachNoteSentences(buildDecisionRecord(workout(), { weatherFlag: flag, location: 'home' }));
+      expect(s.length).toBeGreaterThanOrEqual(2);
+      for (const line of s) expect(violatesVoice(line)).toBe(false);
+      const key = keyOf[flag];
+      expect(DEFAULT_COACH_PHRASEBOOK[key]).toContain(s[0]);
+      if (flag === 'rain') {
+        const loc = [...DEFAULT_COACH_PHRASEBOOK.LOCATION_bodyweight, ...DEFAULT_COACH_PHRASEBOOK.LOCATION_equipment];
+        for (const line of s) expect(loc.some((t) => t.split('{')[0] && line.startsWith(t.split('{')[0]))).toBe(false);
+      }
+    }
+  });
+
+  it('every weather phrasebook variant passes the voice check (2–3 variants each)', () => {
+    for (const key of ['WEATHER_RAIN', 'WEATHER_HEAT', 'WEATHER_COLD', 'WEATHER_UV'] as const) {
+      const variants = DEFAULT_COACH_PHRASEBOOK[key];
+      expect(variants.length).toBeGreaterThanOrEqual(2);
+      expect(variants.length).toBeLessThanOrEqual(3);
+      for (const v of variants) expect(violatesVoice(v), v).toBe(false);
+    }
   });
 });

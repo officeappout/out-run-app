@@ -115,8 +115,11 @@ async function resolveFullStrengthTrioOption(
   extraOptions: Partial<HomeWorkoutOptions> = {},
 ): Promise<GeneratedWorkout> {
   const gpsSnapshot = useGPSStore.getState().coords;
+  // Weather (weather_enabled, home only): rain sends this inferred park build home via
+  // resolveWorkoutContext's 'weather-rain-home'; heat/uv/cold reach the generator below.
+  const weather = context.weather ?? null;
   const resolvedCtx = gpsSnapshot
-    ? await resolveWorkoutContext(profile, 'park', { gpsCoords: gpsSnapshot })
+    ? await resolveWorkoutContext(profile, 'park', { gpsCoords: gpsSnapshot, ...(weather?.flag ? { weatherFlag: weather.flag } : {}) })
     : { location: 'home' as ExecutionLocation, availableGear: [] as string[] };
 
   const generateAt = (location: ExecutionLocation, parkEquipmentIds?: string[]) =>
@@ -127,6 +130,7 @@ async function resolveFullStrengthTrioOption(
       targetOptionIndex,
       location,
       parkEquipmentIds,
+      ...(weather ? { weather } : {}),
       ...extraOptions,
     });
 

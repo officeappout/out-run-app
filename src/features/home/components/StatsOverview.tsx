@@ -66,6 +66,7 @@ import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsFo
 import type { GoalItem } from './widgets/ProgramProgressCard';
 import { getLocalizedText } from '@/features/content/exercises';
 import { getProgramIcon } from '@/features/content/programs';
+import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
@@ -301,6 +302,12 @@ interface StatsOverviewProps {
   /** Opens the shared health-permission disclosure flow — from home/page.tsx's
    *  `useHealthWithDisclosure()`. Passed to ConnectStepsCard's onConnect. */
   onConnectSteps?: () => void;
+  /**
+   * Weather at the user's cell (home/page.tsx's single useWeather call, `weather_enabled`
+   * flag). Read through a ref at generation time — a late arrival never re-triggers
+   * generation. Rain → an unpinned park workout goes home; every flag → generator options.
+   */
+  weather?: WorkoutWeather | null;
 }
 
 /** Context forwarded to the workout builder when the custom card is tapped. */
@@ -350,8 +357,11 @@ export default function StatsOverview({
   onTrioSelectorChange,
   healthConnected = null,
   onConnectSteps,
+  weather = null,
 }: StatsOverviewProps) {
   const { profile } = useUserStore();
+  const weatherRef = useRef<WorkoutWeather | null>(weather);
+  weatherRef.current = weather;
   const router = useRouter();
   const checkAndResetWeek = useWeeklyVolumeStore((s) => s.checkAndResetWeek);
   const recalculateFromActivities = useWeeklyVolumeStore((s) => s.recalculateFromActivities);
@@ -744,8 +754,11 @@ export default function StatsOverview({
         // Inferred flow: an equipped park within 2 km → park with its REAL gear;
         // no equipped park / no GPS fix → HOME (never a fake ESSENTIAL_PARK_GEAR park).
         const storeFix = useGPSStore.getState().coords;
+        const genWeather = weatherRef.current;
         const ctx = await resolveWorkoutContext(profile, resolvedLocation, {
           gpsCoords: storeFix ?? undefined,
+          // Rain → home, but never over a location the user pinned on the chip.
+          weatherFlag: pinnedLocationRef.current ? null : genWeather?.flag ?? null,
         });
         const effectiveLocation = ctx.location;
         const resolvedParkGear = ctx.availableGear;
@@ -880,6 +893,7 @@ export default function StatsOverview({
           parkEquipmentIds: resolvedParkGear.length > 0 ? resolvedParkGear : undefined,
           // Drawer fast-path: skip D1/D3 generation when only D2 is needed.
           generateSingleOption: generateSingleOptionRef.current || undefined,
+          ...(genWeather ? { weather: genWeather } : {}),
         });
 
         setTrioResult(trio);

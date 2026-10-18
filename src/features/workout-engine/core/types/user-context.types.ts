@@ -14,6 +14,9 @@
  * until that product-decision gate resolves (see plan §ד — happy-jumping-flask.md).
  */
 
+import type { WorkoutWeather } from '@/features/weather/core/weather.types';
+
+
 /** Where the request for a Suggestion originated. Orthogonal to `venue` (physical place) and
  *  to the existing `ExecutionLocation` (`'park'|'home'|'gym'|...`, InputSanitizerMiddleware) —
  *  do not conflate "where the request came from" with "where the workout happens." */
@@ -167,4 +170,11 @@ export interface UserContext {
    * wire either resolver into this field until Gate A picks one.
    */
   availableEquipment?: string[];
+
+  /**
+   * Weather at the user's ~5 km cell (useWeather, home only, behind the `weather_enabled`
+   * flag). Absent/null everywhere else. Read by full-strength.generator.ts's home build:
+   * rain → resolveWorkoutContext's 'weather-rain-home'; every flag → HomeWorkoutOptions.weather.
+   */
+  weather?: WorkoutWeather | null;
 }

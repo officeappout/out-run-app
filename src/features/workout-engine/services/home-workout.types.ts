@@ -12,6 +12,7 @@ import type { LifestylePersona, IntentMode } from '../logic/ContextualEngine';
 import type { GeneratedWorkout, DifficultyLevel } from '../logic/WorkoutGenerator';
 import type { ShadowMatrix } from './shadow-level.utils';
 import type { TimeOfDay } from './workout-metadata.service';
+import type { HomeWorkoutWeather } from './weather-adaptation';
 
 // ============================================================================
 // OPTIONS (input)
@@ -38,6 +39,15 @@ export interface HomeWorkoutOptions {
 
   /** Difficulty override (1-3, default: 2) */
   difficulty?: DifficultyLevel;
+
+  /**
+   * Weather at the user's cell (useWeather on home, behind the `weather_enabled` flag).
+   * Set ONLY by inferred home flows. Heat/UV → shorter session (−20%, min 15), rest ×1.25,
+   * difficulty capped at 2; cold → +2 min warm-up budget; every flag also feeds the
+   * title/description scoring (WorkoutMetadataContext.weather). Rain's location effect lives
+   * in resolveWorkoutContext ('weather-rain-home'), not here. See weather-adaptation.ts.
+   */
+  weather?: HomeWorkoutWeather | null;
 
   /** Optional QA Shadow Matrix (all overrides disabled = use real profile) */
   shadowMatrix?: ShadowMatrix;
