@@ -14,7 +14,8 @@ import type { ChatThread as ChatThreadType } from '../types/chat.types';
 import { getGroupById } from '@/features/arena/services/group.service';
 import { KELLY_UID, KELLY_NAME } from '../services/kelly-welcome-bot.service';
 import { isRootAdmin } from '@/config/feature-flags';
-import { AiCoachInboxRow } from '@/features/ai-coach/components/AiCoachEntry';
+import { AiCoachInboxRow, KellyInboxRow } from '@/features/ai-coach/components/AiCoachEntry';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,7 +78,15 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   const myThreads = isOpen ? myThreadsLive : lastMyThreadsRef.current;
   const { threads: allThreads, isLoading: allLoading } = useAllChats(isAdmin);
 
-  const threads = isAdmin ? allThreads : myThreads;
+  // Unified Kelly (kelly_unified_v1, real value): ONE Kelly row (KellyInboxRow → /ai-coach)
+  // replaces the "קלי AI" row and the old Kelly DM row for users. Admins keep the firehose.
+  const { flags } = useFeatureFlags();
+  const kellyUnified = flags.kellyUnifiedV1 === true && !isAdmin;
+  const threads = isAdmin
+    ? allThreads
+    : kellyUnified
+      ? myThreads.filter((t) => !t.participants?.includes(KELLY_UID))
+      : myThreads;
   const isLoading = isAdmin ? allLoading : myLoading;
 
   const [openThread, setOpenThread] = useState<ChatThreadType | null>(null);
@@ -346,7 +355,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
                         AI-labeled screen, never inside the human Kelly support DM. Renders
                         nothing unless aiCoachEnabled + entitlement (useAiCoachAccess). */}
                     {!isAdmin && filter === 'all' && !searchTerm.trim() && (
-                      <AiCoachInboxRow onNavigate={onClose} />
+                      kellyUnified ? <KellyInboxRow onNavigate={onClose} /> : <AiCoachInboxRow onNavigate={onClose} />
                     )}
 
                     {isLoading && (

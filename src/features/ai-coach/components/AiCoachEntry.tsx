@@ -4,6 +4,9 @@
  * Entry points to "קלי AI" (rendered only when useAiCoachAccess().canUseAi):
  *   AiCoachInboxRow  — pinned at the top of the chat inbox, above the human threads
  *   AiCoachHomeEntry — a small button on home (v2 look when enable_home_v2)
+ *   KellyInboxRow    — unified Kelly (kelly_unified_v1): the ONE Kelly row in the inbox, for
+ *                      every user (AI or team-only), with the unread count of team/system
+ *                      messages. Replaces AiCoachInboxRow + the old Kelly DM row there.
  */
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,6 +14,7 @@ import { Sparkles, ChevronLeft } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { coachGenderOf, type CoachGender } from '@/lib/ai/coach/persona';
 import { useAiCoachAccess } from '../hooks/useAiCoachAccess';
+import { useKellyThreadMeta } from '../hooks/useKellyThread';
 
 export const AI_COACH_PATH = '/ai-coach';
 
@@ -77,6 +81,43 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
         </span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+    </button>
+  );
+}
+
+export function KellyInboxRow({ onNavigate }: { onNavigate?: () => void }) {
+  const router = useRouter();
+  const { profile } = useUserStore();
+  const meta = useKellyThreadMeta(profile?.id, true);
+  const unread = meta.unreadForUser;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onNavigate?.();
+        router.push(AI_COACH_PATH);
+      }}
+      className="mb-1 flex w-full items-center gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-3 py-3 text-right transition-colors hover:bg-cyan-50"
+    >
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-cyan-400 to-sky-600 text-white shadow-sm">
+        <Sparkles className="h-5 w-5" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className={`text-sm ${unread > 0 ? 'font-black text-gray-900' : 'font-black text-gray-800'}`}>קלי</span>
+          <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">המאמן שלך</span>
+        </div>
+        <p className={`truncate text-xs ${unread > 0 ? 'font-semibold text-gray-700' : 'text-gray-500'}`}>
+          {meta.lastMessagePreview || 'אימונים, תוכנית השבוע ושאלות על האפליקציה'}
+        </p>
+      </div>
+      {unread > 0 ? (
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-cyan-500 text-[10px] font-black text-white">
+          {unread > 9 ? '9+' : unread}
+        </span>
+      ) : (
+        <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+      )}
     </button>
   );
 }

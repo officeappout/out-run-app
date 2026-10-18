@@ -157,6 +157,14 @@ export const FLAG_DEFS = [
   // workout today). The server is the enforcer (route.ts reads it via the Admin SDK).
   // Fail-closed; superAdminValue false — the panel toggle is the one switch.
   { key: 'aiCoachScheduleAdvisor', firestoreKey: 'ai_coach_schedule_advisor', defaultValue: false, superAdminValue: false },
+  // Unified Kelly, phase 1 (18.10.2026, owner) — ONE Kelly conversation per user in
+  // ai_coach_threads/{uid}: AI replies, the human team's replies (admin panel "קלי · ממתינים
+  // למענה"), the welcome message, and handoffs (needsHuman on the thread doc instead of a
+  // message in the old chats/{uid_system_kelly_coach} DM). Users without AI get the same screen
+  // in "team only" mode. Fail-closed; superAdminValue false — the panel toggle is the one
+  // switch (the server reads the real value and ignores the override anyway). Off = today's
+  // behaviour: separate "קלי AI" screen + the human Kelly DM.
+  { key: 'kellyUnifiedV1', firestoreKey: 'kelly_unified_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

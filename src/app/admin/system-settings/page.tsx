@@ -47,6 +47,7 @@ interface FlagState {
   ai_coach_schedule_advisor: boolean;
   weather_enabled: boolean;
   weather_admins_only: boolean;
+  kelly_unified_v1: boolean;
 }
 
 // ============================================================================
@@ -252,6 +253,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'מזג אוויר — מנהלים בלבד (בדיקה)',
     description: 'דלוק = מזג האוויר מופיע רק לסופר-אדמינים (לבדיקה על החשבון שלך). כבוי = לכל המשתמשים. פועל רק כשמזג אוויר דלוק.',
     parentKey: 'weather_enabled',
+  },
+  // Unified Kelly, phase 1 (18.10.2026).
+  {
+    key: 'kelly_unified_v1',
+    icon: Star,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'קלי אחד (AI + צוות בשיחה אחת)',
+    description: 'שיחה אחת עם קלי לכל משתמש: תשובות AI, תשובות הצוות (מסך "קלי · ממתינים למענה" בפאנל), הודעת הפתיחה והעברות לצוות. משתמשים בלי AI (קטינים, בלי הרשאה, תקציב/מגבלה) מקבלים את אותו מסך במצב "הצוות יענה כאן". ⚠️ להריץ קודם את סקריפט ההעברה של הודעות התמיכה הישנות. כבוי = כמו היום (קלי AI נפרד + צ׳אט קלי בהודעות).',
   },
 ];
 

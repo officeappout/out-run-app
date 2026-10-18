@@ -3,7 +3,9 @@
  * engine (validateToolInput); every tool re-scopes to the verified uid, never to anything
  * the model passed in.
  *
- * Read-only, except handoff_to_human: one message into the user's EXISTING support DM with
+ * Read-only, except handoff_to_human. kelly_unified_v1 ON: sets needsHuman + the summary on
+ * ai_coach_threads/{uid} (the team replies in the same conversation). OFF (below): one
+ * message into the user's EXISTING support DM with
  * the human Kelly team (chats/{[uid, KELLY_UID].sort().join('_')}), same document shapes as
  * /api/social/kelly-welcome-bot. Admins see it in their master inbox as awaiting a reply.
  * At most one handoff per turn.
@@ -27,7 +29,7 @@ import {
   type UserContextSheet,
 } from './context-sheet';
 import { firstNameOf } from './persona';
-import type { StoredCard } from './thread-store.server';
+import { markNeedsHuman, type StoredCard } from './thread-store.server';
 import type { ToolExecResult } from './turn-engine';
 import { recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './schedule-advisor.server';
 
@@ -43,6 +45,11 @@ export interface ServerToolContext {
   turn: { handoffDone: boolean };
   /** system_config/feature_flags.ai_coach_schedule_advisor (route.ts). Off → the advisor tools don't exist. */
   scheduleAdvisor?: boolean;
+  /**
+   * kelly_unified_v1 ON: handoff_to_human flags the unified thread (needsHuman + summary)
+   * instead of writing into the old chats/ DM. Absent/false = the old behaviour.
+   */
+  unified?: boolean;
 }
 
 const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });
@@ -233,6 +240,12 @@ export function explainWorkout(ctx: ServerToolContext, input: { workoutId: strin
 
 export async function handoffToHuman(ctx: ServerToolContext, input: { summary: string }): Promise<ToolExecResult> {
   if (ctx.turn.handoffDone) return { content: 'Already sent to the coaching team in this turn.', isError: true };
+  if (ctx.unified) {
+    // Unified Kelly: the team answers in THIS conversation (admin queue "קלי · ממתינים למענה").
+    await markNeedsHuman(ctx.db, ctx.uid, input.summary, ctx.now.getTime());
+    ctx.turn.handoffDone = true;
+    return json({ sent: true, note: 'A person from the OUT team will reply here, in this same chat.' });
+  }
   const uid = ctx.uid;
   const name = firstNameOf(ctx.profile?.core?.name) || 'משתמש';
   const text = `סיכום מקלי AI: ${input.summary.replace(/\s+/g, ' ').trim()}`.slice(0, 600);

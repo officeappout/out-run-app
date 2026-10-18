@@ -221,3 +221,42 @@ export async function requireSuperAdminApi(request: NextRequest): Promise<NextRe
 
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
+
+const KELLY_ROOT_ADMIN_EMAIL = /^(david|office)@appout\.co\.il$/i;
+
+/**
+ * Unified Kelly admin routes (/api/admin/ai-coach/kelly/**): a PERSON who is a super admin
+ * (core.isSuperAdmin) or a root admin (david@/office@, same allowlist as firestore.rules'
+ * isRootAdmin). No agent-key path on purpose — a reply goes to a real user under Kelly's name,
+ * so there must be a person behind it (their uid is logged with every reply).
+ *
+ *   const gate = await requireKellyTeamAdmin(request);
+ *   if (gate instanceof NextResponse) return gate;
+ *   gate.uid
+ */
+export async function requireKellyTeamAdmin(request: NextRequest): Promise<{ uid: string } | NextResponse> {
+  // Verified identity (uid + email) from the Bearer ID token, else the admin session cookie.
+  let who: { uid: string; email: string | null } | null = null;
+  const authHeader = request.headers.get('authorization') || '';
+  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
+  if (bearer) {
+    try {
+      const identity = await resolveIdentity(bearer);
+      if (identity.admin) who = { uid: identity.uid, email: identity.email };
+    } catch { /* fall through to cookie */ }
+  }
+  if (!who) {
+    const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const session = cookie ? await verifyAdminSession(cookie) : null;
+    if (session?.admin === true) who = { uid: session.uid, email: session.email ?? null };
+  }
+  if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (who.email && KELLY_ROOT_ADMIN_EMAIL.test(who.email)) return { uid: who.uid };
+  const { getAdminDb } = await import('@/lib/firebase-admin');
+  const userSnap = await getAdminDb().collection('users').doc(who.uid).get();
+  const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+  if (core.isSuperAdmin === true) return { uid: who.uid };
+
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}

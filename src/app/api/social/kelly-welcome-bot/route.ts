@@ -60,8 +60,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { KELLY_UID, KELLY_NAME, buildKellyWelcomeMessage } from '@/features/social/services/kelly-welcome-bot.service';
+import { aiFlagsFrom, getAiEntitlement, getServerFeatureFlags } from '@/lib/ai/entitlement.server';
+import { canUseAi } from '@/lib/ai/ai-entitlement';
+import { AI_COACH_THREADS } from '@/lib/ai/coach/thread-store.server';
+import { previewOf } from '@/lib/ai/coach/unified-thread';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -101,6 +105,51 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminDb();
     const userRef = db.collection('users').doc(uid);
+
+    // Unified Kelly (kelly_unified_v1): the welcome goes into the ONE Kelly conversation
+    // (ai_coach_threads/{uid}) as a 'system' message instead of a chats/ DM. Same flag check,
+    // same gates, same one transaction; the deterministic message id `welcome` is a second
+    // guard against a duplicate. The push is sent by onKellyThreadMessage.
+    const flags = await getServerFeatureFlags(db);
+    if (flags.kellyUnifiedV1 === true) {
+      const entitlement = await getAiEntitlement(uid, db).catch(() => null);
+      const threadRef = db.collection(AI_COACH_THREADS).doc(uid);
+      const welcomeRef = threadRef.collection('messages').doc('welcome');
+      const unifiedResult = await db.runTransaction(async (tx) => {
+        const [userSnap, welcomeSnap] = await Promise.all([tx.get(userRef), tx.get(welcomeRef)]);
+        if (!userSnap.exists) return { sent: false, reason: 'user-not-found' as const };
+        const userData = userSnap.data()!;
+        if (userData.hasWelcomeBotTriggered === true) return { sent: false, reason: 'already-triggered' as const };
+        if (userData.onboardingStatus !== 'COMPLETED') return { sent: false, reason: 'onboarding-not-complete' as const };
+        if (source === 'catchup') {
+          const createdAt = userData.createdAt?.toDate?.() as Date | undefined;
+          if (!createdAt || createdAt < GO_LIVE_AT) return { sent: false, reason: 'registered-before-go-live' as const };
+        }
+        if (welcomeSnap.exists) {
+          tx.update(userRef, { hasWelcomeBotTriggered: true });
+          return { sent: false, reason: 'welcome-already-existed' as const };
+        }
+        const hasAi = userData.core?.ageGroup === 'adult' && canUseAi({ flags: aiFlagsFrom(flags), entitlement });
+        const message = buildKellyWelcomeMessage(userData.core?.name ?? '', userData.core?.gender, hasAi ? 'ai' : 'team');
+        const now = Timestamp.now();
+        tx.set(welcomeRef, { role: 'assistant', source: 'system', text: message, cards: [], createdAt: now });
+        tx.set(
+          threadRef,
+          {
+            updatedAt: FieldValue.serverTimestamp(),
+            messageCount: FieldValue.increment(1),
+            unreadForUser: FieldValue.increment(1),
+            lastMessageAt: now,
+            lastMessagePreview: previewOf(message),
+          },
+          { merge: true },
+        );
+        tx.update(userRef, { hasWelcomeBotTriggered: true });
+        return { sent: true as const };
+      });
+      return NextResponse.json({ ok: true, ...unifiedResult });
+    }
+
     // Deterministic id — same convention as chat.service.ts's makeChatId
     // ([uid1, uid2].sort().join('_')) so this resolves to the same doc a
     // real client-SDK getOrCreateChat(uid, KELLY_UID) call would find.
@@ -157,7 +206,9 @@ export async function POST(request: NextRequest) {
 
       const name: string = userData.core?.name ?? '';
       const gender: 'male' | 'female' | 'other' | undefined = userData.core?.gender;
-      const message = buildKellyWelcomeMessage(name, gender);
+      // Flag off: the human Kelly DM → the team-answered welcome (copy fix 18.10.2026: Kelly is
+      // male for everyone, brand OUT, no "we'll get back to you soon").
+      const message = buildKellyWelcomeMessage(name, gender, 'team');
       const messageRef = chatRef.collection('messages').doc();
 
       // Chat doc is created WITH the first message's effects already

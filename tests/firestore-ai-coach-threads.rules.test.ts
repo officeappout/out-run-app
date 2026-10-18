@@ -110,6 +110,19 @@ async function testWrites() {
     const ctx = env.authenticatedContext('fresh_uid', { email: 'fresh@example.com' }).firestore();
     await assertFails(setDoc(doc(ctx, 'ai_coach_threads', 'fresh_uid'), { summary: '' }));
   });
+  // Unified Kelly (kelly_unified_v1): read state / the admin queue flag stay server-only —
+  // the client marks read through POST /api/ai-coach/thread.
+  await it('[DENY] owner zeroes unreadForUser directly', async () => {
+    await assertFails(setDoc(doc(owner(), 'ai_coach_threads', OWNER), { unreadForUser: 0 }, { merge: true }));
+  });
+  await it('[DENY] owner clears needsHuman', async () => {
+    await assertFails(updateDoc(doc(owner(), 'ai_coach_threads', OWNER), { needsHuman: false }));
+  });
+  await it('[DENY] owner forges a team message', async () => {
+    await assertFails(
+      setDoc(doc(owner(), 'ai_coach_threads', OWNER, 'messages', 'forged_team'), { role: 'assistant', source: 'human', text: 'x', cards: [] }),
+    );
+  });
   await it('[DENY] super admin (non-root) writes a thread', async () => {
     await assertFails(setDoc(doc(superAdmin(), 'ai_coach_threads', OWNER), { summary: 'x' }, { merge: true }));
   });

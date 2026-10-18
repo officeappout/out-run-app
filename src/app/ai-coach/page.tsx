@@ -4,25 +4,34 @@
  * /ai-coach — "קלי AI", the AI coach chat. Entry points: the pinned row at the top of the
  * chat inbox and the button on home, both shown only when useAiCoachAccess() allows.
  * Opening the URL directly without access shows a short notice (the API refuses anyway).
+ *
+ * Unified Kelly (kelly_unified_v1 ON): this is THE Kelly conversation for every signed-in
+ * user — with AI when useAiCoachAccess allows, otherwise in team-only mode (no notice).
  */
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import AiCoachChat from '@/features/ai-coach/components/AiCoachChat';
 import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 export default function AiCoachPage() {
   const router = useRouter();
   const { profile } = useUserStore();
   const { canUseAi, loading } = useAiCoachAccess();
+  // Real value (no super-admin override): the server reads the same.
+  const { flags, loading: flagsLoading } = useFeatureFlags();
+  const unified = flags.kellyUnifiedV1 === true;
 
   const close = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.replace('/home');
   };
 
-  if (!profile || loading) {
+  if (!profile || loading || flagsLoading) {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
+
+  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} />;
 
   if (!canUseAi) {
     return (

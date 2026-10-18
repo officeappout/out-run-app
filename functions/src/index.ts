@@ -56,6 +56,8 @@ export { sendPushFromQueue } from './sendPushFromQueue';
 export { onboardingDropoffDispatcher } from './onboardingDropoffDispatcher';
 // ── Chat Push Notifications ───────────────────────────────────────────────────
 export { chatMessageNotification } from './chatMessageNotification';
+// Unified Kelly (flag kelly_unified_v1): push for team / system messages in ai_coach_threads. New function: needs its own deploy.
+export { onKellyThreadMessage } from './onKellyThreadMessage';
 // ── Push Notification Triggers (Social Engagement Engine — phase 2) ───────────
 export { onLevelUp } from './onLevelUp';
 export { onContributionApproved } from './onContributionApproved';

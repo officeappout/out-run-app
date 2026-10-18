@@ -32,6 +32,8 @@ import { Loader2, MessageCircle, AlertTriangle } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import type { ChatThread } from '@/features/social/types/chat.types';
+import { KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 
 type PageStatus = 'loading' | 'ready' | 'not-found' | 'error';
 
@@ -59,6 +61,12 @@ export default function ChatDeepLinkPage({
 
     (async () => {
       try {
+        // Unified Kelly: an old push / link to the user's Kelly DM opens the ONE Kelly
+        // conversation instead. (Admins aren't participants; their own DMs never hold KELLY_UID.)
+        if (chatId.includes(KELLY_UID) && (await readFeatureFlagOnce('kelly_unified_v1'))) {
+          if (!cancelled) router.replace('/ai-coach');
+          return;
+        }
         const snap = await getDoc(doc(db, 'chats', chatId));
         if (cancelled) return;
 

@@ -1,7 +1,7 @@
 /**
  * Kelly Welcome Bot — Phase 1
  *
- * Seeds a one-time DM thread from "Kelly" (the OutRun virtual coach) to a user
+ * Seeds a one-time welcome from "Kelly" (OUT's coach) to a user
  * the moment they finish onboarding.
  *
  * The actual Firestore writes moved server-side (10.09.2026) — see
@@ -21,32 +21,40 @@
 
 import { auth } from '@/lib/firebase';
 
-/** Kelly's permanent system UID — never collides with a real Firebase Auth uid. */
-export const KELLY_UID = 'system_kelly_coach';
-
-/** Display name shown on every Kelly message and in the inbox thread header. */
-export const KELLY_NAME = 'קלי (OutRun Coach)';
+export { KELLY_UID, KELLY_NAME } from './kelly-welcome-bot.constants';
 
 type Gender = 'male' | 'female' | 'other';
 
 /**
- * Builds the gender-aware greeting. Per the "No Slashes Rule", each branch is a
- * fully-formed sentence — we never render "מאמן/ת" style slashes. The fallback
- * is intentionally gender-neutral for `other` or missing data.
+ * 'ai'   — the user has Kelly's AI (unified Kelly, flag kelly_unified_v1, adult + AI access):
+ *          say what Kelly can do and that the team is there too.
+ * 'team' — the conversation is answered by the team (flag off: the human Kelly DM; flag on:
+ *          users without AI). No capability the user doesn't actually get.
  */
-export function buildKellyWelcomeMessage(name: string, gender?: Gender): string {
+export type KellyWelcomeMode = 'ai' | 'team';
+
+/**
+ * The welcome message. Kelly is a MALE coach for everyone (the AI persona's voice); the brand
+ * is OUT. Only the words addressed TO the user are gendered, one full sentence per branch
+ * ("No Slashes Rule": never "ברוך/ה"). 'other' / missing gender → name-free and neutral.
+ * No "we'll get back to you soon" promise (18.10.2026, owner).
+ */
+export function buildKellyWelcomeMessage(name: string, gender?: Gender, mode: KellyWelcomeMode = 'team'): string {
   const safeName = (name || '').trim();
+  const hello =
+    gender === 'male' && safeName
+      ? `היי ${safeName}, ברוך הבא ל-OUT!`
+      : gender === 'female' && safeName
+        ? `היי ${safeName}, ברוכה הבאה ל-OUT!`
+        : 'היי, כיף שהצטרפת ל-OUT!';
 
-  if (gender === 'male') {
-    return `היי ${safeName}, איזה כיף לראות אותך ב-OutRun! אני קלי, המאמן הווירטואלי שלך למסע. המטרה שלנו היא לעזור לך לבנות כוח, לשפר מוביליטי ולדלג מעל פציעות. אם יש לך שאלה או צורך בתמיכה - המקום לכתוב לנו הוא ממש כאן, ונחזור אליך בהקדם!`;
+  if (mode === 'ai') {
+    const ask = gender === 'male' ? 'תכתוב לי' : gender === 'female' ? 'תכתבי לי' : 'אפשר לכתוב לי';
+    return `${hello} אני קלי, המאמן שלך. אני יכול לבנות לך אימון, לסדר לך את השבוע ולענות על שאלות על האפליקציה. ואם צריך, גם הצוות שלנו זמין כאן. ${ask} מה בא לך לעשות היום.`;
   }
 
-  if (gender === 'female') {
-    return `היי ${safeName}, איזה כיף לראות אותך ב-OutRun! אני קלי, המאמנת הווירטואלית שלך למסע. המטרה שלנו היא לעזור לך לבנות כוח, לשפר מוביליטי ולדלג מעל פציעות. אם יש לך שאלה או צורך בתמיכה - המקום לכתוב לנו הוא ממש כאן, ונחזור אליך בהקדם!`;
-  }
-
-  // Fallback: gender === 'other' or missing → name-free, fully gender-neutral.
-  return `איזה כיף שהצטרפת למשפחת OutRun! כאן קלי, העוזר והמאמן האישי שלך למסע. המטרה שלנו היא לעזור לך לבנות כוח, לשפר מוביליטי ולדלג מעל פציעות. אם יש לך שאלה או צורך בתמיכה - המקום לכתוב לנו הוא ממש כאן, ונחזור אליך בהקדם!`;
+  const ask = gender === 'male' ? 'אתה מוזמן לכתוב' : gender === 'female' ? 'את מוזמנת לכתוב' : 'אפשר לכתוב';
+  return `${hello} אני קלי, המאמן שלך. ${ask} כאן כל שאלה על האימונים או על האפליקציה, והצוות שלנו יענה לך.`;
 }
 
 /**
