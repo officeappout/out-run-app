@@ -24,7 +24,7 @@
  * no markdown / HTML conversion required.
  */
 
-export const LEGAL_VERSION = '2.3';
+export const LEGAL_VERSION = '2.4';
 export const LEGAL_LAST_UPDATED_HE = 'אוקטובר 2026';
 
 /** Either a single paragraph or an ordered list of paragraphs. */
@@ -372,6 +372,16 @@ export const PRIVACY_POLICY_HE: LegalDoc = {
             'reCAPTCHA Enterprise (Google): אבטחה נגד בוטים (App Check). טביעת אצבע מכשיר ואותות אינטראקציה.',
             'Bunny.net: CDN סרטוני הדרכה (אדמין בלבד). קבצי וידאו בלבד. ללא PII של משתמשי קצה.',
             'FCM — Firebase Cloud Messaging: שליחת הודעות Push. טוקן מכשיר בלבד. ללא תוכן אישי.',
+            'Anthropic: ספק ה-AI לתכונות האימון האישי — רק כשמשתמשים בתכונות אלו (ראו 5.3).',
+          ],
+        },
+        {
+          title: '5.3 תכונות בינה מלאכותית (AI)',
+          body: [
+            'כשמשתמשים בתכונות AI באפליקציה (למשל הערת מאמן אישית), נשלח לספק ה-AI, Anthropic, סיכום מצומצם של נתוני האימון שלך — מטרות, רמות, אימונים אחרונים ואזור כללי (עיר או שכונה, לא מיקום מדויק) — לצורך יצירת טקסט אימון אישי בלבד.',
+            'לא נשלחים פרטי קשר (אימייל, טלפון), שם מלא, הצהרת הבריאות או ערכים גולמיים מ-Apple HealthKit / Google Health Connect.',
+            'לפי התנאים המסחריים של Anthropic, מידע שנשלח אליה בשימוש עסקי אינו משמש לאימון מודלים כברירת מחדל. Anthropic עשויה לשמור אותו לתקופה מוגבלת לצורכי אבטחה ומניעת שימוש לרעה, ועיבודו עשוי להיעשות בארה"ב.',
+            'תכונות ה-AI זמינות למשתמשים בגירים בלבד.',
           ],
         },
         {

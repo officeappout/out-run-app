@@ -116,6 +116,22 @@ export const FLAG_DEFS = [
   // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
   // on his account while every other user keeps today's home until he flips it.
   { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
+  // OUT AI Phase 0 (18.10.2026) — foundation only, no user-facing AI feature reads these yet.
+  // The SERVER is the enforcer (src/lib/ai/*.server.ts reads this same document via the Admin
+  // SDK, ignoring superAdminValue); the client copies below only drive UI.
+  // aiCoachEnabled — master gate for every AI coaching surface. Fail-closed; superAdminValue
+  // false so the panel toggle is the one switch (the server ignores the override anyway, so a
+  // `true` here would only show super admins UI the server then refuses).
+  { key: 'aiCoachEnabled', firestoreKey: 'ai_coach_enabled', defaultValue: false, superAdminValue: false },
+  // aiCoachFreeForAll — launch mode: while ON, every eligible (adult) user may use AI without an
+  // entitlements/{uid} doc. defaultValue true is the owner's explicit launch decision, and is safe
+  // only because it is ANDed with aiCoachEnabled (fail-closed) — on its own it grants nothing.
+  { key: 'aiCoachFreeForAll', firestoreKey: 'ai_coach_free_for_all', defaultValue: true, superAdminValue: true },
+  // coachNoteLLM — the post-workout coach note is written by the LLM instead of the template
+  // engine. Fail-closed; requires aiCoachEnabled at runtime.
+  { key: 'coachNoteLLM', firestoreKey: 'coach_note_llm', defaultValue: false, superAdminValue: false },
+  // weatherEnabled — weather context for coaching / suggestions. Fail-closed.
+  { key: 'weatherEnabled', firestoreKey: 'weather_enabled', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

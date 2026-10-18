@@ -40,6 +40,10 @@ interface FlagState {
   enable_no_auto_strength_level: boolean;
   enable_league_aggregates: boolean;
   enable_home_v2: boolean;
+  ai_coach_enabled: boolean;
+  ai_coach_free_for_all: boolean;
+  coach_note_llm: boolean;
+  weather_enabled: boolean;
 }
 
 // ============================================================================
@@ -186,6 +190,39 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'אין רמת כוח בלי שאלון',
     description: 'משתמש שלא מילא את שאלון הכוח לא מקבל רמה או תוכנית: לא באונבורדינג (גם לא מתשובת "רמת כושר" או בחירת שרירים), ולא אחרי אימון כוח (היסטוריה ו-XP נשמרים כרגיל). משתמשים קיימים לא משתנים. במסך הסיכום כרטיס הרמה מוסתר למשתמשים האלה. ⚠️ להפעיל רק אחרי בדיקת שטח. כבוי = כמו היום.',
+  },
+  // OUT AI Phase 0 (18.10.2026) — the server enforces these (src/lib/ai/), the panel only flips them.
+  {
+    key: 'ai_coach_enabled',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'מאמן AI (מתג ראשי)',
+    description: 'מתג ראשי לכל יכולות ה-AI. כבוי = אין שום קריאה לספק ה-AI, לאף משתמש (כולל מנהלים). התקציב היומי ומתג החירום נמצאים ב-app_config/ai.',
+  },
+  {
+    key: 'ai_coach_free_for_all',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'AI חינם לכולם (השקה)',
+    description: 'דלוק = כל משתמש בגיר יכול להשתמש ב-AI בלי הרשאה אישית. כבוי = רק משתמשים עם הרשאה פעילה (entitlements). פועל רק כשהמתג הראשי דלוק.',
+  },
+  {
+    key: 'coach_note_llm',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'הערת מאמן מ-AI',
+    description: 'הערת המאמן אחרי אימון נכתבת על ידי ה-AI במקום התבנית. עדיין לא מחובר לשום מסך. פועל רק כשהמתג הראשי דלוק.',
+  },
+  {
+    key: 'weather_enabled',
+    icon: MapIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'מזג אוויר',
+    description: 'הקשר מזג אוויר להמלצות ולמאמן. עדיין לא מחובר לשום מסך. כבוי = כמו היום.',
   },
 ];
 
