@@ -200,6 +200,25 @@ describe('root flows (real Firestore)', () => {
     ]);
   });
 
+  it('overview → automations: newest source doc, whitelisted fields only (read-only)', async () => {
+    await db.collection('city_mapping_discovery_runs').doc('old').set({ createdAt: at(10), status: 'failed', requestedByUid: 'u1' });
+    await db.collection('city_mapping_discovery_runs').doc('new').set({
+      createdAt: at(40), status: 'succeeded', keptCount: 7, droppedCount: 2, requestedByUid: 'u2', summary: 'free text',
+    });
+    const { automations } = await (await overviewGET(req('Bearer t'))).json();
+    const geo = automations.find((a: { automationId: string }) => a.automationId === 'geo-discovery');
+    expect(geo).toEqual({
+      automationId: 'geo-discovery',
+      available: true,
+      lastAt: '2026-10-14T10:40:00.000Z',
+      status: 'succeeded',
+      counts: [{ label: 'נשמרו', value: 7 }, { label: 'נפסלו', value: 2 }],
+      error: null,
+    });
+    expect(JSON.stringify(automations)).not.toMatch(/u1|u2|free text/);
+    expect(automations.find((a: { automationId: string }) => a.automationId === 'shape-review')).toMatchObject({ available: false });
+  });
+
   it('overview for an agent that never ran → nulls + unreadCount 0, not an error', async () => {
     await clearEmulator();
     const { agents } = await (await overviewGET(req('Bearer t'))).json();

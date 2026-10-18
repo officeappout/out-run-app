@@ -11,6 +11,7 @@ import { auth } from '@/lib/firebase';
 import type {
   AgentFinding,
   AgentOverview,
+  AutomationStatus,
   FindingsStatusFilter,
 } from '@/features/admin/agents/agent-findings.types';
 
@@ -28,10 +29,11 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
   return res;
 }
 
-export async function fetchAgentsOverview(): Promise<AgentOverview[]> {
+/** Findings-agent health + every automation's read-only last-run status. */
+export async function fetchAgentsOverview(): Promise<{ agents: AgentOverview[]; automations: AutomationStatus[] }> {
   const res = await authedFetch('/api/admin/agents');
-  const body = (await res.json()) as { agents?: AgentOverview[] };
-  return body.agents ?? [];
+  const body = (await res.json()) as { agents?: AgentOverview[]; automations?: AutomationStatus[] };
+  return { agents: body.agents ?? [], automations: body.automations ?? [] };
 }
 
 export async function fetchAgentFindings(
