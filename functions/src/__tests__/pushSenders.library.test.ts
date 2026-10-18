@@ -65,7 +65,11 @@ vi.mock('firebase-functions/v2/firestore', () => ({
   onDocumentUpdated: (_o: unknown, fn: unknown) => fn,
 }));
 vi.mock('geofire-common', () => ({ geohashQueryBounds: () => [['0', '~']], distanceBetween: () => 0 }));
-vi.mock('../services/shabbat.service', () => ({ isShabbatOrYomTov: () => false }));
+vi.mock('../services/shabbat.service', async (importOriginal) => {
+  // Real observer / motzei-Shabbat helpers; the Shabbat window itself is off.
+  const orig = await importOriginal<typeof import('../services/shabbat.service')>();
+  return { ...orig, isShabbatOrYomTov: () => false };
+});
 vi.mock('../lib/resolveUserStepGoal', () => ({ resolveUserStepGoal: async () => 8000 }));
 
 const sendPushMock = vi.fn(async (_opts: any) => ({
@@ -101,6 +105,7 @@ import { onGroupMemberJoin } from '../onGroupMemberJoin';
 import { onContributionApproved } from '../onContributionApproved';
 import { stepGoalNudgeScheduler } from '../stepGoalNudgeScheduler';
 import { onPlannedActivityCreated } from '../onPlannedActivityCreated';
+import { runWeekStart, weekStartCopyKey } from '../weekStartScheduler';
 
 const run = (fn: unknown, ...args: unknown[]) => (fn as (...a: unknown[]) => Promise<unknown>)(...args);
 
@@ -278,6 +283,21 @@ describe('every sender takes its copy from the push library', () => {
     expect(ctx.vars).toMatchObject({ '@שולח': 'נועה', '@מקום': 'גן הבנים', '@שעה': '18:30' });
     expect(ctx.params).toMatchObject({ parkId: 'p1' });
     sentWith('partner_plan');
+  });
+
+  it('weekStartScheduler → week_start, one broadcast key per week, observers only', async () => {
+    // Sat 16.01.2027 21:15 Israel — motzei Shabbat, plain week.
+    const motzei = new Date('2027-01-16T19:15:00Z');
+    state.queries.set('users', [{ id: 'obs1', data: { ...USER, settings: { shabbatObserver: true } } }]);
+    await runWeekStart(motzei);
+    const ctx = ctxFor('week_start');
+    expect(ctx.uid).toBe(weekStartCopyKey(motzei));
+    expect(ctx.uid).toMatch(/^week-\d+$/);
+    expect(weekStartCopyKey(new Date(motzei.getTime() + 7 * 86_400_000))).not.toBe(ctx.uid);
+    const sent = sentWith('week_start');
+    expect(sent.toUids).toEqual(['obs1']);
+    expect(sent.channel).toBe('week_start');
+    expect(sent.rateCapHours).toBe(72);
   });
 
   it('no copy that fits → nothing is sent', async () => {

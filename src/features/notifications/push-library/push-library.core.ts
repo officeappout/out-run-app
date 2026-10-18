@@ -495,7 +495,6 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'שבוע טוב', body: 'מתחילים את השבוע בתנועה. כמה דקות מחר כבר עושות את ההבדל.' },
       { title: 'שבוע חדש מתחיל', body: 'מה האימון הראשון שלך השבוע? אפשר לקבוע אותו כבר עכשיו.' },
     ],
-    pending: 'השולח (weekStartScheduler) עדיין ב-PR #413 ולא במיין. הטקסטים כאן מוכנים לחיבור.',
   },
   {
     pushType: 'step_goal',
