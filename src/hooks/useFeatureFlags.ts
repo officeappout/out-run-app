@@ -116,6 +116,12 @@ const LOADING_CAP_MS = 2500;
 
 export function useFeatureFlags(isSuperAdmin?: boolean): {
   flags: FeatureFlags;
+  /**
+   * The live document values, WITHOUT the super-admin override. For gates that decide the
+   * audience themselves (e.g. weather's admins-only mode, isWeatherOnFor) and so need the
+   * real toggle state even for a super admin.
+   */
+  rawFlags: FeatureFlags;
   loading: boolean;
 } {
   // After the app's first hydration, a hook that mounts later (a client-side
@@ -170,8 +176,8 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   // Super Admins bypass all flags — they always see every feature enabled
   // (maintenanceMode is the one exception, per SUPER_ADMIN_FLAGS above).
   if (isSuperAdmin) {
-    return { flags: SUPER_ADMIN_FLAGS, loading: false };
+    return { flags: SUPER_ADMIN_FLAGS, rawFlags: flags, loading: false };
   }
 
-  return { flags, loading };
+  return { flags, rawFlags: flags, loading };
 }
