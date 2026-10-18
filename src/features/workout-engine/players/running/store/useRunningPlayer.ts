@@ -9,6 +9,7 @@ import { Lap, GeoPoint } from '../../../core/types/session.types';
 import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
+import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
@@ -286,6 +287,12 @@ interface RunningPlayerState {
   blockElapsedMeters: number;
   blockSetNumber: number;
   totalBlockSets: number;
+  /**
+   * Actual seconds/metres of every block the runner left (advance / skip /
+   * jump), in order. Read once by finishWorkout to feed the pace
+   * self-correction (pace-self-correction.service). Reset with the workout.
+   */
+  plannedBlockResults: PlannedBlockResult[];
 
   // ── Free-Run Session Goal ────────────────────────────────────────
   // Drives the single-segment story bar inside AdaptiveMetricsWrapper.
@@ -403,6 +410,56 @@ interface RunningPlayerState {
   resetPlannedRun: () => void;
 }
 
+/** Snapshot of the block the runner is leaving (actual time + distance). */
+function currentBlockResult(s: Pick<RunningPlayerState, 'currentBlockIndex' | 'blockElapsedSeconds' | 'blockElapsedMeters'>): PlannedBlockResult {
+  return {
+    blockIndex: s.currentBlockIndex,
+    elapsedSeconds: s.blockElapsedSeconds,
+    elapsedMeters: s.blockElapsedMeters,
+  };
+}
+
+/**
+ * Best-effort: summarize the planned run, and if it counts, write the
+ * updated paceProfile (transaction) and mirror it into the user store so
+ * every prediction surface updates without a reload.
+ */
+async function recordPlannedQualityRun(
+  uid: string,
+  snap: {
+    workout: RunWorkout;
+    results: PlannedBlockResult[];
+    session: import('../../../core/services/pace-self-correction.service').QualityRunSession;
+  },
+): Promise<void> {
+  const [{ summarizeQualityRun, normalizePaceProfile }, { writeQualityRunToPaceProfile }, { useRunningConfigStore }, { useUserStore }, { db }] =
+    await Promise.all([
+      import('../../../core/services/pace-self-correction.service'),
+      import('../../../core/services/pace-profile-write.service'),
+      import('../../../core/store/useRunningConfigStore'),
+      import('@/features/user/identity/store/useUserStore'),
+      import('@/lib/firebase'),
+    ]);
+  const localProfile = normalizePaceProfile(useUserStore.getState().profile?.running?.paceProfile);
+  if (!localProfile) return;
+  const config = useRunningConfigStore.getState().config;
+  const summary = summarizeQualityRun(snap.workout, snap.results, snap.session, localProfile, config);
+  if (!summary.ok) {
+    console.log('[useRunningPlayer] planned run not used for pace self-correction:', summary.reason);
+    return;
+  }
+  const res = await writeQualityRunToPaceProfile(db, uid, snap.workout.id, summary, config);
+  if (!res.written) {
+    console.log('[useRunningPlayer] pace self-correction skipped:', res.reason);
+    return;
+  }
+  const user = useUserStore.getState();
+  const running = user.profile?.running;
+  if (running) {
+    user.updateProfile({ running: { ...running, paceProfile: res.paceProfile } });
+  }
+}
+
 export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   // Initial state - start with empty arrays to prevent mock data from appearing
   runMode: 'plan',
@@ -458,6 +515,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   blockElapsedMeters: 0,
   blockSetNumber: 1,
   totalBlockSets: 1,
+  plannedBlockResults: [],
 
   // Free-Run Session Goal — null until FreeRunDrawer pushes one.
   sessionGoal: null,
@@ -1453,6 +1511,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       blockElapsedMeters: 0,
       blockSetNumber: 1,
       totalBlockSets: 1,
+      plannedBlockResults: [],
       // Reset the goal so the next session starts blank — the next
       // FreeRunDrawer.handleStartCta will push a fresh one.
       sessionGoal: null,
@@ -1558,6 +1617,30 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     const { stopGPSTracking, totalCalories, routeCoords, activityType, currentPace, guidedRouteId, laps, elevationGain, sessionMode, commuteContext } = get();
     const isCommute = sessionMode === 'commute';
+
+    // ── Planned quality run snapshot (pace self-correction) ───────────
+    // Captured BEFORE stopGPSTracking, which resets hasHadGoodFix. The
+    // block in progress at finish is included (advanceBlock never records
+    // the last block — there is no next one to advance to).
+    const plannedRunSnapshot = (() => {
+      const st = get();
+      if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking') return null;
+      const ss = useSessionStore.getState();
+      const nowMs = Date.now();
+      return {
+        workout: st.currentWorkout,
+        results: [
+          ...st.plannedBlockResults,
+          ...(st.currentBlockIndex < st.currentWorkout.blocks.length ? [currentBlockResult(st)] : []),
+        ],
+        session: {
+          activeSeconds: Number.isFinite(ss.totalDuration) ? ss.totalDuration : 0,
+          wallSeconds: ss.startTime ? Math.max(0, (nowMs - ss.startTime) / 1000) : 0,
+          hadGoodGpsFix: st.hasHadGoodFix,
+          isSimulated: st.isSimulationActive,
+        },
+      };
+    })();
     
     // Stop all timers and GPS tracking first
     stopGPSTracking();
@@ -1762,6 +1845,15 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           }
 
           // ── Post-save side-effects (all best-effort) ──────────────────
+
+          // Pace self-correction — a saved PLANNED quality run feeds the
+          // running engine's recordQualityWorkout (basePace moves by its rule
+          // once every 3 quality runs), so race predictions follow real runs.
+          if (workoutSaved && plannedRunSnapshot) {
+            recordPlannedQualityRun(currentUser.uid, plannedRunSnapshot).catch((e) =>
+              console.warn('[useRunningPlayer] pace self-correction failed:', e),
+            );
+          }
 
           // Guided route analytics
           if (workoutSaved && guidedRouteId) {
@@ -2026,6 +2118,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       blockElapsedMeters: 0,
       blockSetNumber: 1,
       totalBlockSets: 1,
+      plannedBlockResults: [],
     });
   },
 
@@ -2037,6 +2130,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     if (nextIndex >= currentWorkout.blocks.length) return;
 
     set({
+      plannedBlockResults: [...get().plannedBlockResults, currentBlockResult(get())],
       currentBlockIndex: nextIndex,
       blockElapsedSeconds: 0,
       blockElapsedMeters: 0,
@@ -2047,6 +2141,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     const { currentWorkout } = get();
     if (!currentWorkout || targetIndex < 0 || targetIndex >= currentWorkout.blocks.length) return;
     set({
+      plannedBlockResults: [...get().plannedBlockResults, currentBlockResult(get())],
       currentBlockIndex: targetIndex,
       blockElapsedSeconds: 0,
       blockElapsedMeters: 0,
@@ -2069,6 +2164,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       blockElapsedMeters: 0,
       blockSetNumber: 1,
       totalBlockSets: 1,
+      plannedBlockResults: [],
     });
   },
 }));

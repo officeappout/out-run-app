@@ -15,6 +15,7 @@ import { motion } from 'framer-motion';
 import { Timer, Trophy, TrendingUp, Footprints } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
+import { riegelFromTime } from '@/features/workout-engine/core/services/race-prediction.service';
 
 // ============================================================================
 // TYPES
@@ -38,18 +39,8 @@ interface RacePrediction {
 // HELPERS
 // ============================================================================
 
-/**
- * Riegel formula: T2 = T1 × (D2 / D1)^1.06
- * Returns predicted time in seconds.
- */
-function riegelPredict(
-  referenceTimeSec: number,
-  referenceDistKm: number,
-  targetDistKm: number,
-): number {
-  if (referenceDistKm <= 0 || referenceTimeSec <= 0) return 0;
-  return referenceTimeSec * Math.pow(targetDistKm / referenceDistKm, 1.06);
-}
+/** Riegel T2 = T1 × (D2 / D1)^1.06 — the shared model (race-prediction.service). */
+const riegelPredict = riegelFromTime;
 
 /**
  * Format seconds to "H:MM:SS" or "MM:SS"

@@ -8,6 +8,10 @@
  * `running.paceProfile.basePace` through `selectRacePrediction` (see
  * utils/race-prediction.ts for the model and the visibility rules).
  *
+ * Once paceProfile.qualityWorkoutsHistory holds a dated record (planned
+ * quality runs feed it — pace-self-correction.service), the header says
+ * "מתעדכן לפי הריצות שלך" and the 30-day trend chip can appear.
+ *
  * Not tappable as a whole: the app has no running-stats screen yet
  * (/progress is the activity log, and its "ריצה" filter is a weekday
  * heuristic), so the only interaction is the "i" that explains the number.
@@ -92,7 +96,12 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
   return (
     <div className="w-full rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">תחזית למרוץ</p>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">תחזית למרוץ</p>
+          {view.basedOnRuns && (
+            <p className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">מתעדכן לפי הריצות שלך</p>
+          )}
+        </div>
         <button
           type="button"
           aria-label="איך מחושבת התחזית"
@@ -143,6 +152,9 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
         <p id={infoId} className="mt-3 rounded-[14px] bg-v2-surface p-3 text-[12.5px] font-bold leading-snug text-v2-ink-2">
           הערכה בלבד, לא תוצאה מובטחת. מחושבת מקצב הבסיס שלך בתוכנית הריצה (
           <span dir="ltr">{formatPacePerKm(view.basePace)}</span> דק׳ לק״מ) ומהמרחק שאליו התוכנית מכוונת. מרחקים אחרים מוערכים בנוסחת Riegel.
+          {view.basedOnRuns
+            ? ' קצב הבסיס מתעדכן אחרי כל 3 אימוני איכות מהתוכנית (אינטרוולים / טמפו), לפי הקצב שרצת בפועל.'
+            : ' אחרי 3 אימוני איכות מהתוכנית (אינטרוולים / טמפו) התחזית תתעדכן לפי הקצב שרצת בפועל.'}
         </p>
       )}
     </div>

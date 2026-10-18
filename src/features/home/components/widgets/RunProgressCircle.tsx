@@ -4,13 +4,11 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { useUserStore } from '@/features/user';
+import { predictRaceSeconds, targetDistanceKm } from '@/features/workout-engine/core/services/race-prediction.service';
 
 const DIST_LABEL: Record<string, string> = {
   '2k': '2 ק״מ', '3k': '3 ק״מ', '5k': '5 ק״מ',
   '10k': '10 ק״מ', maintenance: 'תחזוקה',
-};
-const DIST_KM: Record<string, number> = {
-  '2k': 2, '3k': 3, '5k': 5, '10k': 10, maintenance: 5,
 };
 const PREDICTIONS = [
   { label: '5 ק״מ', km: 5 },
@@ -24,11 +22,6 @@ function formatTime(totalSeconds: number): string {
   const s = Math.round(totalSeconds % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function riegelPredict(basePaceSecKm: number, refKm: number, targetKm: number): number {
-  const refTime = basePaceSecKm * refKm;
-  return refTime * Math.pow(targetKm / refKm, 1.06);
 }
 
 function formatPace(sec: number) {
@@ -117,7 +110,7 @@ export default function RunProgressCircle() {
     ?? `תוכנית ${DIST_LABEL[running?.generatedProgramTemplate?.targetDistance ?? '5k'] ?? '5 ק״מ'}`;
   const planName = stripWeeksSuffix(rawName);
   const basePace = running?.paceProfile?.basePace ?? 0;
-  const refKm = DIST_KM[running?.generatedProgramTemplate?.targetDistance ?? '5k'] ?? 5;
+  const refKm = targetDistanceKm(running?.generatedProgramTemplate?.targetDistance);
 
   const [expanded, setExpanded] = useState(false);
 
@@ -125,7 +118,7 @@ export default function RunProgressCircle() {
     if (!basePace || basePace <= 0) return [];
     return PREDICTIONS.map(({ label, km }) => ({
       label,
-      time: formatTime(riegelPredict(basePace, refKm, km)),
+      time: formatTime(predictRaceSeconds(basePace, refKm, km)),
     }));
   }, [basePace, refKm]);
 
