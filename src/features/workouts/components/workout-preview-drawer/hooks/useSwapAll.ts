@@ -29,6 +29,7 @@
 
 import { useCallback, useState } from 'react';
 import type { Exercise, ExecutionLocation } from '@/features/content/exercises';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { methodHasCompleteMedia } from '@/features/content/exercises/core/exercise.types';
 import type {
   GeneratedWorkout,
@@ -38,6 +39,8 @@ import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { selectMethodForContext } from '@/features/workout-engine/shared/utils/method-selection.utils';
 import type { SwapDimension } from '@/features/workout-engine/shared/utils/method-dimension.utils';
 import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
+import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { getAlternativeExercises, exerciseHasLocation } from '@/features/workout-engine/generator/services/exercise-replacement.service';
 import { normalizeEquipmentArray } from '@/features/workout-engine/core/middleware/InputSanitizerMiddleware';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
@@ -113,6 +116,14 @@ export function useSwapAll({
         let keptMarked = 0;
 
         const newEntries: WorkoutExercise[] = [];
+        // Phase 0 (data only): exercise-level replacements made by this bulk
+        // swap, logged after it commits as SYSTEM swaps (userInitiated:false).
+        const systemSwaps: Array<{
+          from: WorkoutExercise;
+          to: Exercise;
+          direction?: 'lower' | 'same' | 'higher';
+          toLevel?: number;
+        }> = [];
         // Warm-up/cooldown entries omitted at last-resort (no method + no substitute at the new
         // location). Restored below ONLY if a whole role-block would otherwise collapse to empty.
         const omittedSupplemental: WorkoutExercise[] = [];
@@ -142,6 +153,7 @@ export function useSwapAll({
             const guideMethod = guide ? selectMethodForContext(guide, newLocation, gear) : null;
             if (guide && guideMethod) {
               newEntries.push(deriveSwappedEntry(we, guide, guideMethod));
+              systemSwaps.push({ from: we, to: guide });
               exclude.add(guide.id);
               oldToNew.set(we.exercise.id, guide.id);
               swappedExercise++;
@@ -200,6 +212,12 @@ export function useSwapAll({
                 ));
           if (pick && pick.selectedExecutionMethod) {
             newEntries.push(deriveSwappedEntry(we, pick.exercise, pick.selectedExecutionMethod));
+            systemSwaps.push({
+              from: we,
+              to: pick.exercise,
+              direction: pick.levelComparison,
+              ...(typeof pick.resolvedLevel === 'number' ? { toLevel: pick.resolvedLevel } : {}),
+            });
             exclude.add(pick.exercise.id);
             oldToNew.set(we.exercise.id, pick.exercise.id);
             swappedExercise++;
@@ -294,6 +312,27 @@ export function useSwapAll({
           executionLocation: newLocation,
         };
         onGeneratedWorkoutUpdate?.(updated);
+        // Phase 0 swap log — system-initiated (a location change, not a
+        // judgement about the exercise). Fire-and-forget; never blocks.
+        for (const sw of systemSwaps) {
+          const stamp = adaptationStampForPlan(sw.from);
+          logExerciseSwap({
+            fromExerciseId: sw.from.exercise.id,
+            fromName: getLocalizedText(sw.from.exercise.name, 'he'),
+            toExerciseId: sw.to.id,
+            toName: getLocalizedText(sw.to.name, 'he'),
+            domain: stamp.domain,
+            fromLevel: stamp.exerciseLevel,
+            toLevel: sw.toLevel,
+            userDomainLevel: stamp.userDomainLevel,
+            direction: sw.direction,
+            source: 'swap_all_location',
+            flow: 'preview',
+            userInitiated: false,
+            location: newLocation,
+            segmentRole: sw.from.exerciseRole,
+          });
+        }
         const result = { swappedMethod, swappedExercise, keptMarked };
         setLastResult(result);
         console.log(

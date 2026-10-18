@@ -17,6 +17,9 @@ import HybridOverviewScreen from '@/features/parks/core/components/hybrid/Hybrid
 import OverviewTitleBar from '@/features/parks/core/components/hybrid/OverviewTitleBar';
 import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { adaptationStampForPlan, swapStampForEntry } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
 import type { ExecutionLocation } from '@/features/content/exercises';
 import type { ComposedHybridSession, HybridRoutePreview } from '@/features/workout-engine/hybrid/start-hybrid-session';
@@ -2072,10 +2075,35 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 location={'park' as ExecutionLocation}
                 park={null}
                 userProfile={profile as any}
-                onReplace={(newExercise, executionMethod) => {
+                onReplace={(newExercise, executionMethod, levelComparison, meta) => {
                   // Stability: mutate hybridComposed at [segIndex][exIndex], keeping the
                   // prescription (sets/reps/rest). runHybridPlan runs the swapped plan.
                   const { segIndex, exIndex } = hybridSwap;
+                  // Soft-adaptation Phase 0: record the swap (data only, fire-and-forget).
+                  {
+                    const seg: any = hybridComposed?.plan.segments[segIndex];
+                    const slot: any = seg?.kind === 'strength' ? seg.content?.exercises?.[exIndex] : null;
+                    const stamp = slot ? adaptationStampForPlan(slot) : {};
+                    logExerciseSwap({
+                      fromExerciseId: hybridSwap.exercise?.id ?? slot?.exercise?.id ?? '',
+                      fromName: getLocalizedText(hybridSwap.exercise?.name ?? slot?.exercise?.name, 'he'),
+                      toExerciseId: newExercise.id,
+                      toName: getLocalizedText(newExercise.name, 'he'),
+                      domain: stamp.domain,
+                      fromLevel: stamp.exerciseLevel ?? hybridSwap.level,
+                      toLevel: meta?.toLevel,
+                      userDomainLevel: stamp.userDomainLevel,
+                      direction: levelComparison,
+                      tab: meta?.tab,
+                      reason: meta?.reason,
+                      source: 'hybrid_overview',
+                      flow: 'hybrid',
+                      userInitiated: true,
+                      location: 'park',
+                      parkId: seg?.parkId,
+                      segmentRole: slot?.exerciseRole,
+                    });
+                  }
                   setHybridComposed((prev) => {
                     if (!prev) return prev;
                     const seg: any = prev.plan.segments[segIndex];
@@ -2083,7 +2111,14 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                     const exercises: any[] = [...(seg.content.exercises ?? [])];
                     const current = exercises[exIndex];
                     if (!current) return prev;
-                    exercises[exIndex] = { ...current, exercise: newExercise, method: executionMethod, wasSwapped: true };
+                    exercises[exIndex] = {
+                      ...current,
+                      exercise: newExercise,
+                      method: executionMethod,
+                      wasSwapped: true,
+                      // Phase 0 (data only): original slot exercise + levels for the strength log.
+                      ...swapStampForEntry(current, newExercise.id, meta?.toLevel),
+                    };
                     const newSeg = { ...seg, content: { ...seg.content, exercises } };
                     const segments = prev.plan.segments.map((s, i) => (i === segIndex ? newSeg : s));
                     return { ...prev, plan: { ...prev.plan, segments } };

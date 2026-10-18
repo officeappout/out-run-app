@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { resolveSetTarget } from '../logic/set-target.utils';
 import type { ExerciseResultLog } from './useWorkoutStateMachine';
+import { logStampFromPlanExercise, recordSetMeta } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 /**
  * useExerciseLog — SM-4
@@ -137,24 +138,25 @@ export function useExerciseLog({
         (e) => e.exerciseId === exercise.id && e.segmentId === segId,
       );
 
-      if (existing) {
+      let entry = existing;
+      if (entry) {
         // Guard against double-saves: if the user already logged this round via
         // the playlist pill, don't append again.
-        if (existing.confirmedReps.length > currentSetIndex) {
+        if (entry.confirmedReps.length > currentSetIndex) {
           console.log(
             `[Engine] autoSaveTargetReps SKIPPED — set ${currentSetIndex + 1} already logged for "${exercise.name}"`,
           );
           return;
         }
-        existing.confirmedReps.push(reps);
+        entry.confirmedReps.push(reps);
         if (sideData) {
-          if (!existing.confirmedRepsRight) existing.confirmedRepsRight = [];
-          if (!existing.confirmedRepsLeft) existing.confirmedRepsLeft = [];
-          existing.confirmedRepsRight.push(sideData.right);
-          existing.confirmedRepsLeft.push(sideData.left);
+          if (!entry.confirmedRepsRight) entry.confirmedRepsRight = [];
+          if (!entry.confirmedRepsLeft) entry.confirmedRepsLeft = [];
+          entry.confirmedRepsRight.push(sideData.right);
+          entry.confirmedRepsLeft.push(sideData.left);
         }
       } else {
-        exerciseLogRef.current.push({
+        entry = {
           exerciseId: exercise.id,
           exerciseName: exercise.name,
           segmentId: segId,
@@ -164,8 +166,20 @@ export function useExerciseLog({
             confirmedRepsRight: [sideData.right],
             confirmedRepsLeft: [sideData.left],
           }),
-        });
+          ...logStampFromPlanExercise(exercise),
+        };
+        exerciseLogRef.current.push(entry);
       }
+      // Phase 0 provenance (data only): no user input on this path — a timed
+      // exercise's override is the timer's measurement, anything else is the
+      // prescribed target.
+      const isTimed = exercise.exerciseType === 'time' || exercise.isTimeBased === true;
+      recordSetMeta(
+        entry,
+        entry.confirmedReps.length - 1,
+        overrideReps !== undefined && isTimed ? 'timer' : 'default',
+        null,
+      );
 
       bumpLog();
       console.log(

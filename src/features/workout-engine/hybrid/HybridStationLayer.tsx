@@ -42,6 +42,10 @@ import { resolveWalkUiState, nextArmed, walkingLine } from './hybrid-walk-state'
 import StationCompleteScreen from './StationCompleteScreen';
 import HybridStationCta from './HybridStationCta';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
+import type { SwapOpenContext } from '@/features/workout-engine/adaptation/adaptation.types';
+import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
@@ -76,6 +80,8 @@ export default function HybridStationLayer() {
   // G2.4 in-station swap: which plan position is being replaced + the modal's inputs.
   const [swapTarget, setSwapTarget] = useState<{
     segIdx: number; exIdx: number; exercise: unknown; level: number; park: Park | null;
+    /** Phase 0 (data only): in-player entry point + progress, for the swap log. */
+    context?: SwapOpenContext;
   } | null>(null);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
@@ -242,10 +248,10 @@ export default function HybridStationLayer() {
           // G2.4: in-station swap — same modal as the overview / standalone player; the
           // replacement is written into the live station plan (useHybridRun), so it is what
           // StrengthRunner plays and logs from here on.
-          onSwapExercise={(_exerciseId, segIdx, exIdx) => {
+          onSwapExercise={(_exerciseId, segIdx, exIdx, context) => {
             const candidate = getStationSwapCandidate(segIdx, exIdx);
             if (!candidate) return;
-            setSwapTarget({ segIdx, exIdx, exercise: candidate.exercise, level: candidate.level, park: null });
+            setSwapTarget({ segIdx, exIdx, exercise: candidate.exercise, level: candidate.level, park: null, ...(context ? { context } : {}) });
             // Prefer methods that fit THIS park's equipment: the modal's method selector
             // matches against park.gymEquipment (full record — the catalog park lacks it).
             const parkId = stationContext?.parkId;
@@ -273,8 +279,34 @@ export default function HybridStationLayer() {
             // PR-B3 (guided only): limit alternatives to this park's equipment + bodyweight.
             // Fast mode / every other caller: unchanged (null = no filter).
             allowedEquipmentIds={guided ? stationContext?.availableEquipment ?? null : null}
-            onReplace={(newExercise, executionMethod) => {
-              swapStationExercise(swapTarget.segIdx, swapTarget.exIdx, newExercise, executionMethod);
+            onReplace={(newExercise, executionMethod, levelComparison, meta) => {
+              // Soft-adaptation Phase 0: record the swap (data only, fire-and-forget).
+              const planEx = stationPlan?.segments?.[swapTarget.segIdx]?.exercises?.[swapTarget.exIdx];
+              const fromEx = swapTarget.exercise as { id?: string; movementGroup?: string } | null;
+              logExerciseSwap({
+                sessionClientId: stationPlan?.id,
+                fromExerciseId: planEx?.id ?? fromEx?.id ?? '',
+                fromName: planEx?.name,
+                toExerciseId: newExercise.id,
+                toName: getLocalizedText(newExercise.name, 'he'),
+                domain: planEx?.domain ?? domainOfMovementGroup(fromEx?.movementGroup),
+                fromLevel: planEx?.exerciseLevel ?? swapTarget.level,
+                toLevel: meta?.toLevel,
+                userDomainLevel: planEx?.userDomainLevel,
+                direction: levelComparison,
+                tab: meta?.tab,
+                reason: meta?.reason,
+                source: swapTarget.context?.source ?? 'in_workout_active',
+                flow: 'hybrid',
+                userInitiated: true,
+                location: 'park',
+                parkId: stationContext?.parkId,
+                segmentRole: planEx?.exerciseRole,
+                setsDoneBefore: swapTarget.context?.setsDoneBefore,
+                lastSetReps: swapTarget.context?.lastSetReps,
+                rangeMin: swapTarget.context?.rangeMin ?? planEx?.repsRange?.min,
+              });
+              swapStationExercise(swapTarget.segIdx, swapTarget.exIdx, newExercise, executionMethod, meta?.toLevel);
               setSwapTarget(null);
             }}
           />

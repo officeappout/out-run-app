@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getD
 import { db, auth } from '@/lib/firebase';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/hooks/useWorkoutStateMachine';
+import type { CoachHintMark, RepsSource, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
 
 // Route coordinate format stored in Firestore (object format to avoid nested arrays)
 export interface RoutePoint {
@@ -37,6 +38,32 @@ export interface SegmentExerciseDetail {
   confirmedRepsRight?: number[];
   /** Per-side reps for unilateral exercises (left side / שמאל). */
   confirmedRepsLeft?: number[];
+
+  // ── Soft-adaptation Phase 0 (data only, 18.10.2026) ──────────────────────
+  // Additive and optional — absent on every doc saved before this existed.
+  // Nothing reads these to change a level or a plan yet.
+  /** Training domain of the prescribed slot (push/pull/legs/core/skill slug). */
+  domain?: string;
+  /** The exercise's program level as prescribed. */
+  exerciseLevel?: number;
+  /** The user's level in that domain when the plan was built. */
+  userDomainLevel?: number;
+  /** The prescribed rep/hold range. */
+  prescribedRange?: { min: number; max: number };
+  /** warmup / main / cooldown / recovery. */
+  role?: string;
+  /** The user swapped this slot (preview or in-workout). */
+  wasSwapped?: true;
+  /** The originally prescribed exercise of a swapped slot. */
+  swappedFromId?: string;
+  /**
+   * Per set, parallel to confirmedReps: 'edited' = the user moved the
+   * picker / typed it; 'default' = saved the prefilled target with one tap
+   * (NOT evidence the user did that many); 'timer' = measured by the timer.
+   */
+  repsSource?: RepsSource[];
+  /** Per set: the coach hint shown at save ('fail' | 'overachieve' | 'none'). */
+  coachHints?: CoachHintMark[];
 }
 
 /**
@@ -52,6 +79,16 @@ export function toSegmentExerciseDetail(log: ExerciseResultLog[]): SegmentExerci
     targetReps: entry.targetReps,
     ...(entry.confirmedRepsRight ? { confirmedRepsRight: entry.confirmedRepsRight } : {}),
     ...(entry.confirmedRepsLeft ? { confirmedRepsLeft: entry.confirmedRepsLeft } : {}),
+    // Phase 0 (data only) — conditional keys, never undefined.
+    ...(entry.domain ? { domain: entry.domain } : {}),
+    ...(typeof entry.exerciseLevel === 'number' ? { exerciseLevel: entry.exerciseLevel } : {}),
+    ...(typeof entry.userDomainLevel === 'number' ? { userDomainLevel: entry.userDomainLevel } : {}),
+    ...(entry.prescribedRange ? { prescribedRange: { min: entry.prescribedRange.min, max: entry.prescribedRange.max } } : {}),
+    ...(entry.role ? { role: entry.role } : {}),
+    ...(entry.wasSwapped ? { wasSwapped: true as const } : {}),
+    ...(entry.swappedFromId ? { swappedFromId: entry.swappedFromId } : {}),
+    ...(entry.repsSource?.length ? { repsSource: entry.repsSource.slice(0, entry.confirmedReps.length) } : {}),
+    ...(entry.coachHints?.length ? { coachHints: entry.coachHints.slice(0, entry.confirmedReps.length) } : {}),
   }));
 }
 
@@ -195,6 +232,14 @@ export interface WorkoutHistoryEntry {
   groupId?: string;
   /** Attendance document ID (YYYY-MM-DD_HH-mm) for the group session. */
   attendanceId?: string;
+
+  /**
+   * Soft-adaptation Phase 0 — the optional post-workout "קל מדי / בדיוק /
+   * קשה מדי" answer (POST_WORKOUT_SURVEY_V1). Written as part of the create
+   * payload (so an offline-queued workout carries it in its outbox payload
+   * too). Recorded only — it changes no level and no progress.
+   */
+  feedback?: WorkoutFeedbackRecord;
 }
 
 /**

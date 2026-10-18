@@ -36,6 +36,7 @@ import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from './protocols/tabata.block';
+import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 interface BuildOpts {
   /** The plan id the runner will key on (route param + sessionStorage id). */
@@ -174,6 +175,9 @@ export function buildRunnerWorkoutPlanFromGenerated(
       })(),
       pyramidSequence: (ex as any).pyramidSequence ?? undefined,
       repsSequence: (ex as any).repsSequence ?? undefined,
+      // Soft-adaptation Phase 0 (data only): domain / levels / swap provenance,
+      // copied onto the strength log at save time. Conditional keys only.
+      ...adaptationStampForPlan(ex),
     };
   });
 

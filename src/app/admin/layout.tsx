@@ -1301,7 +1301,14 @@ function AdminLayoutInner({
                                     {expandedSections.has('dev') && (
                                         <div className="pr-2 space-y-0.5 pb-2">
                                             <NavGroup label="תוכן אימונים">
-                                                <SidebarLink href="/admin/exercises" icon={Dumbbell} label="בנק תרגילים" />
+                                                <SidebarLink
+                                                    href="/admin/exercises"
+                                                    icon={Dumbbell}
+                                                    label="בנק תרגילים"
+                                                    isActive={!!pathname?.startsWith('/admin/exercises') && !pathname?.startsWith('/admin/exercises/swap-stats')}
+                                                />
+                                                {/* soft-adaptation Phase 0 — anonymous swap counters (read-only) */}
+                                                <SidebarLink href="/admin/exercises/swap-stats" icon={BarChart3} label="תרגילים שמחליפים הכי הרבה" />
                                                 <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
                                                 {/* one area, tabs inside (EquipmentTabs): machines, brands, gear, audit */}
                                                 <SidebarLink

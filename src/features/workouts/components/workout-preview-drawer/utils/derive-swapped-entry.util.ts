@@ -14,6 +14,7 @@
 import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
 import type { Exercise, ExecutionMethod } from '@/features/content/exercises';
 import type { WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { swapStampForEntry } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 // Asymmetric volume multipliers (mirror useExerciseSwap / WorkoutGenerator.substituteExercise):
 // a harder variant trims 10%/level; an easier variant adds 15%/level.
@@ -86,6 +87,10 @@ export function deriveSwappedEntry(
     reps: adjustedReps,
     repsRange: adjustedRange,
     wasSwapped: true,
+    // Soft-adaptation Phase 0 (data only): original prescribed exercise +
+    // the user's domain level before the swap. Same-exercise method swaps
+    // carry forward whatever was there. Read by nothing that changes behaviour.
+    ...swapStampForEntry(oldWE, newExercise.id),
     // A successful method/exercise swap clears any prior keep+mark flag.
     dimensionUnavailable: undefined,
     ...(thisPartnerLink ? { pairedWith: thisPartnerLink } : {}),

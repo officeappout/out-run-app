@@ -2,6 +2,7 @@
 
 import React from 'react';
 import HorizontalPicker from './HorizontalPicker';
+import { deriveCoachHint } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 /**
  * LogDrawerContent — bottom-sheet RESTING-state input drawer.
@@ -55,9 +56,10 @@ export interface LogDrawerContentProps {
   /** Upper bound of the prescribed rep range (null = no upper bound enforced). */
   repsRangeMax: number | null;
   /** Save-and-rest action for bilateral exercises (parent owns rep resolution). */
-  onSaveBilateral: () => void;
+  /** Receives the coach hint shown for this save (Phase 0: stamped on the set, data only). */
+  onSaveBilateral: (coachHint: CoachHint) => void;
   /** Save-and-rest action for unilateral exercises (parent owns rep resolution). */
-  onSaveUnilateral: () => void;
+  onSaveUnilateral: (coachHint: CoachHint) => void;
   /** Coach-hint setter — fired with 'fail' / 'overachieve' / null based on range comparison. */
   onSetCoachHint: (hint: CoachHint) => void;
   /** Optional swap-exercise CTA (omit to hide the secondary button). */
@@ -89,25 +91,24 @@ export default function LogDrawerContent({
   // own UX feedback loop, but the actual save mutation is delegated to the parent.
   const handleUnilateralClick = () => {
     const effective = Math.min(repsRight, repsLeft);
-    if (unitType === 'reps') {
-      if (repsRangeMin !== null && effective < repsRangeMin) onSetCoachHint('fail');
-      else if (repsRangeMax !== null && effective > repsRangeMax) onSetCoachHint('overachieve');
-      else onSetCoachHint(null);
-    }
-    onSaveUnilateral();
+    // Same comparison as always (reps only) — now via the shared pure helper
+    // so the hint the user SEES is exactly the one stamped on the set.
+    const hint = deriveCoachHint(effective, repsRangeMin, repsRangeMax, unitType);
+    if (unitType === 'reps') onSetCoachHint(hint);
+    onSaveUnilateral(hint);
   };
 
   const handleBilateralClick = () => {
     const repsToSave =
       completedReps ?? lockedAchievedRef.current ?? initialValue ?? targetValue;
     if (!repsToSave || repsToSave <= 0) {
-      onSaveBilateral();
+      onSaveBilateral(null);
       return;
     }
-    if (repsRangeMin !== null && repsToSave < repsRangeMin) onSetCoachHint('fail');
-    else if (repsRangeMax !== null && repsToSave > repsRangeMax) onSetCoachHint('overachieve');
-    else onSetCoachHint(null);
-    onSaveBilateral();
+    // Bilateral has always compared regardless of unit — kept byte-identical.
+    const hint = deriveCoachHint(repsToSave, repsRangeMin, repsRangeMax, 'reps');
+    onSetCoachHint(hint);
+    onSaveBilateral(hint);
   };
 
   return (

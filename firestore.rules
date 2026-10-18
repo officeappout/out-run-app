@@ -942,6 +942,61 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // EXERCISE_SWAPS — soft-adaptation Phase 0 (18.10.2026, data only).
+    // One doc per exercise swap, written fire-and-forget by
+    // src/features/workout-engine/adaptation/log-exercise-swap.ts. Product
+    // data (adaptation input), not analytics — so no consent gate — but
+    // strictly self-attributed and field-whitelisted: the key list below
+    // mirrors EXERCISE_SWAP_FIELDS (adaptation.types.ts; a pure test fails if
+    // they drift). Immutable once written; only admins read raw docs. The
+    // admin view reads the anonymous exercise_stats aggregate instead.
+    // ============================================================
+    match /exercise_swaps/{swapId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'userId', 'at', 'sessionClientId',
+          'fromExerciseId', 'fromName', 'toExerciseId', 'toName',
+          'domain', 'fromLevel', 'toLevel', 'userDomainLevel',
+          'direction', 'tab', 'source', 'flow', 'userInitiated',
+          'location', 'parkId', 'segmentRole',
+          'setsDoneBefore', 'lastSetReps', 'rangeMin',
+          'reason', 'appVersion'
+        ])
+        && request.resource.data.keys().hasAll(['userId', 'at', 'fromExerciseId', 'toExerciseId', 'source', 'userInitiated'])
+        && request.resource.data.at == request.time
+        && request.resource.data.fromExerciseId is string && request.resource.data.fromExerciseId.size() <= 128
+        && request.resource.data.toExerciseId is string && request.resource.data.toExerciseId.size() <= 128
+        && request.resource.data.source is string && request.resource.data.source.size() <= 40
+        && request.resource.data.userInitiated is bool
+        && (!('direction' in request.resource.data) || request.resource.data.direction in ['lower', 'same', 'higher'])
+        && (!('tab' in request.resource.data) || request.resource.data.tab in ['adaptation', 'alternative'])
+        && (!('flow' in request.resource.data) || request.resource.data.flow in ['preview', 'solo', 'hybrid'])
+        && (!('reason' in request.resource.data) || request.resource.data.reason in ['too_hard', 'too_easy', 'no_equipment', 'dislike', 'pain'])
+        && (!('fromLevel' in request.resource.data) || request.resource.data.fromLevel is number)
+        && (!('toLevel' in request.resource.data) || request.resource.data.toLevel is number)
+        && (!('userDomainLevel' in request.resource.data) || request.resource.data.userDomainLevel is number)
+        && (!('setsDoneBefore' in request.resource.data) || request.resource.data.setsDoneBefore is number)
+        && (!('lastSetReps' in request.resource.data) || request.resource.data.lastSetReps is number)
+        && (!('rangeMin' in request.resource.data) || request.resource.data.rangeMin is number)
+        && (!('fromName' in request.resource.data) || (request.resource.data.fromName is string && request.resource.data.fromName.size() <= 120))
+        && (!('toName' in request.resource.data) || (request.resource.data.toName is string && request.resource.data.toName.size() <= 120));
+      allow update, delete: if false;
+    }
+
+    // EXERCISE_STATS — anonymous per-exercise counters (no uid), written
+    // only by the onExerciseSwapCreated / onWorkoutCreateExerciseStats
+    // Cloud Functions (Admin SDK bypasses rules). Admin panel reads them.
+    match /exercise_stats/{exerciseId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /exercise_stats_processed/{markerId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // PUSH_EVENTS — notification-engine measurement (Wave 1).
     // Server (Admin SDK, bypasses rules) writes push_sent/post_push_outcome —
     // NOT reachable via these rules at all. Client may create ONLY the 2

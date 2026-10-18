@@ -96,3 +96,7 @@ export { previewNotificationContent } from './previewNotificationContent';
 // ── Background discovery worker (city-mapping one-click panel button prep) ────
 // Poller, not a trigger+queue — see geoDiscoveryWorker.ts's own header for why.
 export { cityMappingDiscoveryPoller } from './geoDiscoveryWorker';
+// ── Soft-adaptation Phase 0 (18.10.2026) — anonymous per-exercise counters ───
+// for the admin "תרגילים שמחליפים הכי הרבה" page. NOT deployed yet — see the
+// PR's deploy steps (functions:onExerciseSwapCreated,onWorkoutCreateExerciseStats).
+export { onExerciseSwapCreated, onWorkoutCreateExerciseStats } from './exerciseStats';
