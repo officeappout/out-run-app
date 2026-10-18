@@ -357,7 +357,7 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
     };
   }
   const why: Record<typeof outcome.error, string> = {
-    needs_assessment: `The engine needs a short level check first for: ${(outcome.domains ?? []).join(', ') || 'this area'}. Tell the user to open the workout builder in the app to unlock it, or offer a workout without that area.`,
+    needs_assessment: `The engine needs a short level check first for: ${(outcome.domains ?? []).join(', ') || 'this area'}. Tell the user in one short sentence that a short level check unlocks it and that the app shows a button under your reply that starts it, or offer a workout without that area.`,
     generation_failed: 'The workout engine could not build this workout. Tell the user simply and offer to try other settings or the workout builder.',
     invalid_input: 'The request was not valid for the engine. Try once more with simpler settings.',
     offline: 'The device is offline. Tell the user the workout builder works offline.',

@@ -229,7 +229,11 @@ function goodMockReply(c: EvalCase, params: Anthropic.MessageStreamParams): stri
   const a = c.assertions;
   const need = a.mustCallTool ? (Array.isArray(a.mustCallTool) ? a.mustCallTool : [a.mustCallTool]) : [];
   const sys = systemText(params);
-  if (need.includes('generate_workout')) return 'בניתי לך אימון ברמה המתאימה לך. אפשר ללחוץ על הכרטיס כדי להתחיל.';
+  // A level check note that allows a suggestion → one short sentence, once (persona.ts).
+  const gap = sys.match(/- Level check: the user never checked a level for ([^,(.]+?)(?: \(part of [^)]*\))?[,.]? /);
+  const gapLine = gap ? ` עוד אין רמה ב${gap[1].trim()}. אפשר לבדוק רמה בכפתור למטה, וככה האימונים יתאימו בדיוק.` : '';
+  if (need.includes('generate_workout')) return `בניתי לך אימון ברמה המתאימה לך. אפשר ללחוץ על הכרטיס כדי להתחיל.${gapLine}`;
+  if (need.includes('get_progress')) return `ההתקדמות נראית יציבה, וכדאי להמשיך באותו קצב.${gapLine}`;
   // A typo hint in the session context → confirm the intended word first.
   const typo = sys.match(/Likely typos[^\n]*?"([^"]+)" probably means "([^"]+)"/);
   if (typo) return `התכוונת "${typo[2]}"? כן, הצוות משפר אותי לפי השיחות.`;
@@ -254,6 +258,21 @@ function parseMaybeJson(s: unknown): unknown {
   } catch {
     return s;
   }
+}
+
+function workoutDomainsOf(calls: EvalToolCall[]): string[] | null {
+  const d = (calls.find((t) => t.name === 'generate_workout')?.input as { domains?: unknown } | undefined)?.domains;
+  return Array.isArray(d) ? d.filter((x): x is string => typeof x === 'string') : null;
+}
+
+function refusedDomainsOf(calls: EvalToolCall[]): string[] {
+  for (const t of calls) {
+    const r = t.result as { ok?: boolean; error?: string; domains?: unknown } | null;
+    if (t.name === 'generate_workout' && t.isError && r?.error === 'needs_assessment' && Array.isArray(r.domains)) {
+      return r.domains.filter((x): x is string => typeof x === 'string');
+    }
+  }
+  return [];
 }
 
 export async function runEvalCase(
@@ -290,7 +309,15 @@ export async function runEvalCase(
     toolCalls,
     todayDayOfWeek: ctx.israelDayOfWeek,
     sheetWeekDates,
-    chips: chipsForTurn({ userText: c.message, toolNames: toolCalls.map((t) => t.name), sheet }),
+    chips: chipsForTurn({
+      userText: c.message,
+      toolNames: toolCalls.map((t) => t.name),
+      sheet,
+      workoutDomains: workoutDomainsOf(toolCalls),
+      needsAssessmentDomains: refusedDomainsOf(toolCalls),
+      // Like the route: a case without history opens a new conversation; history carries no chips.
+      opening: c.history.length === 0,
+    }),
   });
 
   // The route's deterministic safety gate runs before the model.

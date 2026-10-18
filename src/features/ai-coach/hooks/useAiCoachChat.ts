@@ -51,6 +51,8 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
                     minutes: c.minutes,
                     exerciseCount: c.exerciseCount,
                     location: c.location,
+                    ...(Array.isArray(c.domains) ? { domains: c.domains.filter((d) => typeof d === 'string').slice(0, 8) } : {}),
+                    ...(typeof c.difficulty === 'number' ? { difficulty: c.difficulty } : {}),
                   }))
                 : [],
               actions: Array.isArray(x.actions) ? (x.actions as unknown[]).filter(isCoachActionId) : [],
@@ -110,7 +112,7 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
       const { outcome } = p
         ? await runClientTool(call.name, call.input, p)
         : { outcome: { ok: false as const, error: 'generation_failed' as const } };
-      dispatch({ type: 'TOOL_POSTED' });
+      dispatch({ type: 'TOOL_POSTED', ok: outcome.ok });
       await run({ toolResult: { id: call.id, outcome } });
     }
   }, []);

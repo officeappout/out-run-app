@@ -29,7 +29,7 @@ import { detectSafetyTrigger, safetyReply } from '@/lib/ai/coach/safety';
 import { ChatRequestSchema, encodeSse, type CoachStreamEvent, type CoachStreamErrorCode } from '@/lib/ai/coach/protocol';
 import { GenerateWorkoutInput, coachToolDefinitions, sanitizeWorkoutEquipment } from '@/lib/ai/coach/tools';
 import { applyUserIntent, typoHints } from '@/lib/ai/coach/intent';
-import { chipsForTurn } from '@/lib/ai/coach/action-chips';
+import { chipsForTurn, nudgeStateFrom } from '@/lib/ai/coach/action-chips';
 import type { UserContextSheet } from '@/lib/ai/coach/context-sheet';
 import {
   clientOutcomeToToolResult,
@@ -130,6 +130,8 @@ export async function POST(request: Request) {
         minutes: r.minutes,
         exerciseCount: r.exercises.length,
         location: r.location,
+        ...(r.domains ? { domains: r.domains.slice(0, 8) } : {}),
+        ...(r.difficulty ? { difficulty: r.difficulty } : {}),
         decisionRecord: (r.decisionRecord as Record<string, unknown> | undefined) ?? null,
         exercises: r.exercises,
         requestedMinutes: r.requestedMinutes ?? null,
@@ -181,6 +183,12 @@ export async function POST(request: Request) {
   }
   const todayDow = getIsraelDayOfWeek(now);
   const userTextThisTurn = turnUserText(state);
+  // Level-check nudges: never twice in a few days, and "opening" = a new conversation.
+  const nudge = nudgeStateFrom(thread.recent, now.getTime());
+  const refusedForLevel =
+    'toolResult' in body && !body.toolResult.outcome.ok && body.toolResult.outcome.error === 'needs_assessment'
+      ? (body.toolResult.outcome.domains ?? [])
+      : [];
 
   const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions() });
   const system: Anthropic.TextBlockParam[] = [
@@ -196,6 +204,7 @@ export async function POST(request: Request) {
         summary: thread.summary,
         sheet,
         typoHints: typoHints(userTextThisTurn),
+        assessmentNudgeAllowed: nudge.nudgeAllowed,
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -226,8 +235,8 @@ export async function POST(request: Request) {
         }
 
         if (newCard) {
-          const { type, workoutId, title, minutes, exerciseCount, location } = newCard;
-          emit({ type: 'card', card: { type, workoutId, title, minutes, exerciseCount, location } });
+          const { type, workoutId, title, minutes, exerciseCount, location, domains, difficulty } = newCard;
+          emit({ type: 'card', card: { type, workoutId, title, minutes, exerciseCount, location, domains, difficulty } });
         }
 
         const outcome = await runCoachTurn(
@@ -279,10 +288,17 @@ export async function POST(request: Request) {
         }
 
         // Action chips (e.g. "פתח את הלו״ז" under a schedule answer), decided from the turn.
+        const toolCalls = outcome.state.log?.toolCalls ?? [];
+        const built = toolCalls.find((c) => c.name === 'generate_workout');
+        const builtDomains = (built?.input as { domains?: unknown } | null | undefined)?.domains;
         const actions = chipsForTurn({
           userText: userTextThisTurn,
-          toolNames: (outcome.state.log?.toolCalls ?? []).map((c) => c.name),
+          toolNames: toolCalls.map((c) => c.name),
           sheet,
+          workoutDomains: Array.isArray(builtDomains) ? builtDomains.filter((d): d is string => typeof d === 'string') : null,
+          needsAssessmentDomains: refusedForLevel,
+          nudgeAllowed: nudge.nudgeAllowed,
+          opening: nudge.opening,
         });
         if (actions.length) emit({ type: 'actions', actions });
 

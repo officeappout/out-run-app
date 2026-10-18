@@ -93,7 +93,7 @@ export function HeroMediaBackground({
 // ============================================================================
 // Difficulty labels (Hebrew) — keyed by 1–3
 // ============================================================================
-const DIFFICULTY_LABELS: Record<number, string> = {
+export const DIFFICULTY_LABELS: Record<number, string> = {
   1: 'קל',
   2: 'בינוני',
   3: 'מאתגר',
@@ -106,7 +106,8 @@ const BOLT_FILTER_CYAN =
 const BOLT_FILTER_DARK =
   'brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(750%) hue-rotate(176deg) brightness(95%) contrast(90%)';
 
-function BoltIcon({ filled }: { filled: boolean }) {
+/** One difficulty bolt (cyan when filled). Shared with the AI coach's compact card. */
+export function BoltIcon({ filled }: { filled: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -330,7 +331,8 @@ export function EquipmentBadgeRow({
 // ============================================================================
 // Program icon — maps known template keys to SVG paths
 // ============================================================================
-const PROGRAM_ICON_MAP: Record<string, string> = {
+/** Program/domain → title icon. Shared with the AI coach's compact card. */
+export const PROGRAM_ICON_MAP: Record<string, string> = {
   full_body: '/icons/programs/full_body.svg',
   fullbody: '/icons/programs/full_body.svg',
   push: '/icons/programs/muscle.svg',

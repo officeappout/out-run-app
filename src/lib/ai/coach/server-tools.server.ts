@@ -99,16 +99,71 @@ async function readAreaName(ctx: ServerToolContext): Promise<string | null> {
   return null;
 }
 
+export interface ProgramIndex {
+  resolveSlug: (id: string) => string;
+  subProgramsBySlug: Record<string, string[]>;
+}
+
+const PROGRAM_INDEX_TTL_MS = 10 * 60_000;
+let programIndexCache: { at: number; index: ProgramIndex } | null = null;
+
+/** Same slug rule as the client's id→slug map (program-hierarchy.utils getIdToSlugMap). */
+function slugOfProgram(id: string, d: Record<string, unknown>): string {
+  if (typeof d.slug === 'string' && d.slug) return d.slug;
+  if (typeof d.movementPattern === 'string' && d.movementPattern) return d.movementPattern;
+  if (typeof d.name === 'string' && d.name) return d.name.toLowerCase().replace(/[\s-]+/g, '_');
+  return id;
+}
+
+/**
+ * Program id → slug and parent → subPrograms, for the assessment gaps (activePrograms /
+ * tracks mix raw Firestore ids and slugs). Read-only, cached per server instance; on a
+ * failure the gaps fall back to slugs as stored + the engine's static parent lists.
+ */
+export async function loadProgramIndex(db: Firestore, now = Date.now()): Promise<ProgramIndex | null> {
+  if (programIndexCache && now - programIndexCache.at < PROGRAM_INDEX_TTL_MS) return programIndexCache.index;
+  try {
+    const snap = await db.collection('programs').get();
+    const idToSlug = new Map<string, string>();
+    const rawSubs: Array<[string, string[]]> = [];
+    for (const d of snap.docs) {
+      const data = d.data() as Record<string, unknown>;
+      const slug = slugOfProgram(d.id, data);
+      idToSlug.set(d.id, slug);
+      const subs = Array.isArray(data.subPrograms) ? data.subPrograms.filter((x): x is string => typeof x === 'string') : [];
+      if (subs.length) rawSubs.push([slug, subs]);
+    }
+    const resolveSlug = (id: string) => idToSlug.get(id) ?? id;
+    const subProgramsBySlug: Record<string, string[]> = {};
+    for (const [slug, subs] of rawSubs) subProgramsBySlug[slug] = subs.map(resolveSlug);
+    const index = { resolveSlug, subProgramsBySlug };
+    programIndexCache = { at: now, index };
+    return index;
+  } catch (err) {
+    console.warn('[ai-coach] program index unavailable', err);
+    return null;
+  }
+}
+
 /** The user sheet (also pre-loaded into every turn's system prompt by the route). */
 export async function loadUserContextSheet(ctx: ServerToolContext): Promise<UserContextSheet> {
   const todayKey = getIsraelDateKey(ctx.now);
   const week = weekKeys(todayKey, getIsraelDayOfWeek(ctx.now));
-  const [workouts, weekSchedule, areaName] = await Promise.all([
+  const [workouts, weekSchedule, areaName, programIndex] = await Promise.all([
     readWorkouts(ctx, null, 5),
     readSchedule(ctx, week),
     readAreaName(ctx),
+    loadProgramIndex(ctx.db, ctx.now.getTime()),
   ]);
-  return buildUserContextSheet({ profile: ctx.profile, workouts, weekSchedule, todayKey, areaName, now: ctx.now });
+  return buildUserContextSheet({
+    profile: ctx.profile,
+    workouts,
+    weekSchedule,
+    todayKey,
+    areaName,
+    now: ctx.now,
+    ...(programIndex ?? {}),
+  });
 }
 
 export async function getUserContext(ctx: ServerToolContext): Promise<ToolExecResult> {
@@ -135,8 +190,8 @@ export function getWorkoutDetails(ctx: ServerToolContext, input: { workoutId: st
 
 export async function getProgress(ctx: ServerToolContext, input: { range: ProgressRange }): Promise<ToolExecResult> {
   const since = ctx.now.getTime() - RANGE_DAYS[input.range] * 86_400_000;
-  const workouts = await readWorkouts(ctx, since, 200);
-  return json(summarizeProgress(input.range, workouts, ctx.profile, ctx.now));
+  const [workouts, programIndex] = await Promise.all([readWorkouts(ctx, since, 200), loadProgramIndex(ctx.db, ctx.now.getTime())]);
+  return json(summarizeProgress(input.range, workouts, ctx.profile, ctx.now, programIndex ?? undefined));
 }
 
 export async function getSchedule(ctx: ServerToolContext, input: { from: string; to: string }): Promise<ToolExecResult> {

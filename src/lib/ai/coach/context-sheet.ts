@@ -8,6 +8,7 @@
  */
 import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import { coachGenderOf, firstNameOf, type CoachGender } from './persona';
+import { deriveAssessmentGaps, type AssessmentGap } from './assessment-gaps';
 
 export interface RawWorkout {
   date: Date | null;
@@ -77,6 +78,12 @@ export interface UserContextSheet {
   preferredTrainingTime: string | null;
   equipment: { home: string[]; office: string[]; outdoor: string[] };
   area: string | null;
+  /**
+   * Programs the user trains (or whose parent they train) but never checked a level for:
+   * the progress tab's "עוד לא בדקת רמה". Kelly may suggest the mini level check once.
+   * Absent on sheets built before this field existed.
+   */
+  assessmentGaps?: AssessmentGap[];
 }
 
 const str = (v: unknown, max = 40): string | null =>
@@ -193,6 +200,10 @@ export interface BuildSheetInput {
   todayKey: string;
   areaName: string | null;
   now: Date;
+  /** Raw program id → slug, for the assessment gaps. Default: identity. */
+  resolveSlug?: (id: string) => string;
+  /** Parent slug → subPrograms (slug space), for the assessment gaps. */
+  subProgramsBySlug?: Readonly<Record<string, readonly string[]>>;
 }
 
 export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
@@ -236,6 +247,7 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
       outdoor: strList(eq.outdoor, 20, 64),
     },
     area: str(i.areaName),
+    assessmentGaps: deriveAssessmentGaps({ profile: p, resolveSlug: i.resolveSlug, subProgramsBySlug: i.subProgramsBySlug }),
   };
 }
 
@@ -253,6 +265,8 @@ export interface ProgressSummary {
   byType: Record<string, { workouts: number; minutes: number }>;
   programs: UserContextSheet['programs'];
   streakDays: number | null;
+  /** Programs without a level yet (mention briefly when relevant). */
+  assessmentGaps: AssessmentGap[];
 }
 
 export function summarizeProgress(
@@ -261,8 +275,9 @@ export function summarizeProgress(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
   profile: Record<string, any>,
   now: Date,
+  programIndex?: Pick<BuildSheetInput, 'resolveSlug' | 'subProgramsBySlug'>,
 ): ProgressSummary {
-  const sheet = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now });
+  const sheet = buildUserContextSheet({ profile, workouts: [], weekSchedule: [], todayKey: '', areaName: null, now, ...programIndex });
   const rows = workouts.map(sheetWorkout).filter((x): x is SheetWorkout => !!x);
   const byType: ProgressSummary['byType'] = {};
   for (const r of rows) {
@@ -279,6 +294,7 @@ export function summarizeProgress(
     byType,
     programs: sheet.programs,
     streakDays: sheet.streakDays,
+    assessmentGaps: sheet.assessmentGaps ?? [],
   };
 }
 

@@ -27,7 +27,7 @@ import { COACH_HISTORY_TURNS } from './persona';
 import type { WorkoutCard } from './protocol';
 import type { HistoryMessage, TurnLog, TurnState } from './turn-engine';
 import type { WorkoutToolResult } from './tools';
-import type { CoachActionId } from './action-chips';
+import { isCoachActionId, type CoachActionId } from './action-chips';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
 export const AI_COACH_RETENTION_DAYS = 90;
@@ -46,6 +46,8 @@ export interface StoredMessage extends HistoryMessage {
   id: string;
   cards: StoredCard[];
   createdAtMs: number;
+  /** Action chip ids stored on an assistant message (unknown ids dropped). */
+  actions?: CoachActionId[];
 }
 
 export interface PendingTurn {
@@ -105,6 +107,7 @@ function toStored(id: string, d: Record<string, any>): StoredMessage {
     text: typeof d.text === 'string' ? d.text : '',
     cards: Array.isArray(d.cards) ? (d.cards as StoredCard[]) : [],
     createdAtMs: msOf(d.createdAt),
+    ...(Array.isArray(d.actions) ? { actions: (d.actions as unknown[]).filter(isCoachActionId) } : {}),
   };
 }
 

@@ -19,8 +19,9 @@ import { coachGenderOf, firstNameOf, greeting, quickReplies } from '@/lib/ai/coa
 import { useAiCoachChat } from '../hooks/useAiCoachChat';
 import { getAiWorkout } from '../services/workout-cache';
 import { isBusy, LIVE_ID } from '../state/chat-machine';
-import AiCoachWorkoutCard from './AiCoachWorkoutCard';
+import AiCoachWorkoutCard, { AiCoachWorkoutCardError, AiCoachWorkoutCardSkeleton } from './AiCoachWorkoutCard';
 import AiCoachActionChips from './AiCoachActionChips';
+import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -89,9 +90,11 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
     setInput('');
   };
 
+  // The workout skeleton card stands in for a status line while a workout is being built.
+  const building = state.workoutBuild === 'building';
   const statusLabel =
-    state.phase === 'running_tool'
-      ? 'בונה אימון...'
+    building
+      ? null
       : state.toolStatus
         ? 'בודק...'
         : state.phase === 'sending'
@@ -154,27 +157,45 @@ export default function AiCoachChat({ profile, onClose }: { profile: UserFullPro
           if (!mine && !m.text && m.cards.length === 0 && m.id === LIVE_ID) return null;
           return (
             <div key={m.id} className={`flex flex-col ${mine ? 'items-start' : 'items-end'}`}>
-              <div
-                className={`max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-sm leading-snug shadow-sm ${
-                  mine ? 'rounded-tr-sm bg-cyan-500 text-white' : 'rounded-tl-sm border border-gray-100 bg-white text-gray-900'
-                }`}
-              >
-                {m.text}
-                {m.cards.map((c) => (
-                  <AiCoachWorkoutCard key={c.workoutId} card={c} onOpen={handleOpenCard} />
-                ))}
-              </div>
+              {m.text && (
+                <div
+                  className={`max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2.5 text-sm leading-snug shadow-sm ${
+                    mine ? 'rounded-tr-sm bg-cyan-500 text-white' : 'rounded-tl-sm border border-gray-100 bg-white text-gray-900'
+                  }`}
+                >
+                  {m.text}
+                </div>
+              )}
+              {/* Workout cards sit under the bubble, full card width (the home card, half height). */}
+              {m.cards.map((c) => (
+                <div key={c.workoutId} className="mt-2">
+                  <AiCoachWorkoutCard card={c} onOpen={handleOpenCard} />
+                </div>
+              ))}
               {!mine && m.actions && m.actions.length > 0 && (
                 <AiCoachActionChips
                   actions={m.id === lastAssistantId ? m.actions : m.actions.filter((a) => a !== 'build_today')}
                   onNavigate={(href) => router.push(href)}
                   onSend={(msg) => send(msg)}
+                  onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}
                   disabled={busy}
                 />
               )}
             </div>
           );
         })}
+
+        {building && (
+          <div className="flex justify-end">
+            <AiCoachWorkoutCardSkeleton />
+          </div>
+        )}
+
+        {state.workoutBuild === 'failed' && !busy && (
+          <div className="flex justify-end">
+            <AiCoachWorkoutCardError onRetry={retry} onBuilder={() => setBuilderOpen(true)} />
+          </div>
+        )}
 
         {statusLabel && (
           <div className="flex items-end justify-end">

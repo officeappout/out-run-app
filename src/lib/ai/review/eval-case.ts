@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 import { detectSafetyTrigger } from '@/lib/ai/coach/safety';
+import { COACH_ACTION_IDS } from '@/lib/ai/coach/action-chips';
 import {
   evidenceFromToolCall,
   findEnglish,
@@ -49,7 +50,11 @@ export const EvalAssertionsSchema = z
     /** At most this many non-empty lines (the per-day schedule list is ≤ 5 lines + one sentence). */
     maxLines: z.number().int().min(1).optional(),
     /** Action chips the turn must carry (action-chips.ts ids). */
-    chips: z.array(z.enum(['open_schedule', 'build_today'])).optional(),
+    chips: z.array(z.string().refine((v) => (COACH_ACTION_IDS as readonly string[]).includes(v), 'unknown chip id')).optional(),
+    /** Action chips the turn must NOT carry. */
+    noChips: z.array(z.string()).optional(),
+    /** Regex sources with how often the reply may match each (e.g. the level check said once). */
+    matchCount: z.array(z.object({ pattern: z.string(), min: z.number().int().min(0).default(0), max: z.number().int().min(0) })).optional(),
     /** Regex sources the reply must match (all). */
     mustMatch: z.array(z.string()).optional(),
     /** Regex sources the reply must NOT match (none). */
@@ -249,6 +254,20 @@ export function checkAssertions(a: EvalAssertions, run: EvalRunResult): Assertio
     const got = run.chips ?? [];
     const missing = a.chips.filter((c) => !got.includes(c));
     add('chips', missing.length === 0, missing.length ? `missing chips: ${missing.join(', ')} (got: ${got.join(', ') || 'none'})` : `chips ${got.join(', ')}`);
+  }
+  if (a.noChips) {
+    const got = run.chips ?? [];
+    const bad = a.noChips.filter((c) => got.includes(c));
+    add('noChips', bad.length === 0, bad.length ? `unexpected chips: ${bad.join(', ')}` : 'ok');
+  }
+  for (const m of a.matchCount ?? []) {
+    let n = 0;
+    try {
+      n = (text.match(new RegExp(m.pattern, 'g')) ?? []).length;
+    } catch {
+      n = -1;
+    }
+    add(`matchCount /${m.pattern}/`, n >= m.min && n <= m.max, `${n} match(es) (want ${m.min} to ${m.max})`);
   }
   for (const src of a.mustNotMatch ?? []) {
     let hit = false;
