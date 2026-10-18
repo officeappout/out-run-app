@@ -22,7 +22,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { canUseAi, type AiEntitlementDoc } from './ai-entitlement';
 import type { AiConfig } from './ai-config';
 import { AiUnavailableError, assertAiBudget, checkAiRateLimit, loadAiConfig } from './anthropic.server';
-import { aiFlagsFrom, getAiEntitlement, getServerFeatureFlags } from './entitlement.server';
+import { aiFlagsFrom, getAiEntitlement, getServerFeatureFlags, type ServerFeatureFlags } from './entitlement.server';
 
 export type AiDenialCode =
   | 'missing_token'
@@ -49,6 +49,8 @@ export interface AiGrant {
   profile: Record<string, any>;
   entitlement: AiEntitlementDoc | null;
   config: AiConfig;
+  /** system_config/feature_flags as read for this request (real values, no super-admin override). */
+  flags?: ServerFeatureFlags;
 }
 
 const deny = (status: AiDenial['status'], code: AiDenialCode, retryAfterSec?: number): AiDenial => ({
@@ -99,7 +101,7 @@ export async function verifyAiRequest(request: Request): Promise<AiGrant | AiDen
     const rl = await checkAiRateLimit(uid, config, db);
     if (rl.limited) return deny(429, 'rate_limited', rl.retryAfterSec);
 
-    return { ok: true, uid, profile, entitlement, config };
+    return { ok: true, uid, profile, entitlement, config, flags };
   } catch (err) {
     console.error('[ai] verifyAiRequest failed — denying', err);
     return deny(503, 'unavailable');

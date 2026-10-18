@@ -193,7 +193,9 @@ export async function runAiCoachReview(
       .get();
     const msgs: RawThreadMessage[] = mSnap.docs
       .map((d) => ({ id: d.id, data: d.data() }))
-      .filter((m) => msOf(m.data.createdAt) <= settleBefore);
+      .filter((m) => msOf(m.data.createdAt) <= settleBefore)
+      // Unified Kelly: team replies and app messages are not the AI's turns — never graded.
+      .filter((m) => m.data.source !== 'human' && m.data.source !== 'system');
     if (!msgs.some((m) => m.data.role === 'assistant')) {
       result.skippedNoNew++;
       return;

@@ -11,7 +11,12 @@
  * renders it): { model, usage: { in, out, cacheRead }, toolCalls: [{ name, input,
  * resultSummary }], guards: [{ type, action }] } — see TurnLog in turn-engine.ts.
  *
- * Retention: every message carries expireAt = createdAt + 90 days. A Firestore TTL policy
+ * Unified Kelly (kelly_unified_v1, see unified-thread.ts): messages also carry `source`
+ * ('user' | 'ai' | 'human' | 'system'), and the thread doc gains needsHuman,
+ * needsHumanSummary, needsHumanAt, lastHumanReplyAt, unreadForUser, lastMessageAt,
+ * lastMessagePreview. Team / system messages (and team-only user messages) have NO expireAt.
+ *
+ * Retention: every AI-chat message carries expireAt = createdAt + 90 days. A Firestore TTL policy
  * on the `messages` collection group, field `expireAt`, deletes them (one-time console
  * setup, see the PR). Account deletion removes the whole tree (functions/src/onUserDelete.ts).
  *
@@ -28,6 +33,7 @@ import type { WorkoutCard } from './protocol';
 import type { HistoryMessage, TurnLog, TurnState } from './turn-engine';
 import type { WorkoutToolResult } from './tools';
 import { isCoachActionId, type CoachActionId } from './action-chips';
+import { hasTtl, isKellyMessageSource, nextTeamWindow, previewOf, roleForSource, type KellyMessageSource } from './unified-thread';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
 export const AI_COACH_RETENTION_DAYS = 90;
@@ -48,6 +54,8 @@ export interface StoredMessage extends HistoryMessage {
   createdAtMs: number;
   /** Action chip ids stored on an assistant message (unknown ids dropped). */
   actions?: CoachActionId[];
+  /** Unified Kelly (kelly_unified_v1): who wrote it. Absent on messages stored before it. */
+  source?: KellyMessageSource;
 }
 
 export interface PendingTurn {
@@ -108,6 +116,7 @@ function toStored(id: string, d: Record<string, any>): StoredMessage {
     cards: Array.isArray(d.cards) ? (d.cards as StoredCard[]) : [],
     createdAtMs: msOf(d.createdAt),
     ...(Array.isArray(d.actions) ? { actions: (d.actions as unknown[]).filter(isCoachActionId) } : {}),
+    ...(isKellyMessageSource(d.source) ? { source: d.source } : {}),
   };
 }
 
@@ -128,23 +137,151 @@ export async function loadThread(db: Firestore, uid: string, now = Date.now()): 
 export async function appendMessage(
   db: Firestore,
   uid: string,
-  msg: { role: 'user' | 'assistant'; text: string; cards?: StoredCard[]; actions?: CoachActionId[]; log?: TurnLog },
+  msg: {
+    role: 'user' | 'assistant';
+    text: string;
+    cards?: StoredCard[];
+    actions?: CoachActionId[];
+    log?: TurnLog;
+    /**
+     * Unified Kelly only (kelly_unified_v1 ON): stored on the message, and the thread doc
+     * also gets lastMessageAt + lastMessagePreview. Absent = the exact pre-unified writes.
+     */
+    source?: KellyMessageSource;
+  },
   now = Date.now(),
 ): Promise<string> {
   const ref = messagesCol(db, uid).doc();
   const batch = db.batch();
+  const ttl = msg.source ? hasTtl(msg.source) : true;
   batch.set(ref, {
     role: msg.role,
     text: msg.text.slice(0, 4000),
     cards: (msg.cards ?? []).map((c) => JSON.parse(JSON.stringify(c))),
     ...(msg.actions?.length ? { actions: [...msg.actions] } : {}),
     ...(msg.log ? { log: JSON.parse(JSON.stringify(msg.log)) } : {}),
+    ...(msg.source ? { source: msg.source } : {}),
     createdAt: Timestamp.fromMillis(now),
-    expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000),
+    ...(ttl ? { expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000) } : {}),
   });
-  batch.set(threadRef(db, uid), { updatedAt: FieldValue.serverTimestamp(), messageCount: FieldValue.increment(1) }, { merge: true });
+  batch.set(
+    threadRef(db, uid),
+    {
+      updatedAt: FieldValue.serverTimestamp(),
+      messageCount: FieldValue.increment(1),
+      ...(msg.source ? { lastMessageAt: Timestamp.fromMillis(now), lastMessagePreview: previewOf(msg.text) } : {}),
+    },
+    { merge: true },
+  );
   await batch.commit();
   return ref.id;
+}
+
+// ── Unified Kelly (kelly_unified_v1) — non-AI writes into the same conversation ──────────
+
+/**
+ * The AI asked for a person (handoff_to_human): flag the thread for the admin queue. No
+ * message is written — the user already sees the AI's own reply about it.
+ */
+export async function markNeedsHuman(db: Firestore, uid: string, summary: string, now = Date.now()): Promise<void> {
+  await threadRef(db, uid).set(
+    {
+      needsHuman: true,
+      needsHumanSummary: summary.replace(/\s+/g, ' ').trim().slice(0, 600),
+      needsHumanAt: Timestamp.fromMillis(now),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * A message that is not an AI turn: a team reply ('human'), an app message ('system'), or the
+ * user's message in team-only mode ('user', which also puts the thread in the admin queue).
+ * No TTL (see hasTtl). 'human' / 'system' count toward unreadForUser and are pushed by the
+ * onKellyThreadMessage function; a team reply also clears needsHuman.
+ */
+export async function appendNonAiMessage(
+  db: Firestore,
+  uid: string,
+  msg: { source: Exclude<KellyMessageSource, 'ai'>; text: string; senderName?: string; id?: string },
+  now = Date.now(),
+): Promise<string> {
+  const ref = msg.id ? messagesCol(db, uid).doc(msg.id) : messagesCol(db, uid).doc();
+  const at = Timestamp.fromMillis(now);
+  const batch = db.batch();
+  batch.set(ref, {
+    role: roleForSource(msg.source),
+    source: msg.source,
+    text: msg.text.slice(0, 4000),
+    cards: [],
+    ...(msg.senderName ? { senderName: msg.senderName } : {}),
+    createdAt: at,
+  });
+  const thread: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+    messageCount: FieldValue.increment(1),
+    lastMessageAt: at,
+    lastMessagePreview: previewOf(msg.text),
+  };
+  if (msg.source === 'human' || msg.source === 'system') thread.unreadForUser = FieldValue.increment(1);
+  if (msg.source === 'human') {
+    thread.needsHuman = false;
+    thread.needsHumanSummary = FieldValue.delete();
+    thread.lastHumanReplyAt = at;
+  }
+  if (msg.source === 'user') {
+    thread.needsHuman = true;
+    thread.needsHumanAt = at;
+  }
+  batch.set(threadRef(db, uid), thread, { merge: true });
+  await batch.commit();
+  return ref.id;
+}
+
+/**
+ * Team-only mode: the user's message goes into the conversation and the admin queue, behind a
+ * per-user flood guard (teamWindow on the thread doc, read and written in one transaction).
+ */
+export async function appendTeamOnlyUserMessage(
+  db: Firestore,
+  uid: string,
+  text: string,
+  now = Date.now(),
+): Promise<{ ok: true; id: string } | { ok: false; retryAfterSec: number }> {
+  const tRef = threadRef(db, uid);
+  const ref = messagesCol(db, uid).doc();
+  const at = Timestamp.fromMillis(now);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(tRef);
+    const gate = nextTeamWindow(snap.exists ? snap.data()?.teamWindow : null, now);
+    if (!gate.allowed) return { ok: false as const, retryAfterSec: gate.retryAfterSec ?? 60 };
+    tx.set(ref, { role: 'user', source: 'user', text: text.slice(0, 4000), cards: [], createdAt: at });
+    tx.set(
+      tRef,
+      {
+        updatedAt: FieldValue.serverTimestamp(),
+        messageCount: FieldValue.increment(1),
+        lastMessageAt: at,
+        lastMessagePreview: previewOf(text),
+        needsHuman: true,
+        needsHumanAt: at,
+        teamWindow: gate.window,
+      },
+      { merge: true },
+    );
+    return { ok: true as const, id: ref.id };
+  });
+}
+
+/** The user opened the conversation: nothing unread. */
+export async function markThreadRead(db: Firestore, uid: string): Promise<void> {
+  await threadRef(db, uid).set({ unreadForUser: 0 }, { merge: true });
+}
+
+/** Admin: drop a thread from the queue without replying. */
+export async function resolveNeedsHuman(db: Firestore, uid: string): Promise<void> {
+  await threadRef(db, uid).set({ needsHuman: false, needsHumanSummary: FieldValue.delete() }, { merge: true });
 }
 
 export async function savePending(db: Firestore, uid: string, p: Omit<PendingTurn, 'createdAtMs'>, now = Date.now()): Promise<void> {

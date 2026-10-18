@@ -15,6 +15,7 @@
  */
 import type { CoachStreamEvent, CoachErrorInput, WorkoutCard } from '@/lib/ai/coach/protocol';
 import type { CoachActionId } from '@/lib/ai/coach/action-chips';
+import type { KellyMessageSource } from '@/lib/ai/coach/unified-thread';
 
 export const LIVE_ID = '__live__';
 
@@ -25,6 +26,9 @@ export interface UiMessage {
   cards: WorkoutCard[];
   /** Action chips under an assistant reply ("פתח את הלו״ז"). */
   actions?: CoachActionId[];
+  /** Unified Kelly only: who wrote a stored message (team replies get their own bubble). */
+  source?: KellyMessageSource;
+  senderName?: string;
 }
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';
@@ -46,6 +50,10 @@ export interface ChatState {
 
 export type ChatAction =
   | { type: 'HISTORY_LOADED'; messages: UiMessage[] }
+  /** Unified Kelly: the live listener's current stored messages (oldest first). */
+  | { type: 'SNAPSHOT'; messages: UiMessage[] }
+  /** Unified Kelly, team-only mode: the message was stored for the team (no AI turn). */
+  | { type: 'TEAM_SENT' }
   | { type: 'SEND'; id: string; text: string }
   | { type: 'EVENT'; event: CoachStreamEvent }
   /** The device ran the client tool and posted its result; `ok` false = it failed. */
@@ -75,6 +83,27 @@ function dropEmptyLive(messages: UiMessage[]): UiMessage[] {
   return messages.filter((m) => m.id !== LIVE_ID || m.text.trim() || m.cards.length);
 }
 
+/**
+ * Unified Kelly: the stored messages from the live listener are the truth; what's local on top
+ * of them is the optimistic user bubble ('u-…'), the streaming bubble (LIVE_ID) and a finished
+ * reply whose stored copy hasn't arrived yet. Each local is dropped once its stored copy is in
+ * the snapshot (same id, or the same text for the optimistic / live bubbles).
+ */
+export function mergeSnapshot(current: UiMessage[], stored: UiMessage[]): UiMessage[] {
+  const ids = new Set(stored.map((m) => m.id));
+  const recent = stored.slice(-12);
+  const userTexts = recent.filter((m) => m.role === 'user').map((m) => m.text.trim());
+  const replyTexts = recent.filter((m) => m.role === 'assistant').map((m) => m.text.trim());
+  const locals = current.filter((m) => {
+    if (ids.has(m.id)) return false;
+    if (m.id.startsWith('u-')) return !userTexts.includes(m.text.trim());
+    if (m.id === LIVE_ID) return !(m.text.trim() && replyTexts.includes(m.text.trim()));
+    // A finished reply still waiting for its stored copy; anything else was stored before.
+    return m.role === 'assistant' && !m.source;
+  });
+  return [...stored, ...locals];
+}
+
 export function isBusy(s: ChatState): boolean {
   return s.phase === 'sending' || s.phase === 'streaming' || s.phase === 'running_tool';
 }
@@ -83,6 +112,12 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
   switch (a.type) {
     case 'HISTORY_LOADED':
       return { ...s, phase: s.phase === 'loading' ? 'idle' : s.phase, messages: [...a.messages, ...s.messages] };
+
+    case 'SNAPSHOT':
+      return { ...s, phase: s.phase === 'loading' ? 'idle' : s.phase, messages: mergeSnapshot(s.messages, a.messages) };
+
+    case 'TEAM_SENT':
+      return s.phase === 'sending' ? { ...s, phase: 'idle' } : s;
 
     case 'SEND':
       if (isBusy(s)) return s;

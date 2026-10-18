@@ -39,6 +39,9 @@ import type { ActivityType } from '@/features/activity/types/activity.types';
 import { hapticSuccess } from '@/lib/haptics';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useKellyThreadMeta } from '@/features/ai-coach/hooks/useKellyThread';
+import { KELLY_UID } from '@/features/social/services/kelly-welcome-bot.service';
+import { unifiedChatBadge } from '@/lib/ai/coach/unified-thread';
 
 interface AppHeaderProps {
   /**
@@ -70,7 +73,10 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
   const profile = useUserStore((s) => s.profile);
   // Pages that don't pass `v2` (community, search, progression, map) follow
   // enable_home_v2 themselves — the header used to stay classic there.
-  const flagV2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const featureFlags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const flagV2 = featureFlags.flags.enableHomeV2;
+  // Unified Kelly: real value (rawFlags), the same one the inbox and the server use.
+  const kellyUnified = featureFlags.rawFlags.kellyUnifiedV1 === true;
   const v2 = v2Prop ?? flagV2;
   const userId = profile?.id ?? null;
   const photoURL = profile?.core?.photoURL;
@@ -105,7 +111,11 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
   const activityUnread = v2
     ? countUnseenActivity(activityItems, userId, activitySeenAt)
     : activityUnreadLegacy;
-  const { totalUnread: chatUnread } = useChatInbox(userId);
+  const { totalUnread: chatUnreadDms, threads: chatThreads } = useChatInbox(userId);
+  const kellyMeta = useKellyThreadMeta(userId, kellyUnified);
+  const chatUnread = kellyUnified && userId
+    ? unifiedChatBadge(chatThreads, userId, KELLY_UID, kellyMeta.unreadForUser)
+    : chatUnreadDms;
 
   // Sheet openers
   const openActivity = useActivityPanelStore((s) => s.open);

@@ -65,3 +65,32 @@ export async function postCoach(
   }
   for (const ev of parse(decoder.decode() + '\n\n')) onEvent(ev);
 }
+
+/**
+ * Unified Kelly (kelly_unified_v1): POST /api/ai-coach/thread — mark the conversation read, or
+ * send a message to the team (team-only mode, no AI). Throws CoachHttpError / CoachOfflineError
+ * like postCoach.
+ */
+export async function postThreadAction(
+  body: { action: 'read' } | { action: 'message'; message: string },
+): Promise<{ ok: true; messageId?: string }> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new CoachOfflineError();
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new CoachHttpError(401, 'missing_token', undefined);
+  let res: Response;
+  try {
+    res = await fetch('/api/ai-coach/thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new CoachOfflineError();
+  }
+  const data = (await res.json().catch(() => ({}))) as { error?: string; messageId?: string };
+  if (!res.ok) {
+    const ra = Number(res.headers.get('Retry-After'));
+    throw new CoachHttpError(res.status, data.error, Number.isFinite(ra) && ra > 0 ? ra : undefined);
+  }
+  return { ok: true, ...(data.messageId ? { messageId: data.messageId } : {}) };
+}

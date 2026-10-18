@@ -267,10 +267,13 @@ export type PushChannel =
                            // (onContributionApproved.ts) — validation of the
                            // user's own action, not an engagement nudge; see
                            // that file's header for the full reasoning.
-  | 'week_start';          // motzei-Shabbat "שבוע טוב" nudge, Shabbat observers
+  | 'week_start'          // motzei-Shabbat "שבוע טוב" nudge, Shabbat observers
                            // only (weekStartScheduler.ts). Own channel so it
                            // doesn't share training_reminder's rate-cap clock
                            // (it would suppress Sunday morning's reminder).
+  | 'coach';               // unified Kelly: a team reply / app message in the user's
+                           // Kelly conversation (onKellyThreadMessage.ts). A reply, not
+                           // a nudge — not in ENGAGEMENT_CHANNELS.
 
 /**
  * Opt-in measurement (Wave 1 notification engine). When provided, sendPush()

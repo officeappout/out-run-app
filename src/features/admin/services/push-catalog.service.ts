@@ -34,7 +34,8 @@ export type ChannelKey =
   | 'health_milestone'
   | 'community'
   | 'contribution_status'
-  | 'week_start';
+  | 'week_start'
+  | 'coach';
 
 export interface CatalogSource {
   label: string;
@@ -219,6 +220,16 @@ export const PUSH_CATALOG: CatalogEntry[] = [
     deployed: false,
     measured: false,
     note: 'נוסף 18.10.2026 — דורש deploy של functions (פונקציה חדשה)',
+  },
+  {
+    channel: 'coach',
+    label: 'הודעה מקלי (צוות / מערכת)',
+    type: 'auto',
+    trigger: "onCreate ai_coach_threads/{uid}/messages — source 'human' / 'system' בלבד (onKellyThreadMessage), רק כש-kelly_unified_v1 דלוק",
+    rateCapHours: 0.25,
+    deployed: false,
+    measured: false,
+    note: 'נוסף 18.10.2026 (קלי אחד, שלב 1) — דורש deploy של functions (פונקציה חדשה). תוכן = ההודעה עצמה. לעולם לא לתשובות AI.',
   },
 ];
 

@@ -215,4 +215,32 @@ describe('POST /api/ai-coach/chat', () => {
     const ev = await events(await POST(req({ message: 'מה בתוכנית השבוע?' })));
     expect(ev.at(-1)).toEqual({ type: 'error', code: 'internal' });
   });
+
+  describe('unified Kelly (kelly_unified_v1)', () => {
+    const recent = [
+      { id: 'a', role: 'user', text: 'רוצה לדבר עם מאמן', cards: [], createdAtMs: 1, source: 'user' },
+      { id: 'b', role: 'assistant', text: 'העברתי לצוות', cards: [], createdAtMs: 2, source: 'ai' },
+      { id: 'c', role: 'assistant', text: 'היי, כאן מהצוות', cards: [], createdAtMs: 3, source: 'human' },
+    ];
+
+    it('ON: messages carry source; the team reply is in the history with the team note', async () => {
+      st.auth = { ...st.auth, flags: { kellyUnifiedV1: true } };
+      st.thread.recent = recent;
+      st.script = [msg('end_turn', { type: 'text', text: 'שמח לעזור' })];
+      const ev = await events(await POST(req({ message: 'תודה' })));
+      expect(ev.at(-1)?.type).toBe('done');
+      expect(st.appended.map((m) => m.source)).toEqual(['user', 'ai']);
+      const hist = JSON.stringify(st.streamCalls[0].messages);
+      expect(hist).toContain('נכתב על ידי איש צוות OUT');
+      expect(hist).toContain('היי, כאן מהצוות');
+    });
+
+    it('OFF: the exact old writes and history (no source, no team note)', async () => {
+      st.thread.recent = recent.map(({ source: _s, ...m }) => m);
+      st.script = [msg('end_turn', { type: 'text', text: 'שמח לעזור' })];
+      await events(await POST(req({ message: 'תודה' })));
+      expect(st.appended.every((m) => !('source' in m))).toBe(true);
+      expect(JSON.stringify(st.streamCalls[0].messages)).not.toContain('נכתב על ידי איש צוות OUT');
+    });
+  });
 });

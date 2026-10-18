@@ -52,6 +52,7 @@ import {
 } from '@/lib/ai/coach/thread-store.server';
 import { executeServerTool, loadUserContextSheet, type ServerToolContext } from '@/lib/ai/coach/server-tools.server';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
+import { labelTeamMessagesForModel } from '@/lib/ai/coach/unified-thread';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -68,7 +69,7 @@ function streamErrorCode(err: unknown): CoachStreamErrorCode {
 
 async function summarizeOlder(uid: string, previous: string | null, msgs: StoredMessage[]): Promise<string | null> {
   const transcript = msgs
-    .map((m) => `${m.role === 'user' ? 'משתמש' : 'קלי'}: ${m.text.slice(0, 400)}${m.cards.length ? ` [כרטיס: ${m.cards.map((c) => c.title).join(', ')}]` : ''}`)
+    .map((m) => `${m.role === 'user' ? 'משתמש' : m.source === 'human' ? 'צוות OUT' : 'קלי'}: ${m.text.slice(0, 400)}${m.cards.length ? ` [כרטיס: ${m.cards.map((c) => c.title).join(', ')}]` : ''}`)
     .join('\n');
   const res = await createAiMessage(uid, 'ai_coach_summary', {
     model: getAiModel('fast'),
@@ -92,6 +93,9 @@ export async function POST(request: Request) {
   const body = parsed.data;
 
   const { uid, profile } = auth;
+  // Unified Kelly (kelly_unified_v1): messages carry `source`, team replies are in the model
+  // history (labelled), handoff flags this thread. Off: every write below is unchanged.
+  const unified = auth.flags?.kellyUnifiedV1 === true;
   const db = getAdminDb();
   const now = new Date();
   const gender = coachGenderOf(profile.core?.gender);
@@ -151,7 +155,7 @@ export async function POST(request: Request) {
     const text = body.message;
     try {
       if (thread.pending) await clearPending(db, uid); // the user moved on; drop the unanswered tool call
-      await appendMessage(db, uid, { role: 'user', text });
+      await appendMessage(db, uid, { role: 'user', text, ...(unified ? { source: 'user' as const } : {}) });
     } catch (err) {
       console.error('[ai-coach] saving the user message failed', err);
       return NextResponse.json({ error: 'unavailable' }, { status: 503 });
@@ -166,14 +170,14 @@ export async function POST(request: Request) {
 
   // `recent` was loaded before this request's user message was saved, so it holds only
   // earlier turns; this turn's messages travel in `state`.
-  const history = historyToModelMessages(thread.recent);
+  const history = historyToModelMessages(unified ? labelTeamMessagesForModel(thread.recent) : thread.recent);
 
   const model = getAiModel('fast');
   // Schedule advisor (phase A): read-only recommend_week / recommend_today, the sheet's
   // plan section, the derived "done" for today, the open_builder chip. Fail-closed: a flag
   // read error returns the FLAG_DEFS defaults (off).
   const scheduleAdvisor = (await getServerFeatureFlags(db)).aiCoachScheduleAdvisor === true;
-  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false }, scheduleAdvisor };
+  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false }, scheduleAdvisor, ...(unified ? { unified: true } : {}) };
 
   // Grounding: the user sheet (programs, levels, recent workouts, today's and this week's
   // schedule, gear) is read on EVERY request and put in the system prompt, so Kelly never
@@ -235,7 +239,7 @@ export async function POST(request: Request) {
           emit({ type: 'text', delta: safetyText });
           const log = newTurnLog('none');
           log.guards.push({ type: 'safety', action: `fixed_reply:${safetyTrigger}` });
-          const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText, log });
+          const id = await appendMessage(db, uid, { role: 'assistant', text: safetyText, log, ...(unified ? { source: 'ai' as const } : {}) });
           emit({ type: 'done', messageId: id });
           return;
         }
@@ -317,6 +321,7 @@ export async function POST(request: Request) {
           cards: turnCards,
           actions,
           log: outcome.state.log,
+          ...(unified ? { source: 'ai' as const } : {}),
         });
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });

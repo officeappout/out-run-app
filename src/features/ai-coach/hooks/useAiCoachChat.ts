@@ -4,20 +4,74 @@
  * useAiCoachChat — drives the "קלי AI" screen: loads the stored thread (owner-read via the
  * client SDK), sends messages, and closes the client_tool loop (run the tool on the
  * device → POST the compact result → keep streaming).
+ *
+ * Unified Kelly (opts.unified, flag kelly_unified_v1): the thread is a LIVE listener
+ * (onSnapshot) so team replies appear while the screen is open; opening it marks the
+ * conversation read (server route); and in team-only mode — or when the AI gate refuses this
+ * user (minor, no entitlement, kill switch, budget, rate limit) — the message goes to the team
+ * through /api/ai-coach/thread instead of the AI. Without opts.unified: exactly the old hook.
  */
-import { useCallback, useEffect, useReducer, useRef } from 'react';
-import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { collection, getDocs, limit, onSnapshot, orderBy, query, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import type { ChatRequest, CoachStreamEvent, WorkoutCard } from '@/lib/ai/coach/protocol';
-import { CoachHttpError, CoachOfflineError, postCoach } from '../services/ai-coach-api';
+import { CoachHttpError, CoachOfflineError, postCoach, postThreadAction } from '../services/ai-coach-api';
 import { runClientTool } from '../services/client-tools';
 import { chatReducer, initialChatState, isBusy, type UiMessage } from '../state/chat-machine';
 import { isCoachActionId } from '@/lib/ai/coach/action-chips';
+import { messageSourceOf, TEAM_FALLBACK_CODES } from '@/lib/ai/coach/unified-thread';
+import { useKellyThreadMeta } from './useKellyThread';
 
 const HISTORY_LIMIT = 30;
+const UNIFIED_LIMIT = 50;
 
-export function useAiCoachChat(profile: UserFullProfile | null) {
+function storedCards(x: DocumentData): WorkoutCard[] {
+  return Array.isArray(x.cards)
+    ? (x.cards as WorkoutCard[]).map((c) => ({
+        type: 'workout' as const,
+        workoutId: c.workoutId,
+        title: c.title,
+        minutes: c.minutes,
+        exerciseCount: c.exerciseCount,
+        location: c.location,
+        ...(Array.isArray(c.domains) ? { domains: c.domains.filter((d) => typeof d === 'string').slice(0, 8) } : {}),
+        ...(typeof c.difficulty === 'number' ? { difficulty: c.difficulty } : {}),
+      }))
+    : [];
+}
+
+/** Unified Kelly: a stored message of any source → a screen message. */
+export function unifiedUiMessage(id: string, x: DocumentData): UiMessage {
+  const source = messageSourceOf(x);
+  return {
+    id,
+    role: source === 'user' ? 'user' : 'assistant',
+    text: typeof x.text === 'string' ? x.text : '',
+    cards: storedCards(x),
+    actions: Array.isArray(x.actions) ? (x.actions as unknown[]).filter(isCoachActionId) : [],
+    source,
+    ...(typeof x.senderName === 'string' ? { senderName: x.senderName } : {}),
+  };
+}
+
+export interface AiCoachChatOptions {
+  /** kelly_unified_v1 ON. */
+  unified?: boolean;
+  /** Start in team-only mode (no AI for this user). Only with `unified`. */
+  teamOnly?: boolean;
+}
+
+export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachChatOptions = {}) {
+  const unified = opts.unified === true;
+  const [teamMode, setTeamMode] = useState<boolean>(unified && opts.teamOnly === true);
+  const teamModeRef = useRef(teamMode);
+  teamModeRef.current = teamMode;
+  const unifiedRef = useRef(unified);
+  unifiedRef.current = unified;
+  useEffect(() => {
+    if (unified && opts.teamOnly) setTeamMode(true);
+  }, [unified, opts.teamOnly]);
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -27,8 +81,41 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
 
   // ── History ────────────────────────────────────────────────────────────────
   const uid = profile?.id ?? null;
+
+  // Unified: live listener on the newest messages (every source).
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !unified) return;
+    return onSnapshot(
+      query(collection(db, 'ai_coach_threads', uid, 'messages'), orderBy('createdAt', 'desc'), limit(UNIFIED_LIMIT)),
+      (snap) => dispatch({ type: 'SNAPSHOT', messages: snap.docs.map((d) => unifiedUiMessage(d.id, d.data())).reverse() }),
+      (err) => {
+        console.warn('[ai-coach] live thread unavailable', err);
+        dispatch({ type: 'SNAPSHOT', messages: [] });
+      },
+    );
+  }, [uid, unified]);
+
+  // Unified: the screen is open and visible → nothing unread (server route; clients can't write).
+  const meta = useKellyThreadMeta(uid, unified);
+  const readInFlight = useRef(false);
+  useEffect(() => {
+    if (!unified || meta.unreadForUser <= 0) return;
+    const markRead = () => {
+      if (readInFlight.current || document.visibilityState !== 'visible') return;
+      readInFlight.current = true;
+      postThreadAction({ action: 'read' })
+        .catch((err) => console.warn('[ai-coach] mark read failed', err))
+        .finally(() => {
+          readInFlight.current = false;
+        });
+    };
+    markRead();
+    document.addEventListener('visibilitychange', markRead);
+    return () => document.removeEventListener('visibilitychange', markRead);
+  }, [unified, meta.unreadForUser]);
+
+  useEffect(() => {
+    if (!uid || unified) return;
     let cancelled = false;
     (async () => {
       let messages: UiMessage[] = [];
@@ -68,9 +155,25 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, unified]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // ── Team-only send (unified): stored for the team, no AI call ───────────────
+  const sendToTeam = useCallback(async (text: string): Promise<void> => {
+    try {
+      await postThreadAction({ action: 'message', message: text });
+      dispatch({ type: 'TEAM_SENT' });
+    } catch (err) {
+      if (err instanceof CoachHttpError) {
+        dispatch({ type: 'FAILED', error: { status: err.status, code: err.code, retryAfterSec: err.retryAfterSec } });
+      } else if (err instanceof CoachOfflineError) {
+        dispatch({ type: 'FAILED', error: { offline: true } });
+      } else {
+        dispatch({ type: 'FAILED', error: {} });
+      }
+    }
+  }, []);
 
   // ── One request (+ the client tool continuation it may trigger) ─────────────
   const run = useCallback(async (body: ChatRequest): Promise<void> => {
@@ -90,6 +193,14 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
       );
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return;
+      // Unified: no AI for this user right now → the same message goes to the team instead,
+      // and the screen stays in team-only mode. (The AI gate refused before storing anything.)
+      if (unifiedRef.current && err instanceof CoachHttpError && 'message' in body && TEAM_FALLBACK_CODES.includes(err.code ?? '')) {
+        setTeamMode(true);
+        teamModeRef.current = true;
+        await sendToTeam(body.message);
+        return;
+      }
       if (err instanceof CoachHttpError) {
         dispatch({ type: 'FAILED', error: { status: err.status, code: err.code, retryAfterSec: err.retryAfterSec } });
       } else if (err instanceof CoachOfflineError) {
@@ -115,16 +226,17 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
       dispatch({ type: 'TOOL_POSTED', ok: outcome.ok });
       await run({ toolResult: { id: call.id, outcome } });
     }
-  }, []);
+  }, [sendToTeam]);
 
   const send = useCallback(
     (text: string) => {
       const t = text.trim();
       if (!t || isBusy(stateRef.current)) return;
       dispatch({ type: 'SEND', id: `u-${Date.now()}`, text: t });
-      void run({ message: t });
+      if (unifiedRef.current && teamModeRef.current) void sendToTeam(t);
+      else void run({ message: t });
     },
-    [run],
+    [run, sendToTeam],
   );
 
   const retry = useCallback(() => {
@@ -132,11 +244,12 @@ export function useAiCoachChat(profile: UserFullProfile | null) {
     dispatch({ type: 'DISMISS_ERROR' });
     if (last) {
       dispatch({ type: 'SEND', id: `u-${Date.now()}`, text: last });
-      void run({ message: last });
+      if (unifiedRef.current && teamModeRef.current) void sendToTeam(last);
+      else void run({ message: last });
     }
-  }, [run]);
+  }, [run, sendToTeam]);
 
   const dismissError = useCallback(() => dispatch({ type: 'DISMISS_ERROR' }), []);
 
-  return { state, send, retry, dismissError };
+  return { state, send, retry, dismissError, teamMode: unified && teamMode };
 }
