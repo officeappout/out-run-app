@@ -24,10 +24,15 @@ describe('resolveEquipment', () => {
     expect(resolveEquipment(profile, 'park', undefined, false)).toEqual(['bodyweight']);
   });
 
-  it('Decision F: empty profile + active skill program → defaults to bodyweight + resistance_bands', () => {
+  it('Decision F reverted (H1 gear truth, 2026-10-18): empty profile + active skill program → bodyweight only, no assumed band', () => {
     const profile = makeProfile();
-    expect(resolveEquipment(profile, 'park', undefined, true)).toEqual(['bodyweight', 'resistance_bands']);
-    expect(resolveEquipment(profile, 'home', undefined, true)).toEqual(['bodyweight', 'resistance_bands']);
+    expect(resolveEquipment(profile, 'park', undefined, true)).toEqual(['bodyweight']);
+    expect(resolveEquipment(profile, 'home', undefined, true)).toEqual(['bodyweight']);
+  });
+
+  it('a skill user who OWNS a band keeps it (it comes from the profile, not an assumption)', () => {
+    const profile = makeProfile({ home: ['I1K30JehaxSx8dlBOZyd'] });
+    expect(resolveEquipment(profile, 'home', undefined, true)).toEqual(['I1K30JehaxSx8dlBOZyd']);
   });
 
   it('a non-empty profile is never touched by the skill flag — real equipment always wins', () => {

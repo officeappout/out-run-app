@@ -13,8 +13,8 @@
  *                             domain priority sort).  This is the FINAL
  *                             ordering pass and nothing may reorder
  *                             `workout.exercises` after it.
- *   4. enforceVolumeCap     — final duration-cap pass (Phase A: remove
- *                             expendable exercises; Phase B: trim sets) so
+ *   4. enforceVolumeCap     — final duration-cap pass (trim sets, then rest,
+ *                             then expendable exercises down to a per-duration floor) so
  *                             the workout fits inside its bolt cap before
  *                             re-pairing and re-sorting.
  *
@@ -43,6 +43,7 @@ import {
   clearOrphanedPairings,
 } from '../../logic/workout-sorting.utils';
 import { calculateEstimatedDuration } from '../../logic/workout-budgeting.utils';
+import { minMainExercisesFor, shortSessionRestFloor } from '../../logic/session-frame.utils';
 import { classifyPyramidShape } from '../../logic/protocols/pyramid.processor';
 
 // ============================================================================
@@ -445,7 +446,23 @@ const LEGS_MGS = new Set(['squat', 'hinge', 'lunge']);
  * the promised window are never trimmed further.
  */
 const VOLUME_CAP_TOLERANCE_MIN = 3;
-/** Phase C never drops the session below this many main exercises. */
+/**
+ * Insert a main exercise right after the last main one, so the warm-up stays
+ * first and the cool-down stays last (Phase D used to append after the cool-down).
+ */
+function insertAfterLastMain(list: WorkoutExercise[], added: WorkoutExercise): WorkoutExercise[] {
+  let at = -1;
+  list.forEach((e, idx) => { if (e.exerciseRole !== 'warmup' && e.exerciseRole !== 'cooldown') at = idx; });
+  if (at < 0) {
+    const firstCooldown = list.findIndex(e => e.exerciseRole === 'cooldown');
+    at = (firstCooldown >= 0 ? firstCooldown : list.length) - 1;
+  }
+  const out = [...list];
+  out.splice(at + 1, 0, added);
+  return out;
+}
+
+/** Absolute floor under the duration-based minMainExercisesFor (H3). */
 const MIN_MAIN_EXERCISES = 2;
 
 /**
@@ -456,53 +473,61 @@ const MIN_MAIN_EXERCISES = 2;
  * trimmed an overshoot and silently accepted ANY undershoot, however large,
  * as soon as `estimatedMin <= durationCap`).
  *
- * Algorithm (mirrors the pre-Phase-4 inline VolumeGuard for A/B; C and D are
- * later, duration-aware additions):
+ * Algorithm — order changed 2026-10-18 (generator QA round 1, H3: "too few main
+ * exercises in short sessions"): variety is now the LAST thing cut, after sets and
+ * rest. Floor = minMainExercisesFor(durationCap) (10/15 → 3, 20/30 → 4, 45 → 5,
+ * 60 → 6), never below MIN_MAIN_EXERCISES.
  *
- *   Phase A — Remove the SINGLE most-expendable main exercise per iteration:
- *     1. Core / anti-extension / anti-rotation (most expendable)
- *     2. Isolation / accessory exercises
- *     3. Extra legs exercises beyond the first
- *   Re-estimates the duration after each removal; stops when within cap.
+ *   Phase V — Variety add-back: below the floor, pull reserve candidates
+ *     (WorkoutGenerator's scored-but-unselected leftovers) at `minSets` first.
  *
  *   Phase B — Trim sets (down to `minSets`) by tier priority:
  *     flow / easy → match → skill → compound → foundation / hard / elite.
  *
+ *   Phase R — Compress main rest by 15 s per pass down to
+ *     shortSessionRestFloor(durationCap) (10 min → 40 s … >30 min → 75 s).
+ *
+ *   Phase A — Remove the SINGLE most-expendable main exercise per iteration
+ *     (never below the floor):
+ *     1. Core / anti-extension / anti-rotation (most expendable; <20 min only)
+ *     2. Isolation / accessory exercises
+ *     3. Extra legs exercises beyond the first
+ *
  *   Phase C — Convergence for ultra-short budgets: drops the lowest-scored
- *     main exercise (never below MIN_MAIN_EXERCISES) when A+B still leave
- *     the plan beyond cap+tolerance.
+ *     main exercise (never below the floor) when V-B-R-A still leave the plan
+ *     beyond cap+tolerance. At the floor the plan may overshoot — honest,
+ *     reported in the summary log.
  *
- *   Phase D — ADD-BACK for under-target plans (the new phase): while the
- *     plan lands more than `tolerance` UNDER cap, first bump the
- *     highest-scored main exercise that still has headroom below its tier's
- *     max sets (fine-grained, mirrors Phase B in reverse); once nothing has
- *     headroom, pull the next candidate from `workout.reserveExercises`
- *     (WorkoutGenerator's scored-but-unselected leftovers — see its own doc
- *     comment), starting it at `minSets` so it's immediately available for
- *     further bumping too. Stops (honest floor, does not invent volume) once
- *     both sources are exhausted, even if still short — reported, not
- *     silently overridden, per the level-driven-sets-ceiling guardrail.
+ *   Phase D — ADD-BACK for under-target plans: while the plan lands more than
+ *     `tolerance` UNDER cap, first bump the highest-scored main exercise that
+ *     still has headroom below its tier's max sets; once nothing has headroom,
+ *     pull the next reserve candidate at `minSets`. Stops (honest floor) once
+ *     both sources are exhausted.
  *
- * Mutates `workout.exercises`, `workout.estimatedDuration`,
- * `workout.totalPlannedSets`, and (Phase D only) `workout.reserveExercises`.
+ * Mutates `workout.exercises` (sets, restSeconds), `workout.estimatedDuration`,
+ * `workout.totalPlannedSets`, and (Phases V/D) `workout.reserveExercises`.
  * Returns the same workout reference.
  *
- * Rest seconds are NEVER touched — the staircase is physiologically fixed,
- * in both directions (Phase B never reduces it below the tier value; Phase D
- * never invents a lower one to fit a new exercise in faster).
+ * Rest is only ever SHORTENED (Phase R, over-cap plans) and never below the
+ * session's rest floor; Phase D never invents a lower rest to fit more in.
  */
 export function enforceVolumeCap(
   workout: GeneratedWorkout,
   config: VolumeCapConfig,
 ): GeneratedWorkout {
   const minSets = config.minSets ?? 2;
-  const maxIterations = config.maxIterations ?? 30;
+  const maxIterations = config.maxIterations ?? 60;
   const label = config.diagnosticLabel ?? 'volume_guard';
+  // H3 variety floor + rest floor (generator QA round 1, 2026-10-18).
+  const minMain = Math.max(MIN_MAIN_EXERCISES, minMainExercisesFor(config.durationCap));
+  const restFloor = shortSessionRestFloor(config.durationCap);
+  const mainCount = (): number => workout.exercises.filter(e => e.exerciseRole === 'main').length;
 
   let estimatedMin = calculateEstimatedDuration(workout.exercises);
   const alreadyWithinTolerance =
     estimatedMin <= config.durationCap &&
-    estimatedMin >= config.durationCap - VOLUME_CAP_TOLERANCE_MIN;
+    estimatedMin >= config.durationCap - VOLUME_CAP_TOLERANCE_MIN &&
+    (mainCount() >= minMain || (workout.reserveExercises?.length ?? 0) === 0);
   if (alreadyWithinTolerance) {
     // Even when no pruning is needed, refresh the workout's estimate so the
     // cap pass is the single source of truth for the displayed duration.
@@ -516,9 +541,77 @@ export function enforceVolumeCap(
     `[PresentationFormatter.volumeCap] ${label} estimated=${estimatedMin}m ${direction} cap=${config.durationCap}m (±${VOLUME_CAP_TOLERANCE_MIN}m)`,
   );
 
-  // ── Phase A: remove whole exercises ─────────────────────────────────────
+  // ── Phase V: variety add-back (H3) ──────────────────────────────────────
+  // A plan below the duration's minimum MAIN exercise count first pulls
+  // WorkoutGenerator's scored-but-unselected reserve (same pool, strict domains
+  // already honoured) at `minSets` — BEFORE any trimming — so the trim phases
+  // below reach the time cap by cutting sets and rest, not variety.
+  {
+    const inPlan = new Set(workout.exercises.map(e => e.exercise.id));
+    while (mainCount() < minMain && guardIterations < maxIterations) {
+      const reservePool = (workout.reserveExercises ?? []).filter(r => !inPlan.has(r.exercise.id));
+      const pick = reservePool[0];
+      if (!pick) break;
+      const added: WorkoutExercise = { ...pick, sets: minSets, reasoning: [...pick.reasoning, `volume_guard:variety_floor(${label}min=${minMain})`] };
+      workout.exercises = insertAfterLastMain(workout.exercises, added);
+      inPlan.add(added.exercise.id);
+      workout.reserveExercises = (workout.reserveExercises ?? []).filter(r => r.exercise.id !== added.exercise.id);
+      console.log(`[PresentationFormatter.volumeCap] PhaseV: added "${(added.exercise.name as any)?.he || added.exercise.id}" from reserve — ${mainCount()}/${minMain} main`);
+      guardIterations++;
+    }
+    estimatedMin = calculateEstimatedDuration(workout.exercises);
+  }
+
+  // ── Phase B: trim sets (runs BEFORE any exercise is removed — H3) ───────
+  while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
+    const trimCandidate = workout.exercises
+      // protocolBlock members excluded: block duration is set-count-independent
+      .filter(ex => ex.exerciseRole === 'main' && !ex.protocolBlock && ex.sets > minSets)
+      .sort((a, b) => {
+        const trimPriority = (ex: WorkoutExercise): number => {
+          if (ex.tier === 'flow' || ex.tier === 'easy') return 0;
+          if (ex.priority === 'isolation' || ex.priority === 'accessory') return 1;
+          if (ex.tier === 'match') return 2;
+          if (ex.priority === 'skill') return 3;
+          if (ex.priority === 'compound') return 4;
+          return 5; // foundation / hard / elite — trim last
+        };
+        return trimPriority(a) - trimPriority(b);
+      })[0];
+
+    if (!trimCandidate) break;
+
+    trimCandidate.sets -= 1;
+    trimCandidate.reasoning.push(
+      `volume_guard:sets_trimmed(${label}cap=${config.durationCap}m)`,
+    );
+    estimatedMin = calculateEstimatedDuration(workout.exercises);
+    guardIterations++;
+  }
+
+  // ── Phase R: compress rest (short sessions) ─────────────────────────────
+  // Sets are already at the floor; before ANY whole exercise is removed, shorten
+  // main rest by 15 s per pass (all mains at once) down to shortSessionRestFloor
+  // (10 min → 40 s … >30 min → 75 s). Tabata blocks keep their fixed timing.
+  while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
+    let compressed = false;
+    for (const ex of workout.exercises) {
+      if (ex.exerciseRole !== 'main' || ex.protocolBlock || !(ex.restSeconds > restFloor)) continue;
+      ex.restSeconds = Math.max(restFloor, ex.restSeconds - 15);
+      if (!ex.reasoning.some(r => r.startsWith('volume_guard:rest_compressed'))) {
+        ex.reasoning.push(`volume_guard:rest_compressed(${label}floor=${restFloor}s)`);
+      }
+      compressed = true;
+    }
+    if (!compressed) break;
+    estimatedMin = calculateEstimatedDuration(workout.exercises);
+    guardIterations++;
+  }
+
+  // ── Phase A: remove whole exercises (only after sets AND rest are trimmed) ─
   // Each iteration removes the SINGLE most-expendable main exercise, then
-  // re-estimates.  Stops as soon as we are within cap.
+  // re-estimates.  Stops as soon as we are within cap — and never below the
+  // duration's minimum main count (H3 variety floor).
   //
   // Duration-dependent core trim order (David's decision, 05.09.2026 —
   // docs/workout-engine/09-CORE-TABATA.md's follow-up investigation):
@@ -604,7 +697,7 @@ export function enforceVolumeCap(
     return 2; // extra legs
   };
 
-  while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
+  while (estimatedMin > config.durationCap && guardIterations < maxIterations && mainCount() > minMain) {
     const removeCandidate = workout.exercises
       .filter(isExpendable)
       .sort((a, b) => {
@@ -629,33 +722,6 @@ export function enforceVolumeCap(
     guardIterations++;
   }
 
-  // ── Phase B: trim sets on remaining exercises ───────────────────────────
-  while (estimatedMin > config.durationCap && guardIterations < maxIterations) {
-    const trimCandidate = workout.exercises
-      // protocolBlock members excluded: block duration is set-count-independent
-      .filter(ex => ex.exerciseRole === 'main' && !ex.protocolBlock && ex.sets > minSets)
-      .sort((a, b) => {
-        const trimPriority = (ex: WorkoutExercise): number => {
-          if (ex.tier === 'flow' || ex.tier === 'easy') return 0;
-          if (ex.priority === 'isolation' || ex.priority === 'accessory') return 1;
-          if (ex.tier === 'match') return 2;
-          if (ex.priority === 'skill') return 3;
-          if (ex.priority === 'compound') return 4;
-          return 5; // foundation / hard / elite — trim last
-        };
-        return trimPriority(a) - trimPriority(b);
-      })[0];
-
-    if (!trimCandidate) break;
-
-    trimCandidate.sets -= 1;
-    trimCandidate.reasoning.push(
-      `volume_guard:sets_trimmed(${label}cap=${config.durationCap}m)`,
-    );
-    estimatedMin = calculateEstimatedDuration(workout.exercises);
-    guardIterations++;
-  }
-
   // ── Phase C: convergence for ultra-short budgets ────────────────────────
   // Phases A+B respect expendability classes and the 2-set floor — which
   // cannot fit 4 compounds + the fixed rest staircase into a 15-minute
@@ -673,7 +739,7 @@ export function enforceVolumeCap(
     // protocolBlock members are undroppable (fixed 4-min block, Stage 3.1) —
     // they still count toward the MIN_MAIN_EXERCISES floor.
     const mains = workout.exercises.filter(e => e.exerciseRole === 'main');
-    if (mains.length <= MIN_MAIN_EXERCISES) break;
+    if (mains.length <= minMain) break; // H3 variety floor (was MIN_MAIN_EXERCISES=2)
     const droppable = mains.filter(e => !e.protocolBlock);
     if (droppable.length === 0) break;
     const dropCandidate = [...droppable].sort((a, b) => a.score - b.score)[0];
@@ -731,7 +797,8 @@ export function enforceVolumeCap(
     // candidate (WorkoutGenerator's scored-but-unselected leftovers),
     // starting it at minSets so it re-enters the bump pool above on a later
     // iteration instead of landing at its full tier volume in one jump.
-    const reservePool = workout.reserveExercises ?? [];
+    const inPlanD = new Set(workout.exercises.map(e => e.exercise.id));
+    const reservePool = (workout.reserveExercises ?? []).filter(r => !inPlanD.has(r.exercise.id));
     const pullCandidate = reservePool[0];
     if (!pullCandidate) break; // both sources exhausted — honest floor
 
@@ -740,7 +807,7 @@ export function enforceVolumeCap(
       ...added.reasoning,
       `volume_guard:pulled_from_reserve(${label}cap=${config.durationCap}m)`,
     ];
-    workout.exercises = [...workout.exercises, added];
+    workout.exercises = insertAfterLastMain(workout.exercises, added); // was appended after the cool-down
     workout.reserveExercises = reservePool.slice(1);
     console.log(
       `[PresentationFormatter.volumeCap] PhaseD: added ` +

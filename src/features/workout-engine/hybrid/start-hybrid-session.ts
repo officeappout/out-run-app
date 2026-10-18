@@ -18,6 +18,7 @@ import type { WorkoutGenerationContext, GeneratedWorkout } from '../logic/workou
 import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
+import { withoutTestExercises } from '../shared/utils/test-exercise.utils';
 import { bucketTopology, composeRoundTripLegs, fetchMapboxWalkLeg, type RoundTripLegs } from './round-trip';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { buildStepContext } from '../core/context/build-step-context';
@@ -820,7 +821,8 @@ async function composeRouteStopsWorkout(
   // rejection still surfaces there (the .catch below only prevents an unhandled-rejection warning
   // on the early-return paths). The routes prefetch only fills the cache the backbone reads; on
   // failure the backbone's own read runs and behaves exactly as before.
-  const exercisesP = tm.time('exercises', getAllExercisesCached());
+  // H5: test / placeholder docs never reach a hybrid station or stop.
+  const exercisesP = tm.time('exercises', getAllExercisesCached().then(withoutTestExercises));
   exercisesP.catch(() => { /* surfaced where awaited */ });
   const officialRoutesP = tm.time('officialRoutes',
     import('@/features/parks/core/services/inventory.service')
@@ -1390,7 +1392,7 @@ export async function composeHybridPlan(
     ...(gateHydraulicEquipment ? { parkEquipment: gateHydraulicEquipment } : {}),
   }];
 
-  const masterExercises = await getAllExercises();
+  const masterExercises = withoutTestExercises(await getAllExercises()); // H5
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,

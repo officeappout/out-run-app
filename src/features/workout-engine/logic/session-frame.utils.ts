@@ -46,3 +46,36 @@ export function cooldownCountBudget(availableTimeMin: number | undefined): 1 | 2
   if (availableTimeMin < 40) return 2;
   return 3;
 }
+
+/**
+ * Minimum MAIN exercises for a session length (owner's target, generator QA round 1,
+ * 2026-10-18 — 05-BENCHMARK §6.2 H3):
+ *   ≤10 → 3 · ≤15 → 3 · ≤20 → 4 · ≤30 → 4 · ≤45 → 5 · >45 → 6
+ * A floor on VARIETY, not volume: the budget/duration passes reach it by trimming
+ * sets (never below the structure floor) and then rest before they may drop a whole
+ * exercise below it (BudgetDistributor._pyramidAwareCap / cluster caps,
+ * PresentationFormatter.enforceVolumeCap). undefined/invalid → 0 (no floor —
+ * legacy behaviour for callers that don't pass a time).
+ */
+export function minMainExercisesFor(availableTimeMin: number | undefined): number {
+  if (!availableTimeMin || availableTimeMin <= 0) return 0;
+  if (availableTimeMin <= 15) return 3;
+  if (availableTimeMin <= 30) return 4;
+  if (availableTimeMin <= 45) return 5;
+  return 6;
+}
+
+/**
+ * Shortest between-set rest (seconds) the duration cap may compress a MAIN exercise
+ * to before it is allowed to drop a whole exercise (short sessions only — a 10-min
+ * session with the 120-165 s strength staircase fits ~1 exercise). Longer sessions
+ * keep a near-staircase floor.
+ *   ≤10 → 40 · ≤15 → 45 · ≤20 → 60 · ≤30 → 60 · >30 → 75
+ */
+export function shortSessionRestFloor(availableTimeMin: number | undefined): number {
+  if (!availableTimeMin || availableTimeMin <= 0) return 75;
+  if (availableTimeMin <= 10) return 40;
+  if (availableTimeMin <= 15) return 45;
+  if (availableTimeMin <= 30) return 60;
+  return 75;
+}

@@ -24,7 +24,7 @@ import {
   calculateEstimatedDuration,
   rederiveVolumeForSwappedExercise,
 } from '../logic/workout-budgeting.utils';
-import { resolveExerciseLevelForDomains } from '../logic/workout-selection.utils';
+import { resolveExerciseLevelForDomains, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from '../logic/workout-selection.utils';
 import { normalizeGearId, ESSENTIAL_PARK_GEAR } from '../shared/utils/gear-mapping.utils';
 import {
   MG_TO_DOMAIN,
@@ -565,6 +565,8 @@ export function applyFlowRegression(
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
   availableEquipment?: string[],
+  /** Requested body areas (strict builder chips / AI domains) — constrains the naked backfill. */
+  requiredDomains?: string[],
 ): void {
   workout.difficulty = 1 as any;
   const FLOW_DIFFICULTY: DifficultyLevel = 1;
@@ -701,7 +703,7 @@ export function applyFlowRegression(
 
   applyEssentialGearFilter(
     workout, _blacklistedIds, allExercises, location,
-    userProgramLevels, activeProgramId, levelProgressPercent, intentMode,
+    userProgramLevels, activeProgramId, levelProgressPercent, intentMode, requiredDomains,
   );
 
   // Belt-and-suspenders warmup floor enforcement.
@@ -735,6 +737,11 @@ export function applyEssentialGearFilter(
   activeProgramId?: string,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
+  /**
+   * Requested body areas. When given, the naked backfill only takes exercises
+   * of these areas; otherwise only areas the workout's main block already trains.
+   */
+  requiredDomains?: string[],
 ): void {
   const GEAR_FILTER_DIFFICULTY: DifficultyLevel = (workout.difficulty as DifficultyLevel) ?? 2;
 
@@ -815,24 +822,71 @@ export function applyEssentialGearFilter(
     }
   }
 
+  const BACKFILL_MIN_DELTA = -3;
+  const BACKFILL_MAX_DELTA = 1;
+  const domainOf = (mg: string | undefined): string | undefined => (mg ? MG_TO_DOMAIN[mg] : undefined);
+  const targetDomains = new Set<string>(
+    requiredDomains?.length
+      ? requiredDomains
+      : main.map(ex => domainOf(ex.exercise.movementGroup as string | undefined)).filter((d): d is string => !!d),
+  );
+  // A skill area (planche, front_lever…) also admits its parent (push / pull).
+  for (const d of Array.from(targetDomains)) {
+    const parent = DOMAIN_RESOLUTION_SKILL_PARENT_MAP[d];
+    if (parent) targetDomains.add(parent);
+  }
+  const methodHere = (raw: Exercise): ExecutionMethod | undefined => {
+    const ms = raw.execution_methods ?? raw.executionMethods ?? [];
+    // A doc with no methods at all is treated as gear-free (isRawExNaked's own rule) —
+    // unchanged legacy behaviour; it is stamped with an empty method as before.
+    if (ms.length === 0) return {} as ExecutionMethod;
+    const gearFree = ms.filter(m => isGearFree(collectMethodGear(m as any), true));
+    if (!location) return gearFree[0];
+    return gearFree.find(m => m.location === location || m.locationMapping?.includes(location));
+  };
   const MIN_EXERCISES = 3;
   if (nakedMain.length < MIN_EXERCISES) {
     const usedIds = new Set([
       ...nakedMain.map(ex => ex.exercise.id),
       ...Array.from(_blacklistedIds),
     ]);
-    const candidates = allExercises.filter(ex =>
-      !usedIds.has(ex.id)
-      && isRawExNaked(ex)
-      && ex.exerciseRole !== 'cooldown'
-      && ex.exerciseRole !== 'warmup'
-      && isDomainRegistered(ex, userProgramLevels),
-    );
+    // Level + domain constrained (generator QA round 1, 05-BENCHMARK §6.4 #4): this
+    // used to take the first gear-free docs in CATALOG ORDER (`slice(0, needed)`) — no
+    // level window, no domain — e.g. "שכיבות סמיכה סופינציה" (push L10) for an L1 user
+    // in a back / legs request (~half of all H4 violations). Now: only the requested
+    // areas (or, without a request, the areas the main block already trains), only
+    // levelDelta in [−3, +1] (bolt-1 territory), closest to the user's level first
+    // (at-or-below before above), and only with a gear-free method AT this location.
+    const candidates = allExercises
+      .filter(ex =>
+        !usedIds.has(ex.id)
+        && isRawExNaked(ex)
+        && ex.exerciseRole !== 'cooldown'
+        && ex.exerciseRole !== 'warmup'
+        && isDomainRegistered(ex, userProgramLevels)
+        && (targetDomains.size === 0 || targetDomains.has(domainOf(ex.movementGroup as string | undefined) ?? '')),
+      )
+      .map(ex => ({ ex, delta: levelInfoFor(ex).levelDelta, method: methodHere(ex), domain: domainOf(ex.movementGroup as string | undefined) ?? '' }))
+      .filter(c => c.method && c.delta >= BACKFILL_MIN_DELTA && c.delta <= BACKFILL_MAX_DELTA)
+      .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.delta - b.delta);
     const needed = MIN_EXERCISES - nakedMain.length;
-    const backfill = candidates.slice(0, needed);
-    for (const raw of backfill) {
-      const nakedMethod = (raw.execution_methods ?? raw.executionMethods ?? [])
-        .find(m => isGearFree(collectMethodGear(m as any), true));
+    // Areas the naked filter left least represented first (a pull+legs session whose
+    // only bar pull was removed gets a gear-free pull back before a third legs drill).
+    const areaCount = new Map<string, number>();
+    for (const ex of nakedMain) {
+      const d = domainOf(ex.exercise.movementGroup as string | undefined);
+      if (d) areaCount.set(d, (areaCount.get(d) ?? 0) + 1);
+    }
+    const picked: typeof candidates = [];
+    const pool = [...candidates];
+    while (picked.length < needed && pool.length) {
+      pool.sort((a, b) => (areaCount.get(a.domain) ?? 0) - (areaCount.get(b.domain) ?? 0));
+      const next = pool.shift()!;
+      picked.push(next);
+      areaCount.set(next.domain, (areaCount.get(next.domain) ?? 0) + 1);
+    }
+    const backfill = picked.map(c => c.ex);
+    for (const { ex: raw, method: nakedMethod } of picked) {
       // Core set-count lock (docs/workout-engine/05-BENCHMARK.md §3.3): a
       // core/abs main exercise is 2-3 sets (opened from an exact 2, docs/
       // workout-engine/09-CORE-TABATA.md §2 — form A only), never the
@@ -898,16 +952,26 @@ export function applyEssentialGearFilter(
       ...Array.from(_blacklistedIds),
     ]);
     for (const violator of violations) {
-      const replacement = allExercises.find(raw =>
-        !usedIds.has(raw.id)
-        && isRawExNaked(raw)
-        && raw.exerciseRole !== 'cooldown'
-        && raw.exerciseRole !== 'warmup'
-        && isDomainRegistered(raw, userProgramLevels),
-      );
+      // Same domain as the violator, level window, gear-free method here (was: the
+      // first gear-free doc in catalog order — any domain, any level).
+      const violatorDomain = domainOf(violator.exercise.movementGroup as string | undefined);
+      const replacementPick = allExercises
+        .filter(raw =>
+          !usedIds.has(raw.id)
+          && isRawExNaked(raw)
+          && raw.exerciseRole !== 'cooldown'
+          && raw.exerciseRole !== 'warmup'
+          && isDomainRegistered(raw, userProgramLevels)
+          && (violatorDomain
+            ? domainOf(raw.movementGroup as string | undefined) === violatorDomain
+            : targetDomains.size === 0 || targetDomains.has(domainOf(raw.movementGroup as string | undefined) ?? '')),
+        )
+        .map(raw => ({ raw, delta: levelInfoFor(raw).levelDelta, method: methodHere(raw) }))
+        .filter(c => c.method && c.delta >= BACKFILL_MIN_DELTA && c.delta <= BACKFILL_MAX_DELTA)
+        .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || a.delta - b.delta)[0];
+      const replacement = replacementPick?.raw;
       if (replacement) {
-        const nakedMethod = (replacement.execution_methods ?? replacement.executionMethods ?? [])
-          .find(m => isGearFree(collectMethodGear(m as any), true));
+        const nakedMethod = replacementPick!.method;
         // Same core set-count lock as the backfill loop above — the
         // replacement's domain can differ from the violator's, so `sets`
         // must be re-derived for the NEW exercise, not inherited via the

@@ -4,6 +4,8 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "paths": {
+      "@/lib/firebase": ["./hermetic/firebase.stub.ts"],
+      "firebase/firestore": ["./hermetic/firestore.stub.ts"],
       "@/features/content/exercises/core/exercise.service": ["./mocks/exercise.service.ts"],
       "@/features/content/programs/core/program.service": ["./mocks/program.service.ts"],
       "@/features/content/equipment/gym/core/gym-equipment.service": ["./mocks/gym-equipment.service.ts"],

@@ -15,8 +15,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const SNAPSHOT_DB_PATH = path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
-const OUT_PATH = path.join(REPO_ROOT, 'scripts', 'audit', 'benchmark-results.json');
+const SNAPSHOT_DB_PATH = process.env.SNAPSHOT_DB ? path.resolve(process.env.SNAPSHOT_DB) : path.join(REPO_ROOT, 'scripts', 'audit', 'snapshot.sqlite');
+const OUT_PATH = process.env.BENCHMARK_OUT ? path.resolve(process.env.BENCHMARK_OUT) : path.join(REPO_ROOT, 'scripts', 'audit', 'benchmark-results.json');
 
 const db = new Database(SNAPSHOT_DB_PATH, { readonly: true });
 

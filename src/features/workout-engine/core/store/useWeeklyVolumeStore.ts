@@ -200,11 +200,19 @@ export function getCurrentWeekStart(): string {
 
 /**
  * Fallback weekly budget when Admin Panel (ProgramLevelSettings) has no value.
- * Formula: userLevel * 2 (e.g. L10 → 20 sets/week).
+ * Formula: max(tier default, userLevel × 2) — e.g. L1 → 8, L10 → 20 sets/week.
  * Prefer weeklyVolumeTarget from Lead Program / ProgramLevelSettings.
+ *
+ * The tier default (L1-5 → 8, L6-12 → 12, L13+ → 16) is the same one
+ * lead-program.service's getDefaultVolumeTarget already gives every OTHER missing-doc
+ * path (2026-10-18, generator QA round 1, H3). The old floor of 4/week meant an L1-2
+ * user with no level-settings doc got a 2-4 set DAY — at most two exercises — on the
+ * calisthenics_upper / upper_body / split-decision / park paths only. Inlined (not
+ * imported) to keep this zustand store free of the Firestore-backed service graph.
  */
 export function calculateWeeklyBudget(userLevel: number, _scheduleDays?: number): number {
-  return Math.max(4, userLevel * 2);
+  const tierDefault = userLevel <= 5 ? 8 : userLevel <= 12 ? 12 : 16;
+  return Math.max(tierDefault, userLevel * 2);
 }
 
 // ============================================================================

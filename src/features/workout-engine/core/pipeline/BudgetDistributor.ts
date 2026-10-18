@@ -40,6 +40,7 @@ import { MG_TO_DOMAIN } from '../../shared/constants/domain-mapping.constants';
 import { resolveToSlug } from '../../services/program-hierarchy.utils';
 import { exerciseMatchesProgram } from '../../services/shadow-level.utils';
 import type { BudgetConstraints } from './pipeline.types';
+import { minMainExercisesFor } from '../../logic/session-frame.utils';
 
 // ============================================================================
 // TIER MAX SETS TABLE
@@ -312,12 +313,14 @@ export class BudgetDistributor {
     // Resolved once, passed to every _pyramidAwareCap call below — see that
     // method's own comment for why.
     const targetSkillIds = new Set(context.selectedSkillIds ?? []);
+    // H3 variety floor — see _pyramidAwareCap's DROP branch and the cluster caps.
+    const minMain = minMainExercisesFor(context.availableTime);
 
     // ── Step 3: Hard absolute cap (context.maxSets) ──────────────────────────
     // Pyramid exercises are immune — only straight-set exercises are trimmed.
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
+      exercises = this._pyramidAwareCap(exercises, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains, minMain);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`max_sets_cap: ${before} → ${after} (cap=${constraints.maxSets})`);
@@ -327,7 +330,7 @@ export class BudgetDistributor {
     // ── Step 4: Weekly budget cap ────────────────────────────────────────────
     if (constraints.remainingWeeklyBudget != null && constraints.remainingWeeklyBudget > 0) {
       const before = exercises.reduce((s, e) => s + e.sets, 0);
-      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
+      exercises = this._pyramidAwareCap(exercises, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains, minMain);
       const after = exercises.reduce((s, e) => s + e.sets, 0);
       if (after < before) {
         log.push(`weekly_budget_cap: ${before} → ${after} (remaining=${constraints.remainingWeeklyBudget})`);
@@ -338,7 +341,7 @@ export class BudgetDistributor {
     if (constraints.dailySetBudget != null && constraints.dailySetBudget > 0) {
       const preCap = exercises.reduce((s, e) => s + e.sets, 0);
       if (preCap > constraints.dailySetBudget) {
-        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains);
+        exercises = this._pyramidAwareCap(exercises, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context.requiredDomains, minMain);
         const postCap = exercises.reduce((s, e) => s + e.sets, 0);
         log.push(`daily_budget_cap: ${preCap} → ${postCap} (budget=${constraints.dailySetBudget})`);
       }
@@ -477,6 +480,12 @@ export class BudgetDistributor {
     structureFloor: number = 1,
     targetSkillIds?: Set<string>,
     requiredDomains?: string[],
+    /**
+     * Variety floor (H3, generator QA round 1): the DROP branch never keeps fewer
+     * than this many MAIN exercises (pyramids included) while candidates exist —
+     * minMainExercisesFor(availableTime). 0 = no floor (legacy).
+     */
+    minMainExercises: number = 0,
   ): WorkoutExercise[] {
     // Identification is structural-only: the `appliedProtocol` string is NOT
     // reliable at budget time (it may be injected after this pass runs).
@@ -554,7 +563,17 @@ export class BudgetDistributor {
       // comment) applies on top of this same ranking — this is the actual
       // drop point for the legs+push starvation bug, not the cluster caps
       // downstream, which never see a dropped domain's candidates at all.
-      const keep = Math.max(1, Math.floor(straightTarget / structureFloor));
+      // Variety floor (H3, 2026-10-18): #184 made this branch really drop (before it the
+      // "dropped" exercises silently came back at full sets), which — under the tight
+      // daily budgets of short / low-level sessions — cut main exercises per workout
+      // 3.61 → 2.65 (05-BENCHMARK §6.1). The budget is still respected first by trimming
+      // every survivor to the structure floor (greedy pass above); only when even that
+      // can't fit do we drop — but never below the duration's minimum exercise count.
+      // The overage this allows is bounded: (minMain × floor) − target sets, e.g. a
+      // 10-min/4-set budget ships 3 × 2 = 6 sets instead of 2 × 2. Target-skill-first
+      // ordering (#184's intent) is unchanged.
+      const varietyFloor = Math.min(mutable.length, Math.max(0, minMainExercises - pyramidExes.length));
+      const keep = Math.max(1, Math.floor(straightTarget / structureFloor), varietyFloor);
       finalStraight = selectClusterSurvivors(mutable, keep, requiredDomains, (a, b) => {
         const aTarget = exerciseTargetSkill(a) !== undefined ? 1 : 0;
         const bTarget = exerciseTargetSkill(b) !== undefined ? 1 : 0;
@@ -623,7 +642,9 @@ export class BudgetDistributor {
     }
 
     const mainExes = exercises.filter(e => (e.exerciseRole ?? 'main') === 'main');
-    if (mainExes.length <= SKILL_CLUSTER_MAX_MAIN) {
+    // H3 variety floor: the cluster never culls below the duration's minimum.
+    const clusterMax = Math.max(SKILL_CLUSTER_MAX_MAIN, minMainExercisesFor(context.availableTime));
+    if (mainExes.length <= clusterMax) {
       return exercises;
     }
 
@@ -638,7 +659,7 @@ export class BudgetDistributor {
     const straightMainExes = mainExes.filter(e => !pyramidMainIds.has(e.exercise.id));
 
     // Slots available for straight-set exercises after reserving pyramid slots.
-    const slotsForStraight = Math.max(0, SKILL_CLUSTER_MAX_MAIN - pyramidMainIds.size);
+    const slotsForStraight = Math.max(0, clusterMax - pyramidMainIds.size);
 
     // Survivor ranking: tier sub-order (elite → hard → skill/compound →
     // foundation → match → flow) then score, with a per-domain floor
@@ -680,7 +701,7 @@ export class BudgetDistributor {
     }
 
     log.push(
-      `skill_cluster_cap: culled ${removedCount} excess main exercises → ${SKILL_CLUSTER_MAX_MAIN} clustered`,
+      `skill_cluster_cap: culled ${removedCount} excess main exercises → ${clusterMax} clustered`,
     );
     const survivorSets = next
       .filter(e => (e.exerciseRole ?? 'main') === 'main')
@@ -688,7 +709,7 @@ export class BudgetDistributor {
       .join('/');
     console.log(
       `[BudgetDistributor.skillClusterCap] D3 skill/strength session — culled ${removedCount} ` +
-      `exercise(s) → ${SKILL_CLUSTER_MAX_MAIN} clustered exercises. Sets: ${survivorSets}`,
+      `exercise(s) → ${clusterMax} clustered exercises. Sets: ${survivorSets}`,
     );
 
     return next;
@@ -760,9 +781,12 @@ export class BudgetDistributor {
     // Reuses the SAME diverse-tier ceiling (no new numeric cap invented).
     const isLongSession = context.availableTime >= 45;
 
-    const maxAllowed = (isDiverse || isLongSession)
-      ? BALANCED_CLUSTER_MAX_MAIN_DIVERSE
-      : BALANCED_CLUSTER_MAX_MAIN_BASELINE;
+    // H3 variety floor (2026-10-18): never cull below the duration's minimum
+    // (45 min → 5, 60 → 6); the 3/4 deep-focus caps still apply above it.
+    const maxAllowed = Math.max(
+      (isDiverse || isLongSession) ? BALANCED_CLUSTER_MAX_MAIN_DIVERSE : BALANCED_CLUSTER_MAX_MAIN_BASELINE,
+      minMainExercisesFor(context.availableTime),
+    );
 
     if (mainExes.length <= maxAllowed) return exercises;
 
@@ -876,6 +900,7 @@ export class BudgetDistributor {
     // Same as distribute() — undefined/empty when no context is passed,
     // degrading the DROP branch to its original pure-score order.
     const targetSkillIds = new Set(context?.selectedSkillIds ?? []);
+    const minMain = minMainExercisesFor(context?.availableTime);
 
     let result = [...exercises];
     const log: string[] = [];
@@ -900,7 +925,7 @@ export class BudgetDistributor {
     // ── Budget caps — pyramid-aware (never clip pyramid steps) ────────────
     if (constraints.maxSets != null && constraints.maxSets > 0) {
       const before = result.reduce((s, e) => s + e.sets, 0);
-      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
+      result = this._pyramidAwareCap(result, constraints.maxSets, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains, minMain);
       const after = result.reduce((s, e) => s + e.sets, 0);
       if (after < before) log.push(`reapply_max_sets: ${before}→${after}`);
     }
@@ -912,7 +937,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.remainingWeeklyBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
+        result = this._pyramidAwareCap(result, constraints.remainingWeeklyBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains, minMain);
         log.push(`reapply_weekly: ${before}→${result.reduce((s, e) => s + e.sets, 0)}`);
       }
     }
@@ -921,7 +946,7 @@ export class BudgetDistributor {
       const total = result.reduce((s, e) => s + e.sets, 0);
       if (total > constraints.dailySetBudget) {
         const before = total;
-        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains);
+        result = this._pyramidAwareCap(result, constraints.dailySetBudget, safeDenominator, structureFloor, targetSkillIds, context?.requiredDomains, minMain);
         log.push(`reapply_daily: ${before}→${result.reduce((s, e) => s + e.sets, 0)} (cap=${constraints.dailySetBudget})`);
       }
     }

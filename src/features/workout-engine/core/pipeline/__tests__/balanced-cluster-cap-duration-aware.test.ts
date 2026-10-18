@@ -98,8 +98,9 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     } as never;
     const split = getWorkoutContext({ userProfile, isManualOverride: true });
     const dailySetBudget = split.dailySetBudget;
-    // userLevel=1 (empty progression) → calculateWeeklyBudget(1,2) = max(4, 1*2) = 4
-    // rawDaily = ceil(4/2) = 2 → MANUAL_BASELINE_SETS floor (14) wins.
+    // userLevel=1 (empty progression) → calculateWeeklyBudget(1,2) = max(8, 1*2) = 8
+    // (tier default since generator QA round 1; was max(4, …) = 4)
+    // rawDaily = ceil(8/2) = 4 → MANUAL_BASELINE_SETS floor (14) wins.
     expect(dailySetBudget).toBe(14);
 
     const distributor = createBudgetDistributor();
@@ -109,18 +110,18 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
       exerciseSlotCount: 8,
     };
 
-    // OLD behaviour, still verified as a live regression case: <45min stays
-    // capped at 3 main exercises regardless of Custom Builder budget.
+    // Generator QA round 1 (H3 variety floor): the cluster never culls below
+    // minMainExercisesFor(availableTime) — 30 min → 4 (was the 3 baseline), 60 → 6
+    // (was the 4 duration release). The 3/4 caps still apply above the floor.
     const shortResult = distributor.distribute(
       pool8(), baseContext({ availableTime: 30 }), 2, constraints,
     );
-    expect(mainsOf(shortResult.exercises).length).toBe(3);
+    expect(mainsOf(shortResult.exercises).length).toBe(4);
 
-    // NEW behaviour: same Custom Builder budget, 60min → 4 main exercises.
     const longResult = distributor.distribute(
       pool8(), baseContext({ availableTime: 60 }), 2, constraints,
     );
-    expect(mainsOf(longResult.exercises).length).toBe(4);
+    expect(mainsOf(longResult.exercises).length).toBe(6);
 
     // eslint-disable-next-line no-console
     console.info(
@@ -141,7 +142,7 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     } as never;
     const split = getWorkoutContext({ userProfile, isManualOverride: false });
     const dailySetBudget = split.dailySetBudget;
-    // userLevel=28 → calculateWeeklyBudget(28,2) = max(4, 56) = 56.
+    // userLevel=28 → calculateWeeklyBudget(28,2) = max(16, 56) = 56.
     // effectiveDays = scheduleDaysForBudget = 2 (no remainingScheduleDays passed).
     // remainingSets = 56 - 0 = 56 → dailySetBudget = max(2, ceil(56/2)) = 28.
     expect(dailySetBudget).toBe(28);
@@ -156,12 +157,12 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     const shortResult = distributor.distribute(
       pool8(), baseContext({ availableTime: 30, userLevel: 28 }), 2, constraints,
     );
-    expect(mainsOf(shortResult.exercises).length).toBe(3);
+    expect(mainsOf(shortResult.exercises).length).toBe(4); // H3 floor (was 3)
 
     const longResult = distributor.distribute(
       pool8(), baseContext({ availableTime: 60, userLevel: 28 }), 2, constraints,
     );
-    expect(mainsOf(longResult.exercises).length).toBe(4);
+    expect(mainsOf(longResult.exercises).length).toBe(6); // H3 floor (was 4)
 
     console.info(
       `[VERIFY] Regular/scheduled D2 60min (dailySetBudget=${dailySetBudget}): ` +
@@ -197,11 +198,11 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     console.info(`[VERIFY] deficit-throttled regular=${regular.dailySetBudget} vs bypass manual=${manual.dailySetBudget}`);
   });
 
-  it('REGRESSION — D2, duration <45min: unchanged, still capped at the old 3-exercise baseline (diversity still governs alone)', () => {
+  it('D2, narrow focus: the 3-exercise baseline still governs at ≤15 min; above that the duration minimum wins (44 min → 5)', () => {
     const distributor = createBudgetDistributor();
     const constraints: BudgetConstraints = { dailySetBudget: 20, isSingleDomain: true, exerciseSlotCount: 8 };
-    const result = distributor.distribute(pool8(), baseContext({ availableTime: 44 }), 2, constraints);
-    expect(mainsOf(result.exercises).length).toBe(3);
+    expect(mainsOf(distributor.distribute(pool8(), baseContext({ availableTime: 15 }), 2, constraints).exercises).length).toBe(3);
+    expect(mainsOf(distributor.distribute(pool8(), baseContext({ availableTime: 44 }), 2, constraints).exercises).length).toBe(5);
   });
 
   it('REGRESSION — D2, duration <45min, but diverse (>=3 domains): still 4 via the pre-existing diversity rule, unaffected by this fix', () => {
@@ -225,9 +226,9 @@ describe('BudgetDistributor — _balancedClusterCap duration-aware release (D2)'
     // isSingleDomain=true here satisfies that gate so we exercise the real _skillClusterCap path.
     const before = distributor.distribute(pool8(), baseContext({ availableTime: 30 }), 3, constraints);
     const after = distributor.distribute(pool8(), baseContext({ availableTime: 60 }), 3, constraints);
-    // SKILL_CLUSTER_MAX_MAIN = 4, identical regardless of availableTime — this diff never
-    // touched _skillClusterCap or its constants.
+    // SKILL_CLUSTER_MAX_MAIN = 4, raised to the duration minimum since generator QA
+    // round 1 (30 min → 4, 60 min → 6).
     expect(mainsOf(before.exercises).length).toBe(4);
-    expect(mainsOf(after.exercises).length).toBe(4);
+    expect(mainsOf(after.exercises).length).toBe(6);
   });
 });

@@ -65,28 +65,34 @@ const TIGHT_CAP: BudgetConstraints = {
 };
 
 describe('BudgetDistributor._pyramidAwareCap — skill-aware drop', () => {
+  // Generator QA round 1 (2026-10-18): the DROP branch now keeps at least
+  // minMainExercisesFor(availableTime) exercises (30 min → 4), so these fixtures carry
+  // 7 candidates — the drop still has to choose (4 of 7) and #184's ordering is what
+  // decides which survive.
   it('a target-skill exercise survives the drop even when it scores lower than non-target exercises', () => {
-    // 2 target-skill (low score) + 3 generic/other-skill (high score), all
-    // starting at 4 sets -- forces the greedy trim to hit the structure
-    // floor (2) at 10 total sets, still over the cap of 5, so the DROP
-    // branch fires and must choose 2 of 5 to keep (floor(5/2)=2).
+    // 2 target-skill (low score) + 5 generic/other-skill (high score), all at
+    // 4 sets -- the greedy trim hits the structure floor (2) at 14 sets, still
+    // over the cap of 5, so the DROP branch fires and keeps
+    // max(floor(5/2)=2, variety floor 4) = 4 of 7.
     const planche = makeWorkoutExercise('planche-1', 10, 4, [{ programId: 'planche', level: 14 }]);
     const frontLever = makeWorkoutExercise('front-1', 20, 4, [{ programId: 'front_lever', level: 7 }]);
-    const generic1 = makeWorkoutExercise('generic-1', 90, 4, [{ programId: 'one_arm_pullup', level: 5 }]);
-    const generic2 = makeWorkoutExercise('generic-2', 80, 4, [{ programId: 'pull', level: 16 }]);
-    const generic3 = makeWorkoutExercise('generic-3', 70, 4, [{ programId: 'pull', level: 16 }]);
+    const generics = [90, 80, 70, 60, 50].map((score, i) =>
+      makeWorkoutExercise(`generic-${i + 1}`, score, 4, [{ programId: i === 0 ? 'one_arm_pullup' : 'pull', level: 16 }]));
 
     const distributor = createBudgetDistributor();
     const result = distributor.reapplyCaps(
-      [planche, frontLever, generic1, generic2, generic3],
+      [planche, frontLever, ...generics],
       TIGHT_CAP,
       ctx(['planche', 'front_lever']),
     );
 
     const survivingIds = result.map((e) => e.exercise.id);
+    expect(survivingIds).toHaveLength(4);
     expect(survivingIds).toContain('planche-1');
     expect(survivingIds).toContain('front-1');
-    expect(survivingIds).not.toContain('generic-1');
+    expect(survivingIds).toEqual(expect.arrayContaining(['generic-1', 'generic-2']));
+    expect(survivingIds).not.toContain('generic-3');
+    expect(survivingIds).not.toContain('generic-5');
   });
 
   it('without a target-skill selection, falls back to the original pure-score drop order (no regression)', () => {
@@ -98,19 +104,16 @@ describe('BudgetDistributor._pyramidAwareCap — skill-aware drop', () => {
     // the DROP branch's pure-score fallback this test is named for.
     const low1 = makeWorkoutExercise('low-1', 10, 4);
     const low2 = makeWorkoutExercise('low-2', 20, 4);
-    const high1 = makeWorkoutExercise('high-1', 90, 4);
-    const high2 = makeWorkoutExercise('high-2', 80, 4);
-    const high3 = makeWorkoutExercise('high-3', 70, 4);
+    const highs = [90, 80, 70, 60, 50].map((score, i) => makeWorkoutExercise(`high-${i + 1}`, score, 4));
 
     const distributor = createBudgetDistributor();
-    const result = distributor.reapplyCaps([low1, low2, high1, high2, high3], TIGHT_CAP, ctx([]));
+    const result = distributor.reapplyCaps([low1, low2, ...highs], TIGHT_CAP, ctx([]));
 
     const survivingIds = result.map((e) => e.exercise.id);
-    expect(survivingIds).toContain('high-1');
-    expect(survivingIds).toContain('high-2');
-    expect(survivingIds).not.toContain('low-1');
-    expect(survivingIds).not.toContain('low-2');
-    expect(survivingIds).not.toContain('high-3'); // keep=floor(5/2)=2 -- only the top 2 survive
+    expect(survivingIds).toEqual(['high-1', 'high-2', 'high-3', 'high-4']); // keep=4 (30-min floor) -- the top 4 by score
+    // #184's other half: a dropped exercise never comes back at its untrimmed sets,
+    // and survivors are pinned to the structure floor (2) -- the drop is real.
+    expect(result.every((e) => e.sets === 2)).toBe(true);
   });
 
   it('a target-skill selection that matches nothing in the pool changes nothing (same pure-score order)', () => {
@@ -155,7 +158,7 @@ describe('BudgetDistributor._pyramidAwareCap — skill-aware drop', () => {
     const survivingIds = result.map((e) => e.exercise.id);
     expect(survivingIds.some((id) => id.startsWith('legs-'))).toBe(true);
     expect(survivingIds.some((id) => id.startsWith('push-'))).toBe(true);
-    expect(survivingIds).not.toContain('legs-2'); // keep=2 -- only the better-scoring legs pick survives
+    expect(survivingIds).not.toContain('legs-2'); // keep=4 of 5 -- the worst-scoring pick (legs-2) is the one dropped
   });
 
   it('the ≤4-sets-per-exercise skill cap (a different function entirely) is untouched by this fix', () => {
@@ -167,5 +170,29 @@ describe('BudgetDistributor._pyramidAwareCap — skill-aware drop', () => {
     const distributor = createBudgetDistributor();
     const result = distributor.reapplyCaps([planche], { maxSets: 10, isSingleDomain: true, exerciseSlotCount: 1 }, ctx(['planche']));
     expect(result[0].sets).toBe(4); // untouched -- well under the cap, nothing to trim
+  });
+
+  describe('variety floor (H3, generator QA round 1)', () => {
+    const at = (availableTime: number): WorkoutGenerationContext =>
+      ({ availableTime, intentMode: undefined, selectedSkillIds: [] }) as any;
+    const six = () => [90, 80, 70, 60, 50, 40].map((score, i) => makeWorkoutExercise(`ex-${i + 1}`, score, 4));
+
+    it('a tight budget keeps the duration minimum (30 min → 4) at the 2-set floor instead of 2 exercises', () => {
+      const result = createBudgetDistributor().reapplyCaps(six(), { dailySetBudget: 4, isSingleDomain: false, exerciseSlotCount: 6 }, at(30));
+      expect(result.map((e) => e.exercise.id)).toEqual(['ex-1', 'ex-2', 'ex-3', 'ex-4']);
+      expect(result.every((e) => e.sets === 2)).toBe(true); // 8 sets: bounded overage (min × floor), not 4 × 4
+    });
+
+    it('45 min → 5, 60 min → 6', () => {
+      expect(createBudgetDistributor().reapplyCaps(six(), { dailySetBudget: 4, isSingleDomain: false, exerciseSlotCount: 6 }, at(45))).toHaveLength(5);
+      expect(createBudgetDistributor().reapplyCaps(six(), { dailySetBudget: 4, isSingleDomain: false, exerciseSlotCount: 6 }, at(60))).toHaveLength(6);
+    });
+
+    it('a budget that affords more than the floor still decides (no inflation above it)', () => {
+      // 12 sets / 2 = 6 affordable > floor 4 -- the budget, not the floor, sets the count.
+      const result = createBudgetDistributor().reapplyCaps(six(), { dailySetBudget: 12, isSingleDomain: false, exerciseSlotCount: 6 }, at(30));
+      expect(result).toHaveLength(6);
+      expect(result.reduce((s, e) => s + e.sets, 0)).toBe(12);
+    });
   });
 });

@@ -62,9 +62,11 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('enforceVolumeCap — Phase C convergence (availableTime contract)', () => {
-  it('THE MEASURED FAILURE: 4 floor-set compounds + frame @ cap 15 → lands ≤ 18 with ≥ 2 mains', () => {
+  it('THE MEASURED FAILURE: 4 floor-set compounds + frame @ cap 15 → lands ≤ 18 by compressing rest, keeping all 4 mains (H3)', () => {
     // 4 mains × (2×8×3s work + 2×120s rest) = ~19.2m + warmup ~2.1m + cooldown 2m ≈ 23m.
-    // Phase A: nothing expendable. Phase B: already at the 2-set floor.
+    // Phase B: already at the 2-set floor. Generator QA round 1: Phase R now compresses
+    // rest (15 min → floor 45 s) BEFORE any exercise is dropped — this used to drop the
+    // two lowest-scored mains and ship a 2-exercise 15-minute workout.
     const w = workoutOf([
       warmupEx('w1'), warmupEx('w2'),
       mainEx('pushups', 65), mainEx('rows', 70), mainEx('dips', 80), mainEx('pullups', 90),
@@ -73,10 +75,10 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     const result = enforceVolumeCap(w, { durationCap: 15 }) as { estimatedDuration: number };
 
     expect(result.estimatedDuration).toBeLessThanOrEqual(18); // 15 + 3 contract window
-    expect(mains(result as never).length).toBeGreaterThanOrEqual(2);
-    // Lowest-scored mains were dropped first — the two survivors are the strongest.
-    const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
-    expect(ids).toEqual(['dips', 'pullups']);
+    const ms = mains(result as never) as Array<{ exercise: { id: string }; restSeconds: number; sets: number }>;
+    expect(ms.map((e) => e.exercise.id)).toEqual(['pushups', 'rows', 'dips', 'pullups']);
+    expect(ms.every((e) => e.restSeconds < 120 && e.restSeconds >= 45)).toBe(true);
+    expect(ms.every((e) => e.sets === 2)).toBe(true);
   });
 
   it('TOLERANCE HONOURED: a plan already inside cap+3 is not trimmed further', () => {
@@ -98,13 +100,14 @@ describe('enforceVolumeCap — Phase C convergence (availableTime contract)', ()
     expect(result.exercises.length).toBe(before);
   });
 
-  it('FLOOR RESPECTED: never drops below 2 mains, even when still over the window', () => {
-    // Two pathologically long mains (unilateral, 240s rest) that cannot fit 10min.
+  it('FLOOR RESPECTED: never drops below the duration minimum (10 min → 3 mains), even when still over the window', () => {
+    // Three pathologically long mains (unilateral, 240s rest, slow reps) that cannot fit
+    // 10min even at the rest floor. Floor was 2 before generator QA round 1 (H3).
     const heavy = (id: string) =>
-      mainEx(id, 50, { restSeconds: 240, exercise: { id, name: { he: id }, movementGroup: 'vertical_pull', secondsPerRep: 4, symmetry: 'unilateral' } });
+      mainEx(id, 50, { restSeconds: 240, reps: 20, exercise: { id, name: { he: id }, movementGroup: 'vertical_pull', secondsPerRep: 4, symmetry: 'unilateral' } });
     const w = workoutOf([heavy('a'), heavy('b'), heavy('c')]);
     const result = enforceVolumeCap(w, { durationCap: 10 }) as { estimatedDuration: number };
-    expect(mains(result as never).length).toBe(2); // dropped one, stopped at the floor
+    expect(mains(result as never).length).toBe(3); // nothing dropped below the floor
     expect(result.estimatedDuration).toBeGreaterThan(13); // honest estimate reported, no lie
   });
 });
@@ -277,6 +280,17 @@ describe('enforceVolumeCap — property: level × duration convergence', () => {
 });
 
 /**
+ * Fixture note (generator QA round 1, 2026-10-18): enforceVolumeCap now trims sets and
+ * REST before it removes any exercise, and never removes below
+ * minMainExercisesFor(cap) (15 → 3, 20 → 4). The trim-ORDER tests below therefore use
+ * mains already at the 2-set floor and at the rest floor (60 s), with longer work
+ * (20 reps), and one or two extra compounds so a removal is still required — the
+ * category order under test is unchanged.
+ */
+const M = (id: string, score: number, over: Record<string, unknown> = {}) =>
+  mainEx(id, score, { reps: 20, restSeconds: 60, ...over });
+
+/**
  * Duration-aware core trim order (David's decision, 05.09.2026 —
  * docs/workout-engine/09-CORE-TABATA.md's follow-up investigation):
  *   <20min  — core trims FIRST (original, unchanged behavior — a short,
@@ -286,16 +300,16 @@ describe('enforceVolumeCap — property: level × duration convergence', () => {
  */
 describe('enforceVolumeCap — duration-aware core trim order', () => {
   const coreEx = (id: string, score: number) =>
-    mainEx(id, score, { priority: 'compound', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+    M(id, score, { priority: 'compound', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
   const isolationEx = (id: string, score: number) =>
-    mainEx(id, score, { priority: 'isolation' });
+    M(id, score, { priority: 'isolation' });
 
   it('<20min: core trims FIRST — isolation survives, core is gone', () => {
     // core (higher score) + isolation (lower score) + 2 compounds — enough
     // volume that removing ONE exercise is needed to reach cap.
     const w = workoutOf([
       warmupEx('w1'),
-      coreEx('core-1', 80), isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      coreEx('core-1', 80), isolationEx('iso-1', 50), M('c1', 70), M('c2', 75), M('c3', 72),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 19 }) as { exercises: unknown[] };
@@ -307,7 +321,7 @@ describe('enforceVolumeCap — duration-aware core trim order', () => {
   it('>=20min: isolation trims FIRST — core survives', () => {
     const w = workoutOf([
       warmupEx('w1'),
-      coreEx('core-1', 80), isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      coreEx('core-1', 80), isolationEx('iso-1', 50), M('c1', 70), M('c2', 75), M('c3', 72),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
@@ -322,27 +336,27 @@ describe('enforceVolumeCap — duration-aware core trim order', () => {
     // SECOND removal, not the first, even under real pressure.
     const w = workoutOf([
       warmupEx('w1'),
-      coreEx('core-1', 80, ), isolationEx('iso-1', 50), mainEx('c1', 70, { restSeconds: 150 }), mainEx('c2', 75, { restSeconds: 150 }),
+      coreEx('core-1', 80, ), isolationEx('iso-1', 50), M('c1', 70), M('c2', 75), M('c3', 72), M('c4', 73),
       cooldownEx('s'),
     ]);
-    const result = enforceVolumeCap(w, { durationCap: 10 }) as { exercises: unknown[] };
+    const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
     const ids = mains(result as never).map((e) => (e as { exercise: { id: string } }).exercise.id);
-    // Floor is 2 mains — with 4 starting mains, at most 2 can be removed.
-    // isolation must be gone; if a second removal was needed, core (not c1/c2)
-    // is the one to go, since compounds outrank both core and isolation once
-    // isolation is exhausted... but the FLOOR is what's actually reached here.
+    // 6 mains, two removals needed, floor 4: isolation goes first (Phase A); the SOLE
+    // core exercise is then protected (Addendum 36 guard), so the second removal is
+    // Phase C's lowest-scored compound — never below the floor.
     expect(ids).not.toContain('iso-1');
-    expect(mains(result as never).length).toBeGreaterThanOrEqual(2);
+    expect(ids).toContain('core-1');
+    expect(ids).toHaveLength(4);
   });
 
   it('isGuaranteedCore no longer grants unconditional protection — a <20min session can still trim it', () => {
-    const guaranteedCore = mainEx('core-1', 80, {
+    const guaranteedCore = M('core-1', 80, {
       isGuaranteedCore: true,
       exercise: { id: 'core-1', name: { he: 'core-1' }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' },
     });
     const w = workoutOf([
       warmupEx('w1'),
-      guaranteedCore, isolationEx('iso-1', 50), mainEx('c1', 70), mainEx('c2', 75),
+      guaranteedCore, isolationEx('iso-1', 50), M('c1', 70), M('c2', 75), M('c3', 72),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 15 }) as { exercises: unknown[] };
@@ -365,13 +379,13 @@ describe('enforceVolumeCap — duration-aware core trim order', () => {
  */
 describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
   const coreAccessoryEx = (id: string, score: number) =>
-    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
-  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+    M(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => M(id, score, { priority: 'isolation' });
 
   it('>=20min: a sole core exercise survives even when it scores LOWER than the other accessory candidate (the real bug shape)', () => {
     const w = workoutOf([
       warmupEx('w1'),
-      coreAccessoryEx('core-1', 50), isolationEx('iso-1', 80), mainEx('c1', 70), mainEx('c2', 75),
+      coreAccessoryEx('core-1', 50), isolationEx('iso-1', 80), M('c1', 70), M('c2', 75), M('c3', 72),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
@@ -383,7 +397,7 @@ describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
   it('>=20min: with TWO core exercises, one is still removable — the guard protects the sole survivor, not core as a category', () => {
     const w = workoutOf([
       warmupEx('w1'),
-      coreAccessoryEx('core-1', 50), coreAccessoryEx('core-2', 55), mainEx('c1', 70), mainEx('c2', 75),
+      coreAccessoryEx('core-1', 50), coreAccessoryEx('core-2', 55), M('c1', 70), M('c2', 75), M('c3', 72),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };
@@ -408,14 +422,14 @@ describe('enforceVolumeCap — sole-core-exercise guard (>=20min only)', () => {
  */
 describe('enforceVolumeCap — expendabilityRank deprioritizes core even when it is not the sole one (>=20min)', () => {
   const coreAccessoryEx = (id: string, score: number) =>
-    mainEx(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
-  const isolationEx = (id: string, score: number) => mainEx(id, score, { priority: 'isolation' });
+    M(id, score, { priority: 'accessory', exercise: { id, name: { he: id }, movementGroup: 'core', secondsPerRep: 3, symmetry: 'bilateral' } });
+  const isolationEx = (id: string, score: number) => M(id, score, { priority: 'isolation' });
 
   it('>=20min: with 2 core exercises AND a non-core accessory item, the non-core item is removed first regardless of score', () => {
     const w = workoutOf([
       warmupEx('w1'),
       coreAccessoryEx('core-1', 30), coreAccessoryEx('core-2', 35), isolationEx('iso-1', 90),
-      mainEx('c1', 70),
+      M('c1', 70), M('c2', 75),
       cooldownEx('s'),
     ]);
     const result = enforceVolumeCap(w, { durationCap: 20 }) as { exercises: unknown[] };

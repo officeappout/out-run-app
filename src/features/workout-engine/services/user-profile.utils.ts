@@ -117,8 +117,9 @@ export function extractInjuryShield(
  * Returns ['bodyweight'] as a guaranteed fallback so the engine always
  * has something to work with and never crashes on an empty equipment profile.
  *
- * Decision F (park-hero-fix, 2026-10-01): an empty profile for a user with an active SKILL
- * program (front_lever, planche, …) also grants `resistance_bands` — bands are a basic
+ * Decision F (park-hero-fix, 2026-10-01) — REVERTED 2026-10-18 (H1 gear truth, #404): an
+ * empty profile for a user with an active SKILL program used to also grant
+ * `resistance_bands`. Bands are personal gear now granted only when owned. Original note: bands are a basic
  * skill-training item (band-assisted rows/pulls, etc.), and a full search of the onboarding
  * and profile-equipment write paths confirmed no prior rule ever granted them; a skill user
  * with no equipment set up silently got bodyweight-only, starving skill-assistance exercises
@@ -158,13 +159,13 @@ export function resolveEquipment(
   }
 
   if (result.length === 0) {
-    if (hasActiveSkillProgram) {
-      console.log(
-        `[HomeWorkout] Empty equipment profile for location "${location}" with an active skill ` +
-        'program — defaulting to bodyweight + resistance_bands',
-      );
-      return ['bodyweight', 'resistance_bands'];
-    }
+    // Decision F's band grant is REVERTED (generator QA round 1, 2026-10-18 — H1 gear
+    // truth, consistent with #404's indoor ownership enforcement): a band is personal
+    // gear, granted only when the user owns it (it then arrives via the profile list
+    // above). Granting it to every empty-profile skill user shipped band exercises to
+    // people with no band (05-BENCHMARK §6.4 #6). `hasActiveSkillProgram` is kept in
+    // the signature for callers; it no longer changes the result.
+    void hasActiveSkillProgram;
     console.log(
       `[HomeWorkout] Empty equipment profile for location "${location}" — defaulting to bodyweight`,
     );
