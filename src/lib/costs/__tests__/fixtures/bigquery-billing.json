@@ -1,0 +1,19 @@
+{
+  "kind": "bigquery#queryResponse",
+  "schema": { "fields": [
+    { "name": "service", "type": "STRING", "mode": "NULLABLE" },
+    { "name": "currency", "type": "STRING", "mode": "NULLABLE" },
+    { "name": "net_cost", "type": "FLOAT", "mode": "NULLABLE" }
+  ] },
+  "jobReference": { "projectId": "appout-1", "jobId": "job_x", "location": "EU" },
+  "totalRows": "4",
+  "rows": [
+    { "f": [ { "v": "Cloud Firestore" }, { "v": "USD" }, { "v": "12.5" } ] },
+    { "f": [ { "v": "Cloud Run" }, { "v": "USD" }, { "v": "7.25" } ] },
+    { "f": [ { "v": "Cloud Functions" }, { "v": "USD" }, { "v": "1.0E-6" } ] },
+    { "f": [ { "v": "Cloud Storage" }, { "v": "USD" }, { "v": "3.75" } ] }
+  ],
+  "totalBytesProcessed": "1048576",
+  "jobComplete": true,
+  "cacheHit": false
+}

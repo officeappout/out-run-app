@@ -1,0 +1,7 @@
+{
+  "usageItems": [
+    { "date": "2026-10-01T00:00:00Z", "product": "actions", "sku": "actions_linux", "quantity": 120, "unitType": "minutes", "pricePerUnit": 0.008, "grossAmount": 0.96, "discountAmount": 0.96, "netAmount": 0, "organizationName": "officeappout", "repositoryName": "out-run-app" },
+    { "date": "2026-10-02T00:00:00Z", "product": "actions", "sku": "actions_linux", "quantity": 4000, "unitType": "minutes", "pricePerUnit": 0.008, "grossAmount": 32, "discountAmount": 16, "netAmount": 16, "organizationName": "officeappout", "repositoryName": "out-run-app" },
+    { "date": "2026-10-02T00:00:00Z", "product": "copilot", "sku": "copilot_for_business", "quantity": 1, "unitType": "user-months", "pricePerUnit": 19, "grossAmount": 19, "discountAmount": 0, "netAmount": 19, "organizationName": "officeappout", "repositoryName": "" }
+  ]
+}

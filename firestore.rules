@@ -1231,6 +1231,24 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ADMIN COSTS DASHBOARD (19.10.2026) — /admin/costs ("עלויות")
+    //   admin_costs/{yyyy-mm}      month snapshot: FX + one cached result per billing connector
+    //   admin_cost_items/{id}      manual / fixed subscriptions (Workspace, Apple Developer, …)
+    // Server-only: written AND read only by the Admin SDK in the super-admin
+    // /api/admin/costs/** routes (and the adminCostsScheduler-driven refresh).
+    // No client path — the page goes through those routes. As with agents/**,
+    // the ROOT ADMIN FALLBACK at the end of this file still matches for the two
+    // root accounts; tests/firestore-admin-costs.rules.test.ts pins that every
+    // other caller (users, admins, super admins, anonymous) is denied.
+    // ============================================================
+    match /admin_costs/{month} {
+      allow read, write: if false;
+    }
+    match /admin_cost_items/{itemId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
     // ============================================================
     match /workoutMetadata/{docId} {

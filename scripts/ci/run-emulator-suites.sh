@@ -46,6 +46,7 @@ GROUP_8089=(
   tests/firestore-fix-write-layer2-batch-b-attendance.rules.test.ts
   tests/military-panel-adversarial-audit.rules.test.ts
   tests/firestore-fix-agents-lockdown.rules.test.ts
+  tests/firestore-admin-costs.rules.test.ts
   tests/pace-profile-self-correction.rules.test.ts
   tests/workouts-timed-blocks.rules.test.ts
   src/features/readiness/core/services/__tests__/military-panel-adversarial-audit.emulator.test.ts

@@ -53,7 +53,7 @@ export const SECTION_PATHS: Record<AdminSectionId, string[]> = {
  */
 const HIGHLIGHT_ONLY: Partial<Record<AdminSectionId, string[]>> = {
   product: ['/admin/community-groups-overview', '/admin/goal-notes'],
-  dev: ['/admin/agents', '/admin/signup-failures', '/admin/ai-coach'],
+  dev: ['/admin/agents', '/admin/signup-failures', '/admin/ai-coach', '/admin/costs'],
 };
 
 /** Legacy Firestore section keys still stored on some members (backward compat). */

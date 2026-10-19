@@ -1,0 +1,16 @@
+{
+  "Balance": 42.1,
+  "ThisMonthCharges": 6.42,
+  "BillingRecords": [],
+  "MonthlyChargesStorage": 1.2,
+  "MonthlyChargesEUTraffic": 4.5,
+  "MonthlyChargesUSTraffic": 0.72,
+  "MonthlyChargesASIATraffic": 0,
+  "MonthlyChargesAFTraffic": 0,
+  "MonthlyChargesSATraffic": 0,
+  "MonthlyChargesDNS": 0,
+  "MonthlyChargesTaxes": 0,
+  "MonthlyBandwidthUsed": 512000000,
+  "BillingEnabled": true,
+  "MinimumMonthlyCommit": 1
+}
