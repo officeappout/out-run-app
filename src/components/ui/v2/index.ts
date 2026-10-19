@@ -90,3 +90,6 @@ export * from './media-hero';
 // Friendly error surface (route error.tsx fallbacks + failed widgets).
 export { default as ErrorState } from './ErrorState';
 export type { ErrorStateProps, ErrorStateAction } from './ErrorState';
+// Swap sheets (strength "החלפת תרגיל", run "החלף מקטע"): the level below / same / above marks.
+export { default as LevelCompareIcon, LEVEL_COMPARE_ICONS } from './LevelCompareIcon';
+export type { LevelComparison, LevelCompareIconProps } from './LevelCompareIcon';

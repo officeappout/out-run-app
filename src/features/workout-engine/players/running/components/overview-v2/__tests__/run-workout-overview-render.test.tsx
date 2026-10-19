@@ -29,6 +29,7 @@ vi.mock('@/features/parks/core/store/useMapStore', () => {
 import RunWorkoutOverview from '../RunWorkoutOverview';
 import TodayWorkoutFitCard from '../TodayWorkoutFitCard';
 import RunOverviewCta from '../RunOverviewCta';
+import { NO_RUN_EDITS, withPace, withSwap } from '../../../utils/run-overview/run-edits';
 import type RunWorkout from '../../../types/run-workout.type';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { Route } from '@/features/parks/core/types/route.types';
@@ -58,7 +59,7 @@ describe('free run from here (M-6a)', () => {
   let html = '';
   beforeAll(() => {
     html = renderToStaticMarkup(
-      <RunWorkoutOverview workout={intervals()} week={{ week: 3, day: 2, totalWeeks: 8 }} variant="planned" onVariantChange={noop}
+      <RunWorkoutOverview workout={intervals()} week={{ week: 3, day: 2, totalWeeks: 8 }} edits={NO_RUN_EDITS} onEditsChange={noop}
         ctaMode="free" onBack={noop} onStart={noop} onSuggest={noop} />,
     );
   });
@@ -79,10 +80,11 @@ describe('free run from here (M-6a)', () => {
     expect(count(html, '400 מ׳ מהיר')).toBe(1); // one rep's rows, never one card per rep
     expect(html).not.toContain('סיום המסלול');
   });
-  it('variant selector + one gradient CTA + "הצע לי מסלול"', () => {
+  it('level selector (M-7d labels) + one gradient CTA + "הצע לי מסלול"', () => {
     expect(html).toContain('aria-label="בחירת עומס"');
-    expect(html).toMatch(/4 × 400 · \d+׳/);
-    expect(html).toMatch(/8 × 400 · \d+׳/);
+    expect(html).toMatch(/קליל · \d+׳/);
+    expect(html).toMatch(/מאוזן · \d+׳/);
+    expect(html).toMatch(/עוצמתי · \d+׳/);
     expect(count(html, 'bg-v2-cta')).toBe(1);
     expect(html).toContain('התחל אימון');
     expect(html).toContain('הצע לי מסלול');
@@ -96,12 +98,12 @@ describe('free run from here (M-6a)', () => {
 describe('easy run (M-6d): one steady leg + the tip', () => {
   it('renders one leg with the conversational pace badge', () => {
     const html = renderToStaticMarkup(
-      <RunWorkoutOverview workout={easy} variant="planned" onVariantChange={noop} ctaMode="free" onBack={noop} onStart={noop} onSuggest={noop} />,
+      <RunWorkoutOverview workout={easy} edits={NO_RUN_EDITS} onEditsChange={noop} ctaMode="free" onBack={noop} onStart={noop} onSuggest={noop} />,
     );
     expect(html).toContain('קצב שיחה');
     expect(html).toContain('35 דק׳');
-    expect(html).toContain('30 דק׳');
-    expect(html).toContain('45 דק׳');
+    expect(html).toMatch(/קליל · 30׳/);
+    expect(html).toMatch(/עוצמתי · 45׳/);
     expect(html).toContain('אם אפשר לדבר');
   });
 });
@@ -118,7 +120,7 @@ describe('on a chosen route (M-6f / 6i)', () => {
   let html = '';
   beforeAll(() => {
     html = renderToStaticMarkup(
-      <RunWorkoutOverview workout={intervals()} variant="planned" onVariantChange={noop} ctaMode="route"
+      <RunWorkoutOverview workout={intervals()} edits={NO_RUN_EDITS} onEditsChange={noop} ctaMode="route"
         chosen={{ route, score: { fit } }} origin={{ lat: lat - 0.0054, lng }}
         onBack={noop} onStart={noop} onStartOnRoute={noop} onClearRoute={noop} onShowOnMap={noop} />,
     );
@@ -162,5 +164,46 @@ describe('CTA states + reverse card', () => {
     expect(html).toContain('יש לך היום: 6 × 400 מ׳');
     expect(html).toContain('מתאים ב-2 סיבובים · 42 דק׳');
     expect(html).toContain('לאימון הזה כאן');
+  });
+});
+
+describe('overview edits (M-7a / 7b / 7c)', () => {
+  it('paces are tappable ("התאם קצב"), the main set has "החלף"; nothing edited → no "מותאם"', () => {
+    const html = renderToStaticMarkup(
+      <RunWorkoutOverview workout={intervals()} edits={NO_RUN_EDITS} onEditsChange={noop} ctaMode="free" onBack={noop} onStart={noop} />,
+    );
+    expect(count(html, 'aria-label="התאם קצב')).toBe(3); // warm-up · reps · cool-down
+    expect(html).toContain('aria-label="החלף מקטע"');
+    expect(html).not.toContain('מותאם');
+    expect(html).not.toContain('הוחלף');
+  });
+  it('after a swap: the new set, "הוחלף · היה 6 × 400 מ׳" + "בטל", the manual level note, "· מותאם"', () => {
+    const html = renderToStaticMarkup(
+      <RunWorkoutOverview workout={intervals()} edits={withSwap(NO_RUN_EDITS, 'm:600.600.600.600~120')} onEditsChange={noop}
+        ctaMode="free" onBack={noop} onStart={noop} />,
+    );
+    expect(html).toContain('4 × 600 מ׳');
+    expect(html).toContain('הוחלף · היה 6 × 400 מ׳');
+    expect(html).toContain('בטל');
+    expect(html).toContain('העיקר הוחלף ידנית');
+    expect(html).toContain('אינטרוולים קצרים · מותאם');
+    expect(html).toContain('2 דק׳ ריצת התאוששות');
+    expect(html).not.toContain('aria-pressed="true"'); // no level selected in the manual state
+  });
+  it('an edited pace shows its band and the "מותאם" tag', () => {
+    const html = renderToStaticMarkup(
+      <RunWorkoutOverview workout={intervals()} edits={withPace(NO_RUN_EDITS, 'main.interval_short', { min: 270, max: 280 })}
+        onEditsChange={noop} ctaMode="free" onBack={noop} onStart={noop} />,
+    );
+    expect(html).toContain('4:30–4:40');
+    expect(count(html, '>מותאם<')).toBe(1);
+  });
+  it('read-only without onEditsChange: no selector, no edit affordances', () => {
+    const html = renderToStaticMarkup(
+      <RunWorkoutOverview workout={intervals()} edits={NO_RUN_EDITS} ctaMode="free" onBack={noop} onStart={noop} />,
+    );
+    expect(html).not.toContain('aria-label="בחירת עומס"');
+    expect(html).not.toContain('aria-label="התאם קצב');
+    expect(html).not.toContain('aria-label="החלף מקטע"');
   });
 });

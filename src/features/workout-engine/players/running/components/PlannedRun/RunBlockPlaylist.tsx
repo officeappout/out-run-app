@@ -57,6 +57,8 @@ export default function RunBlockPlaylist({
 
   function getPaceLabel(block: RunBlock): string {
     if (!showNumbers || basePace <= 0) return '';
+    // v2 overview pace edit (this workout only) wins, as in resolveBlockTargetPace.
+    if (block.paceOverride) return `${formatPaceSeconds(block.paceOverride.min)}–${formatPaceSeconds(block.paceOverride.max)}`;
     if (block.zoneType && zones) {
       const z = zones[block.zoneType];
       return `${formatPaceSeconds(z.minPace)}–${formatPaceSeconds(z.maxPace)}`;

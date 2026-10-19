@@ -5,6 +5,8 @@
  *   • A repeated main set (6 × 400, 2 × 10′ tempo):
  *       ≥ 4 reps → ±2 reps            (4 × 400 · 6 × 400 · 8 × 400)
  *       2–3 reps → lighter = each rep 80 % (2 × 8′), harder = +1 rep (3 × 10′)
+ *     and the recovery between reps (board M-7d): lighter ×4/3, harder ×2/3
+ *     (90″ → 2′ / 60″), in 15″ / 30″ steps, never under 30″. Paces never change.
  *   • One steady main block (easy / long): the main time (or distance)
  *     scaled to a round 5 minutes — 35′ → 30′ / 45′.
  * Warm-up, strides and cool-down are never touched. New blocks get unique ids.
@@ -53,7 +55,7 @@ function sameShape(a: RunBlock, b: RunBlock): boolean {
 let seq = 0;
 const reId = (b: RunBlock, tag: string): RunBlock => ({ ...b, id: `${b.id}~${tag}${++seq}` });
 
-interface RepeatRun {
+export interface RepeatRun {
   /** Index of each rep's work block, in order. */
   starts: number[];
   /** Index after the last rep's work block. */
@@ -61,7 +63,7 @@ interface RepeatRun {
 }
 
 /** The main rep's occurrences, when they form ONE contiguous, evenly spaced run (work [+ rests]). */
-function findRepeatRun(blocks: readonly RunBlock[]): RepeatRun | null {
+export function findRepeatRun(blocks: readonly RunBlock[]): RepeatRun | null {
   const main = findMainRep(blocks.filter((b) => blockPhase(b) === 'main'));
   if (!main || main.count < 2) return null;
   const starts: number[] = [];
@@ -111,6 +113,27 @@ function scaleBlock(b: RunBlock, f: number): RunBlock {
   };
 }
 
+export const LIGHTER_RECOVERY = 4 / 3;
+export const HARDER_RECOVERY = 2 / 3;
+
+/** Recovery seconds in readable steps: 15″ under 2′, 30″ from 2′; never under 30″. */
+export function roundRecovery(sec: number): number {
+  const step = sec >= 120 ? 30 : 15;
+  return Math.max(30, Math.round(sec / step) * step);
+}
+
+/** Rests between the main set's first and last work block, their time × f (15″ steps, ≥ 30″). */
+export function scaleRecoveries(blocks: RunBlock[], f: number): RunBlock[] {
+  const work = blocks.map((b, i) => (blockPhase(b) === 'main' && !isRestBlock(b) ? i : -1)).filter((i) => i >= 0);
+  if (work.length < 2) return blocks;
+  const first = work[0];
+  const last = work[work.length - 1];
+  return blocks.map((b, i) => {
+    if (i <= first || i >= last || !isRestBlock(b) || !b.durationSeconds) return b;
+    return { ...b, durationSeconds: roundRecovery(b.durationSeconds * f) };
+  });
+}
+
 function repeatVariants(blocks: readonly RunBlock[], run: RepeatRun): RunVariant[] {
   const count = run.starts.length;
   const work = blocks[run.starts[0]];
@@ -131,9 +154,9 @@ function repeatVariants(blocks: readonly RunBlock[], run: RepeatRun): RunVariant
     harderLabel = `${count + 1} × ${bareSize(work)}`;
   }
   return [
-    { key: 'lighter', blocks: lighter, label: lighterLabel, level: LEVEL.lighter },
+    { key: 'lighter', blocks: scaleRecoveries(lighter, LIGHTER_RECOVERY), label: lighterLabel, level: LEVEL.lighter },
     { key: 'planned', blocks: [...blocks], label: `${count} × ${bareSize(work)}`, level: LEVEL.planned },
-    { key: 'harder', blocks: harder, label: harderLabel, level: LEVEL.harder },
+    { key: 'harder', blocks: scaleRecoveries(harder, HARDER_RECOVERY), label: harderLabel, level: LEVEL.harder },
   ];
 }
 

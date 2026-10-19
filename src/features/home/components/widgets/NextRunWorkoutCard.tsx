@@ -34,7 +34,7 @@ import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
 import RunOverviewHomeSheet from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewHomeSheet';
 import { plannedRunMapUrl } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
-import type { RunVariantKey } from '@/features/workout-engine/players/running/utils/run-overview/run-variants';
+import type { RunEdits } from '@/features/workout-engine/players/running/utils/run-overview/run-edits';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
@@ -342,11 +342,12 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     router.push(`/map?${params.toString()}`);
   };
 
-  // v2 overview (board M-6a): start from here with the chosen variant, or open the map's route suggestions.
-  const goToMapV2 = (variant: RunVariantKey, suggest: boolean) => {
+  // v2 overview (boards M-6a, M-7*): start from here with the runner's edits (level, swapped
+  // main set, paces), or open the map's route suggestions.
+  const goToMapV2 = (edits: RunEdits, suggest: boolean) => {
     setBriefingOpen(false);
     router.push(plannedRunMapUrl({
-      workoutId: pendingWorkoutId, week: pendingWeek, day: pendingDay, autoStart: !suggest, suggest, variant,
+      workoutId: pendingWorkoutId, week: pendingWeek, day: pendingDay, autoStart: !suggest, suggest, edits,
     }));
   };
 
@@ -538,8 +539,8 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
         <RunOverviewHomeSheet
           isOpen={briefingOpen}
           onClose={() => setBriefingOpen(false)}
-          onGo={(variant) => goToMapV2(variant, false)}
-          onSuggestRoute={(variant) => goToMapV2(variant, true)}
+          onGo={(edits) => goToMapV2(edits, false)}
+          onSuggestRoute={(edits) => goToMapV2(edits, true)}
           workout={briefingWorkout}
           isLoading={briefingLoading}
           week={pendingWeek ? { week: pendingWeek, day: pendingDay, totalWeeks: running?.generatedProgramTemplate?.canonicalWeeks } : null}

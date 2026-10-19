@@ -58,6 +58,17 @@ describe('summarizeQualityRun', () => {
     expect(summarizeQualityRun(w as RunWorkout, results(325), session, PROFILE, CONFIG)).toEqual({ ok: false, reason });
   });
 
+  it('ignores a run whose paces were edited on the v2 overview (paceOverride, board M-7a)', () => {
+    const edited: RunWorkout = {
+      ...WORKOUT,
+      blocks: WORKOUT.blocks.map((b) => (b.zoneType === 'tempo' ? { ...b, paceOverride: { min: 310, max: 320 } } : b)),
+    };
+    expect(summarizeQualityRun(edited, results(315), GOOD_SESSION, PROFILE, CONFIG)).toEqual({ ok: false, reason: 'pace_overridden' });
+    // Even an edited warm-up only makes the run the runner's own choice.
+    const warmOnly: RunWorkout = { ...WORKOUT, blocks: WORKOUT.blocks.map((b, i) => (i === 0 ? { ...b, paceOverride: { min: 380, max: 400 } } : b)) };
+    expect(summarizeQualityRun(warmOnly, results(325), GOOD_SESSION, PROFILE, CONFIG)).toEqual({ ok: false, reason: 'pace_overridden' });
+  });
+
   it('ignores a run with too little quality running (blocks skipped early)', () => {
     const r = results(325).map((x) => (x.blockIndex === 1 || x.blockIndex === 3 ? { ...x, elapsedSeconds: 200, elapsedMeters: 615 } : x));
     expect(summarizeQualityRun(WORKOUT, r, GOOD_SESSION, PROFILE, CONFIG)).toEqual({ ok: false, reason: 'too_little_quality_running' });

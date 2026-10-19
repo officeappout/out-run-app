@@ -17,9 +17,11 @@ export interface RunOverviewHeaderProps {
   finishText?: string | null;
   /** "על לולאת הירקון · 1.5 סיבובים · 600 מ׳ ממך". */
   routeLine?: string | null;
+  /** The runner swapped the main set / edited a pace (board M-7c): "· מותאם". */
+  customized?: boolean;
 }
 
-export default function RunOverviewHeader({ model, finishText, routeLine }: RunOverviewHeaderProps) {
+export default function RunOverviewHeader({ model, finishText, routeLine, customized = false }: RunOverviewHeaderProps) {
   // Board M-6a: time · km · finish (the reps live in the title and the strip).
   const meta = model.meta.slice(0, 2).map((text, i) => ({ key: `m${i}`, text }));
   if (finishText) meta.push({ key: 'finish', text: finishText });
@@ -29,7 +31,7 @@ export default function RunOverviewHeader({ model, finishText, routeLine }: RunO
       <div className="min-w-0">
         <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full px-2.5 text-[12px] font-extrabold"
           style={{ background: model.tint, color: model.textColor }}>
-          {model.typeLabel}
+          {customized ? `${model.typeLabel} · מותאם` : model.typeLabel}
         </span>
         <div className="mt-1">
           <WorkoutOverviewHeader v2 title={model.title} meta={meta} />

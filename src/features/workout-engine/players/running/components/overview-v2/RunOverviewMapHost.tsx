@@ -12,7 +12,8 @@
  *               planned run on it through the existing route-run path
  *               (startActiveWorkoutForRoute keeps the planned workout)
  *   none      — no route near → notice + "בחר במפה" (Discover)
- * The chosen variant is written to the player's workout just before start.
+ * The runner's edits (level, swapped main set, paces — run-edits.ts) are
+ * written to the player's workout just before start.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -24,7 +25,7 @@ import { useRunningPlayer } from '../../store/useRunningPlayer';
 import type RunWorkout from '../../types/run-workout.type';
 import type { RouteSuggestion } from '../../lib/route-fit';
 import type { RunWeekContext } from '../../utils/run-preview/run-week';
-import { applyRunVariant, type RunVariantKey } from '../../utils/run-overview/run-variants';
+import { applyRunEdits, NO_RUN_EDITS, type RunEdits } from '../../utils/run-overview/run-edits';
 import { buildRunJourney } from '../../utils/run-preview/run-journey';
 import { estimateRunTotals } from '../../utils/run-preview/run-estimates';
 import { inferRunKind, resolveRunCategory, runTypeLabel } from '../../utils/run-preview/run-kind';
@@ -48,7 +49,8 @@ export interface RunOverviewMapHostProps {
   week?: RunWeekContext | null;
   /** Opened from home's "הצע לי מסלול" (?suggest=1). */
   initialSuggest?: boolean;
-  initialVariant?: RunVariantKey | null;
+  /** Edits from home's overview link (?variant / ?swap / ?pace). */
+  initialEdits?: RunEdits | null;
   /** Back / close (today's "ביטול" → discover). */
   onExit: () => void;
   /** "בחר במפה" — pick a route on the Discover map. */
@@ -56,23 +58,23 @@ export interface RunOverviewMapHostProps {
 }
 
 export default function RunOverviewMapHost({
-  logic, workout, templateCategory, week, initialSuggest = false, initialVariant = null, onExit, onPickOnMap,
+  logic, workout, templateCategory, week, initialSuggest = false, initialEdits = null, onExit, onPickOnMap,
 }: RunOverviewMapHostProps) {
   // The materialized workout we started from — the store's workout becomes the
-  // variant we write before start, which must never become the new base.
+  // edited one we write before start, which must never become the new base.
   const baseRef = useRef(workout);
   const wroteRef = useRef<RunWorkout | null>(null);
   if (workout !== baseRef.current && workout !== wroteRef.current) baseRef.current = workout;
   const base = baseRef.current;
 
-  const [variant, setVariant] = useState<RunVariantKey>(initialVariant ?? 'planned');
+  const [edits, setEdits] = useState<RunEdits>(initialEdits ?? NO_RUN_EDITS);
   const [suggesting, setSuggesting] = useState(false);
   const [chosen, setChosen] = useState<RouteSuggestion | null>(null);
   const [onMap, setOnMap] = useState(false);
   const [snap, setSnap] = useState<{ to: 'peek' | 'half' | 'full'; n: number } | null>(null);
 
   const pace = useRunPaceContext();
-  const active = useMemo(() => applyRunVariant(base, variant, pace.ctx), [base, variant, pace.ctx]);
+  const active = useMemo(() => applyRunEdits(base, edits, pace.ctx), [base, edits, pace.ctx]);
   const origin = logic.currentUserPos;
   const search = useRouteSuggestions(active, templateCategory, pace.ctx, origin);
 
@@ -116,27 +118,27 @@ export default function RunOverviewMapHost({
     setCarouselRoutes(null);
   }, [setCarouselRoutes]);
 
-  // A suggestion search started on a different variant is stale.
+  // A suggestion search started on a different structure (level / swap) is stale.
   useEffect(() => {
     if (suggesting) clearRoute();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant]);
+  }, [edits.variant, edits.swap]);
 
-  const commitVariant = () => {
+  const commitEdits = () => {
     const rp = useRunningPlayer.getState();
-    const w = applyRunVariant(base, variant, pace.ctx);
+    const w = applyRunEdits(base, edits, pace.ctx);
     if (rp.currentWorkout !== w) {
       wroteRef.current = w;
       rp.setCurrentWorkout(w);
     }
   };
   const startFree = () => {
-    commitVariant();
+    commitEdits();
     logic.startActiveWorkout();
   };
   const startOnRoute = () => {
     if (!chosen) return;
-    commitVariant();
+    commitEdits();
     setFocusedRoute(chosen.route);
     logic.startActiveWorkoutForRoute(chosen.route);
   };
@@ -182,8 +184,8 @@ export default function RunOverviewMapHost({
         workout={base}
         templateCategory={templateCategory}
         week={week}
-        variant={variant}
-        onVariantChange={setVariant}
+        edits={edits}
+        onEditsChange={setEdits}
         chosen={chosen ? { route: chosen.route, score: chosen.score } : null}
         origin={origin}
         ctaMode={ctaMode}

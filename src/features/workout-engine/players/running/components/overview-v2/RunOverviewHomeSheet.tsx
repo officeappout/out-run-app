@@ -5,7 +5,8 @@
  * (board M-6a, enable_home_v2): the same overview drawer as on the map,
  * over a dimmed home, opened full. "התחל אימון" goes to the map and starts
  * from where you are (today's path); "הצע לי מסלול" goes to the map and
- * opens the route suggestions there. The chosen variant travels in the link.
+ * opens the route suggestions there. The edits (level, swapped main set,
+ * paces — run-edits.ts) travel in the link.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,7 +15,7 @@ import { SHEET_Z } from '@/components/ui/v2';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import type RunWorkout from '../../types/run-workout.type';
 import type { RunWeekContext } from '../../utils/run-preview/run-week';
-import type { RunVariantKey } from '../../utils/run-overview/run-variants';
+import { NO_RUN_EDITS, type RunEdits } from '../../utils/run-overview/run-edits';
 import RunWorkoutOverview from './RunWorkoutOverview';
 
 export interface RunOverviewHomeSheetProps {
@@ -24,17 +25,17 @@ export interface RunOverviewHomeSheetProps {
   isLoading?: boolean;
   templateCategory?: string | null;
   week?: RunWeekContext | null;
-  onGo: (variant: RunVariantKey) => void;
-  onSuggestRoute: (variant: RunVariantKey) => void;
+  onGo: (edits: RunEdits) => void;
+  onSuggestRoute: (edits: RunEdits) => void;
 }
 
 export default function RunOverviewHomeSheet({
   isOpen, onClose, workout, isLoading, templateCategory, week, onGo, onSuggestRoute,
 }: RunOverviewHomeSheetProps) {
-  const [variant, setVariant] = useState<RunVariantKey>('planned');
+  const [edits, setEdits] = useState<RunEdits>(NO_RUN_EDITS);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  useEffect(() => { if (!isOpen) setVariant('planned'); }, [isOpen]);
+  useEffect(() => { if (!isOpen) setEdits(NO_RUN_EDITS); }, [isOpen]);
   useSuppressBottomNav(isOpen);
 
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
@@ -48,13 +49,13 @@ export default function RunOverviewHomeSheet({
           workout={workout!}
           templateCategory={templateCategory}
           week={week}
-          variant={variant}
-          onVariantChange={setVariant}
+          edits={edits}
+          onEditsChange={setEdits}
           ctaMode="free"
           initialDetent="full"
           onBack={onClose}
-          onStart={() => onGo(variant)}
-          onSuggest={() => onSuggestRoute(variant)}
+          onStart={() => onGo(edits)}
+          onSuggest={() => onSuggestRoute(edits)}
         />
       ) : (
         <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-3 rounded-t-[28px] bg-v2-surface py-24 shadow-v2-sheet">

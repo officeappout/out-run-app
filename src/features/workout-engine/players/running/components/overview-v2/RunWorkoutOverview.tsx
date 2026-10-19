@@ -8,7 +8,9 @@
  *   strip    the journey strip (from the same legs as the axis)
  *   graphs   page 1 intensity · page 2 elevation along the workout (route only)
  *   פירוט    zone ladder · where to run
- *   variant  lighter · planned · harder
+ *   level    קליל · מאוזן · עוצמתי (M-7d) — the main set's structure only
+ *   edits    tappable paces → "התאם קצב" (M-7a); "החלף" on the main set →
+ *            "החלף מקטע" (M-7b/7c) — all in RunEdits, owned by the host
  *   axis     "המיקום שלך · יוצאים מכאן" → warm-up → main (group) → cool-down,
  *            or "המסלול שבחרת" → walk there → … → laps note → walk back
  *   CTA      RunOverviewCta (mode chosen by the host)
@@ -32,7 +34,7 @@ import { readElevationSamples } from '../../lib/route-elevation-ahead';
 import type { RouteWorkoutScore } from '../../lib/route-fit/types';
 import type RunWorkout from '../../types/run-workout.type';
 import type { RunWeekContext } from '../../utils/run-preview/run-week';
-import type { RunVariantKey } from '../../utils/run-overview/run-variants';
+import { isCustomized, withVariant, type RunEdits } from '../../utils/run-overview/run-edits';
 import { buildWorkoutElevation } from '../../utils/run-overview/run-elevation-bands';
 import { routeChoiceView } from '../../utils/run-overview/run-route-choice';
 import { RunCoachTip, RunSurfaceTiles, RunZoneLadder } from '../preview-v2/RunBriefingParts';
@@ -42,6 +44,7 @@ import RunVariantPicker from './RunVariantPicker';
 import { ElevationPage, IntensityPage } from './RunOverviewGraphs';
 import RunChosenRouteRow from './RunChosenRouteRow';
 import RunOverviewCta, { type RunCtaMode } from './RunOverviewCta';
+import { useRunOverviewEditor } from './edit/useRunOverviewEditor';
 
 export interface RunOverviewRoute {
   route: Route;
@@ -52,8 +55,10 @@ export interface RunWorkoutOverviewProps {
   workout: RunWorkout;
   templateCategory?: string | null;
   week?: RunWeekContext | null;
-  variant: RunVariantKey;
-  onVariantChange: (key: RunVariantKey) => void;
+  /** Level · swapped main set · edited paces (run-edits.ts). */
+  edits: RunEdits;
+  /** Omit for a read-only overview (no level / pace / swap edits). */
+  onEditsChange?: (edits: RunEdits) => void;
   /** The chosen route (suggestion / Discover); null = a free run from here. */
   chosen?: RunOverviewRoute | null;
   origin?: { lat: number; lng: number } | null;
@@ -74,13 +79,14 @@ export interface RunWorkoutOverviewProps {
 const ROUTE_RAIL_NEXT = '#93C5FD';
 
 export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
-  const { workout, templateCategory, week, variant, onVariantChange, chosen = null, origin = null, ctaMode } = props;
+  const { workout, templateCategory, week, edits, onEditsChange, chosen = null, origin = null, ctaMode } = props;
   const [detailOpen, setDetailOpen] = useState(false);
   const weightKg = useUserStore((s) => (s.profile?.core as { weight?: number } | undefined)?.weight);
 
   const view = useMemo(() => (chosen ? routeChoiceView(chosen.route, chosen.score, origin) : null), [chosen, origin]);
   const extras = useMemo(() => ({ templateCategory, week }), [templateCategory, week]);
-  const om = useRunOverviewModel(workout, variant, extras, view?.walk ?? null);
+  const om = useRunOverviewModel(workout, edits, extras, view?.walk ?? null);
+  const editor = useRunOverviewEditor(workout, om, edits, onEditsChange);
 
   const elevation = useMemo(() => {
     if (!om || !chosen) return null;
@@ -111,7 +117,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
       onBack={props.onBack}
       initialDetent={props.initialDetent}
       snapRequest={props.snapRequest}
-      header={<RunOverviewHeader model={model} finishText={finishText} routeLine={props.routeLineInHeader ? view?.headerLine : null} />}
+      header={<RunOverviewHeader model={model} finishText={finishText} customized={isCustomized(edits)} routeLine={props.routeLineInHeader ? view?.headerLine : null} />}
       strip={<JourneyStrip v2 items={journeyItemsFromLegs(legs)} />}
       graphs={graphs}
       cta={(
@@ -142,7 +148,10 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
         </>
       )}
 
-      {variants && <RunVariantPicker className="mt-2.5" variants={variants} value={variant} onChange={onVariantChange} ctx={pace.ctx} />}
+      {variants && onEditsChange && (
+        <RunVariantPicker className="mt-2.5" variants={variants} value={edits.variant} manual={!!om.swap}
+          onChange={(k) => onEditsChange(withVariant(edits, k))} ctx={pace.ctx} />
+      )}
 
       <div className="mb-2.5 mt-5 whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">מהלך האימון</div>
       <OverviewLegAxis
@@ -165,10 +174,12 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
           <div className="mb-1 whitespace-nowrap pr-14 text-[12px] font-extrabold text-v2-deep">{view.onRouteNote}</div>
         ) : undefined}
         showReturn={!!view?.walk && view.walk.backMin > 0}
+        decorations={editor.decorations}
       />
       <div className="mt-3">
         <RunCoachTip text={model.tip} />
       </div>
+      {editor.sheets}
     </OverviewDrawerShell>
   );
 }

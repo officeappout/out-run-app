@@ -30,6 +30,13 @@ export type RunWorkout = {
   aiCue?: string;
   /** Where the metadata came from ('firestore' | 'fallback'). */
   metadataSource?: 'firestore' | 'fallback';
+
+  /**
+   * Home v2 run overview "החלף מקטע" (enable_home_v2): the main set was
+   * swapped for this workout ("6 × 400 מ׳" → "4 × 600 מ׳"). In-memory only;
+   * finishWorkout copies it into runMeta.mainSwap.
+   */
+  mainSwap?: { from: string; to: string };
 };
 
 export default RunWorkout;

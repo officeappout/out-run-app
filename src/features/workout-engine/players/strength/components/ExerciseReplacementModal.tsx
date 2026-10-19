@@ -16,6 +16,7 @@ import { ExecutionLocation } from '@/features/content/exercises';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { Dumbbell, X } from 'lucide-react';
+import { LEVEL_COMPARE_ICONS } from '@/components/ui/v2/LevelCompareIcon';
 import { filterAlternativesByEquipment } from '../logic/equipment-filter';
 import type { ReplacementMeta, SwapReason } from '@/features/workout-engine/adaptation/adaptation.types';
 
@@ -61,11 +62,8 @@ const REASON_CHIPS: { id: SwapReason; label: string }[] = [
   { id: 'pain', label: 'כואב' },
 ];
 
-const LEVEL_ICONS: Record<string, { src: string; color: string }> = {
-  lower:  { src: '/assets/icons/ui/level_down.svg', color: 'text-orange-500' },
-  same:   { src: '/assets/icons/ui/level_same.svg', color: 'text-[#00BAF7]' },
-  higher: { src: '/assets/icons/ui/level_up.svg',   color: 'text-emerald-500' },
-};
+// Shared with the run overview's "החלף מקטע" drawer (src/components/ui/v2/LevelCompareIcon).
+const LEVEL_ICONS: Record<string, { src: string; color: string }> = LEVEL_COMPARE_ICONS;
 
 function DrawerGearBadge({ srcList, label }: { srcList: string[]; label: string }) {
   const [srcIdx, setSrcIdx] = React.useState(0);

@@ -15,8 +15,7 @@ import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBot
 import { Play, Zap, ChevronDown } from 'lucide-react';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
 import RunOverviewMapHost from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewMapHost';
-import { applyRunVariant } from '@/features/workout-engine/players/running/utils/run-overview/run-variants';
-import { readVariantParam } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
+import { applyRunEdits, isCustomized, readRunEditParams } from '@/features/workout-engine/players/running/utils/run-overview/run-edits';
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
 import { parseRunWeekParams } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -59,8 +58,12 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
   const weekContext = useMemo(() => parseRunWeekParams(weekParam, dayParam, totalWeeks), [weekParam, dayParam, totalWeeks]);
   const previewExtras = useMemo(() => ({ templateCategory, week: weekContext }), [templateCategory, weekContext]);
   const previewModel = useRunPreviewModel(v2 ? currentWorkout : null, previewExtras);
-  // v2 overview links (home week card): the chosen variant + "open the route suggestions".
-  const variantParam = v2 ? readVariantParam(searchParams.get('variant')) : null;
+  // v2 overview links (home week card): the runner's edits (level / swap / paces) + "open the route suggestions".
+  const editsParam = useMemo(
+    () => (v2 ? readRunEditParams({ variant: searchParams.get('variant'), swap: searchParams.get('swap'), pace: searchParams.get('pace') }) : null),
+    [v2, searchParams],
+  );
+  const hasEditsParam = !!editsParam && (editsParam.variant !== 'planned' || isCustomized(editsParam));
   const suggestParam = v2 && searchParams.get('suggest') === '1';
 
   useEffect(() => {
@@ -117,11 +120,11 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
           }
         }
 
-        // v2: a variant chosen on home's overview and started straight away (autoStart —
-        // no overview here to apply it). Otherwise the map overview applies it before start.
-        if (variantParam && autoStart) {
+        // v2: edits made on home's overview and started straight away (autoStart —
+        // no overview here to apply them). Otherwise the map overview applies them before start.
+        if (editsParam && hasEditsParam && autoStart) {
           const zones = paceProfile.basePace > 0 ? computeZones(paceProfile.basePace, paceProfile.profileType, paceMapConfig) : null;
-          workout = applyRunVariant(workout, variantParam, { basePace: paceProfile.basePace, zones });
+          workout = applyRunEdits(workout, editsParam, { basePace: paceProfile.basePace, zones });
         }
 
         await resolveRunningWorkoutMetadata({
@@ -213,7 +216,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         templateCategory={templateCategory}
         week={weekContext}
         initialSuggest={suggestParam}
-        initialVariant={variantParam}
+        initialEdits={hasEditsParam ? editsParam : null}
         onExit={() => setMode('discover')}
         onPickOnMap={() => setMode('discover')}
       />

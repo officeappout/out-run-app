@@ -13,6 +13,13 @@ export type RunBlock = {
     max: number;
   };
   zoneType?: RunZoneType;
+  /**
+   * Home v2 run overview "התאם קצב" (enable_home_v2): the runner's own target
+   * band for THIS workout only (sec/km, min = faster). Wins over the zone in
+   * resolveBlockTargetPace, so the live player targets it. Never on a
+   * template; a run with it never feeds the pace self-correction.
+   */
+  paceOverride?: { min: number; max: number };
   isQualityExercise?: boolean;
   colorHex: string;
   blockMode?: 'pace' | 'effort';
