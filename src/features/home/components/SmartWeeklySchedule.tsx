@@ -48,6 +48,7 @@ import {
   type DailyActivity,
   type RingData,
 } from '@/features/activity/types/activity.types';
+import { APP_DOMAIN } from '@/lib/config/domain';
 
 // ============================================================================
 // TYPES
@@ -1675,7 +1676,7 @@ export default function SmartWeeklySchedule({
             const platform = w.Capacitor?.getPlatform?.() ?? 'web'; // 'ios' | 'android' | 'web'
             const feedHost = platform !== 'web'
               ? APP_CONFIG_LINKS.WEB_BASE_URL.replace('https://', '')
-              : (typeof window !== 'undefined' ? window.location.host : 'outrun.co.il');
+              : (typeof window !== 'undefined' ? window.location.host : APP_DOMAIN);
             const webcalUrl = `webcal://${feedHost}${calendarFeedPath}`;
             if (platform === 'android') {
               // Android has no built-in webcal:// handler. Pass the Google Calendar

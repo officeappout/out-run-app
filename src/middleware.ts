@@ -4,6 +4,7 @@ import {
   SESSION_COOKIE_NAME,
   verifyAdminSession,
 } from '@/lib/admin-session';
+import { ADMIN_HOSTS, PORTAL_HOSTS } from '@/lib/config/domain';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Capacitor CORS — allowed origins for the native iOS / Android shell
@@ -470,8 +471,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAdminDomain = domain === 'admin.outrun.co.il' || domain === 'admin.outrun.local';
-  const isAuthorityDomain = domain === 'portal.outrun.co.il' || domain === 'portal.outrun.local';
+  const isAdminDomain = ADMIN_HOSTS.includes(domain);
+  const isAuthorityDomain = PORTAL_HOSTS.includes(domain);
 
   // ──────────────────────────────────────────────────────────────
   // 1. Domain-based routing (unchanged from previous middleware).

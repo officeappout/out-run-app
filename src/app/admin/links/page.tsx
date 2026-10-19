@@ -637,7 +637,7 @@ function LinkDrawer({ open, link, onClose, onSaved }: LinkDrawerProps) {
               dir="ltr"
               value={oneLinkUrl}
               onChange={(e) => setOneLinkUrl(e.target.value)}
-              placeholder="https://outrun.co.il/gateway"
+              placeholder={`${SHORT_LINK_DOMAIN}/gateway`}
               disabled={useSmartLink}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-slate-100 disabled:text-slate-400"
             />

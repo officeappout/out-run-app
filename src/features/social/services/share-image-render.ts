@@ -13,6 +13,7 @@
  */
 import { routeShapeToSvg } from './feed-route';
 import { SHARE_SIZES, coverRect, type ShareSize, type ShareTemplateData } from './share-image';
+import { APP_DOMAIN } from '@/lib/config/domain';
 
 const INK = '#0e1419';
 const DEEP = '#0284c7';
@@ -264,7 +265,7 @@ export async function renderShareImage({ data, size, photo, logo }: RenderShareO
   }
 
   // Footer
-  text(ctx, 'outrun.co.il', right, H - (story ? 110 : 64), story ? 34 : 30, 700, sub);
+  text(ctx, APP_DOMAIN, right, H - (story ? 110 : 64), story ? 34 : 30, 700, sub);
   return canvas;
 }
 

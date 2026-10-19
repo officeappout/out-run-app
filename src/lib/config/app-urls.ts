@@ -17,12 +17,14 @@
  *   LEGACY_VERCEL_URL — The old Vercel deployment URL kept as a reference.
  *     Do not use in new code. Retained here to make future migration audits easy.
  */
+import { APP_ORIGIN } from './domain';
+
 export const APP_CONFIG_LINKS = {
   /** OneLink smart-link for general friend invites — forces store redirect. */
   GENERAL_INVITE_ONELINK: 'https://onelink.to/appout',
 
-  /** Canonical production web base URL for entity sharing (workouts, groups). */
-  WEB_BASE_URL: 'https://outrun.co.il',
+  /** Canonical production web base URL for entity sharing (workouts, groups). Derived from `./domain`. */
+  WEB_BASE_URL: APP_ORIGIN,
 
   /** Legacy Vercel deployment URL — kept for reference only, do not use. */
   LEGACY_VERCEL_URL: 'https://out-run-app.vercel.app',

@@ -8,6 +8,7 @@ import { taskOrder } from '../wedding.links';
 import { OwnerDots, OwnerFilterBar, OwnerPicker, OwnerPills, TASK_STYLES, matchesOwner, taskColor, taskStyle, type OwnerFilter } from './tags';
 import { TASK_COLORS } from '../wedding.types';
 import { SELECTED_STYLE, card, cellInput, fmtDate, newId, type Update } from './ui';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 /**
  * The tasks tab: one set of tasks, three views — month calendar (ranges as
@@ -589,7 +590,7 @@ function ListView({ s, tasks, update, onOpen }: { s: WeddingState; tasks: Weddin
 /** Subscribe link: Google adds the feed as its own calendar ("תכנון החתונה") and keeps re-reading it. */
 function GoogleCalendarPanel() {
   const [copied, setCopied] = useState(false);
-  const feed = `${typeof window === 'undefined' ? 'https://outrun.co.il' : window.location.origin}/api/public/wedding/calendar`;
+  const feed = `${typeof window === 'undefined' ? APP_ORIGIN : window.location.origin}/api/public/wedding/calendar`;
   const subscribe = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed.replace(/^https?:/, 'webcal:'))}`;
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-sm">
