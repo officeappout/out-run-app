@@ -39,6 +39,7 @@ import { aiPauseReply, needsHumanReasonFor, nextAiPause, pausedMessageNeedsHuman
 import type { CoachGender } from './persona';
 import type { SuggestionChip } from './suggestions/types';
 import type { StoredProposal } from './schedule-proposal/types';
+import type { Round4Extras, Round4TurnState } from './round4/types';
 import { hasTtl, isKellyMessageSource, nextTeamWindow, previewOf, roleForSource, type KellyMessageSource } from './unified-thread';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
@@ -73,6 +74,8 @@ export interface PendingTurn {
   cards: StoredCard[];
   /** Kelly phase 2: a schedule proposal prepared earlier in this turn (absent = none). */
   proposal?: StoredProposal | null;
+  /** Kelly round 4: cards / parks / tutorial prepared earlier in this turn (absent = none). */
+  round4?: Round4TurnState | null;
   createdAtMs: number;
 }
 
@@ -100,7 +103,7 @@ function parsePending(raw: unknown, now: number): PendingTurn | null {
   const createdAtMs = msOf(r.createdAt);
   if (now - createdAtMs > PENDING_TTL_MS) return null;
   try {
-    const body = JSON.parse(r.json) as Partial<Pick<PendingTurn, 'state' | 'pendingResults' | 'cards' | 'proposal'>>;
+    const body = JSON.parse(r.json) as Partial<Pick<PendingTurn, 'state' | 'pendingResults' | 'cards' | 'proposal' | 'round4'>>;
     if (!body.state || !Array.isArray(body.pendingResults)) return null;
     return {
       toolUseId: r.toolUseId,
@@ -109,6 +112,7 @@ function parsePending(raw: unknown, now: number): PendingTurn | null {
       pendingResults: body.pendingResults,
       cards: Array.isArray(body.cards) ? body.cards : [],
       ...(body.proposal ? { proposal: body.proposal } : {}),
+      ...(body.round4 ? { round4: body.round4 } : {}),
       createdAtMs,
     };
   } catch {
@@ -161,6 +165,8 @@ export async function appendMessage(
     suggestions?: SuggestionChip[];
     /** Kelly phase 2: the schedule proposal (confirm card) of this reply. Absent = not written. */
     proposal?: StoredProposal | null;
+    /** Kelly round 4: the aerobic card / nearby parks of this reply. Absent = not written. */
+    round4?: Round4Extras | null;
   },
   now = Date.now(),
 ): Promise<string> {
@@ -176,6 +182,7 @@ export async function appendMessage(
     ...(msg.source ? { source: msg.source } : {}),
     ...(msg.suggestions?.length ? { suggestions: msg.suggestions.map((c) => ({ ...c })) } : {}),
     ...(msg.proposal ? { proposal: JSON.parse(JSON.stringify(msg.proposal)) } : {}),
+    ...(msg.round4 ? { round4: JSON.parse(JSON.stringify(msg.round4)) } : {}),
     createdAt: Timestamp.fromMillis(now),
     ...(ttl ? { expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000) } : {}),
   });
@@ -391,7 +398,7 @@ export async function savePending(db: Firestore, uid: string, p: Omit<PendingTur
       pending: {
         toolUseId: p.toolUseId,
         toolName: p.toolName,
-        json: JSON.stringify({ state: p.state, pendingResults: p.pendingResults, cards: p.cards, ...(p.proposal ? { proposal: p.proposal } : {}) }),
+        json: JSON.stringify({ state: p.state, pendingResults: p.pendingResults, cards: p.cards, ...(p.proposal ? { proposal: p.proposal } : {}), ...(p.round4 ? { round4: p.round4 } : {}) }),
         createdAt: Timestamp.fromMillis(now),
       },
       updatedAt: FieldValue.serverTimestamp(),

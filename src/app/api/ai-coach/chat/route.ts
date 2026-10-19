@@ -71,6 +71,9 @@ import { proposalView, type StoredProposal } from '@/lib/ai/coach/schedule-propo
 import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
 import { loadMemory } from '@/lib/ai/coach/memory/store.server';
 import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
+import { ROUND4_NOTE, coachSystemPrompt } from '@/lib/ai/coach/round4/prompt';
+import { hasRound4Extras, newRound4TurnState, type Round4TurnState } from '@/lib/ai/coach/round4/types';
+import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -172,6 +175,11 @@ export async function POST(request: Request) {
   let carriedCards: StoredCard[] = [];
   /** Kelly phase 2: a proposal prepared earlier in this same turn (before a client round). */
   let carriedProposal: StoredProposal | null = null;
+  /** Kelly round 4: cards / parks / tutorial prepared earlier in this same turn. */
+  let carriedRound4: Round4TurnState | null = null;
+  /** Kelly round 4: the workout this request's client round built (content-gap chip). */
+  let builtGap: { location?: string; levelCeiling?: boolean; shortOfMinimum?: boolean } | null = null;
+  const round4 = auth.flags?.aiCoachRound4 === true;
   let safetyText: string | null = null;
   let safetyTrigger: string | null = null;
 
@@ -204,13 +212,15 @@ export async function POST(request: Request) {
         levelCeiling: r.levelCeiling === true,
       };
       knownCards.set(newCard.workoutId, newCard);
+      builtGap = { location: r.location, levelCeiling: r.levelCeiling === true, shortOfMinimum: r.shortOfMinimum === true };
     }
     carriedCards = pending.cards;
     carriedProposal = pending.proposal ?? null;
+    carriedRound4 = pending.round4 ?? null;
     state = resumeWithClientResult(
       pending.state,
       pending.pendingResults,
-      clientOutcomeToToolResult(pending.toolUseId, outcome),
+      clientOutcomeToToolResult(pending.toolUseId, outcome, round4 ? { round4: true } : {}),
       pending.toolName || 'generate_workout',
     );
   } else {
@@ -265,6 +275,19 @@ export async function POST(request: Request) {
       console.warn('[ai-coach] user sheet unavailable this turn', err);
     }
   }
+  // Kelly round 4 (ai_coach_round4): aerobic sessions, nearby parks, weather, the tutorial.
+  // Off = no round 4 context, tools, prompt or writes.
+  if (round4 && auth.flags) {
+    toolCtx.round4 = {
+      sheet,
+      flags: {
+        graphhopper: auth.flags.enableGraphhopperRoutes === true,
+        weatherEnabled: auth.flags.weatherEnabled === true,
+        weatherAdminsOnly: auth.flags.weatherAdminsOnly !== false,
+      },
+      state: carriedRound4 ?? newRound4TurnState(),
+    };
+  }
   // Kelly phase 3 memory (ai_coach_memory): "מה אני זוכר עליך" in the session block. Off (or a
   // failed read) = no block, the exact prompt as before.
   const memoryBlock =
@@ -285,7 +308,10 @@ export async function POST(request: Request) {
       ? (body.toolResult.outcome.domains ?? [])
       : [];
 
-  const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}) }) });
+  const cached = withPromptCaching({
+    system: round4 ? coachSystemPrompt({ round4: true }) : COACH_SYSTEM_PROMPT,
+    tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}) }),
+  });
   const system: Anthropic.TextBlockParam[] = [
     ...cached.system,
     {
@@ -303,6 +329,7 @@ export async function POST(request: Request) {
         scheduleAdvisor,
         ...(phase2 ? { phase2: true } : {}),
         ...(memoryBlock ? { memory: memoryBlock } : {}),
+        ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -345,7 +372,7 @@ export async function POST(request: Request) {
             history,
             maxRounds: COACH_MAX_TOOL_ROUNDS,
             maxTokens: COACH_MODEL_MAX_TOKENS,
-            guards: { sheet, todayDow, userGender: gender },
+            guards: { sheet, todayDow, userGender: gender, ...(round4 ? { round4: true } : {}) },
           },
           state,
           {
@@ -381,6 +408,7 @@ export async function POST(request: Request) {
             pendingResults: outcome.pendingResults,
             cards: turnCards,
             ...(phase2 && toolCtx.turn.proposal ? { proposal: toolCtx.turn.proposal } : {}),
+            ...(toolCtx.round4 ? { round4: toolCtx.round4.state } : {}),
           });
           emit({ type: 'client_tool', id: outcome.call.id, name: outcome.call.name, input: outcome.call.input });
           return;
@@ -420,7 +448,18 @@ export async function POST(request: Request) {
           actions = extras.actions;
           suggestions = extras.suggestions;
         }
+        const round4Extras = toolCtx.round4 && hasRound4Extras(toolCtx.round4.state.extras) ? toolCtx.round4.state.extras : null;
+        if (toolCtx.round4) {
+          actions = round4TurnActions({
+            state: toolCtx.round4.state,
+            toolNames: toolCalls.map((c) => c.name),
+            userText: userTextThisTurn,
+            workout: builtGap,
+            actions,
+          });
+        }
         if (actions.length) emit({ type: 'actions', actions });
+        if (round4Extras) emit({ type: 'round4', extras: round4Extras });
         if (proposal) emit({ type: 'proposal', proposal: proposalView(proposal) });
         if (suggestions.length) emit({ type: 'suggestions', suggestions });
 
@@ -434,6 +473,7 @@ export async function POST(request: Request) {
           ...(unified ? { source: 'ai' as const } : {}),
           ...(suggestions.length ? { suggestions } : {}),
           ...(proposal ? { proposal } : {}),
+          ...(round4Extras ? { round4: round4Extras } : {}),
         });
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });

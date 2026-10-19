@@ -26,12 +26,15 @@ import { refusedSendAction } from '@/lib/ai/coach/ai-pause';
 import { useKellyThreadMeta } from './useKellyThread';
 import { parseStoredSuggestions } from '@/lib/ai/coach/suggestions/stored';
 import { parseProposalView } from '@/lib/ai/coach/schedule-proposal/types';
+import { parseRound4Extras } from '@/lib/ai/coach/round4/types';
 
 /** Kelly phase 2 fields of a stored message (absent unless ai_coach_phase2 wrote them). */
-function phase2Fields(x: DocumentData): Pick<UiMessage, 'suggestions' | 'proposal'> {
+function phase2Fields(x: DocumentData): Pick<UiMessage, 'suggestions' | 'proposal' | 'round4'> {
   const suggestions = parseStoredSuggestions(x.suggestions);
   const proposal = parseProposalView(x.proposal);
-  return { ...(suggestions.length ? { suggestions } : {}), ...(proposal ? { proposal } : {}) };
+  // Kelly round 4 (absent unless ai_coach_round4 wrote it; re-validated, never trusted).
+  const round4 = x.round4 ? parseRound4Extras(x.round4) : null;
+  return { ...(suggestions.length ? { suggestions } : {}), ...(proposal ? { proposal } : {}), ...(round4 ? { round4 } : {}) };
 }
 
 const HISTORY_LIMIT = 30;

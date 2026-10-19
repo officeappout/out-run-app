@@ -129,6 +129,8 @@ export interface SessionContextInput {
   phase2?: boolean;
   /** ai_coach_memory on: the rendered "מה אני זוכר עליך" block (memory/inject.ts). Absent = today's prompt. */
   memory?: string | null;
+  /** ai_coach_round4 on: the round 4 note (round4/prompt.ts ROUND4_NOTE). Absent = today's prompt. */
+  round4Note?: string | null;
 }
 
 /** Session note while Kelly phase 2 (ai_coach_phase2) is on. */
@@ -158,6 +160,7 @@ export function buildSessionContext(i: SessionContextInput): string {
   }
   if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
   if (i.phase2) lines.push(PHASE2_NOTE);
+  if (i.round4Note) lines.push(i.round4Note);
   if (i.memory) lines.push('', i.memory);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);

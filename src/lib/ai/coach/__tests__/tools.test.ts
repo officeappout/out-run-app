@@ -24,6 +24,10 @@ describe('tool registry', () => {
       'recommend_today',
       'get_app_help',
       'propose_schedule_change',
+      'plan_aerobic_session',
+      'find_nearby_parks',
+      'get_weather',
+      'start_tutorial',
     ]);
     expect(toolKind('generate_workout')).toBe('client');
     expect(toolKind('get_progress')).toBe('server');

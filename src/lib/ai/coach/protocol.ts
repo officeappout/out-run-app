@@ -12,6 +12,7 @@
  *   actions      action chips under the reply (ids; label + target in action-chips.ts)
  *   suggestions  quick replies under the reply (Kelly phase 2, flag ai_coach_phase2)
  *   proposal     a schedule change awaiting the user's "אשר" (Kelly phase 2)
+ *   round4       an aerobic card and / or nearby parks under the reply (Kelly round 4)
  *   client_tool  run this tool on the device, then POST {toolResult}; the stream ends here
  *   done         the turn is complete and saved
  *   error        the turn failed after the stream started
@@ -24,6 +25,7 @@ import { aiPauseReply } from './ai-pause';
 import type { CoachActionId } from './action-chips';
 import type { SuggestionChip } from './suggestions/types';
 import type { ProposalView } from './schedule-proposal/types';
+import type { Round4Extras } from './round4/types';
 
 export const CHAT_MESSAGE_MAX_CHARS = 1000;
 
@@ -55,6 +57,7 @@ export type CoachStreamEvent =
   | { type: 'actions'; actions: CoachActionId[] }
   | { type: 'suggestions'; suggestions: SuggestionChip[] }
   | { type: 'proposal'; proposal: ProposalView }
+  | { type: 'round4'; extras: Round4Extras }
   | { type: 'client_tool'; id: string; name: string; input: unknown }
   | { type: 'done'; messageId: string | null }
   | { type: 'error'; code: CoachStreamErrorCode };

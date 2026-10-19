@@ -26,7 +26,18 @@ import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlu
 export type CheckLevelActionId = `check_level_${AssessableSlug}`;
 /** Kelly phase 3 (ai_coach_proactive): "איך היה?" answers under a post-workout message. */
 export type WorkoutRatingActionId = 'rate_easy' | 'rate_right' | 'rate_hard';
-export type CoachActionId = 'open_schedule' | 'build_today' | 'open_builder' | 'build_home' | WorkoutRatingActionId | CheckLevelActionId;
+/** Kelly round 4 (ai_coach_round4): aerobic, parks and "how to use the app" chips. */
+export type Round4ActionId =
+  | 'running_questionnaire'
+  | 'pick_route_run'
+  | 'pick_route_walk'
+  | 'tour_map'
+  | 'tour_workouts'
+  | 'tour_schedule'
+  | 'open_help'
+  | 'show_how'
+  | 'find_parks';
+export type CoachActionId = 'open_schedule' | 'build_today' | 'open_builder' | 'build_home' | WorkoutRatingActionId | CheckLevelActionId | Round4ActionId;
 
 export const CHECK_LEVEL_PREFIX = 'check_level_';
 
@@ -35,6 +46,17 @@ export function checkLevelActionId(slug: AssessableSlug): CheckLevelActionId {
 }
 
 export const WORKOUT_RATING_ACTION_IDS: readonly WorkoutRatingActionId[] = ['rate_easy', 'rate_right', 'rate_hard'];
+export const ROUND4_ACTION_IDS: readonly Round4ActionId[] = [
+  'running_questionnaire',
+  'pick_route_run',
+  'pick_route_walk',
+  'tour_map',
+  'tour_workouts',
+  'tour_schedule',
+  'open_help',
+  'show_how',
+  'find_parks',
+];
 
 export const COACH_ACTION_IDS: readonly CoachActionId[] = [
   'open_schedule',
@@ -43,6 +65,7 @@ export const COACH_ACTION_IDS: readonly CoachActionId[] = [
   'build_home',
   ...WORKOUT_RATING_ACTION_IDS,
   ...ASSESSABLE_SLUGS.map(checkLevelActionId),
+  ...ROUND4_ACTION_IDS,
 ];
 
 /** The schedule screen: /home opens the full-screen training planner on this param. */
@@ -81,7 +104,16 @@ export interface CoachActionSpec {
   assess?: CoachAssessTarget;
   /** Or (phase 3): answer "איך היה?" — stored server-side (workout_feedback), no AI turn. */
   rating?: WorkoutRating;
+  /** Or (round 4): replay a first-run tour from a step (the device opens that tour's screen). */
+  tour?: { id: 'home' | 'map'; step: number };
+  /** Or (round 4): open the map's free run / walk drawer ("pick a route on the map"). */
+  aerobicMap?: 'running' | 'walking';
+  /** Or (round 4): start an onboarding questionnaire (seeded on the device, then navigated). */
+  onboarding?: 'RUNNING';
 }
+
+/** The help hub (round 4). */
+export const HELP_HUB_PATH = '/help';
 
 export type WorkoutRating = 'easy' | 'right' | 'hard';
 
@@ -119,6 +151,16 @@ export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
   rate_right: { label: 'בדיוק', rating: 'right' },
   rate_hard: { label: 'קשה', rating: 'hard' },
   ...CHECK_LEVEL_ACTIONS,
+  // Kelly round 4 — only round 4 turns carry these (round4/turn-extras.ts).
+  running_questionnaire: { label: 'שאלון ריצה קצר', onboarding: 'RUNNING' },
+  pick_route_run: { label: 'בחר מסלול ריצה במפה', aerobicMap: 'running' },
+  pick_route_walk: { label: 'בחר מסלול הליכה במפה', aerobicMap: 'walking' },
+  tour_map: { label: 'תראה לי במפה', tour: { id: 'map', step: 0 } },
+  tour_workouts: { label: 'תראה לי במסך הבית', tour: { id: 'home', step: 0 } },
+  tour_schedule: { label: 'תראה לי את הלו״ז', tour: { id: 'home', step: 2 } },
+  open_help: { label: 'איך משתמשים ושאלות נפוצות', href: HELP_HUB_PATH },
+  show_how: { label: 'תראה לי איך משתמשים', message: 'תראה לי איך משתמשים' },
+  find_parks: { label: 'גינות כושר קרובות', message: 'איפה יש גינת כושר קרובה?' },
 };
 
 /** Every in-app link a chip can open (checked against src/app by a test). */

@@ -53,6 +53,7 @@ interface FlagState {
   ai_coach_proactive: boolean;
   ai_coach_proactive_llm: boolean;
   ai_coach_memory: boolean;
+  ai_coach_round4: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_budget_light_mode: boolean;
@@ -318,6 +319,16 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'קלי — זיכרון',
     description: 'פעם בלילה קלי שומר עד 20 עובדות קבועות שהמשתמש סיפר (פציעה או רגישות, אילוצי לו״ז, יעד או אירוע קרוב, העדפות) ומשתמש בהן בשיחה. המשתמש רואה ומוחק אותן במסך "מה קלי זוכר". לא נשמרות אבחנות או מידע רגיש שלא קשור לאימון. כבוי = בלי זיכרון.',
+    parentKey: 'ai_coach_enabled',
+  },
+  // Kelly round 4 (19.10.2026).
+  {
+    key: 'ai_coach_round4',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — סבב 4 (אירובי, פארקים, מזג אוויר, הדרכה)',
+    description: 'קלי בונה הליכה או ריצה (וגם ריצה ובסוף בטן, הליכה ועוד כוח) לפי תוכנית הריצה, ובלי תוכנית ריצה מציע את שאלון הריצה ובינתיים ריצה קלה לפי תחושה או הליכה, עם מסלול מעגלי אם יש מיקום. מוצא 3 גינות כושר קרובות לפי הציוד, יודע את מזג האוויר (לפי מתג מזג האוויר), אומר בכנות כשבבית אין מספיק תוכן ברמה של המשתמש ומציע גינה. "איך משתמשים": הסיור הראשון אפשר להפעיל שוב מההגדרות ומקלי, ומסך "איך משתמשים ושאלות נפוצות" עם חיפוש. כבוי = כמו היום.',
     parentKey: 'ai_coach_enabled',
   },
   // iOS keyboard insets (19.10.2026).

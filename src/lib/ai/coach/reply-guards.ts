@@ -23,6 +23,7 @@
  * The turn engine re-prompts ONCE on any issue; after that, foreign words are stripped and
  * feminine self-references are rewritten to the masculine deterministically.
  */
+import { findRound4BlindClaim } from './round4/blind';
 import type { UserContextSheet } from './context-sheet';
 import type { CoachGender } from './persona';
 import { findFeminineSelfReferences } from './gender-voice';
@@ -259,6 +260,8 @@ export interface BlindContext {
   userText: string;
   /** Tools already called this turn (any outcome). */
   toolNames: string[];
+  /** Kelly round 4 on: "can't" about parks, weather, a run or the tutorial is also caught. */
+  round4?: boolean;
 }
 
 /**
@@ -291,7 +294,7 @@ export function checkReply(
   if (words.length) issues.push({ kind: 'foreign', words });
   const fem = findFeminineSelfReferences(reply, userGender);
   if (fem.length) issues.push({ kind: 'feminine', forms: fem.map((h) => h.text) });
-  const b = blind ? findBlindClaim(reply, blind) : null;
+  const b = blind ? (findBlindClaim(reply, blind) ?? (blind.round4 ? findRound4BlindClaim(reply, blind.userText, blind.toolNames) : null)) : null;
   if (b) issues.push({ kind: 'blind', ...b });
   // Only reachable when propose_schedule_change ran this turn (flag ai_coach_phase2).
   if (blind?.toolNames.includes(PROPOSE_TOOL)) {

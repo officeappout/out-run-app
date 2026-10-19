@@ -27,6 +27,8 @@ export default function AiCoachPage() {
   // Kelly phase 3 (real values): "איך היה?" answer chips, the "מה קלי זוכר" screen.
   const proactive = flags.aiCoachProactive === true;
   const memory = flags.aiCoachMemory === true;
+  // Kelly round 4 (real value): walk / run cards, nearby parks, tour + questionnaire chips.
+  const round4 = flags.aiCoachRound4 === true;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
   const weatherOn = isWeatherOnFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
 
@@ -39,7 +41,7 @@ export default function AiCoachPage() {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
 
-  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} />;
+  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} />;
 
   if (!canUseAi) {
     return (
@@ -53,5 +55,5 @@ export default function AiCoachPage() {
     );
   }
 
-  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} />;
+  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} round4={round4} />;
 }

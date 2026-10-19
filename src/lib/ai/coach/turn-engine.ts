@@ -33,6 +33,7 @@ import { toolKind, validateToolInput, type ClientToolOutcome } from './tools';
 import { checkReply, correctionNote, dropHebrewlessSentences, factsFromEvidence, findForeignWords, stripForeignWords, type ReplyIssue } from './reply-guards';
 import { masculinizeSelfReferences } from './gender-voice';
 import type { CoachGender } from './persona';
+import { ROUND4_GAP_NOTE } from './round4/prompt';
 
 export const REFUSAL_TEXT = 'על זה אני לא יכול לעזור. אפשר לשאול אותי על אימונים, התקדמות ותוכנית השבוע.';
 export const EMPTY_TEXT = 'לא הצלחתי לנסח תשובה הפעם. אפשר לנסות שוב במילים אחרות.';
@@ -75,6 +76,8 @@ export interface TurnGuardConfig {
   todayDow: number;
   /** The user's grammatical gender (the feminine-voice check is stricter when not female). */
   userGender?: CoachGender | null;
+  /** Kelly round 4 on (the round 4 "can't" checks). */
+  round4?: boolean;
 }
 
 export interface TurnConfig {
@@ -233,7 +236,7 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
         const userGender = cfg.guards?.userGender ?? null;
         // "Can't see it" checks need the request and the tools used; only with guards on.
         const blind = cfg.guards
-          ? { userText: turnUserText(state), toolNames: (state.log?.toolCalls ?? []).map((c) => c.name) }
+          ? { userText: turnUserText(state), toolNames: (state.log?.toolCalls ?? []).map((c) => c.name), ...(cfg.guards.round4 ? { round4: true } : {}) }
           : null;
         const issues = checkReply(text, facts, userGender, blind);
         if (issues.length && !state.correctionUsed) {
@@ -364,7 +367,7 @@ function emitChecked(
 }
 
 /** What the model reads back from a generate_workout outcome. */
-export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome): Anthropic.ToolResultBlockParam {
+export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome, opts: { round4?: boolean } = {}): Anthropic.ToolResultBlockParam {
   if (outcome.ok) {
     // The decision record stays server-side (explain_workout reads it from the card).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -390,6 +393,8 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
     if (result.shortOfMinimum) {
       notes.push('Fewer exercises than usual were available for this request at this location. Say it simply and offer a different area or location.');
     }
+    // Kelly round 4 (ai_coach_round4): honest about the gap + the nearby parks.
+    if (opts.round4 && (result.levelCeiling || result.shortOfMinimum)) notes.push(ROUND4_GAP_NOTE);
     return {
       type: 'tool_result',
       tool_use_id: id,

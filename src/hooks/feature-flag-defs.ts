@@ -202,6 +202,15 @@ export const FLAG_DEFS = [
   // ("מה קלי זוכר", per-fact delete + delete all). Fail-closed; off = no extraction, no block,
   // no screen.
   { key: 'aiCoachMemory', firestoreKey: 'ai_coach_memory', defaultValue: false, superAdminValue: false },
+  // Kelly round 4 (19.10.2026, owner-approved) — aerobic sessions from chat (walk, easy run by
+  // effort, a run from the user's running program, + a short core or strength block; optional
+  // loop route), find_nearby_parks (read-only, by the user's area, filtered by gear), get_weather
+  // (read-only, same weather service + weather_admins_only gate), honest "home has too little at
+  // your level → nearby parks", and "איך משתמשים": the first-run tour replayable from Settings and
+  // from Kelly (start_tutorial) + a searchable help hub over the same app-help entries. The
+  // server is the enforcer (route.ts reads the real value). Fail-closed; superAdminValue false.
+  // Off = byte-identical Kelly (prompt, tools, stream, stored messages) and no hub row.
+  { key: 'aiCoachRound4', firestoreKey: 'ai_coach_round4', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is

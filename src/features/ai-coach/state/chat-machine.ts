@@ -18,6 +18,7 @@ import type { CoachActionId, WorkoutRating } from '@/lib/ai/coach/action-chips';
 import type { KellyMessageSource } from '@/lib/ai/coach/unified-thread';
 import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
 import type { ProposalStatus, ProposalView } from '@/lib/ai/coach/schedule-proposal/types';
+import { parseRound4Extras, type Round4Extras } from '@/lib/ai/coach/round4/types';
 
 export const LIVE_ID = '__live__';
 
@@ -37,6 +38,8 @@ export interface UiMessage {
   proposal?: ProposalView;
   /** Kelly phase 3: the user's answer to a post-workout "איך היה?" (stored server-side). */
   rated?: WorkoutRating;
+  /** Kelly round 4: an aerobic card and / or nearby parks under this reply. */
+  round4?: Round4Extras;
 }
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';
@@ -161,6 +164,10 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
           return { ...s, messages: withLive(s.messages, (m) => ({ ...m, suggestions: ev.suggestions })) };
         case 'proposal':
           return { ...s, messages: withLive(s.messages, (m) => ({ ...m, proposal: ev.proposal })) };
+        case 'round4': {
+          const extras = parseRound4Extras(ev.extras);
+          return extras ? { ...s, messages: withLive(s.messages, (m) => ({ ...m, round4: extras })) } : s;
+        }
         case 'actions':
           return { ...s, messages: withLive(s.messages, (m) => ({ ...m, actions: Array.from(new Set([...(m.actions ?? []), ...ev.actions])) })) };
         case 'client_tool':

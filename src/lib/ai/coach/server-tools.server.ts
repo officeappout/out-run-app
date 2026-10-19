@@ -35,6 +35,7 @@ import { recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './
 import { appHelpToolResult, type GetAppHelpInputT } from './app-help/retrieve';
 import { proposeScheduleChange } from './schedule-proposal/propose.server';
 import type { ProposeScheduleChangeInputT, StoredProposal } from './schedule-proposal/types';
+import { executeRound4Tool, isRound4Tool, type Round4ToolContext } from './round4/execute.server';
 
 export interface ServerToolContext {
   db: Firestore;
@@ -55,6 +56,12 @@ export interface ServerToolContext {
   unified?: boolean;
   /** system_config/feature_flags.ai_coach_phase2 (route.ts). Off → get_app_help / propose_schedule_change don't exist. */
   phase2?: boolean;
+  /**
+   * Kelly round 4 (ai_coach_round4, route.ts): the sheet, flags and per-turn state the round 4
+   * tools use. Absent → plan_aerobic_session / find_nearby_parks / get_weather / start_tutorial
+   * don't exist and get_app_help reads only the original entries.
+   */
+  round4?: Pick<Round4ToolContext, 'sheet' | 'flags' | 'state'>;
 }
 
 const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });
@@ -315,11 +322,14 @@ export async function executeServerTool(ctx: ServerToolContext, name: string, in
       return json(await recommendToday(ctx));
     case 'get_app_help':
       if (!ctx.phase2) return { content: `unknown tool ${name}`, isError: true };
-      return json(appHelpToolResult(input as GetAppHelpInputT));
+      return json(appHelpToolResult(input as GetAppHelpInputT, ctx.round4 ? { round4: true } : {}));
     case 'propose_schedule_change':
       if (!ctx.phase2) return { content: `unknown tool ${name}`, isError: true };
       return proposeScheduleChange(ctx, input as ProposeScheduleChangeInputT);
     default:
+      if (ctx.round4 && isRound4Tool(name)) {
+        return executeRound4Tool({ db: ctx.db, uid: ctx.uid, profile: ctx.profile, now: ctx.now, ...ctx.round4 }, name, input);
+      }
       return { content: `unknown tool ${name}`, isError: true };
   }
 }

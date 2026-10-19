@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 import { APP_HELP_ENTRIES, type AppHelpEntry } from './entries';
+import { getAppHelpEntries } from '@/lib/app-help/loader';
 
 export const APP_HELP_TOPICS = APP_HELP_ENTRIES.map((e) => e.id) as [string, ...string[]];
 
@@ -63,14 +64,19 @@ export interface AppHelpHit {
   answer: string;
 }
 
-export function findAppHelp(input: GetAppHelpInputT, max = 2): AppHelpHit[] {
+/**
+ * `round4` (flag ai_coach_round4): also the round 4 entries (running, Kelly, the tutorial),
+ * through the one help loader. Off = exactly APP_HELP_ENTRIES.
+ */
+export function findAppHelp(input: GetAppHelpInputT, max = 2, opts: { round4?: boolean } = {}): AppHelpHit[] {
   const pick = (e: AppHelpEntry): AppHelpHit => ({ id: e.id, title: e.title, answer: e.answer });
+  const entries = opts.round4 ? getAppHelpEntries({ round4: true }) : APP_HELP_ENTRIES;
   if (input.topic) {
-    const e = APP_HELP_ENTRIES.find((x) => x.id === input.topic);
+    const e = entries.find((x) => x.id === input.topic);
     if (e) return [pick(e)];
   }
   if (!input.query) return [];
-  return APP_HELP_ENTRIES.map((e) => ({ e, s: scoreEntry(e, input.query!) }))
+  return entries.map((e) => ({ e, s: scoreEntry(e, input.query!) }))
     .filter((x) => x.s >= 2)
     .sort((a, b) => b.s - a.s)
     .slice(0, max)
@@ -78,8 +84,8 @@ export function findAppHelp(input: GetAppHelpInputT, max = 2): AppHelpHit[] {
 }
 
 /** What the model reads back. */
-export function appHelpToolResult(input: GetAppHelpInputT): Record<string, unknown> {
-  const hits = findAppHelp(input);
+export function appHelpToolResult(input: GetAppHelpInputT, opts: { round4?: boolean } = {}): Record<string, unknown> {
+  const hits = findAppHelp(input, 2, opts);
   if (hits.length === 0) {
     return {
       found: false,

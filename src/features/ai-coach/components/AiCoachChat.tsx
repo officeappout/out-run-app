@@ -39,6 +39,8 @@ import KellyMemorySheet from './KellyMemorySheet';
 import { rateWorkout } from '../services/kelly-phase3-api';
 import { RATING_LABEL_HE } from '@/lib/ai/coach/proactive/feedback';
 import type { WorkoutRating } from '@/lib/ai/coach/action-chips';
+import Round4MessageExtras from './round4/Round4MessageExtras';
+import { openAerobicCard, parkHref, runRound4Chip } from '../services/round4-actions';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -66,6 +68,7 @@ export default function AiCoachChat({
   weatherOn = false,
   proactive = false,
   memory = false,
+  round4 = false,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -81,6 +84,8 @@ export default function AiCoachChat({
   proactive?: boolean;
   /** Kelly phase 3 (ai_coach_memory): the "מה קלי זוכר" button in the header. */
   memory?: boolean;
+  /** Kelly round 4 (ai_coach_round4): walk / run cards, nearby parks, tour and questionnaire chips. */
+  round4?: boolean;
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
@@ -275,6 +280,13 @@ export default function AiCoachChat({
                   {m.text}
                 </div>
               )}
+              {round4 && !mine && m.round4 && (
+                <Round4MessageExtras
+                  extras={m.round4}
+                  onOpenAerobic={(card) => void openAerobicCard(card, profile, (href) => router.push(href))}
+                  onOpenPark={(id) => router.push(parkHref(id))}
+                />
+              )}
               {/* Workout cards sit under the bubble, full card width (the home card, half height). */}
               {m.cards.map((c) => (
                 <div key={c.workoutId} className="mt-2">
@@ -288,6 +300,7 @@ export default function AiCoachChat({
                   onSend={(msg) => send(msg)}
                   onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}
                   onRate={proactive ? (r) => handleRate(m.id, r) : undefined}
+                  onDevice={round4 ? (spec) => void runRound4Chip(spec, profile, (href) => router.push(href)) : undefined}
                   disabled={busy}
                 />
               )}

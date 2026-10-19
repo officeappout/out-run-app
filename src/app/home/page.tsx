@@ -9,6 +9,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
@@ -3600,6 +3601,9 @@ export default function HomePage() {
         gender={profile?.core?.gender}
         onClose={() => setHomeTourRequested(false)}
       />
+
+      {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}
+      <TourReplayHost tour="home" ready={!flagsLoading && !showPlanner && !selectedWorkout} gender={profile?.core?.gender} />
 
       {/* ── Unified "+" FAB — promoted home entry point, opens the SAME
           UnifiedPlusDrawer the map "+" opens (Phase 1 revision — one

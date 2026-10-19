@@ -65,6 +65,12 @@ export const EvalAssertionsSchema = z
     noSuggestions: z.array(z.string()).optional(),
     /** Kelly phase 2: a schedule proposal card was (true) / was not (false) prepared. */
     proposal: z.boolean().optional(),
+    /** Kelly round 4: the aerobic card's kind (walk / easy_run / program_run). */
+    aerobicKind: z.enum(['walk', 'easy_run', 'program_run']).optional(),
+    /** Kelly round 4: nearby parks were (true) / were not (false) shown. */
+    parksShown: z.boolean().optional(),
+    /** Kelly round 4: the park option is offered (parks shown, or the "גינות כושר קרובות" chip). */
+    offersParks: z.boolean().optional(),
   })
   .strict();
 export type EvalAssertions = z.infer<typeof EvalAssertionsSchema>;
@@ -82,6 +88,27 @@ export const EvalContextSchema = z.object({
   progress: z.record(z.string(), z.unknown()).optional(),
   /** Kelly phase 2: the raw profile (schedule fields) propose_schedule_change plans on. */
   profile: z.record(z.string(), z.unknown()).optional(),
+  /** Kelly round 4: the frozen world the round 4 tools read (eval-round4.ts). */
+  round4: z
+    .object({
+      running: z.object({ hasRunningProgram: z.boolean(), hasPaceProfile: z.boolean(), plannedRunToday: z.boolean() }).optional(),
+      daysAway: z.number().int().min(0).nullable().optional(),
+      /** A loop of this length is found near the user (absent = pick on the map). */
+      routeKm: z.number().optional(),
+      /** null = no known area. */
+      parks: z
+        .array(z.object({ name: z.string(), distanceKm: z.number(), equipment: z.array(z.string()), area: z.string().nullable().optional() }))
+        .nullable()
+        .optional(),
+      /** null / absent = weather unavailable for this user. */
+      weather: z
+        .object({ temperatureC: z.number(), feelsLikeC: z.number(), flag: z.enum(['rain', 'heat', 'cold', 'uv']).nullable(), rainChanceNext3hPct: z.number().nullable(), isNight: z.boolean().optional() })
+        .nullable()
+        .optional(),
+      /** The stub workout comes back below the user's level (LEVEL_CEILING). */
+      levelCeiling: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type EvalContext = z.infer<typeof EvalContextSchema>;
 
@@ -113,7 +140,7 @@ export const EvalCaseSchema = z.object({
     })
     .optional(),
   /** Flags the replay runs with (default: all off, like production before they are switched on). */
-  flags: z.object({ phase2: z.boolean().optional() }).optional(),
+  flags: z.object({ phase2: z.boolean().optional(), round4: z.boolean().optional() }).optional(),
   /**
    * Kelly phase 3 (ai_coach_memory): remembered facts, rendered into the session context
    * exactly like the route does (memory/inject.ts). Absent = no memory block.
@@ -147,6 +174,9 @@ export interface EvalRunResult {
   suggestions?: string[];
   /** Kelly phase 2: a proposal card was prepared. */
   proposalCreated?: boolean;
+  /** Kelly round 4: the aerobic card's kind, and whether parks were shown. */
+  aerobicKind?: string | null;
+  parksShown?: boolean;
 }
 
 export interface AssertionResult {
@@ -298,6 +328,16 @@ export function checkAssertions(a: EvalAssertions, run: EvalRunResult): Assertio
   if (typeof a.proposal === 'boolean') {
     const got = !!run.proposalCreated;
     add('proposal', got === a.proposal, got ? 'a proposal card was prepared' : 'no proposal card');
+  }
+  if (a.aerobicKind) {
+    add('aerobicKind', run.aerobicKind === a.aerobicKind, `aerobic card: ${run.aerobicKind ?? 'none'} (want ${a.aerobicKind})`);
+  }
+  if (typeof a.parksShown === 'boolean') {
+    add('parksShown', !!run.parksShown === a.parksShown, run.parksShown ? 'parks shown' : 'no parks');
+  }
+  if (a.offersParks) {
+    const ok = !!run.parksShown || (run.chips ?? []).includes('find_parks');
+    add('offersParks', ok, ok ? 'park option offered' : 'no parks and no parks chip');
   }
   for (const m of a.matchCount ?? []) {
     let n = 0;
