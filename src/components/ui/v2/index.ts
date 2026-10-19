@@ -77,3 +77,7 @@ export type { WorkoutOverviewHeaderProps, OverviewMetaItem } from './WorkoutOver
 // Pre-run (home v2): a workout's intensity profile, one bar per block.
 export { default as ProfileStrip } from './ProfileStrip';
 export type { ProfileStripProps, ProfileStripSegment } from './ProfileStrip';
+// Full-bleed media hero that fades into the surface below (no card, no grey placeholder).
+export { default as MediaHeroFade, MediaHeroLayer, MediaHeroImage } from './MediaHeroFade';
+export type { MediaHeroFadeProps } from './MediaHeroFade';
+export * from './media-hero';

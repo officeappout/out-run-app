@@ -27,6 +27,7 @@ import {
   runningGoalSubtitle,
   type RunningGoalVisual,
 } from '../../constants/running-goal-visuals';
+import { MediaHeroImage } from '@/components/ui/v2/MediaHeroFade';
 
 type Answer = DynamicQuestionNode['answers'][number];
 
@@ -122,21 +123,16 @@ function GoalTint({ v, size }: { v: RunningGoalVisual; size: number }) {
 
 function PhotoLayer({ v, mode }: { v: RunningGoalVisual; mode: 'hero' | 'thumb' }) {
   if (!v.src) return <GoalTint v={v} size={mode === 'hero' ? 44 : 24} />;
-  const pos = mode === 'hero' ? v.heroPosition : v.thumbPosition;
-  const zoom = mode === 'hero' ? v.heroZoom : v.thumbZoom;
+  // Fades in once decoded (over the goal's tint) instead of popping in.
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={v.src}
-      alt={mode === 'hero' ? v.alt : ''}
-      className="h-full w-full object-cover"
-      style={{
-        objectPosition: pos,
-        transform: zoom ? `scale(${zoom})` : undefined,
-        transformOrigin: pos,
-      }}
-      draggable={false}
-    />
+    <span className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${v.tint.from}, ${v.tint.to})` }}>
+      <MediaHeroImage
+        src={v.src}
+        alt={mode === 'hero' ? v.alt : ''}
+        position={mode === 'hero' ? v.heroPosition : v.thumbPosition}
+        zoom={mode === 'hero' ? v.heroZoom : v.thumbZoom}
+      />
+    </span>
   );
 }
 

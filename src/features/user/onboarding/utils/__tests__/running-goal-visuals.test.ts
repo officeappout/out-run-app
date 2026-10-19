@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   abilityCopy,
   abilityTierOf,
   ABILITY_LEVEL,
+  RUNNING_GOAL_PHOTOS,
   resolveRunningGoalVisual,
   runningGoalPathOf,
   runningGoalSubtitle,
@@ -21,8 +24,8 @@ describe('running goal → photo mapping', () => {
   });
 
   it('improve → race start photo, maintain → park run photo, start → tint (no fake photo)', () => {
-    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'improve_time' } }).src).toBe('/images/gateway/card-running.png');
-    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'maintain_fitness' } }).src).toBe('/images/gateway/card-map.png');
+    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'improve_time' } }).src).toBe('/images/onboarding/running/goal-race.jpg');
+    expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'maintain_fitness' } }).src).toBe('/images/onboarding/running/goal-park.jpg');
     expect(resolveRunningGoalVisual({ id: 'x', metadata: { goalPath: 'start_running' } }).src).toBeNull();
   });
 
@@ -58,5 +61,15 @@ describe('ability answers', () => {
   it('levels rise with the time', () => {
     expect(ABILITY_LEVEL.none).toBeLessThan(ABILITY_LEVEL['5_15']);
     expect(ABILITY_LEVEL['15_30']).toBeLessThan(ABILITY_LEVEL['45_plus']);
+  });
+});
+
+describe('running goal photos — size guard (anti-flicker)', () => {
+  // The picker shows these as hero + thumbnail layers. The original 11.4 MB
+  // PNG decoded late and painted in strips on phones (the flicker).
+  it.each(Object.values(RUNNING_GOAL_PHOTOS))('%s exists and stays web-sized (< 500 KB)', (src) => {
+    const file = join(process.cwd(), 'public', src);
+    expect(existsSync(file)).toBe(true);
+    expect(statSync(file).size).toBeLessThan(500 * 1024);
   });
 });
