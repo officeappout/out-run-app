@@ -122,6 +122,7 @@ export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: stri
     routeShape: shape,
     surfaceType: dominantSurface(r.stats.surfaceMix),
     ...(r.stats.gainM != null ? { elevationGain: r.stats.gainM } : {}),
+    ...(r.elevationProfile ? { elevationProfile: r.elevationProfile } : {}),
     ...((r.stats.maxGrade50mOpenPct ?? r.stats.maxGrade50mPct) != null ? { maxGrade: (r.stats.maxGrade50mOpenPct ?? r.stats.maxGrade50mPct) as number } : {}),
     source: {
       type: 'official_api',
@@ -132,7 +133,7 @@ export function routeDocPayload(r: TrailRoute, ctx: RouteDocContext): { id: stri
     provenance: {
       pipeline: TRAILS_PIPELINE,
       osm: { license: OSM_LICENSE, snapshot: ctx.osmTimestamp, extract: 'geofabrik:israel-and-palestine' },
-      ...(r.stats.gainM != null ? { elevation: { provider: 'copernicus-glo30' } } : {}),
+      ...(r.stats.gainM != null || r.elevationProfile ? { elevation: { provider: 'copernicus-glo30' } } : {}),
     },
     attribution: { osm: OSM_ATTRIBUTION, elevation: COPERNICUS_DEM_ATTRIBUTION_SHORT },
     trail: {

@@ -16,7 +16,7 @@
  * Gain in the reverse direction == loss in the forward direction, so one
  * profile serves both traversal directions of a segment.
  */
-import type { ElevationProvider } from './elevation-provider';
+import { assertStorable, type ElevationProvider } from './elevation-provider';
 
 export const PROFILE_STEP_M = 15;
 export const PROFILE_MEDIAN_WINDOW = 5;
@@ -188,4 +188,66 @@ export function computeSmoothedProfile(coords: Array<[number, number]>, provider
     gradeWindowM: r1(g.windowUsed),
     samples: ele.length,
   };
+}
+
+// ── Stored route profile (elevation-ahead strip, 19.10.2026) ─────────────
+
+/** How many equally spaced samples a stored route profile carries. */
+export const ROUTE_PROFILE_SAMPLES = 64;
+
+/**
+ * `official_routes.elevationProfile` — equally spaced elevations along the
+ * route's stored path (in path order): elevationsM[i] is at i·stepM metres,
+ * (n-1)·stepM ≈ the path length. Read by the live route-run elevation strip.
+ */
+export interface StoredElevationProfile {
+  stepM: number;
+  elevationsM: number[];
+}
+
+/**
+ * Re-sample a (distance, elevation) series to `n` equally spaced points by
+ * linear interpolation. Pure. null for a degenerate series.
+ */
+export function downsampleEvenly(ele: number[], dist: number[], n: number): StoredElevationProfile | null {
+  const L = dist[dist.length - 1] ?? 0;
+  if (ele.length < 2 || ele.length !== dist.length || !(L > 0) || n < 2) return null;
+  const step = L / (n - 1);
+  const out: number[] = [];
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const x = i === n - 1 ? L : i * step;
+    while (j < dist.length - 2 && dist[j + 1] < x) j++;
+    const span = dist[j + 1] - dist[j];
+    const t = span > 0 ? Math.max(0, Math.min(1, (x - dist[j]) / span)) : 0;
+    out.push(r1(ele[j] + (ele[j + 1] - ele[j]) * t));
+  }
+  return { stepM: Math.round(step * 100) / 100, elevationsM: out };
+}
+
+/**
+ * The profile the pipeline persists on a route: same resample + median
+ * filter as computeSmoothedProfile (so the strip shows the hills the
+ * stored gain counts), then `samples` equally spaced points. Throws for a
+ * display-only provider (Mapbox Terrain-RGB may never be stored); null on
+ * any coverage gap — never a partial or guessed profile.
+ */
+export function computeElevationProfileSamples(
+  coords: Array<[number, number]>,
+  provider: ElevationProvider,
+  opts: ProfileOptions & { samples?: number } = {},
+): StoredElevationProfile | null {
+  assertStorable(provider);
+  const stepM = Math.min(20, Math.max(10, opts.stepM ?? PROFILE_STEP_M));
+  const medianWindow = opts.medianWindow ?? PROFILE_MEDIAN_WINDOW;
+  if (coords.length < 2) return null;
+  const { points, dist } = resamplePolyline(coords, stepM);
+  if (points.length < 2) return null;
+  const raw: number[] = [];
+  for (const [lng, lat] of points) {
+    const e = provider.sample(lat, lng);
+    if (e == null || !Number.isFinite(e)) return null;
+    raw.push(e);
+  }
+  return downsampleEvenly(medianFilter(raw, medianWindow), dist, opts.samples ?? ROUTE_PROFILE_SAMPLES);
 }
