@@ -28,6 +28,12 @@ export interface JourneyStripProps {
   items: readonly JourneyStripItem[];
   /** Home v2 look (enable_home_v2); false = the pre-v2 look, unchanged. */
   v2?: boolean;
+  /**
+   * 'card' (default) — the white card of the overview drawer.
+   * 'inset' — v2 only: a full-width tinted well inside another card (the
+   * route generator's compact card, board M-5e).
+   */
+  variant?: 'card' | 'inset';
 }
 
 function itemText(it: JourneyStripItem): string {
@@ -71,7 +77,17 @@ function Item({ it, v2 }: { it: JourneyStripItem; v2: boolean }) {
   );
 }
 
-export default function JourneyStrip({ items, v2 = false }: JourneyStripProps) {
+export default function JourneyStrip({ items, v2 = false, variant = 'card' }: JourneyStripProps) {
+  if (v2 && variant === 'inset') {
+    return (
+      <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap rounded-2xl bg-v2-surface ring-1 ring-inset ring-v2-hairline" style={{ padding: '8px 12px' }}>
+        {items.flatMap((it, i) => [
+          ...(i > 0 ? [<ChevronLeft key={`sep${i}`} size={16} style={{ color: '#dfe7ed', flexShrink: 0 }} />] : []),
+          <Item key={it.key} it={it} v2 />,
+        ])}
+      </div>
+    );
+  }
   return (
     <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
       <div className={v2 ? 'inline-flex items-center gap-2.5 bg-white rounded-[20px] shadow-v2-card' : 'inline-flex items-center gap-2.5 bg-white rounded-xl'}

@@ -17,6 +17,7 @@ import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useOverviewSheet } from './useOverviewSheet';
+import OverviewGraphPager from './OverviewGraphPager';
 
 export interface OverviewDrawerShellProps {
   /** Home v2 look (enable_home_v2); false = the pre-v2 drawer, unchanged. */
@@ -26,13 +27,18 @@ export interface OverviewDrawerShellProps {
   header: ReactNode;
   /** Journey strip under the header (shown at every detent). Omit → no row. */
   strip?: ReactNode;
+  /**
+   * Top graph card(s) at the head of the scroll body — one page is a plain card,
+   * several swipe (intensity profile · route elevation with segments …). Omit → none.
+   */
+  graphs?: readonly ReactNode[];
   /** Scroll body content. */
   children: ReactNode;
   /** Sticky CTA row content, pinned to the visible card bottom. */
   cta: ReactNode;
 }
 
-export default function OverviewDrawerShell({ v2, onBack, header, strip, children, cta }: OverviewDrawerShellProps) {
+export default function OverviewDrawerShell({ v2, onBack, header, strip, graphs, children, cta }: OverviewDrawerShellProps) {
   const {
     dragControls, cardRef, currentAnchor, controls, dragConstraints,
     sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef,
@@ -110,6 +116,7 @@ export default function OverviewDrawerShell({ v2, onBack, header, strip, childre
             // sheet via the non-passive handler. Flag OFF = unset.
             style={MAP_OVERVIEW_CHROME_V1 ? { touchAction: currentAnchor === 'full' ? 'pan-y' : 'none' } : undefined}
           >
+            {graphs && graphs.length > 0 && <OverviewGraphPager pages={graphs} />}
             {children}
             <div style={{ height: 8 }} />
           </div>
