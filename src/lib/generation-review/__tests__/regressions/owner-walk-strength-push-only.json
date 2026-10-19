@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "id": "hybrid_smart_walk-owner-3",
+  "name": "hybrid_smart_walk: STRENGTH_SINGLE_PATTERN (2026-10-19)",
+  "source": {
+    "logId": "owner-3",
+    "day": "2026-10-19",
+    "type": "hybrid_smart_walk",
+    "generator": null,
+    "appVersion": null
+  },
+  "type": "hybrid_smart_walk",
+  "input": {
+    "requestedActivity": "walk",
+    "targetMinutes": 40
+  },
+  "output": {
+    "planLabel": "הליכה + כוח",
+    "planActivity": "walk",
+    "totalMinutes": 40,
+    "exercises": [],
+    "legs": [
+      {
+        "activity": "walk",
+        "distanceM": 1200,
+        "minutes": 14
+      },
+      {
+        "activity": "strength",
+        "distanceM": null,
+        "minutes": 12,
+        "parkId": "park_on",
+        "exercises": [
+          {
+            "id": "pushup",
+            "pattern": "horizontal_push",
+            "sets": 3
+          },
+          {
+            "id": "dips",
+            "pattern": "vertical_push",
+            "sets": 3
+          },
+          {
+            "id": "pike_pushup",
+            "pattern": "vertical_push",
+            "sets": 3
+          },
+          {
+            "id": "plank",
+            "pattern": "core_anti_extension",
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "activity": "walk",
+        "distanceM": 1200,
+        "minutes": 14
+      }
+    ],
+    "stations": [
+      {
+        "parkId": "park_on",
+        "lat": 31.534,
+        "lng": 34.60125,
+        "distanceToRouteM": 0,
+        "equipment": [
+          "pullUpBar",
+          "parallelBars"
+        ]
+      }
+    ],
+    "route": {
+      "polyline": "gfl_EcmdrE?gE?{E?gE?{E?{E?gE?{E?gEsD?sD?sD?sD?sD?sD?sD?sD?sD?sD??fE?zE?fE?zE?zE?fE?zE?fE?zE?fErD?rD?rD?rD?rD?rD?rD?rD???",
+      "loop": true,
+      "targetKm": 4,
+      "source": "mapbox_v1",
+      "metrics": {
+        "lengthM": 3992,
+        "spurCount": 0,
+        "uTurnCount": 0,
+        "retracedPct": 0,
+        "selfIntersections": 0,
+        "compactness": 0.785,
+        "distanceErrorPct": -0.002,
+        "unmarkedCrossings": null,
+        "majorRoadPct": null
+      }
+    }
+  },
+  "expect": {
+    "firedOnCapture": [
+      "STRENGTH_SINGLE_PATTERN"
+    ],
+    "mustNotFire": [
+      "STRENGTH_SINGLE_PATTERN"
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "STRENGTH_SINGLE_PATTERN",
+      "severity": 2,
+      "messageHe": "כל 3 תרגילי הכוח הם דחיפה",
+      "data": {
+        "group": "push",
+        "count": 3
+      }
+    }
+  ]
+}

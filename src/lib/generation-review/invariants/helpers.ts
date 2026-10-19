@@ -23,7 +23,7 @@ export function allExercises(out: GenerationOutput): Array<{ ex: ExerciseSummary
   return list;
 }
 
-export const AEROBIC: ReadonlySet<Activity> = new Set(['walk', 'run', 'cycle']);
+export const AEROBIC: ReadonlySet<Activity> = new Set<Activity>(['walk', 'run', 'cycle']);
 
 export const ACTIVITY_LABEL_HE: Record<Activity, string> = {
   walk: 'הליכה',

@@ -53,7 +53,7 @@ export const GENERATION_TYPE_LABEL_HE: Record<GenerationType, string> = {
 };
 
 /** Hybrid generators: a session that must contain a strength stop. */
-export const HYBRID_TYPES: ReadonlySet<GenerationType> = new Set([
+export const HYBRID_TYPES: ReadonlySet<GenerationType> = new Set<GenerationType>([
   'hybrid_smart_walk',
   'hybrid_full_park',
   'hybrid_route_stops',
@@ -71,8 +71,10 @@ export interface ExerciseSummary {
   durationSec?: number | null;
   /** The exercise's level (program level scale), when known. */
   level?: number | null;
-  /** Equipment the exercise needs (ids), [] / ['none'] = bodyweight. */
+  /** Gear ids the selected method can use — ANY one of them is enough. [] / ['none'] = bodyweight. */
   equipment?: string[];
+  /** Measured on the device with the app's own gear matcher against the place's gear (null = unknown). */
+  gearOk?: boolean | null;
   /** false = no video / image for this exercise. */
   hasMedia?: boolean | null;
 }

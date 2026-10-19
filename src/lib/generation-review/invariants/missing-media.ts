@@ -7,7 +7,7 @@ export const missingMedia: InvariantRule = {
   descriptionHe: 'תרגיל שהוצג למשתמש בלי סרטון או תמונה.',
   severity: 1,
   check({ output }) {
-    const ids = [...new Set(allExercises(output).filter(({ ex }) => ex.hasMedia === false).map(({ ex }) => ex.id))];
+    const ids = Array.from(new Set(allExercises(output).filter(({ ex }) => ex.hasMedia === false).map(({ ex }) => ex.id)));
     if (!ids.length) return [];
     return [{
       ruleId: 'MISSING_MEDIA',

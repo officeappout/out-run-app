@@ -13,7 +13,7 @@ export const duplicateExercises: InvariantRule = {
       seen.set(k, (seen.get(k) ?? 0) + 1);
     }
     const out: Finding[] = [];
-    for (const [k, n] of seen) {
+    for (const [k, n] of Array.from(seen.entries())) {
       if (n < 2) continue;
       const [block, id] = k.split('|');
       out.push({

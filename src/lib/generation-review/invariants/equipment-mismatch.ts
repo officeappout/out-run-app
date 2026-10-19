@@ -2,10 +2,15 @@ import { isBodyweightOnly } from './helpers';
 import type { ExerciseSummary } from '../types';
 import type { Finding, InvariantRule } from './types';
 
+/** The gear the exercise lacks (its alternatives), or [] when it can be done here. */
 function missing(ex: ExerciseSummary, have: string[]): string[] {
+  if (ex.gearOk === true) return [];
+  const needs = (ex.equipment ?? []).filter((e) => e !== 'none' && e !== 'bodyweight' && e !== 'floor');
+  if (ex.gearOk === false) return needs.length ? needs : ['?'];
   if (isBodyweightOnly(ex.equipment)) return [];
   const set = new Set(have);
-  return (ex.equipment ?? []).filter((e) => e !== 'none' && e !== 'bodyweight' && e !== 'floor' && !set.has(e));
+  // Alternatives: any one of the method's gear ids is enough.
+  return needs.some((e) => set.has(e)) ? [] : needs;
 }
 
 export const equipmentMismatch: InvariantRule = {

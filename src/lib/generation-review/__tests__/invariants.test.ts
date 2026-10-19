@@ -23,7 +23,7 @@ import {
   type Fixture,
 } from './fixtures';
 
-const ids = (f: Fixture): RuleId[] => [...new Set(runInvariants(f).map((x) => x.ruleId))];
+const ids = (f: Fixture): RuleId[] => Array.from(new Set(runInvariants(f).map((x) => x.ruleId)));
 const home = (exercises: Fixture['output']['exercises'], input: Fixture['input'] = {}): Fixture => ({
   name: 'home',
   type: 'home_strength',

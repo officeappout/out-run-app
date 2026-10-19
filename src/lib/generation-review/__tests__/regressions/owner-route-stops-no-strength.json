@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "id": "hybrid_route_stops-owner-2",
+  "name": "hybrid_route_stops: HYBRID_NO_STRENGTH_STOP (2026-10-19)",
+  "source": {
+    "logId": "owner-2",
+    "day": "2026-10-19",
+    "type": "hybrid_route_stops",
+    "generator": null,
+    "appVersion": null
+  },
+  "type": "hybrid_route_stops",
+  "input": {
+    "requestedActivity": "walk"
+  },
+  "output": {
+    "planLabel": "מסלול + עצירות",
+    "planActivity": "walk",
+    "totalMinutes": 50,
+    "exercises": [],
+    "legs": [
+      {
+        "activity": "walk",
+        "distanceM": 4000,
+        "minutes": 50
+      }
+    ],
+    "stations": [],
+    "route": {
+      "polyline": "gfl_EcmdrE?gE?{E?gE?{E?{E?gE?{E?gEsD?sD?sD?sD?sD?sD?sD?sD?sD?sD??fE?zE?fE?zE?zE?fE?zE?fE?zE?fErD?rD?rD?rD?rD?rD?rD?rD???",
+      "loop": true,
+      "targetKm": 4,
+      "source": "official",
+      "metrics": {
+        "lengthM": 3992,
+        "spurCount": 0,
+        "uTurnCount": 0,
+        "retracedPct": 0,
+        "selfIntersections": 0,
+        "compactness": 0.785,
+        "distanceErrorPct": -0.002,
+        "unmarkedCrossings": null,
+        "majorRoadPct": null
+      }
+    }
+  },
+  "expect": {
+    "firedOnCapture": [
+      "HYBRID_NO_STRENGTH_STOP"
+    ],
+    "mustNotFire": [
+      "HYBRID_NO_STRENGTH_STOP"
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "HYBRID_NO_STRENGTH_STOP",
+      "severity": 3,
+      "messageHe": "אין אף עצירת כוח באימון",
+      "data": {
+        "strengthLegs": 0,
+        "stations": 0
+      }
+    }
+  ]
+}
