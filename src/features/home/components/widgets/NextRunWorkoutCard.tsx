@@ -88,7 +88,7 @@ function formatDate(): string {
 
 const CARD_STYLE = { border: '0.5px solid #E0E9FF', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' };
 
-interface NextRunWorkoutCardProps {
+export interface NextRunWorkoutCardProps {
   /** Weather flag at the user's cell (home's useWeather, `weather_enabled`); null/undefined = none. */
   weatherFlag?: WeatherFlag | null;
   /** Calm return (CALM_RETURN_V1) — null/undefined whenever the flag is off = today's card. */

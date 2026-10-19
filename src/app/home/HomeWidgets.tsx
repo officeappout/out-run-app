@@ -25,6 +25,7 @@ import AnchorLocationChipRaw from '@/features/home/components/AnchorLocationChip
 import WorkoutLocationSuggestionsRaw from '@/features/home/components/WorkoutLocationSuggestions';
 import CalmReturnCardRaw from '@/features/home/components/CalmReturnCard';
 import HomeRunCarouselCardRaw from '@/features/home/components/widgets/run-week-v2/HomeRunCarouselCard';
+import NextRunWorkoutCardRaw, { type NextRunWorkoutCardProps } from '@/features/home/components/widgets/NextRunWorkoutCard';
 import NearbyGroupsRowRaw from '@/features/home/components/NearbyGroupsRow';
 import CommunitySessionBannerRaw from '@/features/arena/components/CommunitySessionBanner';
 import { PostWorkoutCardRenderer as PostWorkoutCardRendererRaw } from '@/features/home/components/PostWorkoutCardRenderer';
@@ -35,6 +36,8 @@ export const StatsOverview = withWidgetBoundary(StatsOverviewRaw, 'home.StatsOve
 export const PreWorkoutCardRenderer = withWidgetBoundary(PreWorkoutCardRendererRaw, 'home.PreWorkoutCard', compactWidgetFallback);
 // enable_home_v2: today's / the next planned run as a daily-carousel slide.
 export const HomeRunCarouselCard = withWidgetBoundary(HomeRunCarouselCardRaw, 'home.HomeRunCarouselCard', compactWidgetFallback);
+// Flag off: the legacy run card as a daily-carousel slide (ungated fix, 19.10.2026).
+export const NextRunWorkoutCard = withWidgetBoundary<NextRunWorkoutCardProps>(NextRunWorkoutCardRaw, 'home.NextRunWorkoutCard', compactWidgetFallback);
 export const PostWorkoutCardRenderer = withWidgetBoundary(PostWorkoutCardRendererRaw, 'home.PostWorkoutCard', compactWidgetFallback);
 export const TodayActivityStrip = withWidgetBoundary(TodayActivityStripRaw, 'home.TodayActivityStrip', compactWidgetFallback);
 

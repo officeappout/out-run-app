@@ -30,6 +30,7 @@ import { ActivityGlyph } from './activity-icons';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
 import { getOnboardingPref, setOnboardingPref } from '@/lib/onboardingPrefs';
 import { resolveSwipeNudge, SWIPE_HINT_V2 } from './swipe-hint';
+import PlannedRunSlotCard from './PlannedRunSlotCard';
 
 // When the unified-cards flag is on, the slot card matches ROUTE_CARD_WIDTH
 // (85vw / max 340px) and is content-height; otherwise the legacy slot dims.
@@ -236,6 +237,20 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
     : totalLine;
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
+  }
+  // enable_home_v2 only (the slot never exists with the flag off): today's planned run.
+  if (slot.kind === 'planned_run') {
+    return (
+      <PlannedRunSlotCard
+        slot={slot}
+        onArm={onArm}
+        onCta={() => {
+          if (!consumeArmed()) return;
+          if (guardInactiveCta && !isActive) { onFocusCard?.(); return; }
+          onSelect();
+        }}
+      />
+    );
   }
 
   // Unified text-only card (flag-gated). Reuses the shared RouteCardUnified so

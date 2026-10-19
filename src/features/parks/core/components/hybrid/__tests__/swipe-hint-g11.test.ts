@@ -33,8 +33,8 @@ describe('carousel wiring', () => {
     expect(carousel).toContain('const CARD_VW_FOCUSED_HINT = 72;');
     expect(carousel).toContain('(swipeHint ? CARD_VW_FOCUSED_HINT : CARD_VW_FOCUSED)');
   });
-  it('a peeking card\'s CTA only centres it — never starts "יוצאים מיד" by mistake (both card variants)', () => {
-    expect(carousel.match(/if \(guardInactiveCta && !isActive\) \{ onFocusCard\?\.\(\); return; \}/g)?.length).toBe(2);
+  it('a peeking card\'s CTA only centres it — never starts "יוצאים מיד" by mistake (both card variants + the v2 planned-run card)', () => {
+    expect(carousel.match(/if \(guardInactiveCta && !isActive\) \{ onFocusCard\?\.\(\); return; \}/g)?.length).toBe(3);
     expect(carousel).toContain('guardInactiveCta={swipeHint}');
   });
   it('flag off keeps #207 exactly (its strings are still there)', () => {
