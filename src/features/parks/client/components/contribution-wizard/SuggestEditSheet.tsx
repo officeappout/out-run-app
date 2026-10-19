@@ -7,6 +7,10 @@ import { createContribution } from '@/features/parks/core/services/contribution.
 import { useUserStore } from '@/features/user';
 import { XP_REWARDS } from '@/types/contribution.types';
 import type { Park, ParkFeatureTag } from '@/features/parks/core/types/park.types';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface SuggestEditSheetProps {
   isOpen: boolean;
@@ -36,6 +40,9 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
   const [selectedTags, setSelectedTags] = useState<ParkFeatureTag[]>([...existingTags]);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const toggleTag = (tag: ParkFeatureTag) => {
     setSelectedTags((prev) =>
@@ -85,6 +92,142 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
     }
   }, [hasChanges, profile?.id, park, selectedTags, editSummary, onClose]);
 
+  const success = (
+    <>
+      {/* Success */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white rounded-t-3xl"
+          >
+            <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} transition={{ duration: 0.4 }} className="text-4xl mb-3">
+              ✏️
+            </motion.div>
+            <p className="text-slate-900 text-lg font-bold mb-1">העדכון נשלח!</p>
+            <p className="text-[#00E5FF] text-sm font-bold">+{XP_REWARDS.suggest_edit} XP</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
+  const form = (
+    <>
+      <p className="text-slate-400 text-xs mb-3">סמנו מה קיים במיקום. שינויים נשלחים לאישור.</p>
+
+      {/* Feature tags grid */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {ALL_FEATURE_TAGS.map((tag) => {
+          const isSelected = selectedTags.includes(tag.id);
+          const wasOriginal = existingTags.includes(tag.id);
+          const isAdded = isSelected && !wasOriginal;
+          const isRemoved = !isSelected && wasOriginal;
+
+          let borderClass = 'border-slate-200';
+          let bgClass = 'bg-slate-50';
+          let textClass = 'text-slate-500';
+
+          if (isAdded) {
+            borderClass = 'border-emerald-400';
+            bgClass = 'bg-emerald-50';
+            textClass = 'text-emerald-600';
+          } else if (isRemoved) {
+            borderClass = 'border-red-300';
+            bgClass = 'bg-red-50';
+            textClass = 'text-red-500 line-through';
+          } else if (isSelected) {
+            borderClass = 'border-[#00E5FF]';
+            bgClass = 'bg-[#00E5FF]';
+            textClass = 'text-white';
+          }
+
+          return (
+            <button
+              key={tag.id}
+              onClick={() => toggleTag(tag.id)}
+              className={`relative flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${bgClass} ${textClass} ${borderClass}`}
+            >
+              {isAdded && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <Plus size={10} className="text-white" />
+                </span>
+              )}
+              {isRemoved && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                  <Minus size={10} className="text-white" />
+                </span>
+              )}
+              <span className="text-base">{tag.icon}</span>
+              <span>{tag.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Change summary */}
+      {hasChanges && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-4">
+          <p className="text-slate-400 text-[10px] font-bold mb-1">שינויים:</p>
+          <p className="text-slate-600 text-xs">{editSummary}</p>
+        </div>
+      )}
+
+      {/* Submit */}
+      <button
+        onClick={handleSubmit}
+        disabled={!hasChanges || submitting}
+        className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+          hasChanges && !submitting
+            ? 'bg-[#00E5FF] text-slate-900 active:scale-[0.97] shadow-lg shadow-cyan-500/25'
+            : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+        }`}
+      >
+        {submitting ? (
+          <><Loader2 size={16} className="animate-spin" /> שולח...</>
+        ) : (
+          'שלח עדכון ✏️'
+        )}
+      </button>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        layout="nested"
+        // One z-[100] layer (.cursorrules full-screen overlays), in place over ParkDetailSheet — unchanged.
+        zIndex={SHEET_Z.overlay}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/30 backdrop-blur-sm"
+        frameClassName="w-full"
+        scroll="panel"
+        className="relative max-h-[80vh]"
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        ariaLabel={`עדכן פרטים — ${park.name}`}
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <Pencil className="h-4 w-4 shrink-0 text-v2-deep" aria-hidden="true" />
+              <h3 className="truncate text-[17px] font-black text-v2-ink">עדכן פרטים — {park.name}</h3>
+            </div>
+            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+        }
+      >
+        {success}
+        <div className="px-5">{form}</div>
+      </Sheet>
+    );
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -105,23 +248,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
         className="relative bg-white rounded-t-3xl shadow-2xl p-5 max-h-[80vh] overflow-y-auto"
         dir="rtl"
       >
-        {/* Success */}
-        <AnimatePresence>
-          {showSuccess && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white rounded-t-3xl"
-            >
-              <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} transition={{ duration: 0.4 }} className="text-4xl mb-3">
-                ✏️
-              </motion.div>
-              <p className="text-slate-900 text-lg font-bold mb-1">העדכון נשלח!</p>
-              <p className="text-[#00E5FF] text-sm font-bold">+{XP_REWARDS.suggest_edit} XP</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {success}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -134,81 +261,7 @@ export default function SuggestEditSheet({ isOpen, onClose, park }: SuggestEditS
           </button>
         </div>
 
-        <p className="text-slate-400 text-xs mb-3">סמנו מה קיים במיקום. שינויים נשלחים לאישור.</p>
-
-        {/* Feature tags grid */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {ALL_FEATURE_TAGS.map((tag) => {
-            const isSelected = selectedTags.includes(tag.id);
-            const wasOriginal = existingTags.includes(tag.id);
-            const isAdded = isSelected && !wasOriginal;
-            const isRemoved = !isSelected && wasOriginal;
-
-            let borderClass = 'border-slate-200';
-            let bgClass = 'bg-slate-50';
-            let textClass = 'text-slate-500';
-
-            if (isAdded) {
-              borderClass = 'border-emerald-400';
-              bgClass = 'bg-emerald-50';
-              textClass = 'text-emerald-600';
-            } else if (isRemoved) {
-              borderClass = 'border-red-300';
-              bgClass = 'bg-red-50';
-              textClass = 'text-red-500 line-through';
-            } else if (isSelected) {
-              borderClass = 'border-[#00E5FF]';
-              bgClass = 'bg-[#00E5FF]';
-              textClass = 'text-white';
-            }
-
-            return (
-              <button
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
-                className={`relative flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${bgClass} ${textClass} ${borderClass}`}
-              >
-                {isAdded && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <Plus size={10} className="text-white" />
-                  </span>
-                )}
-                {isRemoved && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                    <Minus size={10} className="text-white" />
-                  </span>
-                )}
-                <span className="text-base">{tag.icon}</span>
-                <span>{tag.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Change summary */}
-        {hasChanges && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-4">
-            <p className="text-slate-400 text-[10px] font-bold mb-1">שינויים:</p>
-            <p className="text-slate-600 text-xs">{editSummary}</p>
-          </div>
-        )}
-
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={!hasChanges || submitting}
-          className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-            hasChanges && !submitting
-              ? 'bg-[#00E5FF] text-slate-900 active:scale-[0.97] shadow-lg shadow-cyan-500/25'
-              : 'bg-slate-100 text-slate-300 cursor-not-allowed'
-          }`}
-        >
-          {submitting ? (
-            <><Loader2 size={16} className="animate-spin" /> שולח...</>
-          ) : (
-            'שלח עדכון ✏️'
-          )}
-        </button>
+        {form}
       </motion.div>
     </div>
   );

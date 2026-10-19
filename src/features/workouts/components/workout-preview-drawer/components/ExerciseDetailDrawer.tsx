@@ -19,6 +19,10 @@ import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import type { Exercise, ExecutionMethod } from '@/features/content/exercises';
 import MasterExerciseView from '@/features/content/exercises/client/components/MasterExerciseView';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface ExerciseDetailDrawerProps {
   /** The exercise to render, or `null` when the sheet should be closed. */
@@ -42,6 +46,9 @@ function ExerciseDetailDrawerImpl({
   onMethodChange,
 }: ExerciseDetailDrawerProps) {
   const router = useRouter();
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const exercise = (detailExercise?.exercise ?? null) as Exercise | null;
 
@@ -68,6 +75,52 @@ function ExerciseDetailDrawerImpl({
   const handleNavigateToAnalytics = (exerciseId: string, exerciseName: string) => {
     router.push(`/profile/exercise/${exerciseId}?name=${encodeURIComponent(exerciseName)}`);
   };
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isSheetOpen}
+        onClose={onDismiss}
+        // Backdrop and panel both z-[200] (.cursorrules z-[200] row), in place — unchanged.
+        zIndex={SHEET_Z.nestedModal}
+        backdropZIndex={SHEET_Z.nestedModal}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/50"
+        scroll="none"
+        safeArea={false}
+        grabber={false}
+        className="flex h-full flex-col"
+        // Same gesture as before: the handle (dragControls) and the body's
+        // scroll-chain both drive `y`; 1:1 downward, released past 140 px closes.
+        dragControls={dragControls}
+        y={y}
+        dragToDismiss={{ mode: 'follow', maxOffset: 500, onRelease: (offsetY) => { if (offsetY > 140) onDismiss(); } }}
+        frameStyle={{ opacity, height: '95vh', fontFamily: 'var(--font-simpler)' }}
+        transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
+        ariaLabel="פרטי תרגיל"
+      >
+        <div
+          className="shrink-0 cursor-grab active:cursor-grabbing"
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{ touchAction: 'none' }}
+        >
+          <SheetGrabber className="flex justify-center pt-3 pb-2" />
+        </div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {exercise && (
+            <MasterExerciseView
+              exercise={exercise}
+              filterLocation={filterLocation}
+              programLabels={programMap}
+              onNavigateToAnalytics={handleNavigateToAnalytics}
+              onMethodChange={onMethodChange}
+            />
+          )}
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
