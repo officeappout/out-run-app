@@ -16,6 +16,9 @@ import {
   type WeekDot,
 } from '@/components/ui/v2';
 import { aerobicRings, repTableModel } from '../../v2-summary.mapping';
+import { runTypeModel, type RunPlanInput } from '../../run-type/run-type.mapping';
+import RunTypeOverview from '../run-type/RunTypeOverview';
+import RunTypeSegments from '../run-type/RunTypeSegments';
 import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../../blocks/summary-sheet.util';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
@@ -96,6 +99,8 @@ export interface AerobicSummaryViewProps {
 export interface AerobicSummaryV2Data {
   streak: { days: WeekDot[]; best: number } | null;
   weekBars?: StreakWeekBar[];
+  /** Running program (already on the profile) for the program ring; null/absent ⇒ no ring. */
+  plan?: RunPlanInput | null;
 }
 
 type TabId = 'overview' | 'stats' | 'segments' | 'map';
@@ -157,6 +162,10 @@ export default function AerobicSummaryView({
   // v2 only: planned runs' per-rep results (optional `blockResults`; older
   // docs and free runs have none ⇒ null ⇒ today's laps UI).
   const repTable = v2 ? repTableModel(workout.blockResults) : null;
+  // v2 runs: the summary differs by workout type (easy / intervals / long).
+  const runModel = v2 && activityType === 'running' ? runTypeModel(workout, v2.plan) : null;
+  const typedSegments =
+    !!runModel && ((runModel.kind === 'intervals' && !!repTable) || (runModel.kind !== 'intervals' && !!runModel.splits));
   const distanceKm = workout.distance ?? 0;
 
   // ── Hero (drag zone) ──────────────────────────────────────────────────────
@@ -167,17 +176,23 @@ export default function AerobicSummaryView({
     <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
       <div className="min-w-0">
         <div className="text-[13px] font-extrabold text-v2-deep">
-          {activityType === 'walking' ? 'הליכה' : 'ריצה'}
+          {runModel ? runModel.hero.label : activityType === 'walking' ? 'הליכה' : 'ריצה'}
           <span className="font-semibold text-v2-muted"> · {dateLabel}</span>
         </div>
-        <StatNumber
-          value={distanceKm}
-          decimals={2}
-          format={distanceKm > 0 ? undefined : () => '--'}
-          unit="ק״מ"
-          size="lg"
-          className="mt-1"
-        />
+        {runModel?.hero.repsTitle ? (
+          <div className="mt-1 whitespace-nowrap text-[40px] font-black leading-none tabular-nums !tracking-[-0.03em] text-v2-ink">
+            {runModel.hero.repsTitle}
+          </div>
+        ) : (
+          <StatNumber
+            value={distanceKm}
+            decimals={2}
+            format={distanceKm > 0 ? undefined : () => '--'}
+            unit="ק״מ"
+            size="lg"
+            className="mt-1"
+          />
+        )}
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">
         <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="md" />
@@ -241,7 +256,25 @@ export default function AerobicSummaryView({
       <PersonalRecordTag />
       <MomentSentence />
 
-      {v2 ? (
+      {v2 && runModel ? (
+        <RunTypeOverview
+          model={runModel}
+          activityType={activityType}
+          repTable={repTable}
+          lapCount={workout.laps?.length ?? 0}
+          onOpenSegments={() => setActiveTab('segments')}
+          streakSlot={
+            v2.streak ? (
+              <StreakDotsStrip
+                streak={streakDays}
+                best={Math.max(v2.streak.best, streakDays)}
+                days={v2.streak.days}
+                bars={v2.weekBars}
+              />
+            ) : null
+          }
+        />
+      ) : v2 ? (
         <>
           {/* v2 (F-1f): three rings, then the streak strip. */}
           <Card padding="md">
@@ -473,19 +506,23 @@ export default function AerobicSummaryView({
 
   const segmentsContent = (
     <div className="px-4 pt-4 pb-6">
-      {repTable && (
+      {runModel && typedSegments ? (
+        <div className="mb-3">
+          <RunTypeSegments model={runModel} repTable={repTable} />
+        </div>
+      ) : repTable && (
         <Card padding="md" className="mb-3">
           <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} />
         </Card>
       )}
-      {workout.laps && workout.laps.length > 0 ? (
+      {runModel?.splitsFromLaps ? null : workout.laps && workout.laps.length > 0 ? (
         <>
           <LapPaceChart laps={workout.laps} />
           <div className="mt-3">
             <RunLapsList laps={workout.laps} />
           </div>
         </>
-      ) : repTable ? null : (
+      ) : repTable || typedSegments ? null : (
         <div className="py-8 text-center text-[14px] font-semibold text-v2-muted">
           אין הקפות מוגדרות לאימון זה
         </div>
