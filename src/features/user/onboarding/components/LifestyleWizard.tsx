@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Bell, Check, Share, Smartphone } from 'lucide-react';
-import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
@@ -22,6 +22,10 @@ import ScheduleStep from './steps/ScheduleStep';
 import RunningScheduleStep from './steps/RunningScheduleStep';
 import { hasRunningTrack } from '@/lib/track-ownership';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { useWizardIdentity } from '../hooks/useWizardIdentity';
+import { buildLifestyleWizardFinalWrite } from '../utils/lifestyle-wizard-final-write';
+import { writeLifestyleWizardCompletion } from '../services/lifestyle-wizard-submit.service';
+import { resolvePersonaGoalMode } from '../utils/persona-goals';
 
 interface LifestyleWizardProps {
   onComplete: () => void;
@@ -30,11 +34,7 @@ interface LifestyleWizardProps {
 
 type WizardStep = 'persona' | 'schedule' | 'notifications';
 
-const STEP_TITLES: Record<WizardStep, string> = {
-  persona: 'מי אתה?',
-  schedule: 'הלו״ז שלך',
-  notifications: 'תזכורות',
-};
+const NOTIFICATIONS_TITLE = 'תזכורות';
 
 export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardProps) {
   // Slide the global BottomNavbar off-screen for the duration of this wizard
@@ -59,12 +59,15 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
 
-  // Gender-aware copy — sessionStorage is populated earlier in the
-  // onboarding flow (see PersonalStatsStep), with 'male' as the safe
-  // fallback. Mirrors the pattern used in ScheduleStep.tsx.
-  const gender = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_personal_gender') || 'male') as 'male' | 'female'
-    : 'male';
+  // Gender-aware copy — from the profile (this wizard opens from /home in
+  // later sessions, where sessionStorage is empty); the signup's
+  // sessionStorage answer is only the fallback.
+  const { gender } = useWizardIdentity();
+
+  // True only once the strength schedule screen (ScheduleStep) was finished
+  // in THIS wizard session — the only case the final submit may write
+  // lifestyle.scheduleDays / trainingHistory / settings.calendarSync.
+  const strengthScheduleEditedRef = useRef(false);
   const t = (male: string, female: string) => (gender === 'female' ? female : male);
 
   const stepIndex = ['persona', 'schedule', 'notifications'].indexOf(currentStep);
@@ -99,40 +102,24 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
         : (onboardingData as any)?.selectedPersonaId
           ? [(onboardingData as any).selectedPersonaId]
           : [];
-      const storeScheduleDays = (onboardingData as any)?.scheduleDays || [];
-      const storeLifestyleTags = (onboardingData as any)?.lifestyleTags || [];
-      const calendarSyncEnabled = (onboardingData as any)?.calendarSyncEnabled ?? true;
+      // Only what the user answered in this session (utils/lifestyle-wizard-final-write.ts):
+      // scheduleDays / trainingHistory / calendarSync only after the strength
+      // schedule screen; the running screen already saved its own days.
+      const store = onboardingData as Record<string, any>;
+      const lifestyleWrite = buildLifestyleWizardFinalWrite({
+        strengthScheduleEdited: strengthScheduleEditedRef.current,
+        editedScheduleDays: store?.scheduleDays,
+        historyFrequency: store?.historyFrequency,
+        calendarSyncEnabled: store?.calendarSyncEnabled,
+        sessionLifestyleTags: store?.lifestyleTags,
+        goalsSkipped: !resolvePersonaGoalMode(profile).askGoals,
+        existingLifestyleTags: profile?.lifestyle?.lifestyleTags,
+        existingRunningScheduleDays: (profile?.running as { scheduleDays?: string[] } | undefined)?.scheduleDays,
+      });
 
-      // Final/authoritative personas write — overwrites the early write from
-      // handlePersonaNext below in case the user went back and changed their
-      // selection. answers:{} — the Phase 3/4 drawer doesn't exist yet.
-      await setDoc(doc(db, 'users', uid), {
-        personas: storePersonaIds.map((id) => ({ id, answers: {}, updatedAt: Timestamp.now() })),
-        lifestyle: {
-          lifestyleTags: storeLifestyleTags,
-          trainingHistory: (onboardingData as any)?.historyFrequency || 'none',
-          scheduleDays: storeScheduleDays,
-        },
-        settings: {
-          calendarSync: calendarSyncEnabled,
-        },
-        onboardingStatus: 'COMPLETED',
-        onboardingStep: 'COMPLETED',
-        // P0-2 (24.09.2026, see docs/audit-2026-09/00-MASTER-PLAN.md
-        // §13.23): a redundant completion signal, on top of the
-        // onboardingStatus/onboardingStep fields above. page.tsx and
-        // gateway/page.tsx's resume-router already check
-        // `onboardingStatus === 'COMPLETED' || onboardingComplete` — but
-        // this write never set onboardingComplete, so that OR-check was
-        // dead weight against exactly the race it looks like it should
-        // guard against. useOnboardingStore's debounced write no longer
-        // touches onboardingStep/onboardingStatus at all (the actual fix —
-        // see syncOnboardingToFirestore's skipProgressFields), so this
-        // isn't the primary defense; it's here so the check above is
-        // genuinely meaningful, not just for THIS race.
-        onboardingComplete: true,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      // Personas + lifestyle + completion markers, one merge write
+      // (services/lifestyle-wizard-submit.service.ts).
+      await writeLifestyleWizardCompletion(db, uid, storePersonaIds, lifestyleWrite);
 
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('skipped_bridge');
@@ -150,7 +137,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
     } finally {
       setIsSubmitting(false);
     }
-  }, [onComplete, onboardingData]);
+  }, [onComplete, onboardingData, profile]);
 
   // Write-once guard for the early `personas` write: goToPreviousStep lets a
   // user go back to persona and forward again within the same open wizard
@@ -212,7 +199,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   };
 
   const handleScheduleNext = () => {
-    // ScheduleStep saves to onboarding store internally
+    // ScheduleStep saves to the onboarding store internally; mark it so the
+    // final submit may write those days. The running step saved its own.
+    if (!isRunningTrack) strengthScheduleEditedRef.current = true;
     goToNextStep();
   };
 
@@ -380,7 +369,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               >
                 <div className="flex-1 px-4 pb-6 pt-3">
                   <h2 className="mb-5 text-[26px] font-black leading-[1.15] !tracking-[-0.02em]">
-                    {STEP_TITLES.notifications}
+                    {NOTIFICATIONS_TITLE}
                   </h2>
 
                   <div className="rounded-v2-card bg-white p-5 shadow-v2-card">
@@ -609,7 +598,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   sticky StickyActionButton + skip link so neither is
                   clipped at the bottom of the viewport. */}
               <div className="flex-1 p-6 pb-36">
-                <h2 className="text-2xl font-black text-slate-900 mb-6">{STEP_TITLES.notifications}</h2>
+                <h2 className="text-2xl font-black text-slate-900 mb-6">{NOTIFICATIONS_TITLE}</h2>
 
                 <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-6 mb-6 border border-cyan-200">
                   <div className="flex items-center gap-3 mb-3">

@@ -36,6 +36,7 @@ import ScheduleDayBand from '@/features/schedule/components/ScheduleDayBand';
 import ScheduleWarningsPanel from '@/features/schedule/components/ScheduleWarningsPanel';
 import TrainingTimePicker from '@/features/schedule/components/TrainingTimePicker';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { useWizardIdentity } from '../../hooks/useWizardIdentity';
 
 interface ScheduleStepProps {
   onNext: () => void;
@@ -145,10 +146,9 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   const locale = getOnboardingLocale(savedLanguage);
   const isHebrew = savedLanguage === 'he';
 
-  // Get gender from sessionStorage
-  const gender = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_personal_gender') || 'male') as 'male' | 'female'
-    : 'male';
+  // Gender from the profile (the signup's sessionStorage answer is only the
+  // fallback before a profile exists) — see utils/wizard-identity.ts.
+  const { gender } = useWizardIdentity();
   
   // Gender-aware translation helper
   const t = (male: string, female: string) => gender === 'female' ? female : male;
@@ -460,7 +460,9 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       historyFrequency: historyFreq,
       historyLocations: historyLocs,
       historySports: historySpts,
-      ...(calendarSyncEnabled && { calendarSyncEnabled: true } as any),
+      // The user saw the toggle here — save the real answer (off included;
+      // it used to be dropped, so an "off" fell back to true at the end).
+      ...({ calendarSyncEnabled } as any),
     });
 
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);

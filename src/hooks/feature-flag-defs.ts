@@ -277,6 +277,14 @@ export const FLAG_DEFS = [
   // Sub-flag: the nightly review also asks the smart model (Sonnet) "does this make sense for this
   // user" on a small daily sample, under the AI budget + its own daily cap. Off = rules only.
   { key: 'enableGenerationReviewLlm', firestoreKey: 'enable_generation_review_llm', defaultValue: false, superAdminValue: false },
+  // Org access-code prompt (19.10.2026, owner-approved audit fix) — picking the persona
+  // "עובד משרד" on the persona screen (lifestyle wizard / onboarding PERSONA step) opens the
+  // optional "יש לך קוד גישה מהארגון?" popup (AccessCodeGate → validateAccessCode → company
+  // affiliation / league tab). Until now it opened for EVERY user (a B2B prompt shown to B2C);
+  // off = the persona is simply selected, no popup. Kept for B2B to switch back on. Read in
+  // PersonaStep via useFeatureFlags() without the super-admin override, so the panel toggle is
+  // the one switch. Fail-closed; superAdminValue false.
+  { key: 'enableOrgAccessCodePrompt', firestoreKey: 'enable_org_access_code_prompt', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

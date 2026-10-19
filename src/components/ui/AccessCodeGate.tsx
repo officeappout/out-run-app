@@ -24,6 +24,11 @@ interface AccessCodeGateProps {
   hideSkip?: boolean;
   /** Compact inline mode vs full card */
   compact?: boolean;
+  /**
+   * The code is optional here (the user can skip) — the heading says so
+   * instead of "נדרש קוד גישה". Default false keeps locked-group joins as is.
+   */
+  optional?: boolean;
 }
 
 const ERROR_MAP: Record<string, string> = {
@@ -58,6 +63,7 @@ export default function AccessCodeGate({
   onSkip,
   hideSkip = false,
   compact = false,
+  optional = false,
 }: AccessCodeGateProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -103,9 +109,11 @@ export default function AccessCodeGate({
           <Lock className="w-4 h-4 text-amber-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-gray-900">נדרש קוד גישה</p>
+          <p className="text-sm font-black text-gray-900">{optional ? 'קוד גישה (לא חובה)' : 'נדרש קוד גישה'}</p>
           {!compact && (
-            <p className="text-xs text-gray-500 mt-0.5">הזינו את הקוד שקיבלתם מהארגון</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {optional ? 'קיבלתם קוד מהארגון? הזינו אותו כאן' : 'הזינו את הקוד שקיבלתם מהארגון'}
+            </p>
           )}
         </div>
       </div>

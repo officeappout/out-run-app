@@ -64,6 +64,7 @@ interface FlagState {
   enable_unified_search: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
+  enable_org_access_code_prompt: boolean;
 }
 
 // ============================================================================
@@ -415,6 +416,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'בקרת אימונים — חוות דעת AI',
     description: 'בבדיקה הלילית, ה-AI (Sonnet) עובר גם על מדגם קטן (עד 20 ביום) ושואל "האם זה הגיוני למשתמש הזה", ומחזיר הערה בעברית. בתוך תקציב ה-AI ועם תקרה יומית משלו. כבוי = רק החוקים הקבועים.',
     parentKey: 'enable_generation_review',
+  },
+  // Org access-code prompt (19.10.2026).
+  {
+    key: 'enable_org_access_code_prompt',
+    icon: Users,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-600',
+    title: 'קוד גישה מהארגון לעובדי משרד',
+    description: 'כשמשתמש בוחר "עובד משרד / עובדת משרד" במסך "שנכיר?", נפתח חלון "יש לך קוד גישה מהארגון?" (לא חובה, אפשר לדלג). קוד תקין מצרף אותו לארגון ופותח את לשונית הליגה של החברה. מיועד ללקוחות B2B. כבוי = הפרסונה פשוט נבחרת, בלי חלון קוד (עד היום החלון הופיע לכל המשתמשים).',
   },
 ];
 

@@ -20,8 +20,8 @@ import type { PrimaryTrack, DashboardMode } from '@/features/user/core/types/use
 
 /**
  * Maps each questionnaire goal ID to its natural track.
- * Goal IDs come from GOAL_OPTIONS in PersonaStep.tsx:
- *   routine, aesthetics, fitness, performance, skills, community
+ * Goal IDs come from GOAL_OPTIONS / RUN_GOAL_OPTIONS in utils/persona-goals.ts:
+ *   routine, aesthetics, fitness, performance, skills, community, run_distance, run_pace
  */
 const GOAL_TO_TRACK: Record<string, PrimaryTrack> = {
   // Health-oriented goals
@@ -33,6 +33,10 @@ const GOAL_TO_TRACK: Record<string, PrimaryTrack> = {
   aesthetics: 'strength',
   performance: 'strength',
   skills: 'strength',
+
+  // Running goals (RUN_GOAL_OPTIONS in utils/persona-goals.ts — run-only users)
+  run_distance: 'run',
+  run_pace: 'run',
 };
 
 /**
