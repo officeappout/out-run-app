@@ -98,7 +98,7 @@ describe('the "מה אני זוכר עליך" block', () => {
     const b = renderMemoryBlock([{ category: 'preference', text: 'לא אוהב ריצה' }, { category: 'injury', text: 'כואבת לו הברך' }])!;
     expect(b.split('\n')[1]).toBe('- פציעה או רגישות: כואבת לו הברך');
     expect(b).toContain('מה קלי זוכר');
-    expect(b).toContain('Use a remembered fact only when it matters');
+    expect(b).toContain('Otherwise do not bring them up');
   });
 });
 

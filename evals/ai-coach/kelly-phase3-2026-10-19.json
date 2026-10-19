@@ -1,0 +1,194 @@
+[
+  {
+    "id": "p3-01-memory-knee-legs",
+    "name": "Remembered knee pain shapes a legs workout and is mentioned briefly",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 3: memory injection effect."
+    },
+    "message": "תבנה לי אימון רגליים של 20 דקות בבית",
+    "context": {
+      "firstName": "דני",
+      "gender": "male",
+      "todayKey": "2026-10-20",
+      "israelDayOfWeek": 2,
+      "israelHour": 9
+    },
+    "memory": [
+      {
+        "category": "injury",
+        "text": "כואבת לו הברך השמאלית בקפיצות"
+      }
+    ],
+    "mock": {
+      "replies": [
+        "בניתי לך אימון רגליים של 20 דקות בבית, בלי קפיצות כדי לשמור על הברך."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "location": "home",
+      "minutes": 20,
+      "domains": [
+        "legs"
+      ],
+      "mustMatch": [
+        "ברך"
+      ],
+      "masculineSelfReference": true,
+      "noEnglish": true,
+      "maxSentences": 5
+    }
+  },
+  {
+    "id": "p3-02-memory-no-running",
+    "name": "Remembered dislike of running: cardio advice without running",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 3: memory injection effect."
+    },
+    "message": "מה אפשר לעשות לכושר אירובי השבוע?",
+    "context": {
+      "firstName": "דני",
+      "gender": "male",
+      "todayKey": "2026-10-20",
+      "israelDayOfWeek": 2,
+      "israelHour": 9
+    },
+    "memory": [
+      {
+        "category": "preference",
+        "text": "לא אוהב ריצה"
+      }
+    ],
+    "mock": {
+      "replies": [
+        "אפשר הליכה מהירה של חצי שעה או אימון קפיצות קצר בבית, בלי ריצה."
+      ]
+    },
+    "assertions": {
+      "mustNotMatch": [
+        "תרוץ|לצאת לריצה|ריצה קלה|ריצת|ריצות"
+      ],
+      "masculineSelfReference": true,
+      "noEnglish": true,
+      "maxSentences": 5
+    }
+  },
+  {
+    "id": "p3-03-memory-event-motivation",
+    "name": "Remembered upcoming event used for motivation",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 3: memory injection effect."
+    },
+    "message": "אין לי כוח להתאמן היום, למה בכלל?",
+    "context": {
+      "firstName": "דני",
+      "gender": "male",
+      "todayKey": "2026-10-20",
+      "israelDayOfWeek": 2,
+      "israelHour": 9
+    },
+    "memory": [
+      {
+        "category": "goal",
+        "text": "יש לו גיבוש בחודש הבא"
+      }
+    ],
+    "mock": {
+      "replies": [
+        "יש לך גיבוש בחודש הבא, וכל אימון קצר עכשיו מקרב אותך אליו. אפשר גם רק 15 דקות היום."
+      ]
+    },
+    "assertions": {
+      "mustMatch": [
+        "גיבוש"
+      ],
+      "masculineSelfReference": true,
+      "noEnglish": true,
+      "maxSentences": 4
+    }
+  },
+  {
+    "id": "p3-04-memory-not-recited",
+    "name": "An irrelevant remembered fact is not recited",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 3: memory injection effect."
+    },
+    "message": "תבנה לי אימון ליבה של 10 דקות בבית",
+    "context": {
+      "firstName": "דני",
+      "gender": "male",
+      "todayKey": "2026-10-20",
+      "israelDayOfWeek": 2,
+      "israelHour": 9
+    },
+    "memory": [
+      {
+        "category": "schedule",
+        "text": "עובד במשמרות לילה"
+      },
+      {
+        "category": "preference",
+        "text": "מעדיף אימונים קצרים"
+      }
+    ],
+    "mock": {
+      "replies": [
+        "בניתי לך אימון ליבה של 10 דקות בבית."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "location": "home",
+      "minutes": 10,
+      "domains": [
+        "core"
+      ],
+      "mustNotMatch": [
+        "משמרות"
+      ],
+      "masculineSelfReference": true,
+      "noEnglish": true,
+      "maxSentences": 3
+    }
+  },
+  {
+    "id": "p3-05-memory-what-do-you-remember",
+    "name": "\"What do you remember\" lists the fact and points to the delete screen",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 3: memory injection effect."
+    },
+    "message": "מה אתה זוכר עליי?",
+    "context": {
+      "firstName": "דני",
+      "gender": "male",
+      "todayKey": "2026-10-20",
+      "israelDayOfWeek": 2,
+      "israelHour": 9
+    },
+    "memory": [
+      {
+        "category": "injury",
+        "text": "כואב לו הגב התחתון בכפיפות בטן"
+      }
+    ],
+    "mock": {
+      "replies": [
+        "אני זוכר שכואב לך הגב התחתון בכפיפות בטן. אפשר לראות ולמחוק את זה ב\"מה קלי זוכר\" למעלה."
+      ]
+    },
+    "assertions": {
+      "mustMatch": [
+        "גב",
+        "מה קלי זוכר"
+      ],
+      "masculineSelfReference": true,
+      "noEnglish": true,
+      "maxSentences": 4
+    }
+  }
+]

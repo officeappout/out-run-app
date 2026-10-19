@@ -16,22 +16,10 @@ import { assertAiBudget, getAiModel, getAnthropicClient, recordAiUsage, withProm
 import { usageFromSdk } from '@/lib/ai/ai-pricing';
 import type { CoachGender } from '../persona';
 import { validateFlexSentence } from './flex-guard';
+import { FLEX_MAX_TOKENS, FLEX_SYSTEM, flexUserContent } from './flex-prompt';
 
 export const PROACTIVE_LLM_MAX_PER_RUN = 150;
 export const PROACTIVE_LLM_FEATURE = 'ai_coach_proactive';
-
-const SYSTEM = [
-  'You write ONE short Hebrew sentence for Kelly (קלי), a male fitness coach in the OUT app, inside a short message he sends the user.',
-  'Rules: Hebrew only, at most 14 words, one sentence ending with a period or an exclamation mark, warm and calm, no question.',
-  'No numbers, no names, no emoji, no slash forms (never "את/ה"), no dashes, no medical claims, never guilt about missed workouts.',
-  'Kelly speaks about himself in the masculine. Address the user in the grammar given. Output the sentence only.',
-].join('\n');
-
-const GRAMMAR: Record<CoachGender, string> = {
-  male: 'Address the user in masculine singular.',
-  female: 'Address the user in feminine singular.',
-  other: 'Gender unknown: impersonal or plural wording, never a gendered command.',
-};
 
 export interface FlexRequest {
   uid: string;
@@ -49,13 +37,13 @@ export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ 
     return { sentence: null, costUsd: 0 };
   }
   const model = getAiModel('fast');
-  const cached = withPromptCaching({ system: SYSTEM });
+  const cached = withPromptCaching({ system: FLEX_SYSTEM });
   const params: Anthropic.MessageCreateParamsNonStreaming = {
     model,
-    max_tokens: 80,
+    max_tokens: FLEX_MAX_TOKENS,
     thinking: { type: 'disabled' },
     system: cached.system,
-    messages: [{ role: 'user', content: [GRAMMAR[r.gender], `The sentence should be: ${r.hint}.`, ...r.facts.map((f) => `- ${f}`)].join('\n') }],
+    messages: [{ role: 'user', content: flexUserContent(r.gender, r.hint, r.facts) }],
   };
   try {
     const res = await getAnthropicClient().messages.create(params);

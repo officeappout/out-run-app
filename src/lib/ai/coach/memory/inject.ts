@@ -13,6 +13,7 @@ export function renderMemoryBlock(facts: readonly Pick<MemoryFact, 'category' | 
   return [
     'מה אני זוכר עליך (what this user told you in earlier conversations; the user can see and delete these):',
     ...list.map((f) => `- ${MEMORY_CATEGORY_HE[f.category]}: ${f.text}`),
-    '- Use a remembered fact only when it matters for the answer (an injury when building a workout, a schedule limit when planning, a goal when encouraging), naturally and in a few words. Do not list what you remember unless asked. If the user says something changed, believe the user. If they ask what you remember, say it and that they can delete it in "מה קלי זוכר".',
+    '- How to use these: when you build or suggest a workout and a remembered injury or sensitivity touches it, take it into account and say so in one short clause (for example that you kept it gentle on the knee). When the user is low on motivation or asks why to train, tie it to a remembered goal or event in one short sentence. When you plan days, respect a remembered schedule limit. When you suggest activities, respect a remembered preference.',
+    '- Otherwise do not bring them up: never list what you remember unless asked, and never mention a fact that has nothing to do with this answer. If the user says something changed, believe the user. If they ask what you remember, say it and that they can delete it in "מה קלי זוכר".',
   ].join('\n');
 }

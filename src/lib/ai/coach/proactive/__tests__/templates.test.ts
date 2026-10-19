@@ -109,5 +109,12 @@ describe('flex guard (model-written sentence)', () => {
     expect(validateFlexSentence('את מוכנה לשבוע הבא.', 'male')).toBeNull();
     expect(validateFlexSentence('אתה בדרך הנכונה.', 'other')).toBeNull();
     expect(validateFlexSentence('אני שמחה לראות את ההתמדה.', 'male')).toBeNull(); // Kelly is male
+    // live eval 19.10.2026: singular address / masculine command for an unknown-gender user, weekday mentions
+    expect(validateFlexSentence('חם היום, אז קח את הריצה בקצב נינוח.', 'other')).toBeNull();
+    expect(validateFlexSentence('אני גאה בך על ההתמדה.', 'other')).toBeNull();
+    expect(validateFlexSentence('חם היום, אז קח את הריצה בקצב נינוח.', 'female')).toBeNull();
+    expect(validateFlexSentence('אימון בבית נחשב, גם בגשם ביום ראשון.', 'male')).toBeNull();
+    expect(validateFlexSentence('אימון בבית גם ביום גשום נחשב.', 'other')).toBe('אימון בבית גם ביום גשום נחשב.');
+    expect(validateFlexSentence('אני גאה בך על ההתמדה.', 'female')).toBe('אני גאה בך על ההתמדה.');
   });
 });
