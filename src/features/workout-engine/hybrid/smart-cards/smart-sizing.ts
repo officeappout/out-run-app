@@ -11,6 +11,7 @@
 
 import { MIN_COHERENT_STATION_SETS } from '../weekly-budget-gate';
 import type { BudgetLightDecision } from '../../budget-light/policy';
+import { CYCLING_MIN_PER_KM, type HybridAerobicKind } from '../aerobic-kind';
 import type {
   AerobicKindLite, SmartSessionSizing, StepSnapshot, StrengthBudgetSnapshot,
 } from './situation.types';
@@ -22,6 +23,8 @@ export const RUN_STRIDE_M = 1.05;
 export const MIN_WALK_KM = 1;
 export const MAX_WALK_KM = 8;
 export const MAX_RUN_KM = 12;
+/** A ride (free-run drawer "רכיבה" + stations). */
+export const MAX_RIDE_KM = 30;
 /** Step goal already met → a short loop through the park. */
 export const GOAL_MET_WALK_KM = 1.5;
 /** No step data at all → a regular medium loop. */
@@ -40,7 +43,8 @@ export const SPENT_BUDGET_STATION_MIN = 5;
 export const WALK_MIN_PER_KM = 12;
 
 /** Max straight-line distance to the park the loop goes through (m). Beyond it → no card. */
-export function smartParkRadiusM(kind: AerobicKindLite): number {
+export function smartParkRadiusM(kind: HybridAerobicKind): number {
+  if (kind === 'cycling') return 5000;
   return kind === 'running' ? 2500 : 1200;
 }
 
@@ -81,8 +85,9 @@ export function sizeStrengthSets(
   return { sets: Math.min(remaining, MAX_SESSION_SETS), source: 'budget', remaining };
 }
 
-export function walkMinutes(km: number, kind: AerobicKindLite, basePaceSecPerKm?: number): number {
+export function walkMinutes(km: number, kind: HybridAerobicKind, basePaceSecPerKm?: number): number {
   if (kind === 'walking') return km * WALK_MIN_PER_KM;
+  if (kind === 'cycling') return km * CYCLING_MIN_PER_KM;
   const pace = basePaceSecPerKm && basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5;
   return km * pace;
 }
@@ -128,13 +133,15 @@ export const PLANNER_WALK_MIN_PER_KM = 10;
  */
 export function smartComposeBudgetMin(
   routeKm: number,
-  kind: AerobicKindLite,
+  kind: HybridAerobicKind,
   strengthMin: number,
   basePaceSecPerKm?: number,
 ): number {
   const perKm = kind === 'walking'
     ? PLANNER_WALK_MIN_PER_KM
-    : (basePaceSecPerKm && basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5);
+    : kind === 'cycling'
+      ? CYCLING_MIN_PER_KM
+      : (basePaceSecPerKm && basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5);
   const km = Number.isFinite(routeKm) && routeKm > 0 ? routeKm : 0;
   return Math.max(10, Math.round(km * perKm + Math.max(0, strengthMin)));
 }

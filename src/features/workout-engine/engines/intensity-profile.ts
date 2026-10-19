@@ -44,7 +44,7 @@ const ZONE_LEVEL: Record<RunZoneType, IntensityLevel> = {
   sprint: 'high',
 };
 
-export function zoneLevel(zone: RunZoneType | undefined, kind: 'walking' | 'running' | undefined): IntensityLevel {
+export function zoneLevel(zone: RunZoneType | undefined, kind: 'walking' | 'running' | 'cycling' | undefined): IntensityLevel {
   if (zone && ZONE_LEVEL[zone]) return ZONE_LEVEL[zone];
   return kind === 'walking' ? 'low' : 'moderate';
 }

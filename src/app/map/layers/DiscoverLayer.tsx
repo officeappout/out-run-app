@@ -27,6 +27,7 @@ import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { hybridSessionTitle } from '@/features/workout-engine/hybrid/aerobic-kind';
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
@@ -363,7 +364,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   //   back / dismiss           → resetHybridFlow(...)
   // slotActivity drives the resolver + the in-layer activity toggle. The
   // resolver + handlers that need userLocation/userCityName are defined lower.
-  const [slotActivity, setSlotActivity] = useState<AerobicKind>('walking');
+  const [slotActivity, setSlotActivity] = useState<Extract<AerobicKind, 'walking' | 'running'>>('walking');
 
   // ── Preview-on-settle (READ-ONLY) ──────────────────────────────────────────
   // When the slot carousel settles on a hybrid card, compose its plan and draw
@@ -2146,7 +2147,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 onStartHybrid={mapFeatureFlags.enableHybridSlots ? (intent) => {
                   // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
                   // slot title, so derive an aerobic+כוח label. No-op when flag is off.
-                  setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
+                  setOverviewTitle(hybridSessionTitle(intent.aerobicKind));
                   // enable_hybrid_cards_v2: the same smart walk-through-the-park composition.
                   composeAndShowOverview(hybridCardsV2 ? smartHybrid.toDrawerIntent(intent) : intent, 'config');
                 } : undefined}
