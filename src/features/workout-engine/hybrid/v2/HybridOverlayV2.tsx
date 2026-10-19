@@ -41,7 +41,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
-  const h = headerView(view, api.plan, api.names);
+  const h = headerView(view, api.plan, api.names, api.label);
   const cart = toCartItems(api.strip);
 
   return (

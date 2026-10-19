@@ -1457,7 +1457,10 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   for (const st of composed.stations ?? (composed.station ? [composed.station] : [])) {
     if (st.parkId && st.name) stationNames[st.parkId] = st.name;
   }
-  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true, stationNames);
+  // v2 player header: route + stops is named as such (same signal as the overview title —
+  // fullParkRun===false is set only by composeRouteStopsWorkout), not the generic "הליכה + כוח".
+  const sessionLabel = composed.fullParkRun === false && !composed.fallbackHint ? 'מסלול + עצירות' : undefined;
+  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true, stationNames, sessionLabel);
   startRun();
 }
 

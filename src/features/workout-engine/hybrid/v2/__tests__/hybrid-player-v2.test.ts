@@ -98,6 +98,9 @@ describe('hybrid v2 view', () => {
     const v = sequencerView(s, T0 + 60_000);
     const h = headerView(v, PLAN, NAMES);
     expect(h.eyebrow).toBe('ריצה + כוח');
+    // Route + stops sessions carry their own name (runHybridPlan → useHybridRun.sessionLabel).
+    expect(headerView(v, PLAN, NAMES, 'מסלול + עצירות').eyebrow).toBe('מסלול + עצירות');
+    expect(headerView(v, PLAN, NAMES, null).eyebrow).toBe('ריצה + כוח');
     expect(h.title).toBe('ריצה אל פארק הירקון · 1.8 ק״מ · 1 מתוך 3');
     expect(nextBlockView(v, NAMES)).toMatchObject({ label: 'בלוק כוח · פארק הירקון', meta: '2 תרגילים · 10′' });
     const all = JSON.stringify([h, nextBlockView(v, NAMES), miniView(v, PLAN, NAMES, 60, 0.25)]);

@@ -80,9 +80,15 @@ export interface HybridHeaderView {
 }
 
 /** Header card: "ריצה + כוח" · "ריצה אל פארק הירקון · 650 מ׳ · 1 מתוך 3". */
-export function headerView(view: SequencerView, plan: readonly HybridPlannedSegment[], names: Record<string, string>): HybridHeaderView {
+export function headerView(
+  view: SequencerView,
+  plan: readonly HybridPlannedSegment[],
+  names: Record<string, string>,
+  /** The session's own name (route + stops: "מסלול + עצירות"); omitted → "הליכה/ריצה + כוח". */
+  sessionLabel?: string | null,
+): HybridHeaderView {
   const firstLeg = plan.find((s) => s.kind === 'aerobic');
-  const eyebrow = `${walking(firstLeg) ? 'הליכה' : 'ריצה'} + כוח`;
+  const eyebrow = sessionLabel || `${walking(firstLeg) ? 'הליכה' : 'ריצה'} + כוח`;
   const of = `${Math.min(plan.length, view.cursor + 1)} מתוך ${plan.length}`;
   if (view.phase === 'transition') {
     return { eyebrow, title: `מעבר לכוח · ${of}`, color: HYBRID_V2_COLORS.strength };

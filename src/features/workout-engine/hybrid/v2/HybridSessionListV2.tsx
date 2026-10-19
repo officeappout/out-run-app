@@ -33,7 +33,7 @@ export default function HybridSessionListV2({ onClose }: { onClose: () => void }
     [api?.enabled, api?.plan, api?.legs, api?.names],
   );
   if (!api?.enabled || !api.view) return null;
-  const h = headerView(api.view, api.plan, api.names);
+  const h = headerView(api.view, api.plan, api.names, api.label);
 
   return (
     <SessionListLayer
