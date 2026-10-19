@@ -10,6 +10,7 @@ import {
   type ChannelKey,
   type JourneySourcesResponse,
 } from '@/features/admin/services/journey-sources';
+import { APP_DOMAIN } from '@/lib/config/domain';
 
 /**
  * Journey → "מקורות הגעה". Where users came from: site visits, link/QR
@@ -86,7 +87,7 @@ export default function SourcesSection({
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Kpi label="ביקורים באתר" value={fmt(kpis.webSessions)} hint="כניסות לאתר outrun.co.il/web בתקופה (ביקור = כניסה אחת, בלי עוגיות)." />
+        <Kpi label="ביקורים באתר" value={fmt(kpis.webSessions)} hint={`כניסות לאתר ${APP_DOMAIN}/web בתקופה (ביקור = כניסה אחת, בלי עוגיות).`} />
         <Kpi label="לחיצות על קישורים ו־QR" value={fmt(kpis.linkClicks)} hint="כל הלחיצות על הקישורים החכמים (/r/…) — אתר, אינסטגרם, QR בשטח ושותפים." />
         <Kpi label="לחיצות הורדה באתר" value={fmt(kpis.downloadClicks)} hint="לחיצות על כפתורי App Store / Google Play באתר." />
         <Kpi

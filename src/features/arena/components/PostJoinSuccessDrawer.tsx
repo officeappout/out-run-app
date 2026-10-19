@@ -13,6 +13,7 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 interface PostJoinSuccessDrawerProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ export default function PostJoinSuccessDrawer({
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const handleShare = async () => {
-    const url = typeof window !== 'undefined' ? window.location.origin : 'https://outrun.app';
+    const url = typeof window !== 'undefined' ? window.location.origin : APP_ORIGIN;
     const text = `היי, הצטרפתי ל-${name} ב-OutRun! בוא/י להתאמן איתי: ${url}`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {

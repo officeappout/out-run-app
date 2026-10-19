@@ -4,6 +4,13 @@ import { KeyboardResize } from '@capacitor/keyboard';
 // NEVER commit ios/App/App/capacitor.config.json or android/app/google-services.json
 // to git — they are generated artefacts (produced by cap sync) and may contain debug
 // or staging configuration.
+// The domain the shell loads. Same switch as src/lib/config/domain.ts; read at
+// `cap sync` time, so a domain move needs a new store build. allowNavigation
+// lists BOTH the current and the planned domain so a build keeps working
+// across the outrun.co.il → appout.co.il move (in either direction).
+const APP_DOMAIN = (process.env.NEXT_PUBLIC_APP_DOMAIN || 'outrun.co.il').trim().toLowerCase();
+const KNOWN_APP_DOMAINS = ['outrun.co.il', 'appout.co.il'];
+
 const config: CapacitorConfig = {
   appId: 'co.il.appout.outrun',
   appName: 'Out Run',
@@ -12,8 +19,8 @@ const config: CapacitorConfig = {
 
   server: {
     androidScheme: 'https',
-    url: 'https://outrun.co.il',
-    allowNavigation: ['outrun.co.il', '*.outrun.co.il'],
+    url: `https://${APP_DOMAIN}`,
+    allowNavigation: [APP_DOMAIN, ...KNOWN_APP_DOMAINS.filter((d) => d !== APP_DOMAIN)].flatMap((d) => [d, `*.${d}`]),
     cleartext: false,
   },
 

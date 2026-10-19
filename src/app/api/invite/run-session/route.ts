@@ -21,6 +21,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
 import { sanitizePlannedRun } from '@/lib/planned-run';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,7 @@ const TOKEN_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 // issued stay valid.
 const TOKEN_RANDOM_LENGTH = 20;
 const EXPIRY_MS   = 2 * 60 * 60 * 1000; // 2 hours, matches existing session invites
-const WEB_BASE    = 'https://outrun.co.il';
+const WEB_BASE    = APP_ORIGIN;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
