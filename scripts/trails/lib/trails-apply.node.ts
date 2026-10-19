@@ -13,13 +13,15 @@
  *   - trail_segments: idempotent upsert keyed by the deterministic segment id,
  *     skipped when the stored contentHash is identical (2nd run writes 0)
  *   - official_routes: CREATE-ONLY (existing id → skipped, never touched),
- *     status:'pending', published:false
+ *     status:'pending', published:false — sole exception: the owner-approved
+ *     elevationProfile backfill (bottom of this file), a field-level update
+ *     of that one field, precondition-guarded
  *   - batched writes, ≤ 400 per batch; nothing is ever deleted
  */
 import { createHash } from 'crypto';
 import * as readline from 'readline';
 import type { App } from 'firebase-admin/app';
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore, Timestamp } from 'firebase-admin/firestore';
 import { buildValidatedDoc, normalizeCityName } from '../../../src/lib/route-collections';
 import {
   authorityNameCandidates,
@@ -306,4 +308,83 @@ export async function printResolvedAuthority(target: Target, areaName: string): 
   console.log(`TARGET (read-only): ${describeTarget(target)}`);
   const a = await resolveAuthorityByName(target.db, areaName);
   console.log(`"${areaName}" → authorityId ${a.id} (${a.name})`);
+}
+
+// ── elevationProfile backfill onto EXISTING official_routes (19.10.2026) ────
+// Owner-approved one-off (scripts/trails/backfill-elevation-profile.ts). The
+// only exception to "official_routes is create-only" in this pipeline, and a
+// narrow one: a FIELD-LEVEL update of `elevationProfile` alone — validated
+// through buildValidatedDoc (update mode), asserted to carry no other key,
+// and guarded by the doc's read-time updateTime so a doc edited since the
+// read is skipped, never clobbered. Nothing else on the doc is touched.
+
+export interface RouteDocSnapshot {
+  id: string;
+  data: Record<string, unknown>;
+  /** Firestore updateTime at read — the write precondition. */
+  updateTime: Timestamp;
+}
+
+/** One bounded page of official_routes in document-id order (only the fields the backfill reads). */
+export async function listOfficialRoutesPage(
+  db: Firestore,
+  opts: { afterId: string | null; pageSize: number; authorityId: string | null },
+): Promise<RouteDocSnapshot[]> {
+  const { FieldPath } = await import('firebase-admin/firestore');
+  let q = db.collection('official_routes').select('name', 'path', 'elevationProfile').orderBy(FieldPath.documentId()).limit(opts.pageSize);
+  if (opts.authorityId) q = q.where('authorityId', '==', opts.authorityId);
+  if (opts.afterId) q = q.startAfter(opts.afterId);
+  const snap = await q.get();
+  return snap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown>, updateTime: d.updateTime }));
+}
+
+export interface ElevationUpdate {
+  id: string;
+  profile: { stepM: number; elevationsM: number[] };
+  updateTime: RouteDocSnapshot['updateTime'];
+}
+
+/** The exact payload written: `{ elevationProfile }`, validated, and nothing else. */
+export function elevationProfilePayload(profile: ElevationUpdate['profile']): Record<string, unknown> {
+  const validated = buildValidatedDoc('official_routes', { elevationProfile: profile }, { mode: 'update', knownAuthorityIds: new Set(), existing: {} });
+  const keys = Object.keys(validated);
+  if (keys.length !== 1 || keys[0] !== 'elevationProfile') throw new Error(`elevationProfile backfill payload must be exactly {elevationProfile}, got {${keys.join(',')}}`);
+  return validated;
+}
+
+/**
+ * Writes the updates in batches (≤ batchSize, ≤ 400), pausing `pauseMs`
+ * between batches. A batch rejected because one doc changed since the read
+ * is retried doc by doc; the changed docs are reported as `conflicts`.
+ */
+export async function updateElevationProfiles(
+  db: Firestore,
+  updates: ElevationUpdate[],
+  opts: { batchSize: number; pauseMs: number; log?: (s: string) => void },
+): Promise<{ written: number; conflicts: string[]; batches: number }> {
+  const log = opts.log ?? console.log;
+  const parts = chunk(updates.map((u) => ({ ...u, payload: elevationProfilePayload(u.profile) })), Math.min(BATCH_SIZE, Math.max(1, opts.batchSize)));
+  let written = 0;
+  const conflicts: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const batch = db.batch();
+    for (const u of part) batch.update(db.collection('official_routes').doc(u.id), u.payload, { lastUpdateTime: u.updateTime });
+    try {
+      await batch.commit();
+      written += part.length;
+    } catch {
+      for (const u of part) {
+        try {
+          await db.collection('official_routes').doc(u.id).update(u.payload, { lastUpdateTime: u.updateTime });
+          written++;
+        } catch {
+          conflicts.push(u.id);
+        }
+      }
+    }
+    log(`  official_routes.elevationProfile: batch ${i + 1}/${parts.length} (${part.length} docs)`);
+    if (opts.pauseMs > 0 && i < parts.length - 1) await new Promise((r) => setTimeout(r, opts.pauseMs));
+  }
+  return { written, conflicts, batches: parts.length };
 }

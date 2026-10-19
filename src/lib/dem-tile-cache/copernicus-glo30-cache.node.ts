@@ -92,3 +92,49 @@ export async function loadCopernicusProvider(bbox: Bbox, opts: { download?: bool
     sample: (lat, lng) => sampleCopernicus(tiles, lat, lng),
   };
 }
+
+/**
+ * A bounded tile set for country-wide one-off runs (elevationProfile
+ * backfill): routes come in document-id order, not by area, so tiles are
+ * loaded on demand and the least recently used ones evicted beyond
+ * `maxTiles` (a decoded 1° tile is ~50 MB). `providerFor(bbox)` guarantees
+ * every tile the bbox touches is loaded; use the returned provider
+ * immediately (a later call may evict its tiles).
+ */
+export function createCopernicusTileLru(maxTiles = 6, opts: { download?: boolean } = {}) {
+  const tiles: CopernicusTileSet = new Map();
+  const recent: string[] = [];
+  const touch = (k: string) => {
+    const i = recent.indexOf(k);
+    if (i >= 0) recent.splice(i, 1);
+    recent.push(k);
+  };
+  return {
+    async providerFor(bbox: Bbox): Promise<ElevationProvider> {
+      if (opts.download !== false) await ensureCopernicusTiles(bbox, () => {});
+      const needed = copernicusTilesForBbox(bbox);
+      const neededKeys = new Set(needed.map(({ lat, lon }) => copernicusTileKey(lat, lon)));
+      for (const { lat, lon } of needed) {
+        const k = copernicusTileKey(lat, lon);
+        if (!tiles.has(k)) {
+          const t = loadCopernicusTile(lat, lon);
+          if (t) tiles.set(k, t);
+        }
+        touch(k);
+      }
+      for (let i = 0; tiles.size > Math.max(maxTiles, neededKeys.size) && i < recent.length;) {
+        const k = recent[i];
+        if (neededKeys.has(k)) { i++; continue; }
+        tiles.delete(k);
+        recent.splice(i, 1);
+      }
+      return {
+        id: 'copernicus-glo30',
+        attribution: COPERNICUS_DEM_ATTRIBUTION,
+        storable: true,
+        sample: (lat, lng) => sampleCopernicus(tiles, lat, lng),
+      };
+    },
+    loadedTiles: () => tiles.size,
+  };
+}
