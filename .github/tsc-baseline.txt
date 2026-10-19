@@ -297,7 +297,6 @@ src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'Forwa
 src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
 src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type 'ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>' is not assignable to type 'FC<{ size?: number | undefined; className?: string | undefined; }>'.
 src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2322: Type '{ size: number; style: { color: string; }; }' is not assignable to type 'IntrinsicAttributes & { size?: number | undefined; className?: string | undefined; }'.
-src/features/home/components/widgets/NextRunWorkoutCard.tsx: TS2339: Property 'identity' does not exist on type 'UserFullProfile'.
 src/features/home/hooks/useMuscleChipSelection.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
 src/features/home/hooks/useMuscleChipSelection.ts: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
 src/features/home/hooks/useProgramProgress.ts: TS2339: Property 'profile' does not exist on type 'unknown'.
