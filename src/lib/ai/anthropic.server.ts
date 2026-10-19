@@ -25,7 +25,7 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { isRateLimited } from '@/lib/rateLimit';
+import { checkRateLimit } from '@/lib/rateLimit';
 import { getIsraelDateKey } from '@/lib/israelTime';
 import { DEFAULT_AI_CONFIG, parseAiConfig, type AiConfig } from './ai-config';
 import {
@@ -143,6 +143,12 @@ export async function assertAiBudget(
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+/** Seconds until the window reopens (at least 60); the whole window when unknown (fail-closed error). */
+function retryAfterSecOf(retryAfterMs: number | undefined, windowMs: number): number {
+  if (typeof retryAfterMs !== 'number' || !Number.isFinite(retryAfterMs)) return Math.round(windowMs / 1000);
+  return Math.max(60, Math.ceil(retryAfterMs / 1000));
+}
+
 export type AiRateLimitResult = { limited: false } | { limited: true; window: 'hour' | 'day'; retryAfterSec: number };
 
 /**
@@ -157,12 +163,10 @@ export async function checkAiRateLimit(
   config: Pick<AiConfig, 'rateLimitPerHour' | 'rateLimitPerDay'> = DEFAULT_AI_CONFIG,
   db: Firestore = getAdminDb(),
 ): Promise<AiRateLimitResult> {
-  if (await isRateLimited(db, `ai:uid:${uid}:hour`, { windowMs: HOUR_MS, maxRequests: config.rateLimitPerHour, failClosed: true })) {
-    return { limited: true, window: 'hour', retryAfterSec: 3600 };
-  }
-  if (await isRateLimited(db, `ai:uid:${uid}:day`, { windowMs: DAY_MS, maxRequests: config.rateLimitPerDay, failClosed: true })) {
-    return { limited: true, window: 'day', retryAfterSec: 86_400 };
-  }
+  const hour = await checkRateLimit(db, `ai:uid:${uid}:hour`, { windowMs: HOUR_MS, maxRequests: config.rateLimitPerHour, failClosed: true });
+  if (hour.limited) return { limited: true, window: 'hour', retryAfterSec: retryAfterSecOf(hour.retryAfterMs, HOUR_MS) };
+  const day = await checkRateLimit(db, `ai:uid:${uid}:day`, { windowMs: DAY_MS, maxRequests: config.rateLimitPerDay, failClosed: true });
+  if (day.limited) return { limited: true, window: 'day', retryAfterSec: retryAfterSecOf(day.retryAfterMs, DAY_MS) };
   return { limited: false };
 }
 

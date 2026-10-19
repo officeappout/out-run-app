@@ -81,8 +81,11 @@ describe('protocol', () => {
   it('maps rate limit / budget / offline / auth errors to friendly Hebrew', () => {
     const hour = describeCoachError({ status: 429, code: 'rate_limited', retryAfterSec: 3600 }, 'male');
     expect(hour).toMatchObject({ offerBuilder: true, retryable: false });
-    expect(hour.body).toContain('בעוד שעה');
+    expect(hour.body).toContain('דיברנו המון בשעה האחרונה.');
+    expect(hour.body).toMatch(/אני חוזר לענות (?:מחר )?בסביבות \d\d:\d\d\./);
     expect(describeCoachError({ status: 429, retryAfterSec: 86_400 }, 'male').body).toContain('מחר');
+    // No team inbox behind the old chat: the error card never promises one.
+    expect(hour.body).not.toContain('הצוות');
     for (const code of ['kill_switch', 'over_budget', 'unavailable']) {
       expect(describeCoachError({ status: 503, code }, 'female')).toMatchObject({ title: 'קלי AI לא זמין כרגע', offerBuilder: true });
     }
