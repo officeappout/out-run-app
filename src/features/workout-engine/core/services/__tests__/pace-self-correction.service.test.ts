@@ -196,6 +196,7 @@ describe('wiring (source) — useRunningPlayer', () => {
     expect(snapAt).toBeGreaterThan(0);
     expect(stopAt).toBeGreaterThan(snapAt);
     expect(src).toContain('if (workoutSaved && plannedRunSnapshot) {');
-    expect(src).toContain("if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking') return null;");
+    // A ride (enable_home_v2 cycling) never feeds the running pace self-correction either.
+    expect(src).toContain("if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking' || activityType === 'cycling') return null;");
   });
 });
