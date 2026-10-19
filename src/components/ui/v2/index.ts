@@ -38,3 +38,11 @@ export { default as MetricRings } from './MetricRings';
 export type { MetricRing } from './MetricRings';
 export { default as ImprovementCard } from './ImprovementCard';
 export type { ImprovementItem, ImprovementCardProps } from './ImprovementCard';
+// Live players (home v2): segmented "shopping cart" list button + per-colour story bars.
+export { default as CartProgressIcon } from './CartProgressIcon';
+export type { CartProgressIconProps } from './CartProgressIcon';
+export * from './cart-ring';
+export { default as StoryBars } from './StoryBars';
+export type { StoryBarsProps, StoryBarSegment } from './StoryBars';
+export { default as RepPaceTable } from './RepPaceTable';
+export type { RepPaceRow, RepPaceTableProps } from './RepPaceTable';

@@ -10,6 +10,8 @@ import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
+import type { PlannedBlockRecord } from '../../../core/services/storage.service';
+import { advanceTarget, buildBlockRecords, resolveBlockTargetPace } from '../lib/planned-rep-results';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
@@ -417,6 +419,29 @@ function currentBlockResult(s: Pick<RunningPlayerState, 'currentBlockIndex' | 'b
     elapsedSeconds: s.blockElapsedSeconds,
     elapsedMeters: s.blockElapsedMeters,
   };
+}
+
+/**
+ * Per-rep records of a finished planned run (work blocks only), with each
+ * block's target band resolved from the runner's paceProfile exactly as the
+ * live engine does. Empty when there is no basePace (no targets) — reps are
+ * still listed with their time / distance / pace.
+ */
+async function buildPlannedBlockResults(
+  workout: RunWorkout,
+  results: PlannedBlockResult[],
+): Promise<PlannedBlockRecord[]> {
+  const [{ computeZones }, { useRunningConfigStore }, { useUserStore }] = await Promise.all([
+    import('../../../core/services/running-engine.service'),
+    import('../../../core/store/useRunningConfigStore'),
+    import('@/features/user/identity/store/useUserStore'),
+  ]);
+  const paceProfile = useUserStore.getState().profile?.running?.paceProfile;
+  const basePace = paceProfile?.basePace ?? 0;
+  const zones = basePace > 0
+    ? computeZones(basePace, paceProfile?.profileType ?? 3, useRunningConfigStore.getState().config)
+    : null;
+  return buildBlockRecords(workout.blocks, results, (b) => resolveBlockTargetPace(b, basePace, zones));
 }
 
 /**
@@ -1620,8 +1645,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
     // ── Planned quality run snapshot (pace self-correction) ───────────
     // Captured BEFORE stopGPSTracking, which resets hasHadGoodFix. The
-    // block in progress at finish is included (advanceBlock never records
-    // the last block — there is no next one to advance to).
+    // block in progress at finish is included (unless the plan already
+    // completed — advanceBlock past the last block recorded it).
     const plannedRunSnapshot = (() => {
       const st = get();
       if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking') return null;
@@ -1775,6 +1800,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             },
           };
 
+          // ── Per-rep results (planned runs only; optional field) ───────
+          // One record per work block: target band, actual time / distance /
+          // avg pace and in-range. Best-effort — a failure only drops the field.
+          let blockResults: PlannedBlockRecord[] = [];
+          if (plannedRunSnapshot) {
+            try {
+              blockResults = await buildPlannedBlockResults(plannedRunSnapshot.workout, plannedRunSnapshot.results);
+            } catch (e) {
+              console.warn('[useRunningPlayer] blockResults skipped:', e);
+            }
+          }
+
           // ── Build the single authoritative workout document ───────────
           // Commute sessions are tagged via `sessionKind: 'commute'` plus
           // the optional destination metadata — no dedicated workoutType,
@@ -1796,6 +1833,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             earnedCoins,
             xpEarned: sessionXP,
             ...(completedLaps.length > 0 ? { laps: completedLaps } : {}),
+            ...(blockResults.length > 0 ? { blockResults } : {}),
             ...(safeElevation !== undefined ? { elevationGain: safeElevation } : {}),
             ...(guidedRouteId ? { routeId: guidedRouteId } : {}),
             ...(detectedPark ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName } : {}),
@@ -2126,8 +2164,14 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     const { currentWorkout, currentBlockIndex } = get();
     if (!currentWorkout) return;
 
-    const nextIndex = currentBlockIndex + 1;
-    if (nextIndex >= currentWorkout.blocks.length) return;
+    // Advancing from the LAST block moves the index to blocks.length — the
+    // "complete" state usePlannedRunEngine reports as isWorkoutComplete, which
+    // PlannedRunActive's auto-finish waits for. (Until 19.10.2026 this returned
+    // early on the last block, so the auto-finish could never fire and the
+    // runner kept going past the plan until a manual finish.) null = already
+    // complete — nothing left to advance.
+    const nextIndex = advanceTarget(currentBlockIndex, currentWorkout.blocks.length);
+    if (nextIndex === null) return;
 
     set({
       plannedBlockResults: [...get().plannedBlockResults, currentBlockResult(get())],

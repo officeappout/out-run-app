@@ -9,12 +9,13 @@ import {
   Chip,
   IconTile,
   MetricRings,
+  RepPaceTable,
   StatNumber,
   StreakDotsStrip,
   type StreakWeekBar,
   type WeekDot,
 } from '@/components/ui/v2';
-import { aerobicRings } from '../../v2-summary.mapping';
+import { aerobicRings, repTableModel } from '../../v2-summary.mapping';
 import SummaryDrawerShell, { type DrawerTab } from '../../blocks/SummaryDrawerShell';
 import type { SummarySnap } from '../../blocks/summary-sheet.util';
 import type { GroupSummaryCtx } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
@@ -153,6 +154,9 @@ export default function AerobicSummaryView({
   const effectiveVariant = isPair ? 'pair' : variant;
 
   const dateLabel = formatDate(workout.date);
+  // v2 only: planned runs' per-rep results (optional `blockResults`; older
+  // docs and free runs have none ⇒ null ⇒ today's laps UI).
+  const repTable = v2 ? repTableModel(workout.blockResults) : null;
   const distanceKm = workout.distance ?? 0;
 
   // ── Hero (drag zone) ──────────────────────────────────────────────────────
@@ -251,7 +255,23 @@ export default function AerobicSummaryView({
               bars={v2.weekBars}
             />
           )}
-          {workout.laps && workout.laps.length > 0 && (
+          {repTable ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab('segments')}
+              className="flex w-full items-center gap-3 rounded-v2-card bg-white px-4 py-3 text-start shadow-v2-card active:scale-[0.97] transition-transform duration-150 ease-v2"
+            >
+              <IconTile icon={Activity} tone="run" size="sm" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14.5px] font-black text-v2-ink">קצב בכל חזרה</span>
+                <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
+              </span>
+              <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-[#ecfdf5] px-3 text-[12px] font-extrabold tabular-nums text-[#047857]">
+                {repTable.shortLabel ?? `${repTable.reps} חזרות`}
+              </span>
+              <ChevronLeft size={18} strokeWidth={2.4} className="shrink-0 text-v2-muted" aria-hidden />
+            </button>
+          ) : workout.laps && workout.laps.length > 0 && (
             <button
               type="button"
               onClick={() => setActiveTab('segments')}
@@ -453,6 +473,11 @@ export default function AerobicSummaryView({
 
   const segmentsContent = (
     <div className="px-4 pt-4 pb-6">
+      {repTable && (
+        <Card padding="md" className="mb-3">
+          <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} />
+        </Card>
+      )}
       {workout.laps && workout.laps.length > 0 ? (
         <>
           <LapPaceChart laps={workout.laps} />
@@ -460,7 +485,7 @@ export default function AerobicSummaryView({
             <RunLapsList laps={workout.laps} />
           </div>
         </>
-      ) : (
+      ) : repTable ? null : (
         <div className="py-8 text-center text-[14px] font-semibold text-v2-muted">
           אין הקפות מוגדרות לאימון זה
         </div>
