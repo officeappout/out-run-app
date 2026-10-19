@@ -14,7 +14,7 @@
  * The live assistant bubble has id LIVE_ID until `done` gives it the stored message id.
  */
 import type { CoachStreamEvent, CoachErrorInput, WorkoutCard } from '@/lib/ai/coach/protocol';
-import type { CoachActionId } from '@/lib/ai/coach/action-chips';
+import type { CoachActionId, WorkoutRating } from '@/lib/ai/coach/action-chips';
 import type { KellyMessageSource } from '@/lib/ai/coach/unified-thread';
 import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
 import type { ProposalStatus, ProposalView } from '@/lib/ai/coach/schedule-proposal/types';
@@ -35,6 +35,8 @@ export interface UiMessage {
   suggestions?: SuggestionChip[];
   /** Kelly phase 2: a schedule change awaiting the user's "אשר". */
   proposal?: ProposalView;
+  /** Kelly phase 3: the user's answer to a post-workout "איך היה?" (stored server-side). */
+  rated?: WorkoutRating;
 }
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';

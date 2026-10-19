@@ -661,6 +661,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             notificationFrequency: prefs.notificationFrequency ?? 'balanced',
             shabbatObserver: prefs.shabbatObserver === true,
             weekStartNotif: prefs.channels.week_start ?? true,
+            coachProactiveNotif: prefs.channels.coach_proactive ?? true,
           });
         })
         .catch(() => {
@@ -1803,6 +1804,26 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       />
                     }
                   />
+                  {/* Kelly phase 3 (flag ai_coach_proactive) — proactive Kelly messages, default on */}
+                  {v2Flags.aiCoachProactive === true && (
+                    <SettingsRow
+                      icon={
+                        channelSaving['coach_proactive']
+                          ? <Loader2 size={18} className="text-gray-700 animate-spin" />
+                          : <MessageSquare size={20} className="text-gray-700" />
+                      }
+                      label="הודעות מקלי"
+                      sublabel="עד הודעה אחת ביום: האימון של היום, סיכום שבועי, ואיך היה אחרי אימון"
+                      right={
+                        <Toggle
+                          label="הודעות מקלי"
+                          checked={store.coachProactiveNotif}
+                          onChange={(v) => { void handleChannelToggle('coach_proactive', 'coachProactiveNotif', v); }}
+                          disabled={!store.isLoaded || !store.pushEnabled || !!channelSaving['coach_proactive']}
+                        />
+                      }
+                    />
+                  )}
                   {/* Shabbat observer — settings.shabbatObserver (default off). Not gated on
                       pushEnabled: it only ever withholds pushes, never adds any. */}
                   <SettingsRow

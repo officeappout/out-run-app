@@ -30,6 +30,8 @@ export interface SettingsData {
   shabbatObserver: boolean;
   /** Motzei-Shabbat week-start nudge — mirrors `notificationPrefs.week_start` (observers only) */
   weekStartNotif: boolean;
+  /** Kelly phase 3: settings.notificationPrefs.coach_proactive (default on). */
+  coachProactiveNotif: boolean;
 }
 
 interface SettingsState extends SettingsData {
@@ -62,6 +64,7 @@ const DEFAULTS: SettingsData = {
   notificationFrequency: 'balanced',
   shabbatObserver: false,
   weekStartNotif: true,
+  coachProactiveNotif: true,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
