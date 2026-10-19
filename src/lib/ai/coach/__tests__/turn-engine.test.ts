@@ -13,6 +13,7 @@ import {
   type TurnDeps,
 } from '../turn-engine';
 import type { CoachStreamEvent } from '../protocol';
+import { dropHebrewlessSentences } from '../reply-guards';
 
 // ─── Mock model: a scripted queue of responses (shaped like SDK Messages) ──────
 
@@ -307,5 +308,39 @@ describe('reply guards in the turn loop (owner review 18.10.2026)', () => {
     const out = await runCoachTurn(GUARDED, newTurnState('איך אני מתקדם?'), h.deps);
     expect(out.state.turnText).toBe('בודק.\nהשבוע עשית 2 אימונים.');
     expect(out.state.log!.toolCalls).toEqual([{ name: 'get_progress', input: { range: 'week' }, resultSummary: '{"range":"week","workouts":2,"activeDays":2}' }]);
+  });
+
+  it('a preamble sentence left with no Hebrew after stripping is dropped, not shown as bare punctuation', async () => {
+    const h = harness(
+      [
+        msg('tool_use', { type: 'text', text: 'Let me check, ok. בודק את הלוז.' }, { type: 'tool_use', id: 't1', name: 'get_schedule', input: {} }),
+        msg('end_turn', { type: 'text', text: 'השבוע מתוכננים לך 2 אימונים.' }),
+      ],
+      vi.fn(async () => ({ content: '{"days":[]}' })),
+    );
+    const out = await runCoachTurn(GUARDED, newTurnState('מה בתוכנית?'), h.deps);
+    expect(out.state.turnText).toBe('בודק את הלוז.\nהשבוע מתוכננים לך 2 אימונים.');
+    expect(out.state.turnText.startsWith(',')).toBe(false);
+  });
+
+  it('an all-English preamble is dropped entirely; the answer starts with Hebrew', async () => {
+    const h = harness(
+      [
+        msg('tool_use', { type: 'text', text: 'Sure, let me check.' }, { type: 'tool_use', id: 't1', name: 'get_progress', input: { range: 'week' } }),
+        msg('end_turn', { type: 'text', text: 'השבוע עשית 2 אימונים.' }),
+      ],
+      vi.fn(async () => ({ content: '{"range":"week","workouts":2,"activeDays":2}' })),
+    );
+    const out = await runCoachTurn(GUARDED, newTurnState('איך אני מתקדם?'), h.deps);
+    expect(out.state.turnText).toBe('השבוע עשית 2 אימונים.');
+  });
+});
+
+describe('dropHebrewlessSentences', () => {
+  it('keeps Hebrew sentences and drops punctuation-only leftovers', () => {
+    expect(dropHebrewlessSentences(',. בודק את הלוז.')).toBe('בודק את הלוז.');
+    expect(dropHebrewlessSentences(',.')).toBe('');
+    expect(dropHebrewlessSentences('בודק.\n,.\nעוד רגע.')).toBe('בודק.\nעוד רגע.');
+    expect(dropHebrewlessSentences('יש לך 2 אימונים.')).toBe('יש לך 2 אימונים.');
   });
 });

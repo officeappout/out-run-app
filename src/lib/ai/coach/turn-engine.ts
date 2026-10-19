@@ -30,7 +30,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import type { CoachStreamEvent } from './protocol';
 import type { UserContextSheet } from './context-sheet';
 import { toolKind, validateToolInput, type ClientToolOutcome } from './tools';
-import { checkReply, correctionNote, factsFromEvidence, findForeignWords, stripForeignWords, type ReplyIssue } from './reply-guards';
+import { checkReply, correctionNote, dropHebrewlessSentences, factsFromEvidence, findForeignWords, stripForeignWords, type ReplyIssue } from './reply-guards';
 import { masculinizeSelfReferences } from './gender-voice';
 import type { CoachGender } from './persona';
 
@@ -251,7 +251,7 @@ export async function runCoachTurn(cfg: TurnConfig, initial: TurnState, deps: Tu
     }
 
     // A tool round: its short preamble ("בודק...") is shown, with foreign words stripped.
-    emitChecked(state, roundText, deps, null, cfg.guards?.userGender ?? null);
+    emitChecked(state, roundText, deps, null, cfg.guards?.userGender ?? null, true);
 
     state.turnMessages.push({ role: 'assistant', content: message.content });
     state.roundsUsed++;
@@ -333,6 +333,7 @@ function emitChecked(
   deps: TurnDeps,
   evidenceText: string | null,
   userGender: CoachGender | null = null,
+  preTool = false,
 ): void {
   let t = text.trim();
   if (!t) return;
@@ -340,6 +341,9 @@ function emitChecked(
   if (words.length) {
     t = stripForeignWords(t, words);
     state.log?.guards.push({ type: 'hebrew_only', action: `stripped: ${words.join(', ').slice(0, 200)}` });
+    // A tool-round preamble is optional: a sentence left with no Hebrew is dropped, never
+    // shown as bare punctuation (",." at the start of a reply).
+    if (preTool) t = dropHebrewlessSentences(t);
   }
   const masc = masculinizeSelfReferences(t, userGender);
   if (masc.changed.length) {
