@@ -88,6 +88,9 @@ export { adminCostsScheduler } from './adminCostsScheduler';
 // off); both use the AI_REVIEW_CRON_SECRET secret already set for aiCoachReviewScheduler.
 export { kellyProactiveScheduler } from './kellyProactiveScheduler';
 export { kellyMemoryScheduler } from './kellyMemoryScheduler';
+// Generation review (19.10.2026): nightly invariant review of generated workouts / routes
+// (drives /api/admin/generation-review/run; same AI_REVIEW_CRON_SECRET secret).
+export { generationReviewScheduler } from './generationReviewScheduler';
 export { pushOutcomeSweeper } from './pushOutcomeSweeper';
 // onPushOpened (04.10.2026, attribution-correctness fix) — activates the
 // outcome window on OPEN instead of SEND. Needs its own `firebase deploy

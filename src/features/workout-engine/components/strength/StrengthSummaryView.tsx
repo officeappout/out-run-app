@@ -41,6 +41,7 @@ import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/t
 import type { PhaseSummary, SessionTotals } from './utils/phase-summary';
 import { levelRingModel } from './utils/level-ring.util';
 import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/components/ui/v2';
+import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
@@ -187,6 +188,10 @@ export default function StrengthSummaryView({
           {v2.timedResults && v2.timedResults.length > 0 && <TimedResultCardsV2 results={v2.timedResults} />}
 
           {feedShareSlot}
+
+          {!isReadOnly && (
+            <ReportProblemButton types={['home_strength', 'kelly_workout']} wrapperClassName="flex justify-center" />
+          )}
 
           {v2.streakWeek && (
             <StreakCardV2

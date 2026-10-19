@@ -26,6 +26,7 @@ import {
 import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import { logPlannedRun } from '@/features/generation-review/capture/hooks';
 
 type MetadataPersona = Parameters<typeof resolveWorkoutMetadata>[0]['persona'];
 
@@ -145,6 +146,7 @@ export function usePlannedRunWorkout({
         }
 
         setWorkout(w);
+        logPlannedRun(w); // generation review (flag-gated)
         loadedIdRef.current = workoutId;
         setLoading(false);
       })

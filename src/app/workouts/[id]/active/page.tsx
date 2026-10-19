@@ -67,6 +67,7 @@ import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exer
 import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
 import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
 import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/features/workout-engine/components/PostWorkoutSurvey';
+import { noteGenerationSwap } from '@/features/generation-review/capture/hooks';
 
 // ============================================================================
 // TYPES
@@ -1682,6 +1683,7 @@ export default function ActiveWorkoutPage() {
       meta?: ReplacementMeta,
     ) => {
       if (!swapTarget || !workoutPlan) return;
+      noteGenerationSwap('strength'); // generation review (flag-gated)
 
       const { segIdx, exIdx } = swapTarget;
       const segment = workoutPlan.segments[segIdx];

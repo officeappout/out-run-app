@@ -19,6 +19,7 @@ import { buildGenerateOptions, compactWorkout, isParkLike, newAiWorkoutId } from
 import { baseDomainOf, shapeAiWorkout } from './workout-shaping.pure';
 import { putAiWorkout } from './workout-cache';
 import { snapshotFromVolumeStore, trainingDaysOf, type VolumeStoreLike } from '@/features/workout-engine/budget-light/snapshot';
+import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
 export interface ClientToolRun {
   outcome: ClientToolOutcome;
@@ -81,6 +82,7 @@ async function generateWorkoutExecutor(rawInput: unknown, profile: UserFullProfi
 
     const workoutId = newAiWorkoutId();
     putAiWorkout(workoutId, { workout, location: input.location });
+    logGeneratedWorkout('kelly_workout', workout, { location: input.location, targetMinutes: input.durationMin, placeGear: parkEquipmentIds }); // generation review
     const compact = compactWorkout(workoutId, input.location, workout, nameOf, {
       methodName: (ex) => getLocalizedText(ex.method?.methodName as never) || '',
       gearLabels: (ex) =>
