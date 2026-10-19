@@ -20,6 +20,7 @@ import {
     Users,
     TrendingUp,
     MessageCircle,
+    ListChecks,
     ListTodo,
     Building2,
     Camera,
@@ -1370,6 +1371,10 @@ function AdminLayoutInner({
                                                 {/* platform running costs — super admins only (API: requireSuperAdminApi) */}
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />
+                                                )}
+                                                {/* nightly review of generated workouts / routes — super admins only (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/generation-review" icon={ListChecks} label="בקרת אימונים ומסלולים" />
                                                 )}
                                                 {/* unified Kelly: the team's queue + replies (API: requireKellyTeamAdmin) */}
                                                 {(isSuperAdmin || roleInfo?.isRootAdmin) && (

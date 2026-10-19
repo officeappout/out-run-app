@@ -10,6 +10,7 @@ import type { ScheduleSlot } from '@/types/community.types';
 import { ALWAYS_PRIVATE_TYPES, BLANK_FORM, OUTREACH_TYPES } from './wizard-constants';
 import { canAdvanceStep, inviteLink, inviteShareText, resolveSubmitMeetingFields } from './wizard-logic';
 import type { CreateGroupWizardProps, WizardForm, WizardSuccessInfo } from './wizard-types';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 /**
  * CreateGroupWizard's state machine: form state, edit-mode prefill, step
@@ -268,7 +269,7 @@ export function useCreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }
     if (!successInfo) return;
     const origin = typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://out-run-app.vercel.app';
+      : APP_ORIGIN;
     navigator.clipboard
       ?.writeText(inviteLink(origin, successInfo.inviteCode))
       .catch(() => {});
@@ -280,7 +281,7 @@ export function useCreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }
     if (!successInfo) return;
     const origin = typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://out-run-app.vercel.app';
+      : APP_ORIGIN;
     const link = inviteLink(origin, successInfo.inviteCode);
     const text = inviteShareText(successInfo.name, successInfo.inviteCode, link);
     if (typeof navigator !== 'undefined' && navigator.share) {

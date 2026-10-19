@@ -71,14 +71,16 @@ const ENTRY_PHRASES = [
 ];
 
 type CarouselActivity = AerobicKind | 'cycling';
+/** The slot layer's activity toggle: walk / run (ride is a "soon" item here). */
+type SlotKind = Extract<AerobicKind, 'walking' | 'running'>;
 
 // ── Activity toggle (walk / run · cycling = "בקרוב") ─────────────────────────
 function ActivityToggle({
   activity,
   onChange,
 }: {
-  activity: AerobicKind;
-  onChange: (k: AerobicKind) => void;
+  activity: SlotKind;
+  onChange: (k: SlotKind) => void;
 }) {
   const items: { key: CarouselActivity; label: string; emoji: string; soon?: boolean }[] = [
     { key: 'walking', label: 'הליכה', emoji: '🚶' },
@@ -94,7 +96,7 @@ function ActivityToggle({
             key={it.key}
             type="button"
             disabled={it.soon}
-            onClick={() => !it.soon && onChange(it.key as AerobicKind)}
+            onClick={() => !it.soon && onChange(it.key as SlotKind)}
             className="flex items-center gap-1.5 rounded-full text-[12.5px] font-black transition-all active:scale-95"
             style={{
               padding: '6px 13px',
@@ -359,8 +361,8 @@ function SlotSkeleton() {
 interface HybridSlotCarouselProps {
   slots: HybridSlot[];
   loading?: boolean;
-  aerobicKind: AerobicKind;
-  onActivityChange: (k: AerobicKind) => void;
+  aerobicKind: SlotKind;
+  onActivityChange: (k: SlotKind) => void;
   onSelectSlot: (slot: HybridSlot) => void;
   onBuildYourself: () => void;
   onClose?: () => void;

@@ -152,6 +152,7 @@ import {
   legGapsKm,
   type RoutePath,
 } from '@/features/parks/core/services/route-distance.utils';
+import { CYCLING_PACE_SEC_PER_KM, safeBasePaceSecPerKm, type HybridAerobicKind } from './aerobic-kind';
 
 // ============================================================================
 // TYPES (§2 + §4b)
@@ -159,7 +160,8 @@ import {
 
 export type HybridEmphasis = 'weekly_smart' | 'aerobic' | 'balanced' | 'strength';
 export type ResolvedEmphasis = Exclude<HybridEmphasis, 'weekly_smart'>;
-export type AerobicKind = 'walking' | 'running';
+/** walk / run / ride (aerobic-kind.ts). */
+export type AerobicKind = HybridAerobicKind;
 
 export type StopLocationKind =
   | 'gym' | 'bench' | 'stairs' | 'viewpoint' | 'spring'
@@ -367,6 +369,8 @@ const HOME_SUBSTITUTE_LEVEL_BAND = 2;
 const STATION_REST = { multiplier: 0.5, exemptSkillAndIsometric: true } as const;
 
 const AEROBIC_KCAL_FACTOR = 1.036;     // existing formula: km × kg × 1.036
+/** Riding: the drawer's KCAL_PER_KM ratio (cycling 25 vs running 70 per km) on the same formula. */
+const CYCLING_KCAL_FACTOR = AEROBIC_KCAL_FACTOR * (25 / 70);
 /** Duty-cycle MET anchors (design step 8, ACSM calisthenics; rest = 1.5). */
 const TIER_MET: Record<string, number> = { flow: 3.8, easy: 3.8, match: 5.0, hard: 8.0, elite: 8.0 };
 const REST_MET = 1.5;
@@ -412,14 +416,19 @@ function profileTable(profileType: PaceProfile['profileType']): Record<RunZoneTy
 function zonePaceSecPerKm(
   paceProfile: Pick<PaceProfile, 'basePace' | 'profileType'>,
   zone: RunZoneType,
+  kind?: AerobicKind,
 ): { min: number; max: number } {
+  // A ride has no run zones: one fixed riding pace (aerobic-kind.ts).
+  if (kind === 'cycling') return { ...CYCLING_PACE_SEC_PER_KM };
   const rule = profileTable(paceProfile.profileType)[zone];
   if (rule.fixedMinSeconds != null && rule.fixedMaxSeconds != null) {
     return { min: rule.fixedMinSeconds, max: rule.fixedMaxSeconds };
   }
+  // basePace 0 (a profile that never ran) used to give 0 s/km → 0-minute legs.
+  const basePace = safeBasePaceSecPerKm(paceProfile.basePace);
   return {
-    min: Math.round(paceProfile.basePace * (rule.minPercent ?? 100) / 100),
-    max: Math.round(paceProfile.basePace * (rule.maxPercent ?? 100) / 100),
+    min: Math.round(basePace * (rule.minPercent ?? 100) / 100),
+    max: Math.round(basePace * (rule.maxPercent ?? 100) / 100),
   };
 }
 
@@ -431,6 +440,7 @@ function legZone(
   emphasis: ResolvedEmphasis,
 ): RunZoneType {
   if (kind === 'walking') return 'walk'; // walk zone is fixed for all profiles
+  if (kind === 'cycling') return 'easy'; // a ride: one steady effort (fixed riding pace)
   if (legIdx === 0) return 'jogging';
   if (legIdx === legsCount - 1) return 'recovery';
   return emphasis === 'aerobic' ? 'tempo' : 'easy';
@@ -735,12 +745,20 @@ function assignGroups(groups: string[][], stations: HybridStopCandidate[]): stri
   return (best as { order: number[] } | null)?.order.map((g) => groups[g]) ?? groups;
 }
 
+/** A stop that trains (strength gear / stairs / a core bench) — not a stretch or view stop. */
+function isWorkoutStop(c: { candidate: HybridStopCandidate }): boolean {
+  const a = c.candidate.activityType ?? 'strength';
+  return a === 'strength' || a === 'core';
+}
+
 export interface RouteStationPlan {
   chosen: Array<{ candidate: HybridStopCandidate; km: number; needsWarmup: boolean; domains?: string[]; mode?: StationMode }>;
   passThroughStopIds: string[];
   strengthBudgetMin: number;
   perStationMin: number;
   walkMinEstimate: number;
+  /** Route km covered by the WARMUP_WALK_MIN warm-up walk. */
+  warmupKm: number;
 }
 
 /**
@@ -776,10 +794,21 @@ export function planRouteStations(params: {
   const warmupKm = (WARMUP_WALK_MIN * 60) / walkSecPerKm;
   let eligible = candidatesByKm.filter((c) => c.km >= warmupKm);
   let warmupFallback = false;
+  // A strength (or core) stop always beats a stretch/view stop for the session's station (owner
+  // report 19.10.2026: "מסלול + עצירות" came out as a walk only). When every strength stop sits
+  // before the warm-up walk, the farthest one is still a candidate — with a short station warm-up.
+  if (!eligible.some(isWorkoutStop)) {
+    const early = candidatesByKm.filter(isWorkoutStop);
+    if (early.length > 0) {
+      eligible = [...eligible, early[early.length - 1]].sort((a, b) => a.km - b.km);
+      warmupFallback = true;
+    }
+  }
   if (eligible.length === 0 && candidatesByKm.length > 0) {
     eligible = [candidatesByKm[candidatesByKm.length - 1]];
     warmupFallback = true;
   }
+  const hasWorkoutStop = eligible.some(isWorkoutStop);
   const skippedEarly = candidatesByKm.filter((c) => c.km < warmupKm).length;
 
   const byTime = Math.max(STATION_MIN, Math.floor(strengthBudgetMin / STATION_MINUTES.min));
@@ -796,6 +825,8 @@ export function planRouteStations(params: {
       if (combo.length === count) {
         const kms = combo.map((i) => eligible[i].km);
         const gaps = [kms[0], ...kms.slice(1).map((km, j) => km - kms[j]), routeKm - kms[kms.length - 1]];
+        // Never a session of stretch/view stops only while a strength stop is available.
+        if (hasWorkoutStop && !combo.some((i) => isWorkoutStop(eligible[i]))) return;
         let score = gaps.reduce((s, g) => s + Math.abs(g - target), 0);
         combo.forEach((i, j) => {
           const act = eligible[i].candidate.activityType ?? 'strength';
@@ -811,7 +842,8 @@ export function planRouteStations(params: {
     recurse(0);
   }
   let chosen = chosenIdx.map((i) => ({
-    ...eligible[i], needsWarmup: warmupFallback, domains: undefined as string[] | undefined, mode: undefined as StationMode | undefined,
+    ...eligible[i], needsWarmup: warmupFallback && eligible[i].km < warmupKm,
+    domains: undefined as string[] | undefined, mode: undefined as StationMode | undefined,
   }));
 
   // One full-body split over the strength stations. A core-activity stop (bench / weekly budget
@@ -869,7 +901,7 @@ export function planRouteStations(params: {
     `; stations [${chosen.map((c) => `${c.candidate.stopId}@${c.km.toFixed(2)}km${c.mode === 'machines' ? ':machines' : c.domains ? `:${c.domains.join('+')}` : `:${c.candidate.activityType ?? 'strength'}`}`).join(', ')}]` +
     (passThroughStopIds.length ? `; pass-through ${passThroughStopIds.length}` : ''),
   );
-  return { chosen, passThroughStopIds, strengthBudgetMin, perStationMin, walkMinEstimate };
+  return { chosen, passThroughStopIds, strengthBudgetMin, perStationMin, walkMinEstimate, warmupKm };
 }
 
 /**
@@ -1402,7 +1434,7 @@ export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
     // before the first station, one full-body split across stations) and the rest are
     // pass-through (logged + meta.passThroughStopIds). Zero candidates → selection stays
     // null → the field fallback below fires (bodyweight mid-route), never an empty plan.
-    const walkPace = zonePaceSecPerKm(input.paceProfile, legZone(1, 3, input.aerobicKind, resolved));
+    const walkPace = zonePaceSecPerKm(input.paceProfile, legZone(1, 3, input.aerobicKind, resolved), input.aerobicKind);
     routePlan = planRouteStations({
       candidatesByKm,
       routeKm,
@@ -1563,6 +1595,29 @@ export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
       for (const we of content.exercises) used.add(we.exercise.id);
       builtStops.push({ candidate: c.candidate, km: c.km, focus: focusOrder[0], content, domains: c.domains });
     }
+    // Every planned workout station came out empty (or only a stretch/view stop was left) → the
+    // session would be a walk with no strength at all (owner report 19.10.2026). Try the strength
+    // stops the planner walked past, nearest the middle of the route first; the first that yields
+    // content becomes the session's one full-body station.
+    if (!builtStops.some((b) => isWorkoutStop(b))) {
+      const chosenIds = new Set(routePlan.chosen.map((c) => c.candidate.stopId));
+      const rescue = candidatesByKm
+        .filter((c) => isWorkoutStop(c) && !chosenIds.has(c.candidate.stopId))
+        .sort((a, b) => Math.abs(a.km - routeKm / 2) - Math.abs(b.km - routeKm / 2));
+      for (const c of rescue) {
+        const minutes = Math.min(ROUTE_STATION_MAX_MIN, routePlan.strengthBudgetMin);
+        const content = dispatchStopContent(c.candidate, focusOrder[0], minutes, input, log, {
+          domains: undefined, excludeExerciseIds: used, machineShareLevel,
+          needsWarmup: c.km < routePlan.warmupKm,
+        });
+        if (!content) continue;
+        log.push(`route planner: no workout station had content → rescued pass-through stop ${c.candidate.stopId}@${c.km.toFixed(2)}km`);
+        builtStops.push({ candidate: c.candidate, km: c.km, focus: focusOrder[0], content });
+        builtStops.sort((a, b) => a.km - b.km);
+        routePlan.passThroughStopIds = routePlan.passThroughStopIds.filter((id) => id !== c.candidate.stopId);
+        break;
+      }
+    }
   } else {
     for (let i = 0; i < selection.chosen.length; i++) {
       const { candidate, km } = selection.chosen[i];
@@ -1589,12 +1644,12 @@ export function composeHybridSession(rawInput: HybridComposeInput): HybridPlan {
 
   for (let leg = 0; leg < legsCount; leg++) {
     const zone = legZone(leg, legsCount, input.aerobicKind, resolved);
-    const pace = zonePaceSecPerKm(input.paceProfile, zone);
+    const pace = zonePaceSecPerKm(input.paceProfile, zone, input.aerobicKind);
     // Real leg duration: km × pace (midpoint sec/km). A 70 m leg is ~20 s, not a
     // budget-averaged 8 min. Guarantees duration tracks distance on every leg.
     const legSec = Math.round(gaps[leg] * (pace.min + pace.max) / 2);
     aerobicSec += legSec;
-    const legCalories = Math.round(gaps[leg] * input.userWeightKg * AEROBIC_KCAL_FACTOR);
+    const legCalories = Math.round(gaps[leg] * input.userWeightKg * (input.aerobicKind === 'cycling' ? CYCLING_KCAL_FACTOR : AEROBIC_KCAL_FACTOR));
     totalCalories += legCalories;
     segments.push({
       index: segments.length,

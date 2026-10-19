@@ -9,6 +9,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { ArrowDownRight, ArrowUpRight, Globe2, MousePointerClick, ScrollText, Smartphone, Users } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { APP_DOMAIN } from '@/lib/config/domain';
 
 /**
  * /admin/web-traffic — "תנועה באתר": the marketing site's (outrun.co.il/web)
@@ -124,7 +125,7 @@ export default function WebTrafficPage() {
       {/* header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span className="text-[13px] font-extrabold text-[#0284c7]">שיווק · outrun.co.il/web</span>
+          <span className="text-[13px] font-extrabold text-[#0284c7]">שיווק · {APP_DOMAIN}/web</span>
           <h1 className="mt-1 text-[34px] font-black leading-[1.05] tracking-[-0.025em]">תנועה באתר</h1>
           <p className="mt-2 text-[15px] text-[#4b5a66]">מי מגיע, מאיפה, ועל מה לוחצים. בלי עוגיות ובלי מידע אישי.</p>
         </div>

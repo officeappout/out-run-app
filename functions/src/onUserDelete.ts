@@ -160,6 +160,15 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     logger.warn(`[purgeUserData] Kelly phase 3 data for ${uid} failed`, e);
   }
 
+  // 2f. Generation review: the user's logged sessions (summaries, outcome, reports) and the
+  //     reviews built from them. Top-level, keyed by log id with a uid field; TTL'd anyway.
+  try {
+    counts.generationLog = await deleteQueryBatch(db.collection('generation_log').where('uid', '==', uid));
+    counts.generationReviews = await deleteQueryBatch(db.collection('generation_reviews').where('uid', '==', uid));
+  } catch (e) {
+    logger.warn(`[purgeUserData] generation review data for ${uid} failed`, e);
+  }
+
   // 3. Presence, social graph, personal activity feed, kudos inbox.
   //    Each is owned exclusively by the deleted user.
   for (const top of ['presence', 'connections', 'activity', 'kudos'] as const) {

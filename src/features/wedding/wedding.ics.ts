@@ -1,6 +1,7 @@
 import { taskDueDate, taskStartDate } from './wedding.calc';
 import { taskOrder } from './wedding.links';
 import type { WeddingState } from './wedding.types';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 /**
  * The planner's tasks as an iCalendar feed (RFC 5545), for subscribing from
@@ -9,7 +10,7 @@ import type { WeddingState } from './wedding.types';
  * happen in the planner and reach Google on its next refresh.
  */
 
-const PAGE = 'https://outrun.co.il/public/wedding';
+const PAGE = `${APP_ORIGIN}/public/wedding`;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;

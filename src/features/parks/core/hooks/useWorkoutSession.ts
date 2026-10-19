@@ -8,6 +8,7 @@ import { Route } from '../types/route.types';
 import { computeRouteTurns } from '../services/geoUtils';
 import { isLoopRoute } from '../services/route-shape';
 import { planFromPoint } from '@/features/workout-engine/hybrid/plan-from-point';
+import { markGenerationOutcome } from '@/features/generation-review/capture/hooks';
 
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -210,6 +211,7 @@ export function useWorkoutSession(
   }, [isWorkoutActive, isWorkoutPaused, addCoord, updateDistance, updateRunData, setCurrentUserPos]);
 
   const _doStartActiveWorkout = useCallback((route: Route | null) => {
+    markGenerationOutcome('run', 'started', { routeId: route?.id ?? null }); // generation review (flag-gated)
     const rp = useRunningPlayer.getState();
     const planned = rp.currentWorkout;
     // Preserve any sessionGoal set by FreeRunDrawer before the clear so it

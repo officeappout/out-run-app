@@ -30,6 +30,7 @@ import {
   locateStationContentIndex,
   type StationContext,
 } from './station-flow';
+import { markGenerationOutcome, noteGenerationSwap } from '@/features/generation-review/capture/hooks';
 
 // Non-reactive handles (a controller closure can't live in reactive state).
 let controllerRef: HybridControllerHandle | null = null;
@@ -256,6 +257,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   pendingStationComplete: null,
 
   startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}, sessionLabel) => {
+    markGenerationOutcome('hybrid', 'started'); // generation review (flag-gated)
     stationNames = names;
     demoSeen.clear();
     equipmentFound.clear();
@@ -378,6 +380,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   },
 
   swapStationExercise: (segIdx, exIdx, newExercise, method, toLevel) => {
+    noteGenerationSwap('hybrid'); // generation review (flag-gated)
     const plan = get().stationPlan;
     if (!activeStationContent || !plan) return false;
     const next = swapExerciseInStationContent(activeStationContent, plan, segIdx, exIdx, newExercise, method, toLevel);

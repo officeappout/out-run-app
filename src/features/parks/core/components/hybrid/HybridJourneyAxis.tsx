@@ -20,6 +20,7 @@ import { useUserStore } from '@/features/user';
 import OverviewLegAxis from '../overview/OverviewLegAxis';
 import type { OverviewLeg } from '../overview/overview-legs';
 import HybridStationCard from './HybridStationCard';
+import { aerobicKindLabel } from '@/features/workout-engine/hybrid/aerobic-kind';
 
 const ZONE_LABEL: Record<string, string> = {
   jogging: 'ריצה קלה', easy: 'קל', recovery: 'שחרור', walk: 'הליכה',
@@ -50,7 +51,7 @@ export function buildHybridLegs(
     aerIdx += 1;
     const pace = seg.targetPaceSecPerKm ? (seg.targetPaceSecPerKm.min + seg.targetPaceSecPerKm.max) / 2 : 0;
     // Moovit-style: the verb is the ACTIVITY (walk/run) and the title is the DESTINATION.
-    const action = (seg.aerobicType ?? 'walking') === 'running' ? 'ריצה' : 'הליכה';
+    const action = aerobicKindLabel(seg.aerobicType ?? 'walking');
     const base = { kind: 'aerobic' as const, key: `leg${i}`, activity: seg.aerobicType, stripActivity: seg.aerobicType ?? aerobicKind, durationSec: seg.durationSec, distanceKm: seg.distanceKm, paceSecPerKm: pace };
     if (stationName) {
       const legTitle = aerIdx === 1 ? `אל ${stationName}` : aerIdx === aerCount ? 'חזרה לנקודת ההתחלה' : 'המשך';

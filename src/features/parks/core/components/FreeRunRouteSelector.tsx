@@ -43,6 +43,7 @@ import { fetchRealParks } from '../services/parks.service';
 import { isRouteLitVerified } from '../services/route-quality-badges.service';
 import type { ActivityType, Route } from '../types/route.types';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
+import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
 
 const ACCENT = '#00ADEF';
 
@@ -138,7 +139,7 @@ export default function FreeRunRouteSelector({
           userAnchoredCorridorFlow: targetKm >= MIN_GENERATION_KM,
         });
         if (cancelled) return;
-        setRoutes(result.slice(0, 3));
+        setRoutes(logGeneratedRoutes(result.slice(0, 3), { activity, targetKm }));
         setDiagnostics(getLastGenerationDiagnostics());
       } catch (err) {
         if (cancelled) return;

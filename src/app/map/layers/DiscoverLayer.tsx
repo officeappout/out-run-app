@@ -27,6 +27,7 @@ import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { HybridStartIntent } from '@/features/workout-engine/hybrid/build-hybrid-input';
 import { resolveSlots, presetToIntent, type HybridSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybrid-session.service';
+import { hybridSessionTitle } from '@/features/workout-engine/hybrid/aerobic-kind';
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
@@ -90,6 +91,7 @@ import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocation
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
+import { logHybridShown } from '@/features/generation-review/capture/hooks';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -362,7 +364,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   //   back / dismiss           → resetHybridFlow(...)
   // slotActivity drives the resolver + the in-layer activity toggle. The
   // resolver + handlers that need userLocation/userCityName are defined lower.
-  const [slotActivity, setSlotActivity] = useState<AerobicKind>('walking');
+  const [slotActivity, setSlotActivity] = useState<Extract<AerobicKind, 'walking' | 'running'>>('walking');
 
   // ── Preview-on-settle (READ-ONLY) ──────────────────────────────────────────
   // When the slot carousel settles on a hybrid card, compose its plan and draw
@@ -1001,6 +1003,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       );
       setOverviewBackStep(fallbackStep);
       setHybridComposed(composed);
+      logHybridShown(composed, { mode: intent.mode, requestedActivity: logic.preferences.activity, targetMinutes: intent.timeBudgetMin, targetKm: intent.smart?.targetKm }); // generation review
       setFreeRunStep('overview');
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1187,6 +1190,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         drawComposedRoute(cached);
         setOverviewBackStep('slots');
         setHybridComposed(cached);
+        logHybridShown(cached, { requestedActivity: logic.preferences.activity, title: slot.title }); // generation review
         setFreeRunStep('overview');
         return;
       }
@@ -2143,7 +2147,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 onStartHybrid={mapFeatureFlags.enableHybridSlots ? (intent) => {
                   // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
                   // slot title, so derive an aerobic+כוח label. No-op when flag is off.
-                  setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
+                  setOverviewTitle(hybridSessionTitle(intent.aerobicKind));
                   // enable_hybrid_cards_v2: the same smart walk-through-the-park composition.
                   composeAndShowOverview(hybridCardsV2 ? smartHybrid.toDrawerIntent(intent) : intent, 'config');
                 } : undefined}

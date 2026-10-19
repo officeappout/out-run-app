@@ -35,6 +35,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { LinkDestinations } from './link-routing';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 const COLLECTION = 'marketing_links' as const;
 
@@ -50,18 +51,16 @@ export const LINK_TYPES = ['qr_physical', 'web', 'paid_ads', 'email', 'partner',
 export type LinkType = (typeof LINK_TYPES)[number];
 
 /**
- * Canonical short-link/web domain — reads from an env var, NEVER
- * hardcoded, so a domain cutover (planned: outrun.co.il → appout.co.il)
- * is a single Vercel env var change, not a code change. Works in both
- * server code (link-click-handler.ts) and client code (admin/links
- * live preview) because `NEXT_PUBLIC_*` vars are inlined at build time
- * for both. The literal fallback matches today's live domain so nothing
- * breaks if the var isn't set yet (e.g. local dev) — but it MUST be set
- * explicitly in Vercel (to today's value) before cutover day, or the
- * "change one value" plan doesn't hold.
+ * Canonical short-link/web domain — follows the app domain
+ * (`@/lib/config/domain`, env NEXT_PUBLIC_APP_DOMAIN) unless
+ * NEXT_PUBLIC_SHORT_LINK_DOMAIN overrides it, so a domain cutover
+ * (planned: outrun.co.il → appout.co.il) is an env change, not a code
+ * change. Works in both server code (link-click-handler.ts) and client
+ * code (admin/links live preview) because `NEXT_PUBLIC_*` vars are inlined
+ * at build time for both.
  */
 export const SHORT_LINK_DOMAIN =
-  process.env.NEXT_PUBLIC_SHORT_LINK_DOMAIN || 'https://outrun.co.il';
+  process.env.NEXT_PUBLIC_SHORT_LINK_DOMAIN || APP_ORIGIN;
 
 /**
  * Global default destination URLs, used by any link with `useSmartLink:

@@ -16,6 +16,8 @@
  * set of keys.
  */
 
+import { SITE_HOSTS as APP_SITE_HOSTS } from '@/lib/config/domain';
+
 export const WEB_CTA_TARGETS = [
   'appstore',
   'play',
@@ -50,7 +52,7 @@ export type WebEvent =
   | { type: 'cta'; pathKey: string; locale: string; target: WebCtaTarget }
   | { type: 'scroll'; pathKey: string; locale: string; depth: number };
 
-const SITE_HOSTS = ['outrun.co.il', 'www.outrun.co.il', 'localhost'];
+const SITE_HOSTS = [...APP_SITE_HOSTS, 'localhost'];
 
 /** Firestore map keys: keep them short and free of path separators. */
 export function toKey(s: string): string {

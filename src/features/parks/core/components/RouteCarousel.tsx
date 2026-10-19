@@ -115,6 +115,7 @@ import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../servi
 import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
+import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -389,7 +390,7 @@ export default function RouteCarousel({
               },
         );
         if (cancelled) return;
-        setRoutes(result.slice(0, 3));
+        setRoutes(logGeneratedRoutes(result.slice(0, 3), { activity, targetKm: targetKm ?? 3, ab: mode === 'commute' }));
       } catch (err) {
         if (cancelled) return;
         setGenerationError((err as Error).message ?? 'יצירת המסלולים נכשלה');

@@ -3,6 +3,7 @@
  * (Split out of GroupDetailsDrawer.tsx; no behaviour change.)
  */
 import type { CommunityGroup, GroupMember, LiveSessionPhase, ScheduleSlot } from '@/types/community.types';
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 export const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
@@ -20,7 +21,7 @@ export const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.inner
 
 export const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-export const APP_ORIGIN_FALLBACK = 'https://out-run-app.vercel.app';
+export const APP_ORIGIN_FALLBACK = APP_ORIGIN;
 
 export function formatSessionDate(dateISO: string, time: string): string {
   const today = new Date();

@@ -9,6 +9,8 @@
  * here. Same rounding convention, written independently.
  */
 
+import { aerobicKindLabel } from './aerobic-kind';
+
 export function formatApproxDistance(meters: number): string {
   if (meters < 100) return `${Math.round(meters)} מ׳`;
   if (meters < 1000) return `${Math.round(meters / 10) * 10} מ׳`;
@@ -16,7 +18,7 @@ export function formatApproxDistance(meters: number): string {
 }
 
 /** End-of-station screen (G2.4): planned leg to the next station as whole minutes (≥1). */
-export function formatApproxWalkMinutes(seconds: number, kind: 'walking' | 'running' = 'walking'): string {
+export function formatApproxWalkMinutes(seconds: number, kind: 'walking' | 'running' | 'cycling' = 'walking'): string {
   const min = Number.isFinite(seconds) ? Math.max(1, Math.round(seconds / 60)) : 1;
-  return `${min} דק׳ ${kind === 'running' ? 'ריצה' : 'הליכה'}`;
+  return `${min} דק׳ ${aerobicKindLabel(kind)}`;
 }

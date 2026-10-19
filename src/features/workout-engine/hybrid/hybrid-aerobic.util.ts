@@ -4,6 +4,8 @@
  * formula and it is unit-testable in isolation (no store/Firestore/Mapbox deps).
  */
 
+import { CYCLING_MIN_PER_KM } from './aerobic-kind';
+
 /**
  * Step-gap calibration (09.08.2026): how much to boost the base target, by how much of the
  * daily step goal is still outstanding. Mirrors rank-suggestions.ts' stepDeficit factor exactly
@@ -33,15 +35,16 @@ function stepGapBoost(stepsRemaining?: number, stepGoal?: number): number {
  * this function stays pure, no store/hook read here.
  */
 export function deriveAerobicTargetKm(
-  intent: { timeBudgetMin: number; aerobicShare: number; aerobicKind: 'walking' | 'running' },
+  intent: { timeBudgetMin: number; aerobicShare: number; aerobicKind: 'walking' | 'running' | 'cycling' },
   basePaceSecPerKm: number,
   stepContext?: { stepsRemaining?: number; stepGoal?: number },
 ): number {
   const aerobicMin = intent.timeBudgetMin * intent.aerobicShare;
   const runPaceMinPerKm = basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5;
-  const speedMinPerKm = intent.aerobicKind === 'walking' ? 12 : runPaceMinPerKm;
+  // Cycling: the drawer's 20 km/h.
+  const speedMinPerKm = intent.aerobicKind === 'walking' ? 12 : intent.aerobicKind === 'cycling' ? CYCLING_MIN_PER_KM : runPaceMinPerKm;
   let targetKm = aerobicMin / speedMinPerKm;
   if (!Number.isFinite(targetKm) || targetKm <= 0) targetKm = 2.5;
   targetKm *= 1 + stepGapBoost(stepContext?.stepsRemaining, stepContext?.stepGoal);
-  return Math.max(1, Math.min(20, targetKm));
+  return Math.max(1, Math.min(intent.aerobicKind === 'cycling' ? 40 : 20, targetKm));
 }

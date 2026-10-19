@@ -5,6 +5,7 @@ import ClientLayout from "./ClientLayout";
 import NativeBootstrap from "@/components/system/NativeBootstrap";
 import MarketingAttributionBootstrap from "@/components/system/MarketingAttributionBootstrap";
 import AccessibilityWidgetLoader from "@/components/system/AccessibilityWidgetLoader";
+import { APP_ORIGIN } from '@/lib/config/domain';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -13,7 +14,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://out-run-app.vercel.app'),
+  metadataBase: new URL(APP_ORIGIN),
   title: "Out Run App",
   description: "Your personal running companion",
 };

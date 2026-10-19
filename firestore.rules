@@ -1254,6 +1254,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Generation review (flag enable_generation_review) ──────────────────
+    //   generation_log/{id}            one generated session a user was shown (summary only:
+    //                                  exercise ids / legs / trimmed route line, area geohash-5,
+    //                                  levels; no names) + outcome + reports. TTL expireAt, 60 d.
+    //   generation_reviews/{logId}     the nightly invariant findings (+ optional LLM note). TTL 90 d.
+    //   generation_review_stats/{day}  daily counters by rule / generator.
+    // Written ONLY by the Admin SDK: the device posts to /api/generation-review/{log,outcome,report}
+    // (ID token → uid; strict bounded schema; flag + sample checked server-side), the panel goes
+    // through /api/admin/generation-review/** (requireSuperAdminApi). Server-only writes were chosen
+    // over a rules-constrained client create because the payload is nested (exercise / leg arrays,
+    // an encoded line) and rules cannot bound it or enforce the geohash-5-only privacy shape; the
+    // server also applies the sample % and the flag without trusting the device.
+    match /generation_log/{logId} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+    match /generation_reviews/{logId} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+    match /generation_review_stats/{day} {
+      allow read: if isSuperAdminOnly();
+      allow write: if false;
+    }
+
     // ============================================================
     // ADMIN COSTS DASHBOARD (19.10.2026) — /admin/costs ("עלויות")
     //   admin_costs/{yyyy-mm}      month snapshot: FX + one cached result per billing connector

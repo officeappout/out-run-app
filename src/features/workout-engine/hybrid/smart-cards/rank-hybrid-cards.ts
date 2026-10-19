@@ -12,7 +12,8 @@
  *                   strength workout is scheduled today; shown low when only budget remains;
  *                   hidden when strength is spent and nothing is scheduled.
  *   route_stops   — a published route with stops near the user or near what the user is
- *                   looking at on the map. Hidden when there is no such route.
+ *                   looking at on the map. Hidden when there is no such route, or when its
+ *                   stops include no strength stop.
  *
  * Scores are additive and only used for ordering; ties keep the fixed order above.
  */
@@ -106,7 +107,10 @@ export function rankFullPark(s: HybridSituation): RankedHybridCard | null {
 
 export function rankRouteStops(s: HybridSituation): RankedHybridCard | null {
   if (!s.flags.routeStops || !s.hasGps) return null;
-  const usable = s.routesWithStops.filter((r) => r.stopCount > 0 && r.sessionTypes.some((t) => t.implemented));
+  // A strength stop is what makes it "מסלול + עצירות" — a route with only view/stretch stops
+  // composed into a plain walk with no station (owner report 19.10.2026), so it is not offered.
+  const usable = s.routesWithStops.filter((r) =>
+    r.stopCount > 0 && r.strengthStopCount > 0 && r.sessionTypes.some((t) => t.implemented));
   if (usable.length === 0) return null;
   const route = [...usable].sort((a, b) =>
     (Number(b.focused) - Number(a.focused)) || (a.distanceFromUserM - b.distanceFromUserM))[0];

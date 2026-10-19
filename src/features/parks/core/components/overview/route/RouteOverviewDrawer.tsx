@@ -39,6 +39,7 @@ import {
   ACTIVITY_LABEL, ROUTE_ACTIVITIES, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity,
   isLoopRoute, routeDescription, routeWalkLegs, type RouteActivity,
 } from './route-overview';
+import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 
 export interface RouteOverviewDrawerProps {
   route: Route;
@@ -183,6 +184,7 @@ export default function RouteOverviewDrawer({
         legs={legs}
         renderLegDetail={() => <RouteLegDetail route={route} calories={calories} />}
       />
+      <ReportProblemButton types={['route_loop', 'route_ab']} wrapperClassName="flex justify-center py-3" />
     </OverviewDrawerShell>
   );
 }

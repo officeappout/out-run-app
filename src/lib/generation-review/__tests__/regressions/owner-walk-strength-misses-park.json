@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "id": "hybrid_smart_walk-owner-1",
+  "name": "hybrid_smart_walk: ROUTE_MISSES_STATION_PARK (2026-10-19)",
+  "source": {
+    "logId": "owner-1",
+    "day": "2026-10-19",
+    "type": "hybrid_smart_walk",
+    "generator": null,
+    "appVersion": null
+  },
+  "type": "hybrid_smart_walk",
+  "input": {
+    "requestedActivity": "walk",
+    "targetMinutes": 45
+  },
+  "output": {
+    "planLabel": "הליכה + כוח",
+    "planActivity": "walk",
+    "totalMinutes": 47,
+    "exercises": [],
+    "legs": [
+      {
+        "activity": "walk",
+        "distanceM": 1500,
+        "minutes": 18
+      },
+      {
+        "activity": "strength",
+        "distanceM": null,
+        "minutes": 12,
+        "parkId": "park_far",
+        "exercises": [
+          {
+            "id": "pushup",
+            "pattern": "horizontal_push",
+            "sets": 3
+          },
+          {
+            "id": "row",
+            "pattern": "horizontal_pull",
+            "sets": 3
+          },
+          {
+            "id": "squat",
+            "pattern": "squat",
+            "sets": 3
+          },
+          {
+            "id": "plank",
+            "pattern": "core_anti_extension",
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "activity": "walk",
+        "distanceM": 1500,
+        "minutes": 17
+      }
+    ],
+    "stations": [
+      {
+        "parkId": "park_far",
+        "lat": 31.5295,
+        "lng": 34.6097,
+        "distanceToRouteM": 303,
+        "equipment": [
+          "pullUpBar",
+          "parallelBars"
+        ]
+      }
+    ],
+    "route": {
+      "polyline": "gfl_EcmdrE?gE?{E?gE?{E?{E?gE?{E?gEsD?sD?sD?sD?sD?sD?sD?sD?sD?sD??fE?zE?fE?zE?zE?fE?zE?fE?zE?fErD?rD?rD?rD?rD?rD?rD?rD???",
+      "loop": true,
+      "targetKm": 4,
+      "source": "mapbox_v1",
+      "metrics": {
+        "lengthM": 3992,
+        "spurCount": 0,
+        "uTurnCount": 0,
+        "retracedPct": 0,
+        "selfIntersections": 0,
+        "compactness": 0.785,
+        "distanceErrorPct": -0.002,
+        "unmarkedCrossings": null,
+        "majorRoadPct": null
+      }
+    }
+  },
+  "expect": {
+    "firedOnCapture": [
+      "ROUTE_MISSES_STATION_PARK"
+    ],
+    "mustNotFire": [
+      "ROUTE_MISSES_STATION_PARK"
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "ROUTE_MISSES_STATION_PARK",
+      "severity": 3,
+      "messageHe": "הפארק park_far נמצא 303 מ׳ מהמסלול",
+      "data": {
+        "parkId": "park_far",
+        "distanceM": 303
+      }
+    }
+  ]
+}
