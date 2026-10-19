@@ -28,6 +28,7 @@ import type { GymEquipment, EquipmentBrand } from '@/features/content/equipment/
 import type { ParkGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
 import type { ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import { computeNeedsFacilityDetails } from '@/features/parks/core/utils/park-completeness.util';
+import { isPlainObject } from '@/lib/firestore-sanitize';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -166,11 +167,14 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
   const clean = {} as Record<string, unknown>;
   for (const [k, v] of Object.entries(obj)) {
     if (v !== undefined) {
-      if (v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) && typeof (v as any).toDate !== 'function') {
+      // Plain objects only: serverTimestamp() is not a Timestamp (no toDate),
+      // so the old guard copied it into { _methodName: 'serverTimestamp' } —
+      // parks.publishedAt on 1,147 parks (src/lib/firestore-sanitize.ts).
+      if (isPlainObject(v)) {
         clean[k] = stripUndefined(v as Record<string, unknown>);
       } else if (Array.isArray(v)) {
         clean[k] = v.map((item) =>
-          item && typeof item === 'object' && !(item instanceof Date) ? stripUndefined(item as Record<string, unknown>) : item,
+          isPlainObject(item) ? stripUndefined(item as Record<string, unknown>) : item,
         );
       } else {
         clean[k] = v;

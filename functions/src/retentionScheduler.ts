@@ -41,17 +41,20 @@
  *   new activity starts a fresh log. The milestone is passed to the push
  *   library as conditions.milestone, so rows can be written per milestone.
  *
- * QUERY
+ * QUERY (collectRetentionCandidates)
  * ─────
- * where(onboardingStatus == COMPLETED) + where(lastActive <= cutoff),
+ * Pass 1: where(onboardingStatus == COMPLETED) + where(lastActive <= cutoff),
  * orderBy(lastActive desc) — cursor-paginated in pages of
  * RETENTION_BATCH_LIMIT, at most RETENTION_MAX_PAGES pages per run.
- * Composite index: onboardingStatus ASC + lastActive DESC (unchanged). Kept
- * as a cheap pre-filter: lastActive is never later than the real last
- * activity, so nobody truly away is excluded by it; every row is then
- * checked against real activity before sending. The workouts lookup uses the
- * existing userId ASC + date DESC index and runs only for users whose doc
- * signals alone say they're away.
+ * Composite index: onboardingStatus ASC + lastActive DESC (unchanged).
+ * Pass 2 (guard on, 19.10.2026): COMPLETED users by document id whose
+ * lastActive is not a real Timestamp (missing, or the serialized
+ * { _methodName: 'serverTimestamp' } map — 452/802 users), which pass 1 can
+ * never match. Same page bounds; no composite index needed. Users with no doc
+ * signal at all are provisional: the workouts lookup decides.
+ * Every row is then checked against real activity before sending. The
+ * workouts lookup uses the existing userId ASC + date DESC index and runs
+ * only for users whose doc signals alone say they're away (or have none).
  *
  * MESSAGE
  * ───────
@@ -101,6 +104,7 @@ import {
   activityFlagsFrom,
   activityToMillis,
   daysAwayBetween,
+  isQueryableTimestamp,
   lastActivityFromUserData,
   nextRetentionMilestone,
   recordRetentionMilestone,
@@ -187,7 +191,7 @@ export function toRetentionCandidate(
   data: Record<string, unknown>,
   nowMs: number = Date.now(),
   inShabbatWindow: boolean = false,
-  opts: { thresholdDays?: number; useAllSignals?: boolean } = {},
+  opts: { thresholdDays?: number; useAllSignals?: boolean; allowUnknownDocActivity?: boolean } = {},
 ): RetentionCandidate | null {
   const thresholdDays = opts.thresholdDays ?? INACTIVITY_DAYS;
   const useAllSignals = opts.useAllSignals !== false;
@@ -197,9 +201,21 @@ export function toRetentionCandidate(
   const prefs = settings?.notificationPrefs as Record<string, unknown> | undefined;
   if (prefs?.retention === false) return null;
 
-  // No activity signal at all → skip (never treated as "inactive forever").
+  // No activity signal at all → skip (never treated as "inactive forever"),
+  // unless the caller will resolve it from the workouts collection first
+  // (allowUnknownDocActivity — the broken-lastActive pass, guard on only):
+  // then a PROVISIONAL candidate (no lastActivityMs) that confirmRealInactivity
+  // must confirm before anything is sent.
   const lastMs = useAllSignals ? lastActivityFromUserData(data) : activityToMillis(data?.lastActive);
-  if (lastMs === null) return null;
+  if (lastMs === null) {
+    if (!(useAllSignals && opts.allowUnknownDocActivity)) return null;
+    return {
+      uid,
+      name: firstNameFromUserData(data),
+      daysSince: thresholdDays,
+      audience: audienceFromUserData(data, new Date(nowMs)),
+    };
+  }
   const daysSince = useAllSignals
     ? daysAwayBetween(lastMs, nowMs)
     : Math.floor((nowMs - lastMs) / MS_PER_DAY); // legacy (guard off), unchanged
@@ -233,6 +249,114 @@ export async function confirmRealInactivity(
   return { ...c, daysSince, lastActivityMs: lastMs };
 }
 
+// ─── Candidate selection ──────────────────────────────────────────────────────
+
+export interface CollectRetentionOpts {
+  nowMs: number;
+  thresholdDays: number;
+  inShabbatWindow: boolean;
+  /** The real-activity guard (flag retentionRealActivityGuard). */
+  useAllSignals: boolean;
+  batchLimit: number;
+  maxPages: number;
+  /** A page failed after some pages were read: called, and the pages already read are kept. */
+  onPageError?: (err: unknown) => void;
+}
+
+/**
+ * Two bounded passes over COMPLETED users (19.10.2026):
+ *
+ *  1. where(lastActive <= cutoff) orderBy(lastActive desc) — users whose
+ *     lastActive is a real Timestamp. Composite index onboardingStatus ASC +
+ *     lastActive DESC.
+ *  2. Guard on only: COMPLETED users ordered by document id, keeping those whose
+ *     lastActive is NOT a queryable Timestamp (missing, or the serialized
+ *     { _methodName: 'serverTimestamp' } map the old onboarding sanitizer
+ *     wrote for 452/802 users). Pass 1 can never match them, so before this
+ *     retention reached ~10 users. They're judged on every other doc signal;
+ *     with none at all they become provisional candidates that
+ *     confirmRealInactivity resolves from the workouts collection before
+ *     anything is sent (no workout either → skipped, never "away forever").
+ *     Equality + documentId order needs no composite index.
+ *
+ * Each pass reads at most maxPages × batchLimit docs. Exported for tests.
+ */
+export async function collectRetentionCandidates(
+  firestore: admin.firestore.Firestore,
+  o: CollectRetentionOpts,
+): Promise<{
+  candidates: Array<{ c: RetentionCandidate; data: Record<string, unknown> }>;
+  fetched: number;
+  fetchedUntimed: number;
+}> {
+  const cutoff = admin.firestore.Timestamp.fromMillis(o.nowMs - o.thresholdDays * MS_PER_DAY);
+  const candidates: Array<{ c: RetentionCandidate; data: Record<string, unknown> }> = [];
+  const seen = new Set<string>();
+  let fetched = 0;
+  let fetchedUntimed = 0;
+
+  const consider = (id: string, data: Record<string, unknown>, allowUnknownDocActivity: boolean) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const c = toRetentionCandidate(id, data, o.nowMs, o.inShabbatWindow, {
+      thresholdDays: o.thresholdDays,
+      useAllSignals: o.useAllSignals,
+      allowUnknownDocActivity,
+    });
+    if (c) candidates.push({ c, data });
+  };
+
+  // Pass 1 — Timestamp lastActive <= cutoff.
+  let cursor: admin.firestore.QueryDocumentSnapshot | null = null;
+  try {
+    for (let page = 0; page < o.maxPages; page++) {
+      let q = firestore
+        .collection('users')
+        .where('onboardingStatus', '==', 'COMPLETED')
+        .where('lastActive', '<=', cutoff)
+        .orderBy('lastActive', 'desc')
+        .limit(o.batchLimit);
+      if (cursor) q = q.startAfter(cursor);
+      const snap = await q.get();
+      fetched += snap.docs.length;
+      for (const doc of snap.docs) consider(doc.id, doc.data() as Record<string, unknown>, false);
+      if (snap.docs.length < o.batchLimit) break;
+      cursor = snap.docs[snap.docs.length - 1];
+    }
+  } catch (err: unknown) {
+    if (candidates.length === 0) throw err;
+    o.onPageError?.(err);
+  }
+
+  // Pass 2 — no queryable lastActive (guard on only; the legacy path is unchanged).
+  if (o.useAllSignals) {
+    let lastId: string | null = null;
+    try {
+      for (let page = 0; page < o.maxPages; page++) {
+        let q = firestore
+          .collection('users')
+          .where('onboardingStatus', '==', 'COMPLETED')
+          .orderBy(admin.firestore.FieldPath.documentId())
+          .limit(o.batchLimit);
+        if (lastId) q = q.startAfter(lastId);
+        const snap = await q.get();
+        for (const doc of snap.docs) {
+          const data = doc.data() as Record<string, unknown>;
+          if (isQueryableTimestamp(data?.lastActive)) continue; // pass 1's job (or recently active)
+          fetchedUntimed++;
+          consider(doc.id, data, true);
+        }
+        if (snap.docs.length < o.batchLimit) break;
+        lastId = snap.docs[snap.docs.length - 1].id;
+      }
+    } catch (err: unknown) {
+      o.onPageError?.(err);
+    }
+  }
+
+  return { candidates, fetched, fetchedUntimed };
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const retentionScheduler = onSchedule(
@@ -263,45 +387,28 @@ export const retentionScheduler = onSchedule(
     const inShabbatWindow = isShabbatOrYomTov();
 
     const nowMs = Date.now();
-    const cutoff = admin.firestore.Timestamp.fromMillis(nowMs - thresholdDays * MS_PER_DAY);
 
-    // Candidates = COMPLETED users whose lastActive <= cutoff, most recently
-    // churned first, cursor-paginated. Users with no lastActive never match.
-    // Composite index: onboardingStatus ASC + lastActive DESC.
-    const candidates: Array<{ c: RetentionCandidate; data: Record<string, unknown> }> = [];
+    let candidates: Array<{ c: RetentionCandidate; data: Record<string, unknown> }> = [];
     let fetched = 0;
-    let cursor: admin.firestore.QueryDocumentSnapshot | null = null;
+    let fetchedUntimed = 0;
     try {
-      for (let page = 0; page < MAX_PAGES; page++) {
-        let q = db
-          .collection('users')
-          .where('onboardingStatus', '==', 'COMPLETED')
-          .where('lastActive', '<=', cutoff)
-          .orderBy('lastActive', 'desc')
-          .limit(BATCH_LIMIT);
-        if (cursor) q = q.startAfter(cursor);
-        const snap = await q.get();
-        fetched += snap.docs.length;
-        for (const doc of snap.docs) {
-          const data = doc.data() as Record<string, unknown>;
-          const c = toRetentionCandidate(doc.id, data, nowMs, inShabbatWindow, {
-            thresholdDays,
-            useAllSignals: flags.realActivityGuard,
-          });
-          if (c) candidates.push({ c, data });
-        }
-        if (snap.docs.length < BATCH_LIMIT) break;
-        cursor = snap.docs[snap.docs.length - 1];
-      }
+      ({ candidates, fetched, fetchedUntimed } = await collectRetentionCandidates(db, {
+        nowMs,
+        thresholdDays,
+        inShabbatWindow,
+        useAllSignals: flags.realActivityGuard,
+        batchLimit: BATCH_LIMIT,
+        maxPages: MAX_PAGES,
+        onPageError: (err) => logger.error('[retention] Firestore query failed', err),
+      }));
     } catch (err: unknown) {
       logger.error('[retention] Firestore query failed', err);
-      if (candidates.length === 0) return;
-      // Partial pages already read are still valid — send to those.
+      return;
     }
 
     logger.info(
-      `[retention] ${fetched} COMPLETED user(s) with old lastActive fetched, ` +
-        `${candidates.length} candidate(s) after doc-level activity + pref filter`,
+      `[retention] ${fetched} COMPLETED user(s) with old lastActive + ${fetchedUntimed} with no usable ` +
+        `lastActive fetched, ${candidates.length} candidate(s) after doc-level activity + pref filter`,
     );
 
     if (candidates.length === 0) return;
@@ -311,6 +418,7 @@ export const retentionScheduler = onSchedule(
     let activeAfterCheck = 0;
     let lookupFailed = 0;
     let noMilestone = 0;
+    let noSignal = 0;
 
     const sendOne = async ({ c: docCandidate, data }: { c: RetentionCandidate; data: Record<string, unknown> }): Promise<void> => {
       try {
@@ -325,7 +433,8 @@ export const retentionScheduler = onSchedule(
             return;
           }
           if (!c) {
-            activeAfterCheck++;
+            if (docCandidate.lastActivityMs === undefined) noSignal++;
+            else activeAfterCheck++;
             return;
           }
         }
@@ -395,7 +504,7 @@ export const retentionScheduler = onSchedule(
 
     logger.info(
       `[retention] Run complete — candidates=${candidates.length} activeAfterWorkoutCheck=${activeAfterCheck} ` +
-        `lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} delivered=${totalDelivered} skipped=${totalSkipped}`,
+        `noActivitySignal=${noSignal} lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} delivered=${totalDelivered} skipped=${totalSkipped}`,
     );
   },
 );

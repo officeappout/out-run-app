@@ -25,6 +25,7 @@ import { db, storage, auth } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { CommunityGroup, CommunityEvent, EventRegistration, PersonaKey, PERSONA_KEYS, AUDIENCE_SENSITIVE_FIELDS } from '@/types/community.types';
 import { addMemberToGroupChat, createGroupChat } from '@/features/social/services/chat.service';
+import { isPlainObject } from '@/lib/firestore-sanitize';
 
 const GROUPS_COLLECTION = 'community_groups';
 const EVENTS_COLLECTION = 'community_events';
@@ -370,11 +371,14 @@ function cleanForFirestore(obj: Record<string, any>): Record<string, any> {
       result[key] = null;
     } else if (Array.isArray(value)) {
       result[key] = value.map((item) =>
-        item !== null && typeof item === 'object' && !Array.isArray(item) && !(item instanceof Date)
+        isPlainObject(item)
           ? cleanForFirestore(item)
           : item === undefined ? null : item,
       );
-    } else if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    } else if (isPlainObject(value)) {
+      // Plain objects only — FieldValue sentinels / Timestamp / GeoPoint pass
+      // through untouched (src/lib/firestore-sanitize.ts). createEvent used to
+      // write createdAt/updatedAt as { _methodName } and date as { seconds, nanoseconds }.
       result[key] = cleanForFirestore(value);
     } else {
       result[key] = value;
