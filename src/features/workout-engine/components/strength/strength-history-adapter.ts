@@ -1,5 +1,6 @@
 import type { WorkoutHistoryEntry } from '../../core/services/storage.service';
 import type { StrengthSummaryPageProps } from './StrengthSummaryPage';
+import { parseTimedBlockRecords } from '../../engines/timed/timed-record';
 
 /**
  * Maps a saved WorkoutHistoryEntry (strength/recovery category) into the
@@ -37,6 +38,7 @@ export function workoutHistoryEntryToStrengthSummaryProps(
   | 'rawExerciseLog'
   | 'programName'
   | 'savedXpEarned'
+  | 'savedTimedBlocks'
 > {
   const segment = entry.segments?.[0];
   // Additive since 19.08.2026 (F1) — absent on pre-F1 docs and on some
@@ -82,5 +84,7 @@ export function workoutHistoryEntryToStrengthSummaryProps(
     // default ('תוכנית כל הגוף') when absent.
     programName: segment?.label,
     savedXpEarned: entry.xpEarned ?? 0,
+    // enable_home_v2 docs only (optional, additive) — the format cards in history.
+    ...(entry.timedBlocks ? { savedTimedBlocks: parseTimedBlockRecords(entry.timedBlocks) } : {}),
   };
 }

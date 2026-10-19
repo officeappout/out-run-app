@@ -35,6 +35,8 @@ export default defineConfig({
       'src/components/ui/v2/__tests__/**/*.test.tsx',
       // Error boundaries + lazy overlay wrappers — same static-markup approach.
       'src/components/system/__tests__/**/*.test.tsx',
+      // Unified overview drawer (parks) — parity + render tests, same static-markup approach.
+      'src/features/parks/core/components/overview/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
@@ -48,6 +50,8 @@ export default defineConfig({
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
+      // workouts.timedBlocks (enable_home_v2) write + read back — emulator :8089.
+      'tests/workouts-timed-blocks.rules.test.ts',
       'tests/firestore-trail-segments.rules.test.ts',
       // trails --apply write path on the emulator — self-skips unless FIRESTORE_EMULATOR_HOST is set.
       'tests/trails-apply.emulator.test.ts',

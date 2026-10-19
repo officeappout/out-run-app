@@ -78,6 +78,8 @@ export { default as JourneyStrip } from './JourneyStrip';
 export type { JourneyStripProps, JourneyStripItem, JourneyItemKind } from './JourneyStrip';
 export { default as WorkoutOverviewHeader } from './WorkoutOverviewHeader';
 export type { WorkoutOverviewHeaderProps, OverviewMetaItem } from './WorkoutOverviewHeader';
+export { default as SegmentedPicker } from './SegmentedPicker';
+export type { SegmentedPickerProps, SegmentedOption } from './SegmentedPicker';
 // Pre-run (home v2): a workout's intensity profile, one bar per block.
 export { default as ProfileStrip } from './ProfileStrip';
 export type { ProfileStripProps, ProfileStripSegment } from './ProfileStrip';

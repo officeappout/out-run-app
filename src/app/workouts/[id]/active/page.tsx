@@ -28,6 +28,8 @@ import type { BonusStep, VolumeBreakdownDisplay } from '@/features/workout-engin
 import StrengthSummary from '@/features/workout-engine/summary/pages/StrengthSummary';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { timedBlockRecordsFor } from '@/features/workout-engine/players/strength/timed/state/timed-results';
+import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { firstRunTourSeenKey, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { useIsNewUserForTours } from '@/features/user/onboarding/hooks/useIsNewUserForTours';
@@ -393,6 +395,12 @@ interface SaveWorkoutToHistoryParams {
    * Recorded only: no level / progress effect.
    */
   feedback?: WorkoutFeedbackRecord | null;
+  /**
+   * enable_home_v2 only — compact records of the session's AMRAP / EMOM /
+   * Tabata blocks (engines/timed/timed-record). Optional, additive, rides in
+   * this same create; omitted when empty.
+   */
+  timedBlocks?: TimedBlockRecord[];
 }
 
 /**
@@ -422,6 +430,7 @@ async function saveWorkoutToHistory({
   xpEarned: awardedXP,
   xpStatus: xpAwardStatus,
   feedback,
+  timedBlocks,
 }: SaveWorkoutToHistoryParams): Promise<{
   saved: boolean;
   detectedPark: Awaited<ReturnType<typeof detectNearbyPark>>;
@@ -548,6 +557,7 @@ async function saveWorkoutToHistory({
           ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName }
           : {}),
         ...(feedback ? { feedback } : {}),
+        ...(timedBlocks && timedBlocks.length > 0 ? { timedBlocks } : {}),
       });
       console.log('[ActiveWorkoutPage] Workout saved to history');
     } catch (err) {
@@ -1461,6 +1471,10 @@ export default function ActiveWorkoutPage() {
       xpEarned: awardedXP,
       xpStatus: xpAwardStatus,
       feedback: surveyFeedbackRef.current,
+      // enable_home_v2: the timed blocks' compact records (same doc, same write).
+      timedBlocks: pageV2
+        ? timedBlockRecordsFor((stableWorkoutPlan?.segments ?? []).map((s, i) => s.id || String(i)))
+        : undefined,
     });
 
     // 1a. Streak/completion write — ONLY after the workout doc above actually
@@ -1610,7 +1624,7 @@ export default function ActiveWorkoutPage() {
     } finally {
       _summaryFinishInFlight = false;
     }
-  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression, exerciseHistoryMap]);
+  }, [router, refreshProfile, workoutStats.duration, workoutStats.difficulty, workoutStats.completedExercises, workoutStats.totalReps, workoutStats.rawExerciseLog, workoutStats.domainSets, profile, stableWorkoutPlan, userProgression, exerciseHistoryMap, pageV2]);
 
   // Handle pause
   const handlePause = () => {
