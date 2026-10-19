@@ -197,7 +197,8 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // "don't call it a stations workout when there are no stations." Plain aerobic-kind
   // title instead; the nudge itself renders via the existing A3 fallback banner below.
   const overviewTitle = composed.fullParkRun === false
-    ? (fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : 'מסלול + עצירות')
+    // sessionTitle: enable_hybrid_cards_v2's smart walk ("הליכה + כוח"); absent → unchanged.
+    ? (fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : (composed.sessionTitle ?? 'מסלול + עצירות'))
     : composed.bolts
     ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
     : 'אימון משולב';

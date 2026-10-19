@@ -86,6 +86,16 @@ export const FLAG_DEFS = [
   // — the panel toggle is the ONE switch, David's own account
   // included, so the flag-off regression pass shows exactly what users get (today's #207 hint).
   { key: 'enableCarouselSwipeHint', firestoreKey: 'enable_carousel_swipe_hint', defaultValue: false, superAdminValue: false },
+  // Situation-aware hybrid cards (19.10.2026) — the map carousel ("מה עושים היום?") picks,
+  // orders and explains its cards from the user's situation (remaining steps, remaining weekly
+  // strength sets, today's schedule, nearby equipped parks, nearby / browsed routes with stops):
+  // a smart "הליכה + כוח" walk through a nearby park (replaces the old one-station recommended
+  // card; hidden when no park is near), "אימון מלא בפארק" mainly on a strength day, "מסלול +
+  // עצירות" only near a route with stops. Also routes the free-run drawer's "תחנות כוח" toggle
+  // to the same smart walk (hidden with no park near). Fail-closed; superAdminValue false — the
+  // panel toggle is the ONE switch, so the flag-off pass shows exactly what users get.
+  // Off = today's carousel, byte-identical (src/features/workout-engine/hybrid/smart-cards).
+  { key: 'enableHybridCardsV2', firestoreKey: 'enable_hybrid_cards_v2', defaultValue: false, superAdminValue: false },
   // Sderot pilot G3.1 (15.10.2026) — walk-to-first-stop: a persistent walking card with live
   // distance + secondary "הגעתי"; the big "הגעתי לתחנה" CTA only after the user walked INTO the
   // approach radius (never on the first fix at a park-start). Normal fail-closed launch gate;

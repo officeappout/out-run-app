@@ -220,6 +220,20 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
       )}
     </div>
   ) : undefined;
+  // enable_hybrid_cards_v2: one short "why this card now" line (only smart slots carry
+  // `reason`, so with the flag off this is undefined and the card is unchanged).
+  const reasonLine = slot.reason ? (
+    <div
+      className="text-[12px] font-bold text-center leading-snug line-clamp-2 px-1"
+      style={{ color: '#0E7490' }}
+      dir="rtl"
+    >
+      {slot.reason}
+    </div>
+  ) : null;
+  const extraLine = reasonLine
+    ? <div className="flex flex-col items-center gap-1">{reasonLine}{totalLine}</div>
+    : totalLine;
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
   }
@@ -234,7 +248,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         subtitle={slot.subtitle}
         difficulty={slot.bolts}
         recommended={slot.recommended}
-        extraContent={totalLine}
+        extraContent={extraLine}
         variant={slim ? 'slim' : 'default'}
         // slim: fill the carousel wrapper (cardW) instead of the 85vw token, so the card can't overflow it
         className={slim ? '!w-full !max-w-none' : undefined}
@@ -286,7 +300,7 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         </div>
         <div className="text-[13px] font-semibold mt-1" style={{ color: '#6B7280' }}>{slot.subtitle}</div>
 
-        {totalLine && <div className="mt-2">{totalLine}</div>}
+        {extraLine && <div className="mt-2">{extraLine}</div>}
 
         {/* Cosmetic-only rounded-full restyle — same pill language as the duration chips
             above; DifficultyBolts itself and what it displays are untouched. */}

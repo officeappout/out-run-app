@@ -36,6 +36,7 @@ interface FlagState {
   enable_guided_station: boolean;
   enable_walk_to_first_stop: boolean;
   enable_carousel_swipe_hint: boolean;
+  enable_hybrid_cards_v2: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
   enable_league_aggregates: boolean;
@@ -186,6 +187,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-500',
     title: 'רמז החלקה בקרוסלה',
     description: 'קרוסלת "מה עושים היום?": הכרטיס הבא מציץ יותר, תנועת רמז חד-פעמית למשתמש, ולחיצה על כרטיס שמציץ רק ממרכזת אותו (לא מתחילה "יוצאים מיד" בטעות). כבוי = כמו היום.',
+    parentKey: 'enable_hybrid_slots',
+  },
+  {
+    key: 'enable_hybrid_cards_v2',
+    icon: MapIcon,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'כרטיסים לפי המצב (מה עושים היום?)',
+    description: 'הקרוסלה בוחרת ומסדרת את הכרטיסים לפי המצב: "הליכה + כוח" חכם דרך גינת כושר קרובה (לפי הצעדים שנשארו להיום והסטים שנשארו לשבוע, נעלם כשאין גינה קרובה), "אימון מלא בפארק" בעיקר ביום כוח, "מסלול + עצירות" רק ליד מסלול עם עצירות. כל כרטיס עם שורה קצרה שמסבירה למה. גם "תחנות כוח" בהליכה חופשית עובר להליכה החכמה. כבוי = כמו היום.',
     parentKey: 'enable_hybrid_slots',
   },
   {

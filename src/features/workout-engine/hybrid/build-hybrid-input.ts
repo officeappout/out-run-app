@@ -54,7 +54,25 @@ export interface HybridStartIntent {
    * composeRouteStopsWorkout: a REAL official_route backbone + generic stops placed
    * on it (the generalization of full_park). Gated by the flag; omitted → unchanged.
    */
-  mode?: 'full_park_workout' | 'route_stops';
+  mode?: 'full_park_workout' | 'route_stops' | 'smart_walk_strength';
+  /**
+   * enable_hybrid_cards_v2 only (situation-aware cards). Absent on every flag-off intent.
+   *   • mode 'smart_walk_strength' → targetKm (from today's remaining steps), parkId (the
+   *     equipped park the loop goes through), strengthSets/strengthMin (from the remaining
+   *     weekly strength sets).
+   *   • mode 'route_stops' → routeId: the published route the card is about (near the user
+   *     or the one the user is looking at on the map).
+   */
+  smart?: SmartIntentParams;
+}
+
+/** enable_hybrid_cards_v2 compose parameters (see HybridStartIntent.smart). */
+export interface SmartIntentParams {
+  targetKm?: number;
+  parkId?: string;
+  strengthSets?: number;
+  strengthMin?: number;
+  routeId?: string;
 }
 
 /**

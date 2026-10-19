@@ -32,6 +32,8 @@ import { buildMapUserContext } from '@/features/workout-engine/core/context/buil
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
 import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useSmartHybridSlots } from '@/features/workout-engine/hybrid/smart-cards/useSmartHybridSlots';
+import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
 import { FIRST_RUN_COACH, firstRunToursEnabled, isMapTourBlocked } from '@/features/user/onboarding/services/first-run-tour';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
@@ -728,8 +730,12 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // Stable module-cache key for a slot at the CURRENT location + activity. Every
   // get/set/has for a slot's pre-warm goes through this so settle and the CTA agree
   // on one key. Recreated when location/activity change (cheap).
+  // enable_hybrid_cards_v2: per-slot suffix (park / route / size) so a situation change never
+  // reuses a stale warm plan. Filled right after the slots resolve below; '' when the flag is off
+  // → the key is byte-identical to before.
+  const slotKeySuffixRef = useRef<(slotId: string) => string>(() => '');
   const keyFor = useCallback(
-    (slotId: string) => hybridWarmKey(slotId, userLocation, slotActivity),
+    (slotId: string) => hybridWarmKey(slotId + slotKeySuffixRef.current(slotId), userLocation, slotActivity),
     [userLocation, slotActivity],
   );
 
@@ -760,7 +766,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // constants. Super admins (this hook's own bypass) always see every card, matching the
   // pre-existing compile-time behaviour of always being `true`.
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
-  const { flags: mapFeatureFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
+  const { flags: mapFeatureFlags, rawFlags: mapRawFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
 
   // ── openHybridSlots / openDiscover deep-links (tutorial entry-mechanism
   // fast-follow, 06.10.2026) ─────────────────────────────────────────────────
@@ -848,6 +854,27 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     ],
   );
 
+  // ── Situation-aware cards (enable_hybrid_cards_v2) ──────────────────────────
+  // Flag on: the carousel is ranked from the user's situation (smart-cards/) and the rec-engine
+  // badge flip below is skipped. Flag off: smartHybrid.slots is null and nothing is read.
+  const hybridCardsV2 = mapFeatureFlags.enableHybridCardsV2;
+  const smartHybrid = useSmartHybridSlots({
+    enabled: hybridCardsV2,
+    env: {
+      hasGps: !!userLocation, nearbyParkCount: 1, aerobicKind: slotActivity,
+      hasEquippedPark, hasStrengthProgram,
+      enableHybridSlots: mapFeatureFlags.enableHybridSlots,
+      enableFullParkWorkout: mapFeatureFlags.enableFullParkWorkout,
+      enableRouteStops: mapFeatureFlags.enableRouteStops,
+      enableRecommendedHybrid: mapFeatureFlags.enableRecommendedHybrid,
+    },
+    userLocation,
+    profile,
+    hasStrengthProgram,
+    weatherOn: isWeatherOnFor(mapRawFlags, isSuperAdmin),
+  });
+  slotKeySuffixRef.current = smartHybrid.keySuffix;
+
   // ── Rec-engine ranking (additive, plan §"סבב 9") ────────────────────────────
   // MAP_REC_ENGINE_RANKING_V1, added 08.08.2026: this wiring originally shipped without a
   // flag (an oversight — every other piece of this build-out is flag-gated). Retrofitted
@@ -869,8 +896,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // Explicit apply — see apply-ranked-slot-order.ts. Falls back to baseSlots UNCHANGED
   // whenever ranking isn't ready/failed/matched nothing (byte-identical to today).
   const slots = useMemo(
-    () => applyRankedSlotOrder(baseSlots, rankedSuggestions),
-    [baseSlots, rankedSuggestions],
+    () => smartHybrid.slots ?? applyRankedSlotOrder(baseSlots, rankedSuggestions),
+    [smartHybrid.slots, baseSlots, rankedSuggestions],
   );
 
   // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
@@ -2001,7 +2028,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 }}
                 userPosition={userLocation}
                 cityName={userCityName}
-                enableHybridSlots={mapFeatureFlags.enableHybridSlots}
+                // enable_hybrid_cards_v2: "תחנות כוח" only when an equipped park is within reach.
+                enableHybridSlots={mapFeatureFlags.enableHybridSlots && (!hybridCardsV2 || smartHybrid.drawerParkId != null)}
                 initialPlannedRun={mapFeatureFlags.enableHomeV2 ? scheduledPlannedRun : null}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
@@ -2021,7 +2049,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   // Route-preview title bar (MAP_OVERVIEW_CHROME_V1): the drawer has no
                   // slot title, so derive an aerobic+כוח label. No-op when flag is off.
                   setOverviewTitle(intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח');
-                  composeAndShowOverview(intent, 'config');
+                  // enable_hybrid_cards_v2: the same smart walk-through-the-park composition.
+                  composeAndShowOverview(hybridCardsV2 ? smartHybrid.toDrawerIntent(intent) : intent, 'config');
                 } : undefined}
                 onRequestAddressDestination={() => {
                   // Exit the free-run drawer (mapMode gate) and hand off straight to
