@@ -27,7 +27,7 @@ import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
 import { blockDisplayLabel, fmtClock, fmtDistance, isShortLeg, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
-import { blockGoal, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
+import { blockGoal, continuousMainIndex, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
 import PlannedSessionListV2 from '../../PlannedRun/v2/PlannedSessionListV2';
 import ContinuousRunCardV2 from './ContinuousRunCardV2';
 
@@ -76,7 +76,9 @@ export default function ContinuousRunLiveV2({
     () => continuousZone(block, engine.basePace, engine.zones, engine.showNumbers),
     [block, engine.basePace, engine.zones, engine.showNumbers],
   );
-  const tracking = useZoneTracking(zone, idx);
+  const mainIndex = useMemo(() => continuousMainIndex(blocks), [blocks]);
+  // Only the plan's steady block feeds the saved time-in-zone (not warm-up / cool-down).
+  const tracking = useZoneTracking(zone, idx, { publish: idx === mainIndex });
   const live = usePlannedLiveResults(engine);
   const reps = useMemo(() => repNumbers(blocks), [blocks]);
 

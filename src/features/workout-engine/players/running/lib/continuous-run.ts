@@ -224,6 +224,11 @@ export function accumulateZoneTime(acc: ZoneTimeAcc, status: ZoneStatus, dtSec: 
   return { scoredSec: acc.scoredSec + dt, inSec: acc.inSec + (status === 'in' ? dt : 0) };
 }
 
+/** The store / run-summary shape (`useRunningPlayer.timeInZone`, runMeta.timeInZone): scored seconds = totalSec. */
+export function toTimeInZone(acc: ZoneTimeAcc): { inSec: number; totalSec: number } {
+  return { inSec: acc.inSec, totalSec: acc.scoredSec };
+}
+
 /** 0–100, or null before 10 scored seconds. */
 export function zoneTimePercent(acc: ZoneTimeAcc): number | null {
   if (acc.scoredSec < 10) return null;

@@ -233,3 +233,13 @@ describe('v2BlockTextColor', () => {
     expect(v2BlockTextColor(blk({ type: 'recovery', durationSeconds: 60 }))).toBe('#4b5a66');
   });
 });
+
+describe('toTimeInZone (store / runMeta shape)', () => {
+  it('maps scored seconds to totalSec and passes the summary reader', async () => {
+    const { toTimeInZone } = await import('../continuous-run');
+    const { readTimeInZone } = await import('../run-summary-meta');
+    const v = toTimeInZone({ scoredSec: 1700, inSec: 1500.4 });
+    expect(v).toEqual({ inSec: 1500.4, totalSec: 1700 });
+    expect(readTimeInZone(v)).toEqual({ inSec: 1500, totalSec: 1700 });
+  });
+});
