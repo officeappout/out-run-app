@@ -75,7 +75,7 @@ import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onbo
 import type { RepsSource, SwapOpenContext, SwapSource } from '@/features/workout-engine/adaptation/adaptation.types';
 import { shouldArmPlayerTour } from '@/features/user/onboarding/services/first-run-tour';
 import {
-  useTimedSegment, useMixedStoryBars, TimedRuntime, TimedBlockPlayer, TimedListBehind, TimedMiniPlayerBar,
+  useTimedSegment, useMixedStoryBars, useTimedPlaylistRenderer, TimedRuntime, TimedBlockPlayer, TimedListBehind, TimedMiniPlayerBar,
   mergeSegmentLog, segmentLogId,
 } from './timed';
 
@@ -158,6 +158,8 @@ export default function StrengthRunner({
   const timed = useTimedSegment({ workout, segmentIndex: sm.currentSegmentIndex, enabled: playerV2, embedded });
   // …and the classic header shows each timed block as ONE wide story bar (null → today's bars).
   const mixedBars = useMixedStoryBars(workout, { enabled: playerV2, embedded }, sm.currentSegmentIndex, sm.exerciseLogSnapshot);
+  // …and the classic list shows each timed block as one consistent card (undefined → today's list).
+  const renderTimedSegment = useTimedPlaylistRenderer(workout, { enabled: playerV2, embedded }, sm.currentSegmentIndex, sm.exerciseLogSnapshot);
 
   // ── Offline-cached + network-aware media URLs ──────────────────────────
   const { safeVideoUrl, safeImageUrl, safeNextVideoUrl } = usePlayerMedia({
@@ -821,6 +823,7 @@ export default function StrengthRunner({
           exerciseLog={sm.exerciseLogSnapshot}
           handleRepetitionSave={sm.handleRepetitionSave}
           onSkipRest={sm.skipRest}
+          renderTimedSegment={renderTimedSegment}
         />
         )}
       </div>

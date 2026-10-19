@@ -7,6 +7,7 @@
 export { useTimedSegment } from './hooks/useTimedSegment';
 export type { TimedSegmentGate } from './hooks/useTimedSegment';
 export { useMixedStoryBars } from './hooks/useMixedStoryBars';
+export { useTimedPlaylistRenderer } from './hooks/useTimedPlaylistRenderer';
 export { default as TimedRuntime } from './components/TimedRuntime';
 export { default as TimedBlockPlayer } from './components/TimedBlockPlayer';
 export { default as TimedListBehind } from './components/TimedListBehind';
