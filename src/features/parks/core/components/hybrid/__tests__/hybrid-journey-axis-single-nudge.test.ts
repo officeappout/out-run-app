@@ -14,6 +14,8 @@ import { routeQuestionnaireLine } from '../route-questionnaire-line';
  */
 
 const axisSrc = readFileSync(fileURLToPath(new URL('../HybridJourneyAxis.tsx', import.meta.url)), 'utf8');
+// The station card moved out of the axis into its own file (overview-shell split, 19.10.2026).
+const stationSrc = readFileSync(fileURLToPath(new URL('../HybridStationCard.tsx', import.meta.url)), 'utf8');
 
 const locked = (d: string[]) => ({ kind: 'strength', content: { needsAssessment: { assessmentDomains: d } } });
 const nudged = (d: string[]) => ({ kind: 'strength', content: { assessmentNudge: { assessmentDomains: d } } });
@@ -46,22 +48,27 @@ describe('route questionnaire line (pure)', () => {
 });
 
 describe('HybridJourneyAxis wiring', () => {
-  it('the line renders exactly once, BEFORE segments.map(', () => {
-    const mapIdx = axisSrc.indexOf('segments.map((seg, i) => {');
-    expect(axisSrc.split('{questionnaireLine && (').length - 1).toBe(1);
-    expect(axisSrc.indexOf('{questionnaireLine && (')).toBeLessThan(mapIdx);
+  it('the line renders exactly once, ABOVE the legs (the generic axis\' `top` slot)', () => {
+    // Since the overview-shell split (19.10.2026) the axis renders through OverviewLegAxis,
+    // whose `top` slot sits before the origin row and every leg.
+    expect(axisSrc.split('questionnaireLine && (').length - 1).toBe(1);
+    expect(axisSrc).toContain('top={questionnaireLine && (');
     expect(axisSrc).toContain('onSegmentAssessmentLink?.(questionnaireLine.domains)');
   });
   it('neutral styling — no amber warning tokens anywhere in the axis', () => {
     expect(axisSrc).toContain("border: '1px dashed #CBD5E1'");
     expect(axisSrc).not.toContain('#FFFBEB');
     expect(axisSrc).not.toContain('#B45309');
+    expect(stationSrc).not.toContain('#FFFBEB');
+    expect(stationSrc).not.toContain('#B45309');
   });
   it('a locked station keeps its place on the axis with a neutral locked state, no per-stop questionnaire copy', () => {
-    const lockedBranch = axisSrc.slice(axisSrc.indexOf('if (seg.content?.needsAssessment) {'), axisSrc.indexOf('const exs = seg.content?.exercises'));
+    const lockedBranch = stationSrc.slice(stationSrc.indexOf('if (seg.content?.needsAssessment) {'), stationSrc.indexOf('const exs = seg.content?.exercises'));
+    expect(lockedBranch.length).toBeGreaterThan(0);
     expect(lockedBranch).toContain('תחנה נעולה');
     expect(lockedBranch).not.toContain('fallbackHint');
     expect(lockedBranch).not.toContain('onSegmentAssessmentLink');
     expect(axisSrc).not.toContain('seg.content?.assessmentNudge &&');
+    expect(stationSrc).not.toContain('seg.content?.assessmentNudge &&');
   });
 });
