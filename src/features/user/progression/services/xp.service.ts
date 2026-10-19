@@ -266,8 +266,12 @@ export interface RunningWorkoutXPParams {
   distanceKm: number;
   /** Current daily streak (days) — same multiplier logic as strength */
   streak: number;
-  /** Activity sub-type (walking earns the same rate as running) */
-  activityType?: 'running' | 'walking';
+  /**
+   * Activity sub-type (walking earns the same rate as running). 'cycling'
+   * (enable_home_v2 rides) also uses this formula for now — only the Guardian
+   * audit source label differs ('workout:cycling').
+   */
+  activityType?: 'running' | 'walking' | 'cycling';
 }
 
 /**

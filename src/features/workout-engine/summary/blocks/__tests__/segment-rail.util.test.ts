@@ -23,6 +23,7 @@ describe('segment-rail util', () => {
     expect(segmentLabel('aerobic')).toBe('ריצה');
     expect(segmentLabel('aerobic', 'running')).toBe('ריצה');
     expect(segmentLabel('aerobic', 'walking')).toBe('הליכה');
+    expect(segmentLabel('aerobic', 'cycling')).toBe('רכיבה');
     expect(segmentLabel('strength')).toBe('כוח');
     expect(segmentLabel('stairs')).toBe('מדרגות');
   });

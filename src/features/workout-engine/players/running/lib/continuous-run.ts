@@ -27,6 +27,7 @@ import {
   resolveBlockTargetPace,
   v2BlockColor,
 } from './planned-rep-results';
+import { fmtSpeed, type RateMetric } from './aerobic-activity';
 
 // ── Which plans are continuous ────────────────────────────────────────────
 
@@ -336,7 +337,7 @@ export interface LapRow {
   n: number;
   distanceText: string;
   timeText: string;
-  /** Average pace of the lap — null under 400 m (owner rule) or without movement. */
+  /** Average pace of the lap (or km/h for a ride) — null under 400 m (owner rule) or without movement. */
   paceText: string | null;
   active: boolean;
 }
@@ -347,7 +348,7 @@ export function legPaceSec(distanceMeters: number, durationSeconds: number): num
   return durationSeconds / (distanceMeters / 1000);
 }
 
-export function lapRows(laps: readonly LapInput[] | null | undefined): LapRow[] {
+export function lapRows(laps: readonly LapInput[] | null | undefined, metric: RateMetric = 'pace'): LapRow[] {
   return (laps ?? []).map((l) => {
     const m = Number.isFinite(l.distanceMeters) ? Math.max(0, l.distanceMeters) : 0;
     const s = Number.isFinite(l.durationSeconds) ? Math.max(0, l.durationSeconds) : 0;
@@ -357,7 +358,7 @@ export function lapRows(laps: readonly LapInput[] | null | undefined): LapRow[] 
       n: l.lapNumber,
       distanceText: (m / 1000).toFixed(2),
       timeText: fmtClock(s),
-      paceText: pace === null ? null : fmtPace(pace),
+      paceText: pace === null ? null : metric === 'speed' ? fmtSpeed(3600 / pace) : fmtPace(pace),
       active: !!l.isActive,
     };
   });

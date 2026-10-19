@@ -23,9 +23,10 @@ export function railTypeFromKind(kind: 'aerobic' | 'strength'): SegmentRailType 
 /** Hebrew label for a segment; walking stays distinct from running. */
 export function segmentLabel(
   type: SegmentRailType,
-  aerobicType?: 'running' | 'walking',
+  aerobicType?: 'running' | 'walking' | 'cycling',
 ): string {
   if (type === 'strength') return 'כוח';
   if (type === 'stairs') return 'מדרגות';
+  if (aerobicType === 'cycling') return 'רכיבה';
   return aerobicType === 'walking' ? 'הליכה' : 'ריצה';
 }

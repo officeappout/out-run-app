@@ -5,6 +5,7 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useSessionGoalProgress } from '../../../hooks/useSessionGoalProgress';
 import type { ContinuousGoal } from '../../../lib/continuous-run';
+import { aerobicLabel, rateMetricFor } from '../../../lib/aerobic-activity';
 
 /**
  * Live free-run values + actions for the v2 free-run pieces (overlay, mini
@@ -20,6 +21,7 @@ export function useFreeRunLive() {
   const totalCalories = useRunningPlayer((s) => s.totalCalories);
   const currentPace = useRunningPlayer((s) => s.currentPace);
   const laps = useRunningPlayer((s) => s.laps);
+  const activityType = useRunningPlayer((s) => s.activityType);
   const progress = useSessionGoalProgress();
 
   // Calorie goals have no hero / remaining text in this layout — shown as no goal.
@@ -55,6 +57,10 @@ export function useFreeRunLive() {
     },
     currentPaceSec: Number.isFinite(currentPace) && currentPace > 0 ? currentPace * 60 : 0,
     isPaused: status === 'paused',
+    /** 'speed' for a ride (enable_home_v2 cycling), else 'pace'. */
+    metric: rateMetricFor(activityType),
+    /** "ריצה חופשית" / "רכיבה חופשית" — today's free-run title for walks and runs. */
+    title: activityType === 'cycling' ? `${aerobicLabel(activityType)} חופשית` : 'ריצה חופשית',
     laps,
     goal,
     pause,

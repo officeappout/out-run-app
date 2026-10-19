@@ -28,10 +28,10 @@ describe('activity', () => {
     expect(initialRouteActivity({ type: 'workout' }, 'walking')).toBe('walking');
     expect(initialRouteActivity({ type: 'workout' }, 'workout')).toBe('running');
   });
-  it('the player has walk/run modes — a ride runs as a run (like FreeRunDrawer)', () => {
+  it('each choice starts its own player mode — a ride starts the cycling mode (v2)', () => {
     expect(playerActivityFor('walking')).toBe('walking');
     expect(playerActivityFor('running')).toBe('running');
-    expect(playerActivityFor('cycling')).toBe('running');
+    expect(playerActivityFor('cycling')).toBe('cycling');
   });
 });
 
