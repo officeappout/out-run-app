@@ -12,7 +12,7 @@
  *   T(d) = basePace × refKm × (d / refKm)^1.06
  *
  * Used by: the home widgets (RacePredictionCard, RunProgressCircle,
- * RunDetailsDrawer, RaceAndKmCarousel) and the plan's race-day workout
+ * RaceAndKmCarousel) and the plan's race-day workout
  * (buildRaceDayWorkout). Pure — no Firestore, no stores.
  */
 

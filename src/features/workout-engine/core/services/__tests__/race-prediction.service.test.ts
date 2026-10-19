@@ -67,7 +67,6 @@ describe('race-prediction.service — one model', () => {
 
   it('no widget keeps its own Riegel copy', () => {
     const files = [
-      '../../../../home/components/RunDetailsDrawer.tsx',
       '../../../../home/components/widgets/RunProgressCircle.tsx',
       '../../../../home/components/rows/RaceAndKmCarousel.tsx',
       '../../../../home/components/widgets/RunForecastWidget.tsx',

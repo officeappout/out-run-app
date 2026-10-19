@@ -6,7 +6,7 @@
  * running onboarding bridge (calibrateBasePace on the result the runner
  * typed, or the beginner estimate from continuous minutes) and is the same
  * number every other prediction surface in the app reads (RunProgressCircle,
- * RunDetailsDrawer, RaceAndKmCarousel).
+ * RaceAndKmCarousel).
  *
  * Model = the shared one in workout-engine/core/services/race-prediction.service
  * (also used by the plan's race-day workout): Riegel from basePace, with the
