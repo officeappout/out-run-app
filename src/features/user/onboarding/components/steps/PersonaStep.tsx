@@ -29,23 +29,24 @@ import {
   ACCESS_CODE_SCHOOL_ENABLED,
   ACCESS_CODE_UNIVERSITY_ENABLED,
 } from '@/config/feature-flags';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useWizardIdentity } from '../../hooks/useWizardIdentity';
+import { resolveAccessCodePersonaIds } from '../../utils/persona-access-code';
+import {
+  ALL_GOAL_OPTIONS,
+  resolvePersonaGoalMode,
+  type GoalOption,
+} from '../../utils/persona-goals';
 
-// Personas that open the access-code popup. GATED to office_worker only — it is
-// the ONE vertical whose full chain produces a league tab today: the CF writes a
-// 'company' affiliation and useArenaAccess recognizes it. student/military/
-// pupil are a dead-end (the CF writes no affiliation for educational/
-// military, and useArenaAccess has no 'military' branch → the code sets
-// core.tenantId but no tab), so we don't promise them a broken flow. They
-// re-join this set once the CF + useArenaAccess are generalized (§5 follow-up b);
+// Personas that open the access-code popup: resolveAccessCodePersonaIds
+// (utils/persona-access-code.ts). office_worker is the one vertical whose
+// chain produces a league tab today (the CF writes a 'company' affiliation);
+// since 19.10.2026 it is behind the runtime flag enable_org_access_code_prompt
+// (default off) instead of opening for every user. student/military/pupil keep
+// their compile-time ACCESS_CODE_*_ENABLED flags (all false) — they re-join
+// once the CF + useArenaAccess are generalized (§5 follow-up b);
 // PERSONA_TENANT_TYPE below already holds their mapping for then.
-// The three ACCESS_CODE_*_ENABLED flags roll out one vertical at a time — while
-// all false, this stays exactly {'office_worker'}, byte-identical to today.
-const ACCESS_CODE_PERSONA_IDS = new Set([
-  'office_worker',
-  ...(ACCESS_CODE_MILITARY_ENABLED ? ['military'] : []),
-  ...(ACCESS_CODE_SCHOOL_ENABLED ? ['pupil'] : []),
-  ...(ACCESS_CODE_UNIVERSITY_ENABLED ? ['student'] : []),
-]);
 
 // Persona → org vertical for the code gate. Replaces a hardcoded military/school
 // ternary — add a row per persona. Drives the contact-label hint only; the real
@@ -164,69 +165,7 @@ export function resolvePersonaEmoji(
   return option.emoji;
 }
 
-// Goal options - Short Title (for chips) and Long Description (for Mad-libs)
-interface GoalOption {
-  id: string;
-  // Short title for selection chips
-  shortTitleHe: string;
-  shortTitleEn: string;
-  // Long description for Mad-libs sentence
-  longDescHe: string;
-  longDescEn: string;
-  tag: string;
-}
-
-const GOAL_OPTIONS: GoalOption[] = [
-  { 
-    id: 'routine', 
-    shortTitleHe: 'שגרה קבועה', 
-    shortTitleEn: 'Routine',
-    longDescHe: 'להתמיד ולבנות שגרה קבועה',
-    longDescEn: 'build and maintain a steady routine',
-    tag: 'goal_routine' 
-  },
-  { 
-    id: 'aesthetics', 
-    shortTitleHe: 'חיטוב ואסתטיקה', 
-    shortTitleEn: 'Toning',
-    longDescHe: 'לבנות גוף חטוב ואסתטי',
-    longDescEn: 'build a toned and aesthetic body',
-    tag: 'goal_aesthetics' 
-  },
-  { 
-    id: 'fitness', 
-    shortTitleHe: 'כושר ובריאות', 
-    shortTitleEn: 'Health',
-    longDescHe: 'לשמור על כושר כללי ובריאות לטווח ארוך',
-    longDescEn: 'maintain general fitness and long-term health',
-    tag: 'goal_fitness' 
-  },
-  { 
-    id: 'performance', 
-    shortTitleHe: 'שיפור ביצועים', 
-    shortTitleEn: 'Performance',
-    longDescHe: 'להשתפר בביצועים בענף הספורט שלי',
-    longDescEn: 'improve performance in my sport',
-    tag: 'goal_performance' 
-  },
-  { 
-    id: 'skills', 
-    shortTitleHe: 'מיומנות מתקדמת', 
-    shortTitleEn: 'Skills',
-    longDescHe: 'ללמוד תרגילים מתקדמים (מתח, פלאנץ\' וכו\')',
-    longDescEn: 'learn advanced exercises (pull-ups, planche, etc.)',
-    tag: 'goal_skills' 
-  },
-  { 
-    id: 'community', 
-    shortTitleHe: 'קהילה', 
-    shortTitleEn: 'Community',
-    longDescHe: 'להכיר שותפים חדשים ולהצטרף לקהילה מקומית',
-    longDescEn: 'meet new partners and join a local community',
-    tag: 'goal_community' 
-  },
-];
-
+// Goal chips + when to ask them: utils/persona-goals.ts.
 const MAX_GOALS = 2;
 
 /** enable_home_v2 — lucide glyph per persona (v2 shows no emoji). */
@@ -244,18 +183,32 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   const { updateData, data } = useOnboardingStore();
   const v2 = useOnboardingV2();
   
-  // Get user gender from sessionStorage
-  const userGender = useMemo(() => {
-    if (typeof window === 'undefined') return 'male';
-    const stored = sessionStorage.getItem('onboarding_personal_gender');
-    return stored === 'female' ? 'female' : 'male';
-  }, []);
+  // Gender + first name: the profile first (returning users on /home have no
+  // sessionStorage), the signup's sessionStorage answers as the fallback.
+  const { gender: userGender, firstName: userName } = useWizardIdentity();
 
-  // User first name — set during the personal-info step
-  const userName = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    return sessionStorage.getItem('onboarding_personal_name') || '';
-  }, []);
+  // Org access-code popup — runtime flag, the panel toggle is the one switch
+  // (no super-admin override: useFeatureFlags() without isSuperAdmin).
+  const { flags } = useFeatureFlags();
+  const accessCodePersonaIds = useMemo(
+    () =>
+      resolveAccessCodePersonaIds({
+        officeWorker: flags.enableOrgAccessCodePrompt,
+        military: ACCESS_CODE_MILITARY_ENABLED,
+        school: ACCESS_CODE_SCHOOL_ENABLED,
+        university: ACCESS_CODE_UNIVERSITY_ENABLED,
+      }),
+    [flags.enableOrgAccessCodePrompt],
+  );
+
+  // Goals: skipped when signup already captured them (strength program-path /
+  // running q_run_goal); run-only users get running goals if asked.
+  const profile = useUserStore((st) => st.profile);
+  const goalMode = useMemo(() => resolvePersonaGoalMode(profile), [profile]);
+  const askGoals = goalMode.askGoals;
+  // Shared ids (routine / fitness / community) read from the shown list first.
+  const findGoal = (id: string): GoalOption | undefined =>
+    goalMode.options.find((g) => g.id === id) ?? ALL_GOAL_OPTIONS.find((g) => g.id === id);
 
   // Ref for programmatic smooth-scroll to the goals section
   const goalsSectionRef = useRef<HTMLDivElement>(null);
@@ -284,6 +237,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   });
   
   const [selectedGoalIds, setSelectedGoalIds] = useState<string[]>(() => {
+    if (!askGoals) return [];
     // Support migration from single goal to multi
     const storedGoals = (data as any).selectedGoalIds;
     if (Array.isArray(storedGoals) && storedGoals.length > 0) {
@@ -300,8 +254,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   const isHebrew = savedLanguage === 'he';
   const direction = isHebrew ? 'rtl' : 'ltr';
 
-  // Check if can continue - need at least one persona AND at least one goal
-  const canContinue = selectedPersonaIds.length > 0 && selectedGoalIds.length > 0;
+  // Can continue: at least one persona, and at least one goal when asked
+  const canContinue = selectedPersonaIds.length > 0 && (!askGoals || selectedGoalIds.length > 0);
 
   // Get label based on gender
   const getPersonaLabel = (option: LifestyleOption): string => {
@@ -320,7 +274,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       if (option) tags.push(...option.tags);
     });
     goalIds.forEach(id => {
-      const goal = GOAL_OPTIONS.find(g => g.id === id);
+      const goal = findGoal(id);
       if (goal) tags.push(goal.tag);
     });
     return Array.from(new Set(tags));
@@ -363,7 +317,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
 
   const handlePersonaToggle = (option: LifestyleOption) => {
     const isDeselecting = selectedPersonaIds.includes(option.id);
-    if (!isDeselecting && ACCESS_CODE_PERSONA_IDS.has(option.id)) {
+    if (!isDeselecting && accessCodePersonaIds.has(option.id)) {
       setPendingPersona(option);
       setShowCodeModal(true);
       return;
@@ -425,12 +379,12 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     
     // Get short titles for store and long descriptions for display
     const goalShortTitles = newSelectedIds.map(id => {
-      const g = GOAL_OPTIONS.find(go => go.id === id);
+      const g = findGoal(id);
       return g ? (isHebrew ? g.shortTitleHe : g.shortTitleEn) : '';
     }).filter(Boolean);
     
     const goalLongDescs = newSelectedIds.map(id => {
-      const g = GOAL_OPTIONS.find(go => go.id === id);
+      const g = findGoal(id);
       return g ? (isHebrew ? g.longDescHe : g.longDescEn) : '';
     }).filter(Boolean);
     
@@ -446,6 +400,13 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       sessionStorage.setItem('onboarding_selected_goals', JSON.stringify(newSelectedIds));
     }
   };
+
+  const personaHint = (() => {
+    const female = userGender === 'female';
+    if (!isHebrew) return askGoals ? 'Select at least one persona and one goal' : 'Select at least one persona';
+    if (!askGoals) return female ? 'בחרי לפחות פרסונה אחת' : 'בחר לפחות פרסונה אחת';
+    return female ? 'בחרי לפחות פרסונה אחת ומטרה אחת' : 'בחר לפחות פרסונה אחת ומטרה אחת';
+  })();
 
   // Handle continue
   const handleContinue = () => {
@@ -487,13 +448,13 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     if (selectedGoalIds.length === 0) return '___';
     
     if (selectedGoalIds.length === 1) {
-      const goal = GOAL_OPTIONS.find(g => g.id === selectedGoalIds[0]);
+      const goal = findGoal(selectedGoalIds[0]);
       return goal ? (isHebrew ? goal.longDescHe : goal.longDescEn) : '___';
     }
     
     // 2 goals - join with "ו-"
-    const goal1 = GOAL_OPTIONS.find(g => g.id === selectedGoalIds[0]);
-    const goal2 = GOAL_OPTIONS.find(g => g.id === selectedGoalIds[1]);
+    const goal1 = findGoal(selectedGoalIds[0]);
+    const goal2 = findGoal(selectedGoalIds[1]);
     if (isHebrew) {
       return `${goal1?.longDescHe} ו${goal2?.longDescHe}`;
     }
@@ -550,15 +511,23 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               <>
                 אני{' '}
                 <span className={madlibPill(selectedPersonaIds.length > 0)}>{getSelectedLifestyleLabel()}</span>
-                {' '}שרוצה{' '}
-                <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+                {askGoals && (
+                  <>
+                    {' '}שרוצה{' '}
+                    <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+                  </>
+                )}
               </>
             ) : (
               <>
                 I&apos;m a{' '}
                 <span className={madlibPill(selectedPersonaIds.length > 0)}>{getSelectedLifestyleLabel()}</span>
-                {' '}who wants to{' '}
-                <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+                {askGoals && (
+                  <>
+                    {' '}who wants to{' '}
+                    <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -622,7 +591,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             </div>
           </motion.div>
 
-          {/* Goal chips — multi-select, max 2 */}
+          {/* Goal chips — multi-select, max 2 (hidden when signup captured the goal) */}
+          {askGoals && (
           <motion.div
             ref={goalsSectionRef}
             initial={{ opacity: 0, y: 20 }}
@@ -641,7 +611,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               )}
             </div>
             <div className="flex flex-wrap gap-2 p-0.5">
-              {GOAL_OPTIONS.map((goal) => {
+              {goalMode.options.map((goal) => {
                 const isSelected = selectedGoalIds.includes(goal.id);
                 return (
                   <button
@@ -662,6 +632,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               })}
             </div>
           </motion.div>
+          )}
         </div>
 
         {/* Bottom CTA — <main> already pads the bottom inset */}
@@ -677,9 +648,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 exit={{ opacity: 0, height: 0 }}
                 className="mb-2 text-center text-[12.5px] font-bold text-v2-muted"
               >
-                {isHebrew
-                  ? (isFemale ? 'בחרי לפחות פרסונה אחת ומטרה אחת' : 'בחר לפחות פרסונה אחת ומטרה אחת')
-                  : 'Select at least one persona and one goal'}
+                {personaHint}
               </motion.p>
             )}
           </AnimatePresence>
@@ -746,6 +715,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                       tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
                       onSuccess={handleCodeSuccess}
                       onSkip={handleCodeSkip}
+                    optional
                     />
                   </>
                 )}
@@ -814,6 +784,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               }`}>
                 {getSelectedLifestyleLabel()}
               </span>
+{askGoals && (<>
               {' '}שרוצה{' '}
               <span className={`inline-block px-2 py-0.5 rounded-md text-sm transition-all ${
                 selectedGoalIds.length > 0
@@ -822,6 +793,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               }`}>
                 {getSelectedGoalsLabel()}
               </span>
+              </>)}
             </>
           ) : (
             <>
@@ -833,6 +805,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               }`}>
                 {getSelectedLifestyleLabel()}
               </span>
+{askGoals && (<>
               {' '}who wants to{' '}
               <span className={`inline-block px-2 py-0.5 rounded-md text-sm transition-all ${
                 selectedGoalIds.length > 0
@@ -841,6 +814,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               }`}>
                 {getSelectedGoalsLabel()}
               </span>
+              </>)}
             </>
           )}
         </div>
@@ -908,7 +882,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           </div>
         </motion.div>
 
-        {/* Goal Selection - Multi-Select (Max 2) - SHORT TITLES on Chips */}
+        {/* Goal Selection - Multi-Select (Max 2) - hidden when signup captured the goal */}
+        {askGoals && (
         <motion.div
           ref={goalsSectionRef}
           initial={{ opacity: 0, y: 20 }}
@@ -929,7 +904,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           
           {/* Goal Chips - Show SHORT Title */}
           <div className="flex flex-wrap gap-2">
-            {GOAL_OPTIONS.map((goal) => {
+            {goalMode.options.map((goal) => {
               const isSelected = selectedGoalIds.includes(goal.id);
               return (
                 <motion.button
@@ -957,6 +932,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             })}
           </div>
         </motion.div>
+        )}
       </div>
 
       {/* Fixed Bottom - Continue Button */}
@@ -970,10 +946,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               exit={{ opacity: 0, height: 0 }}
               className="text-center text-xs text-slate-400 mb-2"
             >
-              {isHebrew 
-                ? (userGender === 'female' ? 'בחרי לפחות פרסונה אחת ומטרה אחת' : 'בחר לפחות פרסונה אחת ומטרה אחת')
-                : 'Select at least one persona and one goal'
-              }
+              {personaHint}
             </motion.p>
           )}
         </AnimatePresence>
@@ -1040,6 +1013,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                     tenantType={PERSONA_TENANT_TYPE[pendingPersona.id] ?? 'educational'}
                     onSuccess={handleCodeSuccess}
                     onSkip={handleCodeSkip}
+                    optional
                   />
                 </>
               )}

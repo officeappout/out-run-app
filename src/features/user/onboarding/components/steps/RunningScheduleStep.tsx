@@ -33,6 +33,9 @@ import { MIN_RUNNING_FREQUENCY, MAX_RUNNING_FREQUENCY, clampRunningFrequency } f
 import { getSmartDefaultDays } from '@/lib/running-schedule-smart-defaults';
 import { resolveSignupDefaultWrite } from '@/lib/running-schedule-signup-default';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { useWizardIdentity } from '../../hooks/useWizardIdentity';
+import { resolveRunningScheduleCta } from '../../utils/running-schedule-cta';
+import { getRunningScheduleSource } from '@/lib/running-schedule-source';
 
 // ============================================================================
 // CONSTANTS
@@ -92,6 +95,15 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
   // One decision here, used everywhere updateData would otherwise be
   // called directly, instead of a flag checked inside five handlers.
   const persistOnboardingData = isJIT ? (() => {}) : updateData;
+
+  // Gender from the profile (sessionStorage only as the signup fallback).
+  const { gender } = useWizardIdentity();
+  // CTA wording: a first-time choice says "שמירה" / "לוח ריצה נשמר!". The
+  // source is frozen at mount — the save refreshes the profile to
+  // 'user-chosen' before the success label shows.
+  const [cta] = useState(() =>
+    resolveRunningScheduleCta({ isJIT, isLastStep, scheduleDaysSource: getRunningScheduleSource(profile) }),
+  );
 
   // Existing strength schedule days — for hybrid awareness display
   const strengthDays: string[] = profile?.lifestyle?.scheduleDays ?? [];
@@ -628,8 +640,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
 
         <StickyActionButton
           variant="v2"
-          label={isJIT ? 'שמירת שינויים' : isLastStep ? 'בואו נרוץ!' : 'המשך'}
-          successLabel={isJIT ? 'לוח ריצה עודכן!' : undefined}
+          label={cta.label}
+          successLabel={cta.successLabel}
           disabled={!canContinue}
           onPress={handleContinue}
         />
@@ -896,7 +908,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Timer size={16} style={{ color: '#00BAF7' }} />
-                <h3 className="text-base font-bold text-slate-900">באיזו שעה תרוץ?</h3>
+                <h3 className="text-base font-bold text-slate-900">{gender === 'female' ? 'באיזו שעה תרוצי?' : 'באיזו שעה תרוץ?'}</h3>
               </div>
 
               {/* Reminders toggle — hidden in JIT (David, 01.09.2026):
@@ -1011,14 +1023,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
       <div className="flex-grow" />
 
       <StickyActionButton
-        label={
-          isJIT
-            ? 'שמירת שינויים'
-            : isLastStep
-            ? 'בואו נרוץ!'
-            : 'המשך'
-        }
-        successLabel={isJIT ? 'לוח ריצה עודכן!' : undefined}
+        label={cta.label}
+        successLabel={cta.successLabel}
         disabled={!canContinue}
         onPress={handleContinue}
       />

@@ -55,6 +55,7 @@ GROUP_8089=(
   src/features/parks/core/hooks/__tests__/planned-sessions-query-shapes.test.ts
   src/lib/__tests__/joinEngine.hostuid-escalation.emulator.test.ts
   src/app/api/admin/agents/__tests__/agents-routes.emulator.test.ts
+  src/features/user/onboarding/services/__tests__/lifestyle-wizard-submit.emulator.test.ts
   functions/src/__tests__/reminderSweepScheduler.emulator.test.ts
   functions/src/__tests__/leagueScopeStats.emulator.test.ts
   functions/src/__tests__/referralBonus.emulator.test.ts
