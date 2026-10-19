@@ -14,7 +14,9 @@
  * Unified Kelly (kelly_unified_v1, see unified-thread.ts): messages also carry `source`
  * ('user' | 'ai' | 'human' | 'system'), and the thread doc gains needsHuman,
  * needsHumanSummary, needsHumanAt, lastHumanReplyAt, unreadForUser, lastMessageAt,
- * lastMessagePreview. Team / system messages (and team-only user messages) have NO expireAt.
+ * lastMessagePreview, needsHumanReason (why it is in the queue, ai-pause.ts), aiPause (the last
+ * "Kelly is paused" reply, for once-per-window). Team / system messages (and team-only user
+ * messages) have NO expireAt.
  *
  * Retention: every AI-chat message carries expireAt = createdAt + 90 days. A Firestore TTL policy
  * on the `messages` collection group, field `expireAt`, deletes them (one-time console
@@ -33,6 +35,8 @@ import type { WorkoutCard } from './protocol';
 import type { HistoryMessage, TurnLog, TurnState } from './turn-engine';
 import type { WorkoutToolResult } from './tools';
 import { isCoachActionId, type CoachActionId } from './action-chips';
+import { aiPauseReply, needsHumanReasonFor, nextAiPause, pausedMessageNeedsHuman, shouldSendPauseReply, type AiPauseCode, type NeedsHumanReason } from './ai-pause';
+import type { CoachGender } from './persona';
 import { hasTtl, isKellyMessageSource, nextTeamWindow, previewOf, roleForSource, type KellyMessageSource } from './unified-thread';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
@@ -189,6 +193,7 @@ export async function markNeedsHuman(db: Firestore, uid: string, summary: string
       needsHuman: true,
       needsHumanSummary: summary.replace(/\s+/g, ' ').trim().slice(0, 600),
       needsHumanAt: Timestamp.fromMillis(now),
+      needsHumanReason: 'handoff' satisfies NeedsHumanReason,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
@@ -228,11 +233,13 @@ export async function appendNonAiMessage(
   if (msg.source === 'human') {
     thread.needsHuman = false;
     thread.needsHumanSummary = FieldValue.delete();
+    thread.needsHumanReason = FieldValue.delete();
     thread.lastHumanReplyAt = at;
   }
   if (msg.source === 'user') {
     thread.needsHuman = true;
     thread.needsHumanAt = at;
+    thread.needsHumanReason = 'team_only' satisfies NeedsHumanReason;
   }
   batch.set(threadRef(db, uid), thread, { merge: true });
   await batch.commit();
@@ -266,11 +273,91 @@ export async function appendTeamOnlyUserMessage(
         lastMessagePreview: previewOf(text),
         needsHuman: true,
         needsHumanAt: at,
+        needsHumanReason: 'team_only' satisfies NeedsHumanReason,
         teamWindow: gate.window,
       },
       { merge: true },
     );
     return { ok: true as const, id: ref.id };
+  });
+}
+
+/**
+ * The AI gate refused a chat message (rate limit, kill switch, budget, outage — see
+ * ai-pause.ts). In one transaction: the user's message is stored (team-only style, no TTL,
+ * behind the same teamWindow flood guard); the thread enters the admin queue only per
+ * pausedMessageNeedsHuman (or a safety trigger), with needsHumanReason; and Kelly's paused
+ * reply is written as a 'system' message once per pause window (aiPause on the thread doc).
+ * A safety reply (`safetyText`) is always written. The replies are noPush and don't count as
+ * unread: the user is looking at the chat.
+ */
+export async function appendAiPausedUserMessage(
+  db: Firestore,
+  uid: string,
+  text: string,
+  opts: { code: AiPauseCode; gender: CoachGender; retryAfterSec?: number; teamChannel?: boolean; safetyText?: string | null },
+  now = Date.now(),
+): Promise<
+  | { ok: true; id: string; replyId: string | null; replyText: string | null; needsHuman: boolean }
+  | { ok: false; retryAfterSec: number }
+> {
+  const tRef = threadRef(db, uid);
+  const userRef = messagesCol(db, uid).doc();
+  const replyRef = messagesCol(db, uid).doc();
+  const at = Timestamp.fromMillis(now);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(tRef);
+    const t = (snap.exists ? snap.data() : {}) ?? {};
+    const gate = nextTeamWindow(t.teamWindow, now);
+    if (!gate.allowed) return { ok: false as const, retryAfterSec: gate.retryAfterSec ?? 60 };
+
+    const safety = !!opts.safetyText;
+    const needsHuman = safety || pausedMessageNeedsHuman(opts.code, text);
+    const sendPause = !safety && shouldSendPauseReply(t.aiPause, opts.code, now);
+    const replyText = safety
+      ? (opts.safetyText as string)
+      : sendPause
+        ? aiPauseReply(opts.code, opts.gender, { retryAfterSec: opts.retryAfterSec, now: new Date(now), teamChannel: opts.teamChannel })
+        : null;
+
+    tx.set(userRef, { role: 'user', source: 'user', text: text.slice(0, 4000), cards: [], createdAt: at });
+    if (replyText) {
+      // 1 ms later so it sorts after the user's message.
+      tx.set(replyRef, { role: 'assistant', source: 'system', text: replyText, cards: [], noPush: true, createdAt: Timestamp.fromMillis(now + 1) });
+    }
+    tx.set(
+      tRef,
+      {
+        updatedAt: FieldValue.serverTimestamp(),
+        messageCount: FieldValue.increment(replyText ? 2 : 1),
+        lastMessageAt: Timestamp.fromMillis(replyText ? now + 1 : now),
+        lastMessagePreview: previewOf(replyText ?? text),
+        teamWindow: gate.window,
+        ...(sendPause ? { aiPause: nextAiPause(opts.code, now, opts.retryAfterSec) } : {}),
+        ...(needsHuman
+          ? { needsHuman: true, needsHumanAt: at, needsHumanReason: safety ? 'safety' : needsHumanReasonFor(opts.code) }
+          : {}),
+      },
+      { merge: true },
+    );
+    return { ok: true as const, id: userRef.id, replyId: replyText ? replyRef.id : null, replyText, needsHuman };
+  });
+}
+
+/**
+ * Takes the pending client-tool turn if it is the one `toolUseId` answers, and removes it in the
+ * same transaction, so a tool result can resume a turn exactly once (the continuation is not
+ * rate-limited again — see /api/ai-coach/chat). Null when there is none, it expired, or it is
+ * another call.
+ */
+export async function claimPending(db: Firestore, uid: string, toolUseId: string, now = Date.now()): Promise<PendingTurn | null> {
+  const tRef = threadRef(db, uid);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(tRef);
+    const pending = parsePending(snap.exists ? snap.data()?.pending : null, now);
+    if (!pending || pending.toolUseId !== toolUseId) return null;
+    tx.set(tRef, { pending: FieldValue.delete() }, { merge: true });
+    return pending;
   });
 }
 
@@ -281,7 +368,10 @@ export async function markThreadRead(db: Firestore, uid: string): Promise<void> 
 
 /** Admin: drop a thread from the queue without replying. */
 export async function resolveNeedsHuman(db: Firestore, uid: string): Promise<void> {
-  await threadRef(db, uid).set({ needsHuman: false, needsHumanSummary: FieldValue.delete() }, { merge: true });
+  await threadRef(db, uid).set(
+    { needsHuman: false, needsHumanSummary: FieldValue.delete(), needsHumanReason: FieldValue.delete() },
+    { merge: true },
+  );
 }
 
 export async function savePending(db: Firestore, uid: string, p: Omit<PendingTurn, 'createdAtMs'>, now = Date.now()): Promise<void> {

@@ -13,6 +13,8 @@ export class CoachHttpError extends Error {
     readonly status: number,
     readonly code: string | undefined,
     readonly retryAfterSec: number | undefined,
+    /** Unified Kelly: the chat route already stored the refused message (and Kelly's paused reply). */
+    readonly storedForTeam = false,
   ) {
     super(`ai-coach http ${status} ${code ?? ''}`);
     this.name = 'CoachHttpError';
@@ -49,9 +51,9 @@ export async function postCoach(
   }
 
   if (!res.ok || !res.body) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; storedForTeam?: unknown };
     const ra = Number(res.headers.get('Retry-After'));
-    throw new CoachHttpError(res.status, data.error, Number.isFinite(ra) && ra > 0 ? ra : undefined);
+    throw new CoachHttpError(res.status, data.error, Number.isFinite(ra) && ra > 0 ? ra : undefined, data.storedForTeam === true);
   }
 
   const reader = res.body.getReader();

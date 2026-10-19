@@ -4,6 +4,7 @@
  * toMillis() duck-typing.
  */
 import { messageSourceOf, type KellyMessageSource } from './unified-thread';
+import { NEEDS_HUMAN_REASON_LABEL, type NeedsHumanReason } from './ai-pause';
 
 export interface KellyThreadRow {
   uid: string;
@@ -12,6 +13,8 @@ export interface KellyThreadRow {
   ageGroup: string | null;
   needsHuman: boolean;
   needsHumanSummary: string | null;
+  /** Why it is in the queue (ai-pause.ts); null on threads queued before the field existed. */
+  needsHumanReason: NeedsHumanReason | null;
   needsHumanAtMs: number;
   lastMessageAtMs: number;
   lastHumanReplyAtMs: number;
@@ -49,6 +52,7 @@ export function kellyThreadRow(uid: string, t: Record<string, any>, user: Record
     ageGroup: typeof core.ageGroup === 'string' ? core.ageGroup : null,
     needsHuman: t.needsHuman === true,
     needsHumanSummary: typeof t.needsHumanSummary === 'string' ? t.needsHumanSummary : null,
+    needsHumanReason: typeof t.needsHumanReason === 'string' && t.needsHumanReason in NEEDS_HUMAN_REASON_LABEL ? (t.needsHumanReason as NeedsHumanReason) : null,
     needsHumanAtMs: msOf(t.needsHumanAt),
     lastMessageAtMs: msOf(t.lastMessageAt) || msOf(t.updatedAt),
     lastHumanReplyAtMs: msOf(t.lastHumanReplyAt),

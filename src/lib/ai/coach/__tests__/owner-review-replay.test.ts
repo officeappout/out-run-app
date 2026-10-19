@@ -76,6 +76,12 @@ vi.mock('@/lib/ai/coach/thread-store.server', () => ({
   savePending: async (_db: any, _uid: string, p: any) => {
     st.thread.pending = JSON.parse(JSON.stringify({ ...p, createdAtMs: Date.now() }));
   },
+  claimPending: async (_db: any, _uid: string, id: string) => {
+    const p = st.thread.pending;
+    if (!p || p.toolUseId !== id) return null;
+    st.thread.pending = null;
+    return JSON.parse(JSON.stringify(p));
+  },
   clearPending: async () => {
     st.thread.pending = null;
   },

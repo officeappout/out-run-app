@@ -97,7 +97,10 @@ import {
   appendMessage,
   appendNonAiMessage,
   appendTeamOnlyUserMessage,
+  appendAiPausedUserMessage,
+  claimPending,
   markNeedsHuman,
+  savePending,
   markThreadRead,
 } from '../thread-store.server';
 import { executeServerTool, type ServerToolContext } from '../server-tools.server';
@@ -140,7 +143,7 @@ describe('thread-store', () => {
 
   it('team reply: no TTL, unread +1, needsHuman cleared, lastHumanReplyAt set', async () => {
     await markNeedsHuman(db as any, 'u1', '  רוצה   מאמן  ', 500);
-    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, needsHumanSummary: 'רוצה מאמן' });
+    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, needsHumanSummary: 'רוצה מאמן', needsHumanReason: 'handoff' });
     await appendNonAiMessage(db as any, 'u1', { source: 'human', text: 'היי מהצוות', senderName: 'קלי · צוות OUT' }, 1000);
     await appendNonAiMessage(db as any, 'u1', { source: 'human', text: 'עוד', senderName: 'קלי · צוות OUT' }, 1100);
     const team = msgs().find((m) => m.text === 'היי מהצוות')!;
@@ -149,6 +152,7 @@ describe('thread-store', () => {
     const t = st.docs.get(T)!;
     expect(t).toMatchObject({ needsHuman: false, unreadForUser: 2, messageCount: 2 });
     expect(t.needsHumanSummary).toBeUndefined();
+    expect(t.needsHumanReason).toBeUndefined();
     expect((t.lastHumanReplyAt as any).toMillis()).toBe(1100);
     await markThreadRead(db as any, 'u1');
     expect(st.docs.get(T)!.unreadForUser).toBe(0);
@@ -159,11 +163,79 @@ describe('thread-store', () => {
     expect(r.ok).toBe(true);
     expect(msgs()[0]).toMatchObject({ source: 'user', role: 'user', text: 'שאלה' });
     expect(msgs()[0].expireAt).toBeUndefined();
-    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, teamWindow: { startMs: 1000, count: 1 } });
+    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, needsHumanReason: 'team_only', teamWindow: { startMs: 1000, count: 1 } });
     for (let i = 1; i < TEAM_MSG_MAX_PER_WINDOW; i++) await appendTeamOnlyUserMessage(db as any, 'u1', `q${i}`, 1000 + i);
     const refused = await appendTeamOnlyUserMessage(db as any, 'u1', 'one too many', 2000);
     expect(refused.ok).toBe(false);
     expect(msgs()).toHaveLength(TEAM_MSG_MAX_PER_WINDOW);
+  });
+});
+
+describe('Kelly paused (appendAiPausedUserMessage)', () => {
+  const NOW = Date.UTC(2026, 9, 19, 9, 0); // 12:00 in Israel
+  const sorted = () => msgs().sort((a: any, b: any) => a.createdAt.toMillis() - b.createdAt.toMillis());
+
+  it('rate limited chatter: message + ONE paused reply per window, not in the admin queue', async () => {
+    const r1 = await appendAiPausedUserMessage(db as any, 'u1', 'ומה עם מתיחות?', { code: 'rate_limited', gender: 'female', retryAfterSec: 3 * 3600 }, NOW);
+    expect(r1).toMatchObject({ ok: true, needsHuman: false });
+    const [user, reply] = sorted();
+    expect(user).toMatchObject({ source: 'user', role: 'user', text: 'ומה עם מתיחות?' });
+    expect(user.expireAt).toBeUndefined();
+    expect(reply).toMatchObject({ source: 'system', role: 'assistant', noPush: true });
+    expect(reply.text).toBe('דיברנו המון היום. אני חוזר לענות בסביבות 15:00. אם זה דחוף, תכתבי לי שזה דחוף והצוות שלנו יענה לך כאן.');
+    const t = st.docs.get(T)!;
+    expect(t.needsHuman).toBeUndefined();
+    expect(t.unreadForUser).toBeUndefined(); // the user is looking at it
+    expect(t).toMatchObject({ aiPause: { code: 'rate_limited', untilMs: NOW + 3 * 3600_000 }, messageCount: 2 });
+
+    // More chatter in the same window: stored, no second reply.
+    const r2 = await appendAiPausedUserMessage(db as any, 'u1', 'ועוד משהו', { code: 'rate_limited', gender: 'female', retryAfterSec: 3 * 3600 - 60 }, NOW + 60_000);
+    expect(r2).toMatchObject({ ok: true, replyId: null });
+    expect(msgs()).toHaveLength(3);
+
+    // "דחוף": into the queue, reason ai_rate_limited (still no second reply).
+    const r3 = await appendAiPausedUserMessage(db as any, 'u1', 'זה דחוף, החיוב לא עבר', { code: 'rate_limited', gender: 'female', retryAfterSec: 3000 }, NOW + 120_000);
+    expect(r3).toMatchObject({ ok: true, needsHuman: true, replyId: null });
+    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, needsHumanReason: 'ai_rate_limited' });
+
+    // After the window: a new pause gets a new reply.
+    const r4 = await appendAiPausedUserMessage(db as any, 'u1', 'שוב', { code: 'rate_limited', gender: 'female', retryAfterSec: 3600 }, NOW + 3 * 3600_000 + 1);
+    expect(r4.ok && r4.replyId).toBeTruthy();
+  });
+
+  it('kill switch: every message enters the queue; a different pause reason replies again', async () => {
+    await appendAiPausedUserMessage(db as any, 'u1', 'היי', { code: 'rate_limited', gender: 'male', retryAfterSec: 600 }, NOW);
+    const r = await appendAiPausedUserMessage(db as any, 'u1', 'מה קורה', { code: 'kill_switch', gender: 'male' }, NOW + 1000);
+    expect(r).toMatchObject({ ok: true, needsHuman: true, replyText: 'אני לא זמין כרגע. הצוות שלנו רואה את ההודעה שלך ויענה כאן בהקדם.' });
+    expect(st.docs.get(T)).toMatchObject({ needsHuman: true, needsHumanReason: 'ai_kill_switch', aiPause: { code: 'kill_switch', untilMs: NOW + 1000 + 3600_000 } });
+  });
+
+  it('safety while paused: the fixed safety reply every time, queue reason safety', async () => {
+    await appendAiPausedUserMessage(db as any, 'u1', 'היי', { code: 'rate_limited', gender: 'male', retryAfterSec: 600 }, NOW);
+    const r = await appendAiPausedUserMessage(db as any, 'u1', 'לחץ בחזה', { code: 'rate_limited', gender: 'male', retryAfterSec: 600, safetyText: 'SAFE 101' }, NOW + 1000);
+    expect(r).toMatchObject({ ok: true, needsHuman: true, replyText: 'SAFE 101' });
+    expect(st.docs.get(T)).toMatchObject({ needsHumanReason: 'safety' });
+  });
+
+  it('shares the team flood guard', async () => {
+    for (let i = 0; i < TEAM_MSG_MAX_PER_WINDOW; i++) {
+      await appendAiPausedUserMessage(db as any, 'u1', `q${i}`, { code: 'rate_limited', gender: 'male', retryAfterSec: 600 }, NOW + i);
+    }
+    const refused = await appendAiPausedUserMessage(db as any, 'u1', 'over', { code: 'rate_limited', gender: 'male', retryAfterSec: 600 }, NOW + 100);
+    expect(refused).toMatchObject({ ok: false });
+  });
+});
+
+describe('claimPending', () => {
+  it('a pending tool call can be resumed once, only by its own id, only while fresh', async () => {
+    const turn = { toolUseId: 'gw1', toolName: 'generate_workout', state: { turnMessages: [], roundsUsed: 1, turnText: '' } as any, pendingResults: [], cards: [] };
+    await savePending(db as any, 'u1', turn, 1000);
+    expect(await claimPending(db as any, 'u1', 'other', 2000)).toBeNull();
+    expect(await claimPending(db as any, 'u1', 'gw1', 2000)).toMatchObject({ toolUseId: 'gw1', toolName: 'generate_workout' });
+    expect(await claimPending(db as any, 'u1', 'gw1', 2000)).toBeNull();
+
+    await savePending(db as any, 'u1', turn, 1000);
+    expect(await claimPending(db as any, 'u1', 'gw1', 1000 + 11 * 60_000)).toBeNull(); // expired
   });
 });
 
