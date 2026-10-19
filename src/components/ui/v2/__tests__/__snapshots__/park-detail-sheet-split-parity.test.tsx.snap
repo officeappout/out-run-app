@@ -1,0 +1,335 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ParkDetailSheet — flag off > full park: initial render + data access > calls 1`] = `
+[
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "getPark(["p1"])",
+  "tripwire(["p1","point-fetch not yet resolved or failed"])",
+  "getReviewsForPark(["p1"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "getReviewerNames([["ua","ub","uc","ud","ue"]])",
+  "getGymEquipment(["e1"])",
+  "getGymEquipment(["e2"])",
+  "getGymEquipment(["e3"])",
+  "getGymEquipment(["missing"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag off > full park: initial render + data access > markup 1`] = `
+{
+  "length": 33396,
+  "sha256": "7f0ec0c35b942aac06e962b85c38d11e1e615fde8fae863ddf55de30b88fbd84",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > equipment drawer 1`] = `
+{
+  "length": 36787,
+  "sha256": "01a85d1405cf9d43ae3e2cdebc810a9bd8f1b973d924af045fe2ba1386086ac6",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating open 1`] = `
+{
+  "length": 32481,
+  "sha256": "1e9b3f7dad9e1395de242b0a6e56f87f45691ffe22d630ed64d674afd172aa47",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating with stars 1`] = `
+{
+  "length": 32863,
+  "sha256": "b9740d98ade9b63ddff7b9ed4b96df5a828b2514604230ea1f18b396be50ac86",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > reviews expanded + lightbox 1`] = `
+{
+  "length": 36778,
+  "sha256": "ffb6f490c11b037803a257ca7292de8b7cba4d0bcc08b571cb7d55eba2003f52",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > suggest edit 1`] = `
+{
+  "length": 36855,
+  "sha256": "e0b4b1894aebb754344aa6c39eeebc0839ddb6f2a14639e73bfe9f5359f849b6",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > time picker (today) 1`] = `
+{
+  "length": 34976,
+  "sha256": "e28db7148a9ecb4ad1232f39b70416e91ff361fe1135b3c8b4a5886e65eeff7c",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > tomorrow 1`] = `
+{
+  "length": 28648,
+  "sha256": "499e95dd024db19ed6fcf8ed2562f2e4b1ad4db3dac25cc58ca9770a9e0370bf",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > week + date input 1`] = `
+{
+  "length": 37713,
+  "sha256": "07e5b2e0c5d41691a1c55b5d053fc535f0a8af5ad137d7d6a415248b971c8359",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: publish arrival + join + rating submit (handlers unchanged) > after publish 1`] = `
+{
+  "length": 33998,
+  "sha256": "797b8e2c9131e3d60666e9379faec0944feceb191f30c9db72fb0135c8691e71",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: publish arrival + join + rating submit (handlers unchanged) > after rating submit 1`] = `
+{
+  "length": 34199,
+  "sha256": "a98b579a009124ede28054ba85485980207c30b946878329df974823407467a3",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > full park: publish arrival + join + rating submit (handlers unchanged) > handler calls 1`] = `
+[
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "createPlannedSession([{"userId":"u1","displayName":"דנה","photoURL":null,"parkId":"p1","parkName":"שם מקדים מהמפה","programName":"כוח","programLevel":3,"activityType":"workout","level":"beginner","startTime":"2026-10-19T17:00:00.000Z","endTime":"2026-10-19T19:00:00.000Z","privacyMode":"verified_global","lat":32.1,"lng":34.8}])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "materialize(["g1","2026-10-19","17:00","u1","דנה",null])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "createContribution([{"userId":"u1","type":"review","status":"approved","location":{"lat":32.1,"lng":34.8},"linkedParkId":"p1","rating":5,"comment":"נהדר"}])",
+  "recompute(["p1"])",
+  "getReviewsForPark(["p1"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag off > minimal park, events loading, sheet closed→open > calls 1`] = `
+[
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "getPark(["p2"])",
+  "tripwire(["p2","point-fetch not yet resolved or failed"])",
+  "getReviewsForPark(["p2"])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag off > minimal park, events loading, sheet closed→open > closed 1`] = `
+{
+  "length": 174,
+  "sha256": "1110203b79d10310a85f1f87e1d6f711bf57143683296f2baa1d2aad7d3b2234",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > minimal park, events loading, sheet closed→open > open 1`] = `
+{
+  "length": 9050,
+  "sha256": "3c615c15fecd688f158a669ab1ac6fb32a0566a3fd7b3ba4683765501960e751",
+}
+`;
+
+exports[`ParkDetailSheet — flag off > no selected park renders nothing 1`] = `
+{
+  "length": 11,
+  "sha256": "93636fa047400919d3a6fa2c57a114596546d97c9681645ed857fb014fb8fb18",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: initial render + data access > calls 1`] = `
+[
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "getPark(["p1"])",
+  "tripwire(["p1","point-fetch not yet resolved or failed"])",
+  "getReviewsForPark(["p1"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "getReviewerNames([["ua","ub","uc","ud","ue"]])",
+  "getGymEquipment(["e1"])",
+  "getGymEquipment(["e2"])",
+  "getGymEquipment(["e3"])",
+  "getGymEquipment(["missing"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag on > full park: initial render + data access > markup 1`] = `
+{
+  "length": 33266,
+  "sha256": "03d16160112bf7748f09f9689b6984897171bbbf4def2bad478282f824718962",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > equipment drawer 1`] = `
+{
+  "length": 36746,
+  "sha256": "8170b00888df320d2c6b91cb0ed6a5d6aa24b4cc1ba5d0d7f44bcea4d125c56b",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating open 1`] = `
+{
+  "length": 32440,
+  "sha256": "b012b8b1e46f9bb1b6b119bcf1b8e30ef436f2e0daada96de609a07f69940a48",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > rating with stars 1`] = `
+{
+  "length": 32822,
+  "sha256": "2e7703df28e9a36a731a070c8c601c623fb529723b8a7d72d8b0b30b00742c61",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > reviews expanded + lightbox 1`] = `
+{
+  "length": 36737,
+  "sha256": "ddad5acebee075f95c0e16f496c5de856a472d0bd851a1b62227cc2cde8f3015",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > suggest edit 1`] = `
+{
+  "length": 36814,
+  "sha256": "60600b828ed9de393ed426f72224bdfc6e10186bfab42c34d5d359a627033070",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > time picker (today) 1`] = `
+{
+  "length": 34830,
+  "sha256": "6bd865d936b3274148c4c42bc0aedb6ff572639e537bbdb49ea0dad862146b6b",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > tomorrow 1`] = `
+{
+  "length": 28607,
+  "sha256": "596ce299f25f6a4d6d6d404d3855b2c4121289edcd0e386458c8a17b5cbe925a",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: interactions (picker, week, rating, reviews, photo, profile, equipment, suggest-edit) > week + date input 1`] = `
+{
+  "length": 37525,
+  "sha256": "a026cde81ad1fb216debb4dbb6c5391e34df6d3ddfcdaa463656dd92a44b51f0",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: publish arrival + join + rating submit (handlers unchanged) > after publish 1`] = `
+{
+  "length": 33831,
+  "sha256": "bf1ae14cfab668a79718870de99f43880a209f9873ed5e83e16b4703d11b7d57",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: publish arrival + join + rating submit (handlers unchanged) > after rating submit 1`] = `
+{
+  "length": 34032,
+  "sha256": "f9208bf636e396cac01c7bdca718697de924ff33de065695aa9bfe959161c201",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > full park: publish arrival + join + rating submit (handlers unchanged) > handler calls 1`] = `
+[
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "createPlannedSession([{"userId":"u1","displayName":"דנה","photoURL":null,"parkId":"p1","parkName":"שם מקדים מהמפה","programName":"כוח","programLevel":3,"activityType":"workout","level":"beginner","startTime":"2026-10-19T17:00:00.000Z","endTime":"2026-10-19T19:00:00.000Z","privacyMode":"verified_global","lat":32.1,"lng":34.8}])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "materialize(["g1","2026-10-19","17:00","u1","דנה",null])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "createContribution([{"userId":"u1","type":"review","status":"approved","location":{"lat":32.1,"lng":34.8},"linkedParkId":"p1","rating":5,"comment":"נהדר"}])",
+  "recompute(["p1"])",
+  "getReviewsForPark(["p1"])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+  "useParkEvents(["p1",["g1"]])",
+  "useMyRegistrations([["ev2","ev3","ev4","ev5","ev6"]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag on > minimal park, events loading, sheet closed→open > calls 1`] = `
+[
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents([null,["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "getPark(["p2"])",
+  "tripwire(["p2","point-fetch not yet resolved or failed"])",
+  "getReviewsForPark(["p2"])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+  "useParkEvents(["p2",["g1"]])",
+  "useMyRegistrations([[]])",
+]
+`;
+
+exports[`ParkDetailSheet — flag on > minimal park, events loading, sheet closed→open > closed 1`] = `
+{
+  "length": 174,
+  "sha256": "1110203b79d10310a85f1f87e1d6f711bf57143683296f2baa1d2aad7d3b2234",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > minimal park, events loading, sheet closed→open > open 1`] = `
+{
+  "length": 9339,
+  "sha256": "bee94967b058c0672e4aa5bc01564a40d4a46d8683db1ba23fdd8de0d4a78ee2",
+}
+`;
+
+exports[`ParkDetailSheet — flag on > no selected park renders nothing 1`] = `
+{
+  "length": 11,
+  "sha256": "93636fa047400919d3a6fa2c57a114596546d97c9681645ed857fb014fb8fb18",
+}
+`;
