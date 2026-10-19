@@ -13,7 +13,7 @@ import {
 } from '../run-estimates';
 import { buildRunDisplayTitle, cleanBlockLabel, fmtMeters, fmtSeconds } from '../run-title';
 import { blockPhase, buildIntensityStrip, intensityHeight, stripPhaseLabels, STRIP_REST_COLOR } from '../run-strip';
-import { buildRunStructure, buildStructureLines } from '../run-structure';
+import { buildRunStructure } from '../run-structure';
 import { buildZoneLadder, mainZone } from '../run-zone-ladder';
 import { buildRunWeekRows, parseRunWeekParams, runWeekContextLabel, runWeekSummary } from '../run-week';
 import { SURFACE_TILES, surfaceTilesFor } from '../run-surfaces';
@@ -178,11 +178,6 @@ describe('run-structure', () => {
     const steps = buildRunStructure(sixBy400(), ctx, { showPaceNumbers: false });
     expect(steps[1].rows[0].side).toBe('');
     expect(steps[1].rows[0].text).toBe('400 מ׳ מהיר');
-  });
-  it('the preview card lines', () => {
-    const lines = buildStructureLines(sixBy400(), ctx);
-    expect(lines.map((l) => l.text)).toEqual(['חימום 14 דק׳', '6 × 400 מ׳ · 1:30 דק׳ ריצת התאוששות', 'שחרור 8 דק׳']);
-    expect(lines[1].side).toBe('4:45–4:55');
   });
   it('legacy grouping is unchanged (moved, not rewritten)', () => {
     const sections = groupBlocksIntoSections({ blocks: sixBy400() });

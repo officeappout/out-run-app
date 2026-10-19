@@ -1203,6 +1203,30 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // KELLY PHASE 3 (19.10.2026) — proactive messages + memory
+    //   ai_coach_memory/{uid}           { facts[], extractedUntil } — what Kelly remembers
+    //   ai_coach_proactive/{uid}        proactive ledger (weekly / level-check / asked workouts)
+    //   ai_coach_proactive_stats/{day}  daily send counters by trigger (admin panel, via API)
+    //   workout_feedback/{workoutId}    the user's "איך היה?" answer { uid, rating, ... }
+    // Admin SDK only (Next.js routes /api/ai-coach/{proactive,memory}/**, the panel's
+    // /api/admin/ai-coach/proactive). The user reads and deletes their memory through
+    // /api/ai-coach/memory (token-scoped), never directly: a client-written fact would be
+    // replayed to the model as something the user said.
+    // ============================================================
+    match /ai_coach_memory/{userId} {
+      allow read, write: if false;
+    }
+    match /ai_coach_proactive/{userId} {
+      allow read, write: if false;
+    }
+    match /ai_coach_proactive_stats/{day} {
+      allow read, write: if false;
+    }
+    match /workout_feedback/{workoutId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // AI COACH REVIEW AGENT (18.10.2026) — daily QA of the "קלי AI" chat
     //   ai_coach_reviews/{uid}_{reviewId}  reviewed turns + issues + proposed fixes (TTL expireAt, 90 days)
     //   ai_coach_review_stats/{day}        daily counters by category / root cause / cost

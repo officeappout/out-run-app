@@ -86,6 +86,10 @@ export const SHEET_Z = {
   group: 80,
   /** GroupDetailsDrawer panel — budget row z-[80]/z-[81]. */
   groupPanel: 81,
+  /** CreatorManagementDrawer backdrop (profile page, in place) — budget row z-[88]/z-[89]. */
+  creatorDrawer: 88,
+  /** CreatorManagementDrawer panel — budget row z-[88]/z-[89]. */
+  creatorDrawerPanel: 89,
   /** PostJoinSuccessDrawer backdrop — budget row z-[90]/z-[91]. */
   joinSuccess: 90,
   /** PostJoinSuccessDrawer panel — budget row z-[90]/z-[91]. */
@@ -114,11 +118,19 @@ export const SHEET_Z = {
   freeRunExtras: 104,
   /** FreeRunDrawer's Extras / LegPlan sheets panel — budget row z-[104]/z-[105]. */
   freeRunExtrasPanel: 105,
+  /** HealthConnectDisclosureModal (backdrop + sheet in one layer) — budget row z-[120]. */
+  healthDisclosure: 120,
+  /** LegalDocModal backdrop (clears HealthConnectDisclosureModal) — budget row z-[130]/z-[131]. */
+  legal: 130,
+  /** LegalDocModal sheet — budget row z-[130]/z-[131]. */
+  legalPanel: 131,
   /** RollingAgenda's drag-reschedule confirm backdrop — the z-[140] row (portalled; never with JITSetupModal). */
   agendaMoveBackdrop: 140,
   /** RollingAgenda's drag-reschedule confirm sheet — budget row z-[150]. */
   agendaMove: 150,
-  /** EquipmentDetailDrawer backdrop (nested over ParkDetailSheet) — budget row z-[200]/z-[201]. */
+  /** UserWorkoutAdjuster backdrop (its panel is `nestedModal`, z-[200]) — budget row z-[199]. */
+  adjusterBackdrop: 199,
+  /** EquipmentDetailDrawer backdrop (nested over ParkDetailSheet); also UserWorkoutAdjuster's panel and the workout-preview ExerciseDetailDrawer (backdrop + panel) — budget row z-[200]/z-[201]. */
   nestedModal: 200,
   /** EquipmentDetailDrawer panel — budget row z-[200]/z-[201]. */
   nestedModalPanel: 201,

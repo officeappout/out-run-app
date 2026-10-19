@@ -36,6 +36,7 @@ import { buildScheduleProposal, proposalToolResult } from '@/lib/ai/coach/schedu
 import type { ProposeScheduleChangeInputT } from '@/lib/ai/coach/schedule-proposal/types';
 import type { AdvisorProfile } from '@/features/schedule/advisor/types';
 import { phase2TurnExtras } from '@/lib/ai/coach/phase2-turn';
+import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
 
 export type CallModel = (params: Anthropic.MessageStreamParams, onText: (delta: string) => void) => Promise<Anthropic.Message>;
 
@@ -394,6 +395,7 @@ export async function runEvalCase(
         sheet,
         typoHints: typoHints(c.message),
         ...(phase2 ? { phase2: true } : {}),
+        ...(c.memory?.length ? { memory: renderMemoryBlock(c.memory) } : {}),
       }),
     },
   ];

@@ -46,7 +46,7 @@ function script(steps: Array<{ tools?: Array<{ name: string; input: unknown }>; 
 }
 
 describe('fixtures', () => {
-  it('the owner cases (rounds 1 to 3), the level-check nudges and Kelly phase 2 parse and are unique', () => {
+  it('the owner cases (rounds 1 to 3), the level-check nudges, Kelly phase 2 and phase 3 memory parse and are unique', () => {
     expect(cases.map((c) => c.id).sort()).toEqual([
       'nudge-01-core-workout-unassessed',
       'nudge-02-progress-mentions-gap',
@@ -72,6 +72,11 @@ describe('fixtures', () => {
       'p2-09-proposal-guard',
       'p2-10-proposal-more-days',
       'p2-11-proposal-fewer-days',
+      'p3-01-memory-knee-legs',
+      'p3-02-memory-no-running',
+      'p3-03-memory-event-motivation',
+      'p3-04-memory-not-recited',
+      'p3-05-memory-what-do-you-remember',
       'r3-01-persona',
       'r3-02-goal',
       'r3-03-age-known',
@@ -285,5 +290,22 @@ describe('assertion engine + helpers', () => {
     const ex = (s.record as { exercises: Array<{ domain: string; locations: string[] }> }).exercises;
     expect(ex.length).toBeGreaterThanOrEqual(3);
     expect(ex.every((e) => e.domain === 'core' && e.locations.includes('home'))).toBe(true);
+  });
+});
+
+describe('Kelly phase 3 memory in replays', () => {
+  it('a case with memory puts the "מה אני זוכר עליך" block in the session context; without it, none', async () => {
+    const seen: string[] = [];
+    const capture: CallModel = async (params, onText) => {
+      seen.push((params.system as Array<{ text: string }>).map((b) => b.text).join('\n'));
+      onText('בסדר.');
+      return message([{ type: 'text', text: 'בסדר.', citations: null }], 'end_turn');
+    };
+    await runEvalCase(byId('p3-02-memory-no-running'), { model: 'claude-haiku-5-5', callModel: capture });
+    expect(seen[0]).toContain('מה אני זוכר עליך');
+    expect(seen[0]).toContain('- העדפה: לא אוהב ריצה');
+    seen.length = 0;
+    await runEvalCase(byId('owner-01-week-plan'), { model: 'claude-haiku-5-5', callModel: capture });
+    expect(seen[0]).not.toContain('מה אני זוכר עליך');
   });
 });

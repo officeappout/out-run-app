@@ -1,35 +1,23 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Footprints, Zap, Timer, TrendingUp, Moon, Loader2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
-import {
-  getRunWorkoutTemplate,
-  getPaceMapConfig,
-  getRunProgramTemplate,
-} from '@/features/workout-engine/core/services/running-admin.service';
-import { materializeWorkout, computeZones } from '@/features/workout-engine/core/services/running-engine.service';
-import { calmRunWorkout, calmCopy, type CalmReturnState } from '@/lib/calm-return';
+import { calmCopy, type CalmReturnState } from '@/lib/calm-return';
+import { usePlannedRunWorkout } from '@/features/home/hooks/usePlannedRunWorkout';
 import {
   isRunningPlanBuildStuck,
   hasRunningRebuildInputs,
   buildActiveRunningProgram,
 } from '@/features/workout-engine/core/services/running-schedule-write.service';
-import {
-  resolveWorkoutMetadata,
-  detectTimeOfDay,
-  detectDayPeriod,
-  resolveRunningContentSituation,
-} from '@/features/workout-engine/services/workout-metadata.service';
 import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
-import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
 import RunOverviewHomeSheet from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewHomeSheet';
@@ -169,9 +157,6 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
 
   // ── Briefing drawer state ──
   const [briefingOpen, setBriefingOpen] = useState(false);
-  const [briefingWorkout, setBriefingWorkout] = useState<RunWorkout | null>(null);
-  const [briefingLoading, setBriefingLoading] = useState(false);
-  const briefingLoadedIdRef = useRef<string | null>(null);
 
   const { workout, workoutLabel, pendingWorkoutId, pendingWeek, pendingDay } = useMemo(() => {
     if (!hasActiveSchedule) {
@@ -236,100 +221,17 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   // ── Load full workout when briefing drawer opens ──
   // v2 loads today's workout up front (its card shows the strip + numbers);
   // flag off → only when the drawer opens, as before. Same single load either way.
+  // The loader itself lives in usePlannedRunWorkout (shared with the home carousel's run card).
   const preloadToday = v2 && isRunDay && !skippedToday;
-  useEffect(() => {
-    if ((!briefingOpen && !preloadToday) || !pendingWorkoutId) return;
-    if (briefingLoadedIdRef.current === pendingWorkoutId) return;
-
-    const paceProfile = running?.paceProfile;
-    const programId = running?.activeProgram?.programId;
-    if (!paceProfile) return;
-
-    setBriefingLoading(true);
-    const rawTemplateId = pendingWorkoutId.replace(/_w\d+$/, '');
-
-    Promise.all([
-      getRunWorkoutTemplate(rawTemplateId),
-      getPaceMapConfig(),
-      programId ? getRunProgramTemplate(programId) : Promise.resolve(null),
-    ])
-      .then(async ([template, paceMapConfig, fullProgram]) => {
-        if (!template) { setBriefingLoading(false); return; }
-        const rules = (fullProgram as any)?.progressionRules ?? [];
-        const materialized = materializeWorkout(template, pendingWeek ?? 1, rules, paceProfile, paceMapConfig);
-        const w = calmLoad
-          ? calmRunWorkout(materialized, calmLoad, {
-              easyPace: paceProfile.basePace > 0
-                ? (({ minPace, maxPace }) => ({ min: minPace, max: maxPace }))(
-                    computeZones(paceProfile.basePace, paceProfile.profileType, paceMapConfig).easy,
-                  )
-                : null,
-              easyLabel: calmCopy(null).easyRunLabel,
-            })
-          : materialized;
-
-        const totalDurMin = Math.round(
-          w.blocks.reduce((s, b) => s + (b.durationSeconds ?? 0), 0) / 60,
-        );
-
-        const runningCategoryLabels: Record<string, string> = {
-          short_intervals: 'אינטרוולים קצרים',
-          long_intervals: 'אינטרוולים ארוכים',
-          fartlek_easy: 'פרטלק קל',
-          fartlek_structured: 'פרטלק מובנה',
-          tempo: 'טמפו',
-          hill_long: 'עליות ארוכות',
-          hill_short: 'עליות קצרות',
-          hill_sprints: 'ספרינט עליות',
-          long_run: 'ריצה ארוכה',
-          easy_run: 'ריצה קלה',
-          strides: 'סטריידים',
-        };
-
-        try {
-          const metadata = await resolveWorkoutMetadata({
-            persona: profile?.identity?.persona ?? null,
-            location: 'park',
-            timeOfDay: detectTimeOfDay(),
-            gender: profile?.core?.gender as 'male' | 'female' | undefined,
-            sportType: 'running',
-            experienceLevel: paceProfile.profileType === 3 ? 'beginner' : paceProfile.profileType === 2 ? 'intermediate' : 'advanced',
-            durationMinutes: totalDurMin,
-            difficulty: w.isQualityWorkout ? 3 : 2,
-            category: template.category,
-            categoryLabel: template.category ? runningCategoryLabels[template.category] ?? template.category : undefined,
-            currentProgram: programId,
-            programProgress: effectiveCurrentWeek
-              ? Math.round(((effectiveCurrentWeek - 1) / ((fullProgram as any)?.totalWeeks ?? 8)) * 100)
-              : undefined,
-            dayPeriod: detectDayPeriod(),
-            runningBasePace: paceProfile.basePace,
-            targetDistanceLabel: DIST_LABEL[targetDist] ?? '5 ק״מ',
-            programPhase: (fullProgram as any)?.phases?.find((p: any) => {
-              const week = pendingWeek ?? 1;
-              return week >= p.startWeek && week <= p.endWeek;
-            })?.name,
-            // Copy "moments": 7+ days since the last run → 'returning' rows; weather rows
-            // only for the flagged weather.
-            situation: resolveRunningContentSituation(running?.lastWorkoutDate),
-            weather: weatherFlag ?? undefined,
-          });
-
-          if (metadata.title) w.title = metadata.title;
-          if (metadata.description) w.description = metadata.description;
-          w.logicCue = metadata.logicCue ?? undefined;
-          w.aiCue = metadata.aiCue ?? undefined;
-          w.metadataSource = metadata.source;
-        } catch {
-          // Firestore metadata is best-effort — use template fallbacks
-        }
-
-        setBriefingWorkout(w);
-        briefingLoadedIdRef.current = pendingWorkoutId;
-        setBriefingLoading(false);
-      })
-      .catch(() => setBriefingLoading(false));
-  }, [briefingOpen, preloadToday, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag, calmLoad]);
+  const { workout: briefingWorkout, loading: briefingLoading } = usePlannedRunWorkout({
+    enabled: briefingOpen || preloadToday,
+    profile,
+    workoutId: pendingWorkoutId,
+    week: pendingWeek,
+    currentWeek: effectiveCurrentWeek ?? undefined,
+    weatherFlag,
+    calmLoad,
+  });
 
   const handleBriefingGo = () => {
     setBriefingOpen(false);

@@ -114,6 +114,11 @@ export const EvalCaseSchema = z.object({
     .optional(),
   /** Flags the replay runs with (default: all off, like production before they are switched on). */
   flags: z.object({ phase2: z.boolean().optional() }).optional(),
+  /**
+   * Kelly phase 3 (ai_coach_memory): remembered facts, rendered into the session context
+   * exactly like the route does (memory/inject.ts). Absent = no memory block.
+   */
+  memory: z.array(z.object({ category: z.enum(['injury', 'schedule', 'goal', 'preference']), text: z.string().min(1).max(120) })).max(20).optional(),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;
 

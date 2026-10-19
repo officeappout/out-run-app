@@ -64,7 +64,14 @@ export function unifiedUiMessage(id: string, x: DocumentData): UiMessage {
     source,
     ...(typeof x.senderName === 'string' ? { senderName: x.senderName } : {}),
     ...phase2Fields(x),
+    ...ratedField(x),
   };
+}
+
+/** Kelly phase 3: the stored answer to a post-workout "איך היה?" (absent unless proactive wrote one). */
+function ratedField(x: DocumentData): Pick<UiMessage, 'rated'> {
+  const r = (x.proactive as { feedback?: unknown } | undefined)?.feedback;
+  return r === 'easy' || r === 'right' || r === 'hard' ? { rated: r } : {};
 }
 
 export interface AiCoachChatOptions {

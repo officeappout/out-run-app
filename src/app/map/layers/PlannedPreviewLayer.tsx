@@ -46,7 +46,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
 
   const autoStart = searchParams.get('autoStart') === 'true';
 
-  // Home v2 (enable_home_v2): the v2 card (board R1-prop-preview) + v2 briefing.
+  // Home v2 (enable_home_v2): the run overview drawer (RunOverviewMapHost).
   // Flag off → today's card and drawer, unchanged.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -201,8 +201,6 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         handleStart();
       }}
       workout={currentWorkout}
-      templateCategory={templateCategory}
-      week={weekContext}
     />
   );
 

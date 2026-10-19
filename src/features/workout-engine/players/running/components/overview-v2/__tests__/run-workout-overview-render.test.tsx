@@ -26,6 +26,9 @@ vi.mock('@/features/parks/core/store/useMapStore', () => {
   return { useMapStore };
 });
 
+// The lazy drill sheet's error boundary reports to Sentry — not needed for static markup.
+vi.mock('@/components/system/report-boundary-error', () => ({ reportBoundaryError: () => {} }));
+
 import RunWorkoutOverview from '../RunWorkoutOverview';
 import TodayWorkoutFitCard from '../TodayWorkoutFitCard';
 import RunOverviewCta from '../RunOverviewCta';
@@ -205,5 +208,29 @@ describe('overview edits (M-7a / 7b / 7c)', () => {
     expect(html).not.toContain('aria-label="בחירת עומס"');
     expect(html).not.toContain('aria-label="התאם קצב');
     expect(html).not.toContain('aria-label="החלף מקטע"');
+  });
+});
+
+describe('drills / exercises on the axis → video (the old briefing\'s tap-to-watch)', () => {
+  function withDrills(): RunWorkout {
+    const w = intervals();
+    const blocks = [...w.blocks];
+    blocks.splice(1, 0, blk({ type: 'warmup', label: 'סקיפים', durationSeconds: 60, _isDynamicWrapper: true, drillRef: { exerciseId: 'skips' } }));
+    return { ...w, blocks: blocks.map((b) => (b.type === 'interval' ? { ...b, drillRef: { exerciseId: 'fast' } } : b)) };
+  }
+  it('a warm-up drill chip and a tappable main-set row, read-only too', () => {
+    for (const onEditsChange of [noop, undefined]) {
+      const html = renderToStaticMarkup(
+        <RunWorkoutOverview workout={withDrills()} edits={NO_RUN_EDITS} onEditsChange={onEditsChange} ctaMode="free" onBack={noop} onStart={noop} />,
+      );
+      expect(html).toContain('aria-label="צפה בסרטון: סקיפים"');
+      expect(html).toMatch(/aria-label="צפה בסרטון: 400 מ׳ מהיר/);
+    }
+  });
+  it('no drillRef → no video affordance', () => {
+    const html = renderToStaticMarkup(
+      <RunWorkoutOverview workout={intervals()} edits={NO_RUN_EDITS} onEditsChange={noop} ctaMode="free" onBack={noop} onStart={noop} />,
+    );
+    expect(html).not.toContain('צפה בסרטון');
   });
 });

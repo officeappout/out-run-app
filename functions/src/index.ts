@@ -83,6 +83,11 @@ export { aiCoachReviewScheduler } from './aiCoachReviewScheduler';
 // Daily refresh of the admin "עלויות" dashboard (drives /api/admin/costs/refresh, same cron
 // secret as above) — see adminCostsScheduler.ts.
 export { adminCostsScheduler } from './adminCostsScheduler';
+// Kelly phase 3 (19.10.2026): proactive messages (every 15 min) + nightly memory. Both
+// flag-gated in the Next.js routes they drive (ai_coach_proactive / ai_coach_memory, default
+// off); both use the AI_REVIEW_CRON_SECRET secret already set for aiCoachReviewScheduler.
+export { kellyProactiveScheduler } from './kellyProactiveScheduler';
+export { kellyMemoryScheduler } from './kellyMemoryScheduler';
 export { pushOutcomeSweeper } from './pushOutcomeSweeper';
 // onPushOpened (04.10.2026, attribution-correctness fix) — activates the
 // outcome window on OPEN instead of SEND. Needs its own `firebase deploy

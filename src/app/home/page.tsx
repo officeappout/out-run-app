@@ -103,8 +103,10 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner,
+  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard,
 } from './HomeWidgets';
+import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
+import { placeRunCard } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
@@ -1636,6 +1638,15 @@ export default function HomePage() {
   const isStrengthInviteCarouselItem = (
     item: Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID },
   ): item is { id: typeof STRENGTH_INVITE_CARD_ID } => item.id === STRENGTH_INVITE_CARD_ID;
+  // Home v2 (enable_home_v2) — today's planned run (or the next one) as a slide of the
+  // daily carousel, for running-only and dual-track users (audit-run-schedule §5: the run
+  // card used to live only in StatsOverview RUNNING, which the carousel hides). Same
+  // sentinel pattern as the strength invite above. Pure, from the loaded profile.
+  const homeRun = useHomeRunSlot(profile, featureFlags.enableHomeV2, hasStrengthProgram);
+  const RUN_PLAN_CARD_ID = 'run-plan-card';
+  const isRunPlanCarouselItem = (
+    item: Suggestion | { id: string },
+  ): item is { id: typeof RUN_PLAN_CARD_ID } => item.id === RUN_PLAN_CARD_ID;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -2764,6 +2775,9 @@ export default function HomePage() {
     ? runningScheduleDays
     : lifestyleScheduleDays;
   const hasSchedule = userScheduleDays.length > 0;
+  // enable_home_v2: the week strip for a running-only user (see the strip below).
+  // Flag off → false → the strip's gate and props are exactly as before.
+  const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;
   // 2b (idempotent-booping-sunrise.md) — the value actually fed to
   // SmartWeeklySchedule's `hasSchedule` prop (below), not `hasSchedule`
   // itself. Decision logic lives in resolveCardHasScheduleAndPersona
@@ -2942,8 +2956,10 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program) */}
-        {hasStrengthProgram && (
+        {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program).
+            enable_home_v2: a running-only user (built running plan, no strength program) gets it
+            too, in running mode — their run days with the run icon (runStripOnly below). */}
+        {(hasStrengthProgram || runStripOnly) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2954,8 +2970,8 @@ export default function HomePage() {
             <SmartWeeklySchedule
               v2={featureFlags.enableHomeV2}
               schedule={realSchedule}
-              currentTrack={isRunningMode ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
-              scheduleDays={userScheduleDays}
+              currentTrack={isRunningMode || runStripOnly ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
+              scheduleDays={runStripOnly ? runningScheduleDays : userScheduleDays}
               programIconKey={programIconKey}
               selectedDate={selectedDate}
               onDaySelect={setSelectedDate}
@@ -2965,7 +2981,7 @@ export default function HomePage() {
               hideMonthToggle
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
-              hasCompletedAssessment={hasStrengthProgram}
+              hasCompletedAssessment={hasStrengthProgram || runStripOnly}
               hasSchedule={cardHasScheduleAndPersona}
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
@@ -3260,24 +3276,37 @@ export default function HomePage() {
                         actually binds on any real device width, mirroring the old card's own
                         unconditional sizing. Same per-instance override mechanism
                         TodayActivityStrip already uses for its own wider-card case. */}
-                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID }>
-                      items={
-                        !hasStrengthProgram
+                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID }>
+                      items={(() => {
+                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID }> = !hasStrengthProgram
                           ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
-                          : readyPreWorkoutSuggestions
-                      }
+                          : readyPreWorkoutSuggestions;
+                        // enable_home_v2 only (homeRun.slot is null with the flag off).
+                        return homeRun.slot
+                          ? placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)
+                          : base;
+                      })()}
                       keyExtractor={(s) => s.id}
                       cardHeight={330}
                       maxCardWidthPx={300}
                       maxCardWidthVw={100}
                       onSettle={(item) => {
-                        // The invite slide has no generator-resolved content to settle on —
-                        // skip it entirely rather than feeding a non-Suggestion object into
+                        // The invite / run slides have no generator-resolved content to settle
+                        // on — skip them rather than feeding a non-Suggestion object into
                         // handlePreWorkoutSettle's resolveHomeTier2 call.
+                        if (isRunPlanCarouselItem(item)) return;
                         if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
                       }}
                       renderCard={(s) =>
-                        isStrengthInviteCarouselItem(s) ? (
+                        isRunPlanCarouselItem(s) && homeRun.slot ? (
+                          <HomeRunCarouselCard
+                            slot={homeRun.slot}
+                            profile={profile}
+                            currentWeek={homeRun.currentWeek}
+                            weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                            calmReturn={calmReturn.state}
+                          />
+                        ) : isRunPlanCarouselItem(s) ? null : isStrengthInviteCarouselItem(s) ? (
                           <AddStrengthProgramCard
                             profile={profile}
                             onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}

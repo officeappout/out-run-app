@@ -24,6 +24,7 @@ import { AiCoachHomeEntry as AiCoachHomeEntryRaw } from '@/features/ai-coach/com
 import AnchorLocationChipRaw from '@/features/home/components/AnchorLocationChip';
 import WorkoutLocationSuggestionsRaw from '@/features/home/components/WorkoutLocationSuggestions';
 import CalmReturnCardRaw from '@/features/home/components/CalmReturnCard';
+import HomeRunCarouselCardRaw from '@/features/home/components/widgets/run-week-v2/HomeRunCarouselCard';
 import NearbyGroupsRowRaw from '@/features/home/components/NearbyGroupsRow';
 import CommunitySessionBannerRaw from '@/features/arena/components/CommunitySessionBanner';
 import { PostWorkoutCardRenderer as PostWorkoutCardRendererRaw } from '@/features/home/components/PostWorkoutCardRenderer';
@@ -32,6 +33,8 @@ import { PreWorkoutCardRenderer as PreWorkoutCardRendererRaw } from '@/features/
 // Main cards — a compact retry card rather than a silent gap.
 export const StatsOverview = withWidgetBoundary(StatsOverviewRaw, 'home.StatsOverview', compactWidgetFallback);
 export const PreWorkoutCardRenderer = withWidgetBoundary(PreWorkoutCardRendererRaw, 'home.PreWorkoutCard', compactWidgetFallback);
+// enable_home_v2: today's / the next planned run as a daily-carousel slide.
+export const HomeRunCarouselCard = withWidgetBoundary(HomeRunCarouselCardRaw, 'home.HomeRunCarouselCard', compactWidgetFallback);
 export const PostWorkoutCardRenderer = withWidgetBoundary(PostWorkoutCardRendererRaw, 'home.PostWorkoutCard', compactWidgetFallback);
 export const TodayActivityStrip = withWidgetBoundary(TodayActivityStripRaw, 'home.TodayActivityStrip', compactWidgetFallback);
 

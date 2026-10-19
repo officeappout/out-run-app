@@ -18,6 +18,7 @@ import { HYBRID_AER as AER } from '../../hybrid/hybrid-colors';
 import type { AerobicLeg, AerobicMetaIcon } from '../overview-legs';
 import { AER_TINT, AER_TEXT, CARD_PAD, Meta, fmtPace, useAxisCardStyles } from './AxisParts';
 import { useAxisDecor } from './axis-decor';
+import DrillChips from './DrillChips';
 
 function metaIcon(icon: AerobicMetaIcon, activity?: string): ReactNode {
   if (icon === 'distance') return <Ruler size={14} />;
@@ -35,7 +36,8 @@ export interface AerobicLegCardProps {
 
 export default function AerobicLegCard({ leg, expanded = false, onToggle, detail }: AerobicLegCardProps) {
   const { v2, cardCls, cardStyle, titleCls, titleStyle, pacePillStyle } = useAxisCardStyles();
-  const { renderPace } = useAxisDecor();
+  const { renderPace, onDrillTap } = useAxisDecor();
+  const drills = leg.drills && leg.drills.length > 0 && onDrillTap ? <DrillChips drills={leg.drills} onTap={onDrillTap} /> : null;
   const pace = leg.paceSecPerKm ?? 0;
   const paceText = leg.paceText ?? (pace > 0 ? fmtPace(pace) : '');
   const metas = (
@@ -59,6 +61,7 @@ export default function AerobicLegCard({ leg, expanded = false, onToggle, detail
         <div style={CARD_PAD}>
           <span className={`${titleCls} block${v2 ? ' truncate' : ''}`} style={titleStyle}>{leg.title}</span>
           {metas}
+          {drills}
         </div>
       </div>
     );
@@ -84,6 +87,7 @@ export default function AerobicLegCard({ leg, expanded = false, onToggle, detail
           </div>
         )}
         {metas}
+        {drills}
         {expandable && expanded && detail != null && (
           <div className="mt-2.5 border-t border-[#e6edf2] pt-2.5">{detail}</div>
         )}

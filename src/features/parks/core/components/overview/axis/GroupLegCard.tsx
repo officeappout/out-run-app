@@ -12,7 +12,7 @@
  * without it render exactly as before.
  */
 
-import { Clock, Repeat, Ruler } from 'lucide-react';
+import { Clock, Play, Repeat, Ruler } from 'lucide-react';
 import type { GroupLeg, GroupRowTone } from '../overview-legs';
 import { AER_TINT, AER_TEXT, CARD_PAD, CardGroup, Meta, useAxisCardStyles } from './AxisParts';
 import { useAxisDecor } from './axis-decor';
@@ -65,7 +65,7 @@ export default function GroupLegCard({ leg }: { leg: GroupLeg }) {
 /** Board M-6a group card (v2 run overview). */
 function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
   const { cardCls, cardStyle, titleCls, titleStyle } = useAxisCardStyles();
-  const { renderPace, groupExtras } = useAxisDecor();
+  const { renderPace, groupExtras, onDrillTap } = useAxisDecor();
   const extras = groupExtras?.(leg) ?? null;
   const badge = leg.repeat != null && leg.repeat > 1 && (
     <span className="inline-flex shrink-0 items-center gap-1.5">
@@ -104,17 +104,34 @@ function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
           </div>
         )}
         <div className="mt-2 rounded-[18px] bg-v2-surface px-2.5 py-1 ring-1 ring-inset ring-v2-hairline">
-          {leg.rows.map((row) => (
-            <div key={row.key} className="flex items-center gap-2.5 px-0.5 py-[5px]">
-              <span aria-hidden className="shrink-0 rounded-full" style={{ width: 8, height: 26, background: row.color ?? GROUP_TONE_COLOR[row.tone] }} />
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-ink">{row.label}</span>
-              {row.paceText && row.paceKey && renderPace
-                ? renderPace({ paceKey: row.paceKey, text: row.paceText, edited: !!row.paceEdited, tone: 'row' })
-                : row.paceText && (
-                  <span dir="ltr" className="shrink-0 whitespace-nowrap text-[12.5px] font-black text-v2-deep">{row.paceText}</span>
+          {leg.rows.map((row) => {
+            const drillKey = row.drillKey && onDrillTap ? row.drillKey : null;
+            const bar = <span aria-hidden className="shrink-0 rounded-full" style={{ width: 8, height: 26, background: row.color ?? GROUP_TONE_COLOR[row.tone] }} />;
+            const label = <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-ink">{row.label}</span>;
+            return (
+              <div key={row.key} className="flex items-center gap-2.5 px-0.5 py-[5px]">
+                {drillKey ? (
+                  // The row's drill / exercise video (the old briefing's tap-to-watch).
+                  <button type="button" onClick={() => onDrillTap?.(drillKey)} aria-label={`צפה בסרטון: ${row.label}`}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97]">
+                    {bar}
+                    {label}
+                    <Play size={13} strokeWidth={2.6} fill="currentColor" className="shrink-0 text-v2-deep" aria-hidden />
+                  </button>
+                ) : (
+                  <>
+                    {bar}
+                    {label}
+                  </>
                 )}
-            </div>
-          ))}
+                {row.paceText && row.paceKey && renderPace
+                  ? renderPace({ paceKey: row.paceKey, text: row.paceText, edited: !!row.paceEdited, tone: 'row' })
+                  : row.paceText && (
+                    <span dir="ltr" className="shrink-0 whitespace-nowrap text-[12.5px] font-black text-v2-deep">{row.paceText}</span>
+                  )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

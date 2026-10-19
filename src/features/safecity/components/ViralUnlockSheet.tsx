@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, Share2, QrCode } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface ViralUnlockSheetProps {
   isOpen: boolean;
@@ -35,6 +39,9 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
   const { profile } = useUserStore();
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const referralCount = profile?.core?.referralCount ?? 0;
   const userId = profile?.id ?? '';
@@ -80,6 +87,154 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
     }
   }, [inviteLink]);
 
+  const body = (
+    <div className="px-6 pb-8 pt-2 flex flex-col items-center gap-5 overflow-y-auto" dir="rtl">
+      {/* Lemur mascot — lemur-avatar with cyan glow */}
+      <div
+        className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#00BAF7] flex items-center justify-center bg-cyan-50"
+        style={{
+          boxShadow: '0 0 20px rgba(0, 186, 247, 0.35), 0 0 40px rgba(0, 186, 247, 0.15)',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/assets/lemur/lemur-avatar.png"
+          alt="Smart Lemur"
+          width={96}
+          height={96}
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Headline */}
+      <div className="text-center">
+        <h3 className="text-lg font-black text-gray-900">
+          בונים נבחרת!
+        </h3>
+        <p className="text-[13px] text-gray-500 mt-1.5 max-w-[280px] mx-auto leading-relaxed">
+          הזמן שותף אחד כדי לפתוח את מפת השותפים ודירוגי הליגה
+        </p>
+      </div>
+
+      {/* Single-step goal indicator */}
+      <div className="w-full max-w-[300px]">
+        <div className="flex items-center justify-center gap-1.5 mb-3">
+          <span className="text-[12px] font-black text-gray-800 tracking-wide">
+            ({referralCount}/{REFERRAL_GOAL}) שותפים הצטרפו
+          </span>
+        </div>
+
+        {referralCount >= REFERRAL_GOAL ? (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex flex-col items-center gap-2"
+          >
+            <div
+              className="w-14 h-14 rounded-full bg-[#00BAF7] text-white flex items-center justify-center shadow-lg"
+              style={{ boxShadow: '0 0 20px rgba(0,186,247,0.4)' }}
+            >
+              <Check size={28} strokeWidth={3} />
+            </div>
+            <span className="text-sm font-black text-[#00BAF7]">נפתח! 🎉</span>
+          </motion.div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <motion.div
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+              className="w-14 h-14 rounded-full bg-white border-[3px] border-[#00BAF7] text-[#00BAF7] flex items-center justify-center shadow-lg"
+              style={{ boxShadow: '0 0 12px rgba(0,186,247,0.3)' }}
+            >
+              <span className="text-lg font-black">1</span>
+            </motion.div>
+            <span className="text-[11px] font-bold text-gray-400">חסר עוד שותף אחד</span>
+          </div>
+        )}
+      </div>
+
+      {/* Primary: WhatsApp / Share — pill shape */}
+      <button
+        onClick={handleShareWhatsApp}
+        className="w-full flex items-center justify-center gap-3 py-4 rounded-full text-white font-extrabold text-[15px] shadow-lg transition-all active:scale-[0.97]"
+        style={{
+          background: 'linear-gradient(135deg, #25D366, #128C7E)',
+          boxShadow: '0 4px 24px rgba(37,211,102,0.35)',
+        }}
+      >
+        <Share2 size={20} />
+        <span>שלח הזמנה בוואטסאפ</span>
+      </button>
+
+      {/* Secondary actions row */}
+      <div className="flex items-center gap-3 w-full">
+        <button
+          onClick={handleCopyLink}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-gray-100 text-gray-700 font-bold text-[13px] transition-all active:scale-[0.97] hover:bg-gray-200"
+        >
+          {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+          <span>{copied ? 'הקישור הועתק!' : 'העתק קישור'}</span>
+        </button>
+        <button
+          onClick={() => setShowQR(!showQR)}
+          className="flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-gray-100 text-gray-700 font-bold text-[13px] transition-all active:scale-[0.97] hover:bg-gray-200"
+        >
+          <QrCode size={16} />
+          <span>QR</span>
+        </button>
+      </div>
+
+      {/* QR Code section */}
+      <AnimatePresence>
+        {showQR && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="w-full flex flex-col items-center gap-2 overflow-hidden"
+          >
+            <div className="w-48 h-48 bg-white border-2 border-gray-200 rounded-2xl flex items-center justify-center p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inviteLink)}`}
+                alt="QR Code"
+                width={180}
+                height={180}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 text-center">
+              תן לשותף לסרוק — ייכנס ישירות לאפליקציה
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Backdrop z-[90] / panel z-[91] (.cursorrules), in place — unchanged.
+        zIndex={SHEET_Z.joinSuccessPanel}
+        backdropZIndex={SHEET_Z.joinSuccess}
+        portal={false}
+        keyboardAware={false}
+        scroll="panel"
+        className="relative max-h-[85vh]"
+        transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+        ariaLabel="בונים נבחרת!"
+      >
+        <IconButton aria-label="סגירה" tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </IconButton>
+        {body}
+      </Sheet>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -113,128 +268,7 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
               <X size={20} />
             </button>
 
-            <div className="px-6 pb-8 pt-2 flex flex-col items-center gap-5 overflow-y-auto" dir="rtl">
-              {/* Lemur mascot — lemur-avatar with cyan glow */}
-              <div
-                className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-[#00BAF7] flex items-center justify-center bg-cyan-50"
-                style={{
-                  boxShadow: '0 0 20px rgba(0, 186, 247, 0.35), 0 0 40px rgba(0, 186, 247, 0.15)',
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/assets/lemur/lemur-avatar.png"
-                  alt="Smart Lemur"
-                  width={96}
-                  height={96}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Headline */}
-              <div className="text-center">
-                <h3 className="text-lg font-black text-gray-900">
-                  בונים נבחרת!
-                </h3>
-                <p className="text-[13px] text-gray-500 mt-1.5 max-w-[280px] mx-auto leading-relaxed">
-                  הזמן שותף אחד כדי לפתוח את מפת השותפים ודירוגי הליגה
-                </p>
-              </div>
-
-              {/* Single-step goal indicator */}
-              <div className="w-full max-w-[300px]">
-                <div className="flex items-center justify-center gap-1.5 mb-3">
-                  <span className="text-[12px] font-black text-gray-800 tracking-wide">
-                    ({referralCount}/{REFERRAL_GOAL}) שותפים הצטרפו
-                  </span>
-                </div>
-
-                {referralCount >= REFERRAL_GOAL ? (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center gap-2"
-                  >
-                    <div
-                      className="w-14 h-14 rounded-full bg-[#00BAF7] text-white flex items-center justify-center shadow-lg"
-                      style={{ boxShadow: '0 0 20px rgba(0,186,247,0.4)' }}
-                    >
-                      <Check size={28} strokeWidth={3} />
-                    </div>
-                    <span className="text-sm font-black text-[#00BAF7]">נפתח! 🎉</span>
-                  </motion.div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <motion.div
-                      animate={{ scale: [1, 1.08, 1] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                      className="w-14 h-14 rounded-full bg-white border-[3px] border-[#00BAF7] text-[#00BAF7] flex items-center justify-center shadow-lg"
-                      style={{ boxShadow: '0 0 12px rgba(0,186,247,0.3)' }}
-                    >
-                      <span className="text-lg font-black">1</span>
-                    </motion.div>
-                    <span className="text-[11px] font-bold text-gray-400">חסר עוד שותף אחד</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Primary: WhatsApp / Share — pill shape */}
-              <button
-                onClick={handleShareWhatsApp}
-                className="w-full flex items-center justify-center gap-3 py-4 rounded-full text-white font-extrabold text-[15px] shadow-lg transition-all active:scale-[0.97]"
-                style={{
-                  background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                  boxShadow: '0 4px 24px rgba(37,211,102,0.35)',
-                }}
-              >
-                <Share2 size={20} />
-                <span>שלח הזמנה בוואטסאפ</span>
-              </button>
-
-              {/* Secondary actions row */}
-              <div className="flex items-center gap-3 w-full">
-                <button
-                  onClick={handleCopyLink}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-gray-100 text-gray-700 font-bold text-[13px] transition-all active:scale-[0.97] hover:bg-gray-200"
-                >
-                  {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                  <span>{copied ? 'הקישור הועתק!' : 'העתק קישור'}</span>
-                </button>
-                <button
-                  onClick={() => setShowQR(!showQR)}
-                  className="flex items-center justify-center gap-2 py-3 px-5 rounded-full bg-gray-100 text-gray-700 font-bold text-[13px] transition-all active:scale-[0.97] hover:bg-gray-200"
-                >
-                  <QrCode size={16} />
-                  <span>QR</span>
-                </button>
-              </div>
-
-              {/* QR Code section */}
-              <AnimatePresence>
-                {showQR && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="w-full flex flex-col items-center gap-2 overflow-hidden"
-                  >
-                    <div className="w-48 h-48 bg-white border-2 border-gray-200 rounded-2xl flex items-center justify-center p-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inviteLink)}`}
-                        alt="QR Code"
-                        width={180}
-                        height={180}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <p className="text-[11px] text-gray-400 text-center">
-                      תן לשותף לסרוק — ייכנס ישירות לאפליקציה
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {body}
           </motion.div>
         </>
       )}
