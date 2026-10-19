@@ -148,8 +148,8 @@ export interface SlotEnv {
   hasGps: boolean;
   /** Parks near the user (0 ⇒ A3: hybrid still offered, station → bodyweight). */
   nearbyParkCount: number;
-  /** Active activity toggle on the slot layer. */
-  aerobicKind: AerobicKind;
+  /** Active activity toggle on the slot layer (walk / run — the carousel has no ride). */
+  aerobicKind: Extract<AerobicKind, 'walking' | 'running'>;
   profileType?: 1 | 2 | 3 | 4;
   /** Full-park gate: an EQUIPPED primary-fitness park is reachable (DiscoverLayer). */
   hasEquippedPark?: boolean;

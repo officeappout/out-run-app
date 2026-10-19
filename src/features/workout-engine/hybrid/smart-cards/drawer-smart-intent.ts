@@ -6,7 +6,8 @@
  */
 
 import type { HybridStartIntent } from '../build-hybrid-input';
-import { MAX_RUN_KM, MAX_WALK_KM, MIN_WALK_KM, WALK_MIN_PER_KM } from './smart-sizing';
+import { MAX_RIDE_KM, MAX_RUN_KM, MAX_WALK_KM, MIN_WALK_KM, WALK_MIN_PER_KM } from './smart-sizing';
+import { CYCLING_MIN_PER_KM } from '../aerobic-kind';
 
 export function drawerIntentToSmart(
   intent: HybridStartIntent,
@@ -16,8 +17,10 @@ export function drawerIntentToSmart(
   const walkMin = intent.timeBudgetMin * intent.aerobicShare;
   const minPerKm = intent.aerobicKind === 'walking'
     ? WALK_MIN_PER_KM
-    : (basePaceSecPerKm && basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5);
-  const maxKm = intent.aerobicKind === 'running' ? MAX_RUN_KM : MAX_WALK_KM;
+    : intent.aerobicKind === 'cycling'
+      ? CYCLING_MIN_PER_KM
+      : (basePaceSecPerKm && basePaceSecPerKm > 0 ? basePaceSecPerKm / 60 : 6.5);
+  const maxKm = intent.aerobicKind === 'cycling' ? MAX_RIDE_KM : intent.aerobicKind === 'running' ? MAX_RUN_KM : MAX_WALK_KM;
   const targetKm = Math.round(Math.max(MIN_WALK_KM, Math.min(maxKm, walkMin / minPerKm)) * 10) / 10;
   return {
     ...intent,

@@ -484,3 +484,82 @@ describe('first station before the warm-up walk', () => {
     expect(wp.segments[1].exercises?.every((e) => e.exerciseRole === 'main')).toBe(true);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// Owner device report 19.10.2026 — "מסלול + עצירות" showed one walking leg and NO station
+// (1.87 km loop, קליל/מאוזן/עוצמתי pills), and a ride or a run with a 0 base pace showed
+// "0 דק׳" legs.
+describe('a strength stop always becomes the station (no walk-only route + stops)', () => {
+  // A 1.87 km loop: a gym 0.5 km in, a viewpoint (stretch stop) right at the middle.
+  const gymStop = (km: number) => ({ candidate: stop('gym', 5, ['pullup_bar']), km });
+  const viewStop = (km: number) => ({
+    candidate: stop('view', 9, [], { locationKind: 'viewpoint', activityType: 'stretch' }), km,
+  });
+
+  it('one station: the gym wins over a better-spaced stretch stop', () => {
+    const plan = planRouteStations({
+      candidatesByKm: [gymStop(0.5), viewStop(0.95)], routeKm: 1.87, walkSecPerKm: 600,
+      timeBudgetMin: 30, targetDomains: ['push', 'pull', 'legs', 'core'], log: [],
+    });
+    expect(plan.chosen.map((c) => c.candidate.stopId)).toEqual(['gym']);
+    expect(plan.chosen[0].domains?.sort()).toEqual(['core', 'legs', 'pull', 'push']);
+  });
+
+  it('the only gym sits before the warm-up walk → it is still the station (with a warm-up), not the viewpoint', () => {
+    const plan = planRouteStations({
+      candidatesByKm: [gymStop(0.1), viewStop(0.95)], routeKm: 1.87, walkSecPerKm: 600,
+      timeBudgetMin: 30, targetDomains: ['push', 'pull', 'legs', 'core'], log: [],
+    });
+    expect(plan.chosen.map((c) => c.candidate.stopId)).toEqual(['gym']);
+    expect(plan.chosen[0].needsWarmup).toBe(true);
+  });
+
+  it('only stretch stops on the route → unchanged (the stretch stop is the station)', () => {
+    const plan = planRouteStations({
+      candidatesByKm: [viewStop(0.95)], routeKm: 1.87, walkSecPerKm: 600,
+      timeBudgetMin: 30, targetDomains: ['push', 'pull', 'legs', 'core'], log: [],
+    });
+    expect(plan.chosen.map((c) => c.candidate.stopId)).toEqual(['view']);
+  });
+
+  it('the planned station comes out empty → a walked-past strength stop is used instead', () => {
+    // Every exercise needs rings: the planned (middle) bar park has none, the far park does.
+    n = 0;
+    const ringsOnly = ['vertical_pull', 'vertical_push', 'squat', 'core'].flatMap((mg) =>
+      [ex(mg, { gear: ['rings'] }), ex(mg, { gear: ['rings'] })]);
+    const mid = stop('mid-bars', 12, ['pullup_bar']);
+    const far = stop('far-rings', 20, ['rings']);
+    const plan = composeHybridSession(input({ stopCandidates: [mid, far], masterExercises: ringsOnly }));
+    const stations = strengthSegs(plan);
+    expect(stations).toHaveLength(1);
+    expect(stations[0].stopId).toBe('far-rings');
+    expect(stations[0].content?.exercises.length).toBeGreaterThan(0);
+    expect(plan.meta.log.some((l) => l.includes('rescued pass-through stop far-rings'))).toBe(true);
+  });
+});
+
+describe('aerobic legs are timed by the real activity (never 0 min for a real distance)', () => {
+  const aerobic = (plan: ReturnType<typeof composeHybridSession>) => plan.segments.filter((s) => s.kind === 'aerobic');
+
+  it('a ride: cycling legs at ~20 km/h (3 min/km), not running legs', () => {
+    const plan = composeHybridSession(input({ aerobicKind: 'cycling', stopCandidates: [stop('p', 12, ['pullup_bar'])] }));
+    const legs = aerobic(plan);
+    expect(legs.length).toBeGreaterThan(0);
+    for (const leg of legs) {
+      expect(leg.aerobicType).toBe('cycling');
+      if ((leg.distanceKm ?? 0) > 0) {
+        expect(leg.durationSec).toBeGreaterThan(0);
+        expect((leg.durationSec ?? 0) / (leg.distanceKm ?? 1)).toBeCloseTo(180, -1);
+      }
+    }
+  });
+
+  it('a run with basePace 0 on the profile (never ran) → the default pace, not 0-minute legs', () => {
+    const plan = composeHybridSession(input({
+      aerobicKind: 'running', paceProfile: { basePace: 0, profileType: 2 }, stopCandidates: [stop('p', 12, ['pullup_bar'])],
+    }));
+    for (const leg of aerobic(plan)) {
+      if ((leg.distanceKm ?? 0) > 0.05) expect(Math.round((leg.durationSec ?? 0) / 60)).toBeGreaterThan(0);
+    }
+  });
+});

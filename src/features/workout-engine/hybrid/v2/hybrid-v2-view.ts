@@ -9,6 +9,7 @@ import { isShortLegTarget } from '../../engines/leg-pace';
 import { STRIP_COLORS } from '../../engines/strip-item';
 import { fmtClock, fmtDistance } from '../../players/running/lib/planned-rep-results';
 import { zoneTypeLabel, type ZoneTarget } from '../../players/running/lib/continuous-run';
+import { aerobicKindLabel } from '../aerobic-kind';
 
 export const HYBRID_V2_COLORS = { run: STRIP_COLORS.cardio, strength: STRIP_COLORS.strength } as const;
 
@@ -22,6 +23,9 @@ export function stationExercises(seg: HybridPlannedSegment | null | undefined): 
 }
 
 const walking = (seg: HybridPlannedSegment | null | undefined) => seg?.aerobicType === 'walking';
+const cycling = (seg: HybridPlannedSegment | null | undefined) => seg?.aerobicType === 'cycling';
+/** "הליכה" / "ריצה" / "רכיבה" for a leg (no aerobicType → "ריצה", as before). */
+const verbOf = (seg: HybridPlannedSegment | null | undefined) => aerobicKindLabel(seg?.aerobicType);
 
 /** "פארק הירקון" from the composed station names, else null. */
 export function stationName(seg: HybridPlannedSegment | null | undefined, names: Record<string, string>): string | null {
@@ -42,13 +46,13 @@ export function legLabel(plan: readonly HybridPlannedSegment[], i: number, names
   const seg = plan[i];
   if (!seg) return '';
   if (seg.kind === 'strength') return stationName(seg, names) ? `תחנת כוח · ${stationName(seg, names)}` : 'תחנת כוח';
-  const verb = walking(seg) ? 'הליכה' : 'ריצה';
+  const verb = verbOf(seg);
   const next = stationAfterIndex(plan, i);
   if (next >= 0) {
     const name = stationName(plan[next], names);
     return name ? `${verb} אל ${name}` : `${verb} אל התחנה`;
   }
-  if (stationBefore(plan, i) && !plan.slice(i + 1).some((s) => s.kind === 'strength')) return walking(seg) ? 'הליכת שחרור' : 'ריצת שחרור';
+  if (stationBefore(plan, i) && !plan.slice(i + 1).some((s) => s.kind === 'strength')) return walking(seg) ? 'הליכת שחרור' : cycling(seg) ? 'רכיבת שחרור' : 'ריצת שחרור';
   return verb;
 }
 
@@ -68,7 +72,7 @@ export function legZone(seg: HybridPlannedSegment | null | undefined): ZoneTarge
   return {
     minSec: Math.min(band.min, band.max),
     maxSec: Math.max(band.min, band.max),
-    label: zoneTypeLabel(seg.zone) ?? (walking(seg) ? 'הליכה' : 'ריצה קלה'),
+    label: cycling(seg) ? 'רכיבה' : zoneTypeLabel(seg.zone) ?? (walking(seg) ? 'הליכה' : 'ריצה קלה'),
     showNumbers: true,
   };
 }
@@ -88,7 +92,7 @@ export function headerView(
   sessionLabel?: string | null,
 ): HybridHeaderView {
   const firstLeg = plan.find((s) => s.kind === 'aerobic');
-  const eyebrow = sessionLabel || `${walking(firstLeg) ? 'הליכה' : 'ריצה'} + כוח`;
+  const eyebrow = sessionLabel || `${verbOf(firstLeg)} + כוח`;
   const of = `${Math.min(plan.length, view.cursor + 1)} מתוך ${plan.length}`;
   if (view.phase === 'transition') {
     return { eyebrow, title: `מעבר לכוח · ${of}`, color: HYBRID_V2_COLORS.strength };
