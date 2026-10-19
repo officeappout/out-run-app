@@ -23,7 +23,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
 
   it('the run slide is only added when the slot lands in the carousel', () => {
     expect(pageSrc).toContain('placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)');
-    expect(pageSrc).toMatch(/return runSlotSurface === 'carousel' && homeRun\.slot\s*\?\s*placeRunCard/);
+    expect(pageSrc).toMatch(/const withRun = runSlotSurface === 'carousel' && homeRun\.slot\s*\?\s*placeRunCard/);
   });
 
   it('the surface knows the flag (flag off → carousel only, no standalone card)', () => {
@@ -45,18 +45,26 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('the run slide never reaches handlePreWorkoutSettle', () => {
-    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
+    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\) \|\| isProgramSlideCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
   });
 
   it('the running-only week strip is gated on the flag', () => {
     expect(pageSrc).toContain('const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;');
-    expect(pageSrc).toContain('{(hasStrengthProgram || runStripOnly) && (');
+    expect(pageSrc).toContain('{(hasStrengthProgram || runStripOnly || pickProgramStrip) && (');
+    expect(pageSrc).toContain("const pickProgramStrip = featureFlags.enableHomeV2 && programSlide.plan.mode === 'start';");
   });
 
   it('the standalone run card only renders off the v2 slot, beside the StatsOverview fallback', () => {
     expect(pageSrc).toContain('resolveRunSlotSurface(\n                  homeRun.slot,');
     expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (");
     expect(pageSrc).toMatch(/\{standaloneRunCard\}\s*<StatsOverview/);
+  });
+
+  it('v2 program slide (start pair / add card) replaces the strength invite only under the flag', () => {
+    expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2)');
+    expect(pageSrc).toContain('!hasStrengthProgram && !featureFlags.enableHomeV2');
+    expect(pageSrc).toContain('placeProgramSlide(withRun, { id: PROGRAM_SLIDE_ID }, programSlide.plan)');
+    expect(pageSrc).toMatch(/featureFlags\.enableHomeV2\s*\?\s*placeProgramSlide<[^>]*>\(postWorkoutSuggestions/);
   });
 
   it('the strength-mode strip run overlay is gated on the flag', () => {

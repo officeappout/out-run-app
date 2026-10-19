@@ -20,7 +20,10 @@ import { fileURLToPath } from 'url';
 const pagePath = fileURLToPath(new URL('../page.tsx', import.meta.url));
 const pageSrc = readFileSync(pagePath, 'utf8');
 const cardPath = fileURLToPath(new URL('../../../features/home/components/AddStrengthProgramCard.tsx', import.meta.url));
+// The tap / navigation moved into the shared start-card hook (home v2 start cards, 19.10.2026).
+const tapHookPath = fileURLToPath(new URL('../../../features/home/components/start-cards/useOnboardingEntryTap.ts', import.meta.url));
 const cardSrc = readFileSync(cardPath, 'utf8');
+const tapHookSrc = readFileSync(tapHookPath, 'utf8');
 
 describe('home/page.tsx — handleHeroPress no-strength branch now passes through the health gate', () => {
   it('wraps the assessment-visual navigation in interceptWorkoutStart, same as the hasStrengthProgram branch', () => {
@@ -44,8 +47,9 @@ describe('home/page.tsx — handleHeroPress no-strength branch now passes throug
 
 describe('AddStrengthProgramCard — onNavigate is optional, non-workout-start callers are unaffected', () => {
   it('calls onNavigate when provided instead of navigating directly', () => {
-    expect(cardSrc).toContain('if (onNavigate) onNavigate(navigate);');
-    expect(cardSrc).toContain('else navigate();');
+    expect(cardSrc).toContain("useOnboardingEntryTap(profile, 'STRENGTH', onNavigate)");
+    expect(tapHookSrc).toContain('if (onNavigate) onNavigate(navigate);');
+    expect(tapHookSrc).toContain('else navigate();');
   });
 
   it('the prop is optional — a caller outside the workout-start flow (e.g. TrackedProgramsSection) keeps working unchanged', () => {

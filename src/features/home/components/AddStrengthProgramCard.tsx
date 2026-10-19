@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import type { UserFullProfile } from '@/types/user-profile';
-import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
+import ProgramStartCard from './start-cards/ProgramStartCard';
+import { useOnboardingEntryTap } from './start-cards/useOnboardingEntryTap';
+import { PROGRAM_START_COPY } from './start-cards/program-start-copy';
 
 interface AddStrengthProgramCardProps {
   profile: UserFullProfile | null | undefined;
@@ -21,6 +22,12 @@ interface AddStrengthProgramCardProps {
    * stays direct, byte-identical to before.
    */
   onNavigate?: (navigate: () => void) => void;
+  /**
+   * Home v2 (enable_home_v2, S-7b): the compact start card that sits next to
+   * "תוכנית ריצה" in ProgramStartPair. Same tap / navigation; omitted → the
+   * original full-width card, unchanged.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -41,17 +48,15 @@ interface AddStrengthProgramCardProps {
  * this exact purpose — identity-known vs identity-unknown users both land in
  * the right place without any new branching here.
  */
-export default function AddStrengthProgramCard({ profile, onNavigate }: AddStrengthProgramCardProps) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+export default function AddStrengthProgramCard({ profile, onNavigate, compact = false }: AddStrengthProgramCardProps) {
+  const { loading, tap: handleTap } = useOnboardingEntryTap(profile, 'STRENGTH', onNavigate);
 
-  const handleTap = () => {
-    if (loading) return;
-    setLoading(true);
-    const navigate = () => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'));
-    if (onNavigate) onNavigate(navigate);
-    else navigate();
-  };
+  if (compact) {
+    const copy = PROGRAM_START_COPY.strength;
+    return (
+      <ProgramStartCard track="strength" title={copy.title} valueLine={copy.valueLine} chipLabel={copy.chip} loading={loading} onTap={handleTap} />
+    );
+  }
 
   return (
     <div className="h-full w-full flex items-center justify-center">

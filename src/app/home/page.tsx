@@ -104,8 +104,12 @@ import {
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
   CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
+  HomeProgramSlide,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
+import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
+import { placeProgramSlide, type ProgramTrack } from '@/features/home/utils/program-start-cards';
+import { PICK_PROGRAM_STRIP_HINT } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
@@ -1650,6 +1654,26 @@ export default function HomePage() {
   const isRunPlanCarouselItem = (
     item: Suggestion | { id: string },
   ): item is { id: typeof RUN_PLAN_CARD_ID } => item.id === RUN_PLAN_CARD_ID;
+  // enable_home_v2 (canvas "שאלון לו״ז" row 7): the program slide — a new user's two
+  // equal start cards (strength + running), or, with one track, the other track's
+  // "רוצה להוסיף …?" card. Replaces the strength-invite sentinel under the flag; flag
+  // off → plan 'none' and both carousels keep the strength invite exactly as before.
+  const programSlide = useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2);
+  const PROGRAM_SLIDE_ID = 'program-slide';
+  const isProgramSlideCarouselItem = (
+    item: Suggestion | { id: string },
+  ): item is { id: typeof PROGRAM_SLIDE_ID } => item.id === PROGRAM_SLIDE_ID;
+  const programSlideNavigate = (track: ProgramTrack, navigate: () => void) => {
+    interceptWorkoutStart(navigate, track);
+  };
+  const programSlideCard = (
+    <HomeProgramSlide
+      plan={programSlide.plan}
+      profile={profile}
+      onNavigate={programSlideNavigate}
+      onDismissAdd={programSlide.dismissAdd}
+    />
+  );
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -2784,6 +2808,9 @@ export default function HomePage() {
   const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;
   // enable_home_v2: a dual-track user outside running mode (PERFORMANCE / DEFAULT) — the
   // strength strip also shows the run days (run-overlay-day.ts). Flag off → undefined.
+  // enable_home_v2: a user with no program yet sees the strip blurred, pointing at the
+  // start cards in the carousel ("בחר תוכנית למטה", S-7b). Flag off → false.
+  const pickProgramStrip = featureFlags.enableHomeV2 && programSlide.plan.mode === 'start';
   const runOverlayDays = featureFlags.enableHomeV2 && hasStrengthProgram && homeRun.hasRunningPlan && !isRunningMode
     ? runningScheduleDays
     : undefined;
@@ -2965,7 +2992,7 @@ export default function HomePage() {
         {/* Week Strip — hidden until user has completed assessment (schedule is useless without a program).
             enable_home_v2: a running-only user (built running plan, no strength program) gets it
             too, in running mode — their run days with the run icon (runStripOnly below). */}
-        {(hasStrengthProgram || runStripOnly) && (
+        {(hasStrengthProgram || runStripOnly || pickProgramStrip) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2988,7 +3015,8 @@ export default function HomePage() {
               onSwipeDown={() => setShowPlanner(true)}
               onOpenPlanner={() => setShowPlanner(true)}
               hasCompletedAssessment={hasStrengthProgram || runStripOnly}
-              hasSchedule={cardHasScheduleAndPersona}
+              hasSchedule={pickProgramStrip ? false : cardHasScheduleAndPersona}
+              overlayHint={pickProgramStrip ? PICK_PROGRAM_STRIP_HINT : undefined}
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
               runningSchedule={profile?.running?.activeProgram?.schedule as any}
@@ -3313,15 +3341,19 @@ export default function HomePage() {
                         actually binds on any real device width, mirroring the old card's own
                         unconditional sizing. Same per-instance override mechanism
                         TodayActivityStrip already uses for its own wider-card case. */}
-                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID }>
+                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID }>
                       items={(() => {
-                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID }> = !hasStrengthProgram
+                        // enable_home_v2: the program slide replaces the strength invite (placed below).
+                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID }> = !hasStrengthProgram && !featureFlags.enableHomeV2
                           ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
                           : readyPreWorkoutSuggestions;
                         // Both flag states (the card differs, see renderCard).
-                        return runSlotSurface === 'carousel' && homeRun.slot
+                        const withRun = runSlotSurface === 'carousel' && homeRun.slot
                           ? placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)
                           : base;
+                        return featureFlags.enableHomeV2
+                          ? placeProgramSlide(withRun, { id: PROGRAM_SLIDE_ID }, programSlide.plan)
+                          : withRun;
                       })()}
                       keyExtractor={(s) => s.id}
                       cardHeight={330}
@@ -3331,7 +3363,7 @@ export default function HomePage() {
                         // The invite / run slides have no generator-resolved content to settle
                         // on — skip them rather than feeding a non-Suggestion object into
                         // handlePreWorkoutSettle's resolveHomeTier2 call.
-                        if (isRunPlanCarouselItem(item)) return;
+                        if (isRunPlanCarouselItem(item) || isProgramSlideCarouselItem(item)) return;
                         if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
                       }}
                       renderCard={(s) =>
@@ -3353,7 +3385,9 @@ export default function HomePage() {
                             onSkipToday={homeRun.skipToday}
                             onUndoSkip={homeRun.undoSkip}
                           />
-                        ) : isRunPlanCarouselItem(s) ? null : isStrengthInviteCarouselItem(s) ? (
+                        ) : isRunPlanCarouselItem(s) ? null : isProgramSlideCarouselItem(s) ? (
+                          programSlideCard
+                        ) : isStrengthInviteCarouselItem(s) ? (
                           <AddStrengthProgramCard
                             profile={profile}
                             onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
@@ -3557,16 +3591,20 @@ export default function HomePage() {
               <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
                 {allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
               </h3>
-              <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID }>
+              <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID }>
                 items={
-                  !hasStrengthProgram
+                  featureFlags.enableHomeV2
+                    ? placeProgramSlide<Suggestion | { id: typeof PROGRAM_SLIDE_ID }>(postWorkoutSuggestions, { id: PROGRAM_SLIDE_ID }, programSlide.plan)
+                    : !hasStrengthProgram
                     ? [{ id: STRENGTH_INVITE_CARD_ID }, ...postWorkoutSuggestions]
                     : postWorkoutSuggestions
                 }
                 keyExtractor={(s) => s.id}
                 cardHeight={330}
                 renderCard={(s) =>
-                  isStrengthInviteCarouselItem(s) ? (
+                  isProgramSlideCarouselItem(s) ? (
+                    programSlideCard
+                  ) : isStrengthInviteCarouselItem(s) ? (
                     <AddStrengthProgramCard
                       profile={profile}
                       onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
