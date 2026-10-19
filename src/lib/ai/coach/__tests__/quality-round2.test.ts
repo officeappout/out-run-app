@@ -270,7 +270,7 @@ describe('schedule entries, lines and chips', () => {
   it('chip specs: labels as the owner wrote them; ids validated', () => {
     expect(COACH_ACTIONS.open_schedule.label).toBe('פתח את הלו״ז');
     expect(COACH_ACTIONS.build_today.label).toBe('בנה את האימון של היום');
-    expect(AI_COACH_CHIP_LINKS).toEqual(['/home?openPlanner=true', '/home?openPlanner=true&openBuilder=true']);
+    expect(AI_COACH_CHIP_LINKS).toEqual(['/home?openPlanner=true', '/home?openPlanner=true&openBuilder=true', '/help']);
     expect(isCoachActionId('open_schedule')).toBe(true);
     expect(isCoachActionId('javascript:alert(1)')).toBe(false);
   });

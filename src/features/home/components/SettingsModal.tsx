@@ -15,7 +15,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
-  Clock, Plus, Accessibility, ListChecks, Footprints, Moon, Map as MapIcon,
+  Clock, Plus, Accessibility, ListChecks, Footprints, Moon, Map as MapIcon, HelpCircle,
 } from 'lucide-react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { setStepGoalChoice } from '@/features/activity/services/step-goal.service';
@@ -2309,6 +2309,15 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     7. כללי
                    ══════════════════════════════════════════════════════════ */}
                 <Section title="כללי">
+                  {/* Kelly round 4 (flag ai_coach_round4) — the help hub + replayable tours. */}
+                  {v2Flags.aiCoachRound4 === true && (
+                    <SettingsRow
+                      icon={<HelpCircle size={20} className="text-gray-700" />}
+                      label="איך משתמשים ושאלות נפוצות"
+                      sublabel="סיור באפליקציה לפי נושא, ותשובות לשאלות"
+                      onClick={() => { onClose(); router.push('/help'); }}
+                    />
+                  )}
                   <SettingsRow
                     icon={<Accessibility size={20} className="text-gray-700" />}
                     label="הפעלת סרגל נגישות"

@@ -18,44 +18,16 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { getRequestIp } from '@/lib/requestIp';
 import { parseCellId } from '@/features/weather/core/cell';
-import type { WeatherApiResponse, WeatherSnapshot } from '@/features/weather/core/weather.types';
+import type { WeatherApiResponse } from '@/features/weather/core/weather.types';
 import { getWeatherProvider } from '@/features/weather/server/weather-provider';
-import {
-  getCellWeather,
-  WEATHER_CACHE_COLLECTION,
-  WEATHER_STALE_MAX_MS,
-  WeatherUnavailableError,
-  type WeatherCacheStore,
-} from '@/features/weather/server/weather-cache';
+import { getCellWeather, WeatherUnavailableError } from '@/features/weather/server/weather-cache';
+import { firestoreWeatherStore } from '@/features/weather/server/firestore-store.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 30;
-
-function firestoreStore(): WeatherCacheStore {
-  const db = getAdminDb();
-  const col = db.collection(WEATHER_CACHE_COLLECTION);
-  return {
-    async read(cell) {
-      const snap = await col.doc(cell).get();
-      if (!snap.exists) return null;
-      const data = snap.data() as { snapshot?: WeatherSnapshot } | undefined;
-      const s = data?.snapshot;
-      return s && typeof s.fetchedAt === 'number' && s.now ? s : null;
-    },
-    async write(cell, snapshot) {
-      await col.doc(cell).set({
-        snapshot,
-        provider: snapshot.provider,
-        updatedAt: new Date(snapshot.fetchedAt),
-        // For an optional Firestore TTL policy on this collection; harmless otherwise.
-        expiresAt: new Date(snapshot.fetchedAt + WEATHER_STALE_MAX_MS),
-      });
-    },
-  };
-}
 
 export async function GET(request: NextRequest) {
   const cell = request.nextUrl.searchParams.get('cell')?.trim() ?? '';
@@ -74,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   const provider = getWeatherProvider();
   try {
-    const { snapshot, source } = await getCellWeather(cell, centre, { store: firestoreStore(), provider });
+    const { snapshot, source } = await getCellWeather(cell, centre, { store: firestoreWeatherStore(), provider });
     const body: WeatherApiResponse = { cell, snapshot, ...(source === 'stale-cache' ? { stale: true } : {}) };
     return NextResponse.json(body, {
       headers: {

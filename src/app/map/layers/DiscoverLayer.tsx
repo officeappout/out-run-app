@@ -35,6 +35,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useSmartHybridSlots } from '@/features/workout-engine/hybrid/smart-cards/useSmartHybridSlots';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
+import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import { FIRST_RUN_COACH, firstRunToursEnabled, isMapTourBlocked } from '@/features/user/onboarding/services/first-run-tour';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
@@ -2537,6 +2538,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       {renderScreen()}
 
       <FirstRunTour tour="map" active={mapTourActive} uid={profile?.id} gender={profile?.core?.gender} delayMs={900} />
+      {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}
+      <TourReplayHost tour="map" ready={isMapVisuallyReady} gender={profile?.core?.gender} delayMs={900} />
 
       {/* ═══ Global overlays — always available, never conflict ═══ */}
       {logic.isGenerating && <RouteGenerationLoader />}

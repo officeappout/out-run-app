@@ -1,0 +1,1520 @@
+[
+ {
+  "id": "r4-01-run-then-core",
+  "name": "Run and then a short core block: aerobic card + core card, no pace",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "תבנה לי ריצה ובסוף בטן",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "running": {
+     "hasRunningProgram": false,
+     "hasPaceProfile": false,
+     "plannedRunToday": false
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": [
+    "plan_aerobic_session",
+    "generate_workout"
+   ],
+   "domains": [
+    "core"
+   ],
+   "aerobicKind": "easy_run",
+   "chips": [
+    "running_questionnaire"
+   ],
+   "mustNotMatch": [
+    "\\d{1,2}:\\d{2}|קצב של \\d|דקות לקילומטר|דק׳ לק"
+   ],
+   "maxSentences": 5
+  },
+  "mock": {
+   "replies": [
+    "בניתי לך ריצה קלה של 25 דקות לפי תחושה, ואחריה אימון בטן קצר. קודם כרטיס הריצה ואז כרטיס הבטן. אם תרצה תוכנית ריצה עם קצבים אישיים, יש שאלון קצר בכפתור למטה."
+   ],
+   "toolInputs": {
+    "plan_aerobic_session": {
+     "activity": "run"
+    },
+    "generate_workout": {
+     "durationMin": 10,
+     "location": "street",
+     "difficulty": 2,
+     "domains": [
+      "core"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-02-run-no-pace-profile",
+  "name": "A run without a running program: easy by feel + the questionnaire offer",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "בא לי לרוץ חצי שעה",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "running": {
+     "hasRunningProgram": false,
+     "hasPaceProfile": false,
+     "plannedRunToday": false
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "plan_aerobic_session",
+   "aerobicKind": "easy_run",
+   "chips": [
+    "running_questionnaire"
+   ],
+   "mustMatch": [
+    "שאלון"
+   ],
+   "mustNotMatch": [
+    "\\d{1,2}:\\d{2}|קצב של \\d|דקות לקילומטר|דק׳ לק"
+   ],
+   "maxSentences": 5
+  },
+  "mock": {
+   "replies": [
+    "בניתי לך ריצה קלה של 30 דקות לפי תחושה, בקצב שאפשר לדבר בו. לתוכנית ריצה עם קצבים אישיים יש שאלון קצר בכפתור למטה."
+   ],
+   "toolInputs": {
+    "plan_aerobic_session": {
+     "activity": "run",
+     "durationMin": 30
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-03-run-from-program",
+  "name": "A user with a running program and a run today: the program's run, no questionnaire",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "תבנה לי את הריצה של היום",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [
+     {
+      "date": "2026-10-19",
+      "weekday": "שני",
+      "type": "training",
+      "programs": [
+       "ריצה"
+      ],
+      "kind": "cardio",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null
+     }
+    ],
+    "thisWeek": [
+     {
+      "date": "2026-10-19",
+      "weekday": "שני",
+      "type": "training",
+      "programs": [
+       "ריצה"
+      ],
+      "kind": "cardio",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null
+     },
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "running": {
+     "hasRunningProgram": true,
+     "hasPaceProfile": true,
+     "plannedRunToday": true
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "plan_aerobic_session",
+   "aerobicKind": "program_run",
+   "noChips": [
+    "running_questionnaire"
+   ],
+   "mustNotMatch": [
+    "\\d{1,2}:\\d{2}|קצב של \\d|דקות לקילומטר|דק׳ לק"
+   ]
+  },
+  "mock": {
+   "replies": [
+    "יש לך היום ריצה מהתוכנית שלך. לחץ על הכרטיס כדי לפתוח אותה במפה."
+   ],
+   "toolInputs": {
+    "plan_aerobic_session": {
+     "activity": "run"
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-04-nearby-parks",
+  "name": "Where is a park: up to 3 parks from the tool, shown under the reply",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "איפה יש גינת כושר קרובה עם מתח?",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "parks": [
+     {
+      "name": "גינת הכושר נווה שאנן",
+      "distanceKm": 0.6,
+      "equipment": [
+       "מתח",
+       "מקבילים"
+      ],
+      "area": "נווה שאנן"
+     },
+     {
+      "name": "פארק הכרמל",
+      "distanceKm": 1.4,
+      "equipment": [
+       "מתח",
+       "טבעות"
+      ],
+      "area": null
+     }
+    ]
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "find_nearby_parks",
+   "parksShown": true,
+   "mustMatch": [
+    "נווה שאנן|הכרמל"
+   ],
+   "maxSentences": 6
+  },
+  "mock": {
+   "replies": [
+    "הכי קרובה היא גינת הכושר נווה שאנן, 0.6 ק״מ, עם מתח ומקבילים. יש גם את פארק הכרמל, 1.4 ק״מ, עם מתח וטבעות. לחיצה על גינה פותחת אותה במפה."
+   ],
+   "toolInputs": {
+    "find_nearby_parks": {
+     "focus": "pull"
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-05-weather-fold-in",
+  "name": "A walk now on a hot day: the weather is folded in",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "אני רוצה לצאת להליכה עכשיו",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 13,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "weather": {
+     "temperatureC": 33,
+     "feelsLikeC": 35,
+     "flag": "heat",
+     "rainChanceNext3hPct": 0
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "plan_aerobic_session",
+   "aerobicKind": "walk",
+   "mustMatch": [
+    "חם|חום|מים|צל|ערב|מעלות"
+   ],
+   "maxSentences": 5
+  },
+  "mock": {
+   "replies": [
+    "בחוץ 33 מעלות ומרגיש כמו 35, אז קח מים ועדיף בצל. בניתי לך הליכה של 30 דקות, לחץ על הכרטיס כדי לפתוח אותה במפה."
+   ],
+   "toolInputs": {
+    "get_weather": {},
+    "plan_aerobic_session": {
+     "activity": "walk"
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-06-weather-unavailable",
+  "name": "Weather off for this user: no invented numbers",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "מה מזג האוויר עכשיו?",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "weather": null
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "get_weather",
+   "mustNotMatch": [
+    "\\d+\\s*מעלות"
+   ],
+   "maxSentences": 3
+  },
+  "mock": {
+   "replies": [
+    "כרגע אני לא יכול לבדוק את מזג האוויר. אם תרצה, אבנה לך אימון לבית או לפארק."
+   ],
+   "toolInputs": {
+    "get_weather": {}
+   }
+  }
+ },
+ {
+  "id": "r4-07-honest-home-gap",
+  "name": "A high-level user at home: honest about the content gap + the park option",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "תבנה לי אימון כוח בבית",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "levelCeiling": true,
+    "parks": [
+     {
+      "name": "גינת הכושר נווה שאנן",
+      "distanceKm": 0.6,
+      "equipment": [
+       "מתח",
+       "מקבילים"
+      ],
+      "area": "נווה שאנן"
+     }
+    ]
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "generate_workout",
+   "location": "home",
+   "mustMatch": [
+    "ברמה שלך|מתחת לרמה|תוכן ברמה"
+   ],
+   "maxSentences": 7,
+   "offersParks": true
+  },
+  "mock": {
+   "replies": [
+    "בניתי לך אימון בבית, אבל בבית אין לנו כרגע מספיק תוכן ברמה שלך, אז הוא קצת מתחת לרמה שלך. בגינת כושר קרובה תקבל אימון מאתגר יותר, אפשר לראות גינות קרובות בכפתור למטה."
+   ],
+   "toolInputs": {
+    "generate_workout": {
+     "durationMin": 25,
+     "location": "home",
+     "difficulty": 2,
+     "domains": []
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-08-owner-park-and-weather",
+  "name": "Owner 19.10: be honest, recommend a park nearby, and the weather",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "יש שם כאלו בלי שיטות ביצוע של בית והיית צריך להיות כנה ולהגיד שהאימון לא יתאים לבית כי אני רמה גבוהה, אבל אתה תוכל להמליץ לי על פארק באזור? אגב מזג אוויר אתה יודע להגיד לי?",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "parks": [
+     {
+      "name": "גינת הכושר נווה שאנן",
+      "distanceKm": 0.6,
+      "equipment": [
+       "מתח",
+       "מקבילים"
+      ],
+      "area": "נווה שאנן"
+     }
+    ],
+    "weather": {
+     "temperatureC": 24,
+     "feelsLikeC": 24,
+     "flag": null,
+     "rainChanceNext3hPct": 5
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": [
+    "find_nearby_parks",
+    "get_weather"
+   ],
+   "parksShown": true,
+   "mustNotMatch": [
+    "לא יכול להמליץ",
+    "לא יכול לבדוק"
+   ],
+   "maxSentences": 6
+  },
+  "mock": {
+   "replies": [
+    "צדקת, בבית אין לנו כרגע מספיק תוכן ברמה שלך. הכי קרובה היא גינת הכושר נווה שאנן, 0.6 ק״מ, עם מתח ומקבילים. בחוץ 24 מעלות ונעים, זמן טוב לצאת."
+   ],
+   "toolInputs": {
+    "find_nearby_parks": {
+     "focus": "any"
+    },
+    "get_weather": {}
+   }
+  },
+  "history": [
+   {
+    "role": "user",
+    "text": "בבית"
+   },
+   {
+    "role": "assistant",
+    "text": "בניתי לך אימון גוף מלא בבית, 24 דקות. בבית יש פחות תרגילים ברמה שלך, אז האימון קצת מתחת לרמה שלך."
+   }
+  ]
+ },
+ {
+  "id": "r4-09-tutorial",
+  "name": "How to use the app: the tour chip + the help hub",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "אין לך מקום לטוטוריאל? איך משתמשים באפליקציה?",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {}
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustCallTool": "start_tutorial",
+   "chips": [
+    "open_help"
+   ],
+   "maxSentences": 5
+  },
+  "mock": {
+   "replies": [
+    "יש סיור קצר במסך הבית שמראה איפה האימון של היום ואיפה הלו״ז. הכפתור למטה מתחיל אותו, ובהגדרות יש גם איך משתמשים ושאלות נפוצות."
+   ],
+   "toolInputs": {
+    "start_tutorial": {
+     "topic": "workouts"
+    }
+   }
+  }
+ },
+ {
+  "id": "r4-10-rebuild-week",
+  "name": "Rebuild my week: the schedule builder chip, nothing claimed as saved",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "תבנה לי מחדש את השבוע, אני רוצה לשלב ריצה",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {}
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "chips": [
+    "open_builder"
+   ],
+   "mustNotMatch": [
+    "שיניתי|עדכנתי|שמרתי|בניתי לך שבוע"
+   ],
+   "maxSentences": 3
+  },
+  "mock": {
+   "replies": [
+    "שבוע חדש עם ריצה בונים בבונה הלו״ז, הכפתור למטה פותח אותו. שם בוחרים ימים וכמה ריצות, והוא מסדר את השבוע."
+   ]
+  }
+ },
+ {
+  "id": "r4-11-owner-aerobic-too",
+  "name": "Owner 19.10 'אירובי גם?': no more 'I can't build aerobic'",
+  "source": {
+   "kind": "fixture",
+   "note": "Kelly round 4 (owner chat 18-19.10.2026)."
+  },
+  "message": "אירובי גם?",
+  "context": {
+   "firstName": "דוד",
+   "gender": "male",
+   "todayKey": "2026-10-19",
+   "israelDayOfWeek": 1,
+   "israelHour": 10,
+   "sheet": {
+    "firstName": "דוד",
+    "gender": "male",
+    "ageBand": "30-44",
+    "goals": {
+     "mainGoal": null,
+     "selected": []
+    },
+    "goalsHe": [
+     "אורח חיים בריא"
+    ],
+    "primaryTrack": "strength",
+    "programs": [
+     {
+      "id": "full_body",
+      "name": "כל הגוף",
+      "level": 15,
+      "percentToNext": 20
+     },
+     {
+      "id": "core",
+      "name": "ליבה",
+      "level": 8,
+      "percentToNext": 10
+     }
+    ],
+    "injuries": [],
+    "streakDays": 1,
+    "lastWorkouts": [
+     {
+      "date": "2026-10-18",
+      "type": "strength",
+      "minutes": 30
+     }
+    ],
+    "today": [],
+    "thisWeek": [
+     {
+      "date": "2026-10-20",
+      "weekday": "שלישי",
+      "type": "training",
+      "programs": [
+       "רגליים"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     },
+     {
+      "date": "2026-10-22",
+      "weekday": "חמישי",
+      "type": "training",
+      "programs": [
+       "דחיפה"
+      ],
+      "kind": "strength",
+      "startTime": null,
+      "plannedMinutes": null,
+      "completed": false,
+      "title": null,
+      "buildNow": {
+       "durationMin": null,
+       "domains": []
+      }
+     }
+    ],
+    "preferredTrainingTime": null,
+    "equipment": {
+     "home": [
+      "chair"
+     ],
+     "office": [],
+     "outdoor": []
+    },
+    "area": "נווה שאנן"
+   },
+   "round4": {
+    "running": {
+     "hasRunningProgram": false,
+     "hasPaceProfile": false,
+     "plannedRunToday": false
+    }
+   }
+  },
+  "flags": {
+   "phase2": true,
+   "round4": true
+  },
+  "assertions": {
+   "noEnglish": true,
+   "masculineSelfReference": true,
+   "noSafetyReply": true,
+   "mustNotMatch": [
+    "לא יכול לבנות (?:אימוני )?(?:אירובי|ריצה)",
+    "לא זמינ"
+   ],
+   "maxSentences": 4
+  },
+  "mock": {
+   "replies": [
+    "כן, אני יכול לבנות לך ריצה או הליכה, וגם לשלב אחריה בטן או כוח. מה מתאים לך היום?"
+   ]
+  },
+  "history": [
+   {
+    "role": "user",
+    "text": "נגיד לגבי ריצה ומסלולים יכול לבנות לי ולתת?"
+   },
+   {
+    "role": "assistant",
+    "text": "אני יכול לבנות לך אימון כוח, להסביר אימון שנבנה, ולענות על שאלות על הלו״ז וההתקדמות שלך."
+   }
+  ]
+ }
+]

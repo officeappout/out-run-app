@@ -37,6 +37,10 @@ import type { ProposeScheduleChangeInputT } from '@/lib/ai/coach/schedule-propos
 import type { AdvisorProfile } from '@/features/schedule/advisor/types';
 import { phase2TurnExtras } from '@/lib/ai/coach/phase2-turn';
 import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
+import { simulateRound4Tool } from './eval-round4';
+import { ROUND4_NOTE, coachSystemPrompt } from '@/lib/ai/coach/round4/prompt';
+import { newRound4TurnState, type Round4TurnState } from '@/lib/ai/coach/round4/types';
+import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
 
 export type CallModel = (params: Anthropic.MessageStreamParams, onText: (delta: string) => void) => Promise<Anthropic.Message>;
 
@@ -83,6 +87,8 @@ function minimalSheet(ctx: EvalCase['context']): Record<string, unknown> {
 /** Per-run state of the phase 2 simulations (a proposal prepared this turn). */
 export interface SimTurn {
   proposalCreated: boolean;
+  /** Kelly round 4: set while the case runs with flags.round4. */
+  round4?: Round4TurnState;
 }
 
 export function simulateServerTool(
@@ -125,7 +131,7 @@ export function simulateServerTool(
       return json({ sent: true });
     // Kelly phase 2: the REAL pure retrieval and proposal builder (nothing is written).
     case 'get_app_help':
-      return json(appHelpToolResult(input as GetAppHelpInputT));
+      return json(appHelpToolResult(input as GetAppHelpInputT, turn.round4 ? { round4: true } : {}));
     case 'propose_schedule_change': {
       const built = ctx.profile
         ? buildScheduleProposal(
@@ -136,8 +142,10 @@ export function simulateServerTool(
       if (built.ok) turn.proposalCreated = true;
       return json(proposalToolResult(built));
     }
-    default:
-      return { content: `unknown tool ${name}`, isError: true };
+    default: {
+      const r4 = turn.round4 ? simulateRound4Tool(name, input, ctx, turn.round4) : null;
+      return r4 ?? { content: `unknown tool ${name}`, isError: true };
+    }
   }
 }
 
@@ -172,7 +180,7 @@ const STUB_EXERCISES: Record<string, Array<{ name: string; locations: string[] }
  * Obeys the input exactly (domains, location, minutes), so a failing assertion in a mock /
  * stub run is always the model's (or the mapping's) fault, never the engine's.
  */
-export const stubWorkoutGenerator: SimulateWorkout = async (input) => {
+export const stubWorkoutGenerator: SimulateWorkout = async (input, ctx) => {
   const domains = input.domains.length ? input.domains : ['push', 'pull', 'legs', 'core'];
   const count = Math.min(8, Math.max(3, Math.round(input.durationMin / 4)));
   const exercises: Array<{ name: string; sets: number; reps: number; seconds: null; domain: string; locations: string[] }> = [];
@@ -191,8 +199,10 @@ export const stubWorkoutGenerator: SimulateWorkout = async (input) => {
     minutes: input.durationMin,
     location: input.location,
     exercises: exercises.map(({ name, sets, reps, seconds }) => ({ name, sets, reps, seconds })),
+    // Kelly round 4 cases: the engine flagged "below the user's level here".
+    ...(ctx?.round4?.levelCeiling ? { levelCeiling: true } : {}),
   };
-  return { outcome: { ok: true, result }, record: { ...result, exercises, reasons: [] } };
+  return { outcome: { ok: true, result }, record: { ...result, exercises, reasons: ctx?.round4?.levelCeiling ? [{ code: 'LEVEL_CEILING' }] : [] } };
 };
 
 // ─── Scripted mock model (default: harness validation, no API) ───────────────
@@ -332,7 +342,8 @@ export async function runEvalCase(
     .filter((e) => e && e.type !== 'rest' && typeof e.date === 'string')
     .map((e) => e.date);
   const phase2 = c.flags?.phase2 === true;
-  const simTurn: SimTurn = { proposalCreated: false };
+  const round4 = c.flags?.round4 === true;
+  const simTurn: SimTurn = { proposalCreated: false, ...(round4 ? { round4: newRound4TurnState() } : {}) };
   const finalRun = (finalText: string): EvalRunResult => {
     const toolNames = toolCalls.map((t) => t.name);
     let chips: string[] = chipsForTurn({
@@ -364,6 +375,17 @@ export async function runEvalCase(
       chips = extras.actions;
       suggestions = extras.suggestions.map((x) => x.id);
     }
+    if (simTurn.round4) {
+      const built = toolCalls.find((t) => t.name === 'generate_workout' && !t.isError);
+      const r = built?.result as { location?: string; levelCeiling?: boolean; shortOfMinimum?: boolean } | undefined;
+      chips = round4TurnActions({
+        state: simTurn.round4,
+        toolNames,
+        userText: c.message,
+        workout: r ? { location: r.location, levelCeiling: r.levelCeiling, shortOfMinimum: r.shortOfMinimum } : null,
+        actions: chips as Parameters<typeof round4TurnActions>[0]['actions'],
+      });
+    }
     return {
       finalText,
       safetyGate: false,
@@ -372,6 +394,7 @@ export async function runEvalCase(
       sheetWeekDates,
       chips,
       ...(phase2 ? { suggestions, proposalCreated: simTurn.proposalCreated } : {}),
+      ...(simTurn.round4 ? { aerobicKind: simTurn.round4.extras.aerobic?.kind ?? null, parksShown: !!simTurn.round4.extras.parks?.length } : {}),
     };
   };
 
@@ -382,7 +405,7 @@ export async function runEvalCase(
   }
 
   const system: Anthropic.TextBlockParam[] = [
-    { type: 'text', text: COACH_SYSTEM_PROMPT },
+    { type: 'text', text: round4 ? coachSystemPrompt({ round4: true }) : COACH_SYSTEM_PROMPT },
     {
       type: 'text',
       text: buildSessionContext({
@@ -396,17 +419,18 @@ export async function runEvalCase(
         typoHints: typoHints(c.message),
         ...(phase2 ? { phase2: true } : {}),
         ...(c.memory?.length ? { memory: renderMemoryBlock(c.memory) } : {}),
+        ...(round4 ? { round4Note: ROUND4_NOTE } : {}),
       }),
     },
   ];
   const cfg = {
     model: deps.model,
     system,
-    tools: coachToolDefinitions(phase2 ? { phase2: true } : {}),
+    tools: coachToolDefinitions({ ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}) }),
     history: historyToModelMessages(c.history.map((h) => ({ role: h.role, text: h.text }))),
     maxRounds: COACH_MAX_TOOL_ROUNDS,
     maxTokens: COACH_MODEL_MAX_TOKENS,
-    guards: { sheet, todayDow: ctx.israelDayOfWeek, userGender: ctx.gender },
+    guards: { sheet, todayDow: ctx.israelDayOfWeek, userGender: ctx.gender, ...(round4 ? { round4: true } : {}) },
   };
 
   const callModel: CallModel = async (params, onText) => {
@@ -444,7 +468,7 @@ export async function runEvalCase(
         result: sim.outcome.ok ? (sim.record ?? sim.outcome.result) : { ok: false, error: sim.outcome.error },
         isError: !sim.outcome.ok,
       });
-      state = resumeWithClientResult(outcome.state, outcome.pendingResults, clientOutcomeToToolResult(outcome.call.id, sim.outcome));
+      state = resumeWithClientResult(outcome.state, outcome.pendingResults, clientOutcomeToToolResult(outcome.call.id, sim.outcome, round4 ? { round4: true } : {}));
     }
     return finish({ finalText: '', safetyGate: false, toolCalls }, 'too many client round trips');
   } catch (err) {

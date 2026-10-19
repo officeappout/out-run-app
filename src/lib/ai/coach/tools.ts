@@ -23,6 +23,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { MG_TO_DOMAIN } from '@/features/workout-engine/shared/constants/domain-mapping.constants';
 import { APP_HELP_TOPICS, GetAppHelpInput } from './app-help/retrieve';
 import { ProposeScheduleChangeInput, WEEKDAYS_EN } from './schedule-proposal/types';
+import { ROUND4_TOOLS, ROUND4_TOOL_NAMES } from './round4/tool-specs';
 
 // ─── Shared enums ────────────────────────────────────────────────────────────
 
@@ -272,12 +273,15 @@ export const COACH_TOOLS = {
     },
     zod: ProposeScheduleChangeInput,
   },
+  // ── Kelly round 4 — offered only while system_config/feature_flags.ai_coach_round4 is on.
+  ...ROUND4_TOOLS,
 } as const satisfies Record<string, CoachToolSpec>;
 
 /** Tools that exist only while the schedule advisor flag (ai_coach_schedule_advisor) is on. */
 export const SCHEDULE_ADVISOR_TOOL_NAMES: readonly string[] = ['recommend_week', 'recommend_today'];
 /** Tools that exist only while Kelly phase 2 (ai_coach_phase2) is on. */
 export const PHASE2_TOOL_NAMES: readonly string[] = ['get_app_help', 'propose_schedule_change'];
+export { ROUND4_TOOL_NAMES };
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
 
@@ -292,12 +296,13 @@ export function toolKind(name: string): CoachToolKind | null {
 /**
  * Tool definitions for the Messages API, fixed order (cache-stable per flag state). The
  * schedule advisor tools are appended only with `scheduleAdvisor`, the phase 2 tools only with
- * `phase2` — off = exactly today's list.
+ * `phase2`, the round 4 tools only with `round4` — off = exactly today's list.
  */
-export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean } = {}): Anthropic.Tool[] {
+export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean; round4?: boolean } = {}): Anthropic.Tool[] {
   return Object.values(COACH_TOOLS)
     .filter((t) => opts.scheduleAdvisor || !SCHEDULE_ADVISOR_TOOL_NAMES.includes(t.name))
     .filter((t) => opts.phase2 || !PHASE2_TOOL_NAMES.includes(t.name))
+    .filter((t) => opts.round4 || !ROUND4_TOOL_NAMES.includes(t.name))
     .map((t) => ({
     name: t.name,
     description: t.description,

@@ -1,14 +1,19 @@
 'use client';
 
 import React from 'react';
-import { CalendarDays, Dumbbell, Gauge } from 'lucide-react';
-import { COACH_ACTIONS, isCheckLevelActionId, type CoachActionId, type CoachAssessTarget, type WorkoutRating } from '@/lib/ai/coach/action-chips';
+import { CalendarDays, Dumbbell, Gauge, HelpCircle, MapPin } from 'lucide-react';
+import { COACH_ACTIONS, isCheckLevelActionId, type CoachActionId, type CoachActionSpec, type CoachAssessTarget, type WorkoutRating } from '@/lib/ai/coach/action-chips';
 
 function iconFor(id: CoachActionId): typeof CalendarDays {
-  if (id === 'open_schedule') return CalendarDays;
+  if (id === 'open_schedule' || id === 'tour_schedule') return CalendarDays;
   if (isCheckLevelActionId(id)) return Gauge;
+  if (id === 'tour_map' || id === 'pick_route_run' || id === 'pick_route_walk' || id === 'find_parks') return MapPin;
+  if (id === 'open_help' || id === 'show_how' || id === 'tour_workouts') return HelpCircle;
   return Dumbbell;
 }
+
+/** Round 4 chips the device handles itself (tour replay, the map drawer, the questionnaire). */
+const isDeviceChip = (s: CoachActionSpec) => !!(s.tour || s.aerobicMap || s.onboarding);
 
 /**
  * Action chips under a Kelly reply (ids from the server; label + target from
@@ -23,6 +28,7 @@ export default function AiCoachActionChips({
   onSend,
   onAssess,
   onRate,
+  onDevice,
   disabled,
 }: {
   actions: CoachActionId[];
@@ -30,9 +36,13 @@ export default function AiCoachActionChips({
   onSend: (message: string) => void;
   onAssess: (target: CoachAssessTarget) => void;
   onRate?: (rating: WorkoutRating) => void;
+  /** Kelly round 4: a device-handled chip (round4-actions.ts). Without it those chips are not shown. */
+  onDevice?: (spec: CoachActionSpec) => void;
   disabled?: boolean;
 }) {
-  const shown = actions.filter((id) => !!COACH_ACTIONS[id] && (!COACH_ACTIONS[id].rating || !!onRate));
+  const shown = actions.filter(
+    (id) => !!COACH_ACTIONS[id] && (!COACH_ACTIONS[id].rating || !!onRate) && (!isDeviceChip(COACH_ACTIONS[id]) || !!onDevice),
+  );
   if (shown.length === 0) return null;
   return (
     <div className="mt-1.5 flex max-w-[80%] flex-wrap justify-end gap-2">
@@ -46,7 +56,8 @@ export default function AiCoachActionChips({
             type="button"
             disabled={disabled && sendsMessage}
             onClick={() => {
-              if (spec.href) onNavigate(spec.href);
+              if (isDeviceChip(spec)) onDevice?.(spec);
+              else if (spec.href) onNavigate(spec.href);
               else if (spec.assess) onAssess(spec.assess);
               else if (spec.rating) onRate?.(spec.rating);
               else if (spec.message) onSend(spec.message);

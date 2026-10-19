@@ -26,17 +26,17 @@ const CARD_WIDTH = 'min(300px, 82vw)';
 const CARD_RADIUS = 22;
 /** v2 card depth: long, faint, negative-spread drop + a hairline ring (design language §4). */
 const CARD_SHADOW = '0 24px 50px -36px rgba(9,30,50,0.45), 0 0 0 1px rgba(14,27,42,0.06)';
-const CTA_SHADOW = 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0,186,247,0.7)';
+export const CTA_SHADOW = 'inset 0 1px 0 rgba(255,255,255,0.5), 0 10px 26px -12px rgba(0,186,247,0.7)';
 /** The home card's fade, a little earlier: the content block is a larger share of a short card. */
-const FADE = 'linear-gradient(to bottom, rgba(255,255,255,0) 12%, rgba(255,255,255,0.92) 52%, #ffffff 66%)';
-const BRAND_GRADIENT = 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)';
+export const CARD_FADE = 'linear-gradient(to bottom, rgba(255,255,255,0) 12%, rgba(255,255,255,0.92) 52%, #ffffff 66%)';
+export const BRAND_GRADIENT = 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)';
 const SKILL_ICONS = new Set(['planche', 'front_lever', 'handstand', 'hspu', 'one_arm_pullup']);
 
 function iconSrcFor(key: string): string | null {
   return PROGRAM_ICON_MAP[key] ?? (SKILL_ICONS.has(key) ? `/icons/programs/${key}.svg` : null);
 }
 
-const frameStyle: React.CSSProperties = {
+export const frameStyle: React.CSSProperties = {
   width: CARD_WIDTH,
   height: AI_CARD_HEIGHT,
   borderRadius: CARD_RADIUS,
@@ -44,7 +44,7 @@ const frameStyle: React.CSSProperties = {
 };
 
 /** Liquid-glass tag over the image (design language §5, small). */
-function GlassTag() {
+export function GlassTag() {
   return (
     <span
       className="absolute right-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10.5px] font-extrabold text-v2-ink"
@@ -94,7 +94,7 @@ export function AiCoachWorkoutCardFace({ card, thumbnailUrl, cachedDifficulty, o
           <span className="block h-full w-full" style={{ background: BRAND_GRADIENT }} />
         )}
       </span>
-      <span className="pointer-events-none absolute inset-0 z-[5]" style={{ background: FADE }} aria-hidden />
+      <span className="pointer-events-none absolute inset-0 z-[5]" style={{ background: CARD_FADE }} aria-hidden />
       <GlassTag />
 
       {/* Content */}
@@ -162,7 +162,7 @@ export function AiCoachWorkoutCardSkeleton() {
   return (
     <div role="status" aria-live="polite" data-ai-card="building" className="relative overflow-hidden bg-white" style={frameStyle} dir="rtl">
       <div className="absolute inset-x-0 top-0 h-[62%] bg-v2-tint motion-safe:animate-pulse" aria-hidden />
-      <div className="pointer-events-none absolute inset-0" style={{ background: FADE }} aria-hidden />
+      <div className="pointer-events-none absolute inset-0" style={{ background: CARD_FADE }} aria-hidden />
       <div className="absolute right-2.5 top-2.5 inline-flex h-6 items-center gap-1 rounded-full bg-white/85 px-2 text-[11px] font-extrabold text-v2-deep">
         <Sparkles className="h-3 w-3 motion-safe:animate-spin [animation-duration:2.4s]" aria-hidden />
         בונה לך אימון…
