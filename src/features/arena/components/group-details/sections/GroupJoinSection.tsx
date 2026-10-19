@@ -81,7 +81,7 @@ export default function GroupJoinSection({
               }}
               maxLength={6}
               placeholder="XXXXXX"
-              autoFocus
+              autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- appears right after the user taps "הזן קוד הצטרפות"
               aria-label="קוד הצטרפות לקהילה"
               className={`flex-1 text-center text-lg font-mono font-black tracking-widest border-2 rounded-2xl px-3 py-3 focus:outline-none transition-colors ${
                 inviteError

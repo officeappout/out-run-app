@@ -26,6 +26,7 @@ export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, 
         style={{ height: heroHeight, opacity: imageOpacity, scale: imageScale }}
       >
         {(park.imageUrl || park.image || park.images?.[0]) ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={bunnyImg(park.imageUrl || park.images?.[0] || park.image, 800)}
             alt={park.name}

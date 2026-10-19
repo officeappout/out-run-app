@@ -62,12 +62,12 @@ export default function GroupDetailsDrawer({
   isOpen,
   onClose,
   group,
-  members: _members,
+  members: _members, // eslint-disable-line @typescript-eslint/no-unused-vars
   onJoin,
   onLeave,
   isJoined,
   joining,
-  socialUnlocked: _socialUnlocked = true,
+  socialUnlocked: _socialUnlocked = true, // eslint-disable-line @typescript-eslint/no-unused-vars
   onOpenChat,
   onEdit,
   liveSession,

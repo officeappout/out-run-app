@@ -41,6 +41,7 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
       <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
         {ev.avatars?.slice(0, 2).map((a, ai) => (
           <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => onOpenProfile({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : a.name.charAt(0)}
           </button>
         ))}

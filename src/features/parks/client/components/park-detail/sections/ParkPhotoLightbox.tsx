@@ -18,6 +18,7 @@ export default function ParkPhotoLightbox({ url, onClose }: { url: string | null
             className="fixed inset-4 z-[121] flex items-center justify-center"
             onClick={onClose}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt="" className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl" />
           </motion.div>
         </>

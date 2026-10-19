@@ -20,6 +20,7 @@ export default function ParkPhotosSection({ v2, photos, onOpenPhoto }: ParkPhoto
             onClick={() => onOpenPhoto(url)}
             className="flex-shrink-0 w-[140px] h-[100px] rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 active:scale-95 transition-transform"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
           </button>
         ))}
