@@ -180,7 +180,8 @@ describe('pace edit (M-7a)', () => {
 });
 
 describe('the workout the player runs (applyRunEdits)', () => {
-  const w = () => ({ id: 'w', blocks: sixBy400() });
+  type W = { id: string; blocks: RunBlock[]; mainSwap?: { from: string; to: string } };
+  const w = (): W => ({ id: 'w', blocks: sixBy400() });
   it('no edits → the same object; a level alone is not "מותאם"', () => {
     const x = w();
     expect(applyRunEdits(x, NO_RUN_EDITS, ctx)).toBe(x);
