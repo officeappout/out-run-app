@@ -32,6 +32,9 @@ import type { WorkoutCategory } from '@/features/workout-engine/core/types/runni
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
+import RunOverviewHomeSheet from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewHomeSheet';
+import { plannedRunMapUrl } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
+import type { RunVariantKey } from '@/features/workout-engine/players/running/utils/run-overview/run-variants';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
@@ -339,6 +342,14 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
     router.push(`/map?${params.toString()}`);
   };
 
+  // v2 overview (board M-6a): start from here with the chosen variant, or open the map's route suggestions.
+  const goToMapV2 = (variant: RunVariantKey, suggest: boolean) => {
+    setBriefingOpen(false);
+    router.push(plannedRunMapUrl({
+      workoutId: pendingWorkoutId, week: pendingWeek, day: pendingDay, autoStart: !suggest, suggest, variant,
+    }));
+  };
+
   // Not hydrated yet — render nothing but a neutral skeleton. Both
   // hasActiveSchedule (false while profile is null) and
   // isRunningPlanBuildStuck (which we gate below on _hasHydrated
@@ -524,10 +535,11 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
           onSkipToday={() => setSkippedToday(true)}
           onUndoSkip={skippedToday ? () => setSkippedToday(false) : undefined}
         />
-        <RunBriefingDrawer
+        <RunOverviewHomeSheet
           isOpen={briefingOpen}
           onClose={() => setBriefingOpen(false)}
-          onGo={handleBriefingGo}
+          onGo={(variant) => goToMapV2(variant, false)}
+          onSuggestRoute={(variant) => goToMapV2(variant, true)}
           workout={briefingWorkout}
           isLoading={briefingLoading}
           week={pendingWeek ? { week: pendingWeek, day: pendingDay, totalWeeks: running?.generatedProgramTemplate?.canonicalWeeks } : null}

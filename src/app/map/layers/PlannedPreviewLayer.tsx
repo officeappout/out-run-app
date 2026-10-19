@@ -14,7 +14,9 @@ import { useMapLogic } from '@/features/parks';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, Zap, ChevronDown } from 'lucide-react';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
-import RunPreviewSheetV2 from '@/features/workout-engine/players/running/components/preview-v2/RunPreviewSheetV2';
+import RunOverviewMapHost from '@/features/workout-engine/players/running/components/overview-v2/RunOverviewMapHost';
+import { applyRunVariant } from '@/features/workout-engine/players/running/utils/run-overview/run-variants';
+import { readVariantParam } from '@/features/workout-engine/players/running/utils/run-overview/run-overview-url';
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
 import { parseRunWeekParams } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -57,6 +59,9 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
   const weekContext = useMemo(() => parseRunWeekParams(weekParam, dayParam, totalWeeks), [weekParam, dayParam, totalWeeks]);
   const previewExtras = useMemo(() => ({ templateCategory, week: weekContext }), [templateCategory, weekContext]);
   const previewModel = useRunPreviewModel(v2 ? currentWorkout : null, previewExtras);
+  // v2 overview links (home week card): the chosen variant + "open the route suggestions".
+  const variantParam = v2 ? readVariantParam(searchParams.get('variant')) : null;
+  const suggestParam = v2 && searchParams.get('suggest') === '1';
 
   useEffect(() => {
     if (!contextWorkoutId) {
@@ -110,6 +115,13 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
               easyLabel: calmCopy(null).easyRunLabel,
             });
           }
+        }
+
+        // v2: a variant chosen on home's overview and started straight away (autoStart —
+        // no overview here to apply it). Otherwise the map overview applies it before start.
+        if (variantParam && autoStart) {
+          const zones = paceProfile.basePace > 0 ? computeZones(paceProfile.basePace, paceProfile.profileType, paceMapConfig) : null;
+          workout = applyRunVariant(workout, variantParam, { basePace: paceProfile.basePace, zones });
         }
 
         await resolveRunningWorkoutMetadata({
@@ -191,17 +203,20 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
     />
   );
 
+  // v2 (boards M-6a…6i): the run overview drawer itself — start from here, or
+  // "הצע לי מסלול" → routes on the map. Flag off → today's card + drawer below.
   if (v2 && previewModel) {
     return (
-      <>
-        <RunPreviewSheetV2
-          model={previewModel}
-          onStart={handleStart}
-          onDetails={() => setShowDrawer(true)}
-          onClose={() => setMode('discover')}
-        />
-        {drawer}
-      </>
+      <RunOverviewMapHost
+        logic={logic}
+        workout={currentWorkout}
+        templateCategory={templateCategory}
+        week={weekContext}
+        initialSuggest={suggestParam}
+        initialVariant={variantParam}
+        onExit={() => setMode('discover')}
+        onPickOnMap={() => setMode('discover')}
+      />
     );
   }
 

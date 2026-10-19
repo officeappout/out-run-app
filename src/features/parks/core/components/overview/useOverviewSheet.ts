@@ -19,17 +19,17 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { buildAnchors, detentHeightPx, detentTopY, nextDetent, DETENT_ORDER, type DetentId } from './overview-detents';
 
-export function useOverviewSheet() {
+export function useOverviewSheet(initialDetent: DetentId = 'half') {
   const dragControls = useDragControls();
   const { cardRef, currentAnchor, controls, setAnchor, dragConstraints, viewportH } =
-    useSheetDrag(buildAnchors, 'half', { velocityThreshold: 250 });
+    useSheetDrag(buildAnchors, initialDetent, { velocityThreshold: 250 });
   // Card height tracks the LIVE drag position, not the settled detent. The sheet
   // is `absolute top-0` inside a wrapper translated by `y`, so its visible height
   // must be (viewportH − y) for the bottom (CTA) to stay pinned to the screen
   // bottom throughout the gesture. useSheetDrag drives `y` via `controls`; we
   // mirror that into a MotionValue (`sheetY`) on the wrapper's style and derive
   // the height from it (point-3 follow-up). useSheetDrag itself is untouched.
-  const sheetY = useMotionValue(detentTopY('half', viewportH));
+  const sheetY = useMotionValue(detentTopY(initialDetent, viewportH));
   const cardHeight = useTransform(sheetY, (v) => Math.max(0, Math.round(viewportH - v)));
 
   // ── Point 14: directional-step snap (variant B) ───────────────────────────
@@ -141,8 +141,14 @@ export function useOverviewSheet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewportH]);
 
+  /** Move the sheet to a detent from code (e.g. "הצג במפה" → peek). */
+  const snapTo = (id: DetentId) => {
+    if (id !== currentAnchor) setAnchor(id);
+    springTo(id);
+  };
+
   return {
     dragControls, cardRef, currentAnchor, controls, dragConstraints,
-    sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef,
+    sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef, snapTo,
   };
 }

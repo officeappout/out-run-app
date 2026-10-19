@@ -35,7 +35,7 @@ export interface RouteSuggestion {
 
 export interface SuggestRoutesDeps {
   getOfficialRoutes: () => Promise<Route[]>;
-  generateRoutes: (args: { origin: LatLng; targetKm: number; attempt: number }) => Promise<Route[]>;
+  generateRoutes: (args: { origin: LatLng; targetKm: number; attempt: number; cityName?: string }) => Promise<Route[]>;
 }
 
 export interface SuggestRoutesOptions {
@@ -51,6 +51,8 @@ export interface SuggestRoutesOptions {
   attempt?: number;
   /** Score at/above which an official route counts as "good" (default 55). */
   goodScore?: number;
+  /** The user's city (useUserCityName) — the generator queries street_segments by it; absent → random waypoints. */
+  cityName?: string;
   deps?: Partial<SuggestRoutesDeps>;
 }
 
@@ -113,7 +115,7 @@ const defaultDeps: SuggestRoutesDeps = {
     const { getCachedOfficialRoutes } = await import('@/features/parks/core/services/inventory.service');
     return getCachedOfficialRoutes();
   },
-  async generateRoutes({ origin, targetKm, attempt }) {
+  async generateRoutes({ origin, targetKm, attempt, cityName }) {
     const [{ generateDynamicRoutes }, { fetchRealParks }] = await Promise.all([
       import('@/features/parks/core/services/route-generator.service'),
       import('@/features/parks/core/services/parks.service'),
@@ -127,6 +129,7 @@ const defaultDeps: SuggestRoutesDeps = {
       routeGenerationIndex: attempt,
       preferences: { includeStrength: false },
       parks,
+      cityName,
       userAnchoredCorridorFlow: true,
     });
   },
@@ -153,7 +156,7 @@ export async function suggestRoutesForWorkout(
   const targetKm = workout.targetKm;
   if ((opts.allowGenerated ?? true) && good < limit && targetKm != null && targetKm >= GENERATE_MIN_KM) {
     try {
-      const generated = await deps.generateRoutes({ origin, targetKm, attempt: opts.attempt ?? 0 });
+      const generated = await deps.generateRoutes({ origin, targetKm, attempt: opts.attempt ?? 0, cityName: opts.cityName });
       ranked = rankRouteSuggestions(origin, workout, official, generated, { limit, radiusKm });
     } catch (err) {
       console.warn('[route-fit] generator failed — official results only', err);

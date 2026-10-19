@@ -40,6 +40,8 @@ import { stepsToTargetKm } from '@/features/parks/core/services/route-request.ut
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
 import RouteOverviewOverlay from '@/features/parks/core/components/overview/route/RouteOverviewOverlay';
+import RouteOverviewWithTodayRun from '@/features/workout-engine/players/running/components/overview-v2/RouteOverviewWithTodayRun';
+import { startPlannedRunOnRoute } from '@/features/workout-engine/players/running/components/overview-v2/startPlannedRunOnRoute';
 import { playerActivityFor, type RouteActivity } from '@/features/parks/core/components/overview/route/route-overview';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
@@ -1721,7 +1723,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     const userPos = devSim?.effectiveLocation(logic.currentUserPos) ?? logic.currentUserPos ?? null;
     const close = () => { logic.setSelectedRoute(null); logic.setFocusedRoute(null); };
     return (
-      <RouteOverviewOverlay
+      // Board M-6j: the same drawer + "יש לך היום … · לאימון הזה כאן" when today's run fits this route.
+      <RouteOverviewWithTodayRun
         key={route.id}
         route={route}
         initialActivity={logic.preferences.activity}
@@ -1729,6 +1732,13 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         cityName={userCityName}
         onBack={close}
         onStart={(r, act) => { close(); startRouteAs(r, act); }}
+        onStartWorkoutOnRoute={(r, workout, at) => {
+          close();
+          startPlannedRunOnRoute({
+            route: r, workout, week: at.week, day: at.day,
+            setFocusedRoute: logic.setFocusedRoute, startActiveWorkoutForRoute: logic.startActiveWorkoutForRoute,
+          });
+        }}
         onNavigate={navigateToRouteStart}
         renderFullDetails={(back) => (
           <RouteDetailSheet

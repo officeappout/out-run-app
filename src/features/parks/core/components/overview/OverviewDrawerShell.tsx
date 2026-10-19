@@ -12,12 +12,13 @@
  * consumer owns the content; the shell owns geometry, gestures and map sync.
  */
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useOverviewSheet } from './useOverviewSheet';
 import OverviewGraphPager from './OverviewGraphPager';
+import type { DetentId } from './overview-detents';
 
 export interface OverviewDrawerShellProps {
   /** Home v2 look (enable_home_v2); false = the pre-v2 drawer, unchanged. */
@@ -36,13 +37,23 @@ export interface OverviewDrawerShellProps {
   children: ReactNode;
   /** Sticky CTA row content, pinned to the visible card bottom. */
   cta: ReactNode;
+  /** Detent on mount (default 'half'). */
+  initialDetent?: DetentId;
+  /** Move to a detent from code; a new `n` re-fires the same target. */
+  snapRequest?: { to: DetentId; n: number } | null;
 }
 
-export default function OverviewDrawerShell({ v2, onBack, header, strip, graphs, children, cta }: OverviewDrawerShellProps) {
+export default function OverviewDrawerShell({
+  v2, onBack, header, strip, graphs, children, cta, initialDetent, snapRequest,
+}: OverviewDrawerShellProps) {
   const {
     dragControls, cardRef, currentAnchor, controls, dragConstraints,
-    sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef,
-  } = useOverviewSheet();
+    sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef, snapTo,
+  } = useOverviewSheet(initialDetent);
+  useEffect(() => {
+    if (snapRequest) snapTo(snapRequest.to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapRequest?.n]);
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none" dir="rtl">
