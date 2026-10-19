@@ -183,6 +183,13 @@ export const RATE_LIMITS = {
   contributionWrite: {
     uidHourly: () => envWindow('RL_CONTRIBUTION_WRITE_UID_HOURLY', HOUR, 100),
   },
+  // POST /api/routes/generate (19.10.2026, GraphHopper routing behind
+  // enable_graphhopper_routes) — per caller uid. A user shuffling the route
+  // carousel fires one request per shuffle; 40 per 10 minutes is far above
+  // that and still caps what one account can cost the routing server.
+  routesGenerate: {
+    uid: () => envWindow('RL_ROUTES_GENERATE_UID', 10 * MIN, 40),
+  },
 } as const;
 
 /**

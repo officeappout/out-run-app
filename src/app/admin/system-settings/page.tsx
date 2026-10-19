@@ -52,6 +52,7 @@ interface FlagState {
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_route_quality_v1: boolean;
+  enable_graphhopper_routes: boolean;
 }
 
 // ============================================================================
@@ -302,6 +303,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'איכות מסלולים מעגליים (v1)',
     description: 'מחולל המסלולים המעגליים: נקודות ביניים על רחובות שקטים בלבד, בלי נקודות "עיוורות", בלי פרסות וחזרה על אותו רחוב, בלי מסלולים צרים מדי ובלי חציות לא מסומנות של כבישים ראשיים; פחות קריאות מהשרת; בלי נתונים מומצאים (תאורה, תנועה, ספסלים, דירוג). השוואה לפני/אחרי: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
+  },
+  // GraphHopper routes (19.10.2026).
+  {
+    key: 'enable_graphhopper_routes',
+    icon: RouteIcon,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
+    title: 'מסלולים מעגליים משרת הניווט שלנו (GraphHopper)',
+    description: 'המסלולים המעגליים נבנים בשרת הניווט של OUT (GraphHopper, ישראל) במקום Mapbox: רחובות שקטים, הימנעות ממעברי חצייה לא מסומנים, בלי ענפים מתים, ונבחרים 3 הטובים מתוך 6. כל תקלה או המתנה של יותר מ־2 שניות חוזרת אוטומטית למחולל הנוכחי. דורש שהשרת פרוס ו־GRAPHHOPPER_URL מוגדר ב־Vercel. השוואה: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
   },
 ];
 

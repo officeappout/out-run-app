@@ -17,7 +17,7 @@ const Layer = dynamicImport(() => import('react-map-gl').then(m => m.Layer), { s
 const Marker = dynamicImport(() => import('react-map-gl').then(m => m.Marker), { ssr: false });
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
-export const VARIANT_COLOR = { off: '#3B82F6', on: '#10B981' } as const;
+export const VARIANT_COLOR = { off: '#3B82F6', on: '#10B981', gh: '#8B5CF6' } as const;
 
 interface Props {
   start: { lat: number; lng: number };

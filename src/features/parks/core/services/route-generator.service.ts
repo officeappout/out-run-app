@@ -29,6 +29,7 @@ import {
   type LoopPostProcess,
 } from './route-quality-v1';
 import { getOsmRoadLayerWithin } from '@/lib/route-quality/osm-layer-cache';
+import { resolveGraphhopperRoutes, isGraphhopperLoopRequest, tryGraphhopperLoops } from './graphhopper-loops';
 import type { OsmRoadLayer } from '@/lib/route-quality';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
@@ -293,6 +294,11 @@ interface RouteGenerationOptions {
    * script). Resolved once in generateDynamicRoutes. See ./route-quality-v1.
    */
   routeQualityV1?: boolean;
+  /**
+   * GraphHopper routes (panel flag enable_graphhopper_routes). Omitted = the
+   * device's live flag; an explicit boolean wins (admin A/B page, tests).
+   */
+  graphhopperRoutes?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1479,6 +1485,13 @@ async function findFitnessAnchor(
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
+  // GraphHopper routes (enable_graphhopper_routes): plain loops go to OUT's own
+  // routing server first; null (any error / > 2 s / empty) → the pipeline below.
+  // Flag off → this block is skipped entirely. See ./graphhopper-loops.
+  if (resolveGraphhopperRoutes(options.graphhopperRoutes) && isGraphhopperLoopRequest(options)) {
+    const ghRoutes = await tryGraphhopperLoops(options);
+    if (ghRoutes) return ghRoutes;
+  }
   // Route quality v1 (enable_route_quality_v1): resolved ONCE here so every
   // branch below agrees. Off → the original dispatcher, untouched.
   if (!resolveRouteQualityV1(options.routeQualityV1)) return dispatchGeneration(options);
