@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "id": "route_loop-owner-5",
+  "name": "route_loop: ROUTE_QUALITY (2026-10-19)",
+  "source": {
+    "logId": "owner-5",
+    "day": "2026-10-19",
+    "type": "route_loop",
+    "generator": null,
+    "appVersion": null
+  },
+  "type": "route_loop",
+  "input": {
+    "requestedActivity": "run",
+    "targetKm": 4
+  },
+  "output": {
+    "planActivity": "run",
+    "totalMinutes": 27,
+    "exercises": [],
+    "legs": [],
+    "stations": [],
+    "route": {
+      "polyline": "gfl_EcmdrE?gE?{E?gE?{E?{E?gE?{E?gEsD?sD?sD?sD?sD?sD?sD?sD?sD?sD?sD?sD?sD?rD?rD?rD??fE?zE?fE?zE?zE?fE?zE?fE?zE?fErD?rD?rD?rD?rD?rD?rD?rD???",
+      "loop": true,
+      "targetKm": 4,
+      "source": "graphhopper",
+      "metrics": {
+        "lengthM": 4592,
+        "spurCount": 1,
+        "uTurnCount": 0,
+        "retracedPct": 0.062,
+        "selfIntersections": 0,
+        "compactness": 0.593,
+        "distanceErrorPct": 0.148,
+        "unmarkedCrossings": 4,
+        "majorRoadPct": null
+      }
+    }
+  },
+  "expect": {
+    "firedOnCapture": [
+      "ROUTE_QUALITY"
+    ],
+    "mustNotFire": [
+      "ROUTE_QUALITY"
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "ROUTE_QUALITY",
+      "severity": 3,
+      "messageHe": "4 חציות לא מסומנות של כבישים ראשיים",
+      "data": {
+        "sub": "unmarked_crossings",
+        "value": 4
+      }
+    },
+    {
+      "ruleId": "ROUTE_QUALITY",
+      "severity": 2,
+      "messageHe": "1 ענפים מתים (הלוך-חזור באותו רחוב)",
+      "data": {
+        "sub": "spur",
+        "value": 1
+      }
+    }
+  ]
+}

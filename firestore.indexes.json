@@ -1232,6 +1232,10 @@
     },
     { "collectionGroup": "workouts", "queryScope": "COLLECTION",
       "fields": [ { "fieldPath": "userId", "order": "ASCENDING" }, { "fieldPath": "date", "order": "ASCENDING" } ]
+    },
+    // Generation review (enable_generation_review): the nightly run's queue — unreviewed logs, oldest first.
+    { "collectionGroup": "generation_log", "queryScope": "COLLECTION",
+      "fields": [ { "fieldPath": "reviewed", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ]
     }
   ],
   "fieldOverrides": [

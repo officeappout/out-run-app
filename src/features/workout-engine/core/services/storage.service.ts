@@ -7,6 +7,7 @@ import { clearHomeStartupCaches } from '@/lib/fast-startup/daily-record-cache';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/hooks/useWorkoutStateMachine';
 import type { CoachHintMark, RepsSource, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
+import { noteWorkoutSaved } from '@/features/generation-review/capture/hooks';
 
 // Route coordinate format stored in Firestore (object format to avoid nested arrays)
 export interface RoutePoint {
@@ -366,6 +367,7 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
   // enable_fast_startup_v1: today's cached home carousel is stale the moment a workout is
   // logged. No-op unless that cache was ever written on this device.
   clearHomeStartupCaches();
+  noteWorkoutSaved(workout.workoutType ?? workout.activityType); // generation review outcome (flag-gated)
   try {
     const currentUser = auth.currentUser;
     if (!currentUser) {

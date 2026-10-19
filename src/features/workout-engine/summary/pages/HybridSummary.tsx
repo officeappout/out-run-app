@@ -25,6 +25,7 @@ import type { SummarySnap } from '../blocks/summary-sheet.util';
 import SegmentRail, { type SegmentRailItem } from '../blocks/SegmentRail';
 import { railTypeFromKind, segmentLabel, type SegmentRailType } from '../blocks/segment-rail.util';
 import { formatDuration } from '../format';
+import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 
 export interface HybridSummaryProps {
   result: HybridFinalizeResult;
@@ -272,6 +273,7 @@ export default function HybridSummary({
   // Pinned footer — share (where it was), optional delete (history only) and
   // the ONE explicit exit action. The drawer itself never finishes on drag/tap.
   const footer = (
+    <>
     <div className="flex items-center gap-2.5 px-4 py-3">
       <Button variant="ghost" size="lg" onClick={handleShare} className="flex-1">
         <Share2 size={18} strokeWidth={2.4} aria-hidden />
@@ -292,6 +294,10 @@ export default function HybridSummary({
         סיום
       </Button>
     </div>
+    {!isReadOnly && (
+      <ReportProblemButton types={['hybrid_smart_walk', 'hybrid_full_park', 'hybrid_route_stops', 'hybrid_free_aerobic']} wrapperClassName="flex justify-center pb-2" />
+    )}
+    </>
   );
 
   return (

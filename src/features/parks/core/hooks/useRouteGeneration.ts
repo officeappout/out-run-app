@@ -12,6 +12,7 @@ import { NavHubState } from '../components/NavigationHub';
 import { isRouteNearby, isRouteInBounds, distanceToRouteStart } from '../services/geoUtils';
 import { useMapStore } from '../store/useMapStore';
 import { routeHasActivity, routeMatchesActivity } from '../utils/route-activity-match';
+import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
 
 let _parksCache: Park[] | null = null;
 async function getCachedParks(): Promise<Park[]> {
@@ -200,7 +201,7 @@ export function useRouteGeneration(
       // today, but the fallback silently swallowed generator errors and would
       // show fake routes the moment anyone filled that file. Empty / error is
       // reported honestly via shuffleOutcome instead.
-      if (newRoutes.length > 0) { setAllRoutes(newRoutes); setFocusedRoute(newRoutes[0]); }
+      if (newRoutes.length > 0) { setAllRoutes(logGeneratedRoutes(newRoutes, { activity: act, targetKm })); setFocusedRoute(newRoutes[0]); }
       else { setAllRoutes([]); setShuffleOutcome('empty'); }
     } catch (err) {
       console.error('[Builder] Route generation failed:', err);

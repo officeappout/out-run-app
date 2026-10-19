@@ -42,6 +42,7 @@ import { useFavoritesActions } from './hooks/useFavoritesActions';
 import { useProgramMap } from './hooks/useProgramMap';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
+import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 
 const DRAWER_HEIGHT = '95vh';
 const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
@@ -720,6 +721,7 @@ export default function WorkoutPreviewDrawer({
                 </div>
               </section>
             )}
+            <ReportProblemButton types={['home_strength', 'kelly_workout']} wrapperClassName="flex justify-center py-3" />
           </div>
         </div>
 

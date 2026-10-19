@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "id": "hybrid_free_aerobic-owner-4",
+  "name": "hybrid_free_aerobic: ACTIVITY_MISMATCH, ZERO_MINUTE_LEG, DURATION_MISMATCH (2026-10-19)",
+  "source": {
+    "logId": "owner-4",
+    "day": "2026-10-19",
+    "type": "hybrid_free_aerobic",
+    "generator": null,
+    "appVersion": null
+  },
+  "type": "hybrid_free_aerobic",
+  "input": {
+    "requestedActivity": "cycle",
+    "targetMinutes": 60
+  },
+  "output": {
+    "planLabel": "ריצה + כוח",
+    "planActivity": "run",
+    "totalMinutes": 24,
+    "exercises": [],
+    "legs": [
+      {
+        "activity": "run",
+        "distanceM": 0,
+        "minutes": 0
+      },
+      {
+        "activity": "strength",
+        "distanceM": null,
+        "minutes": 12,
+        "parkId": "park_on",
+        "exercises": [
+          {
+            "id": "pushup",
+            "pattern": "horizontal_push",
+            "sets": 3
+          },
+          {
+            "id": "row",
+            "pattern": "horizontal_pull",
+            "sets": 3
+          },
+          {
+            "id": "squat",
+            "pattern": "squat",
+            "sets": 3
+          },
+          {
+            "id": "plank",
+            "pattern": "core_anti_extension",
+            "sets": 3
+          }
+        ]
+      },
+      {
+        "activity": "run",
+        "distanceM": 0,
+        "minutes": 0
+      },
+      {
+        "activity": "strength",
+        "distanceM": null,
+        "minutes": 12,
+        "parkId": "park_on",
+        "exercises": [
+          {
+            "id": "pushup",
+            "pattern": "horizontal_push",
+            "sets": 3
+          },
+          {
+            "id": "row",
+            "pattern": "horizontal_pull",
+            "sets": 3
+          },
+          {
+            "id": "squat",
+            "pattern": "squat",
+            "sets": 3
+          },
+          {
+            "id": "plank",
+            "pattern": "core_anti_extension",
+            "sets": 3
+          }
+        ]
+      }
+    ],
+    "stations": [
+      {
+        "parkId": "park_on",
+        "lat": 31.534,
+        "lng": 34.60125,
+        "distanceToRouteM": null,
+        "equipment": [
+          "pullUpBar",
+          "parallelBars"
+        ]
+      }
+    ],
+    "route": null
+  },
+  "expect": {
+    "firedOnCapture": [
+      "ACTIVITY_MISMATCH",
+      "ZERO_MINUTE_LEG",
+      "DURATION_MISMATCH"
+    ],
+    "mustNotFire": [
+      "ACTIVITY_MISMATCH",
+      "ZERO_MINUTE_LEG",
+      "DURATION_MISMATCH"
+    ]
+  },
+  "findings": [
+    {
+      "ruleId": "ACTIVITY_MISMATCH",
+      "severity": 3,
+      "messageHe": "התבקשה רכיבה והתוכנית מוצגת כריצה",
+      "data": {
+        "requested": "cycle",
+        "shown": "run",
+        "where": "plan"
+      }
+    },
+    {
+      "ruleId": "ACTIVITY_MISMATCH",
+      "severity": 3,
+      "messageHe": "2 מקטעים הם ריצה במקום רכיבה",
+      "data": {
+        "requested": "cycle",
+        "shown": "run",
+        "where": "legs",
+        "count": 2
+      }
+    },
+    {
+      "ruleId": "ZERO_MINUTE_LEG",
+      "severity": 3,
+      "messageHe": "מקטע 1 (ריצה) הוא 0 דקות",
+      "data": {
+        "leg": 0,
+        "activity": "run",
+        "minutes": 0,
+        "distanceM": 0
+      }
+    },
+    {
+      "ruleId": "ZERO_MINUTE_LEG",
+      "severity": 3,
+      "messageHe": "מקטע 3 (ריצה) הוא 0 דקות",
+      "data": {
+        "leg": 2,
+        "activity": "run",
+        "minutes": 0,
+        "distanceM": 0
+      }
+    },
+    {
+      "ruleId": "DURATION_MISMATCH",
+      "severity": 2,
+      "messageHe": "התבקשו 60 דק׳ והאימון 24 דק׳ (-60%)",
+      "data": {
+        "targetMinutes": 60,
+        "totalMinutes": 24,
+        "errorPct": -60
+      }
+    }
+  ]
+}

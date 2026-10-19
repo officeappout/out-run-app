@@ -91,6 +91,7 @@ import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocation
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
+import { logHybridShown } from '@/features/generation-review/capture/hooks';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -1002,6 +1003,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       );
       setOverviewBackStep(fallbackStep);
       setHybridComposed(composed);
+      logHybridShown(composed, { mode: intent.mode, requestedActivity: logic.preferences.activity, targetMinutes: intent.timeBudgetMin, targetKm: intent.smart?.targetKm }); // generation review
       setFreeRunStep('overview');
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1188,6 +1190,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         drawComposedRoute(cached);
         setOverviewBackStep('slots');
         setHybridComposed(cached);
+        logHybridShown(cached, { requestedActivity: logic.preferences.activity, title: slot.title }); // generation review
         setFreeRunStep('overview');
         return;
       }

@@ -115,6 +115,7 @@ import { useToast } from '@/components/ui/Toast';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
+import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -1707,6 +1708,7 @@ export default function HomePage() {
     generatedWorkoutRef.current = workout;
     setGeneratedWorkout(workout);
     setIsWorkoutLoading(false);
+    logGeneratedWorkout('home_strength', workout); // generation review (flag-gated, no-op when off)
   }, []);
 
   // ── Park "התחל אימון" wiring (Phase 1, park-start-workout-wiring-plan) ──────

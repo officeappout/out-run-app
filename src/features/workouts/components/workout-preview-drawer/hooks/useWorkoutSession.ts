@@ -9,6 +9,7 @@ import { Analytics } from '@/features/analytics/AnalyticsService';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import type { WorkoutData } from '../types';
+import { markGenerationOutcome } from '@/features/generation-review/capture/hooks';
 
 interface UseWorkoutSessionParams {
   workout: WorkoutData | null;
@@ -96,6 +97,7 @@ export function useWorkoutSession({
     // existed.
     const effectiveGeneratedWorkout =
       overrideGeneratedWorkout !== undefined ? overrideGeneratedWorkout : generatedWorkout;
+    markGenerationOutcome('strength', 'started', { exerciseIds: effectiveGeneratedWorkout?.exercises?.map((e) => String(e.exercise?.id)) }); // generation review
 
     // Source of truth for the runner: the legacy `workoutPlan` (favorites flow)
     // OR — when the drawer was opened with a CustomBuilder/generator output —

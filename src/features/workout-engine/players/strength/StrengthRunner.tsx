@@ -78,6 +78,7 @@ import {
   useTimedSegment, useMixedStoryBars, useTimedPlaylistRenderer, TimedRuntime, TimedBlockPlayer, TimedListBehind, TimedMiniPlayerBar,
   mergeSegmentLog, segmentLogId,
 } from './timed';
+import { markGenerationOutcome } from '@/features/generation-review/capture/hooks';
 
 export type { ExerciseResultLog };
 
@@ -543,6 +544,7 @@ export default function StrengthRunner({
 
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
+    markGenerationOutcome('strength', 'abandoned'); // generation review (flag-gated)
     // A timed block stopped mid-way keeps what was done (flag on only; empty otherwise).
     const timedRows = timed.active ? timed.store.actions.finishNow() : [];
     onComplete?.(

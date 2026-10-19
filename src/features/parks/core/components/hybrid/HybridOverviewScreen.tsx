@@ -30,6 +30,7 @@ import OverviewDrawerShell from '../overview/OverviewDrawerShell';
 import OverviewStartButton from '../overview/OverviewStartButton';
 import RoundTripPill from '../overview/RoundTripPill';
 import { journeyItemsFromLegs } from '../overview/overview-legs';
+import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 import { aerobicKindLabel } from '@/features/workout-engine/hybrid/aerobic-kind';
 
 const ACCENT = '#00ADEF';
@@ -343,6 +344,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
         onSegmentAssessmentLink={onAssessmentLink}
       />
       </HomeV2Context.Provider>
+      <ReportProblemButton types={['hybrid_smart_walk', 'hybrid_full_park', 'hybrid_route_stops', 'hybrid_free_aerobic']} wrapperClassName="flex justify-center py-3" />
     </OverviewDrawerShell>
   );
 }

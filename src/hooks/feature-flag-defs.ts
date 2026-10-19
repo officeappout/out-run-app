@@ -257,6 +257,19 @@ export const FLAG_DEFS = [
   // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
+  // Generation review (19.10.2026, owner) — learn from every generated session: each session a
+  // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
+  // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and
+  // stored server-side in generation_log (60-day TTL); a nightly job runs invariant rules over the
+  // day and fills /admin/generation-review; "דווח על בעיה" in the overview drawers. The server is
+  // the enforcer (the log route reads the real value; a sample % lives in
+  // app_config/generation_review.samplePct). superAdminValue true: super admins are ALWAYS
+  // captured and always see the report button. Off = byte-identical for every other user
+  // (nothing summarized, sent or written).
+  { key: 'enableGenerationReview', firestoreKey: 'enable_generation_review', defaultValue: false, superAdminValue: true },
+  // Sub-flag: the nightly review also asks the smart model (Sonnet) "does this make sense for this
+  // user" on a small daily sample, under the AI budget + its own daily cap. Off = rules only.
+  { key: 'enableGenerationReviewLlm', firestoreKey: 'enable_generation_review_llm', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
