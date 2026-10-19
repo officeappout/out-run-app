@@ -130,11 +130,17 @@ interface MapStore {
         kind: 'flyTo';
         center: [number, number];
         bearing: number;
+        /** Optional overrides (default: the turn-preview 18.5 / 75°). v2 search pick uses a flat view. */
+        zoom?: number;
+        pitch?: number;
       }
     | {
         kind: 'fitBounds';
         bounds: [[number, number], [number, number]]; // [SW, NE]
         bearing: number;
+        /** Optional overrides (default: 75° / maxZoom 18.5). */
+        pitch?: number;
+        maxZoom?: number;
       }
     | null;
   setTurnFlyToTarget: (target: MapStore['turnFlyToTarget']) => void;

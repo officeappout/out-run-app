@@ -23,6 +23,8 @@ export interface SearchSuggestion {
   _id?: string;
   /** Mapbox result kind (address / street / place / poi …) — mapbox hits only. */
   placeType?: GeoPlaceType;
+  /** Route length in km — route hits only (v2 grouped rows show it). */
+  routeKm?: number;
 }
 
 export interface NavVariants {
@@ -45,6 +47,60 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * v2 search empty state ("קרוב אליך"): the nearest parks + official routes to
+ * the user, as replayable suggestions. Read-only — reuses the same cached
+ * park / route lists the typeahead already loads.
+ */
+export async function getNearbySearchSuggestions(
+  userPos: { lat: number; lng: number },
+  opts: { parks?: number; routes?: number } = {},
+): Promise<SearchSuggestion[]> {
+  const [parks, routes] = await Promise.all([getCachedParks(), getCachedOfficialRoutes()]);
+  const nearestParks = parks
+    .filter((p) => Number.isFinite(p.location?.lat) && Number.isFinite(p.location?.lng) && (p.location.lat !== 0 || p.location.lng !== 0))
+    .map((p) => ({ p, d: haversineKm(userPos.lat, userPos.lng, p.location.lat, p.location.lng) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, opts.parks ?? 2)
+    .map(({ p }) => ({
+      text: p.name + (p.city ? ` · ${p.city}` : ''),
+      coords: [p.location.lng, p.location.lat] as [number, number],
+      _source: 'park' as const,
+      _id: p.id,
+    }));
+  const nearestRoutes = routes
+    .filter((r) => Array.isArray(r.path) && r.path.length > 0)
+    .map((r) => ({ r, d: haversineKm(userPos.lat, userPos.lng, r.path[0][1], r.path[0][0]) }))
+    .filter(({ d }) => Number.isFinite(d))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, opts.routes ?? 1)
+    .map(({ r }) => ({
+      text: r.name + (r.city ? ` · ${r.city}` : ''),
+      coords: r.path[0] as [number, number],
+      _source: 'route' as const,
+      _id: r.id,
+      routeKm: typeof r.distance === 'number' ? r.distance : undefined,
+    }));
+  return [...nearestParks, ...nearestRoutes];
+}
+
+/** v2 destination card: official routes passing within `km` of a point (read-only). */
+export async function findOfficialRoutesNear(lat: number, lng: number, km = 1, limit = 3): Promise<Route[]> {
+  const routes = await getCachedOfficialRoutes();
+  return routes
+    .filter((r) => routePassesNearPoint(r, lat, lng, km))
+    .map((r) => ({ r, d: haversineKm(lat, lng, r.path[0][1], r.path[0][0]) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, limit)
+    .map(({ r }) => r);
+}
+
+/** v2: resolve a route id from the cached official list (route-card replay). */
+export async function findOfficialRouteById(id: string): Promise<Route | null> {
+  const routes = await getCachedOfficialRoutes();
+  return routes.find((r) => r.id === id) ?? null;
 }
 
 export interface SearchNavigationState {
@@ -137,6 +193,7 @@ export function useSearchNavigation(
             coords: r.path[0] as [number, number],
             _source: 'route' as const,
             _id: r.id,
+            routeKm: typeof r.distance === 'number' ? r.distance : undefined,
           }));
 
         const geoHits: SearchSuggestion[] = mapboxResults.map(r => ({

@@ -39,6 +39,12 @@ export interface RecentSearch {
    * route / mapbox) consistently with the live suggestion list.
    */
   source: 'park' | 'route' | 'mapbox';
+  /**
+   * Park / route document id (optional, added for the v2 search). Without it
+   * a park / route recent can't be reopened as its entity card — older
+   * entries simply don't have it.
+   */
+  id?: string;
   /** Last-picked timestamp (ms). Drives ordering. */
   pickedAt: number;
 }
@@ -70,6 +76,7 @@ export const useRecentSearchesStore = create<RecentSearchesState>()(
             text: normalised,
             coords: entry.coords,
             source: entry.source,
+            ...(entry.id ? { id: entry.id } : {}),
             pickedAt: Date.now(),
           };
           const filtered = state.recents.filter(
