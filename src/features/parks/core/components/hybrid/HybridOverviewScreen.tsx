@@ -30,6 +30,7 @@ import OverviewDrawerShell from '../overview/OverviewDrawerShell';
 import OverviewStartButton from '../overview/OverviewStartButton';
 import RoundTripPill from '../overview/RoundTripPill';
 import { journeyItemsFromLegs } from '../overview/overview-legs';
+import { aerobicKindLabel } from '@/features/workout-engine/hybrid/aerobic-kind';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -169,9 +170,9 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   // title instead; the nudge itself renders via the existing A3 fallback banner below.
   const overviewTitle = composed.fullParkRun === false
     // sessionTitle: enable_hybrid_cards_v2's smart walk ("הליכה + כוח"); absent → unchanged.
-    ? (fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : (composed.sessionTitle ?? 'מסלול + עצירות'))
+    ? (fallbackHint ? aerobicKindLabel(aerobicKind) : (composed.sessionTitle ?? 'מסלול + עצירות'))
     : composed.bolts
-    ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
+    ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKindLabel(aerobicKind)} + תחנת כוח` : 'אימון משולב')
     : 'אימון משולב';
 
   // Moovit-style at-a-glance sequence (RTL): walk-leg (mins) › station › walk-leg …

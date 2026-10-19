@@ -1496,7 +1496,9 @@ export default function FreeRunDrawer({
       timeBudgetMin,
       aerobicShare,
       emphasis: shareToEmphasis(aerobicShare),
-      aerobicKind: selectedActivity === 'walking' ? 'walking' : 'running',
+      // A ride stays a ride (title, legs, riding pace) — cycling has a player mode only under
+      // enable_home_v2 (applyGoalToPlayer above); without it, the old running fallback.
+      aerobicKind: selectedActivity === 'walking' ? 'walking' : v2 && selectedActivity === 'cycling' ? 'cycling' : 'running',
     };
     if (onStartHybrid) onStartHybrid(intent);
     else onStartWorkout();

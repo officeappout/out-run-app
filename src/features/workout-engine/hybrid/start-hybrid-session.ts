@@ -13,6 +13,8 @@
 
 import type { HybridStartIntent } from './build-hybrid-input';
 import type { HybridPlan } from './compose-hybrid-session.service';
+import type { ResolvedRouteStop } from './route-stops.service';
+import { hybridSessionTitle, safeBasePaceSecPerKm, toRuntimeAerobicKind, type HybridAerobicKind } from './aerobic-kind';
 import type { ContextualFilterContext } from '../logic/contextual-engine.types';
 import type { WorkoutGenerationContext, GeneratedWorkout } from '../logic/workout-generator.types';
 import type { ActivityType } from '@/features/parks/core/types/route.types';
@@ -36,7 +38,8 @@ export interface HybridSessionContext {
 export interface ComposedHybridSession {
   plan: HybridPlan;
   routePath: [number, number][];
-  aerobicKind: 'running' | 'walking';
+  /** walk / run / ride (aerobic-kind.ts) — a ride is labelled and paced as one. */
+  aerobicKind: HybridAerobicKind;
   /** Friendly message when the station fell back to bodyweight (A3). */
   fallbackHint?: string;
   /**
@@ -342,7 +345,7 @@ async function composeFullParkWorkout(
   // `||` (not `??`) so an unset weight of 0 falls back to 70kg (calorie terms).
   const userWeightKg = profile?.core?.weight || 70;
   const pp = profile?.running?.paceProfile;
-  const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+  const paceProfile = { basePace: safeBasePaceSecPerKm(pp?.basePace), profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
   // unassessed-domain-gate: reuses the SAME hasAssessedStrengthDomain signal as the home
   // hero-gate (hasStrengthProgram) and route_stops (access-control.service.ts) — checks the
@@ -356,7 +359,7 @@ async function composeFullParkWorkout(
   const oab = await resolveParkOutAndBack({
     userPosition: ctx.userPosition,
     parks,
-    aerobicKind: intent.aerobicKind,
+    aerobicKind: toRuntimeAerobicKind(intent.aerobicKind),
     cityName: ctx.cityName,
   });
   if (!oab) { console.warn('[composeFullParkWorkout] no equipped park reachable → no card'); return null; }
@@ -574,7 +577,7 @@ export async function composeFullParkRoutePreview(
   const oab = await resolveParkOutAndBack({
     userPosition: ctx.userPosition,
     parks,
-    aerobicKind: intent.aerobicKind,
+    aerobicKind: toRuntimeAerobicKind(intent.aerobicKind),
     cityName: ctx.cityName,
   });
   if (!oab) { console.warn('[composeFullParkRoutePreview] no equipped park reachable → no route'); return null; }
@@ -792,7 +795,20 @@ interface RouteStopsComposeOpts {
     userPosition: { lat: number; lng: number };
     parks: any[];
     targetKm: number;
-  }) => Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null>;
+  }) => Promise<{
+    routePath: [number, number][]; routeId: string; routeName?: string;
+    /** Smart walk: the park the walk goes through + where it reaches it (the ONE station). */
+    anchor?: { parkId: string; lat: number; lng: number; waypointIndex: number };
+  } | null>;
+  /**
+   * Smart walk: turns the generic stop search into the session's stops — only the park the walk
+   * goes through, at the point the walk reaches it (smart-walk-backbone anchorStopsToPark).
+   */
+  anchorStops?: (
+    rawStops: ResolvedRouteStop[],
+    anchor: { parkId: string; lat: number; lng: number; waypointIndex: number },
+    park: any,
+  ) => ResolvedRouteStop[];
   /**
    * The time budget for the REAL route that came back (smart card: walk time of that route +
    * the strength minutes the card sized from the weekly sets), so the station planner's
@@ -861,7 +877,7 @@ async function composeRouteStopsWorkout(
   }
   const userWeightKg = profile?.core?.weight || 70;
   const pp = profile?.running?.paceProfile;
-  const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+  const paceProfile = { basePace: safeBasePaceSecPerKm(pp?.basePace), profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
   // route-stops Part A — questionnaire gate: reuses the SAME hasAssessedStrengthDomain signal
   // as the home hero-gate (hasStrengthProgram) — the real assessed-domain axis, independent
@@ -928,7 +944,17 @@ async function composeRouteStopsWorkout(
   }
   if (!backbone) return null;
   const routePath = backbone.routePath;
-  const rawStops = tm.sync('resolveStops', () => resolveRouteStops(routePath, parks as any));
+  const anchor = (backbone as { anchor?: { parkId: string; lat: number; lng: number; waypointIndex: number } }).anchor;
+  const genericStops = tm.sync('resolveStops', () => resolveRouteStops(routePath, parks as any));
+  const rawStops = anchor && opts.anchorStops
+    ? opts.anchorStops(genericStops, anchor, parks.find((p: any) => p.id === anchor.parkId))
+    : genericStops;
+  if (anchor && opts.anchorStops) {
+    console.log(
+      `[route-stops] smart walk: station = the park the walk goes through (${anchor.parkId} @wp${anchor.waypointIndex});` +
+      ` ${Math.max(0, genericStops.length - rawStops.length)} other stop(s) near the line walked past`,
+    );
+  }
 
   // SPEC-07 production-bug fix: resolveRouteStops is pure/sync (no I/O), so a stop
   // correctly classified `activityType: 'strength'` by mapParkToStop's
@@ -1205,7 +1231,9 @@ async function composeRouteStopsWorkout(
   // stations; the rest are walked past (plan.meta.passThroughStopIds) and get no marker, so the
   // map never shows a "station" where nothing happens.
   const stationStopIds = new Set(plans.flatMap((p) => p.segments.filter((g) => g.kind === 'strength').map((g) => g.stopId)));
-  const stationStops = stationStopIds.size > 0 ? stops.filter((s) => stationStopIds.has(s.stopId)) : stops;
+  // No station in any bolt → no station markers (was: every stop, so the map showed a park photo
+  // the walk never stops at — owner report 19.10.2026).
+  const stationStops = stops.filter((s) => stationStopIds.has(s.stopId));
   const firstStrength = stationStops.find((s) => s.activityType === 'strength');
   const markerStations = stationStops
     .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
@@ -1290,7 +1318,7 @@ export async function composeHybridPlan(
   // that flag ever set this mode): the route-stops composer (v2 overview, 3 difficulties, real
   // stops) over a walk from the user THROUGH a nearby equipped park, sized by the card.
   if (intent.mode === 'smart_walk_strength') {
-    const [{ resolveSmartWalkBackbone }, { smartParkRadiusM, smartComposeBudgetMin }, { pathLengthMeters }, { useUserStore }] = await Promise.all([
+    const [{ resolveSmartWalkBackbone, anchorStopsToPark }, { smartParkRadiusM, smartComposeBudgetMin }, { pathLengthMeters }, { useUserStore }] = await Promise.all([
       import('./smart-cards/smart-walk-backbone'),
       import('./smart-cards/smart-sizing'),
       import('@/features/parks/core/services/geoUtils'),
@@ -1299,7 +1327,8 @@ export async function composeHybridPlan(
     const basePace = useUserStore.getState().profile?.running?.paceProfile?.basePace;
     const strengthMin = intent.smart?.strengthMin;
     return composeRouteStopsWorkout(intent, ctx, {
-      sessionTitle: intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח',
+      sessionTitle: hybridSessionTitle(intent.aerobicKind),
+      anchorStops: anchorStopsToPark,
       ...(strengthMin != null ? {
         timeBudgetForRoute: (path: [number, number][]) =>
           smartComposeBudgetMin(pathLengthMeters(path) / 1000, intent.aerobicKind, strengthMin, basePace),
@@ -1332,7 +1361,7 @@ export async function composeHybridPlan(
   // hybrid calorie term (aerobic km×w×1.036 + strength MET×w) collapses to 0.
   const userWeightKg = profile?.core?.weight || 70;
   const pp = profile?.running?.paceProfile;
-  const paceProfile = { basePace: pp?.basePace ?? 390, profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
+  const paceProfile = { basePace: safeBasePaceSecPerKm(pp?.basePace), profileType: (pp?.profileType ?? 2) as 1 | 2 | 3 | 4 };
 
   // ── User levels: shared resolver (hybrid-context.util) — the SAME real per-domain
   // levels (push/pull/legs/core) home-workout feeds the pipeline, fixing the "empty
@@ -1569,7 +1598,7 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   const sessionLabel = composed.fullParkRun === false && !composed.fallbackHint
     ? (composed.sessionTitle ?? 'מסלול + עצירות') // sessionTitle: enable_hybrid_cards_v2 smart walk only
     : undefined;
-  useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true, stationNames, sessionLabel);
+  useHybridRun.getState().startHybrid(runPlan, toRuntimeAerobicKind(composed.aerobicKind), fullPark, composed.isWarmupActive ?? true, stationNames, sessionLabel);
   startRun();
 }
 

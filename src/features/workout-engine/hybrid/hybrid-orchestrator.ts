@@ -464,7 +464,7 @@ export function finalizeHybridRun(
     let plannedDur = 0, plannedDist = 0, plannedCal = 0;
     let actualDur = 0, actualDist = 0;
     let sawAerobic = false, sawAerobicActual = false, allAerobicCompleted = true;
-    let aerobicType: 'running' | 'walking' | undefined;
+    let aerobicType: 'running' | 'walking' | 'cycling' | undefined;
     let startedAtMs: number | undefined;
     let endedAtMs: number | undefined;
     const strengthRecords: SessionSegmentRecord[] = [];
