@@ -16,9 +16,9 @@ import {
   ignored,
   withLog,
 } from './timed-common';
-import type { AmrapData, AmrapItemRecord, AmrapState, TimedBlockSpec, TimedEvent } from './timed.types';
+import type { AmrapData, AmrapItemRecord, AmrapState, TimedEvent } from './timed.types';
 
-export function initAmrapData(_spec: Extract<TimedBlockSpec, { format: 'amrap' }>): AmrapData {
+export function initAmrapData(): AmrapData {
   return {
     rounds: [{ index: 0, startedActiveMs: 0, endedActiveMs: null, items: [] }],
     itemIndex: 0,

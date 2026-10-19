@@ -36,7 +36,7 @@ export function initTimed(spec: TimedBlockSpec, options: TimedOptions = {}): Tim
     case 'emom':
       return { ...base, spec, data: initEmomData(spec) };
     case 'amrap':
-      return { ...base, spec, data: initAmrapData(spec) };
+      return { ...base, spec, data: initAmrapData() };
   }
 }
 
