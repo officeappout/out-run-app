@@ -30,10 +30,14 @@ export const onGroupMemberWrite = onDocumentWritten(
     const { groupId } = event.params;
     const groupRef = db.doc(`community_groups/${groupId}`);
 
-    const membersSnap = await db
+    // Aggregation count (19.10.2026): was a full read of every member doc on
+    // every member write (N reads per join). count() is billed as one read
+    // per 1,000 docs and returns the same number the old .size did.
+    const countSnap = await db
       .collection(`community_groups/${groupId}/members`)
+      .count()
       .get();
-    const count = membersSnap.size;
+    const count = countSnap.data().count;
 
     const groupSnap = await groupRef.get();
     if (!groupSnap.exists) return;

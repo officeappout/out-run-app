@@ -68,7 +68,11 @@
  *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
- *   TRAINING_REMINDER_BATCH    — max docs to process per run (default 500)
+ *   TRAINING_REMINDER_BATCH    — page size of today's userSchedule query (default 500)
+ *   TRAINING_REMINDER_MAX_PAGES — max pages per run (default 20 → 10,000 docs).
+ *                                Until 19.10.2026 the run read ONE page of 500
+ *                                and stopped; schedules past it never got a
+ *                                reminder. Per-user rules are unchanged.
  *   TRAINING_REMINDER_TEST_MODE — if 'true', logs intent, skips FCM + writes
  *
  * GATE — reminderSweepScheduler v2 (06.10.2026)
@@ -102,6 +106,7 @@ import {
   type ResolvedPushCopy,
 } from './services/push-copy.service';
 import type { PushAudience } from './shared/push-library.core';
+import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -109,10 +114,12 @@ if (!admin.apps.length) {
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const BATCH_LIMIT = (() => {
-  const raw = Number(process.env.TRAINING_REMINDER_BATCH);
-  return Number.isFinite(raw) && raw > 0 && raw <= 1000 ? raw : 500;
-})();
+/** Page size of today's userSchedule query (was the WHOLE run's cap until 19.10.2026). */
+const BATCH_LIMIT = envInt(process.env.TRAINING_REMINDER_BATCH, 500, 1000);
+/** Max pages per run (default 20 → 10,000 schedule docs). */
+const MAX_PAGES = envInt(process.env.TRAINING_REMINDER_MAX_PAGES, 20, 100);
+/** Parallel per-recipient copy resolutions. */
+const COPY_CONCURRENCY = 10;
 
 const TEST_MODE = process.env.TRAINING_REMINDER_TEST_MODE === 'true';
 
@@ -214,7 +221,8 @@ export const trainingReminderScheduler = onSchedule(
     schedule: '0 * * * *',
     timeZone: 'Asia/Jerusalem',
     region: 'us-central1',
-    timeoutSeconds: 300,
+    // 540s (was 300): the run now pages through all of today's schedules.
+    timeoutSeconds: 540,
     memory: '512MiB',
   },
   async () => {
@@ -243,26 +251,13 @@ export const trainingReminderScheduler = onSchedule(
 
     logger.info(
       `[training-reminder] Starting run for date=${dateStr} hour=${currentHour} ` +
-        `batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE} gateWorkoutEntries=${gateWorkoutEntries}`,
+        `batchLimit=${BATCH_LIMIT} maxPages=${MAX_PAGES} testMode=${TEST_MODE} gateWorkoutEntries=${gateWorkoutEntries}`,
     );
 
-    // Query all userSchedule docs for today.
-    let docs: admin.firestore.QueryDocumentSnapshot[];
-    try {
-      const snap = await db
-        .collection('userSchedule')
-        .where('date', '==', dateStr)
-        .limit(BATCH_LIMIT)
-        .get();
-      docs = snap.docs;
-    } catch (err: unknown) {
-      logger.error('[training-reminder] Firestore query failed', err);
-      return;
-    }
-
-    logger.info(`[training-reminder] ${docs.length} schedule doc(s) found for ${dateStr}`);
-
-    // ── Pass 1: find candidates with an uncompleted training entry today ───
+    // ── Pass 1: today's userSchedule docs, cursor-paginated (19.10.2026 —
+    // was ONE limit(BATCH_LIMIT) read, so schedule docs past the first 500
+    // of the day were never looked at). Only the small candidate rows are
+    // kept between pages. Equality + doc-id order: no composite index. ──
     interface Candidate {
       uid: string;
       workoutLabel: string;
@@ -271,47 +266,68 @@ export const trainingReminderScheduler = onSchedule(
 
     const candidates: Candidate[] = [];
 
-    for (const doc of docs) {
-      const data = doc.data() as {
-        userId?: string;
-        entries?: Array<{
-          type?: string;
-          completed?: boolean;
-          scheduledCategories?: string[];
-          startTime?: string;
-        }>;
-      };
+    const collectPage = (pageDocs: admin.firestore.QueryDocumentSnapshot[]) => {
+      for (const doc of pageDocs) {
+        const data = doc.data() as {
+          userId?: string;
+          entries?: Array<{
+            type?: string;
+            completed?: boolean;
+            scheduledCategories?: string[];
+            startTime?: string;
+          }>;
+        };
 
-      const uid = data.userId;
-      if (!uid) continue;
+        const uid = data.userId;
+        if (!uid) continue;
 
-      const entries = Array.isArray(data.entries) ? data.entries : [];
-      // Find first uncompleted training entry for today
-      const trainEntry = entries.find(
-        (e) => e.type === 'training' && e.completed !== true,
-      );
-      if (!trainEntry) continue;
+        const entries = Array.isArray(data.entries) ? data.entries : [];
+        // Find first uncompleted training entry for today
+        const trainEntry = entries.find(
+          (e) => e.type === 'training' && e.completed !== true,
+        );
+        if (!trainEntry) continue;
 
-      // v2 gate: when enabled, any entry WITH a startTime is now owned
-      // precisely by reminderSweepScheduler — skip it here entirely rather
-      // than also sending this scheduler's coarser per-hour reminder for
-      // the same workout (see this file's header).
-      if (gateWorkoutEntries && trainEntry.startTime) continue;
+        // v2 gate: when enabled, any entry WITH a startTime is now owned
+        // precisely by reminderSweepScheduler — skip it here entirely rather
+        // than also sending this scheduler's coarser per-hour reminder for
+        // the same workout (see this file's header).
+        if (gateWorkoutEntries && trainEntry.startTime) continue;
 
-      // Skip if the workout's startTime has already passed (no point reminding after the fact)
-      if (trainEntry.startTime) {
-        const [hh, mm] = trainEntry.startTime.split(':').map(Number);
-        if (Number.isFinite(hh) && Number.isFinite(mm)) {
-          const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
-          if (hh * 60 + mm <= nowIST.getHours() * 60 + nowIST.getMinutes()) continue;
+        // Skip if the workout's startTime has already passed (no point reminding after the fact)
+        if (trainEntry.startTime) {
+          const [hh, mm] = trainEntry.startTime.split(':').map(Number);
+          if (Number.isFinite(hh) && Number.isFinite(mm)) {
+            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
+            if (hh * 60 + mm <= nowIST.getHours() * 60 + nowIST.getMinutes()) continue;
+          }
         }
-      }
 
-      candidates.push({
-        uid,
-        workoutLabel: categoryLabel(trainEntry.scheduledCategories),
-        startTime: trainEntry.startTime,
-      });
+        candidates.push({
+          uid,
+          workoutLabel: categoryLabel(trainEntry.scheduledCategories),
+          startTime: trainEntry.startTime,
+        });
+      }
+    };
+
+    try {
+      const stats = await forEachQueryPage(
+        db.collection('userSchedule').where('date', '==', dateStr),
+        { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
+        collectPage,
+      );
+      logger.info(
+        `[training-reminder] ${stats.read} schedule doc(s) found for ${dateStr} over ${stats.pages} page(s)` +
+          (stats.truncated ? ` (stopped at MAX_PAGES=${MAX_PAGES} — raise TRAINING_REMINDER_MAX_PAGES)` : ''),
+      );
+    } catch (err: unknown) {
+      if (candidates.length === 0) {
+        logger.error('[training-reminder] Firestore query failed', err);
+        return;
+      }
+      // A later page failed: the pages already read are still served.
+      logger.error('[training-reminder] Firestore query failed after some pages — continuing with those', err);
     }
 
     logger.info(`[training-reminder] ${candidates.length} candidate(s) with uncompleted training today`);
@@ -396,11 +412,14 @@ export const trainingReminderScheduler = onSchedule(
 
     // ── Copy per recipient (push library), then batch identical messages ──
     const resolved: Array<{ item: (typeof targets)[number]; copy: ResolvedPushCopy }> = [];
-    for (const t of targets) {
+    const copies = await mapWithConcurrency(targets, COPY_CONCURRENCY, async (t) => {
       const recipient = recipientByUid.get(t.uid) ?? { uid: t.uid, firstName: '', audience: {} };
-      const copy = await resolveWorkoutReminderCopy('workout_reminder_day', recipient, t.workoutLabel, t.startTime);
+      return resolveWorkoutReminderCopy('workout_reminder_day', recipient, t.workoutLabel, t.startTime);
+    });
+    targets.forEach((t, i) => {
+      const copy = copies[i];
       if (copy) resolved.push({ item: t, copy });
-    }
+    });
 
     let totalDelivered = 0;
 

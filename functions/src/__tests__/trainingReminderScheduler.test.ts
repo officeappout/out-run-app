@@ -16,6 +16,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  * push.service.ts's own Asia/Jerusalem checks see a consistent "now".
  */
 
+// Page size 2 for this whole file, so every case also runs through the
+// cursor pagination (19.10.2026) — not just the single-page path.
+vi.hoisted(() => {
+  process.env.TRAINING_REMINDER_BATCH = '2';
+});
+
 const state = vi.hoisted(() => ({
   store: new Map<string, Record<string, any> | undefined>(),
   userSchedule: [] as Array<{ id: string; data: Record<string, any> }>,
@@ -60,17 +66,23 @@ function makeFakeDb() {
   return {
     collection: (name: string) => ({
       doc: (id: string) => makeDocRef(name, id),
-      where: (field: string, _op: string, value: unknown) => ({
-        limit: (n: number) => ({
+      // Paged like Firestore (19.10.2026): limit + startAfter(<last doc>), doc-id order.
+      where: (field: string, _op: string, value: unknown) => {
+        const page = (n: number, afterId: string | null): any => ({
+          limit: (m: number) => page(m, afterId),
+          startAfter: (cursor: { id: string }) => page(n, cursor.id),
           get: async () => {
-            const matches =
+            const all =
               name === 'userSchedule'
-                ? state.userSchedule.filter((d) => d.data[field] === value).slice(0, n)
+                ? state.userSchedule.filter((d) => d.data[field] === value).sort((a, b) => a.id.localeCompare(b.id))
                 : [];
+            const start = afterId === null ? 0 : all.findIndex((d) => d.id === afterId) + 1;
+            const matches = all.slice(start, start + n);
             return { docs: matches.map((d) => ({ id: d.id, data: () => d.data })) };
           },
-        }),
-      }),
+        });
+        return page(Number.POSITIVE_INFINITY, null);
+      },
     }),
     doc: (path: string) => {
       const [collection, id] = path.split('/');
@@ -179,6 +191,20 @@ describe('trainingReminderScheduler — personalized hour targeting', () => {
     expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
       expect.objectContaining({ tokens: ['tok-user1'] }),
     );
+  });
+
+  it('pages past the first page — every scheduled user is reminded, each once (was capped at one page)', async () => {
+    setIsraelTime(18);
+    const uids = ['p1', 'p2', 'p3', 'p4', 'p5'];
+    for (const uid of uids) {
+      seedSchedule(uid, TODAY);
+      seedUser(uid, '18:00');
+    }
+
+    await (trainingReminderScheduler as any)();
+
+    const tokens = fakeMessaging.sendEachForMulticast.mock.calls.flatMap((c: any[]) => c[0].tokens as string[]);
+    expect(tokens.sort()).toEqual(uids.map((u) => `tok-${u}`));
   });
 
   it('does not fire when the run hour does not match the preferred hour', async () => {

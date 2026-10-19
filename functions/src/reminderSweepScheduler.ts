@@ -115,7 +115,10 @@
  *
  * ENVIRONMENT VARIABLES (optional overrides for testing)
  * ───────────────────────────────────────────────────────
- *   REMINDER_SWEEP_BATCH      — max matched docs to process per run (default 500)
+ *   REMINDER_SWEEP_BATCH      — page size of each pass's match query (default 500)
+ *   REMINDER_SWEEP_MAX_PAGES  — max pages per pass per tick (default 10 → 5,000).
+ *                               Until 19.10.2026 each pass read ONE page of
+ *                               500 and stopped. Per-user rules are unchanged.
  *   REMINDER_SWEEP_TEST_MODE  — if 'true', logs intent, skips the idempotency
  *                               claim + FCM send entirely, for BOTH passes
  */
@@ -137,6 +140,7 @@ import {
   groupByCopy,
   type ReminderRecipient,
 } from './trainingReminderScheduler';
+import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -144,10 +148,12 @@ if (!admin.apps.length) {
 
 const FEATURE_FLAGS_DOC = 'app_config/feature_flags';
 
-const BATCH_LIMIT = (() => {
-  const raw = Number(process.env.REMINDER_SWEEP_BATCH);
-  return Number.isFinite(raw) && raw > 0 && raw <= 1000 ? raw : 500;
-})();
+/** Page size of each pass's match query (was the WHOLE pass's cap until 19.10.2026). */
+const BATCH_LIMIT = envInt(process.env.REMINDER_SWEEP_BATCH, 500, 1000);
+/** Max pages per pass per tick (default 10 → 5,000 docs). */
+const MAX_PAGES = envInt(process.env.REMINDER_SWEEP_MAX_PAGES, 10, 50);
+/** Parallel idempotency claims / copy resolutions. */
+const CLAIM_CONCURRENCY = 10;
 
 const TEST_MODE = process.env.REMINDER_SWEEP_TEST_MODE === 'true';
 
@@ -219,22 +225,31 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
   logger.info(`[reminder-sweep] Pass 1 (settings-slot) — day=${day} time=${time} date=${dateStr} batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`);
 
   // ── Match query ─────────────────────────────────────────────────────
-  let matchedUids: string[];
+  // Cursor-paginated (19.10.2026): was ONE limit(BATCH_LIMIT) read, so a
+  // slot with more than 500 users only ever reminded the first 500. Only the
+  // small recipient rows are kept between pages; array-contains + doc-id
+  // order needs no composite index.
+  const matchedUids: string[] = [];
   const recipientByUid = new Map<string, ReminderRecipient>();
   try {
-    const snap = await db
-      .collection('users')
-      .where('lifestyle.reminders.schedule', 'array-contains', { day, time })
-      .limit(BATCH_LIMIT)
-      .get();
-    matchedUids = snap.docs.map((d) => d.id);
-    snap.docs.forEach((d) => {
-      const data = d.data() as Record<string, unknown>;
-      recipientByUid.set(d.id, { uid: d.id, firstName: firstNameFromUserData(data), audience: audienceFromUserData(data) });
-    });
+    const stats = await forEachQueryPage(
+      db.collection('users').where('lifestyle.reminders.schedule', 'array-contains', { day, time }),
+      { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
+      (pageDocs) => {
+        for (const d of pageDocs) {
+          const data = d.data() as Record<string, unknown>;
+          matchedUids.push(d.id);
+          recipientByUid.set(d.id, { uid: d.id, firstName: firstNameFromUserData(data), audience: audienceFromUserData(data) });
+        }
+      },
+    );
+    if (stats.truncated) logger.warn(`[reminder-sweep] Pass 1 — stopped at MAX_PAGES=${MAX_PAGES} (raise REMINDER_SWEEP_MAX_PAGES)`);
   } catch (err) {
-    logger.error('[reminder-sweep] Pass 1 — users query failed', err);
-    return;
+    if (matchedUids.length === 0) {
+      logger.error('[reminder-sweep] Pass 1 — users query failed', err);
+      return;
+    }
+    logger.error('[reminder-sweep] Pass 1 — users query failed after some pages — continuing with those', err);
   }
 
   logger.info(`[reminder-sweep] Pass 1 — ${matchedUids.length} user(s) matched day=${day} time=${time}`);
@@ -246,8 +261,8 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
   }
 
   // ── Idempotency claim — atomic per-uid, BEFORE sending ─────────────
-  const claimedUids: string[] = [];
-  for (const uid of matchedUids) {
+  // CLAIM_CONCURRENCY claims in flight; each is still its own atomic create().
+  const claimFlags = await mapWithConcurrency(matchedUids, CLAIM_CONCURRENCY, async (uid) => {
     const markerRef = db.collection('reminder_fired').doc(`${uid}_${dateStr}_${slotKey}`);
     try {
       await markerRef.create({
@@ -257,30 +272,35 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
         date: dateStr,
         firedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      claimedUids.push(uid);
+      return true;
     } catch (err: any) {
       if (err?.code === 6 || /ALREADY_EXISTS/i.test(String(err?.message))) {
         // Already fired this exact slot today (e.g. a retried/overlapping run) — expected, not an error.
-        continue;
+        return false;
       }
       logger.warn(`[reminder-sweep] Pass 1 — idempotency claim failed for uid=${uid}, skipping to be safe`, err);
+      return false;
     }
-  }
+  });
+  const claimedUids = matchedUids.filter((_, i) => claimFlags[i]);
 
   logger.info(`[reminder-sweep] Pass 1 — ${claimedUids.length}/${matchedUids.length} uid(s) claimed (not already fired today)`);
   if (claimedUids.length === 0) return;
 
   // ── Copy per recipient (push library 'workout_reminder_slot'), batched ──
   const resolved: Array<{ item: { uid: string }; copy: ResolvedPushCopy }> = [];
-  for (const uid of claimedUids) {
+  const slotCopies = await mapWithConcurrency(claimedUids, CLAIM_CONCURRENCY, async (uid) => {
     const r = recipientByUid.get(uid) ?? { uid, firstName: '', audience: {} };
-    const copy = await resolvePushCopy('workout_reminder_slot', {
+    return resolvePushCopy('workout_reminder_slot', {
       uid,
       audience: r.audience,
       vars: { '@שם': r.firstName, '@שעה': time },
     });
+  });
+  claimedUids.forEach((uid, i) => {
+    const copy = slotCopies[i];
     if (copy) resolved.push({ item: { uid }, copy });
-  }
+  });
 
   for (const { copy, uids } of groupByCopy(resolved)) {
     try {
@@ -341,35 +361,41 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
   // ── Match query — same "fetch today, filter in memory" shape as
   // trainingReminderScheduler; lead-time subtraction is per-entry
   // arithmetic, not expressible as a single Firestore query. ───────────
-  let docs: admin.firestore.QueryDocumentSnapshot[];
-  try {
-    const snap = await db
-      .collection('userSchedule')
-      .where('date', '==', dateStr)
-      .limit(BATCH_LIMIT)
-      .get();
-    docs = snap.docs;
-  } catch (err) {
-    logger.error('[reminder-sweep] Pass 2 — userSchedule query failed', err);
-    return;
-  }
-
+  // Cursor-paginated (19.10.2026, was ONE limit(BATCH_LIMIT) read) — only
+  // the matching entry rows are kept between pages.
   const candidates: WorkoutEntryCandidate[] = [];
-  for (const doc of docs) {
-    const data = doc.data() as {
-      userId?: string;
-      entries?: Array<{ entryId?: string; type?: string; completed?: boolean; scheduledCategories?: string[]; startTime?: string }>;
-    };
-    const uid = data.userId;
-    if (!uid) continue;
-    const entries = Array.isArray(data.entries) ? data.entries : [];
-    for (const e of entries) {
-      if (e.type !== 'training' || e.completed === true || !e.startTime || !e.entryId) continue;
-      const targetSlot = computeLeadTargetSlot(e.startTime, leadMinutes);
-      if (targetSlot === currentSlot) {
-        candidates.push({ uid, entryId: e.entryId, workoutLabel: categoryLabel(e.scheduledCategories), startTime: e.startTime });
-      }
+  let readAny = false;
+  try {
+    const stats = await forEachQueryPage(
+      db.collection('userSchedule').where('date', '==', dateStr),
+      { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
+      (pageDocs) => {
+        readAny = true;
+        for (const doc of pageDocs) {
+          const data = doc.data() as {
+            userId?: string;
+            entries?: Array<{ entryId?: string; type?: string; completed?: boolean; scheduledCategories?: string[]; startTime?: string }>;
+          };
+          const uid = data.userId;
+          if (!uid) continue;
+          const entries = Array.isArray(data.entries) ? data.entries : [];
+          for (const e of entries) {
+            if (e.type !== 'training' || e.completed === true || !e.startTime || !e.entryId) continue;
+            const targetSlot = computeLeadTargetSlot(e.startTime, leadMinutes);
+            if (targetSlot === currentSlot) {
+              candidates.push({ uid, entryId: e.entryId, workoutLabel: categoryLabel(e.scheduledCategories), startTime: e.startTime });
+            }
+          }
+        }
+      },
+    );
+    if (stats.truncated) logger.warn(`[reminder-sweep] Pass 2 — stopped at MAX_PAGES=${MAX_PAGES} (raise REMINDER_SWEEP_MAX_PAGES)`);
+  } catch (err) {
+    if (!readAny) {
+      logger.error('[reminder-sweep] Pass 2 — userSchedule query failed', err);
+      return;
     }
+    logger.error('[reminder-sweep] Pass 2 — userSchedule query failed after some pages — continuing with those', err);
   }
 
   logger.info(`[reminder-sweep] Pass 2 — ${candidates.length} entry candidate(s) match currentSlot=${currentSlot} (lead=${leadMinutes}m)`);
@@ -383,8 +409,7 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
   // ── Idempotency claim — per entry, NOT per uid: a user can have
   // multiple training entries the same day. Key shape (`_workout_{entryId}`
   // suffix) is structurally distinct from Pass 1's — see file header. ────
-  const claimed: WorkoutEntryCandidate[] = [];
-  for (const c of candidates) {
+  const entryClaims = await mapWithConcurrency(candidates, CLAIM_CONCURRENCY, async (c) => {
     const markerRef = db.collection('reminder_fired').doc(`${c.uid}_${dateStr}_${slotKey}_workout_${c.entryId}`);
     try {
       await markerRef.create({
@@ -395,14 +420,16 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
         leadMinutes,
         firedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      claimed.push(c);
+      return true;
     } catch (err: any) {
       if (err?.code === 6 || /ALREADY_EXISTS/i.test(String(err?.message))) {
-        continue; // already fired this exact entry+slot — expected, not an error
+        return false; // already fired this exact entry+slot — expected, not an error
       }
       logger.warn(`[reminder-sweep] Pass 2 — idempotency claim failed for uid=${c.uid} entryId=${c.entryId}, skipping to be safe`, err);
+      return false;
     }
-  }
+  });
+  const claimed = candidates.filter((_, i) => entryClaims[i]);
 
   logger.info(`[reminder-sweep] Pass 2 — ${claimed.length}/${candidates.length} entr(y/ies) claimed (not already fired)`);
   if (claimed.length === 0) return;
@@ -412,11 +439,14 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
   // batched together. ───────────────────────────────────────────────────
   const recipients = await loadRecipients(db, claimed.map((c) => c.uid));
   const resolved: Array<{ item: WorkoutEntryCandidate; copy: ResolvedPushCopy }> = [];
-  for (const c of claimed) {
+  const entryCopies = await mapWithConcurrency(claimed, CLAIM_CONCURRENCY, async (c) => {
     const r = recipients.get(c.uid) ?? { uid: c.uid, firstName: '', audience: {} };
-    const copy = await resolveWorkoutReminderCopy('workout_reminder_before', r, c.workoutLabel, c.startTime);
+    return resolveWorkoutReminderCopy('workout_reminder_before', r, c.workoutLabel, c.startTime);
+  });
+  claimed.forEach((c, i) => {
+    const copy = entryCopies[i];
     if (copy) resolved.push({ item: c, copy });
-  }
+  });
 
   for (const { copy, uids } of groupByCopy(resolved)) {
     try {
@@ -452,8 +482,11 @@ export const reminderSweepScheduler = onSchedule(
     schedule: '*/5 * * * *',
     timeZone: 'Asia/Jerusalem',
     region: 'us-central1',
-    timeoutSeconds: 120,
-    memory: '256MiB',
+    // 240s (was 120): the passes now page through every match. Stays under
+    // the 5-minute tick so two runs never overlap for long (the claims make
+    // an overlap harmless anyway).
+    timeoutSeconds: 240,
+    memory: '512MiB',
   },
   async () => {
     const db = admin.firestore();

@@ -512,9 +512,12 @@ export function useCommunityEnrichment(routeIds: string[], routes?: Route[], myG
     // Broad catch-all: active groups (capped at 100 to prevent runaway reads).
     // The cap was previously only in this comment, not the query — added the
     // actual limit(). See .claude/plans/cryptic-munching-gadget.md.
+    // orderBy(createdAt desc) (19.10.2026): the cap kept an arbitrary 100;
+    // now the newest 100. Index: community_groups isActive ASC + createdAt DESC.
     const grpBroadQ = query(
       collection(db, 'community_groups'),
       where('isActive', '==', true),
+      orderBy('createdAt', 'desc'),
       firestoreLimit(100),
     );
 
