@@ -671,7 +671,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
               style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
-              className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+              className="kb-sheet fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
               dir="rtl"
             >
               {/* Drag handle — full-width touch target */}

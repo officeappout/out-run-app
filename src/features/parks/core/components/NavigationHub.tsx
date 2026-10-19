@@ -190,7 +190,7 @@ export default function NavigationHub({
     if (navState === 'searching') {
         return (
             <div
-                className="fixed inset-0 z-[100] flex flex-col"
+                className="kb-fit fixed inset-0 z-[100] flex flex-col"
                 style={{
                     // Glassmorphism backdrop — same recipe as
                     // MapLoadingSkeleton, applied to a near-opaque white

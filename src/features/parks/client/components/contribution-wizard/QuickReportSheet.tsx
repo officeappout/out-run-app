@@ -75,7 +75,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+    <div className="kb-fit fixed inset-0 z-[100] flex flex-col justify-end">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -89,7 +89,7 @@ export default function QuickReportSheet({ isOpen, onClose, userLocation }: Quic
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className={v2 ? 'relative rounded-t-[28px] bg-white px-5 pb-6 pt-2.5 shadow-v2-sheet' : 'relative bg-white rounded-t-3xl shadow-2xl p-5'}
+        className={v2 ? 'kb-cap relative rounded-t-[28px] bg-white px-5 pb-6 pt-2.5 shadow-v2-sheet' : 'kb-cap relative bg-white rounded-t-3xl shadow-2xl p-5'}
         dir="rtl"
       >
         {/* Success overlay */}
