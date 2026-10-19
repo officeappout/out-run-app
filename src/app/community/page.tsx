@@ -48,35 +48,23 @@ import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
-import FeedPostCard from '@/features/social/components/FeedPostCard';
-import GroupCard from '@/features/arena/components/GroupCard';
 import { useChatStore } from '@/features/social/store/useChatStore';
-import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
-import SessionDrawer from '@/features/arena/components/SessionDrawer';
-import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
-import CommunityCircles from '@/features/arena/components/CommunityCircles';
-import CreateGroupWizard from '@/features/arena/components/CreateGroupWizard';
-import CityArenaView from '@/features/arena/components/CityArenaView';
-import NeighborhoodLeaderboard from '@/features/arena/components/NeighborhoodLeaderboard';
-import UnitLeagueTable from '@/features/arena/components/UnitLeagueTable';
-import GroupLeaderboard from '@/features/arena/components/GroupLeaderboard';
-import ScopeCompetitionLeaderboard from '@/features/arena/components/ScopeCompetitionLeaderboard';
-import ScopeBattleCard from '@/features/arena/components/ScopeBattleCard';
-import NationalLeagueBoard from '@/features/arena/components/NationalLeagueBoard';
-import InviteBonusCard from '@/features/arena/components/InviteBonusCard';
-import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
 import { FIRST_RUN_COACH, firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
-import CityChallengeCard from '@/features/arena/components/CityChallengeCard';
 import { BoardSheet, ScopePointsContent } from '@/features/arena/components/LeagueBoardSheets';
-import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
 import { BoardToggle } from '@/features/arena/components/LeagueBoard';
-import LeagueFilterSheet from '@/features/arena/components/LeagueFilterSheet';
 import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChrome';
-import MunicipalPressureCard from '@/features/arena/components/MunicipalPressureCard';
-import SchoolOutreachCard from '@/features/arena/components/SchoolOutreachCard';
-import LeagueCarousel, {
-  type LeagueCardData,
-} from '@/features/arena/components/LeagueCarousel';
+import type { LeagueCardData } from '@/features/arena/components/LeagueCarousel';
+// Overlays are code-split + mounted on first open; widgets are crash-contained.
+// Both are drop-in replacements for the original imports (see each module).
+import {
+  FirstRunTour, GroupDetailsDrawer, SessionDrawer, PostJoinSuccessDrawer, CreateGroupWizard,
+  PlannedActivityComposeSheet, LeagueFilterSheet, useCommunityOverlayPreload,
+} from './CommunityOverlays';
+import {
+  FeedPostCard, GroupCard, CommunityCircles, LeagueCarousel, CityArenaView, NeighborhoodLeaderboard,
+  UnitLeagueTable, GroupLeaderboard, ScopeCompetitionLeaderboard, ScopeBattleCard, NationalLeagueBoard,
+  GroupLeagueStatsBoard, InviteBonusCard, CityChallengeCard, MunicipalPressureCard, SchoolOutreachCard,
+} from './CommunityWidgets';
 import type {
   LeaderboardCategory,
   LeaderboardTimeWindow,
@@ -86,7 +74,6 @@ import type {
 } from '@/features/arena/services/ranking.service';
 import { getMyLeagueContribution } from '@/features/arena/services/ranking.service';
 import { formatKm } from '@/features/arena/components/league-board-logic';
-import GroupLeagueStatsBoard from '@/features/arena/components/GroupLeagueStatsBoard';
 import { formatLeaderboardScore, type LeaderboardMode } from '@/features/arena/components/format-leaderboard-score';
 import { CATEGORY_UNIT_LABEL } from '@/features/arena/components/scope-category-unit-label';
 import { joinGroup, leaveGroup, getMyGroups } from '@/features/arena/services/group.service';
@@ -137,6 +124,8 @@ const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
 
 export default function CommunityPage() {
   // ── Shared hooks (called ONCE for both sub-views) ────────────────────────
+  // Warm the code-split overlay chunks once the screen is idle (first tap stays instant).
+  useCommunityOverlayPreload();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);

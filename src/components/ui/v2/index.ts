@@ -77,3 +77,6 @@ export type { WorkoutOverviewHeaderProps, OverviewMetaItem } from './WorkoutOver
 // Pre-run (home v2): a workout's intensity profile, one bar per block.
 export { default as ProfileStrip } from './ProfileStrip';
 export type { ProfileStripProps, ProfileStripSegment } from './ProfileStrip';
+// Friendly error surface (route error.tsx fallbacks + failed widgets).
+export { default as ErrorState } from './ErrorState';
+export type { ErrorStateProps, ErrorStateAction } from './ErrorState';

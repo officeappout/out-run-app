@@ -141,3 +141,31 @@ describe('BarChart', () => {
     expect(html(<BarChart data={data} />)).toContain('dir="rtl"');
   });
 });
+
+describe('ErrorState', () => {
+  // Imported lazily here so the shared import list above stays untouched.
+  it('screen: title, description, one gradient CTA and a white secondary pill', async () => {
+    const { ErrorState } = await import('../index');
+    const out = html(
+      <ErrorState
+        title="משהו השתבש"
+        description="נסו שוב"
+        primaryAction={{ label: 'נסו שוב', onClick: () => {} }}
+        secondaryAction={{ label: 'לדף הבית', onClick: () => {} }}
+      />,
+    );
+    expect(out).toContain('data-v2-error-state="screen"');
+    expect(out).toContain('role="alert"');
+    expect(out.match(/bg-v2-cta/g)?.length).toBe(1);
+    expect(out).toContain('לדף הבית');
+    expect(out).toContain('shadow-v2-ring');
+  });
+
+  it('compact: small card, truncating labels, no gradient', async () => {
+    const { ErrorState } = await import('../index');
+    const out = html(<ErrorState variant="compact" title="לא נטען" primaryAction={{ label: 'נסו שוב', onClick: () => {} }} />);
+    expect(out).toContain('data-v2-error-state="compact"');
+    expect(out).toContain('truncate');
+    expect(out).not.toContain('bg-v2-cta');
+  });
+});

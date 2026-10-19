@@ -72,7 +72,6 @@ import { isScheduleBuilderSaveEnabled, saveScheduleProposal } from '../services/
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { DAY_LETTERS } from '../types/smartSchedule.types';
-import { SCHEDULE_BUILDER_DRAWER_ENABLED } from '@/config/feature-flags';
 import { resolveTabLocks } from '@/lib/resolveTabLocks';
 import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
@@ -97,19 +96,9 @@ function isoDateForDayOfWeek(asOfDate: Date, dayOfWeek: number): string {
   return formatLocalISODate(target);
 }
 
-/** localStorage override, same pattern as isRunningOnboardingGateEnabled/isAgendaHybridDayDisplayEnabled/isPlsCacheEnabled. */
-export function isScheduleBuilderDrawerEnabled(): boolean {
-  if (typeof window !== 'undefined') {
-    try {
-      const ls = window.localStorage?.getItem('OUT_SCHEDULE_DRAWER');
-      if (ls === '0' || ls === 'false') return false;
-      if (ls === '1' || ls === 'true') return true;
-    } catch {
-      /* private mode — ignore */
-    }
-  }
-  return SCHEDULE_BUILDER_DRAWER_ENABLED;
-}
+// Moved to ../services/scheduleBuilderDrawerFlag (so callers can read the flag
+// without pulling this whole drawer into their chunk); re-exported unchanged.
+export { isScheduleBuilderDrawerEnabled } from '../services/scheduleBuilderDrawerFlag';
 
 /**
  * Running-time presets — the same three RunningScheduleStep's v2 picker offers (a preset
