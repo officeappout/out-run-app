@@ -47,7 +47,7 @@ export const BUNDLED_GOAL_PHOTOS = {
     thumbZoom: 1.4,
   },
   manLSit: {
-    src: '/images/gateway/card-strength.png',
+    src: '/images/onboarding/strength/goal-lsit.jpg', // web-sized copy of gateway/card-strength.png (1.9 MB)
     alt: 'L-sit על מקבילים',
     heroPosition: '62% 30%',
     thumbPosition: '62% 45%',

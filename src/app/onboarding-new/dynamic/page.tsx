@@ -24,7 +24,8 @@ import { syncOnboardingToFirestore } from '@/features/user/onboarding/services/o
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
-import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { questionMotionClass, questionnaireScreen } from '@/features/user/onboarding/utils/questionnaire-screen';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -38,7 +39,8 @@ export default function DynamicOnboardingPage() {
   const { hasCompletedOnboarding, initializeProfile, refreshProfile } = useUserStore();
   // enable_home_v2 — styling only (loading/error states, welcome line, and
   // the v2 look of ResultLoading/ProgramResult). Same flow and handlers.
-  const v2 = useOnboardingV2();
+  // flagsReady: hold the question until the flag is known (see questionnaireScreen).
+  const { v2, ready: flagsReady } = useOnboardingV2State();
 
   // Claim params (from Guest Mode)
   const claimCoins = searchParams.get('coins');
@@ -636,8 +638,9 @@ export default function DynamicOnboardingPage() {
     );
   }
 
-  // Loading state
-  if (loading && v2) {
+  // Loading state (also while the flags are unknown — see questionnaireScreen)
+  const screen = questionnaireScreen({ engineLoading: loading, flagsReady, error });
+  if (screen === 'loading' && v2) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-v2-surface" dir="rtl">
         <Loader2 size={32} className="animate-spin text-v2-accent" aria-hidden />
@@ -645,7 +648,7 @@ export default function DynamicOnboardingPage() {
       </div>
     );
   }
-  if (loading) {
+  if (screen === 'loading') {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-gray-500">טוען שאלון...</div>
@@ -654,7 +657,7 @@ export default function DynamicOnboardingPage() {
   }
 
   // Error state
-  if (error && v2) {
+  if (screen === 'error' && v2) {
     return (
       <div className="flex h-full items-center justify-center bg-v2-surface px-6" dir="rtl">
         <div className="w-full max-w-sm rounded-v2-card bg-white p-6 text-center shadow-v2-card">
@@ -671,7 +674,7 @@ export default function DynamicOnboardingPage() {
       </div>
     );
   }
-  if (error) {
+  if (screen === 'error') {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -749,9 +752,7 @@ export default function DynamicOnboardingPage() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: direction === 'rtl' ? -20 : 20, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className={`w-full font-simpler ${
-              isAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-            } transition-all duration-300${v2 ? ' flex min-h-full flex-col' : ''}`}
+            className={questionMotionClass(v2, isAnimating)}
           >
             {/* Personalized Welcome Header - Only on first question */}
             {welcomeMessage && (

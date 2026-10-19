@@ -23,6 +23,7 @@ import { MUSCLE_BALANCE_MESSAGES_HE, type MuscleBalanceCase } from '../../utils/
 import { AREA_TILES, type AreaTileId } from '../../utils/muscle-selection';
 import { GOAL_NOTE_MAX_LENGTH, goalNotePlaceholder } from '../../utils/goal-note';
 import type { ResolvedGoalImage } from '../../constants/program-path-goal-images';
+import MediaHeroFade, { MediaHeroLayer } from '@/components/ui/v2/MediaHeroFade';
 
 export interface ProgramPathV2ViewProps {
   isFemale: boolean;
@@ -121,14 +122,17 @@ function Hero({
   onBack: () => void;
 }) {
   return (
-    <div
-      className="relative shrink overflow-hidden"
+    <MediaHeroFade
+      fadeTo="#f6fbfd"
       style={{
         flex: '1 1 0px',
         minHeight: `calc(108px + ${SAFE_TOP})`,
         maxHeight: `calc(248px + ${SAFE_TOP})`,
       }}
+      overlay={<HeroOverlay {...{ selectedGoal, totalSegments, currentSegment, onBack }} />}
     >
+      {/* Crossfade stack — one layer per goal, the active one on top. No
+          photo → the soft brand fill (fades out like a photo), no icon. */}
       {GOAL_ORDER.map((id) => {
         const img = images[id];
         const on = id === activeGoal;
@@ -139,32 +143,26 @@ function Hero({
             className="absolute inset-0 transition-[opacity,transform] duration-[420ms,900ms] ease-v2 motion-reduce:transition-none"
             style={{ opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(1.06)' }}
           >
-            {img.src ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={img.src}
-                alt={on ? img.alt : ''}
-                className="h-full w-full object-cover"
-                style={{ objectPosition: img.heroPosition }}
-                draggable={false}
-              />
-            ) : (
-              <TintPanel iconSize={40} />
-            )}
+            <MediaHeroLayer
+              media={img.src ? { kind: 'image', src: img.src, alt: on ? img.alt : '', position: img.heroPosition } : { kind: 'none' }}
+            />
           </div>
         );
       })}
+    </MediaHeroFade>
+  );
+}
 
-      {/* Scrim: a touch of shade under the top controls, fade into the page at the bottom. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(14,20,25,0.22) 0%, rgba(14,20,25,0) 26%, rgba(14,20,25,0) 40%, rgba(14,20,25,0.14) 64%, #f6fbfd 100%)',
-        }}
-      />
-
+function HeroOverlay({
+  selectedGoal, totalSegments, currentSegment, onBack,
+}: {
+  selectedGoal: ProgramCardId | null;
+  totalSegments: number;
+  currentSegment: number;
+  onBack: () => void;
+}) {
+  return (
+    <>
       {/* Back + story bar */}
       <div
         className="absolute inset-x-4 top-0 flex items-center gap-3"
@@ -174,7 +172,7 @@ function Hero({
           type="button"
           onClick={onBack}
           aria-label="חזרה"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70 shadow-v2-ring backdrop-blur-[14px] transition-transform duration-150 ease-v2 active:scale-[0.97]"
+          className="pointer-events-auto grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70 shadow-v2-ring backdrop-blur-[14px] transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
         </button>
@@ -199,7 +197,7 @@ function Hero({
           {selectedGoal ? TEST_LINE[selectedGoal] : ''}
         </span>
       </div>
-    </div>
+    </>
   );
 }
 

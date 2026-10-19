@@ -35,6 +35,7 @@ import {
   resolveTutorialForLang,
 } from '../../core/exercise.types';
 import ExerciseVideoPlayer from './ExerciseVideoPlayer';
+import ExerciseHeroV2 from './ExerciseHeroV2';
 import LocationVariantSwitcher, {
   type LocationSwitcherOption,
 } from './LocationVariantSwitcher';
@@ -930,7 +931,7 @@ export default function MasterExerciseView({
         <div
           className={
             v2
-              ? 'mx-4 mb-2 mt-1 rounded-[14px] bg-v2-tint px-4 py-2.5 text-center text-[13px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/30'
+              ? 'mx-4 mb-2 mt-5 rounded-[14px] bg-v2-tint px-4 py-2.5 text-center text-[13px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/30'
               : 'px-4 py-2.5 bg-slate-100 text-slate-500 text-[13px] font-semibold text-center'
           }
         >
@@ -939,8 +940,24 @@ export default function MasterExerciseView({
       )}
 
       {/* ── Section 1: Hero video ──────────────────────────────────────────── */}
+      {v2 ? (
+        <ExerciseHeroV2
+          hasVideo={!!heroVideoForPlayer || !!heroLegacyForPlayer}
+          posterUrl={heroAssets.posterUrl}
+          withControls={heroMode === 'tutorial'}
+          title={sheetData.name}
+        >
+          <ExerciseVideoPlayer
+            video={heroVideoForPlayer}
+            legacyVideoUrl={heroLegacyForPlayer}
+            posterUrl={heroAssets.posterUrl}
+            mode={heroMode}
+            className="absolute inset-0 w-full h-full"
+          />
+        </ExerciseHeroV2>
+      ) : (
       <div
-        className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'} ${v2 ? 'rounded-b-[28px] shadow-v2-card' : ''}`}
+        className={`relative w-full overflow-hidden ${tutorialAsHero ? 'bg-[#F8FAFC]' : 'bg-slate-900'}`}
         style={{ aspectRatio: '9 / 16', maxHeight: '55vh' }}
       >
         <ExerciseVideoPlayer
@@ -952,10 +969,9 @@ export default function MasterExerciseView({
         />
         {/* Soft gradient fade at the bottom of the video — always visible.
             pointer-events: none keeps controls and taps fully working. */}
-        {!v2 && (
-          <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-        )}
+        <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
       </div>
+      )}
 
       <div className={v2 ? 'px-4 pt-5 pb-6' : 'px-4 pt-4 pb-6'}>
         {/* Title */}
