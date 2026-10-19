@@ -94,6 +94,8 @@ export const GraderOutputSchema = z.object({
   issues: z.array(GraderIssueSchema).max(40),
   score: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   summary: z.string().max(300),
+  /** Kelly phase 2 (ai_coach_phase2): question topic per turn (topics.ts validates the values). */
+  topics: z.array(z.object({ turnIndex: z.number().int().min(0), topic: z.string().max(30) })).max(80).optional(),
 });
 export type GraderOutput = z.infer<typeof GraderOutputSchema>;
 
@@ -213,4 +215,6 @@ export interface ReviewDoc {
   coveredFromMs: number;
   coveredUntilMs: number;
   createdAtMs: number;
+  /** Kelly phase 2 (ai_coach_phase2): the question topic of each turn. Absent while the flag is off. */
+  topics?: Array<{ turnIndex: number; topic: string }>;
 }

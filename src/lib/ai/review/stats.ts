@@ -16,6 +16,8 @@ export interface StatsDelta {
   byCategory: Partial<Record<IssueCategory, number>>;
   byRootCause: Partial<Record<RootCause, number>>;
   bySeverity: Partial<Record<'1' | '2' | '3', number>>;
+  /** Kelly phase 2 (ai_coach_phase2): question topics. Absent while the flag is off. */
+  byTopic?: Partial<Record<string, number>>;
 }
 
 export function emptyDelta(): StatsDelta {
@@ -39,7 +41,7 @@ const bump = <K extends string>(m: Partial<Record<K, number>>, k: K, n = 1) => {
 };
 
 /** What one stored review adds to its day. */
-export function deltaForReview(r: Pick<ReviewDoc, 'turns' | 'issues' | 'score' | 'costUsd' | 'graderError'>): StatsDelta {
+export function deltaForReview(r: Pick<ReviewDoc, 'turns' | 'issues' | 'score' | 'costUsd' | 'graderError'> & Pick<Partial<ReviewDoc>, 'topics'>): StatsDelta {
   const d = emptyDelta();
   d.reviews = 1;
   d.turns = r.turns.length;
@@ -55,6 +57,10 @@ export function deltaForReview(r: Pick<ReviewDoc, 'turns' | 'issues' | 'score' |
     bump(d.byCategory, i.category);
     bump(d.byRootCause, i.likelyRootCause);
     bump(d.bySeverity, String(i.severity) as '1' | '2' | '3');
+  }
+  if (r.topics) {
+    d.byTopic = {};
+    for (const t of r.topics) bump(d.byTopic, t.topic);
   }
   return d;
 }
@@ -76,6 +82,10 @@ export function sumDeltas(rows: Array<Partial<StatsDelta> | null | undefined>): 
     for (const c of ISSUE_CATEGORIES) if (num(r.byCategory?.[c])) bump(out.byCategory, c, num(r.byCategory?.[c]));
     for (const c of ROOT_CAUSES) if (num(r.byRootCause?.[c])) bump(out.byRootCause, c, num(r.byRootCause?.[c]));
     for (const s of ['1', '2', '3'] as const) if (num(r.bySeverity?.[s])) bump(out.bySeverity, s, num(r.bySeverity?.[s]));
+    if (r.byTopic && typeof r.byTopic === 'object') {
+      out.byTopic ??= {};
+      for (const [k, v] of Object.entries(r.byTopic)) if (num(v)) bump(out.byTopic, k, num(v));
+    }
   }
   return out;
 }

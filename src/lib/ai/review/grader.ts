@@ -18,6 +18,7 @@ import {
   type ReviewTurn,
 } from './review-types';
 import { renderTranscript } from './transcript';
+import { GRADER_TOPICS_SECTION, TOPICS_JSON_SCHEMA_PROPERTY } from './topics';
 
 export const GRADER_MAX_TOKENS = 8000;
 export const GRADER_EFFORT = 'medium' as const;
@@ -88,17 +89,28 @@ export type GradeResult =
   | { ok: true; output: GraderOutput; message: Anthropic.Message }
   | { ok: false; error: string; message: Anthropic.Message | null };
 
+/** The grader prompt with question-topic tagging (Kelly phase 2, ai_coach_phase2). */
+export const GRADER_SYSTEM_PROMPT_WITH_TOPICS = `${GRADER_SYSTEM_PROMPT}\n${GRADER_TOPICS_SECTION}`;
+
+/** GRADER_JSON_SCHEMA + a required `topics` array (Kelly phase 2). */
+export const GRADER_JSON_SCHEMA_WITH_TOPICS: Record<string, unknown> = {
+  ...GRADER_JSON_SCHEMA,
+  required: [...(GRADER_JSON_SCHEMA.required as string[]), 'topics'],
+  properties: { ...(GRADER_JSON_SCHEMA.properties as Record<string, unknown>), topics: TOPICS_JSON_SCHEMA_PROPERTY },
+};
+
 export function buildGraderParams(
   model: string,
   system: Anthropic.TextBlockParam[],
   userContent: string,
+  opts: { withTopics?: boolean } = {},
 ): Anthropic.MessageCreateParamsNonStreaming {
   return {
     model,
     max_tokens: GRADER_MAX_TOKENS,
     // No `thinking` field: Sonnet 5.5 runs adaptive thinking by default (and rejects
     // {type:'disabled'}); effort keeps it modest.
-    output_config: { effort: GRADER_EFFORT, format: { type: 'json_schema', schema: GRADER_JSON_SCHEMA } },
+    output_config: { effort: GRADER_EFFORT, format: { type: 'json_schema', schema: opts.withTopics ? GRADER_JSON_SCHEMA_WITH_TOPICS : GRADER_JSON_SCHEMA } },
     system,
     messages: [{ role: 'user', content: userContent }],
   };
@@ -112,9 +124,11 @@ export async function gradeTurns(
     turns: ReviewTurn[];
     ctx: { firstName: string; gender: string };
     pre: ReviewIssue[];
+    /** Kelly phase 2: also tag each turn's question topic (schema + prompt with topics). */
+    withTopics?: boolean;
   },
 ): Promise<GradeResult> {
-  const params = buildGraderParams(args.model, args.system, buildGraderUserContent(args.turns, args.ctx, args.pre));
+  const params = buildGraderParams(args.model, args.system, buildGraderUserContent(args.turns, args.ctx, args.pre), args.withTopics ? { withTopics: true } : {});
   const message = await call(params);
   if (message.stop_reason === 'refusal') return { ok: false, error: 'refusal', message };
   if (message.stop_reason === 'max_tokens') return { ok: false, error: 'max_tokens', message };

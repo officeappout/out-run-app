@@ -33,7 +33,9 @@ import {
 import { estimateCostUsd, usageFromSdk } from '@/lib/ai/ai-pricing';
 import { AI_COACH_THREADS } from '@/lib/ai/coach/thread-store.server';
 import { coachGenderOf, firstNameOf } from '@/lib/ai/coach/persona';
-import { GRADER_SYSTEM_PROMPT, gradeTurns, type CallGrader } from './grader';
+import { GRADER_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT_WITH_TOPICS, gradeTurns, type CallGrader } from './grader';
+import { mergeTurnTopics } from './topics';
+import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { mergeIssues, runPrechecks } from './prechecks';
 import {
   AI_COACH_REVIEWS,
@@ -104,6 +106,7 @@ export function statsIncrements(day: string, d: StatsDelta): Record<string, unkn
     byCategory: map(d.byCategory),
     byRootCause: map(d.byRootCause),
     bySeverity: map(d.bySeverity),
+    ...(d.byTopic ? { byTopic: map(d.byTopic) } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   };
 }
@@ -168,7 +171,10 @@ export async function runAiCoachReview(
   if (due.length > queue.length) result.remaining = true;
 
   const model = getAiModel('smart');
-  const system = withPromptCaching({ system: GRADER_SYSTEM_PROMPT }).system;
+  // Kelly phase 2 (ai_coach_phase2): question-topic tagging in the same grader call. Off =
+  // the exact prompt, schema and stored docs as before. Fail-closed (flag read error → off).
+  const withTopics = (await getServerFeatureFlags(db)).aiCoachPhase2 === true;
+  const system = withPromptCaching({ system: withTopics ? GRADER_SYSTEM_PROMPT_WITH_TOPICS : GRADER_SYSTEM_PROMPT }).system;
   const settleBefore = now.getTime() - SETTLE_MS;
 
   // ── 3. Per thread ────────────────────────────────────────────────────────
@@ -210,7 +216,7 @@ export async function runAiCoachReview(
     let graded: Awaited<ReturnType<typeof gradeTurns>> | null = null;
     let costUsd = 0;
     if (spent < config.reviewBudgetUsd) {
-      graded = await gradeTurns(callGrader, { model, system, turns, ctx, pre });
+      graded = await gradeTurns(callGrader, { model, system, turns, ctx, pre, ...(withTopics ? { withTopics: true } : {}) });
       if (graded.message) {
         const usage = usageFromSdk(graded.message.usage);
         costUsd = estimateCostUsd(model, usage);
@@ -238,6 +244,7 @@ export async function runAiCoachReview(
       coveredFromMs: msOf(msgs[0].data.createdAt),
       coveredUntilMs: msOf(msgs[msgs.length - 1].data.createdAt),
       createdAtMs: now.getTime(),
+      ...(withTopics ? { topics: mergeTurnTopics(turns, graded?.ok ? graded.output.topics : null) } : {}),
     };
 
     if (opts.dryRun) {
