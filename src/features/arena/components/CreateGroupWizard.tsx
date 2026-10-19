@@ -503,7 +503,7 @@ export default function CreateGroupWizard({ isOpen, onClose, onSuccess, editGrou
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.9 }}
-            className={`fixed bottom-0 left-0 right-0 z-[93] max-w-md mx-auto bg-white flex flex-col ${v2 ? 'rounded-t-[28px] shadow-v2-sheet' : 'rounded-t-3xl shadow-2xl'}`}
+            className={`kb-sheet fixed bottom-0 left-0 right-0 z-[93] max-w-md mx-auto bg-white flex flex-col ${v2 ? 'rounded-t-[28px] shadow-v2-sheet' : 'rounded-t-3xl shadow-2xl'}`}
             style={{ height: '92dvh' }}
           >
             <WizardV2.Provider value={v2}>

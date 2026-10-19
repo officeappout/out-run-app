@@ -68,7 +68,7 @@ export default function AIChatOverlay({ isOpen, onClose, onSendMessage, initialM
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="kb-fit fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-premium-hover overflow-hidden flex flex-col h-[70vh] sm:h-[600px] animate-in slide-in-from-bottom-10 duration-500">
 
                 {/* Header */}

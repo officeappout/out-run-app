@@ -7,7 +7,7 @@
  * tie-breaking, then backfilling empty buckets.
  */
 import { Exercise, ExecutionLocation, ExecutionMethod, RequiredGearType } from '@/features/content/exercises';
-import { getAllExercises } from '@/features/content/exercises';
+import { getAllExercisesCached } from '@/features/content/exercises';
 import { withoutTestExercises } from '../../shared/utils/test-exercise.utils';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
@@ -140,7 +140,7 @@ export async function getExerciseVariations(
     return [];
   }
 
-  const allExercises = withoutTestExercises(await getAllExercises()); // H5: never offer a test item as a swap
+  const allExercises = withoutTestExercises(await getAllExercisesCached()); // H5: never offer a test item as a swap
   const { selectExecutionMethodWithBrand } = await import('./execution-method-selector.service');
 
   const all: AlternativeExerciseOption[] = [];
@@ -211,7 +211,7 @@ export async function getAlternativeExercises(
   excludeIds?: Set<string>,
   /**
    * Optional pre-fetched exercise pool. When supplied (e.g. the drawer's already-
-   * prefetched `exercisePool`), the uncached full-collection `getAllExercises()` read
+   * prefetched `exercisePool`), the full-catalog `getAllExercisesCached()` call
    * is skipped — critical for bulk swap-all, which would otherwise do one full-
    * collection read PER exercise lacking a method at the target location.
    */
@@ -224,7 +224,7 @@ export async function getAlternativeExercises(
     return [];
   }
 
-  const allExercises = withoutTestExercises(pool && pool.length > 0 ? pool : await getAllExercises()); // H5
+  const allExercises = withoutTestExercises(pool && pool.length > 0 ? pool : await getAllExercisesCached()); // H5
   const all: AlternativeExerciseOption[] = [];
   let originalGearType: RequiredGearType | undefined;
 

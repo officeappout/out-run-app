@@ -28,7 +28,7 @@
 
 // -- External domain imports --
 import { Exercise, InjuryShieldArea, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
-import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import { getAllExercisesCached } from '@/features/content/exercises/core/exercise.service';
 import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
@@ -2052,7 +2052,7 @@ async function _buildSharedPipeline(
   const [allExercises, gymEquipmentList, allPrograms] = await Promise.all([
     // Test / placeholder docs ("…לבדיקה", "Copy of …") never enter ANY pool —
     // main, warm-up, cool-down, tabata, backfill (05-BENCHMARK §6.4 #1, H5).
-    getAllExercises().then(withoutTestExercises),
+    getAllExercisesCached().then(withoutTestExercises),
     getAllGymEquipment(),
     getCachedPrograms(),
     ensureEquipmentCachesLoaded(),

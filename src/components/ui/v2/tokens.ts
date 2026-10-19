@@ -63,3 +63,28 @@ export const SPRING_POP = { type: 'spring', stiffness: 400, damping: 15 } as con
 
 /** Standard durations (seconds, framer-motion units). */
 export const DURATION = { fast: 0.18, base: 0.32, slow: 0.6 } as const;
+
+/**
+ * Z-bands a v2 `<Sheet>` may use — each value is a row of the documented
+ * Z-Index Budget in .cursorrules (DO NOT add a value here without adding it
+ * there first). Pick the band of the screen the sheet opens over.
+ */
+export const SHEET_Z = {
+  /** Map drawers / home sheets that sit over BottomNavbar (z-50) — budget row z-[60]/z-[61]. */
+  drawer: 60,
+  /** Sheet one step above a z-[60] backdrop (split layout panel) — budget row z-[60]/z-[61]. */
+  drawerPanel: 61,
+  /** Library filter sheets (FilterSheet / EquipmentFilterSheet) backdrop — budget row z-[70] (filter sheets note). */
+  filter: 70,
+  /** Library filter sheet panel over its z-[70] backdrop — budget row z-[70] (panel z-[71]). */
+  filterPanel: 71,
+  /** Full-screen overlays & map sheets — budget row z-[100]. */
+  overlay: 100,
+  /** Clears OfflineBanner (z-[100]) — budget row z-[101]. */
+  aboveOffline: 101,
+} as const;
+
+export type SheetZIndex = (typeof SHEET_Z)[keyof typeof SHEET_Z];
+
+/** The v2 sheet spring (stiffness 340, damping 34) shared by the home/map sheets. */
+export const SPRING_SHEET = { type: 'spring', stiffness: 340, damping: 34 } as const;

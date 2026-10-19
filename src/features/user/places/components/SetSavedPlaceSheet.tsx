@@ -136,12 +136,12 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 320 }}
             dir="rtl"
-            className="fixed bottom-0 inset-x-0 z-[100] rounded-t-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.18)] flex flex-col max-h-[80vh]"
+            className="kb-sheet fixed bottom-0 inset-x-0 z-[100] rounded-t-3xl shadow-[0_-12px_40px_rgba(0,0,0,0.18)] flex flex-col max-h-[80vh]"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.92)',
               backdropFilter: 'blur(24px) saturate(160%)',
               WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              paddingBottom: 'var(--kb-safe-bottom)',
             }}
           >
             {/* Drag handle */}

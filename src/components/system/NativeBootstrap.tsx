@@ -24,6 +24,7 @@ import { useEffect } from 'react';
 import { initNativeShell } from '@/lib/native/init';
 import PushForegroundToast from './PushForegroundToast';
 import WorkoutExitGuardTracker from './WorkoutExitGuardTracker';
+import KeyboardInsetBootstrap from './KeyboardInsetBootstrap';
 
 export default function NativeBootstrap() {
   useEffect(() => {
@@ -34,6 +35,8 @@ export default function NativeBootstrap() {
     <>
       <PushForegroundToast />
       <WorkoutExitGuardTracker />
+      {/* Web + native: keyboard inset (--kb-inset) for sheets/composers. */}
+      <KeyboardInsetBootstrap />
     </>
   );
 }

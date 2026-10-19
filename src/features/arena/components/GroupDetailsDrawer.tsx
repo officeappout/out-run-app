@@ -669,7 +669,7 @@ export default function GroupDetailsDrawer({
                   animate(y, PEEK_Y_PX, SPRING);
                 }
               }}
-              className="fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
+              className="kb-sheet fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
               style={{ height: '95vh', y, opacity }}
             >
               {/* ── Hero image — drag target + bounding box ───────── */}

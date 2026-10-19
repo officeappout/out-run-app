@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { isKeyboardControllerActive } from '@/lib/keyboard/keyboardInsetController';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
@@ -700,7 +701,8 @@ export default function IdentityProfilePage() {
                     dayInputRef.current?.focus();
                 }}
                 onFocus={() => {
-                  setTimeout(() => {
+                  // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                  if (!isKeyboardControllerActive()) setTimeout(() => {
                     monthInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }, 150);
                 }}
@@ -727,7 +729,8 @@ export default function IdentityProfilePage() {
                     // Direct call inside onChange = still a user-gesture context on iOS.
                     nameInputRef.current?.focus();
                     // Scroll the name field into view after the keyboard transition settles.
-                    setTimeout(() => {
+                    // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                    if (!isKeyboardControllerActive()) setTimeout(() => {
                       nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 150);
                   }
@@ -737,7 +740,8 @@ export default function IdentityProfilePage() {
                     monthInputRef.current?.focus();
                 }}
                 onFocus={() => {
-                  setTimeout(() => {
+                  // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                  if (!isKeyboardControllerActive()) setTimeout(() => {
                     yearInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }, 150);
                 }}
@@ -778,7 +782,8 @@ export default function IdentityProfilePage() {
                 }
               }}
               onFocus={() => {
-                setTimeout(() => {
+                // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                if (!isKeyboardControllerActive()) setTimeout(() => {
                   nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 150);
               }}

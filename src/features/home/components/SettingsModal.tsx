@@ -1366,7 +1366,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             // test 03.09.2026). z-[101] matches the table's own precedent
             // for full-screen sheets that also need to clear OfflineBanner
             // (z-[100], fixed bottom-0, same ClientLayout).
-            className={`fixed inset-0 z-[101] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-white'}`}
+            className={`kb-fit fixed inset-0 z-[101] flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-white'}`}
             dir="rtl"
           >
             <SettingsV2.Provider value={v2}>
@@ -2577,7 +2577,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4"
+            className="kb-fit fixed inset-0 bg-black/60 z-[110] flex items-center justify-center p-4"
             style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
             onClick={() => { if (!isDeleting) setShowDeleteConfirm(false); }}
           >
