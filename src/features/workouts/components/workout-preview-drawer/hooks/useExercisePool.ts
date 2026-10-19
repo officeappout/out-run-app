@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAllExercises, type Exercise as FirestoreExercise } from '@/features/content/exercises';
+import { getAllExercisesCached, type Exercise as FirestoreExercise } from '@/features/content/exercises';
 import { WorkoutPlan } from '@/features/parks';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { convertExercisesToWorkoutPlan } from '../utils/workout-conversion.utils';
@@ -47,7 +47,7 @@ export function useExercisePool({
   useEffect(() => {
     if (!isOpen || !generatedWorkout || exercisePool.length > 0) return;
     let cancelled = false;
-    getAllExercises()
+    getAllExercisesCached()
       .then((exercises) => {
         if (cancelled || !exercises) return;
         setExercisePool(exercises);
@@ -75,7 +75,7 @@ export function useExercisePool({
   useEffect(() => {
     if (isOpen && !generatedWorkout && !workoutPlan && !isLoadingExercises) {
       setIsLoadingExercises(true);
-      getAllExercises()
+      getAllExercisesCached()
         .then((exercises) => {
           if (!exercises || exercises.length === 0) {
             console.warn('[useExercisePool] No exercises found in Firestore');

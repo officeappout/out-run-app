@@ -63,6 +63,7 @@ vi.mock('@/features/content/exercises/core/exercise.service', async (importOrigi
   ...(await importOriginal<Record<string, unknown>>()),
   getAllExercises: async () => CORPUS.exercises,
   getAllExercisesNoOrder: async () => CORPUS.exercises,
+  getAllExercisesCached: async () => CORPUS.exercises,
 }));
 vi.mock('@/features/content/programs/core/program.service', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

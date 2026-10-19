@@ -55,6 +55,7 @@
 import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Exercise, LocalizedText, ExerciseLang } from '../core/exercise.types';
+import { invalidateExerciseCatalog } from '../core/exercise-catalog';
 
 const EXERCISES_COLLECTION = 'exercises';
 const FIRESTORE_BATCH_LIMIT = 400; // Firestore hard limit is 500; leave headroom
@@ -462,6 +463,7 @@ export async function applyBulkTranslations(
     }
     try {
       await batch.commit();
+      invalidateExerciseCatalog();
       result.updated += chunk.length;
     } catch (e) {
       // If the whole batch fails, mark all its tasks as errors

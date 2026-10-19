@@ -22,7 +22,7 @@
  */
 import { useEffect, useMemo } from 'react';
 import { useExerciseLibraryStore } from '@/features/content/exercises/client/store/useExerciseLibraryStore';
-import { getAllExercisesNoOrder } from '@/features/content/exercises/core/exercise.service';
+import { getAllExercisesCached } from '@/features/content/exercises/core/exercise.service';
 import { buildSkillTree } from '../services/build-skill-tree.service';
 import { useUserProgramLevel } from './useUserProgramLevel';
 import type { SkillTreeData } from '../core/types';
@@ -43,7 +43,7 @@ export function useSkillTree(programId: string | null): UseSkillTreeResult {
   useEffect(() => {
     if (allExercises.length > 0 || bgCorpusFetchStarted) return;
     bgCorpusFetchStarted = true;
-    getAllExercisesNoOrder()
+    getAllExercisesCached()
       .then((list) => {
         if (list.length > 0) setAllExercises(list);
       })
