@@ -314,12 +314,22 @@ function guardType(i: ReplyIssue): string {
       return 'masculine_voice';
     case 'blind':
       return 'tool_routing';
+    case 'unconfirmed_save':
+      return 'proposal_not_saved';
   }
 }
 
 function issueDetail(i: ReplyIssue): string {
   const parts =
-    i.kind === 'ungrounded' ? i.claims : i.kind === 'foreign' ? i.words : i.kind === 'feminine' ? i.forms : [`${i.claim} → ${i.tools.join('+')}`];
+    i.kind === 'ungrounded'
+      ? i.claims
+      : i.kind === 'foreign'
+        ? i.words
+        : i.kind === 'feminine'
+          ? i.forms
+          : i.kind === 'unconfirmed_save'
+            ? [i.claim]
+            : [`${i.claim} → ${i.tools.join('+')}`];
   return parts.join(', ').slice(0, 200);
 }
 
