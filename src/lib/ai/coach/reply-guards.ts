@@ -216,6 +216,27 @@ export function stripForeignWords(reply: string, words: string[]): string {
     .trim();
 }
 
+/**
+ * After foreign words are stripped, a sentence may have no Hebrew left: "Let me check, ok."
+ * becomes ",." and a reply would start with bare punctuation (live evals 19.10.2026).
+ * Drops every sentence/line that has no Hebrew letter; returns '' when nothing is left.
+ */
+export function dropHebrewlessSentences(text: string): string {
+  const HEBREW = /[\u05D0-\u05EA]/;
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .split(/(?<=[.!?\u2026])\s+/)
+        .filter((s) => HEBREW.test(s))
+        .join(' ')
+        .trim(),
+    )
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
 // ─── "I can't see it" when a tool can ────────────────────────────────────────
 
 /** Kelly claiming he can't see / has no access to something. */
