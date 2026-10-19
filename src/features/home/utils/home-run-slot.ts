@@ -18,6 +18,14 @@
  *    resolveDoubleDayOrder): a quality run goes before strength ("קודם
  *    הריצה"), an easy/long run goes after the day's first strength card.
  *  - Dual-track, next run → last, after today's strength.
+ *  - "דלג להיום" (skippedToday, the same local, unsaved skip as RunWeekListV2):
+ *    today's run steps aside — the next run shows instead (or, when the week
+ *    has none left, today's run as "skipped" so the skip can be undone);
+ *    it moves out of the lead position.
+ *
+ * resolveRunSlotSurface then decides WHERE it renders: inside the carousel,
+ * on its own (carousel hidden because today's workout is done, or empty),
+ * or not at all (StatsOverview RUNNING already shows NextRunWorkoutCard).
  */
 
 import { isQualityDay, type RunningDayRole } from '@/features/schedule/engine/runningRules';
@@ -37,6 +45,8 @@ export interface HomeRunSlot<E extends HomeRunEntry = HomeRunEntry> {
   /** "next" only, when the weekday is known (scheduleDays drives the day). */
   daysAway?: number;
   position: HomeRunSlotPosition;
+  /** The user tapped "דלג להיום" on today's run (local, unsaved). */
+  skippedToday?: boolean;
 }
 
 export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
@@ -46,6 +56,8 @@ export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
   hasRunningPlan: boolean;
   hasStrengthProgram: boolean;
   dayState: Pick<RunningDayState<E>, 'isRunDay' | 'todayEntry' | 'nextEntry' | 'nextEntryDaysAway'>;
+  /** "דלג להיום" was tapped on today's run. */
+  skippedToday?: boolean;
 }
 
 const isPending = (e: RunningScheduleEntry | undefined): e is RunningScheduleEntry =>
@@ -64,10 +76,19 @@ export function isQualityRunEntry(entry: HomeRunEntry): boolean {
 export function resolveHomeRunSlot<E extends HomeRunEntry>(
   input: ResolveHomeRunSlotInput<E>,
 ): HomeRunSlot<E> | null {
-  const { enabled, hasRunningPlan, hasStrengthProgram, dayState } = input;
+  const { enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday = false } = input;
   if (!enabled || !hasRunningPlan) return null;
 
-  if (dayState.isRunDay && isPending(dayState.todayEntry)) {
+  const hasTodayRun = dayState.isRunDay && isPending(dayState.todayEntry);
+  if (hasTodayRun && skippedToday) {
+    const position: HomeRunSlotPosition = hasStrengthProgram ? 'last' : 'first';
+    if (isPending(dayState.nextEntry)) {
+      return { kind: 'next', entry: dayState.nextEntry as E, daysAway: dayState.nextEntryDaysAway, position, skippedToday: true };
+    }
+    return { kind: 'today', entry: dayState.todayEntry as E, position, skippedToday: true };
+  }
+
+  if (hasTodayRun) {
     const entry = dayState.todayEntry as E;
     const position: HomeRunSlotPosition = !hasStrengthProgram
       ? 'first'
@@ -84,6 +105,35 @@ export function resolveHomeRunSlot<E extends HomeRunEntry>(
     };
   }
   return null;
+}
+
+/** What the anchor slot shows today. */
+export type HomeAnchorState =
+  | 'carousel' // "האימון היומי שלך" has suggestions
+  | 'loading'  // suggestions still in flight (skeleton)
+  | 'done'     // today's workout is done → carousel hidden
+  | 'empty'    // resolved with nothing → StatsOverview fallback
+  | 'other';   // a past / future day is selected
+
+export type RunSlotSurface = 'carousel' | 'standalone' | null;
+
+/**
+ * Where the run slot renders. RUNNING mode's StatsOverview fallback already
+ * mounts NextRunWorkoutCard (ignores hideWorkoutSection), so the standalone
+ * card is only for the other modes — never two run cards.
+ */
+export function resolveRunSlotSurface(
+  slot: HomeRunSlot | null,
+  anchor: HomeAnchorState,
+  dashboardMode: string,
+): RunSlotSurface {
+  if (!slot) return null;
+  if (anchor === 'carousel') return 'carousel';
+  if (anchor === 'loading' || anchor === 'other') return null;
+  if (dashboardMode === 'RUNNING') return null;
+  // Workout done (e.g. strength) → only a still-pending run of TODAY stays.
+  if (anchor === 'done') return slot.kind === 'today' && !slot.skippedToday ? 'standalone' : null;
+  return 'standalone';
 }
 
 /** Inserts the run card into the carousel's items at the slot's position. */

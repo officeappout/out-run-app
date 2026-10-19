@@ -107,7 +107,7 @@ import {
   CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
-import { placeRunCard } from '@/features/home/utils/home-run-slot';
+import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
@@ -2779,6 +2779,11 @@ export default function HomePage() {
   // enable_home_v2: the week strip for a running-only user (see the strip below).
   // Flag off → false → the strip's gate and props are exactly as before.
   const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;
+  // enable_home_v2: a dual-track user outside running mode (PERFORMANCE / DEFAULT) — the
+  // strength strip also shows the run days (run-overlay-day.ts). Flag off → undefined.
+  const runOverlayDays = featureFlags.enableHomeV2 && hasStrengthProgram && homeRun.hasRunningPlan && !isRunningMode
+    ? runningScheduleDays
+    : undefined;
   // 2b (idempotent-booping-sunrise.md) — the value actually fed to
   // SmartWeeklySchedule's `hasSchedule` prop (below), not `hasSchedule`
   // itself. Decision logic lives in resolveCardHasScheduleAndPersona
@@ -2987,6 +2992,7 @@ export default function HomePage() {
               onStartAssessment={handleHeroPress}
               onSetSchedule={() => setShowLifestyleWizard(true)}
               runningSchedule={profile?.running?.activeProgram?.schedule as any}
+              runOverlayDays={runOverlayDays}
               runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}
@@ -3206,6 +3212,34 @@ export default function HomePage() {
                   && !isTodayWorkoutDone
                   && preWorkoutSuggestions === null;
 
+                // enable_home_v2 (homeRun.slot is null with the flag off): where today's /
+                // the next run renders when the carousel isn't showing — on its own above the
+                // StatsOverview fallback (today's strength done, or nothing suggested), never in
+                // RUNNING mode (its StatsOverview already mounts NextRunWorkoutCard).
+                const runSlotSurface = resolveRunSlotSurface(
+                  homeRun.slot,
+                  readyPreWorkoutSuggestions ? 'carousel'
+                    : preWorkoutSuggestionsLoading ? 'loading'
+                    : !isViewingToday ? 'other'
+                    : isTodayWorkoutDone ? 'done'
+                    : 'empty',
+                  resolvedDashboardMode,
+                );
+                const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (
+                  <div className="mx-auto mb-4 w-full max-w-[358px] px-4">
+                    <HomeRunCarouselCard
+                      standalone
+                      slot={homeRun.slot}
+                      profile={profile}
+                      currentWeek={homeRun.currentWeek}
+                      weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                      calmReturn={calmReturn.state}
+                      onSkipToday={homeRun.skipToday}
+                      onUndoSkip={homeRun.undoSkip}
+                    />
+                  </div>
+                ) : null;
+
                 // Parity fix (27.08.2026): description text for whichever suggestion is
                 // centered — activeCarouselWorkout (computed at the top level, above, since
                 // useExercisePool/useSwapAll need it there) already IS this suggestion's real
@@ -3306,6 +3340,8 @@ export default function HomePage() {
                             currentWeek={homeRun.currentWeek}
                             weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
                             calmReturn={calmReturn.state}
+                            onSkipToday={homeRun.skipToday}
+                            onUndoSkip={homeRun.undoSkip}
                           />
                         ) : isRunPlanCarouselItem(s) ? null : isStrengthInviteCarouselItem(s) ? (
                           <AddStrengthProgramCard
@@ -3408,6 +3444,8 @@ export default function HomePage() {
                     </div>
                   )
                 ) : (
+                  <>
+                  {standaloneRunCard}
                   <StatsOverview
                     stats={MOCK_STATS}
                     onStartWorkout={handleHeroPress}
@@ -3426,6 +3464,7 @@ export default function HomePage() {
                     onConnectSteps={triggerHealthPermission}
                     weather={homeWeather?.workoutWeather ?? null}
                   />
+                  </>
                 );
                 // Calm return: the ONE quiet card on the first open after 7+ days away —
                 // above today's workout, never a modal. null whenever the flag is off.

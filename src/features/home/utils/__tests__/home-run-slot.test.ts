@@ -4,6 +4,8 @@ import {
   nextRunDayHint,
   placeRunCard,
   resolveHomeRunSlot,
+  resolveRunSlotSurface,
+  type HomeRunSlot,
   type HomeRunEntry,
 } from '../home-run-slot';
 
@@ -99,5 +101,55 @@ describe('nextRunDayHint', () => {
     expect(nextRunDayHint(1)).toBe('מחר');
     expect(nextRunDayHint(3)).toBe('בעוד 3 ימים');
     expect(nextRunDayHint(undefined)).toBe('הבא');
+  });
+});
+
+describe('resolveHomeRunSlot — "דלג להיום"', () => {
+  const base = { enabled: true, hasRunningPlan: true } as const;
+  it('skipped → the next run, flagged, out of the lead for dual-track', () => {
+    expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: true, dayState: runDay(tempo, easy, 2), skippedToday: true }))
+      .toEqual({ kind: 'next', entry: easy, daysAway: 2, position: 'last', skippedToday: true });
+    expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: false, dayState: runDay(tempo, easy, 2), skippedToday: true })?.position)
+      .toBe('first');
+  });
+  it('skipped with no run left this week → today\'s run as skipped (so it can be undone)', () => {
+    expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: true, dayState: runDay(tempo), skippedToday: true }))
+      .toEqual({ kind: 'today', entry: tempo, position: 'last', skippedToday: true });
+  });
+  it('skip has no effect on a rest day', () => {
+    expect(resolveHomeRunSlot({ ...base, hasStrengthProgram: false, dayState: restDay(easy, 1), skippedToday: true }))
+      .toEqual({ kind: 'next', entry: easy, daysAway: 1, position: 'first' });
+  });
+});
+
+describe('resolveRunSlotSurface', () => {
+  const today: HomeRunSlot = { kind: 'today', entry: easy, position: 'afterFirst' };
+  const next: HomeRunSlot = { kind: 'next', entry: easy, position: 'last' };
+  const skipped: HomeRunSlot = { ...today, skippedToday: true };
+
+  it('no slot → nothing', () => {
+    expect(resolveRunSlotSurface(null, 'carousel', 'HYBRID')).toBeNull();
+  });
+  it('carousel showing → inside it, any mode', () => {
+    expect(resolveRunSlotSurface(today, 'carousel', 'RUNNING')).toBe('carousel');
+    expect(resolveRunSlotSurface(next, 'carousel', 'PERFORMANCE')).toBe('carousel');
+  });
+  it('loading / another day → nothing', () => {
+    expect(resolveRunSlotSurface(today, 'loading', 'HYBRID')).toBeNull();
+    expect(resolveRunSlotSurface(today, 'other', 'HYBRID')).toBeNull();
+  });
+  it('strength done, run still pending → standalone (not in RUNNING: StatsOverview has it)', () => {
+    expect(resolveRunSlotSurface(today, 'done', 'HYBRID')).toBe('standalone');
+    expect(resolveRunSlotSurface(today, 'done', 'PERFORMANCE')).toBe('standalone');
+    expect(resolveRunSlotSurface(today, 'done', 'RUNNING')).toBeNull();
+  });
+  it('done → no "next" card and no skipped run', () => {
+    expect(resolveRunSlotSurface(next, 'done', 'HYBRID')).toBeNull();
+    expect(resolveRunSlotSurface(skipped, 'done', 'HYBRID')).toBeNull();
+  });
+  it('empty carousel (HYBRID fallback) → standalone, today or next', () => {
+    expect(resolveRunSlotSurface(today, 'empty', 'HYBRID')).toBe('standalone');
+    expect(resolveRunSlotSurface(next, 'empty', 'HYBRID')).toBe('standalone');
+    expect(resolveRunSlotSurface(today, 'empty', 'RUNNING')).toBeNull();
   });
 });
