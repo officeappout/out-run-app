@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Program } from './program.types';
+import { invalidateProgramCatalog } from './program-catalog';
 
 const PROGRAMS_COLLECTION = 'programs';
 
@@ -249,6 +250,7 @@ export async function createProgram(data: Omit<Program, 'id' | 'createdAt' | 'up
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }));
+    invalidateProgramCatalog();
     return docRef.id;
   } catch (error) {
     console.error('Error creating program:', error);
@@ -269,6 +271,7 @@ export async function updateProgram(
       ...data,
       updatedAt: serverTimestamp(),
     }));
+    invalidateProgramCatalog();
   } catch (error) {
     console.error('Error updating program:', error);
     throw error;
@@ -282,6 +285,7 @@ export async function deleteProgram(programId: string): Promise<void> {
   try {
     const docRef = doc(db, PROGRAMS_COLLECTION, programId);
     await deleteDoc(docRef);
+    invalidateProgramCatalog();
   } catch (error) {
     console.error('Error deleting program:', error);
     throw error;

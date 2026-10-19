@@ -2,6 +2,7 @@
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
+import { clearHomeStartupCaches } from '@/lib/fast-startup/daily-record-cache';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/hooks/useWorkoutStateMachine';
 import type { CoachHintMark, RepsSource, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
@@ -343,6 +344,9 @@ function getWorkoutMetadata(activityType: string): {
  * Save a completed workout to Firestore
  */
 export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'date' | 'workoutType' | 'category' | 'displayIcon'> & Partial<Pick<WorkoutHistoryEntry, 'workoutType' | 'category' | 'displayIcon'>>): Promise<string | null> {
+  // enable_fast_startup_v1: today's cached home carousel is stale the moment a workout is
+  // logged. No-op unless that cache was ever written on this device.
+  clearHomeStartupCaches();
   try {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -517,6 +521,7 @@ export async function saveWorkout(workout: Omit<WorkoutHistoryEntry, 'id' | 'dat
  * Returns the deleted doc's data (for XP reversal) or null on failure.
  */
 export async function deleteWorkout(workoutId: string): Promise<WorkoutHistoryEntry | null> {
+  clearHomeStartupCaches(); // see saveWorkout
   try {
     const currentUser = auth.currentUser;
     if (!currentUser) return null;

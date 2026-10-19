@@ -10,6 +10,8 @@
  */
 
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
+import { getProgramCatalogPersisted } from '@/features/content/programs/core/program-catalog';
+import { isFastStartupOn } from '@/lib/fast-startup/flag';
 import type { Program } from '@/features/content/programs/core/program.types';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 
@@ -27,7 +29,8 @@ export async function getCachedPrograms(): Promise<Program[]> {
     return _programsCache;
   }
   try {
-    _programsCache = await getAllPrograms();
+    // enable_fast_startup_v1: memory + IndexedDB (30 min) instead of a Firestore read per cold start.
+    _programsCache = isFastStartupOn() ? await getProgramCatalogPersisted() : await getAllPrograms();
     _programsCacheTs = now;
   } catch (e) {
     console.warn('[HomeWorkout] Failed to load programs for hierarchy:', e);

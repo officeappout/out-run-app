@@ -12,6 +12,9 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { createPersistentTtlCache, type PersistentTtlCache } from '@/lib/persistentTtlCache';
+import { createIdbRecordStore } from '@/lib/idbRecordStore';
+import { isFastStartupOn } from '@/lib/fast-startup/flag';
 import type { TrioLabelsConfig } from './home-workout.types';
 import type { TrioVariant } from './workout-metadata.service';
 import type { GeneratedWorkout } from '../logic/WorkoutGenerator';
@@ -39,6 +42,38 @@ let _cachedTrioLabels: TrioLabelsConfig | null = { ...DEFAULT_TRIO_LABELS };
  * valid Hebrew labels — even on the very first call when Firestore is slow.
  */
 export async function fetchTrioLabels(): Promise<{ labels: TrioLabelsConfig; source: 'firestore' | 'fallback' }> {
+  // enable_fast_startup_v1: one app_config read per 30 min per device (memory + IndexedDB)
+  // instead of one per trio generation. Off → the live read below, exactly as before.
+  return isFastStartupOn() ? fetchTrioLabelsPersisted() : fetchTrioLabelsLive();
+}
+
+/** Thrown inside the cache fetcher so a fallback answer is returned but never cached. */
+class TrioLabelsFallback extends Error {
+  constructor(readonly result: { labels: TrioLabelsConfig; source: 'fallback' }) { super('trio-labels-fallback'); }
+}
+export const TRIO_LABELS_PERSIST_TTL_MS = 30 * 60 * 1000;
+let persistedLabels: PersistentTtlCache<TrioLabelsConfig> | null = null;
+async function fetchTrioLabelsPersisted(): Promise<{ labels: TrioLabelsConfig; source: 'firestore' | 'fallback' }> {
+  persistedLabels ??= createPersistentTtlCache<TrioLabelsConfig>({
+    fetcher: async () => {
+      const r = await fetchTrioLabelsLive();
+      if (r.source === 'fallback') throw new TrioLabelsFallback({ labels: r.labels, source: 'fallback' });
+      return r.labels;
+    },
+    ttlMs: TRIO_LABELS_PERSIST_TTL_MS,
+    store: createIdbRecordStore<TrioLabelsConfig>('trio-labels:v1'),
+  });
+  try {
+    const labels = await persistedLabels.get();
+    _cachedTrioLabels = labels;
+    return { labels, source: 'firestore' };
+  } catch (e) {
+    if (e instanceof TrioLabelsFallback) return e.result;
+    return { labels: _cachedTrioLabels!, source: 'fallback' };
+  }
+}
+
+async function fetchTrioLabelsLive(): Promise<{ labels: TrioLabelsConfig; source: 'firestore' | 'fallback' }> {
   try {
     const snap = await getDoc(doc(db, 'app_config', 'workout_trio'));
     if (!snap.exists()) {

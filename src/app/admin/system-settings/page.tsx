@@ -49,6 +49,7 @@ interface FlagState {
   weather_admins_only: boolean;
   kelly_unified_v1: boolean;
   enable_keyboard_insets_v1: boolean;
+  enable_fast_startup_v1: boolean;
 }
 
 // ============================================================================
@@ -272,6 +273,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-600',
     title: 'מקלדת לא מסתירה את ההקלדה (iPhone)',
     description: 'צ׳אט, חיפוש במפה, שמירת בית/עבודה, ההרשמה וכל הגיליונות עם שדות טקסט עולים מעל המקלדת, השדה שבפוקוס נגלל לאמצע המסך ובלי קפיצות אחרי ההקלדה. מנהלי־על רואים אותו תמיד. כבוי = כמו היום.',
+  },
+  // Fast startup v1 (19.10.2026).
+  {
+    key: 'enable_fast_startup_v1',
+    icon: ListChecks,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'פתיחה מהירה של האפליקציה',
+    description: 'משתמש רשום נכנס ישר לבית בלי לחכות במסך הפתיחה (הבדיקה מול השרת רצה ברקע ומחזירה אותו למקום הנכון אם צריך), האימונים של היום מופיעים מיד מהעותק השמור ומתעדכנים במקום, ותוכניות/ציוד/כותרות נשמרים במכשיר עד 30 דקות. השינוי מגיע למכשיר בפתיחה הבאה. כבוי = כמו היום.',
   },
 ];
 
