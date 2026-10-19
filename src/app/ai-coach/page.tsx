@@ -13,14 +13,19 @@ import { useUserStore } from '@/features/user';
 import AiCoachChat from '@/features/ai-coach/components/AiCoachChat';
 import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 
 export default function AiCoachPage() {
   const router = useRouter();
   const { profile } = useUserStore();
   const { canUseAi, loading } = useAiCoachAccess();
   // Real value (no super-admin override): the server reads the same.
-  const { flags, loading: flagsLoading } = useFeatureFlags();
+  const { flags, rawFlags, loading: flagsLoading } = useFeatureFlags();
   const unified = flags.kellyUnifiedV1 === true;
+  // Kelly phase 2 (ai_coach_phase2, real value): quick replies, hints, schedule proposal cards.
+  const phase2 = flags.aiCoachPhase2 === true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
+  const weatherOn = isWeatherOnFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
 
   const close = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
@@ -31,7 +36,7 @@ export default function AiCoachPage() {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
 
-  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} />;
+  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} />;
 
   if (!canUseAi) {
     return (
@@ -45,5 +50,5 @@ export default function AiCoachPage() {
     );
   }
 
-  return <AiCoachChat profile={profile} onClose={close} />;
+  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} />;
 }
