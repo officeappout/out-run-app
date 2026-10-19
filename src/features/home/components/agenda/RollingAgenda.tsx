@@ -19,6 +19,7 @@ import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
 import AgendaDayCard from './AgendaDayCard';
+import { MoveConfirmSheetClassic, MoveConfirmSheetV2 } from './MoveConfirmSheet';
 import { toISODate, addDays, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import { getWorkoutsInDateRange, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import {
@@ -705,98 +706,25 @@ export default function RollingAgenda({
         z-[140]/z-[150] guarantees the sheet & its backdrop land above every
         chrome layer cleanly.
       */}
-      {portalReady && createPortal(
-        <>
-          <motion.div
-            key="drag-confirm-backdrop"
-            className="fixed inset-0 z-[140] bg-black/40"
-            style={{ pointerEvents: moveIntent ? 'auto' : 'none' }}
-            animate={{ opacity: moveIntent ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setMoveIntent(null)}
-          />
-          {/*
-            Fluid Drawer Layout Contract — DO NOT RE-INTRODUCE:
-              • No `min-h-[…px]` — the sheet hugs its content height so
-                short viewports (small Androids, landscape) never get
-                clipped and tall viewports (Pro Max, foldables) never
-                stretch into wasted whitespace.
-              • No `48px + 24px` style pixel math for nav clearance.
-                The bottom inset is owned by `paddingBottom` below, which
-                uses `max(rem-floor, env(safe-area-inset-bottom))` so:
-                  – iOS notched devices get the home-indicator inset
-                  – Android / flat displays get the rem floor
-                Both keep the "ביטול" tap target clear of system chrome
-                without hard-coding any nav-bar height.
-              • No `justify-between` — the container hugs its content, so
-                space-between would be a visual no-op and a footgun if a
-                fixed height is ever added later by mistake.
-          */}
-          <motion.div
-            key="drag-confirm-sheet"
-            className="fixed bottom-0 inset-x-0 z-[150] flex flex-col bg-white rounded-t-2xl shadow-[0_-8px_24px_rgba(0,0,0,0.12)]"
-            style={{
-              paddingBottom: 'max(1.75rem, env(safe-area-inset-bottom, 28px))',
-            }}
-            initial={{ y: '100%' }}
-            animate={{ y: moveIntent ? 0 : '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            dir="rtl"
-          >
-            {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
-            </div>
-
-            {/* Title — divider line drops naturally below the heading.
-                shrink-0 prevents flex compression on tiny viewports. */}
-            <div className="px-5 pt-3 pb-4 border-b border-gray-100 shrink-0">
-              <h2 className="text-base font-black text-gray-900">
-                {moveIntent
-                  ? moveIntent.targetHasEntry
-                    ? `הוסף לאימון ב${getDayLabel(moveIntent.toDate)}`
-                    : `העברת אימון ל${getDayLabel(moveIntent.toDate)}`
-                  : ''
-                }
-              </h2>
-              {moveIntent && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {formatShortDate(moveIntent.fromDate)} ← {formatShortDate(moveIntent.toDate)}
-                </p>
-              )}
-            </div>
-
-            {/* Action buttons — pt-4 keeps spacing from divider; the
-                bottom edge of "ביטול" is protected by the wrapper's
-                fluid safe-area paddingBottom above. */}
-            <div className="px-5 pt-4 space-y-3 shrink-0">
-              <button
-                type="button"
-                className="w-full py-3.5 rounded-xl text-sm font-black text-white active:scale-[0.98] transition-transform"
-                style={{ background: '#00C9F2' }}
-                onClick={handleMoveOnce}
-              >
-                שנה רק את האימון הזה
-              </button>
-              <button
-                type="button"
-                className="w-full py-3.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-700 active:scale-[0.98] transition-transform"
-                onClick={handleMoveAll}
-              >
-                שנה את כל הלוז קדימה
-              </button>
-              <button
-                type="button"
-                className="w-full py-3 text-sm text-gray-400 active:scale-[0.98] transition-transform"
-                onClick={() => setMoveIntent(null)}
-              >
-                ביטול
-              </button>
-            </div>
-          </motion.div>
-        </>,
-        document.body
-      )}
+      {(() => {
+        const moveSheet = {
+          open: !!moveIntent,
+          title: moveIntent
+            ? moveIntent.targetHasEntry
+              ? `הוסף לאימון ב${getDayLabel(moveIntent.toDate)}`
+              : `העברת אימון ל${getDayLabel(moveIntent.toDate)}`
+            : '',
+          fromLabel: moveIntent ? formatShortDate(moveIntent.fromDate) : '',
+          toLabel: moveIntent ? formatShortDate(moveIntent.toDate) : '',
+          onMoveOnce: handleMoveOnce,
+          onMoveAll: handleMoveAll,
+          onCancel: () => setMoveIntent(null),
+        };
+        // enable_home_v2: the shared ConfirmSheet (portals itself); flag off
+        // keeps the classic always-mounted sheet, portalled as before.
+        if (v2) return <MoveConfirmSheetV2 {...moveSheet} />;
+        return portalReady && createPortal(<MoveConfirmSheetClassic {...moveSheet} />, document.body);
+      })()}
 
     </motion.div>
   );

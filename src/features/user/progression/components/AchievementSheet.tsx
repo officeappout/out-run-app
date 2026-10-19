@@ -23,11 +23,16 @@ import {
 } from '../services/achievement.service';
 import type { AchievementDefinition, TierKey, UnlockedAchievementsMap } from '../types/achievement.types';
 import clsx from 'clsx';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface AchievementSheetProps {
   isOpen: boolean;
   onClose: () => void;
   unlockedAchievements: UnlockedAchievementsMap;
+  /** Home v2 (enable_home_v2) — the shared <Sheet>; passed by the profile DashboardTab. */
+  v2?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,7 +164,7 @@ function CategorySection({
 // Main sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AchievementSheet({ isOpen, onClose, unlockedAchievements }: AchievementSheetProps) {
+export function AchievementSheet({ isOpen, onClose, unlockedAchievements, v2 = false }: AchievementSheetProps) {
   const { flags: featureFlags } = useFeatureFlags();
   const visibleCategories = featureFlags.enableLeagues
     ? CATEGORY_ORDER
@@ -170,6 +175,43 @@ export function AchievementSheet({ isOpen, onClose, unlockedAchievements }: Achi
       ? isOneTimeUnlocked(def.id, unlockedAchievements)
       : getHighestUnlockedTier(def.id, unlockedAchievements) !== undefined,
   ).length;
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Profile band: backdrop z-[98] / sheet z-[99] (.cursorrules), in place.
+        zIndex={SHEET_Z.profilePanel}
+        portal={false}
+        keyboardAware={false}
+        safeArea={false}
+        transition={{ type: 'spring', stiffness: 300, damping: 35 }}
+        className="max-h-[92dvh]"
+        grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
+        ariaLabel="הישגים שלי"
+        header={
+          <div className="flex items-center justify-between px-5 pb-3 pt-2">
+            <div className="min-w-0">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הישגים שלי</h2>
+              <p className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                {totalUnlocked} מתוך {ACHIEVEMENT_DEFINITIONS.length} נפתחו
+              </p>
+            </div>
+            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+        }
+        bodyClassName="bg-v2-surface px-4 py-4"
+      >
+        {visibleCategories.map((category) => (
+          <CategorySection key={category} category={category} unlocked={unlockedAchievements} />
+        ))}
+        <div className="h-6" />
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>

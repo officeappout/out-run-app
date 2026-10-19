@@ -21,6 +21,9 @@ import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import MasterExerciseView from './MasterExerciseView';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import type { Exercise } from '../../core/exercise.types';
 
 export interface ExerciseDetailSheetProps {
@@ -147,6 +150,54 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
     router.push(progressionMapHref);
   };
 
+  const master = exercise ? (
+    <MasterExerciseView
+      exercise={exercise}
+      filterLocation={filterLocation}
+      programLabels={programLabels}
+      defaultProgramId={defaultProgramId}
+      onNavigateToAnalytics={handleNavigateToAnalytics}
+      onNavigateToRoadmap={handleNavigateToRoadmap}
+      notice={notice}
+    />
+  ) : null;
+
+  if (v2) {
+    // enable_home_v2: the shared <Sheet> — whole-panel drag (the inner scroll
+    // owns vertical scrolling; framer wins only at scrollTop 0), > 140 px closes.
+    return (
+      <Sheet
+        open={isOpen && !!exercise}
+        onClose={close}
+        // Backdrop z-[60] / sheet z-[61] (.cursorrules), portalled after mount.
+        zIndex={SHEET_Z.drawerPanel}
+        keyboardAware={false}
+        backdropClassName="bg-black/50"
+        surface="rounded-t-[28px] bg-v2-surface shadow-v2-sheet"
+        className="relative h-[95vh]"
+        safeArea={false}
+        grabber={false}
+        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+        dragToDismiss={{ handleOnly: false, distance: 140, velocity: 0, elastic: 0.2 }}
+        ariaLabel="פרטי תרגיל"
+        header={
+          <>
+            {/* Grabber floats over the full-bleed hero (which starts at the
+                sheet's top edge and fades into the page). */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-2">
+              <div className="h-1.5 w-10 rounded-full bg-white/80 shadow-v2-ring" />
+            </div>
+            <IconButton aria-label="סגור" tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
+              <X size={17} strokeWidth={2.5} />
+            </IconButton>
+          </>
+        }
+      >
+        {master}
+      </Sheet>
+    );
+  }
+
   const sheet = (
     <AnimatePresence>
       {isOpen && exercise && (
@@ -175,45 +226,28 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={0.2}
             onDragEnd={(_, info) => { if (info.offset.y > 140) close(); }}
-            className={v2
-              ? 'fixed bottom-0 left-0 right-0 z-[61] flex flex-col overflow-hidden rounded-t-[28px] bg-v2-surface shadow-v2-sheet'
-              : 'fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden'}
+            className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-3xl shadow-drawer flex flex-col overflow-hidden"
             style={{ height: '95vh' }}
             dir="rtl"
           >
-            {/* Drag handle. v2: floats over the full-bleed hero (which starts
-                at the sheet's top edge and fades into the page). */}
-            <div
-              className={v2
-                ? 'pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-2'
-                : 'flex justify-center pt-2 pb-1 flex-shrink-0'}
-            >
-              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-white/80 shadow-v2-ring' : 'w-10 h-1 rounded-full bg-gray-200'} />
+            {/* Drag handle */}
+            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-200" />
             </div>
 
             {/* Close */}
             <button
               type="button"
               onClick={close}
-              className={v2
-                ? 'absolute left-3 top-3 z-30 grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
-                : 'absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm'}
+              className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm"
               aria-label="סגור"
             >
-              <X size={v2 ? 17 : 18} strokeWidth={v2 ? 2.5 : 2} />
+              <X size={18} strokeWidth={2} />
             </button>
 
             {/* ── SINGLE conduit scroll ── */}
             <div className="flex-auto min-h-0 overflow-y-auto overscroll-contain">
-              <MasterExerciseView
-                exercise={exercise}
-                filterLocation={filterLocation}
-                programLabels={programLabels}
-                defaultProgramId={defaultProgramId}
-                onNavigateToAnalytics={handleNavigateToAnalytics}
-                onNavigateToRoadmap={handleNavigateToRoadmap}
-                notice={notice}
-              />
+              {master}
             </div>
           </motion.div>
         </>

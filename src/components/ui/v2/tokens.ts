@@ -82,6 +82,14 @@ export const SHEET_Z = {
   group: 80,
   /** GroupDetailsDrawer panel — budget row z-[80]/z-[81]. */
   groupPanel: 81,
+  /** Community sheets (ReportContentSheet, CreateGroupWizard) backdrop — budget row z-[92]/z-[93]. */
+  community: 92,
+  /** Community sheets panel — budget row z-[92]/z-[93]. */
+  communityPanel: 93,
+  /** NavigationSheet / PartnerFilterSheet (v2) backdrop — the z-[95] row (shared with the referral toast; never on screen together). */
+  navigate: 95,
+  /** NavigationSheet / PartnerFilterSheet (v2) panel — budget row z-[96]. */
+  navigatePanel: 96,
   /** Profile sheets (Favorites / History / Achievements) backdrop — budget row z-[98]/z-[99]. */
   profile: 98,
   /** Profile sheets panel — budget row z-[98]/z-[99]. */
@@ -98,6 +106,14 @@ export const SHEET_Z = {
   freeRunExtras: 104,
   /** FreeRunDrawer's Extras / LegPlan sheets panel — budget row z-[104]/z-[105]. */
   freeRunExtrasPanel: 105,
+  /** RollingAgenda's drag-reschedule confirm backdrop — the z-[140] row (portalled; never with JITSetupModal). */
+  agendaMoveBackdrop: 140,
+  /** RollingAgenda's drag-reschedule confirm sheet — budget row z-[150]. */
+  agendaMove: 150,
+  /** AgendaDayCard's delete-confirm backdrop — budget row z-[300]/z-[301] (in place, inside the planner's stacking context). */
+  agendaDelete: 300,
+  /** AgendaDayCard's delete-confirm sheet — budget row z-[300]/z-[301]. */
+  agendaDeletePanel: 301,
 } as const;
 
 export type SheetZIndex = (typeof SHEET_Z)[keyof typeof SHEET_Z];

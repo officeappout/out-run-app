@@ -8,6 +8,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { motion } from 'framer-motion';
+import { MoveConfirmSheetClassic, MoveConfirmSheetV2 } from '@/features/home/components/agenda/MoveConfirmSheet';
+import { DeleteEntrySheetClassic, DeleteEntrySheetV2 } from '@/features/home/components/agenda/DeleteEntrySheet';
 
 const html = (el: React.ReactElement) => renderToStaticMarkup(el);
 const noop = () => {};
@@ -176,5 +178,45 @@ describe('pre-migration markup (recorded)', () => {
   });
   it('AgendaDayCard delete sheet', () => {
     expect([null, { entryId: 'e1' }].map((d) => html(<OriginalDelete deleteEntryId={d} />))).toMatchSnapshot();
+  });
+});
+
+const moveProps = (m: MoveIntent | null) => ({
+  open: !!m,
+  title: m ? (m.targetHasEntry ? `הוסף לאימון ב${getDayLabel(m.toDate)}` : `העברת אימון ל${getDayLabel(m.toDate)}`) : '',
+  fromLabel: m ? formatShortDate(m.fromDate) : '',
+  toLabel: m ? formatShortDate(m.toDate) : '',
+  onMoveOnce: noop,
+  onMoveAll: noop,
+  onCancel: noop,
+});
+
+describe('flag off — the classic frame modules are byte-identical', () => {
+  it('MoveConfirmSheetClassic === the pre-migration RollingAgenda markup', () => {
+    for (const m of intents) {
+      expect(html(<MoveConfirmSheetClassic {...moveProps(m)} />)).toBe(html(<OriginalMove moveIntent={m} />));
+    }
+  });
+  it('DeleteEntrySheetClassic === the pre-migration AgendaDayCard markup', () => {
+    for (const d of [null, { entryId: 'e1' }]) {
+      expect(html(<DeleteEntrySheetClassic open={!!d} onConfirm={noop} onCancel={noop} />)).toBe(html(<OriginalDelete deleteEntryId={d} />));
+    }
+  });
+});
+
+describe('flag on — the shared ConfirmSheet', () => {
+  it('MoveConfirmSheetV2 renders nothing server-side (portalled after mount) and nothing while closed', () => {
+    expect(html(<MoveConfirmSheetV2 {...moveProps(intents[1])} />)).toBe('');
+  });
+  it('DeleteEntrySheetV2: in place, z 300/301, danger + ghost actions', () => {
+    const out = html(<DeleteEntrySheetV2 open onConfirm={noop} onCancel={noop} />);
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('data-v2-confirm-sheet');
+    expect(out).toContain('z-index:300');
+    expect(out).toContain('z-index:301');
+    expect(out).toContain('bg-v2-down');
+    expect(out).toContain('מחיקת אימון?');
+    expect(out).not.toContain('kb-');
+    expect(html(<DeleteEntrySheetV2 open={false} onConfirm={noop} onCancel={noop} />)).toBe('');
   });
 });

@@ -4,6 +4,11 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Map } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface NavigationSheetProps {
   isOpen: boolean;
@@ -15,6 +20,9 @@ interface NavigationSheetProps {
 
 export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: NavigationSheetProps) {
   const router = useRouter();
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   const options = [
@@ -53,6 +61,55 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
       },
     },
   ];
+
+  const optionList = (
+    <div className="space-y-2.5">
+      {options.map((opt) => (
+        <button
+          key={opt.id}
+          onClick={() => { opt.action(); if (opt.id !== 'appmap') onClose(); }}
+          className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.97] ${opt.color}`}
+        >
+          <span className="text-xl">{opt.icon}</span>
+          <span>{opt.label}</span>
+          <Map className="w-4 h-4 ml-auto opacity-40" />
+        </button>
+      ))}
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Backdrop z-[95] / panel z-[96] (.cursorrules), in place.
+        zIndex={SHEET_Z.navigatePanel}
+        backdropZIndex={SHEET_Z.navigate}
+        portal={false}
+        keyboardAware={false}
+        backdropStyle={{ backdropFilter: 'blur(4px)' }}
+        frameClassName="max-w-md mx-auto"
+        safeArea={false}
+        scroll="none"
+        transition={{ type: 'spring', stiffness: 340, damping: 36, mass: 0.7 }}
+        ariaLabel="ניווט למיקום"
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-2">
+            <div className="min-w-0">
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">ניווט למיקום</h2>
+              {label && <p className="truncate text-[12.5px] font-bold text-v2-muted">{label}</p>}
+            </div>
+            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+        }
+      >
+        <div className="px-5 pb-8" dir="rtl">{optionList}</div>
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -94,20 +151,7 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
                 </button>
               </div>
 
-              {/* Navigation options */}
-              <div className="space-y-2.5">
-                {options.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => { opt.action(); if (opt.id !== 'appmap') onClose(); }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.97] ${opt.color}`}
-                  >
-                    <span className="text-xl">{opt.icon}</span>
-                    <span>{opt.label}</span>
-                    <Map className="w-4 h-4 ml-auto opacity-40" />
-                  </button>
-                ))}
-              </div>
+              {optionList}
             </div>
           </motion.div>
         </>

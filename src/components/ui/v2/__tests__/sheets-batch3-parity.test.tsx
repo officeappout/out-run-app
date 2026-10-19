@@ -87,3 +87,79 @@ describe('flag off — byte-identical to the pre-migration markup', () => {
     expect(wizard()).toMatchSnapshot();
   });
 });
+
+describe('flag on — the shared <Sheet>', () => {
+  it('HistorySheet: profile band z 98/99, in place, tinted body, IconButton close', () => {
+    const out = history(true);
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:99');
+    expect(out).toContain('z-index:98');
+    expect(out).toContain('bg-v2-surface px-4 py-4');
+    expect(out).toContain('data-v2-icon-button="surface"');
+    expect(out).toContain('היסטוריית אימונים');
+    expect(out).toContain('data-history-tab="0"');
+  });
+  it('AchievementSheet: profile band, count line in the header', () => {
+    const out = achievements(true);
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:99');
+    expect(out).toContain('הישגים שלי');
+    expect(out).toContain('נפתחו');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('ActivityPanel: z 70/71, default title header, items kept', () => {
+    flags.enableHomeV2 = true;
+    const out = activity();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:71');
+    expect(out).toContain('z-index:70');
+    expect(out).toContain('פעילות');
+    expect(out).toContain('data-v2-icon-button="surface"');
+    expect(out).toContain('בחזרה');
+  });
+  it('ReportContentSheet: community band z 92/93, blurred backdrop, tint reasons, danger CTA', () => {
+    flags.enableHomeV2 = true;
+    const out = report();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:93');
+    expect(out).toContain('z-index:92');
+    expect(out).toContain('backdrop-filter:blur(4px)');
+    expect(out).toContain('דיווח על הקבוצה');
+    expect(out).toContain('shadow-v2-ring');
+    expect(out).toContain('bg-v2-down');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('NavigationSheet: z 95/96, width-capped, label subtitle', () => {
+    flags.enableHomeV2 = true;
+    const out = navigation();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:96');
+    expect(out).toContain('z-index:95');
+    expect(out).toContain('max-w-md mx-auto');
+    expect(out).toContain('פארק הירקון');
+    expect(out).toContain('Google Maps');
+  });
+  it('PartnerFilterSheet: z 95/96, grabber drag zone, pinned CTA footer', () => {
+    flags.enableHomeV2 = true;
+    const out = partnerFilter();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:96');
+    expect(out).toContain('z-index:95');
+    expect(out).toContain('cursor-grab');
+    expect(out).toContain('bg-v2-cta');
+    expect(out).toContain('איפוס');
+    expect(out).toContain('calc(env(safe-area-inset-bottom, 0px) + 12px)');
+  });
+  it('ContributionWizard: nested, keyboard-aware, z 100, in place', () => {
+    flags.enableHomeV2 = true;
+    const out = wizard();
+    expect(out).toContain('data-v2-sheet-modal="nested"');
+    expect(out).toContain('kb-fit fixed inset-0');
+    expect(out).toContain('kb-cap');
+    expect(out).toContain('z-index:100');
+    expect(out).toContain('bg-black/30 backdrop-blur-sm');
+    expect(out).toContain('min-h-[85vh] max-h-[95vh]');
+    expect(out).toContain('data-step="location"');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+});

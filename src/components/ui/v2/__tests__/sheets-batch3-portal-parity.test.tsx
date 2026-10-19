@@ -75,3 +75,24 @@ describe('flag off — byte-identical to the pre-migration markup (portalled)', 
     expect(detail()).toMatchSnapshot();
   });
 });
+
+describe('flag on — the shared <Sheet>', () => {
+  it('ExerciseDetailSheet: z 60/61, tinted surface (surface prop), whole-panel drag, floating close', () => {
+    flags.enableHomeV2 = true;
+    const out = detail();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index: 61');
+    expect(out).toContain('z-index: 60');
+    expect(out).toContain('rounded-t-[28px] bg-v2-surface shadow-v2-sheet');
+    expect(out).not.toContain('bg-white shadow-v2-sheet');
+    expect(out).toContain('h-[95vh]');
+    expect(out).toContain('data-v2-icon-button="surface"');
+    expect(out).toContain('data-master-view="ex1"');
+    expect(out).not.toContain('data-v2-sheet-grabber');
+  });
+  it('ExerciseDetailSheet: body scroll lock still applies', () => {
+    flags.enableHomeV2 = true;
+    detail();
+    expect(document.body.style.overflow).toBe('hidden');
+  });
+});

@@ -11,6 +11,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import HistoryTab from '@/features/profile/components/HistoryTab';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
@@ -27,6 +29,8 @@ interface HistorySheetProps {
   workouts: WorkoutHistoryEntry[];
   isLoading: boolean;
   removeWorkout: (workoutId: string) => void;
+  /** Home v2 (enable_home_v2) — the shared <Sheet>; passed by ProfilePage. */
+  v2?: boolean;
 }
 
 export default function HistorySheet({
@@ -36,7 +40,36 @@ export default function HistorySheet({
   workouts,
   isLoading,
   removeWorkout,
+  v2 = false,
 }: HistorySheetProps) {
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Profile band: backdrop z-[98] / sheet z-[99] (.cursorrules), in place.
+        zIndex={SHEET_Z.profilePanel}
+        portal={false}
+        keyboardAware={false}
+        safeArea={false}
+        transition={{ type: 'spring', stiffness: 300, damping: 35 }}
+        className="max-h-[92dvh]"
+        grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
+        ariaLabel="היסטוריית אימונים"
+        header={<SheetHeader title="היסטוריית אימונים" onClose={onClose} closeLabel="סגור" className="flex items-center justify-between px-5 pb-3 pt-2" />}
+        bodyClassName="bg-v2-surface px-4 py-4"
+      >
+        <HistoryTab
+          onWorkoutClick={onWorkoutClick}
+          workouts={workouts}
+          isLoading={isLoading}
+          removeWorkout={removeWorkout}
+        />
+        <div className="h-6" />
+      </Sheet>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
