@@ -516,7 +516,7 @@ export function usePartnerData(
 
     const flushGroups = () => {
       const partners: any[] = [];
-      for (const { id: groupId, ...data } of mergedGroups.values()) {
+      for (const { id: groupId, ...data } of Array.from(mergedGroups.values())) {
         const docSnap = { id: groupId as string };
 
         // ── Hybrid visibility gate ────────────────────────────────────────

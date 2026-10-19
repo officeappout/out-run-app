@@ -4,14 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import { extractFeedScope } from '@/features/social/services/feed-scope.utils';
+import { getIndividualBoard } from '@/features/arena/services/individual-board.client';
 import {
-  getLeaderboard,
   getStreakLeaderboard,
-  getStepsLeaderboard,
   getSegmentLeaderboard,
-  getLeagueLeaderboard,
   getTenantLeaderboard,
-  getDistanceLeaderboard,
   type LeaderboardScope,
   type LeaderboardCategory,
   type LeaderboardTimeWindow,
@@ -29,7 +26,7 @@ export interface UseLeaderboardOptions {
   timeWindow: LeaderboardTimeWindow;
   genderFilter?: LeaderboardGenderFilter;
   programId?: string | null;
-  /** 'streak' → streaks collection; 'steps' → dailyActivity; 'segment' → feed_posts by runSegment; 'distance' → feed_posts summed distanceKm; 'credit' (default) → feed_posts activityCredit */
+  /** 'streak' → streaks collection; 'steps' / 'distance' / 'credit' → /api/leagues/individual-board (server-side sums of dailyActivityPublic / feed_posts); 'segment' → feed_posts by runSegment (unreachable in the UI today) */
   dataMode?: LeaderboardDataMode;
   /** Required when dataMode === 'segment' */
   runSegment?: RunSegmentFilter;
@@ -89,14 +86,20 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
           callerAgeGroup: extractFeedScope(profile).ageGroup ?? 'minor',
         });
       } else if (scope === 'league' && scopeId) {
-        // Group leaderboard — scopeId is the community group ID
-        data = await getLeagueLeaderboard({
-          groupId: scopeId,
+        // Group leaderboard — scopeId is the community group ID. 19.10.2026:
+        // from the league aggregates (weekly/monthly, enable_league_aggregates:
+        // general → all points, steps → steps points, distance → km), else
+        // the same feed_posts points sum as before, done on the server.
+        data = await getIndividualBoard({
+          mode: 'credit',
+          scope,
+          scopeId,
           category,
           timeWindow,
           genderFilter,
           currentUid: uid,
           currentName: profile?.core?.name,
+          groupMeasure: dataMode === 'steps' ? 'stepsPoints' : dataMode === 'distance' ? 'km' : 'points',
         });
       } else if (dataMode === 'streak') {
         data = await getStreakLeaderboard({
@@ -105,32 +108,20 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
           currentUid: uid,
           currentName: profile?.core?.name,
         });
-      } else if (dataMode === 'steps') {
-        data = await getStepsLeaderboard({
-          scope,
-          scopeId,
-          currentUid: uid,
-          currentName: profile?.core?.name,
-          // SPEC-04 Wave B — unlike the feed_posts-backed modes below
-          // (getDistanceLeaderboard etc., which default to 'adult' here
-          // with no matching rule-level age check on feed_posts to
-          // conflict with), dailyActivityPublic's new rule independently
-          // defaults an unresolved caller (e.g. a guest, no userAge/{uid}
-          // doc) to 'minor' via getUserAgeGroup(). Defaulting to 'adult'
-          // here would request a query shape the rule won't grant for
-          // that caller, rejecting the whole leaderboard outright instead
-          // of just filtering it — so this one MUST default to 'minor' to
-          // stay consistent with the rule it's actually gated by.
-          callerAgeGroup: extractFeedScope(profile).ageGroup ?? 'minor',
-        });
-      } else if (dataMode === 'distance') {
-        const feedScope = extractFeedScope(profile);
-        data = await getDistanceLeaderboard({
+      } else if (dataMode === 'steps' || dataMode === 'distance') {
+        // Server-side since 19.10.2026 (/api/leagues/individual-board — was a
+        // client scan of up to 5,000 dailyActivityPublic docs / a whole
+        // period of feed_posts). Same filters and math. Steps: the caller's
+        // cohort is decided on the server from userAge (missing → 'minor',
+        // matching the dailyActivityPublic rule); distance keeps the old
+        // client default ('adult') as the hint when userAge is missing.
+        data = await getIndividualBoard({
+          mode: dataMode,
           scope,
           scopeId,
           timeWindow,
-          ageGroup: feedScope.ageGroup ?? 'adult',
           genderFilter,
+          ageGroupHint: extractFeedScope(profile).ageGroup ?? (dataMode === 'steps' ? 'minor' : 'adult'),
           currentUid: uid,
           currentName: profile?.core?.name,
         });
@@ -146,15 +137,16 @@ export function useLeaderboard(options: UseLeaderboardOptions) {
           currentName: profile?.core?.name,
         });
       } else {
-        const feedScope = extractFeedScope(profile);
-        data = await getLeaderboard({
+        // Points (activityCredit) board — server-side since 19.10.2026.
+        data = await getIndividualBoard({
+          mode: 'credit',
           scope,
           scopeId,
           category,
           timeWindow,
-          ageGroup: feedScope.ageGroup ?? 'adult',
           genderFilter,
           programId,
+          ageGroupHint: extractFeedScope(profile).ageGroup ?? 'adult',
           currentUid: uid,
           currentName: profile?.core?.name,
         });
