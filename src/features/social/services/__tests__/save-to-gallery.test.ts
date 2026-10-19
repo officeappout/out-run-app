@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../share-image-render', () => ({ shareOrDownload: vi.fn() }));
+vi.mock('../save-to-gallery-plugin', () => ({ SAVE_TO_GALLERY_PLUGIN: 'SaveToGallery', getSaveToGalleryPlugin: vi.fn() }));
 
 import { chooseSaveStrategy, isPermissionDenied, saveImageToGallery, type SaveDeps, type SaveEnv } from '../save-to-gallery';
 
@@ -10,6 +11,7 @@ function deps(env: SaveEnv, over: Partial<SaveDeps> = {}): SaveDeps {
   return {
     env: () => env,
     savePhoto: vi.fn(async () => {}),
+    saveToMediaStore: vi.fn(async () => {}),
     share: vi.fn(async () => 'shared' as const),
     download: vi.fn(),
     toDataUrl: vi.fn(async () => 'data:image/png;base64,eA=='),
@@ -20,6 +22,7 @@ function deps(env: SaveEnv, over: Partial<SaveDeps> = {}): SaveDeps {
 const IOS_NEW: SaveEnv = { native: true, platform: 'ios', pluginAvailable: true };
 const IOS_OLD: SaveEnv = { native: true, platform: 'ios', pluginAvailable: false };
 const ANDROID: SaveEnv = { native: true, platform: 'android', pluginAvailable: true };
+const ANDROID_NEW: SaveEnv = { native: true, platform: 'android', pluginAvailable: false, galleryPluginAvailable: true };
 const WEB: SaveEnv = { native: false, platform: 'web', pluginAvailable: false };
 
 describe('chooseSaveStrategy', () => {
@@ -27,6 +30,14 @@ describe('chooseSaveStrategy', () => {
   it('iOS with the plugin writes to Photos', () => expect(chooseSaveStrategy(IOS_NEW)).toBe('photo-library'));
   it('today\'s store build (no plugin) keeps the share sheet', () => expect(chooseSaveStrategy(IOS_OLD)).toBe('share-sheet'));
   it('Android keeps the share sheet (no READ_MEDIA_IMAGES)', () => expect(chooseSaveStrategy(ANDROID)).toBe('share-sheet'));
+  it('Android with the SaveToGallery plugin writes via MediaStore', () =>
+    expect(chooseSaveStrategy(ANDROID_NEW)).toBe('media-store'));
+  it('the SaveToGallery plugin is ignored off Android', () =>
+    expect(chooseSaveStrategy({ native: true, platform: 'ios', pluginAvailable: false, galleryPluginAvailable: true })).toBe('share-sheet'));
+  it('iOS Photos still wins when both report available', () =>
+    expect(chooseSaveStrategy({ ...IOS_NEW, galleryPluginAvailable: true })).toBe('photo-library'));
+  it('web never uses the Android plugin', () =>
+    expect(chooseSaveStrategy({ native: false, platform: 'android', pluginAvailable: false, galleryPluginAvailable: true })).toBe('download'));
   it('a web page that somehow reports the plugin still downloads', () =>
     expect(chooseSaveStrategy({ native: false, platform: 'ios', pluginAvailable: true })).toBe('download'));
 });
@@ -74,6 +85,27 @@ describe('saveImageToGallery', () => {
   it('old native build → share sheet, cancel passes through', async () => {
     const d = deps(IOS_OLD, { share: vi.fn(async () => 'cancelled' as const) });
     expect(await saveImageToGallery(blob, 'a.png', d)).toBe('cancelled');
+    expect(d.savePhoto).not.toHaveBeenCalled();
+  });
+
+  it('Android with plugin → MediaStore save with name + type', async () => {
+    const d = deps(ANDROID_NEW);
+    expect(await saveImageToGallery(blob, 'a.png', d)).toBe('saved');
+    expect(d.saveToMediaStore).toHaveBeenCalledWith('data:image/png;base64,eA==', 'a.png', 'image/png');
+    expect(d.savePhoto).not.toHaveBeenCalled();
+    expect(d.share).not.toHaveBeenCalled();
+  });
+
+  it('Android < 10 (UNSUPPORTED) → share sheet', async () => {
+    const d = deps(ANDROID_NEW, { saveToMediaStore: vi.fn(async () => Promise.reject({ code: 'UNSUPPORTED' })) });
+    expect(await saveImageToGallery(blob, 'a.png', d)).toBe('shared');
+    expect(d.share).toHaveBeenCalledWith(blob, 'a.png');
+  });
+
+  it('Android store build without the plugin → share sheet, plugin untouched', async () => {
+    const d = deps(ANDROID);
+    expect(await saveImageToGallery(blob, 'a.png', d)).toBe('shared');
+    expect(d.saveToMediaStore).not.toHaveBeenCalled();
     expect(d.savePhoto).not.toHaveBeenCalled();
   });
 });

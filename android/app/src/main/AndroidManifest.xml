@@ -93,7 +93,9 @@
          URI access without requiring a broad storage permission.
          "Save to gallery" for share images also stays permission-free on
          Android: @capacitor-community/media would need READ_MEDIA_IMAGES
-         there, so the app keeps the OS share sheet ("Save image") instead
+         there, so the app uses its own SaveToGalleryPlugin (MediaStore
+         insert into Pictures/OUT, no permission on Android 10+) and the
+         OS share sheet below Android 10 — do NOT add WRITE_EXTERNAL_STORAGE
          (see src/features/social/services/save-to-gallery.ts). -->
     <uses-permission android:name="android.permission.CAMERA" />
 

@@ -33,6 +33,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // In-app (local) Capacitor plugins must be registered BEFORE
+        // super.onCreate() builds the Bridge (Capacitor 6 convention).
+        registerPlugin(SaveToGalleryPlugin.class);
+
         super.onCreate(savedInstanceState);
 
         // Edge-to-edge: tell the system we will manage our own insets.
