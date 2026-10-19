@@ -1,0 +1,4256 @@
+{
+  "schemaVersion": 1,
+  "source": "agent-briefs/schedule-combos.md §3 — out-run-app origin/main 0a151810, 19.10.2026",
+  "conventions": {
+    "dayIndex": "0=Sun(א) .. 6=Sat(ש), week starts Sunday, no wrap unless a rule says so",
+    "slots": [
+      "quality_primary",
+      "quality_secondary",
+      "long_run",
+      "easy_run",
+      "recovery"
+    ],
+    "session": "{kind:'run', slot} | {kind:'strength', slug, volumePct?} | {kind:'mobility'|'walk'|'race', minutes?} ; array order inside a day = in-day order",
+    "layout": "keys '0'..'6'; a missing key = rest day",
+    "exact": "true → layout must match exactly; false → any layout passing mustHold + constraints passes",
+    "constraintTypes": {
+      "slotOnDay": "{slot, dow}",
+      "slotNotOnDay": "{slot, dow}",
+      "strengthOnDay": "{slug, dow}",
+      "notOnDays": "{kind, days[]}",
+      "sessionCount": "{kind, slug?|slot?, count}",
+      "minGapDays": "{a:{kind,slug|slot|pattern}, b:{...}, days}",
+      "orderInDay": "{dow, first:{...}, then:{...}}",
+      "maxDoubleDays": "{count}",
+      "onlyDays": "{days[]}"
+    },
+    "today": "documentation only (traced by hand, not executed): verdict yes|partial|no; path P1 signup default, P2 JIT run picker, P3 strength questionnaire, P4 schedule builder/weaver, P5 Kelly phase 2, CR calm return, AL alignment, AG agenda drag, AT adviseToday (Kelly context)"
+  },
+  "ruleIds": {
+    "H1": "availability days/windows/maxSessionsPerDay",
+    "H2": "no strength on long-run day (R6)",
+    "H3": "no heavy legs (legs/lower_body) the day before quality or long run, incl. Sat→Sun",
+    "H4": "quality runs ≥48h apart (RUN-01)",
+    "H5": "shared day: quality run before strength (R2/R3)",
+    "H6": "same-pattern recovery (push/pull/legs/straight-arm load ≥0.7) per minRecoveryHours; OAPU→pull ≥72h",
+    "H7": "no cns≥0.7 skill within 48h after muscle-up (WARN_03)",
+    "H8": "running consecutive-day cap by level (RUN-04)",
+    "H9": "never double missed volume",
+    "H10": "race: no legs within 72h, no quality within 48h before",
+    "S1": "long run on preferred day (w8/day)",
+    "S2": "strength floor 2 when owned (w10)",
+    "S3": "program perWeek.ideal by priority (w4)",
+    "S4": "keep user's days (w5, w2 if system-default)",
+    "S5": "doubles on quality days (w3)",
+    "S6": "≤1 double when total ≤4 (w6)",
+    "S7": "moderate legs (full_body) day before key run (w6)",
+    "S8": "long right after quality / quality right after long (w4)",
+    "S9": "adjacent hard days (w2)",
+    "S10": "consecutive training days over level comfort (w3)",
+    "S11": "unmarked Saturday (w2)",
+    "S12": "skill before run / morning slot (w2)",
+    "S13": "double-day gap <6h when times known (w3)"
+  },
+  "scenarios": [
+    {
+      "id": "S01",
+      "title": "planche + front lever + legs + 3 runs (10k) in 5 evenings, doubles OK",
+      "tags": [
+        "hybrid",
+        "skills",
+        "double-day",
+        "availability"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "front_lever",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": null,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "planche"
+            ],
+            "2": [
+              "front_lever"
+            ],
+            "4": [
+              "legs"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H3",
+          "H4",
+          "H5",
+          "H6"
+        ],
+        "constraints": [
+          {
+            "type": "onlyDays",
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 4
+          }
+        ],
+        "reasons": [
+          "LONG_RUN_LAST_FREE_DAY",
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "Legs after the Sunday quality run (hard day hard); upper-only day before the long run."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P4",
+        "traced": true,
+        "result": {
+          "0": [
+            "planche"
+          ],
+          "1": [
+            "Q1"
+          ],
+          "2": [
+            "front_lever"
+          ],
+          "3": [
+            "L"
+          ],
+          "5": [
+            "Q2",
+            "legs"
+          ]
+        },
+        "why": "availability is a count (uses Fri); long run positional (2nd run day = Wed)"
+      }
+    },
+    {
+      "id": "S02",
+      "title": "push/pull/legs + 2 runs (5k, beginner) in 4 days",
+      "tags": [
+        "hybrid",
+        "ppl",
+        "double-day"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": "beginner"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "maxTrainingDays": 4,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "push",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "pull",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 2,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "push"
+            ],
+            "2": [
+              "pull"
+            ],
+            "4": [
+              "legs"
+            ]
+          },
+          "runDays": [
+            1,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H3",
+          "H4",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "trainingDays",
+            "count": 4
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "maxDoubleDays",
+            "count": 1
+          }
+        ],
+        "reasons": [
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "One double, on the quality day."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P1+P4",
+        "traced": true,
+        "result": {
+          "P1": {
+            "0": [
+              "push"
+            ],
+            "1": [
+              "Q1"
+            ],
+            "2": [
+              "pull"
+            ],
+            "4": [
+              "legs"
+            ],
+            "5": [
+              "L"
+            ]
+          },
+          "P4_count4": {
+            "0": [
+              "push"
+            ],
+            "1": [
+              "Q1",
+              "pull"
+            ],
+            "2": [
+              "legs"
+            ],
+            "5": [
+              "L"
+            ]
+          }
+        },
+        "why": "P1 leaves legs the day before the long run (R6b ERROR unchecked); P4 valid but 3 strength days in a row"
+      }
+    },
+    {
+      "id": "S03",
+      "title": "full body 3x/week only",
+      "tags": [
+        "strength-only"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 3,
+            "priority": 1
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H1",
+          "H6"
+        ],
+        "constraints": [],
+        "reasons": [],
+        "notes": "PREFERRED_DAYS[3]."
+      },
+      "today": {
+        "verdict": "yes",
+        "path": "P3",
+        "traced": true,
+        "result": {
+          "0": [
+            "FB"
+          ],
+          "2": [
+            "FB"
+          ],
+          "4": [
+            "FB"
+          ]
+        },
+        "why": "buildDefaultTemplate"
+      }
+    },
+    {
+      "id": "S04",
+      "title": "run-only 4x (10k, intermediate, build)",
+      "tags": [
+        "run-only",
+        "long-run-day"
+      ],
+      "input": {
+        "levels": {
+          "strength": null,
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 4,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary",
+            "easy_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {},
+          "runDays": [
+            1,
+            2,
+            4,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "easy_run"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H4",
+          "H8"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "slotNotOnDay",
+            "slot": "quality_secondary",
+            "dow": 4
+          }
+        ],
+        "reasons": [],
+        "notes": "No quality the day before the long run (S8)."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P1/P2/P4",
+        "traced": true,
+        "result": {
+          "1": [
+            "Q1"
+          ],
+          "2": [
+            "L"
+          ],
+          "4": [
+            "Q2"
+          ],
+          "5": [
+            "E"
+          ]
+        },
+        "why": "positional: L = 2nd run day; RUN-02 WARN not shown"
+      }
+    },
+    {
+      "id": "S05",
+      "title": "planche 2x + half marathon, long run Saturday, 4 runs",
+      "tags": [
+        "hybrid",
+        "half-marathon",
+        "long-run-day",
+        "saturday"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "half",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 4,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary",
+            "easy_run"
+          ],
+          "preferredLongRunDay": 6,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "1": [
+            {
+              "kind": "run",
+              "slot": "easy_run"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "6": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H4",
+          "H6",
+          "H8"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 6
+          },
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "slug": "planche",
+            "count": 2
+          },
+          {
+            "type": "minGapDays",
+            "a": {
+              "kind": "strength",
+              "slug": "planche"
+            },
+            "b": {
+              "kind": "strength",
+              "slug": "planche"
+            },
+            "days": 2
+          }
+        ],
+        "reasons": [],
+        "notes": "Requires a 'half' plan type (does not exist)."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "—",
+        "traced": false,
+        "result": null,
+        "why": "no half-marathon plan; with 4 runs L = 2nd run day, never Saturday"
+      }
+    },
+    {
+      "id": "S06",
+      "title": "weekends only (Fri+Sat): full body 2x + 2 runs (5k)",
+      "tags": [
+        "hybrid",
+        "availability",
+        "floor-unmet"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": "beginner"
+        },
+        "availability": {
+          "days": [
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning",
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "start_running",
+          "weeklyFrequency": 2,
+          "phase": "base",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 6,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "full_body"
+            ],
+            "3": [
+              "full_body"
+            ]
+          },
+          "runDays": [
+            5,
+            6
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "5": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "6": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H3",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "onlyDays",
+            "days": [
+              5,
+              6
+            ]
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 6
+          }
+        ],
+        "reasons": [
+          "STRENGTH_FLOOR_UNMET_AVAILABILITY",
+          "OPTIONAL_MIDWEEK_MICRO_SESSION"
+        ],
+        "notes": "Full body before Saturday's long run becomes an upper/core variant (no legs). Strength 1 day: the floor is explained, not forced."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P4",
+        "traced": true,
+        "result": {
+          "0": [
+            "FB"
+          ],
+          "5": [
+            "Q1",
+            "FB"
+          ]
+        },
+        "why": "count=2; R8 + R6 block full counts; running reduced first and RUN-05 (≤5k) drops the long run; uses Sunday"
+      }
+    },
+    {
+      "id": "S07",
+      "title": "strength only planche + front lever, only Mon+Tue free",
+      "tags": [
+        "strength-only",
+        "consecutive-days",
+        "availability"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            1,
+            2
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "front_lever",
+            "perWeek": 1,
+            "priority": 2
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H1",
+          "H6"
+        ],
+        "constraints": [],
+        "reasons": [
+          "DAYS_BELOW_SKILL_MIN"
+        ],
+        "notes": "ERR_DAYS_MIN soft note (2 skills → 3 days recommended)."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P3 (manual) / P4",
+        "traced": true,
+        "result": {
+          "P3_default": {
+            "0": [
+              "planche"
+            ],
+            "3": [
+              "front_lever"
+            ]
+          },
+          "P4_count2": {
+            "0": [
+              "planche"
+            ],
+            "3": [
+              "front_lever"
+            ]
+          }
+        },
+        "why": "default Sun/Wed; user can hand-assign in P3; P4 ignores which days"
+      }
+    },
+    {
+      "id": "S08",
+      "title": "morning-only, 1 session/day: upper body 3x + 3 runs (5k)",
+      "tags": [
+        "hybrid",
+        "time-window",
+        "no-double"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 3,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "upper_body"
+            ],
+            "2": [
+              "upper_body"
+            ],
+            "4": [
+              "upper_body"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "1": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "maxDoubleDays",
+            "count": 0
+          }
+        ],
+        "reasons": [
+          "SIX_DAYS_IN_A_ROW"
+        ],
+        "notes": ""
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P4",
+        "traced": true,
+        "result": {
+          "0": [
+            "UB"
+          ],
+          "1": [
+            "Q1"
+          ],
+          "2": [
+            "UB"
+          ],
+          "3": [
+            "L"
+          ],
+          "4": [
+            "UB"
+          ],
+          "5": [
+            "Q2"
+          ]
+        },
+        "why": "same shape, long run midweek (positional)"
+      }
+    },
+    {
+      "id": "S09",
+      "title": "evenings only, doubles OK: upper body 3x + 3 runs in 4 days",
+      "tags": [
+        "hybrid",
+        "double-day",
+        "time-window"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "maxTrainingDays": 4,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 3,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "upper_body"
+            ],
+            "2": [
+              "upper_body"
+            ],
+            "4": [
+              "upper_body"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H4",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "trainingDays",
+            "count": 4
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "maxDoubleDays",
+            "count": 2
+          }
+        ],
+        "reasons": [
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "Same evening = one continuous session, run first."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P4",
+        "traced": true,
+        "result": {
+          "0": [
+            "UB"
+          ],
+          "1": [
+            "Q1",
+            "UB"
+          ],
+          "3": [
+            "L"
+          ],
+          "5": [
+            "Q2",
+            "UB"
+          ]
+        },
+        "why": "doubles on quality days (good); long run Wed (positional)"
+      }
+    },
+    {
+      "id": "S10",
+      "title": "only Sun/Tue/Thu free: full body 3x + 2 runs (5k)",
+      "tags": [
+        "hybrid",
+        "availability",
+        "drop-order"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": "beginner"
+        },
+        "availability": {
+          "days": [
+            0,
+            2,
+            4
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 3,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "start_running",
+          "weeklyFrequency": 2,
+          "phase": "base",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 4,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "full_body"
+            ],
+            "2": [
+              "full_body"
+            ],
+            "4": [
+              "full_body"
+            ]
+          },
+          "runDays": [
+            1,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "onlyDays",
+            "days": [
+              0,
+              2,
+              4
+            ]
+          }
+        ],
+        "reasons": [
+          "STRENGTH_REDUCED_LONG_RUN_PROTECTED"
+        ],
+        "notes": "Long run beats the 3rd strength day; floor 2 still met."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P4",
+        "traced": false,
+        "result": null,
+        "why": "count-only; reduction removes running first and RUN-05 (≤5k) drops the long run before strength gives way"
+      }
+    },
+    {
+      "id": "S11",
+      "title": "deload week (strength wk5 + running build deload)",
+      "tags": [
+        "periodization",
+        "deload"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "isDeloadWeek": true,
+          "strengthCycleWeek": 5,
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "upper_body"
+            ],
+            "4": [
+              "upper_body"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "upper_body",
+              "volumePct": 50
+            }
+          ],
+          "1": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "upper_body",
+              "volumePct": 50
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "run",
+            "count": 3
+          }
+        ],
+        "reasons": [
+          "DELOAD_WEEK"
+        ],
+        "notes": "Days unchanged from the user's normal week; strength -50% (cycle wk5), runs x0.8, quality shortened or turned easy."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "generation",
+        "traced": false,
+        "result": null,
+        "why": "two independent deload clocks; advisor shows reasons only"
+      }
+    },
+    {
+      "id": "S12",
+      "title": "travel Mon-Thu (no bar): planche + FL + legs + 3 runs",
+      "tags": [
+        "travel",
+        "exceptions",
+        "this-week"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": [
+            {
+              "fromDow": 1,
+              "toDow": 4,
+              "kind": "travel",
+              "equipment": "none"
+            }
+          ]
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "front_lever",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 6,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "planche"
+            ],
+            "2": [
+              "front_lever"
+            ],
+            "4": [
+              "legs"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "5": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ],
+          "6": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H3",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "notOnDays",
+            "kind": "hard",
+            "days": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 6
+          }
+        ],
+        "optional": [
+          {
+            "dow": 2,
+            "session": {
+              "kind": "strength",
+              "slug": "push",
+              "minutes": 20,
+              "equipment": "none"
+            }
+          },
+          {
+            "dow": 3,
+            "session": {
+              "kind": "run",
+              "slot": "easy_run",
+              "minutes": 30
+            }
+          }
+        ],
+        "reasons": [
+          "TRAVEL_WEEK"
+        ],
+        "notes": "Planche and Q2 dropped this week; travel-day sessions optional."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P4 this_week",
+        "traced": false,
+        "result": null,
+        "why": "no date exceptions; this_week never moves runs"
+      }
+    },
+    {
+      "id": "S13",
+      "title": "missed long run Saturday → makeup Sunday",
+      "tags": [
+        "missed",
+        "long-run",
+        "makeup"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "quality_secondary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 6,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "plannedNextWeek": {
+            "0": [
+              "upper_body"
+            ],
+            "2": [
+              "quality_primary"
+            ],
+            "3": [
+              "upper_body"
+            ],
+            "4": [
+              "quality_secondary"
+            ],
+            "6": [
+              "long_run"
+            ]
+          }
+        },
+        "events": [
+          {
+            "type": "missed",
+            "dow": 6,
+            "weekOffset": -1,
+            "session": {
+              "kind": "run",
+              "slot": "long_run"
+            },
+            "todayDow": 0
+          }
+        ]
+      },
+      "expected": {
+        "changes": [
+          {
+            "action": "shift",
+            "session": {
+              "kind": "run",
+              "slot": "long_run",
+              "makeup": true
+            },
+            "toDow": 0
+          },
+          {
+            "action": "shift",
+            "session": {
+              "kind": "strength",
+              "slug": "upper_body"
+            },
+            "fromDow": 0,
+            "toDow": 1
+          }
+        ],
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "long_run",
+              "makeup": true
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "6": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H2",
+          "H4",
+          "H9"
+        ],
+        "constraints": [],
+        "reasons": [
+          "MAKEUP_MISSED"
+        ],
+        "notes": "Declined → drop; next long run ≤ last completed long +10% (RUN-08)."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "AL/CR/AT",
+        "traced": true,
+        "result": null,
+        "why": "nothing moves; skipped at week end; AT would suggest a makeup run in Kelly context only; CR makeup card never fed"
+      }
+    },
+    {
+      "id": "S14",
+      "title": "missed strength (Tue pull) → shift to Fri",
+      "tags": [
+        "missed",
+        "strength",
+        "makeup"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "push",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "pull",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "quality_secondary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 6,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "planned": {
+            "0": [
+              "push"
+            ],
+            "1": [
+              "quality_primary"
+            ],
+            "2": [
+              "pull"
+            ],
+            "3": [
+              "quality_secondary"
+            ],
+            "4": [
+              "legs"
+            ],
+            "6": [
+              "long_run"
+            ]
+          }
+        },
+        "events": [
+          {
+            "type": "missed",
+            "dow": 2,
+            "session": {
+              "kind": "strength",
+              "slug": "pull"
+            },
+            "todayDow": 3
+          }
+        ]
+      },
+      "expected": {
+        "changes": [
+          {
+            "action": "shift",
+            "session": {
+              "kind": "strength",
+              "slug": "pull",
+              "makeup": true
+            },
+            "fromDow": 2,
+            "toDow": 5
+          }
+        ],
+        "alternatives": [
+          {
+            "action": "shift",
+            "toDow": 3,
+            "orderInDay": "after quality_secondary"
+          }
+        ],
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H3",
+          "H6",
+          "H9"
+        ],
+        "constraints": [
+          {
+            "type": "notOnDays",
+            "kind": "strength:pull",
+            "days": [
+              6
+            ]
+          }
+        ],
+        "reasons": [
+          "MAKEUP_MISSED"
+        ],
+        "notes": "Fri is free and upper-only before the long run."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "AG (manual) / AT",
+        "traced": true,
+        "result": null,
+        "why": "manual drag with no checks; AT suggestion only in Kelly"
+      }
+    },
+    {
+      "id": "S15",
+      "title": "sick Mon-Fri, back Saturday",
+      "tags": [
+        "illness",
+        "calm-return"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": [
+            {
+              "fromDow": 1,
+              "toDow": 5,
+              "kind": "illness"
+            }
+          ]
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 3,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": [
+          {
+            "type": "away",
+            "days": 5,
+            "reason": "illness",
+            "todayDow": 6
+          }
+        ]
+      },
+      "expected": {
+        "today": {
+          "6": [
+            {
+              "kind": "run",
+              "slot": "easy_run",
+              "minutes": 25
+            }
+          ]
+        },
+        "nextWeek": {
+          "repeatRunningWeek": true,
+          "qualityToEasyCount": 2,
+          "strengthMaxDifficulty": 2
+        },
+        "exact": false,
+        "mustHold": [
+          "H9"
+        ],
+        "constraints": [],
+        "reasons": [
+          "WELCOME_BACK",
+          "RUN_WEEK_REPEATED"
+        ],
+        "notes": "No makeups; running clock paused by sick days."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "CR / AL",
+        "traced": true,
+        "result": null,
+        "why": "CR welcome_back lightens but the running week advances; AL quality_makeup banner hidden on home"
+      }
+    },
+    {
+      "id": "S16",
+      "title": "user adds a 4th strength day",
+      "tags": [
+        "add-day",
+        "hybrid"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 4,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": null,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "upper_body"
+            ],
+            "2": [
+              "upper_body"
+            ],
+            "4": [
+              "upper_body"
+            ]
+          },
+          "runDays": [
+            1,
+            3,
+            5
+          ]
+        },
+        "events": [
+          {
+            "type": "addSession",
+            "session": {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "1": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "count": 4
+          },
+          {
+            "type": "notOnDays",
+            "kind": "strength",
+            "days": [
+              3
+            ]
+          }
+        ],
+        "reasons": [
+          "DOUBLE_ON_QUALITY_DAY"
+        ],
+        "notes": "Existing days kept (S4); new session on a quality day since no free day (Sat not available)."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P4/P5/P3/AG",
+        "traced": true,
+        "result": null,
+        "why": "builder can't raise strength count; Kelly refuses more_days; P3 rebuild blind to runs; agenda + has no checks"
+      }
+    },
+    {
+      "id": "S17",
+      "title": "planche 2x + push + pull, 4 days (overlap: planche/push)",
+      "tags": [
+        "overlap",
+        "strength-only"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "maxTrainingDays": 4,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "push",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "pull",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H6"
+        ],
+        "constraints": [
+          {
+            "type": "minGapDays",
+            "a": {
+              "kind": "strength",
+              "pattern": "push"
+            },
+            "b": {
+              "kind": "strength",
+              "pattern": "push"
+            },
+            "days": 2
+          },
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "count": 4
+          }
+        ],
+        "reasons": [],
+        "notes": "planche and push share the push pattern."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P3",
+        "traced": true,
+        "result": null,
+        "why": "push→UPPER_BODY (pattern lost); with a skill, buildDefaultTemplate ignores programs"
+      }
+    },
+    {
+      "id": "S18",
+      "title": "front lever 2x + push + pull + legs, 5 days (overlap FL/pull)",
+      "tags": [
+        "overlap",
+        "strength-only"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "maxTrainingDays": 5,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "front_lever",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "push",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "pull",
+            "perWeek": 1,
+            "priority": 3
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 4
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H6"
+        ],
+        "constraints": [
+          {
+            "type": "minGapDays",
+            "a": {
+              "kind": "strength",
+              "pattern": "pull"
+            },
+            "b": {
+              "kind": "strength",
+              "pattern": "pull"
+            },
+            "days": 2
+          }
+        ],
+        "reasons": [],
+        "notes": ""
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P3",
+        "traced": true,
+        "result": null,
+        "why": "WARN_02 only sees FL/OAPU; pull program is UPPER_BODY"
+      }
+    },
+    {
+      "id": "S19",
+      "title": "muscle-up + planche + 2 runs (5k)",
+      "tags": [
+        "skills",
+        "cns",
+        "hybrid"
+      ],
+      "input": {
+        "levels": {
+          "strength": "advanced",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "muscle_up",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "planche",
+            "perWeek": 1,
+            "priority": 2
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 2,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "muscle_up"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H7"
+        ],
+        "constraints": [
+          {
+            "type": "minGapDays",
+            "a": {
+              "kind": "strength",
+              "slug": "muscle_up"
+            },
+            "b": {
+              "kind": "strength",
+              "slug": "planche"
+            },
+            "days": 3
+          }
+        ],
+        "reasons": [],
+        "notes": ""
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P4",
+        "traced": false,
+        "result": null,
+        "why": "2-run positional order is right; WARN_03 is not a block"
+      }
+    },
+    {
+      "id": "S20",
+      "title": "front lever + OAPU, 3 days (FIX-01)",
+      "tags": [
+        "skills",
+        "pull-pull"
+      ],
+      "input": {
+        "levels": {
+          "strength": "advanced",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "maxTrainingDays": 3,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "front_lever",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "one_arm_pullup",
+            "perWeek": 1,
+            "priority": 2
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "one_arm_pullup"
+            }
+          ],
+          "5": [
+            {
+              "kind": "strength",
+              "slug": "front_lever",
+              "volumePct": 50
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H6"
+        ],
+        "constraints": [],
+        "reasons": [],
+        "notes": "≥72h after OAPU before any pull."
+      },
+      "today": {
+        "verdict": "yes",
+        "path": "P3",
+        "traced": true,
+        "result": {
+          "0": [
+            "FL"
+          ],
+          "2": [
+            "OAPU"
+          ],
+          "5": [
+            "FL 50%"
+          ]
+        },
+        "why": "buildDefaultTemplate FIX-01"
+      }
+    },
+    {
+      "id": "S21",
+      "title": "handstand + planche + front lever, 3 days",
+      "tags": [
+        "skills",
+        "free-slot"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "maxTrainingDays": 3,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "planche",
+            "perWeek": 1,
+            "priority": 1
+          },
+          {
+            "slug": "front_lever",
+            "perWeek": 1,
+            "priority": 2
+          },
+          {
+            "slug": "handstand",
+            "perWeek": 3,
+            "priority": 3,
+            "freeSlot": true
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "handstand"
+            },
+            {
+              "kind": "strength",
+              "slug": "planche"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "handstand"
+            },
+            {
+              "kind": "strength",
+              "slug": "front_lever"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "handstand"
+            },
+            {
+              "kind": "strength",
+              "slug": "calisthenics_upper"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H6"
+        ],
+        "constraints": [],
+        "reasons": [],
+        "notes": "Handstand free slot first in the day."
+      },
+      "today": {
+        "verdict": "yes",
+        "path": "P3",
+        "traced": true,
+        "result": null,
+        "why": "buildDefaultTemplate HANDSTAND stacking + UPPER_CALISTHENICS overflow"
+      }
+    },
+    {
+      "id": "S22",
+      "title": "core 2x + daily mobility + 3 runs (10k)",
+      "tags": [
+        "core",
+        "mobility",
+        "run-dominant"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "core",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "mobility",
+            "perWeek": 7,
+            "priority": 2,
+            "freeSlot": true
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "mobility",
+              "minutes": 10
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "core"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            },
+            {
+              "kind": "strength",
+              "slug": "core"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            },
+            {
+              "kind": "mobility",
+              "minutes": 10
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "slug": "core",
+            "count": 2
+          }
+        ],
+        "reasons": [],
+        "notes": "Mobility never counts for R7 and never blocks (mobility ≤15 min allowed on the long-run day)."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "—",
+        "traced": true,
+        "result": null,
+        "why": "core = UPPER_BODY (counts toward R7/WARN_14); mobility not in taxonomy"
+      }
+    },
+    {
+      "id": "S23",
+      "title": "health/steps: full body 2x + 8000 steps",
+      "tags": [
+        "walking",
+        "steps"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": null,
+        "walking": {
+          "dailyStepGoal": 8000,
+          "weeklyAerobicTargetMin": 150
+        },
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "1": [
+            {
+              "kind": "walk",
+              "minutes": 30
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "walk",
+              "minutes": 30
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H1"
+        ],
+        "constraints": [
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "count": 2
+          }
+        ],
+        "reasons": [
+          "STEPS_DAILY"
+        ],
+        "notes": "Walk suggestions on rest days while weekly aerobic < 150."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P3 + safety-net",
+        "traced": false,
+        "result": null,
+        "why": "steps goal separate; walks not placed in the week"
+      }
+    },
+    {
+      "id": "S24",
+      "title": "fixed group run Tue 19:00 + 3-run plan + upper body 2x",
+      "tags": [
+        "community",
+        "fixed-commitment"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "fixed": [
+          {
+            "dow": 2,
+            "time": "19:00",
+            "kind": "run",
+            "fills": "quality_primary",
+            "source": "community"
+          }
+        ],
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary",
+              "fixed": true
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "quality_primary",
+            "dow": 2
+          }
+        ],
+        "reasons": [
+          "GROUP_RUN_FILLS_SLOT"
+        ],
+        "notes": ""
+      },
+      "today": {
+        "verdict": "no",
+        "path": "—",
+        "traced": true,
+        "result": null,
+        "why": "community entries invisible to plan and weaver"
+      }
+    },
+    {
+      "id": "S25",
+      "title": "beginner: full body 2x + 2 runs (5k), 4 days, R8",
+      "tags": [
+        "beginner",
+        "r8"
+      ],
+      "input": {
+        "levels": {
+          "strength": "beginner",
+          "running": "beginner"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "maxTrainingDays": 4,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "start_running",
+          "weeklyFrequency": 2,
+          "phase": "base",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "full_body"
+            ],
+            "3": [
+              "full_body"
+            ]
+          },
+          "runDays": [
+            1,
+            4
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H3"
+        ],
+        "constraints": [
+          {
+            "type": "maxDoubleDays",
+            "count": 0
+          },
+          {
+            "type": "slotNotOnDay",
+            "slot": "long_run",
+            "dow": 4
+          }
+        ],
+        "reasons": [],
+        "notes": "No full body the day before a key run (S7)."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P1/P2/P4",
+        "traced": true,
+        "result": {
+          "0": [
+            "FB"
+          ],
+          "1": [
+            "Q1"
+          ],
+          "3": [
+            "FB"
+          ],
+          "4": [
+            "L"
+          ]
+        },
+        "why": "FB Wed before L Thu = R6b WARN (moderate) kept as valid"
+      }
+    },
+    {
+      "id": "S26",
+      "title": "strength-dominant PPL+push+pull Sun-Thu + 2 runs (5k)",
+      "tags": [
+        "strength-dominant",
+        "hybrid"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "beginner"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "push",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "pull",
+            "perWeek": 2,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 3
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "start_running",
+          "weeklyFrequency": 2,
+          "phase": "base",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "primaryTrack": "strength",
+        "walking": null,
+        "current": {
+          "strengthDays": {
+            "0": [
+              "push"
+            ],
+            "1": [
+              "pull"
+            ],
+            "2": [
+              "legs"
+            ],
+            "3": [
+              "push"
+            ],
+            "4": [
+              "pull"
+            ]
+          },
+          "runDays": []
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "1": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H3",
+          "H5",
+          "H6"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "slotNotOnDay",
+            "slot": "quality_primary",
+            "dow": 3
+          }
+        ],
+        "reasons": [
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "Q1 doubles with pull on Monday (run first); legs Tue with no run Wed; Saturday stays free."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P4",
+        "traced": true,
+        "result": {
+          "5": [
+            "Q1"
+          ],
+          "6": [
+            "L"
+          ]
+        },
+        "why": "runs take the only free days: Q→L back to back (RUN-02 not shown), Saturday used"
+      }
+    },
+    {
+      "id": "S27",
+      "title": "advanced hybrid: upper body 3x + legs + 4 runs (10k), Sun-Fri, doubles OK",
+      "tags": [
+        "advanced",
+        "double-day",
+        "hybrid"
+      ],
+      "input": {
+        "levels": {
+          "strength": "advanced",
+          "running": "advanced"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "morning",
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 3,
+            "priority": 1
+          },
+          {
+            "slug": "legs",
+            "perWeek": 1,
+            "priority": 2
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 4,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary",
+            "easy_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            },
+            {
+              "kind": "strength",
+              "slug": "upper_body"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "easy_run"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H2",
+          "H3",
+          "H4",
+          "H5",
+          "H8"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "notOnDays",
+            "kind": "strength:legs",
+            "days": [
+              4,
+              5
+            ]
+          }
+        ],
+        "reasons": [
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "Legs 2 days before the long run; easy day stays single."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P4",
+        "traced": false,
+        "result": null,
+        "why": "valid week possible but L = 2nd run day"
+      }
+    },
+    {
+      "id": "S28",
+      "title": "maintenance runner 3x",
+      "tags": [
+        "run-only",
+        "maintenance"
+      ],
+      "input": {
+        "levels": {
+          "strength": null,
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [],
+        "running": {
+          "targetDistance": "maintenance",
+          "goalPath": "maintain_fitness",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": {
+          "dailyStepGoal": 8000
+        },
+        "current": {
+          "strengthDays": {},
+          "runDays": [
+            0,
+            2,
+            4
+          ]
+        },
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "1": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          }
+        ],
+        "reasons": [],
+        "notes": "If the user keeps Sun/Tue/Thu (S4), the long run goes Thu (latest of their days)."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P1",
+        "traced": true,
+        "result": {
+          "0": [
+            "Q1"
+          ],
+          "2": [
+            "L"
+          ],
+          "4": [
+            "Q2"
+          ]
+        },
+        "why": "positional long run Tuesday"
+      }
+    },
+    {
+      "id": "S29",
+      "title": "race week: 10k race Friday + upper body 2x",
+      "tags": [
+        "race",
+        "taper"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "upper_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "10k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "taper",
+          "slotsThisWeek": [
+            "quality_primary",
+            "easy_run",
+            "easy_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": {
+            "dow": 5
+          }
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary",
+              "note": "short sharpening"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "upper_body",
+              "volumePct": 60
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "easy_run"
+            }
+          ],
+          "3": [
+            {
+              "kind": "run",
+              "slot": "easy_run",
+              "minutes": 20
+            }
+          ],
+          "5": [
+            {
+              "kind": "race"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H10"
+        ],
+        "constraints": [
+          {
+            "type": "notOnDays",
+            "kind": "strength",
+            "days": [
+              3,
+              4,
+              5
+            ]
+          },
+          {
+            "type": "sessionCount",
+            "kind": "strength",
+            "count": 1
+          }
+        ],
+        "reasons": [
+          "RUN_TAPER_WEEK",
+          "RACE_DAY"
+        ],
+        "notes": "Strength cut to 1 light upper session ≥72h before the race."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "—",
+        "traced": true,
+        "result": null,
+        "why": "race date not saved; race injected as last run slot; strength unaware"
+      }
+    },
+    {
+      "id": "S30",
+      "title": "10 days away (vacation) → fresh week",
+      "tags": [
+        "calm-return",
+        "fresh-start"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": [
+          {
+            "type": "away",
+            "days": 10,
+            "reason": "unknown",
+            "todayDow": 2
+          }
+        ]
+      },
+      "expected": {
+        "plan": {
+          "resumeReachedRunningWeek": true,
+          "qualityToEasy": true,
+          "runVolumeReduction": 0.2,
+          "strengthVolumeReduction": 0.3,
+          "strengthMaxDifficulty": 2
+        },
+        "exact": false,
+        "mustHold": [
+          "H9"
+        ],
+        "constraints": [],
+        "reasons": [
+          "FRESH_START"
+        ],
+        "notes": "Same days; one fresh-week card."
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "CR (flag off by default) / AL",
+        "traced": true,
+        "result": null,
+        "why": "CR on = exactly this; off = PlanRealignPopup"
+      }
+    },
+    {
+      "id": "S31",
+      "title": "Shabbat-observant (Sun-Thu): full body 2x + 3 runs (5k)",
+      "tags": [
+        "availability",
+        "double-day"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 2,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "full_body",
+            "perWeek": 2,
+            "priority": 1
+          }
+        ],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 3,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run",
+            "quality_secondary"
+          ],
+          "preferredLongRunDay": 4,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            },
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_secondary"
+            },
+            {
+              "kind": "strength",
+              "slug": "full_body"
+            }
+          ],
+          "4": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H1",
+          "H2",
+          "H4",
+          "H5"
+        ],
+        "constraints": [
+          {
+            "type": "onlyDays",
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 4
+          }
+        ],
+        "reasons": [
+          "QUALITY_RUN_FIRST"
+        ],
+        "notes": "Every placement of 2 FB on separate days hits S7 or S8; doubling on quality days scores best."
+      },
+      "today": {
+        "verdict": "no",
+        "path": "P2/P4",
+        "traced": false,
+        "result": null,
+        "why": "count-only builder may use Fri/Sat; JIT checks nothing"
+      }
+    },
+    {
+      "id": "S32",
+      "title": "runner lowers frequency 3 → 2 mid-plan",
+      "tags": [
+        "frequency-change",
+        "run-only"
+      ],
+      "input": {
+        "levels": {
+          "strength": null,
+          "running": "intermediate"
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "windows": {
+            "*": [
+              "morning"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [],
+        "running": {
+          "targetDistance": "5k",
+          "goalPath": "improve_time",
+          "weeklyFrequency": 2,
+          "phase": "build",
+          "slotsThisWeek": [
+            "quality_primary",
+            "long_run"
+          ],
+          "preferredLongRunDay": 5,
+          "raceDate": null
+        },
+        "walking": null,
+        "current": {
+          "strengthDays": {},
+          "runDays": [
+            0,
+            2,
+            5
+          ]
+        },
+        "events": [
+          {
+            "type": "frequencyChange",
+            "from": 3,
+            "to": 2
+          }
+        ]
+      },
+      "expected": {
+        "layout": {
+          "2": [
+            {
+              "kind": "run",
+              "slot": "quality_primary"
+            }
+          ],
+          "5": [
+            {
+              "kind": "run",
+              "slot": "long_run"
+            }
+          ]
+        },
+        "exact": false,
+        "mustHold": [
+          "H4"
+        ],
+        "constraints": [
+          {
+            "type": "slotOnDay",
+            "slot": "long_run",
+            "dow": 5
+          },
+          {
+            "type": "sessionCount",
+            "kind": "run",
+            "count": 2
+          }
+        ],
+        "reasons": [],
+        "notes": "Q2 dropped; plan history kept."
+      },
+      "today": {
+        "verdict": "yes",
+        "path": "P2/P4",
+        "traced": true,
+        "result": null,
+        "why": "rebuild with 2 slots (Q1+L); L = last of 2 run days"
+      }
+    },
+    {
+      "id": "S33",
+      "title": "strength-only push/pull/legs x2 (6 days)",
+      "tags": [
+        "strength-only",
+        "ppl"
+      ],
+      "input": {
+        "levels": {
+          "strength": "intermediate",
+          "running": null
+        },
+        "availability": {
+          "days": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "windows": {
+            "*": [
+              "evening"
+            ]
+          },
+          "maxSessionsPerDay": 1,
+          "exceptions": []
+        },
+        "strength": [
+          {
+            "slug": "push",
+            "perWeek": 2,
+            "priority": 1
+          },
+          {
+            "slug": "pull",
+            "perWeek": 2,
+            "priority": 2
+          },
+          {
+            "slug": "legs",
+            "perWeek": 2,
+            "priority": 3
+          }
+        ],
+        "running": null,
+        "walking": null,
+        "current": null,
+        "events": []
+      },
+      "expected": {
+        "layout": {
+          "0": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "1": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "2": [
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ],
+          "3": [
+            {
+              "kind": "strength",
+              "slug": "push"
+            }
+          ],
+          "4": [
+            {
+              "kind": "strength",
+              "slug": "pull"
+            }
+          ],
+          "5": [
+            {
+              "kind": "strength",
+              "slug": "legs"
+            }
+          ]
+        },
+        "exact": true,
+        "mustHold": [
+          "H6"
+        ],
+        "constraints": [],
+        "reasons": [
+          "SIX_DAYS_IN_A_ROW"
+        ],
+        "notes": ""
+      },
+      "today": {
+        "verdict": "partial",
+        "path": "P3",
+        "traced": true,
+        "result": {
+          "0..5": [
+            "push"
+          ]
+        },
+        "why": "buildDefaultTemplate collapses programs to the first one; user must assign per day; patterns invisible to WARN rules"
+      }
+    }
+  ]
+}

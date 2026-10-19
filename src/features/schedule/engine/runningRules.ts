@@ -151,7 +151,7 @@ export type SessionSpikeLevel = 'none' | 'flagged' | 'explained' | 'blocked' | '
 // 1. preferredRunningDays — RUN-01–RUN-04
 // ──────────────────────────────────────────────────────────────────────────
 
-const MAX_CONSECUTIVE_TRAINING_DAYS: Record<RunningExperienceLevel, number> = {
+export const MAX_CONSECUTIVE_TRAINING_DAYS: Record<RunningExperienceLevel, number> = {
   beginner: 2,
   intermediate: 3,
   advanced: 4,

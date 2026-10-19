@@ -111,7 +111,7 @@ function sortSessionsInPlace(day: ScheduleDay): void {
 // 1. validateInitial — pre-template gating
 // ──────────────────────────────────────────────────────────────────────────
 
-const MIN_DAYS_FOR_HARD_SKILLS: Record<number, number> = {
+export const MIN_DAYS_FOR_HARD_SKILLS: Record<number, number> = {
   1: 2, // 1 hard skill → 2 days minimum
   2: 3,
   3: 4,
