@@ -22,15 +22,15 @@ import HybridJourneyAxis from './HybridJourneyAxis';
 import { useSheetDrag, type SheetAnchor, type SheetMeasurements } from '@/features/workout-engine/shared/hooks/useSheetDrag';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
-import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK_LEG_COLOR } from './hybrid-colors'; // single source (point 15)
+import { HYBRID_AER as AER, HYBRID_WALK as WALK_LEG_COLOR } from './hybrid-colors'; // single source (point 15)
 import { ActivityGlyph } from './activity-icons'; // single source for both axes (points 13/17)
-import { formatMinutes } from './hybrid-format'; // shared duration formatter (point 19)
 import type { ComposedHybridSession } from '@/features/workout-engine/hybrid/start-hybrid-session';
 import { ROUTE_STOPS_ROUND_TRIP_KEY, readRoundTripPref, displayTotalMin, buildWalkLegsGeoJSON } from '@/features/workout-engine/hybrid/round-trip';
 import { setOnboardingPref } from '@/lib/onboardingPrefs';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { HomeV2Context } from '@/features/home/context/HomeV2Context';
+import { JourneyStrip, WorkoutOverviewHeader, type JourneyStripItem } from '@/components/ui/v2';
 
 const ACCENT = '#00ADEF';
 const STR_TINT = '#ECFEFF', STR_TEXT = '#0E7490'; // cyan tint/text from color-system.md (no new hex)
@@ -188,47 +188,39 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
   const finishAt = new Date(Date.now() + totalMin * 60_000);
   const finishClock = `${finishAt.getHours().toString().padStart(2, '0')}:${finishAt.getMinutes().toString().padStart(2, '0')}`;
 
+  // Header title. route_stops ALSO carries `bolts` (a trio, like full_park) — `bolts`
+  // truthiness alone can't tell the two apart. `fullParkRun===false` is the definitive
+  // route_stops signal (composeRouteStopsWorkout sets it explicitly; full_park never
+  // does, so it falls through to the existing bolts branch). David, 23.09.2026 — bug #2.
+  // Domain-assessment gate (David, 23-24.09.2026): zero real stations resolved on this
+  // route + unassessed → fallbackHint is set alongside a REAL (non-stub) plan here —
+  // "don't call it a stations workout when there are no stations." Plain aerobic-kind
+  // title instead; the nudge itself renders via the existing A3 fallback banner below.
+  const overviewTitle = composed.fullParkRun === false
+    ? (fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : 'מסלול + עצירות')
+    : composed.bolts
+    ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
+    : 'אימון משולב';
+
   // Moovit-style at-a-glance sequence (RTL): walk-leg (mins) › station (program icon
   // + "כוח") › walk-leg … Built from the SAME composed segments the axis renders, and
   // both icons come from the shared program-icon map — no new icon logic.
-  const journeyStrip: JSX.Element[] = [];
-  const walkChip = (key: string, min: number) => (
-    // Transport (getting to/from the route): dashed + faded, vs the solid route-walk / station chips.
-    <span key={key} className="inline-flex items-center gap-1.5 text-[13px] font-bold whitespace-nowrap rounded-full"
-      style={{ color: v2 ? '#64748b' : '#9CA3AF', border: '1px dashed #BAE6FD', padding: '2px 9px', opacity: 0.8 }}>
-      <span className="inline-flex" style={{ color: WALK_LEG_COLOR }}><ActivityGlyph kind="aerobic" subtype="walking" className="w-[19px] h-[19px]" /></span>
-      {formatMinutes(min * 60)}
-    </span>
-  );
+  // Items for the shared JourneyStrip primitive (src/components/ui/v2/JourneyStrip,
+  // extracted from this screen 19.10.2026 — same markup in both flag states).
+  const journeyItems: JourneyStripItem[] = [];
   const showWalkLegs = roundTripOn && roundTripLegs != null;
-  if (showWalkLegs && roundTripLegs!.walkThereMin > 0) journeyStrip.push(walkChip('walk-there', roundTripLegs!.walkThereMin));
+  if (showWalkLegs && roundTripLegs!.walkThereMin > 0) journeyItems.push({ key: 'walk-there', kind: 'transport', seconds: roundTripLegs!.walkThereMin * 60 });
   plan.segments.forEach((seg, i) => {
-    if (journeyStrip.length > 0) {
-      journeyStrip.push(<ChevronLeft key={`sep${i}`} size={16} style={{ color: v2 ? '#dfe7ed' : '#CBD5E1', flexShrink: 0 }} />);
-    }
     if (seg.kind === 'aerobic') {
-      const kind = seg.aerobicType ?? aerobicKind; // 'walking' → WalkingIcon · 'running' → RunIcon
-      journeyStrip.push(
-        <span key={`leg${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-bold whitespace-nowrap" style={{ color: v2 ? '#0e1419' : '#374151' }}>
-          <span className="inline-flex" style={{ color: AER }}><ActivityGlyph kind="aerobic" subtype={kind} className="w-[23px] h-[23px]" /></span>
-          {formatMinutes(seg.durationSec)}
-        </span>,
-      );
+      // 'walking' → WalkingIcon · 'running' → RunIcon
+      journeyItems.push({ key: `leg${i}`, kind: 'aerobic', subtype: seg.aerobicType ?? aerobicKind, seconds: seg.durationSec });
     } else {
       // Strength icon varies by domainFocus (push→muscle · pull→target · legs→leg) —
       // the SAME mapping the vertical axis now uses (activity-icons, point 17).
-      journeyStrip.push(
-        <span key={`stn${i}`} className="inline-flex items-center gap-1.5 text-[14px] font-extrabold whitespace-nowrap" style={{ color: '#0E7490' }}>
-          <span className="inline-flex" style={{ color: STR }}><ActivityGlyph kind="strength" subtype={seg.domainFocus} className="w-[23px] h-[23px]" /></span>
-          {formatMinutes(seg.durationSec)}
-        </span>,
-      );
+      journeyItems.push({ key: `stn${i}`, kind: 'strength', subtype: seg.domainFocus, seconds: seg.durationSec });
     }
   });
-  if (showWalkLegs && roundTripLegs!.walkBackMin > 0) {
-    if (journeyStrip.length > 0) journeyStrip.push(<ChevronLeft key="sep-walk-back" size={16} style={{ color: v2 ? '#dfe7ed' : '#CBD5E1', flexShrink: 0 }} />);
-    journeyStrip.push(walkChip('walk-back', roundTripLegs!.walkBackMin));
-  }
+  if (showWalkLegs && roundTripLegs!.walkBackMin > 0) journeyItems.push({ key: 'walk-back', kind: 'transport', seconds: roundTripLegs!.walkBackMin * 60 });
 
   const dragControls = useDragControls();
   const { cardRef, currentAnchor, controls, setAnchor, dragConstraints, viewportH } =
@@ -469,31 +461,14 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
                 duration · finish. Was full-park-only; budget-split ("הליכה+כוח") used to
                 render a two-line layout here. Title TEXT is unchanged either way — only
                 the layout unifies. */}
-            <div className={v2 ? 'flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[13px]' : 'flex items-center gap-1.5 flex-wrap text-[13px]'}>
-              <span className={v2 ? 'basis-full text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[18px] font-black'} style={v2 ? undefined : { color: '#111827' }}>
-                {/* route_stops ALSO carries `bolts` (a trio, like full_park) — `bolts`
-                    truthiness alone can't tell the two apart. `fullParkRun===false` is
-                    the definitive route_stops signal (composeRouteStopsWorkout sets it
-                    explicitly; full_park never does, so it falls through to the
-                    existing bolts branch). David, 23.09.2026 — bug #2. */}
-                {composed.fullParkRun === false
-                  ? (
-                    // Domain-assessment gate (David, 23-24.09.2026): zero real stations
-                    // resolved on this route + unassessed → fallbackHint is set alongside
-                    // a REAL (non-stub) plan here — "don't call it a stations workout when
-                    // there are no stations." Plain aerobic-kind title instead; the nudge
-                    // itself renders via the existing A3 fallback banner below unchanged.
-                    fallbackHint ? (aerobicKind === 'running' ? 'ריצה' : 'הליכה') : 'מסלול + עצירות'
-                  )
-                  : composed.bolts
-                  ? (MAP_OVERVIEW_CHROME_V1 ? `אימון מלא בפארק · ${aerobicKind === 'running' ? 'ריצה' : 'הליכה'} + תחנת כוח` : 'אימון משולב')
-                  : 'אימון משולב'}
-              </span>
-              {!v2 && <span style={{ color: '#D1D5DB' }}>·</span>}
-              <span className={v2 ? 'whitespace-nowrap font-extrabold text-v2-ink-2' : 'font-black'} style={v2 ? undefined : { color: '#374151' }}>{totalMin} דק׳</span>
-              <span className={v2 ? 'text-v2-pill-border' : undefined} style={v2 ? undefined : { color: '#D1D5DB' }}>·</span>
-              <span className={v2 ? 'whitespace-nowrap font-bold text-v2-muted' : 'font-bold'} style={v2 ? undefined : { color: '#6B7280' }}>מסיים ~{finishClock}</span>
-            </div>
+            <WorkoutOverviewHeader
+              v2={v2}
+              title={overviewTitle}
+              meta={[
+                { key: 'time', text: `${totalMin} דק׳`, tone: 'primary' },
+                { key: 'finish', text: `מסיים ~${finishClock}`, tone: 'secondary' },
+              ]}
+            />
             {roundTripLegs && (
               <button
                 type="button"
@@ -535,12 +510,7 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
               height sized to include it. touch-action:pan-x keeps horizontal scroll;
               vertical gestures are handled by the grabber/summary drag zone above. */}
           <div className="px-4 pb-2.5 flex-shrink-0">
-            <div className="overflow-x-auto" style={{ touchAction: 'pan-x', scrollbarWidth: 'none' }}>
-              <div className={v2 ? 'inline-flex items-center gap-2.5 bg-white rounded-[20px] shadow-v2-card' : 'inline-flex items-center gap-2.5 bg-white rounded-xl'}
-                style={v2 ? { padding: '11px 15px' } : { border: '0.5px solid #E0E9FF', boxShadow: '0 3px 14px rgba(0,0,0,.07)', padding: '11px 15px' }}>
-                {journeyStrip}
-              </div>
-            </div>
+            <JourneyStrip items={journeyItems} v2={v2} />
           </div>
 
           {/* scroll body — overflow-x-hidden pins the content horizontally.

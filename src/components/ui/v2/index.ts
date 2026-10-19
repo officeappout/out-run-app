@@ -46,3 +46,11 @@ export { default as StoryBars } from './StoryBars';
 export type { StoryBarsProps, StoryBarSegment } from './StoryBars';
 export { default as RepPaceTable } from './RepPaceTable';
 export type { RepPaceRow, RepPaceTableProps } from './RepPaceTable';
+// Workout overviews (hybrid route+stops, run preview/briefing): the horizontal journey strip + its header.
+export { default as JourneyStrip } from './JourneyStrip';
+export type { JourneyStripProps, JourneyStripItem, JourneyItemKind } from './JourneyStrip';
+export { default as WorkoutOverviewHeader } from './WorkoutOverviewHeader';
+export type { WorkoutOverviewHeaderProps, OverviewMetaItem } from './WorkoutOverviewHeader';
+// Pre-run (home v2): a workout's intensity profile, one bar per block.
+export { default as ProfileStrip } from './ProfileStrip';
+export type { ProfileStripProps, ProfileStripSegment } from './ProfileStrip';
