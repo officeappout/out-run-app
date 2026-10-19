@@ -19,6 +19,7 @@ import {
   recordClass,
   repSummary,
 } from '@/features/workout-engine/players/running/lib/planned-rep-results';
+import { fmtSpeed, speedKmh } from '@/features/workout-engine/players/running/lib/aerobic-activity';
 
 export const RING_COLORS = {
   distance: '#84cc16',
@@ -70,6 +71,20 @@ export function aerobicRings(w: { distance?: number; pace?: number; duration?: n
       color: RING_COLORS.pace,
     },
     { key: 'time', value: timeLabel(w.duration), label: 'זמן', pct: (w.duration ?? 0) > 0 ? 100 : 0, color: RING_COLORS.time },
+  ];
+}
+
+/**
+ * Ride (enable_home_v2 cycling): average speed · time · climb. Distance is
+ * the summary's hero, and pace means nothing on a bike. Closed rings = done.
+ */
+export function rideRings(w: { distance?: number; duration?: number; elevationGain?: number }): MetricRing[] {
+  const kmh = speedKmh(w.distance ?? 0, w.duration ?? 0);
+  const climb = Number.isFinite(w.elevationGain) && (w.elevationGain ?? 0) > 0 ? Math.round(w.elevationGain as number) : 0;
+  return [
+    { key: 'speed', value: fmtSpeed(kmh), unit: 'קמ״ש', label: 'מהירות ממוצעת', pct: kmh > 0 ? 100 : 0, color: RING_COLORS.pace },
+    { key: 'time', value: timeLabel(w.duration), label: 'זמן', pct: (w.duration ?? 0) > 0 ? 100 : 0, color: RING_COLORS.time },
+    { key: 'elevation', value: climb > 0 ? String(climb) : '--', unit: 'מ׳', label: 'טיפוס מצטבר', pct: climb > 0 ? 100 : 0, color: RING_COLORS.distance },
   ];
 }
 

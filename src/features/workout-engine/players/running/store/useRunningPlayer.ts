@@ -12,6 +12,7 @@ import type RunWorkout from '../types/run-workout.type';
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
 import type { PlannedBlockRecord, RunSummaryMeta } from '../../../core/services/storage.service';
 import { advanceTarget, buildBlockRecords, resolveBlockTargetPace } from '../lib/planned-rep-results';
+import { cyclingCalories, effectiveAutoLapKm, gpsFilterThresholds, savedWorkoutLabels, type AerobicActivity } from '../lib/aerobic-activity';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
 import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
@@ -170,7 +171,8 @@ export interface CommuteContext {
 interface RunningPlayerState {
   // Running Mode
   runMode: 'free' | 'plan' | 'my_routes';
-  activityType: 'running' | 'walking';
+  /** 'cycling' is set only by enable_home_v2 entry points (overview drawer / free-run drawer). */
+  activityType: AerobicActivity;
   /** Hybrid (aerobic+strength) mode — suppresses finishWorkout's self-save (Phase 3c). */
   hybridMode: boolean;
 
@@ -337,7 +339,7 @@ interface RunningPlayerState {
 
   // Actions
   setRunMode: (mode: 'free' | 'plan' | 'my_routes') => void;
-  setActivityType: (type: 'running' | 'walking') => void;
+  setActivityType: (type: AerobicActivity) => void;
   setHybridMode: (on: boolean) => void;
   setSuggestedRoutes: (routes: Route[]) => void;
   setActiveRoutePath: (path: number[][]) => void;
@@ -1152,16 +1154,25 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
       if (lastPos) {
         const distanceDelta = calculateDistance(lastPos.lat, lastPos.lng, lat, lng);
-        const distanceThreshold = get().activityType === 'walking'
-          ? DISTANCE_THRESHOLD_WALKING
-          : DISTANCE_THRESHOLD_RUNNING;
+        // On foot: the constants above, exactly as before. A ride
+        // (enable_home_v2 cycling) swaps in bike gates (lib/aerobic-activity)
+        // so fast, real fixes aren't dropped as jumps.
+        const activity = get().activityType;
+        const gate = gpsFilterThresholds(activity, {
+          distanceThresholdM: activity === 'walking' ? DISTANCE_THRESHOLD_WALKING : DISTANCE_THRESHOLD_RUNNING,
+          maxJumpM: MAX_JUMP_M,
+          maxRealisticSpeedMs: MAX_REALISTIC_SPEED_MS,
+          minSpeedMs: MIN_SPEED_MS,
+          maxPaceMinKm: MAX_PACE_MIN_KM,
+        });
+        const distanceThreshold = gate.distanceThresholdM;
 
         // Discard satellite jump artefacts — a single sample > 200 m from the
         // last known-good position is almost always a GPS cold-start glitch or
         // multipath canyon spike, not real movement.
-        if (distanceDelta > MAX_JUMP_M) {
+        if (distanceDelta > gate.maxJumpM) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn(`[GPS ⛔] JUMP rejected: ${Math.round(distanceDelta)}m (>${MAX_JUMP_M}m)`);
+            console.warn(`[GPS ⛔] JUMP rejected: ${Math.round(distanceDelta)}m (>${gate.maxJumpM}m)`);
           }
           // Push to reject buffer and check if the escape hatch triggers.
           _rejectBuffer.push({ lat: currentPos.lat, lng: currentPos.lng, ts: Date.now() });
@@ -1197,12 +1208,12 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
           // Speed sanity: poor-accuracy fixes can produce plausible-looking
           // distances that are still physically impossible. Reject if the
-          // implied speed exceeds MAX_REALISTIC_SPEED_MS — accept the position
+          // implied speed exceeds gate.maxRealisticSpeedMs — accept the position
           // update (lastPos / lastPosition) but discard the km contribution.
-          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds > MAX_REALISTIC_SPEED_MS) {
+          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds > gate.maxRealisticSpeedMs) {
             if (process.env.NODE_ENV !== 'production') {
               console.warn(
-                `[GPS ⛔] SPEED rejected: ${Math.round(distanceDelta / timeDeltaSeconds)}m/s (>${MAX_REALISTIC_SPEED_MS}m/s) delta=${Math.round(distanceDelta)}m dt=${timeDeltaSeconds.toFixed(1)}s`
+                `[GPS ⛔] SPEED rejected: ${Math.round(distanceDelta / timeDeltaSeconds)}m/s (>${gate.maxRealisticSpeedMs}m/s) delta=${Math.round(distanceDelta)}m dt=${timeDeltaSeconds.toFixed(1)}s`
               );
             }
             // Push to reject buffer and check if the escape hatch triggers.
@@ -1231,7 +1242,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           // stationary GPS drift integrating over a pinned anchor, not
           // movement. Re-anchor to the drifted position WITHOUT accumulating,
           // so drift can never snowball into phantom distance.
-          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds < MIN_SPEED_MS) {
+          if (timeDeltaSeconds > 0 && distanceDelta / timeDeltaSeconds < gate.minSpeedMs) {
             lastPos = currentPos;
             lastTimestamp = now;
             set({ lastPosition: currentPos, lastFilterAction: `🧲 drift ${Math.round(distanceDelta)}m re-anchored` });
@@ -1256,11 +1267,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
           if (timeDeltaSeconds > 0) {
             const speedMs = distanceDelta / timeDeltaSeconds;
-            if (speedMs < MIN_SPEED_MS) {
+            if (speedMs < gate.minSpeedMs) {
               set({ currentPace: 0 });
             } else {
               const instantPaceMinKm = 1000 / (speedMs * 60);
-              if (instantPaceMinKm <= MAX_PACE_MIN_KM) {
+              if (instantPaceMinKm <= gate.maxPaceMinKm) {
                 get().updateRunData(distanceDelta / 1000, instantPaceMinKm);
               }
             }
@@ -1385,7 +1396,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   
   // Update running data with instantaneous pace (min/km) and distance delta (km)
   updateRunData: (distanceDeltaKm: number, instantPaceMinKm: number) => {
-    const { laps, settings, paceHistory } = get();
+    const { laps, settings, paceHistory, activityType } = get();
     const distanceDeltaMeters = distanceDeltaKm * 1000;
 
     // 5-point weighted rolling average
@@ -1413,13 +1424,23 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // this constant: kept local to avoid pulling in the heavier running-engine module.
     // Documented here too (08.08.2026) so a future reader doesn't "fix" it into a shared
     // import — see .claude/plans/happy-jumping-flask.md part ב' for the fuller context.
-    const calculatedCalories = Math.round(totalDistanceKm * userWeight * 1.036);
+    // Cycling (enable_home_v2 only): MET by the ride's average speed over the
+    // active time — the per-km running factor would bill a ride as a run.
+    const isRide = activityType === 'cycling';
+    const calculatedCalories = isRide
+      ? cyclingCalories(useSessionStore.getState().totalDuration || 0, totalDistanceKm, userWeight)
+      : Math.round(totalDistanceKm * userWeight * 1.036);
 
     // Mirror the calorie DELTA into the unified session store so
     // totalCalories aggregates across mode switches (hybrid plumbing).
     // Delta-based on purpose: the absolute recompute above is scoped to this
     // player's leg, while the session store may span several legs.
-    useSessionStore.getState().updateCalories(distanceDeltaKm * userWeight * 1.036);
+    useSessionStore.getState().updateCalories(
+      isRide ? Math.max(0, calculatedCalories - (get().totalCalories || 0)) : distanceDeltaKm * userWeight * 1.036,
+    );
+    // A ride's delta is measured against the stored total, so store it now —
+    // the auto-lap early return below must not leave it stale (double count).
+    if (isRide) set({ totalCalories: calculatedCalories });
 
     let updatedLaps = laps.length === 0
       ? [{ id: '1', lapNumber: 1, distanceMeters: 0, durationSeconds: 0, splitPace: 0, isActive: true }]
@@ -1436,7 +1457,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     if (settings.autoLapMode === 'distance' && settings.autoLapValue > 0) {
       const activeLap = updatedLaps.find(lap => lap.isActive);
       if (activeLap) {
-        const thresholdMeters = settings.autoLapValue * 1000;
+        const thresholdMeters = effectiveAutoLapKm(activityType, settings.autoLapValue) * 1000;
         if (activeLap.distanceMeters >= thresholdMeters) {
           get().triggerLap();
           return;
@@ -1661,7 +1682,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     // completed — advanceBlock past the last block recorded it).
     const plannedRunSnapshot = (() => {
       const st = get();
-      if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking') return null;
+      // A ride never feeds the running pace self-correction.
+      if (st.runMode !== 'plan' || !st.currentWorkout || isCommute || activityType === 'walking' || activityType === 'cycling') return null;
       const ss = useSessionStore.getState();
       const nowMs = Date.now();
       return {
@@ -1754,7 +1776,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 durationMinutes,
                 distanceKm: safeDistance,
                 streak: progressionState.currentStreak,
-                activityType: (activityType as 'running' | 'walking') ?? 'running',
+                // Cycling keeps the running XP formula (owner decision pending).
+                activityType: activityType ?? 'running',
               });
 
           // ── Coins (respect feature flag) ──────────────────────────────
@@ -1794,7 +1817,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           const aerobicSegment = {
             index: 0,
             kind: 'aerobic' as const,
-            aerobicType: (activityType === 'walking' ? 'walking' : 'running') as 'running' | 'walking',
+            aerobicType: savedWorkoutLabels(activityType).workoutType,
             ...(sessionGoal
               ? {
                   planned: {
@@ -1830,7 +1853,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           let runMeta: RunSummaryMeta | null = null;
           try {
             const { homeV2EnabledNow, readPlannedRunPosition } = await import('../lib/home-v2-gate');
-            if (!isCommute && activityType !== 'walking' && homeV2EnabledNow()) {
+            if (!isCommute && activityType !== 'walking' && activityType !== 'cycling' && homeV2EnabledNow()) {
               const { buildRunSummaryMeta } = await import('../lib/run-summary-meta');
               runMeta = buildRunSummaryMeta({
                 workout: plannedRunSnapshot?.workout ?? null,
@@ -1859,7 +1882,9 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
           const workoutPayload = {
             userId: currentUser.uid,
             activityType: activityType || 'running',
-            workoutType: (activityType === 'walking' ? 'walking' : 'running') as 'running' | 'walking',
+            // Cycling (v2 only) is filed as cycling with the bike icon — the
+            // same values storage.service derives for activityType 'cycling'.
+            ...savedWorkoutLabels(activityType),
             segments: [aerobicSegment],
             distance: safeDistance,
             duration: safeDuration,
@@ -1981,15 +2006,18 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
               const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
               const userProfile = useUserStore.getState().profile;
               if (userProfile?.core?.name) {
+                // A ride gets no run brackets / pace (its numbers aren't a runner's).
+                const isRide = activityType === 'cycling';
                 // Determine completed distance bracket
                 const runSegment: '3k' | '5k' | '10k' | null =
+                  isRide ? null :
                   safeDistance >= 10 ? '10k' :
                   safeDistance >= 5  ? '5k'  :
                   safeDistance >= 3  ? '3k'  : null;
 
                 // Average pace in seconds per km (more precise than durationMinutes-based calc)
                 const paceSecPerKm =
-                  safeDistance > 0 && safeDuration > 0
+                  !isRide && safeDistance > 0 && safeDuration > 0
                     ? Math.round(safeDuration / safeDistance)
                     : undefined;
 
@@ -1999,7 +2027,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   activityCategory: 'cardio',
                   durationMinutes,
                   distanceKm: safeDistance > 0 ? safeDistance : undefined,
-                  paceMinPerKm: safePace > 0 ? safePace : undefined,
+                  paceMinPerKm: !isRide && safePace > 0 ? safePace : undefined,
+                  ...(isRide ? { title: 'רכיבה' } : {}),
                   paceSecPerKm,
                   runSegment,
                   ...extractFeedScope(userProfile),
@@ -2012,7 +2041,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   // Home v2 details (feed-post-details.ts) — per-lap pace
                   // from the laps this run recorded, and the home's streak.
                   // Dropped by createWorkoutPost for users without home v2.
-                  paceSplits: buildPaceSplits(completedLaps),
+                  paceSplits: isRide ? undefined : buildPaceSplits(completedLaps),
                   streakDays: streakFor(useActivityStore.getState().currentStreak),
                 }).catch(() => {});
               }
@@ -2037,7 +2066,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                 durationMinutes,
                 distanceKm: safeDistance,
                 streak: progressionState.currentStreak,
-                activityType: (activityType as 'running' | 'walking') ?? 'running',
+                activityType: activityType ?? 'running',
               })
               .catch((e) => console.warn('[useRunningPlayer] awardRunningXP failed:', e));
           }
@@ -2085,6 +2114,10 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       } finally {
         _finishInFlight = false;
         set({ guidedRouteId: null, guidedRouteName: null, guidedRouteDistanceKm: null, guidedRouteTurns: null });
+        // A ride's mode (enable_home_v2 only) ends with the ride, so a later
+        // start that doesn't pick an activity (e.g. a planned run) is a run.
+        // The summary reads the saved snapshot, not this field.
+        if (get().activityType === 'cycling') set({ activityType: 'running' });
         // Drop commute intent + map pin once the session is persisted.
         // The slim FreeRunSummary reads the commute flag from
         // `savedWorkoutSnapshot.sessionKind`, not from this in-memory

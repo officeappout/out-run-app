@@ -38,9 +38,13 @@ export function initialRouteActivity(route: Pick<Route, 'activityType' | 'type'>
   return 'running';
 }
 
-/** The running player has walking and running session modes; a ride runs as a free run (same as FreeRunDrawer). */
-export function playerActivityFor(activity: RouteActivity): 'walking' | 'running' {
-  return activity === 'walking' ? 'walking' : 'running';
+/**
+ * The player's session mode for the drawer's choice. The overview drawer is
+ * enable_home_v2 only, and the v2 player has a cycling mode (speed, bike GPS
+ * gates, cycling MET) — so a ride starts as a ride, no longer as a run.
+ */
+export function playerActivityFor(activity: RouteActivity): RouteActivity {
+  return activity;
 }
 
 const LOOP_CLOSE_KM = 0.15;

@@ -58,7 +58,7 @@ import {
 import type { WorkoutMetadataSnapshot } from '../logic/workout-generator.types';
 import { createPipelineOrchestrator } from '../core/pipeline/PipelineOrchestrator';
 import { createPoolFactory } from '../core/pipeline/PoolFactory';
-import { isTimeBasedExercise } from '../logic/workout-budgeting.utils';
+import { calculateEstimatedDuration, isTimeBasedExercise } from '../logic/workout-budgeting.utils';
 
 // -- Sibling service imports --
 import {
@@ -144,6 +144,8 @@ import { getDaysAway } from '@/lib/calm-return/days-away';
 import { resolveCalmReturn, type CalmReturnState } from '@/lib/calm-return/policy';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { readLiveFlag } from '@/lib/feature-flag-live';
+import { isBudgetLightModeEnabled } from '../budget-light/flag';
+import { applyBudgetLightToTrio, resolveTrioBudgetGate } from '../budget-light/trio-gate';
 import type {
   HomeWorkoutOptions,
   HomeWorkoutResult,
@@ -961,6 +963,21 @@ function stampResolvedLocation(trio: HomeWorkoutTrioResult): HomeWorkoutTrioResu
 }
 
 export async function generateHomeWorkoutTrio(
+  options: HomeWorkoutOptions,
+): Promise<HomeWorkoutTrioResult> {
+  // Budget light mode (enable_budget_light_mode, budget-light/trio-gate.ts). Flag off → the
+  // options pass through untouched and the core below runs exactly as before.
+  const enabled = options.budgetLightEnabled ?? isBudgetLightModeEnabled();
+  if (!enabled) return generateHomeWorkoutTrioCore(options);
+  const gate = resolveTrioBudgetGate(options, true);
+  if (gate.decision.mode === 'light') {
+    console.log(`[WorkoutTrio] budget_light: ${gate.decision.reasonKey} → light strength (cap ${gate.decision.setsCap} sets, D≤${gate.decision.intensityCap})`);
+  }
+  const trio = await generateHomeWorkoutTrioCore(gate.options);
+  return applyBudgetLightToTrio(trio, gate.decision, options.userProfile, calculateEstimatedDuration);
+}
+
+async function generateHomeWorkoutTrioCore(
   options: HomeWorkoutOptions,
 ): Promise<HomeWorkoutTrioResult> {
   const isRestDay = options.isScheduledRestDay || options.isRecoveryDay || false;

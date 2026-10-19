@@ -75,6 +75,7 @@ function aerobicMinutesOf(w: WorkoutHistoryEntry): { walking: number; running: n
     for (const s of aerobicSegments) {
       const min = (s.actual!.durationSec ?? 0) / 60;
       if (s.aerobicType === 'walking') out.walking += min;
+      else if (s.aerobicType === 'cycling') out.cycling += min;
       else out.running += min;
     }
     return out;

@@ -18,8 +18,9 @@
  */
 
 import {
-  fullParkReason, routeStopsReason, walkStrengthReason,
+  fullParkLightReason, fullParkReason, routeStopsReason, walkStrengthReason,
 } from './hybrid-card-copy';
+import { NORMAL_DECISION, resolveBudgetLightMode, type BudgetLightDecision } from '../../budget-light/policy';
 import { remainingWeeklySets, sizeSmartSession, smartParkRadiusM } from './smart-sizing';
 import { MIN_COHERENT_STATION_SETS } from '../weekly-budget-gate';
 import type { HybridCardId, HybridSituation, RankedHybridCard } from './situation.types';
@@ -40,13 +41,21 @@ function weatherPenalty(flag: HybridSituation['weatherFlag']): number {
   return 0;
 }
 
+/** Budget light mode (enable_budget_light_mode): the shared policy on the situation's strength sets. */
+export function lightDecisionOf(s: HybridSituation): BudgetLightDecision {
+  if (!s.budgetLight) return NORMAL_DECISION;
+  return resolveBudgetLightMode({ enabled: true, entry: 'recommended', snapshot: s.strength });
+}
+
 export function rankWalkStrength(s: HybridSituation): RankedHybridCard | null {
   if (!s.flags.walkStrength || !s.hasGps) return null;
   const park = s.nearestEquippedPark;
   if (!park || park.distanceM > smartParkRadiusM(s.aerobicKind)) return null;
+  const light = lightDecisionOf(s);
   const sizing = sizeSmartSession({
     steps: s.steps, strength: s.strength, kind: s.aerobicKind,
     parkDistanceM: park.distanceM, basePaceSecPerKm: s.basePaceSecPerKm,
+    ...(light.mode === 'light' ? { light } : {}),
   });
   if (sizing.stepsSource === 'goal_met' && sizing.setsSource === 'spent') return null; // nothing left today
 
@@ -72,6 +81,16 @@ export function rankFullPark(s: HybridSituation): RankedHybridCard | null {
   if (!park || park.distanceM > FULL_PARK_RADIUS_M) return null;
   const remaining = remainingWeeklySets(s.strength);
   const scheduled = s.todayScheduled === 'strength';
+  const light = lightDecisionOf(s);
+  if (light.mode === 'light' && light.reasonKey) {
+    // Budget light mode: spent budget → the card stays, as a lighter session with its "why".
+    let score = scheduled ? 80 : 30;
+    if (!s.hasStrengthProgram) score -= 10;
+    if (s.todayScheduled === 'rest') score -= 15;
+    if (isNight(s.hour)) score -= 15;
+    score -= weatherPenalty(s.weatherFlag);
+    return { id: 'full_park', score, park, reason: fullParkLightReason(light.reasonKey, s.gender) };
+  }
   const budgetLeft = remaining != null && remaining >= MIN_COHERENT_STATION_SETS;
   if (!scheduled && remaining != null && !budgetLeft) return null; // strength spent, nothing scheduled
 

@@ -218,6 +218,9 @@ export function useWorkoutSession(
     rp.clearRunningData();
     rp.initializeRunningData();
     if (pendingGoal) rp.setSessionGoal(pendingGoal);
+    // A planned run is a run: a ride's mode (enable_home_v2 cycling) left in
+    // the store must never carry into it. Never true without the flag.
+    if (planned && rp.activityType === 'cycling') rp.setActivityType('running');
     // Session mode comes from the running player's activityType — written by
     // the FreeRunDrawer chips / commute picker just before start and NOT
     // reset by clearRunningData. Walking is a first-class session mode.

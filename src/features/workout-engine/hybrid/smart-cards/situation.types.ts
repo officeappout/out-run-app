@@ -7,6 +7,7 @@
  */
 
 import type { RouteSessionType } from './route-session-types';
+import type { BudgetLightReasonKey } from '../../budget-light/policy';
 
 export type AerobicKindLite = 'walking' | 'running';
 export type UserGender = 'male' | 'female';
@@ -43,6 +44,9 @@ export interface StepSnapshot {
 export interface StrengthBudgetSnapshot {
   weeklyBudget: number;
   totalSetsCompleted: number;
+  /** Budget light mode only: strength sets finished today / training days per week (daily budget). */
+  setsDoneToday?: number | null;
+  trainingDaysPerWeek?: number | null;
 }
 
 export interface HybridSituation {
@@ -65,6 +69,11 @@ export interface HybridSituation {
   basePaceSecPerKm?: number;
   /** Per-card panel sub-flags (all already AND-ed with enable_hybrid_slots by the caller). */
   flags: { walkStrength: boolean; fullPark: boolean; routeStops: boolean };
+  /**
+   * Budget light mode (enable_budget_light_mode): a spent strength budget makes the strength
+   * part LIGHTER (with a "why" line) instead of hiding / shrinking it. Absent/false → as before.
+   */
+  budgetLight?: boolean;
 }
 
 export type HybridCardId = 'walk_strength' | 'full_park' | 'route_stops';
@@ -77,7 +86,10 @@ export interface SmartSessionSizing {
   timeBudgetMin: number;
   aerobicShare: number;
   stepsSource: 'steps' | 'goal_met' | 'unknown';
-  setsSource: 'budget' | 'unknown' | 'spent';
+  /** 'light' only with budget light mode: spent budget → a lighter strength part. */
+  setsSource: 'budget' | 'unknown' | 'spent' | 'light';
+  /** setsSource 'light' only: why it is light (budget-light copy key). */
+  lightReasonKey?: BudgetLightReasonKey;
 }
 
 export interface RankedHybridCard {
@@ -98,4 +110,6 @@ export interface SmartProfileLite {
   id?: string;
   core?: { gender?: string | null } | null;
   running?: { paceProfile?: { basePace?: number | null } | null } | null;
+  /** Budget light mode: training days per week (daily budget). */
+  lifestyle?: { scheduleDays?: unknown[] | null } | null;
 }

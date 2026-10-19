@@ -1434,9 +1434,12 @@ export default function FreeRunDrawer({
     const player = useRunningPlayer.getState();
     player.setRunMode('free');
     // Push the chip selection into the running player so the session mode and
-    // the saved workout doc reflect walking as walking. Cycling has no player
-    // pipeline yet — it falls back to 'running', same as the save path.
-    player.setActivityType(selectedActivity === 'walking' ? 'walking' : 'running');
+    // the saved workout doc reflect walking as walking. Cycling has a player
+    // mode only under enable_home_v2; without the flag it falls back to
+    // 'running', same as before.
+    player.setActivityType(
+      selectedActivity === 'walking' ? 'walking' : v2 && selectedActivity === 'cycling' ? 'cycling' : 'running',
+    );
     if (goalType === 'time') {
       player.setSessionGoal({ type: 'time', value: timeValue * 60 });
     } else if (goalType === 'distance') {

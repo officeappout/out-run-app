@@ -707,6 +707,8 @@ export default function WorkoutBuilderSheet({
         weeklyBudgetUsagePercent: usagePct   > 0 ? usagePct  : undefined,
         parkEquipmentIds:         parkEquipmentIds?.length ? parkEquipmentIds : undefined,
         isManualOverride:         true,
+        // Budget light mode: a workout the user builds himself is never budget-restricted.
+        budgetEntry:              'manual',
       });
       console.log('🚀 [CustomBuilder] SUCCESS! A brand-new customized workout plan structure was synthesized from scratch:', {
         timestamp: new Date().toISOString(),

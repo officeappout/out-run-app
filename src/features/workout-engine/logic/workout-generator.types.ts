@@ -303,6 +303,12 @@ export interface GeneratedWorkout {
   isRecovery: boolean;
   totalPlannedSets: number;
   /**
+   * Budget light mode (enable_budget_light_mode): set when this RECOMMENDED session was made
+   * lighter because the strength set budget is spent (budget-light/). `description` then holds
+   * the "why" line. Absent otherwise.
+   */
+  budgetLight?: { reasonKey: 'budget_light.weekly_spent' | 'budget_light.daily_spent'; setsCap: number };
+  /**
    * absent=absent (⑨) safety-net flag (BUG 1 rework): set when NONE of the
    * domains relevant to the request have ever been assessed — the caller
    * asked for a workout, but the intersection of {requested domains} ∩

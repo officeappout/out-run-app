@@ -10,6 +10,9 @@
  *              (no mini map — the real map is right behind the card)
  * Pace is never shown on legs under 400 m (owner rule): the caller passes
  * showLivePace=false and the pace page / tile drop out.
+ * A ride (metric 'speed', enable_home_v2 cycling) shows km/h everywhere pace
+ * would be, straight from the player's smoothed pace — the zone tracker's
+ * 2:00–20:00 /km validity window would drop fast bike samples.
  */
 
 import React from 'react';
@@ -18,6 +21,7 @@ import PaceRangeScale from '../../PlannedRun/v2/PaceRangeScale';
 import { PACE_BAND_COLORS, fmtBand, fmtClock, fmtPace } from '../../../lib/planned-rep-results';
 import { avgPaceSec, zoneStatusText, type ZoneStatus, type ZoneTarget } from '../../../lib/continuous-run';
 import type { ZoneTracking } from '../../../hooks/useZoneTracking';
+import { fmtSpeed, paceSecToKmh, rateLabels, type RateMetric } from '../../../lib/aerobic-activity';
 
 export interface ContinuousCardData {
   heroKind: 'time' | 'distance';
@@ -34,6 +38,14 @@ export interface ContinuousCardData {
   plannedKm?: number | null;
   /** Shown instead of the current-pace tile on short legs ("212 מ׳"). */
   shortLegRemaining?: string | null;
+  /** 'speed' (a ride): km/h instead of min/km. Default 'pace'. */
+  metric?: RateMetric;
+}
+
+/** "5:12" pace or "24.3" speed for a sec/km value; placeholder when none. */
+function rateText(metric: RateMetric, paceSec: number): string {
+  if (metric === 'speed') return fmtSpeed(paceSecToKmh(paceSec));
+  return paceSec > 0 ? fmtPace(paceSec) : '--:--';
 }
 
 function bandOf(status: ZoneStatus) {
@@ -91,8 +103,9 @@ function Scale({ zone, paceSec, color }: { zone: ZoneTarget; paceSec: number; co
   );
 }
 
-/** Pace driving the visuals: the smoothed one when present (no jitter), else the raw one. */
+/** Pace driving the visuals: the smoothed one when present (no jitter), else the raw one. A ride uses the player's own smoothed pace. */
 function shownPace(d: ContinuousCardData): number {
+  if (d.metric === 'speed') return d.currentPaceSec;
   return d.tracking.rollingPaceSec ?? d.currentPaceSec;
 }
 
@@ -101,6 +114,8 @@ export function MainPage({ d }: { d: ContinuousCardData }) {
   const pace = shownPace(d);
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
   const hero = d.heroKind === 'time' ? fmtClock(d.heroSeconds) : d.heroKm.toFixed(2);
+  const metric = d.metric ?? 'pace';
+  const labels = rateLabels(metric);
   return (
     <>
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -118,11 +133,11 @@ export function MainPage({ d }: { d: ContinuousCardData }) {
           <Tile value={fmtClock(d.totals.durationSec)} label="זמן" />
         )}
         {d.showLivePace ? (
-          <Tile value={pace > 0 ? fmtPace(pace) : '--:--'} label="קצב נוכחי" color={band?.text} />
+          <Tile value={rateText(metric, pace)} label={labels.current} color={band?.text} />
         ) : (
           <Tile value={d.shortLegRemaining ?? '--'} label="נותרו בבלוק" />
         )}
-        <Tile value={avg > 0 ? fmtPace(avg) : '--:--'} label="קצב ממוצע" />
+        <Tile value={rateText(metric, avg)} label={labels.average} />
       </div>
     </>
   );
@@ -132,10 +147,12 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
   const band = bandOf(d.tracking.status);
   const pace = shownPace(d);
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
+  const metric = d.metric ?? 'pace';
+  const labels = rateLabels(metric);
   return (
     <>
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">קצב עכשיו</span>
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{labels.now}</span>
         <ZoneChip zone={d.zone} tracking={d.tracking} />
       </div>
       <div
@@ -143,9 +160,9 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
         className="mt-1 whitespace-nowrap text-center text-[104px] font-black leading-[0.95] tracking-[-0.045em] tabular-nums"
         style={{ color: band?.fg ?? '#0e1419' }}
       >
-        {pace > 0 ? fmtPace(pace) : '--:--'}
+        {rateText(metric, pace)}
       </div>
-      <div className="mt-1 whitespace-nowrap text-center text-[13px] font-extrabold text-v2-muted">דק׳ לק״מ · ממוצע 15 שנ׳</div>
+      <div className="mt-1 whitespace-nowrap text-center text-[13px] font-extrabold text-v2-muted">{labels.unitLine}</div>
       {d.zone && <Scale zone={d.zone} paceSec={pace} color={band?.fg ?? '#a9b7c2'} />}
       <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
         {d.zone ? (
@@ -153,7 +170,7 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
         ) : (
           <Stat value={fmtClock(d.totals.durationSec)} label="זמן" />
         )}
-        <Stat value={avg > 0 ? fmtPace(avg) : '--:--'} label="קצב ממוצע" />
+        <Stat value={rateText(metric, avg)} label={labels.average} />
       </div>
     </>
   );
@@ -161,6 +178,7 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
 
 export function DistancePage({ d }: { d: ContinuousCardData }) {
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
+  const metric = d.metric ?? 'pace';
   return (
     <>
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -172,7 +190,7 @@ export function DistancePage({ d }: { d: ContinuousCardData }) {
         <span className="ms-1.5 text-[20px] font-extrabold text-v2-muted">ק״מ</span>
       </div>
       <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
-        <Stat value={avg > 0 ? fmtPace(avg) : '--:--'} label="קצב ממוצע" />
+        <Stat value={rateText(metric, avg)} label={rateLabels(metric).average} />
         <Stat value={fmtClock(d.totals.durationSec)} label="זמן כולל" />
         <Stat value={String(Math.round(d.totals.calories || 0))} label="קק״ל" />
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, type ReactNode } from 'react';
-import { Activity, ChevronLeft, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
+import { Activity, Bike, ChevronLeft, Footprints, Maximize2, Sparkles, Star, Trash2, Users, X } from 'lucide-react';
 import {
   Button,
   Card,
@@ -15,7 +15,9 @@ import {
   type StreakWeekBar,
   type WeekDot,
 } from '@/components/ui/v2';
-import { aerobicRings, repTableModel } from '../../v2-summary.mapping';
+import { aerobicRings, repTableModel, rideRings } from '../../v2-summary.mapping';
+import { aerobicLabel, fmtSpeed, speedKmh } from '@/features/workout-engine/players/running/lib/aerobic-activity';
+import LapSpeedList from '../shared/LapSpeedList';
 import { runTypeModel, type RunPlanInput } from '../../run-type/run-type.mapping';
 import RunTypeOverview from '../run-type/RunTypeOverview';
 import RunTypeSegments from '../run-type/RunTypeSegments';
@@ -45,7 +47,8 @@ import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal
  */
 export interface AerobicSummaryViewProps {
   variant: 'group' | 'solo' | 'pair';
-  activityType: 'walking' | 'running';
+  /** 'cycling' only from the shell under enable_home_v2 (speed + climb instead of pace). */
+  activityType: 'walking' | 'running' | 'cycling';
   workout: WorkoutHistoryEntry & { date: Date };
   currentUid: string | undefined;
   streakDays: number;
@@ -164,6 +167,10 @@ export default function AerobicSummaryView({
   const repTable = v2 ? repTableModel(workout.blockResults) : null;
   // v2 runs: the summary differs by workout type (easy / intervals / long).
   const runModel = v2 && activityType === 'running' ? runTypeModel(workout, v2.plan) : null;
+  // A ride (v2 only) — speed + climb instead of pace; run-only blocks keep a foot activity.
+  const isRide = activityType === 'cycling';
+  const footActivity: 'walking' | 'running' = activityType === 'walking' ? 'walking' : 'running';
+  const ActivityIcon = isRide ? Bike : activityType === 'walking' ? Footprints : Activity;
   const typedSegments =
     !!runModel && ((runModel.kind === 'intervals' && !!repTable) || (runModel.kind !== 'intervals' && !!runModel.splits));
   const distanceKm = workout.distance ?? 0;
@@ -176,7 +183,7 @@ export default function AerobicSummaryView({
     <div className="flex items-end justify-between gap-3 px-4 pt-1 pb-3">
       <div className="min-w-0">
         <div className="text-[13px] font-extrabold text-v2-deep">
-          {runModel ? runModel.hero.label : activityType === 'walking' ? 'הליכה' : 'ריצה'}
+          {runModel ? runModel.hero.label : aerobicLabel(activityType)}
           <span className="font-semibold text-v2-muted"> · {dateLabel}</span>
         </div>
         {runModel?.hero.repsTitle ? (
@@ -195,7 +202,7 @@ export default function AerobicSummaryView({
         )}
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="md" />
+        <IconTile icon={ActivityIcon} tone="run" size="md" />
         {/* XP chip — solo only */}
         {effectiveVariant === 'solo' && xpEarned > 0 && !v2 && (
           <Chip tone="accent" icon={<Sparkles size={13} strokeWidth={2.4} aria-hidden />}>
@@ -259,7 +266,7 @@ export default function AerobicSummaryView({
       {v2 && runModel ? (
         <RunTypeOverview
           model={runModel}
-          activityType={activityType}
+          activityType={footActivity}
           repTable={repTable}
           lapCount={workout.laps?.length ?? 0}
           onOpenSegments={() => setActiveTab('segments')}
@@ -278,7 +285,7 @@ export default function AerobicSummaryView({
         <>
           {/* v2 (F-1f): three rings, then the streak strip. */}
           <Card padding="md">
-            <MetricRings rings={aerobicRings(workout)} />
+            <MetricRings rings={isRide ? rideRings(workout) : aerobicRings(workout)} />
           </Card>
           {v2.streak && (
             <StreakDotsStrip
@@ -310,9 +317,9 @@ export default function AerobicSummaryView({
               onClick={() => setActiveTab('segments')}
               className="flex w-full items-center gap-3 rounded-v2-card bg-white px-4 py-3 text-start shadow-v2-card active:scale-[0.97] transition-transform duration-150 ease-v2"
             >
-              <IconTile icon={activityType === 'walking' ? Footprints : Activity} tone="run" size="sm" />
+              <IconTile icon={ActivityIcon} tone="run" size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14.5px] font-black text-v2-ink">קצב בכל הקפה</span>
+                <span className="block truncate text-[14.5px] font-black text-v2-ink">{isRide ? 'מהירות בכל הקפה' : 'קצב בכל הקפה'}</span>
                 <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
               </span>
               <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[12px] font-extrabold tabular-nums text-v2-deep">
@@ -330,7 +337,7 @@ export default function AerobicSummaryView({
           {/* Stat rings */}
           <Card padding="sm">
             <AerobicStatRingsBlock
-              activityType={activityType}
+              activityType={footActivity}
               pace={workout.pace ?? 0}
               duration={workout.duration ?? 0}
               calories={workout.calories ?? 0}
@@ -484,7 +491,7 @@ export default function AerobicSummaryView({
       {!isReadOnly && WORKOUT_DELETE_EXPANDED_ENABLED && (
         <DeleteWorkoutConfirmModal
           isOpen={expandedDeleteModalOpen}
-          activityLabel={activityType === 'walking' ? 'הליכה' : 'ריצה'}
+          activityLabel={aerobicLabel(activityType)}
           dateLabel={dateLabel}
           xpToReverse={xpEarned}
           onCancel={() => setExpandedDeleteModalOpen(false)}
@@ -515,7 +522,9 @@ export default function AerobicSummaryView({
           <RepPaceTable rows={repTable.rows} band={repTable.band} summaryLabel={repTable.summaryLabel} />
         </Card>
       )}
-      {runModel?.splitsFromLaps ? null : workout.laps && workout.laps.length > 0 ? (
+      {runModel?.splitsFromLaps ? null : isRide && workout.laps && workout.laps.length > 0 ? (
+        <LapSpeedList laps={workout.laps} />
+      ) : workout.laps && workout.laps.length > 0 ? (
         <>
           <LapPaceChart laps={workout.laps} />
           <div className="mt-3">
@@ -556,7 +565,11 @@ export default function AerobicSummaryView({
       <div className="grid grid-cols-2 gap-2">
         <StatTile label="מרחק" value={`${distanceKm.toFixed(2)} ק״מ`} />
         <StatTile label="זמן" value={formatDuration(workout.duration ?? 0)} />
-        <StatTile label="קצב ממוצע" value={formatPaceLocal(workout.pace ?? 0)} />
+        {isRide ? (
+          <StatTile label="מהירות ממוצעת" value={`${fmtSpeed(speedKmh(distanceKm, workout.duration ?? 0))} קמ״ש`} />
+        ) : (
+          <StatTile label="קצב ממוצע" value={formatPaceLocal(workout.pace ?? 0)} />
+        )}
         <StatTile label="קלוריות" value={`${Math.round(workout.calories ?? 0)} קק״ל`} />
         {(workout.elevationGain ?? 0) > 0 && (
           <StatTile label="עלייה מצטברת" value={`${workout.elevationGain} מ׳`} />

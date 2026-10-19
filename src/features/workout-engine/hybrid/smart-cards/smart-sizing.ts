@@ -10,6 +10,7 @@
  */
 
 import { MIN_COHERENT_STATION_SETS } from '../weekly-budget-gate';
+import type { BudgetLightDecision } from '../../budget-light/policy';
 import type {
   AerobicKindLite, SmartSessionSizing, StepSnapshot, StrengthBudgetSnapshot,
 } from './situation.types';
@@ -70,8 +71,11 @@ export function remainingWeeklySets(strength: StrengthBudgetSnapshot | null): nu
 
 export function sizeStrengthSets(
   strength: StrengthBudgetSnapshot | null,
+  light?: BudgetLightDecision | null,
 ): { sets: number; source: SmartSessionSizing['setsSource']; remaining: number | null } {
   const remaining = remainingWeeklySets(strength);
+  // Budget light mode: a spent budget → a real but lighter strength part (never 0 sets).
+  if (light?.mode === 'light' && light.setsCap) return { sets: light.setsCap, source: 'light', remaining };
   if (remaining == null) return { sets: DEFAULT_SESSION_SETS, source: 'unknown', remaining };
   if (remaining < MIN_COHERENT_STATION_SETS) return { sets: 0, source: 'spent', remaining };
   return { sets: Math.min(remaining, MAX_SESSION_SETS), source: 'budget', remaining };
@@ -93,11 +97,13 @@ export function sizeSmartSession(args: {
   kind: AerobicKindLite;
   parkDistanceM: number;
   basePaceSecPerKm?: number;
+  /** Budget light mode decision (rank-hybrid-cards); absent → as before. */
+  light?: BudgetLightDecision | null;
 }): SmartSessionSizing {
   const walk = sizeWalkKm(args.steps, args.kind);
   const reachKm = round1((Math.max(0, args.parkDistanceM) * 2 * 1.15) / 1000);
   const walkKm = Math.max(walk.km, reachKm);
-  const sets = sizeStrengthSets(args.strength);
+  const sets = sizeStrengthSets(args.strength, args.light);
   const walkMin = Math.round(walkMinutes(walkKm, args.kind, args.basePaceSecPerKm));
   const strengthMin = sets.source === 'spent' ? SPENT_BUDGET_STATION_MIN : Math.round(sets.sets * MIN_PER_SET);
   const timeBudgetMin = walkMin + strengthMin;
@@ -106,6 +112,7 @@ export function sizeSmartSession(args: {
     walkKm, walkMin, strengthSets: sets.sets, strengthMin, timeBudgetMin,
     aerobicShare: Math.round(aerobicShare * 100) / 100,
     stepsSource: walk.source, setsSource: sets.source,
+    ...(sets.source === 'light' && args.light?.reasonKey ? { lightReasonKey: args.light.reasonKey } : {}),
   };
 }
 

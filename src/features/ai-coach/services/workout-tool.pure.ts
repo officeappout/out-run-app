@@ -13,10 +13,13 @@ import type { HomeWorkoutOptions } from '@/features/workout-engine/services/home
 import type { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/workout-generator.types';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import type { GenerateWorkoutInputT, WorkoutToolResult } from '@/lib/ai/coach/tools';
+import type { StrengthBudgetSnapshot } from '@/features/workout-engine/budget-light/policy';
 
 export interface BudgetSnapshot {
   remaining?: number;
   usagePct?: number;
+  /** Budget light mode: the week's strength sets (budget-light/snapshot.ts). Ignored while the flag is off. */
+  strength?: StrengthBudgetSnapshot | null;
 }
 
 export function buildGenerateOptions(
@@ -42,6 +45,10 @@ export function buildGenerateOptions(
     weeklyBudgetUsagePercent: (budget.usagePct ?? 0) > 0 ? budget.usagePct : undefined,
     parkEquipmentIds: parkEquipmentIds?.length ? parkEquipmentIds : undefined,
     isManualOverride: true,
+    // Budget light mode: Kelly RECOMMENDS this session → lighter (with a "why") when the strength
+    // budget is spent. isManualOverride above still keeps the deficit math off, as before.
+    budgetEntry: 'recommended',
+    ...(budget.strength ? { strengthBudgetSnapshot: budget.strength } : {}),
   };
 }
 
@@ -127,6 +134,8 @@ export function compactWorkout(
     out.levelCeiling = hasLevelCeiling(workout);
     if (details.shortOfMinimum) out.shortOfMinimum = true;
   }
+  // Budget light mode: tell Kelly the session was made lighter (she explains why).
+  if (workout.budgetLight) out.budgetLight = workout.budgetLight.reasonKey === 'budget_light.daily_spent' ? 'daily_spent' : 'weekly_spent';
   if (workout.decisionRecord) out.decisionRecord = JSON.parse(JSON.stringify(workout.decisionRecord));
   return out;
 }
