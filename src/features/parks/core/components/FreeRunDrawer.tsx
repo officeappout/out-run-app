@@ -788,7 +788,7 @@ function GoalSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}`}
+            className={`kb-sheet fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}`}
             dir="rtl"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
           >

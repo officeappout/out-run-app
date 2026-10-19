@@ -157,7 +157,7 @@ export default function SearchOverlayV2({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-v2-surface" dir="rtl">
+    <div className="kb-fit fixed inset-0 z-[100] flex flex-col bg-v2-surface" dir="rtl">
       {/* ── Search field ─────────────────────────────────────────────── */}
       <div className="px-4 pb-3" style={{ paddingTop: 'calc(52px + max(1rem, env(safe-area-inset-top, 0px)))' }}>
         <div className="flex items-center gap-2">

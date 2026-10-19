@@ -699,11 +699,6 @@ export default function IdentityProfilePage() {
                   if (e.key === 'Backspace' && formData.birthMonth === '')
                     dayInputRef.current?.focus();
                 }}
-                onFocus={() => {
-                  setTimeout(() => {
-                    monthInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }, 150);
-                }}
                 placeholder="חודש"
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
@@ -726,20 +721,13 @@ export default function IdentityProfilePage() {
                     // Auto-advance: switch from numeric to text keyboard by focusing name.
                     // Direct call inside onChange = still a user-gesture context on iOS.
                     nameInputRef.current?.focus();
-                    // Scroll the name field into view after the keyboard transition settles.
-                    setTimeout(() => {
-                      nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 150);
+                    // Revealing the field above the keyboard is handled app-wide
+                    // by the keyboard inset controller (src/lib/keyboard).
                   }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Backspace' && formData.birthYear === '')
                     monthInputRef.current?.focus();
-                }}
-                onFocus={() => {
-                  setTimeout(() => {
-                    yearInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }, 150);
                 }}
                 placeholder="שנה"
                 className={`w-20 ${dateInputClass(hasDobError)}`}
@@ -776,11 +764,6 @@ export default function IdentityProfilePage() {
                   e.preventDefault();
                   if (canSubmit && !loading) handleContinue();
                 }
-              }}
-              onFocus={() => {
-                setTimeout(() => {
-                  nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 150);
               }}
               className={v2
                 ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-right'

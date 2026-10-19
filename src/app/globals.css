@@ -528,3 +528,54 @@ video.tutorial-player::-webkit-media-controls-start-playback-button {
 @media (prefers-reduced-motion: reduce) {
   .v2-node-pulse { animation: none; opacity: 0.5; }
 }
+
+/* ============================================
+   Keyboard inset (iOS keyboard covering inputs)
+   --kb-inset / data-kb-open are written on <html> by the ONE controller in
+   src/lib/keyboard/keyboardInsetController.ts (mounted in NativeBootstrap).
+   Registered as a <length> so it animates with the keyboard (no jumps);
+   browsers without @property just snap.
+   ============================================ */
+@property --kb-inset {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+:root {
+  --kb-inset: 0px;
+  /* Home-indicator padding while the keyboard is closed; 0 while it's open
+     (the keyboard already covers that strip). Use instead of
+     env(safe-area-inset-bottom) on composers / sheet footers. */
+  --kb-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html[data-kb-open] {
+  --kb-safe-bottom: 0px;
+}
+html {
+  /* ≈ the iOS keyboard curve/duration */
+  transition: --kb-inset 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  html { transition: none; }
+}
+
+/* Full-screen `fixed inset-0` overlay (chat, search): ends at the keyboard,
+   so its flex-1 list shrinks and a bottom composer sits on the keyboard. */
+.kb-fit {
+  bottom: var(--kb-inset) !important;
+}
+/* `fixed bottom-0` sheet: sits on the keyboard; while it's open, capped to the
+   visible height so its top never slides under the status bar. */
+.kb-sheet {
+  bottom: var(--kb-inset) !important;
+}
+/* Cap only — for a sheet inside a `kb-fit` wrapper (flex justify-end). */
+html[data-kb-open] .kb-sheet,
+html[data-kb-open] .kb-cap {
+  max-height: calc(100dvh - var(--kb-inset) - env(safe-area-inset-top, 0px) - 8px) !important;
+  /* a tall min-h (e.g. min-h-[85vh]) must not push the top off-screen */
+  min-height: 0 !important;
+  /* sheets without their own scroll body become scrollable while capped;
+     the controller then scrolls the focused field into view inside it */
+  overflow-y: auto !important;
+}

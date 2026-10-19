@@ -148,7 +148,7 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
 
   return (
     <WizardV2Context.Provider value={v2}>
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+    <div className="kb-fit fixed inset-0 z-[100] flex flex-col justify-end">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -174,8 +174,8 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         // still short of full-screen so the backdrop stays visible and the
         // sheet reads as dismissible.
         className={v2
-          ? 'relative flex min-h-[85vh] max-h-[95vh] flex-col overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet'
-          : 'relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden'}
+          ? 'kb-cap relative flex min-h-[85vh] max-h-[95vh] flex-col overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet'
+          : 'kb-cap relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden'}
         dir="rtl"
       >
         {v2 ? (

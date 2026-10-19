@@ -324,7 +324,7 @@ export default function AddWorkoutModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+          className="kb-fit fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
           onClick={onClose}
         >
           <motion.div
@@ -333,7 +333,7 @@ export default function AddWorkoutModal({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className={v2 ? 'w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
+            className={v2 ? 'kb-cap w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'kb-cap w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >

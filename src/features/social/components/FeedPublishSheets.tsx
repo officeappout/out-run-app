@@ -160,7 +160,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
+        <div className="kb-fit fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
           <motion.button
             type="button"
             aria-label="סגירה"
@@ -171,7 +171,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
             onClick={onClose}
           />
           <motion.div
-            className="absolute inset-x-0 bottom-0 mx-auto max-h-[90%] max-w-md overflow-y-auto rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-2.5 shadow-v2-sheet"
+            className="absolute inset-x-0 bottom-0 mx-auto max-h-[90%] max-w-md overflow-y-auto rounded-t-[28px] bg-white px-4 pb-[calc(var(--kb-safe-bottom)+20px)] pt-2.5 shadow-v2-sheet"
             initial={reduce ? { opacity: 0 } : { transform: 'translateY(100%)' }}
             animate={reduce ? { opacity: 1 } : { transform: 'translateY(0%)' }}
             exit={reduce ? { opacity: 0 } : { transform: 'translateY(100%)' }}

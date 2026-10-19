@@ -237,7 +237,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
   const handleDismiss = saveFailed ? handleCloseAfterFailure : handleCloseOrSkipToEnd;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+    <div className="kb-fit fixed inset-0 z-[100] flex flex-col justify-end">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -251,6 +251,12 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        // 19.10.2026: keyboard handling is now app-wide — the wrapper's
+        // `kb-fit` ends it at the keyboard and `kb-cap` caps this sheet to the
+        // visible height (and drops the min-h below) while the keyboard is
+        // open; see src/lib/keyboard. resize:'body' (below) never resized
+        // vh or moved fixed elements — it only set body.style.height late.
+        // Historical note:
         // max-h-[92vh], not a JS-computed height — matches
         // contribution-wizard/index.tsx's sheet exactly (06.09.2026: the
         // prior visualViewport-based approach here was LESS reliable than
@@ -264,8 +270,8 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         // reach anywhere near the max-height cap on its own; see that
         // state's own comment above for why.
         className={v2
-          ? `relative flex max-h-[92vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] font-simpler text-v2-ink shadow-v2-sheet ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`
-          : `relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
+          ? `kb-cap relative flex max-h-[92vh] flex-col overflow-hidden rounded-t-[28px] bg-white pb-[env(safe-area-inset-bottom,0px)] font-simpler text-v2-ink shadow-v2-sheet ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`
+          : `kb-cap relative bg-white rounded-t-3xl shadow-2xl max-h-[92vh] flex flex-col overflow-hidden ${needsExpandedHeight ? 'min-h-[80vh]' : ''}`}
         dir="rtl"
       >
         {v2 && (
