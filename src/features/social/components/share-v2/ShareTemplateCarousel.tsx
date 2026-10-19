@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { ShareTemplateDef } from '../../share-v2/templates/template';
 import type { ShareFormat } from '../../share-v2/types';
+import { CHECKER_STYLE } from './checker';
 
 export default function ShareTemplateCarousel({
   templates,
@@ -24,8 +25,9 @@ export default function ShareTemplateCarousel({
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
-  const cardW = format === 'story' ? 160 : 230;
+  const cardW = format === 'story' ? 160 : format === 'sticker' ? 190 : 230;
   const cardH = format === 'story' ? (cardW * 16) / 9 : cardW;
+  const sticker = format === 'sticker';
 
   // Keep the selected card centred (also after a format switch).
   useEffect(() => {
@@ -83,11 +85,11 @@ export default function ShareTemplateCarousel({
               className={`relative shrink-0 snap-center overflow-hidden rounded-[16px] bg-v2-surface transition-[opacity,transform] duration-200 ease-v2 ${
                 on ? 'opacity-100 shadow-[0_0_0_3px_#00baf7,0_22px_40px_-22px_rgba(9,30,50,0.6)]' : 'scale-[0.84] opacity-50'
               }`}
-              style={{ width: cardW, height: cardH }}
+              style={{ width: cardW, height: cardH, ...(sticker ? CHECKER_STYLE : null) }}
             >
               {src ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
+                <img src={src} alt="" className={`h-full w-full ${sticker ? 'object-contain p-1.5' : 'object-cover'}`} draggable={false} />
               ) : (
                 <span className="grid h-full w-full place-items-center text-v2-muted">
                   <Loader2 size={20} className="animate-spin" aria-hidden />

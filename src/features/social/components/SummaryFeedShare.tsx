@@ -28,7 +28,7 @@ import {
 import { createWorkoutPost } from '../services/feed.service';
 import { FeedPrivacySheet, FeedShareSheet, SummaryShareCard, type ShareableWorkout } from './FeedPublishSheets';
 import ShareImageSheet from './ShareImageSheet';
-import { shareInputFromPost } from '../services/share-image';
+import { shareInputFromPost, type ShareTogether } from '../services/share-image';
 
 export interface SummaryFeedShareProps {
   workout: ShareableWorkout;
@@ -153,11 +153,14 @@ export function PendingSummaryFeedShare({
   activity,
   durationSeconds,
   dateMs,
+  together,
 }: {
   activity: PendingParams['activityCategory'];
   /** v2 share image: the run's exact time and when it happened (display only). */
   durationSeconds?: number;
   dateMs?: number;
+  /** Live group / pair run (from the summary's group context) — the "יחד" story. */
+  together?: ShareTogether;
 }) {
   const [openedAt] = useState(() => Date.now());
   const [pending, setPending] = useState<PendingParams | null>(null);
@@ -188,6 +191,7 @@ export function PendingSummaryFeedShare({
         streakDays: pending.streakDays,
         durationSeconds,
         dateMs,
+        together,
       }}
       onPublish={async (choice) => {
         const id = await createWorkoutPost(applyShareChoice(pending, choice), { manual: true, photo: choice.photo ?? null });

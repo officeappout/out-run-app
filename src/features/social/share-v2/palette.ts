@@ -4,7 +4,7 @@
  * Pure. A future sticker set adds its ink variants (white / dark / OUT) as
  * more tones here.
  */
-import type { BrandStyle, ShareBackground, ShareKind, ShareTone } from './types';
+import type { BrandStyle, ShareBackground, ShareInk, ShareKind, ShareTone } from './types';
 
 export interface SharePalette {
   tone: ShareTone;
@@ -30,18 +30,49 @@ export interface SharePalette {
   /** Pace-split panel. */
   panelBg: string;
   panelRing: string;
+  /** Stickers: a soft shadow under everything so it reads on any photo. */
+  shadow?: string;
 }
 
 export const CYAN: [string, string] = ['#00baf7', '#0cf2e3'];
 export const LIME: [string, string] = ['#84cc16', '#0cf2e3'];
 
-export function toneFor(bg: ShareBackground, brand: BrandStyle): ShareTone {
+export function toneFor(bg: ShareBackground, brand: BrandStyle, ink: ShareInk = 'white'): ShareTone {
+  if (bg === 'none') return `ink-${ink}`;
   if (bg === 'photo') return 'dark';
   if (bg === 'plain') return 'light';
   return brand === 'cyan' ? 'cyan' : 'dark';
 }
 
+/** Transparent stickers: one ink colour for everything + a shadow. */
+function inkPalette(tone: 'ink-white' | 'ink-dark' | 'ink-brand'): SharePalette {
+  const ink = tone === 'ink-white' ? '#ffffff' : tone === 'ink-dark' ? '#0e1419' : '#00baf7';
+  const sub = tone === 'ink-white' ? 'rgba(255,255,255,0.88)' : tone === 'ink-dark' ? '#2b3a45' : '#0284c7';
+  return {
+    tone,
+    fg: ink,
+    sub,
+    accentText: sub,
+    hairline: tone === 'ink-white' ? 'rgba(255,255,255,0.7)' : tone === 'ink-dark' ? 'rgba(14,20,25,0.45)' : 'rgba(0,186,247,0.55)',
+    chipBg: 'transparent',
+    chipRing: 'transparent',
+    boxFill: CYAN,
+    boxText: '#04222b',
+    emptyRing: sub,
+    emptyText: sub,
+    ringTrack: tone === 'ink-white' ? 'rgba(255,255,255,0.35)' : tone === 'ink-dark' ? 'rgba(14,20,25,0.18)' : 'rgba(0,186,247,0.22)',
+    logoO: 'grad',
+    logoInk: tone === 'ink-brand' ? '#00baf7' : ink,
+    routeInk: tone === 'ink-white' ? 'white' : 'gradient',
+    streakText: ink,
+    panelBg: 'transparent',
+    panelRing: 'transparent',
+    shadow: tone === 'ink-dark' ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.38)',
+  };
+}
+
 export function paletteFor(tone: ShareTone, kind: ShareKind): SharePalette {
+  if (tone === 'ink-white' || tone === 'ink-dark' || tone === 'ink-brand') return inkPalette(tone);
   const run = kind === 'cardio';
   if (tone === 'cyan') {
     return {

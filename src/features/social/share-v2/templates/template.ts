@@ -27,11 +27,13 @@ export interface ShareTemplateDef {
   scrims?: (format: ShareFormat) => Scrim[];
   /** Photo focal point (0..1), default [0.5, 0.4]. */
   focal?: [number, number];
+  /** Shown only for workouts that have what it needs (e.g. a group run). */
+  available?: (m: ShareModel) => boolean;
   draw: (a: DrawArgs) => void;
 }
 
 /** Shared margins (design units) per format. */
-export const PAD = { story: 22, square: 20 } as const;
+export const PAD = { story: 22, square: 20, sticker: 20 } as const;
 
 /** Header: logo on the right (RTL), optional date on the left. Returns the header's bottom y. */
-export const HEADER_TOP = { story: 24, square: 20 } as const;
+export const HEADER_TOP = { story: 24, square: 20, sticker: 20 } as const;

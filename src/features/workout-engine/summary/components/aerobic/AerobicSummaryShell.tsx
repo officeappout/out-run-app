@@ -13,6 +13,7 @@ import { useUserStore } from '@/features/user';
 import { PendingSummaryFeedShare } from '@/features/social/components/SummaryFeedShare';
 import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
+import { togetherFromGroupCtx } from '@/features/social/share-v2/together';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import type { AerobicSummaryV2Data } from './AerobicSummaryView';
 
@@ -156,7 +157,12 @@ export default function AerobicSummaryShell(props: Props) {
       deleteWorkoutWithReversal={deleteWorkoutWithReversal}
       feedShareSlot={
         v2 && !isReadOnly ? (
-          <PendingSummaryFeedShare activity="cardio" durationSeconds={workout.duration} dateMs={workout.date?.getTime?.()} />
+          <PendingSummaryFeedShare
+            activity="cardio"
+            durationSeconds={workout.duration}
+            dateMs={workout.date?.getTime?.()}
+            together={togetherFromGroupCtx(groupCtx, currentUid)}
+          />
         ) : undefined
       }
       v2={v2Data}

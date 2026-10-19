@@ -16,9 +16,10 @@ import { canvasToBlob, shareOrDownload } from '../../services/share-image-render
 import { buildShareModel } from '../../share-v2/model';
 import { renderShareV2 } from '../../share-v2/render';
 import { defaultTemplateId, templateById, templatesFor } from '../../share-v2/templates/registry';
-import type { ShareBackground, ShareFormat } from '../../share-v2/types';
+import type { ShareBackground, ShareFormat, ShareInk } from '../../share-v2/types';
 import ShareBackgroundTiles from './ShareBackgroundTiles';
 import ShareFormatControl from './ShareFormatControl';
+import ShareStickerInkTiles from './ShareStickerInkTiles';
 import ShareTemplateCarousel from './ShareTemplateCarousel';
 import { useSharePhoto, useSharePreviews } from './useSharePreviews';
 
@@ -26,6 +27,10 @@ function subtitle(input: ShareImageInput): string {
   const min = `${Math.round(input.durationMinutes)} דק׳`;
   if (input.kind === 'cardio') return ['ריצה', input.distanceKm ? `${input.distanceKm.toFixed(1)} ק״מ` : null, min].filter(Boolean).join(' · ');
   return ['אימון כוח', input.programName || input.title, min].filter(Boolean).join(' · ');
+}
+
+function fileName(kind: ShareImageInput['kind'], format: ShareFormat): string {
+  return format === 'sticker' ? shareFileName(kind, 'square').replace('-square-', '-sticker-') : shareFileName(kind, format);
 }
 
 function download(blob: Blob, name: string) {
@@ -63,6 +68,7 @@ export default function ShareImageSheetV2({
   const [format, setFormat] = useState<ShareFormat>('story');
   const [templateId, setTemplateId] = useState('');
   const [bgPick, setBgPick] = useState<Record<string, ShareBackground>>({});
+  const [ink, setInk] = useState<ShareInk>('white');
   const [busy, setBusy] = useState<'share' | 'save' | null>(null);
 
   useEffect(() => {
@@ -70,16 +76,18 @@ export default function ShareImageSheetV2({
     setFormat('story');
     setTemplateId('');
     setBgPick({});
+    setInk('white');
   }, [open]);
   useEffect(() => () => { if (ownPhoto) URL.revokeObjectURL(ownPhoto); }, [ownPhoto]);
 
-  const templates = templatesFor(kind, format);
-  const tid = templates.some((t) => t.id === templateId) ? templateId : defaultTemplateId(kind, hasPhoto);
+  const templates = templatesFor(kind, format, model);
+  const tid = templates.some((t) => t.id === templateId) ? templateId : defaultTemplateId(kind, hasPhoto, format);
+  const sticker = format === 'sticker';
   const bgFor = (id: string): ShareBackground => {
     const want = bgPick[id] ?? templateById(kind, id).naturalBackground(hasPhoto);
     return want === 'photo' && photo.status !== 'ready' ? 'brand' : want;
   };
-  const previews = useSharePreviews({ open, model, modelKey: inputKey, templates, format, bgFor, photo, photoUrl, priorityId: tid });
+  const previews = useSharePreviews({ open, model, modelKey: inputKey, templates, format, bgFor, photo, photoUrl, priorityId: tid, ink });
 
   const handlePick = async () => {
     try {
@@ -100,7 +108,9 @@ export default function ShareImageSheetV2({
       format,
       background: bgFor(tid),
       photo: photo.status === 'ready' ? photo.img : null,
+      ink,
     });
+    // PNG keeps the sticker's transparency.
     return canvasToBlob(canvas);
   };
 
@@ -108,7 +118,7 @@ export default function ShareImageSheetV2({
     if (!input || busy) return;
     setBusy('share');
     try {
-      const res = await shareOrDownload(await fullImage(), shareFileName(input.kind, format));
+      const res = await shareOrDownload(await fullImage(), fileName(input.kind, format));
       if (res === 'downloaded') showToast('success', 'התמונה נשמרה');
       if (res !== 'cancelled') onClose();
     } catch {
@@ -123,7 +133,7 @@ export default function ShareImageSheetV2({
     setBusy('save');
     try {
       const blob = await fullImage();
-      const name = shareFileName(input.kind, format);
+      const name = fileName(input.kind, format);
       // In the app there's no file download — the OS sheet has "Save image".
       if (isNativePlatform()) await shareOrDownload(blob, name);
       else {
@@ -148,17 +158,21 @@ export default function ShareImageSheetV2({
         <ShareFormatControl value={format} onChange={setFormat} />
       </div>
 
-      <div className="mt-3.5 text-[13px] font-extrabold text-v2-deep">רקע</div>
+      <div className="mt-3.5 text-[13px] font-extrabold text-v2-deep">{sticker ? 'צבע הסטיקר' : 'רקע'}</div>
       <div className="mt-1.5">
-        <ShareBackgroundTiles
-          value={bgFor(tid)}
-          kind={kind}
-          brand={tpl.brand}
-          photoUrl={photoUrl}
-          photo={photo}
-          onChange={(bg) => setBgPick((m) => ({ ...m, [tid]: bg }))}
-          onPickPhoto={() => void handlePick()}
-        />
+        {sticker ? (
+          <ShareStickerInkTiles value={ink} onChange={setInk} />
+        ) : (
+          <ShareBackgroundTiles
+            value={bgFor(tid)}
+            kind={kind}
+            brand={tpl.brand}
+            photoUrl={photoUrl}
+            photo={photo}
+            onChange={(bg) => setBgPick((m) => ({ ...m, [tid]: bg }))}
+            onPickPhoto={() => void handlePick()}
+          />
+        )}
       </div>
 
       <Button variant="cta" block className="mt-5" disabled={!model || !!busy} onClick={() => void handleShare()}>
