@@ -178,6 +178,39 @@ export interface PlannedBlockRecord {
   paceDeltaSec?: number;
 }
 
+/**
+ * Home v2 (enable_home_v2) run-type summary data, saved with a run as the
+ * optional `runMeta` map ONLY while the flag is on (useRunningPlayer
+ * .finishWorkout → buildRunSummaryMeta). Every older doc, every flag-off
+ * run, walks and hybrid sessions have none; readers treat it as optional
+ * field by field. Keys are only present when known (no undefined values).
+ */
+export interface RunSummaryMeta {
+  /** RunWorkout.category ('easy_run', 'short_intervals', 'long_run', …). */
+  category?: string;
+  /** WeekSlot of the planned workout ('long_run', 'quality_primary', …). */
+  slotType?: string;
+  workoutId?: string;
+  title?: string;
+  /** Number of work blocks (reps) in the plan — the "6" of "6/6 חזרות". */
+  plannedReps?: number;
+  /** Distinct target bands of the work blocks (sec/km), in plan order. */
+  zones?: { minPaceSec: number; maxPaceSec: number }[];
+  /** Live accumulator (when the player provides one): seconds inside the band / seconds scored. */
+  timeInZone?: { inSec: number; totalSec: number };
+  /** Program position when started from the running plan (week / day ordinal). */
+  plan?: { week: number; day: number };
+  /** Planned runs: warm-up / cool-down actuals. */
+  warmup?: { durationSeconds: number; distanceMeters: number };
+  cooldown?: { durationSeconds: number; distanceMeters: number };
+  /**
+   * Per-km splits from the GPS trace, only when the run has no auto-km
+   * laps: `km` is the cumulative distance at the split's end (the last one
+   * may be partial, e.g. 5.6), `sec` the split's duration.
+   */
+  kmSplits?: { km: number; sec: number }[];
+}
+
 export interface WorkoutHistoryEntry {
   id?: string;
   userId: string;
@@ -232,6 +265,8 @@ export interface WorkoutHistoryEntry {
   segments?: SessionSegmentRecord[];
   /** Planned runs only: per-rep results (see PlannedBlockRecord). Optional. */
   blockResults?: PlannedBlockRecord[];
+  /** Home v2 only: run-type summary data (see RunSummaryMeta). Optional. */
+  runMeta?: RunSummaryMeta;
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
@@ -551,6 +586,12 @@ export function readBlockResults(raw: unknown): PlannedBlockRecord[] | undefined
   return out.length > 0 ? out : undefined;
 }
 
+/** Tolerant read of the optional `runMeta` map (absent/malformed ⇒ undefined). */
+export function readRunMeta(raw: unknown): RunSummaryMeta | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  return raw as RunSummaryMeta;
+}
+
 /**
  * Full-fidelity Firestore doc -> WorkoutHistoryEntry mapping, shared between
  * getWorkoutById (F1.3) and getWorkoutsForDate (F2.2, below) so the two
@@ -590,6 +631,7 @@ function mapFullWorkoutDoc(id: string, data: Record<string, unknown>): WorkoutHi
     elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
     segments: Array.isArray(data.segments) ? data.segments : undefined,
     blockResults: readBlockResults(data.blockResults),
+    runMeta: readRunMeta(data.runMeta),
     isRecovery: data.isRecovery,
     difficulty: data.difficulty,
     setsCompleted: data.setsCompleted,
