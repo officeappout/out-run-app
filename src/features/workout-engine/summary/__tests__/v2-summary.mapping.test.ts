@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
-import { aerobicRings, hybridRings, hybridStationTables, paceLabel, timeLabel } from '../v2-summary.mapping';
+import { aerobicRings, hybridRings, hybridStationTables, paceLabel, repTableModel, timeLabel } from '../v2-summary.mapping';
 
 describe('paceLabel / timeLabel', () => {
   it('formats and guards', () => {
@@ -63,5 +63,39 @@ describe('hybridStationTables', () => {
     expect(t).toHaveLength(1);
     expect(t[0].title).toBe('תחנת כוח 1');
     expect(t[0].rows[0].tiles.map((x) => x.tone)).toEqual(['in', 'in']);
+  });
+});
+
+describe('repTableModel — planned runs per-rep table (F-1g)', () => {
+  const rec = (rep: number, sec: number, pace?: number, inRange?: boolean, delta?: number) => ({
+    blockIndex: rep * 2 - 1, rep, label: 'אינטרוול', distanceMeters: 400, durationSeconds: sec,
+    ...(pace ? { avgPaceSec: pace, targetMinPaceSec: 285, targetMaxPaceSec: 295 } : {}),
+    ...(inRange !== undefined ? { inRange, paceDeltaSec: delta ?? 0 } : {}),
+  });
+
+  it('absent / empty blockResults ⇒ null (older docs, free runs keep the laps UI)', () => {
+    expect(repTableModel(undefined)).toBeNull();
+    expect(repTableModel([])).toBeNull();
+  });
+
+  it('rows + common band + "N/M בטווח"', () => {
+    const m = repTableModel([rec(1, 115, 288, true), rec(2, 119, 298, false, 3), rec(3, 116, 290, true)])!;
+    expect(m.rows.map((r) => [r.n, r.title, r.value, r.status, r.tone])).toEqual([
+      [1, '1:55', '4:48', 'בטווח', 'in'],
+      [2, '1:59', '4:58', 'איטי ב-3 שנ׳', 'off'],
+      [3, '1:56', '4:50', 'בטווח', 'in'],
+    ]);
+    expect(m.rows[0].sub).toBe('יעד 4:45–4:55');
+    expect(m.band).toEqual({ min: 285, max: 295 });
+    expect(m.shortLabel).toBe('2/3 בטווח');
+    expect(m.summaryLabel).toBe('2 מתוך 3 חזרות בטווח');
+  });
+
+  it('unscored reps (short legs) show time, no status, no label', () => {
+    const m = repTableModel([rec(1, 40)])!;
+    expect(m.rows[0]).toMatchObject({ value: '0:40', tone: 'none' });
+    expect(m.rows[0].status).toBeUndefined();
+    expect(m.shortLabel).toBeNull();
+    expect(m.band).toBeNull();
   });
 });

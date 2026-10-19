@@ -42,13 +42,11 @@ export default function BlockCountdownPanel() {
     effortLabel,
   } = usePlannedRunEngine();
 
-  if (!currentBlock) return null;
-
-  const blockColor = currentBlock.colorHex || '#00ADEF';
-  const targetDistKm = (currentBlock.distanceMeters ?? 0) / 1000;
-  const safeDistance = totalDistance && isFinite(totalDistance) ? totalDistance : 0;
-
+  // Hooks before the early return: currentBlock becomes null once the plan
+  // completes (advanceBlock past the last block), and a hook below the
+  // return would then change the hook count and crash the render.
   const blockTitle = useMemo(() => {
+    if (!currentBlock) return '';
     const name = hebrewLabel(currentBlock.label);
     const dist = currentBlock.distanceMeters ? ` ${currentBlock.distanceMeters} מ׳` : '';
 
@@ -61,6 +59,12 @@ export default function BlockCountdownPanel() {
 
     return `${name}${dist}${counter}`;
   }, [currentBlock, blocks, currentBlockIndex]);
+
+  if (!currentBlock) return null;
+
+  const blockColor = currentBlock.colorHex || '#00ADEF';
+  const targetDistKm = (currentBlock.distanceMeters ?? 0) / 1000;
+  const safeDistance = totalDistance && isFinite(totalDistance) ? totalDistance : 0;
 
   return (
     <div

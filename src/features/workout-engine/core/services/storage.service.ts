@@ -146,6 +146,38 @@ export interface SessionSegmentRecord {
   endedAtMs?: number;
 }
 
+/**
+ * Per-block result of a PLANNED run (one entry per work block — interval /
+ * run reps; recoveries, warm-up and cool-down are not listed). Written by
+ * useRunningPlayer.finishWorkout as `blockResults`; optional — every older
+ * doc, free run, walk and hybrid session has none, and readers must treat
+ * its absence as "no per-rep data". Built by buildBlockRecords()
+ * (players/running/lib/planned-rep-results.ts). Keys are only present when
+ * known (Firestore rejects undefined inside arrays).
+ */
+export interface PlannedBlockRecord {
+  /** Index in the materialized workout's blocks[]. */
+  blockIndex: number;
+  /** 1-based number among the workout's work blocks ("חזרה 3"). */
+  rep: number;
+  label: string;
+  plannedDistanceMeters?: number;
+  plannedDurationSeconds?: number;
+  /** Actual distance covered in the block (m, rounded). */
+  distanceMeters: number;
+  /** Actual active seconds in the block. */
+  durationSeconds: number;
+  /** Target pace band (sec/km), when the block had one. */
+  targetMinPaceSec?: number;
+  targetMaxPaceSec?: number;
+  /** Average pace (sec/km). Never stored for legs under 400 m (owner rule). */
+  avgPaceSec?: number;
+  /** avgPace inside the target band — only when both exist. */
+  inRange?: boolean;
+  /** Seconds outside the band: + slower, − faster, 0 inside. */
+  paceDeltaSec?: number;
+}
+
 export interface WorkoutHistoryEntry {
   id?: string;
   userId: string;
@@ -198,6 +230,8 @@ export interface WorkoutHistoryEntry {
    * existing history filters, leagues and challenges keep working unchanged.
    */
   segments?: SessionSegmentRecord[];
+  /** Planned runs only: per-rep results (see PlannedBlockRecord). Optional. */
+  blockResults?: PlannedBlockRecord[];
 
   // ── Training OS fields ────────────────────────────────────────────────
   /** Whether this was a recovery/maintenance workout (does not consume weekly volume budget) */
@@ -505,6 +539,18 @@ export async function getWorkoutById(
   }
 }
 
+/** Tolerant read of the optional `blockResults` array (absent/malformed ⇒ undefined). */
+export function readBlockResults(raw: unknown): PlannedBlockRecord[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out = raw.filter(
+    (r): r is PlannedBlockRecord =>
+      !!r && typeof r === 'object' &&
+      typeof (r as PlannedBlockRecord).blockIndex === 'number' &&
+      typeof (r as PlannedBlockRecord).durationSeconds === 'number',
+  );
+  return out.length > 0 ? out : undefined;
+}
+
 /**
  * Full-fidelity Firestore doc -> WorkoutHistoryEntry mapping, shared between
  * getWorkoutById (F1.3) and getWorkoutsForDate (F2.2, below) so the two
@@ -543,6 +589,7 @@ function mapFullWorkoutDoc(id: string, data: Record<string, unknown>): WorkoutHi
     laps: Array.isArray(data.laps) ? data.laps : undefined,
     elevationGain: typeof data.elevationGain === 'number' ? data.elevationGain : undefined,
     segments: Array.isArray(data.segments) ? data.segments : undefined,
+    blockResults: readBlockResults(data.blockResults),
     isRecovery: data.isRecovery,
     difficulty: data.difficulty,
     setsCompleted: data.setsCompleted,

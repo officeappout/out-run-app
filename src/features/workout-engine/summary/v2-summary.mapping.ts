@@ -9,6 +9,16 @@ import type { MetricRing } from '@/components/ui/v2/MetricRings';
 import type { ExerciseSetsRow } from '@/components/ui/v2/ExerciseSetsTable';
 import type { SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
 import { stationRows } from '@/features/workout-engine/components/strength/utils/summary-v2.mapping';
+import type { RepPaceRow } from '@/components/ui/v2/RepPaceTable';
+import type { PlannedBlockRecord } from '@/features/workout-engine/core/services/storage.service';
+import {
+  fmtBand,
+  fmtClock,
+  fmtPace,
+  paceClassText,
+  recordClass,
+  repSummary,
+} from '@/features/workout-engine/players/running/lib/planned-rep-results';
 
 export const RING_COLORS = {
   distance: '#84cc16',
@@ -133,4 +143,54 @@ export function hybridStationTables(segments: SessionSegmentRecord[]): HybridSta
       return { key: `station-${s.index ?? i}`, title, rows: stationRows(log) };
     })
     .filter((t) => t.rows.length > 0);
+}
+
+// ── Planned runs: per-rep table (F-1g) ───────────────────────────────────
+
+export interface RepTableModel {
+  rows: RepPaceRow[];
+  /** Common target band (sec/km) when every scored rep shares one. */
+  band: { min: number; max: number } | null;
+  /** "5 מתוך 6 חזרות בטווח" (segments tab chip). */
+  summaryLabel: string | null;
+  /** "5/6 בטווח" (overview row chip). */
+  shortLabel: string | null;
+  reps: number;
+}
+
+/**
+ * Rows of the per-rep table from the saved `blockResults`. Absent / empty ⇒
+ * null (older docs, free runs) — callers then show today's laps UI.
+ */
+export function repTableModel(records: readonly PlannedBlockRecord[] | null | undefined): RepTableModel | null {
+  if (!records || records.length === 0) return null;
+  const rows: RepPaceRow[] = records.map((r, i) => {
+    const c = recordClass(r);
+    const band = fmtBand(r.targetMinPaceSec, r.targetMaxPaceSec);
+    return {
+      key: `${r.blockIndex}-${i}`,
+      n: r.rep > 0 ? r.rep : i + 1,
+      title: fmtClock(r.durationSeconds),
+      ...(band ? { sub: `יעד ${band}` } : {}),
+      ...(c ? { status: paceClassText(c) } : {}),
+      tone: c ? (c.band === 'in' ? 'in' : 'off') : 'none',
+      value: r.avgPaceSec ? fmtPace(r.avgPaceSec) : fmtClock(r.durationSeconds),
+      paceSec: r.avgPaceSec ?? null,
+      ...(r.avgPaceSec ? { paceLabel: fmtPace(r.avgPaceSec) } : {}),
+    };
+  });
+  const banded = records.filter((r) => r.targetMinPaceSec && r.targetMaxPaceSec);
+  const first = banded[0];
+  const common =
+    first && banded.every((r) => r.targetMinPaceSec === first.targetMinPaceSec && r.targetMaxPaceSec === first.targetMaxPaceSec)
+      ? { min: first.targetMinPaceSec as number, max: first.targetMaxPaceSec as number }
+      : null;
+  const s = repSummary(records);
+  return {
+    rows,
+    band: common,
+    summaryLabel: s.scored > 0 ? `${s.inRange} מתוך ${s.scored} חזרות בטווח` : null,
+    shortLabel: s.label,
+    reps: records.length,
+  };
 }

@@ -6,6 +6,7 @@ import { useRunningConfigStore } from '../../../core/store/useRunningConfigStore
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { computeZones, formatPaceSeconds } from '../../../core/services/running-engine.service';
 import type { RunBlock } from '../types/run-block.type';
+import { resolveBlockTargetPace } from '../lib/planned-rep-results';
 import type { ComputedPaceZone, RunZoneType, RunnerProfileType } from '../../../core/types/running.types';
 
 export type PaceStatus = 'slow' | 'on_target' | 'fast' | 'idle';
@@ -77,26 +78,11 @@ export function usePlannedRunEngine(): PlannedRunEngine {
   const isWorkoutComplete =
     currentWorkout != null && currentBlockIndex >= totalBlocks;
 
-  // Resolve target pace range for the current block (seconds/km)
+  // Resolve target pace range for the current block (seconds/km) — zone
+  // first, then the percentage rule (shared with the per-rep results).
   const { targetMinPace, targetMaxPace } = useMemo(() => {
-    if (!currentBlock || basePace <= 0)
-      return { targetMinPace: 0, targetMaxPace: 0 };
-
-    // Prefer zone-based lookup if the block carries a zoneType
-    if (currentBlock.zoneType && zones) {
-      const z = zones[currentBlock.zoneType];
-      return { targetMinPace: z.minPace, targetMaxPace: z.maxPace };
-    }
-
-    // Fall back to percentage-based computation
-    if (currentBlock.targetPacePercentage) {
-      return {
-        targetMinPace: Math.round(basePace * currentBlock.targetPacePercentage.min / 100),
-        targetMaxPace: Math.round(basePace * currentBlock.targetPacePercentage.max / 100),
-      };
-    }
-
-    return { targetMinPace: 0, targetMaxPace: 0 };
+    const t = resolveBlockTargetPace(currentBlock, basePace, zones);
+    return { targetMinPace: t.min, targetMaxPace: t.max };
   }, [currentBlock, basePace, zones]);
 
   // Convert store pace (min/km) → seconds/km for comparison

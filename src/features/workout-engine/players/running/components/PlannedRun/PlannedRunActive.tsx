@@ -23,6 +23,9 @@ import LongPressPauseButton from './LongPressPauseButton';
 import RunBlockPlaylist from './RunBlockPlaylist';
 import FloatingMetricBubble from './FloatingMetricBubble';
 import { hapticLight, hapticMedium, hapticWarning } from '@/lib/haptics';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import PlannedRunLiveV2 from './v2/PlannedRunLiveV2';
 
 const PACE_HINT_COOLDOWN_MS = 30_000;
 const PACE_HINT_THRESHOLD_S = 10;
@@ -54,6 +57,10 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
     setMapFollowEnabled,
   } = useRunningPlayer();
   const engine = usePlannedRunEngine();
+
+  // Home v2 (enable_home_v2): the approved F-1c…F-1e live layout. Off ⇒ today's UI.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const {
     currentBlock,
@@ -164,10 +171,14 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
   }, [paceStatus, currentPaceSeconds, targetMinPace, targetMaxPace]);
 
   // ── Auto-finish ──
+  // Reachable since advanceBlock moves past the last block (19.10.2026).
+  // Never inside a hybrid session: finishWorkout would end the WHOLE hybrid
+  // session there (G7.1 redirect) — the hybrid layer owns its own finish.
   useEffect(() => {
     if (isWorkoutComplete) {
       const timer = setTimeout(async () => {
-        const { finishWorkout } = useRunningPlayer.getState();
+        const { finishWorkout, hybridMode } = useRunningPlayer.getState();
+        if (hybridMode) return;
         await finishWorkout();
       }, 1500);
       return () => clearTimeout(timer);
@@ -181,8 +192,11 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
     return () => clearInterval(id);
   }, []);
 
+  // Skip never ends the workout: on the LAST block it stays a no-op (as it
+  // always was) — finishing is the auto-finish or an explicit finish.
+  const canSkip = !isWorkoutComplete && currentBlockIndex < engine.totalBlocks - 1;
   const handleSkipBlock = () => {
-    if (!isWorkoutComplete) advanceBlock();
+    if (canSkip) advanceBlock();
   };
 
   const togglePause = () => {
@@ -230,6 +244,21 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
       className="absolute inset-0 z-20 overflow-hidden font-sans pointer-events-none"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
+      {v2 ? (
+        <PlannedRunLiveV2
+          engine={engine}
+          blocks={blocks}
+          title={currentWorkout?.title ?? 'אימון מתוכנן'}
+          isPaused={isPaused}
+          onPause={() => { hapticLight(); pauseSession(); }}
+          onResume={() => { hapticLight(); resumeSession(); }}
+          canSkip={canSkip}
+          onSkip={handleSkipBlock}
+          onEnd={() => { hapticWarning(); handleFinishWorkout(); }}
+          onJumpToBlock={jumpToBlock}
+        />
+      ) : (
+      <>
       {/* ═══ BUBBLE MODE ═══ */}
       <AnimatePresence>
         {playerState === 'bubble' && (
@@ -415,6 +444,8 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
           </div>
         )}
       </motion.div>
+      </>
+      )}
 
       {/* ═══ PAUSE OVERLAY — mirrors StrengthRunner ═══ */}
       <AnimatePresence>
@@ -461,15 +492,19 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             <div className="w-full max-w-xs space-y-3 px-6">
               <button
                 onClick={() => { hapticLight(); resumeSession(); }}
-                className="w-full h-16 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-cyan-500/30 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]"
+                className={v2
+                  ? 'w-full h-16 rounded-full text-[17px] font-extrabold flex items-center justify-center gap-2 bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2'
+                  : 'w-full h-16 rounded-2xl font-bold text-white text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-cyan-500/30 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                <Play size={22} fill="white" />
+                <Play size={22} fill={v2 ? 'currentColor' : 'white'} />
                 התחילו שוב
               </button>
               <button
                 onClick={() => { hapticMedium(); setShowExitConfirm(true); }}
-                className="w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg"
+                className={v2
+                  ? 'w-full h-16 rounded-full bg-white text-[17px] font-extrabold text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2'
+                  : 'w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 סיום אימון
@@ -542,12 +577,15 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
         )}
       </AnimatePresence>
 
-      {/* Block transition overlay */}
-      <BlockTransitionOverlay
-        currentBlock={currentBlock}
-        currentBlockIndex={currentBlockIndex}
-        blockTimeRemaining={blockTimeRemaining}
-      />
+      {/* Block transition overlay — classic only; the v2 card itself switches
+          to the recovery countdown / next block. */}
+      {!v2 && (
+        <BlockTransitionOverlay
+          currentBlock={currentBlock}
+          currentBlockIndex={currentBlockIndex}
+          blockTimeRemaining={blockTimeRemaining}
+        />
+      )}
 
       {/* Hidden element to measure safe-area-inset-bottom */}
       <div
