@@ -31,7 +31,7 @@
  * which anchor a preset sits on and threads ⚡ → the engine's difficulty knob.
  */
 
-import type { HybridStartIntent } from './build-hybrid-input';
+import type { HybridStartIntent, SmartIntentParams } from './build-hybrid-input';
 import type { HybridEmphasis, AerobicKind } from './compose-hybrid-session.service';
 import type { HybridShapeName } from './hybrid-shape';
 import {
@@ -80,7 +80,14 @@ export interface HybridPreset {
    * composeFullParkWorkout · 'route_stops' → composeRouteStopsWorkout). Omitted → the
    * default budget-split path (all existing presets).
    */
-  mode?: 'full_park_workout' | 'route_stops';
+  mode?: 'full_park_workout' | 'route_stops' | 'smart_walk_strength';
+  /**
+   * enable_hybrid_cards_v2 only: an explicit walk share (the situation sizing), overriding
+   * the emphasis anchor. Absent on every registry preset → presetToIntent byte-identical.
+   */
+  aerobicShare?: number;
+  /** enable_hybrid_cards_v2 only: threaded onto the intent as `smart` (see HybridStartIntent). */
+  smart?: SmartIntentParams;
 }
 
 interface SlotBase {
@@ -91,6 +98,13 @@ interface SlotBase {
   recommended: boolean;
   /** Accent hue for the card chrome (green aerobic / brand hybrid). */
   accent: string;
+  /** enable_hybrid_cards_v2 only: one short Hebrew line — why this card is offered now. */
+  reason?: string;
+  /**
+   * enable_hybrid_cards_v2 only: appended to the warm-cache key so a card whose compose
+   * inputs changed (another park / route / size) never reuses a stale plan. Absent → ''.
+   */
+  cacheKeySuffix?: string;
 }
 
 /** A slot that composes a hybrid plan through the existing engine. */
@@ -204,13 +218,15 @@ export function boltsToDifficulty(bolts: Bolts): number {
 export function presetToIntent(preset: HybridPreset, timeBudgetMin: number): HybridStartIntent {
   return {
     timeBudgetMin,
-    aerobicShare: EMPHASIS_TO_SHARE[preset.emphasis],
+    aerobicShare: preset.aerobicShare ?? EMPHASIS_TO_SHARE[preset.emphasis],
     emphasis: preset.emphasis,
     aerobicKind: preset.aerobicKind,
     difficulty: boltsToDifficulty(preset.bolts),
     // Thread the compose-branch marker (full-park). Conditional spread keeps existing
     // budget-split intents byte-identical (no `mode` key at all).
     ...(preset.mode ? { mode: preset.mode } : {}),
+    // enable_hybrid_cards_v2 sizing / target (absent on every registry preset).
+    ...(preset.smart ? { smart: preset.smart } : {}),
   };
 }
 

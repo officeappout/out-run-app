@@ -85,6 +85,12 @@ export interface ComposedHybridSession {
    * decides whether they are shown/counted. Absent for generated_loop (entry = user, ~0).
    */
   roundTrip?: RoundTripLegs;
+  /**
+   * enable_hybrid_cards_v2 only: the session's own name for the overview header + v2 player
+   * (the smart walk reuses the route-stops composer but is "הליכה + כוח", not "מסלול +
+   * עצירות"). Absent on every flag-off session → titles unchanged.
+   */
+  sessionTitle?: string;
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -568,6 +574,8 @@ export async function composeFullParkRoutePreview(
 
 /** ~800 m: the user must be near the chosen route's line for a route-stops card to make sense. */
 const ROUTE_STOPS_MAX_START_M = 800;
+/** enable_hybrid_cards_v2: a route the card named (e.g. the one being browsed) may start further away. */
+const PREFERRED_ROUTE_MAX_START_M = 3000;
 
 /**
  * Level-window tolerance for route stops (Bug 5a, option א — SCOPED). The default is ±3
@@ -627,6 +635,13 @@ async function resolveRouteStopsBackbone(
     targetKm?: number;
     cityName?: string;
     activity?: ActivityType;
+    /**
+     * enable_hybrid_cards_v2 only ('existing_route'): the published route the card is about
+     * (near the user, or the one the user is looking at on the map). Only that route is
+     * considered, with the wider PREFERRED_ROUTE_MAX_START_M cap (the walk legs cover the gap).
+     * Absent → nearest published route, byte-identical.
+     */
+    routeId?: string;
   },
 ): Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null> {
   const { userPosition } = opts;
@@ -709,7 +724,9 @@ async function resolveRouteStopsBackbone(
     let routes: any[] = [];
     try { routes = await getCachedOfficialRoutes(); } catch { return null; }
     let best: { id: string; name?: string; path: [number, number][]; d: number } | null = null;
+    const startCapM = opts.routeId ? PREFERRED_ROUTE_MAX_START_M : ROUTE_STOPS_MAX_START_M;
     for (const r of routes) {
+      if (opts.routeId && r?.id !== opts.routeId) continue;
       const path = normalizePath(r?.path);
       if (path.length < 2) continue;
       let d = Infinity;
@@ -719,10 +736,10 @@ async function resolveRouteStopsBackbone(
       }
       if (!best || d < best.d) best = { id: r.id, name: r.name, path, d };
     }
-    if (!best || best.d > ROUTE_STOPS_MAX_START_M) {
+    if (!best || best.d > startCapM) {
       console.warn(
         `[route-stops] nearest published route ${best ? `"${best.name}" @${best.d.toFixed(0)}m` : 'none'}` +
-        ` — beyond ${ROUTE_STOPS_MAX_START_M}m cap → no card`,
+        ` — beyond ${startCapM}m cap → no card`,
       );
       return null;
     }
@@ -750,9 +767,31 @@ async function resolveRouteStopsBackbone(
  * ⚠️ Part 2b scope: non-strength stops (stretch/core) hit dispatchStopContent's default and
  * are skipped until Part 3; the near-end cooldown is Part 4. XP display-only (§8).
  */
+/**
+ * enable_hybrid_cards_v2 hook-in for composeRouteStopsWorkout. Omitted (every flag-off call)
+ * → byte-identical behaviour.
+ */
+interface RouteStopsComposeOpts {
+  /** Replaces the published-route / generated-loop backbone (smart "הליכה + כוח"). */
+  resolveBackbone?: (args: {
+    userPosition: { lat: number; lng: number };
+    parks: any[];
+    targetKm: number;
+  }) => Promise<{ routePath: [number, number][]; routeId: string; routeName?: string } | null>;
+  /**
+   * The time budget for the REAL route that came back (smart card: walk time of that route +
+   * the strength minutes the card sized from the weekly sets), so the station planner's
+   * "budget − walk" gives exactly the card's strength minutes. Omitted → intent.timeBudgetMin.
+   */
+  timeBudgetForRoute?: (routePath: [number, number][]) => number;
+  /** Stamped on the composed session as `sessionTitle` (smart card's own name). */
+  sessionTitle?: string;
+}
+
 async function composeRouteStopsWorkout(
   intent: HybridStartIntent,
   ctx: HybridSessionContext,
+  opts: RouteStopsComposeOpts = {},
 ): Promise<ComposedHybridSession | null> {
   if (!ctx.userPosition) { console.warn('[composeRouteStopsWorkout] no user position'); return null; }
   const tm = createComposeTimer();
@@ -852,11 +891,18 @@ async function composeRouteStopsWorkout(
   // call already used by build-map-user-context.ts — resolved here as plain numbers, the
   // function itself stays pure (LAW 0).
   const stepContext = buildStepContext(useActivityStore.getState().today);
-  const targetKm = deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
-  let backbone = await tm.time('backbone.existing', resolveRouteStopsBackbone('existing_route', {
-    userPosition: ctx.userPosition, parks, targetKm,
-    cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
-  }));
+  // enable_hybrid_cards_v2: the card already sized the walk from today's remaining steps.
+  const targetKm = intent.smart?.targetKm != null && intent.smart.targetKm > 0
+    ? intent.smart.targetKm
+    : deriveAerobicTargetKm(intent, paceProfile.basePace, stepContext);
+  let backbone = opts.resolveBackbone
+    ? await tm.time('backbone.smart', opts.resolveBackbone({ userPosition: ctx.userPosition, parks, targetKm }))
+    : await tm.time('backbone.existing', resolveRouteStopsBackbone('existing_route', {
+      userPosition: ctx.userPosition, parks, targetKm,
+      cityName: ctx.cityName, activity: intent.aerobicKind as ActivityType,
+      ...(intent.smart?.routeId ? { routeId: intent.smart.routeId } : {}),
+    }));
+  if (!backbone && opts.resolveBackbone) { tm.report('route-stops'); return null; }
   if (!backbone) {
     backbone = await tm.time('backbone.generatedLoop', resolveRouteStopsBackbone('generated_loop', {
       userPosition: ctx.userPosition, parks, targetKm,
@@ -975,7 +1021,8 @@ async function composeRouteStopsWorkout(
   // FROM the user's position (entry = user), so its legs would be ~0 → left as-is.
   // PERF (13.10.2026): the two Mapbox walking fetches need only the traversal, so they start HERE and
   // run in parallel with levels/exercises/plan building; the result is awaited just before return.
-  const roundTripP = backbone.routeId !== 'generated_loop' && traversalPath.length >= 2
+  // The smart walk backbone starts and ends at the user too (no legs).
+  const roundTripP = backbone.routeId !== 'generated_loop' && !opts.resolveBackbone && traversalPath.length >= 2
     ? tm.time('walkLegs', composeRoundTripLegs(
         ctx.userPosition,
         { lng: traversalPath[0][0], lat: traversalPath[0][1] },
@@ -1049,6 +1096,7 @@ async function composeRouteStopsWorkout(
   );
 
   const machineShareLevel = resolveMachineShareLevel(profile as any);
+  const timeBudgetMin = opts.timeBudgetForRoute ? opts.timeBudgetForRoute(traversalPath) : intent.timeBudgetMin;
 
   // One plan per bolt (קל/בינוני/קשוח) — same route + stops, difficulty drives the engine.
   const buildForBolt = (difficulty: 1 | 2 | 3): HybridPlan => {
@@ -1066,7 +1114,7 @@ async function composeRouteStopsWorkout(
       ...(priority2SkillIds.length ? { priority2SkillIds } : {}),
     };
     return composeHybridSession({
-      timeBudgetMin: intent.timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
+      timeBudgetMin, emphasis: intent.emphasis, aerobicKind: intent.aerobicKind,
       paceProfile, routePath: traversalPath, stopCandidates: stops, stopSelection: 'as_provided',
       // Bug 2a: every route stop is a full-body workout (mixed domains), not single-domain.
       stationDomainMode: 'multi',
@@ -1163,6 +1211,7 @@ async function composeRouteStopsWorkout(
     // Budget-split stations → proven single-segment flattening, NOT full-park warmup-split.
     fullParkRun: false,
     ...(noStationsHint ? { fallbackHint: noStationsHint.fallbackHint, assessmentDomains: noStationsHint.assessmentDomains } : {}),
+    ...(opts.sessionTitle ? { sessionTitle: opts.sessionTitle } : {}),
   };
 }
 
@@ -1205,6 +1254,34 @@ export async function composeHybridPlan(
   if (intent.mode === 'route_stops') {
     if (!MAP_ROUTE_STOPS_V1) return null;
     return composeRouteStopsWorkout(intent, ctx);
+  }
+
+  // Smart "הליכה + כוח" (enable_hybrid_cards_v2 — only its slot / the free-run drawer under
+  // that flag ever set this mode): the route-stops composer (v2 overview, 3 difficulties, real
+  // stops) over a walk from the user THROUGH a nearby equipped park, sized by the card.
+  if (intent.mode === 'smart_walk_strength') {
+    const [{ resolveSmartWalkBackbone }, { smartParkRadiusM, smartComposeBudgetMin }, { pathLengthMeters }, { useUserStore }] = await Promise.all([
+      import('./smart-cards/smart-walk-backbone'),
+      import('./smart-cards/smart-sizing'),
+      import('@/features/parks/core/services/geoUtils'),
+      import('@/features/user/identity/store/useUserStore'),
+    ]);
+    const basePace = useUserStore.getState().profile?.running?.paceProfile?.basePace;
+    const strengthMin = intent.smart?.strengthMin;
+    return composeRouteStopsWorkout(intent, ctx, {
+      sessionTitle: intent.aerobicKind === 'running' ? 'ריצה + כוח' : 'הליכה + כוח',
+      ...(strengthMin != null ? {
+        timeBudgetForRoute: (path: [number, number][]) =>
+          smartComposeBudgetMin(pathLengthMeters(path) / 1000, intent.aerobicKind, strengthMin, basePace),
+      } : {}),
+      resolveBackbone: ({ userPosition, parks, targetKm }) => resolveSmartWalkBackbone({
+        userPosition, parks, targetKm,
+        parkId: intent.smart?.parkId,
+        activity: intent.aerobicKind,
+        cityName: ctx.cityName,
+        maxParkRadiusM: smartParkRadiusM(intent.aerobicKind),
+      }),
+    });
   }
 
   const [
@@ -1459,7 +1536,9 @@ export async function runHybridPlan(composed: ComposedHybridSession, startRun: (
   }
   // v2 player header: route + stops is named as such (same signal as the overview title —
   // fullParkRun===false is set only by composeRouteStopsWorkout), not the generic "הליכה + כוח".
-  const sessionLabel = composed.fullParkRun === false && !composed.fallbackHint ? 'מסלול + עצירות' : undefined;
+  const sessionLabel = composed.fullParkRun === false && !composed.fallbackHint
+    ? (composed.sessionTitle ?? 'מסלול + עצירות') // sessionTitle: enable_hybrid_cards_v2 smart walk only
+    : undefined;
   useHybridRun.getState().startHybrid(runPlan, composed.aerobicKind, fullPark, composed.isWarmupActive ?? true, stationNames, sessionLabel);
   startRun();
 }
