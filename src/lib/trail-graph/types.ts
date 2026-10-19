@@ -126,6 +126,9 @@ export interface TrailRoute {
   segmentForward: boolean[];
   geometry: LngLat[];
   stats: RouteStats;
+  /** Equally spaced elevations along `geometry` (Copernicus GLO-30), for the
+   *  live route-run elevation strip. Absent on a DEM coverage gap. */
+  elevationProfile?: { stepM: number; elevationsM: number[] };
   difficulty: DifficultyBreakdown;
   stars: StarBreakdown;
   settlement: string | null;
