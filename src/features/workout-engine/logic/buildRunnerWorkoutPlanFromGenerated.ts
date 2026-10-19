@@ -36,11 +36,18 @@ import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from './protocols/tabata.block';
+import { withTimedMainBlock } from './protocols/timed.block';
 import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 
 interface BuildOpts {
   /** The plan id the runner will key on (route param + sessionStorage id). */
   id: string;
+  /**
+   * enable_home_v2: run the generator's AMRAP / EMOM choice as a timed block
+   * (seg-main → protocol 'amrap' | 'emom', see protocols/timed.block). Absent
+   * / false → byte-identical plan.
+   */
+  timedBlocks?: boolean;
 }
 
 /**
@@ -282,7 +289,7 @@ export function buildRunnerWorkoutPlanFromGenerated(
     name: gw.title || 'אימון כוח',
     description: gw.description || '',
     logicCue: gw.logicCue || '',
-    segments,
+    segments: opts.timedBlocks ? withTimedMainBlock(segments, gw) : segments,
     totalDuration: gw.estimatedDuration || 30,
     difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
     trainingType: 'strength' as const,
