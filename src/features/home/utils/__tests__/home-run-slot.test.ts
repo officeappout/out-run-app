@@ -152,4 +152,12 @@ describe('resolveRunSlotSurface', () => {
     expect(resolveRunSlotSurface(next, 'empty', 'HYBRID')).toBe('standalone');
     expect(resolveRunSlotSurface(today, 'empty', 'RUNNING')).toBeNull();
   });
+  it('flag off (ungated fix 19.10.2026) → carousel slide only, never standalone', () => {
+    expect(resolveRunSlotSurface(today, 'carousel', 'HYBRID', false)).toBe('carousel');
+    expect(resolveRunSlotSurface(next, 'carousel', 'RUNNING', false)).toBe('carousel');
+    expect(resolveRunSlotSurface(today, 'done', 'HYBRID', false)).toBeNull();
+    expect(resolveRunSlotSurface(today, 'empty', 'HYBRID', false)).toBeNull();
+    expect(resolveRunSlotSurface(next, 'empty', 'PERFORMANCE', false)).toBeNull();
+    expect(resolveRunSlotSurface(today, 'loading', 'HYBRID', false)).toBeNull();
+  });
 });

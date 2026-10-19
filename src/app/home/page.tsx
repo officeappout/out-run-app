@@ -103,7 +103,7 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard,
+  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
@@ -1638,11 +1638,13 @@ export default function HomePage() {
   const isStrengthInviteCarouselItem = (
     item: Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID },
   ): item is { id: typeof STRENGTH_INVITE_CARD_ID } => item.id === STRENGTH_INVITE_CARD_ID;
-  // Home v2 (enable_home_v2) — today's planned run (or the next one) as a slide of the
-  // daily carousel, for running-only and dual-track users (audit-run-schedule §5: the run
-  // card used to live only in StatsOverview RUNNING, which the carousel hides). Same
-  // sentinel pattern as the strength invite above. Pure, from the loaded profile.
-  const homeRun = useHomeRunSlot(profile, featureFlags.enableHomeV2, hasStrengthProgram);
+  // Today's planned run (or the next one) as a slide of the daily carousel, for
+  // running-only and dual-track users (audit-run-schedule §5: the run card used to live
+  // only in StatsOverview RUNNING, which the carousel hides). Same sentinel pattern as the
+  // strength invite above. Pure, from the loaded profile. Resolved for EVERY runner
+  // (owner-approved ungated fix, 19.10.2026): enable_home_v2 picks the card —
+  // HomeRunCarouselCard with the flag, the legacy NextRunWorkoutCard without.
+  const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram);
   const RUN_PLAN_CARD_ID = 'run-plan-card';
   const isRunPlanCarouselItem = (
     item: Suggestion | { id: string },
@@ -3208,10 +3210,11 @@ export default function HomePage() {
                   && !isTodayWorkoutDone
                   && preWorkoutSuggestions === null;
 
-                // enable_home_v2 (homeRun.slot is null with the flag off): where today's /
-                // the next run renders when the carousel isn't showing — on its own above the
+                // Where today's / the next run renders. In the carousel for every runner; when
+                // the carousel isn't showing, enable_home_v2 only: on its own above the
                 // StatsOverview fallback (today's strength done, or nothing suggested), never in
-                // RUNNING mode (its StatsOverview already mounts NextRunWorkoutCard).
+                // RUNNING mode (its StatsOverview already mounts NextRunWorkoutCard). Flag off →
+                // the fallback is today's StatsOverview, untouched.
                 const runSlotSurface = resolveRunSlotSurface(
                   homeRun.slot,
                   readyPreWorkoutSuggestions ? 'carousel'
@@ -3220,6 +3223,7 @@ export default function HomePage() {
                     : isTodayWorkoutDone ? 'done'
                     : 'empty',
                   resolvedDashboardMode,
+                  featureFlags.enableHomeV2,
                 );
                 const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4">
@@ -3312,8 +3316,8 @@ export default function HomePage() {
                         const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID }> = !hasStrengthProgram
                           ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
                           : readyPreWorkoutSuggestions;
-                        // enable_home_v2 only (homeRun.slot is null with the flag off).
-                        return homeRun.slot
+                        // Both flag states (the card differs, see renderCard).
+                        return runSlotSurface === 'carousel' && homeRun.slot
                           ? placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)
                           : base;
                       })()}
@@ -3329,7 +3333,15 @@ export default function HomePage() {
                         if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
                       }}
                       renderCard={(s) =>
-                        isRunPlanCarouselItem(s) && homeRun.slot ? (
+                        isRunPlanCarouselItem(s) && homeRun.slot && !featureFlags.enableHomeV2 ? (
+                          // Flag off: the legacy card, visuals unchanged (it resolves today /
+                          // rest-day-next itself, from the same profile).
+                          <NextRunWorkoutCard
+                            weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                            calmReturn={calmReturn.state}
+                            calmWelcomeBack={!!calmReturn.welcomeBack}
+                          />
+                        ) : isRunPlanCarouselItem(s) && homeRun.slot ? (
                           <HomeRunCarouselCard
                             slot={homeRun.slot}
                             profile={profile}

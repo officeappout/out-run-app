@@ -30,6 +30,8 @@ import type { AerobicKind } from '@/features/workout-engine/hybrid/compose-hybri
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
+import { buildPlannedRunSlot, withPlannedRunSlot } from '@/features/workout-engine/hybrid/planned-run-slot';
+import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useSmartHybridSlots } from '@/features/workout-engine/hybrid/smart-cards/useSmartHybridSlots';
@@ -924,6 +926,15 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     [smartHybrid.slots, baseSlots, rankedSuggestions],
   );
 
+  // enable_home_v2 only: today's planned run (the same slot home's daily carousel resolves)
+  // leads the carousel; its CTA opens the run overview with "הצע לי מסלול". Flag off →
+  // plannedRunSlot is null and carouselSlots === slots.
+  const homeRun = useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram);
+  const carouselSlots = useMemo(
+    () => withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null),
+    [slots, mapFeatureFlags.enableHomeV2, homeRun.slot],
+  );
+
   // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
   // id MUST be 'hybrid-route': MapShell draws a standalone composed loop ONLY
   // for that id (else just the station marker shows, polyline missing — see
@@ -1149,6 +1160,14 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       // is in play here (resetHybridFlow already cleared it), so plain
       // '/map' (matching the idle mode we just set) is the correct target.
       startMiniDomainAssessment(router, 'push', '/map');
+      return;
+    }
+    // enable_home_v2 (planned-run-slot.ts): the planned run's overview, straight into
+    // "הצע לי מסלול" — the same link home's run overview uses.
+    if (slot.kind === 'planned_run') {
+      resetHybridFlow();
+      setMapMode('idle');
+      router.push(slot.href);
       return;
     }
     if (slot.kind === 'hybrid') {
@@ -2202,7 +2221,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 (mutually exclusive freeRunStep). Flag-gated → byte-identical when off. */}
             {mapFeatureFlags.enableHybridSlots && mapMode === 'freeRun' && freeRunStep === 'slots' && (
               <HybridSlotCarousel
-                slots={slots}
+                slots={carouselSlots}
                 loading={hybridComposing}
                 aerobicKind={slotActivity}
                 onActivityChange={setSlotActivity}

@@ -16,14 +16,32 @@ const hookSrc = readFileSync(
 );
 
 describe('home/page.tsx — v2 run card wiring', () => {
-  it('the slot is resolved with the home v2 flag', () => {
-    expect(pageSrc).toContain('useHomeRunSlot(profile, featureFlags.enableHomeV2, hasStrengthProgram)');
+  it('the slot is resolved for every runner (ungated fix, 19.10.2026)', () => {
+    expect(pageSrc).toContain('useHomeRunSlot(profile, true, hasStrengthProgram)');
     expect(hookSrc).toContain('if (!enabled || !hasRunningPlan) return { slot: null');
   });
 
-  it('the run slide is only added when a slot exists (null with the flag off)', () => {
+  it('the run slide is only added when the slot lands in the carousel', () => {
     expect(pageSrc).toContain('placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)');
-    expect(pageSrc).toMatch(/return homeRun\.slot\s*\?\s*placeRunCard/);
+    expect(pageSrc).toMatch(/return runSlotSurface === 'carousel' && homeRun\.slot\s*\?\s*placeRunCard/);
+  });
+
+  it('the surface knows the flag (flag off → carousel only, no standalone card)', () => {
+    expect(pageSrc).toMatch(/resolvedDashboardMode,\s*featureFlags\.enableHomeV2,\s*\);/);
+  });
+
+  it('flag off renders the legacy NextRunWorkoutCard as the slide; flag on the v2 card', () => {
+    expect(pageSrc).toMatch(/isRunPlanCarouselItem\(s\) && homeRun\.slot && !featureFlags\.enableHomeV2 \? \([\s\S]*?<NextRunWorkoutCard/);
+    expect(pageSrc).toMatch(/: isRunPlanCarouselItem\(s\) && homeRun\.slot \? \(\s*<HomeRunCarouselCard/);
+  });
+
+  it('no second run card: StatsOverview (which mounts NextRunWorkoutCard in RUNNING) is only the non-carousel fallback', () => {
+    const carouselAt = pageSrc.indexOf('const content = readyPreWorkoutSuggestions ? (');
+    const statsAt = pageSrc.indexOf('<StatsOverview', carouselAt);
+    const loadingAt = pageSrc.indexOf(': preWorkoutSuggestionsLoading ? (', carouselAt);
+    expect(carouselAt).toBeGreaterThan(-1);
+    expect(loadingAt).toBeGreaterThan(carouselAt);
+    expect(statsAt).toBeGreaterThan(loadingAt);
   });
 
   it('the run slide never reaches handlePreWorkoutSettle', () => {

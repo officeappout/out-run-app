@@ -130,7 +130,18 @@ export interface AssessmentPromptSlot extends SlotBase {
   kind: 'assessment_prompt';
 }
 
-export type HybridSlot = HybridPresetSlot | AerobicQuickSlot | AssessmentPromptSlot;
+/**
+ * enable_home_v2 only: today's planned run from the running program (planned-run-slot.ts).
+ * No compose step — its CTA opens the planned run's overview on /map with "הצע לי מסלול"
+ * (`href`, plannedRunMapUrl with suggest=1 → suggestRoutesForWorkout). Never produced by
+ * resolveSlots / resolveSmartSlots; DiscoverLayer prepends it.
+ */
+export interface PlannedRunSlot extends SlotBase {
+  kind: 'planned_run';
+  href: string;
+}
+
+export type HybridSlot = HybridPresetSlot | AerobicQuickSlot | AssessmentPromptSlot | PlannedRunSlot;
 
 /** Environment the resolver reads — all caller-supplied, so the fn stays pure. */
 export interface SlotEnv {

@@ -1,7 +1,8 @@
 /**
- * Home v2 (enable_home_v2) — which planned run, if any, gets a card in the
- * daily carousel ("האימון היומי שלך"), and where it goes among the strength
- * suggestions. Pure: the caller passes the already-resolved day state
+ * Which planned run, if any, gets a card in the daily carousel ("האימון
+ * היומי שלך"), and where it goes among the strength suggestions. Both flag
+ * states (19.10.2026): enable_home_v2 renders HomeRunCarouselCard, flag off
+ * renders the legacy NextRunWorkoutCard in the same slot. Pure: the caller passes the already-resolved day state
  * (resolveRunningDayState on the profile's activeProgram — no extra reads).
  *
  * Why: the run card used to live only inside StatsOverview's RUNNING branch,
@@ -50,7 +51,7 @@ export interface HomeRunSlot<E extends HomeRunEntry = HomeRunEntry> {
 }
 
 export interface ResolveHomeRunSlotInput<E extends HomeRunEntry> {
-  /** enable_home_v2. Off → null, always. */
+  /** Off → null, always. Home passes true for every runner since 19.10.2026 (the flag picks the card, not the slot). */
   enabled: boolean;
   /** The user has a built running plan (activeProgram.schedule has entries). */
   hasRunningPlan: boolean;
@@ -121,14 +122,21 @@ export type RunSlotSurface = 'carousel' | 'standalone' | null;
  * Where the run slot renders. RUNNING mode's StatsOverview fallback already
  * mounts NextRunWorkoutCard (ignores hideWorkoutSection), so the standalone
  * card is only for the other modes — never two run cards.
+ *
+ * Flag off (`v2` false — the ungated fix, 19.10.2026): the slot is resolved for
+ * every runner, but it only becomes a carousel slide (the legacy
+ * NextRunWorkoutCard). Whenever the carousel isn't showing, StatsOverview's
+ * fallback is exactly today's behaviour — no standalone card.
  */
 export function resolveRunSlotSurface(
   slot: HomeRunSlot | null,
   anchor: HomeAnchorState,
   dashboardMode: string,
+  v2 = true,
 ): RunSlotSurface {
   if (!slot) return null;
   if (anchor === 'carousel') return 'carousel';
+  if (!v2) return null;
   if (anchor === 'loading' || anchor === 'other') return null;
   if (dashboardMode === 'RUNNING') return null;
   // Workout done (e.g. strength) → only a still-pending run of TODAY stays.
