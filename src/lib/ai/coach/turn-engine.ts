@@ -368,6 +368,11 @@ export function clientOutcomeToToolResult(id: string, outcome: ClientToolOutcome
         `There is less content at the user's level for this location, so the engine built it a bit below their level. Say so in one short sentence, like: ${result.location === 'home' ? 'בבית יש פחות תרגילים ברמה שלך, אז בניתי' : 'כאן יש פחות תרגילים ברמה שלך, אז בניתי'} ... Never call it a high-level workout.`,
       );
     }
+    if (result.budgetLight) {
+      notes.push(
+        `The user already did most of their strength sets ${result.budgetLight === 'daily_spent' ? 'today' : 'this week'}, so the engine made this a lighter strength session (fewer sets, easier). Say why in one short sentence, like: ${result.budgetLight === 'daily_spent' ? 'היום כבר עשית את הכוח שלך, אז עכשיו משהו קל יותר כדי שהשרירים יתאוששו' : 'השבוע כבר עשית את רוב הכוח, אז היום משהו קל יותר כדי שהשרירים יתאוששו'}`,
+      );
+    }
     if (result.shortOfMinimum) {
       notes.push('Fewer exercises than usual were available for this request at this location. Say it simply and offer a different area or location.');
     }

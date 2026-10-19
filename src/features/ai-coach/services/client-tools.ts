@@ -18,6 +18,7 @@ import { aiWorkoutTitle } from '@/lib/ai/coach/intent';
 import { buildGenerateOptions, compactWorkout, isParkLike, newAiWorkoutId } from './workout-tool.pure';
 import { baseDomainOf, shapeAiWorkout } from './workout-shaping.pure';
 import { putAiWorkout } from './workout-cache';
+import { snapshotFromVolumeStore, trainingDaysOf, type VolumeStoreLike } from '@/features/workout-engine/budget-light/snapshot';
 
 export interface ClientToolRun {
   outcome: ClientToolOutcome;
@@ -47,8 +48,12 @@ async function generateWorkoutExecutor(rawInput: unknown, profile: UserFullProfi
     const store = useWeeklyVolumeStore.getState() as unknown as {
       getRemainingBudget?: () => number;
       getBudgetUsagePercent?: () => number;
+    } & VolumeStoreLike;
+    const budget = {
+      remaining: store.getRemainingBudget?.(),
+      usagePct: store.getBudgetUsagePercent?.(),
+      strength: snapshotFromVolumeStore(store, new Date(), trainingDaysOf(profile as never)),
     };
-    const budget = { remaining: store.getRemainingBudget?.(), usagePct: store.getBudgetUsagePercent?.() };
     const parkEquipmentIds = isParkLike(input.location)
       ? (await resolveWorkoutContext(profile, input.location as ExecutionLocation, { allowHomeOverride: false })).availableGear
       : undefined;

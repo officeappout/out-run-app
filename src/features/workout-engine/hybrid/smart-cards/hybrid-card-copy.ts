@@ -5,6 +5,8 @@
  */
 
 import type { AerobicKindLite, NearbyPark, RouteWithStops, SmartSessionSizing, UserGender } from './situation.types';
+import { budgetLightText } from '../../budget-light/copy';
+import type { BudgetLightReasonKey } from '../../budget-light/policy';
 
 type G = UserGender | undefined;
 const pick = (g: G, male: string, female: string) => (g === 'female' ? female : male);
@@ -36,6 +38,10 @@ export function walkStrengthReason(
   g: G,
 ): string {
   const steps = stepsRemaining != null ? formatCount(stepsRemaining) : null;
+  if (sizing.setsSource === 'light' && sizing.lightReasonKey) {
+    const why = budgetLightText(sizing.lightReasonKey, 'card', g);
+    return sizing.stepsSource === 'steps' && steps ? `נשארו לך ${steps} צעדים. ${why}` : why;
+  }
   if (sizing.stepsSource === 'steps' && steps) {
     if (sizing.setsSource === 'budget') return `נשארו לך ${steps} צעדים ו־${sizing.strengthSets} סטים של כוח`;
     if (sizing.setsSource === 'spent') return `נשארו לך ${steps} צעדים. הכוח השבוע כבר סגור, אז עצירה קלה`;
@@ -63,6 +69,11 @@ export function fullParkReason(
   return pick(g,
     `אתה במרחק ${min} דק׳ הליכה מגינת כושר. אימון כוח מלא?`,
     `את במרחק ${min} דק׳ הליכה מגינת כושר. אימון כוח מלא?`);
+}
+
+/** Budget light mode: the full-park card's "why" when the strength budget is spent. */
+export function fullParkLightReason(key: BudgetLightReasonKey, g: G): string {
+  return budgetLightText(key, 'card', g);
 }
 
 export function routeStopsSubtitle(route: RouteWithStops): string {

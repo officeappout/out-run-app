@@ -51,6 +51,7 @@ interface FlagState {
   kelly_unified_v1: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
+  enable_budget_light_mode: boolean;
 }
 
 // ============================================================================
@@ -292,6 +293,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'פתיחה מהירה של האפליקציה',
     description: 'משתמש רשום נכנס ישר לבית בלי לחכות במסך הפתיחה (הבדיקה מול השרת רצה ברקע ומחזירה אותו למקום הנכון אם צריך), האימונים של היום מופיעים מיד מהעותק השמור ומתעדכנים במקום, ותוכניות/ציוד/כותרות נשמרים במכשיר עד 30 דקות. השינוי מגיע למכשיר בפתיחה הבאה. כבוי = כמו היום.',
+  },
+  // Budget light mode (19.10.2026).
+  {
+    key: 'enable_budget_light_mode',
+    icon: Dumbbell,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'אימון קל כשתקציב הכוח נגמר',
+    description: 'כשסטי הכוח של היום או של השבוע כבר נעשו, ההמלצות (הבית, כרטיסי המפה, אימון בפארק וקלי) נותנות אימון כוח קל יותר עם הסבר קצר למה, במקום מתיחות או טבטה של בטן. אימון שהמשתמש בונה בעצמו לא מוגבל בכלל. כבוי = כמו היום.',
   },
 ];
 

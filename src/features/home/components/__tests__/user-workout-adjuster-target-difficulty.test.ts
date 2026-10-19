@@ -55,4 +55,9 @@ describe('buildAdjusterWorkoutOptions — targetDifficulty must mirror the expli
     // this is the exact assertion that would have failed before the fix.
     expect(new Set([easy.targetDifficulty, balanced.targetDifficulty, intense.targetDifficulty]).size).toBe(3);
   });
+
+  it('budget light mode: the adjuster is a MANUAL entry (the user picked the settings) → never budget-restricted', () => {
+    const opts = buildAdjusterWorkoutOptions({ ...baseParams, difficulty: 2, remainingWeeklyBudget: 2, weeklyBudgetUsagePercent: 95 });
+    expect(opts.budgetEntry).toBe('manual');
+  });
 });

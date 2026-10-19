@@ -23,6 +23,7 @@ import { nearestEquippedPark } from '../park-out-and-back';
 import { findRoutesWithStops, type RouteLike } from './routes-with-stops';
 import { todayScheduledKind } from './today-schedule-kind';
 import { focusFromMap } from './map-focus';
+import { strengthSetsDoneToday, trainingDaysOf } from '../../budget-light/snapshot';
 import type { HybridSituation, NearbyPark, SmartProfileLite, TodayScheduledKind } from './situation.types';
 
 type LatLng = { lat: number; lng: number };
@@ -35,6 +36,8 @@ export interface UseHybridSituationArgs {
   hasStrengthProgram: boolean;
   weatherOn: boolean;
   flags: HybridSituation['flags'];
+  /** Budget light mode (enable_budget_light_mode); false → the situation is exactly as before. */
+  budgetLight?: boolean;
 }
 
 function localDateKey(d: Date): string {
@@ -50,6 +53,7 @@ export function useHybridSituation(a: UseHybridSituationArgs): HybridSituation |
   const healthConnected = useHealthConnected();
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const weekStart = useWeeklyVolumeStore((s) => s.weekStartDate);
+  const sessionLogs = useWeeklyVolumeStore((s) => s.sessionLogs);
   const selectedPark = useMapStore((s) => s.selectedPark);
   const viewportBounds = useMapStore((s) => s.viewportBounds);
   const weather = useWeather(a.enabled && a.weatherOn);
@@ -114,7 +118,13 @@ export function useHybridSituation(a: UseHybridSituationArgs): HybridSituation |
       : { stepsRemaining: step.stepsRemaining, stepGoal: step.stepGoal };
     // A budget from a past week (store not reset yet this week) is unknown, not real.
     const strengthSnap = strength && weekStart === getCurrentWeekStart()
-      ? { weeklyBudget: strength.weeklyBudget, totalSetsCompleted: strength.totalSetsCompleted }
+      ? {
+          weeklyBudget: strength.weeklyBudget, totalSetsCompleted: strength.totalSetsCompleted,
+          // Budget light mode only: today's sets + week days for the daily budget.
+          ...(a.budgetLight
+            ? { setsDoneToday: strengthSetsDoneToday(sessionLogs, new Date()), trainingDaysPerWeek: trainingDaysOf(a.profile) }
+            : {}),
+        }
       : null;
     const g = a.profile?.core?.gender;
     return {
@@ -131,9 +141,10 @@ export function useHybridSituation(a: UseHybridSituationArgs): HybridSituation |
       weatherFlag: weather?.classification.flag ?? null,
       basePaceSecPerKm: a.profile?.running?.paceProfile?.basePace ?? undefined,
       flags: a.flags,
+      ...(a.budgetLight ? { budgetLight: true } : {}),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [a.enabled, parks, geo, today, healthConnected, strength, weekStart, todayScheduled,
     a.hasStrengthProgram, a.aerobicKind, a.profile?.core?.gender, weather,
-    a.flags.walkStrength, a.flags.fullPark, a.flags.routeStops, hasGps]);
+    a.flags.walkStrength, a.flags.fullPark, a.flags.routeStops, hasGps, a.budgetLight, sessionLogs]);
 }

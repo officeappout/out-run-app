@@ -335,6 +335,8 @@ export const WorkoutToolResultSchema = z.object({
   levelCeiling: z.boolean().optional(),
   /** Fewer main exercises than the short-session minimum were available. */
   shortOfMinimum: z.boolean().optional(),
+  /** Budget light mode: the strength set budget is spent (this week / today), so the engine made it lighter. */
+  budgetLight: z.enum(['weekly_spent', 'daily_spent']).optional(),
   decisionRecord: DecisionRecordLoose.optional(),
 });
 export type WorkoutToolResult = z.infer<typeof WorkoutToolResultSchema>;
