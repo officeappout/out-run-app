@@ -34,7 +34,7 @@ function formatShortDate(iso: string): string {
 interface MoveIntent { fromDate: string; toDate: string; targetHasEntry: boolean; entryId: string | undefined }
 
 function OriginalMove({ moveIntent }: { moveIntent: MoveIntent | null }) {
-  const setMoveIntent = (_: null) => {};
+  const setMoveIntent = (v: null) => void v;
   const handleMoveOnce = noop;
   const handleMoveAll = noop;
   return (
@@ -109,7 +109,7 @@ function OriginalMove({ moveIntent }: { moveIntent: MoveIntent | null }) {
 }
 
 function OriginalDelete({ deleteEntryId }: { deleteEntryId: { entryId: string; groupId?: string } | null }) {
-  const setDeleteEntryId = (_: null) => {};
+  const setDeleteEntryId = (v: null) => void v;
   return (
     <>
       {/* Backdrop */}
