@@ -66,6 +66,9 @@ import { executeServerTool, loadUserContextSheet, type ServerToolContext } from 
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { labelTeamMessagesForModel } from '@/lib/ai/coach/unified-thread';
 import { isAiPauseCode } from '@/lib/ai/coach/ai-pause';
+import { phase2TurnExtras } from '@/lib/ai/coach/phase2-turn';
+import { proposalView, type StoredProposal } from '@/lib/ai/coach/schedule-proposal/types';
+import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -165,6 +168,8 @@ export async function POST(request: Request) {
   let newCard: StoredCard | null = null;
   /** Cards produced earlier in this same turn (a previous client round). */
   let carriedCards: StoredCard[] = [];
+  /** Kelly phase 2: a proposal prepared earlier in this same turn (before a client round). */
+  let carriedProposal: StoredProposal | null = null;
   let safetyText: string | null = null;
   let safetyTrigger: string | null = null;
 
@@ -199,6 +204,7 @@ export async function POST(request: Request) {
       knownCards.set(newCard.workoutId, newCard);
     }
     carriedCards = pending.cards;
+    carriedProposal = pending.proposal ?? null;
     state = resumeWithClientResult(
       pending.state,
       pending.pendingResults,
@@ -231,7 +237,20 @@ export async function POST(request: Request) {
   // plan section, the derived "done" for today, the open_builder chip. Fail-closed: a flag
   // read error returns the FLAG_DEFS defaults (off).
   const scheduleAdvisor = (await getServerFeatureFlags(db)).aiCoachScheduleAdvisor === true;
-  const toolCtx: ServerToolContext = { db, uid, profile, now, knownCards, turn: { handoffDone: false }, scheduleAdvisor, ...(unified ? { unified: true } : {}) };
+  // Kelly phase 2 (ai_coach_phase2): quick replies, get_app_help, propose_schedule_change.
+  // Off = every prompt, tool list, event and write below exactly as before.
+  const phase2 = auth.flags?.aiCoachPhase2 === true;
+  const toolCtx: ServerToolContext = {
+    db,
+    uid,
+    profile,
+    now,
+    knownCards,
+    turn: { handoffDone: false, ...(phase2 ? { proposal: carriedProposal } : {}) },
+    scheduleAdvisor,
+    ...(unified ? { unified: true } : {}),
+    ...(phase2 ? { phase2: true } : {}),
+  };
 
   // Grounding: the user sheet (programs, levels, recent workouts, today's and this week's
   // schedule, gear) is read on EVERY request and put in the system prompt, so Kelly never
@@ -253,7 +272,7 @@ export async function POST(request: Request) {
       ? (body.toolResult.outcome.domains ?? [])
       : [];
 
-  const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions({ scheduleAdvisor }) });
+  const cached = withPromptCaching({ system: COACH_SYSTEM_PROMPT, tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}) }) });
   const system: Anthropic.TextBlockParam[] = [
     ...cached.system,
     {
@@ -269,6 +288,7 @@ export async function POST(request: Request) {
         typoHints: typoHints(userTextThisTurn),
         assessmentNudgeAllowed: nudge.nudgeAllowed,
         scheduleAdvisor,
+        ...(phase2 ? { phase2: true } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.
@@ -346,6 +366,7 @@ export async function POST(request: Request) {
             state: outcome.state,
             pendingResults: outcome.pendingResults,
             cards: turnCards,
+            ...(phase2 && toolCtx.turn.proposal ? { proposal: toolCtx.turn.proposal } : {}),
           });
           emit({ type: 'client_tool', id: outcome.call.id, name: outcome.call.name, input: outcome.call.input });
           return;
@@ -355,7 +376,7 @@ export async function POST(request: Request) {
         const toolCalls = outcome.state.log?.toolCalls ?? [];
         const built = toolCalls.find((c) => c.name === 'generate_workout');
         const builtDomains = (built?.input as { domains?: unknown } | null | undefined)?.domains;
-        const actions = chipsForTurn({
+        let actions = chipsForTurn({
           userText: userTextThisTurn,
           toolNames: toolCalls.map((c) => c.name),
           sheet,
@@ -366,7 +387,28 @@ export async function POST(request: Request) {
           scheduleAdvisor,
           strengthDoneToday: sheet?.plan?.doneToday.strength === true,
         });
+        let suggestions: SuggestionChip[] = [];
+        const proposal = phase2 ? (toolCtx.turn.proposal ?? null) : null;
+        if (phase2) {
+          const extras = phase2TurnExtras({
+            sheet,
+            profile,
+            gender,
+            now,
+            todayKey: getIsraelDateKey(now),
+            hour: getIsraelHour(now),
+            userText: userTextThisTurn,
+            toolNames: toolCalls.map((c) => c.name),
+            workoutInput: newCard || carriedCards.length ? ((built?.input as Record<string, unknown> | null | undefined) ?? null) : null,
+            proposalCreated: !!proposal,
+            actions,
+          });
+          actions = extras.actions;
+          suggestions = extras.suggestions;
+        }
         if (actions.length) emit({ type: 'actions', actions });
+        if (proposal) emit({ type: 'proposal', proposal: proposalView(proposal) });
+        if (suggestions.length) emit({ type: 'suggestions', suggestions });
 
         // Final: ONE assistant message for the whole turn (every round), with its cards.
         const id = await appendMessage(db, uid, {
@@ -376,6 +418,8 @@ export async function POST(request: Request) {
           actions,
           log: outcome.state.log,
           ...(unified ? { source: 'ai' as const } : {}),
+          ...(suggestions.length ? { suggestions } : {}),
+          ...(proposal ? { proposal } : {}),
         });
         if ('toolResult' in body) await clearPending(db, uid);
         emit({ type: 'done', messageId: id });

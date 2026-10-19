@@ -32,6 +32,9 @@ import { firstNameOf } from './persona';
 import { markNeedsHuman, type StoredCard } from './thread-store.server';
 import type { ToolExecResult } from './turn-engine';
 import { recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './schedule-advisor.server';
+import { appHelpToolResult, type GetAppHelpInputT } from './app-help/retrieve';
+import { proposeScheduleChange } from './schedule-proposal/propose.server';
+import type { ProposeScheduleChangeInputT, StoredProposal } from './schedule-proposal/types';
 
 export interface ServerToolContext {
   db: Firestore;
@@ -41,8 +44,8 @@ export interface ServerToolContext {
   now: Date;
   /** Cards shown in this conversation (recent history + this turn), by workoutId. */
   knownCards: Map<string, StoredCard>;
-  /** Mutable per-turn flags. */
-  turn: { handoffDone: boolean };
+  /** Mutable per-turn flags. `proposal`: the schedule proposal prepared this turn (phase 2). */
+  turn: { handoffDone: boolean; proposal?: StoredProposal | null };
   /** system_config/feature_flags.ai_coach_schedule_advisor (route.ts). Off → the advisor tools don't exist. */
   scheduleAdvisor?: boolean;
   /**
@@ -50,6 +53,8 @@ export interface ServerToolContext {
    * instead of writing into the old chats/ DM. Absent/false = the old behaviour.
    */
   unified?: boolean;
+  /** system_config/feature_flags.ai_coach_phase2 (route.ts). Off → get_app_help / propose_schedule_change don't exist. */
+  phase2?: boolean;
 }
 
 const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });
@@ -308,6 +313,12 @@ export async function executeServerTool(ctx: ServerToolContext, name: string, in
     case 'recommend_today':
       if (!ctx.scheduleAdvisor) return { content: `unknown tool ${name}`, isError: true };
       return json(await recommendToday(ctx));
+    case 'get_app_help':
+      if (!ctx.phase2) return { content: `unknown tool ${name}`, isError: true };
+      return json(appHelpToolResult(input as GetAppHelpInputT));
+    case 'propose_schedule_change':
+      if (!ctx.phase2) return { content: `unknown tool ${name}`, isError: true };
+      return proposeScheduleChange(ctx, input as ProposeScheduleChangeInputT);
     default:
       return { content: `unknown tool ${name}`, isError: true };
   }

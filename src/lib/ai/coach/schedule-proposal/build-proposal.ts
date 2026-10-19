@@ -106,7 +106,7 @@ export function buildScheduleProposal(input: AdvisorInput, req: ProposeScheduleC
           : `האימון של ${label(f)} (${contentHe(fIds, resolveSlug)}) עובר ל${label(t)}`,
       );
     }
-    for (const [dow, ids] of after) {
+    for (const [dow, ids] of Array.from(after)) {
       if (longRunDows.has(dow) && !sameSet(ids, before.get(dow) ?? [])) return { ok: false, reason: 'long_run_day', day: WEEKDAY_NAMES_HE[dow] };
     }
     const moved: Record<string, string[]> = {};

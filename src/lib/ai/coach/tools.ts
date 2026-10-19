@@ -21,6 +21,8 @@
 import { z } from 'zod';
 import type Anthropic from '@anthropic-ai/sdk';
 import { MG_TO_DOMAIN } from '@/features/workout-engine/shared/constants/domain-mapping.constants';
+import { APP_HELP_TOPICS, GetAppHelpInput } from './app-help/retrieve';
+import { ProposeScheduleChangeInput, WEEKDAYS_EN } from './schedule-proposal/types';
 
 // ─── Shared enums ────────────────────────────────────────────────────────────
 
@@ -227,10 +229,55 @@ export const COACH_TOOLS = {
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     zod: RecommendTodayInput,
   },
+  // ── Kelly phase 2 — offered only while system_config/feature_flags.ai_coach_phase2 is on.
+  get_app_help: {
+    name: 'get_app_help',
+    kind: 'server',
+    description:
+      'Looks up how to do something in the OUT app itself (where a setting is, how to connect steps, notifications and Shabbat, change or add a program, move a workout in the schedule, level checks, the parks map, route and strength cards, account, privacy, equipment, talking to the team). Returns verified Hebrew entries with the app\'s own button names, or found false. Call it for every question about using the app; never answer those from memory.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', enum: [...APP_HELP_TOPICS], description: 'The topic, when it is clear' },
+        query: { type: 'string', description: "The user's question in Hebrew, as asked" },
+      },
+      additionalProperties: false,
+    },
+    zod: GetAppHelpInput,
+  },
+  propose_schedule_change: {
+    name: 'propose_schedule_change',
+    kind: 'server',
+    description:
+      "Prepares a change to the user's strength schedule and shows it as a confirm card under your reply. It changes NOTHING: the schedule changes only if the user taps אשר on the card. Use it when the user asks to move a strength workout to another day (moves) or to train fewer strength days a week (strengthDays). scope: this_week = only the rest of this week, from_now = the fixed weekly schedule from now on. If the user did not say which, ask in one short question before calling. Running days, adding days and anything else are done in the schedule builder (a button under your reply). Returns the changes in Hebrew, or created false with a reason.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        scope: { type: 'string', enum: ['this_week', 'from_now'] },
+        moves: {
+          type: 'array',
+          maxItems: 3,
+          items: {
+            type: 'object',
+            properties: { from: { type: 'string', enum: [...WEEKDAYS_EN] }, to: { type: 'string', enum: [...WEEKDAYS_EN] } },
+            required: ['from', 'to'],
+            additionalProperties: false,
+          },
+          description: 'Move the strength workout of from to to (a swap when to already has one)',
+        },
+        strengthDays: { type: 'integer', minimum: 1, maximum: 6, description: 'Fewer strength days a week (the rules choose which days stay)' },
+      },
+      required: ['scope'],
+      additionalProperties: false,
+    },
+    zod: ProposeScheduleChangeInput,
+  },
 } as const satisfies Record<string, CoachToolSpec>;
 
 /** Tools that exist only while the schedule advisor flag (ai_coach_schedule_advisor) is on. */
 export const SCHEDULE_ADVISOR_TOOL_NAMES: readonly string[] = ['recommend_week', 'recommend_today'];
+/** Tools that exist only while Kelly phase 2 (ai_coach_phase2) is on. */
+export const PHASE2_TOOL_NAMES: readonly string[] = ['get_app_help', 'propose_schedule_change'];
 
 export type CoachToolName = keyof typeof COACH_TOOLS;
 
@@ -244,11 +291,13 @@ export function toolKind(name: string): CoachToolKind | null {
 
 /**
  * Tool definitions for the Messages API, fixed order (cache-stable per flag state). The
- * schedule advisor tools are appended only with `scheduleAdvisor` — off = exactly today's list.
+ * schedule advisor tools are appended only with `scheduleAdvisor`, the phase 2 tools only with
+ * `phase2` — off = exactly today's list.
  */
-export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean } = {}): Anthropic.Tool[] {
+export function coachToolDefinitions(opts: { scheduleAdvisor?: boolean; phase2?: boolean } = {}): Anthropic.Tool[] {
   return Object.values(COACH_TOOLS)
     .filter((t) => opts.scheduleAdvisor || !SCHEDULE_ADVISOR_TOOL_NAMES.includes(t.name))
+    .filter((t) => opts.phase2 || !PHASE2_TOOL_NAMES.includes(t.name))
     .map((t) => ({
     name: t.name,
     description: t.description,
