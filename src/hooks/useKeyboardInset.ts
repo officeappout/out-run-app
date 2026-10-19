@@ -26,8 +26,10 @@ import {
   subscribeKeyboardInset,
 } from '@/lib/keyboard/keyboardInsetController';
 
-export function useKeyboardInsetController(): void {
-  useEffect(() => installKeyboardInsetController(), []);
+/** `enabled` = the `enable_keyboard_insets_v1` flag. Off → nothing is
+ *  installed (today's behaviour); turning it off later uninstalls cleanly. */
+export function useKeyboardInsetController(enabled: boolean): void {
+  useEffect(() => (enabled ? installKeyboardInsetController() : undefined), [enabled]);
 }
 
 export function useKeyboardInset(): { inset: number; isOpen: boolean } {

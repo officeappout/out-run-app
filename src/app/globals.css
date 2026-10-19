@@ -532,7 +532,9 @@ video.tutorial-player::-webkit-media-controls-start-playback-button {
 /* ============================================
    Keyboard inset (iOS keyboard covering inputs)
    --kb-inset / data-kb-open are written on <html> by the ONE controller in
-   src/lib/keyboard/keyboardInsetController.ts (mounted in NativeBootstrap).
+   src/lib/keyboard/keyboardInsetController.ts (mounted in NativeBootstrap,
+   only while enable_keyboard_insets_v1 is on — otherwise --kb-inset stays 0
+   and every rule below is a no-op).
    Registered as a <length> so it animates with the keyboard (no jumps);
    browsers without @property just snap.
    ============================================ */

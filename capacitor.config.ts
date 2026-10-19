@@ -51,20 +51,15 @@ const config: CapacitorConfig = {
     FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
-    // Keyboard resize: 'none' (19.10.2026, was 'body'). On iOS 'body' set
-    // document.body.style.height only AFTER the keyboard finished animating
-    // (+0.2 s) and reset it on hide — a visible layout jump — while never
-    // moving position:fixed sheets/composers (they're laid out against the
-    // viewport, not <body>), so the keyboard still covered what you typed.
-    // The web layer now owns this: src/lib/keyboard/keyboardInsetController.ts
-    // publishes --kb-inset from keyboardWillShow/WillHide and the CSS
-    // utilities (.kb-fit / .kb-sheet / <main> padding) lift the UI in step
-    // with the keyboard. The controller also calls Keyboard.setResizeMode
-    // ('none') at runtime, so builds made before this change behave the same;
-    // this line takes effect natively after `npx cap sync` + a new build.
-    // Android: the WebView itself resizes (adjustResize), unaffected.
+    // Keyboard resize: 'body' shrinks the WebView body when the software
+    // keyboard opens, preventing it from overlapping fixed-position CTAs
+    // (chat inputs, onboarding Continue buttons, auth submit, etc.).
+    // 'body' is the safest cross-platform choice; the alternative 'native'
+    // may cause flicker on older Android WebViews.
     Keyboard: {
-      resize: KeyboardResize.None,
+      // Same value as before ('body'); the enum is needed now that the app
+      // imports @capacitor/keyboard (its typings augment PluginsConfig).
+      resize: KeyboardResize.Body,
       resizeOnFullScreen: true,
     },
   },

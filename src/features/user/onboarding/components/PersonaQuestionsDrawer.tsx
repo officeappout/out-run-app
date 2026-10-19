@@ -251,7 +251,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        // 19.10.2026: keyboard handling is now app-wide — the wrapper's
+        // 19.10.2026 (enable_keyboard_insets_v1 on): keyboard handling is app-wide — the wrapper's
         // `kb-fit` ends it at the keyboard and `kb-cap` caps this sheet to the
         // visible height (and drops the min-h below) while the keyboard is
         // open; see src/lib/keyboard. resize:'body' (below) never resized

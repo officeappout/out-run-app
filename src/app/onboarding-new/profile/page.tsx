@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { isKeyboardControllerActive } from '@/lib/keyboard/keyboardInsetController';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { auth } from '@/lib/firebase';
@@ -699,6 +700,12 @@ export default function IdentityProfilePage() {
                   if (e.key === 'Backspace' && formData.birthMonth === '')
                     dayInputRef.current?.focus();
                 }}
+                onFocus={() => {
+                  // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                  if (!isKeyboardControllerActive()) setTimeout(() => {
+                    monthInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 150);
+                }}
                 placeholder="חודש"
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
@@ -721,13 +728,22 @@ export default function IdentityProfilePage() {
                     // Auto-advance: switch from numeric to text keyboard by focusing name.
                     // Direct call inside onChange = still a user-gesture context on iOS.
                     nameInputRef.current?.focus();
-                    // Revealing the field above the keyboard is handled app-wide
-                    // by the keyboard inset controller (src/lib/keyboard).
+                    // Scroll the name field into view after the keyboard transition settles.
+                    // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                    if (!isKeyboardControllerActive()) setTimeout(() => {
+                      nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 150);
                   }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Backspace' && formData.birthYear === '')
                     monthInputRef.current?.focus();
+                }}
+                onFocus={() => {
+                  // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                  if (!isKeyboardControllerActive()) setTimeout(() => {
+                    yearInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 150);
                 }}
                 placeholder="שנה"
                 className={`w-20 ${dateInputClass(hasDobError)}`}
@@ -764,6 +780,12 @@ export default function IdentityProfilePage() {
                   e.preventDefault();
                   if (canSubmit && !loading) handleContinue();
                 }
+              }}
+              onFocus={() => {
+                // enable_keyboard_insets_v1 on → the shared keyboard controller reveals the field.
+                if (!isKeyboardControllerActive()) setTimeout(() => {
+                  nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
               }}
               className={v2
                 ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-right'

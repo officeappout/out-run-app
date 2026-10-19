@@ -40,6 +40,12 @@ export function getKeyboardInset(): number {
   return currentInset;
 }
 
+/** True while the controller is installed (flag on). Screens that still have
+ *  their own legacy focus-scroll code skip it when this is true. */
+export function isKeyboardControllerActive(): boolean {
+  return typeof document !== 'undefined' && document.documentElement.hasAttribute('data-kb-controller');
+}
+
 export function subscribeKeyboardInset(listener: Listener): () => void {
   listeners.add(listener);
   return () => {
@@ -146,6 +152,7 @@ function undoDocumentPan(): void {
  */
 export function installKeyboardInsetController(): () => void {
   if (typeof window === 'undefined') return () => {};
+  document.documentElement.setAttribute('data-kb-controller', '');
 
   const vv = window.visualViewport ?? null;
   const platform = nativePlatform();
@@ -156,6 +163,9 @@ export function installKeyboardInsetController(): () => void {
   let revealTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   const nativeHandles: Array<{ remove: () => Promise<void> | void }> = [];
+  /** Set once we switched the plugin to 'none' — restored to the configured
+   *  'body' on uninstall (flag turned off) so off == today's behaviour. */
+  let restoreResizeMode: (() => void) | null = null;
 
   const recompute = () => {
     raf = 0;
@@ -206,10 +216,16 @@ export function installKeyboardInsetController(): () => void {
       try {
         const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
         if (disposed) return;
-        // capacitor.config.ts now says 'none' too, but that only reaches the
-        // device after `npx cap sync` + a new native build — this makes the
-        // current build behave the same immediately.
-        await Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
+        // capacitor.config.ts still says 'body' (switched natively once this
+        // flag is proven); runtime 'none' while the flag is on.
+        await Keyboard.setResizeMode({ mode: KeyboardResize.None })
+          .then(() => {
+            restoreResizeMode = () => {
+              void Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {});
+            };
+            if (disposed) restoreResizeMode();
+          })
+          .catch(() => {});
         document.body.style.height = '';
         nativeHandles.push(
           await Keyboard.addListener('keyboardWillShow', (info) => {
@@ -242,6 +258,8 @@ export function installKeyboardInsetController(): () => void {
     window.removeEventListener('scroll', onWindowScroll);
     document.removeEventListener('focusin', onFocusIn);
     nativeHandles.forEach((h) => void h.remove());
+    restoreResizeMode?.();
+    document.documentElement.removeAttribute('data-kb-controller');
     publish(0);
   };
 }
