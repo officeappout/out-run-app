@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import StoryBars, { type StoryBarSegment } from '@/components/ui/v2/StoryBars';
 
 interface ProgressBar {
   isActive: boolean;
@@ -86,47 +87,25 @@ export default function WorkoutStoryBars({
     };
   }, [isPaused, isResting, tick]);
 
+  // Rendering is the shared v2 StoryBars (one implementation app-wide); the
+  // props below reproduce this header's look exactly (single accent, glow
+  // off in v2, no 1 % floor, Tailwind transition-all 300 ms on each bar).
+  const segments: StoryBarSegment[] = progressBars.map((bar, index) => ({
+    key: String(index),
+    color: accentColor,
+    state: bar.isCurrent ? 'current' : bar.isActive ? 'done' : 'upcoming',
+  }));
+
   return (
-    <div className="flex flex-row-reverse gap-1.5" dir="ltr">
-      {progressBars.map((bar, index) => {
-        const isCurrentBar = bar.isCurrent;
-        const completed = bar.isActive && !bar.isCurrent;
-
-        return (
-          <div
-            key={index}
-            className="relative h-1.5 rounded-full overflow-hidden transition-all duration-300"
-            style={{
-              flex: isCurrentBar ? 3 : 1,
-              backgroundColor: trackColor,
-            }}
-          >
-            {/* Completed bars — solid fill */}
-            {completed && (
-              <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  backgroundColor: accentColor,
-                  boxShadow: barGlow,
-                }}
-              />
-            )}
-
-            {/* Current bar — animated fill (RTL: fills right-to-left) */}
-            {isCurrentBar && (
-              <div
-                className="absolute inset-y-0 right-0 rounded-full"
-                style={{
-                  width: isResting ? '100%' : `${fillProgress * 100}%`,
-                  backgroundColor: accentColor,
-                  boxShadow: barGlow,
-                  transition: isPaused ? 'none' : 'width 0.1s linear',
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
+    <StoryBars
+      segments={segments}
+      currentIndex={currentBarIndex}
+      progress={isResting ? 1 : fillProgress}
+      minFillPercent={0}
+      trackColor={trackColor}
+      glow={barGlow}
+      fillTransition={isPaused ? 'none' : 'width 0.1s linear'}
+      segmentTransition="all 300ms cubic-bezier(0.4, 0, 0.2, 1)"
+    />
   );
 }

@@ -1,6 +1,13 @@
 /**
- * Design language v2 primitives. Not yet used by any screen — screens adopt
- * them one PR at a time (see .claude/knowledge/design-language.md, v2).
+ * Design language v2 primitives — the shared building blocks of every
+ * `enable_home_v2` screen (see .claude/knowledge/design-language.md, v2).
+ * In use across home, the map, the live players and the workout summary;
+ * new v2 markup should compose these instead of re-rolling sheets, icon
+ * buttons, CTAs, section titles, rails or story bars:
+ *   Sheet (modal bottom sheet) · DraggableSheet (snap-point, non-modal) ·
+ *   IconButton · Button (variant "cta" = the one gradient CTA) ·
+ *   SectionHeader · HScroller · StoryBars · Card / Chip / IconTile …
+ * scripts/ci/v2-raw-style-grep.sh warns about raw copies outside this folder.
  */
 export { default as Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
@@ -18,6 +25,22 @@ export { default as DeltaBadge } from './DeltaBadge';
 export type { DeltaBadgeProps } from './DeltaBadge';
 export { default as DraggableSheet } from './DraggableSheet';
 export type { DraggableSheetProps } from './DraggableSheet';
+export {
+  default as Sheet,
+  SheetGrabber,
+  SheetHeader,
+  SHEET_SURFACE_CLASS,
+  SHEET_GRABBER_CLASS,
+  SHEET_TITLE_CLASS,
+  DEFAULT_SHEET_SAFE_AREA,
+} from './Sheet';
+export type { SheetProps, SheetDragOptions } from './Sheet';
+export { default as IconButton } from './IconButton';
+export type { IconButtonProps, IconButtonTone, IconButtonSize } from './IconButton';
+export { default as SectionHeader } from './SectionHeader';
+export type { SectionHeaderProps, SectionHeaderSize } from './SectionHeader';
+export { default as HScroller } from './HScroller';
+export type { HScrollerProps, HScrollerGap, HScrollerEdge } from './HScroller';
 export { default as BarChart } from './BarChart';
 export type { BarChartProps, BarDatum } from './BarChart';
 export { default as LineChart } from './LineChart';
@@ -42,7 +65,7 @@ export type { ImprovementItem, ImprovementCardProps } from './ImprovementCard';
 export { default as CartProgressIcon } from './CartProgressIcon';
 export type { CartProgressIconProps } from './CartProgressIcon';
 export * from './cart-ring';
-export { default as StoryBars } from './StoryBars';
-export type { StoryBarsProps, StoryBarSegment } from './StoryBars';
+export { default as StoryBars, STORY_TRACK_V2 } from './StoryBars';
+export type { StoryBarsProps, StoryBarSegment, StoryBarState } from './StoryBars';
 export { default as RepPaceTable } from './RepPaceTable';
 export type { RepPaceRow, RepPaceTableProps } from './RepPaceTable';

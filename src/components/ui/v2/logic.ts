@@ -137,3 +137,54 @@ export function rubberBand(overshoot: number, dimension: number, constant = 0.55
   const x = Math.abs(overshoot);
   return sign * (1 - 1 / ((x * constant) / dimension + 1)) * dimension;
 }
+
+// ── Sheet (drag-to-dismiss) ──────────────────────────────────────────────
+
+export interface SheetDismissRule {
+  /** Downward drag distance (px) past which a release closes the sheet. */
+  distance: number;
+  /** Downward release velocity (px/s) that closes it regardless of distance. 0/negative = off. */
+  velocity: number;
+}
+
+/** Default rule for `<Sheet dragToDismiss>`: 120 px or a 500 px/s flick. */
+export const DEFAULT_SHEET_DISMISS: SheetDismissRule = { distance: 120, velocity: 500 };
+
+/**
+ * Should a released drag close the sheet? Only downward movement counts —
+ * an upward flick never dismisses. Non-finite inputs are treated as 0.
+ */
+export function shouldDismissSheet(
+  offsetY: number,
+  velocityY: number,
+  rule: SheetDismissRule = DEFAULT_SHEET_DISMISS,
+): boolean {
+  const off = Number.isFinite(offsetY) ? offsetY : 0;
+  const vel = Number.isFinite(velocityY) ? velocityY : 0;
+  if (off > rule.distance) return true;
+  return rule.velocity > 0 && vel > rule.velocity;
+}
+
+/**
+ * Bottom padding for a sheet surface: the safe-area expression plus the
+ * on-screen keyboard inset (`--kb-inset`, 0 when the var isn't set), so a
+ * focused input never hides under the keyboard. `false` = keyboard inset only.
+ */
+export function sheetBottomPadding(safeArea: string | false): string {
+  return safeArea ? `calc(${safeArea} + var(--kb-inset, 0px))` : 'var(--kb-inset, 0px)';
+}
+
+// ── StoryBars ────────────────────────────────────────────────────────────
+
+export type StoryBarState = 'done' | 'current' | 'upcoming';
+
+/** Bar `index` relative to the current one (≥ length = everything done). */
+export function storyBarState(index: number, currentIndex: number): StoryBarState {
+  if (index < currentIndex) return 'done';
+  return index === currentIndex ? 'current' : 'upcoming';
+}
+
+/** 0–1 progress, clamped; NaN/∞ → 0. */
+export function clampProgress(progress: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
+}

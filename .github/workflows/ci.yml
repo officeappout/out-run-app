@@ -115,3 +115,15 @@ jobs:
           FILES=$(git diff --name-only --diff-filter=ACMR HEAD^1 HEAD -- 'src/**/*.ts' 'src/**/*.tsx' 'src/**/*.js' 'src/**/*.jsx')
           if [ -z "$FILES" ]; then echo "No lintable files changed."; exit 0; fi
           echo "$FILES" | xargs npx eslint --no-eslintrc -c .eslintrc.json
+
+  v2-drift:
+    name: v2 raw-style drift (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Warn-only: the script always exits 0 and annotates hand-rolled v2
+    # chrome (raw #00baf7/#00c9f2, rounded-t-[28px]) outside
+    # src/components/ui/v2 — a ratchet for migrating to the shared primitives.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/ci/v2-raw-style-grep.sh --summary
