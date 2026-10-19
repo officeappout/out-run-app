@@ -29,3 +29,13 @@ export const APP_CONFIG_LINKS = {
   /** Legacy Vercel deployment URL — kept for reference only, do not use. */
   LEGACY_VERCEL_URL: 'https://out-run-app.vercel.app',
 } as const;
+
+/**
+ * The live store listings. These are the OLD listings (published by the
+ * outsourced dev shop) that the new app ships into as an update — keep them,
+ * store IDs never change.
+ */
+export const APP_STORE_URLS = {
+  ios: 'https://apps.apple.com/il/app/out/id6502558672',
+  android: 'https://play.google.com/store/apps/details?id=il.co.oversight.outapp',
+} as const;
