@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import StoryBars, { type StoryBarSegment } from '@/components/ui/v2/StoryBars';
 
 interface ProgressBar {
   isActive: boolean;
@@ -86,6 +87,30 @@ export default function WorkoutStoryBars({
     };
   }, [isPaused, isResting, tick]);
 
+  if (v2) {
+    // enable_home_v2: the shared v2 StoryBars (one implementation app-wide);
+    // the props reproduce this header's v2 look exactly (single accent, no
+    // glow, no 1 % floor, Tailwind transition-all 300 ms on each bar).
+    const segments: StoryBarSegment[] = progressBars.map((bar, index) => ({
+      key: String(index),
+      color: accentColor,
+      state: bar.isCurrent ? 'current' : bar.isActive ? 'done' : 'upcoming',
+    }));
+    return (
+      <StoryBars
+        segments={segments}
+        currentIndex={currentBarIndex}
+        progress={isResting ? 1 : fillProgress}
+        minFillPercent={0}
+        trackColor={trackColor}
+        glow={barGlow}
+        fillTransition={isPaused ? 'none' : 'width 0.1s linear'}
+        segmentTransition="all 300ms cubic-bezier(0.4, 0, 0.2, 1)"
+      />
+    );
+  }
+
+  // Flag off: the pre-v2 markup, unchanged.
   return (
     <div className="flex flex-row-reverse gap-1.5" dir="ltr">
       {progressBars.map((bar, index) => {

@@ -14,3 +14,7 @@ export async function getAllExercises(): Promise<Exercise[]> {
 export async function getAllExercisesNoOrder(): Promise<Exercise[]> {
   return CORPUS.exercises as Exercise[];
 }
+export async function getAllExercisesCached(): Promise<Exercise[]> {
+  return CORPUS.exercises as Exercise[];
+}
+export const getExerciseCatalog = getAllExercisesCached;

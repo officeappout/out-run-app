@@ -54,4 +54,16 @@ describe('RepPaceTable', () => {
   it('renders nothing without rows', () => {
     expect(html(<RepPaceTable rows={[]} />)).toBe('');
   });
+  it("chart variant: no rows list, legend, the 'best' bar in blue", () => {
+    const rows = [
+      { key: '1', n: 1, title: '6:24', tone: 'in' as const, value: '6:24', paceSec: 384, paceLabel: '6:24' },
+      { key: '2', n: 2, title: '6:02', status: 'הכי מהיר', tone: 'best' as const, value: '6:02', paceSec: 362, paceLabel: '6:02' },
+    ];
+    const out = html(<RepPaceTable variant="chart" title="קצב לכל ק״מ" legend="כחול = הכי מהיר" barColor="#84cc16" rows={rows} />);
+    expect(out).toContain('קצב לכל ק״מ');
+    expect(out).toContain('כחול = הכי מהיר');
+    expect(out).toContain('background:#0284c7');
+    expect(out).not.toContain('הכי מהיר</span>');
+    expect(out).not.toContain('divide-y');
+  });
 });

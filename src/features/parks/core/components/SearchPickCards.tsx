@@ -19,7 +19,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { motion, useDragControls } from 'framer-motion';
+import Sheet from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import {
   X,
   Navigation,
@@ -52,8 +53,6 @@ import {
   type SavedPlaceKind,
 } from '@/features/user/places/store/useSavedPlacesStore';
 
-const SHEET = 'bg-white rounded-t-[28px] shadow-v2-sheet';
-const HANDLE = 'h-1.5 w-10 rounded-full bg-v2-pill-border';
 const CLOSE =
   'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline active:scale-[0.97] transition-transform duration-150 ease-v2';
 const CTA =
@@ -76,38 +75,31 @@ function RunIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+/**
+ * The pick sheet: the shared v2 Sheet with no backdrop (the map stays
+ * interactive), in place at z-[100], grabber-only drag (> 80 px or a
+ * 300 px/s flick closes), whole surface scrolls.
+ */
 function PickSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  const dragControls = useDragControls();
   return (
-    <motion.div
-      drag="y"
-      dragControls={dragControls}
-      dragListener={false}
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={0.25}
-      onDragEnd={(_, info) => {
-        if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-      }}
-      initial={{ y: 400 }}
-      animate={{ y: 0 }}
+    <Sheet
+      open
+      onClose={onClose}
+      backdrop={false}
+      portal={false}
+      zIndex={SHEET_Z.overlay}
+      scroll="panel"
+      className="mx-auto max-h-[85dvh] max-w-md px-5"
+      safeArea="env(safe-area-inset-bottom, 0px) + 16px"
+      grabberClassName="flex justify-center pb-2 pt-3"
+      dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
+      enterY={400}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-      className="fixed bottom-0 left-0 right-0 z-[100]"
+      ariaLabel="תוצאת חיפוש"
+      keyboardAware={false}
     >
-      <div
-        className={`${SHEET} mx-auto max-h-[85dvh] max-w-md overflow-y-auto overscroll-contain px-5`}
-        dir="rtl"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
-      >
-        <div
-          className="flex cursor-grab justify-center pb-2 pt-3 active:cursor-grabbing"
-          onPointerDown={(e) => dragControls.start(e)}
-          style={{ touchAction: 'none' }}
-        >
-          <div className={HANDLE} />
-        </div>
-        {children}
-      </div>
-    </motion.div>
+      {children}
+    </Sheet>
   );
 }
 

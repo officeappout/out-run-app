@@ -178,7 +178,7 @@ export default function LiveWorkoutOverlay({
     };
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-40" dir={direction}>
+        <div className="kb-fit fixed inset-0 pointer-events-none z-40" dir={direction}>
             {/* Hero Video Background */}
             {mainVideoUrl && (
                 <div className="absolute inset-0 w-full h-full overflow-hidden">

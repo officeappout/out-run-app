@@ -4,12 +4,16 @@ import { forwardRef } from 'react';
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { PRESS_SCALE } from './tokens';
 
-export type ButtonVariant = 'primary' | 'dark' | 'ghost';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'cta' | 'dark' | 'ghost';
+export type ButtonSize = 'sm' | 'md' | 'cta' | 'lg';
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   // Site primary CTA: gradient + dark label + inset highlight + cyan glow.
   primary: 'bg-v2-cta text-v2-on-cta shadow-v2-cta',
+  // The screen's ONE filled gradient CTA (same tokens as primary; defaults to
+  // the 48px / 16px CTA size). Replaces hand-rolled `bg-v2-cta …` and raw
+  // `from-[#00baf7] …` gradient buttons.
+  cta: 'bg-v2-cta text-v2-on-cta shadow-v2-cta',
   // Dark ink pill.
   dark: 'bg-v2-ink text-white shadow-v2-ring',
   // White pill with the 1.5px hairline border.
@@ -19,6 +23,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
 const SIZE_CLASS: Record<ButtonSize, string> = {
   sm: 'h-9 px-4 text-[13px]',
   md: 'h-11 px-5 text-[15px]',
+  // Main CTA: h-12, 16px extrabold.
+  cta: 'h-12 px-6 text-[16px]',
   lg: 'h-14 px-7 text-[17px]',
 };
 
@@ -33,9 +39,13 @@ export interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'>
 /**
  * v2 Button — pill, heavy label, press scale 0.97 on the v2 curve.
  * Respects prefers-reduced-motion (no press scale when reduced).
+ *
+ * Main CTA: `<Button variant="cta" block>שמור</Button>` → h-12 (size "cta",
+ * the default for this variant) or `size="lg"` → h-14 / 56px; gradient
+ * `bg-v2-cta`, `text-v2-on-cta`, `shadow-v2-cta`.
  */
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', block = false, className = '', type = 'button', ...rest },
+  { variant = 'primary', size, block = false, className = '', type = 'button', ...rest },
   ref,
 ) {
   const reduce = useReducedMotion();
@@ -52,7 +62,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
         'disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none',
         'focus-visible:ring-2 focus-visible:ring-v2-accent focus-visible:ring-offset-2',
         VARIANT_CLASS[variant],
-        SIZE_CLASS[size],
+        SIZE_CLASS[size ?? (variant === 'cta' ? 'cta' : 'md')],
         block ? 'w-full' : '',
         className,
       ].join(' ')}

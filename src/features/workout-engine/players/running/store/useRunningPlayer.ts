@@ -10,7 +10,7 @@ import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
-import type { PlannedBlockRecord } from '../../../core/services/storage.service';
+import type { PlannedBlockRecord, RunSummaryMeta } from '../../../core/services/storage.service';
 import { advanceTarget, buildBlockRecords, resolveBlockTargetPace } from '../lib/planned-rep-results';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
@@ -1812,6 +1812,30 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }
           }
 
+          // ── Home v2 only: run-type summary data (optional `runMeta`) ──
+          // Category, target bands, time-in-zone, program position and GPS
+          // per-km splits — written only while enable_home_v2 is on.
+          let runMeta: RunSummaryMeta | null = null;
+          try {
+            const { homeV2EnabledNow, readPlannedRunPosition } = await import('../lib/home-v2-gate');
+            if (!isCommute && activityType !== 'walking' && homeV2EnabledNow()) {
+              const { buildRunSummaryMeta } = await import('../lib/run-summary-meta');
+              runMeta = buildRunSummaryMeta({
+                workout: plannedRunSnapshot?.workout ?? null,
+                results: plannedRunSnapshot?.results ?? [],
+                blockResults,
+                trace: _traceBuffer,
+                hasKmLaps: completedLaps.length > 0,
+                totalKm: safeDistance,
+                activeSec: safeDuration,
+                timeInZone: (get() as unknown as { timeInZone?: unknown }).timeInZone,
+                plan: plannedRunSnapshot ? readPlannedRunPosition() : null,
+              });
+            }
+          } catch (e) {
+            console.warn('[useRunningPlayer] runMeta skipped:', e);
+          }
+
           // ── Build the single authoritative workout document ───────────
           // Commute sessions are tagged via `sessionKind: 'commute'` plus
           // the optional destination metadata — no dedicated workoutType,
@@ -1834,6 +1858,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             xpEarned: sessionXP,
             ...(completedLaps.length > 0 ? { laps: completedLaps } : {}),
             ...(blockResults.length > 0 ? { blockResults } : {}),
+            ...(runMeta ? { runMeta } : {}),
             ...(safeElevation !== undefined ? { elevationGain: safeElevation } : {}),
             ...(guidedRouteId ? { routeId: guidedRouteId } : {}),
             ...(detectedPark ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName } : {}),
