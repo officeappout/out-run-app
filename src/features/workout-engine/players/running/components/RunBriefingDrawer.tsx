@@ -9,6 +9,10 @@ import { computeZones, formatPaceSeconds } from '@/features/workout-engine/core/
 import { useNearbyParks, PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks/useNearbyParks';
 import ExerciseDetailContent from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import RunBlockBriefingCard from './RunBlockBriefingCard';
+import { groupBlocksIntoSections } from '../utils/run-preview/run-sections';
+import RunBriefingDrawerV2 from './preview-v2/RunBriefingDrawerV2';
+import type { RunWeekContext } from '../utils/run-preview/run-week';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import type RunWorkout from '../types/run-workout.type';
 import type { RunBlock } from '../types/run-block.type';
 import type { RunZoneType, RunnerProfileType } from '@/features/workout-engine/core/types/running.types';
@@ -47,144 +51,6 @@ function getDifficultyLevel(blocks: RunBlock[]): number {
   return 1;
 }
 
-// ── Section grouping ──
-
-interface BriefingSection {
-  title: string;
-  laps?: number;
-  blocks: { block: RunBlock; originalIndex: number }[];
-}
-
-function isStrideBlock(block: RunBlock): boolean {
-  return !!block._isDynamicWrapper && block.type === 'run' && block.blockMode === 'effort' && block.label.includes('סטריידס');
-}
-
-function groupBlocksIntoSections(workout: RunWorkout): BriefingSection[] {
-  const warmupSection: BriefingSection = { title: 'חימום', blocks: [] };
-  const cooldownSection: BriefingSection = { title: 'מתיחות', blocks: [] };
-  const middleSections: BriefingSection[] = [];
-  const { blocks } = workout;
-  let i = 0;
-
-  while (i < blocks.length) {
-    const block = blocks[i];
-
-    // 1. Cooldown — always last, check BEFORE _isDynamicWrapper
-    if (block.type === 'cooldown') {
-      cooldownSection.blocks.push({ block, originalIndex: i });
-      i++;
-      continue;
-    }
-
-    // 2. Strides — group like intervals (work+rest with lap count)
-    if (isStrideBlock(block)) {
-      const workBlock = block;
-      let lapCount = 1;
-      let j = i + 1;
-
-      while (j < blocks.length) {
-        const next = blocks[j];
-        if (next._isSynthesizedRest || next.type === 'walk' || next.type === 'recovery') {
-          j++;
-          if (j < blocks.length && isStrideBlock(blocks[j])) {
-            lapCount++;
-            j++;
-            continue;
-          }
-          break;
-        }
-        if (isStrideBlock(next)) {
-          lapCount++;
-          j++;
-          continue;
-        }
-        break;
-      }
-
-      const uniqueBlocks: { block: RunBlock; originalIndex: number }[] = [{ block: workBlock, originalIndex: i }];
-      const firstRest = blocks.slice(i + 1, j).find(b => b._isSynthesizedRest || b.type === 'walk' || b.type === 'recovery');
-      if (firstRest) {
-        const restIdx = blocks.indexOf(firstRest);
-        uniqueBlocks.push({ block: firstRest, originalIndex: restIdx });
-      }
-
-      middleSections.push({ title: 'מתגברות', laps: lapCount, blocks: uniqueBlocks });
-      i = j;
-      continue;
-    }
-
-    // 3. Warmup (pure warmup or dynamic wrapper that ISN'T strides/cooldown)
-    if (block.type === 'warmup' || (block._isDynamicWrapper && block.type !== 'run')) {
-      warmupSection.blocks.push({ block, originalIndex: i });
-      i++;
-      continue;
-    }
-
-    // 4. Interval / run pattern grouping
-    if (block.type === 'interval' || block.type === 'run') {
-      const isIntervalZone = block.zoneType && ['interval_short', 'interval_long', 'sprint', 'fartlek_fast', 'fartlek_medium', 'tempo'].includes(block.zoneType);
-
-      if (isIntervalZone || block.type === 'interval') {
-        const workBlock = block;
-        let lapCount = 1;
-        let j = i + 1;
-
-        while (j < blocks.length) {
-          const nextBlock = blocks[j];
-          if (nextBlock._isSynthesizedRest || nextBlock.type === 'recovery' || nextBlock.type === 'walk') {
-            j++;
-            if (j < blocks.length) {
-              const afterRest = blocks[j];
-              const sameWork =
-                afterRest.type === workBlock.type &&
-                afterRest.zoneType === workBlock.zoneType &&
-                afterRest.durationSeconds === workBlock.durationSeconds &&
-                afterRest.distanceMeters === workBlock.distanceMeters;
-              if (sameWork) { lapCount++; j++; continue; }
-            }
-            break;
-          }
-          const sameWork =
-            nextBlock.type === workBlock.type &&
-            nextBlock.zoneType === workBlock.zoneType &&
-            nextBlock.durationSeconds === workBlock.durationSeconds &&
-            nextBlock.distanceMeters === workBlock.distanceMeters;
-          if (sameWork) { lapCount++; j++; continue; }
-          break;
-        }
-
-        const uniqueBlocks: { block: RunBlock; originalIndex: number }[] = [{ block: workBlock, originalIndex: i }];
-        const restBlock = blocks.slice(i + 1, j).find(b => b._isSynthesizedRest || b.type === 'recovery' || b.type === 'walk');
-        if (restBlock) {
-          const restIdx = blocks.indexOf(restBlock);
-          uniqueBlocks.push({ block: restBlock, originalIndex: restIdx });
-        }
-
-        middleSections.push({
-          title: workBlock.label || 'אינטרוולים',
-          laps: lapCount > 1 ? lapCount : undefined,
-          blocks: uniqueBlocks,
-        });
-        i = j;
-        continue;
-      }
-    }
-
-    // 5. Default standalone
-    middleSections.push({
-      title: block.label,
-      blocks: [{ block, originalIndex: i }],
-    });
-    i++;
-  }
-
-  const result: BriefingSection[] = [];
-  if (warmupSection.blocks.length > 0) result.push(warmupSection);
-  result.push(...middleSections);
-  if (cooldownSection.blocks.length > 0) result.push(cooldownSection);
-  return result;
-}
-
 // ── Surface cards ──
 
 const SURFACE_CARDS = [
@@ -212,9 +78,23 @@ interface RunBriefingDrawerProps {
   onGo: () => void;
   workout: RunWorkout | null;
   isLoading?: boolean;
+  /** v2 only — the template's category (the beginner path drops it from the workout). */
+  templateCategory?: string | null;
+  /** v2 only — "שבוע 3 מתוך 8 · אימון 2 השבוע". */
+  week?: RunWeekContext | null;
 }
 
-export default function RunBriefingDrawer({
+/**
+ * enable_home_v2 → the v2 briefing (boards R1-prop-intervals / R1-prop-tempo);
+ * flag off → today's drawer, unchanged.
+ */
+export default function RunBriefingDrawer(props: RunBriefingDrawerProps) {
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  return v2 ? <RunBriefingDrawerV2 {...props} /> : <RunBriefingDrawerLegacy {...props} />;
+}
+
+function RunBriefingDrawerLegacy({
   isOpen, onClose, onGo, workout, isLoading,
 }: RunBriefingDrawerProps) {
   const profile = useUserStore((s) => s.profile);

@@ -33,7 +33,9 @@ describe('HybridOverviewScreen — header unified to a single row for every card
   });
 
   it('budget-split keeps its own title text ("אימון משולב"), just in the unified layout', () => {
-    const match = screenSrc.match(/:\s*composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*'אימון משולב'\}/);
+    // The ternary now lives in `const overviewTitle = …;` (the header moved to the
+    // shared WorkoutOverviewHeader, 19.10.2026) — so it ends with `;`, not the JSX `}`.
+    const match = screenSrc.match(/:\s*composed\.bolts\s*\n?\s*\?\s*\(MAP_OVERVIEW_CHROME_V1[\s\S]*?\)\s*\n?\s*:\s*'אימון משולב'[};]/);
     expect(match, 'title ternary not found in the expected shape').toBeTruthy();
   });
 });
