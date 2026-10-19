@@ -56,9 +56,9 @@ describe('stats + grader params', () => {
     const sys = [{ type: 'text' as const, text: GRADER_SYSTEM_PROMPT }];
     const off = buildGraderParams('m', sys, 'u');
     expect(JSON.stringify(off)).toBe(JSON.stringify(buildGraderParams('m', sys, 'u', {})));
-    expect((off.output_config as { format: { schema: unknown } }).format.schema).toBe(GRADER_JSON_SCHEMA);
+    expect((off.output_config as unknown as { format: { schema: unknown } }).format.schema).toBe(GRADER_JSON_SCHEMA);
     const on = buildGraderParams('m', sys, 'u', { withTopics: true });
-    const schema = (on.output_config as { format: { schema: { required: string[] } } }).format.schema;
+    const schema = (on.output_config as unknown as { format: { schema: { required: string[] } } }).format.schema;
     expect(schema.required).toContain('topics');
     expect(GRADER_SYSTEM_PROMPT_WITH_TOPICS.startsWith(GRADER_SYSTEM_PROMPT)).toBe(true);
     expect(GRADER_SYSTEM_PROMPT_WITH_TOPICS).toContain('today_workout');

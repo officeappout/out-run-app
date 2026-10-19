@@ -59,6 +59,12 @@ export const EvalAssertionsSchema = z
     mustMatch: z.array(z.string()).optional(),
     /** Regex sources the reply must NOT match (none). */
     mustNotMatch: z.array(z.string()).optional(),
+    /** Kelly phase 2: quick-reply ids the turn must carry (suggestions/copy.ts ids). */
+    suggestions: z.array(z.string()).optional(),
+    /** Kelly phase 2: quick-reply ids the turn must NOT carry ('*' = none at all). */
+    noSuggestions: z.array(z.string()).optional(),
+    /** Kelly phase 2: a schedule proposal card was (true) / was not (false) prepared. */
+    proposal: z.boolean().optional(),
   })
   .strict();
 export type EvalAssertions = z.infer<typeof EvalAssertionsSchema>;
@@ -74,6 +80,8 @@ export const EvalContextSchema = z.object({
   sheet: z.record(z.string(), z.unknown()).optional(),
   /** get_progress result. Absent → computed from the sheet's lastWorkouts. */
   progress: z.record(z.string(), z.unknown()).optional(),
+  /** Kelly phase 2: the raw profile (schedule fields) propose_schedule_change plans on. */
+  profile: z.record(z.string(), z.unknown()).optional(),
 });
 export type EvalContext = z.infer<typeof EvalContextSchema>;
 
@@ -97,7 +105,15 @@ export const EvalCaseSchema = z.object({
    * text round (the last one repeats). Lets a fixture replay a BAD model reply (e.g. the
    * feminine slip) to prove the reply guards fix it. Ignored in --live runs.
    */
-  mock: z.object({ replies: z.array(z.string().min(1)).min(1) }).optional(),
+  mock: z
+    .object({
+      replies: z.array(z.string().min(1)).min(1),
+      /** Inputs the fake model sends for its tool calls (by tool name). */
+      toolInputs: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+    })
+    .optional(),
+  /** Flags the replay runs with (default: all off, like production before they are switched on). */
+  flags: z.object({ phase2: z.boolean().optional() }).optional(),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;
 
@@ -122,6 +138,10 @@ export interface EvalRunResult {
   sheetWeekDates?: string[];
   /** Action chips the turn produced. */
   chips?: string[];
+  /** Kelly phase 2: the quick-reply ids the turn produced. */
+  suggestions?: string[];
+  /** Kelly phase 2: a proposal card was prepared. */
+  proposalCreated?: boolean;
 }
 
 export interface AssertionResult {
@@ -259,6 +279,20 @@ export function checkAssertions(a: EvalAssertions, run: EvalRunResult): Assertio
     const got = run.chips ?? [];
     const bad = a.noChips.filter((c) => got.includes(c));
     add('noChips', bad.length === 0, bad.length ? `unexpected chips: ${bad.join(', ')}` : 'ok');
+  }
+  if (a.suggestions) {
+    const got = run.suggestions ?? [];
+    const missing = a.suggestions.filter((c) => !got.includes(c));
+    add('suggestions', missing.length === 0, missing.length ? `missing quick replies: ${missing.join(', ')} (got: ${got.join(', ') || 'none'})` : `quick replies ${got.join(', ')}`);
+  }
+  if (a.noSuggestions) {
+    const got = run.suggestions ?? [];
+    const bad = a.noSuggestions.includes('*') ? got : a.noSuggestions.filter((c) => got.includes(c));
+    add('noSuggestions', bad.length === 0, bad.length ? `unexpected quick replies: ${bad.join(', ')}` : 'ok');
+  }
+  if (typeof a.proposal === 'boolean') {
+    const got = !!run.proposalCreated;
+    add('proposal', got === a.proposal, got ? 'a proposal card was prepared' : 'no proposal card');
   }
   for (const m of a.matchCount ?? []) {
     let n = 0;
