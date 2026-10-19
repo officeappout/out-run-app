@@ -11,6 +11,9 @@ import { createContribution } from '@/features/parks/core/services/contribution.
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { WizardV2Context } from './wizard-v2';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { XP_REWARDS } from '@/types/contribution.types';
 import type { ParkFacilityCategory, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import type { ParkGymEquipment } from '@/features/content/equipment/gym';
@@ -146,6 +149,149 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
 
   if (!isOpen) return null;
 
+  const body = (
+    <>
+      {/* Success overlay */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className={v2
+              ? 'absolute inset-0 z-50 flex flex-col items-center justify-center rounded-t-[28px] bg-white'
+              : 'absolute inset-0 z-50 flex flex-col items-center justify-center bg-white rounded-t-3xl'}
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: [0, 1.3, 1] }}
+              transition={{ duration: 0.5 }}
+              className={v2
+                ? 'mb-4 grid h-20 w-20 place-items-center rounded-full bg-v2-tint ring-1 ring-inset ring-v2-accent/40'
+                : 'w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-4'}
+            >
+              {v2 ? <PartyPopper size={36} strokeWidth={2.2} className="text-v2-deep" /> : <span className="text-4xl">🎉</span>}
+            </motion.div>
+            <p className={v2 ? 'mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-slate-900 text-lg font-bold mb-1'}>המיקום נשלח לאישור!</p>
+            <p className={v2 ? 'text-[15px] font-extrabold text-v2-deep' : 'text-[#00E5FF] text-sm font-bold'}>+{XP_REWARDS.new_location} XP</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Step Content */}
+      <div className="flex-1 overflow-hidden relative min-h-[420px]">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="absolute inset-0"
+          >
+            {currentId === 'location' && (
+              <Step1LocationPicker
+                data={data}
+                updateData={updateData}
+                onNext={goNext}
+              />
+            )}
+            {currentId === 'details' && (
+              <Step2Details
+                data={data}
+                updateData={updateData}
+                onNext={goNext}
+                onBack={goBack}
+              />
+            )}
+            {currentId === 'equipment' && (
+              <StepEquipment
+                data={data}
+                updateData={updateData}
+                onNext={goNext}
+                onBack={goBack}
+              />
+            )}
+            {currentId === 'photo' && (
+              <Step3Photo
+                data={data}
+                updateData={updateData}
+                onBack={goBack}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <WizardV2Context.Provider value={v2}>
+        <Sheet
+          open={isOpen}
+          onClose={onClose}
+          // Full-screen overlay band z-[100] (.cursorrules), in place, keyboard-aware (inputs).
+          layout="nested"
+          zIndex={SHEET_Z.overlay}
+          portal={false}
+          backdropClassName="bg-black/30 backdrop-blur-sm"
+          frameClassName="w-full"
+          safeArea={false}
+          scroll="none"
+          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          // min-h-[85vh] / max-h-[95vh]: see the classic panel below (field-test finding 23.09.2026).
+          className="relative flex min-h-[85vh] max-h-[95vh] flex-col overflow-hidden"
+          grabberClassName="flex justify-center pt-2.5"
+          ariaLabel="הוסף מיקום חדש"
+          header={
+            <>
+              <div className="flex items-center justify-between px-5 pt-3 pb-3">
+                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הוסף מיקום חדש</h2>
+                <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose}>
+                  <X size={18} strokeWidth={2.4} />
+                </IconButton>
+              </div>
+              {/* Step indicator — current = gradient dot, done = tint, upcoming = ring */}
+              <div className="flex items-center justify-center gap-1 px-4 pb-4">
+                {stepIds.map((id, i) => {
+                  const state = i === step ? 'current' : i < step ? 'done' : 'upcoming';
+                  return (
+                    <div key={id} className="flex items-center gap-1">
+                      <div
+                        className={`grid h-6 w-6 flex-shrink-0 place-items-center rounded-full text-[11px] font-extrabold transition-all duration-300 ease-v2 ${
+                          state === 'current'
+                            ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
+                            : state === 'done'
+                              ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                              : 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-pill-border'
+                        }`}
+                      >
+                        {state === 'done' ? <Check size={13} strokeWidth={3} /> : i + 1}
+                      </div>
+                      <span className={`whitespace-nowrap text-[12px] font-extrabold transition-colors ${
+                        state === 'current' ? 'text-v2-ink' : state === 'done' ? 'text-v2-deep' : 'text-v2-muted'
+                      }`}>{STEP_LABELS[id]}</span>
+                      {i < stepIds.length - 1 && (
+                        <div className={`mx-0.5 h-0.5 w-3 rounded-full ${i < step ? 'bg-v2-accent/40' : 'bg-v2-hairline'}`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          }
+        >
+          {body}
+        </Sheet>
+      </WizardV2Context.Provider>
+    );
+  }
+
   return (
     <WizardV2Context.Provider value={v2}>
     <div className="kb-fit fixed inset-0 z-[100] flex flex-col justify-end">
@@ -173,59 +319,9 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
         // height, not specifically the keyboard. max-h raised 92vh → 95vh —
         // still short of full-screen so the backdrop stays visible and the
         // sheet reads as dismissible.
-        className={v2
-          ? 'kb-cap relative flex min-h-[85vh] max-h-[95vh] flex-col overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet'
-          : 'kb-cap relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden'}
+        className="kb-cap relative bg-white rounded-t-3xl shadow-2xl min-h-[85vh] max-h-[95vh] flex flex-col overflow-hidden"
         dir="rtl"
       >
-        {v2 ? (
-          <>
-            {/* Header — v2: handle, 22px title, round close */}
-            <div className="flex justify-center pt-2.5">
-              <div className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
-            </div>
-            <div className="flex items-center justify-between px-5 pt-3 pb-3">
-              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הוסף מיקום חדש</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="סגירה"
-                className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
-              >
-                <X size={18} strokeWidth={2.4} />
-              </button>
-            </div>
-
-            {/* Step indicator — current = gradient dot, done = tint, upcoming = ring */}
-            <div className="flex items-center justify-center gap-1 px-4 pb-4">
-              {stepIds.map((id, i) => {
-                const state = i === step ? 'current' : i < step ? 'done' : 'upcoming';
-                return (
-                  <div key={id} className="flex items-center gap-1">
-                    <div
-                      className={`grid h-6 w-6 flex-shrink-0 place-items-center rounded-full text-[11px] font-extrabold transition-all duration-300 ease-v2 ${
-                        state === 'current'
-                          ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
-                          : state === 'done'
-                            ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-                            : 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-pill-border'
-                      }`}
-                    >
-                      {state === 'done' ? <Check size={13} strokeWidth={3} /> : i + 1}
-                    </div>
-                    <span className={`whitespace-nowrap text-[12px] font-extrabold transition-colors ${
-                      state === 'current' ? 'text-v2-ink' : state === 'done' ? 'text-v2-deep' : 'text-v2-muted'
-                    }`}>{STEP_LABELS[id]}</span>
-                    {i < stepIds.length - 1 && (
-                      <div className={`mx-0.5 h-0.5 w-3 rounded-full ${i < step ? 'bg-v2-accent/40' : 'bg-v2-hairline'}`} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-lg font-bold text-slate-900">הוסף מיקום חדש</h2>
@@ -248,84 +344,8 @@ export default function ContributionWizard({ isOpen, onClose, initialLocation }:
             </div>
           ))}
         </div>
-          </>
-        )}
 
-        {/* Success overlay */}
-        <AnimatePresence>
-          {showSuccess && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className={v2
-                ? 'absolute inset-0 z-50 flex flex-col items-center justify-center rounded-t-[28px] bg-white'
-                : 'absolute inset-0 z-50 flex flex-col items-center justify-center bg-white rounded-t-3xl'}
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: [0, 1.3, 1] }}
-                transition={{ duration: 0.5 }}
-                className={v2
-                  ? 'mb-4 grid h-20 w-20 place-items-center rounded-full bg-v2-tint ring-1 ring-inset ring-v2-accent/40'
-                  : 'w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-4'}
-              >
-                {v2 ? <PartyPopper size={36} strokeWidth={2.2} className="text-v2-deep" /> : <span className="text-4xl">🎉</span>}
-              </motion.div>
-              <p className={v2 ? 'mb-1 text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-slate-900 text-lg font-bold mb-1'}>המיקום נשלח לאישור!</p>
-              <p className={v2 ? 'text-[15px] font-extrabold text-v2-deep' : 'text-[#00E5FF] text-sm font-bold'}>+{XP_REWARDS.new_location} XP</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Step Content */}
-        <div className="flex-1 overflow-hidden relative min-h-[420px]">
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={step}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="absolute inset-0"
-            >
-              {currentId === 'location' && (
-                <Step1LocationPicker
-                  data={data}
-                  updateData={updateData}
-                  onNext={goNext}
-                />
-              )}
-              {currentId === 'details' && (
-                <Step2Details
-                  data={data}
-                  updateData={updateData}
-                  onNext={goNext}
-                  onBack={goBack}
-                />
-              )}
-              {currentId === 'equipment' && (
-                <StepEquipment
-                  data={data}
-                  updateData={updateData}
-                  onNext={goNext}
-                  onBack={goBack}
-                />
-              )}
-              {currentId === 'photo' && (
-                <Step3Photo
-                  data={data}
-                  updateData={updateData}
-                  onBack={goBack}
-                  onSubmit={handleSubmit}
-                  submitting={submitting}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+        {body}
       </motion.div>
     </div>
     </WizardV2Context.Provider>

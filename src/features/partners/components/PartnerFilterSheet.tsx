@@ -31,6 +31,9 @@ import { DualRangeSlider } from './DualRangeSlider';
 import { PartnerFilterRowsV2 } from './PartnerFilterBar';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface PartnerFilterSheetProps {
   isOpen: boolean;
@@ -82,166 +85,138 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
 
   if (v2) {
     return (
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* v2: z-[95]/[96] — above the PartnerOverlay (z-[90]) the sheet
-                is opened from (the legacy z-[48]/[49] sat underneath it),
-                below ChatInbox (z-[100]/[101]). */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 z-[95] bg-[rgba(9,30,50,0.32)] pointer-events-auto"
-            />
-
-            <motion.div
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.25}
-              onDragEnd={(_, info) => {
-                if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-              }}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-[96] rounded-t-[28px] bg-white shadow-v2-sheet pointer-events-auto"
-              dir="rtl"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
-            >
-              {/* Drag handle */}
-              <div
-                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-                onPointerDown={(e) => dragControls.start(e)}
-                style={{ touchAction: 'none' }}
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // z-[95]/[96] (.cursorrules) — above the PartnerOverlay (z-[90]) the
+        // sheet is opened from (the legacy z-[48]/[49] sat underneath it),
+        // below ChatInbox (z-[100]/[101]). Rendered in place, like before.
+        zIndex={SHEET_Z.navigatePanel}
+        backdropZIndex={SHEET_Z.navigate}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-[rgba(9,30,50,0.32)] pointer-events-auto"
+        frameClassName="pointer-events-auto"
+        safeArea="calc(env(safe-area-inset-bottom, 0px) + 12px)"
+        scroll="none"
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
+        grabberClassName="flex justify-center pt-3 pb-2"
+        ariaLabel="סינון"
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-3">
+            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">סינון</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={reset}
+                className="h-9 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
-                <div className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
-              </div>
+                איפוס
+              </button>
+              <IconButton aria-label="סגור" tone="surface" size={36} onClick={onClose}>
+                <X size={16} className="text-v2-ink-2" />
+              </IconButton>
+            </div>
+          </div>
+        }
+        // Apply CTA — the sheet's one filled gradient.
+        footer={
+          <div className="px-5 pt-2 pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                onApply?.();
+                onClose();
+              }}
+              className="h-12 w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              החל
+            </button>
+          </div>
+        }
+      >
+        <div className="max-h-[62vh] space-y-6 overflow-y-auto px-5 pb-4 pt-1">
+          {tab && <PartnerFilterRowsV2 tab={tab} />}
 
-              {/* Header — title on the start side, reset + close on the end */}
-              <div className="flex items-center justify-between gap-3 px-5 pb-3">
-                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">סינון</h2>
-                <div className="flex items-center gap-2">
+          <section>
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מרחק</span>
+              <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
+                עד {formatDistance(distanceKm)}
+              </span>
+            </div>
+            <div className="relative w-full" style={{ height: 16 }}>
+              <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
+              <div
+                className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                style={{
+                  right: 0,
+                  left: `${100 - ((distanceKm - DISTANCE_MIN) / (DISTANCE_MAX - DISTANCE_MIN)) * 100}%`,
+                  backgroundColor: V2_ACCENT,
+                }}
+              />
+              <input
+                type="range"
+                min={DISTANCE_MIN}
+                max={DISTANCE_MAX}
+                step={0.5}
+                value={distanceKm}
+                dir="rtl"
+                onChange={(e) => setDistanceKm(Number(e.target.value))}
+                className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
+                style={{ accentColor: V2_ACCENT }}
+                aria-label="מרחק חיפוש בקילומטרים"
+              />
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2.5">
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מגדר</span>
+            </div>
+            <div className="flex gap-2">
+              {GENDER_PILLS.map((p) => {
+                const active = genderFilter === p.value;
+                return (
                   <button
+                    key={`gender_${p.value}`}
                     type="button"
-                    onClick={reset}
-                    className="h-9 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
+                    onClick={() => setGenderFilter(p.value)}
+                    aria-pressed={active}
+                    className={`h-9 flex-1 whitespace-nowrap rounded-full text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      active
+                        ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`}
                   >
-                    איפוס
+                    {p.label}
                   </button>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                    aria-label="סגור"
-                  >
-                    <X size={16} className="text-v2-ink-2" />
-                  </button>
-                </div>
-              </div>
+                );
+              })}
+            </div>
+          </section>
 
-              <div className="max-h-[62vh] space-y-6 overflow-y-auto px-5 pb-4 pt-1">
-                {tab && <PartnerFilterRowsV2 tab={tab} />}
-
-                <section>
-                  <div className="mb-2.5 flex items-center justify-between gap-2">
-                    <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מרחק</span>
-                    <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-                      עד {formatDistance(distanceKm)}
-                    </span>
-                  </div>
-                  <div className="relative w-full" style={{ height: 16 }}>
-                    <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
-                    <div
-                      className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                      style={{
-                        right: 0,
-                        left: `${100 - ((distanceKm - DISTANCE_MIN) / (DISTANCE_MAX - DISTANCE_MIN)) * 100}%`,
-                        backgroundColor: V2_ACCENT,
-                      }}
-                    />
-                    <input
-                      type="range"
-                      min={DISTANCE_MIN}
-                      max={DISTANCE_MAX}
-                      step={0.5}
-                      value={distanceKm}
-                      dir="rtl"
-                      onChange={(e) => setDistanceKm(Number(e.target.value))}
-                      className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
-                      style={{ accentColor: V2_ACCENT }}
-                      aria-label="מרחק חיפוש בקילומטרים"
-                    />
-                  </div>
-                </section>
-
-                <section>
-                  <div className="mb-2.5">
-                    <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מגדר</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {GENDER_PILLS.map((p) => {
-                      const active = genderFilter === p.value;
-                      return (
-                        <button
-                          key={`gender_${p.value}`}
-                          type="button"
-                          onClick={() => setGenderFilter(p.value)}
-                          aria-pressed={active}
-                          className={`h-9 flex-1 whitespace-nowrap rounded-full text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-                            active
-                              ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
-                              : 'bg-white text-v2-ink-2 shadow-v2-ring'
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <section>
-                  <div className="mb-2.5">
-                    <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">טווח גילאים</span>
-                  </div>
-                  <DualRangeSlider
-                    min={18}
-                    max={99}
-                    step={1}
-                    values={ageRange}
-                    onChange={setAgeRange}
-                    ariaLabelMin="גיל מינימום"
-                    ariaLabelMax="גיל מקסימום"
-                  />
-                  <div className="mt-0.5 flex justify-between text-[11px] font-bold text-v2-muted">
-                    <span>צעיר</span>
-                    <span>מבוגר</span>
-                  </div>
-                </section>
-              </div>
-
-              {/* Apply CTA — the sheet's one filled gradient */}
-              <div className="px-5 pt-2 pb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onApply?.();
-                    onClose();
-                  }}
-                  className="h-12 w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] pointer-events-auto"
-                >
-                  החל
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          <section>
+            <div className="mb-2.5">
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">טווח גילאים</span>
+            </div>
+            <DualRangeSlider
+              min={18}
+              max={99}
+              step={1}
+              values={ageRange}
+              onChange={setAgeRange}
+              ariaLabelMin="גיל מינימום"
+              ariaLabelMax="גיל מקסימום"
+            />
+            <div className="mt-0.5 flex justify-between text-[11px] font-bold text-v2-muted">
+              <span>צעיר</span>
+              <span>מבוגר</span>
+            </div>
+          </section>
+        </div>
+      </Sheet>
     );
   }
 

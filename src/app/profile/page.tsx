@@ -437,6 +437,7 @@ export default function ProfilePage() {
 
       {/* History bottom sheet — opened by tapping the workouts count. */}
       <HistorySheet
+        v2={v2}
         isOpen={historySheetOpen}
         onClose={() => setHistorySheetOpen(false)}
         onWorkoutClick={(workout) => {

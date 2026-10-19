@@ -509,6 +509,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 
       {/* ── Achievement Sheet (full-screen) ── */}
       <AchievementSheet
+        v2={v2}
         isOpen={isAchievementSheetOpen}
         onClose={() => setIsAchievementSheetOpen(false)}
         unlockedAchievements={unlockedAchievements}

@@ -4,7 +4,7 @@
  * In use across home, the map, the live players and the workout summary;
  * new v2 markup should compose these instead of re-rolling sheets, icon
  * buttons, CTAs, section titles, rails or story bars:
- *   Sheet (modal bottom sheet) · DraggableSheet (snap-point, non-modal) ·
+ *   Sheet (modal bottom sheet) · ConfirmSheet (short action sheet) · DraggableSheet (snap-point, non-modal) ·
  *   IconButton · Button (variant "cta" = the one gradient CTA) ·
  *   SectionHeader · HScroller · StoryBars · Card / Chip / IconTile …
  * scripts/ci/v2-raw-style-grep.sh warns about raw copies outside this folder.
@@ -37,6 +37,8 @@ export {
   SPRING_HERO_SNAP,
 } from './Sheet';
 export type { SheetProps, SheetDragOptions } from './Sheet';
+export { default as ConfirmSheet, CONFIRM_ACTION_CLASS } from './ConfirmSheet';
+export type { ConfirmSheetProps, ConfirmSheetAction, ConfirmActionTone } from './ConfirmSheet';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps, IconButtonTone, IconButtonSize } from './IconButton';
 export { default as SectionHeader } from './SectionHeader';
