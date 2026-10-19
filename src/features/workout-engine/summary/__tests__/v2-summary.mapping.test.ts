@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionSegmentRecord } from '@/features/workout-engine/core/services/storage.service';
-import { aerobicRings, hybridRings, hybridStationTables, paceLabel, repTableModel, timeLabel } from '../v2-summary.mapping';
+import { aerobicRings, hybridRings, hybridStationTables, paceLabel, repTableModel, rideRings, timeLabel } from '../v2-summary.mapping';
 
 describe('paceLabel / timeLabel', () => {
   it('formats and guards', () => {
@@ -10,6 +10,21 @@ describe('paceLabel / timeLabel', () => {
     expect(timeLabel(2538)).toBe('42:18');
     expect(timeLabel(3725)).toBe('1:02:05');
     expect(timeLabel(0)).toBe('--');
+  });
+});
+
+describe('rideRings (v2 cycling)', () => {
+  it('average speed · time · climb — no pace', () => {
+    const r = rideRings({ distance: 24, duration: 3600, elevationGain: 182.4 });
+    expect(r.map((x) => [x.key, x.value, x.unit ?? null, x.pct])).toEqual([
+      ['speed', '24.0', 'קמ״ש', 100],
+      ['time', '1:00:00', null, 100],
+      ['elevation', '182', 'מ׳', 100],
+    ]);
+  });
+  it('empty values stay open rings, never invented', () => {
+    const r = rideRings({});
+    expect(r.map((x) => [x.value, x.pct])).toEqual([['--', 0], ['--', 0], ['--', 0]]);
   });
 });
 

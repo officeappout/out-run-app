@@ -133,7 +133,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
               dragControls.start(e);
             }}
             leading={<CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={`רשימת ההקפות · ${cartItems.filter((i) => i.done).length} הושלמו`} />}
-            eyebrow={gv ? `ריצה חופשית · ${gv.targetText}` : 'ריצה חופשית'}
+            eyebrow={gv ? `${live.title} · ${gv.targetText}` : live.title}
             eyebrowColor="#4d7c0f"
             title={gv ? gv.remainingText : `הקפה ${lapNo} · ${fmtClock(live.totals.durationSec)}`}
             trailing={
@@ -185,6 +185,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
             showLivePace: true,
             totals: live.totals,
             plannedKm: live.goal?.type === 'distance' ? live.goal.target : null,
+            metric: live.metric,
           }}
           isPaused={live.isPaused}
           onPause={live.pause}

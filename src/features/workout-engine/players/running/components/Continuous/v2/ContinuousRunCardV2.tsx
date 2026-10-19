@@ -13,6 +13,7 @@ import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
 import { Timer } from 'lucide-react';
 import { PlayerControls } from '../../../../shared/v2';
 import { clampPage, continuousPages, swipePage, type ContinuousPage } from '../../../lib/continuous-run';
+import { rateLabels } from '../../../lib/aerobic-activity';
 import { DistancePage, MainPage, PacePage, type ContinuousCardData } from './ContinuousPages';
 
 export interface NextBlockInfo {
@@ -36,6 +37,10 @@ export interface ContinuousRunCardV2Props {
 }
 
 const PAGE_LABEL: Record<ContinuousPage, string> = { main: 'ראשי', pace: 'קצב', distance: 'מרחק' };
+
+function pageLabel(p: ContinuousPage, data: ContinuousCardData): string {
+  return p === 'pace' ? rateLabels(data.metric ?? 'pace').page : PAGE_LABEL[p];
+}
 
 export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPaused, onPause, onResume, onLap, onStop }: ContinuousRunCardV2Props) {
   const pages = continuousPages(data.showLivePace);
@@ -88,7 +93,7 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
                 page === i ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'text-v2-muted'
               }`}
             >
-              {PAGE_LABEL[p]}
+              {pageLabel(p, data)}
             </button>
           ))}
         </div>

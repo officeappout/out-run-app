@@ -10,24 +10,29 @@ import React from 'react';
 import { SessionListLayer } from '../../../../shared/v2';
 import { avgPaceSec, lapRows } from '../../../lib/continuous-run';
 import { fmtClock, fmtPace } from '../../../lib/planned-rep-results';
+import { fmtSpeed, speedKmh } from '../../../lib/aerobic-activity';
 import { useFreeRunLive } from './useFreeRunLive';
 
 export default function FreeRunLapsLayerV2({ onClose }: { onClose: () => void }) {
-  const { laps, totals } = useFreeRunLive();
-  const rows = lapRows(laps);
+  const { laps, totals, metric, title } = useFreeRunLive();
+  const ride = metric === 'speed';
+  const rows = lapRows(laps, metric);
   const avg = avgPaceSec(totals.durationSec, totals.distanceKm);
+  const avgText = ride
+    ? (speedKmh(totals.distanceKm, totals.durationSec) > 0 ? ` · ${fmtSpeed(speedKmh(totals.distanceKm, totals.durationSec))} קמ״ש ממוצע` : '')
+    : avg > 0 ? ` · ${fmtPace(avg)} ממוצע` : '';
 
   return (
     <SessionListLayer
-      subtitle="ריצה חופשית · הקפות"
+      subtitle={`${title} · הקפות`}
       onClose={onClose}
       safeTop={false}
-      totals={`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(2)} ק״מ${avg > 0 ? ` · ${fmtPace(avg)} ממוצע` : ''}`}
+      totals={`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(2)} ק״מ${avgText}`}
     >
       {rows.length === 0 ? (
         <div className="mt-4 rounded-[20px] bg-white px-4 py-6 text-center shadow-v2-ring">
           <p className="text-[15px] font-black text-v2-ink">אין הקפות עדיין</p>
-          <p className="mt-1 text-[13px] font-bold text-v2-muted">כל הקפה תופיע כאן עם הזמן והקצב שלה</p>
+          <p className="mt-1 text-[13px] font-bold text-v2-muted">{ride ? 'כל הקפה תופיע כאן עם הזמן והמהירות שלה' : 'כל הקפה תופיע כאן עם הזמן והקצב שלה'}</p>
         </div>
       ) : (
         <div className="mt-4 overflow-hidden rounded-[20px] bg-white p-1 shadow-v2-ring">
@@ -36,7 +41,7 @@ export default function FreeRunLapsLayerV2({ onClose }: { onClose: () => void })
             <span className="flex-1 whitespace-nowrap">הקפה</span>
             <span className="w-14 shrink-0 whitespace-nowrap text-left">ק״מ</span>
             <span className="w-14 shrink-0 whitespace-nowrap text-left">זמן</span>
-            <span className="w-14 shrink-0 whitespace-nowrap text-left">קצב</span>
+            <span className="w-14 shrink-0 whitespace-nowrap text-left">{ride ? 'קמ״ש' : 'קצב'}</span>
           </div>
           {rows.map((r) => (
             <div

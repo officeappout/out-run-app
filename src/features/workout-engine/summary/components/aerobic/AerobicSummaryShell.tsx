@@ -50,6 +50,9 @@ export default function AerobicSummaryShell(props: Props) {
   // Home v2 (enable_home_v2): offer this run's pending feed share here too.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  // Home v2: a saved ride (activityType / workoutType 'cycling') gets the ride
+  // summary (speed + climb). Without the flag it renders exactly as today.
+  const isRide = v2 && (workout.workoutType === 'cycling' || workout.activityType === 'cycling');
 
   // Home v2: streak strip + week bars (read-only activity-store reads). The
   // run's own activity write already ran in finishWorkout, so the store
@@ -148,6 +151,7 @@ export default function AerobicSummaryShell(props: Props) {
   return (
     <AerobicSummaryView
       {...props}
+      activityType={isRide ? 'cycling' : props.activityType}
       groupCtx={groupCtx}
       groupLoading={groupLoading}
       savedWorkoutId={savedWorkoutId}

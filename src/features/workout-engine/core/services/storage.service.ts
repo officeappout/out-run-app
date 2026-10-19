@@ -122,9 +122,10 @@ export interface SessionSegmentRecord {
   kind: SessionSegmentKind;
   /**
    * Aerobic segments only. Walking is a first-class aerobic unit — never
-   * collapse it into 'running'.
+   * collapse it into 'running'. 'cycling' is written only by enable_home_v2
+   * solo rides.
    */
-  aerobicType?: 'running' | 'walking';
+  aerobicType?: 'running' | 'walking' | 'cycling';
   label?: string;
   planned?: SegmentMetrics;
   actual?: SegmentMetrics;

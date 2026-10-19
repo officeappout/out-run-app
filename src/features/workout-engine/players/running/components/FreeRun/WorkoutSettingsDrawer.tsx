@@ -30,6 +30,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { autoLapDistanceRange } from '@/features/workout-engine/players/running/lib/aerobic-activity';
 
 interface WorkoutSettingsDrawerProps {
   isOpen: boolean;
@@ -38,6 +39,9 @@ interface WorkoutSettingsDrawerProps {
 
 export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettingsDrawerProps) {
   const { settings, updateSettings } = useRunningPlayer();
+  // Distance-lap slider: today's 0.1–2.0 km on foot; a ride (enable_home_v2) gets 1–10 km, default 5.
+  const activityType = useRunningPlayer((s) => s.activityType);
+  const lapRange = autoLapDistanceRange(activityType);
   
   // Local state for settings (to allow canceling changes)
   const [localSettings, setLocalSettings] = useState(settings);
@@ -70,7 +74,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
       ...localSettings,
       autoLapMode: mode,
       // Reset value when switching modes
-      autoLapValue: mode === 'distance' ? 1.0 : mode === 'time' ? 5.0 : 0,
+      autoLapValue: mode === 'distance' ? lapRange.defaultKm : mode === 'time' ? 5.0 : 0,
     });
   };
 
@@ -198,19 +202,19 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     </div>
                     <input
                       type="range"
-                      min="0.1"
-                      max="2.0"
-                      step="0.1"
+                      min={lapRange.minKm}
+                      max={lapRange.maxKm}
+                      step={lapRange.stepKm}
                       value={localSettings.autoLapValue}
                       onChange={(e) => handleDistanceChange(Number(e.target.value))}
                       className="w-full h-3 bg-gray-100 rounded-full appearance-none cursor-pointer accent-[#00ADEF] hover:accent-[#00D4EE] transition-all"
                       style={{
-                        background: `linear-gradient(to right, #00ADEF 0%, #00ADEF ${((localSettings.autoLapValue - 0.1) / (2.0 - 0.1)) * 100}%, #E5E7EB ${((localSettings.autoLapValue - 0.1) / (2.0 - 0.1)) * 100}%, #E5E7EB 100%)`,
+                        background: `linear-gradient(to right, #00ADEF 0%, #00ADEF ${((localSettings.autoLapValue - lapRange.minKm) / (lapRange.maxKm - lapRange.minKm)) * 100}%, #E5E7EB ${((localSettings.autoLapValue - lapRange.minKm) / (lapRange.maxKm - lapRange.minKm)) * 100}%, #E5E7EB 100%)`,
                       }}
                     />
                     <div className="flex justify-between text-xs text-gray-400">
-                      <span>0.1 ק"מ</span>
-                      <span>2.0 ק"מ</span>
+                      <span>{lapRange.minKm.toFixed(1)} ק"מ</span>
+                      <span>{lapRange.maxKm.toFixed(1)} ק"מ</span>
                     </div>
                   </motion.div>
                 )}

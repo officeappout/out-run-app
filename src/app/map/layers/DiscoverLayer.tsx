@@ -1704,7 +1704,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // ── SWITCH STATEMENT — only ONE branch renders, everything else is unmounted ──
   // ── v2 (enable_home_v2): plain route → the ONE overview drawer ─────────────
   // Same start / navigate paths as RouteDetailSheet below; the chosen activity sets
-  // the player's session mode first (walk / run; a ride runs as a run, like FreeRunDrawer).
+  // the player's session mode first (walk / run / ride — v2 has a cycling mode).
   const startRouteAs = (r: Route, act: RouteActivity) => {
     useRunningPlayer.getState().setActivityType(playerActivityFor(act));
     logic.setFocusedRoute(r);
