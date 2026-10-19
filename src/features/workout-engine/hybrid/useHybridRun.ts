@@ -14,7 +14,7 @@
 import { create } from 'zustand';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import type { WorkoutPlan } from '@/features/parks/core/types/route.types';
-import type { HybridPlan } from './compose-hybrid-session.service';
+import type { HybridPlan, HybridPlannedSegment } from './compose-hybrid-session.service';
 import type { HybridControllerHandle } from './hybrid-session-controller';
 import type { HybridPhase, HybridRunState, HybridFinalizeResult } from './hybrid-orchestrator';
 import { createHybridSessionController } from './hybrid-session-controller';
@@ -43,6 +43,11 @@ let planAerobicKind: 'running' | 'walking' = 'running';
 let planFullPark = false;
 let planWarmupActive = true;
 let saving = false;
+// Home v2 (enable_home_v2) live player: when set, finishHybrid saves THIS result (the
+// hybrid sequencer's finalize — same finalizeHybridRun shape) instead of the controller's.
+// Null for everyone else → today's path, unchanged. See setHybridFinalizeOverride.
+type FinalizeOverride = (totals: { cumulativeKm: number; elapsedSec: number; atMs: number }) => HybridFinalizeResult | null;
+let finalizeOverride: FinalizeOverride | null = null;
 // G2.4 station flow: park names for the end-of-station screen (parkId → name, from the
 // composed stations list), the LIVE block content of the station being run (an in-station
 // swap rewrites it), and when the station started (minutes on the completion screen).
@@ -82,6 +87,19 @@ function buildStationPlan(content: StrengthBlockResult): WorkoutPlan {
     };
   }
   return stationPlan;
+}
+
+/**
+ * Home v2 hybrid player only: register (or clear with null) the result provider finishHybrid
+ * persists. The provider returning null falls back to the controller's own finalize().
+ */
+export function setHybridFinalizeOverride(fn: FinalizeOverride | null): void {
+  finalizeOverride = fn;
+}
+
+/** Read-only snapshot of the controller's orchestrator state (home v2 player mirrors station results). */
+export function hybridRunSnapshot(): HybridRunState | null {
+  return controllerRef ? controllerRef.getState() : null;
 }
 
 /** End-of-station summary held while the completion screen is up (run clock still paused). */
@@ -151,6 +169,10 @@ export interface UpcomingStationInfo {
 export interface HybridRunStore {
   active: boolean;
   phase: HybridPhase;
+  /** The running plan's segments (home v2 player input). Set by startHybrid / reverseRoute. */
+  plan: HybridPlannedSegment[] | null;
+  /** parkId → display name of the composed stations. */
+  stationNames: Record<string, string>;
   stationPlan: WorkoutPlan | null;
   isFinalLeg: boolean;
   /** See computeUpcomingStation. */
@@ -216,6 +238,8 @@ export interface HybridRunStore {
 export const useHybridRun = create<HybridRunStore>((set, get) => ({
   active: false,
   phase: 'idle',
+  plan: null,
+  stationNames: {},
   stationPlan: null,
   isFinalLeg: false,
   upcomingStation: null,
@@ -248,6 +272,8 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     set({
       active: true,
       phase: controllerRef.getPhase(),
+      plan: plan.segments,
+      stationNames: names,
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
@@ -409,8 +435,17 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     if (!controllerRef || saving) return;
     saving = true;
     const s = useSessionStore.getState();
-    controllerRef.finish(s.totalDistance || 0, s.totalDuration || 0, Date.now());
-    const result = controllerRef.finalize();
+    const finishedAtMs = Date.now();
+    controllerRef.finish(s.totalDistance || 0, s.totalDuration || 0, finishedAtMs);
+    let overridden: HybridFinalizeResult | null = null;
+    if (finalizeOverride) {
+      try {
+        overridden = finalizeOverride({ cumulativeKm: s.totalDistance || 0, elapsedSec: s.totalDuration || 0, atMs: finishedAtMs });
+      } catch (e) {
+        console.error('[useHybridRun] v2 finalize override failed — using the controller result', e);
+      }
+    }
+    const result = overridden ?? controllerRef.finalize();
 
     // Minimum-activity guard (follow-up, 11.10.2026 — David caught this
     // before merging G7.1) — see isNegligibleHybridSession's own doc comment
@@ -542,6 +577,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     const next = controllerRef.getState();
     set({
       phase: controllerRef.getPhase(),
+      plan: next.plan,
       stationPlan: null,
       isFinalLeg: isFinalLeg(next),
       upcomingStation: computeUpcomingStation(next),
@@ -563,6 +599,8 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
     set({
       active: false,
       phase: 'idle',
+      plan: null,
+      stationNames: {},
       stationPlan: null,
       isFinalLeg: false,
       upcomingStation: null,

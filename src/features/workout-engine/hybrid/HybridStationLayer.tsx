@@ -62,7 +62,18 @@ import {
 // on its own (it also hides immediately once the approach CTA takes over).
 const INTRO_AUTO_HIDE_MS = 6000;
 
-export default function HybridStationLayer() {
+export interface HybridStationLayerProps {
+  /**
+   * Home v2 hybrid player (enable_home_v2) only. The v2 player owns the legs, the arrival and
+   * the transition countdown, so this layer renders ONLY the station (StrengthRunner) — and
+   * not while `hold` is true (the countdown is still showing). A finished block closes the
+   * station at once (the v2 run card shows the block result instead of the completion
+   * screen). Omitted = today's layer, unchanged.
+   */
+  v2?: { hold: boolean };
+}
+
+export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {}) {
   const active = useHybridRun((s) => s.active);
   const phase = useHybridRun((s) => s.phase);
   const stationPlan = useHybridRun((s) => s.stationPlan);
@@ -84,6 +95,7 @@ export default function HybridStationLayer() {
     context?: SwapOpenContext;
   } | null>(null);
   const finishHybrid = useHybridRun((s) => s.finishHybrid);
+  const completeStation = useHybridRun((s) => s.completeStation);
   const lastPosition = useRunningPlayer((s) => s.lastPosition);
   const nextStationNumber = useHybridRun((s) => s.nextStationNumber);
 
@@ -118,7 +130,8 @@ export default function HybridStationLayer() {
         setFastPromptFor(stationContext.stationNumber);
       }
     }
-    finishStationWork(exerciseLog);
+    if (v2) completeStation(exerciseLog);
+    else finishStationWork(exerciseLog);
   };
 
   // Station-approach moment (David, 25.09.2026): real GPS distance to the
@@ -198,6 +211,8 @@ export default function HybridStationLayer() {
   }, [approaching]);
 
   if (!active) return null; // normal run → nothing rendered
+  // Home v2: the station only, once the v2 transition countdown has handed over.
+  if (v2 && (phase !== 'station' || v2.hold)) return null;
 
   // Station live — StrengthRunner owns the screen until the block completes.
   if (phase === 'station' && stationPlan) {

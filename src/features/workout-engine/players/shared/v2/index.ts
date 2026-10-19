@@ -15,3 +15,4 @@ export type { PlayerHeaderCardProps } from './PlayerHeaderCard';
 export { default as PlayerControls } from './PlayerControls';
 export type { PlayerControlsProps } from './PlayerControls';
 export { useHoldToConfirm } from './useHoldToConfirm';
+export { usePublishedHeaderHeight } from './usePublishedHeaderHeight';

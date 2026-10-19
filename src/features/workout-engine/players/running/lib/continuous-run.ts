@@ -102,6 +102,11 @@ const ZONE_LABELS: Partial<Record<RunZoneType, string>> = {
   sprint: 'ספרינט',
 };
 
+/** Hebrew name of a zone type ("ריצה קלה", "טמפו"), or null when unknown. */
+export function zoneTypeLabel(z: RunZoneType | null | undefined): string | null {
+  return (z && ZONE_LABELS[z]) || null;
+}
+
 export function zoneLabel(b: RunBlock): string {
   return (b.zoneType && ZONE_LABELS[b.zoneType]) || blockDisplayLabel(b);
 }

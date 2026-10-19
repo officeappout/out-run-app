@@ -48,6 +48,9 @@ import type { DrawerSlide } from '@/features/workout-engine/players/running/type
 import FreeRunOverlayV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunOverlayV2';
 import FreeRunLapsLayerV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunLapsLayerV2';
 import FreeRunMiniV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunMiniV2';
+import {
+  HybridPlayerV2Provider, HybridOverlayV2, HybridSessionListV2, HybridMiniV2, HybridStationHostV2,
+} from '@/features/workout-engine/hybrid/v2';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -103,6 +106,10 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const homeV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const v2 = homeV2 && sessionMode !== 'commute';
+  // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
+  // hybrid overlay for v2 users. Off (or no hybrid session) ⇒ today's flow, unchanged.
+  const hybridActive = useHybridRun((s) => s.active);
+  const hybridV2 = v2 && hybridActive;
   const { startArrow } = useRouteDirectionAdapt({
     enabled: runFlags.enableRouteDirectionAdapt,
     focusedRoute: logic.focusedRoute,
@@ -293,13 +300,18 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   );
 
   return (
+    <HybridPlayerV2Provider enabled={hybridV2}>
     <LiveSessionShell
       policy={policy}
       dockH={66}
       isActive={isWorkoutActive}
       behindBg={v2 ? 'bg-v2-surface' : undefined}
-      behindContent={v2 ? ({ onExpand }) => <FreeRunLapsLayerV2 onClose={onExpand} /> : <RunLapsList />}
-      miniContent={({ onExpand }) => v2 ? <FreeRunMiniV2 onExpand={onExpand} height={66} /> : (
+      behindContent={
+        hybridV2
+          ? ({ onExpand }) => <HybridSessionListV2 onClose={onExpand} />
+          : v2 ? ({ onExpand }) => <FreeRunLapsLayerV2 onClose={onExpand} /> : <RunLapsList />
+      }
+      miniContent={({ onExpand }) => hybridV2 ? <HybridMiniV2 onExpand={onExpand} height={66} /> : v2 ? <FreeRunMiniV2 onExpand={onExpand} height={66} /> : (
         /* Fix #4 — dark bar with drag indicator + RunMiniDockContent.
            Not wrapped in MiniDock: drag affordance is the indicator pill,
            not ChevronUp. The TwoLayerShell MINI strip already handles
@@ -354,13 +366,14 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
           </div>
 
           {/* Hybrid station overlay — inert (null) unless a hybrid session is active. */}
-          {isWorkoutActive && <HybridStationLayer />}
+          {isWorkoutActive && (hybridV2 ? <HybridStationHostV2 /> : <HybridStationLayer />)}
 
           {isWorkoutActive ? (
             /* ── Workout mode ─────────────────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
               {/* Everything hidden when minimized — laps list must be unobstructed. */}
-              {!isMinimized && v2 && (
+              {!isMinimized && hybridV2 && <HybridOverlayV2 dragControls={dragControls} onMinimize={onMinimize} />}
+              {!isMinimized && v2 && !hybridV2 && (
                 <>
                   <FreeRunOverlayV2
                     dragControls={dragControls}
@@ -447,5 +460,6 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
       </>
       )}
     </LiveSessionShell>
+    </HybridPlayerV2Provider>
   );
 }
