@@ -45,6 +45,9 @@ import MainMetrics from '@/features/workout-engine/players/running/components/Fr
 import LapMetrics from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/LapMetrics';
 import VSSlide from '@/features/workout-engine/players/running/components/FreeRun/StatsCarousel/VSSlide';
 import type { DrawerSlide } from '@/features/workout-engine/players/running/types/story-spec';
+import FreeRunOverlayV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunOverlayV2';
+import FreeRunLapsLayerV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunLapsLayerV2';
+import FreeRunMiniV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunMiniV2';
 
 // ── AppMap — separate JS chunk, SSR disabled ──────────────────────────────────
 const AppMap = dynamicImport(() => import('@/features/parks/core/components/AppMap'), {
@@ -94,6 +97,12 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // G3.2 (flag enable_route_direction_adapt, fail-closed): adapt a loop to the walked direction.
   const { flags: runFlags } = useFeatureFlags();
   const runnerGender = useUserStore((s) => s.profile?.core?.gender) as 'male' | 'female' | 'other' | undefined;
+  // Home v2 (enable_home_v2): the continuous-run player (R2-prop-easy / U-B / U-C).
+  // Commute keeps today's UI (its own ETA carousel). Off ⇒ today's UI, unchanged.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const homeV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const sessionMode = useRunningPlayer((s) => s.sessionMode);
+  const v2 = homeV2 && sessionMode !== 'commute';
   const { startArrow } = useRouteDirectionAdapt({
     enabled: runFlags.enableRouteDirectionAdapt,
     focusedRoute: logic.focusedRoute,
@@ -288,8 +297,9 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
       policy={policy}
       dockH={66}
       isActive={isWorkoutActive}
-      behindContent={<RunLapsList />}
-      miniContent={({ onExpand }) => (
+      behindBg={v2 ? 'bg-v2-surface' : undefined}
+      behindContent={v2 ? ({ onExpand }) => <FreeRunLapsLayerV2 onClose={onExpand} /> : <RunLapsList />}
+      miniContent={({ onExpand }) => v2 ? <FreeRunMiniV2 onExpand={onExpand} height={66} /> : (
         /* Fix #4 — dark bar with drag indicator + RunMiniDockContent.
            Not wrapped in MiniDock: drag affordance is the indicator pill,
            not ChevronUp. The TwoLayerShell MINI strip already handles
@@ -315,7 +325,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
         </div>
       )}
     >
-      {({ dragControls, isMinimized, onExpand, isDragging }) => (
+      {({ dragControls, isMinimized, onExpand, onMinimize, isDragging }) => (
         <>
           <LapsOpenPublisher open={isWorkoutActive && (isMinimized || isDragging)} />
           {/* AppMap — always mounted here; never remounts between browse and workout */}
@@ -350,7 +360,28 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
             /* ── Workout mode ─────────────────────────────────────────────── */
             <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
               {/* Everything hidden when minimized — laps list must be unobstructed. */}
-              {!isMinimized && (
+              {!isMinimized && v2 && (
+                <>
+                  <FreeRunOverlayV2
+                    dragControls={dragControls}
+                    onMinimize={onMinimize}
+                    sideRailParticipants={sideRailParticipants}
+                    onSelectParticipant={handleSelectParticipant}
+                    activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'}
+                  />
+                  {sideRailParticipants.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 z-[60] flex justify-center pointer-events-none"
+                      style={{ top: groupBadgeTop }}
+                    >
+                      <div className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring" dir="rtl">
+                        {`${sideRailParticipants.length + 1} רצים יחד`}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {!isMinimized && !v2 && (
                 <>
                   <FreeRunOverlay
                     dragControls={dragControls}
