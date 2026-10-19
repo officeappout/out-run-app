@@ -6,12 +6,14 @@
  * displayIcon:'run-fast' unconditionally on finish, so a completed WALK was
  * written to dailyProgress as a run and fed into the running weekly-volume
  * tracker). The fix: useRunningPlayer now takes both labels from
- * aerobicCompletionLabels(activityType). These tests lock that in:
+ * aerobicCompletionLabels(activityType, homeV2). These tests lock that in:
  *   1. source-fact: the player no longer contains the hardcoded literals and
  *      does call aerobicCompletionLabels;
  *   2. execution: the labels it produces for a walk / run go through the REAL
  *      (unmocked) completion pipeline and land correctly in Firestore.
- * Cycling is out of scope and deliberately unchanged ('running'/'run-fast').
+ * Cycling (owner, 19.10.2026): under enable_home_v2 a ride is labelled
+ * 'cycling'/'bike' and never fed into the running weekly volume (there is no
+ * cycling weekly volume/plan). Without the flag it stays 'running'/'run-fast'.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'node:fs';
@@ -74,7 +76,7 @@ describe('Source-fact check (mechanical): useRunningPlayer derives completion la
     const src = fs.readFileSync(filePath, 'utf-8');
     expect(src).not.toContain(`workoutType: 'running'`);
     expect(src).not.toContain(`displayIcon: 'run-fast'`);
-    expect(src).toContain('aerobicCompletionLabels(activityType)');
+    expect(src).toContain('aerobicCompletionLabels(activityType, v2Now())');
     expect(src).toContain('workoutType: completionLabels.workoutType');
     expect(src).toContain('displayIcon: completionLabels.displayIcon');
   });
@@ -123,15 +125,43 @@ describe('Execution: a completed WALKING session is written to Firestore as walk
     (globalThis as unknown as { sessionStorage: unknown }).sessionStorage = { setItem: vi.fn() };
   });
 
-  it('aerobicCompletionLabels: walking → walking/walk; running and cycling unchanged (running/run-fast)', async () => {
+  it('aerobicCompletionLabels: walking → walking/walk; running → running/run-fast; cycling → cycling/bike only under home v2', async () => {
     const { aerobicCompletionLabels } = await import(
       '@/features/workout-engine/services/completion-sync.service'
     );
     expect(aerobicCompletionLabels('walking')).toEqual({ workoutType: 'walking', displayIcon: 'walk' });
     expect(aerobicCompletionLabels('running')).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
-    // Cycling is out of scope — behaviour deliberately unchanged.
+    expect(aerobicCompletionLabels('running', true)).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+    expect(aerobicCompletionLabels('walking', true)).toEqual({ workoutType: 'walking', displayIcon: 'walk' });
+    // A ride (enable_home_v2) is a ride.
+    expect(aerobicCompletionLabels('cycling', true)).toEqual({ workoutType: 'cycling', displayIcon: 'bike' });
+    // Flag off: exactly today's behaviour.
     expect(aerobicCompletionLabels('cycling')).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+    expect(aerobicCompletionLabels('cycling', false)).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
     expect(aerobicCompletionLabels(undefined)).toEqual({ workoutType: 'running', displayIcon: 'run-fast' });
+  });
+
+  it('a RIDE (home v2) runs the REAL completion pipeline: written as cycling/bike, NOT into the running weekly volume', async () => {
+    const { setDoc } = await import('firebase/firestore');
+    const { syncWorkoutCompletion, aerobicCompletionLabels } = await import(
+      '@/features/workout-engine/services/completion-sync.service'
+    );
+    const labels = aerobicCompletionLabels('cycling', true);
+    await syncWorkoutCompletion({
+      workoutType: labels.workoutType,
+      durationMinutes: 45,
+      calories: 400,
+      activityCategory: 'cardio',
+      displayIcon: labels.displayIcon,
+      distanceKm: 18.4,
+    });
+    expect(recordRunningSession).not.toHaveBeenCalled();
+    const setDocMock = setDoc as unknown as { mock: { calls: unknown[][] } };
+    const written = setDocMock.mock.calls.find(
+      (call) => JSON.stringify(call[1]).includes('workoutType'),
+    )![1] as Record<string, unknown>;
+    expect(written.workoutType).toBe('cycling');
+    expect(written.displayIcon).toBe('bike');
   });
 
   it('a WALK finished through the player\'s labels runs the REAL completion pipeline and is written as walking (not running)', async () => {

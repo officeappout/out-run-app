@@ -40,6 +40,11 @@ export interface FeedPostDetails {
   /** One photo (Firebase Storage download URL + its storage path). */
   photoUrl?: string;
   photoPath?: string;
+  /**
+   * Only ever 'cycling' (a ride, enable_home_v2): the card shows the ride's
+   * average speed (km/h) instead of a runner's pace. Absent = run / walk.
+   */
+  activityType?: 'cycling';
 }
 
 export const MAX_TOP_EXERCISES = 3;
@@ -58,6 +63,7 @@ export const FEED_DETAIL_KEYS: (keyof FeedPostDetails)[] = [
   'streakDays',
   'photoUrl',
   'photoPath',
+  'activityType',
 ];
 
 // ── Builders (at workout finish) ────────────────────────────────────────────
@@ -223,6 +229,7 @@ export function sanitizePostDetails(data: Record<string, unknown>): FeedPostDeta
   if (photoUrl && /^https:\/\//.test(photoUrl)) out.photoUrl = photoUrl;
   const photoPath = str(data.photoPath, 300);
   if (photoPath) out.photoPath = photoPath;
+  if (data.activityType === 'cycling') out.activityType = 'cycling';
   return out;
 }
 

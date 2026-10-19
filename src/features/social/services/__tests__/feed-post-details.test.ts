@@ -126,9 +126,18 @@ describe('sanitizePostDetails', () => {
   it('an old post → nothing', () => {
     expect(sanitizePostDetails({ durationMinutes: 30 })).toEqual({});
   });
+  it('activityType: only a ride (cycling) is kept', () => {
+    expect(sanitizePostDetails({ activityType: 'cycling' })).toEqual({ activityType: 'cycling' });
+    expect(sanitizePostDetails({ activityType: 'running' })).toEqual({});
+    expect(sanitizePostDetails({ activityType: 42 })).toEqual({});
+  });
 });
 
 describe('write helpers', () => {
+  it('a ride\'s activityType is a detail key (dropped without home v2, written with it)', () => {
+    expect(withoutPostDetails({ durationMinutes: 3, activityType: 'cycling' as const })).toEqual({ durationMinutes: 3 });
+    expect(postDetailsForWrite({ activityType: 'cycling' })).toEqual({ activityType: 'cycling' });
+  });
   it('withoutPostDetails drops only the detail keys', () => {
     expect(withoutPostDetails({ durationMinutes: 3, streakDays: 4, photoUrl: 'https://x', topExercises: [] })).toEqual({ durationMinutes: 3 });
   });
