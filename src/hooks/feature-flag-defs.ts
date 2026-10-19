@@ -167,6 +167,15 @@ export const FLAG_DEFS = [
   // workout today). The server is the enforcer (route.ts reads it via the Admin SDK).
   // Fail-closed; superAdminValue false — the panel toggle is the one switch.
   { key: 'aiCoachScheduleAdvisor', firestoreKey: 'ai_coach_schedule_advisor', defaultValue: false, superAdminValue: false },
+  // aiCoachPhase2 (19.10.2026, owner-approved "Kelly phase 2") — context-aware quick replies
+  // (first open + 2-3 follow-ups under each answer) and rotating input hints, app-help answers
+  // (get_app_help over a curated Hebrew knowledge file), schedule changes from chat
+  // (propose_schedule_change → a confirm card; the user's tap applies it through the existing
+  // schedule-builder save path, Kelly never writes), and question-topic tagging in the daily
+  // review + the "top topics" panel section. The server is the enforcer (route.ts reads the
+  // real value). Fail-closed; superAdminValue false — the panel toggle is the one switch.
+  // Off = byte-identical Kelly (prompt, tools, stream, stored messages, review).
+  { key: 'aiCoachPhase2', firestoreKey: 'ai_coach_phase2', defaultValue: false, superAdminValue: false },
   // Unified Kelly, phase 1 (18.10.2026, owner) — ONE Kelly conversation per user in
   // ai_coach_threads/{uid}: AI replies, the human team's replies (admin panel "קלי · ממתינים
   // למענה"), the welcome message, and handoffs (needsHuman on the thread doc instead of a

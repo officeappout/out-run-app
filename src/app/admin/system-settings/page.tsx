@@ -46,6 +46,7 @@ interface FlagState {
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
   ai_coach_schedule_advisor: boolean;
+  ai_coach_phase2: boolean;
   weather_enabled: boolean;
   weather_admins_only: boolean;
   kelly_unified_v1: boolean;
@@ -248,6 +249,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-fuchsia-500',
     title: 'קלי — יועץ הלו״ז',
     description: 'קלי ממליץ על שבוע ועל האימון של היום לפי אותם חוקים של בונה הלו״ז (קריאה בלבד, בלי לשנות לו״ז), רואה אימונים שפוספסו, ולא מציע לבנות את האימון של היום אם הוא כבר בוצע. כבוי = כמו היום. פועל רק כשהמתג הראשי דלוק.',
+    parentKey: 'ai_coach_enabled',
+  },
+  {
+    key: 'ai_coach_phase2',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — שלב 2',
+    description: 'כפתורי תשובה מהירה לפי המצב (שעה, אימון היום, חזרה מהפסקה, מזג אוויר) ורמזים מתחלפים בשורת הכתיבה; תשובות על האפליקציה מתוך מאגר ידע; שינוי לו״ז מהצ׳אט עם כרטיס אישור (שום דבר לא נשמר בלי לחיצה של המשתמש); תיוג נושאי שאלות בסקירה היומית + "נושאים מובילים" במסך שיחות קלי. כבוי = כמו היום. פועל רק כשהמתג הראשי דלוק.',
     parentKey: 'ai_coach_enabled',
   },
   {
