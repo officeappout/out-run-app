@@ -38,6 +38,12 @@ export function exDisplayName(ex: EngineWorkoutExercise): string {
  */
 export function groupExercisesIntoSections(
   exercises: EngineWorkoutExercise[],
+  /**
+   * enable_home_v2: the main part runs as ONE AMRAP / EMOM block
+   * (protocols/timed.block) → one 'timed-main' section in plan order.
+   * Absent → today's grouping, unchanged.
+   */
+  opts: { timedMainTitle?: string } = {},
 ): ExerciseSection[] {
   const byId = new Map<string, EngineWorkoutExercise>();
   for (const ex of exercises) {
@@ -73,6 +79,14 @@ export function groupExercisesIntoSections(
   // without the marker take the exact same path as before.
   const tabataMembers = main.filter((ex) => (ex as any).protocolBlock === 'tabata');
   for (const ex of tabataMembers) consumed.add(ex.exercise.id);
+
+  if (opts.timedMainTitle) {
+    const members = main.filter((ex) => !consumed.has(ex.exercise.id));
+    for (const ex of members) consumed.add(ex.exercise.id);
+    if (members.length > 0) {
+      mainSections.push({ id: 'timed-main', title: opts.timedMainTitle, rounds: 1, exercises: members });
+    }
+  }
 
   for (const ex of main) {
     if (consumed.has(ex.exercise.id)) continue;

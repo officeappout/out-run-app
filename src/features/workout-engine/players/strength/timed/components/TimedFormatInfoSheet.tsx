@@ -5,7 +5,7 @@
  * and how it is counted. Nothing about this particular workout.
  */
 import React from 'react';
-import { Sheet } from '@/components/ui/v2';
+import { Sheet, SHEET_Z } from '@/components/ui/v2';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import { formatInfo } from '../logic/timed-labels';
 
@@ -17,6 +17,8 @@ export default function TimedFormatInfoSheet({ spec, open, onClose }: { spec: Ti
       onClose={onClose}
       title={info.title}
       ariaLabel={info.title}
+      // Over the preview drawer / the player's own z-[100] layers.
+      zIndex={SHEET_Z.aboveOffline}
       footer={
         <button
           type="button"
