@@ -189,8 +189,8 @@ src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated thro
 src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
 src/app/community/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
 src/app/profile/page.tsx: TS2339: Property 'currentLevel' does not exist on type 'UserProgression'.
-src/app/search/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
-src/app/search/page.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/search/legacy/LegacySearchPage.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+src/features/search/legacy/LegacySearchPage.tsx: TS2802: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
 src/app/workouts/[id]/active/page.tsx: TS2322: Type 'string | null' is not assignable to type 'boolean'.
 src/app/workouts/[id]/active/page.tsx: TS2339: Property 'globalStreak' does not exist on type 'UserProgression'.
 src/app/workouts/[id]/active/page.tsx: TS2345: Argument of type '{ type: "distance" | "time" | "reps"; value: number; unit?: string | undefined; }' is not assignable to parameter of type '{ type: "time" | "reps"; value: number; }'.

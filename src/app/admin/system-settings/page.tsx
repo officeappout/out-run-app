@@ -61,6 +61,7 @@ interface FlagState {
   enable_route_quality_v1: boolean;
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
+  enable_unified_search: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
 }
@@ -387,6 +388,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'מסלולים מעגליים עוברים במסלולים שלנו',
     description: 'כשיש ליד המשתמש מסלולים רשמיים שמיפינו (שאנחנו יודעים את האיכות, הרמה והגובה שלהם), המסלול המעגלי מנסה לעבור עליהם: נקודות ביניים על המסלולים עצמם ועדיפות למסלול שעובר יותר עליהם — בלי לוותר על ספי האיכות ועל המרחק המבוקש. עובד יחד עם "איכות מסלולים מעגליים (v1)" ועם GraphHopper. השוואה: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
+  },
+  // Unified search (19.10.2026).
+  {
+    key: 'enable_unified_search',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'חיפוש מאוחד',
+    description: 'מסך החיפוש מחפש בבת אחת בתרגילים, גינות, מסלולים, אנשים וקבוצות, אירועים, מאמרים ועזרה (התוכן מ"תוכן ושאלות" בניהול): צ׳יפים עם מספרים, "הכל" מקובץ, חיפושים אחרונים, הצעות לפי המצב, "אולי חיפשת" ושאל את קלי. ספריית התרגילים תחת "תרגילים" נשארת בדיוק כמו היום. בחיפוש במפה נוספים צ׳יפים מהירים ושורת "חיפוש בכל האפליקציה". מנהלי־על רואים אותו תמיד. כבוי = כמו היום.',
   },
   // Generation review (19.10.2026).
   {

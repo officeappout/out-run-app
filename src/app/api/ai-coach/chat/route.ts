@@ -74,6 +74,7 @@ import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
 import { ROUND4_NOTE, coachSystemPrompt } from '@/lib/ai/coach/round4/prompt';
 import { hasRound4Extras, newRound4TurnState, type Round4TurnState } from '@/lib/ai/coach/round4/types';
 import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
+import { primeHelpEntries } from '@/lib/content-items/help-prime.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -180,6 +181,8 @@ export async function POST(request: Request) {
   /** Kelly round 4: the workout this request's client round built (content-gap chip). */
   let builtGap: { location?: string; levelCeiling?: boolean; shortOfMinimum?: boolean } | null = null;
   const round4 = auth.flags?.aiCoachRound4 === true;
+  // get_app_help reads the help loader: refresh its site_content copy (≤ once / 5 min, never throws).
+  if (round4) await primeHelpEntries(db);
   let safetyText: string | null = null;
   let safetyTrigger: string | null = null;
 

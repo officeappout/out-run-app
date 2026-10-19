@@ -1364,6 +1364,10 @@ function AdminLayoutInner({
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/ai-coach/reviews" icon={MessageCircle} label="שיחות קלי" />
                                                 )}
+                                                {/* FAQ / articles / help — one source for the app + website (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/content" icon={MessageCircle} label="תוכן ושאלות" />
+                                                )}
                                                 {/* platform running costs — super admins only (API: requireSuperAdminApi) */}
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />

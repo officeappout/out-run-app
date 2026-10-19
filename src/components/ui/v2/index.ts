@@ -13,6 +13,8 @@ export { default as Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { default as Card, CardTile } from './Card';
 export type { CardProps, CardVariant } from './Card';
+export { default as BrandCard, BRAND_GRADIENT, BRAND_BORDER_BG, BRAND_TILE_BG, BRAND_CARD_SHADOW } from './BrandCard';
+export type { BrandCardProps } from './BrandCard';
 export { default as GlassSurface } from './GlassSurface';
 export type { GlassSurfaceProps, GlassRecipe } from './GlassSurface';
 export { default as Chip } from './Chip';

@@ -257,6 +257,13 @@ export const FLAG_DEFS = [
   // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
+  // Unified search (19.10.2026, owner-approved design canvas) — /search becomes one search over
+  // exercises, parks, routes, people & groups, events, articles and help (site_content), with
+  // chips + counts, grouped "הכל" results, recents, situation suggestions, "אולי חיפשת" and Ask
+  // Kelly; the map search (SearchOverlayV2) gains quick chips + a "חיפוש בכל האפליקציה" row.
+  // The exercise library under "תרגילים" is the same component as today. Fail-closed; super
+  // admins preview it. Off = today's /search and map search, byte-identical.
+  { key: 'enableUnifiedSearch', firestoreKey: 'enable_unified_search', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and

@@ -39,6 +39,8 @@ export default defineConfig({
       'src/features/parks/core/components/overview/__tests__/**/*.test.tsx',
       // Run workout overview on the same drawer (enable_home_v2) — same static-markup approach.
       'src/features/workout-engine/players/running/components/overview-v2/__tests__/**/*.test.tsx',
+      // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
+      'src/features/search/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
@@ -53,6 +55,8 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
+      // site_content published-only read / content_suggestions server-only — emulator :8089.
+      'tests/firestore-site-content.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
       // workouts.timedBlocks (enable_home_v2) write + read back — emulator :8089.
       'tests/workouts-timed-blocks.rules.test.ts',
