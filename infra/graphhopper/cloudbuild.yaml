@@ -1,0 +1,42 @@
+# Cloud Build: build the GraphHopper image (graph baked in), push it, and —
+# when _DEPLOY=true — roll the existing Cloud Run service onto it.
+#
+# Manual:  gcloud builds submit infra/graphhopper --config=infra/graphhopper/cloudbuild.yaml \
+#            --region=me-west1 --substitutions=_CONTEXT=.,_DEPLOY=false
+# Weekly:  the `graphhopper-weekly` trigger (README.md §5) runs this file from the
+#          repo root with the defaults below (_CONTEXT=infra/graphhopper, _DEPLOY=true).
+substitutions:
+  _REGION: me-west1
+  _REPO: graphhopper
+  _SERVICE: graphhopper
+  _CONTEXT: infra/graphhopper
+  _DEPLOY: "true"
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    dir: ${_CONTEXT}
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/graphhopper:${BUILD_ID}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/graphhopper:latest
+      - .
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, --all-tags, "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/graphhopper"]
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        if [ "${_DEPLOY}" != "true" ]; then echo "skip deploy (_DEPLOY=${_DEPLOY})"; exit 0; fi
+        gcloud run deploy ${_SERVICE} --region=${_REGION} \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/graphhopper:${BUILD_ID}
+options:
+  # The import needs ~5 GB heap; the default build VM has 4 GB.
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 50
+  logging: CLOUD_LOGGING_ONLY
+timeout: 2400s
