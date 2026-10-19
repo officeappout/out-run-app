@@ -85,7 +85,7 @@ export default function RunDetailsDrawer({ isOpen, onClose }: RunDetailsDrawerPr
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
-            className="fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-[#1E2A28] rounded-t-3xl shadow-2xl"
+            className="kb-sheet fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-[#1E2A28] rounded-t-3xl shadow-2xl"
             dir="rtl"
           >
             <div className="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mt-3" />

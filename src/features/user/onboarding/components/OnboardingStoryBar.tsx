@@ -3,6 +3,9 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+import StoryBars, { type StoryBarSegment } from '@/components/ui/v2/StoryBars';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 interface OnboardingStoryBarProps {
   totalPhases: number;
@@ -24,6 +27,8 @@ interface OnboardingStoryBarProps {
 const COMPLETED_COLOR = '#10b981';
 const ACTIVE_COLOR = '#5BC2F2';
 const INACTIVE_BG = 'bg-slate-200';
+/** Tailwind slate-200 — the empty track (v2 StoryBars takes a colour). */
+const INACTIVE_TRACK = '#e2e8f0';
 
 export default function OnboardingStoryBar({
   totalPhases,
@@ -41,6 +46,49 @@ export default function OnboardingStoryBar({
     }
     prevPhaseRef.current = currentPhase;
   }, [currentPhase, onPhaseComplete]);
+
+  // enable_home_v2: render through the shared v2 StoryBars (one story-bar
+  // implementation app-wide), configured to this bar's exact look. Flag off:
+  // the original markup below, unchanged.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  if (v2) {
+    const segments: StoryBarSegment[] = Array.from({ length: totalPhases }, (_, i) => ({
+      key: String(i),
+      color: ACTIVE_COLOR,
+      doneColor: COMPLETED_COLOR,
+    }));
+    return (
+      <div className={`w-full flex-shrink-0 ${noPadding ? '' : 'px-4 pt-3 pb-3'}`}>
+        <StoryBars
+          segments={segments}
+          currentIndex={currentPhase - 1}
+          progress={Math.min(100, Math.max(0, phaseFillPercent)) / 100}
+          currentFlex={1}
+          minFillPercent={0}
+          trackColor={INACTIVE_TRACK}
+          fillMode="continuous"
+          direction="inherit"
+          fillTransition="width 0.4s ease-out"
+          segmentTransition="none"
+          gapClassName="gap-1 items-center"
+          renderOverlay={(_, state) => state === 'done' && (
+            <motion.div
+              className="absolute left-1/2 -top-[7px]"
+              style={{ marginLeft: '-10px' }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.15, type: 'spring', stiffness: 200 }}
+            >
+              <div className="w-5 h-5 rounded-full bg-[#10b981] flex items-center justify-center shadow-sm">
+                <Check className="w-3 h-3 text-white" strokeWidth={3} />
+              </div>
+            </motion.div>
+          )}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full flex-shrink-0 ${noPadding ? '' : 'px-4 pt-3 pb-3'}`}>

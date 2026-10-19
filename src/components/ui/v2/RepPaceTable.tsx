@@ -20,7 +20,8 @@ export interface RepPaceRow {
   sub?: string;
   /** "בטווח" / "איטי ב-3 שנ׳". */
   status?: string;
-  tone: 'in' | 'off' | 'none';
+  /** 'best' = the fastest one (blue, "שיא" / "הכי מהיר"). */
+  tone: 'in' | 'off' | 'none' | 'best';
   /** Big value on the left — avg pace, or the time for legs without pace. */
   value: string;
   /** Pace (sec/km) for the chart; null/undefined = no bar. */
@@ -38,12 +39,17 @@ export interface RepPaceTableProps {
   /** Bar colour of in-range reps (the block colour). */
   barColor?: string;
   title?: string;
+  /** 'chart' = title + chip + bars only (an overview card); default 'full' adds the rows. */
+  variant?: 'full' | 'chart';
+  /** Small caption under the chart ("ירוק = בטווח · כתום = מחוץ לטווח"). */
+  legend?: string;
 }
 
 const TONE = {
   in: { fg: '#10b981', text: '#047857' },
   off: { fg: '#f59e0b', text: '#b45309' },
   none: { fg: '#94a3b8', text: '#64748b' },
+  best: { fg: '#0284c7', text: '#0369a1' },
 } as const;
 
 function Chart({ rows, band, barColor }: { rows: readonly RepPaceRow[]; band?: { min: number; max: number } | null; barColor: string }) {
@@ -54,6 +60,8 @@ function Chart({ rows, band, barColor }: { rows: readonly RepPaceRow[]; band?: {
   // Faster (lower sec) = taller bar; 18 %…100 % of the plot.
   const h = (p: number) => 18 + ((hi - p) / (hi - lo)) * 82;
   const H = 64;
+  // Dense charts (a long run's km splits) drop the per-bar labels.
+  const showLabels = rows.length <= 10;
   return (
     <div className="relative mt-3" style={{ height: H + 34 }}>
       {band && band.min > 0 && (
@@ -68,10 +76,10 @@ function Chart({ rows, band, barColor }: { rows: readonly RepPaceRow[]; band?: {
           const p = r.paceSec && r.paceSec > 0 ? r.paceSec : null;
           return (
             <div key={r.key} className="flex min-w-0 flex-1 flex-col items-center justify-end" style={{ height: H + 16 }}>
-              {p && <span className="mb-0.5 text-[11px] font-extrabold tabular-nums text-v2-ink-2">{r.paceLabel}</span>}
+              {p && showLabels && <span className="mb-0.5 text-[11px] font-extrabold tabular-nums text-v2-ink-2">{r.paceLabel}</span>}
               <div
                 className="w-full max-w-[28px] rounded-[7px]"
-                style={{ height: p ? (h(p) / 100) * H : 4, background: p ? (r.tone === 'off' ? TONE.off.fg : barColor) : '#dfe7ed' }}
+                style={{ height: p ? (h(p) / 100) * H : 4, background: p ? (r.tone === 'off' ? TONE.off.fg : r.tone === 'best' ? TONE.best.fg : barColor) : '#dfe7ed' }}
               />
             </div>
           );
@@ -88,7 +96,15 @@ function Chart({ rows, band, barColor }: { rows: readonly RepPaceRow[]; band?: {
   );
 }
 
-export default function RepPaceTable({ rows, band, summaryLabel, barColor = '#e5484d', title = 'קצב בכל חזרה' }: RepPaceTableProps) {
+export default function RepPaceTable({
+  rows,
+  band,
+  summaryLabel,
+  barColor = '#e5484d',
+  title = 'קצב בכל חזרה',
+  variant = 'full',
+  legend,
+}: RepPaceTableProps) {
   if (rows.length === 0) return null;
   return (
     <div dir="rtl">
@@ -102,6 +118,8 @@ export default function RepPaceTable({ rows, band, summaryLabel, barColor = '#e5
         )}
       </div>
       <Chart rows={rows} band={band} barColor={barColor} />
+      {legend && <div className="mt-1.5 whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{legend}</div>}
+      {variant === 'full' && (
       <div className="mt-2 divide-y divide-v2-hairline">
         {rows.map((r) => {
           const t = TONE[r.tone];
@@ -130,6 +148,7 @@ export default function RepPaceTable({ rows, band, summaryLabel, barColor = '#e5
           );
         })}
       </div>
+      )}
     </div>
   );
 }

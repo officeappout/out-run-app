@@ -56,8 +56,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, MapPin, Route as RouteIcon, Clock, Eye, AlertTriangle } from 'lucide-react';
+import Sheet from '@/components/ui/v2/Sheet';
+import ClassicFormSheet from '@/components/ui/ClassicFormSheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { Dumbbell, MapPin, Route as RouteIcon, Clock, Eye, AlertTriangle } from 'lucide-react';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
@@ -368,260 +370,254 @@ export default function PlannedActivityComposeSheet({
   const ON = v2 ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30';
   const OFF = v2 ? 'bg-white text-v2-ink-2 shadow-v2-ring' : 'bg-gray-50 text-gray-500 border border-gray-100';
   const LBL = v2 ? 'flex items-center gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center gap-1.5 text-xs font-bold text-gray-500';
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          // z-[100]: matches this sheet's live siblings on the map screen
-          // (ContributionWizard, QuickReportSheet — see .cursorrules z-index
-          // budget "Full-screen overlays"), its primary mount context.
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-            onClick={(e) => e.stopPropagation()}
-            className={v2 ? 'w-full max-w-md max-h-[85vh] overflow-y-auto rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto'}
-            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
-            dir="rtl"
-          >
-            <div className="flex justify-center pt-3 pb-1">
-              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
-            </div>
+  // Sheet body — shared by the v2 Sheet and the legacy chrome below.
+  const body = (
+    <div className="px-5 space-y-4 pb-4">
+      {/* Q1 — Type */}
+      <div>
+        <label className={`${LBL} mb-2`}>
+          <Dumbbell className="w-3.5 h-3.5" /> סוג
+        </label>
+        <div className="flex gap-2">
+          {TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setType(opt.value)}
+              className={`flex-1 ${v2 ? 'h-[66px] justify-center rounded-[18px]' : 'py-2 rounded-xl'} text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                type === opt.value
+                  ? ON
+                  : OFF
+              }`}
+            >
+              {opt.icon}
+              <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-            <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>יוצא להתאמן</h3>
+      {/* Strength-only: level source / missing-level prompt */}
+      {type === 'workout' && (
+        hasStrengthLevel ? (
+          selectedTrack && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl">
+              {getProgramIcon(selectedTrack.id, 'w-4 h-4')}
+              <span className="text-xs font-bold text-gray-700">
+                {programName} · רמה {selectedTrack.level}
+              </span>
+            </div>
+          )
+        ) : (
+          <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-amber-800 leading-tight">
+                {g(gender, 'עדיין לא הגדרת תוכנית/רמת כוח', 'עדיין לא הגדרת תוכנית/רמת כוח')}
+              </p>
               <button
-                onClick={onClose}
-                aria-label="סגירה"
-                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
+                type="button"
+                onClick={() => { onClose(); router.push('/profile'); }}
+                className="mt-1.5 text-xs font-bold text-amber-700 underline underline-offset-2"
               >
-                <X className="w-4 h-4" />
+                הגדר רמת כוח ←
               </button>
             </div>
-
-            <div className="px-5 space-y-4 pb-4">
-              {/* Q1 — Type */}
-              <div>
-                <label className={`${LBL} mb-2`}>
-                  <Dumbbell className="w-3.5 h-3.5" /> סוג
-                </label>
-                <div className="flex gap-2">
-                  {TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setType(opt.value)}
-                      className={`flex-1 ${v2 ? 'h-[66px] justify-center rounded-[18px]' : 'py-2 rounded-xl'} text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
-                        type === opt.value
-                          ? ON
-                          : OFF
-                      }`}
-                    >
-                      {opt.icon}
-                      <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Strength-only: level source / missing-level prompt */}
-              {type === 'workout' && (
-                hasStrengthLevel ? (
-                  selectedTrack && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl">
-                      {getProgramIcon(selectedTrack.id, 'w-4 h-4')}
-                      <span className="text-xs font-bold text-gray-700">
-                        {programName} · רמה {selectedTrack.level}
-                      </span>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-amber-800 leading-tight">
-                        {g(gender, 'עדיין לא הגדרת תוכנית/רמת כוח', 'עדיין לא הגדרת תוכנית/רמת כוח')}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => { onClose(); router.push('/profile'); }}
-                        className="mt-1.5 text-xs font-bold text-amber-700 underline underline-offset-2"
-                      >
-                        הגדר רמת כוח ←
-                      </button>
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Q2 — Where (activity-aware: route/park, per WHERE_OPTIONS_FOR) */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className={LBL}>
-                    {whereType === 'route' ? <RouteIcon className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-                    איפה <span className="text-red-400">*</span>
-                  </label>
-                  {whereOptions.length > 1 && (
-                    <div className="flex gap-1 bg-gray-50 rounded-lg p-0.5">
-                      {whereOptions.map((w) => (
-                        <button
-                          key={w}
-                          onClick={() => setWhereType(w)}
-                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                            whereType === w
-                              ? 'bg-white text-[#00C9F2] shadow-sm'
-                              : 'text-gray-400'
-                          }`}
-                        >
-                          {w === 'route' ? 'מסלול' : 'פארק'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {whereType === 'park' ? (
-                  parkOptions.length > 0 ? (
-                    <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                      {parkOptions.map((park) => (
-                        <button
-                          key={park.id}
-                          onClick={() => setSelectedParkId(park.id)}
-                          className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
-                            selectedParkId === park.id
-                              ? ON
-                              : OFF
-                          }`}
-                        >
-                          {park.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : !coords ? (
-                    <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
-                  ) : parksLoading ? (
-                    <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
-                  ) : (
-                    <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים בקרבתך</div>
-                  )
-                ) : routeOptions.length > 0 ? (
-                  <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                    {routeOptions.map((route) => (
-                      <button
-                        key={route.id}
-                        onClick={() => setSelectedRouteId(route.id)}
-                        className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
-                          selectedRouteId === route.id
-                            ? ON
-                            : OFF
-                        }`}
-                      >
-                        {route.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : !coords ? (
-                  <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
-                ) : routesLoading ? (
-                  <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
-                ) : (
-                  <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים בקרבתך</div>
-                )}
-              </div>
-
-              {/* Q3 — When */}
-              <div>
-                <label className={`${LBL} mb-2`}>
-                  <Clock className="w-3.5 h-3.5" /> מתי
-                </label>
-                <div className="flex gap-2 mb-2">
-                  {(['now', 'scheduled'] as const).map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => setWhen(w)}
-                      className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
-                        when === w
-                          ? ON
-                          : OFF
-                      }`}
-                    >
-                      {w === 'now' ? 'עכשיו' : 'מתוזמן'}
-                    </button>
-                  ))}
-                </div>
-                {when === 'scheduled' && (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      {(['today', 'tomorrow'] as const).map((d) => (
-                        <button
-                          key={d}
-                          onClick={() => setDay(d)}
-                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                            day === d
-                              ? ON
-                              : OFF
-                          }`}
-                        >
-                          {d === 'today' ? 'היום' : 'מחר'}
-                        </button>
-                      ))}
-                    </div>
-                    <DrumTimePicker value={time} onChange={setTime} />
-                  </div>
-                )}
-              </div>
-
-              {/* Q4 — Visibility (Decision 3: public/partners only, ghost stays unexposed) */}
-              <div>
-                <label className={`${LBL} mb-2`}>
-                  <Eye className="w-3.5 h-3.5" /> למי גלוי
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setVisibility('verified_global')}
-                    className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
-                      visibility === 'verified_global'
-                        ? ON
-                        : OFF
-                    }`}
-                  >
-                    כולם
-                  </button>
-                  <button
-                    onClick={() => setVisibility('squad')}
-                    className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
-                      visibility === 'squad'
-                        ? ON
-                        : OFF
-                    }`}
-                  >
-                    שותפי אימון בלבד
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className={
-                  v2
-                    ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
-                    : 'w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
-                }
-              >
-                {saving ? 'שומר...' : 'פרסם'}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        )
       )}
-    </AnimatePresence>
+
+      {/* Q2 — Where (activity-aware: route/park, per WHERE_OPTIONS_FOR) */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className={LBL}>
+            {whereType === 'route' ? <RouteIcon className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+            איפה <span className="text-red-400">*</span>
+          </label>
+          {whereOptions.length > 1 && (
+            <div className="flex gap-1 bg-gray-50 rounded-lg p-0.5">
+              {whereOptions.map((w) => (
+                <button
+                  key={w}
+                  onClick={() => setWhereType(w)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                    whereType === w
+                      ? 'bg-white text-[#00C9F2] shadow-sm'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  {w === 'route' ? 'מסלול' : 'פארק'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {whereType === 'park' ? (
+          parkOptions.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+              {parkOptions.map((park) => (
+                <button
+                  key={park.id}
+                  onClick={() => setSelectedParkId(park.id)}
+                  className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
+                    selectedParkId === park.id
+                      ? ON
+                      : OFF
+                  }`}
+                >
+                  {park.name}
+                </button>
+              ))}
+            </div>
+          ) : !coords ? (
+            <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+          ) : parksLoading ? (
+            <div className="text-xs text-gray-400 py-2">טוען פארקים...</div>
+          ) : (
+            <div className="text-xs text-gray-400 py-2">לא נמצאו פארקים בקרבתך</div>
+          )
+        ) : routeOptions.length > 0 ? (
+          <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+            {routeOptions.map((route) => (
+              <button
+                key={route.id}
+                onClick={() => setSelectedRouteId(route.id)}
+                className={`flex-shrink-0 ${v2 ? 'h-10 rounded-full px-3.5 text-[13.5px] font-extrabold' : 'px-3 py-1.5 rounded-xl text-xs font-bold'} transition-all active:scale-95 ${
+                  selectedRouteId === route.id
+                    ? ON
+                    : OFF
+                }`}
+              >
+                {route.name}
+              </button>
+            ))}
+          </div>
+        ) : !coords ? (
+          <div className="text-xs text-gray-400 py-2">לא הצלחנו לאתר את המיקום שלך</div>
+        ) : routesLoading ? (
+          <div className="text-xs text-gray-400 py-2">טוען מסלולים...</div>
+        ) : (
+          <div className="text-xs text-gray-400 py-2">לא נמצאו מסלולים בקרבתך</div>
+        )}
+      </div>
+
+      {/* Q3 — When */}
+      <div>
+        <label className={`${LBL} mb-2`}>
+          <Clock className="w-3.5 h-3.5" /> מתי
+        </label>
+        <div className="flex gap-2 mb-2">
+          {(['now', 'scheduled'] as const).map((w) => (
+            <button
+              key={w}
+              onClick={() => setWhen(w)}
+              className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
+                when === w
+                  ? ON
+                  : OFF
+              }`}
+            >
+              {w === 'now' ? 'עכשיו' : 'מתוזמן'}
+            </button>
+          ))}
+        </div>
+        {when === 'scheduled' && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {(['today', 'tomorrow'] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDay(d)}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                    day === d
+                      ? ON
+                      : OFF
+                  }`}
+                >
+                  {d === 'today' ? 'היום' : 'מחר'}
+                </button>
+              ))}
+            </div>
+            <DrumTimePicker value={time} onChange={setTime} />
+          </div>
+        )}
+      </div>
+
+      {/* Q4 — Visibility (Decision 3: public/partners only, ghost stays unexposed) */}
+      <div>
+        <label className={`${LBL} mb-2`}>
+          <Eye className="w-3.5 h-3.5" /> למי גלוי
+        </label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setVisibility('verified_global')}
+            className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
+              visibility === 'verified_global'
+                ? ON
+                : OFF
+            }`}
+          >
+            כולם
+          </button>
+          <button
+            onClick={() => setVisibility('squad')}
+            className={`flex-1 ${v2 ? 'h-12 rounded-full text-[14.5px] font-extrabold' : 'py-2 rounded-xl text-sm font-bold'} transition-all active:scale-95 ${
+              visibility === 'squad'
+                ? ON
+                : OFF
+            }`}
+          >
+            שותפי אימון בלבד
+          </button>
+        </div>
+      </div>
+
+      {/* Submit */}
+      <button
+        onClick={handleSubmit}
+        disabled={!canSubmit}
+        className={
+          v2
+            ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
+            : 'w-full py-3 bg-[#00C9F2] hover:bg-[#00B4D8] text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
+        }
+      >
+        {saving ? 'שומר...' : 'פרסם'}
+      </button>
+    </div>
+  );
+
+  if (v2) {
+    // z-[100]: matches this sheet's live siblings on the map screen
+    // (ContributionWizard, QuickReportSheet — see .cursorrules z-index budget
+    // "Full-screen overlays"), its primary mount context. Rendered in place
+    // as before; the whole surface scrolls (max 85vh), header included.
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        title="יוצא להתאמן"
+        layout="nested"
+        scroll="panel"
+        zIndex={SHEET_Z.overlay}
+        portal={false}
+        className="max-h-[85vh]"
+        keyboardAware={false}
+      >
+        {body}
+      </Sheet>
+    );
+  }
+
+  return (
+    <ClassicFormSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="יוצא להתאמן"
+      backdropClassName="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+      panelClassName="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto"
+    >
+      {body}
+    </ClassicFormSheet>
   );
 }

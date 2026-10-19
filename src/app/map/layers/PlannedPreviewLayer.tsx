@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -14,6 +14,10 @@ import { useMapLogic } from '@/features/parks';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, Zap, ChevronDown } from 'lucide-react';
 import RunBriefingDrawer from '@/features/workout-engine/players/running/components/RunBriefingDrawer';
+import RunPreviewSheetV2 from '@/features/workout-engine/players/running/components/preview-v2/RunPreviewSheetV2';
+import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
+import { parseRunWeekParams } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -40,6 +44,19 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
   const [showDrawer, setShowDrawer] = useState(false);
 
   const autoStart = searchParams.get('autoStart') === 'true';
+
+  // Home v2 (enable_home_v2): the v2 card (board R1-prop-preview) + v2 briefing.
+  // Flag off → today's card and drawer, unchanged.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  // The template's category (the beginner walk/run path drops it from the workout) — display only.
+  const [templateCategory, setTemplateCategory] = useState<string | null>(null);
+  const weekParam = searchParams.get('week');
+  const dayParam = searchParams.get('day');
+  const totalWeeks = profile?.running?.generatedProgramTemplate?.canonicalWeeks;
+  const weekContext = useMemo(() => parseRunWeekParams(weekParam, dayParam, totalWeeks), [weekParam, dayParam, totalWeeks]);
+  const previewExtras = useMemo(() => ({ templateCategory, week: weekContext }), [templateCategory, weekContext]);
+  const previewModel = useRunPreviewModel(v2 ? currentWorkout : null, previewExtras);
 
   useEffect(() => {
     if (!contextWorkoutId) {
@@ -74,6 +91,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
           programId ? getRunProgramTemplate(programId) : Promise.resolve(null),
         ]);
         if (!template) { setIsLoading(false); return; }
+        setTemplateCategory(template.category ?? null);
         const rules = fullProgram?.progressionRules ?? [];
         const materialized = materializeWorkout(template, weekNumber, rules, paceProfile, paceMapConfig);
         // Calm return (CALM_RETURN_V1): the same lighter run the home card showed — a quality
@@ -159,6 +177,34 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
 
   if (!hasPlannedWorkout) return null;
 
+  const drawer = (
+    <RunBriefingDrawer
+      isOpen={showDrawer}
+      onClose={() => setShowDrawer(false)}
+      onGo={() => {
+        setShowDrawer(false);
+        handleStart();
+      }}
+      workout={currentWorkout}
+      templateCategory={templateCategory}
+      week={weekContext}
+    />
+  );
+
+  if (v2 && previewModel) {
+    return (
+      <>
+        <RunPreviewSheetV2
+          model={previewModel}
+          onStart={handleStart}
+          onDetails={() => setShowDrawer(true)}
+          onClose={() => setMode('discover')}
+        />
+        {drawer}
+      </>
+    );
+  }
+
   return (
     <>
       <div className="absolute bottom-0 left-0 right-0 z-20 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -210,15 +256,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
         </div>
       </div>
 
-      <RunBriefingDrawer
-        isOpen={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        onGo={() => {
-          setShowDrawer(false);
-          handleStart();
-        }}
-        workout={currentWorkout}
-      />
+      {drawer}
     </>
   );
 }

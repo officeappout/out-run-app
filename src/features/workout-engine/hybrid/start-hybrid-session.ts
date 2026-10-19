@@ -1200,7 +1200,7 @@ export async function composeHybridPlan(
   }
 
   const [
-    { getAllExercises }, { generateDynamicRoutes },
+    { getAllExercisesCached }, { generateDynamicRoutes },
     { composeHybridSession }, { buildSandwichComposeInput }, { resolveHybridShape },
     { useUserStore },
   ] = await Promise.all([
@@ -1392,7 +1392,7 @@ export async function composeHybridPlan(
     ...(gateHydraulicEquipment ? { parkEquipment: gateHydraulicEquipment } : {}),
   }];
 
-  const masterExercises = withoutTestExercises(await getAllExercises()); // H5
+  const masterExercises = withoutTestExercises(await getAllExercisesCached()); // H5
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,

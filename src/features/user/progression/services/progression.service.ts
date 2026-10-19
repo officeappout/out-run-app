@@ -74,7 +74,7 @@ async function isValidProgramTemplateId(templateId: unknown): Promise<boolean> {
   }
 }
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
-import { getExercise, getAllExercisesNoOrder } from '@/features/content/exercises/core/exercise.service';
+import { getExercise, getAllExercisesCached } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import type { LevelGoal } from '@/types/workout';
 import { getUserAccessLevel, hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
@@ -1423,7 +1423,7 @@ async function gateAndCreditTargetPrograms(params: {
   // phase in the Phase 2 report, not hidden.
   let allExercisesCatalog: Exercise[] = [];
   try {
-    allExercisesCatalog = await getAllExercisesNoOrder();
+    allExercisesCatalog = await getAllExercisesCached();
   } catch (e) {
     console.warn('[Progression] Gating: full exercise catalog fetch failed — cannot gate safely, crediting nothing this call:', e);
     return gains; // fail closed: unable to verify safety, so credit nothing rather than risk over-crediting
