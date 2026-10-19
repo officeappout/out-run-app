@@ -10,7 +10,7 @@ import { ArrowRight, Share2 } from 'lucide-react';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
 import { WorkoutPlan } from '@/features/parks';
 import { useUserStore } from '@/features/user';
-import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { getAllExercisesCached, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
@@ -20,7 +20,7 @@ import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-map
  */
 async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutPlan | null> {
   try {
-    const exercises = await getAllExercises();
+    const exercises = await getAllExercisesCached();
     
     if (!exercises || exercises.length === 0) {
       console.warn('[WorkoutOverviewPage] No exercises found in Firestore');
