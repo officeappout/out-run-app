@@ -149,7 +149,16 @@ type PendingParams = Parameters<typeof createWorkoutPost>[0];
  * screen opened. Offer exactly that one (never an older pending share), and
  * publish it with the same manual createWorkoutPost the feed prompt uses.
  */
-export function PendingSummaryFeedShare({ activity }: { activity: PendingParams['activityCategory'] }) {
+export function PendingSummaryFeedShare({
+  activity,
+  durationSeconds,
+  dateMs,
+}: {
+  activity: PendingParams['activityCategory'];
+  /** v2 share image: the run's exact time and when it happened (display only). */
+  durationSeconds?: number;
+  dateMs?: number;
+}) {
   const [openedAt] = useState(() => Date.now());
   const [pending, setPending] = useState<PendingParams | null>(null);
 
@@ -177,6 +186,8 @@ export function PendingSummaryFeedShare({ activity }: { activity: PendingParams[
         routeShape: pending.routeShape,
         paceSplits: pending.paceSplits,
         streakDays: pending.streakDays,
+        durationSeconds,
+        dateMs,
       }}
       onPublish={async (choice) => {
         const id = await createWorkoutPost(applyShareChoice(pending, choice), { manual: true, photo: choice.photo ?? null });

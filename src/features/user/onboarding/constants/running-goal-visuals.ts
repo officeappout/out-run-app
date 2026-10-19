@@ -6,11 +6,14 @@
  * the draft answer ids as a fallback, so it keeps working if the Firestore
  * answer ids differ from the draft file.
  *
- * Photos are the app's own bundled ones. Where none fits, `src` is null and
+ * Photos are the app's own bundled ones, as web-sized JPEG copies under
+ * /images/onboarding/running (the gateway PNGs are 1.7 MB and 11.4 MB —
+ * the 11 MB one painted in late and in strips on phones: the picker's
+ * flicker). The size guard in running-goal-visuals.test.ts keeps them small. Where none fits, `src` is null and
  * the view draws a soft tint panel — never a stand-in photo:
- *  • improve_time    → gateway/card-running.png (a real race start line)
+ *  • improve_time    → card-running (gateway) (a real race start line)
  *    Zoomed onto the runners so the arch's sponsor panels stay out.
- *  • maintain_fitness → gateway/card-map.png (a runner on a park path).
+ *  • maintain_fitness → card-map (gateway) (a runner on a park path).
  *    Its bottom-right corner carries a small generator mark, so the hero
  *    zooms 1.25× around the runner, which keeps that corner out of frame.
  *  • start_running   → no fitting photo (landing/bg-* are strength frames
@@ -35,6 +38,12 @@ export interface RunningGoalVisual {
   tint: { from: string; to: string; ink: string };
 }
 
+/** Web-sized copies of gateway/card-running.png and gateway/card-map.png. */
+export const RUNNING_GOAL_PHOTOS = {
+  race: '/images/onboarding/running/goal-race.jpg',
+  park: '/images/onboarding/running/goal-park.jpg',
+} as const;
+
 const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath'>> = {
   start_running: {
     src: null,
@@ -44,7 +53,7 @@ const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath'>> = {
     tint: { from: '#f3f9e9', to: '#e2f2c8', ink: '#65a30d' },
   },
   improve_time: {
-    src: '/images/gateway/card-running.png',
+    src: RUNNING_GOAL_PHOTOS.race,
     alt: 'רצים בקו הזינוק של מרוץ',
     // Zoomed onto the runners, below the start arch and its sponsor panels.
     heroPosition: '50% 100%',
@@ -54,7 +63,7 @@ const VISUALS: Record<RunningGoalPath, Omit<RunningGoalVisual, 'goalPath'>> = {
     tint: { from: '#eef8fc', to: '#d9f1fb', ink: '#0284c7' },
   },
   maintain_fitness: {
-    src: '/images/gateway/card-map.png',
+    src: RUNNING_GOAL_PHOTOS.park,
     alt: 'רצה בשביל בפארק',
     heroPosition: '60% 60%',
     heroZoom: 1.25,

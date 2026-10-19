@@ -154,7 +154,11 @@ export default function AerobicSummaryShell(props: Props) {
       submitRating={submitRating}
       deleteLastWorkout={() => useRunningPlayer.getState().deleteLastWorkout()}
       deleteWorkoutWithReversal={deleteWorkoutWithReversal}
-      feedShareSlot={v2 && !isReadOnly ? <PendingSummaryFeedShare activity="cardio" /> : undefined}
+      feedShareSlot={
+        v2 && !isReadOnly ? (
+          <PendingSummaryFeedShare activity="cardio" durationSeconds={workout.duration} dateMs={workout.date?.getTime?.()} />
+        ) : undefined
+      }
       v2={v2Data}
     />
   );

@@ -181,9 +181,14 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             style={{ height: '95vh' }}
             dir="rtl"
           >
-            {/* Drag handle */}
-            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
-              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
+            {/* Drag handle. v2: floats over the full-bleed hero (which starts
+                at the sheet's top edge and fades into the page). */}
+            <div
+              className={v2
+                ? 'pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-2'
+                : 'flex justify-center pt-2 pb-1 flex-shrink-0'}
+            >
+              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-white/80 shadow-v2-ring' : 'w-10 h-1 rounded-full bg-gray-200'} />
             </div>
 
             {/* Close */}
