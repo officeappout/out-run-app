@@ -17,8 +17,12 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { deleteApp } from 'firebase-admin/app';
+import { FieldValue } from 'firebase-admin/firestore';
 import { applyTrailSegments, openTarget, type Target } from '../scripts/trails/lib/trails-apply.node';
 import { applyNamedRoutes as applyTrailRoutes } from '../scripts/trails/import-named-routes';
+import { runElevationBackfill, type BackfillRunOptions, type SamplerFor } from '../scripts/trails/backfill-elevation-profile';
+import { computeElevationProfileSamples } from '../src/lib/dem-tile-cache/elevation-profile';
+import type { BackfillCheckpoint } from '../src/lib/trail-graph/elevation-backfill';
 import { rateDifficulty, starPrior } from '../src/lib/trail-graph/difficulty';
 import { routeStats } from '../src/lib/trail-graph/route-stats';
 import { OSM_LICENSE, type LngLat, type TrailRoute, type TrailSegment } from '../src/lib/trail-graph/types';
@@ -172,3 +176,115 @@ describe.skipIf(!HOST)('trails --apply on the Firestore emulator', () => {
     expect(logs.some((l) => l.includes('(50 docs)'))).toBe(true);
   });
 });
+
+
+// ── elevationProfile backfill onto EXISTING official_routes (19.10.2026) ────
+// Real Firestore path (listOfficialRoutesPage + updateElevationProfiles) with a
+// synthetic DEM: coverage only west of lng 35 (east of it = a coverage gap).
+describe.skipIf(!HOST)('elevationProfile backfill on the Firestore emulator', () => {
+  const BF_PROJECT = 'trails-elev-backfill-test';
+  let t: Target;
+  let cpStore: BackfillCheckpoint | null = null;
+  const bfLogs: string[] = [];
+  const dem = { id: 'copernicus-glo30' as const, attribution: 'test', storable: true, sample: (_lat: number, lng: number) => (lng > 35 ? null : 100 + (lng - 34.5) * 10_000) };
+  const sampler: SamplerFor = async () => (p) => computeElevationProfileSamples(p, dem);
+  const opts = (over: Partial<BackfillRunOptions> = {}): BackfillRunOptions => ({
+    target: t, apply: true, authorityId: null,
+    limits: { pageSize: 2, maxRoutes: 100, batchSize: 2, pauseMs: 0 },
+    samplerFor: sampler,
+    readCheckpoint: () => cpStore,
+    writeCheckpoint: (cp) => { cpStore = cp; },
+    confirm: async () => true,
+    log: (l) => { bfLogs.push(l); },
+    ...over,
+  });
+  const path = (x0: number) => [{ lng: x0, lat: 31.5 }, { lng: x0 + 0.02, lat: 31.5 }];
+  const EXISTING = { stepM: 5, elevationsM: [7, 8] };
+  const docs: Record<string, Record<string, unknown>> = {
+    r_a: { name: 'א', path: path(34.5), authorityId: 'auth_1', city: 'עיר', status: 'published', published: true, distance: 1.9, rating: 4 },
+    r_b: { name: 'ב', path: path(34.6), authorityId: 'auth_1', city: 'עיר', elevationProfile: EXISTING },
+    r_c: { name: 'ג', path: path(35.1), authorityId: 'auth_1', city: 'עיר' }, // DEM gap
+    r_d: { name: 'ד', path: [{ lng: 34.5, lat: 31.5 }], authorityId: 'auth_1', city: 'עיר' }, // unusable path
+    r_e: { name: 'ה', path: path(34.7), authorityId: 'auth_2', city: 'עיר אחרת' },
+  };
+  const get = async (id: string) => (await t.db.collection('official_routes').doc(id).get()).data()!;
+
+  beforeAll(async () => {
+    t = await openTarget(BF_PROJECT);
+    expect(t.emulator).toBe(HOST);
+    const r = await fetch(`http://${HOST}/emulator/v1/projects/${BF_PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
+    if (!r.ok) throw new Error(`emulator clear failed: ${r.status}`);
+    for (const [id, d] of Object.entries(docs)) await t.db.collection('official_routes').doc(id).set(d);
+  });
+  afterAll(async () => {
+    if (t) await deleteApp(t.app);
+  });
+
+  it('dry-run reads only: reports per route, writes nothing, keeps no checkpoint', async () => {
+    const res = await runElevationBackfill(opts({ apply: false }));
+    expect(res.counts).toEqual({ scanned: 5, write: 2, has_profile: 1, dem_gap: 1, bad_path: 1 });
+    expect(res.entries.find((e) => e.id === 'r_a')?.profile?.elevationsM).toHaveLength(64);
+    expect(res.written).toBe(0);
+    expect(cpStore).toBeNull();
+    for (const id of ['r_a', 'r_c', 'r_e']) expect((await get(id)).elevationProfile).toBeUndefined();
+  });
+
+  it('a typed-YES refusal writes nothing', async () => {
+    const res = await runElevationBackfill(opts({ confirm: async () => false }));
+    expect(res).toMatchObject({ aborted: true, written: 0 });
+    expect((await get('r_a')).elevationProfile).toBeUndefined();
+  });
+
+  it('--apply bounded by --max-routes, then resumes from the checkpoint', async () => {
+    const first = await runElevationBackfill(opts({ limits: { pageSize: 2, maxRoutes: 2, batchSize: 2, pauseMs: 0 } }));
+    expect(first).toMatchObject({ written: 1, done: false });
+    expect(cpStore).toMatchObject({ lastDocId: 'r_b', written: 1, done: false });
+    const second = await runElevationBackfill(opts());
+    expect(second.counts.scanned).toBe(3); // r_c, r_d, r_e — r_a/r_b not re-read
+    expect(second.written).toBe(1);
+    expect(cpStore).toMatchObject({ lastDocId: 'r_e', written: 2, done: true });
+  });
+
+  it('field-level: only elevationProfile was added; every other field is untouched', async () => {
+    const a = await get('r_a');
+    const { elevationProfile, ...rest } = a;
+    expect(rest).toEqual(docs.r_a);
+    expect((elevationProfile as { elevationsM: number[] }).elevationsM).toHaveLength(64);
+    expect((elevationProfile as { elevationsM: number[] }).elevationsM[0]).toBeCloseTo(100, 0);
+    expect((await get('r_b')).elevationProfile).toEqual(EXISTING); // never overwritten
+    expect((await get('r_c')).elevationProfile).toBeUndefined(); // DEM gap — no guessed data
+    expect((await get('r_d')).elevationProfile).toBeUndefined();
+  });
+
+  it('idempotent: a full re-scan writes nothing; a done checkpoint short-circuits', async () => {
+    expect((await runElevationBackfill(opts())).written).toBe(0);
+    cpStore = null;
+    const rescan = await runElevationBackfill(opts());
+    expect(rescan.written).toBe(0);
+    expect(rescan.counts).toMatchObject({ has_profile: 3, write: 0 });
+  });
+
+  it('--authority filter limits the scan', async () => {
+    await t.db.collection('official_routes').doc('r_e').update({ elevationProfile: FieldValue.delete() });
+    cpStore = null;
+    const res = await runElevationBackfill(opts({ authorityId: 'auth_2' }));
+    expect(res.counts.scanned).toBe(1);
+    expect(res.written).toBe(1);
+  });
+
+  it('a doc edited between read and write is skipped, not clobbered', async () => {
+    await t.db.collection('official_routes').doc('r_f').set({ name: 'ו', path: path(34.55), authorityId: 'auth_1', city: 'עיר' });
+    cpStore = null;
+    const racing: SamplerFor = async () => {
+      await t.db.collection('official_routes').doc('r_f').update({ name: 'נערך בזמן הריצה' });
+      return (q) => computeElevationProfileSamples(q, dem);
+    };
+    // One page, so r_f is read BEFORE the racing edit lands (r_c's DEM-gap sampling also triggers it).
+    const res = await runElevationBackfill(opts({ samplerFor: racing, limits: { pageSize: 100, maxRoutes: 100, batchSize: 2, pauseMs: 0 } }));
+    expect(res.conflicts).toEqual(['r_f']);
+    const f = await get('r_f');
+    expect(f.name).toBe('נערך בזמן הריצה');
+    expect(f.elevationProfile).toBeUndefined();
+  });
+});
+
