@@ -46,3 +46,6 @@ export { default as StoryBars } from './StoryBars';
 export type { StoryBarsProps, StoryBarSegment } from './StoryBars';
 export { default as RepPaceTable } from './RepPaceTable';
 export type { RepPaceRow, RepPaceTableProps } from './RepPaceTable';
+// Friendly error surface (route error.tsx fallbacks + failed widgets).
+export { default as ErrorState } from './ErrorState';
+export type { ErrorStateProps, ErrorStateAction } from './ErrorState';
