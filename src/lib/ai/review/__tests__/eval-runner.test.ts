@@ -46,7 +46,7 @@ function script(steps: Array<{ tools?: Array<{ name: string; input: unknown }>; 
 }
 
 describe('fixtures', () => {
-  it('the owner cases (rounds 1 to 3) and the level-check nudges parse and are unique', () => {
+  it('the owner cases (rounds 1 to 3), the level-check nudges and Kelly phase 2 parse and are unique', () => {
     expect(cases.map((c) => c.id).sort()).toEqual([
       'nudge-01-core-workout-unassessed',
       'nudge-02-progress-mentions-gap',
@@ -61,6 +61,17 @@ describe('fixtures', () => {
       'owner-09-typo-improved',
       'owner-10-week-per-day',
       'owner-11-abs-strengthen',
+      'p2-01-chips-after-workout',
+      'p2-02-chips-after-schedule',
+      'p2-03-chips-after-progress',
+      'p2-04-help-steps',
+      'p2-05-help-shabbat',
+      'p2-06-help-delete-account',
+      'p2-07-help-unknown',
+      'p2-08-proposal-move',
+      'p2-09-proposal-guard',
+      'p2-10-proposal-more-days',
+      'p2-11-proposal-fewer-days',
       'r3-01-persona',
       'r3-02-goal',
       'r3-03-age-known',
