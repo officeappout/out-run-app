@@ -173,6 +173,8 @@ export interface HybridRunStore {
   plan: HybridPlannedSegment[] | null;
   /** parkId → display name of the composed stations. */
   stationNames: Record<string, string>;
+  /** Session name for the v2 player header (e.g. "מסלול + עצירות"); null → "הליכה/ריצה + כוח". */
+  sessionLabel: string | null;
   stationPlan: WorkoutPlan | null;
   isFinalLeg: boolean;
   /** See computeUpcomingStation. */
@@ -200,6 +202,8 @@ export interface HybridRunStore {
     warmupActive?: boolean,
     /** parkId → display name, for the end-of-station screen's "next station". */
     names?: Record<string, string>,
+    /** v2 player header name for this session (route + stops); omitted → the generic label. */
+    sessionLabel?: string,
   ) => void;
   /** "הגעתי לתחנה" / distance threshold — close the leg, open the station. */
   arrive: () => void;
@@ -240,6 +244,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   phase: 'idle',
   plan: null,
   stationNames: {},
+  sessionLabel: null,
   stationPlan: null,
   isFinalLeg: false,
   upcomingStation: null,
@@ -250,7 +255,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   stationContext: null,
   pendingStationComplete: null,
 
-  startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}) => {
+  startHybrid: (plan, aerobicKind, fullPark = false, warmupActive = true, names = {}, sessionLabel) => {
     stationNames = names;
     demoSeen.clear();
     equipmentFound.clear();
@@ -274,6 +279,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       phase: controllerRef.getPhase(),
       plan: plan.segments,
       stationNames: names,
+      sessionLabel: sessionLabel ?? null,
       stationPlan: null,
       isFinalLeg: isFinalLeg(controllerRef.getState()),
       upcomingStation: computeUpcomingStation(controllerRef.getState()),
@@ -601,6 +607,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       phase: 'idle',
       plan: null,
       stationNames: {},
+      sessionLabel: null,
       stationPlan: null,
       isFinalLeg: false,
       upcomingStation: null,

@@ -29,6 +29,8 @@ export interface HybridPlayerV2Api {
   enabled: boolean;
   plan: HybridPlannedSegment[];
   names: Record<string, string>;
+  /** Session name for the header (route + stops), or null → the generic "הליכה/ריצה + כוח". */
+  label: string | null;
   state: SequencerState | null;
   view: SequencerView | null;
   strip: StripModel | null;
@@ -57,6 +59,7 @@ export function useHybridPlayerV2(): HybridPlayerV2Api | null {
 export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   const storePlan = useHybridRun((s) => s.plan);
   const names = useHybridRun((s) => s.stationNames);
+  const label = useHybridRun((s) => s.sessionLabel);
   const legacyPhase = useHybridRun((s) => s.phase);
   const legacyActive = useHybridRun((s) => s.active);
   const plan = enabled ? storePlan : null;
@@ -152,6 +155,7 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
       enabled: enabled && !!state,
       plan: plan ?? EMPTY,
       names,
+      label,
       state,
       view,
       strip,
@@ -165,7 +169,7 @@ export function HybridPlayerV2Provider({ enabled, children }: { enabled: boolean
       toggleTransitionPause,
       finish,
     }),
-    [enabled, plan, names, state, view, strip, legs, arriveNow, skipUpcoming, skipStation, startStationNow, extendTransition, toggleTransitionPause, finish],
+    [enabled, plan, names, label, state, view, strip, legs, arriveNow, skipUpcoming, skipStation, startStationNow, extendTransition, toggleTransitionPause, finish],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
