@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "paths": {
+      "@/lib/firebase": ["../../../tests/invariants/hermetic/firebase.stub.ts"],
+      "firebase/firestore": ["./firestore.stub.ts"],
+      "@/*": ["../../../src/*"]
+    }
+  }
+}

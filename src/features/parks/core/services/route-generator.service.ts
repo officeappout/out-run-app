@@ -18,6 +18,18 @@ import {
   IS_GUARANTEED_ROUTE_FALLBACK_ENABLED,
   IS_ROUTE_ADJACENCY_ENABLED,
 } from '@/config/feature-flags';
+import {
+  resolveRouteQualityV1,
+  fetchQualityWaypointsV1,
+  MIN_V1_CANDIDATES,
+  buildLoopDirectionsParams,
+  postProcessLoopV1,
+  applyHonestAttributes,
+  applyMeasuredAttributes,
+  type LoopPostProcess,
+} from './route-quality-v1';
+import { getOsmRoadLayerWithin } from '@/lib/route-quality/osm-layer-cache';
+import type { OsmRoadLayer } from '@/lib/route-quality';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -52,7 +64,7 @@ export interface RouteGenerationDiagnostics {
    * IS_PROXIMITY_SEGMENT_QUERY_ENABLED is on and fetchScoredWaypointsByProximity
    * ran — see its own doc comment for the geohash bounding-box approach.
    */
-  queryStrategy?: 'city_score' | 'proximity_geohash';
+  queryStrategy?: 'city_score' | 'proximity_geohash' | 'ring_v1';
   /** Proximity path only: how many geohash startAt/endAt sub-queries fired. */
   geohashBoxesQueried?: number;
   /** Proximity path only: total docs returned across all sub-queries, before dedupe. */
@@ -114,6 +126,12 @@ interface WaypointCandidate {
   /** Road-hierarchy flow score (0-10) carried through from street_segments.
    *  See scoreWaypoint's preferArterialFlow opt-in. */
   flowScore?: number;
+  /** Route quality v1 only: street bearing at a segment-snapped waypoint (Mapbox `bearings`). */
+  bearingDeg?: number;
+  /** Route quality v1 only: 0..10 calm-street quality (scoreWaypoint's preferQuietSegments). */
+  segQuality?: number;
+  /** Route quality v1 only: the point lies ON its street segment (gets a Mapbox radius). */
+  snapped?: boolean;
 }
 
 interface RouteGenerationOptions {
@@ -269,6 +287,12 @@ interface RouteGenerationOptions {
    * generation path; defaults to `'out_and_back'` when omitted.
    */
   returnShape?: 'out_and_back';
+  /**
+   * Route quality v1 (panel flag enable_route_quality_v1). Omitted = the
+   * device's live flag; an explicit boolean wins (admin A/B page, measurement
+   * script). Resolved once in generateDynamicRoutes. See ./route-quality-v1.
+   */
+  routeQualityV1?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -481,6 +505,9 @@ const PARK_TIEBREAKER_BONUS = 5;
  * flowScore/10 so only a genuine primary road gets the full bonus.
  */
 const ARTERIAL_FLOW_BONUS_MAX = 5;
+
+/** Route quality v1: max calm-street bonus — under the smallest distance-tier gap (10), like the bonuses above. */
+const QUIET_SEGMENT_BONUS_MAX = 8;
 
 /**
  * Shared official-bias + soft-shuffle scoring tail — used by BOTH
@@ -1089,7 +1116,7 @@ export function computeShortRouteDistanceWindow(safeDistance: number): { minKm: 
 }
 
 export function scoreWaypoint(
-  waypoint: { lat: number; lng: number; isOfficial?: boolean; flowScore?: number },
+  waypoint: { lat: number; lng: number; isOfficial?: boolean; flowScore?: number; segQuality?: number },
   userLocation: { lat: number; lng: number },
   parks: MapPark[],
   preferences: {
@@ -1162,6 +1189,14 @@ export function scoreWaypoint(
      * distance-window sweep that guards it.
      */
     preferArterialFlow?: boolean;
+    /**
+     * Route quality v1 (opt-in, default false): tie-breaker-scale bonus for
+     * calm streets — waypoint.segQuality (0..10: lit, sidewalk, low speed,
+     * footway/residential/living_street), scaled up to QUIET_SEGMENT_BONUS_MAX
+     * and gated exactly like preferArterialFlow (only among candidates that
+     * already fit the distance tiers). Replaces preferArterialFlow for v1 loops.
+     */
+    preferQuietSegments?: boolean;
   }
 ): WaypointCandidate {
   const distanceFromUser = getDistanceKm(userLocation.lat, userLocation.lng, waypoint.lat, waypoint.lng);
@@ -1221,6 +1256,10 @@ export function scoreWaypoint(
   // rationale.
   if (preferences.preferArterialFlow && distanceDiff <= penaltyTierKm) {
     score += ((waypoint.flowScore ?? 0) / 10) * ARTERIAL_FLOW_BONUS_MAX;
+  }
+
+  if (preferences.preferQuietSegments && distanceDiff <= penaltyTierKm) {
+    score += ((waypoint.segQuality ?? 0) / 10) * QUIET_SEGMENT_BONUS_MAX;
   }
 
   const hasNearbyGym = parks.some(park => {
@@ -1315,6 +1354,13 @@ export function selectAngularlyDiverseCandidates(
      * is unaffected either way (opt-in, not a value threshold).
      */
     proportionalGap?: boolean;
+    /**
+     * Route quality v1 (opt-in, default false): never synthesize blind points
+     * for empty/badly-positioned sectors — an empty sector simply contributes
+     * nothing (fewer, real, street-snapped waypoints instead of a point Mapbox
+     * snaps to whatever is nearest and U-turns at).
+     */
+    noSynthetic?: boolean;
   } = {},
 ): WaypointCandidate[] {
   const bearingOf = (wp: { lat: number; lng: number }) =>
@@ -1336,6 +1382,7 @@ export function selectAngularlyDiverseCandidates(
     const sector = sectors[idx];
     const bestGap = sector.length > 0 ? Math.abs(sector[0].distanceFromUser - idealDistanceKm) : Infinity;
     if (sector.length > 0 && bestGap <= gapThresholdKm) continue; // real coverage already good enough
+    if (opts.noSynthetic) continue;
     const centerBearingDeg = (idx + 0.5) * sectorWidth;
     const mathAngleRad = ((90 - centerBearingDeg) * Math.PI) / 180; // compass bearing -> generateRandomWaypoints' math-angle convention
     const radiusDeg = idealDistanceKm / KM_PER_DEGREE;
@@ -1430,6 +1477,17 @@ async function findFitnessAnchor(
  *   2. Random geometric fallback — via generateRandomWaypoints()
  */
 export async function generateDynamicRoutes(
+  options: RouteGenerationOptions
+): Promise<Route[]> {
+  // Route quality v1 (enable_route_quality_v1): resolved ONCE here so every
+  // branch below agrees. Off → the original dispatcher, untouched.
+  if (!resolveRouteQualityV1(options.routeQualityV1)) return dispatchGeneration(options);
+  const routes = await dispatchGeneration({ ...options, routeQualityV1: true });
+  // Corridor-following returns a stored official route — its own attributes are real data.
+  return options.followOfficialRouteId ? routes : applyHonestAttributes(routes);
+}
+
+async function dispatchGeneration(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
   // User-anchored corridor-flow mode — most specific request wins, checked first.
@@ -2521,7 +2579,17 @@ interface CombinationAttemptResult {
   route?: Route;
   turnCount?: number;
   routeDistanceKm?: number;
+  /** Route quality v1 only: ranking penalty (0 = perfect) — multiplies turnsPerKm. */
+  qualityPenalty?: number;
 }
+
+/** Route quality v1 context threaded into each combination attempt. */
+interface V1AttemptContext {
+  osmLayer: Promise<OsmRoadLayer | null> | null;
+}
+
+/** How long a v1 generation waits for the cached OSM road layer before judging crossings without it. */
+const OSM_LAYER_WAIT_MS = 1200;
 
 /**
  * Runs the Mapbox-call + point-count + distance-window pipeline for ONE
@@ -2550,6 +2618,7 @@ async function attemptOneCombination(
     safeDistance: number;
     minPathPoints: number;
     acceptWindow: { minKm: number; maxKm: number };
+    qualityV1?: V1AttemptContext;
   },
 ): Promise<CombinationAttemptResult> {
   const { userLocation, activity, preferences, fitnessAnchor, routeGenerationIndex, safeDistance, minPathPoints, acceptWindow } = params;
@@ -2562,8 +2631,10 @@ async function attemptOneCombination(
   // of the three changes.
   const bearingFromUser = (wp: { lat: number; lng: number }) =>
     (segBearing([userLocation.lng, userLocation.lat], [wp.lng, wp.lat]) + 360) % 360;
-  const waypointsToUse: Array<{ lat: number; lng: number }> = [wp1, wp2, wp3]
-    .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+  const waypointsToUse: Array<{ lat: number; lng: number; bearingDeg?: number; snapped?: boolean }> = [wp1, wp2, wp3]
+    .map(wp => (params.qualityV1
+      ? { lat: wp.lat, lng: wp.lng, bearingDeg: wp.bearingDeg, snapped: wp.snapped }
+      : { lat: wp.lat, lng: wp.lng }))
     .sort((a, b) => bearingFromUser(a) - bearingFromUser(b));
 
   // Add fitness anchor if available — re-sorted alongside the 3 waypoints
@@ -2594,7 +2665,9 @@ async function attemptOneCombination(
       userLocation, // Loop back home
       profile,
       waypointsToUse,
-      { continue_straight: 'true', alternatives: 'false' },
+      params.qualityV1
+        ? buildLoopDirectionsParams(userLocation, waypointsToUse, profile)
+        : { continue_straight: 'true', alternatives: 'false' },
     );
     let csMode: 'continue_straight' | 'fallback' = 'continue_straight';
 
@@ -2609,7 +2682,10 @@ async function attemptOneCombination(
     // this fallback has no such conflict, so it's the one that gets the
     // fewest-turn alternative picker.
     if (!result || !result.path || result.path.length === 0) {
-      const fallbackAlternatives = await MapboxService.getSmartPathAlternatives(userLocation, userLocation, profile, waypointsToUse);
+      const fallbackAlternatives = await MapboxService.getSmartPathAlternatives(
+        userLocation, userLocation, profile, waypointsToUse,
+        params.qualityV1 && profile === 'walking' ? { walkway_bias: '1' } : undefined,
+      );
       result = pickStraightest(fallbackAlternatives);
       csMode = 'fallback';
     }
@@ -2620,7 +2696,14 @@ async function attemptOneCombination(
       return { index, outcome: 'rejected_points' };
     }
 
-    const routeDistanceKm = result.distance / 1000;
+    // Route quality v1: cut spurs/U-turns out of the raw line, measure it, judge it.
+    const v1Post: LoopPostProcess | null = params.qualityV1
+      ? postProcessLoopV1(result.path, safeDistance, await params.qualityV1.osmLayer)
+      : null;
+    const routeDistanceKm = v1Post ? (result.distance - v1Post.trimmedM) / 1000 : result.distance / 1000;
+    const mapboxDurationSec = v1Post && result.distance > 0
+      ? result.duration * (1 - v1Post.trimmedM / result.distance)
+      : result.duration;
     const hasGym = !!fitnessAnchor;
 
     // Fix 3 (14.08.2026) — Mapbox has no running profile (confirmed;
@@ -2632,14 +2715,14 @@ async function attemptOneCombination(
     // IDENTICAL — still Mapbox's own duration, exactly as before.
     const durationMinutes = activity === 'running'
       ? Math.round((routeDistanceKm / SPEED_KMH.running) * 60)
-      : Math.round(result.duration / 60);
+      : Math.round(mapboxDurationSec / 60);
     const calories = Math.round(routeDistanceKm * kcalPerKmFor(activity));
 
     // Change 3 — strip micro-zig with Ramer–Douglas–Peucker (~4 m). Preserves the
     // overall shape but removes the dense near-collinear wiggle Mapbox emits at
     // overview=full (the "square/boxy" micro-jaggedness). Distance/duration stay
     // from Mapbox — do NOT recompute them from the simplified path.
-    const cleanPath = rdpSimplify(result.path, 4);
+    const cleanPath = rdpSimplify(v1Post ? v1Post.path : result.path, 4);
     // Cached-DEM difficulty (Stage 5 Phase B, 18.08.2026) — see generator-
     // elevation.service.ts's header for the fallback contract. Relocated
     // here (18.08.2026, full-branch dormant merge) from attemptRouteCombinations'
@@ -2685,6 +2768,7 @@ async function attemptOneCombination(
       visitingParkId: fitnessAnchor?.id || null,
       includesFitnessStop: hasGym
     };
+    if (v1Post) applyMeasuredAttributes(route, v1Post.metrics);
 
     if (routeDistanceKm >= acceptWindow.minKm && routeDistanceKm <= acceptWindow.maxKm) {
       // Clean-geometry check — only among candidates that already pass the
@@ -2694,12 +2778,13 @@ async function attemptOneCombination(
       // the ranking signal among whatever ends up in cleanCandidates.
       const selfIntersects = pathSelfIntersects(cleanPath);
       const turnCount = computeRouteTurns(cleanPath).length;
-      if (!selfIntersects) {
+      const qualityPenalty = v1Post?.verdict.penalty;
+      if (!selfIntersects && (!v1Post || v1Post.verdict.pass)) {
         console.log(`[RouteGenerator] ✅ Route ${index} CLEAN! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-        return { index, outcome: 'clean', route, turnCount, routeDistanceKm };
+        return { index, outcome: 'clean', route, turnCount, routeDistanceKm, qualityPenalty };
       } else {
-        console.log(`[RouteGenerator] ⚠️ Route ${index} self-intersects — held as fallback (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-        return { index, outcome: 'dirty', route, turnCount, routeDistanceKm };
+        console.log(`[RouteGenerator] ⚠️ Route ${index} ${selfIntersects ? 'self-intersects' : `fails quality v1 (${v1Post?.verdict.reasons.join(',')})`} — held as fallback (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
+        return { index, outcome: 'dirty', route, turnCount, routeDistanceKm, qualityPenalty };
       }
     } else {
       console.warn(
@@ -2827,8 +2912,9 @@ async function attemptRouteCombinations(
     acceptWindow: { minKm: number; maxKm: number };
     nearMissWindow?: { minKm: number; maxKm: number };
     maxRoutesNeeded: number;
+    qualityV1?: V1AttemptContext;
   },
-): Promise<{ validRoutes: Route[]; bestNearMiss: Route | null }> {
+): Promise<{ validRoutes: Route[]; bestNearMiss: Route | null; cleanCount: number }> {
   const { nearMissWindow, safeDistance, maxRoutesNeeded, routeGenerationIndex } = params;
 
   // Parallel + time-budgeted (17.08.2026, David-approved) — replaces the
@@ -2871,7 +2957,8 @@ async function attemptRouteCombinations(
 
   for (const result of results) {
     if (result.route && result.turnCount !== undefined && result.routeDistanceKm) {
-      const turnsPerKm = result.turnCount / result.routeDistanceKm;
+      // v1: quality penalty folds into the straightness ranking (×1 when off).
+      const turnsPerKm = (result.turnCount / result.routeDistanceKm) * (1 + (result.qualityPenalty ?? 0));
       if (result.outcome === 'clean') {
         cleanCandidates.push({ route: result.route, turnsPerKm });
       } else if (result.outcome === 'dirty') {
@@ -2906,7 +2993,7 @@ async function attemptRouteCombinations(
   const validRoutes = [...sampledClean.map((c) => c.route), ...dirtyCandidates.map((c) => c.route)].slice(0, maxRoutesNeeded);
 
   console.log(`[RouteGenerator] Finished. Generated ${validRoutes.length} valid route(s) (${cleanCandidates.length} clean, ${Math.min(dirtyCandidates.length, Math.max(0, maxRoutesNeeded - cleanCandidates.length))} fallback).`);
-  return { validRoutes, bestNearMiss };
+  return { validRoutes, bestNearMiss, cleanCount: cleanCandidates.length };
 }
 
 async function generateLoopRoutes(
@@ -2948,11 +3035,54 @@ async function generateLoopRoutes(
     ? await findFitnessAnchor(userLocation, safeDistance, parks)
     : null;
 
+  // Route quality v1 (enable_route_quality_v1) — normal loops only; short-route
+  // mode keeps its own separately-tuned ladder. See ./route-quality-v1.
+  const qualityV1 = options.routeQualityV1 === true && !loopOpts.shortMode;
+  const osmLayerPromise: Promise<OsmRoadLayer | null> | null = qualityV1
+    ? getOsmRoadLayerWithin(userLocation.lat, userLocation.lng, safeDistance / 2 + 0.5, OSM_LAYER_WAIT_MS)
+    : null;
+  // v1 places waypoints at target/6 (the loop-geometry radius) when the caller gives no ideal.
+  const v1IdealKm = preferences.idealWaypointDistanceKm ?? safeDistance / 6;
+  let v1Snapped = false;
+
   // 2. Fetch waypoint candidates — prefer proximity-bounded street_segments
   //    (if enabled), fall back to citywide-by-score, fall back to random.
   let rawCandidates: Array<{ lat: number; lng: number; isOfficial: boolean; flowScore: number }> | null = null;
   if (cityName) {
-    if (IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
+    if (qualityV1) {
+      const v1 = await fetchQualityWaypointsV1(userLocation, v1IdealKm, osmLayerPromise);
+      if (v1.candidates.length >= MIN_V1_CANDIDATES) {
+        rawCandidates = v1.candidates;
+        v1Snapped = true;
+        setDiagnostics({
+          cityNameUsed: cityName,
+          cityNameRaw: cityName,
+          source: 'street_segments',
+          segmentsFetched: v1.docsRead,
+          segmentsInRadius: v1.candidates.length,
+          queryStrategy: 'ring_v1',
+          geohashBoxesQueried: v1.cellsQueried,
+          docsFetchedRaw: v1.docsRead,
+          docsAfterDedupe: v1.docsSeen,
+        });
+      } else {
+        setDiagnostics({
+          cityNameUsed: cityName,
+          cityNameRaw: cityName,
+          source: 'random_fallback_out_of_radius',
+          segmentsFetched: v1.docsRead,
+          segmentsInRadius: v1.candidates.length,
+          queryStrategy: 'ring_v1',
+          geohashBoxesQueried: v1.cellsQueried,
+          docsFetchedRaw: v1.docsRead,
+          docsAfterDedupe: v1.docsSeen,
+        });
+      }
+    }
+    // v1: no usable street on the waypoint ring → nothing nearby to snap to; skip the
+    // legacy whole-radius/citywide reads (thousands of docs, all out of reach) and use
+    // the random fallback below.
+    if (!rawCandidates && !qualityV1 && IS_PROXIMITY_SEGMENT_QUERY_ENABLED) {
       rawCandidates = await fetchScoredWaypointsByProximity(
         cityName,
         userLocation,
@@ -2960,7 +3090,7 @@ async function generateLoopRoutes(
         activeOfficialRouteId,
       );
     }
-    if (!rawCandidates) {
+    if (!rawCandidates && !qualityV1) {
       rawCandidates = await fetchScoredWaypoints(
         cityName,
         userLocation,
@@ -3006,8 +3136,13 @@ async function generateLoopRoutes(
   // the real target radius. Gate on the actual quantity that matters
   // (idealWaypointDistanceKm < 1.0) instead of the shortMode flag — same
   // proven mechanism, correct trigger condition.
-  const idealWaypointDistanceKm = preferences.idealWaypointDistanceKm ?? 1.0;
+  const idealWaypointDistanceKm = qualityV1 ? v1IdealKm : (preferences.idealWaypointDistanceKm ?? 1.0);
   const useProportionalDistanceTiers = idealWaypointDistanceKm < 1.0;
+  // v1: calm-street preference replaces the hardcoded arterial preference; scoring
+  // uses the same ideal radius as selection. Empty for flag off (no-op spread).
+  const v1ScoringOverrides = qualityV1
+    ? { idealWaypointDistanceKm, preferArterialFlow: false, preferQuietSegments: true }
+    : {};
 
   const scoredWaypoints = candidateWaypoints.map(wp =>
     scoreWaypoint(wp, userLocation, parks, {
@@ -3023,19 +3158,24 @@ async function generateLoopRoutes(
       // — arterial preference is desirable at any target size, distance-fit
       // gating inside scoreWaypoint is what keeps it safe.
       preferArterialFlow: true,
+      ...v1ScoringOverrides,
     })
   );
 
   // Angularly-diverse selection (08.08 fix), not just top-12-by-score — see
   // selectAngularlyDiverseCandidates' doc comment. Sorted by bearing, so
   // array-index-adjacency below corresponds to angular adjacency.
-  const topCandidates = selectAngularlyDiverseCandidates(
+  let topCandidates = selectAngularlyDiverseCandidates(
     scoredWaypoints,
     userLocation,
     12,
     idealWaypointDistanceKm,
-    { proportionalGap: useProportionalDistanceTiers },
+    { proportionalGap: useProportionalDistanceTiers, noSynthetic: v1Snapped },
   );
+  // v1: too few real sectors for a triangle → allow synthetic fill after all.
+  if (v1Snapped && topCandidates.length < 3) {
+    topCandidates = selectAngularlyDiverseCandidates(scoredWaypoints, userLocation, 12, idealWaypointDistanceKm, { proportionalGap: useProportionalDistanceTiers });
+  }
 
   // 3. Create route combinations (triangular loops)
   // The starting offset is rotated by `routeGenerationIndex` so every shuffle /
@@ -3084,6 +3224,7 @@ async function generateLoopRoutes(
     safeDistance,
     minPathPoints: MIN_PATH_POINTS,
     maxRoutesNeeded: MIN_REQUIRED_ROUTES,
+    qualityV1: qualityV1 ? { osmLayer: osmLayerPromise } : undefined,
   };
 
   // 4. Main pass — unchanged behavior when the flag is off: single window,
@@ -3095,6 +3236,20 @@ async function generateLoopRoutes(
   });
 
   let validRoutes = mainPass.validRoutes;
+
+  // v1: nothing passed the quality bars → one more batch of different triangles
+  // (extra Mapbox calls only in this case); its clean routes go first.
+  if (qualityV1 && mainPass.cleanCount === 0 && topCandidates.length >= 3) {
+    const secondCombinations = buildTriangleCombinations(topCandidates, baseOffset + 6);
+    if (secondCombinations.length > 0) {
+      const secondPass = await attemptRouteCombinations(secondCombinations, { ...commonAttemptParams, acceptWindow: primaryWindow });
+      if (secondPass.cleanCount > 0) {
+        validRoutes = [...secondPass.validRoutes.slice(0, secondPass.cleanCount), ...validRoutes].slice(0, MIN_REQUIRED_ROUTES);
+      } else if (validRoutes.length === 0) {
+        validRoutes = secondPass.validRoutes;
+      }
+    }
+  }
 
   if (validRoutes.length === 0 && guaranteedFallbackActive) {
     if (mainPass.bestNearMiss) {
@@ -3136,6 +3291,7 @@ async function generateLoopRoutes(
             // Tier 1 (19.08.2026): same unconditional arterial preference
             // as the main pass above.
             preferArterialFlow: true,
+            ...v1ScoringOverrides,
           })
         );
         const relaxedTop = selectAngularlyDiverseCandidates(
