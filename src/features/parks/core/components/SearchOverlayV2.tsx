@@ -50,6 +50,11 @@ import {
   type SavedPlaceKind,
 } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore, type RecentSearch } from '../store/useRecentSearchesStore';
+// Unified search (enable_unified_search): quick chips + "חיפוש בכל האפליקציה". Off = untouched.
+import { useUnifiedSearchFlag } from '@/features/search/hooks/useUnifiedSearchFlag';
+import { useMapQuickPlaces, MAP_QUICK_LABEL } from '@/features/search/hooks/useMapQuickPlaces';
+import MapQuickChips from '@/features/search/components/map/MapQuickChips';
+import MapSearchAllRow from '@/features/search/components/map/MapSearchAllRow';
 
 // ── Type icon + tone (shared with the search pick cards) ─────────────────────
 const PLACE_TYPE_ICON: Record<GeoPlaceType, typeof MapPin> = {
@@ -109,6 +114,8 @@ export default function SearchOverlayV2({
   const clearRecents = useRecentSearchesStore((s) => s.clearRecents);
 
   const typing = searchQuery.length >= MIN_SEARCH_CHARS;
+  const { on: unified } = useUnifiedSearchFlag();
+  const quick = useMapQuickPlaces(unified, userPos);
   const [filter, setFilter] = useState<'all' | SearchGroupId>('all');
   const [expanded, setExpanded] = useState<Partial<Record<SearchGroupId, boolean>>>({});
   // A new query starts from the "all" view with every group collapsed.
@@ -192,6 +199,8 @@ export default function SearchOverlayV2({
           </button>
         </div>
 
+        {unified && !typing && <MapQuickChips chips={quick.available} active={quick.active} onToggle={quick.toggle} />}
+
         {/* Filter chips — only the groups that have hits */}
         {typing && groups.length > 1 && (
           <div className="mt-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -266,10 +275,10 @@ export default function SearchOverlayV2({
               </div>
             )}
 
-            {nearby.length > 0 && (
+            {(quick.active ? quick.items : nearby).length > 0 && (
               <div className={CARD}>
-                <div className="px-1 py-0.5"><span className={SECTION_LABEL}>קרוב אליך</span></div>
-                {nearby.map((item) => {
+                <div className="px-1 py-0.5"><span className={SECTION_LABEL}>{quick.active ? MAP_QUICK_LABEL[quick.active] : 'קרוב אליך'}</span></div>
+                {(quick.active ? quick.items : nearby).map((item) => {
                   const lines = groupedRowLines(item);
                   return (
                     <ResultRow
@@ -336,6 +345,7 @@ export default function SearchOverlayV2({
             })}
           </div>
         )}
+        {unified && <MapSearchAllRow query={typing ? searchQuery : ''} />}
       </div>
     </div>
   );

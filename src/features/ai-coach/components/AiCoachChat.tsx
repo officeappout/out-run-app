@@ -91,7 +91,10 @@ export default function AiCoachChat({
   const router = useRouter();
   const gender = coachGenderOf(profile.core?.gender);
   const online = useOnline();
-  const [input, setInput] = useState('');
+  // "שאל את קלי" from search arrives as /ai-coach?q=… → prefilled, never auto-sent.
+  const [input, setInput] = useState(() =>
+    typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('q') ?? '').slice(0, CHAT_MESSAGE_MAX_CHARS),
+  );
   const [builderOpen, setBuilderOpen] = useState(false);
   const [openCard, setOpenCard] = useState<WorkoutCard | null>(null);
   const [missingCard, setMissingCard] = useState(false);
