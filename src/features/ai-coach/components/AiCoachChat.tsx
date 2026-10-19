@@ -122,7 +122,7 @@ export default function AiCoachChat({
   return (
     // Always LIGHT (owner): pinned text color + color-scheme so an OS dark mode (globals.css
     // flips --foreground to near-white) never leaks into the screen, its inputs or scrollbars.
-    <div className="fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
+    <div className="kb-fit fixed inset-0 z-[56] flex flex-col bg-[#F8FAFC] text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
       {/* Header */}
       <div
         className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 pb-3"
@@ -171,7 +171,7 @@ export default function AiCoachChat({
       )}
 
       {/* Messages */}
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
+      <div data-kb-stick-bottom className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
         {state.phase === 'loading' && <p className="py-10 text-center text-sm text-gray-400 animate-pulse">טוען את השיחה...</p>}
 
         {teamMode && state.phase !== 'loading' && (
@@ -307,7 +307,7 @@ export default function AiCoachChat({
       )}
 
       {/* Input */}
-      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 pt-3 pb-[calc(var(--kb-safe-bottom)+12px)]">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value.slice(0, CHAT_MESSAGE_MAX_CHARS))}

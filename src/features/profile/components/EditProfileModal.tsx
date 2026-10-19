@@ -93,7 +93,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center"
+          className="kb-fit fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center justify-center"
           style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           onClick={() => !editSaving && onClose()}
         >
@@ -103,7 +103,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col"
+            className="kb-cap bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col"
             dir="rtl"
           >
             {/* Sticky header */}

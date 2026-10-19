@@ -110,11 +110,19 @@ export default function ClientLayout({
               // On all non-map routes (even hidden-nav ones like onboarding)
               // we always reserve at least env(safe-area-inset-bottom) so the
               // home indicator strip never shows the white body background.
+              //
+              // Keyboard: max(…, var(--kb-inset)) — while the on-screen
+              // keyboard is open the padding grows to its height (animated,
+              // see globals.css), so `h-full` pages end at the keyboard
+              // (pinned Continue buttons stay visible) and long pages can
+              // scroll their last field clear of it. Map route excluded so the
+              // map canvas never resizes under the fixed search overlays.
               paddingBottom: isMapRoute
                 ? undefined
                 : shouldShowBottomNav
-                  ? 'calc(3rem + env(safe-area-inset-bottom, 0px))'
-                  : 'env(safe-area-inset-bottom, 0px)',
+                  ? 'max(calc(3rem + env(safe-area-inset-bottom, 0px)), var(--kb-inset, 0px))'
+                  : 'max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px))',
+              scrollPaddingBottom: isMapRoute ? undefined : 'var(--kb-inset, 0px)',
               // Same reasoning as paddingBottom above, mirrored for the top
               // inset — no screen had a global guarantee against rendering
               // under the status bar/notch; each had to remember its own

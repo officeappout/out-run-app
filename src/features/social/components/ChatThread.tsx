@@ -381,7 +381,7 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+      <div data-kb-stick-bottom className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {messages.map((msg) => {
           const isMine = msg.senderUid === myUid;
           const isHighFive = msg.type === 'high_five';
@@ -432,12 +432,12 @@ export default function ChatThread({ thread, myUid, myName, createdByUid }: Chat
 
       {/* Input bar — replaced by a notice once the user is blocked. */}
       {isBlocked ? (
-        <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] border-t border-gray-100 bg-white flex items-center justify-center gap-2 text-sm text-gray-500">
+        <div className="px-4 pt-3 pb-[calc(var(--kb-safe-bottom)+12px)] border-t border-gray-100 bg-white flex items-center justify-center gap-2 text-sm text-gray-500">
           <Ban className="w-4 h-4 text-gray-400" />
           חסמת משתמש זה. בטל את החסימה כדי לשלוח הודעות.
         </div>
       ) : (
-        <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] border-t border-gray-100 bg-white flex items-center gap-2">
+        <div className="px-4 pt-3 pb-[calc(var(--kb-safe-bottom)+12px)] border-t border-gray-100 bg-white flex items-center gap-2">
           {/* Bug fix (round 6, same root cause as EditProfileModal): no
               explicit text color meant this input inherited globals.css's
               dark-mode `body { color: var(--foreground) }` (#ededed, near
