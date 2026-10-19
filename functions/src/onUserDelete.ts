@@ -149,6 +149,17 @@ async function purgeUserData(uid: string): Promise<Record<string, number>> {
     logger.warn(`[purgeUserData] ai_coach review data for ${uid} failed`, e);
   }
 
+  // 2e. Kelly phase 3: memory facts (ai_coach_memory/{uid}), the proactive ledger
+  //     (ai_coach_proactive/{uid}) and the user's "איך היה?" answers (workout_feedback,
+  //     keyed by workoutId, uid field). All top-level, not reached by the deletes above.
+  try {
+    await db.collection('ai_coach_memory').doc(uid).delete();
+    await db.collection('ai_coach_proactive').doc(uid).delete();
+    counts.workoutFeedback = await deleteQueryBatch(db.collection('workout_feedback').where('uid', '==', uid));
+  } catch (e) {
+    logger.warn(`[purgeUserData] Kelly phase 3 data for ${uid} failed`, e);
+  }
+
   // 3. Presence, social graph, personal activity feed, kudos inbox.
   //    Each is owned exclusively by the deleted user.
   for (const top of ['presence', 'connections', 'activity', 'kudos'] as const) {

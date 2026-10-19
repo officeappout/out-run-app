@@ -9,7 +9,7 @@ vi.mock('firebase-functions', () => ({ logger: { info: vi.fn(), warn: vi.fn(), e
 vi.mock('firebase-functions/v2/firestore', () => ({ onDocumentCreated: (_o: unknown, fn: unknown) => fn }));
 vi.mock('../services/push.service', () => ({ sendPush: vi.fn() }));
 
-import { KELLY_PUSH_DEEP_LINK, kellyPushBody, kellyPushDecision } from '../onKellyThreadMessage';
+import { KELLY_PUSH_DEEP_LINK, kellyProactivePushPlan, kellyPushBody, kellyPushDecision } from '../onKellyThreadMessage';
 
 const at = (ms: number) => ({ toMillis: () => ms });
 const NOW = 10_000_000;
@@ -34,5 +34,27 @@ describe('kellyPushDecision', () => {
     expect(kellyPushBody(' a \n b ')).toBe('a b');
     expect(kellyPushBody('x'.repeat(150))).toHaveLength(103);
     expect(KELLY_PUSH_DEEP_LINK).toBe('/ai-coach');
+  });
+});
+
+describe('Kelly phase 3 — proactive messages', () => {
+  it('a normal team / app message is not proactive (unchanged path)', () => {
+    expect(kellyProactivePushPlan({ source: 'human', text: 'x' })).toBeNull();
+    expect(kellyProactivePushPlan({ source: 'system', text: 'ברוך הבא' })).toBeNull();
+    expect(kellyProactivePushPlan(undefined)).toBeNull();
+  });
+  it('a proactive message counts in the daily cap and is not a personal interaction', () => {
+    expect(kellyProactivePushPlan({ source: 'system', text: 'x', proactive: { trigger: 'morning' } })).toEqual({
+      test: false,
+      trigger: 'morning',
+      countTowardDailyCap: true,
+      isPersonalInteraction: false,
+    });
+  });
+  it('a panel test send skips the daily cap', () => {
+    expect(kellyProactivePushPlan({ source: 'system', text: 'x', proactive: { trigger: 'weekly', test: true } })).toMatchObject({ countTowardDailyCap: false, isPersonalInteraction: true });
+  });
+  it('a silent proactive message (noPush) is never pushed', () => {
+    expect(kellyPushDecision({ source: 'system', text: 'x', noPush: true, proactive: { trigger: 'morning' }, createdAt: at(NOW) }, NOW).push).toBe(false);
   });
 });
