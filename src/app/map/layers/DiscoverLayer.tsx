@@ -39,6 +39,8 @@ import { FIRST_RUN_COACH, firstRunToursEnabled, isMapTourBlocked } from '@/featu
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
 import RouteCarousel from '@/features/parks/core/components/RouteCarousel';
+import RouteOverviewOverlay from '@/features/parks/core/components/overview/route/RouteOverviewOverlay';
+import { playerActivityFor, type RouteActivity } from '@/features/parks/core/components/overview/route/route-overview';
 import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBar';
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
@@ -418,6 +420,13 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   useEffect(() => {
     if (mapMode === 'freeRun') setRouteCarouselConfig(null);
   }, [mapMode]);
+
+  // v2 (enable_home_v2): a generator card tapped → the ONE overview drawer for that
+  // route (board M-5e). Cleared whenever the carousel step is left.
+  const [routeOverview, setRouteOverview] = useState<Route | null>(null);
+  useEffect(() => {
+    if (mapMode !== 'freeRun' || freeRunStep !== 'route') setRouteOverview(null);
+  }, [mapMode, freeRunStep]);
 
   // ── Run-invite deep-link: open FreeRunDrawer pre-configured ───────────────
   // Triggered when the guest arrives via /map?openRun=running|walking after
@@ -1693,6 +1702,49 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   }
 
   // ── SWITCH STATEMENT — only ONE branch renders, everything else is unmounted ──
+  // ── v2 (enable_home_v2): plain route → the ONE overview drawer ─────────────
+  // Same start / navigate paths as RouteDetailSheet below; the chosen activity sets
+  // the player's session mode first (walk / run; a ride runs as a run, like FreeRunDrawer).
+  const startRouteAs = (r: Route, act: RouteActivity) => {
+    useRunningPlayer.getState().setActivityType(playerActivityFor(act));
+    logic.setFocusedRoute(r);
+    logic.startActiveWorkoutForRoute(r);
+  };
+  const navigateToRouteStart = (r: Route) => {
+    const startPoint = Array.isArray(r.path) && r.path.length > 0 ? r.path[0] : null;
+    if (!startPoint) return;
+    logic.setSelectedRoute(null);
+    logic.setFocusedRoute(null);
+    startCommute({ coords: [startPoint[0], startPoint[1]], label: r.name });
+  };
+  function renderRouteOverviewCard(route: Route) {
+    const userPos = devSim?.effectiveLocation(logic.currentUserPos) ?? logic.currentUserPos ?? null;
+    const close = () => { logic.setSelectedRoute(null); logic.setFocusedRoute(null); };
+    return (
+      <RouteOverviewOverlay
+        key={route.id}
+        route={route}
+        initialActivity={logic.preferences.activity}
+        userLocation={userPos}
+        cityName={userCityName}
+        onBack={close}
+        onStart={(r, act) => { close(); startRouteAs(r, act); }}
+        onNavigate={navigateToRouteStart}
+        renderFullDetails={(back) => (
+          <RouteDetailSheet
+            isOpen
+            route={route}
+            userLocation={userPos}
+            onClose={back}
+            onStartWorkout={(r) => { logic.setFocusedRoute(r); logic.startActiveWorkoutForRoute(r); }}
+            onNavigate={navigateToRouteStart}
+            devSim={devSim}
+          />
+        )}
+      />
+    );
+  }
+
   function renderScreen(): React.ReactNode {
     switch (screen) {
       case 'SEARCH':
@@ -1703,6 +1755,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
       case 'ROUTE_CARD': {
         const enrichedSelected = enrichRoutes([logic.selectedRoute!])[0];
+        if (mapFeatureFlags.enableHomeV2) return renderRouteOverviewCard(enrichedSelected);
         return (
           <>
             {/* route-preview: the top chrome must never show while the hybrid overview
@@ -2380,8 +2433,30 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                     setMapMode('idle');
                     logic.startActiveWorkoutForRoute(route);
                   }}
+                  // v2: the cards are the overview drawer's compact header; a tap opens it.
+                  onOpenRoute={mapFeatureFlags.enableHomeV2 ? (route) => { logic.setFocusedRoute(route); setRouteOverview(route); } : undefined}
                 />
               )}
+
+            {/* v2 (enable_home_v2): the ONE overview drawer for a generator route (board M-5e → 5a). */}
+            {mapFeatureFlags.enableHomeV2 && mapMode === 'freeRun' && freeRunStep === 'route' && routeOverview && (
+              <RouteOverviewOverlay
+                key={routeOverview.id}
+                route={routeOverview}
+                initialActivity={logic.preferences.activity}
+                userLocation={userLocation}
+                cityName={userCityName}
+                onBack={() => setRouteOverview(null)}
+                onStart={(r, act) => {
+                  // Same start path as the carousel's onSelect, with the chosen activity.
+                  setRouteOverview(null);
+                  useRunningPlayer.getState().setActivityType(playerActivityFor(act));
+                  logic.setFocusedRoute(r);
+                  setMapMode('idle');
+                  logic.startActiveWorkoutForRoute(r);
+                }}
+              />
+            )}
 
             {/* ── Partner Finder flow ─────────────────────────────────
                 State machine: radar (transient) → overlay.

@@ -123,7 +123,8 @@ describe('HybridJourneyAxis — legacy aerobic-leg title uses the real activity,
 
   it('both the legTitle fallback and the rendered !stationName span use the `action` variable', () => {
     // Label renamed "רגל … — יציאה" → "הליכה · מקטע N" (Phase 2b design alignment); still `action`-driven.
-    expect(axisSrc).toContain('`${action} · מקטע ${aerIdx}`');
+    // Since the overview-shell split (19.10.2026) the destination title fallback lives
+    // in its own branch, so only the rendered standard-layout title remains.
     expect(axisSrc).toContain('{action} · מקטע {aerIdx}');
   });
 });

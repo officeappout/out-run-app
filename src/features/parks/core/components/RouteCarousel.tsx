@@ -107,6 +107,7 @@ import { useMapStore } from '../store/useMapStore';
 import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import RouteCardUnified from './RouteCardUnified';
+import RouteOverviewCompactCard from './overview/route/RouteOverviewCompactCard';
 import RouteQualityBadges from './RouteQualityBadges';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { haversineKm } from '../services/geoUtils';
@@ -245,6 +246,12 @@ interface RouteCarouselProps {
    * echo loops.
    */
   onFocusChange?: (route: Route) => void;
+  /**
+   * enable_home_v2 only (the caller passes it only for v2 users): each card
+   * renders as the compact header of the ONE overview drawer (board M-5e) and
+   * a tap on it opens that drawer for the route. Omitted → today's cards.
+   */
+  onOpenRoute?: (route: Route) => void;
 }
 
 type Phase = 'searching' | 'cards' | 'empty';
@@ -265,6 +272,7 @@ export default function RouteCarousel({
   onSelect,
   onBack,
   onFocusChange,
+  onOpenRoute,
 }: RouteCarouselProps) {
   const setFreeRunCarouselRoutes = useMapStore((s) => s.setFreeRunCarouselRoutes);
 
@@ -473,6 +481,7 @@ export default function RouteCarousel({
             onSelect={onSelect}
             onBack={onBack}
             onFocusChange={onFocusChange}
+            onOpenRoute={onOpenRoute}
           />
         )}
       </AnimatePresence>
@@ -756,6 +765,7 @@ function CardsState({
   onSelect,
   onBack,
   onFocusChange,
+  onOpenRoute,
 }: {
   mode: 'loop' | 'commute';
   routes: Route[];
@@ -767,6 +777,7 @@ function CardsState({
   onSelect: (route: Route) => void;
   onBack: () => void;
   onFocusChange?: (route: Route) => void;
+  onOpenRoute?: (route: Route) => void;
 }) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -1017,6 +1028,7 @@ function CardsState({
               isActive={isActive}
               userPosition={userPosition}
               onStart={() => onSelect(route)}
+              onOpen={onOpenRoute ? () => onOpenRoute(route) : undefined}
             />
           );
         })}
@@ -1055,12 +1067,15 @@ function RouteCard({
   isActive,
   userPosition,
   onStart,
+  onOpen,
 }: {
   route: Route;
   activity: ActivityType;
   isActive: boolean;
   userPosition: { lat: number; lng: number };
   onStart: () => void;
+  /** v2 (enable_home_v2): render the overview drawer's compact header; tap → the drawer. */
+  onOpen?: () => void;
 }) {
   const stars = scoreToStars(route.score);
   const highlight = useMemo(() => routeHighlight(route), [route]);
@@ -1098,6 +1113,24 @@ function RouteCard({
   // if the user's gesture momentum would carry them further. Without
   // this, snap-mandatory still allows the browser to leapfrog cards
   // when scroll velocity is high.
+
+  // v2: the compact header of the ONE overview drawer (board M-5e). Same start /
+  // too-far behaviour as the unified card; a tap on the card opens the drawer.
+  if (onOpen) {
+    return (
+      <RouteOverviewCompactCard
+        route={route}
+        activity={activity}
+        isActive={isActive}
+        className="snap-center snap-always"
+        onOpen={onOpen}
+        onStart={onStart}
+        blockedReason={blockedReason}
+        blockedLabel={tooFarLabels.cta}
+        onBlocked={(reason) => showToast('error', reason)}
+      />
+    );
+  }
 
   // Unified text-only card (flag-gated). Label + onStart pass through unchanged;
   // only the shell/layout and the CTA *style* are unified across surfaces.

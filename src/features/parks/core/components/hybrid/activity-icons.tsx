@@ -1,4 +1,5 @@
 import React from 'react';
+import { Bike } from 'lucide-react';
 import {
   WalkingIcon, RunIcon, MuscleIcon, ICON_MAP, resolveIconKey,
 } from '@/features/content/programs/core/program-icon.util';
@@ -40,12 +41,15 @@ function strengthIcon(domainFocus?: string): IconFC {
   return ICON_MAP[resolveIconKey(alias)]?.component ?? MuscleIcon;
 }
 
+/** Ride glyph (route overview's activity trio, 19.10.2026) — lucide Bike at the caller's size. */
+const CycleIcon: IconFC = ({ className }) => <Bike className={className} strokeWidth={2.2} />;
+
 /** The dictionary — each value maps an optional subtype → icon component. */
 const ACTIVITY_ICON: Record<ActivityKind, (subtype?: string) => IconFC> = {
   walk: () => WalkingIcon,
   run: () => RunIcon,
   strength: (domainFocus) => strengthIcon(domainFocus),
-  cycle: () => PlaceholderIcon,
+  cycle: () => CycleIcon,
   core: () => PlaceholderIcon,
   stretch: () => PlaceholderIcon,
 };
@@ -56,7 +60,7 @@ const ACTIVITY_ICON: Record<ActivityKind, (subtype?: string) => IconFC> = {
  * @param subtype aerobicType ('walking' | 'running') for aerobic; domainFocus for strength
  */
 export function activityIcon(kind: 'aerobic' | 'strength', subtype?: string): IconFC {
-  const k: ActivityKind = kind === 'strength' ? 'strength' : subtype === 'running' ? 'run' : 'walk';
+  const k: ActivityKind = kind === 'strength' ? 'strength' : subtype === 'running' ? 'run' : subtype === 'cycling' ? 'cycle' : 'walk';
   return ACTIVITY_ICON[k](subtype);
 }
 
