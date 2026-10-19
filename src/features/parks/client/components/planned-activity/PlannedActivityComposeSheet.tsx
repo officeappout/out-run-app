@@ -602,6 +602,7 @@ export default function PlannedActivityComposeSheet({
         zIndex={SHEET_Z.overlay}
         portal={false}
         className="max-h-[85vh]"
+        keyboardAware={false}
       >
         {body}
       </Sheet>
@@ -613,8 +614,8 @@ export default function PlannedActivityComposeSheet({
       isOpen={isOpen}
       onClose={onClose}
       title="יוצא להתאמן"
-      zClassName="z-[100]"
-      panelClassName="max-h-[85vh] overflow-y-auto"
+      backdropClassName="fixed inset-0 z-[100] flex items-end justify-center bg-black/40"
+      panelClassName="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden max-h-[85vh] overflow-y-auto"
     >
       {body}
     </ClassicFormSheet>

@@ -43,6 +43,7 @@ export default function EquipmentFilterShell({ isOpen, onClose, isProfileMode, v
       dragToDismiss={{ handleOnly: false, distance: 120, velocity: 0, elastic: 0.2 }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
       portal={false}
+      keyboardAware={false}
     >
       {children}
     </Sheet>

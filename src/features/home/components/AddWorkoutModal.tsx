@@ -599,7 +599,8 @@ export default function AddWorkoutModal({
       isOpen={isOpen}
       onClose={onClose}
       title={heading}
-      zClassName="z-[60]"
+      backdropClassName="kb-fit fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+      panelClassName="kb-cap w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
     >
       {body}
     </ClassicFormSheet>

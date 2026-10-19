@@ -34,11 +34,9 @@ describe('shouldDismissSheet', () => {
 });
 
 describe('sheetBottomPadding', () => {
-  it('adds the keyboard inset (0 when the var is unset)', () => {
-    expect(sheetBottomPadding('max(1.5rem, env(safe-area-inset-bottom))')).toBe(
-      'calc(max(1.5rem, env(safe-area-inset-bottom)) + var(--kb-inset, 0px))',
-    );
-    expect(sheetBottomPadding(false)).toBe('var(--kb-inset, 0px)');
+  it('is the safe-area expression only (the keyboard moves the sheet via kb-* classes)', () => {
+    expect(sheetBottomPadding('max(1.5rem, env(safe-area-inset-bottom))')).toBe('max(1.5rem, env(safe-area-inset-bottom))');
+    expect(sheetBottomPadding(false)).toBeUndefined();
   });
 });
 

@@ -5,8 +5,11 @@
  * PlannedActivityComposeSheet used to each copy inline: dim backdrop, panel
  * springing up inside it (max-w-md), gray grabber, 16px title + gray close.
  *
- * Kept byte-for-byte equal to those copies so `enable_home_v2` OFF renders
- * exactly as before; the v2 look is `<Sheet>` (src/components/ui/v2/Sheet).
+ * Byte-identical markup to those copies so `enable_home_v2` OFF renders
+ * exactly as before: the two class strings that differed between them
+ * (backdrop z / keyboard class, panel max-height / keyboard cap) are passed
+ * in VERBATIM by each caller, never composed here. The v2 look is `<Sheet>`
+ * (src/components/ui/v2/Sheet).
  * Retire this once the flag is removed.
  */
 
@@ -18,10 +21,10 @@ export interface ClassicFormSheetProps {
   isOpen: boolean;
   onClose: () => void;
   title: ReactNode;
-  /** Tailwind z class of the backdrop, a documented budget value (e.g. 'z-[60]'). */
-  zClassName: string;
-  /** Extra panel classes (e.g. 'max-h-[85vh] overflow-y-auto'). */
-  panelClassName?: string;
+  /** The backdrop's full class string, verbatim from the original copy. */
+  backdropClassName: string;
+  /** The panel's full class string, verbatim from the original copy. */
+  panelClassName: string;
   children?: ReactNode;
 }
 
@@ -29,8 +32,8 @@ export default function ClassicFormSheet({
   isOpen,
   onClose,
   title,
-  zClassName,
-  panelClassName = '',
+  backdropClassName,
+  panelClassName,
   children,
 }: ClassicFormSheetProps) {
   return (
@@ -40,7 +43,7 @@ export default function ClassicFormSheet({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className={`fixed inset-0 ${zClassName} flex items-end justify-center bg-black/40`}
+          className={backdropClassName}
           onClick={onClose}
         >
           <motion.div
@@ -49,7 +52,7 @@ export default function ClassicFormSheet({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden ${panelClassName}`}
+            className={panelClassName}
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >

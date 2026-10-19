@@ -166,12 +166,13 @@ export function shouldDismissSheet(
 }
 
 /**
- * Bottom padding for a sheet surface: the safe-area expression plus the
- * on-screen keyboard inset (`--kb-inset`, 0 when the var isn't set), so a
- * focused input never hides under the keyboard. `false` = keyboard inset only.
+ * Bottom padding for a sheet surface: the safe-area expression, or 0.
+ * (The keyboard is handled by the kb-fit / kb-sheet / kb-cap classes of the
+ * shared keyboard-inset layer, which MOVE the sheet — padding by --kb-inset
+ * as well would count the keyboard twice.)
  */
-export function sheetBottomPadding(safeArea: string | false): string {
-  return safeArea ? `calc(${safeArea} + var(--kb-inset, 0px))` : 'var(--kb-inset, 0px)';
+export function sheetBottomPadding(safeArea: string | false): string | undefined {
+  return safeArea || undefined;
 }
 
 // ── StoryBars ────────────────────────────────────────────────────────────

@@ -33,9 +33,16 @@ describe('Sheet', () => {
     expect(out).toContain('aria-modal="true"');
     expect(out).toContain('גוף');
   });
-  it('pads the bottom by safe area + keyboard inset', () => {
-    const out = html(<Sheet open onClose={noop} portal={false}>b</Sheet>);
-    expect(out).toContain('padding-bottom:calc(max(1.5rem, env(safe-area-inset-bottom)) + var(--kb-inset, 0px))');
+  it('pads the bottom by the safe area; keyboard layer classes per layout', () => {
+    const split = html(<Sheet open onClose={noop} portal={false}>b</Sheet>);
+    expect(split).toContain('padding-bottom:max(1.5rem, env(safe-area-inset-bottom))');
+    expect(split).toContain('kb-sheet fixed inset-x-0 bottom-0');
+    expect(split).toContain('kb-cap');
+    const nested = html(<Sheet open onClose={noop} portal={false} layout="nested">b</Sheet>);
+    expect(nested).toContain('kb-fit fixed inset-0');
+    expect(nested).toContain('kb-cap');
+    const off = html(<Sheet open onClose={noop} portal={false} keyboardAware={false}>b</Sheet>);
+    expect(off).not.toContain('kb-');
   });
   it('nested layout: panel inside the backdrop, width-capped', () => {
     const out = html(<Sheet open onClose={noop} portal={false} layout="nested" zIndex={SHEET_Z.drawer}>b</Sheet>);

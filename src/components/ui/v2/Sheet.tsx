@@ -31,8 +31,14 @@
  * (`shouldDismissSheet`, unit-tested). `handleOnly: false` drags the whole panel.
  *
  * The surface pads its bottom by `safeArea` (default
- * `max(1.5rem, env(safe-area-inset-bottom))`) plus the on-screen keyboard
- * inset `var(--kb-inset, 0px)` — so it is unchanged wherever that var is unset.
+ * `max(1.5rem, env(safe-area-inset-bottom))`).
+ *
+ * Keyboard (`keyboardAware`, default true): the shared keyboard-inset layer's
+ * classes from globals.css (#455, enable_keyboard_insets_v1) — nested: the
+ * backdrop gets `kb-fit` (ends at the keyboard), the surface `kb-cap`; split:
+ * the frame gets `kb-sheet` (sits on the keyboard), the surface `kb-cap`.
+ * They read `--kb-inset`, which is 0 unless that flag's controller is
+ * running — so with the flag off they are a no-op.
  *
  * z-index: only values from the documented budget (`SHEET_Z`, .cursorrules).
  * Portals to document.body by default (escapes stacking contexts and
@@ -124,6 +130,8 @@ export interface SheetProps {
   dir?: 'rtl' | 'ltr';
   /** Accessible name when there is no `title` (e.g. a custom header). */
   ariaLabel?: string;
+  /** Follow the on-screen keyboard via the kb-fit / kb-sheet / kb-cap layer. Default true. */
+  keyboardAware?: boolean;
 }
 
 /** Grabber pill row — exported for surfaces that aren't a modal Sheet. */
@@ -192,7 +200,9 @@ export default function Sheet({
   portal = true,
   dir = 'rtl',
   ariaLabel,
+  keyboardAware = true,
 }: SheetProps) {
+  const kbSurface = keyboardAware ? 'kb-cap' : '';
   const titleId = useId();
   const controls = useDragControls();
   // Portal only after mount (SSR has no document.body).
@@ -235,7 +245,7 @@ export default function Sheet({
   const surface = (
     <div
       data-v2-sheet-surface
-      className={`${SHEET_SURFACE_CLASS} ${surfaceScroll} ${className}`}
+      className={`${kbSurface} ${SHEET_SURFACE_CLASS} ${surfaceScroll} ${className}`}
       style={{ paddingBottom: sheetBottomPadding(safeArea) }}
     >
       {grabberNode}
@@ -278,7 +288,7 @@ export default function Sheet({
       className={
         layout === 'nested'
           ? `${frameClassName ?? 'w-full max-w-md'} ${backdrop ? '' : 'pointer-events-auto'}`
-          : `fixed inset-x-0 bottom-0 ${frameClassName ?? ''}`
+          : `${keyboardAware ? 'kb-sheet ' : ''}fixed inset-x-0 bottom-0 ${frameClassName ?? ''}`
       }
       style={layout === 'split' ? { zIndex } : undefined}
     >
@@ -297,7 +307,7 @@ export default function Sheet({
           {...fade}
           data-v2-sheet-backdrop
           onClick={backdrop ? closeOnBackdrop : undefined}
-          className={`fixed inset-0 flex items-end justify-center ${backdrop ? backdropClassName : 'pointer-events-none'}`}
+          className={`${keyboardAware ? 'kb-fit ' : ''}fixed inset-0 flex items-end justify-center ${backdrop ? backdropClassName : 'pointer-events-none'}`}
           style={{ zIndex, ...(backdrop ? backdropStyle : undefined) }}
         >
           {frame}

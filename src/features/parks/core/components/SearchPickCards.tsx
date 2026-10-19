@@ -96,6 +96,7 @@ function PickSheet({ onClose, children }: { onClose: () => void; children: React
       enterY={400}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       ariaLabel="תוצאת חיפוש"
+      keyboardAware={false}
     >
       {children}
     </Sheet>

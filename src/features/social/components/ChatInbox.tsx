@@ -211,7 +211,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
               animation slides cleanly over both the backdrop and the partner
               overlay underneath. */}
           <m.div
-            className="fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
+            className="kb-sheet fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl h-[90dvh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
