@@ -136,15 +136,32 @@ export async function getProgram(programId: string): Promise<Program | null> {
 }
 
 /**
+ * From the docs sharing `movementPattern === templateId`, pick the one that
+ * actually IS that program: an exact slug match first, then a doc with no
+ * slug at all (legacy). A doc whose slug names a different program (e.g.
+ * human_flag under movementPattern 'push') is never returned.
+ */
+export function pickMovementPatternMatch<T extends { id: string; data: Record<string, any> }>(
+  docs: T[],
+  templateId: string,
+): T | null {
+  const exact = docs.find((d) => d.data.slug === templateId);
+  if (exact) return exact;
+  return docs.find((d) => !d.data.slug) ?? null;
+}
+
+/**
  * Resolve a program from a semantic templateId (e.g. 'full_body', 'calisthenics_upper').
  *
  * Strategy (in order):
  *   1. Try getDoc(programs/{templateId}) — works when the doc ID is a semantic slug.
- *   2. Query where('movementPattern', '==', templateId) — finds programs created via the
- *      admin UI (which use auto-generated hash IDs). Covers 'push', 'pull', 'legs', 'core'.
- *   3. Query where('name', '==', humanized) — last resort: 'full_body' → 'full body'.
+ *   2. Query where('slug', '==', templateId) — the canonical identifier on hash-id docs.
+ *   3. Query where('movementPattern', '==', templateId) — legacy docs without a slug only
+ *      (see pickMovementPatternMatch; the category is shared by several programs).
+ *   4. Humanised name scan — 'full_body' → 'full body'.
+ *   5. MASTER_PROGRAM_SLUG_TO_ID static hash.
  *
- * Returns null only when all three strategies fail (program truly not in Firestore).
+ * Returns null only when every strategy fails (program truly not in Firestore).
  */
 export async function getProgramByTemplateId(templateId: string): Promise<Program | null> {
   if (!templateId) return null;
@@ -157,63 +174,18 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
     // not found or permission error — continue
   }
 
-  // ── Strategy 2: movementPattern field ─────────────────────────────────
-  // Programs created via the admin UI use auto-generated Firestore IDs (hashes),
-  // not semantic slugs as their doc ID. The 'movementPattern' field stores the
-  // semantic value ('push', 'pull', 'legs', 'core') and is the correct field
-  // to query when strategy 1 (direct doc ID lookup) fails.
-  try {
-    const q = query(
-      collection(db, PROGRAMS_COLLECTION),
-      where('movementPattern', '==', templateId),
-      limit(1),
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const d = snap.docs[0];
-      return { id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program;
-    }
-  } catch {
-    // movementPattern query failed — continue
-  }
-
-  // ── Strategy 3: humanised name ──────────────────────────────────────────
-  try {
-    const humanName = templateId.replace(/_/g, ' ').toLowerCase();
-    const allSnap = await getDocs(collection(db, PROGRAMS_COLLECTION));
-    for (const d of allSnap.docs) {
-      const name = String(d.data().name ?? '').toLowerCase();
-      if (name === humanName || name.replace(/\s+/g, '_') === templateId.toLowerCase()) {
-        return { id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program;
-      }
-    }
-  } catch {
-    // collection read failed
-  }
-
-  // ── Strategy 4: static slug → hash for master programs ────────────────
-  // Master programs (full_body, upper_body, calisthenics_upper) have Hebrew
-  // names and no movementPattern — strategies 1–3 all fail for them.
-  // This map provides a zero-read fast path for the known master slugs.
-  const knownHash = MASTER_PROGRAM_SLUG_TO_ID[templateId];
-  if (knownHash) {
-    try {
-      const byHash = await getProgram(knownHash);
-      if (byHash) return byHash;
-    } catch {
-      // hash lookup failed — fall through
-    }
-  }
-
-  // ── Strategy 5: canonical `slug` field ─────────────────────────────────
+  // ── Strategy 2: canonical `slug` field ─────────────────────────────────
   // Skill programs (front_lever, planche, handstand, hspu, one_arm_pullup)
-  // are created via the admin UI with auto-generated Firestore hash IDs.
-  // The Program type includes an optional `slug` field (program.types.ts)
-  // which, when set, is the canonical user-facing identifier. Strategies
-  // 1–4 all miss these programs when the doc ID is a hash and movementPattern
-  // stores a biomechanical category ('horizontal_pull') rather than the
-  // skill slug.  This query directly matches the `slug` field, making
-  // getProgramByTemplateId() a complete resolver for the full program taxonomy.
+  // and most base programs are created via the admin UI with auto-generated
+  // Firestore hash IDs; their `slug` field is the canonical identifier.
+  //
+  // This MUST run before the movementPattern query: `movementPattern` is a
+  // biomechanical category shared by several programs (push = דחיפה, but
+  // also דגל אנושי / עמידת ידיים / פלאנץ׳ / HSPU; pull = משיכה, but also
+  // מתח יד אחת / עליית כוח / פרונט לבר). A `where('movementPattern','==','push')
+  // limit(1)` returns whichever doc sorts first by id — in prod that is
+  // human_flag (EtY8…) for 'push' and one_arm_pullup (cC0B…) for 'pull' —
+  // so the push/pull program cards were titled with a hidden skill's name.
   try {
     const q = query(
       collection(db, PROGRAMS_COLLECTION),
@@ -231,7 +203,55 @@ export async function getProgramByTemplateId(templateId: string): Promise<Progra
       } as Program;
     }
   } catch {
-    // slug field query failed — fall through
+    // slug field query failed — continue
+  }
+
+  // ── Strategy 3: movementPattern field (legacy docs without a slug) ─────
+  // Only accepts a doc whose own slug is missing or equals templateId — a doc
+  // carrying a DIFFERENT slug is another program that merely shares the
+  // movement category (see Strategy 2's note), never the one asked for.
+  try {
+    const q = query(
+      collection(db, PROGRAMS_COLLECTION),
+      where('movementPattern', '==', templateId),
+    );
+    const snap = await getDocs(q);
+    const picked = pickMovementPatternMatch(
+      snap.docs.map((d) => ({ id: d.id, data: d.data() })),
+      templateId,
+    );
+    if (picked) {
+      return { id: picked.id, ...picked.data, createdAt: toDate(picked.data.createdAt), updatedAt: toDate(picked.data.updatedAt) } as Program;
+    }
+  } catch {
+    // movementPattern query failed — continue
+  }
+
+  // ── Strategy 4: humanised name ──────────────────────────────────────────
+  try {
+    const humanName = templateId.replace(/_/g, ' ').toLowerCase();
+    const allSnap = await getDocs(collection(db, PROGRAMS_COLLECTION));
+    for (const d of allSnap.docs) {
+      const name = String(d.data().name ?? '').toLowerCase();
+      if (name === humanName || name.replace(/\s+/g, '_') === templateId.toLowerCase()) {
+        return { id: d.id, ...d.data(), createdAt: toDate(d.data().createdAt), updatedAt: toDate(d.data().updatedAt) } as Program;
+      }
+    }
+  } catch {
+    // collection read failed
+  }
+
+  // ── Strategy 5: static slug → hash for master programs ────────────────
+  // Master programs (full_body, upper_body, calisthenics_upper) have Hebrew
+  // names and no movementPattern. This map is a safety net for them.
+  const knownHash = MASTER_PROGRAM_SLUG_TO_ID[templateId];
+  if (knownHash) {
+    try {
+      const byHash = await getProgram(knownHash);
+      if (byHash) return byHash;
+    } catch {
+      // hash lookup failed — fall through
+    }
   }
 
   console.warn(`[Programs] getProgramByTemplateId: no match for "${templateId}"`);

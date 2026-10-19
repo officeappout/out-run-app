@@ -48,6 +48,18 @@ export function pickHeroExercise(
 }
 
 /**
+ * Exercise roles whose content is the same movement everywhere and is served
+ * regardless of the user's location (rest-day recovery videos, cooldown
+ * stretches) — exempt from resolveHeroMedia's cross-location-leak gate.
+ */
+const LOCATION_AGNOSTIC_ROLES = new Set(['recovery', 'cooldown']);
+
+export function isLocationAgnosticHeroExercise(ex: WorkoutExercise | undefined): boolean {
+  const role = (ex?.exercise as any)?.exerciseRole;
+  return typeof role === 'string' && LOCATION_AGNOSTIC_ROLES.has(role);
+}
+
+/**
  * Resolve thumbnail & video URLs for a given WorkoutExercise.
  *
  * Hero-image fix (2026-10-01, revised): now delegates to `resolveExerciseMedia`
@@ -88,11 +100,26 @@ export function resolveHeroMedia(
   // all, skip that location-blind result and fall straight through to the
   // generic gradient fallback (see header comment) rather than trust a
   // cross-location leak.
+  //
+  // Exception — location-agnostic content (isLocationAgnosticHeroExercise):
+  // rest-day recovery videos are authored with a single 'home' method and
+  // played everywhere (home-workout.service.ts picks that method regardless
+  // of location). The gate above blanked their thumbnail for every park user,
+  // so the recovery hero card fell to the default blue gradient. For these,
+  // there is no "wrong location" to leak — use the generator's own chosen
+  // method (ex.method) and resolve normally.
   const methods = (ex.exercise as any).execution_methods || (ex.exercise as any).executionMethods || [];
+  const locationAgnostic = isLocationAgnosticHeroExercise(ex);
   const hasMethodForLocation =
-    !location || methods.some((m: any) => m.location === location || m.locationMapping?.includes(location));
+    !location ||
+    locationAgnostic ||
+    methods.some((m: any) => m.location === location || m.locationMapping?.includes(location));
 
-  const method = findMethodForLocation(ex.exercise, location);
+  const ownMethod = (ex as any).method;
+  const method =
+    locationAgnostic && ownMethod?.media
+      ? ownMethod
+      : findMethodForLocation(ex.exercise, location);
   const { imageUrl, videoUrl } = hasMethodForLocation
     ? resolveExerciseMedia(ex.exercise, method)
     : { imageUrl: '', videoUrl: '' };
