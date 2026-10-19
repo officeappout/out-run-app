@@ -41,6 +41,8 @@ export interface TwoLayerShellRenderProps {
   isMinimized: boolean;
   /** Expand back to y=0 — equivalent to setIsMinimized(false). */
   onExpand: () => void;
+  /** Snap to the mini-dock (reveal the BASE layer) — e.g. a "list" button. */
+  onMinimize: () => void;
   /**
    * True while the TOP LAYER is being dragged (between framer's onDragStart and
    * onDragEnd). Lets callers hide map-root chrome (turn card, recenter) as soon
@@ -60,8 +62,11 @@ interface TwoLayerShellProps {
    * Needed so the BASE has a solid background when the TOP drags away.
    */
   behindBg?: string;
-  /** Content rendered in the BASE layer behind the draggable TOP. */
-  behindContent: React.ReactNode;
+  /**
+   * Content rendered in the BASE layer behind the draggable TOP. A render-prop
+   * receives { onExpand } so a "back to the player" button can be wired.
+   */
+  behindContent: React.ReactNode | ((api: { onExpand: () => void }) => React.ReactNode);
   /**
    * Render-prop for the MINI strip (shown when isMinimized=true).
    * Receives { onExpand } so the caller can wire an expand button without
@@ -85,6 +90,7 @@ export default function TwoLayerShell({
     useLayerDrag(dockH, isActive);
 
   const onExpand = React.useCallback(() => setIsMinimized(false), [setIsMinimized]);
+  const onMinimize = React.useCallback(() => setIsMinimized(true), [setIsMinimized]);
 
   const [isDragging, setIsDragging] = React.useState(false);
   // Reset if the session ends mid-drag (drag is disabled when !isActive, so
@@ -121,7 +127,7 @@ export default function TwoLayerShell({
             overflowY: 'auto',
           }}
         >
-          {behindContent}
+          {typeof behindContent === 'function' ? behindContent({ onExpand }) : behindContent}
         </div>
       </div>
 
@@ -143,7 +149,7 @@ export default function TwoLayerShell({
         onDragEnd={isActive ? (e, info) => { setIsDragging(false); handleDragEnd(e, info); } : undefined}
       >
         {/* Caller content (AppMap + workout overlays + browse UI) */}
-        {children({ dragControls, isMinimized, onExpand, isDragging })}
+        {children({ dragControls, isMinimized, onExpand, onMinimize, isDragging })}
 
         {/* ── MINI STRIP ──────────────────────────────────────────────────────
             absolute top-0 inside motion.div — sits at the physical bottom of

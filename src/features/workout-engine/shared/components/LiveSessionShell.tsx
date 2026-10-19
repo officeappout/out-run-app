@@ -34,8 +34,8 @@ interface LiveSessionShellProps {
   isActive?: boolean;
   /** Tailwind bg-class for the BASE layer (default: 'bg-white'). */
   behindBg?: string;
-  /** BASE layer content (e.g. <RunLapsList />). */
-  behindContent: React.ReactNode;
+  /** BASE layer content (e.g. <RunLapsList />), or a render-prop receiving { onExpand }. */
+  behindContent: React.ReactNode | ((api: { onExpand: () => void }) => React.ReactNode);
   /** MINI strip render-prop (shown when minimized). */
   miniContent: (api: { onExpand: () => void }) => React.ReactNode;
   /**
