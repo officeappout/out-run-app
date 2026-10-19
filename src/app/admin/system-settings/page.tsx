@@ -50,6 +50,9 @@ interface FlagState {
   weather_enabled: boolean;
   weather_admins_only: boolean;
   kelly_unified_v1: boolean;
+  ai_coach_proactive: boolean;
+  ai_coach_proactive_llm: boolean;
+  ai_coach_memory: boolean;
   enable_keyboard_insets_v1: boolean;
   enable_fast_startup_v1: boolean;
   enable_budget_light_mode: boolean;
@@ -288,6 +291,34 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'קלי אחד (AI + צוות בשיחה אחת)',
     description: 'שיחה אחת עם קלי לכל משתמש: תשובות AI, תשובות הצוות (מסך "קלי · ממתינים למענה" בפאנל), הודעת הפתיחה והעברות לצוות. משתמשים בלי AI (קטינים, בלי הרשאה, תקציב/מגבלה) מקבלים את אותו מסך במצב "הצוות יענה כאן". ⚠️ להריץ קודם את סקריפט ההעברה של הודעות התמיכה הישנות. כבוי = כמו היום (קלי AI נפרד + צ׳אט קלי בהודעות).',
+  },
+  // Kelly phase 3 (19.10.2026).
+  {
+    key: 'ai_coach_proactive',
+    icon: Star,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'קלי — הודעות יזומות',
+    description: 'קלי כותב ראשון, לכל היותר הודעה אחת ביום (ונספרת במכסת ההתראות היומית): שורת בוקר ביום אימון, סיכום שבועי ביום שישי בבוקר, תזכורת לבדיקת רמה, טיפ מזג אוויר, ו"איך היה?" אחרי אימון (קל / בדיוק / קשה). לא בשעות שקט, לא בשבת למי שבחר, לא למי שלא מתאמן כבר כמה ימים (שם רק תזכורות החזרה הקיימות), ובהגדרות אפשר לכבות. דורש "קלי אחד" ו-AI למשתמש. כבוי = כמו היום.',
+    parentKey: 'kelly_unified_v1',
+  },
+  {
+    key: 'ai_coach_proactive_llm',
+    icon: Star,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'קלי — משפט אישי בהודעה היזומה',
+    description: 'משפט אחד בהודעה היזומה נכתב על ידי ה-AI (מודל מהיר וזול, בתוך תקציב ה-AI). כבוי = רק התבנית הקבועה. פועל רק כשהודעות יזומות דלוקות.',
+    parentKey: 'ai_coach_proactive',
+  },
+  {
+    key: 'ai_coach_memory',
+    icon: Star,
+    iconBg: 'bg-fuchsia-50',
+    iconColor: 'text-fuchsia-500',
+    title: 'קלי — זיכרון',
+    description: 'פעם בלילה קלי שומר עד 20 עובדות קבועות שהמשתמש סיפר (פציעה או רגישות, אילוצי לו״ז, יעד או אירוע קרוב, העדפות) ומשתמש בהן בשיחה. המשתמש רואה ומוחק אותן במסך "מה קלי זוכר". לא נשמרות אבחנות או מידע רגיש שלא קשור לאימון. כבוי = בלי זיכרון.',
+    parentKey: 'ai_coach_enabled',
   },
   // iOS keyboard insets (19.10.2026).
   {

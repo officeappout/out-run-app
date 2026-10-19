@@ -15,7 +15,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Send, Sparkles, Users, WifiOff } from 'lucide-react';
+import { ArrowRight, Brain, Send, Sparkles, Users, WifiOff } from 'lucide-react';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import WorkoutBuilderSheet from '@/features/home/components/WorkoutBuilderSheet';
@@ -35,6 +35,10 @@ import AiCoachSuggestionChips from './AiCoachSuggestionChips';
 import AiCoachProposalCard from './AiCoachProposalCard';
 import { useKellySituation } from '../hooks/useKellySituation';
 import { useRotatingPlaceholder } from '../hooks/useRotatingPlaceholder';
+import KellyMemorySheet from './KellyMemorySheet';
+import { rateWorkout } from '../services/kelly-phase3-api';
+import { RATING_LABEL_HE } from '@/lib/ai/coach/proactive/feedback';
+import type { WorkoutRating } from '@/lib/ai/coach/action-chips';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -60,6 +64,8 @@ export default function AiCoachChat({
   teamOnly = false,
   phase2 = false,
   weatherOn = false,
+  proactive = false,
+  memory = false,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -71,6 +77,10 @@ export default function AiCoachChat({
   phase2?: boolean;
   /** The weather feature is on for this user (isWeatherOnFor, live flags). */
   weatherOn?: boolean;
+  /** Kelly phase 3 (ai_coach_proactive): "איך היה?" answer chips on proactive messages. */
+  proactive?: boolean;
+  /** Kelly phase 3 (ai_coach_memory): the "מה קלי זוכר" button in the header. */
+  memory?: boolean;
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
@@ -80,6 +90,19 @@ export default function AiCoachChat({
   const [builderOpen, setBuilderOpen] = useState(false);
   const [openCard, setOpenCard] = useState<WorkoutCard | null>(null);
   const [missingCard, setMissingCard] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  // Optimistic "איך היה?" answers until the live listener brings the stored one.
+  const [localRated, setLocalRated] = useState<Record<string, WorkoutRating>>({});
+  const handleRate = (messageId: string, rating: WorkoutRating) => {
+    setLocalRated((cur) => ({ ...cur, [messageId]: rating }));
+    void rateWorkout(messageId, rating).then((ok) => {
+      if (!ok) setLocalRated((cur) => {
+        const next = { ...cur };
+        delete next[messageId];
+        return next;
+      });
+    });
+  };
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -185,7 +208,18 @@ export default function AiCoachChat({
             <p className="truncate text-[11.5px] font-semibold text-gray-400">מאמן דיגיטלי. התשובות נכתבות על ידי בינה מלאכותית</p>
           </div>
         )}
+        {memory && !teamMode && (
+          <button
+            type="button"
+            onClick={() => setMemoryOpen(true)}
+            className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 text-[11.5px] font-black text-gray-700 active:bg-gray-200"
+          >
+            <Brain className="h-4 w-4" aria-hidden />
+            מה קלי זוכר
+          </button>
+        )}
       </div>
+      {memoryOpen && <KellyMemorySheet onClose={() => setMemoryOpen(false)} />}
 
       {!online && (
         <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 text-[12.5px] font-bold text-amber-800">
@@ -247,14 +281,20 @@ export default function AiCoachChat({
                   <AiCoachWorkoutCard card={c} onOpen={handleOpenCard} />
                 </div>
               ))}
-              {!mine && m.actions && m.actions.length > 0 && (
+              {!mine && m.actions && m.actions.length > 0 && !(m.rated ?? localRated[m.id]) && (
                 <AiCoachActionChips
                   actions={m.id === lastAssistantId ? m.actions : m.actions.filter((a) => a !== 'build_today')}
                   onNavigate={(href) => router.push(href)}
                   onSend={(msg) => send(msg)}
                   onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}
+                  onRate={proactive ? (r) => handleRate(m.id, r) : undefined}
                   disabled={busy}
                 />
+              )}
+              {!mine && (m.rated ?? localRated[m.id]) && (
+                <span className="mt-1 px-1 text-[11.5px] font-bold text-gray-400">
+                  {`ענית: ${RATING_LABEL_HE[(m.rated ?? localRated[m.id])!]}. תודה, רשמתי.`}
+                </span>
               )}
               {phase2 && !mine && m.proposal && (
                 <AiCoachProposalCard

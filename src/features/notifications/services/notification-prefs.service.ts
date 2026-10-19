@@ -27,7 +27,10 @@ export type PushChannel =
   | 'community'
   | 'retention'
   /** Motzei-Shabbat "שבוע טוב" nudge — only ever sent to Shabbat observers (functions/src/weekStartScheduler.ts). */
-  | 'week_start';
+  | 'week_start'
+  /** Kelly phase 3: proactive Kelly messages (flag ai_coach_proactive). Off = no proactive message at all
+   *  (src/lib/ai/coach/proactive/policy.ts isOptedOut), not just no push. */
+  | 'coach_proactive';
 
 /** Maps to functions/src/services/push.service.ts's per-user daily engagement cap (min=1, balanced=3, high=6). */
 export type NotificationFrequency = 'min' | 'balanced' | 'high';
@@ -58,6 +61,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
     community: true,
     retention: true,
     week_start: true,
+    coach_proactive: true,
   },
   notificationFrequency: 'balanced',
   shabbatObserver: false,
@@ -91,6 +95,7 @@ export async function getNotificationPrefs(
         community: prefs.community ?? true,
         retention: prefs.retention ?? true,
         week_start: prefs.week_start ?? true,
+        coach_proactive: prefs.coach_proactive ?? true,
       },
       notificationFrequency: freq === 'min' || freq === 'balanced' || freq === 'high' ? freq : 'balanced',
       shabbatObserver: settings.shabbatObserver === true,

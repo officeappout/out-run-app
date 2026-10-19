@@ -69,6 +69,8 @@ import { isAiPauseCode } from '@/lib/ai/coach/ai-pause';
 import { phase2TurnExtras } from '@/lib/ai/coach/phase2-turn';
 import { proposalView, type StoredProposal } from '@/lib/ai/coach/schedule-proposal/types';
 import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
+import { loadMemory } from '@/lib/ai/coach/memory/store.server';
+import { renderMemoryBlock } from '@/lib/ai/coach/memory/inject';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -263,6 +265,17 @@ export async function POST(request: Request) {
       console.warn('[ai-coach] user sheet unavailable this turn', err);
     }
   }
+  // Kelly phase 3 memory (ai_coach_memory): "מה אני זוכר עליך" in the session block. Off (or a
+  // failed read) = no block, the exact prompt as before.
+  const memoryBlock =
+    auth.flags?.aiCoachMemory === true && !safetyText
+      ? await loadMemory(db, uid)
+          .then((m) => renderMemoryBlock(m.facts))
+          .catch((err) => {
+            console.warn('[ai-coach] memory unavailable this turn', err);
+            return null;
+          })
+      : null;
   const todayDow = getIsraelDayOfWeek(now);
   const userTextThisTurn = turnUserText(state);
   // Level-check nudges: never twice in a few days, and "opening" = a new conversation.
@@ -289,6 +302,7 @@ export async function POST(request: Request) {
         assessmentNudgeAllowed: nudge.nudgeAllowed,
         scheduleAdvisor,
         ...(phase2 ? { phase2: true } : {}),
+        ...(memoryBlock ? { memory: memoryBlock } : {}),
       }),
       // Second breakpoint: the session block (with the sheet) is identical for every
       // model call of this turn, so the tool rounds after the first read it from cache.

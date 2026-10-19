@@ -1367,6 +1367,10 @@ function AdminLayoutInner({
                                                 {(isSuperAdmin || roleInfo?.isRootAdmin) && (
                                                     <SidebarLink href="/admin/ai-coach/kelly" icon={MessageCircle} label="קלי · ממתינים למענה" />
                                                 )}
+                                                {/* Kelly phase 3: proactive sends + preview (API: requireKellyTeamAdmin) */}
+                                                {(isSuperAdmin || roleInfo?.isRootAdmin) && (
+                                                    <SidebarLink href="/admin/ai-coach/proactive" icon={MessageCircle} label="קלי · הודעות יזומות" />
+                                                )}
                                             </NavGroup>
                                             {isSuperAdmin && (
                                                 <NavGroup label="כלי דמו">
