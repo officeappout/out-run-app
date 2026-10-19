@@ -136,3 +136,104 @@ describe('flag off — byte-identical to the pre-migration markup', () => {
     expect(existingAccount(true)).toMatchSnapshot();
   });
 });
+
+describe('flag on — the shared <Sheet>', () => {
+  beforeEach(() => {
+    flags.enableHomeV2 = true;
+  });
+  it('CreatorManagementDrawer: z 88/89 in place, blurred backdrop, own-scroll body kept', () => {
+    const out = creator();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:89');
+    expect(out).toContain('z-index:88');
+    expect(out).toContain('backdrop-filter:blur(4px)');
+    expect(out).toContain('max-h-[88dvh]');
+    expect(out).toContain('ניהול קהילה');
+    expect(out).toContain('אין חברים רשומים עדיין');
+    expect(out).toContain('data-v2-icon-button="surface"');
+    // The remove-member ConfirmSheet is closed until a member is picked.
+    expect(out).not.toContain('data-v2-confirm-sheet');
+  });
+  it('UserWorkoutAdjuster: z 199/200 in place, v2 header + the one CTA, body kept', () => {
+    const out = adjuster();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:200');
+    expect(out).toContain('z-index:199');
+    expect(out).toContain('התאמת אימון');
+    expect(out).toContain('aria-label="סגור"');
+    expect(out).toContain('data-v2-button="cta"');
+    expect(out).toContain('עדכן אימון');
+    expect(out).toContain('type="range"');
+    expect(out).toContain('עמידת ידיים');
+  });
+  it('LegalDocModal: z 130/131, whole-panel drag, same document text and close button', () => {
+    const v2 = legalTerms();
+    flags.enableHomeV2 = false;
+    const legacy = legalTerms();
+    expect(v2).toContain('data-v2-sheet-surface');
+    expect(v2).toContain('z-index:131');
+    expect(v2).toContain('z-index:130');
+    expect(v2).toContain('max-h-[90vh]');
+    expect(v2).not.toContain('cursor-grab'); // whole panel drags, no grabber-only zone
+    expect(v2).toContain('data-v2-icon-button="surface"');
+    // The document body and the footer button are the legacy markup, verbatim.
+    const footerAt = legacy.indexOf('<div class="px-5 pt-3 pb-5');
+    const body = legacy.slice(legacy.indexOf('<div class="px-6 pt-4'), footerAt);
+    const footer = legacy.slice(footerAt, legacy.lastIndexOf('</div>'));
+    expect(body.length).toBeGreaterThan(1000);
+    expect(footer).toContain('סגור');
+    expect(v2).toContain(body);
+    expect(v2).toContain(footer);
+  });
+  it('HealthConnectDisclosureModal: one z-120 layer, same disclosure body, both buttons in order', () => {
+    const v2 = healthDisclosure();
+    flags.enableHomeV2 = false;
+    const legacy = healthDisclosure();
+    expect(v2).toContain('data-v2-sheet-modal="nested"');
+    expect(v2).toContain('z-index:120');
+    expect(v2).toContain('max-w-lg');
+    expect(v2).toContain('גישה לנתוני בריאות');
+    const body = legacy.slice(legacy.indexOf('<div class="px-5 pb-6 space-y-5">'), legacy.lastIndexOf('</div></div></div>'));
+    expect(body).toContain('אפשר גישה');
+    expect(v2).toContain(body);
+    expect(v2.indexOf('אפשר גישה')).toBeLessThan(v2.indexOf('לא עכשיו'));
+  });
+  it('SuggestEditSheet: one z-100 layer in place, header + body kept', () => {
+    const out = suggestEdit();
+    expect(out).toContain('data-v2-sheet-modal="nested"');
+    expect(out).toContain('z-index:100');
+    expect(out).toContain('max-h-[80vh]');
+    expect(out).toContain('עדכן פרטים — גינת הירקון');
+    expect(out).toContain('שלח עדכון');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('ViralUnlockSheet: z 90/91 in place, 85vh, close button, body kept', () => {
+    const out = viral();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:91');
+    expect(out).toContain('z-index:90');
+    expect(out).toContain('max-h-[85vh]');
+    expect(out).toContain('בונים נבחרת!');
+    expect(out).toContain('שלח הזמנה בוואטסאפ');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('ExerciseDetailDrawer: z 200 in place, 95vh, handle drag zone, MEV kept', () => {
+    const out = exerciseDetail();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out.match(/z-index:200/g)?.length).toBe(2);
+    expect(out).toContain('height:95vh');
+    expect(out).toContain('cursor-grab');
+    expect(out).toContain('data-mev="park"');
+  });
+  it('ExistingAccountModal: z 101, no backdrop dismiss, same copy and buttons in order', () => {
+    const v2 = existingAccount();
+    flags.enableHomeV2 = false;
+    const legacy = existingAccount();
+    expect(v2).toContain('data-v2-sheet-modal="nested"');
+    expect(v2).toContain('z-index:101');
+    expect(v2).not.toContain('data-v2-icon-button'); // no ✕ — only the two buttons close it
+    const inner = legacy.slice(legacy.indexOf('<h3'), legacy.lastIndexOf('</div></div>') + '</div>'.length);
+    expect(inner).toContain('ביטול');
+    expect(v2).toContain(inner);
+  });
+});

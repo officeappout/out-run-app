@@ -2,6 +2,10 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 // ════════════════════════════════════════════════════════════════════
 // EXISTING-ACCOUNT MODAL
@@ -32,6 +36,70 @@ export default function ExistingAccountModal({
   onCancel: () => void;
 }) {
   const providerLabel = provider === 'google' ? 'Google' : 'Apple';
+  // enable_home_v2: the shared <Sheet> shell only — the copy, both buttons,
+  // their order and the no-dismiss behaviour (no backdrop tap, no drag, no ✕;
+  // only the two buttons close it) are the same in both branches.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+
+  const content = (
+    <>
+      <h3
+        className="text-lg font-bold text-slate-900 mb-2"
+        style={{ fontFamily: 'var(--font-simpler)' }}
+      >
+        החשבון הזה כבר רשום אצלנו
+      </h3>
+      <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+        אפשר להיכנס לחשבון ה-{providerLabel} הקיים, אבל מה שעשית עכשיו
+        כאורח לא יעבור לשם.
+      </p>
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={onConfirm}
+          disabled={loading}
+          className="w-full bg-brand-cta hover:brightness-105 text-on-brand py-3.5 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
+        </button>
+        <button
+          onClick={onCancel}
+          disabled={loading}
+          className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          ביטול
+        </button>
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        // Mounted only while the conflict is pending; the caller unmounts it.
+        open
+        onClose={onCancel}
+        dismissOnBackdrop={false}
+        layout="nested"
+        // z-[101] (.cursorrules) — clears the landing splash / OfflineBanner (z-[100]).
+        zIndex={SHEET_Z.aboveOffline}
+        portal={false}
+        keyboardAware={false}
+        grabber={false}
+        backdropClassName="bg-black/50"
+        frameClassName="w-full max-w-md"
+        scroll="none"
+        // The body pads itself (p-6); only the home-indicator inset on top.
+        safeArea="env(safe-area-inset-bottom)"
+        ariaLabel="החשבון הזה כבר רשום אצלנו"
+      >
+        <div className="p-6" dir="rtl">
+          {content}
+        </div>
+      </Sheet>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-[101] bg-black/50 flex items-center justify-center p-4"
@@ -42,32 +110,7 @@ export default function ExistingAccountModal({
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
       >
-        <h3
-          className="text-lg font-bold text-slate-900 mb-2"
-          style={{ fontFamily: 'var(--font-simpler)' }}
-        >
-          החשבון הזה כבר רשום אצלנו
-        </h3>
-        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          אפשר להיכנס לחשבון ה-{providerLabel} הקיים, אבל מה שעשית עכשיו
-          כאורח לא יעבור לשם.
-        </p>
-        <div className="flex flex-col gap-3">
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="w-full bg-brand-cta hover:brightness-105 text-on-brand py-3.5 rounded-2xl font-bold text-sm active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {loading ? 'מתחבר...' : `כניסה לחשבון ה-${providerLabel} הקיים`}
-          </button>
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            ביטול
-          </button>
-        </div>
+        {content}
       </motion.div>
     </div>
   );

@@ -12,6 +12,11 @@ import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWe
 import { MUSCLE_CHIPS } from '@/features/home/constants/muscle-chips';
 import type { MuscleChip } from '@/features/home/constants/muscle-chips';
 import { buildAdjusterWorkoutOptions } from './user-workout-adjuster-options.utils';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import Button from '@/components/ui/v2/Button';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 // Known calisthenics skill program IDs → Hebrew labels
 const SKILL_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -73,6 +78,9 @@ export default function UserWorkoutAdjuster({
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // enable_home_v2: the shared <Sheet> (v2 header + CTA); flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Derive user's active skill programs (shown only if 2+)
   const userSkillIds = useMemo(() => {
@@ -151,6 +159,244 @@ export default function UserWorkoutAdjuster({
     derivedRequiredDomains, isEquipped, onApplyAndStart, onClose,
   ]);
 
+  const body = (
+    <>
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+
+        {/* ── 1. Location ── */}
+        <Section title="מיקום">
+          <div className="grid grid-cols-2 gap-3">
+            <LocationPill
+              active={location === 'park'}
+              icon={<Trees size={18} />}
+              label="בחוץ"
+              sub="פארק / מגרש"
+              onClick={() => setLocation('park')}
+            />
+            <LocationPill
+              active={location === 'home'}
+              icon={<Home size={18} />}
+              label="בבית"
+              sub="אימון ביתי"
+              onClick={() => setLocation('home')}
+            />
+          </div>
+        </Section>
+
+        {/* ── 2. Duration ── */}
+        <Section title={`משך זמן`} rightEl={
+          <span className="text-base font-extrabold text-[#2b6cb0]">
+            {availableTime} דק׳
+          </span>
+        }>
+          <input
+            ref={sliderRef}
+            type="range"
+            min={DURATION_MIN}
+            max={DURATION_MAX}
+            step={DURATION_STEP}
+            value={availableTime}
+            onChange={e => setAvailableTime(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer
+                    [&::-webkit-slider-thumb]:appearance-none
+                    [&::-webkit-slider-thumb]:w-5
+                    [&::-webkit-slider-thumb]:h-5
+                    [&::-webkit-slider-thumb]:rounded-full
+                    [&::-webkit-slider-thumb]:bg-[#2b6cb0]
+                    [&::-webkit-slider-thumb]:shadow-md
+                    [&::-webkit-slider-thumb]:border-2
+                    [&::-webkit-slider-thumb]:border-white
+                    [&::-moz-range-thumb]:w-5
+                    [&::-moz-range-thumb]:h-5
+                    [&::-moz-range-thumb]:rounded-full
+                    [&::-moz-range-thumb]:bg-[#2b6cb0]
+                    [&::-moz-range-thumb]:border-2
+                    [&::-moz-range-thumb]:border-white"
+          />
+          <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <span>{DURATION_MIN} דק׳</span>
+            <span>{DURATION_MAX} דק׳</span>
+          </div>
+        </Section>
+
+        {/* ── 3. Muscle Focus ── */}
+        <Section title="אזור אימון" sub="(ריק = כל הגוף)">
+          <div className="grid grid-cols-3 gap-2">
+            {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => {
+              const active = selectedChips.includes(chip.id);
+              return (
+                <button
+                  key={chip.id}
+                  onClick={() => toggleChip(chip.id)}
+                  className={`
+                          flex flex-col items-center gap-1 py-2.5 px-2 rounded-2xl border text-xs font-bold
+                          transition-all active:scale-95
+                          ${active
+                            ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                          }
+                        `}
+                >
+                  <span className="text-lg leading-none">{chip.emoji}</span>
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* ── 4. Skill Focus (contextual — only for calisthenics users) ── */}
+        {hasSkills && (
+          <Section title="מיקוד סקיל" sub="(כלי לאימון ממוקד)" rightEl={
+            <Star size={14} className="text-[#2b6cb0]" />
+          }>
+            <div className="flex flex-wrap gap-2">
+              {userSkillIds.map(skillId => {
+                const meta = SKILL_LABELS[skillId];
+                if (!meta) return null;
+                const active = selectedSkillId === skillId;
+                return (
+                  <button
+                    key={skillId}
+                    onClick={() => setSelectedSkillId(prev => prev === skillId ? null : skillId)}
+                    className={`
+                            flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold
+                            transition-all active:scale-95
+                            ${active
+                              ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                            }
+                          `}
+                  >
+                    <span>{meta.emoji}</span>
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedSkillId && (
+              <p className="text-xs text-[#2b6cb0] font-medium mt-1">
+                האימון יתמקד ב-{SKILL_LABELS[selectedSkillId]?.label}
+              </p>
+            )}
+          </Section>
+        )}
+
+        {/* ── 5. Intensity ── */}
+        <Section title="עוצמה">
+          <div className="grid grid-cols-3 gap-2">
+            {INTENSITY_OPTIONS.map(opt => {
+              const active = difficulty === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setDifficulty(opt.value)}
+                  className={`
+                          flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold
+                          transition-all active:scale-95
+                          ${active
+                            ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
+                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                          }
+                        `}
+                >
+                  <span className="text-sm leading-none">{opt.label}</span>
+                  <span className={`text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {opt.sub}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* ── 6. Equipment ── */}
+        <Section title="ציוד">
+          <div
+            className="flex items-center justify-between p-4 rounded-2xl border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-pointer"
+            onClick={() => setIsEquipped(v => !v)}
+          >
+            <div className="flex items-center gap-3">
+              {isEquipped
+                ? <Dumbbell size={20} className="text-[#2b6cb0]" />
+                : <ZapOff size={20} className="text-gray-400" />
+              }
+              <div>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                  {isEquipped ? 'יש לי ציוד' : 'רק משקל גוף'}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  {isEquipped ? 'מוטות, רצועות, משקולות' : 'ללא ציוד כלל'}
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle */}
+            <div
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isEquipped ? 'bg-[#2b6cb0]' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <div
+                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isEquipped ? 'left-[22px]' : 'left-0.5'}`}
+              />
+            </div>
+          </div>
+        </Section>
+
+        {/* Error */}
+        {error && (
+          <p className="text-center text-sm font-medium text-red-500 dark:text-red-400">
+            {error}
+          </p>
+        )}
+
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        title="התאמת אימון"
+        closeLabel="סגור"
+        // Backdrop z-[199] / panel z-[200] (.cursorrules), in place — unchanged.
+        zIndex={SHEET_Z.nestedModal}
+        backdropZIndex={SHEET_Z.adjusterBackdrop}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/50"
+        // The body below owns its scroll (flex-1 overflow-y-auto), as before.
+        scroll="none"
+        className="flex max-h-[90vh] flex-col"
+        transition={{ type: 'spring', stiffness: 320, damping: 36, mass: 1 }}
+        footer={
+          <div className="shrink-0 px-5 pt-3">
+            <Button variant="cta" block onClick={handleApply} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  מייצר אימון…
+                </>
+              ) : (
+                <>
+                  <Zap className="h-[18px] w-[18px]" />
+                  עדכן אימון
+                </>
+              )}
+            </Button>
+          </div>
+        }
+      >
+        {body}
+      </Sheet>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -196,196 +442,7 @@ export default function UserWorkoutAdjuster({
               <div className="w-9" />
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-
-              {/* ── 1. Location ── */}
-              <Section title="מיקום">
-                <div className="grid grid-cols-2 gap-3">
-                  <LocationPill
-                    active={location === 'park'}
-                    icon={<Trees size={18} />}
-                    label="בחוץ"
-                    sub="פארק / מגרש"
-                    onClick={() => setLocation('park')}
-                  />
-                  <LocationPill
-                    active={location === 'home'}
-                    icon={<Home size={18} />}
-                    label="בבית"
-                    sub="אימון ביתי"
-                    onClick={() => setLocation('home')}
-                  />
-                </div>
-              </Section>
-
-              {/* ── 2. Duration ── */}
-              <Section title={`משך זמן`} rightEl={
-                <span className="text-base font-extrabold text-[#2b6cb0]">
-                  {availableTime} דק׳
-                </span>
-              }>
-                <input
-                  ref={sliderRef}
-                  type="range"
-                  min={DURATION_MIN}
-                  max={DURATION_MAX}
-                  step={DURATION_STEP}
-                  value={availableTime}
-                  onChange={e => setAvailableTime(Number(e.target.value))}
-                  className="w-full h-2 rounded-full appearance-none cursor-pointer
-                    [&::-webkit-slider-thumb]:appearance-none
-                    [&::-webkit-slider-thumb]:w-5
-                    [&::-webkit-slider-thumb]:h-5
-                    [&::-webkit-slider-thumb]:rounded-full
-                    [&::-webkit-slider-thumb]:bg-[#2b6cb0]
-                    [&::-webkit-slider-thumb]:shadow-md
-                    [&::-webkit-slider-thumb]:border-2
-                    [&::-webkit-slider-thumb]:border-white
-                    [&::-moz-range-thumb]:w-5
-                    [&::-moz-range-thumb]:h-5
-                    [&::-moz-range-thumb]:rounded-full
-                    [&::-moz-range-thumb]:bg-[#2b6cb0]
-                    [&::-moz-range-thumb]:border-2
-                    [&::-moz-range-thumb]:border-white"
-                />
-                <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  <span>{DURATION_MIN} דק׳</span>
-                  <span>{DURATION_MAX} דק׳</span>
-                </div>
-              </Section>
-
-              {/* ── 3. Muscle Focus ── */}
-              <Section title="אזור אימון" sub="(ריק = כל הגוף)">
-                <div className="grid grid-cols-3 gap-2">
-                  {MUSCLE_CHIPS.filter(c => c.group === 'primary').map(chip => {
-                    const active = selectedChips.includes(chip.id);
-                    return (
-                      <button
-                        key={chip.id}
-                        onClick={() => toggleChip(chip.id)}
-                        className={`
-                          flex flex-col items-center gap-1 py-2.5 px-2 rounded-2xl border text-xs font-bold
-                          transition-all active:scale-95
-                          ${active
-                            ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                          }
-                        `}
-                      >
-                        <span className="text-lg leading-none">{chip.emoji}</span>
-                        {chip.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Section>
-
-              {/* ── 4. Skill Focus (contextual — only for calisthenics users) ── */}
-              {hasSkills && (
-                <Section title="מיקוד סקיל" sub="(כלי לאימון ממוקד)" rightEl={
-                  <Star size={14} className="text-[#2b6cb0]" />
-                }>
-                  <div className="flex flex-wrap gap-2">
-                    {userSkillIds.map(skillId => {
-                      const meta = SKILL_LABELS[skillId];
-                      if (!meta) return null;
-                      const active = selectedSkillId === skillId;
-                      return (
-                        <button
-                          key={skillId}
-                          onClick={() => setSelectedSkillId(prev => prev === skillId ? null : skillId)}
-                          className={`
-                            flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold
-                            transition-all active:scale-95
-                            ${active
-                              ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
-                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                            }
-                          `}
-                        >
-                          <span>{meta.emoji}</span>
-                          {meta.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {selectedSkillId && (
-                    <p className="text-xs text-[#2b6cb0] font-medium mt-1">
-                      האימון יתמקד ב-{SKILL_LABELS[selectedSkillId]?.label}
-                    </p>
-                  )}
-                </Section>
-              )}
-
-              {/* ── 5. Intensity ── */}
-              <Section title="עוצמה">
-                <div className="grid grid-cols-3 gap-2">
-                  {INTENSITY_OPTIONS.map(opt => {
-                    const active = difficulty === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => setDifficulty(opt.value)}
-                        className={`
-                          flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold
-                          transition-all active:scale-95
-                          ${active
-                            ? 'bg-[#2b6cb0] border-[#2b6cb0] text-white shadow-md shadow-blue-500/30'
-                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-                          }
-                        `}
-                      >
-                        <span className="text-sm leading-none">{opt.label}</span>
-                        <span className={`text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400 dark:text-gray-500'}`}>
-                          {opt.sub}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Section>
-
-              {/* ── 6. Equipment ── */}
-              <Section title="ציוד">
-                <div
-                  className="flex items-center justify-between p-4 rounded-2xl border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-pointer"
-                  onClick={() => setIsEquipped(v => !v)}
-                >
-                  <div className="flex items-center gap-3">
-                    {isEquipped
-                      ? <Dumbbell size={20} className="text-[#2b6cb0]" />
-                      : <ZapOff size={20} className="text-gray-400" />
-                    }
-                    <div>
-                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                        {isEquipped ? 'יש לי ציוד' : 'רק משקל גוף'}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {isEquipped ? 'מוטות, רצועות, משקולות' : 'ללא ציוד כלל'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Toggle */}
-                  <div
-                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isEquipped ? 'bg-[#2b6cb0]' : 'bg-gray-300 dark:bg-gray-600'}`}
-                  >
-                    <div
-                      className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200 ${isEquipped ? 'left-[22px]' : 'left-0.5'}`}
-                    />
-                  </div>
-                </div>
-              </Section>
-
-              {/* Error */}
-              {error && (
-                <p className="text-center text-sm font-medium text-red-500 dark:text-red-400">
-                  {error}
-                </p>
-              )}
-
-            </div>
+            {body}
 
             {/* ── CTA Button ── */}
             <div className="px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800">
