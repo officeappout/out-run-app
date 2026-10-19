@@ -28,6 +28,7 @@ import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/service
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { DeleteEntrySheetClassic, DeleteEntrySheetV2 } from './DeleteEntrySheet';
+import { DoneCheck, DONE_SURFACE_STYLE } from '@/components/ui/v2/DoneRow';
 
 /** Compile-time flag with an optional runtime A/B override (device-friendly).
  *  Same pattern as isPlsCacheEnabled (programLevelSettings.service.ts). */
@@ -778,9 +779,9 @@ function StrengthCard({
                     // v2: a white pill on the ring shadow; done = soft surface + a
                     // check in the completion colour (the fill colour still says
                     // strength vs aerobic, just smaller).
-                    background: isCompleted ? '#f4f8fa' : '#ffffff',
-                    boxShadow: isCompleted ? 'inset 0 0 0 1px #e6edf2' : '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)',
-                    borderRadius: 14,
+                    ...(isCompleted
+                      ? DONE_SURFACE_STYLE
+                      : { background: '#ffffff', boxShadow: '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)', borderRadius: 14 }),
                     minHeight: 40,
                   }
                 : {
@@ -846,14 +847,7 @@ function StrengthCard({
               }>
                 {title}
               </p>
-              {v2 && isCompleted && (
-                <span
-                  className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full text-white"
-                  style={{ background: barColor }}
-                >
-                  <Check className="h-3 w-3" strokeWidth={3.2} aria-label="בוצע" />
-                </span>
-              )}
+              {v2 && isCompleted && <DoneCheck color={barColor} />}
             </div>
 
             {/* Grip handle */}
@@ -1300,9 +1294,9 @@ export default function AgendaDayCard({
                     // (only meaningful against a white/tinted bg) is dropped too.
                     ...(v2
                       ? {
-                          background: isCompleted ? '#f4f8fa' : '#ffffff',
-                          boxShadow: isCompleted ? 'inset 0 0 0 1px #e6edf2' : '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)',
-                          borderRadius: 14,
+                          ...(isCompleted
+                            ? DONE_SURFACE_STYLE
+                            : { background: '#ffffff', boxShadow: '0 0 0 1px rgba(14,27,42,0.06), 0 1px 2px rgba(14,27,42,0.06)', borderRadius: 14 }),
                           minHeight: 40,
                         }
                       : {
@@ -1333,9 +1327,7 @@ export default function AgendaDayCard({
                       {runningWorkout!.name}
                     </span>
                     {isCompleted && v2 ? (
-                      <span className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-[#1D9E75] text-white">
-                        <Check className="h-3 w-3" strokeWidth={3.2} aria-label="בוצע" />
-                      </span>
+                      <DoneCheck />
                     ) : isCompleted ? (
                       // Colors inverted (white pill, green text/icon) from the previous
                       // light-emerald-on-white treatment — that combination would have
