@@ -85,7 +85,7 @@ function parts(gw: Gw, m: PreviewTimedModel): Part[] {
 /** JourneyStrip: warm-up → block / classic main → tabata → cool-down. */
 export function previewJourney(gw: Gw, m: PreviewTimedModel): JourneyStripItem[] {
   return parts(gw, m).map((p): JourneyStripItem =>
-    p.spec ? timedJourneyItem(p.spec, p.key) : { key: p.key, kind: 'strength', seconds: Math.max(60, p.sec) },
+    p.spec ? { ...timedJourneyItem(p.spec), key: p.key } : { key: p.key, kind: 'strength', seconds: Math.max(60, p.sec) },
   );
 }
 
