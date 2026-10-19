@@ -7,9 +7,10 @@
  *
  * Unified Kelly (opts.unified, flag kelly_unified_v1): the thread is a LIVE listener
  * (onSnapshot) so team replies appear while the screen is open; opening it marks the
- * conversation read (server route); and in team-only mode — or when the AI gate refuses this
- * user (minor, no entitlement, kill switch, budget, rate limit) — the message goes to the team
- * through /api/ai-coach/thread instead of the AI. Without opts.unified: exactly the old hook.
+ * conversation read (server route); in team-only mode — or when the AI gate refuses this user
+ * (minor, no entitlement) — the message goes to the team through /api/ai-coach/thread instead
+ * of the AI. A paused AI (rate limit, kill switch, budget, outage) is answered by the chat
+ * route itself (stored + Kelly's paused reply, see ai-pause.ts). Without opts.unified: exactly the old hook.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { collection, getDocs, limit, onSnapshot, orderBy, query, type DocumentData } from 'firebase/firestore';
@@ -21,6 +22,7 @@ import { runClientTool } from '../services/client-tools';
 import { chatReducer, initialChatState, isBusy, type UiMessage } from '../state/chat-machine';
 import { isCoachActionId } from '@/lib/ai/coach/action-chips';
 import { messageSourceOf, TEAM_FALLBACK_CODES } from '@/lib/ai/coach/unified-thread';
+import { refusedSendAction } from '@/lib/ai/coach/ai-pause';
 import { useKellyThreadMeta } from './useKellyThread';
 
 const HISTORY_LIMIT = 30;
@@ -193,13 +195,26 @@ export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachCha
       );
     } catch (err) {
       if ((err as { name?: string })?.name === 'AbortError') return;
-      // Unified: no AI for this user right now → the same message goes to the team instead,
-      // and the screen stays in team-only mode. (The AI gate refused before storing anything.)
-      if (unifiedRef.current && err instanceof CoachHttpError && 'message' in body && TEAM_FALLBACK_CODES.includes(err.code ?? '')) {
-        setTeamMode(true);
-        teamModeRef.current = true;
-        await sendToTeam(body.message);
-        return;
+      // Unified: the AI gate refused this message. A pause (rate limit, kill switch, budget,
+      // outage) was already stored by the route with Kelly's paused reply, which the live
+      // thread shows; no AI for this user at all → the message goes to the team and the screen
+      // stays in team-only mode.
+      if (err instanceof CoachHttpError) {
+        const action = refusedSendAction(err, {
+          unified: unifiedRef.current,
+          isMessage: 'message' in body,
+          teamFallbackCodes: TEAM_FALLBACK_CODES,
+        });
+        if (action === 'stored') {
+          dispatch({ type: 'TEAM_SENT' });
+          return;
+        }
+        if (action === 'team' && 'message' in body) {
+          setTeamMode(true);
+          teamModeRef.current = true;
+          await sendToTeam(body.message);
+          return;
+        }
       }
       if (err instanceof CoachHttpError) {
         dispatch({ type: 'FAILED', error: { status: err.status, code: err.code, retryAfterSec: err.retryAfterSec } });

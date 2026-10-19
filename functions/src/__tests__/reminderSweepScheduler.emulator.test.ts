@@ -35,6 +35,13 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
+// Page size 2 for this whole file (19.10.2026), so every case also runs
+// the cursor pagination against the REAL query shapes (array-contains on an
+// object value + startAfter; date == + startAfter).
+vi.hoisted(() => {
+  process.env.REMINDER_SWEEP_BATCH = '2';
+});
+
 const PROJECT_ID = 'appout-1-reminder-sweep-emulator-test';
 const EMULATOR_HOST = '127.0.0.1:8089';
 
@@ -163,6 +170,21 @@ describe('reminderSweepScheduler — REAL emulator integration', () => {
     );
   });
 
+  it('pagination: a slot with more users than one page reminds every one of them (was capped at one page)', async () => {
+    await enableFlag();
+    const uids = ['pg-1', 'pg-2', 'pg-3', 'pg-4', 'pg-5'];
+    for (const uid of uids) await seedUser(uid, { scheduleSlots: [{ day: 'sunday', time: '18:00' }] });
+    setIsraelTime(18, 2);
+
+    await (reminderSweepScheduler as any)();
+
+    const tokens = fakeMessaging.sendEachForMulticast.mock.calls.flatMap((c: any[]) => c[0].tokens as string[]);
+    expect(tokens.sort()).toEqual(uids.map((u) => `tok-${u}`));
+    for (const uid of uids) {
+      expect((await testDb.collection('reminder_fired').doc(`${uid}_2026-10-04_1800`).get()).exists).toBe(true);
+    }
+  });
+
   it('a slot for a different day/time does not match — the query is genuinely scoped, not matching everything', async () => {
     await enableFlag();
     await seedUser('user-nomatch', { scheduleSlots: [{ day: 'monday', time: '18:00' }] });
@@ -278,6 +300,21 @@ describe('reminderSweepScheduler — REAL emulator integration', () => {
       expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledTimes(1);
       const marker = await testDb.collection('reminder_fired').doc('user-workout-twice_2026-10-04_1750_workout_e1').get();
       expect(marker.exists).toBe(true);
+    });
+
+    it('pagination: more schedule docs than one page — every matching entry is reminded', async () => {
+      await enableWorkoutEntries();
+      const uids = ['wpg-1', 'wpg-2', 'wpg-3', 'wpg-4', 'wpg-5'];
+      for (const uid of uids) {
+        await seedUser(uid, { scheduleSlots: [] });
+        await seedWorkoutEntry(uid, { entryId: 'e1', startTime: '18:00' });
+      }
+      setIsraelTime(17, 50);
+
+      await (reminderSweepScheduler as any)();
+
+      const tokens = fakeMessaging.sendEachForMulticast.mock.calls.flatMap((c: any[]) => c[0].tokens as string[]);
+      expect(tokens.sort()).toEqual(uids.map((u) => `tok-${u}`));
     });
 
     it('a completed entry is never a candidate', async () => {

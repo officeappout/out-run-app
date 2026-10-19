@@ -48,6 +48,7 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { computeUnitAggregates, type UnitDirectoryEntry, type ReservistActivity } from './unit-league-aggregation';
 import { distanceMetersOfDay } from './lib/league-scope-stats';
+import { mapWithConcurrency } from './lib/paginate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -57,6 +58,10 @@ const db = admin.firestore();
 
 const ACTIVE_PARTICIPANT_FLOOR = 3;
 const WINDOW_DAYS = 7; // matches getStepsLeaderboard's own rolling window exactly
+/** Parallel per-reservist 7-day getAll()s (was: all of them at once). */
+const LOAD_CONCURRENCY = 20;
+/** Firestore batch limit is 500 ops — commit in chunks (was one batch for everything). */
+const MAX_BATCH = 450;
 
 function dateStringDaysAgo(daysAgo: number): string {
   const d = new Date();
@@ -83,44 +88,43 @@ async function loadReservistActivity(): Promise<ReservistActivity[]> {
 
   const dates = Array.from({ length: WINDOW_DAYS }, (_, i) => dateStringDaysAgo(i));
 
-  return Promise.all(
-    declSnap.docs.map(async (declDoc) => {
-      const uid = declDoc.id;
-      const data = declDoc.data();
-      const orgId = (data.orgId as string) ?? '';
-      const unitPathIds = Array.isArray(data.unitPathIds) ? (data.unitPathIds as string[]) : [];
+  // Bounded (19.10.2026): was Promise.all over every reservist at once.
+  return mapWithConcurrency(declSnap.docs, LOAD_CONCURRENCY, async (declDoc) => {
+    const uid = declDoc.id;
+    const data = declDoc.data();
+    const orgId = (data.orgId as string) ?? '';
+    const unitPathIds = Array.isArray(data.unitPathIds) ? (data.unitPathIds as string[]) : [];
 
-      // Exact docId batch-get (uid_date) — no query, no composite index
-      // needed at all; dailyActivity docIds are already {userId}_{date}.
-      const refs = dates.map((date) => db.doc(`dailyActivity/${uid}_${date}`));
-      const snaps = refs.length > 0 ? await db.getAll(...refs) : [];
+    // Exact docId batch-get (uid_date) — no query, no composite index
+    // needed at all; dailyActivity docIds are already {userId}_{date}.
+    const refs = dates.map((date) => db.doc(`dailyActivity/${uid}_${date}`));
+    const snaps = refs.length > 0 ? await db.getAll(...refs) : [];
 
-      let totalSteps = 0;
-      let totalMeters = 0;
-      let isActive = false;
-      for (const snap of snaps) {
-        if (!snap.exists) continue;
-        const data = snap.data();
-        const steps = (data?.steps as number) || 0;
-        totalSteps += steps;
-        // The leagues' km: synced distance, or the steps estimate.
-        totalMeters += distanceMetersOfDay(data?.steps, data?.distanceMeters);
-        if (steps > 0) isActive = true;
-      }
+    let totalSteps = 0;
+    let totalMeters = 0;
+    let isActive = false;
+    for (const snap of snaps) {
+      if (!snap.exists) continue;
+      const data = snap.data();
+      const steps = (data?.steps as number) || 0;
+      totalSteps += steps;
+      // The leagues' km: synced distance, or the steps estimate.
+      totalMeters += distanceMetersOfDay(data?.steps, data?.distanceMeters);
+      if (steps > 0) isActive = true;
+    }
 
-      return {
-        orgId,
-        unitPathIds,
-        isActive,
-        avgSteps: Math.round(totalSteps / WINDOW_DAYS),
-        avgDistanceMeters: Math.round(totalMeters / WINDOW_DAYS),
-      };
-    }),
-  );
+    return {
+      orgId,
+      unitPathIds,
+      isActive,
+      avgSteps: Math.round(totalSteps / WINDOW_DAYS),
+      avgDistanceMeters: Math.round(totalMeters / WINDOW_DAYS),
+    };
+  });
 }
 
 export const unitLeagueRollup = onSchedule(
-  { schedule: '0 * * * *', timeZone: 'Asia/Jerusalem' },
+  { schedule: '0 * * * *', timeZone: 'Asia/Jerusalem', timeoutSeconds: 300, memory: '512MiB' },
   async () => {
     const [units, reservists, existingSnap] = await Promise.all([
       loadUnitDirectory(),
@@ -131,7 +135,17 @@ export const unitLeagueRollup = onSchedule(
     const aggregates = computeUnitAggregates(units, reservists, ACTIVE_PARTICIPANT_FLOOR);
     const nextIds = new Set(aggregates.map((a) => a.directoryId));
 
-    const batch = db.batch();
+    // Chunked commits (19.10.2026): one batch for every unit + every stale
+    // delete would fail outright past 500 ops.
+    let batch = db.batch();
+    let ops = 0;
+    const flushIfFull = async () => {
+      if (++ops >= MAX_BATCH) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
+    };
     for (const agg of aggregates) {
       batch.set(db.doc(`unit_league_aggregates/${agg.directoryId}`), {
         activeParticipantCount: agg.activeParticipantCount,
@@ -140,6 +154,7 @@ export const unitLeagueRollup = onSchedule(
         avgDistanceMeters: agg.avgDistanceMeters,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      await flushIfFull();
     }
     // Clean up units that dropped to zero declared reservists since the
     // last run — otherwise a departed reservist's old unit keeps showing a
@@ -147,9 +162,10 @@ export const unitLeagueRollup = onSchedule(
     for (const staleDoc of existingSnap.docs) {
       if (!nextIds.has(staleDoc.id)) {
         batch.delete(staleDoc.ref);
+        await flushIfFull();
       }
     }
-    await batch.commit();
+    if (ops > 0) await batch.commit();
 
     logger.info(`[unitLeagueRollup] wrote ${aggregates.length} unit aggregate(s), removed ${existingSnap.docs.filter((d) => !nextIds.has(d.id)).length} stale doc(s)`);
   },

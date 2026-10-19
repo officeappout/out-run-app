@@ -250,6 +250,35 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
+    // Scale pass 19.10.2026 — partner finder (usePartnerData) scoped to the
+    // user's authority, newest first + capped; the bounded fallback / the
+    // route-enrichment catch-all (useCommunityEnrichment) newest first; the
+    // capped community_events listener (usePartnerData) latest first.
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorityId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "community_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "community_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
     {
       "collectionGroup": "community_groups",
       "queryScope": "COLLECTION",

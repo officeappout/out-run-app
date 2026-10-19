@@ -140,6 +140,56 @@ describe('verifyAiRequest', () => {
     expect([...state.db.docs.keys()].some((k: string) => k.startsWith('rate_limits/'))).toBe(false);
   });
 
+  it('Retry-After is the real time left in the window, and the denial carries uid + profile + flags (never in the response)', async () => {
+    const t0 = Date.now() - 20 * 60_000; // the hour window opened 20 minutes ago
+    state.db = createMockDb(seed({ [`rate_limits/ai:uid:${UID}:hour`]: { count: 2, windowStart: new Date(t0) } }));
+    const d = await verifyAiRequest(req(`good-${UID}`));
+    expect(d).toMatchObject({ status: 429, code: 'rate_limited', uid: UID, profile: { core: { ageGroup: 'adult' } } });
+    if (!d.ok) {
+      expect(d.retryAfterSec).toBeGreaterThan(39 * 60);
+      expect(d.retryAfterSec).toBeLessThanOrEqual(40 * 60);
+      expect(d.flags).toBeDefined();
+      expect(await aiDenialResponse(d).json()).toEqual({ error: 'rate_limited' });
+    }
+  });
+
+  it('the OUT team (root admin email or super admin) is exempt from the per-user limit only', async () => {
+    const ADMIN = 'synthAdminCCCCCCCCCCCCCCCCCC';
+    const SUPER = 'synthSuperDDDDDDDDDDDDDDDDDD';
+    state.verifyIdToken.mockImplementation(async (token: string) => {
+      if (token === 'root') return { uid: ADMIN, email: 'office@appout.co.il' };
+      if (token === 'super') return { uid: SUPER, email: 'someone@example.test' };
+      if (token.startsWith('good-')) return { uid: token.slice(5) };
+      throw new Error('bad token');
+    });
+    const users = {
+      [`users/${ADMIN}`]: { core: { ageGroup: 'adult' } },
+      [`users/${SUPER}`]: { core: { ageGroup: 'adult', isSuperAdmin: true } },
+    };
+    state.db = createMockDb(seed(users));
+    for (let i = 0; i < 5; i++) {
+      expect((await verifyAiRequest(req('root'))).ok).toBe(true);
+      expect((await verifyAiRequest(req('super'))).ok).toBe(true);
+    }
+    // A regular user with the same config is limited after 2.
+    await verifyAiRequest(req(`good-${UID}`));
+    await verifyAiRequest(req(`good-${UID}`));
+    expect(await verifyAiRequest(req(`good-${UID}`))).toMatchObject({ code: 'rate_limited' });
+
+    // Still subject to the kill switch and the budget.
+    state.db = createMockDb(seed({ ...users, 'app_config/ai': { killSwitch: true } }));
+    expect(await verifyAiRequest(req('root'))).toMatchObject({ status: 503, code: 'kill_switch' });
+    state.db = createMockDb(seed({ ...users, [`ai_usage_global/${aiDayKey()}`]: { costUsd: 99 } }));
+    expect(await verifyAiRequest(req('super'))).toMatchObject({ status: 503, code: 'over_budget' });
+  });
+
+  it('rateLimit: false skips the per-user limit (a paid-for continuation) but not the budget', async () => {
+    for (let i = 0; i < 5; i++) expect((await verifyAiRequest(req(`good-${UID}`), { rateLimit: false })).ok).toBe(true);
+    expect([...state.db.docs.keys()].some((k: string) => k.startsWith('rate_limits/'))).toBe(false);
+    state.db = createMockDb(seed({ 'app_config/ai': { killSwitch: true } }));
+    expect(await verifyAiRequest(req(`good-${UID}`), { rateLimit: false })).toMatchObject({ code: 'kill_switch' });
+  });
+
   it('aiDenialResponse sets status, body and Retry-After', async () => {
     const res = aiDenialResponse({ ok: false, status: 429, code: 'rate_limited', retryAfterSec: 3600 });
     expect(res.status).toBe(429);

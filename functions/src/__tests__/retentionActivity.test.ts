@@ -41,7 +41,7 @@ import {
   retentionThresholdDays,
   toRetentionCandidate,
 } from '../retentionScheduler';
-import { PUSH_CATALOG_BY_TYPE, selectPushCopy, validatePushCopyDraft } from '../shared/push-library.core';
+import { PUSH_CATALOG_BY_TYPE, selectPushCopy, validatePushCopyDraft, type PushGender } from '../shared/push-library.core';
 
 const DAY = 86_400_000;
 // Wednesday 13.01.2027 10:00 Israel (08:00Z) — the scheduler's run time.
@@ -282,7 +282,7 @@ describe('lapsed suppression for reminders / step nudges', () => {
 
 describe('retention copy — no day count, no guilt', () => {
   const entry = PUSH_CATALOG_BY_TYPE.retention_lapse;
-  const cand = (uid: string, gender?: string) => ({
+  const cand = (uid: string, gender?: PushGender) => ({
     uid,
     name: 'דנה',
     daysSince: 9,
@@ -318,7 +318,7 @@ describe('retention copy — no day count, no guilt', () => {
   });
 
   it.each(['d4', 'd7', 'd14', 'd30'] as const)('cadence on: %s picks that milestone’s copy, matching gender', (m) => {
-    for (const g of ['male', 'female', undefined]) {
+    for (const g of ['male', 'female', undefined] as const) {
       const c = selectPushCopy('retention_lapse', [], retentionCopyContext(cand(`u-${m}`, g), new Date(NOW), m))!;
       const d = entry.defaults[Number(c.rowId.split(':').pop())];
       expect(d.conditions).toEqual({ milestone: [m] });

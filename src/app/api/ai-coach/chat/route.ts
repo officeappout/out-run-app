@@ -6,11 +6,21 @@
  * (getAnthropicClient / getAiModel('fast') / withPromptCaching) and is logged with
  * recordAiUsage. Protocol: src/lib/ai/coach/protocol.ts. Turn loop: turn-engine.ts.
  *
- * Note: the client-tool continuation ({toolResult}) is a second request and passes the
- * same gate, so one "build me a workout" costs two rate-limit units. That is deliberate:
- * both requests call the model.
+ * Rate limit: one user message = one unit. The client-tool continuation ({toolResult}) is a
+ * second request that passes the same gate EXCEPT the per-user rate limit (kill switch and
+ * budget still apply): it can only resume the pending turn its message already paid for, and
+ * claimPending lets each pending turn be resumed once (roundsUsed still caps the tool rounds).
+ * So "build me a workout" costs one unit, not two.
+ *
+ * Kelly paused (unified Kelly on): when the gate refuses a message for a rate limit, the kill
+ * switch, the budget or an outage, the route itself stores the message (team queue per
+ * ai-pause.ts) and, once per pause window, Kelly's short paused reply, then returns the denial
+ * with `storedForTeam: true` so the screen doesn't send it again. A safety trigger still gets
+ * the fixed safety reply. Without unified Kelly the denial is returned as before (the screen
+ * shows its error card).
  */
 import { NextResponse } from 'next/server';
+import type { AiDenial } from '@/lib/ai/verify-ai-request.server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getIsraelDateKey, getIsraelDayOfWeek, getIsraelHour } from '@/lib/israelTime';
@@ -42,7 +52,9 @@ import {
   type TurnState,
 } from '@/lib/ai/coach/turn-engine';
 import {
+  appendAiPausedUserMessage,
   appendMessage,
+  claimPending,
   clearPending,
   loadThread,
   maybeRollSummary,
@@ -53,6 +65,7 @@ import {
 import { executeServerTool, loadUserContextSheet, type ServerToolContext } from '@/lib/ai/coach/server-tools.server';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { labelTeamMessagesForModel } from '@/lib/ai/coach/unified-thread';
+import { isAiPauseCode } from '@/lib/ai/coach/ai-pause';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -84,11 +97,46 @@ async function summarizeOlder(uid: string, previous: string | null, msgs: Stored
   return text || null;
 }
 
-export async function POST(request: Request) {
-  const auth = await verifyAiRequest(request);
-  if (!auth.ok) return aiDenialResponse(auth);
+/**
+ * Unified Kelly: a message the AI gate refused for a pause reason is answered here without AI
+ * (see the header). Null = not handled; the plain denial is returned.
+ */
+async function answerPaused(denial: AiDenial, message: string): Promise<Response | null> {
+  if (!denial.uid || denial.flags?.kellyUnifiedV1 !== true || !isAiPauseCode(denial.code)) return null;
+  const gender = coachGenderOf(denial.profile?.core?.gender);
+  const trigger = detectSafetyTrigger(message);
+  try {
+    const res = await appendAiPausedUserMessage(getAdminDb(), denial.uid, message, {
+      code: denial.code,
+      gender,
+      retryAfterSec: denial.retryAfterSec,
+      safetyText: trigger ? safetyReply(trigger, gender) : null,
+    });
+    if (!res.ok) {
+      return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': String(res.retryAfterSec) } });
+    }
+    return NextResponse.json(
+      { error: denial.code, storedForTeam: true, messageId: res.id, ...(res.replyId ? { replyId: res.replyId } : {}) },
+      { status: denial.status, headers: denial.retryAfterSec ? { 'Retry-After': String(denial.retryAfterSec) } : undefined },
+    );
+  } catch (err) {
+    console.error('[ai-coach] storing a paused message failed', err);
+    return null;
+  }
+}
 
+export async function POST(request: Request) {
   const parsed = ChatRequestSchema.safeParse(await request.json().catch(() => null));
+  // A tool result resumes a turn its message already paid for: not rate-limited again.
+  const auth = await verifyAiRequest(request, { rateLimit: !(parsed.success && 'toolResult' in parsed.data) });
+  if (!auth.ok) {
+    if (parsed.success && 'message' in parsed.data) {
+      const paused = await answerPaused(auth, parsed.data.message);
+      if (paused) return paused;
+    }
+    return aiDenialResponse(auth);
+  }
+
   if (!parsed.success) return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   const body = parsed.data;
 
@@ -121,8 +169,14 @@ export async function POST(request: Request) {
   let safetyTrigger: string | null = null;
 
   if ('toolResult' in body) {
-    const pending = thread.pending;
-    if (!pending || pending.toolUseId !== body.toolResult.id) {
+    let pending;
+    try {
+      pending = await claimPending(db, uid, body.toolResult.id, now.getTime());
+    } catch (err) {
+      console.error('[ai-coach] claiming the pending tool call failed', err);
+      return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+    }
+    if (!pending) {
       return NextResponse.json({ error: 'no_pending_tool' }, { status: 409 });
     }
     const outcome = body.toolResult.outcome;

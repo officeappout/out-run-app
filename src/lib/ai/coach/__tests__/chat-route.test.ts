@@ -16,12 +16,18 @@ const st = vi.hoisted(() => ({
   recordAiUsage: null as any,
   executeServerTool: null as any,
   loadSheet: null as any,
+  verifyOpts: [] as any[],
+  paused: [] as any[],
+  pausedResult: null as any,
 }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/firebase-admin', () => ({ getAdminDb: () => ({}) }));
 vi.mock('@/lib/ai/verify-ai-request.server', () => ({
-  verifyAiRequest: async () => st.auth,
+  verifyAiRequest: async (_r: Request, opts: any) => {
+    st.verifyOpts.push(opts);
+    return st.auth;
+  },
   aiDenialResponse: (d: any) =>
     new Response(JSON.stringify({ error: d.code }), {
       status: d.status,
@@ -65,10 +71,21 @@ vi.mock('@/lib/ai/coach/thread-store.server', () => ({
   savePending: async (_db: any, _uid: string, p: any) => {
     st.thread.pending = JSON.parse(JSON.stringify({ ...p, createdAtMs: Date.now() }));
   },
+  claimPending: async (_db: any, _uid: string, id: string) => {
+    const p = st.thread.pending;
+    if (!p || p.toolUseId !== id) return null;
+    st.thread.pending = null;
+    return JSON.parse(JSON.stringify(p));
+  },
   clearPending: async () => {
     st.thread.pending = null;
   },
   maybeRollSummary: async () => false,
+  appendAiPausedUserMessage: async (_db: any, uid: string, text: string, opts: any) => {
+    st.paused.push({ uid, text, opts });
+    if (st.pausedResult instanceof Error) throw st.pausedResult;
+    return st.pausedResult ?? { ok: true, id: 'pm1', replyId: 'pr1', replyText: 'x', needsHuman: false };
+  },
 }));
 vi.mock('@/lib/ai/coach/server-tools.server', () => ({
   executeServerTool: (...a: any[]) => st.executeServerTool(...a),
@@ -106,6 +123,9 @@ beforeEach(() => {
   st.recordAiUsage = vi.fn(async () => ({ costUsd: 0 }));
   st.executeServerTool = vi.fn(async () => ({ content: '{"firstName":"דנה"}' }));
   st.loadSheet = vi.fn(async () => SHEET);
+  st.verifyOpts = [];
+  st.paused = [];
+  st.pausedResult = null;
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -208,12 +228,78 @@ describe('POST /api/ai-coach/chat', () => {
     expect(gw.input).toMatchObject({ domains: ['core', 'legs'], location: 'home', equipment: ['mat'] });
     expect(gw.resultSummary).toContain('ai-abc-123456');
     expect(st.thread.pending).toBeNull();
+
+    // One build = one rate-limit unit: the message was gated with the rate limit, the tool
+    // result without it (kill switch / budget still checked by the same gate).
+    expect(st.verifyOpts.map((o) => o.rateLimit)).toEqual([true, false, false]);
+
+    // The pending turn was claimed: replaying the same tool result is refused, no model call.
+    const calls = st.streamCalls.length;
+    expect((await POST(req({ toolResult: { id: 'gw1', outcome: { ok: false, error: 'offline' } } }))).status).toBe(409);
+    expect(st.streamCalls).toHaveLength(calls);
   });
 
   it('model errors after the stream started become an error event', async () => {
     st.script = []; // exhausted → throws
     const ev = await events(await POST(req({ message: 'מה בתוכנית השבוע?' })));
     expect(ev.at(-1)).toEqual({ type: 'error', code: 'internal' });
+  });
+
+  describe('Kelly paused (AI gate refused, unified ON)', () => {
+    const PROFILE_M = { core: { gender: 'male', ageGroup: 'adult' } };
+
+    it('rate limited: the route stores the message + paused reply and says so (no model, no client resend)', async () => {
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 5400, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      const res = await POST(req({ message: 'עוד שאלה על האימון' }));
+      expect(res.status).toBe(429);
+      expect(res.headers.get('Retry-After')).toBe('5400');
+      expect(await res.json()).toEqual({ error: 'rate_limited', storedForTeam: true, messageId: 'pm1', replyId: 'pr1' });
+      expect(st.paused).toEqual([
+        { uid: 'u1', text: 'עוד שאלה על האימון', opts: { code: 'rate_limited', gender: 'male', retryAfterSec: 5400, safetyText: null } },
+      ]);
+      expect(st.streamCalls).toHaveLength(0);
+    });
+
+    it('kill switch / budget / outage are answered the same way', async () => {
+      for (const code of ['kill_switch', 'over_budget', 'unavailable']) {
+        st.auth = { ok: false, status: 503, code, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+        const res = await POST(req({ message: 'היי' }));
+        expect(res.status).toBe(503);
+        expect((await res.json()).storedForTeam).toBe(true);
+      }
+      expect(st.paused.map((p) => p.opts.code)).toEqual(['kill_switch', 'over_budget', 'unavailable']);
+    });
+
+    it('a safety trigger while paused still gets the fixed safety reply', async () => {
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 600, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      await POST(req({ message: 'יש לי לחץ בחזה' }));
+      expect(st.paused[0].opts.safetyText).toContain('101');
+    });
+
+    it('not handled: unified OFF, no-AI denials, tool results, or a storage failure → the plain denial', async () => {
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 600, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: false } };
+      expect(await (await POST(req({ message: 'היי' }))).json()).toEqual({ error: 'rate_limited' });
+
+      st.auth = { ok: false, status: 403, code: 'not_adult', uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      expect(await (await POST(req({ message: 'היי' }))).json()).toEqual({ error: 'not_adult' });
+
+      st.auth = { ok: false, status: 503, code: 'kill_switch', uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      expect(await (await POST(req({ toolResult: { id: 'x', outcome: { ok: false, error: 'offline' } } }))).json()).toEqual({ error: 'kill_switch' });
+      expect(st.paused).toHaveLength(0);
+
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 600, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      st.pausedResult = new Error('firestore down');
+      expect(await (await POST(req({ message: 'היי' }))).json()).toEqual({ error: 'rate_limited' });
+    });
+
+    it('the team flood guard still applies (429 from the store)', async () => {
+      st.auth = { ok: false, status: 429, code: 'rate_limited', retryAfterSec: 600, uid: 'u1', profile: PROFILE_M, flags: { kellyUnifiedV1: true } };
+      st.pausedResult = { ok: false, retryAfterSec: 120 };
+      const res = await POST(req({ message: 'היי' }));
+      expect(res.status).toBe(429);
+      expect(res.headers.get('Retry-After')).toBe('120');
+      expect((await res.json()).storedForTeam).toBeUndefined();
+    });
   });
 
   describe('unified Kelly (kelly_unified_v1)', () => {

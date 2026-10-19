@@ -61,17 +61,32 @@ function toMillis(v: unknown): number {
 export async function isRateLimited(
   db: Firestore,
   key: string,
-  opts: {
-    windowMs: number;
-    maxRequests: number;
-    /**
-     * 18.10.2026 (OUT AI Phase 0) — opt-in fail-CLOSED for cost-control callers
-     * (src/lib/ai/): when the check itself fails, report "limited" instead of letting the
-     * request through. Every existing caller omits this and keeps failing OPEN (see above).
-     */
-    failClosed?: boolean;
-  },
+  opts: RateLimitOptions,
 ): Promise<boolean> {
+  return (await checkRateLimit(db, key, opts)).limited;
+}
+
+export interface RateLimitOptions {
+  windowMs: number;
+  maxRequests: number;
+  /**
+   * 18.10.2026 (OUT AI Phase 0) — opt-in fail-CLOSED for cost-control callers
+   * (src/lib/ai/): when the check itself fails, report "limited" instead of letting the
+   * request through. Every existing caller omits this and keeps failing OPEN (see above).
+   */
+  failClosed?: boolean;
+}
+
+/**
+ * Same check as isRateLimited, plus WHEN the window reopens (fixed window: it opens
+ * `windowMs` after its first request). `retryAfterMs` is set only when limited by a real
+ * count — a fail-closed infrastructure error has no known reopen time.
+ */
+export async function checkRateLimit(
+  db: Firestore,
+  key: string,
+  opts: RateLimitOptions,
+): Promise<{ limited: boolean; retryAfterMs?: number }> {
   const now = Date.now();
 
   try {
@@ -84,7 +99,7 @@ export async function isRateLimited(
       const count = withinWindow ? ((data?.count as number | undefined) ?? 0) : 0;
 
       if (count >= opts.maxRequests) {
-        return true;
+        return { limited: true, retryAfterMs: Math.max(0, windowStartMs + opts.windowMs - now) };
       }
 
       tx.set(
@@ -98,14 +113,14 @@ export async function isRateLimited(
         },
         { merge: false },
       );
-      return false;
+      return { limited: false };
     });
   } catch (err) {
     if (opts.failClosed) {
       console.warn(`[rateLimit] check failed for keyHash=${hashKey(key)} — failing CLOSED (request blocked)`, err);
-      return true;
+      return { limited: true };
     }
     console.warn(`[rateLimit] check failed for keyHash=${hashKey(key)} — failing OPEN (request allowed)`, err);
-    return false;
+    return { limited: false };
   }
 }

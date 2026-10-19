@@ -17,6 +17,7 @@ import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { CheckCircle2, Inbox, Loader2, RefreshCw, Send, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import type { KellyAdminMessage, KellyThreadRow } from '@/lib/ai/coach/kelly-admin';
+import { NEEDS_HUMAN_REASON_LABEL } from '@/lib/ai/coach/ai-pause';
 import { KELLY_TEAM_REPLY_MAX_CHARS, KELLY_TEAM_SENDER_NAME } from '@/lib/ai/coach/unified-thread';
 
 type View = 'queue' | 'recent';
@@ -250,6 +251,9 @@ export default function KellyTeamQueuePage() {
                     {r.firstName}
                     {r.ageGroup === 'minor' && <span className="rounded bg-amber-100 px-1.5 text-[10px] font-black text-amber-800">קטין</span>}
                     {r.needsHuman && <span className="rounded bg-rose-100 px-1.5 text-[10px] font-black text-rose-700">ממתין</span>}
+                    {r.needsHuman && r.needsHumanReason && (
+                      <span className="rounded bg-slate-100 px-1.5 text-[10px] font-black text-slate-600">{NEEDS_HUMAN_REASON_LABEL[r.needsHumanReason]}</span>
+                    )}
                   </span>
                   <span className="shrink-0 text-[11px] text-slate-400">{when(r.needsHumanAtMs || r.lastMessageAtMs)}</span>
                 </div>

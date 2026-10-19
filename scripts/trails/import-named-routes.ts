@@ -23,6 +23,8 @@ import { distM, midpointAlong } from '../../src/lib/trail-graph/geo';
 import { disambiguateDuplicateNames, endpointNames, generatedRouteName, nameRoute, nearestFeature, officialName } from '../../src/lib/trail-graph/naming';
 import { classifyShape, dedupBySegments, generateFromStart, orderSegments, SegmentGraph, stepsGeometry } from '../../src/lib/trail-graph/route-assembly';
 import { routeStats } from '../../src/lib/trail-graph/route-stats';
+import { attachElevationProfiles } from '../../src/lib/trail-graph/route-elevation';
+import { loadCopernicusProvider } from '../../src/lib/dem-tile-cache/copernicus-glo30-cache.node';
 import { isTrailRouteRelation } from '../../src/lib/trail-graph/segment-graph';
 import { trailColour } from '../../src/lib/trail-graph/tags';
 import { OSM_ATTRIBUTION, OSM_LICENSE, type LngLat, type NameSource, type TrailRoute, type TrailSegment } from '../../src/lib/trail-graph/types';
@@ -64,7 +66,7 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
   if (!fs.existsSync(segFile)) throw new Error(`Missing ${segFile} — run scripts/trails/build-segment-graph.ts first.`);
   const { segments } = JSON.parse(fs.readFileSync(segFile, 'utf8')) as { segments: TrailSegment[] };
   const segById = new Map(segments.map((s) => [s.id, s]));
-  const { ex, ctx, osmTimestamp } = await loadPilot(opts);
+  const { ex, ctx, osmTimestamp, bbox } = await loadPilot(opts);
 
   const placeholderN = new Map<string, number>();
   const nextPlaceholderIndex = (s: string) => {
@@ -220,10 +222,15 @@ export async function runImportNamedRoutes(opts: { relationId: number; area: str
     if (n) { r.nameDisambiguatedFrom = r.name; r.name = n; }
   }
 
+  // ── 4. Stored elevation profile per route (live route-run elevation strip) ──
+  // Same storable Copernicus GLO-30 tiles build-segment-graph already cached for this bbox.
+  const dem = await loadCopernicusProvider({ latMin: bbox.minLat, lonMin: bbox.minLng, latMax: bbox.maxLat, lonMax: bbox.maxLng });
+  const withProfile = attachElevationProfiles(finalRoutes, dem);
+
   fs.writeFileSync(path.join(outDir, 'named-routes.json'), JSON.stringify({ meta: meta(), routes: namedDedup.kept, merged: namedDedup.merged, skipped }));
   fs.writeFileSync(path.join(outDir, 'generated-routes.json'), JSON.stringify({ meta: meta(), routes: genKept, droppedAsDuplicates: all.merged.filter((m) => m.id.startsWith('gen_')), settlementsWithoutStart: noStart }));
 
-  const summary = summarize(segments, namedDedup.kept, genKept, namedDedup.merged.length, skipped.length, ctx);
+  const summary = { ...summarize(segments, namedDedup.kept, genKept, namedDedup.merged.length, skipped.length, ctx), routesWithElevationProfile: withProfile };
   fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(outDir, 'apply-plan.json'), JSON.stringify(applyPlan(segments.length, namedDedup.kept.length, genKept.length), null, 2));
   return summary;
@@ -280,7 +287,7 @@ export function applyPlan(segments: number, named: number, generated: number) {
         docId: 'osm_rel_<relationId> | gen_<placeNodeId>_<n>',
         mode: 'create-only — an existing id is skipped, never overwritten',
         count: named + generated,
-        fields: ['name', 'distance (km)', 'duration (min, from activity pace)', "difficulty ('easy'|'medium'|'hard')", "type ('walking'|'cycling')", 'path ({lng,lat}[])', "routeShape ('loop'|'out_and_back'|'point_to_point' — linear OSM trails are point_to_point, one-way distance)", 'surfaceType (dominant)', 'elevationGain', 'maxGrade', 'authorityId', 'city', "status:'pending'", 'published:false', "origin:'osm_import'", 'source{type,name,externalId,externalLink}', 'provenance{pipeline,osm{license,snapshot,extract},elevation{provider}}', 'attribution{osm,elevation}', 'trail{kind,nameSource,needsName,nameDisambiguatedFrom?,endpoints?,settlement,segmentIds,segmentForward,stars,starBreakdown,difficultyBreakdown,stats,osm,license,attribution}', 'importBatchId', 'createdAt', 'updatedAt'],
+        fields: ['name', 'distance (km)', 'duration (min, from activity pace)', "difficulty ('easy'|'medium'|'hard')", "type ('walking'|'cycling')", 'path ({lng,lat}[])', "routeShape ('loop'|'out_and_back'|'point_to_point' — linear OSM trails are point_to_point, one-way distance)", 'surfaceType (dominant)', 'elevationGain', 'maxGrade', 'elevationProfile{stepM,elevationsM[64]} (Copernicus GLO-30, omitted on a coverage gap)', 'authorityId', 'city', "status:'pending'", 'published:false', "origin:'osm_import'", 'source{type,name,externalId,externalLink}', 'provenance{pipeline,osm{license,snapshot,extract},elevation{provider}}', 'attribution{osm,elevation}', 'trail{kind,nameSource,needsName,nameDisambiguatedFrom?,endpoints?,settlement,segmentIds,segmentForward,stars,starBreakdown,difficultyBreakdown,stats,osm,license,attribution}', 'importBatchId', 'createdAt', 'updatedAt'],
       },
     ],
     neverWritten: ['any existing official_routes doc (create-only, skip if id exists)', 'published:true', 'any delete'],

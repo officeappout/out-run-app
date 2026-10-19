@@ -81,3 +81,6 @@ export type { ProfileStripProps, ProfileStripSegment } from './ProfileStrip';
 export { default as MediaHeroFade, MediaHeroLayer, MediaHeroImage } from './MediaHeroFade';
 export type { MediaHeroFadeProps } from './MediaHeroFade';
 export * from './media-hero';
+// Friendly error surface (route error.tsx fallbacks + failed widgets).
+export { default as ErrorState } from './ErrorState';
+export type { ErrorStateProps, ErrorStateAction } from './ErrorState';

@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { ClientToolOutcomeSchema, type CoachLocation } from './tools';
 import type { CoachGender } from './persona';
+import { aiPauseReply } from './ai-pause';
 import type { CoachActionId } from './action-chips';
 
 export const CHAT_MESSAGE_MAX_CHARS = 1000;
@@ -125,12 +126,10 @@ export function describeCoachError(e: CoachErrorInput, gender: CoachGender): Coa
     };
   }
   if (e.status === 429 || e.code === 'rate_limited') {
-    const daily = (e.retryAfterSec ?? 0) > 3600;
+    // Same words as the paused reply in the unified thread (ai-pause.ts), with the reopen time.
     return {
       title: 'הגענו למכסה',
-      body: daily
-        ? 'להיום סיימנו את מכסת ההודעות. נמשיך מחר, ובינתיים אפשר לבנות אימון בבונה האימונים.'
-        : 'הרבה הודעות בזמן קצר. אפשר לחזור אליי בעוד שעה, ובינתיים לבנות אימון בבונה האימונים.',
+      body: `${aiPauseReply('rate_limited', gender, { retryAfterSec: e.retryAfterSec, teamChannel: false })} בינתיים אפשר לבנות אימון בבונה האימונים.`,
       offerBuilder: true,
       retryable: false,
     };
