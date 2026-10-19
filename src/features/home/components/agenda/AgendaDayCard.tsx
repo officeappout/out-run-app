@@ -27,6 +27,7 @@ import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENABLED } from '@/config/feature-flags';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
+import { DeleteEntrySheetClassic, DeleteEntrySheetV2 } from './DeleteEntrySheet';
 
 /** Compile-time flag with an optional runtime A/B override (device-friendly).
  *  Same pattern as isPlsCacheEnabled (programLevelSettings.service.ts). */
@@ -1418,60 +1419,20 @@ export default function AgendaDayCard({
 
       </div>
 
-      {/* ── Delete confirmation bottom sheet ──────────────────────────────── */}
-      {/* Backdrop */}
-      <motion.div
-        className="fixed inset-0 bg-black/40"
-        style={{ zIndex: 300, pointerEvents: deleteEntryId ? 'auto' : 'none' }}
-        animate={{ opacity: deleteEntryId ? 1 : 0 }}
-        transition={{ duration: 0.2 }}
-        onClick={() => setDeleteEntryId(null)}
-      />
-      {/* Sheet */}
-      <motion.div
-        className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl"
-        style={{
-          zIndex: 301,
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
-        }}
-        initial={{ y: '100%' }}
-        animate={{ y: deleteEntryId ? 0 : '100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        dir="rtl"
-      >
-        {/* Handle bar */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
-        </div>
-        {/* Title */}
-        <div className="px-5 pt-3 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-black text-gray-900">מחיקת אימון?</h2>
-          <p className="text-xs text-gray-500 mt-1">האימון יוסר מהלוח השבועי</p>
-        </div>
-        {/* Buttons */}
-        <div className="px-5 py-4 space-y-3">
-          <button
-            type="button"
-            className="w-full py-3.5 rounded-xl text-sm font-black text-white active:scale-[0.98] transition-transform"
-            style={{ background: '#EF4444' }}
-            onClick={() => {
-              if (deleteEntryId) {
-                onDeleteEntry?.(deleteEntryId.entryId, date, deleteEntryId.groupId);
-              }
-              setDeleteEntryId(null);
-            }}
-          >
-            מחק
-          </button>
-          <button
-            type="button"
-            className="w-full py-2 text-sm text-gray-400 active:scale-[0.98] transition-transform"
-            onClick={() => setDeleteEntryId(null)}
-          >
-            ביטול
-          </button>
-        </div>
-      </motion.div>
+      {/* ── Delete confirmation bottom sheet (classic / v2: DeleteEntrySheet) ── */}
+      {(() => {
+        const deleteSheet = {
+          open: !!deleteEntryId,
+          onConfirm: () => {
+            if (deleteEntryId) {
+              onDeleteEntry?.(deleteEntryId.entryId, date, deleteEntryId.groupId);
+            }
+            setDeleteEntryId(null);
+          },
+          onCancel: () => setDeleteEntryId(null),
+        };
+        return v2 ? <DeleteEntrySheetV2 {...deleteSheet} /> : <DeleteEntrySheetClassic {...deleteSheet} />;
+      })()}
 
     </div>
   );

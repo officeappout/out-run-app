@@ -55,7 +55,9 @@ describe('RouteDetailSheet — "התחל אימון" closes the sheet before sta
 
   it('matches the same onClose-then-onStartWorkout pattern already used by ParkDetailSheet', () => {
     const parkSrc = readFileSync(parkDetailSheetPath, 'utf8');
-    const parkMatch = parkSrc.match(/onClick=\{\(\)\s*=>\s*\{\s*onClose\(\);\s*onStartWorkout\?\.\(\);\s*\}\}/);
+    // Since the no-monster-files split the handler is passed to the
+    // ParkActionBar section as its `onStartWorkout` prop (the button's onClick).
+    const parkMatch = parkSrc.match(/on(?:Click|StartWorkout)=\{\(\)\s*=>\s*\{\s*onClose\(\);\s*onStartWorkout\?\.\(\);\s*\}\}/);
     expect(parkMatch, 'ParkDetailSheet no longer has the expected onClose-then-onStartWorkout reference pattern').toBeTruthy();
   });
 });

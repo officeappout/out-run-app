@@ -38,6 +38,9 @@
  * from the drag (opacity fades, scroll-chain hooks); `frameStyle` adds
  * (motion) styles to the moving frame (height, opacity…).
  *
+ * `surface` swaps the base surface classes (e.g. a `bg-v2-surface` tint)
+ * instead of fighting `bg-white` through `className`.
+ *
  * Opt-in extras: `closeOnEscape` (Escape closes while open) and
  * `respectReducedMotion` (fade instead of slide under prefers-reduced-motion).
  *
@@ -151,6 +154,11 @@ export interface SheetProps {
   frameClassName?: string;
   /** Extra classes on the surface (max-height, padding…). */
   className?: string;
+  /**
+   * The surface's base look — replaces SHEET_SURFACE_CLASS (rounded top, white,
+   * sheet shadow). For a tinted page-like sheet: `rounded-t-[28px] bg-v2-surface shadow-v2-sheet`.
+   */
+  surface?: string;
   /** Extra classes on the scroll body (scroll="body"). */
   bodyClassName?: string;
   /** Safe-area bottom padding expression, or false for none. */
@@ -263,6 +271,7 @@ export default function Sheet({
   dismissOnBackdrop = true,
   frameClassName,
   className = '',
+  surface = SHEET_SURFACE_CLASS,
   bodyClassName = '',
   safeArea = DEFAULT_SHEET_SAFE_AREA,
   dragToDismiss = false,
@@ -338,10 +347,10 @@ export default function Sheet({
       : scroll === 'body' ? 'flex flex-col overflow-hidden'
         : 'overflow-hidden';
 
-  const surface = (
+  const surfaceNode = (
     <div
       data-v2-sheet-surface
-      className={`${kbSurface} ${SHEET_SURFACE_CLASS} ${surfaceScroll} ${className}`}
+      className={`${kbSurface} ${surface} ${surfaceScroll} ${className}`}
       style={{ paddingBottom: sheetBottomPadding(safeArea) }}
     >
       {grabberNode}
@@ -393,7 +402,7 @@ export default function Sheet({
           : layout === 'split' ? { zIndex } : undefined
       }
     >
-      {surface}
+      {surfaceNode}
     </motion.div>
   );
 

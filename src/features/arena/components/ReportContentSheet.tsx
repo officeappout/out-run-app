@@ -2,9 +2,15 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flag, X, Loader2 } from 'lucide-react';
+import { Flag, X, Loader2, Check } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { CONFIRM_ACTION_CLASS } from '@/components/ui/v2/ConfirmSheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 /**
  * Reason taxonomy.
@@ -70,6 +76,9 @@ export default function ReportContentSheet({
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const handleSubmit = async () => {
     if (!selectedReason) return;
@@ -105,6 +114,83 @@ export default function ReportContentSheet({
     setSubmitted(false);
     onClose();
   };
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={handleClose}
+        // Community band: backdrop z-[92] / panel z-[93] (.cursorrules), in place.
+        zIndex={SHEET_Z.communityPanel}
+        backdropZIndex={SHEET_Z.community}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/50"
+        backdropStyle={{ backdropFilter: 'blur(4px)' }}
+        frameClassName="max-w-md mx-auto"
+        transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
+        scroll="none"
+        ariaLabel={submitted ? 'הדיווח נשלח' : `דיווח על ${TARGET_LABEL[targetType]}`}
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-1">
+            <h2 className="flex min-w-0 items-center gap-2 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">
+              {!submitted && <Flag className="h-5 w-5 shrink-0 text-v2-down" strokeWidth={2.4} />}
+              <span className="truncate">{submitted ? 'הדיווח נשלח' : `דיווח על ${TARGET_LABEL[targetType]}`}</span>
+            </h2>
+            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={handleClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+        }
+      >
+        <div className="px-5 pb-4 pt-1">
+          {submitted ? (
+            <div className="flex flex-col items-center py-4 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40" aria-hidden>
+                <Check className="h-7 w-7" strokeWidth={2.6} />
+              </span>
+              <p className="mt-3 max-w-[280px] text-[15px] font-bold leading-relaxed text-v2-ink-2">
+                תודה על שמירת הקהילה. נבדוק את הדיווח בהקדם.
+              </p>
+              <button type="button" onClick={handleClose} className={`mt-6 ${CONFIRM_ACTION_CLASS.secondary}`}>
+                סגור
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="mb-4 text-[14px] font-bold text-v2-muted">
+                {promptPrefix} &ldquo;{targetName}&rdquo;?
+              </p>
+              <div className="mb-5 space-y-2">
+                {visibleReasons.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setSelectedReason(r.id)}
+                    className={`w-full whitespace-nowrap rounded-[16px] px-4 py-3 text-right text-[15px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                      selectedReason === r.id
+                        ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
+                        : 'bg-white text-v2-ink-2 shadow-v2-ring'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={!selectedReason || loading}
+                onClick={handleSubmit}
+                className={`flex items-center justify-center gap-2 ${CONFIRM_ACTION_CLASS.danger}`}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'שלח דיווח'}
+              </button>
+            </>
+          )}
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>

@@ -42,7 +42,7 @@ describe('sheetBottomPadding', () => {
 
 describe('SHEET_Z', () => {
   it('only holds values from the documented .cursorrules budget', () => {
-    expect(Object.values(SHEET_Z).sort((a, b) => a - b)).toEqual([60, 61, 70, 71, 80, 81, 98, 99, 100, 101, 102, 103, 104, 105]);
+    expect(Object.values(SHEET_Z).sort((a, b) => a - b)).toEqual([60, 61, 70, 71, 80, 81, 92, 93, 95, 96, 98, 99, 100, 101, 102, 103, 104, 105, 140, 150, 300, 301]);
   });
 });
 

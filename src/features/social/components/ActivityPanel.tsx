@@ -9,6 +9,9 @@ import { useUserStore } from '@/features/user';
 import { useActivityFeed } from '../hooks/useActivityFeed';
 import { sendKudo } from '@/features/safecity/services/kudos.service';
 import { markActivitySeen } from '../utils/activity-seen';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import type { ActivityFeedItem, ActivityEventType } from '@/types/community.types';
 
 // ─── Time formatting ─────────────────────────────────────────────────────────
@@ -63,6 +66,9 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
   const myUid = profile?.id ?? null;
   const myName = profile?.core?.name ?? 'אווטיר';
   const { items, isLoading } = useActivityFeed(myUid);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Opening the panel = everything in it is seen (clears the v2 avatar dot).
   // Device-local only; the Firestore items are not modified.
@@ -73,6 +79,78 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
   async function handleHighFiveBack(item: ActivityFeedItem) {
     if (!myUid || !item.fromUid) return;
     await sendKudo(item.fromUid, myUid, myName, 'high_five');
+  }
+
+  const content = (
+    <>
+      {isLoading && (
+        <p className="text-sm text-gray-400 text-center py-12 animate-pulse">טוען פעילות...</p>
+      )}
+
+      {!isLoading && items.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <span className="text-4xl mb-3">🐒</span>
+          <p className="text-sm font-bold text-gray-900">עדיין אין פעילות...</p>
+          <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
+            כשאווטירים יעלו לך ידיים או יצטרפו לקבוצה, זה יופיע כאן
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {items.map((item) => {
+          const displayMessage = renderDynamicMessage(item);
+          return (
+            <div
+              key={item.id}
+              className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${
+                item.read ? 'bg-gray-50' : 'bg-cyan-50 border border-cyan-100'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+                {activityIcon(item.type)}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-gray-900 leading-snug">
+                  {displayMessage}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(item.createdAt)}</p>
+              </div>
+
+              {item.type === 'high_five' && item.fromUid && item.fromUid !== myUid && (
+                <button
+                  onClick={() => handleHighFiveBack(item)}
+                  className="flex-shrink-0 text-[11px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-200 rounded-full px-3 py-1.5 hover:bg-cyan-100 transition-colors"
+                >
+                  🤘 בחזרה
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Backdrop z-[70] / panel z-[71] (.cursorrules — the z-[70] row).
+        zIndex={SHEET_Z.filterPanel}
+        portal={false}
+        keyboardAware={false}
+        safeArea={false}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="max-h-[80dvh]"
+        title="פעילות"
+        bodyClassName="px-4 pb-8"
+      >
+        {content}
+      </Sheet>
+    );
   }
 
   return (
@@ -109,53 +187,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
             </div>
 
             <div className="overflow-y-auto flex-1 px-4 pb-8" dir="rtl">
-              {isLoading && (
-                <p className="text-sm text-gray-400 text-center py-12 animate-pulse">טוען פעילות...</p>
-              )}
-
-              {!isLoading && items.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <span className="text-4xl mb-3">🐒</span>
-                  <p className="text-sm font-bold text-gray-900">עדיין אין פעילות...</p>
-                  <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
-                    כשאווטירים יעלו לך ידיים או יצטרפו לקבוצה, זה יופיע כאן
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                {items.map((item) => {
-                  const displayMessage = renderDynamicMessage(item);
-                  return (
-                    <div
-                      key={item.id}
-                      className={`flex items-start gap-3 p-3 rounded-2xl transition-colors ${
-                        item.read ? 'bg-gray-50' : 'bg-cyan-50 border border-cyan-100'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-full bg-white border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        {activityIcon(item.type)}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-gray-900 leading-snug">
-                          {displayMessage}
-                        </p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(item.createdAt)}</p>
-                      </div>
-
-                      {item.type === 'high_five' && item.fromUid && item.fromUid !== myUid && (
-                        <button
-                          onClick={() => handleHighFiveBack(item)}
-                          className="flex-shrink-0 text-[11px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-200 rounded-full px-3 py-1.5 hover:bg-cyan-100 transition-colors"
-                        >
-                          🤘 בחזרה
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              {content}
             </div>
           </m.div>
         </>

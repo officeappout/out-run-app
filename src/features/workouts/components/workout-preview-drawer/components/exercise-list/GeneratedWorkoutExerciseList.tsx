@@ -26,6 +26,9 @@ import { refreshDecisionExpect } from '@/features/workout-engine/services/decisi
 import PyramidStepCard from './PyramidStepCard';
 import SectionHeader from './SectionHeader';
 import { groupExercisesIntoSections } from '../../utils/section-grouping.utils';
+import { blockHeaderModel, blockItemLine, previewTimedModel } from '../../utils/timed-preview.utils';
+import TimedPreviewStrips, { TimedPreviewMeta } from './TimedPreviewOverview';
+import TimedSectionHeader, { BLOCK_TONE } from './TimedSectionHeader';
 import {
   collectEquipment,
   collectMuscles,
@@ -95,9 +98,16 @@ export default function GeneratedWorkoutExerciseList({
   actions,
 }: GeneratedWorkoutExerciseListProps) {
   const v2 = useHomeV2();
+  // enable_home_v2: a workout with a timed block (AMRAP / EMOM main, tabata) gets the
+  // overview header + journey strip + intensity profile and format block headers.
+  const timedModel = useMemo(
+    () => (v2 ? previewTimedModel(generatedWorkout) : null),
+    [v2, generatedWorkout],
+  );
+  const timedMainTitle = timedModel?.main?.title;
   const sections = useMemo(
-    () => groupExercisesIntoSections(generatedWorkout.exercises),
-    [generatedWorkout.exercises],
+    () => groupExercisesIntoSections(generatedWorkout.exercises, timedMainTitle ? { timedMainTitle } : undefined),
+    [generatedWorkout.exercises, timedMainTitle],
   );
   const equipment = useMemo(
     () => collectEquipment(generatedWorkout.exercises),
@@ -185,6 +195,9 @@ export default function GeneratedWorkoutExerciseList({
     <div dir="rtl">
       {/* ── Top row: [Difficulty · Duration] ←→ [Share · Heart · Download] ── */}
       <div className="flex items-center justify-between mb-3">
+        {timedModel ? (
+          <div className="min-w-0"><TimedPreviewMeta workout={generatedWorkout} /></div>
+        ) : (
         <div className="flex items-center gap-2">
           {diff != null && (
             <div
@@ -227,6 +240,7 @@ export default function GeneratedWorkoutExerciseList({
             </div>
           )}
         </div>
+        )}
 
         {actions && (
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -289,6 +303,8 @@ export default function GeneratedWorkoutExerciseList({
         )}
       </div>
 
+      {timedModel && <TimedPreviewStrips workout={generatedWorkout} model={timedModel} />}
+
       {/* ── Workout description ── */}
       {displayText && (
         <p className="text-slate-600 dark:text-slate-400 text-right leading-relaxed text-sm mb-3">
@@ -346,9 +362,16 @@ export default function GeneratedWorkoutExerciseList({
         // tabataBlock never produce a 'tabata' section, so nothing changes.
         const isTabata = section.id === 'tabata';
         const showCards = !isWarmup || (isWarmupActive && isWarmupExpanded);
+        // enable_home_v2 timed block (null otherwise → today's section).
+        const timedSpec =
+          section.id === 'timed-main' ? timedModel?.mainSpec ?? null : isTabata ? timedModel?.tabataSpec ?? null : null;
+        const timedRail = timedSpec ? BLOCK_TONE[blockHeaderModel(timedSpec).tone].rail : null;
 
         return (
           <section key={section.id} className="mb-8">
+            {timedSpec ? (
+              <TimedSectionHeader spec={timedSpec} />
+            ) : (
             <SectionHeader
               section={section}
               isWarmup={isWarmup}
@@ -360,11 +383,14 @@ export default function GeneratedWorkoutExerciseList({
               onToggleWarmupExpanded={onToggleWarmupExpanded}
               onToggleWarmupActive={onToggleWarmupActive}
             />
+            )}
 
             {showCards && (
               <div
                 className={
-                  isSuperset
+                  timedRail
+                    ? `border-r-[3px] ${timedRail} pr-3 mr-1 space-y-2`
+                    : isSuperset
                     ? 'border-r-[3px] border-cyan-400/70 dark:border-cyan-600/50 pr-3 mr-1 space-y-2'
                     : isTabata
                       ? 'border-r-[3px] border-orange-400/70 dark:border-orange-600/50 pr-3 mr-1 space-y-2'
@@ -421,7 +447,9 @@ export default function GeneratedWorkoutExerciseList({
                       onTap={onExerciseTap}
                       onSwap={onSwap}
                       volumeOverride={
-                        isTabata && generatedWorkout.tabataBlock
+                        timedSpec
+                          ? blockItemLine(timedSpec, timedSpec.items.findIndex((it) => it.key === ex.exercise.id))
+                          : isTabata && generatedWorkout.tabataBlock
                           ? ex.exercise.symmetry === 'unilateral'
                             ? `${generatedWorkout.tabataBlock.config.workSec} שנ' לכל צד`
                             : `${generatedWorkout.tabataBlock.config.workSec} שנ'`

@@ -60,6 +60,11 @@ interface WorkoutPlaylistProps {
     editSetIndex?: number,
   ) => void;
   onSkipRest?: () => void;
+  /**
+   * enable_home_v2: renders a timed (AMRAP / EMOM / Tabata) segment as one block
+   * card; returns null for every other segment. Absent → today's list.
+   */
+  renderTimedSegment?: (segmentIndex: number) => React.ReactNode | null;
 }
 
 export default function WorkoutPlaylist({
@@ -73,6 +78,7 @@ export default function WorkoutPlaylist({
   exerciseLog,
   handleRepetitionSave,
   onSkipRest,
+  renderTimedSegment,
 }: WorkoutPlaylistProps) {
   // ── Flat representation & lookups ────────────────────────────────
   const flatExercises = useMemo(
@@ -238,13 +244,14 @@ export default function WorkoutPlaylist({
                     </div>
 
                     {/* ── Dispatch ────────────────────────────────── */}
-                    {isWarmupGroup || isCooldownGroup
+                    {renderTimedSegment?.(segmentIndex) ??
+                    (isWarmupGroup || isCooldownGroup
                       ? renderWarmupCard({
                           exercises,
                           segmentTitle,
                           segmentIndex,
                         })
-                      : renderMainSubGroups(segmentIndex)}
+                      : renderMainSubGroups(segmentIndex))}
                   </div>
                 );
               },
