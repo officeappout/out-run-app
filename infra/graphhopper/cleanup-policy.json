@@ -1,0 +1,4 @@
+[
+  { "name": "keep-4-newest", "action": { "type": "Keep" }, "mostRecentVersions": { "keepCount": 4 } },
+  { "name": "delete-older", "action": { "type": "Delete" }, "condition": { "tagState": "any", "olderThan": "2592000s" } }
+]

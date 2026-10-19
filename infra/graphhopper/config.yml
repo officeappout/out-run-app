@@ -1,0 +1,69 @@
+# GraphHopper 11.1 — OUT routing server (Cloud Run, me-west1).
+# Paths are inside the container (see Dockerfile). The graph is imported at
+# image build time, so at runtime GraphHopper only loads graph-cache/.
+graphhopper:
+  datareader.file: /data/israel-and-palestine-latest.osm.pbf
+  graph.location: /data/graph-cache
+  custom_models.directory: /app/models
+
+  # flexible mode only (no CH/LM): every request may send its own custom model
+  # (the "tags" in src/lib/routing/graphhopper/custom-model.ts). Israel is small
+  # enough that a 5 km round trip takes ~10 ms without speed-up.
+  profiles:
+    - name: foot
+      custom_model_files: [foot.json, foot_elevation.json]
+    # OUT's quiet-streets + safe-crossings defaults baked in (A->B without a request model).
+    - name: out_run
+      custom_model_files: [foot.json, foot_elevation.json, out_run.json]
+    - name: bike
+      custom_model_files: [bike.json, bike_elevation.json]
+    - name: out_bike
+      custom_model_files: [bike.json, bike_elevation.json, out_bike.json]
+    - name: mtb
+      custom_model_files: [mtb.json, bike_elevation.json]
+  profiles_ch: []
+  profiles_lm: []
+
+  graph.encoded_values: foot_access, foot_priority, foot_average_speed, foot_road_access, foot_network, hike_rating, mtb_rating, average_slope, max_slope, country, road_class, road_environment, crossing, footway, surface, track_type, bike_priority, bike_access, roundabout, bike_average_speed, bike_road_access, mtb_priority, mtb_access, mtb_average_speed, orientation
+
+  # SRTM is downloaded during the build-time import and stored in the graph.
+  graph.elevation.provider: srtm
+  graph.elevation.cache_dir: /data/srtm
+  graph.elevation.dataaccess: RAM_STORE
+  graph.elevation.interpolate: bilinear
+  graph.elevation.edge_smoothing: moving_average
+  graph.elevation.edge_smoothing.moving_average.window_size: 150
+
+  prepare.min_network_size: 200
+  prepare.subnetworks.threads: 2
+  import.osm.ignored_highways: ""
+  routing.non_ch.max_waypoint_distance: 1000000
+  routing.max_visited_nodes: 1500000
+  graph.dataaccess.default_type: RAM_STORE
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      bind_host: 0.0.0.0
+      max_request_header_size: 200k
+  # No per-request access log (it would log caller IPs and whole request lines).
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: localhost
+
+# Dropwizard's logback configuration. RouteResource logs every request at INFO
+# INCLUDING the full custom model and the caller IP — silence it.
+logging:
+  level: INFO
+  loggers:
+    com.graphhopper.resources.RouteResource: WARN
+    com.graphhopper.resources: WARN
+    com.graphhopper.http.GHRequestTransformer: WARN
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n"

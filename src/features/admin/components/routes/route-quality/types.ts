@@ -1,6 +1,7 @@
 import type { QualityVerdict, RouteQualityMetrics } from '@/lib/route-quality';
 
-export type QualityVariant = 'off' | 'on';
+/** off = current Mapbox generator, on = Mapbox + route quality v1, gh = GraphHopper (/api/routes/generate). */
+export type QualityVariant = 'off' | 'on' | 'gh';
 
 export interface QualityRunRoute {
   key: string;

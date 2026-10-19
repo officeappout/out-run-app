@@ -4,7 +4,7 @@ import { aggregateVariant } from './aggregate';
 import { VARIANT_COLOR } from './RouteQualityMap';
 
 const REASON_HE: Record<string, string> = { retrace: 'חזרה על רחוב', uturn: 'פרסה/ענף מת', compactness: 'צר מדי', unmarked_crossings: 'חציות לא מסומנות' };
-const VARIANT_HE: Record<QualityVariant, string> = { off: 'נוכחי', on: 'v1' };
+const VARIANT_HE: Record<QualityVariant, string> = { off: 'נוכחי', on: 'v1', gh: 'GH' };
 const pct = (n: number) => `${n.toFixed(0)}%`;
 
 export function RouteQualityAggregate({ routes, variants, generations, empty }: {

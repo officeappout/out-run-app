@@ -1,0 +1,50 @@
+# Cloud Run service — rendered by deploy.sh (PROJECT_ID / IMAGE / RUNTIME_SA are
+# substituted), applied with `gcloud run services replace`.
+# NOT public: no allUsers binding; only the invoker service account (the one in
+# Vercel's FIREBASE_SERVICE_ACCOUNT_KEY) gets roles/run.invoker.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: graphhopper
+  labels:
+    cloud.googleapis.com/location: me-west1
+  annotations:
+    # Vercel is outside Google's network, so ingress must be "all"; access is
+    # enforced by IAM (every request needs a Google-signed ID token).
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: __RUNTIME_SA__
+      containerConcurrency: 40
+      timeoutSeconds: 30
+      containers:
+        - image: __IMAGE__
+          ports:
+            - name: http1
+              containerPort: 8989
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8989
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8989
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
