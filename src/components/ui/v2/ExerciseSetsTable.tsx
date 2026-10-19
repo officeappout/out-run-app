@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { tonesPresent, type SetTile, type SetTone } from './summary';
 
@@ -21,6 +21,10 @@ export interface ExerciseSetsRow {
   tiles: SetTile[];
   /** Dim the row (exercise not done at all). */
   muted?: boolean;
+  /** Replaces the image thumbnail (e.g. a run leg's icon tile in a live session list). */
+  thumb?: ReactNode;
+  /** Highlight the row as the current one (brand tint ring — live session lists). */
+  active?: boolean;
 }
 
 const TONE_CLASS: Record<SetTone, string> = {
@@ -121,9 +125,9 @@ export default function ExerciseSetsTable({ title, rows, hideLegend = false }: E
         {rows.map((r) => (
           <div
             key={r.key}
-            className={`flex h-[58px] items-stretch overflow-hidden rounded-2xl bg-white shadow-v2-ring ${r.muted ? 'opacity-70' : ''}`}
+            className={`flex h-[58px] items-stretch overflow-hidden rounded-2xl bg-white ${r.active ? 'ring-2 ring-v2-accent' : 'shadow-v2-ring'} ${r.muted ? 'opacity-70' : ''}`}
           >
-            <ExerciseThumb imageUrl={r.imageUrl} size={58} />
+            {r.thumb ?? <ExerciseThumb imageUrl={r.imageUrl} size={58} />}
             <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-1">
               <span className="truncate text-[14px] font-extrabold text-v2-ink">{r.name}</span>
               <span className="mt-px truncate text-[12.5px] font-bold text-v2-ink-2">{r.subtitle}</span>
