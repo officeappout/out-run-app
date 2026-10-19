@@ -25,6 +25,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
 import { timedResultsFor } from '@/features/workout-engine/players/strength/timed/state/timed-results';
+import { toTimedBlockRecord, type TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
@@ -110,6 +111,8 @@ export interface StrengthSummaryPageProps {
    * Defaults to `false`, preserving the existing live-flow behavior exactly.
    */
   isReadOnly?: boolean;
+  /** enable_home_v2 history: the saved doc's timed block records (strength-history-adapter). */
+  savedTimedBlocks?: TimedBlockRecord[];
   /** Already-awarded XP to display when `isReadOnly` is true. */
   savedXpEarned?: number;
   /** Close callback for `isReadOnly` mode (replaces `onFinish`). */
@@ -198,6 +201,7 @@ export default function StrengthSummaryPage({
   workoutSegments,
   previousSets,
   isReadOnly = false,
+  savedTimedBlocks,
   savedXpEarned = 0,
   onClose,
   onDelete,
@@ -343,10 +347,10 @@ export default function StrengthSummaryPage({
     // this one session exactly as runActivitySync will.
     const isCardio = trainingType === 'cardio';
     const scheduled = profile?.lifestyle?.scheduleDays?.length ?? 0;
-    // Timed blocks finished in THIS session (in-memory; a history view has none).
-    const timedResults = isReadOnly
-      ? []
-      : timedResultsFor((workoutSegments ?? []).map((s, i) => (s as { id?: string }).id || String(i))).map((r) => r.result);
+    // Timed blocks: this session's (in memory) live, the saved doc's `timedBlocks` in history.
+    const timedResults: TimedBlockRecord[] = isReadOnly
+      ? savedTimedBlocks ?? []
+      : timedResultsFor((workoutSegments ?? []).map((s, i) => s.id || String(i))).map((r) => toTimedBlockRecord(r.segmentId, r.result));
     v2 = {
       phases: v2Phases,
       ...(timedResults.length > 0 ? { timedResults } : {}),

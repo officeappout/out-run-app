@@ -37,7 +37,7 @@ import {
   type WeekCardV2Props,
 } from './components/v2/StrengthSummaryV2Sections';
 import TimedResultCardsV2 from './components/v2/TimedResultCardsV2';
-import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
+import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 import type { PhaseSummary, SessionTotals } from './utils/phase-summary';
 import { levelRingModel } from './utils/level-ring.util';
 import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/components/ui/v2';
@@ -45,8 +45,8 @@ import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/comp
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
   phases: PhaseSummary[];
-  /** Timed blocks of THIS session (AMRAP score, EMOM minutes) — live summary only. */
-  timedResults?: TimedBlockResult[];
+  /** Timed blocks (AMRAP score, EMOM minutes): this session's, or the saved doc's `timedBlocks`. */
+  timedResults?: TimedBlockRecord[];
   totals: SessionTotals;
   /** Null in the read-only history view (the week card describes "now", not that past workout). */
   week: WeekCardV2Props | null;
