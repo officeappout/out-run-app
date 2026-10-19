@@ -19,6 +19,14 @@
  * send, so not exempt), and a short per-user rate cap (RATE_CAP_HOURS) so a burst of replies is
  * one push. 'coach' is not an engagement channel (a reply, not a nudge), so the daily cap
  * doesn't apply.
+ *
+ * Kelly phase 3 (flag system_config/feature_flags.ai_coach_proactive): a 'system' message
+ * with a `proactive` field was written by the proactive run (src/lib/ai/coach/proactive) —
+ * that IS a nudge, so it is pushed with countTowardDailyCap (counted in the user's daily
+ * engagement cap like a training reminder), no per-channel rate cap (the run already allows
+ * one a day), data.kind 'kelly_proactive'. A test send from the panel (proactive.test) goes
+ * to the admin's own uid without the daily cap. Quiet hours and Shabbat apply as for any
+ * push. A silent proactive message carries noPush and is skipped like a migrated one.
  */
 
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -42,6 +50,20 @@ interface KellyMessage {
   createdAt?: unknown;
   migratedFrom?: unknown;
   noPush?: unknown;
+  proactive?: unknown;
+}
+
+/** How a proactive Kelly message is pushed (null = not a proactive message). Pure, exported for tests. */
+export function kellyProactivePushPlan(msg: KellyMessage | undefined): {
+  test: boolean;
+  trigger: string;
+  countTowardDailyCap: boolean;
+  isPersonalInteraction: boolean;
+} | null {
+  const p = msg?.proactive as { trigger?: unknown; test?: unknown } | undefined;
+  if (!p || typeof p !== 'object' || typeof p.trigger !== 'string') return null;
+  const test = p.test === true;
+  return { test, trigger: p.trigger, countTowardDailyCap: !test, isPersonalInteraction: test };
 }
 
 function msOf(v: unknown): number | null {
@@ -73,30 +95,46 @@ export const onKellyThreadMessage = onDocumentCreated(
     if (!decision.push) return; // the AI chat's own messages land here — stay silent and cheap
 
     const uid = event.params.uid as string;
+    const proactive = kellyProactivePushPlan(msg);
     let enabled = false;
     try {
       const flags = await admin.firestore().doc('system_config/feature_flags').get();
-      enabled = flags.exists && flags.data()?.kelly_unified_v1 === true;
+      const data = flags.exists ? flags.data() : undefined;
+      enabled = data?.kelly_unified_v1 === true && (!proactive || data?.ai_coach_proactive === true);
     } catch (e) {
       logger.warn('[onKellyThreadMessage] feature flags read failed — skipping', e);
       return;
     }
     if (!enabled) return;
 
-    const result = await sendPush({
-      toUids: [uid],
-      channel: 'coach',
-      title: KELLY_PUSH_TITLE,
-      body: kellyPushBody(String(msg!.text)),
-      deepLink: KELLY_PUSH_DEEP_LINK,
-      data: { kind: 'kelly_message', source: String(msg!.source) },
-      rateCapHours: RATE_CAP_HOURS,
-      isPersonalInteraction: true,
-    });
+    const result = await sendPush(
+      proactive
+        ? {
+            toUids: [uid],
+            channel: 'coach',
+            title: KELLY_PUSH_TITLE,
+            body: kellyPushBody(String(msg!.text)),
+            deepLink: KELLY_PUSH_DEEP_LINK,
+            data: { kind: 'kelly_proactive', source: 'system', trigger: proactive.trigger },
+            rateCapHours: 0,
+            countTowardDailyCap: proactive.countTowardDailyCap,
+            isPersonalInteraction: proactive.isPersonalInteraction,
+          }
+        : {
+            toUids: [uid],
+            channel: 'coach',
+            title: KELLY_PUSH_TITLE,
+            body: kellyPushBody(String(msg!.text)),
+            deepLink: KELLY_PUSH_DEEP_LINK,
+            data: { kind: 'kelly_message', source: String(msg!.source) },
+            rateCapHours: RATE_CAP_HOURS,
+            isPersonalInteraction: true,
+          },
+    );
     logger.info(
-      `[onKellyThreadMessage] ${uid}/${event.params.messageId} source=${String(msg!.source)} ` +
+      `[onKellyThreadMessage] ${uid}/${event.params.messageId} source=${String(msg!.source)}${proactive ? ` proactive=${proactive.trigger}` : ''} ` +
         `delivered=${result.delivered} skippedPrefs=${result.skippedPrefs} quiet=${result.skippedQuietHours} ` +
-        `shabbat=${result.skippedShabbat} rateCap=${result.skippedRateCap}`,
+        `shabbat=${result.skippedShabbat} rateCap=${result.skippedRateCap} dailyCap=${result.skippedDailyCap}`,
     );
   },
 );

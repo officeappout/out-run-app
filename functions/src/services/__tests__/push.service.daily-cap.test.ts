@@ -297,3 +297,31 @@ describe('push.service — Stage 2 daily engagement cap', () => {
     expect(personalOnSocial.skippedDailyCap).toBe(0);
   });
 });
+
+describe('push.service — countTowardDailyCap (Kelly phase 3 proactive on "coach")', () => {
+  it('a proactive coach push is counted and capped like an engagement nudge', async () => {
+    seedUser(UID);
+    seedRate(UID, { dailyEngagementDate: '2026-01-15', dailyEngagementCount: 2 });
+    const first = await sendPush({ toUids: [UID], channel: 'coach', title: 't', body: 'b', rateCapHours: 0, countTowardDailyCap: true });
+    expect(first.delivered).toBe(1);
+    expect((await getRateDoc(UID)).dailyEngagementCount).toBe(3);
+    const capped = await sendPush({ toUids: [UID], channel: 'coach', title: 't', body: 'b', rateCapHours: 0, countTowardDailyCap: true });
+    expect(capped.delivered).toBe(0);
+    expect(capped.skippedDailyCap).toBe(1);
+  });
+
+  it('without the option a coach push (a team reply) is exempt and never counted — unchanged', async () => {
+    seedUser(UID);
+    seedRate(UID, { dailyEngagementDate: '2026-01-15', dailyEngagementCount: 5 });
+    const r = await sendPush({ toUids: [UID], channel: 'coach', title: 't', body: 'b', rateCapHours: 0, isPersonalInteraction: true });
+    expect(r.delivered).toBe(1);
+    expect((await getRateDoc(UID)).dailyEngagementCount).toBe(5);
+  });
+
+  it('isPersonalInteraction wins over countTowardDailyCap (panel test send)', async () => {
+    seedUser(UID);
+    seedRate(UID, { dailyEngagementDate: '2026-01-15', dailyEngagementCount: 5 });
+    const r = await sendPush({ toUids: [UID], channel: 'coach', title: 't', body: 'b', rateCapHours: 0, countTowardDailyCap: false, isPersonalInteraction: true });
+    expect(r.delivered).toBe(1);
+  });
+});

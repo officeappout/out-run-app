@@ -360,6 +360,14 @@ export interface SendPushOpts {
    * lookup sends as before). Flag off or option absent = no change.
    */
   suppressIfLapsed?: boolean;
+  /**
+   * 19.10.2026 (Kelly phase 3, opt-in per call) — count THIS send in the daily
+   * engagement cap even though its channel is not in ENGAGEMENT_CHANNELS: a
+   * proactive Kelly message on 'coach' (a nudge, unlike a team reply on the same
+   * channel). The cap check AND the counter increment apply. Ignored when
+   * isPersonalInteraction is true. Absent = no change for every existing caller.
+   */
+  countTowardDailyCap?: boolean;
 }
 
 export interface SendPushResult {
@@ -461,7 +469,8 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   // Subject to the daily engagement cap: on a capped channel AND not marked
   // as a personal interaction for THIS specific send (see isPersonalInteraction's
   // doc comment — a channel can carry a mix of personal and nudge events).
-  const isEngagementChannel = ENGAGEMENT_CHANNELS.has(channel) && !opts.isPersonalInteraction;
+  const isEngagementChannel =
+    !isSystem && (ENGAGEMENT_CHANNELS.has(channel) || opts.countTowardDailyCap === true) && !opts.isPersonalInteraction;
   const todayKey = isEngagementChannel ? getJerusalemDateKey() : '';
 
   // Lapsed-user suppression (opt-in per call + flag, default off).
