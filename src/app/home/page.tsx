@@ -108,7 +108,7 @@ import {
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
-import { placeProgramSlide, type ProgramTrack } from '@/features/home/utils/program-start-cards';
+import { placeProgramSlide, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
@@ -3240,6 +3240,25 @@ export default function HomePage() {
                   && !isTodayWorkoutDone
                   && preWorkoutSuggestions === null;
 
+                // enable_home_v2: when no daily carousel can host the program slide (start
+                // pair / add card), it renders on its own at the top of this slot — under the
+                // week strip, so "בחר תוכנית למטה" always has a card below it. A loading
+                // carousel keeps the place with its own skeleton. Flag off → plan 'none' → null.
+                const programSurface = resolveProgramSlideSurface({
+                  plan: programSlide.plan,
+                  isViewingToday,
+                  preCarousel: readyPreWorkoutSuggestions ? 'ready' : preWorkoutSuggestionsLoading ? 'loading' : 'none',
+                  postCarousel: !isSelectedDateToday ? 'none'
+                    : postWorkoutCarouselReady ? 'ready'
+                    : postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone) && postWorkoutSuggestions === null ? 'loading'
+                    : 'none',
+                });
+                const programStandalone = programSurface === 'standalone' ? (
+                  <div className="mx-auto mb-4 w-full max-w-[358px] px-4" data-program-slide-standalone>
+                    {programSlideCard}
+                  </div>
+                ) : null;
+
                 // Where today's / the next run renders. In the carousel for every runner; when
                 // the carousel isn't showing, enable_home_v2 only: on its own above the
                 // StatsOverview fallback (today's strength done, or nothing suggested), never in
@@ -3527,7 +3546,9 @@ export default function HomePage() {
                     />
                   </div>
                 ) : null;
-                const contentWithCalm = calmCard ? <>{calmCard}{content}</> : content;
+                const contentWithCalm = calmCard || programStandalone
+                  ? <>{calmCard}{programStandalone}{content}</>
+                  : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
                     <motion.div

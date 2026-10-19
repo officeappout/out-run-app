@@ -5,6 +5,7 @@ import {
   isAddDismissActive,
   placeProgramSlide,
   resolveProgramSlide,
+  resolveProgramSlideSurface,
 } from '../program-start-cards';
 
 const base = { enabled: true, hasStrength: false, hasRunning: false, runningIntent: false };
@@ -88,5 +89,35 @@ describe('placeProgramSlide', () => {
   });
   it('add with no other card → alone', () => {
     expect(placeProgramSlide([], S, { mode: 'add', track: 'strength' })).toEqual([S]);
+  });
+});
+
+describe('resolveProgramSlideSurface', () => {
+  const start = { mode: 'start', order: ['strength', 'running'] } as const;
+  const add = { mode: 'add', track: 'running' } as const;
+  const s = (over: Partial<Parameters<typeof resolveProgramSlideSurface>[0]>) =>
+    resolveProgramSlideSurface({ plan: start, isViewingToday: true, preCarousel: 'none', postCarousel: 'none', ...over });
+
+  it('plan none → null, whatever the carousels', () => {
+    expect(s({ plan: { mode: 'none' }, preCarousel: 'ready' })).toBeNull();
+    expect(s({ plan: { mode: 'none' } })).toBeNull();
+  });
+  it('a showing carousel hosts it (pre or post)', () => {
+    expect(s({ preCarousel: 'ready' })).toBe('carousel');
+    expect(s({ postCarousel: 'ready' })).toBe('carousel');
+    expect(s({ plan: add, postCarousel: 'ready' })).toBe('carousel');
+  });
+  it('a loading carousel → pending (its skeleton stands in)', () => {
+    expect(s({ preCarousel: 'loading' })).toBe('pending');
+    expect(s({ postCarousel: 'loading' })).toBe('pending');
+  });
+  it('ready wins over loading', () => {
+    expect(s({ preCarousel: 'ready', postCarousel: 'loading' })).toBe('carousel');
+  });
+  it('no carousel → standalone (start pair on any day, add card today only)', () => {
+    expect(s({})).toBe('standalone');
+    expect(s({ isViewingToday: false })).toBe('standalone');
+    expect(s({ plan: add })).toBe('standalone');
+    expect(s({ plan: add, isViewingToday: false })).toBeNull();
   });
 });

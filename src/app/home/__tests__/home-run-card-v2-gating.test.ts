@@ -67,6 +67,14 @@ describe('home/page.tsx — v2 run card wiring', () => {
     expect(pageSrc).toMatch(/featureFlags\.enableHomeV2\s*\?\s*placeProgramSlide<[^>]*>\(postWorkoutSuggestions/);
   });
 
+  it('the program slide falls back to standalone under the strip when no carousel hosts it', () => {
+    expect(pageSrc).toContain('const programSurface = resolveProgramSlideSurface({');
+    expect(pageSrc).toContain("const programStandalone = programSurface === 'standalone' ? (");
+    expect(pageSrc).toContain('<>{calmCard}{programStandalone}{content}</>');
+    // Flag off: plan 'none' → no standalone, the slot renders `content` exactly as before.
+    expect(pageSrc).toMatch(/calmCard \|\| programStandalone\s*\?[\s\S]*?:\s*content;/);
+  });
+
   it('the strength-mode strip run overlay is gated on the flag', () => {
     expect(pageSrc).toMatch(/const runOverlayDays = featureFlags\.enableHomeV2 && hasStrengthProgram && homeRun\.hasRunningPlan && !isRunningMode/);
     expect(pageSrc).toContain('runOverlayDays={runOverlayDays}');
