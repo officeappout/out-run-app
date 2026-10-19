@@ -6,6 +6,8 @@ import { WorkoutPlan } from '@/features/parks';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import type { WorkoutData } from '../types';
 
 interface UseWorkoutSessionParams {
@@ -73,6 +75,9 @@ export function useWorkoutSession({
   surface,
 }: UseWorkoutSessionParams): UseWorkoutSessionReturn {
   const router = useRouter();
+  // enable_home_v2: the generator's AMRAP / EMOM choice runs as a timed block.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const timedBlocks = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const handleStartWorkout = useCallback((overrideGeneratedWorkout?: GeneratedWorkout | null) => {
     const workoutId = workout?.id || 'favorites-workout';
@@ -101,7 +106,7 @@ export function useWorkoutSession({
     const resolvedPlan: WorkoutPlan | null =
       workoutPlan ??
       (effectiveGeneratedWorkout
-        ? buildRunnerWorkoutPlanFromGenerated(effectiveGeneratedWorkout, { id: workoutId })
+        ? buildRunnerWorkoutPlanFromGenerated(effectiveGeneratedWorkout, { id: workoutId, timedBlocks })
         : null);
 
     if (typeof window !== 'undefined') {
@@ -139,7 +144,7 @@ export function useWorkoutSession({
     } else {
       router.push(`/workouts/${workoutId}/active`);
     }
-  }, [workout?.id, workoutPlan, generatedWorkout, isWarmupActive, workoutLocation, onStartWorkout, surface, router]);
+  }, [workout?.id, workoutPlan, generatedWorkout, isWarmupActive, workoutLocation, onStartWorkout, surface, router, timedBlocks]);
 
   return { handleStartWorkout };
 }

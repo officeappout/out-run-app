@@ -5,14 +5,16 @@
  * EMOM / Tabata segment runs on the timed engine (enable_home_v2 only).
  * Composition only: backdrop media, header, the bottom card of the current
  * phase, the AMRAP round toast and the format "i" sheet. All timing and
- * state come from useTimedSegment.
+ * state come from the TimedStore snapshot (this subtree is the only one that
+ * re-renders per tick).
  */
 import React, { useMemo, useState } from 'react';
 import type { Exercise, WorkoutPlan } from '@/features/parks/core/types/route.types';
 import { timedStrip } from '@/features/workout-engine/engines/timed/timed.strip';
 import { toCartItems } from '@/features/workout-engine/engines/strip-item';
 import type { AmrapState, EmomState, TimedItem } from '@/features/workout-engine/engines/timed/timed.types';
-import type { TimedSegmentApi } from '../hooks/useTimedSegment';
+import type { TimedStore } from '../state/timed-store';
+import { useTimedSnapshot } from '../hooks/useTimedSnapshot';
 import {
   blockTitle,
   clockCaption,
@@ -38,7 +40,7 @@ import TimedRoundToast from './TimedRoundToast';
 import TimedFormatInfoSheet from './TimedFormatInfoSheet';
 
 export interface TimedBlockPlayerProps {
-  timed: TimedSegmentApi;
+  store: TimedStore;
   workout: WorkoutPlan;
   segmentIndex: number;
   isPaused: boolean;
@@ -48,9 +50,10 @@ export interface TimedBlockPlayerProps {
   onHeaderPointerDown?: (e: React.PointerEvent) => void;
 }
 
-export default function TimedBlockPlayer({ timed, workout, segmentIndex, isPaused, hideList, onTogglePause, onList, onHeaderPointerDown }: TimedBlockPlayerProps) {
+export default function TimedBlockPlayer({ store, workout, segmentIndex, isPaused, hideList, onTogglePause, onList, onHeaderPointerDown }: TimedBlockPlayerProps) {
   const [infoOpen, setInfoOpen] = useState(false);
-  const { spec, state, view, prompt, prefix } = timed;
+  const snap = useTimedSnapshot(store);
+  const actions = store.actions;
   const segment = workout.segments[segmentIndex];
   const planOf = useMemo(() => {
     const list = segment?.exercises ?? [];
@@ -58,7 +61,8 @@ export default function TimedBlockPlayer({ timed, workout, segmentIndex, isPause
       it?.kind === 'exercise' ? list.find((e) => e.id === it.exerciseId) ?? null : null;
   }, [segment]);
 
-  if (!spec || !state || !view) return null;
+  if (!snap) return null;
+  const { spec, state, view, prompt, prefix } = snap;
 
   const mode = timedCardMode(state, view, prompt);
   const strip = timedStrip(state, Date.now());
@@ -71,13 +75,13 @@ export default function TimedBlockPlayer({ timed, workout, segmentIndex, isPause
   let card: React.ReactNode;
   switch (mode) {
     case 'ready':
-      card = <TimedReadyCard spec={spec} segmentTitle={segment?.title ?? ''} prefix={prefix} onInfo={() => setInfoOpen(true)} onStart={timed.start} />;
+      card = <TimedReadyCard spec={spec} segmentTitle={segment?.title ?? ''} prefix={prefix} onInfo={() => setInfoOpen(true)} onStart={actions.start} />;
       break;
     case 'prompt':
-      card = <TimedRepsPanel prompt={prompt!} onSave={timed.answerPrompt} onSkip={timed.skipPrompt} />;
+      card = <TimedRepsPanel prompt={prompt!} onSave={actions.answerPrompt} onSkip={actions.skipPrompt} />;
       break;
     case 'done':
-      card = <TimedDoneCard title={title} result={timed.result} />;
+      card = <TimedDoneCard title={title} result={snap.result} />;
       break;
     case 'clock':
       card = (
@@ -116,8 +120,8 @@ export default function TimedBlockPlayer({ timed, workout, segmentIndex, isPause
           nextCaption={nextCaption(view)}
           hint={workHint(view, view.current)}
           minute={spec.format === 'emom' ? { clock: phaseClock(view), fraction: view.phaseElapsedMs / emomMinuteMs(state as EmomState) } : null}
-          runDistanceM={timed.runDistanceM}
-          onDone={timed.itemDone}
+          runDistanceM={snap.runDistanceM}
+          onDone={actions.itemDone}
         />
       ) : null;
   }

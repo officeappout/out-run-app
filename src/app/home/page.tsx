@@ -36,6 +36,7 @@ import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/med
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { partitionByTabataBlock } from '@/features/workout-engine/logic/protocols/tabata.block';
+import { withTimedMainBlock } from '@/features/workout-engine/logic/protocols/timed.block';
 import { buildRunnerWorkoutPlanFromGenerated } from '@/features/workout-engine/logic/buildRunnerWorkoutPlanFromGenerated';
 import { adaptationStampForPlan } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { composeParkWorkout, type ParkWorkoutDifficulty } from '@/features/workout-engine/services/compose-park-strength-workout.service';
@@ -1734,7 +1735,7 @@ export default function HomePage() {
     try {
       const result = await composeParkWorkout(park, profile, { difficulty, availableTime: 20 });
       const uniqueWorkoutId = `park-workout-${park.id}-${Date.now()}`;
-      const workoutPlan = buildRunnerWorkoutPlanFromGenerated(result.workout, { id: uniqueWorkoutId });
+      const workoutPlan = buildRunnerWorkoutPlanFromGenerated(result.workout, { id: uniqueWorkoutId, timedBlocks: featureFlags.enableHomeV2 });
 
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('active_workout_data', JSON.stringify(workoutPlan));
@@ -1773,7 +1774,7 @@ export default function HomePage() {
       setTrioSelector(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, handleWorkoutGenerated]);
+  }, [profile, handleWorkoutGenerated, featureFlags.enableHomeV2]);
 
   const pendingParkWorkoutStart = useMapStore((s) => s.pendingParkWorkoutStart);
   useEffect(() => {
@@ -2344,7 +2345,8 @@ export default function HomePage() {
         // "דגשי האימון" source (light scalars) — read by WorkoutPreviewClient,
         // rendered only while WORKOUT_COACH_NOTE_V1 is on.
         decisionRecord: gw.decisionRecord,
-        segments,
+        // enable_home_v2: the generator's AMRAP / EMOM choice runs as a timed block.
+        segments: featureFlags.enableHomeV2 ? withTimedMainBlock(segments, gw) : segments,
         totalDuration: gw.estimatedDuration || 30,
         difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
         trainingType: 'strength' as const,
@@ -2391,7 +2393,7 @@ export default function HomePage() {
       coverImage: '',
       segments: [],
     });
-  }, [profile]);
+  }, [profile, featureFlags.enableHomeV2]);
 
   // Hero Card Press Handler — goes through JIT equipment/health check.
   //

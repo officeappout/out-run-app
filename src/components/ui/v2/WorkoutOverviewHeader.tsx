@@ -20,7 +20,8 @@ export interface OverviewMetaItem {
 }
 
 export interface WorkoutOverviewHeaderProps {
-  title: ReactNode;
+  /** null → meta row only (the host already shows the title, e.g. the preview drawer's header). */
+  title: ReactNode | null;
   meta: readonly OverviewMetaItem[];
   /** Home v2 look (enable_home_v2); false = the pre-v2 look, unchanged. */
   v2?: boolean;
@@ -33,14 +34,16 @@ function Sep({ v2 }: { v2: boolean }) {
 export default function WorkoutOverviewHeader({ title, meta, v2 = false }: WorkoutOverviewHeaderProps) {
   return (
     <div className={v2 ? 'flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[13px]' : 'flex items-center gap-1.5 flex-wrap text-[13px]'}>
-      <span className={v2 ? 'basis-full text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[18px] font-black'} style={v2 ? undefined : { color: '#111827' }}>
-        {title}
-      </span>
+      {title != null && (
+        <span className={v2 ? 'basis-full text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink' : 'text-[18px] font-black'} style={v2 ? undefined : { color: '#111827' }}>
+          {title}
+        </span>
+      )}
       {meta.map((m, i) => {
         const primary = (m.tone ?? (i === 0 ? 'primary' : 'secondary')) === 'primary';
         return [
           // Pre-v2 the title and the first meta sit on one line, so they get a dot too.
-          ...(i > 0 || !v2 ? [<Sep key={`sep-${m.key}`} v2={v2} />] : []),
+          ...(i > 0 || (!v2 && title != null) ? [<Sep key={`sep-${m.key}`} v2={v2} />] : []),
           <span
             key={m.key}
             className={v2

@@ -75,7 +75,8 @@ import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onbo
 import type { RepsSource, SwapOpenContext, SwapSource } from '@/features/workout-engine/adaptation/adaptation.types';
 import { shouldArmPlayerTour } from '@/features/user/onboarding/services/first-run-tour';
 import {
-  useTimedSegment, useMixedStoryBars, TimedBlockPlayer, TimedListBehind, mergeSegmentLog, segmentLogId, miniPlayerInfo,
+  useTimedSegment, useMixedStoryBars, useTimedPlaylistRenderer, TimedRuntime, TimedBlockPlayer, TimedListBehind, TimedMiniPlayerBar,
+  mergeSegmentLog, segmentLogId,
 } from './timed';
 
 export type { ExerciseResultLog };
@@ -152,16 +153,13 @@ export default function StrengthRunner({
   // enable_home_v2 only: an AMRAP / EMOM / Tabata segment runs on the timed engine (its own
   // screens below); every other segment — and everything with the flag off or inside a hybrid
   // station — is the regular flow, unchanged. The block's rows go back into the machine's log.
-  const timed = useTimedSegment({
-    workout,
-    segmentIndex: sm.currentSegmentIndex,
-    enabled: playerV2,
-    embedded,
-    isPaused: sm.isPaused,
-    onHandBack: sm.completeExternalSegment,
-  });
+  // Tick-free here: the engine runs in <TimedRuntime> (a leaf) and only the timed screens
+  // subscribe to its store, so this root never re-renders on the block's clock.
+  const timed = useTimedSegment({ workout, segmentIndex: sm.currentSegmentIndex, enabled: playerV2, embedded });
   // …and the classic header shows each timed block as ONE wide story bar (null → today's bars).
   const mixedBars = useMixedStoryBars(workout, { enabled: playerV2, embedded }, sm.currentSegmentIndex, sm.exerciseLogSnapshot);
+  // …and the classic list shows each timed block as one consistent card (undefined → today's list).
+  const renderTimedSegment = useTimedPlaylistRenderer(workout, { enabled: playerV2, embedded }, sm.currentSegmentIndex, sm.exerciseLogSnapshot);
 
   // ── Offline-cached + network-aware media URLs ──────────────────────────
   const { safeVideoUrl, safeImageUrl, safeNextVideoUrl } = usePlayerMedia({
@@ -309,7 +307,7 @@ export default function StrengthRunner({
     isPaused: sm.isPaused,
     onSkipRest: timed.active ? noop : sm.skipRest,
     onSaveInput: timed.active ? noop : handleBigScreenInputSave,
-    onCompleteExercise: timed.active ? timed.itemDone : sm.handleExerciseComplete,
+    onCompleteExercise: timed.active ? timed.store.actions.itemDone : sm.handleExerciseComplete,
     onTogglePause: sm.togglePause,
   });
 
@@ -546,13 +544,13 @@ export default function StrengthRunner({
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
     // A timed block stopped mid-way keeps what was done (flag on only; empty otherwise).
-    const timedRows = timed.active ? timed.finishNow() : [];
+    const timedRows = timed.active ? timed.store.actions.finishNow() : [];
     onComplete?.(
       timedRows.length > 0
         ? mergeSegmentLog(sm.getExerciseLog(), segmentLogId(workout, sm.currentSegmentIndex), timedRows)
         : sm.getExerciseLog(),
     );
-  }, [sm.getExerciseLog, sm.currentSegmentIndex, onComplete, timed, workout]);
+  }, [sm.getExerciseLog, sm.currentSegmentIndex, onComplete, timed.active, timed.store, workout]);
 
   // Android hardware back / iOS edge-swipe-back → open the exit confirmation
   // modal instead of popping the route (which would silently discard all
@@ -790,18 +788,28 @@ export default function StrengthRunner({
   // MAIN RENDER
   // ========================================================================
 
-  const timedMini = timed.active && timed.state && timed.view ? miniPlayerInfo(timed.state, timed.view, timed.prefix) : null;
-
   return (
     <StrengthPlayerV2Provider value={playerV2}>
     <div
       className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden"
       style={{ overscrollBehavior: 'none' }}
     >
+      {/* enable_home_v2 timed block: the engine (renders nothing; the only per-tick re-render). */}
+      {timed.active && timed.spec && (
+        <TimedRuntime
+          spec={timed.spec}
+          store={timed.store}
+          workout={workout}
+          segmentIndex={sm.currentSegmentIndex}
+          isPaused={sm.isPaused}
+          onHandBack={sm.completeExternalSegment}
+        />
+      )}
+
       {/* ─── BASE LAYER: Workout Playlist ─────────────────────────────── */}
       <div className="absolute inset-0 z-0 bg-white dark:bg-slate-900 flex flex-col">
         {timed.active ? (
-          <TimedListBehind timed={timed} workout={workout} segmentIndex={sm.currentSegmentIndex} onClose={() => setIsMinimized(false)} />
+          <TimedListBehind store={timed.store} workout={workout} segmentIndex={sm.currentSegmentIndex} onClose={() => setIsMinimized(false)} />
         ) : (
         <WorkoutPlaylist
           workout={workout}
@@ -815,6 +823,7 @@ export default function StrengthRunner({
           exerciseLog={sm.exerciseLogSnapshot}
           handleRepetitionSave={sm.handleRepetitionSave}
           onSkipRest={sm.skipRest}
+          renderTimedSegment={renderTimedSegment}
         />
         )}
       </div>
@@ -833,10 +842,21 @@ export default function StrengthRunner({
         dragElastic={0.12}
         onDragEnd={handleDragEnd}
       >
-        {isMinimized ? (
+        {isMinimized && timed.active ? (
+          <TimedMiniPlayerBar
+            store={timed.store}
+            fallbackName={sm.exerciseName}
+            fallbackLabel={sm.formatTime(sm.elapsedTime)}
+            safeVideoUrl={safeVideoUrl}
+            isPaused={sm.isPaused}
+            dragControls={dragControls}
+            onExpand={() => setIsMinimized(false)}
+            onTogglePause={sm.togglePause}
+          />
+        ) : isMinimized ? (
           <MiniPlayerBar
-            exerciseName={timedMini ? timedMini.name : sm.exerciseName}
-            elapsedTimeLabel={timedMini ? timedMini.label : sm.formatTime(sm.elapsedTime)}
+            exerciseName={sm.exerciseName}
+            elapsedTimeLabel={sm.formatTime(sm.elapsedTime)}
             safeVideoUrl={safeVideoUrl}
             isPaused={sm.isPaused}
             dragControls={dragControls}
@@ -845,7 +865,7 @@ export default function StrengthRunner({
           />
         ) : timed.active ? (
           <TimedBlockPlayer
-            timed={timed}
+            store={timed.store}
             workout={workout}
             segmentIndex={sm.currentSegmentIndex}
             isPaused={sm.isPaused}

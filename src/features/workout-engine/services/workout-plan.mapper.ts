@@ -21,6 +21,7 @@ import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text
 import { resolveExerciseMedia } from '../shared/utils/media-resolution.utils';
 import { normalizeGearId } from '../shared/utils/gear-mapping.utils';
 import { partitionByTabataBlock } from '../logic/protocols/tabata.block';
+import { withTimedMainBlock } from '../logic/protocols/timed.block';
 import { inferSegmentProtocol } from '../players/strength/protocols/advance-registry';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,6 +30,8 @@ export function buildWorkoutPlanFromGenerated(
   gw: GeneratedWorkout,
   workoutId: string,
   location?: string,
+  /** enable_home_v2: AMRAP / EMOM main block (protocols/timed.block). Absent → unchanged. */
+  opts: { timedBlocks?: boolean } = {},
 ): Record<string, any> {
   const exercises = gw.exercises.map((ex) => {
     // דגשים off the ENGINE-SELECTED method (specificCues → highlights → exercise
@@ -246,7 +249,7 @@ export function buildWorkoutPlanFromGenerated(
     name: gw.title || 'אימון כוח',
     description: gw.description || '',
     logicCue: gw.logicCue || '',
-    segments,
+    segments: opts.timedBlocks ? withTimedMainBlock(segments, gw) : segments,
     totalDuration: gw.estimatedDuration || 30,
     difficulty: gw.difficulty === 1 ? 'easy' as const : gw.difficulty === 3 ? 'hard' as const : 'medium' as const,
     trainingType: 'strength' as const,
