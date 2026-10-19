@@ -21,13 +21,34 @@ import {
   type ShareSize,
 } from '../services/share-image';
 import { canvasToBlob, loadShareImage, renderShareImage, shareOrDownload } from '../services/share-image-render';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import ShareImageSheetV2 from './share-v2/ShareImageSheetV2';
 
 const chip = (on: boolean) =>
   `h-9 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
     on ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
   }`;
 
-export default function ShareImageSheet({
+type ShareImageSheetProps = {
+  open: boolean;
+  onClose: () => void;
+  input: ShareImageInput | null;
+  /** A photo to offer as the background (the post's, or one just picked). */
+  photoUrl?: string | null;
+};
+
+/**
+ * enable_home_v2 → the redesigned sheet + templates (share-v2/*, boards
+ * SH-1…SH-4); otherwise exactly the #420 sheet below.
+ */
+export default function ShareImageSheet(props: ShareImageSheetProps) {
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  return v2 ? <ShareImageSheetV2 {...props} /> : <LegacyShareImageSheet {...props} />;
+}
+
+function LegacyShareImageSheet({
   open,
   onClose,
   input,
