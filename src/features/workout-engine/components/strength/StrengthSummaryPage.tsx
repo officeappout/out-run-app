@@ -27,6 +27,7 @@ import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phas
 import { useSummaryStreakWeek } from '@/features/workout-engine/summary/hooks/useSummaryStreakWeek';
 import { IS_COMMUNITY_FEED_ENABLED } from '@/config/feature-flags';
 import SummaryFeedShare from '@/features/social/components/SummaryFeedShare';
+import { shareTotalsFromPhases } from '@/features/social/share-v2/summary-totals';
 import { buildStrengthPostDetails } from '@/features/social/services/feed-post-details';
 import {
   clearPendingShare,
@@ -417,6 +418,10 @@ export default function StrengthSummaryPage({
               // For the "שיתוף לרשתות" image: the exercises this summary
               // shows (no level here — the post gets it at finish).
               ...buildStrengthPostDetails({ phases: v2Phases }),
+              // v2 share templates: totals + when (display only).
+              ...shareTotalsFromPhases(v2Phases),
+              durationSeconds: duration,
+              dateMs: Date.now(),
             }}
             onPublish={async (choice) => {
               setFeedShare({ kind: 'publish', choice });

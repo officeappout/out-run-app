@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import type { FeedActivity, FeedPrefs, FeedPrefsAudience, ShareChoice } from '../services/feed-prefs';
 import { routeShapeToSvg } from '../services/feed-route';
 import type { FeedPostDetails } from '../services/feed-post-details';
+import type { ShareExtras } from '../services/share-image';
 import { pickFeedPhoto, type PickedPhoto } from '../services/feed-photo';
 import RouteLine from './RouteLine';
 
@@ -30,7 +31,7 @@ const AUDIENCE: Record<FeedPrefsAudience, { label: string; hint: string; Icon: t
   private: { label: 'רק אני', hint: 'נשמר אצלך, לא מתפרסם', Icon: Lock },
 };
 
-export interface ShareableWorkout extends FeedPostDetails {
+export interface ShareableWorkout extends FeedPostDetails, ShareExtras {
   activityCategory: FeedActivity;
   durationMinutes: number;
   distanceKm?: number;

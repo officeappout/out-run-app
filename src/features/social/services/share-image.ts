@@ -53,6 +53,29 @@ export interface ShareImageInput {
   routeShape?: number[];
   streakDays?: number;
   photoUrl?: string;
+  // ── v2 templates (enable_home_v2) — all optional, from data already on
+  // the device at share time (the summary or the post); never a new read.
+  /** Sets / reps actually done in the whole workout. */
+  totalSets?: number;
+  totalReps?: number;
+  /** Exercises done (top + more when the summary didn't say). */
+  exerciseCount?: number;
+  /** Exact duration when known ("30:10"); otherwise durationMinutes is used. */
+  durationSeconds?: number;
+  /** Per-lap pace, seconds per km (FeedPostDetails.paceSplits). */
+  paceSplits?: number[];
+  /** When the workout happened (epoch ms). */
+  dateMs?: number;
+  parkName?: string;
+}
+
+/** Extra share-only facts a summary can pass along with its workout. */
+export interface ShareExtras {
+  totalSets?: number;
+  totalReps?: number;
+  exerciseCount?: number;
+  durationSeconds?: number;
+  dateMs?: number;
 }
 
 export interface ShareStat {
@@ -90,8 +113,11 @@ export function shareKindFor(activityCategory: string): ShareKind {
 
 /** A feed post, or the summary's not-yet-posted workout (ShareableWorkout). */
 export type ShareSource = Pick<FeedPost, 'activityCategory' | 'durationMinutes'> &
-  Partial<Pick<FeedPost, 'title' | 'distanceKm' | 'paceMinPerKm' | 'paceSecPerKm' | 'routeShape'>> &
-  FeedPostDetails;
+  Partial<Pick<FeedPost, 'title' | 'distanceKm' | 'paceMinPerKm' | 'paceSecPerKm' | 'routeShape' | 'parkName' | 'createdAt'>> &
+  FeedPostDetails &
+  ShareExtras;
+
+const posNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
 
 function paceSec(post: Pick<ShareSource, 'paceSecPerKm' | 'paceMinPerKm'>): number | undefined {
   if (typeof post.paceSecPerKm === 'number' && post.paceSecPerKm > 0) return post.paceSecPerKm;
@@ -115,7 +141,28 @@ export function shareInputFromPost(post: ShareSource): ShareImageInput {
     routeShape: Array.isArray(post.routeShape) && post.routeShape.length >= 6 ? post.routeShape : undefined,
     streakDays: post.streakDays,
     photoUrl: post.photoUrl,
+    ...v2Extras(post),
   };
+}
+
+/** The v2-only fields (undefined ones left out, so v1 inputs stay identical). */
+function v2Extras(post: ShareSource): Partial<ShareImageInput> {
+  const out: Partial<ShareImageInput> = {};
+  if (posNum(post.totalSets)) out.totalSets = Math.round(post.totalSets);
+  if (posNum(post.totalReps)) out.totalReps = Math.round(post.totalReps);
+  const exCount = posNum(post.exerciseCount) ? post.exerciseCount : (post.topExercises?.length ?? 0) + (post.moreExercises ?? 0);
+  if (exCount > 0) out.exerciseCount = Math.round(exCount);
+  // A post only lists its top exercises: their sets are the total only when nothing was left out.
+  if (out.totalSets === undefined && post.topExercises?.length && !post.moreExercises) {
+    const sets = post.topExercises.reduce((n, e) => n + (e.setsDone || 0), 0);
+    if (sets > 0) out.totalSets = sets;
+  }
+  if (posNum(post.durationSeconds)) out.durationSeconds = Math.round(post.durationSeconds);
+  if (Array.isArray(post.paceSplits) && post.paceSplits.length >= 2) out.paceSplits = post.paceSplits;
+  const date = posNum(post.dateMs) ? post.dateMs : post.createdAt instanceof Date ? post.createdAt.getTime() : undefined;
+  if (date && Number.isFinite(date)) out.dateMs = date;
+  if (typeof post.parkName === 'string' && post.parkName.trim()) out.parkName = post.parkName.trim();
+  return out;
 }
 
 export function formatDurationMin(min: number): ShareStat {
