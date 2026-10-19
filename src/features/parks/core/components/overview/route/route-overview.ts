@@ -226,7 +226,8 @@ export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | '
     kept.push(p);
   }
   if (kept.length === 0) return [];
-  return [{ key: 'start', kind: 'start', label: 'התחלה', km: 0 }, ...kept].slice(0, max);
+  const start: AlongPoint = { key: 'start', kind: 'start', label: 'התחלה', km: 0 };
+  return [start, ...kept].slice(0, max);
 }
 
 /** Placeholder prose until per-route descriptions come from the admin panel. */
