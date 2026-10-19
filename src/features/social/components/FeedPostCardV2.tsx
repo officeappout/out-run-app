@@ -8,8 +8,9 @@
  *   strength: a tinted hero — program + "שלב X מתוך Y" + level bar when
  *     known, the duration, the top exercises with per-set dots, "ועוד N
  *     תרגילים", the "improved vs last time" badge.
- *   run/walk: a big route-line hero (or the photo, with the line as a small
- *     inset), big numbers, per-lap pace bars when the run had laps.
+ *   run/walk/ride: a big route-line hero (or the photo, with the line as a
+ *     small inset), big numbers (a ride: km/h instead of pace —
+ *     feed-cardio-stats.ts), per-lap pace bars when the run had laps.
  * Every section hides itself when its field is missing — nothing invented.
  */
 import { useState, type ReactNode } from 'react';
@@ -18,6 +19,7 @@ import { Flame, Globe, Lock, MapPin, Share2, Trophy, TrendingUp, Users } from 'l
 import type { FeedPost } from '../services/feed.service';
 import { exerciseLine, formatSecPerKm, paceBarHeights, type FeedTopExercise } from '../services/feed-post-details';
 import { shareInputFromPost } from '../services/share-image';
+import { cardioPostStats } from '../services/feed-cardio-stats';
 import RouteLine from './RouteLine';
 import ShareImageSheet from './ShareImageSheet';
 
@@ -46,12 +48,6 @@ export interface FeedPostCardV2Props {
   onProfile: () => void;
   menu: ReactNode;
   report: ReactNode;
-}
-
-function formatPace(pace: number): string {
-  const mins = Math.floor(pace);
-  const secs = Math.round((pace - mins) * 60);
-  return secs === 60 ? `${mins + 1}:00` : `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 function Avatar({ name, hex, size = 44, ring }: { name: string; hex: string; size?: number; ring?: number }) {
@@ -267,9 +263,9 @@ export default function FeedPostCardV2({
         {report}
 
         <div className="grid grid-cols-3 gap-2 px-4 pb-1.5 pt-3.5">
-          <BigStat value={post.distanceKm != null ? post.distanceKm.toFixed(1) : '—'} unit="ק״מ" />
-          <BigStat value={post.paceMinPerKm != null ? formatPace(post.paceMinPerKm) : '—'} unit="דק׳ לק״מ" />
-          <BigStat value={String(post.durationMinutes)} unit="דקות" />
+          {cardioPostStats(post).map((st) => (
+            <BigStat key={st.unit} value={st.value} unit={st.unit} />
+          ))}
         </div>
 
         {post.paceSplits && post.paceSplits.length >= 2 && <PaceBars splits={post.paceSplits} />}
