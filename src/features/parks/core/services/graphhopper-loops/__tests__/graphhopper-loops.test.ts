@@ -50,6 +50,15 @@ describe('tryGraphhopperLoops', () => {
     expect(routes![0].features).toMatchObject({ hasBenches: false, lit: undefined, trafficLoad: 'low' });
     expect(routes![1].features.trafficLoad).toBe('high');
   });
+  it('sends our routes (enable_loops_prefer_official) only when there are some', async () => {
+    const f = okFetch([dto()]);
+    const wire = [{ id: 'r1', path: [[34.775, 32.08], [34.78, 32.08]] as [number, number][] }];
+    await tryGraphhopperLoops(opts(), deps(f), wire);
+    await tryGraphhopperLoops(opts(), deps(f), []);
+    const bodies = (f.mock.calls as unknown as Array<[string, RequestInit]>).map(c => JSON.parse(c[1].body as string));
+    expect(bodies[0].ourRoutes).toEqual(wire);
+    expect('ourRoutes' in bodies[1]).toBe(false);
+  });
   it.each([
     ['HTTP 503', vi.fn(async () => new Response('{}', { status: 503 }))],
     ['HTTP 429', vi.fn(async () => new Response('{}', { status: 429 }))],

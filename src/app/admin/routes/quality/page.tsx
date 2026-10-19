@@ -20,10 +20,10 @@ import { Loader2 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { QUALITY_START_PRESETS } from '@/features/admin/components/routes/route-quality/presets';
-import { RouteQualityControls, type QualityControlsValue } from '@/features/admin/components/routes/route-quality/RouteQualityControls';
+import { RouteQualityControls, variantsForMode, type QualityControlsValue } from '@/features/admin/components/routes/route-quality/RouteQualityControls';
 import { RouteQualityAggregate, RouteQualityRows } from '@/features/admin/components/routes/route-quality/RouteQualityTable';
 import { useRouteQualityRunner } from '@/features/admin/components/routes/route-quality/useRouteQualityRunner';
-import type { QualityVariant } from '@/features/admin/components/routes/route-quality/types';
+import { useOurRoutesOverlay } from '@/features/admin/components/routes/route-quality/useOurRoutesOverlay';
 
 const RouteQualityMap = dynamicImport(() => import('@/features/admin/components/routes/route-quality/RouteQualityMap'), {
   ssr: false,
@@ -40,7 +40,9 @@ export default function RouteQualityPage() {
     presetId: first.id, start: { lat: first.lat, lng: first.lng }, cityName: first.cityName, targetKm: 3, activity: 'running', runs: 3, mode: 'ab',
   });
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [showOurRoutes, setShowOurRoutes] = useState(true);
   const { state, run, cancel } = useRouteQualityRunner();
+  const overlay = useOurRoutesOverlay(authChecked && showOurRoutes, controls.start, controls.targetKm, controls.cityName);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -60,7 +62,7 @@ export default function RouteQualityPage() {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-cyan-500" size={32} /></div>;
   }
 
-  const variants: QualityVariant[] = controls.mode === 'ab' ? ['off', 'on'] : controls.mode === 'ghab' ? ['on', 'gh'] : [controls.mode];
+  const variants = variantsForMode(controls.mode);
   const onRun = () => {
     setSelectedKey(null);
     run({ start: controls.start, cityName: controls.cityName, targetKm: controls.targetKm, activity: controls.activity, runs: controls.runs, variants });
@@ -71,7 +73,7 @@ export default function RouteQualityPage() {
       <div className="mb-5">
         <h1 className="text-2xl font-black text-gray-900">איכות מסלולים מעגליים</h1>
         <p className="text-sm text-gray-400 mt-1">
-          מריץ את מחולל המסלולים מנקודה ומודד כל מסלול: פרסות וענפים מתים, חזרה על אותו רחוב, הצטלבות עצמית, קומפקטיות, סטייה מהמרחק, כבישים ראשיים וחציות. <span className="text-blue-500 font-bold">כחול</span> = המחולל הנוכחי, <span className="text-emerald-500 font-bold">ירוק</span> = v1, <span className="text-violet-500 font-bold">סגול</span> = GraphHopper. קריאה בלבד.
+          מריץ את מחולל המסלולים מנקודה ומודד כל מסלול: פרסות וענפים מתים, חזרה על אותו רחוב, הצטלבות עצמית, קומפקטיות, סטייה מהמרחק, כבישים ראשיים וחציות. <span className="text-blue-500 font-bold">כחול</span> = המחולל הנוכחי, <span className="text-emerald-500 font-bold">ירוק</span> = v1, <span className="text-amber-500 font-bold">כתום</span> = v1 + המסלולים שלנו, <span className="text-violet-500 font-bold">סגול</span> = GraphHopper, <span className="text-pink-500 font-bold">ורוד</span> = GraphHopper + המסלולים שלנו. רצועה <span className="text-teal-700 font-bold">ירוקה-כהה</span> = המסלולים הרשמיים שלנו ליד נקודת ההתחלה. קריאה בלבד.
         </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
@@ -82,7 +84,7 @@ export default function RouteQualityPage() {
             running={state.running}
             onRun={onRun}
             onCancel={cancel}
-            flagNote="ההשוואה מריצה את הגרסאות ישירות — לא משנה את הדגלים enable_route_quality_v1 / enable_graphhopper_routes בהגדרות המערכת. GH = שרת הניווט שלנו (GraphHopper), בלי חזרה ל-Mapbox."
+            flagNote="ההשוואה מריצה את הגרסאות ישירות — לא משנה את הדגלים enable_route_quality_v1 / enable_graphhopper_routes / enable_loops_prefer_official בהגדרות המערכת. GH = שרת הניווט שלנו (GraphHopper), בלי חזרה ל-Mapbox. ״שלנו״ = מעדיף לעבור במסלולים הרשמיים שמיפינו."
           />
           {(state.progress || state.osmStatus !== 'idle' || state.error) && (
             <div className="text-xs space-y-1">
@@ -102,9 +104,16 @@ export default function RouteQualityPage() {
               routes={state.routes}
               selectedKey={selectedKey}
               onPickStart={p => setControls(c => ({ ...c, presetId: null, start: p }))}
+              ourRoutes={overlay.lines}
+              showOurRoutes={showOurRoutes}
             />
           </div>
-          <div className="flex gap-4 text-xs text-gray-500">
+          <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" checked={showOurRoutes} onChange={e => setShowOurRoutes(e.target.checked)} />
+              <span className="w-4 h-1.5 rounded-full bg-teal-700/40 inline-block" />
+              המסלולים שלנו {showOurRoutes && (overlay.loading ? '(טוען…)' : `(${overlay.lines.length})`)}
+            </label>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> פרסה / ענף מת</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rotate-45 bg-orange-500 inline-block" /> חציה לא מסומנת של כביש ראשי</span>
             <span>קו דהוי = לא עובר את ספי v1 · לחיצה על שורה מבודדת מסלול</span>

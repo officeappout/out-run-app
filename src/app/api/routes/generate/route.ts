@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
     const out = await generateLoops(client, {
       start: parsed.start, targetKm: parsed.targetKm, activity: parsed.activity,
       seed: parsed.seed ?? 0, maxResults: parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
+      // Our mapped routes, sent by the app only with enable_loops_prefer_official on.
+      ...(parsed.ourRoutes ? { ourRoutes: parsed.ourRoutes } : {}),
     }, osmP);
     const osm = await osmP;
     if (out.loops.length === 0 && out.errors > 0) throw new Error(out.lastError ?? 'all candidates failed');

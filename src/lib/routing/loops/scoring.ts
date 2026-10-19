@@ -3,9 +3,10 @@
  * = 10 if it fails the v1 bars + the v1 penalty + 2·|distance error| — the
  * exact ranking the experiment validated (77.8% pass vs 58.3% Mapbox v1).
  */
-import { computeRouteQualityMetrics, evaluateLoopQuality, trimSpurs, type LngLat, type OsmRoadLayer, type QualityVerdict, type RouteQualityMetrics } from '@/lib/route-quality';
+import { computeRouteQualityMetrics, evaluateLoopQuality, ourRoutesShare, trimSpurs, type LngLat, type OsmRoadLayer, type OurRoutesIndex, type QualityVerdict, type RouteQualityMetrics } from '@/lib/route-quality';
 import type { LoopCandidate, LoopSource } from './candidates';
 import type { RoutedPath } from '../graphhopper';
+import { OUR_ROUTES_GH_SCORE_WEIGHT } from '../our-routes';
 
 export interface ScoredLoop {
   source: LoopSource;
@@ -22,12 +23,15 @@ export interface ScoredLoop {
   /** From GraphHopper path details (pre-trim). */
   roadClassShare: RoutedPath['roadClassShare'];
   crossingsAll: RoutedPath['crossings'];
+  /** 0..1 on our mapped routes — only when our routes were passed (enable_loops_prefer_official). */
+  ourRoutesShare?: number;
 }
 
 /** Loops further off the target than this are only used when nothing else exists. */
 export const MAX_DISTANCE_ERROR = 0.3;
 
-export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer | null): ScoredLoop {
+/** `ourRoutes` (enable_loops_prefer_official): loops along our mapped routes rank better — see OUR_ROUTES_GH_SCORE_WEIGHT. */
+export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer | null, ourRoutes?: OurRoutesIndex | null): ScoredLoop {
   const r = c.routed;
   const t = trimSpurs(r.path);
   const metrics = computeRouteQualityMetrics(t.path, { targetKm, osm });
@@ -40,7 +44,8 @@ export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer 
   const distanceM = Math.max(0, r.distanceM - t.trimmedM);
   const err = Math.abs(metrics.distanceErrorPct ?? 0);
   const unmarkedTiebreak = osm ? 0 : 0.05 * r.crossings.unmarked;
-  return {
+  const share = ourRoutes ? ourRoutesShare(t.path, ourRoutes).share : null;
+  const scored: ScoredLoop = {
     source: c.source,
     path: t.path,
     distanceKm: distanceM / 1000,
@@ -54,6 +59,11 @@ export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer 
     roadClassShare: r.roadClassShare,
     crossingsAll: r.crossings,
   };
+  if (share != null) {
+    scored.ourRoutesShare = share;
+    scored.score -= OUR_ROUTES_GH_SCORE_WEIGHT * share;
+  }
+  return scored;
 }
 
 const mid = (p: LngLat[]) => p[Math.floor(p.length / 2)];

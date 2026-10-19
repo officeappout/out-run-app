@@ -214,6 +214,13 @@ export const FLAG_DEFS = [
   // Read on the device via readLiveFlag, so superAdminValue false — the panel toggle is
   // the one switch. Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableGraphhopperRoutes', firestoreKey: 'enable_graphhopper_routes', defaultValue: false, superAdminValue: false },
+  // Loops prefer our routes (19.10.2026, owner-approved) — generated loops pass along OUR mapped
+  // routes (official_routes) when they are nearby: v1 (Mapbox) seeds waypoints ON those routes
+  // and ranks loops by their share on them (needs enable_route_quality_v1); GraphHopper gets them
+  // as a buffered custom area with a priority boost + the same share in its scoring. Read on the
+  // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
+  // Off = the generator is byte-identical. A/B: /admin/routes/quality.
+  { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

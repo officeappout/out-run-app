@@ -10,8 +10,9 @@
  *
  * Server-only (needs the GraphHopper client); no Firestore.
  */
-import type { OsmRoadLayer } from '@/lib/route-quality';
+import { buildOurRoutesIndex, type OsmRoadLayer, type OurRouteLine } from '@/lib/route-quality';
 import { DEFAULT_TAGS, profileForActivity, type GraphHopperClient, type OutActivity, type RouteTags } from './graphhopper';
+import { buildOurRoutesArea, ourRoutesRadiusKm } from './our-routes';
 import { roundTripCandidate, viaLoopCandidate, type CandidateParams, type LoopCandidate } from './loops/candidates';
 import { spreadHeadings, type LatLng } from './loops/geo';
 import { scoreLoop, selectTopLoops, type ScoredLoop } from './loops/scoring';
@@ -30,6 +31,23 @@ export interface LoopRequest {
   maxResults?: number;
   /** Return whatever finished by then (ms from call). */
   deadlineMs?: number;
+  /**
+   * Our mapped routes near the start (enable_loops_prefer_official): sent to
+   * GraphHopper as a buffered custom area with a priority boost, and the share
+   * of each loop on them improves its score. Absent = exactly the plain recipe.
+   */
+  ourRoutes?: OurRouteLine[];
+}
+
+/** Tags + scoring index for our routes; the plain tags when there are none nearby. */
+function withOurRoutes(req: LoopRequest): { tags: RouteTags; index: ReturnType<typeof buildOurRoutesIndex> | undefined } {
+  const tags = req.tags ?? DEFAULT_TAGS;
+  if (!req.ourRoutes?.length) return { tags, index: undefined };
+  const area = buildOurRoutesArea(req.ourRoutes, req.start, ourRoutesRadiusKm(req.targetKm));
+  return {
+    tags: area ? { ...tags, preferOurRoutes: area.feature } : tags,
+    index: buildOurRoutesIndex(req.ourRoutes, [req.start.lng, req.start.lat]),
+  };
 }
 
 export interface LoopResult {
@@ -49,12 +67,13 @@ export async function generateLoops(
   osm: OsmRoadLayer | null | Promise<OsmRoadLayer | null> = null,
 ): Promise<LoopResult> {
   const ctrl = new AbortController();
+  const our = withOurRoutes(req);
   const params: CandidateParams = {
     client,
     start: req.start,
     targetKm: req.targetKm,
     profile: profileForActivity(req.activity),
-    tags: req.tags ?? DEFAULT_TAGS,
+    tags: our.tags,
     signal: ctrl.signal,
   };
   const headings = spreadHeadings(req.seed);
@@ -85,7 +104,7 @@ export async function generateLoops(
 
   const snapshot = [...done];
   const layer = await osm;
-  const scored = snapshot.map(c => scoreLoop(c, req.targetKm, layer));
+  const scored = snapshot.map(c => scoreLoop(c, req.targetKm, layer, our.index));
   return {
     loops: selectTopLoops(scored, req.maxResults ?? 3),
     candidates: snapshot.length,

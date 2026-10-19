@@ -1,8 +1,10 @@
 /**
  * scripts/route-quality/measure.ts — before/after route-quality measurement.
  *
- * Runs the REAL loop generator (generateDynamicRoutes) at the 6 fixed starts
- * × 3/5 km, N regenerations each, with route quality v1 OFF and ON, against
+ * Runs the REAL loop generator (generateDynamicRoutes) at the fixed starts
+ * × 3/5 km, N regenerations each, with route quality v1 OFF and ON (and
+ * `ours` = v1 + loops prefer our routes: needs official_routes.json in the
+ * corpus — a read-only dump, kept out of the repo like street_segments), against
  * real Mapbox Directions + Overpass, and scores every returned route with the
  * pure src/lib/route-quality metrics. Firestore is an offline, read-only
  * corpus replay (a read-only street_segments dump; the dump script was kept out of the repo — see PR #480) — nothing can
@@ -16,13 +18,14 @@ import './hermetic/guard';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MEASURE_STARTS, MEASURE_TARGETS_KM } from './starts';
-import { summarize, toMarkdown, type RouteRow } from './summarize';
+import { summarize, toMarkdown, type MeasureVariant, type RouteRow } from './summarize';
 
 const arg = (k: string, d?: string) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const RUNS = Number(arg('runs', '3'));
 const OUT = arg('out', 'route-quality-out')!;
 const ONLY = arg('only');
-const VARIANTS = (arg('variants', 'off,on') ?? '').split(',') as Array<'off' | 'on'>;
+/** off = current, on = route quality v1, ours = v1 + loops prefer our routes (enable_loops_prefer_official). */
+const VARIANTS = (arg('variants', 'off,on') ?? '').split(',') as MeasureVariant[];
 
 /** Overpass mirrors refuse Node's default User-Agent (406). */
 const withUA: typeof fetch = (url, init) =>
@@ -35,6 +38,9 @@ async function main() {
   const { computeRouteQualityMetrics, evaluateLoopQuality, fetchOsmRoadLayer, bboxAround } = await import('@/lib/route-quality');
   const { OVERPASS_ENDPOINTS } = await import('@/lib/route-quality/osm-layer');
   const { seedOsmRoadLayer } = await import('@/lib/route-quality/osm-layer-cache');
+  const { ourRoutesShare } = await import('@/lib/route-quality');
+  // Our routes near each start come from the corpus' official_routes (same readers as the app).
+  const { loadOurRoutesForQuality } = await import('@/features/admin/components/routes/route-quality/our-routes-loader');
   const READS = (globalThis as { __RQ_READS?: { docs: number; queries: number } }).__RQ_READS!;
   mkdirSync(OUT, { recursive: true });
 
@@ -54,6 +60,8 @@ async function main() {
     // the cache for the exact area keys it will ask for (warm-cache behaviour).
     for (const targetKm of MEASURE_TARGETS_KM) seedOsmRoadLayer(s.lat, s.lng, Math.max(targetKm, 1.5) / 2 + 0.5, osm);
     for (const targetKm of MEASURE_TARGETS_KM) {
+      const ours = await loadOurRoutesForQuality({ lat: s.lat, lng: s.lng }, targetKm, s.cityName);
+      log(`  ${s.id} ${targetKm}km: ${ours.lines.length} of our routes nearby`);
       for (const variant of VARIANTS) {
         for (let run = 0; run < RUNS; run++) {
           const before = READS.docs;
@@ -68,7 +76,9 @@ async function main() {
               preferences: { includeStrength: false, maxRoutes: 3 },
               parks: [],
               cityName: s.cityName,
-              routeQualityV1: variant === 'on',
+              routeQualityV1: variant !== 'off',
+              graphhopperRoutes: false,
+              loopsPreferOfficial: variant === 'ours',
             } as Parameters<typeof generateDynamicRoutes>[0]);
           } catch (e) { log(`  ! ${s.id} ${targetKm} ${variant} run ${run}: ${(e as Error).message}`); }
           const reads = READS.docs - before;
@@ -80,6 +90,7 @@ async function main() {
               start: s.id, targetKm, variant, run, rank, reads, ms,
               distanceKm: r.distance, metrics: { ...m, uTurns: [], crossings: m.crossings ? { ...m.crossings, marks: [] } : null },
               pass: v.pass, reasons: v.reasons, features: r.features, rating: r.rating,
+              ...(ours.index ? (({ share, routesUsed }) => ({ oursShare: share, oursRoutesUsed: routesUsed }))(ourRoutesShare(r.path, ours.index)) : {}),
             });
           });
           if (routes.length === 0) rows.push({ start: s.id, targetKm, variant, run, rank: -1, reads, ms, empty: true });

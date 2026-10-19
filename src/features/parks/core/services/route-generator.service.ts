@@ -30,7 +30,16 @@ import {
 } from './route-quality-v1';
 import { getOsmRoadLayerWithin } from '@/lib/route-quality/osm-layer-cache';
 import { resolveGraphhopperRoutes, isGraphhopperLoopRequest, tryGraphhopperLoops } from './graphhopper-loops';
-import type { OsmRoadLayer } from '@/lib/route-quality';
+import type { OsmRoadLayer, OurRoutesIndex } from '@/lib/route-quality';
+import {
+  resolveLoopsPreferOfficial,
+  prepareOurRoutes,
+  ourRoutesSources,
+  withOurRouteSeeds,
+  rankFactorForPath,
+  type OurRoutesContext,
+} from './loops-prefer-official';
+import { ourRoutesRadiusKm, toWireOurRoutes } from '@/lib/routing/our-routes';
 
 // ── Diagnostics for the UI ──────────────────────────────────────────────────
 // The generator runs in a service module so the UI can't observe its
@@ -299,6 +308,13 @@ interface RouteGenerationOptions {
    * device's live flag; an explicit boolean wins (admin A/B page, tests).
    */
   graphhopperRoutes?: boolean;
+  /**
+   * Loops prefer our mapped routes (panel flag enable_loops_prefer_official).
+   * Omitted = the device's live flag; an explicit boolean wins (admin A/B
+   * page, measurement script). Acts on v1 loops and GraphHopper loops only.
+   * See ./loops-prefer-official.
+   */
+  loopsPreferOfficial?: boolean;
 }
 
 // ── Street-segment types ───────────────────────────────────────────────────────
@@ -1485,19 +1501,43 @@ async function findFitnessAnchor(
 export async function generateDynamicRoutes(
   options: RouteGenerationOptions
 ): Promise<Route[]> {
+  // Loops prefer our routes (enable_loops_prefer_official): resolved ONCE here.
+  const preferOfficial = resolveLoopsPreferOfficial(options.loopsPreferOfficial);
   // GraphHopper routes (enable_graphhopper_routes): plain loops go to OUT's own
   // routing server first; null (any error / > 2 s / empty) → the pipeline below.
   // Flag off → this block is skipped entirely. See ./graphhopper-loops.
   if (resolveGraphhopperRoutes(options.graphhopperRoutes) && isGraphhopperLoopRequest(options)) {
-    const ghRoutes = await tryGraphhopperLoops(options);
+    const ghRoutes = preferOfficial
+      ? await tryGraphhopperLoops(options, undefined, await ourRoutesForGraphhopper(options))
+      : await tryGraphhopperLoops(options);
     if (ghRoutes) return ghRoutes;
   }
   // Route quality v1 (enable_route_quality_v1): resolved ONCE here so every
   // branch below agrees. Off → the original dispatcher, untouched.
   if (!resolveRouteQualityV1(options.routeQualityV1)) return dispatchGeneration(options);
-  const routes = await dispatchGeneration({ ...options, routeQualityV1: true });
+  const routes = await dispatchGeneration(
+    preferOfficial ? { ...options, routeQualityV1: true, loopsPreferOfficial: true } : { ...options, routeQualityV1: true },
+  );
   // Corridor-following returns a stored official route — its own attributes are real data.
   return options.followOfficialRouteId ? routes : applyHonestAttributes(routes);
+}
+
+/** A city's published official corridors (alias-resolved) as plain lines — the loops-prefer-official city source. */
+export function readCityCorridorLines(city: string): Promise<CorridorRecord[]> {
+  return fetchPublishedCorridorsForCity(resolveCityNameQueryAliases(city)).then(m => Array.from(m.values()));
+}
+
+/** Our mapped routes near the start (enable_loops_prefer_official), via the existing readers only. */
+function loadOurRoutesFor(options: RouteGenerationOptions, radiusKm: number): Promise<OurRoutesContext> {
+  return prepareOurRoutes(options.userLocation, radiusKm, ourRoutesSources(options.cityName, readCityCorridorLines));
+}
+
+/** GraphHopper: our routes in wire form (clipped to the loop radius, simplified). */
+async function ourRoutesForGraphhopper(options: RouteGenerationOptions) {
+  const raw = typeof options.targetDistance === 'number' && !isNaN(options.targetDistance) ? options.targetDistance : 3;
+  const radiusKm = ourRoutesRadiusKm(raw);
+  const ctx = await loadOurRoutesFor(options, radiusKm);
+  return toWireOurRoutes(ctx.lines, options.userLocation, radiusKm);
 }
 
 async function dispatchGeneration(
@@ -2594,11 +2634,15 @@ interface CombinationAttemptResult {
   routeDistanceKm?: number;
   /** Route quality v1 only: ranking penalty (0 = perfect) — multiplies turnsPerKm. */
   qualityPenalty?: number;
+  /** Loops prefer our routes only: (1 − weight × share on our routes) — multiplies turnsPerKm. */
+  rankFactor?: number;
 }
 
 /** Route quality v1 context threaded into each combination attempt. */
 interface V1AttemptContext {
   osmLayer: Promise<OsmRoadLayer | null> | null;
+  /** Loops prefer our routes (enable_loops_prefer_official): ranking bonus by share on them. */
+  ourRoutes?: OurRoutesIndex;
 }
 
 /** How long a v1 generation waits for the cached OSM road layer before judging crossings without it. */
@@ -2792,12 +2836,14 @@ async function attemptOneCombination(
       const selfIntersects = pathSelfIntersects(cleanPath);
       const turnCount = computeRouteTurns(cleanPath).length;
       const qualityPenalty = v1Post?.verdict.penalty;
+      const ours = params.qualityV1?.ourRoutes;
+      const extra = ours ? { rankFactor: rankFactorForPath(cleanPath, ours) } : {};
       if (!selfIntersects && (!v1Post || v1Post.verdict.pass)) {
         console.log(`[RouteGenerator] ✅ Route ${index} CLEAN! (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-        return { index, outcome: 'clean', route, turnCount, routeDistanceKm, qualityPenalty };
+        return { index, outcome: 'clean', route, turnCount, routeDistanceKm, qualityPenalty, ...extra };
       } else {
         console.log(`[RouteGenerator] ⚠️ Route ${index} ${selfIntersects ? 'self-intersects' : `fails quality v1 (${v1Post?.verdict.reasons.join(',')})`} — held as fallback (${cleanPath.length} points, ${routeDistanceKm.toFixed(1)}km, ${csMode})`);
-        return { index, outcome: 'dirty', route, turnCount, routeDistanceKm, qualityPenalty };
+        return { index, outcome: 'dirty', route, turnCount, routeDistanceKm, qualityPenalty, ...extra };
       }
     } else {
       console.warn(
@@ -2971,7 +3017,9 @@ async function attemptRouteCombinations(
   for (const result of results) {
     if (result.route && result.turnCount !== undefined && result.routeDistanceKm) {
       // v1: quality penalty folds into the straightness ranking (×1 when off).
-      const turnsPerKm = (result.turnCount / result.routeDistanceKm) * (1 + (result.qualityPenalty ?? 0));
+      // Loops prefer our routes: × rankFactor (absent → unchanged).
+      const base = (result.turnCount / result.routeDistanceKm) * (1 + (result.qualityPenalty ?? 0));
+      const turnsPerKm = result.rankFactor === undefined ? base : base * result.rankFactor;
       if (result.outcome === 'clean') {
         cleanCandidates.push({ route: result.route, turnsPerKm });
       } else if (result.outcome === 'dirty') {
@@ -3057,6 +3105,12 @@ async function generateLoopRoutes(
   // v1 places waypoints at target/6 (the loop-geometry radius) when the caller gives no ideal.
   const v1IdealKm = preferences.idealWaypointDistanceKm ?? safeDistance / 6;
   let v1Snapped = false;
+  // Loops prefer our routes (enable_loops_prefer_official, v1 only): loaded beside the
+  // street-segment read (v1 reads streets only with a city); null when off. See ./loops-prefer-official.
+  const ourRoutesPromise: Promise<OurRoutesContext> | null = qualityV1 && !!cityName && options.loopsPreferOfficial === true
+    ? loadOurRoutesFor(options, ourRoutesRadiusKm(safeDistance))
+    : null;
+  let ourRoutesIndex: OurRoutesIndex | null = null;
 
   // 2. Fetch waypoint candidates — prefer proximity-bounded street_segments
   //    (if enabled), fall back to citywide-by-score, fall back to random.
@@ -3064,6 +3118,11 @@ async function generateLoopRoutes(
   if (cityName) {
     if (qualityV1) {
       const v1 = await fetchQualityWaypointsV1(userLocation, v1IdealKm, osmLayerPromise);
+      if (ourRoutesPromise) {
+        const ours = await ourRoutesPromise;
+        ourRoutesIndex = ours.index;
+        v1.candidates = withOurRouteSeeds(v1.candidates, ours.lines, userLocation, v1IdealKm);
+      }
       if (v1.candidates.length >= MIN_V1_CANDIDATES) {
         rawCandidates = v1.candidates;
         v1Snapped = true;
@@ -3154,7 +3213,11 @@ async function generateLoopRoutes(
   // v1: calm-street preference replaces the hardcoded arterial preference; scoring
   // uses the same ideal radius as selection. Empty for flag off (no-op spread).
   const v1ScoringOverrides = qualityV1
-    ? { idealWaypointDistanceKm, preferArterialFlow: false, preferQuietSegments: true }
+    ? {
+      idealWaypointDistanceKm, preferArterialFlow: false, preferQuietSegments: true,
+      // Loops prefer our routes: the existing official-route bonus at every target size.
+      ...(ourRoutesPromise ? { preferOfficialRoutes: true } : {}),
+    }
     : {};
 
   const scoredWaypoints = candidateWaypoints.map(wp =>
@@ -3237,7 +3300,9 @@ async function generateLoopRoutes(
     safeDistance,
     minPathPoints: MIN_PATH_POINTS,
     maxRoutesNeeded: MIN_REQUIRED_ROUTES,
-    qualityV1: qualityV1 ? { osmLayer: osmLayerPromise } : undefined,
+    qualityV1: qualityV1
+      ? (ourRoutesIndex ? { osmLayer: osmLayerPromise, ourRoutes: ourRoutesIndex } : { osmLayer: osmLayerPromise })
+      : undefined,
   };
 
   // 4. Main pass — unchanged behavior when the flag is off: single window,

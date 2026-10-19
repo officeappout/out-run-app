@@ -18,6 +18,11 @@ export interface RouteTags {
   avoidUnmarkedCrossings?: boolean;
   /** Prefer edges inside these park polygons (GeoJSON, lng/lat). */
   preferParks?: GeoJsonPolygonFeature[];
+  /**
+   * Prefer edges on OUR mapped routes: one buffered MultiPolygon (lib/routing/our-routes
+   * buildOurRoutesArea). Set only with flag enable_loops_prefer_official.
+   */
+  preferOurRoutes?: GeoJsonPolygonFeature;
   // lit: not modelled yet — GraphHopper 11 has no `lit` encoded value (needs a custom import).
 }
 
