@@ -60,7 +60,7 @@ export default function RouteQualityPage() {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-cyan-500" size={32} /></div>;
   }
 
-  const variants: QualityVariant[] = controls.mode === 'ab' ? ['off', 'on'] : [controls.mode];
+  const variants: QualityVariant[] = controls.mode === 'ab' ? ['off', 'on'] : controls.mode === 'ghab' ? ['on', 'gh'] : [controls.mode];
   const onRun = () => {
     setSelectedKey(null);
     run({ start: controls.start, cityName: controls.cityName, targetKm: controls.targetKm, activity: controls.activity, runs: controls.runs, variants });
@@ -71,7 +71,7 @@ export default function RouteQualityPage() {
       <div className="mb-5">
         <h1 className="text-2xl font-black text-gray-900">איכות מסלולים מעגליים</h1>
         <p className="text-sm text-gray-400 mt-1">
-          מריץ את מחולל המסלולים מנקודה ומודד כל מסלול: פרסות וענפים מתים, חזרה על אותו רחוב, הצטלבות עצמית, קומפקטיות, סטייה מהמרחק, כבישים ראשיים וחציות. <span className="text-blue-500 font-bold">כחול</span> = המחולל הנוכחי, <span className="text-emerald-500 font-bold">ירוק</span> = v1. קריאה בלבד.
+          מריץ את מחולל המסלולים מנקודה ומודד כל מסלול: פרסות וענפים מתים, חזרה על אותו רחוב, הצטלבות עצמית, קומפקטיות, סטייה מהמרחק, כבישים ראשיים וחציות. <span className="text-blue-500 font-bold">כחול</span> = המחולל הנוכחי, <span className="text-emerald-500 font-bold">ירוק</span> = v1, <span className="text-violet-500 font-bold">סגול</span> = GraphHopper. קריאה בלבד.
         </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
@@ -82,7 +82,7 @@ export default function RouteQualityPage() {
             running={state.running}
             onRun={onRun}
             onCancel={cancel}
-            flagNote="ההשוואה מריצה את שתי הגרסאות ישירות — לא משנה את הדגל enable_route_quality_v1 בהגדרות המערכת."
+            flagNote="ההשוואה מריצה את הגרסאות ישירות — לא משנה את הדגלים enable_route_quality_v1 / enable_graphhopper_routes בהגדרות המערכת. GH = שרת הניווט שלנו (GraphHopper), בלי חזרה ל-Mapbox."
           />
           {(state.progress || state.osmStatus !== 'idle' || state.error) && (
             <div className="text-xs space-y-1">

@@ -189,6 +189,13 @@ export const FLAG_DEFS = [
   // generator is a plain module), so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableRouteQualityV1', firestoreKey: 'enable_route_quality_v1', defaultValue: false, superAdminValue: false },
+  // GraphHopper routes (19.10.2026, owner-approved) — loop generation moves to OUT's
+  // self-hosted GraphHopper (Cloud Run me-west1, infra/graphhopper/) via POST
+  // /api/routes/generate: mix best-of-6 + spur trimming + route-quality scoring. Any
+  // error / timeout (> 2 s) / empty answer falls back to the existing Mapbox generator.
+  // Read on the device via readLiveFlag, so superAdminValue false — the panel toggle is
+  // the one switch. Off = the generator is byte-identical. A/B: /admin/routes/quality.
+  { key: 'enableGraphhopperRoutes', firestoreKey: 'enable_graphhopper_routes', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
