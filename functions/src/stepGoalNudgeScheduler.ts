@@ -74,6 +74,15 @@
  * from noon on, 'start'-bucket users are skipped rather than sent a
  * good-morning message at 18:00 (see isMorningOnlyBucketAtThisHour). They
  * come back once evening copy for that bucket exists.
+ *
+ * QUERY (19.10.2026 — cursor pagination)
+ * ──────────────────────────────────────
+ * users where onboardingStatus == COMPLETED, read in pages of
+ * STEP_GOAL_BATCH_LIMIT (300) up to STEP_GOAL_MAX_PAGES (20) per run, one
+ * page in memory at a time, 10 users in parallel. Before this the run read
+ * ONE page of 300 and stopped, so everyone after the first 300 users (by doc
+ * id) never got this nudge. Per-user rules are unchanged (bucket, copy,
+ * morning-only, 24h rate cap, push.service guardrails).
  */
 
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -91,6 +100,7 @@ import type { PushAudience, PushCopyContext } from './shared/push-library.core';
 import { DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
 import type { PersonaResolvableProfile } from './services/persona-alias-map.service';
 import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
+import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -100,10 +110,12 @@ const db = admin.firestore();
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const BATCH_LIMIT = (() => {
-  const raw = Number(process.env.STEP_GOAL_BATCH_LIMIT);
-  return Number.isFinite(raw) && raw > 0 && raw <= 500 ? raw : 300;
-})();
+/** Page size of the candidate query (was the WHOLE run's cap until 19.10.2026). */
+const BATCH_LIMIT = envInt(process.env.STEP_GOAL_BATCH_LIMIT, 300, 500);
+/** Max pages per run (default 20 → 6,000 users). */
+const MAX_PAGES = envInt(process.env.STEP_GOAL_MAX_PAGES, 20, 100);
+/** Parallel per-user goal lookups / sends (each is a handful of reads + one FCM call). */
+const SEND_CONCURRENCY = 10;
 
 
 const TRIGGER_TYPE = 'Daily_Goal';
@@ -235,11 +247,10 @@ async function fetchTodaySteps(uids: string[], dateStr: string): Promise<Map<str
 
 /** Resolve each candidate's ONE step goal (see lib/resolveUserStepGoal). */
 async function withResolvedGoals(users: CandidateUser[], dateStr: string): Promise<CandidateUser[]> {
-  const out: CandidateUser[] = [];
-  for (const u of users) {
-    out.push({ ...u, dailyStepGoal: await resolveUserStepGoal(db, u.uid, u.progression, dateStr) });
-  }
-  return out;
+  return mapWithConcurrency(users, SEND_CONCURRENCY, async (u) => ({
+    ...u,
+    dailyStepGoal: await resolveUserStepGoal(db, u.uid, u.progression, dateStr),
+  }));
 }
 
 /** @מרחק — same formatting the client-side tag used (meters under 1 km). */
@@ -315,6 +326,47 @@ async function dispatchToUser(
   return { sent: result.delivered > 0, bucket };
 }
 
+// Split by bucket: 'no content' for a below-goal user is a real content
+// gap worth noticing; 'no content' for a hit/over user is EXPECTED this
+// wave (no celebration copy seeded yet) — collapsing both into one
+// counter would bury a real gap under the normal daily hit/over cohort.
+interface DispatchTally {
+  candidates: number;
+  sent: number;
+  skippedBelowGoalNoContent: number;
+  skippedAtOrOverGoalNoContent: number;
+  skippedMorningOnlyBucket: number;
+  errors: number;
+}
+
+function newDispatchTally(): DispatchTally {
+  return { candidates: 0, sent: 0, skippedBelowGoalNoContent: 0, skippedAtOrOverGoalNoContent: 0, skippedMorningOnlyBucket: 0, errors: 0 };
+}
+
+/** dispatchToUser for each candidate, SEND_CONCURRENCY at a time; one user's failure never stops the rest. */
+async function dispatchAll(candidates: CandidateUser[], tally: DispatchTally): Promise<void> {
+  tally.candidates += candidates.length;
+  await mapWithConcurrency(candidates, SEND_CONCURRENCY, async (user) => {
+    try {
+      const outcome = await dispatchToUser(user);
+      if (outcome.sent) {
+        tally.sent += 1;
+      } else if (outcome.morningOnly) {
+        tally.skippedMorningOnlyBucket += 1;
+      } else if (outcome.reason) {
+        if (outcome.bucket === 'hit' || outcome.bucket === 'over') {
+          tally.skippedAtOrOverGoalNoContent += 1;
+        } else {
+          tally.skippedBelowGoalNoContent += 1;
+        }
+      }
+    } catch (err: any) {
+      tally.errors += 1;
+      logger.warn(`[stepGoalNudge] dispatch failed for uid=${user.uid}:`, err?.message);
+    }
+  });
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const stepGoalNudgeScheduler = onSchedule(
@@ -322,7 +374,8 @@ export const stepGoalNudgeScheduler = onSchedule(
     schedule: '0 18 * * *',
     timeZone: 'Asia/Jerusalem',
     region: 'us-central1',
-    timeoutSeconds: 300,
+    // 540s (was 300): the run now pages through every COMPLETED user.
+    timeoutSeconds: 540,
     memory: '512MiB',
   },
   async () => {
@@ -347,11 +400,11 @@ export const stepGoalNudgeScheduler = onSchedule(
 
     logger.info(
       `[stepGoalNudge] run start — mode=${isTestMode ? `TEST(${testUids.length} uid(s))` : 'normal'} ` +
-        `batchLimit=${BATCH_LIMIT}`,
+        `batchLimit=${BATCH_LIMIT} maxPages=${MAX_PAGES}`,
     );
 
     const today = todayDateStringIsrael();
-    let candidates: CandidateUser[] = [];
+    const tally = newDispatchTally();
 
     if (isTestMode) {
       const refs = testUids.map((uid) => db.collection('users').doc(uid));
@@ -362,82 +415,59 @@ export const stepGoalNudgeScheduler = onSchedule(
       // Test mode bypasses the eligibility filter but still needs a real
       // steps_left number for the copy, so fetch today's steps too.
       const stepsByUid = await fetchTodaySteps(baseCandidates.map((c) => c.uid), today);
-      candidates = await withResolvedGoals(
+      const candidates = await withResolvedGoals(
         baseCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 })),
         today,
       );
       logger.info(`[stepGoalNudge] TEST mode — resolved ${candidates.length}/${testUids.length} uid(s)`);
+      await dispatchAll(candidates, tally);
     } else {
-      let candidateDocs: admin.firestore.QueryDocumentSnapshot[];
+      // Cursor-paginated (19.10.2026): was ONE limit(BATCH_LIMIT) read, so
+      // only the first 300 COMPLETED users (by doc id) were ever evaluated.
+      // Now every page up to MAX_PAGES — each user's own eligibility, bucket
+      // and 24h rate cap are unchanged, so nobody gets more than before;
+      // users past the old cap now get the nudge too. One page in memory at
+      // a time; equality + doc-id order needs no composite index.
       try {
-        const snap = await db
-          .collection('users')
-          .where('onboardingStatus', '==', 'COMPLETED')
-          .limit(BATCH_LIMIT)
-          .get();
-        candidateDocs = snap.docs;
+        const stats = await forEachQueryPage(
+          db.collection('users').where('onboardingStatus', '==', 'COMPLETED'),
+          { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
+          async (pageDocs) => {
+            const rawCandidates = pageDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
+            const stepsByUid = await fetchTodaySteps(rawCandidates.map((c) => c.uid), today);
+            // No below-goal pre-filter: bucket-based selection (dispatchToUser)
+            // naturally skips hit/over-bucket users when no content matches —
+            // Wave 1 only seeds start/mid/close copy, so this is currently
+            // equivalent in practice, but stays correct once celebration content
+            // for hit/over is seeded later.
+            const candidates = await withResolvedGoals(
+              rawCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 })),
+              today,
+            );
+            await dispatchAll(candidates, tally);
+          },
+        );
+        logger.info(
+          `[stepGoalNudge] normal mode — ${stats.read} candidate(s) over ${stats.pages} page(s) for ${today}` +
+            (stats.truncated ? ` (stopped at MAX_PAGES=${MAX_PAGES} — raise STEP_GOAL_MAX_PAGES)` : ''),
+        );
       } catch (err: any) {
+        // A failed page stops the run; users of the pages already read were handled.
         logger.error('[stepGoalNudge] candidate query failed:', err?.message);
-        return;
       }
-
-      const rawCandidates = candidateDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
-      const stepsByUid = await fetchTodaySteps(rawCandidates.map((c) => c.uid), today);
-      // No below-goal pre-filter: bucket-based selection (dispatchToUser)
-      // naturally skips hit/over-bucket users when no content matches —
-      // Wave 1 only seeds start/mid/close copy, so this is currently
-      // equivalent in practice, but stays correct once celebration content
-      // for hit/over is seeded later.
-      candidates = await withResolvedGoals(
-        rawCandidates.map((c) => ({ ...c, todaySteps: stepsByUid.get(c.uid) ?? 0 })),
-        today,
-      );
-      logger.info(
-        `[stepGoalNudge] normal mode — ${candidateDocs.length} candidate(s) resolved for ${today}`,
-      );
     }
 
-    if (candidates.length === 0) {
+    if (tally.candidates === 0) {
       logger.info('[stepGoalNudge] nothing to send — exiting cleanly.');
       return;
     }
 
-    let sent = 0;
-    // Split by bucket: 'no content' for a below-goal user is a real content
-    // gap worth noticing; 'no content' for a hit/over user is EXPECTED this
-    // wave (no celebration copy seeded yet) — collapsing both into one
-    // counter would bury a real gap under the normal daily hit/over cohort.
-    let skippedBelowGoalNoContent = 0;
-    let skippedAtOrOverGoalNoContent = 0;
-    let skippedMorningOnlyBucket = 0;
-    let errors = 0;
-
-    for (const user of candidates) {
-      try {
-        const outcome = await dispatchToUser(user);
-        if (outcome.sent) {
-          sent += 1;
-        } else if (outcome.morningOnly) {
-          skippedMorningOnlyBucket += 1;
-        } else if (outcome.reason) {
-          if (outcome.bucket === 'hit' || outcome.bucket === 'over') {
-            skippedAtOrOverGoalNoContent += 1;
-          } else {
-            skippedBelowGoalNoContent += 1;
-          }
-        }
-      } catch (err: any) {
-        errors += 1;
-        logger.warn(`[stepGoalNudge] dispatch failed for uid=${user.uid}:`, err?.message);
-      }
-    }
-
     logger.info(
-      `[stepGoalNudge] run complete — candidates=${candidates.length} sent=${sent} ` +
-        `skippedBelowGoalNoContent=${skippedBelowGoalNoContent} ` +
-        `skippedAtOrOverGoalNoContent=${skippedAtOrOverGoalNoContent} (expected — no hit/over copy seeded yet) ` +
-        `skippedMorningOnlyBucket=${skippedMorningOnlyBucket} ` +
-        `errors=${errors}`,
+      `[stepGoalNudge] run complete — candidates=${tally.candidates} sent=${tally.sent} ` +
+        `skippedBelowGoalNoContent=${tally.skippedBelowGoalNoContent} ` +
+        `skippedAtOrOverGoalNoContent=${tally.skippedAtOrOverGoalNoContent} (expected — no hit/over copy seeded yet) ` +
+        `skippedMorningOnlyBucket=${tally.skippedMorningOnlyBucket} ` +
+        `errors=${tally.errors}`,
     );
   },
 );
