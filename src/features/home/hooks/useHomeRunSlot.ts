@@ -4,9 +4,11 @@
  * Home v2 (enable_home_v2): today's / the next planned run for the daily
  * carousel, from the profile already in the store — no reads, no listeners.
  * `hasRunningPlan` also drives the running-only week strip.
+ * "דלג להיום" is the same local, unsaved skip RunWeekListV2 has (cleared on a
+ * new day / reload) — it only changes which run the card shows.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveHomeRunSlot, type HomeRunEntry, type HomeRunSlot } from '@/features/home/utils/home-run-slot';
@@ -16,6 +18,8 @@ export interface HomeRunSlotState {
   slot: HomeRunSlot | null;
   hasRunningPlan: boolean;
   currentWeek: number | undefined;
+  skipToday: () => void;
+  undoSkip: () => void;
 }
 
 export function useHomeRunSlot(
@@ -31,8 +35,13 @@ export function useHomeRunSlot(
 
   // Recompute when the day rolls over while home stays open.
   const todayKey = new Date().toDateString();
+  // The day the skip was tapped on — a new day clears it.
+  const [skippedOn, setSkippedOn] = useState<string | null>(null);
+  const skippedToday = skippedOn === todayKey;
+  const skipToday = useCallback(() => setSkippedOn(new Date().toDateString()), []);
+  const undoSkip = useCallback(() => setSkippedOn(null), []);
 
-  return useMemo<HomeRunSlotState>(() => {
+  const resolved = useMemo<Omit<HomeRunSlotState, 'skipToday' | 'undoSkip'>>(() => {
     const hasRunningPlan = !!running?.isUnlocked && !!schedule?.length;
     const currentWeek = resolveRunningCurrentWeek(startDate as any, storedWeek) ?? undefined;
     if (!enabled || !hasRunningPlan) return { slot: null, hasRunningPlan, currentWeek };
@@ -44,9 +53,11 @@ export function useHomeRunSlot(
       startDate as any,
     );
     return {
-      slot: resolveHomeRunSlot({ enabled, hasRunningPlan, hasStrengthProgram, dayState }),
+      slot: resolveHomeRunSlot({ enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday }),
       hasRunningPlan,
       currentWeek,
     };
-  }, [enabled, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey]);
+  }, [enabled, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey, skippedToday]);
+
+  return { ...resolved, skipToday, undoSkip };
 }

@@ -39,6 +39,7 @@ import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/util
 import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
+import { mapRunEntriesToWeekdays, runOverlayDayFields } from '@/features/home/utils/run-overlay-day';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -113,6 +114,13 @@ interface SmartWeeklyScheduleProps {
   onSetSchedule?: () => void;
   /** Running program schedule entries for the current week */
   runningSchedule?: RunningScheduleEntry[];
+  /**
+   * enable_home_v2 — a dual-track user's strip outside running mode
+   * (PERFORMANCE / DEFAULT): the running days (Hebrew letters). Keeps the
+   * strength week and adds the runs (run icon on run-only days, alternation
+   * on shared days) — run-overlay-day.ts. Ignored in running mode.
+   */
+  runOverlayDays?: string[];
   /**
    * Stage H (18.08.2026) — the active running program's own id
    * (profile.running.activeProgram.programId). Used ONLY to filter
@@ -191,6 +199,8 @@ interface DayActivityData {
    * DayDisplayInput.sessionsCompleted's doc for why these must stay decoupled.
    */
   sessionsCompleted?: boolean;
+  /** enable_home_v2 run overlay: a run-only day's running category (shows the run icon). */
+  overlayRunCategory?: string;
 }
 
 // ============================================================================
@@ -806,6 +816,7 @@ export default function SmartWeeklySchedule({
   onStartAssessment,
   onSetSchedule,
   runningSchedule,
+  runOverlayDays,
   runningCurrentWeek,
   runningProgramStartDate,
   runningBasePace,
@@ -842,18 +853,21 @@ export default function SmartWeeklySchedule({
   // trusting the (possibly stale) `runningCurrentWeek` prop directly.
   const effectiveCurrentWeek = resolveRunningCurrentWeek(runningProgramStartDate, runningCurrentWeek);
 
+  // enable_home_v2 run overlay (strength-mode strip of a dual-track user).
+  const runOverlay = !isRunningMode && !!runOverlayDays?.length;
   const currentWeekEntries = useMemo(() => {
-    if (!isRunningMode || !runningSchedule?.length || !effectiveCurrentWeek) return [];
+    if ((!isRunningMode && !runOverlay) || !runningSchedule?.length || !effectiveCurrentWeek) return [];
     const entries = runningSchedule.filter((e) => e.week === effectiveCurrentWeek);
     return entries.map((entry) => ({
       ...entry,
       category: entry.category || 'easy_run',
       workoutName: entry.workoutName || (RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry.category ?? '') as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] ?? 'אימון ריצה'),
     }));
-  }, [isRunningMode, runningSchedule, effectiveCurrentWeek]);
+  }, [isRunningMode, runOverlay, runningSchedule, effectiveCurrentWeek]);
 
   // Map running schedule entries to week day indices (0=Sunday)
   const runningEntriesByDayIndex = useMemo(() => {
+    if (runOverlay) return mapRunEntriesToWeekdays(currentWeekEntries, runOverlayDays ?? [], HEBREW_DAYS);
     if (!isRunningMode || !currentWeekEntries.length) return new Map<number, RunningScheduleEntry>();
     const map = new Map<number, RunningScheduleEntry>();
     const trainingDayIndices = scheduleDays
@@ -867,7 +881,7 @@ export default function SmartWeeklySchedule({
       if (dayIdx !== undefined) map.set(dayIdx, entry);
     });
     return map;
-  }, [isRunningMode, currentWeekEntries, scheduleDays]);
+  }, [isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
 
   const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
     const params = new URLSearchParams();
@@ -1086,9 +1100,21 @@ export default function SmartWeeklySchedule({
       // future days; used as today's fallback when nothing's been done yet.
       const plannedSessions = buildPlannedSessions(
         manualEntries,
-        isRunningMode ? runningEntriesByDayIndex.get(i) : undefined,
-        isRunningMode ? runningProgramId : undefined,
+        isRunningMode || runOverlay ? runningEntriesByDayIndex.get(i) : undefined,
+        isRunningMode || runOverlay ? runningProgramId : undefined,
       );
+      // Run overlay (v2): a run on a strength rest day makes it a run day. The
+      // running bridge's own shadow entry (same program id) doesn't count as strength.
+      const overlay = runOverlay
+        ? runOverlayDayFields(
+            hasManualRest
+              ? true
+              : excludeRunningShadowEntry(manualEntries, runningProgramId).some((e) => e.type === 'training')
+                ? false
+                : !isTrainingDay(dayLetter),
+            runningEntriesByDayIndex.get(i),
+          )
+        : null;
 
       // Default data
       let dayData: DayActivityData = {
@@ -1097,7 +1123,8 @@ export default function SmartWeeklySchedule({
         workoutDone: false,
         isRecoveryCompletion: false,
         isMissed: false,
-        isRest: isRestDay,
+        isRest: overlay ? overlay.isRest : isRestDay,
+        overlayRunCategory: overlay?.runningCategory,
         isToday,
         isFuture,
         totalMinutes: 0,
@@ -1221,7 +1248,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runOverlay, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1366,7 +1393,10 @@ export default function SmartWeeklySchedule({
         // the ring, not the flame (composition is Stage 2).
         dominantCategory: null,
         stepGoalMet: false,
-        programIconKey:
+        // Run overlay (v2): a run-only day shows the run's flame (runningCategory wins).
+        runningCategory: dayData.overlayRunCategory,
+        runningColor: dayData.overlayRunCategory ? getCategoryColor(dayData.overlayRunCategory) : undefined,
+        programIconKey: dayData.overlayRunCategory ? 'shoe' :
           dayData.communityIconKey ??
           resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
           resolvedIconKey,

@@ -34,4 +34,15 @@ describe('home/page.tsx — v2 run card wiring', () => {
     expect(pageSrc).toContain('const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;');
     expect(pageSrc).toContain('{(hasStrengthProgram || runStripOnly) && (');
   });
+
+  it('the standalone run card only renders off the v2 slot, beside the StatsOverview fallback', () => {
+    expect(pageSrc).toContain('resolveRunSlotSurface(\n                  homeRun.slot,');
+    expect(pageSrc).toContain("const standaloneRunCard = runSlotSurface === 'standalone' && homeRun.slot ? (");
+    expect(pageSrc).toMatch(/\{standaloneRunCard\}\s*<StatsOverview/);
+  });
+
+  it('the strength-mode strip run overlay is gated on the flag', () => {
+    expect(pageSrc).toMatch(/const runOverlayDays = featureFlags\.enableHomeV2 && hasStrengthProgram && homeRun\.hasRunningPlan && !isRunningMode/);
+    expect(pageSrc).toContain('runOverlayDays={runOverlayDays}');
+  });
 });

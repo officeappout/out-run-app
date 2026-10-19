@@ -35,12 +35,23 @@ export interface HomeRunCarouselCardProps {
   currentWeek: number | undefined;
   weatherFlag?: WeatherFlag | null;
   calmReturn?: CalmReturnState | null;
+  /** "אין לי כוח היום — דלג לעוד" — RunWeekListV2's local skip (useHomeRunSlot). */
+  onSkipToday?: () => void;
+  /** "ביטול — אני בכל זאת רוצה להתאמן". */
+  onUndoSkip?: () => void;
+  /** Rendered on its own (carousel hidden): no fixed slide height. */
+  standalone?: boolean;
 }
 
-export default function HomeRunCarouselCard({ slot, profile, currentWeek, weatherFlag = null, calmReturn = null }: HomeRunCarouselCardProps) {
+export default function HomeRunCarouselCard({
+  slot, profile, currentWeek, weatherFlag = null, calmReturn = null, onSkipToday, onUndoSkip, standalone = false,
+}: HomeRunCarouselCardProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const isToday = slot.kind === 'today';
+  const skipped = !!slot.skippedToday;
+  // Today's run, still on (not skipped) — the one with the CTA and the preloaded strip.
+  const isToday = slot.kind === 'today' && !skipped;
+  const isSkippedToday = slot.kind === 'today' && skipped;
   const { entry } = slot;
   const calmLoad = calmReturn?.isLightened ? calmReturn.load : null;
 
@@ -75,25 +86,25 @@ export default function HomeRunCarouselCard({ slot, profile, currentWeek, weathe
   const card = (
     <RunWeekCardV2
       kind={kind}
-      typeLabel={isToday ? typeLabel : `${typeLabel} · הבא`}
+      typeLabel={isToday || isSkippedToday ? typeLabel : `${typeLabel} · הבא`}
       title={model?.title ?? entry.workoutName ?? typeLabel}
-      state={isToday ? 'today' : 'upcoming'}
-      dayLetter={isToday ? null : nextRunDayHint(slot.daysAway)}
+      state={isToday ? 'today' : isSkippedToday ? 'skipped' : 'upcoming'}
+      dayLetter={isToday || isSkippedToday ? null : nextRunDayHint(slot.daysAway)}
       model={model}
       onStart={isToday ? () => setOpen(true) : undefined}
     />
   );
 
   return (
-    <div className="flex h-full w-full flex-col rounded-v2-card bg-v2-surface p-3" dir="rtl">
+    <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl">
       <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
         תוכנית {distLabel} · {weekLabel}
       </p>
       <h3 className="whitespace-nowrap text-[19px] font-black !tracking-[-0.02em] text-v2-ink">
-        {isToday ? 'הריצה של היום' : 'הריצה הבאה'}
+        {isToday || isSkippedToday ? 'הריצה של היום' : 'הריצה הבאה'}
       </h3>
       <div className="mt-3">
-        {isToday ? card : (
+        {isToday || isSkippedToday ? card : (
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -104,11 +115,29 @@ export default function HomeRunCarouselCard({ slot, profile, currentWeek, weathe
           </button>
         )}
       </div>
-      {!isToday && (
-        <p className="mt-auto whitespace-nowrap pt-2 text-[12px] font-bold text-v2-muted">
-          לחיצה לפרטי האימון
-        </p>
-      )}
+      <div className="mt-auto flex flex-col items-start pt-2">
+        {slot.kind === 'next' && (
+          <p className="whitespace-nowrap text-[12px] font-bold text-v2-muted">לחיצה לפרטי האימון</p>
+        )}
+        {isToday && onSkipToday && (
+          <button
+            type="button"
+            onClick={onSkipToday}
+            className="w-full whitespace-nowrap py-2 text-[12.5px] font-bold text-v2-muted"
+          >
+            אין לי כוח היום — דלג לעוד
+          </button>
+        )}
+        {skipped && onUndoSkip && (
+          <button
+            type="button"
+            onClick={onUndoSkip}
+            className="whitespace-nowrap py-1 text-[12.5px] font-extrabold text-v2-deep"
+          >
+            ביטול — אני בכל זאת רוצה להתאמן
+          </button>
+        )}
+      </div>
       <RunOverviewHomeSheet
         isOpen={open}
         onClose={() => setOpen(false)}
