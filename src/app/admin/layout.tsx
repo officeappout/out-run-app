@@ -1363,6 +1363,10 @@ function AdminLayoutInner({
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/ai-coach/reviews" icon={MessageCircle} label="שיחות קלי" />
                                                 )}
+                                                {/* platform running costs — super admins only (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />
+                                                )}
                                                 {/* unified Kelly: the team's queue + replies (API: requireKellyTeamAdmin) */}
                                                 {(isSuperAdmin || roleInfo?.isRootAdmin) && (
                                                     <SidebarLink href="/admin/ai-coach/kelly" icon={MessageCircle} label="קלי · ממתינים למענה" />

@@ -51,6 +51,8 @@ export default defineConfig({
       'tests/firestore-fix-connections-selffollow.rules.test.ts',
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
+      // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
+      'tests/firestore-admin-costs.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
       // workouts.timedBlocks (enable_home_v2) write + read back — emulator :8089.
       'tests/workouts-timed-blocks.rules.test.ts',
