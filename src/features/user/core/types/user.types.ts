@@ -407,6 +407,13 @@ export interface UserFullProfile {
      * → Privacy section and writes through `core.discoverable`.
      */
     discoverable?: boolean;
+    /** Guest (Firebase anonymous auth) at signup. Written true/false by
+     * onboarding-sync.service.ts at profile creation; flipped to false by
+     * auth.service.ts when the guest links a social/email account. */
+    isAnonymous?: boolean;
+    /** Onboarding answer "has gym access". Written by
+     * onboarding-sync.service.ts from the equipment step (data.hasGym). */
+    hasGymAccess?: boolean;
   };
 
   // ── Pillar 1 — Social graph (denormalized for fast client queries) ───────────
