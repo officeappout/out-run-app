@@ -153,6 +153,22 @@ export function stepsDayDelta(
 }
 
 /**
+ * Does a dailyActivity day still have anything to add to the leagues, given
+ * its league_steps_applied marker? The rollup's cheap pre-check (19.10.2026):
+ * a day whose steps / km haven't grown since the last run needs no user read
+ * and no transaction. Same arithmetic as the transaction itself
+ * (stepsDayDelta), so skipping here never skips a real delta.
+ */
+export function stepsDayNeedsApply(
+  applied: { credit?: unknown; distanceMeters?: unknown } | undefined,
+  steps: unknown,
+  distanceMeters: unknown,
+): boolean {
+  const d = stepsDayDelta(applied, stepsCreditOf(steps), distanceMetersOfDay(steps, distanceMeters));
+  return d.credit > 0 || d.distanceMeters > 0;
+}
+
+/**
  * Is a league member doc an ACTIVE member (counted in activeMemberCount)?
  * Members always had credit > 0; a distance-only day (under 1,000 steps)
  * writes a member doc with credit 0 just to hold the km, and that must not

@@ -69,6 +69,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
+import { envInt, forEachQueryPage } from './lib/paginate';
+import { publicRowOf, publicRowUnchanged } from './lib/daily-activity-public';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -77,6 +79,10 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const MAX_BATCH = 450; // mirrors leaderboard.ts's rollupLeaderboard batching convention
+/** dailyActivity docs per page (≤ 300 so a page's userAge getAll is one call). */
+const PAGE_SIZE = envInt(process.env.DAILY_PUBLIC_SYNC_PAGE_SIZE, 300, 300);
+/** Max pages per run (default 50 → 15,000 user-days). */
+const MAX_PAGES = envInt(process.env.DAILY_PUBLIC_SYNC_MAX_PAGES, 50, 200);
 const AUTH_LOOKUP_CHUNK = 100; // Admin SDK's getUsers() cap per call
 
 function todayDateString(): string {
@@ -140,72 +146,90 @@ async function resolveAgeGroups(uids: string[]): Promise<Map<string, 'minor' | '
 }
 
 export const dailyActivityPublicSync = onSchedule(
-  { schedule: '0 */2 * * *', timeZone: 'Asia/Jerusalem' },
+  { schedule: '0 */2 * * *', timeZone: 'Asia/Jerusalem', timeoutSeconds: 540, memory: '512MiB' },
   async () => {
     const today = todayDateString();
 
-    const snap = await db
-      .collection('dailyActivity')
-      .where('date', '==', today)
-      .get();
+    // Cursor-paginated (19.10.2026, was ONE unbounded read of every doc of
+    // the day): one page in memory at a time, auth / age / existing-mirror
+    // lookups batched per page, and a mirror doc that is already exactly
+    // right is NOT rewritten (publicRowUnchanged — every mirrored field,
+    // ageGroup included, is compared). The day's docs are still all read:
+    // dailyActivity has no reliable change stamp (see leagueStepsRollup.ts).
+    let read = 0;
+    let written = 0;
+    let unchanged = 0;
+    let skippedAnonymous = 0;
 
-    if (snap.empty) {
+    let stats;
+    try {
+      stats = await forEachQueryPage(
+        db.collection('dailyActivity').where('date', '==', today),
+        { pageSize: PAGE_SIZE, maxPages: MAX_PAGES },
+        async (docs) => {
+          read += docs.length;
+          const candidateUids = Array.from(
+            new Set(docs.map((doc) => doc.data().userId as string | undefined).filter((v): v is string => !!v)),
+          );
+          if (!candidateUids.length) return;
+          const [realUids, ageGroups] = await Promise.all([
+            resolveRealAccountUids(candidateUids),
+            resolveAgeGroups(candidateUids),
+          ]);
+
+          const rows = [];
+          for (const doc of docs) {
+            // Docs without authorityId yet (see ranking.service.ts's own comment:
+            // stamped on first workout sync after the scope-stamp was added)
+            // can't be scoped by any leaderboard query — skip, matches the raw
+            // collection's existing invisible-until-stamped behavior exactly.
+            const row = publicRowOf(doc.data(), today, ageGroups.get(doc.data().userId as string));
+            if (!row) continue;
+            if (!realUids.has(row.uid)) {
+              skippedAnonymous++;
+              continue;
+            }
+            rows.push(row);
+          }
+          if (!rows.length) return;
+
+          const existing = await db.getAll(...rows.map((r) => db.doc(`dailyActivityPublic/${r.uid}_${today}`)));
+          let batch = db.batch();
+          let batchCount = 0;
+          for (let k = 0; k < rows.length; k++) {
+            const row = rows[k];
+            if (publicRowUnchanged(existing[k].data(), row)) {
+              unchanged++;
+              continue;
+            }
+            batch.set(db.doc(`dailyActivityPublic/${row.uid}_${today}`), {
+              ...row,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            written++;
+            batchCount++;
+            if (batchCount >= MAX_BATCH) {
+              await batch.commit();
+              batch = db.batch();
+              batchCount = 0;
+            }
+          }
+          if (batchCount > 0) await batch.commit();
+        },
+      );
+    } catch (err) {
+      logger.error(`[dailyActivityPublicSync] a page failed for ${today} — pages before it were synced`, err);
+    }
+
+    if (read === 0) {
       logger.info(`[dailyActivityPublicSync] no dailyActivity docs for ${today}, nothing to sync`);
       return;
     }
 
-    const candidateUids = Array.from(
-      new Set(snap.docs.map((doc) => doc.data().userId as string | undefined).filter((v): v is string => !!v)),
+    logger.info(
+      `[dailyActivityPublicSync] ${today}: read ${read} dailyActivity doc(s) over ${stats?.pages ?? '?'} page(s), ` +
+        `wrote ${written}, ${unchanged} already up to date, ${skippedAnonymous} skipped — no confirmed real account` +
+        (stats?.truncated ? ` (stopped at MAX_PAGES=${MAX_PAGES})` : ''),
     );
-    const realUids = await resolveRealAccountUids(candidateUids);
-    const ageGroups = await resolveAgeGroups(candidateUids);
-
-    let batch = db.batch();
-    let batchCount = 0;
-    let written = 0;
-    let skippedAnonymous = 0;
-
-    for (const doc of snap.docs) {
-      const data = doc.data();
-      const uid = data.userId as string | undefined;
-      const authorityId = data.authorityId as string | undefined;
-      // Docs without authorityId yet (see ranking.service.ts's own comment:
-      // stamped on first workout sync after the scope-stamp was added)
-      // can't be scoped by any leaderboard query — skip, matches the raw
-      // collection's existing invisible-until-stamped behavior exactly.
-      if (!uid || !authorityId) continue;
-
-      if (!realUids.has(uid)) {
-        skippedAnonymous++;
-        continue;
-      }
-
-      const steps = typeof data.steps === 'number' ? data.steps : 0;
-      const displayName = typeof data.displayName === 'string' ? data.displayName : '???';
-
-      batch.set(db.doc(`dailyActivityPublic/${uid}_${today}`), {
-        uid,
-        displayName,
-        steps,
-        authorityId,
-        date: today,
-        ageGroup: ageGroups.get(uid) ?? 'minor',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      written++;
-      batchCount++;
-
-      if (batchCount >= MAX_BATCH) {
-        await batch.commit();
-        batch = db.batch();
-        batchCount = 0;
-      }
-    }
-
-    if (batchCount > 0) {
-      await batch.commit();
-    }
-
-    logger.info(`[dailyActivityPublicSync] synced ${written}/${snap.size} dailyActivity doc(s) for ${today} (${skippedAnonymous} skipped — no confirmed real account)`);
   },
 );

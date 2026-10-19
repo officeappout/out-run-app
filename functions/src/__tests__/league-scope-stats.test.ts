@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  stepsDayNeedsApply,
   activityOf,
   creditOf,
   distanceMetersOfDay,
@@ -104,6 +105,27 @@ describe('stepsDayDelta', () => {
   it('adds only what grew, never subtracts, each independently', () => {
     expect(stepsDayDelta({ credit: 15, distanceMeters: 4000 }, 21, 3500)).toEqual({ credit: 6, distanceMeters: 0 });
     expect(stepsDayDelta({ credit: 15, distanceMeters: 4000 }, 12, 4600)).toEqual({ credit: 0, distanceMeters: 600 });
+  });
+});
+
+describe('stepsDayNeedsApply (the rollup pre-check)', () => {
+  it('a day never applied needs it when it has points or km', () => {
+    expect(stepsDayNeedsApply(undefined, 4200, 3000)).toBe(true);
+    expect(stepsDayNeedsApply(undefined, 500, undefined)).toBe(true); // km estimate only
+    expect(stepsDayNeedsApply(undefined, 0, 0)).toBe(false);
+  });
+  it('unchanged since the last run → skip', () => {
+    expect(stepsDayNeedsApply({ credit: 12, distanceMeters: 3000 }, 4200, 3000)).toBe(false);
+  });
+  it('more steps (a new full 1,000) or more km → apply', () => {
+    expect(stepsDayNeedsApply({ credit: 12, distanceMeters: 3000 }, 5100, 3000)).toBe(true);
+    expect(stepsDayNeedsApply({ credit: 12, distanceMeters: 3000 }, 4200, 3400)).toBe(true);
+  });
+  it('steps within the same 1,000 and the same km → skip (nothing to add)', () => {
+    expect(stepsDayNeedsApply({ credit: 12, distanceMeters: 3000 }, 4900, 3000)).toBe(false);
+  });
+  it('fewer steps than applied never re-applies (deltas never go negative)', () => {
+    expect(stepsDayNeedsApply({ credit: 15, distanceMeters: 4000 }, 4200, 3000)).toBe(false);
   });
 });
 
