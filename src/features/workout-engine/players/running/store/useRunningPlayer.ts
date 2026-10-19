@@ -2042,6 +2042,8 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
                   // from the laps this run recorded, and the home's streak.
                   // Dropped by createWorkoutPost for users without home v2.
                   paceSplits: isRide ? undefined : buildPaceSplits(completedLaps),
+                  // The v2 card shows a ride's average speed (km/h), not pace.
+                  ...(isRide ? { activityType: 'cycling' as const } : {}),
                   streakDays: streakFor(useActivityStore.getState().currentStreak),
                 }).catch(() => {});
               }
@@ -2090,9 +2092,11 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
         const durationMinutes = Math.max(Math.round(sessionState.totalDuration / 60), 1);
         const { syncWorkoutCompletion, aerobicCompletionLabels } = await import('@/features/workout-engine/services/completion-sync.service');
         // A finished WALK is recorded as a walk (routes phase 1.4) — it used
-        // to be hardcoded 'running'/'run-fast'. Every non-walking session
-        // (incl. cycling) keeps exactly today's values.
-        const completionLabels = aerobicCompletionLabels(activityType);
+        // to be hardcoded 'running'/'run-fast'. A RIDE (enable_home_v2) is
+        // recorded as cycling + bike icon and stays out of the running
+        // weekly volume; everything else keeps today's values.
+        const { homeV2EnabledNow: v2Now } = await import('../lib/home-v2-gate');
+        const completionLabels = aerobicCompletionLabels(activityType, v2Now());
         await syncWorkoutCompletion({
           workoutType: completionLabels.workoutType,
           durationMinutes,

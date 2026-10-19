@@ -78,18 +78,20 @@ export interface CompletionPayload {
 
 /**
  * Labels for a finished free-run-player session (useRunningPlayer). A WALK
- * is recorded as a walk; every other activity (running, and — unchanged,
- * out of scope — cycling) keeps the historical 'running' / 'run-fast'.
- * Before routes phase 1.4 the player hardcoded 'running' for walks too,
- * which mislabelled dailyProgress and fed walks into the running
- * weekly-volume tracker (see __tests__/walking-completion-label.test.ts).
+ * is recorded as a walk; a RIDE (enable_home_v2 — the only way to start
+ * one) is recorded as cycling with the bike icon, so it never reaches the
+ * running weekly-volume tracker (there is no cycling weekly volume / plan —
+ * owner, 19.10.2026). Everything else keeps the historical 'running' /
+ * 'run-fast'. Without home v2 a stray 'cycling' stays a run (today's
+ * behaviour). See __tests__/walking-completion-label.test.ts.
  */
 export function aerobicCompletionLabels(
   activityType: string | null | undefined,
-): { workoutType: 'walking' | 'running'; displayIcon: 'walk' | 'run-fast' } {
-  return activityType === 'walking'
-    ? { workoutType: 'walking', displayIcon: 'walk' }
-    : { workoutType: 'running', displayIcon: 'run-fast' };
+  homeV2 = false,
+): { workoutType: 'walking' | 'running' | 'cycling'; displayIcon: 'walk' | 'run-fast' | 'bike' } {
+  if (activityType === 'walking') return { workoutType: 'walking', displayIcon: 'walk' };
+  if (activityType === 'cycling' && homeV2) return { workoutType: 'cycling', displayIcon: 'bike' };
+  return { workoutType: 'running', displayIcon: 'run-fast' };
 }
 
 const SESSION_KEY = 'post_workout_completed';
