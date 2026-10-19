@@ -17,7 +17,7 @@ export function StepFinalize({
   submitError,
 }: {
   form: WizardForm;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  fileInputRef: React.RefObject<HTMLInputElement>;
   onImagePick: (e: React.ChangeEvent<HTMLInputElement>) => void;
   submitError: string | null;
 }) {
