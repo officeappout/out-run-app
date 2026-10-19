@@ -23,6 +23,10 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import AttendeesPreview from './AttendeesPreview';
 import NavigationSheet from './NavigationSheet';
 import ReportContentSheet from './ReportContentSheet';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
   race:             { label: 'מרוץ',         icon: '🏃', gradient: 'from-orange-500 to-red-500' },
@@ -77,6 +81,9 @@ export default function SessionDrawer({
   // GPS comes from the shared store (driven by useGPS); no local watcher here.
   const userCoords = useGPSStore((s) => s.coords);
   const userId = useUserStore((s) => s.profile?.id ?? '');
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Premium UX: when the drawer opens without a fix, courtesy-prompt for GPS
   // so the user can see nearby sessions — but only if they haven't denied us.
@@ -136,6 +143,284 @@ export default function SessionDrawer({
   const hasEquipment = effectiveEquipment && effectiveEquipment.length > 0;
   const hasPrice = effectivePrice != null && effectivePrice > 0;
 
+  const heroImage = (
+    <>
+      {coverImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={coverImage} alt={event.name} className="w-full h-full object-cover" />
+      ) : (
+        <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
+          <span className="text-7xl drop-shadow-md select-none">{catConfig.icon}</span>
+        </div>
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
+    </>
+  );
+  const heroBadges = (
+    <>
+      {/* Category badge */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full" dir="rtl">
+        <span>{catConfig.icon}</span>
+        <span>{catConfig.label}</span>
+      </div>
+
+      {/* Official badge */}
+      {event.isOfficial && (
+        <div className="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
+          <ShieldCheck className="w-3 h-3" />
+          <span>רשמי</span>
+        </div>
+      )}
+    </>
+  );
+  const content = (
+    <>
+      {/* ── Scrollable content ─────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-8 space-y-5" dir="rtl">
+        {/* Title */}
+        <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
+          {event.name}
+        </h2>
+
+        {/* Date & Time */}
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <Clock className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+          <span className="font-semibold">
+            {formatEventDate(event.date)} · {event.startTime}
+            {event.endTime ? ` – ${event.endTime}` : ''}
+          </span>
+        </div>
+
+        {/* Special Notice */}
+        {event.specialNotice && (
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <span className="text-lg mt-0.5">⚠️</span>
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300 leading-relaxed">
+              {event.specialNotice}
+            </p>
+          </div>
+        )}
+
+        {/* Location — smart nav */}
+        {effectiveCoords ? (
+          <button
+            type="button"
+            onClick={() => handleLocationClick(effectiveCoords!.lat, effectiveCoords!.lng)}
+            className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
+          >
+            {staticMapUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={staticMapUrl} alt={effectiveAddress || 'מפה'} className="w-full h-[120px] object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full h-[120px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                <MapPin className="w-8 h-8 text-gray-400" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between" dir="rtl">
+              <span className="text-xs font-bold text-white truncate max-w-[75%]">
+                {effectiveAddress || `${effectiveCoords.lat.toFixed(4)}, ${effectiveCoords.lng.toFixed(4)}`}
+              </span>
+              <div className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow">
+                <Navigation className="w-3.5 h-3.5 text-gray-800" />
+              </div>
+            </div>
+          </button>
+        ) : effectiveAddress ? (
+          <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+            <span className="font-medium">{effectiveAddress}</span>
+          </div>
+        ) : null}
+
+        {/* Description */}
+        {effectiveDescription && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            {effectiveDescription}
+          </p>
+        )}
+
+        {/* Target Muscles */}
+        {hasTargetMuscles && (
+          <div>
+            <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5 text-cyan-500" />
+              קבוצות שרירים
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {effectiveMuscles!.map((m) => (
+                <span key={m} className="px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-[11px] font-bold">
+                  {m}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Equipment */}
+        {hasEquipment && (
+          <div>
+            <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+              <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
+              ציוד נדרש
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {effectiveEquipment!.map((item) => (
+                <span key={item} className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Price */}
+        {hasPrice && (
+          <div className="flex items-center gap-2 text-sm">
+            <DollarSign className="w-4 h-4 text-amber-500" />
+            <span className="font-bold text-gray-700 dark:text-gray-300">₪{effectivePrice}</span>
+          </div>
+        )}
+
+        {/* Capacity */}
+        {effectiveMaxParticipants && (
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="w-4 h-4 text-blue-500" />
+            <span className="font-bold text-gray-700 dark:text-gray-300">
+              {displayCount} / {effectiveMaxParticipants} משתתפים
+            </span>
+            {displayCount >= effectiveMaxParticipants && (
+              <span className="text-[10px] font-black text-red-500 px-2 py-0.5 rounded-full bg-red-50">
+                מלא
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Attendees */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+          <AttendeesPreview attendees={registrations ?? []} total={displayCount} />
+          <span className="text-xs text-gray-500">
+            {displayCount} {displayCount === 1 ? 'משתתף' : 'משתתפים'}
+          </span>
+        </div>
+
+        {/* External Link */}
+        {event.externalLink && (
+          <a
+            href={event.externalLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
+          >
+            <ExternalLink className="w-4 h-4" />
+            להרשמה ופרטים נוספים
+          </a>
+        )}
+
+        {/* Join Button */}
+        {onJoin && (
+          <button
+            disabled={isJoined || joining}
+            onClick={() => !isJoined && !joining && onJoin(event.id)}
+            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] ${
+              isJoined
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 ring-1 ring-emerald-200'
+                : event.isOfficial
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
+            }`}
+          >
+            {joining ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isJoined ? (
+              <>
+                <CalendarCheck className="w-4 h-4" />
+                רשום/ה לאירוע
+              </>
+            ) : (
+              <>
+                <Users className="w-4 h-4" />
+                הרשמה לאירוע
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Report link */}
+        <button
+          onClick={() => setReportOpen(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
+        >
+          <Flag className="w-3 h-3" />
+          דיווח על תוכן לא ראוי
+        </button>
+      </div>
+    </>
+  );
+  const subSheets = (
+    <>
+      {/* Navigation selector */}
+      {effectiveCoords && (
+        <NavigationSheet
+          isOpen={navOpen}
+          onClose={() => setNavOpen(false)}
+          lat={effectiveCoords.lat}
+          lng={effectiveCoords.lng}
+          label={effectiveAddress}
+        />
+      )}
+
+      {/* Report content sheet */}
+      <ReportContentSheet
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetId={event.id}
+        targetType="event"
+        targetName={event.name}
+        reporterId={userId}
+      />
+    </>
+  );
+
+  if (v2) {
+    return (
+      <>
+        <Sheet
+          open={isOpen}
+          onClose={onClose}
+          // Backdrop z-[80] / panel z-[81] (.cursorrules arena band), in place — unchanged.
+          zIndex={SHEET_Z.groupPanel}
+          backdropZIndex={SHEET_Z.group}
+          portal={false}
+          keyboardAware={false}
+          backdropStyle={{ backdropFilter: 'blur(4px)' }}
+          frameClassName="max-w-md mx-auto"
+          className="flex h-full flex-col"
+          frameStyle={{ height: '85vh' }}
+          safeArea={false}
+          scroll="none"
+          grabber={false}
+          transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
+          ariaLabel={event.name}
+        >
+          {/* Media hero — the photo is the sheet's header. */}
+          <div className="relative h-56 flex-shrink-0 overflow-hidden rounded-t-[28px]">
+            {heroImage}
+            <SheetGrabber className="absolute inset-x-0 top-0 flex justify-center pt-3" />
+            <IconButton aria-label="סגירה" tone="glass" size={36} className="absolute right-4 top-4" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+            {heroBadges}
+          </div>
+          {content}
+        </Sheet>
+        {subSheets}
+      </>
+    );
+  }
+
   return (
     <>
       <AnimatePresence>
@@ -159,16 +444,7 @@ export default function SessionDrawer({
             >
               {/* ── Hero image ───────────────────────────────────── */}
               <div className="relative flex-shrink-0 h-56 rounded-t-3xl overflow-hidden">
-                {coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverImage} alt={event.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
-                    <span className="text-7xl drop-shadow-md select-none">{catConfig.icon}</span>
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
+                {heroImage}
 
                 {/* Drag handle */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/60 rounded-full" />
@@ -181,227 +457,16 @@ export default function SessionDrawer({
                   <X size={16} className="text-white" />
                 </button>
 
-                {/* Category badge */}
-                <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full" dir="rtl">
-                  <span>{catConfig.icon}</span>
-                  <span>{catConfig.label}</span>
-                </div>
-
-                {/* Official badge */}
-                {event.isOfficial && (
-                  <div className="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>רשמי</span>
-                  </div>
-                )}
+                {heroBadges}
               </div>
 
-              {/* ── Scrollable content ─────────────────────────── */}
-              <div className="flex-1 overflow-y-auto px-5 pt-4 pb-8 space-y-5" dir="rtl">
-                {/* Title */}
-                <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
-                  {event.name}
-                </h2>
-
-                {/* Date & Time */}
-                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <Clock className="w-4 h-4 text-cyan-500 flex-shrink-0" />
-                  <span className="font-semibold">
-                    {formatEventDate(event.date)} · {event.startTime}
-                    {event.endTime ? ` – ${event.endTime}` : ''}
-                  </span>
-                </div>
-
-                {/* Special Notice */}
-                {event.specialNotice && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <span className="text-lg mt-0.5">⚠️</span>
-                    <p className="text-sm font-bold text-amber-800 dark:text-amber-300 leading-relaxed">
-                      {event.specialNotice}
-                    </p>
-                  </div>
-                )}
-
-                {/* Location — smart nav */}
-                {effectiveCoords ? (
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick(effectiveCoords!.lat, effectiveCoords!.lng)}
-                    className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
-                  >
-                    {staticMapUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={staticMapUrl} alt={effectiveAddress || 'מפה'} className="w-full h-[120px] object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-[120px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                        <MapPin className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between" dir="rtl">
-                      <span className="text-xs font-bold text-white truncate max-w-[75%]">
-                        {effectiveAddress || `${effectiveCoords.lat.toFixed(4)}, ${effectiveCoords.lng.toFixed(4)}`}
-                      </span>
-                      <div className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow">
-                        <Navigation className="w-3.5 h-3.5 text-gray-800" />
-                      </div>
-                    </div>
-                  </button>
-                ) : effectiveAddress ? (
-                  <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="font-medium">{effectiveAddress}</span>
-                  </div>
-                ) : null}
-
-                {/* Description */}
-                {effectiveDescription && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    {effectiveDescription}
-                  </p>
-                )}
-
-                {/* Target Muscles */}
-                {hasTargetMuscles && (
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5 text-cyan-500" />
-                      קבוצות שרירים
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {effectiveMuscles!.map((m) => (
-                        <span key={m} className="px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-[11px] font-bold">
-                          {m}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Equipment */}
-                {hasEquipment && (
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                      <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
-                      ציוד נדרש
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {effectiveEquipment!.map((item) => (
-                        <span key={item} className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Price */}
-                {hasPrice && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="w-4 h-4 text-amber-500" />
-                    <span className="font-bold text-gray-700 dark:text-gray-300">₪{effectivePrice}</span>
-                  </div>
-                )}
-
-                {/* Capacity */}
-                {effectiveMaxParticipants && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-blue-500" />
-                    <span className="font-bold text-gray-700 dark:text-gray-300">
-                      {displayCount} / {effectiveMaxParticipants} משתתפים
-                    </span>
-                    {displayCount >= effectiveMaxParticipants && (
-                      <span className="text-[10px] font-black text-red-500 px-2 py-0.5 rounded-full bg-red-50">
-                        מלא
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Attendees */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-                  <AttendeesPreview attendees={registrations ?? []} total={displayCount} />
-                  <span className="text-xs text-gray-500">
-                    {displayCount} {displayCount === 1 ? 'משתתף' : 'משתתפים'}
-                  </span>
-                </div>
-
-                {/* External Link */}
-                {event.externalLink && (
-                  <a
-                    href={event.externalLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    להרשמה ופרטים נוספים
-                  </a>
-                )}
-
-                {/* Join Button */}
-                {onJoin && (
-                  <button
-                    disabled={isJoined || joining}
-                    onClick={() => !isJoined && !joining && onJoin(event.id)}
-                    className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] ${
-                      isJoined
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 ring-1 ring-emerald-200'
-                        : event.isOfficial
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                          : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
-                    }`}
-                  >
-                    {joining ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : isJoined ? (
-                      <>
-                        <CalendarCheck className="w-4 h-4" />
-                        רשום/ה לאירוע
-                      </>
-                    ) : (
-                      <>
-                        <Users className="w-4 h-4" />
-                        הרשמה לאירוע
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* Report link */}
-                <button
-                  onClick={() => setReportOpen(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
-                >
-                  <Flag className="w-3 h-3" />
-                  דיווח על תוכן לא ראוי
-                </button>
-              </div>
+              {content}
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* Navigation selector */}
-      {effectiveCoords && (
-        <NavigationSheet
-          isOpen={navOpen}
-          onClose={() => setNavOpen(false)}
-          lat={effectiveCoords.lat}
-          lng={effectiveCoords.lng}
-          label={effectiveAddress}
-        />
-      )}
-
-      {/* Report content sheet */}
-      <ReportContentSheet
-        isOpen={reportOpen}
-        onClose={() => setReportOpen(false)}
-        targetId={event.id}
-        targetType="event"
-        targetName={event.name}
-        reporterId={userId}
-      />
+      {subSheets}
     </>
   );
 }

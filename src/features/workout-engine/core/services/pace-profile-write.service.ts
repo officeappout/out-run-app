@@ -6,8 +6,7 @@
  * copy), apply the run (pace-self-correction.service → the engine's
  * recordQualityWorkout), write back only `running.paceProfile`.
  * `running.*` is owner-writable under firestore.rules (no protected group
- * covers it) — the same field RunDetailsDrawer's manual pace edit and the
- * onboarding sync already write.
+ * covers it) — the same field the onboarding sync already writes.
  */
 
 import { doc, runTransaction, type Firestore } from 'firebase/firestore';

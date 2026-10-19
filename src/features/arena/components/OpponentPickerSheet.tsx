@@ -17,6 +17,11 @@ import React from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { ScopeCompetitionEntry } from '@/features/arena/services/ranking.service';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 // Brand palette (screens mockup, 16.08.2026). Two distinct accents, matching
 // the mockup exactly: the pinned "mine" card is emerald-toned, while a
@@ -53,6 +58,119 @@ export function OpponentPickerSheet({
   onSelect,
 }: OpponentPickerSheetProps) {
   const dragControls = useDragControls();
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+
+  const list = (
+    <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
+      {/* My entity — pinned, not selectable */}
+      <div
+        className="flex items-center gap-3 rounded-xl px-4 py-3"
+        style={{
+          background: 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(0,173,239,0.10))',
+          border: '1px solid #bff0dc',
+        }}
+      >
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
+          style={{ backgroundColor: MINE_ACCENT }}
+          aria-hidden
+        >
+          {initialsOf(myEntry.scopeName)}
+        </div>
+        <div className="flex-1 min-w-0 text-right">
+          <p className="text-sm font-black text-gray-900 truncate">{myEntry.scopeName}</p>
+          <p className="text-[11px] font-bold" style={{ color: MINE_ACCENT }}>
+            {myEntry.totalScore.toLocaleString('he-IL')}
+          </p>
+        </div>
+        <span
+          className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0"
+          style={{ backgroundColor: MINE_ACCENT, color: '#fff' }}
+        >
+          📌 קבוע
+        </span>
+      </div>
+
+      <div className="text-center text-[11px] text-gray-400 font-bold py-0.5">נגד:</div>
+
+      {candidates.map((c) => {
+        const selected = selectedOpponentId === c.scopeId;
+        return (
+          <button
+            key={c.scopeId}
+            type="button"
+            onClick={() => { onSelect(c.scopeId); onClose(); }}
+            className="w-full flex items-center gap-3 rounded-xl px-4 py-3 transition-colors"
+            style={{
+              border: selected ? `1.5px solid ${SELECT_ACCENT}` : '0.5px solid #E5E7EB',
+              backgroundColor: selected ? '#EAF6FF' : '#fff',
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
+              style={{ backgroundColor: MINE_ACCENT }}
+              aria-hidden
+            >
+              {initialsOf(c.scopeName)}
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
+              <p className="text-[11px] text-gray-500 tabular-nums">
+                {c.rank === 1 ? 'המקום הראשון' : `מקום #${c.rank}`} · {c.totalScore.toLocaleString('he-IL')}
+              </p>
+            </div>
+            <span
+              className="w-4 h-4 rounded-full flex-shrink-0"
+              style={{
+                border: `2px solid ${selected ? SELECT_ACCENT : '#D1D5DB'}`,
+                backgroundColor: selected ? SELECT_ACCENT : 'transparent',
+              }}
+              aria-hidden
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Backdrop z-[48] / panel z-[49] (.cursorrules), in place — unchanged.
+        zIndex={SHEET_Z.arenaFilterPanel}
+        backdropZIndex={SHEET_Z.arenaFilter}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/40 pointer-events-auto"
+        frameClassName="pointer-events-auto max-w-md mx-auto"
+        safeArea="calc(env(safe-area-inset-bottom, 0px) + 56px)"
+        scroll="none"
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
+        grabberClassName="flex justify-center pt-3 pb-2"
+        ariaLabel="בחר יריבה לקרב"
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-3">
+            <div className="min-w-0">
+              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">בחר יריבה לקרב</h2>
+              <p className="truncate text-[12.5px] font-bold text-v2-muted">
+                אתה נשאר {myEntry.scopeName} — רק היריבה מתחלפת
+              </p>
+            </div>
+            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X size={16} className="text-v2-ink-2" />
+            </IconButton>
+          </div>
+        }
+      >
+        {list}
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -107,76 +225,7 @@ export function OpponentPickerSheet({
               אתה נשאר {myEntry.scopeName} — רק היריבה מתחלפת
             </p>
 
-            <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
-              {/* My entity — pinned, not selectable */}
-              <div
-                className="flex items-center gap-3 rounded-xl px-4 py-3"
-                style={{
-                  background: 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(0,173,239,0.10))',
-                  border: '1px solid #bff0dc',
-                }}
-              >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
-                  style={{ backgroundColor: MINE_ACCENT }}
-                  aria-hidden
-                >
-                  {initialsOf(myEntry.scopeName)}
-                </div>
-                <div className="flex-1 min-w-0 text-right">
-                  <p className="text-sm font-black text-gray-900 truncate">{myEntry.scopeName}</p>
-                  <p className="text-[11px] font-bold" style={{ color: MINE_ACCENT }}>
-                    {myEntry.totalScore.toLocaleString('he-IL')}
-                  </p>
-                </div>
-                <span
-                  className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: MINE_ACCENT, color: '#fff' }}
-                >
-                  📌 קבוע
-                </span>
-              </div>
-
-              <div className="text-center text-[11px] text-gray-400 font-bold py-0.5">נגד:</div>
-
-              {candidates.map((c) => {
-                const selected = selectedOpponentId === c.scopeId;
-                return (
-                  <button
-                    key={c.scopeId}
-                    type="button"
-                    onClick={() => { onSelect(c.scopeId); onClose(); }}
-                    className="w-full flex items-center gap-3 rounded-xl px-4 py-3 transition-colors"
-                    style={{
-                      border: selected ? `1.5px solid ${SELECT_ACCENT}` : '0.5px solid #E5E7EB',
-                      backgroundColor: selected ? '#EAF6FF' : '#fff',
-                    }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black text-white"
-                      style={{ backgroundColor: MINE_ACCENT }}
-                      aria-hidden
-                    >
-                      {initialsOf(c.scopeName)}
-                    </div>
-                    <div className="flex-1 min-w-0 text-right">
-                      <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
-                      <p className="text-[11px] text-gray-500 tabular-nums">
-                        {c.rank === 1 ? 'המקום הראשון' : `מקום #${c.rank}`} · {c.totalScore.toLocaleString('he-IL')}
-                      </p>
-                    </div>
-                    <span
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{
-                        border: `2px solid ${selected ? SELECT_ACCENT : '#D1D5DB'}`,
-                        backgroundColor: selected ? SELECT_ACCENT : 'transparent',
-                      }}
-                      aria-hidden
-                    />
-                  </button>
-                );
-              })}
-            </div>
+            {list}
           </motion.div>
         </>
       )}

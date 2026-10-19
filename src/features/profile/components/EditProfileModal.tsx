@@ -34,6 +34,10 @@ import { X, Check, Loader2 } from 'lucide-react';
 import ProfilePhotoUploader from '@/components/ui/ProfilePhotoUploader';
 import { useUserStore } from '@/features/user';
 import { usePersonalInfoEditor, TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -62,6 +66,9 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
   const { profile } = useUserStore();
   const userAvatar = profile?.core?.photoURL;
   const userName = profile?.core?.name ?? 'משתמש';
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   const {
     editName, setEditName,
@@ -85,6 +92,122 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     const ok = await savePersonalEdit();
     if (ok) onClose();
   };
+
+  const fields = (
+    <>
+    {/* Photo */}
+    <div className="flex justify-center">
+      <ProfilePhotoUploader photoURL={userAvatar} displayName={userName} size={88} />
+    </div>
+
+    {/* Name — flat: bottom-border only, no boxed field (פרופיל חלק Part 2) */}
+    <div className="border-b border-gray-200 pb-2.5">
+      <label className="block text-xs font-bold text-gray-500 mb-1">שם</label>
+      <input
+        type="text"
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        placeholder="שמך"
+        className={`w-full bg-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
+        style={INPUT_TEXT_FIX}
+      />
+    </div>
+
+    {/* Bio — flat: bottom-border only, no boxed field */}
+    <div className="border-b border-gray-200 pb-2.5">
+      <label className="block text-xs font-bold text-gray-500 mb-1">תיאור אישי</label>
+      <textarea
+        value={editBio}
+        onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
+        placeholder="ספר/י קצת על עצמך..."
+        rows={2}
+        className={`w-full bg-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
+        style={INPUT_TEXT_FIX}
+      />
+      <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
+    </div>
+
+    {/* תגיות אימון — chip selector stays as-is (it's the control
+        itself, not a boxed section wrapper); only the surrounding
+        field styling above was flattened. */}
+    <div>
+      <h3 className="text-xs font-bold text-gray-500 mb-2">תגיות אימון</h3>
+      <p className="text-[11px] text-gray-400 mb-2.5">אלה התגיות שיופיעו עליך בכרטיס השותף</p>
+      <div className="flex flex-wrap gap-2">
+        {TRAINING_TAG_OPTIONS.map((tag) => {
+          const selected = editTrainingTags.includes(tag.id);
+          return (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => toggleTrainingTag(tag.id)}
+              className={`px-3.5 py-2 rounded-full text-sm font-bold border transition-colors ${
+                selected
+                  ? 'bg-[#00ADEF] text-on-brand border-[#00ADEF]'
+                  : 'bg-gray-50 text-gray-600 border-gray-200'
+              }`}
+            >
+              {tag.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Personal details (city/neighborhood/weight/DOB) live in
+        Settings now — this screen is public-presentation only. */}
+    <p className="text-[11px] text-gray-400 text-center pt-1">
+      פרטים אישיים (עיר, משקל, תאריך לידה) נערכים בהגדרות
+    </p>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Full-screen overlay tier z-[100] (.cursorrules), nested, in place — unchanged.
+        zIndex={SHEET_Z.overlay}
+        layout="nested"
+        portal={false}
+        // Has inputs: kb-fit backdrop + kb-cap surface (the shared keyboard layer, #455).
+        keyboardAware
+        dismissOnBackdrop={!editSaving}
+        backdropClassName="bg-black/40 sm:items-center"
+        backdropStyle={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        className="max-h-[92vh] sm:rounded-3xl"
+        safeArea={false}
+        scroll="body"
+        bodyClassName="px-5 py-5 space-y-5"
+        transition={{ type: 'spring', damping: 32, stiffness: 300 }}
+        ariaLabel="עריכת פרופיל"
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-2">
+            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">עריכת פרופיל</h2>
+            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" disabled={editSaving} onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+        }
+        footer={
+          <div className="px-5 pb-5 pt-3">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={editSaving}
+              className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
+            >
+              {editSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} strokeWidth={3} />}
+              שמור שינויים
+            </button>
+          </div>
+        }
+      >
+        {fields}
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -129,70 +252,7 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
-              {/* Photo */}
-              <div className="flex justify-center">
-                <ProfilePhotoUploader photoURL={userAvatar} displayName={userName} size={88} />
-              </div>
-
-              {/* Name — flat: bottom-border only, no boxed field (פרופיל חלק Part 2) */}
-              <div className="border-b border-gray-200 pb-2.5">
-                <label className="block text-xs font-bold text-gray-500 mb-1">שם</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="שמך"
-                  className={`w-full bg-transparent outline-none text-right ${INPUT_TEXT_CLASS}`}
-                  style={INPUT_TEXT_FIX}
-                />
-              </div>
-
-              {/* Bio — flat: bottom-border only, no boxed field */}
-              <div className="border-b border-gray-200 pb-2.5">
-                <label className="block text-xs font-bold text-gray-500 mb-1">תיאור אישי</label>
-                <textarea
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value.slice(0, 150))}
-                  placeholder="ספר/י קצת על עצמך..."
-                  rows={2}
-                  className={`w-full bg-transparent outline-none text-right resize-none ${INPUT_TEXT_CLASS}`}
-                  style={INPUT_TEXT_FIX}
-                />
-                <p className="text-[10px] text-gray-400 mt-1">{editBio.length}/150</p>
-              </div>
-
-              {/* תגיות אימון — chip selector stays as-is (it's the control
-                  itself, not a boxed section wrapper); only the surrounding
-                  field styling above was flattened. */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 mb-2">תגיות אימון</h3>
-                <p className="text-[11px] text-gray-400 mb-2.5">אלה התגיות שיופיעו עליך בכרטיס השותף</p>
-                <div className="flex flex-wrap gap-2">
-                  {TRAINING_TAG_OPTIONS.map((tag) => {
-                    const selected = editTrainingTags.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => toggleTrainingTag(tag.id)}
-                        className={`px-3.5 py-2 rounded-full text-sm font-bold border transition-colors ${
-                          selected
-                            ? 'bg-[#00ADEF] text-on-brand border-[#00ADEF]'
-                            : 'bg-gray-50 text-gray-600 border-gray-200'
-                        }`}
-                      >
-                        {tag.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Personal details (city/neighborhood/weight/DOB) live in
-                  Settings now — this screen is public-presentation only. */}
-              <p className="text-[11px] text-gray-400 text-center pt-1">
-                פרטים אישיים (עיר, משקל, תאריך לידה) נערכים בהגדרות
-              </p>
+              {fields}
             </div>
 
             {/* Footer save button */}

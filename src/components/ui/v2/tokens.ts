@@ -70,6 +70,10 @@ export const DURATION = { fast: 0.18, base: 0.32, slow: 0.6 } as const;
  * there first). Pick the band of the screen the sheet opens over.
  */
 export const SHEET_Z = {
+  /** Arena leaderboard sheets (LeagueFilterSheet / OpponentPickerSheet) backdrop — budget row z-[48]/z-[49]. */
+  arenaFilter: 48,
+  /** Arena leaderboard sheets panel — budget row z-[48]/z-[49]. */
+  arenaFilterPanel: 49,
   /** Map drawers / home sheets that sit over BottomNavbar (z-50) — budget row z-[60]/z-[61]. */
   drawer: 60,
   /** Sheet one step above a z-[60] backdrop (split layout panel) — budget row z-[60]/z-[61]. */
@@ -82,6 +86,10 @@ export const SHEET_Z = {
   group: 80,
   /** GroupDetailsDrawer panel — budget row z-[80]/z-[81]. */
   groupPanel: 81,
+  /** PostJoinSuccessDrawer backdrop — budget row z-[90]/z-[91]. */
+  joinSuccess: 90,
+  /** PostJoinSuccessDrawer panel — budget row z-[90]/z-[91]. */
+  joinSuccessPanel: 91,
   /** Community sheets (ReportContentSheet, CreateGroupWizard) backdrop — budget row z-[92]/z-[93]. */
   community: 92,
   /** Community sheets panel — budget row z-[92]/z-[93]. */
@@ -110,6 +118,10 @@ export const SHEET_Z = {
   agendaMoveBackdrop: 140,
   /** RollingAgenda's drag-reschedule confirm sheet — budget row z-[150]. */
   agendaMove: 150,
+  /** EquipmentDetailDrawer backdrop (nested over ParkDetailSheet) — budget row z-[200]/z-[201]. */
+  nestedModal: 200,
+  /** EquipmentDetailDrawer panel — budget row z-[200]/z-[201]. */
+  nestedModalPanel: 201,
   /** AgendaDayCard's delete-confirm backdrop — budget row z-[300]/z-[301] (in place, inside the planner's stacking context). */
   agendaDelete: 300,
   /** AgendaDayCard's delete-confirm sheet — budget row z-[300]/z-[301]. */

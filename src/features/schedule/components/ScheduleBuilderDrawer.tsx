@@ -74,6 +74,8 @@ import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedul
 import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { resolveTabLocks } from '@/lib/resolveTabLocks';
 import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import ScheduleBuilderSheetV2 from './ScheduleBuilderSheetV2';
 
 const DAY_SHORT_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const CLOSE_THRESHOLD = 220;
@@ -131,6 +133,8 @@ interface ScheduleBuilderDrawerProps {
 export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planner', onSaved }: ScheduleBuilderDrawerProps) {
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? '';
+  // enable_home_v2: the shared <Sheet> (ScheduleBuilderSheetV2); flag off keeps the markup below untouched.
+  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
 
   // Pure decision, unit-tested on its own (src/lib/resolveTabLocks.ts) —
   // this component has no jsdom coverage, so the lock logic itself has to
@@ -234,6 +238,157 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
 
   if (!isOpen) return null;
 
+  const content = (
+    <>
+
+      {/* ── Area A — what's in the schedule ──
+          Locked = visual only, this stage. Click is a no-op — mode
+          never moves, computeWeaveResultSafely never runs for a
+          locked pick. Navigation to the domain's own onboarding
+          entry (and the confirmation drawer it opens through) is
+          deliberately deferred: WorkoutBuilderSheet.tsx, home to the
+          only reusable version of that confirmation UI, is being
+          edited by a concurrent session right now — see
+          parking-lot.md. */}
+      <div className="flex gap-2 mb-4">
+        <ChipButton label="כוח" active={mode === 'strength'} locked={strengthLocked} onClick={() => setMode('strength')} />
+        <ChipButton label="ריצה" active={mode === 'running'} locked={runningLocked} onClick={() => setMode('running')} />
+        <ChipButton label="משולב" active={mode === 'mixed'} locked={mixedLocked} onClick={() => setMode('mixed')} />
+      </div>
+
+      {mode === 'strength' && <OwnedProgramsList result={result} />}
+
+      {/* ── Area B — dosage + availability ── */}
+      {mode === 'mixed' && (
+        <AerobicStrengthSlider
+          aerobicShare={Math.min(0.7, Math.max(0.3, focus / 100))}
+          onChange={(share) => setFocus(Math.round(share * 100))}
+          goalType="time"
+          timeBudgetMin={30}
+        />
+      )}
+      <AvailabilityStepper value={availableDayCount} onChange={setAvailableDayCount} />
+
+      {/* ── Running time — the running step's time picker (owner rule 01.09.2026) ── */}
+      {showRunningTime && (
+        <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
+          <span className="text-sm font-black text-gray-700">באיזו שעה תרוץ?</span>
+          <div className="mt-2 flex gap-2">
+            {RUNNING_TIME_PRESETS.map(({ id, label, time, Icon }) => {
+              const on = !customTimeOpen && matchedTimePreset === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => { setCustomTimeOpen(false); setRunningTime(time); }}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
+                    on ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
+                  }`}
+                >
+                  <Icon size={14} />
+                  {label}
+                  <span dir="ltr" className="text-[11px] font-bold opacity-80">{time}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setCustomTimeOpen(true)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
+                customTimeOpen || matchedTimePreset === null ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
+              }`}
+            >
+              <Clock size={14} />
+              אחר
+              <span dir="ltr" className="text-[11px] font-bold opacity-80">{matchedTimePreset === null ? runningTime : '—'}</span>
+            </button>
+          </div>
+          {(customTimeOpen || matchedTimePreset === null) && (
+            <div className="mt-2">
+              <DrumTimePicker value={runningTime} onChange={setRunningTime} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Area C — the resulting week ── */}
+      <div className="mt-4 space-y-2">
+        {result && Array.from({ length: 7 }, (_, dayOfWeek) => (
+          <DayRow key={dayOfWeek} dayOfWeek={dayOfWeek} asOfDate={asOfDate} result={result} userId={userId} />
+        ))}
+        {!result && (
+          <p className="text-sm text-gray-500 text-center py-6">
+            אין עדיין מספיק נתונים כדי להציע לוז — פתח תוכנית כוח או ריצה קודם.
+          </p>
+        )}
+      </div>
+
+      {/* ── Coach notes — one home, per spec ── */}
+      {result && result.notes.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-white border border-slate-100 p-3">
+          <p className="text-[12px] font-black text-gray-700 mb-1.5">הערות</p>
+          <ul className="space-y-1">
+            {result.notes.map((note, i) => (
+              <li key={i} className="text-[12px] text-gray-600 leading-snug">{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Approval — disabled unless SCHEDULE_BUILDER_SAVE_V1 (default OFF: preview only, no write). */}
+      {!saveEnabled && (
+        <button
+          type="button"
+          disabled
+          className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
+        >
+          אישור (בקרוב)
+        </button>
+      )}
+      {saveEnabled && result && (saveState === 'idle' || saveState === 'failed') && (
+        <button
+          type="button"
+          onClick={() => (entry === 'second_track' ? handleSave('from_now') : setSaveState('choose'))}
+          className="w-full mt-4 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm"
+        >
+          זה מתאים לי
+        </button>
+      )}
+      {saveEnabled && result && saveState === 'choose' && (
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={() => handleSave('this_week')} className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 font-black text-sm text-gray-700">
+            רק השבוע
+          </button>
+          <button type="button" onClick={() => handleSave('from_now')} className="flex-1 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm">
+            מכאן והלאה
+          </button>
+        </div>
+      )}
+      {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">שומר…</p>}
+      {saveEnabled && saveState === 'saved' && (
+        <p className="mt-4 text-sm font-black text-gray-700 text-center">נשמר.{runningNote ? ` ${runningNote}` : ''}</p>
+      )}
+      {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">השמירה לא הצליחה. אפשר לנסות שוב.</p>}
+    </>
+  );
+
+  if (v2) {
+    return (
+      <ScheduleBuilderSheetV2
+        isOpen={isOpen}
+        onClose={handleClose}
+        y={y}
+        opacity={opacity}
+        dragControls={dragControls}
+        scrollRef={scrollRef}
+        closeThreshold={CLOSE_THRESHOLD}
+        spring={SPRING}
+      >
+        {content}
+      </ScheduleBuilderSheetV2>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -289,135 +444,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
               <h2 className="text-base font-black text-gray-900 mb-3">בואו נבנה לוז</h2>
-
-              {/* ── Area A — what's in the schedule ──
-                  Locked = visual only, this stage. Click is a no-op — mode
-                  never moves, computeWeaveResultSafely never runs for a
-                  locked pick. Navigation to the domain's own onboarding
-                  entry (and the confirmation drawer it opens through) is
-                  deliberately deferred: WorkoutBuilderSheet.tsx, home to the
-                  only reusable version of that confirmation UI, is being
-                  edited by a concurrent session right now — see
-                  parking-lot.md. */}
-              <div className="flex gap-2 mb-4">
-                <ChipButton label="כוח" active={mode === 'strength'} locked={strengthLocked} onClick={() => setMode('strength')} />
-                <ChipButton label="ריצה" active={mode === 'running'} locked={runningLocked} onClick={() => setMode('running')} />
-                <ChipButton label="משולב" active={mode === 'mixed'} locked={mixedLocked} onClick={() => setMode('mixed')} />
-              </div>
-
-              {mode === 'strength' && <OwnedProgramsList result={result} />}
-
-              {/* ── Area B — dosage + availability ── */}
-              {mode === 'mixed' && (
-                <AerobicStrengthSlider
-                  aerobicShare={Math.min(0.7, Math.max(0.3, focus / 100))}
-                  onChange={(share) => setFocus(Math.round(share * 100))}
-                  goalType="time"
-                  timeBudgetMin={30}
-                />
-              )}
-              <AvailabilityStepper value={availableDayCount} onChange={setAvailableDayCount} />
-
-              {/* ── Running time — the running step's time picker (owner rule 01.09.2026) ── */}
-              {showRunningTime && (
-                <div className="bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
-                  <span className="text-sm font-black text-gray-700">באיזו שעה תרוץ?</span>
-                  <div className="mt-2 flex gap-2">
-                    {RUNNING_TIME_PRESETS.map(({ id, label, time, Icon }) => {
-                      const on = !customTimeOpen && matchedTimePreset === id;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => { setCustomTimeOpen(false); setRunningTime(time); }}
-                          className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
-                            on ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
-                          }`}
-                        >
-                          <Icon size={14} />
-                          {label}
-                          <span dir="ltr" className="text-[11px] font-bold opacity-80">{time}</span>
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => setCustomTimeOpen(true)}
-                      className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl text-[12px] font-black whitespace-nowrap transition-all ${
-                        customTimeOpen || matchedTimePreset === null ? 'bg-[#00C9F2] text-on-brand' : 'bg-white text-gray-600 border border-slate-200'
-                      }`}
-                    >
-                      <Clock size={14} />
-                      אחר
-                      <span dir="ltr" className="text-[11px] font-bold opacity-80">{matchedTimePreset === null ? runningTime : '—'}</span>
-                    </button>
-                  </div>
-                  {(customTimeOpen || matchedTimePreset === null) && (
-                    <div className="mt-2">
-                      <DrumTimePicker value={runningTime} onChange={setRunningTime} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── Area C — the resulting week ── */}
-              <div className="mt-4 space-y-2">
-                {result && Array.from({ length: 7 }, (_, dayOfWeek) => (
-                  <DayRow key={dayOfWeek} dayOfWeek={dayOfWeek} asOfDate={asOfDate} result={result} userId={userId} />
-                ))}
-                {!result && (
-                  <p className="text-sm text-gray-500 text-center py-6">
-                    אין עדיין מספיק נתונים כדי להציע לוז — פתח תוכנית כוח או ריצה קודם.
-                  </p>
-                )}
-              </div>
-
-              {/* ── Coach notes — one home, per spec ── */}
-              {result && result.notes.length > 0 && (
-                <div className="mt-4 rounded-2xl bg-white border border-slate-100 p-3">
-                  <p className="text-[12px] font-black text-gray-700 mb-1.5">הערות</p>
-                  <ul className="space-y-1">
-                    {result.notes.map((note, i) => (
-                      <li key={i} className="text-[12px] text-gray-600 leading-snug">{note}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Approval — disabled unless SCHEDULE_BUILDER_SAVE_V1 (default OFF: preview only, no write). */}
-              {!saveEnabled && (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full mt-4 py-3 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm cursor-not-allowed"
-                >
-                  אישור (בקרוב)
-                </button>
-              )}
-              {saveEnabled && result && (saveState === 'idle' || saveState === 'failed') && (
-                <button
-                  type="button"
-                  onClick={() => (entry === 'second_track' ? handleSave('from_now') : setSaveState('choose'))}
-                  className="w-full mt-4 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm"
-                >
-                  זה מתאים לי
-                </button>
-              )}
-              {saveEnabled && result && saveState === 'choose' && (
-                <div className="mt-4 flex gap-2">
-                  <button type="button" onClick={() => handleSave('this_week')} className="flex-1 py-3 rounded-2xl bg-white border border-slate-200 font-black text-sm text-gray-700">
-                    רק השבוע
-                  </button>
-                  <button type="button" onClick={() => handleSave('from_now')} className="flex-1 py-3 rounded-2xl bg-[#00C9F2] text-on-brand font-black text-sm">
-                    מכאן והלאה
-                  </button>
-                </div>
-              )}
-              {saveEnabled && saveState === 'saving' && <p className="mt-4 text-sm text-gray-500 text-center">שומר…</p>}
-              {saveEnabled && saveState === 'saved' && (
-                <p className="mt-4 text-sm font-black text-gray-700 text-center">נשמר.{runningNote ? ` ${runningNote}` : ''}</p>
-              )}
-              {saveEnabled && saveState === 'failed' && <p className="mt-4 text-sm text-red-600 text-center">השמירה לא הצליחה. אפשר לנסות שוב.</p>}
+              {content}
             </div>
           </motion.div>
         </>
