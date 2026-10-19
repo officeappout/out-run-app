@@ -1273,6 +1273,27 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // SITE CONTENT — FAQ / articles / in-app help, one source for the app (unified search,
+    // help hub, Kelly) and the website (/faq, /learn). 19.10.2026.
+    //   site_content/{id}        Written ONLY by the Admin SDK (/api/admin/content/**, the
+    //                             seed script). A PUBLISHED doc is readable by anyone (it is
+    //                             public marketing / help text); a draft is not. A list query
+    //                             must constrain status == 'published' (rules are not filters).
+    //                             The public path is GET /api/content (cached).
+    //   content_suggestions/{id}  "הצע להוסיף" from search — server-only (POST
+    //                             /api/content/suggestions, read in /admin/content).
+    // NOT content_items: that name is the Marketing Hub queue (/admin/marketing-hub, below).
+    // tests/firestore-site-content.rules.test.ts pins both.
+    // ============================================================
+    match /site_content/{itemId} {
+      allow read: if resource.data.get('status', '') == 'published';
+      allow write: if false;
+    }
+    match /content_suggestions/{suggestionId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // WORKOUT METADATA — תבניות, הודעות, תיאורים + תתי-אוספים
     // ============================================================
     match /workoutMetadata/{docId} {
