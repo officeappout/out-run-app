@@ -56,6 +56,8 @@ export interface AerobicLeg {
   badge?: string;
   meta: AerobicMetaItem[];
   paceSecPerKm?: number;
+  /** Pace pill text instead of `paceSecPerKm` (a band, e.g. "6:10–6:40"; the card adds "/ק״מ"). */
+  paceText?: string;
   /** "מסלול מעגלי — חוזר לנקודת ההתחלה" under the metas (standard layout). */
   loopNote?: boolean;
   /** The card's header toggles a details panel (OverviewLegAxis.renderLegDetail). */
@@ -81,6 +83,8 @@ export interface GroupLegRow {
   label: string;
   /** Pace / range in brand blue, e.g. "4:50–5:05 /ק״מ". */
   paceText?: string;
+  /** Row bar colour (the block's own); default by tone. */
+  color?: string;
 }
 
 export interface GroupLeg {
@@ -96,6 +100,10 @@ export interface GroupLeg {
   stripLabel?: string;
   /** ONE repetition's rows (work / recovery pair …). */
   rows: GroupLegRow[];
+  /** Distance / time metas under the title (run overview: "~3.0 ק״מ" · "~21 דק׳"). */
+  meta?: AerobicMetaItem[];
+  /** Work colour — fills the repeat badge ("6 ×" + "חזרות") and tints the metas (board M-6a). */
+  color?: string;
 }
 
 export type OverviewLeg = TransportLeg | AerobicLeg | StationLeg | GroupLeg;

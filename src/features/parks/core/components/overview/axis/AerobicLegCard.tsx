@@ -40,7 +40,9 @@ export default function AerobicLegCard({ leg, expanded = false, onToggle, detail
       {leg.meta.map((m) => (
         <Meta key={m.key} tint={AER} icon={metaIcon(m.icon, leg.activity)}>{m.text}</Meta>
       ))}
-      {pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{fmtPace(pace)} /ק״מ</span>}
+      {leg.paceText
+        ? <span className="text-[11px] font-extrabold rounded-full whitespace-nowrap" style={pacePillStyle}>{leg.paceText} /ק״מ</span>
+        : pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{fmtPace(pace)} /ק״מ</span>}
     </div>
   );
   const badgeCls = `${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`;

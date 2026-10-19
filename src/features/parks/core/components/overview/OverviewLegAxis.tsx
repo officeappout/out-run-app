@@ -29,9 +29,23 @@ export interface OverviewLegAxisProps {
   renderStation?: (leg: StationLeg) => ReactNode;
   /** Details panel of an expandable aerobic leg. */
   renderLegDetail?: (leg: AerobicLeg) => ReactNode;
+  /** Replaces the "המיקום שלך" origin row (run overview: the chosen-route card, board M-6f). */
+  origin?: ReactNode;
+  /** A muted line under the origin row ("יוצאים מכאן · ה-GPS מודד את הדרך", board M-6a). */
+  originNote?: string;
+  /** Divider labels; default "תחילת המסלול" / "סיום המסלול". */
+  startLabel?: string;
+  endLabel?: string;
+  /** Rendered just above the end divider (e.g. "על לולאת הירקון — 1.5 סיבובים"). */
+  beforeEnd?: ReactNode;
+  /** The closing "המיקום שלך" row (default true; a free run ends where the GPS stops). */
+  showReturn?: boolean;
 }
 
-export default function OverviewLegAxis({ legs, v2 = false, top, renderStation, renderLegDetail }: OverviewLegAxisProps) {
+export default function OverviewLegAxis({
+  legs, v2 = false, top, renderStation, renderLegDetail,
+  origin, originNote, startLabel = 'תחילת המסלול', endLabel = 'סיום המסלול', beforeEnd, showReturn = true,
+}: OverviewLegAxisProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((m) => ({ ...m, [key]: !m[key] }));
   const walkThere = transportMinutes(legs, 'there');
@@ -46,9 +60,12 @@ export default function OverviewLegAxis({ legs, v2 = false, top, renderStation, 
     <div dir="rtl">
       {top}
 
-      <YourLocationRow variant="origin" railBelowDotted={walkThere > 0} firstColorBelow={AER} />
+      {origin ?? <YourLocationRow variant="origin" railBelowDotted={walkThere > 0} firstColorBelow={AER} />}
+      {originNote && (
+        <div className="-mt-2 mb-1 whitespace-nowrap pr-14 text-[12px] font-bold text-v2-muted">{originNote}</div>
+      )}
       {walkThere > 0 && <TransportRow label={there!.kind === 'transport' ? there!.label : ''} minutes={walkThere} />}
-      <RouteDivider label="תחילת המסלול" from={AER} to={firstSegColor} />
+      <RouteDivider label={startLabel} from={AER} to={firstSegColor} />
 
       {onRoute.map((leg, i) => {
         const last = i === onRoute.length - 1;
@@ -83,9 +100,10 @@ export default function OverviewLegAxis({ legs, v2 = false, top, renderStation, 
         );
       })}
 
-      <RouteDivider label="סיום המסלול" from={AER} to={walkBack > 0 ? AER : ACCENT} />
+      {beforeEnd}
+      <RouteDivider label={endLabel} from={AER} to={walkBack > 0 || !showReturn ? AER : ACCENT} />
       {walkBack > 0 && <TransportRow label={back!.kind === 'transport' ? back!.label : ''} minutes={walkBack} />}
-      <YourLocationRow variant="return" railAboveDotted={walkBack > 0} />
+      {showReturn && <YourLocationRow variant="return" railAboveDotted={walkBack > 0} />}
     </div>
     </AxisV2.Provider>
   );

@@ -13,14 +13,20 @@ import { motion } from 'framer-motion';
 import OverviewTitleBar from '../../hybrid/OverviewTitleBar';
 import RouteOverviewDrawer, { type RouteOverviewDrawerProps } from './RouteOverviewDrawer';
 
-export interface RouteOverviewOverlayProps extends Omit<RouteOverviewDrawerProps, 'onOpenFullDetails'> {
+export interface RouteOverviewOverlayProps extends Omit<RouteOverviewDrawerProps, 'onOpenFullDetails' | 'topSlot'> {
   /** The full route page; `close` returns to the drawer. Omit → no "כל פרטי המסלול" link. */
   renderFullDetails?: (close: () => void) => ReactNode;
+  /** Board M-6j: a card at the top of the drawer; `open` switches to `renderWorkoutView`. */
+  renderTopCard?: (open: () => void) => ReactNode;
+  /** Board M-6j → 5c: today's workout on this route, in place of the route drawer; `back` returns. */
+  renderWorkoutView?: (back: () => void) => ReactNode;
 }
 
-export default function RouteOverviewOverlay({ renderFullDetails, ...drawer }: RouteOverviewOverlayProps) {
+export default function RouteOverviewOverlay({ renderFullDetails, renderTopCard, renderWorkoutView, ...drawer }: RouteOverviewOverlayProps) {
   const [full, setFull] = useState(false);
+  const [workoutView, setWorkoutView] = useState(false);
   if (full && renderFullDetails) return <>{renderFullDetails(() => setFull(false))}</>;
+  const showWorkout = workoutView && !!renderWorkoutView;
   return (
     <>
       <motion.div
@@ -30,9 +36,13 @@ export default function RouteOverviewOverlay({ renderFullDetails, ...drawer }: R
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
       >
-        <OverviewTitleBar title={drawer.route.name?.trim() || 'מסלול'} eyebrow="מבט על מסלול" onBack={drawer.onBack} />
+        <OverviewTitleBar title={drawer.route.name?.trim() || 'מסלול'} eyebrow={showWorkout ? 'מבט על אימון' : 'מבט על מסלול'}
+          onBack={showWorkout ? () => setWorkoutView(false) : drawer.onBack} />
       </motion.div>
-      <RouteOverviewDrawer {...drawer} onOpenFullDetails={renderFullDetails ? () => setFull(true) : undefined} />
+      {showWorkout
+        ? renderWorkoutView!(() => setWorkoutView(false))
+        : <RouteOverviewDrawer {...drawer} onOpenFullDetails={renderFullDetails ? () => setFull(true) : undefined}
+            topSlot={renderTopCard?.(() => setWorkoutView(true))} />}
     </>
   );
 }

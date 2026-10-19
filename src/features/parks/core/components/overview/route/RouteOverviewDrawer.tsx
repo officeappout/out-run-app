@@ -13,7 +13,7 @@
  * map's walk-to-route time for the focused route.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, MapPin, Navigation, Ruler } from 'lucide-react';
 import type { Route } from '@/features/parks/core/types/route.types';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
@@ -53,10 +53,12 @@ export interface RouteOverviewDrawerProps {
   onNavigate?: (route: Route) => void;
   /** The full route page (community, arrivals, credits) — RouteDetailSheet. */
   onOpenFullDetails?: () => void;
+  /** Top of the body (board M-6j: "יש לך היום … · לאימון הזה כאן"). Omit → nothing. */
+  topSlot?: ReactNode;
 }
 
 export default function RouteOverviewDrawer({
-  route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails,
+  route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails, topSlot,
 }: RouteOverviewDrawerProps) {
   const [activity, setActivity] = useState<RouteActivity>(() => initialRouteActivity(route, initialActivity));
   const [detailOpen, setDetailOpen] = useState(false);
@@ -128,6 +130,7 @@ export default function RouteOverviewDrawer({
         </div>
       )}
     >
+      {topSlot}
       {/* פירוט (collapsed by default) + the route's difficulty */}
       <div className="mt-3 flex items-center justify-between gap-2">
         <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}

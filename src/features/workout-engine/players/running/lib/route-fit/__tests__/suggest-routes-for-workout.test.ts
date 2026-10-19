@@ -40,8 +40,9 @@ describe('suggestRoutesForWorkout', () => {
     const out = await suggestRoutesForWorkout(ORIGIN, easy, {
       deps: { getOfficialRoutes: async () => [], generateRoutes },
       attempt: 2,
+      cityName: 'תל אביב',
     });
-    expect(generateRoutes).toHaveBeenCalledWith({ origin: ORIGIN, targetKm: 5, attempt: 2 });
+    expect(generateRoutes).toHaveBeenCalledWith({ origin: ORIGIN, targetKm: 5, attempt: 2, cityName: 'תל אביב' });
     expect(out.map((s) => s.route.id)).toEqual(['gen-1']);
     expect(out[0].isGenerated).toBe(true);
   });
