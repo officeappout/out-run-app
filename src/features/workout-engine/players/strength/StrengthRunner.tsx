@@ -74,8 +74,13 @@ import { isPlayerAudioMuted } from './logic/player-audio-mute';
 import FirstRunTour, { type FirstRunTourCloseReason } from '@/features/user/onboarding/components/FirstRunTour';
 import type { RepsSource, SwapOpenContext, SwapSource } from '@/features/workout-engine/adaptation/adaptation.types';
 import { shouldArmPlayerTour } from '@/features/user/onboarding/services/first-run-tour';
+import {
+  useTimedSegment, useMixedStoryBars, TimedBlockPlayer, TimedListBehind, mergeSegmentLog, segmentLogId, miniPlayerInfo,
+} from './timed';
 
 export type { ExerciseResultLog };
+
+const noop = () => {};
 
 interface StrengthRunnerProps {
   workout: WorkoutPlan;
@@ -138,6 +143,25 @@ export default function StrengthRunner({
   onFirstRunTourClose,
 }: StrengthRunnerProps) {
   const sm = useWorkoutStateMachine(workout, onComplete, onPause, onResume, undefined, exerciseHistoryMap, initialCheckpoint);
+
+  // enable_home_v2 — read ONCE here (the player root) and provided to every player component
+  // via StrengthPlayerV2Context. Styling only, EXCEPT the timed engine right below.
+  const isSuperAdminV2 = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
+
+  // enable_home_v2 only: an AMRAP / EMOM / Tabata segment runs on the timed engine (its own
+  // screens below); every other segment — and everything with the flag off or inside a hybrid
+  // station — is the regular flow, unchanged. The block's rows go back into the machine's log.
+  const timed = useTimedSegment({
+    workout,
+    segmentIndex: sm.currentSegmentIndex,
+    enabled: playerV2,
+    embedded,
+    isPaused: sm.isPaused,
+    onHandBack: sm.completeExternalSegment,
+  });
+  // …and the classic header shows each timed block as ONE wide story bar (null → today's bars).
+  const mixedBars = useMixedStoryBars(workout, { enabled: playerV2, embedded }, sm.currentSegmentIndex, sm.exerciseLogSnapshot);
 
   // ── Offline-cached + network-aware media URLs ──────────────────────────
   const { safeVideoUrl, safeImageUrl, safeNextVideoUrl } = usePlayerMedia({
@@ -283,9 +307,9 @@ export default function StrengthRunner({
     workoutName: workout.name,
     artworkUrl: safeImageUrl || sm.nextExercise.imageUrl,
     isPaused: sm.isPaused,
-    onSkipRest: sm.skipRest,
-    onSaveInput: handleBigScreenInputSave,
-    onCompleteExercise: sm.handleExerciseComplete,
+    onSkipRest: timed.active ? noop : sm.skipRest,
+    onSaveInput: timed.active ? noop : handleBigScreenInputSave,
+    onCompleteExercise: timed.active ? timed.itemDone : sm.handleExerciseComplete,
     onTogglePause: sm.togglePause,
   });
 
@@ -417,10 +441,6 @@ export default function StrengthRunner({
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
   const userGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const profileId = useUserStore((s) => s.profile?.id);
-  // enable_home_v2 — read ONCE here (the player root) and provided to every player component
-  // via StrengthPlayerV2Context. Styling only: no handler/timer/audio/gesture/data forks on it.
-  const isSuperAdminV2 = useUserStore((s) => !!(s.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const playerV2 = useFeatureFlags(isSuperAdminV2).flags.enableHomeV2;
 
   // ── PR-B2 demo gate (guided only) ───────────────────────────────────────
   // Held in the player's EXISTING pause — every clock already honours isPaused (elapsed +
@@ -461,7 +481,7 @@ export default function StrengthRunner({
   // PREPARING, then held exactly like the demo gate (PREPARING → ACTIVE, paused) until it closes.
   const [playerTour, setPlayerTour] = useState<'idle' | 'armed' | 'done'>('idle');
   useLayoutEffect(() => {
-    if (playerTour !== 'idle') return;
+    if (playerTour !== 'idle' || timed.active) return;
     if (shouldArmPlayerTour({
       eligible: firstRunTour,
       workoutState: sm.workoutState,
@@ -470,8 +490,8 @@ export default function StrengthRunner({
       resumed: !!initialCheckpoint,
       guidedGates: embedded || !!demoGate || !!findEquipment,
     })) setPlayerTour('armed');
-  }, [playerTour, firstRunTour, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint, embedded, demoGate, findEquipment]);
-  const needsTour = playerTour === 'armed' && !needsFind && !needsGate;
+  }, [playerTour, timed.active, firstRunTour, sm.workoutState, sm.currentSegmentIndex, sm.currentExerciseIndex, initialCheckpoint, embedded, demoGate, findEquipment]);
+  const needsTour = playerTour === 'armed' && !needsFind && !needsGate && !timed.active;
   const tourActive = needsTour && sm.workoutState === 'ACTIVE';
   const needsHold = needsFind || needsGate || needsTour;
   const gateActive = needsGate && sm.workoutState === 'ACTIVE';
@@ -525,8 +545,14 @@ export default function StrengthRunner({
 
   const handleEarlyExit = useCallback(() => {
     setShowExitConfirmModal(false);
-    onComplete?.(sm.getExerciseLog());
-  }, [sm.getExerciseLog, onComplete]);
+    // A timed block stopped mid-way keeps what was done (flag on only; empty otherwise).
+    const timedRows = timed.active ? timed.finishNow() : [];
+    onComplete?.(
+      timedRows.length > 0
+        ? mergeSegmentLog(sm.getExerciseLog(), segmentLogId(workout, sm.currentSegmentIndex), timedRows)
+        : sm.getExerciseLog(),
+    );
+  }, [sm.getExerciseLog, sm.currentSegmentIndex, onComplete, timed, workout]);
 
   // Android hardware back / iOS edge-swipe-back → open the exit confirmation
   // modal instead of popping the route (which would silently discard all
@@ -764,6 +790,8 @@ export default function StrengthRunner({
   // MAIN RENDER
   // ========================================================================
 
+  const timedMini = timed.active && timed.state && timed.view ? miniPlayerInfo(timed.state, timed.view, timed.prefix) : null;
+
   return (
     <StrengthPlayerV2Provider value={playerV2}>
     <div
@@ -772,6 +800,9 @@ export default function StrengthRunner({
     >
       {/* ─── BASE LAYER: Workout Playlist ─────────────────────────────── */}
       <div className="absolute inset-0 z-0 bg-white dark:bg-slate-900 flex flex-col">
+        {timed.active ? (
+          <TimedListBehind timed={timed} workout={workout} segmentIndex={sm.currentSegmentIndex} onClose={() => setIsMinimized(false)} />
+        ) : (
         <WorkoutPlaylist
           workout={workout}
           currentSegmentIndex={sm.currentSegmentIndex}
@@ -785,6 +816,7 @@ export default function StrengthRunner({
           handleRepetitionSave={sm.handleRepetitionSave}
           onSkipRest={sm.skipRest}
         />
+        )}
       </div>
 
       {/* ─── TOP LAYER: Active Workout ───────────────────────────────────── */}
@@ -803,13 +835,23 @@ export default function StrengthRunner({
       >
         {isMinimized ? (
           <MiniPlayerBar
-            exerciseName={sm.exerciseName}
-            elapsedTimeLabel={sm.formatTime(sm.elapsedTime)}
+            exerciseName={timedMini ? timedMini.name : sm.exerciseName}
+            elapsedTimeLabel={timedMini ? timedMini.label : sm.formatTime(sm.elapsedTime)}
             safeVideoUrl={safeVideoUrl}
             isPaused={sm.isPaused}
             dragControls={dragControls}
             onExpand={() => setIsMinimized(false)}
             onTogglePause={sm.togglePause}
+          />
+        ) : timed.active ? (
+          <TimedBlockPlayer
+            timed={timed}
+            workout={workout}
+            segmentIndex={sm.currentSegmentIndex}
+            isPaused={sm.isPaused}
+            onTogglePause={sm.togglePause}
+            onList={() => setIsMinimized(true)}
+            onHeaderPointerDown={handleHeaderPointerDown}
           />
         ) : (
           <div className="relative w-full h-full overflow-hidden">
@@ -850,7 +892,7 @@ export default function StrengthRunner({
             {/* Header overlay — also the drag handle for minimize */}
             {showHeader && !gateActive && !findActive && (
               <RunnerHeader
-                progressBars={sm.progressBars}
+                progressBars={mixedBars ?? sm.progressBars}
                 autoCompleteTime={sm.autoCompleteTime}
                 isPaused={sm.isPaused}
                 isLogDrawerOpen={sm.isLogDrawerOpen}

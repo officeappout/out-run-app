@@ -15,6 +15,7 @@ import { extendRestSeconds } from '../logic/player-controls.utils';
 import { useSupersetPredicates } from './useSupersetPredicates';
 import { useExerciseDerivedValues } from './useExerciseDerivedValues';
 import { useExerciseLog } from './useExerciseLog';
+import { mergeSegmentLog } from '../timed/logic/timed-segment';
 // NextExerciseInfo now lives in useExerciseDerivedValues — imported for local use and re-exported
 import type { NextExerciseInfo } from './useExerciseDerivedValues';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
@@ -220,6 +221,12 @@ export interface WorkoutStateMachineResult {
   setVideoProgress: React.Dispatch<React.SetStateAction<number>>;
 
   forceTransition: (targetState: WorkoutState, payload?: ForceTransitionPayload) => void;
+  /**
+   * enable_home_v2 timed blocks (AMRAP / EMOM / Tabata run by the timed engine): the block's
+   * rows replace the current segment's log, then the cursor leaves the segment like the last
+   * set of any segment does (next segment, or workout complete). Never called with the flag off.
+   */
+  completeExternalSegment: (entries: ExerciseResultLog[]) => void;
   getExerciseLog: () => ExerciseResultLog[];
   /** Reactive snapshot of exercise log — triggers re-renders on every log mutation */
   exerciseLogSnapshot: ExerciseResultLog[];
@@ -1136,6 +1143,26 @@ export function useWorkoutStateMachine(
     [],
   );
 
+  const completeExternalSegment = useCallback(
+    (entries: ExerciseResultLog[]) => {
+      const segId = workout.segments[currentSegmentIndex]?.id || String(currentSegmentIndex);
+      exerciseLogRef.current = mergeSegmentLog(exerciseLogRef.current, segId, entries);
+      bumpLog();
+      const nextIdx = findNextValidSegmentIndex(currentSegmentIndex + 1);
+      if (nextIdx === null) {
+        setTimeout(() => onComplete?.(exerciseLogRef.current), 0);
+        return;
+      }
+      transitionLock.current = false;
+      setIsLogDrawerOpen(false);
+      setCurrentSegmentIndex(nextIdx);
+      setCurrentExerciseIndex(0);
+      setCurrentSetIndex(0);
+      setWorkoutState('ACTIVE');
+    },
+    [workout.segments, currentSegmentIndex, exerciseLogRef, bumpLog, findNextValidSegmentIndex, onComplete, setCurrentSetIndex],
+  );
+
   // --------------------------------------------------------------------------
   // RETURN
   // --------------------------------------------------------------------------
@@ -1205,6 +1232,7 @@ export function useWorkoutStateMachine(
     setVideoProgress,
 
     forceTransition,
+    completeExternalSegment,
     getExerciseLog,
     exerciseLogSnapshot,
   };

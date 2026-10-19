@@ -13,6 +13,8 @@ import StoryBars, { type StoryBarSegment } from '@/components/ui/v2/StoryBars';
 interface ProgressBar {
   isActive: boolean;
   isCurrent: boolean;
+  /** v2 only: width weight when not current (a timed block's one wide bar, board A-5b). */
+  weight?: number;
 }
 
 interface WorkoutStoryBarsProps {
@@ -94,6 +96,7 @@ export default function WorkoutStoryBars({
     const segments: StoryBarSegment[] = progressBars.map((bar, index) => ({
       key: String(index),
       color: accentColor,
+      ...(bar.weight ? { weight: bar.weight } : {}),
       state: bar.isCurrent ? 'current' : bar.isActive ? 'done' : 'upcoming',
     }));
     return (
