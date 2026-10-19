@@ -181,6 +181,14 @@ export const FLAG_DEFS = [
   // panel toggle is the one switch (pre-auth code can't know who is a super admin).
   // Off = exactly today's startup.
   { key: 'enableFastStartupV1', firestoreKey: 'enable_fast_startup_v1', defaultValue: false, superAdminValue: false },
+  // Route quality v1 (19.10.2026, owner-approved phases 0+1) — the loop route generator places
+  // waypoints ON quiet streets (geohash ring sampling, far fewer Firestore reads), pins them for
+  // Mapbox (walkway bias + radius + travel bearing), drops blind synthetic points, trims dead-end
+  // spurs, rejects loops that retrace / U-turn / are too thin / cross major roads unmarked, and
+  // stops inventing lit / traffic / benches / rating. Read on the device via readLiveFlag (the
+  // generator is a plain module), so superAdminValue false — the panel toggle is the one switch.
+  // Off = the generator is byte-identical. A/B: /admin/routes/quality.
+  { key: 'enableRouteQualityV1', firestoreKey: 'enable_route_quality_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
