@@ -8,7 +8,7 @@
  */
 
 import { ChevronUp, Play, X } from 'lucide-react';
-import { JourneyStrip, ProfileStrip, WorkoutOverviewHeader } from '@/components/ui/v2';
+import { IconButton, JourneyStrip, ProfileStrip, WorkoutOverviewHeader } from '@/components/ui/v2';
 import type { RunPreviewModel } from '../../utils/run-preview/run-preview-model';
 import RunKindTile from './RunKindIcon';
 
@@ -37,14 +37,9 @@ export default function RunPreviewSheetV2({ model, onStart, onDetails, onClose }
               {model.typeLabel} · {model.weekLabelShort || 'אימון היום'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="סגור"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
-          >
-            <X size={16} strokeWidth={2.4} className="text-v2-ink-2" />
-          </button>
+          <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose} className="shrink-0">
+            <X className="h-4 w-4" strokeWidth={2.4} />
+          </IconButton>
         </div>
 
         <div className="mt-2">
