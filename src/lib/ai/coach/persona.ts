@@ -127,6 +127,8 @@ export interface SessionContextInput {
   scheduleAdvisor?: boolean;
   /** ai_coach_phase2 on: app help + schedule proposals (after the cache breakpoint, so off = today's prompt). */
   phase2?: boolean;
+  /** ai_coach_memory on: the rendered "מה אני זוכר עליך" block (memory/inject.ts). Absent = today's prompt. */
+  memory?: string | null;
 }
 
 /** Session note while Kelly phase 2 (ai_coach_phase2) is on. */
@@ -156,6 +158,7 @@ export function buildSessionContext(i: SessionContextInput): string {
   }
   if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
   if (i.phase2) lines.push(PHASE2_NOTE);
+  if (i.memory) lines.push('', i.memory);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);
   if (i.sheet) {
