@@ -5,7 +5,7 @@
  * × 3/5 km, N regenerations each, with route quality v1 OFF and ON, against
  * real Mapbox Directions + Overpass, and scores every returned route with the
  * pure src/lib/route-quality metrics. Firestore is an offline, read-only
- * corpus replay (dump it first with dump-segment-corpus.ts) — nothing can
+ * corpus replay (a read-only street_segments dump; the dump script was kept out of the repo — see PR #480) — nothing can
  * reach production Firestore (firebase is stubbed at the resolver level).
  *
  *   HERMETIC_CORPUS_DIR=<dir> npx tsx --env-file=.env.local \
