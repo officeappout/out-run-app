@@ -36,6 +36,8 @@ export function useSmartHybridSlots(a: {
   profile: SmartProfileLite | null | undefined;
   hasStrengthProgram: boolean;
   weatherOn: boolean;
+  /** Budget light mode (enable_budget_light_mode); absent/false → as before. */
+  budgetLight?: boolean;
 }): SmartHybridSlots {
   const on = a.enabled && a.env.enableHybridSlots;
   const situation = useHybridSituation({
@@ -45,6 +47,7 @@ export function useSmartHybridSlots(a: {
     profile: a.profile,
     hasStrengthProgram: a.hasStrengthProgram,
     weatherOn: a.weatherOn,
+    budgetLight: a.budgetLight === true,
     flags: {
       walkStrength: a.env.enableRecommendedHybrid,
       fullPark: a.env.enableFullParkWorkout,

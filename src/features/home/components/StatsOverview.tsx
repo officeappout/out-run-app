@@ -49,6 +49,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { generateHomeWorkoutTrio } from '@/features/workout-engine/services/home-workout.service';
+import { snapshotFromVolumeStore, trainingDaysOf } from '@/features/workout-engine/budget-light/snapshot';
 import type { HomeWorkoutTrioResult } from '@/features/workout-engine/services/home-workout.types';
 import { genPerfBegin, genPerfMark, genPerfEnd } from '@/lib/gen-perf';
 import WorkoutSelectionCarousel, { CarouselSkeleton, BuildCustomButton } from './WorkoutSelectionCarousel';
@@ -909,6 +910,11 @@ export default function StatsOverview({
           isScheduledRestDay: isRestDay,
           remainingWeeklyBudget: remainingBudget > 0 ? remainingBudget : undefined,
           weeklyBudgetUsagePercent: budgetUsagePercent > 0 ? budgetUsagePercent : undefined,
+          // Budget light mode (enable_budget_light_mode): the week's real strength sets for the
+          // spent-budget policy. Plain data — ignored while the flag is off.
+          ...(budgetDataValid
+            ? { strengthBudgetSnapshot: snapshotFromVolumeStore(volumeStoreState, new Date(), trainingDaysOf(profile)) ?? undefined }
+            : {}),
           domainSetsCompletedThisWeek: Object.keys(domainSetsCompletedThisWeek).length > 0
             ? domainSetsCompletedThisWeek : undefined,
           remainingScheduleDays,

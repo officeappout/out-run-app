@@ -872,6 +872,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     profile,
     hasStrengthProgram,
     weatherOn: isWeatherOnFor(mapRawFlags, isSuperAdmin),
+    // Budget light mode — the live value (the compose reads the same live flag).
+    budgetLight: mapRawFlags.enableBudgetLightMode === true,
   });
   slotKeySuffixRef.current = smartHybrid.keySuffix;
 

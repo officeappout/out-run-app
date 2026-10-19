@@ -42,5 +42,7 @@ export function buildAdjusterWorkoutOptions(params: {
     weeklyBudgetUsagePercent: (params.weeklyBudgetUsagePercent ?? 0) > 0 ? params.weeklyBudgetUsagePercent : undefined,
     scheduledProgramIds: params.selectedSkillId ? [params.selectedSkillId] : undefined,
     parkEquipmentIds: params.parkEquipmentIds?.length ? params.parkEquipmentIds : undefined,
+    // Budget light mode: the user picked these settings himself → never budget-restricted.
+    budgetEntry: 'manual',
   } as HomeWorkoutOptions;
 }
