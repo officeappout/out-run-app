@@ -19,6 +19,7 @@ import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
 import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
+import AppVersionAdminCard from '@/features/app-version/components/AppVersionAdminCard';
 
 // ============================================================================
 // TYPES
@@ -914,6 +915,9 @@ export default function SystemSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Force update — app_config/app_version, independent load/save */}
+      <AppVersionAdminCard />
     </div>
   );
 }

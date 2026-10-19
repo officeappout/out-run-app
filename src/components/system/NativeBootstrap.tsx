@@ -10,7 +10,9 @@
  *   2. Renders `PushForegroundToast` — the in-app banner overlay that surfaces
  *      push notifications received while the app is in the foreground (the OS
  *      suppresses the system tray banner in that case).
- *   3. Renders `WorkoutExitGuardTracker` — mirrors the workout-exit-hard-block
+ *   3. Renders `ForceUpdateGate` — the blocking "update to continue" screen
+ *      for native builds below `app_config/app_version` (see features/app-version).
+ *   4. Renders `WorkoutExitGuardTracker` — mirrors the workout-exit-hard-block
  *      flag + live aerobic-session-active state into `@capacitor/preferences`
  *      so `ViewController.swift` can read them natively/synchronously (see
  *      `src/lib/native/workoutExitGuard.ts`).
@@ -25,6 +27,7 @@ import { initNativeShell } from '@/lib/native/init';
 import PushForegroundToast from './PushForegroundToast';
 import WorkoutExitGuardTracker from './WorkoutExitGuardTracker';
 import KeyboardInsetBootstrap from './KeyboardInsetBootstrap';
+import ForceUpdateGate from '@/features/app-version/components/ForceUpdateGate';
 
 export default function NativeBootstrap() {
   useEffect(() => {
@@ -37,6 +40,8 @@ export default function NativeBootstrap() {
       <WorkoutExitGuardTracker />
       {/* Web + native: keyboard inset (--kb-inset) for sheets/composers. */}
       <KeyboardInsetBootstrap />
+      {/* Native only: blocks builds below app_config/app_version minBuild. */}
+      <ForceUpdateGate />
     </>
   );
 }
