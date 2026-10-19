@@ -48,6 +48,14 @@ export default function MiniPlayer({
       style={{ height: height + safeBottom, paddingBottom: safeBottom, touchAction: 'none', fontFamily: 'var(--font-simpler)' }}
       onPointerDown={onPointerDown}
       onClick={onExpand}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onExpand();
+        }
+      }}
     >
       <span className="h-11 w-11 shrink-0 rounded-[12px]" style={{ background: color }} aria-hidden />
       <span className="min-w-0 flex-1">
