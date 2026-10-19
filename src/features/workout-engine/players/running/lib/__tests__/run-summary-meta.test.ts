@@ -32,6 +32,22 @@ const blockResults: PlannedBlockRecord[] = [
 ];
 
 describe('buildRunSummaryMeta', () => {
+  it('overview edits (M-7a / 7b): paceOverridden + the edited bands + the swap; none without edits', () => {
+    const edited: RunWorkout = {
+      ...workout,
+      mainSwap: { from: '2 × 400 מ׳', to: '1 × 800 מ׳' },
+      blocks: workout.blocks.map((b) => (b.type === 'interval' ? { ...b, zoneType: 'interval_short', paceOverride: { min: 280, max: 290 } } : b)),
+    };
+    const m = buildRunSummaryMeta({ workout: edited, results, blockResults, trace: [], hasKmLaps: true, totalKm: 3.85, activeSec: 1403 })!;
+    expect(m.paceOverridden).toBe(true);
+    expect(m.paceOverrides).toEqual([{ key: 'main.interval_short', minPaceSec: 280, maxPaceSec: 290 }]);
+    expect(m.mainSwap).toEqual({ from: '2 × 400 מ׳', to: '1 × 800 מ׳' });
+    const plain = buildRunSummaryMeta({ workout, results, blockResults, trace: [], hasKmLaps: true, totalKm: 3.85, activeSec: 1403 })!;
+    expect(plain.paceOverridden).toBeUndefined();
+    expect(plain.paceOverrides).toBeUndefined();
+    expect(plain.mainSwap).toBeUndefined();
+  });
+
   it('planned run: category, slot, reps, bands, warm-up / cool-down, plan position', () => {
     const m = buildRunSummaryMeta({
       workout,

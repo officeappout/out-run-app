@@ -212,6 +212,15 @@ export interface RunSummaryMeta {
    * may be partial, e.g. 5.6), `sec` the split's duration.
    */
   kmSplits?: { km: number; sec: number }[];
+  /**
+   * The runner edited paces on the v2 overview ("התאם קצב", this workout
+   * only): the run is excluded from the pace self-correction.
+   */
+  paceOverridden?: true;
+  /** The edited bands by target ("main.interval_short"), sec/km. */
+  paceOverrides?: { key: string; minPaceSec: number; maxPaceSec: number }[];
+  /** The main set was swapped on the overview ("6 × 400 מ׳" → "4 × 600 מ׳"). */
+  mainSwap?: { from: string; to: string };
 }
 
 export interface WorkoutHistoryEntry {

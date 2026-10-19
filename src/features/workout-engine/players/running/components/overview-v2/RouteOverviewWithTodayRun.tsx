@@ -16,7 +16,7 @@ import RouteOverviewOverlay, { type RouteOverviewOverlayProps } from '@/features
 import { buildWorkoutRouteNeeds, workoutFitForRoute } from '../../lib/route-fit';
 import type { ScorableRoute } from '../../lib/route-fit/score-route-for-workout';
 import type RunWorkout from '../../types/run-workout.type';
-import { applyRunVariant, type RunVariantKey } from '../../utils/run-overview/run-variants';
+import { applyRunEdits, NO_RUN_EDITS, type RunEdits } from '../../utils/run-overview/run-edits';
 import { useRunPaceContext } from './useRunOverviewModel';
 import { useRunPreviewModel } from '../preview-v2/useRunPreviewModel';
 import { useTodayPlannedRun, type TodayPlannedRun } from './useTodayPlannedRun';
@@ -24,14 +24,14 @@ import TodayWorkoutFitCard from './TodayWorkoutFitCard';
 import RunWorkoutOverview from './RunWorkoutOverview';
 
 export interface RouteOverviewWithTodayRunProps extends Omit<RouteOverviewOverlayProps, 'renderTopCard' | 'renderWorkoutView'> {
-  /** Start today's planned run (the chosen variant applied) on this route. */
+  /** Start today's planned run (the runner's edits applied) on this route. */
   onStartWorkoutOnRoute: (route: Route, workout: RunWorkout, at: { week: number; day: number }) => void;
 }
 
 export default function RouteOverviewWithTodayRun({ onStartWorkoutOnRoute, ...overlay }: RouteOverviewWithTodayRunProps) {
   const today = useTodayPlannedRun(true);
   const pace = useRunPaceContext();
-  const [variant, setVariant] = useState<RunVariantKey>('planned');
+  const [edits, setEdits] = useState<RunEdits>(NO_RUN_EDITS);
   const { route, userLocation = null } = overlay;
 
   const verdict = useMemo(() => {
@@ -63,23 +63,23 @@ export default function RouteOverviewWithTodayRun({ onStartWorkoutOnRoute, ...ov
           route={route}
           score={{ fit: verdict!.fit }}
           origin={userLocation}
-          variant={variant}
-          onVariantChange={setVariant}
+          edits={edits}
+          onEditsChange={setEdits}
           onBack={back}
-          onStart={() => onStartWorkoutOnRoute(route, applyRunVariant(today!.workout, variant, pace.ctx), { week: today!.week, day: today!.day })}
+          onStart={() => onStartWorkoutOnRoute(route, applyRunEdits(today!.workout, edits, pace.ctx), { week: today!.week, day: today!.day })}
         />
       ) : undefined}
     />
   );
 }
 
-function RouteWorkoutView({ today, route, score, origin, variant, onVariantChange, onBack, onStart }: {
+function RouteWorkoutView({ today, route, score, origin, edits, onEditsChange, onBack, onStart }: {
   today: TodayPlannedRun;
   route: Route;
   score: { fit: ReturnType<typeof workoutFitForRoute>['fit'] };
   origin: { lat: number; lng: number } | null;
-  variant: RunVariantKey;
-  onVariantChange: (k: RunVariantKey) => void;
+  edits: RunEdits;
+  onEditsChange: (e: RunEdits) => void;
   onBack: () => void;
   onStart: () => void;
 }) {
@@ -89,8 +89,8 @@ function RouteWorkoutView({ today, route, score, origin, variant, onVariantChang
       workout={today.workout}
       templateCategory={today.templateCategory}
       week={week}
-      variant={variant}
-      onVariantChange={onVariantChange}
+      edits={edits}
+      onEditsChange={onEditsChange}
       chosen={{ route, score }}
       origin={origin}
       ctaMode="route"

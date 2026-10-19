@@ -17,6 +17,7 @@ import { HYBRID_AER as AER } from '../hybrid/hybrid-colors';
 import { legColor, routeLegs, transportMinutes, type AerobicLeg, type OverviewLeg, type StationLeg } from './overview-legs';
 import { ACCENT, AxisRow, AxisV2, Node, RouteDivider, TransportRow, YourLocationRow } from './axis/AxisParts';
 import AerobicLegCard from './axis/AerobicLegCard';
+import { AxisDecor, type AxisDecorations } from './axis/axis-decor';
 import GroupLegCard from './axis/GroupLegCard';
 
 export interface OverviewLegAxisProps {
@@ -40,11 +41,16 @@ export interface OverviewLegAxisProps {
   beforeEnd?: ReactNode;
   /** The closing "המיקום שלך" row (default true; a free run ends where the GPS stops). */
   showReturn?: boolean;
+  /** Run overview (M-7a/7b): tappable paces, the main set's swap action / note. */
+  decorations?: AxisDecorations;
 }
+
+const NO_DECOR: AxisDecorations = {};
 
 export default function OverviewLegAxis({
   legs, v2 = false, top, renderStation, renderLegDetail,
   origin, originNote, startLabel = 'תחילת המסלול', endLabel = 'סיום המסלול', beforeEnd, showReturn = true,
+  decorations = NO_DECOR,
 }: OverviewLegAxisProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((m) => ({ ...m, [key]: !m[key] }));
@@ -57,6 +63,7 @@ export default function OverviewLegAxis({
 
   return (
     <AxisV2.Provider value={v2}>
+    <AxisDecor.Provider value={decorations}>
     <div dir="rtl">
       {top}
 
@@ -105,6 +112,7 @@ export default function OverviewLegAxis({
       {walkBack > 0 && <TransportRow label={back!.kind === 'transport' ? back!.label : ''} minutes={walkBack} />}
       {showReturn && <YourLocationRow variant="return" railAboveDotted={walkBack > 0} />}
     </div>
+    </AxisDecor.Provider>
     </AxisV2.Provider>
   );
 }

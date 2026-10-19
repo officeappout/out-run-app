@@ -10,6 +10,7 @@ import type { PlannedBlockRecord, RunSummaryMeta } from '../../../core/services/
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
 import { buildBlockRecords, isWorkBlock, planSections } from './planned-rep-results';
 import { kmSplitsFromTrack, type TrackSample } from './km-splits';
+import { paceOverridesOf } from '../utils/run-overview/run-pace-override';
 
 export interface RunSummaryMetaInput {
   /** The planned workout (null for free / route runs). */
@@ -86,6 +87,14 @@ export function buildRunSummaryMeta(input: RunSummaryMetaInput): RunSummaryMeta 
     if (cool) meta.cooldown = cool;
 
     if (input.plan && input.plan.week > 0 && input.plan.day > 0) meta.plan = { week: input.plan.week, day: input.plan.day };
+
+    // Overview edits (boards M-7a / 7b): edited paces + a swapped main set.
+    const overrides = paceOverridesOf(w.blocks);
+    if (overrides.length > 0) {
+      meta.paceOverridden = true;
+      meta.paceOverrides = overrides;
+    }
+    if (w.mainSwap?.from && w.mainSwap.to) meta.mainSwap = { from: w.mainSwap.from, to: w.mainSwap.to };
   }
 
   const tiz = readTimeInZone(input.timeInZone);

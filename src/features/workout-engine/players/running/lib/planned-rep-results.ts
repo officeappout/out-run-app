@@ -63,7 +63,11 @@ export function resolveBlockTargetPace(
   basePace: number,
   zones: Record<RunZoneType, ComputedPaceZone> | null,
 ): { min: number; max: number } {
-  if (!block || !(basePace > 0)) return { min: 0, max: 0 };
+  if (!block) return { min: 0, max: 0 };
+  // v2 overview pace edit (this workout only) — the runner's own band.
+  const o = block.paceOverride;
+  if (o && o.min > 0 && o.max > 0) return { min: Math.min(o.min, o.max), max: Math.max(o.min, o.max) };
+  if (!(basePace > 0)) return { min: 0, max: 0 };
   if (block.zoneType && zones) {
     const z = zones[block.zoneType];
     if (z) return { min: z.minPace, max: z.maxPace };

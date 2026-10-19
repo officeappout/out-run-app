@@ -58,6 +58,10 @@ export interface AerobicLeg {
   paceSecPerKm?: number;
   /** Pace pill text instead of `paceSecPerKm` (a band, e.g. "6:10–6:40"; the card adds "/ק״מ"). */
   paceText?: string;
+  /** Run overview (M-7a): the pace's edit target — the axis' `renderPace` makes it tappable. */
+  paceKey?: string;
+  /** The pace was edited for this workout ("מותאם"). */
+  paceEdited?: boolean;
   /** "מסלול מעגלי — חוזר לנקודת ההתחלה" under the metas (standard layout). */
   loopNote?: boolean;
   /** The card's header toggles a details panel (OverviewLegAxis.renderLegDetail). */
@@ -85,6 +89,10 @@ export interface GroupLegRow {
   paceText?: string;
   /** Row bar colour (the block's own); default by tone. */
   color?: string;
+  /** Run overview (M-7a): the pace's edit target — the axis' `renderPace` makes it tappable. */
+  paceKey?: string;
+  /** The pace was edited for this workout ("מותאם"). */
+  paceEdited?: boolean;
 }
 
 export interface GroupLeg {

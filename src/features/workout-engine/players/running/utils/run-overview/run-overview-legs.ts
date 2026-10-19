@@ -20,8 +20,9 @@ import { fmtBand, isRestBlock } from '../../lib/planned-rep-results';
 import type { RunKind } from '../run-preview/run-kind';
 import { blockTargetBand, estimateBlockMeters, estimateBlockSeconds, estimatePaceFor, type RunPaceContext } from '../run-preview/run-estimates';
 import { blockPhase, type RunPhase } from '../run-preview/run-strip';
-import { buildRunStructure, type StructureStep } from '../run-preview/run-structure';
+import { buildRunStructure, type StructureRow, type StructureStep } from '../run-preview/run-structure';
 import { blockSizeLabel, roundMinutes } from '../run-preview/run-title';
+import { isPaceBand, paceTargetKey } from './run-pace-override';
 
 const RUN = 'running';
 
@@ -31,6 +32,11 @@ export interface RunOverviewLegsOptions {
   showPaceNumbers?: boolean;
   /** Walk to the chosen route / back from it (minutes); null = free run from here. */
   walk?: { thereMin: number; backMin: number } | null;
+  /**
+   * A swapped-in main set that isn't one repeated rep (pyramid / ladder,
+   * board M-7b): ONE "העיקר" group of all its reps instead of a leg per size.
+   */
+  collapseMain?: { stripLabel: string } | null;
 }
 
 interface Totals { seconds: number; meters: number }
@@ -64,10 +70,27 @@ function easyPace(blocks: readonly RunBlock[], ctx: RunPaceContext, show: boolea
 function phaseLeg(key: RunPhase, title: string, blocks: readonly RunBlock[], ctx: RunPaceContext, show: boolean): AerobicLeg | null {
   const t = sumBlocks(blocks, ctx);
   if (t.seconds <= 0 && t.meters <= 0) return null;
-  return {
+  const leg: AerobicLeg = {
     kind: 'aerobic', key, activity: RUN, durationSec: t.seconds, distanceKm: t.meters / 1000,
     layout: 'standard', title, badge: 'ריצה קלה', meta: metas(t, false), paceSecPerKm: easyPace(blocks, ctx, show),
   };
+  // M-7a: the pace is editable; an edited one shows its band.
+  const b = blocks.find((x) => !isRestBlock(x));
+  const k = show && leg.paceSecPerKm ? paceTargetKey(b) : null;
+  if (k) {
+    leg.paceKey = k;
+    if (b && isPaceBand(b.paceOverride)) {
+      leg.paceEdited = true;
+      leg.paceText = fmtBand(b.paceOverride.min, b.paceOverride.max);
+    }
+  }
+  return leg;
+}
+
+function rowPace(r: StructureRow, blocks: readonly RunBlock[]): { paceKey?: string; paceEdited?: boolean } {
+  const b = blocks[r.blockIndex];
+  const k = r.sideIsPace ? paceTargetKey(b) : null;
+  return k ? { paceKey: k, paceEdited: isPaceBand(b?.paceOverride) } : {};
 }
 
 function groupLeg(step: StructureStep, blocks: readonly RunBlock[], ctx: RunPaceContext, sectionTotals: Totals): GroupLeg {
@@ -82,6 +105,7 @@ function groupLeg(step: StructureStep, blocks: readonly RunBlock[], ctx: RunPace
     stripLabel: work && step.repeat ? `${step.repeat} × ${blockSizeLabel(work)}` : undefined,
     rows: step.rows.map((r) => ({
       key: r.key, tone: r.isRest ? 'recovery' : 'work', label: r.text, paceText: r.side || undefined, color: r.color,
+      ...rowPace(r, blocks),
     })),
     meta: metas(sectionTotals, true),
     color: step.color,
@@ -92,10 +116,29 @@ function steadyLeg(key: string, title: string, badge: string, blocks: readonly R
   const t = sumBlocks(blocks, ctx);
   const main = blocks.find((b) => blockPhase(b) === 'main' && !isRestBlock(b)) ?? blocks[0];
   const band = show && main ? blockTargetBand(main, ctx) : null;
+  const k = band ? paceTargetKey(main) : null;
   return {
     kind: 'aerobic', key, activity: RUN, durationSec: t.seconds, distanceKm: t.meters / 1000,
     layout: 'standard', title, badge, meta: metas(t, approx),
     paceText: band ? fmtBand(band.min, band.max) : undefined,
+    ...(k ? { paceKey: k, paceEdited: isPaceBand(main?.paceOverride) } : {}),
+  };
+}
+
+/** A pyramid / ladder main set as ONE group: every rep's row, then the recovery once. */
+function collapsedMainLeg(steps: readonly StructureStep[], blocks: readonly RunBlock[], mainBlocks: readonly RunBlock[], ctx: RunPaceContext, stripLabel: string): GroupLeg {
+  const work = steps.flatMap((s) => s.rows.filter((r) => !r.isRest));
+  const rest = steps.flatMap((s) => s.rows).find((r) => r.isRest);
+  const rows = [...work, ...(rest ? [rest] : [])];
+  const totals = sumBlocks(mainBlocks, ctx);
+  return {
+    kind: 'group', key: 'main-0', title: 'העיקר', activity: RUN, durationSec: totals.seconds, stripLabel,
+    rows: rows.map((r, i) => ({
+      key: `${r.key}-${i}`, tone: r.isRest ? 'recovery' : 'work', label: r.text, paceText: r.side || undefined, color: r.color,
+      ...rowPace(r, blocks),
+    })),
+    meta: metas(totals, true),
+    color: steps[0]?.color,
   };
 }
 
@@ -138,7 +181,9 @@ export function buildRunOverviewLegs(
 
     const w = phaseLeg('warmup', 'חימום', warm, ctx, show);
     if (w) legs.push(w);
-    for (const st of mainSteps) {
+    const collapse = opts.collapseMain && mainSteps.length > 1 ? opts.collapseMain : null;
+    if (collapse) legs.push(collapsedMainLeg(mainSteps, blocks, mainBlocks, ctx, collapse.stripLabel));
+    for (const st of collapse ? [] : mainSteps) {
       const totals = mainSteps.length === 1 ? sumBlocks(mainBlocks, ctx) : stepTotals(st, blocks, ctx);
       if (st.repeat && st.repeat > 1) {
         legs.push(groupLeg(st, blocks, ctx, totals));

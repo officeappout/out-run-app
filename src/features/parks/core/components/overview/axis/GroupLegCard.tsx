@@ -15,6 +15,7 @@
 import { Clock, Repeat, Ruler } from 'lucide-react';
 import type { GroupLeg, GroupRowTone } from '../overview-legs';
 import { AER_TINT, AER_TEXT, CARD_PAD, CardGroup, Meta, useAxisCardStyles } from './AxisParts';
+import { useAxisDecor } from './axis-decor';
 
 /** Run-player zone colours: warm-up green, reps red, recovery grey (board M-5c). */
 export const GROUP_TONE_COLOR: Record<GroupRowTone, string> = {
@@ -64,22 +65,37 @@ export default function GroupLegCard({ leg }: { leg: GroupLeg }) {
 /** Board M-6a group card (v2 run overview). */
 function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
   const { cardCls, cardStyle, titleCls, titleStyle } = useAxisCardStyles();
+  const { renderPace, groupExtras } = useAxisDecor();
+  const extras = groupExtras?.(leg) ?? null;
+  const badge = leg.repeat != null && leg.repeat > 1 && (
+    <span className="inline-flex shrink-0 items-center gap-1.5">
+      <span className="inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded-[10px] px-2.5 text-[14px] font-black text-white"
+        style={{ background: color }}>
+        <Repeat size={13} strokeWidth={2.6} aria-hidden />
+        <span dir="ltr">{`${leg.repeat} ×`}</span>
+      </span>
+      <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">חזרות</span>
+    </span>
+  );
   return (
     <div className={cardCls} style={cardStyle}>
       <div style={CARD_PAD}>
-        <div className="flex items-center justify-between gap-2">
-          <span className={`${titleCls} min-w-0 truncate whitespace-nowrap`} style={titleStyle}>{leg.title}</span>
-          {leg.repeat != null && leg.repeat > 1 && (
-            <span className="inline-flex shrink-0 items-center gap-1.5">
-              <span className="inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded-[10px] px-2.5 text-[14px] font-black text-white"
-                style={{ background: color }}>
-                <Repeat size={13} strokeWidth={2.6} aria-hidden />
-                <span dir="ltr">{`${leg.repeat} ×`}</span>
-              </span>
-              <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">חזרות</span>
+        {extras?.action ? (
+          // Board M-7b: title + badge together, the action on the other side.
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span className={`${titleCls} min-w-0 truncate whitespace-nowrap`} style={titleStyle}>{leg.title}</span>
+              {badge}
             </span>
-          )}
-        </div>
+            {extras.action}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <span className={`${titleCls} min-w-0 truncate whitespace-nowrap`} style={titleStyle}>{leg.title}</span>
+            {badge}
+          </div>
+        )}
+        {extras?.note && <div className="mt-1.5 flex items-center gap-2">{extras.note}</div>}
         {leg.meta && leg.meta.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {leg.meta.map((m) => (
@@ -92,9 +108,11 @@ function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
             <div key={row.key} className="flex items-center gap-2.5 px-0.5 py-[5px]">
               <span aria-hidden className="shrink-0 rounded-full" style={{ width: 8, height: 26, background: row.color ?? GROUP_TONE_COLOR[row.tone] }} />
               <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-ink">{row.label}</span>
-              {row.paceText && (
-                <span dir="ltr" className="shrink-0 whitespace-nowrap text-[12.5px] font-black text-v2-deep">{row.paceText}</span>
-              )}
+              {row.paceText && row.paceKey && renderPace
+                ? renderPace({ paceKey: row.paceKey, text: row.paceText, edited: !!row.paceEdited, tone: 'row' })
+                : row.paceText && (
+                  <span dir="ltr" className="shrink-0 whitespace-nowrap text-[12.5px] font-black text-v2-deep">{row.paceText}</span>
+                )}
             </div>
           ))}
         </div>

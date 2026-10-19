@@ -21,6 +21,9 @@
  *   - pace must be plausible for the zone (within −15 % / +20 % of its
  *     bounds) — beyond that it is a GPS artefact, not a performance
  *   - at most ONE recorded quality run per calendar day
+ *   - a run whose paces the runner edited on the v2 overview ("התאם קצב",
+ *     RunBlock.paceOverride) is ignored: its targets are the runner's
+ *     choice, not the profile's, so it says nothing about basePace
  *
  * Free (non-planned) runs are NOT fed: the engine has no rule for them.
  *
@@ -95,6 +98,7 @@ export function summarizeQualityRun(
   config: PaceMapConfig,
 ): QualityRunSummary {
   if (!workout || !workout.isQualityWorkout) return { ok: false, reason: 'not_quality_workout' };
+  if (workout.blocks.some((b) => b.paceOverride)) return { ok: false, reason: 'pace_overridden' };
   if (!(profile.basePace > 0)) return { ok: false, reason: 'no_base_pace' };
   if (session.isSimulated) return { ok: false, reason: 'simulated' };
   if (!session.hadGoodGpsFix) return { ok: false, reason: 'no_good_gps' };

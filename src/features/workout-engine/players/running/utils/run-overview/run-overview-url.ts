@@ -4,9 +4,13 @@
  * autoStart); the v2 overview adds two optional ones:
  *   variant=lighter|harder — the chosen variant (planned = omitted)
  *   suggest=1              — open the map overview straight into "הצע לי מסלול"
+ * and the overview edits (boards M-7a/7b, run-edits.ts):
+ *   swap=m:600.600.600.600~120          — the swapped-in main set
+ *   pace=main.interval_short:280-290,…  — this workout's pace bands
  */
 
 import { isRunVariantKey, type RunVariantKey } from './run-variants';
+import { runEditsToParams, type RunEdits } from './run-edits';
 
 export interface PlannedRunLink {
   workoutId?: string | null;
@@ -15,6 +19,8 @@ export interface PlannedRunLink {
   autoStart?: boolean;
   suggest?: boolean;
   variant?: RunVariantKey | null;
+  /** All the overview edits (wins over `variant`). */
+  edits?: RunEdits | null;
 }
 
 export function plannedRunMapUrl(link: PlannedRunLink): string {
@@ -25,7 +31,11 @@ export function plannedRunMapUrl(link: PlannedRunLink): string {
   p.set('context', 'running');
   if (link.autoStart) p.set('autoStart', 'true');
   if (link.suggest) p.set('suggest', '1');
-  if (link.variant && link.variant !== 'planned') p.set('variant', link.variant);
+  if (link.edits) {
+    for (const [k, v] of Object.entries(runEditsToParams(link.edits))) p.set(k, v);
+  } else if (link.variant && link.variant !== 'planned') {
+    p.set('variant', link.variant);
+  }
   return `/map?${p.toString()}`;
 }
 
