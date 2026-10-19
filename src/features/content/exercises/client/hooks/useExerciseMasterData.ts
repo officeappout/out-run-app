@@ -30,7 +30,7 @@ import {
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 import type { Exercise } from '../../core/exercise.types';
-import { getAllExercisesNoOrder } from '../../core/exercise.service';
+import { getAllExercisesCached } from '../../core/exercise.service';
 import { getCachedPrograms } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { buildSheetData, type SheetData } from '../utils/sheet-data.utils';
 // Feature #5 Phase 1.1 — cross-domain import, deliberate: the brief
@@ -236,7 +236,7 @@ export function useExerciseMasterData(
   useEffect(() => {
     if (allExercises.length > 0 || bgCorpusFetchStarted) return;
     bgCorpusFetchStarted = true;
-    getAllExercisesNoOrder()
+    getAllExercisesCached()
       .then((list) => {
         if (list.length > 0) setAllExercises(list);
       })

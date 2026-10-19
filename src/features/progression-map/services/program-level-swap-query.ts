@@ -50,7 +50,7 @@
  * the barrel import went unnoticed; adding one this round is what surfaced it.
  */
 import { Exercise, ExecutionLocation, ExecutionMethod, findMethodForLocation } from '@/features/content/exercises/core/exercise.types';
-import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
+import { getAllExercisesCached } from '@/features/content/exercises/core/exercise.service';
 import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 
@@ -84,7 +84,7 @@ export async function getSameProgramLevelExercises(
   userProfile: UserFullProfile,
   pool?: Exercise[],
 ): Promise<SameLevelExerciseOption[]> {
-  const allExercises = pool && pool.length > 0 ? pool : await getAllExercises();
+  const allExercises = pool && pool.length > 0 ? pool : await getAllExercisesCached();
   const result: SameLevelExerciseOption[] = [];
 
   for (const ex of allExercises) {

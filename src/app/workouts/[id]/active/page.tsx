@@ -11,7 +11,7 @@ import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } fro
 import ResumeWorkoutDialog from '@/features/workout-engine/players/strength/components/ResumeWorkoutDialog';
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
-import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { getAllExercisesCached, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
@@ -276,7 +276,7 @@ function enrichExercise(
 async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: string): Promise<WorkoutPlan | null> {
   try {
     console.log('[ActiveWorkoutPage] Fetching all exercises from Firestore');
-    const exercises = await getAllExercises();
+    const exercises = await getAllExercisesCached();
     
     if (!exercises || exercises.length === 0) {
       console.warn('[ActiveWorkoutPage] No exercises found in Firestore');

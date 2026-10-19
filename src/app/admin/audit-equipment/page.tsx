@@ -16,7 +16,7 @@ import {
   ChevronUp,
   ExternalLink,
 } from 'lucide-react';
-import { getAllExercises } from '@/features/content/exercises';
+import { getAllExercises, invalidateExerciseCatalog } from '@/features/content/exercises';
 import { getAllGymEquipment, GymEquipment } from '@/features/content/equipment/gym';
 import { getAllGearDefinitions, GearDefinition } from '@/features/content/equipment/gear';
 import { getLocalizedText } from '@/features/content/shared';
@@ -351,6 +351,7 @@ export default function AuditEquipmentPage() {
         await updateDoc(doc(db, 'exercises', row.exercise.id), {
           execution_methods: updatedMethods,
         });
+        invalidateExerciseCatalog();
 
         setFixedIds((prev) => new Set(prev).add(row.exercise.id));
 
@@ -408,6 +409,7 @@ export default function AuditEquipmentPage() {
         await updateDoc(doc(db, 'exercises', row.exercise.id), {
           execution_methods: updatedMethods,
         });
+        invalidateExerciseCatalog();
 
         setFixedIds((prev) => new Set(prev).add(row.exercise.id));
         setExercises((prev) =>

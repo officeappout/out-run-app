@@ -9,7 +9,7 @@ import CoachNoteBlock, { useCoachNote } from '@/features/workout-engine/componen
 import type { DecisionRecord } from '@/features/workout-engine/services/decision-record';
 import StrengthExerciseCard from '@/features/workout-engine/components/cards/StrengthExerciseCard';
 import RunningSegmentCard from '@/features/workout-engine/components/cards/RunningSegmentCard';
-import { getAllExercises, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
+import { getAllExercisesCached, Exercise as FirestoreExercise, getLocalizedText } from '@/features/content/exercises';
 import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
@@ -255,7 +255,7 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
 
 async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData | null> {
   try {
-    const exercises = await getAllExercises();
+    const exercises = await getAllExercisesCached();
     if (!exercises?.length) return null;
 
     const resolveImageUrl = (ex: FirestoreExercise): string | null => {
