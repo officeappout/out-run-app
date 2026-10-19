@@ -2,6 +2,8 @@
  * scripts/backfill-corrupted-timestamps.ts — recovery for the
  * stripUndefined FieldValue-corruption bug (route-enrichment-pipeline
  * plan, fixed 17.08.2026 in src/lib/route-collections/validate.ts).
+ * (Same bug class in users / parks / exercises / community_*, 19.10.2026:
+ * scripts/backfill-broken-timestamps.ts + src/lib/firestore-sanitize.ts.)
  *
  * `stripUndefined` used to flatten Firestore FieldValue sentinels (e.g.
  * `serverTimestamp()`) into empty maps `{}` before writing — see that

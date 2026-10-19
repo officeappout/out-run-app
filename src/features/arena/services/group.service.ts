@@ -44,6 +44,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { removeGroupFromPresence } from '@/features/safecity/services/presence.service';
 import { auth } from '@/lib/firebase';
 import { isContentRemoved } from '@/lib/moderation';
+import { isPlainObject } from '@/lib/firestore-sanitize';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -262,7 +263,10 @@ function stripUndefined<T extends object>(obj: T): T {
   const out: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(obj)) {
     if (val === undefined) continue;
-    if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+    // Plain objects only — serverTimestamp()/Timestamp/Date/GeoPoint pass through
+    // (recursing into them wrote { _methodName: 'serverTimestamp' } maps; see
+    // src/lib/firestore-sanitize.ts).
+    if (isPlainObject(val)) {
       out[key] = stripUndefined(val as object);
     } else {
       out[key] = val;

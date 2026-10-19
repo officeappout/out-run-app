@@ -3,6 +3,7 @@
  * Syncs onboarding progress to Firestore for admin visibility and drop-off tracking
  */
 import { doc, setDoc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore';
+import { stripUndefinedDeep } from '@/lib/firestore-sanitize';
 import { db, auth } from '@/lib/firebase';
 import { signInAnonymously, User } from 'firebase/auth';
 import { OnboardingData, OnboardingStepId } from '../types';
@@ -1976,27 +1977,14 @@ export async function syncOnboardingToFirestore(
       }
     }
 
-    // Sanitize all undefined values before saving to Firestore
-    // Firestore doesn't accept undefined - we need to either omit or use null
-    const sanitizeObject = (obj: any): any => {
-      if (obj === null || obj === undefined) {
-        return null;
-      }
-      if (Array.isArray(obj)) {
-        return obj.map(sanitizeObject);
-      }
-      if (typeof obj === 'object') {
-        const sanitized: any = {};
-        Object.keys(obj).forEach(key => {
-          if (obj[key] !== undefined) {
-            sanitized[key] = sanitizeObject(obj[key]);
-          }
-        });
-        return sanitized;
-      }
-      return obj;
-    };
-    
+    // Undefined values are stripped by stripUndefinedDeep (src/lib/firestore-sanitize.ts)
+    // below. It used to be a local sanitizeObject() that recursed into EVERY
+    // object, so serverTimestamp() was written as the plain map
+    // { _methodName: 'serverTimestamp' } (lastActive, onboardingCompletedAt,
+    // marketingAttribution.capturedAt, createdAt, updatedAt, termsAcceptedAt —
+    // 452 of 802 users, 19.10.2026), a Timestamp as { seconds, nanoseconds }
+    // and a Date as {}. Only plain objects/arrays are walked now.
+
     // ── Multi-Tenant: merge tenant fields from access code validation ──
     const accessCodeResult = getAccessCodeResult();
     if (accessCodeResult) {
@@ -2022,7 +2010,7 @@ export async function syncOnboardingToFirestore(
       };
     }
 
-    const sanitizedUpdateData = sanitizeObject(updateData);
+    const sanitizedUpdateData = stripUndefinedDeep(updateData, { label: 'onboarding-sync users/{uid}' });
 
     // ── [DIAG] Exact payload about to be written ─────────────────────────────
     // Compare this against each UPDATE rule clause to find the failing one:

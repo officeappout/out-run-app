@@ -1,3 +1,4 @@
+import { isSerializedSentinel } from '@/lib/firestore-sanitize';
 /**
  * Date Formatter Utility (SSR Safe)
  * Handles Firebase Timestamps and various date formats
@@ -8,6 +9,10 @@
  */
 export function convertTimestampToDate(timestamp: any): Date | null {
   if (!timestamp) return null;
+
+  // A serialized FieldValue sentinel ({ _methodName: 'serverTimestamp' }) is
+  // NOT a date — treat it as missing (src/lib/firestore-sanitize.ts).
+  if (isSerializedSentinel(timestamp)) return null;
   
   // If it's already a Date object
   if (timestamp instanceof Date) return timestamp;

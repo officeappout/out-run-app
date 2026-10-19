@@ -18,6 +18,7 @@ import {
 import { db } from '@/lib/firebase';
 import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText } from '@/types/onboarding-questionnaire';
 import { Level, Program } from '@/types/workout';
+import { isPlainObject } from '@/lib/firestore-sanitize';
 
 // Collection names
 const QUESTIONS_COLLECTION = 'onboarding_questions';
@@ -67,6 +68,9 @@ function deepCleanForFirestore<T>(value: T): T {
   if (value === undefined) return null as unknown as T;
   if (value === null || typeof value !== 'object') return value;
   if (value instanceof Date || value instanceof Timestamp) return value;
+  // FieldValue sentinels (serverTimestamp(), deleteField(), …) and any other
+  // SDK class instance pass through — see src/lib/firestore-sanitize.ts.
+  if (!Array.isArray(value) && !isPlainObject(value)) return value;
 
   if (Array.isArray(value)) {
     return value.map(deepCleanForFirestore) as unknown as T;

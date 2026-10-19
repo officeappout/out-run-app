@@ -17,6 +17,7 @@ import { deleteUser as deleteAuthUser } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { isSerializedSentinel } from '@/lib/firestore-sanitize';
 
 const USERS_COLLECTION = 'users';
 const WORKOUTS_COLLECTION = 'workouts';
@@ -27,6 +28,9 @@ const WORKOUTS_COLLECTION = 'workouts';
  */
 function toDate(timestamp: any): Date | undefined {
   if (!timestamp) return undefined;
+  // { _methodName: 'serverTimestamp' } (a sentinel serialized by the old
+  // onboarding sanitizer) is not a date — missing, never "Invalid Date".
+  if (isSerializedSentinel(timestamp)) return undefined;
   
   // Already a Date object
   if (timestamp instanceof Date) {

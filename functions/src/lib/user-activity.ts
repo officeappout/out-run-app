@@ -36,6 +36,22 @@ const TZ = 'Asia/Jerusalem';
 
 // ─── Value parsing ────────────────────────────────────────────────────────────
 
+/** A plain map `{ _methodName: '...' }` — a FieldValue sentinel that got serialized before the write. */
+export function isSerializedSentinel(v: unknown): boolean {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return (proto === Object.prototype || proto === null) && typeof (v as { _methodName?: unknown })._methodName === 'string';
+}
+
+/**
+ * Whether `v` is a real Firestore Timestamp — i.e. a value a
+ * `where('lastActive', '<=', ts)` range query can match. Sentinel maps,
+ * `{ seconds, nanoseconds }` copies, strings and missing values never match.
+ */
+export function isQueryableTimestamp(v: unknown): boolean {
+  return !!v && typeof v === 'object' && typeof (v as { toMillis?: unknown }).toMillis === 'function';
+}
+
 /** Firestore Timestamp / Date / millis / ISO string / 'YYYY-MM-DD' → millis, or null. */
 export function activityToMillis(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -49,6 +65,10 @@ export function activityToMillis(v: unknown): number | null {
     return Number.isFinite(ms) ? ms : null;
   }
   if (typeof v === 'object') {
+    // { _methodName: 'serverTimestamp' } — a FieldValue sentinel the old client
+    // sanitizer serialized into a plain map (452/802 users' lastActive,
+    // 19.10.2026). Not a time: missing.
+    if (isSerializedSentinel(v)) return null;
     const t = v as { toMillis?: () => number; seconds?: number };
     if (typeof t.toMillis === 'function') {
       const ms = t.toMillis();
