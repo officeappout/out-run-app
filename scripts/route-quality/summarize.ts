@@ -1,11 +1,16 @@
 /** Aggregation + markdown for scripts/route-quality/measure.ts (pure). */
 import type { RouteQualityMetrics } from '@/lib/route-quality';
 
+/** off = current, on = route quality v1, ours = v1 + loops prefer our routes. */
+export type MeasureVariant = 'off' | 'on' | 'ours';
+
 export interface RouteRow {
-  start: string; targetKm: number; variant: 'off' | 'on'; run: number; rank: number;
+  start: string; targetKm: number; variant: MeasureVariant; run: number; rank: number;
   reads: number; ms: number; empty?: boolean;
   distanceKm?: number; metrics?: RouteQualityMetrics; pass?: boolean; reasons?: string[];
   features?: unknown; rating?: number;
+  /** Share (0..1) on our mapped routes near the start + distinct routes used; absent when none were loaded. */
+  oursShare?: number; oursRoutesUsed?: number;
 }
 
 export interface VariantSummary {
@@ -30,6 +35,10 @@ export interface VariantSummary {
   passV1Pct: number;
   meanReads: number;
   meanMs: number;
+  /** Mean % of length on our mapped routes (null when none were loaded for these rows). */
+  oursPct: number | null;
+  /** % of top routes running >= 100 m along at least one of our routes. */
+  usingOursPct: number | null;
 }
 
 const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -70,6 +79,8 @@ export function summarizeVariant(rows: RouteRow[], variant: string): VariantSumm
     passV1Pct: pct(top.map(r => !!r.pass)),
     meanReads: mean(firstOfGen.map(r => r.reads)),
     meanMs: mean(firstOfGen.map(r => r.ms)),
+    oursPct: top.some(r => r.oursShare != null) ? 100 * mean(top.map(r => r.oursShare ?? 0)) : null,
+    usingOursPct: top.some(r => r.oursShare != null) ? pct(top.map(r => (r.oursRoutesUsed ?? 0) > 0)) : null,
   };
 }
 
@@ -86,7 +97,8 @@ const f1 = (n: number) => n.toFixed(1);
 const f2 = (n: number) => n.toFixed(2);
 
 export function toMarkdown(s: ReturnType<typeof summarize>): string {
-  const label = (v: string) => (v === 'off' ? 'before (flag off)' : 'after (flag on)');
+  const label = (v: string) => (v === 'off' ? 'current (flags off)' : v === 'on' ? 'v1' : 'v1 + our routes');
+  const pctOrDash = (n: number | null) => (n == null ? '—' : `${f1(n)}%`);
   const lines = [
     '| metric (top route per generation) | ' + s.overall.map(o => label(o.variant)).join(' | ') + ' |',
     '|---|' + s.overall.map(() => '---').join('|') + '|',
@@ -104,11 +116,13 @@ export function toMarkdown(s: ReturnType<typeof summarize>): string {
   row('tertiary+ crossings / km', o => f2(o.crossingsPerKm));
   row('… of which unmarked', o => `${f1(o.unmarkedShare)}% (${f2(o.unmarkedPerKm)}/km)`);
   row('passes all v1 bars', o => `${f1(o.passV1Pct)}%`);
+  row('length on our routes', o => pctOrDash(o.oursPct));
+  row('uses >= 1 of our routes (>= 100 m)', o => pctOrDash(o.usingOursPct));
   row('Firestore docs read / generation', o => f1(o.meanReads));
   row('wall time / generation', o => `${(o.meanMs / 1000).toFixed(1)} s`);
-  lines.push('', '| start | variant | gens/empty | U-turn/spur | retrace>8% | compact | in ±15% | unmarked/km | reads |', '|---|---|---|---|---|---|---|---|---|');
+  lines.push('', '| start | variant | gens/empty | U-turn/spur | retrace>8% | compact | in ±15% | unmarked/km | passes v1 | on our routes | reads |', '|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of s.perStart) {
-    lines.push(`| ${p.start} | ${p.variant} | ${p.generations}/${p.emptyGenerations} | ${f1(p.uturnOrSpurPct)}% | ${f1(p.retraceOver8Pct)}% | ${f2(p.meanCompactness)} | ${f1(p.withinWindowPct)}% | ${f2(p.unmarkedPerKm)} | ${f1(p.meanReads)} |`);
+    lines.push(`| ${p.start} | ${p.variant} | ${p.generations}/${p.emptyGenerations} | ${f1(p.uturnOrSpurPct)}% | ${f1(p.retraceOver8Pct)}% | ${f2(p.meanCompactness)} | ${f1(p.withinWindowPct)}% | ${f2(p.unmarkedPerKm)} | ${f1(p.passV1Pct)}% | ${pctOrDash(p.oursPct)} | ${f1(p.meanReads)} |`);
   }
   return lines.join('\n');
 }

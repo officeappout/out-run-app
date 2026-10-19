@@ -3,6 +3,7 @@ import { generateLoops } from '../loop-service';
 import { selectTopLoops, scoreLoop, type ScoredLoop } from '../loops/scoring';
 import { GraphHopperError, type GhRouteRequest } from '../graphhopper';
 import { GH, fakeClient, routed } from './fixtures';
+import { OUR_ROUTES_GH_SCORE_WEIGHT } from '../our-routes';
 
 const req = { start: GH.start, targetKm: 5, activity: 'running' as const, seed: 0 };
 
@@ -85,6 +86,42 @@ describe('generateLoops — mix best-of-6', () => {
     expect(out.loops).toEqual([]);
     expect(out.errors).toBe(6);
     expect(out.lastError).toBe('graphhopper 503');
+  });
+});
+
+describe('generateLoops — our routes (enable_loops_prefer_official)', () => {
+  // "Our route" = the path of the second-best clean loop (round_trip seed 2): with the
+  // bonus it should overtake the plain best (seed 0).
+  const ourLine = { id: 'ours', path: routed(GH.passing5kmB).path };
+
+  it('sends a buffered our_routes area with an off-route priority < 1 on every request', async () => {
+    const c = fakeClient(byRequest);
+    await generateLoops(c, { ...req, ourRoutes: [ourLine] });
+    for (const b of c.bodies) {
+      const cm = b.custom_model!;
+      expect(cm.areas!.features.map(f => f.id)).toEqual(['our_routes']);
+      expect(cm.priority.some(s => s.if === '!in_our_routes' && Number(s.multiply_by) < 1)).toBe(true);
+      expect(JSON.stringify(b).length).toBeLessThan(100_000);
+    }
+  });
+
+  it('ranks loops on our routes higher and reports their share', async () => {
+    const plain = await generateLoops(fakeClient(byRequest), req);
+    const ours = await generateLoops(fakeClient(byRequest), { ...req, ourRoutes: [ourLine] });
+    expect(plain.loops[0].ourRoutesShare).toBeUndefined();
+    const onOurs = ours.loops.find(l => (l.ourRoutesShare ?? 0) > 0.9);
+    expect(onOurs).toBeDefined();
+    for (const l of ours.loops) {
+      const same = plain.loops.find(p => JSON.stringify(p.path) === JSON.stringify(l.path));
+      if (same) expect(l.score).toBeCloseTo(same.score - OUR_ROUTES_GH_SCORE_WEIGHT * l.ourRoutesShare!, 9);
+    }
+  });
+
+  it('no ourRoutes → requests are exactly the plain recipe', async () => {
+    const a = fakeClient(byRequest), b = fakeClient(byRequest);
+    await generateLoops(a, req);
+    await generateLoops(b, { ...req, ourRoutes: [] });
+    expect(b.bodies).toEqual(a.bodies);
   });
 });
 

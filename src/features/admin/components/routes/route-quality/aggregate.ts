@@ -13,6 +13,11 @@ export interface VariantAggregate {
   unmarkedPerKm: number;
   passPct: number;
   meanMs: number;
+  /** Mean % of length on our mapped routes; null when our routes weren't loaded. */
+  oursPct: number | null;
+  /** % of routes using at least one of our routes (>= 100 m along it). */
+  usingOursPct: number | null;
+  meanRoutesUsed: number | null;
 }
 
 const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -23,6 +28,8 @@ export function aggregateVariant(routes: QualityRunRoute[], variant: QualityVari
   const top = routes.filter(r => r.variant === variant && r.rank === 0);
   const m = top.map(r => r.metrics);
   const km = m.reduce((a, x) => a + x.lengthM / 1000, 0);
+  const ours = top.map(r => r.ours).filter((o): o is NonNullable<typeof o> => o != null);
+  const hasOurs = ours.length > 0 && ours.length === top.length;
   return {
     variant,
     routes: top.length,
@@ -36,5 +43,8 @@ export function aggregateVariant(routes: QualityRunRoute[], variant: QualityVari
     unmarkedPerKm: km ? m.reduce((a, x) => a + (x.crossings?.unmarked ?? 0), 0) / km : 0,
     passPct: share(top.map(r => r.verdict.pass)),
     meanMs: mean(top.map(r => r.ms)),
+    oursPct: hasOurs ? 100 * mean(ours.map(o => o.share)) : null,
+    usingOursPct: hasOurs ? share(ours.map(o => o.routesUsed > 0)) : null,
+    meanRoutesUsed: hasOurs ? mean(ours.map(o => o.routesUsed)) : null,
   };
 }

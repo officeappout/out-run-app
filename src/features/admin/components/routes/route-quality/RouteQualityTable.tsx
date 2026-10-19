@@ -1,11 +1,11 @@
 'use client';
-import type { QualityRunRoute, QualityVariant } from './types';
+import { VARIANT_LABEL as VARIANT_HE, type QualityRunRoute, type QualityVariant } from './types';
 import { aggregateVariant } from './aggregate';
 import { VARIANT_COLOR } from './RouteQualityMap';
 
 const REASON_HE: Record<string, string> = { retrace: 'חזרה על רחוב', uturn: 'פרסה/ענף מת', compactness: 'צר מדי', unmarked_crossings: 'חציות לא מסומנות' };
-const VARIANT_HE: Record<QualityVariant, string> = { off: 'נוכחי', on: 'v1', gh: 'GH' };
 const pct = (n: number) => `${n.toFixed(0)}%`;
+const pctOrDash = (n: number | null) => (n == null ? '—' : pct(n));
 
 export function RouteQualityAggregate({ routes, variants, generations, empty }: {
   routes: QualityRunRoute[]; variants: QualityVariant[]; generations: Record<QualityVariant, number>; empty: Record<QualityVariant, number>;
@@ -22,6 +22,9 @@ export function RouteQualityAggregate({ routes, variants, generations, empty }: 
     ['חציות כביש ראשי לק״מ', a => a.crossingsPerKm.toFixed(2)],
     ['מתוכן לא מסומנות לק״מ', a => a.unmarkedPerKm.toFixed(2)],
     ['עובר את כל הספים', a => pct(a.passPct)],
+    ['אורך על המסלולים שלנו', a => pctOrDash(a.oursPct)],
+    ['עובר במסלול שלנו (≥100 מ׳)', a => pctOrDash(a.usingOursPct)],
+    ['מסלולים שלנו בממוצע', a => (a.meanRoutesUsed == null ? '—' : a.meanRoutesUsed.toFixed(1))],
     ['זמן יצירה', a => `${(a.meanMs / 1000).toFixed(1)} ש׳`],
   ];
   return (
@@ -48,7 +51,7 @@ export function RouteQualityRows({ routes, selectedKey, onSelect }: {
     <table className="w-full text-xs">
       <thead>
         <tr className="text-gray-400">
-          {['גרסה', 'הרצה', 'ק״מ', 'שגיאת מרחק', 'פרסות', 'חזרה', 'קומפקטיות', 'חציות (לא מסומנות)', 'ראשיים', 'תוצאה'].map(h => <th key={h} className="text-right font-bold py-2 px-1">{h}</th>)}
+          {['גרסה', 'הרצה', 'ק״מ', 'שגיאת מרחק', 'פרסות', 'חזרה', 'קומפקטיות', 'חציות (לא מסומנות)', 'ראשיים', 'על שלנו (מסלולים)', 'תוצאה'].map(h => <th key={h} className="text-right font-bold py-2 px-1">{h}</th>)}
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-50">
@@ -69,6 +72,7 @@ export function RouteQualityRows({ routes, selectedKey, onSelect }: {
               <td className="px-1 tabular-nums">{m.compactness.toFixed(2)}</td>
               <td className="px-1 tabular-nums">{m.crossings ? `${m.crossings.total} (${m.crossings.unmarked})` : '—'}</td>
               <td className="px-1 tabular-nums">{m.majorRoadPct == null ? '—' : `${(m.majorRoadPct * 100).toFixed(0)}%`}</td>
+              <td className="px-1 tabular-nums">{r.ours == null ? '—' : `${(r.ours.share * 100).toFixed(0)}% (${r.ours.routesUsed})`}</td>
               <td className={`px-1 font-bold ${r.verdict.pass ? 'text-emerald-600' : 'text-red-500'}`}>
                 {r.verdict.pass ? 'עובר' : r.verdict.reasons.map(x => REASON_HE[x] ?? x).join(', ')}
               </td>

@@ -2,6 +2,8 @@
  * POST /api/routes/generate — request/response shapes and validation.
  * Pure (shared by the route handler and the app-side client).
  */
+import { parseWireOurRoutes, type WireOurRoute } from './our-routes/wire';
+
 export type GenerateActivity = 'running' | 'walking' | 'cycling';
 
 export interface GenerateLoopsRequest {
@@ -11,6 +13,8 @@ export interface GenerateLoopsRequest {
   activity: GenerateActivity;
   seed?: number;
   maxResults?: number;
+  /** Our mapped routes near the start (enable_loops_prefer_official) — see lib/routing/our-routes. */
+  ourRoutes?: WireOurRoute[];
 }
 
 export interface GenerateAbRequest {
@@ -77,7 +81,11 @@ export function parseGenerateRequest(body: unknown): GenerateRequest | { error: 
     if (typeof targetKm !== 'number' || !(targetKm >= 1 && targetKm <= maxKm)) return { error: 'bad_target' };
     const seed = typeof b.seed === 'number' && Number.isFinite(b.seed) ? Math.trunc(Math.abs(b.seed)) % 1_000_000 : 0;
     const maxResults = typeof b.maxResults === 'number' ? Math.max(1, Math.min(3, Math.trunc(b.maxResults))) : 3;
-    return { mode: 'loop', start, targetKm, activity, seed, maxResults };
+    // Malformed / oversized ourRoutes is dropped, not an error: the loop still runs, without it.
+    const ourRoutes = b.ourRoutes === undefined ? undefined : parseWireOurRoutes(b.ourRoutes);
+    return ourRoutes
+      ? { mode: 'loop', start, targetKm, activity, seed, maxResults, ourRoutes }
+      : { mode: 'loop', start, targetKm, activity, seed, maxResults };
   }
   if (b.mode === 'ab') {
     const from = point(b.from), to = point(b.to);

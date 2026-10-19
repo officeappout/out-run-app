@@ -14,4 +14,9 @@ export { majorRoadCrossings, majorRoadShare } from './major-roads';
 export { computeRouteQualityMetrics, type MetricsOptions } from './metrics';
 export { evaluateLoopQuality, LOOP_QUALITY_THRESHOLDS, type QualityVerdict, type QualityRejectReason } from './acceptance';
 export { trimSpurs } from './trim-spurs';
+export {
+  buildOurRoutesIndex, ourRoutesShare, ourRoutesNear,
+  OUR_ROUTES_BUFFER_M, OUR_ROUTES_MIN_USE_M, OUR_ROUTES_MAX_ANGLE_DEG,
+  type OurRouteLine, type OurRoutesIndex, type OurRoutesShare,
+} from './our-routes';
 export { bboxAround, buildOverpassQuery, crossingControlFromTags, fetchOsmRoadLayer, isMajorHighway, parseOverpassLayer, MAJOR_HIGHWAYS, type Bbox } from './osm-layer';

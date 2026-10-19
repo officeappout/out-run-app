@@ -11,9 +11,24 @@ export interface QualityControlsValue {
   targetKm: number;
   activity: ActivityType;
   runs: number;
-  /** ab = current vs v1; ghab = v1 vs GraphHopper. */
-  mode: 'ab' | 'ghab' | QualityVariant;
+  /** ab = current vs v1; ghab = v1 vs GraphHopper; oursab = current vs v1 vs v1 + our routes; ghoursab = GH vs GH + our routes. */
+  mode: QualityMode;
 }
+
+export type QualityMode = 'ab' | 'ghab' | 'oursab' | 'ghoursab' | QualityVariant;
+
+export function variantsForMode(mode: QualityMode): QualityVariant[] {
+  if (mode === 'ab') return ['off', 'on'];
+  if (mode === 'ghab') return ['on', 'gh'];
+  if (mode === 'oursab') return ['off', 'on', 'ours'];
+  if (mode === 'ghoursab') return ['gh', 'ghours'];
+  return [mode];
+}
+
+const MODES: ReadonlyArray<readonly [QualityMode, string]> = [
+  ['ab', 'השוואה'], ['oursab', '+שלנו'], ['ghab', 'v1↔GH'], ['ghoursab', 'GH↔+שלנו'],
+  ['off', 'נוכחי'], ['on', 'v1'], ['ours', 'v1+שלנו'], ['gh', 'GH'],
+];
 
 const input = 'w-full px-3 py-2 bg-gray-50 rounded-xl border-2 border-transparent focus:border-cyan-400 focus:bg-white outline-none text-sm';
 const label = 'block text-xs font-bold text-gray-500 mb-1';
@@ -59,10 +74,10 @@ export function RouteQualityControls({ value, onChange, running, onRun, onCancel
           <input type="number" min={1} max={10} className={input} value={value.runs} onChange={e => set({ runs: Math.max(1, Math.min(10, Number(e.target.value) || 1)) })} />
         </label>
       </div>
-      <div className="flex items-center gap-1 bg-gray-100 rounded-2xl p-1">
-        {([['ab', 'השוואה'], ['ghab', 'v1↔GH'], ['off', 'נוכחי'], ['on', 'v1'], ['gh', 'GH']] as const).map(([k, t]) => (
+      <div className="grid grid-cols-4 gap-1 bg-gray-100 rounded-2xl p-1">
+        {MODES.map(([k, t]) => (
           <button key={k} onClick={() => set({ mode: k })}
-            className={`flex-1 px-1.5 py-1.5 rounded-xl text-xs font-bold transition-all ${value.mode === k ? 'bg-white shadow-sm text-cyan-600' : 'text-gray-500'}`}>{t}</button>
+            className={`px-1 py-1.5 rounded-xl text-xs font-bold transition-all ${value.mode === k ? 'bg-white shadow-sm text-cyan-600' : 'text-gray-500'}`}>{t}</button>
         ))}
       </div>
       <p className="text-[11px] text-gray-400 leading-relaxed">{flagNote}</p>

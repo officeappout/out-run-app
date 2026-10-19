@@ -54,6 +54,7 @@ interface FlagState {
   enable_budget_light_mode: boolean;
   enable_route_quality_v1: boolean;
   enable_graphhopper_routes: boolean;
+  enable_loops_prefer_official: boolean;
 }
 
 // ============================================================================
@@ -322,6 +323,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-violet-600',
     title: 'מסלולים מעגליים משרת הניווט שלנו (GraphHopper)',
     description: 'המסלולים המעגליים נבנים בשרת הניווט של OUT (GraphHopper, ישראל) במקום Mapbox: רחובות שקטים, הימנעות ממעברי חצייה לא מסומנים, בלי ענפים מתים, ונבחרים 3 הטובים מתוך 6. כל תקלה או המתנה של יותר מ־2 שניות חוזרת אוטומטית למחולל הנוכחי. דורש שהשרת פרוס ו־GRAPHHOPPER_URL מוגדר ב־Vercel. השוואה: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
+  },
+  // Loops prefer our routes (19.10.2026).
+  {
+    key: 'enable_loops_prefer_official',
+    icon: RouteIcon,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'מסלולים מעגליים עוברים במסלולים שלנו',
+    description: 'כשיש ליד המשתמש מסלולים רשמיים שמיפינו (שאנחנו יודעים את האיכות, הרמה והגובה שלהם), המסלול המעגלי מנסה לעבור עליהם: נקודות ביניים על המסלולים עצמם ועדיפות למסלול שעובר יותר עליהם — בלי לוותר על ספי האיכות ועל המרחק המבוקש. עובד יחד עם "איכות מסלולים מעגליים (v1)" ועם GraphHopper. השוואה: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
   },
 ];
 
