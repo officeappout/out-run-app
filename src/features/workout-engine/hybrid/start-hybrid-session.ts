@@ -766,7 +766,7 @@ async function composeRouteStopsWorkout(
     { planFromPoint, detectTopology }, { getAllGymEquipmentCached },
     { useWeeklyVolumeStore },
     { resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext },
-    { isWeeklyStrengthBudgetSpent, MIN_COHERENT_STATION_SETS }, { resolveMachineShareLevel },
+    { applySpentBudgetCoreDefault, MIN_COHERENT_STATION_SETS }, { resolveMachineShareLevel },
   ] = await tm.time('imports', Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
@@ -941,15 +941,13 @@ async function composeRouteStopsWorkout(
   //
   // Cold-store fix (17.10.2026): weeklyBudget 0 = the store was never initialised this session
   // (it is only set from the stats screen) → UNKNOWN, not spent. See weekly-budget-gate.ts.
+  //
+  // Applied AFTER the levels resolve (below): a core stop is a lock card for a user with neither
+  // core nor legs assessed, and lock cards are stripped from the run — so for that user the
+  // default would delete the station (owner report 19.10.2026). See applySpentBudgetCoreDefault.
   const weeklyStrength = useWeeklyVolumeStore.getState().strength;
   const remainingStrengthBudget = useWeeklyVolumeStore.getState().getRemainingBudget();
-  const strengthSpent = isWeeklyStrengthBudgetSpent(weeklyStrength);
-  const coredStops = strengthSpent
-    ? rawStops.map((s) => (s.activityType === 'strength' ? { ...s, activityType: 'core' as const } : s))
-    : rawStops;
-  if (strengthSpent && rawStops.some((s) => s.activityType === 'strength')) {
-    console.log(`[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < ${MIN_COHERENT_STATION_SETS}) → strength stop(s) defaulted to core`);
-  } else if (!(weeklyStrength?.weeklyBudget > 0)) {
+  if (!(weeklyStrength?.weeklyBudget > 0)) {
     console.log('[route-stops] weekly strength budget not initialised → treated as unknown (strength stops kept)');
   }
 
@@ -966,12 +964,12 @@ async function composeRouteStopsWorkout(
     direction: 'forward',
     // out_and_back → LINEAR bucket (defensive; detectTopology only returns loop/one_way today).
     topology: bucketTopology(detectTopology(routePath)),
-    stops: coredStops,
+    stops: rawStops,
   });
   const traversalPath = plan.traversal;
   // Reindex each stop's waypointIndex onto the traversal so composeHybridSession's km-sort
   // (byte-identical) becomes entry-relative. Stops arrive already in traversal order.
-  const stops = plan.stops.map((p) => ({ ...p.stop, waypointIndex: p.traversalIndex }));
+  const plannedStops = plan.stops.map((p) => ({ ...p.stop, waypointIndex: p.traversalIndex }));
 
   // Round-trip walk legs (Phase 2) — published-route backbone only. A generated_loop is built
   // FROM the user's position (entry = user), so its legs would be ~0 → left as-is.
@@ -988,10 +986,10 @@ async function composeRouteStopsWorkout(
   roundTripP?.catch(() => { /* composeRoundTripLegs does not throw; guard against an unhandled rejection on early returns */ });
 
   console.log(
-    `[route-stops] route="${backbone.routeName}" stops=${stops.length}` +
-    ` [${stops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
+    `[route-stops] route="${backbone.routeName}" stops=${plannedStops.length}` +
+    ` [${plannedStops.map((s) => `${s.activityType}@wp${s.waypointIndex}(${s.distToPathM}m)`).join(', ')}]`,
   );
-  if (stops.length === 0) {
+  if (plannedStops.length === 0) {
     // Zero-stations degrade (root-fix QA): a generated loop may pass no equipped park. Do NOT
     // return null — let it flow into composeHybridSession's field fallback (ONE bodyweight stop at
     // the route midpoint), yielding a valid aerobic + bodyweight route workout instead of no card.
@@ -1005,6 +1003,16 @@ async function composeRouteStopsWorkout(
       tm.time('weeklyGaps', safeGetWeeklyGaps()),
       exercisesP, // already in flight since the top of the compose
     ]);
+  const coreDefault = applySpentBudgetCoreDefault(plannedStops, weeklyStrength, userProgramLevels);
+  const stops = coreDefault.stops;
+  if (coreDefault.reason !== 'not_spent' && plannedStops.some((s) => s.activityType === 'strength')) {
+    console.log(
+      `[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < ${MIN_COHERENT_STATION_SETS}) → ` +
+      (coreDefault.reason === 'defaulted_to_core'
+        ? 'strength stop(s) defaulted to core'
+        : 'strength stop(s) kept: core/legs unassessed, a core stop would be a lock card'),
+    );
+  }
   const filterContext: ContextualFilterContext = {
     location: 'park', lifestyles: [], injuryShield: [], intentMode: 'normal', availableEquipment: [],
     getUserLevelForExercise: resolveUserLevelForExercise,
