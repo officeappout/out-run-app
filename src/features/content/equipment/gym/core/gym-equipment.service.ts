@@ -17,6 +17,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { createTtlAsyncCache } from '@/lib/ttlAsyncCache';
+import { createPersistentTtlCache, type PersistentTtlCache } from '@/lib/persistentTtlCache';
+import { createIdbRecordStore } from '@/lib/idbRecordStore';
+import { isFastStartupOn } from '@/lib/fast-startup/flag';
 import { GymEquipment, GymEquipmentFormData } from './gym-equipment.types';
 import { registerGearAlias } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { ExerciseType } from '../../../exercises/core/exercise.types';
@@ -89,6 +92,31 @@ export async function getAllGymEquipmentCached(): Promise<GymEquipment[]> {
 }
 export function invalidateGymEquipmentCache(): void {
   gymEquipmentCache.invalidate();
+}
+
+/**
+ * enable_fast_startup_v1 — getAllGymEquipment behind memory + IndexedDB (30 min), so a cold
+ * start's first trio doesn't wait on the full-collection read. A value served from IndexedDB
+ * never ran the live read's alias registration in this JS session, so it is re-run on every
+ * call (idempotent, ~100 items). This device's own admin edits invalidate it (below); other
+ * devices see an edit within GYM_EQUIPMENT_PERSIST_TTL_MS.
+ */
+export const GYM_EQUIPMENT_PERSIST_TTL_MS = 30 * 60 * 1000;
+let persistedGymEquipment: PersistentTtlCache<GymEquipment[]> | null = null;
+function getPersistedGymEquipment(): PersistentTtlCache<GymEquipment[]> {
+  return (persistedGymEquipment ??= createPersistentTtlCache<GymEquipment[]>({
+    fetcher: getAllGymEquipment,
+    ttlMs: GYM_EQUIPMENT_PERSIST_TTL_MS,
+    store: createIdbRecordStore<GymEquipment[]>('gym-equipment:v1'),
+  }));
+}
+export async function getAllGymEquipmentPersisted(): Promise<GymEquipment[]> {
+  const items = await getPersistedGymEquipment().get();
+  for (const item of items) registerGearAlias(item.id, item.iconKey, undefined, item.name);
+  return items;
+}
+function invalidatePersistedGymEquipment(): void {
+  if (persistedGymEquipment || isFastStartupOn()) getPersistedGymEquipment().invalidate();
 }
 
 /**
@@ -192,6 +220,7 @@ export async function createGymEquipment(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    invalidatePersistedGymEquipment();
     return docRef.id;
   } catch (error) {
     console.error('Error creating gym equipment:', error);
@@ -212,6 +241,7 @@ export async function updateGymEquipment(
       ...stripUndefined(data),
       updatedAt: serverTimestamp(),
     });
+    invalidatePersistedGymEquipment();
   } catch (error) {
     console.error('Error updating gym equipment:', error);
     throw error;
@@ -225,6 +255,7 @@ export async function deleteGymEquipment(equipmentId: string): Promise<void> {
   try {
     const docRef = doc(db, GYM_EQUIPMENT_COLLECTION, equipmentId);
     await deleteDoc(docRef);
+    invalidatePersistedGymEquipment();
   } catch (error) {
     console.error('Error deleting gym equipment:', error);
     throw error;

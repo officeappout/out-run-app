@@ -89,7 +89,7 @@ import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core
 import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { resolveRouteWorkout, getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
-import { resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey } from '@/features/home/components/PreWorkoutCardRenderer';
+import { resolveHeroWorkout, resolveRealHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey } from '@/features/home/components/PreWorkoutCardRenderer';
 // Overlays are code-split + mounted on first open; widgets are crash-contained.
 // Both are drop-in replacements for the original imports (see each module).
 import {
@@ -110,6 +110,8 @@ import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import { useToast } from '@/components/ui/Toast';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
+import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
 
 const GROUP_VERB: Record<string, string> = {
   walking:      'ילך',
@@ -358,6 +360,8 @@ export default function HomePage() {
   const router = useRouter();
   // Warm the code-split overlay chunks once the screen is idle (first tap stays instant).
   useHomeOverlayPreload();
+  // enable_fast_startup_v1: re-checks auth + users doc after `/`'s fast path (no-op otherwise).
+  useFastStartGuard(router);
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
@@ -1238,7 +1242,7 @@ export default function HomePage() {
   // cache directly at render time) once a background/on-settle resolve populates it. Only the
   // setter is needed — any state update re-renders this component's children regardless of
   // whether the new value itself is read anywhere.
-  const [, setTier2ResolvedTick] = useState(0);
+  const [tier2ResolvedTick, setTier2ResolvedTick] = useState(0);
 
   // route joined full-strength with a Tier-2 resolver (26.08.2026, David's device-test
   // follow-up) — resolveRouteWorkout reuses useStepDeficitRoute.ts's own stepsToTargetKm
@@ -1335,6 +1339,18 @@ export default function HomePage() {
     });
     return () => { cancelled = true; };
   }, [profile, resolveHomeTier2, selectedDate, healthConnected]);
+
+  // enable_fast_startup_v1: paint today's last carousel instantly, refresh in place, persist.
+  useHomeCarouselStartupCache({
+    enabled: liveFlags.enableFastStartupV1,
+    uid: profile?.id,
+    selectedDate,
+    suggestions: preWorkoutSuggestions,
+    setSuggestions: setPreWorkoutSuggestions,
+    tier2Tick: tier2ResolvedTick,
+    skipWrite: isTodayWorkoutDone,
+    realHeroLookup: resolveRealHeroWorkout,
+  });
 
   // Parity fix (27.08.2026) — location/program-icon context for the new carousel's header and
   // HeroWorkoutCard props (workoutLocation/programIconKey), copied verbatim from

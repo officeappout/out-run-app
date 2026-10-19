@@ -772,6 +772,10 @@ export default function StatsOverview({
         // ── Step 1: Resolve context (coverage-aware) BEFORE generation ──
         // Inferred flow: an equipped park within 2 km → park with its REAL gear;
         // no equipped park / no GPS fix → HOME (never a fake ESSENTIAL_PARK_GEAR park).
+        // The schedule read doesn't depend on the context — start it now so it overlaps the
+        // GPS wait below instead of queueing behind it (awaited at Step 2, same value).
+        const rawEntriesPromise = getScheduleEntries(profile.id, targetDate);
+        rawEntriesPromise.catch(() => { /* surfaced by the await at Step 2 */ });
         const storeFix = useGPSStore.getState().coords;
         const genWeather = weatherRef.current;
         const ctx = await resolveWorkoutContext(profile, resolvedLocation, {
@@ -803,7 +807,7 @@ export default function StatsOverview({
         // collecting ids from `rawEntries` alone after hydrating would
         // silently miss everything hydration just wrote, degrading a freshly
         // planned multi-item day into an apparent rest day.
-        const rawEntries = await getScheduleEntries(profile.id, targetDate);
+        const rawEntries = await rawEntriesPromise;
         const rawMatch =
           rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
           rawEntries.find((e) => e.type === 'rest') ??

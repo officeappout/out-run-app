@@ -29,7 +29,8 @@
 // -- External domain imports --
 import { Exercise, InjuryShieldArea, ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { getAllExercisesCached } from '@/features/content/exercises/core/exercise.service';
-import { getAllGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import { getAllGymEquipment, getAllGymEquipmentPersisted } from '@/features/content/equipment/gym/core/gym-equipment.service';
+import { isFastStartupOn } from '@/lib/fast-startup/flag';
 import { UserFullProfile } from '@/features/user/core/types/user.types';
 import { getProgramLevelSetting } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveTabataFinisher, type TabataCandidate } from './tabata-finisher.utils';
@@ -2053,7 +2054,8 @@ async function _buildSharedPipeline(
     // Test / placeholder docs ("…לבדיקה", "Copy of …") never enter ANY pool —
     // main, warm-up, cool-down, tabata, backfill (05-BENCHMARK §6.4 #1, H5).
     getAllExercisesCached().then(withoutTestExercises),
-    getAllGymEquipment(),
+    // enable_fast_startup_v1: memory + IndexedDB (30 min); off → the live read, as before.
+    isFastStartupOn() ? getAllGymEquipmentPersisted() : getAllGymEquipment(),
     getCachedPrograms(),
     ensureEquipmentCachesLoaded(),
   ]);

@@ -22,6 +22,11 @@ import { resolveAuthLinkOutcome } from '@/lib/resolveAuthLinkOutcome';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import BrandedSplashScreen from '@/components/BrandedSplashScreen';
+import { decideLandingRoute } from '@/lib/fast-startup/landing-decision';
+import { useLandingFastPath } from '@/lib/fast-startup/useLandingFastPath';
+import { isFastStartupOn } from '@/lib/fast-startup/flag';
+import { writeLastAuthUid } from '@/lib/fast-startup/session-uid';
+import { startupMark } from '@/lib/fast-startup/perf';
 import { useToast } from '@/components/ui/Toast';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 
@@ -397,6 +402,10 @@ export default function LandingPage() {
   // elsewhere. Mirrors gateway/page.tsx's own isBusyRef pattern.
   const quickSignupInFlightRef = useRef(false);
 
+  // enable_fast_startup_v1 — returning onboarded users go straight to /home from the
+  // persisted profile (home re-verifies in the background). Flag off → no-op, ref stays false.
+  const fastPathTakenRef = useLandingFastPath(router);
+
   // ── Session hint check — client-only, post-hydration ──
   // Two-tier fallback to avoid the cold-start race condition on iOS where
   // WKWebView can evict localStorage between hard close and re-launch:
@@ -453,6 +462,10 @@ export default function LandingPage() {
       // for this sign-in — don't race it with a second, independent redirect
       // decision. See quickSignupInFlightRef's own comment above.
       if (quickSignupInFlightRef.current) return;
+      startupMark('auth-restored');
+      if (user && isFastStartupOn()) writeLastAuthUid(user.uid);
+      // The fast path already navigated to /home; home's useFastStartGuard owns the check.
+      if (fastPathTakenRef.current) return;
       if (!user) {
         // Confirmed unauthenticated — paint the landing UI. Note that
         // we DO NOT clear SESSION_HINT_KEY here; only signOutUser does.
@@ -481,32 +494,14 @@ export default function LandingPage() {
           timeoutPromise,
         ]);
 
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const status = userData?.onboardingStatus;
-          const step = userData?.onboardingStep;
-          const path = userData?.onboardingPath;
+        startupMark('users-doc');
 
-          if (status === 'IN_PROGRESS' && step === 'IDENTITY') {
-            router.push('/onboarding-new/profile');
-          } else if (status === 'IN_PROGRESS' && step === 'ASSESSMENT') {
-            // Route to visual assessment (replaces legacy dynamic questionnaire)
-            router.push('/onboarding-new/assessment-visual');
-          } else if (status === 'IN_PROGRESS' && step === 'VISUAL_ASSESSMENT_COMPLETE') {
-            // Assessment done — skip to health declaration
-            router.push('/onboarding-new/health');
-          } else if (status === 'IN_PROGRESS' && step === 'HEALTH') {
-            router.push('/onboarding-new/health');
-          } else if (status === 'PENDING_LIFESTYLE') {
-            router.push('/home');
-          } else if (status === 'COMPLETED' || userData?.onboardingComplete) {
-            router.push('/home');
-          } else if (path === 'MAP_ONLY' || status === 'MAP_ONLY') {
-            router.push('/explorer');
-          } else {
-            // Default: user exists but no clear status — let them choose a track
-            router.push('/gateway');
-          }
+        if (userDocSnap.exists()) {
+          // IN_PROGRESS steps → that onboarding screen; PENDING_LIFESTYLE / COMPLETED /
+          // onboardingComplete → /home; MAP_ONLY → /explorer; anything else → /gateway
+          // (let them choose a track). The one copy of this decision lives in
+          // decideLandingRoute — the fast path and home's re-check use it too.
+          router.push(decideLandingRoute(userDocSnap.data()));
         } else {
           // Auth user exists but no Firestore profile yet.
           //
@@ -568,7 +563,7 @@ export default function LandingPage() {
       }
     });
     return () => unsubscribe();
-  }, [router]);
+  }, [router, fastPathTakenRef]);
 
   // ── Primary: "הרשמה מהירה" → runs the same explore-map flow as gateway's
   // "גלו את המפה" card directly, skipping the gateway choice screen. ──

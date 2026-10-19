@@ -56,6 +56,7 @@ import { generatedToHeroWorkout } from '../utils/generatedToHeroWorkout';
 import { SuggestionCard } from '@/features/workout-engine/core/components/SuggestionCard';
 import { getCachedFullStrengthWorkout } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { getCachedRecoveryWorkout } from '@/features/workout-engine/core/generators/recovery-follow-up.generator';
+import { getProvisionalHeroWorkout } from '../fast-startup/provisionalHeroWorkouts';
 import { getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { ConnectStepsCard } from './ConnectStepsCard';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -210,6 +211,13 @@ export function resolveHeroWorkout(
   overrideWorkout?: GeneratedWorkout | null,
 ): GeneratedWorkout | null {
   if (overrideWorkout) return overrideWorkout;
+  // enable_fast_startup_v1: today's cached carousel paints from the provisional copy until the
+  // fresh Tier-2 build lands in the real cache (always empty with the flag off).
+  return resolveRealHeroWorkout(suggestion) ?? getProvisionalHeroWorkout(suggestion.id) ?? null;
+}
+
+/** The generators' own Tier-2 caches only — what home persists for the next cold open. */
+export function resolveRealHeroWorkout(suggestion: Suggestion): GeneratedWorkout | null {
   const heroLookup = HERO_CACHE_LOOKUP[suggestion.generatorId];
   return heroLookup ? heroLookup(suggestion.id) ?? null : null;
 }

@@ -172,6 +172,15 @@ export const FLAG_DEFS = [
   // so it's fail-closed and super admins (owner + office) test it on-device first.
   // Off = exactly today's behaviour (the CSS utilities are inert at --kb-inset: 0).
   { key: 'enableKeyboardInsetsV1', firestoreKey: 'enable_keyboard_insets_v1', defaultValue: false, superAdminValue: true },
+  // Fast startup v1 (19.10.2026) — returning onboarded users skip the splash wait on `/`
+  // (straight to /home from the persisted profile; home re-verifies auth + the users doc in
+  // the background), the home trio paints from today's IndexedDB copy and refreshes in place,
+  // and programs / gym equipment / trio labels get a 30-min IndexedDB layer (src/lib/fast-startup).
+  // Read BEFORE the flags snapshot lands (from the localStorage flags cache), so a panel
+  // change reaches a device on its next launch. Fail-closed; superAdminValue false — the
+  // panel toggle is the one switch (pre-auth code can't know who is a super admin).
+  // Off = exactly today's startup.
+  { key: 'enableFastStartupV1', firestoreKey: 'enable_fast_startup_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
