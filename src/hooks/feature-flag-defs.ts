@@ -184,6 +184,24 @@ export const FLAG_DEFS = [
   // switch (the server reads the real value and ignores the override anyway). Off = today's
   // behaviour: separate "קלי AI" screen + the human Kelly DM.
   { key: 'kellyUnifiedV1', firestoreKey: 'kelly_unified_v1', defaultValue: false, superAdminValue: false },
+  // Kelly phase 3 (19.10.2026, owner-approved) — proactive Kelly: at most ONE Kelly message a
+  // day per user in the unified thread (+ a 'coach' push counted in the daily push cap): the
+  // morning line on a training day, the Friday weekly summary, a level-check nudge, a weather
+  // tip, and "איך היה?" after a saved workout (קל / בדיוק / קשה stored server-side). Quiet hours,
+  // Shabbat opt-in, calm return (lapsed users get only the retention milestones), a user opt-out
+  // (Settings, default on). Needs kelly_unified_v1 (the thread) and AI access per user. The
+  // server (proactive run route + onKellyThreadMessage) is the enforcer. Fail-closed;
+  // superAdminValue false. Off = byte-identical (nothing is evaluated or written).
+  { key: 'aiCoachProactive', firestoreKey: 'ai_coach_proactive', defaultValue: false, superAdminValue: false },
+  // Sub-flag of ai_coach_proactive: ONE sentence of the proactive message personalized by the
+  // fast model (Haiku), under the AI budget + a per-run cap. Off = the deterministic template only.
+  { key: 'aiCoachProactiveLlm', firestoreKey: 'ai_coach_proactive_llm', defaultValue: false, superAdminValue: false },
+  // Kelly phase 3 — memory: a nightly fast-model pass keeps up to 20 durable facts per user
+  // (injury or sensitivity they said, schedule limits, goals or events, preferences) in
+  // ai_coach_memory/{uid} (server only), shown to Kelly as "מה אני זוכר עליך" and to the user
+  // ("מה קלי זוכר", per-fact delete + delete all). Fail-closed; off = no extraction, no block,
+  // no screen.
+  { key: 'aiCoachMemory', firestoreKey: 'ai_coach_memory', defaultValue: false, superAdminValue: false },
   // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
   // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
   // the focused field is scrolled into view, and the Capacitor Keyboard plugin is
