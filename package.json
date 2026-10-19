@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^5.0.1",
+    "@capacitor-community/media": "^6.0.0",
     "@capacitor-firebase/app-check": "^6.3.0",
     "@capacitor-firebase/authentication": "^6.3.0",
     "@capacitor-firebase/crashlytics": "^6.3.1",

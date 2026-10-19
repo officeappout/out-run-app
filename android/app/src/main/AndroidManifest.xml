@@ -90,7 +90,11 @@
          Gallery read permissions (READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE)
          are intentionally omitted: @capacitor/camera uses the system photo
          picker (ACTION_PICK / PhotoPicker API) which grants one-time scoped
-         URI access without requiring a broad storage permission. -->
+         URI access without requiring a broad storage permission.
+         "Save to gallery" for share images also stays permission-free on
+         Android: @capacitor-community/media would need READ_MEDIA_IMAGES
+         there, so the app keeps the OS share sheet ("Save image") instead
+         (see src/features/social/services/save-to-gallery.ts). -->
     <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Health Connect — step / calorie / exercise tracking.

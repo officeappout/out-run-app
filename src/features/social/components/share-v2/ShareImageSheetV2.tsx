@@ -10,7 +10,8 @@ import { Download, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/v2';
 import { useToast } from '@/components/ui/Toast';
 import { Sheet } from '../FeedPublishSheets';
-import { isNativePlatform, pickFeedPhoto } from '../../services/feed-photo';
+import { pickFeedPhoto } from '../../services/feed-photo';
+import { saveImageToGallery } from '../../services/save-to-gallery';
 import { shareFileName, type ShareImageInput } from '../../services/share-image';
 import { canvasToBlob, shareOrDownload } from '../../services/share-image-render';
 import { buildShareModel } from '../../share-v2/model';
@@ -31,17 +32,6 @@ function subtitle(input: ShareImageInput): string {
 
 function fileName(kind: ShareImageInput['kind'], format: ShareFormat): string {
   return format === 'sticker' ? shareFileName(kind, 'square').replace('-square-', '-sticker-') : shareFileName(kind, format);
-}
-
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 export default function ShareImageSheetV2({
@@ -132,14 +122,10 @@ export default function ShareImageSheetV2({
     if (!input || busy) return;
     setBusy('save');
     try {
-      const blob = await fullImage();
-      const name = fileName(input.kind, format);
-      // In the app there's no file download — the OS sheet has "Save image".
-      if (isNativePlatform()) await shareOrDownload(blob, name);
-      else {
-        download(blob, name);
-        showToast('success', 'התמונה נשמרה');
-      }
+      // Photos (native app with the plugin) → share sheet (older builds) → download (web).
+      const res = await saveImageToGallery(await fullImage(), fileName(input.kind, format));
+      if (res === 'saved' || res === 'downloaded') showToast('success', 'התמונה נשמרה');
+      if (res === 'denied') showToast('error', 'אין הרשאה לשמור בגלריה — אפשר לאשר בהגדרות הטלפון');
     } catch {
       showToast('error', 'השמירה לא הצליחה');
     } finally {

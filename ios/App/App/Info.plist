@@ -58,7 +58,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>אפליקציית OUT משתמשת במיקום שלך בזמן שימוש בלבד — כדי להציג פארקי כושר בקרבת מקום, לעקוב אחרי מסלולי ריצה שבחרת להקליט, ולחבר אותך לקהילות כושר מקומיות.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>אפליקציית OUT מבקשת רשות לשמור תמונות בגלריה שלך.</string>
+	<string>אפליקציית OUT מבקשת רשות לשמור בגלריה שלך את תמונות השיתוף והסטיקרים שיצרת. / OUT asks permission to save the share images and stickers you create to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>אפליקציית OUT מבקשת גישה לגלריה שלך כדי לאפשר בחירת תמונת פרופיל. האפליקציה אינה סורקת או אוספת תמונות אחרות בגלריה.</string>
 	<key>NSCalendarsUsageDescription</key>
