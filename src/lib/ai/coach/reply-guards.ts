@@ -26,6 +26,7 @@
 import type { UserContextSheet } from './context-sheet';
 import type { CoachGender } from './persona';
 import { findFeminineSelfReferences } from './gender-voice';
+import { PROPOSE_TOOL, findSavedClaim } from './schedule-proposal/claims';
 
 export interface GroundingFacts {
   times: Set<string>;
@@ -43,7 +44,9 @@ export type ReplyIssue =
   | { kind: 'ungrounded'; claims: string[] }
   | { kind: 'foreign'; words: string[] }
   | { kind: 'feminine'; forms: string[] }
-  | { kind: 'blind'; claim: string; tools: string[] };
+  | { kind: 'blind'; claim: string; tools: string[] }
+  /** Kelly phase 2: said the schedule was changed while it is only a proposal awaiting the user's tap. */
+  | { kind: 'unconfirmed_save'; claim: string };
 
 const ALLOWED_LATIN = new Set(['ai', 'out', 'emom', 'amrap', 'hiit', 'trx']);
 
@@ -290,6 +293,11 @@ export function checkReply(
   if (fem.length) issues.push({ kind: 'feminine', forms: fem.map((h) => h.text) });
   const b = blind ? findBlindClaim(reply, blind) : null;
   if (b) issues.push({ kind: 'blind', ...b });
+  // Only reachable when propose_schedule_change ran this turn (flag ai_coach_phase2).
+  if (blind?.toolNames.includes(PROPOSE_TOOL)) {
+    const claim = findSavedClaim(reply);
+    if (claim) issues.push({ kind: 'unconfirmed_save', claim });
+  }
   return issues;
 }
 
@@ -318,6 +326,11 @@ export function correctionNote(issues: ReplyIssue[]): string {
         `You told the user you can't see it ("${i.claim}"), but ${i.tools.join(' and ')} can answer this. Call ${i.tools.join(' and ')} now and answer from the result. ` +
           'For a persona question, say which persona the user has and what it means in one plain sentence. For "what should I do now", use today\'s entries and the hour. ' +
           'You can\'t see the app\'s screens, but today\'s schedule is what the app plans for the user: answer from it.',
+      );
+    }
+    if (i.kind === 'unconfirmed_save') {
+      lines.push(
+        `You said the schedule was already changed ("${i.claim}"), but nothing is saved yet: it is only a proposal. Say what will change and that it is saved only after the user taps אשר on the card under your reply.`,
       );
     }
   }

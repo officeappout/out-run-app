@@ -28,6 +28,13 @@ import AiCoachWorkoutCard, { AiCoachWorkoutCardError, AiCoachWorkoutCardSkeleton
 import AiCoachActionChips from './AiCoachActionChips';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { KELLY_TEAM_SENDER_NAME } from '@/lib/ai/coach/unified-thread';
+import { suggestChips } from '@/lib/ai/coach/suggestions/suggest-chips';
+import { placeholderHints } from '@/lib/ai/coach/suggestions/placeholders';
+import { useUserStore } from '@/features/user';
+import AiCoachSuggestionChips from './AiCoachSuggestionChips';
+import AiCoachProposalCard from './AiCoachProposalCard';
+import { useKellySituation } from '../hooks/useKellySituation';
+import { useRotatingPlaceholder } from '../hooks/useRotatingPlaceholder';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -51,6 +58,8 @@ export default function AiCoachChat({
   onClose,
   unified = false,
   teamOnly = false,
+  phase2 = false,
+  weatherOn = false,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -58,8 +67,12 @@ export default function AiCoachChat({
   unified?: boolean;
   /** Unified only: this user has no AI → the team answers here. */
   teamOnly?: boolean;
+  /** ai_coach_phase2: context-aware quick replies, rotating hints, schedule proposal cards. */
+  phase2?: boolean;
+  /** The weather feature is on for this user (isWeatherOnFor, live flags). */
+  weatherOn?: boolean;
 }) {
-  const { state, send, retry, dismissError, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
+  const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
   const gender = coachGenderOf(profile.core?.gender);
   const online = useOnline();
@@ -78,6 +91,20 @@ export default function AiCoachChat({
   const showIntro = state.phase !== 'loading' && state.messages.length === 0 && !teamMode;
   // "Build today's workout" belongs to today's newest reply only; older chips open the schedule.
   const lastAssistantId = [...state.messages].reverse().find((m) => m.role === 'assistant')?.id ?? null;
+
+  // Kelly phase 2 (off: situation null → the fixed quick replies and placeholder, as before).
+  const situation = useKellySituation(profile, { enabled: phase2 && !teamMode, weatherOn });
+  const openingChips = useMemo(() => (situation ? suggestChips(situation, { kind: 'opening' }) : null), [situation]);
+  const hints = useMemo(() => (situation ? placeholderHints(situation) : []), [situation]);
+  const rotatingPlaceholder = useRotatingPlaceholder(hints, phase2 && !input, 'כתבו לקלי...');
+  const lastMessageId = state.messages[state.messages.length - 1]?.id ?? null;
+  const newestCard = useMemo(() => {
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const cs = state.messages[i].cards;
+      if (cs.length) return cs[cs.length - 1];
+    }
+    return null;
+  }, [state.messages]);
 
   const cached = useMemo(() => (openCard ? getAiWorkout(openCard.workoutId) : null), [openCard]);
   const shell = useMemo(() => {
@@ -229,6 +256,23 @@ export default function AiCoachChat({
                   disabled={busy}
                 />
               )}
+              {phase2 && !mine && m.proposal && (
+                <AiCoachProposalCard
+                  messageId={m.id}
+                  proposal={m.proposal}
+                  disabled={busy || m.id === LIVE_ID}
+                  onStatus={(st) => setProposalStatus(m.id, st)}
+                  onSaved={() => void useUserStore.getState().refreshProfile?.()}
+                />
+              )}
+              {phase2 && !mine && !teamMode && !busy && m.id === lastMessageId && (m.suggestions?.length ?? 0) > 0 && (
+                <AiCoachSuggestionChips
+                  chips={m.suggestions!}
+                  onSend={(msg) => send(msg)}
+                  onOpenCard={newestCard ? () => handleOpenCard(newestCard) : undefined}
+                  className="mt-2 max-w-full flex-wrap justify-end"
+                />
+              )}
             </div>
           );
         })}
@@ -291,7 +335,10 @@ export default function AiCoachChat({
       </div>
 
       {/* Quick replies (first open) */}
-      {showIntro && !busy && (
+      {showIntro && !busy && openingChips && (
+        <AiCoachSuggestionChips chips={openingChips} onSend={(q) => send(q)} className="px-4 pb-2" />
+      )}
+      {showIntro && !busy && !openingChips && (
         <div className="flex gap-2 overflow-x-auto px-4 pb-2">
           {quickReplies(gender).map((q) => (
             <button
@@ -317,7 +364,7 @@ export default function AiCoachChat({
               submit();
             }
           }}
-                    placeholder={teamMode ? 'כתבו לצוות...' : 'כתבו לקלי...'}
+          placeholder={teamMode ? 'כתבו לצוות...' : phase2 ? rotatingPlaceholder : 'כתבו לקלי...'}
           className="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-right text-sm text-gray-900 outline-none placeholder:text-gray-400"
           style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           enterKeyHint="send"

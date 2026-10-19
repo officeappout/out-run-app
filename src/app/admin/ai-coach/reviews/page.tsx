@@ -17,6 +17,8 @@ import {
 } from '@/lib/ai/review/review-types';
 import { filterRows, type FlaggedRow, type RowFilter } from '@/lib/ai/review/review-list';
 import type { DayPoint } from '@/lib/ai/review/stats';
+import ReviewTopicsPanel from '@/features/admin/components/ai-coach/ReviewTopicsPanel';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 interface Summary {
   reviews: number;
@@ -235,6 +237,9 @@ export default function AiCoachReviewsPage() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Kelly phase 2 (ai_coach_phase2, real value): the "נושאים מובילים" section.
+  const { flags } = useFeatureFlags();
+  const showTopics = flags.aiCoachPhase2 === true;
   const [filter, setFilter] = useState<RowFilter>({ category: 'all', minSeverity: 1, rootCause: 'all', status: 'not_fixed', source: 'all' });
 
   useEffect(() => {
@@ -389,6 +394,8 @@ export default function AiCoachReviewsPage() {
           </div>
         </>
       )}
+
+      {showTopics && <ReviewTopicsPanel />}
 
       <div className="flex flex-wrap gap-2 items-center">
         <select className={select} value={filter.category} onChange={(e) => setFilter({ ...filter, category: e.target.value as RowFilter['category'] })} aria-label="סוג">

@@ -125,7 +125,15 @@ export interface SessionContextInput {
   assessmentNudgeAllowed?: boolean;
   /** ai_coach_schedule_advisor on: how to use recommend_week / recommend_today (after the cache breakpoint, so off = today's prompt). */
   scheduleAdvisor?: boolean;
+  /** ai_coach_phase2 on: app help + schedule proposals (after the cache breakpoint, so off = today's prompt). */
+  phase2?: boolean;
 }
+
+/** Session note while Kelly phase 2 (ai_coach_phase2) is on. */
+export const PHASE2_NOTE = [
+  '- App questions: for any question about using the OUT app (where something is, how to connect steps, notifications or Shabbat, changing or adding a program, moving a workout, level checks, the map, account, privacy, equipment), call get_app_help with the user\'s question and answer only from its entries, in two or three short sentences, keeping the app\'s button names in quotes. If it returns found false, say you are not sure and offer to pass the question to the team; call handoff_to_human only after the user agrees. Never guess how the app works.',
+  '- Schedule changes: when the user asks to move a strength workout to another day or to train fewer strength days, call propose_schedule_change. If it is not clear whether it is only this week or from now on, ask that in one short question first. The tool changes nothing: a confirm card with אשר and בטל appears under your reply. Say what will change in one or two short sentences and that it is saved only after they tap אשר. Never say you changed, moved or saved anything. If it returns created false, follow its note.',
+].join('\n');
 
 /** Session note while the schedule advisor flag is on. */
 export const SCHEDULE_ADVISOR_NOTE =
@@ -147,6 +155,7 @@ export function buildSessionContext(i: SessionContextInput): string {
     lines.push(`- Likely typos in the user's latest message (a hint, not certain): ${list}. If your answer relies on it, confirm briefly (התכוונת "${i.typoHints[0].suggestion}"?).`);
   }
   if (i.scheduleAdvisor) lines.push(SCHEDULE_ADVISOR_NOTE);
+  if (i.phase2) lines.push(PHASE2_NOTE);
   const gapNote = i.sheet ? assessmentGapNote(i.sheet, i.assessmentNudgeAllowed !== false) : null;
   if (gapNote) lines.push(gapNote);
   if (i.sheet) {

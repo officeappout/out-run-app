@@ -16,6 +16,8 @@
 import type { CoachStreamEvent, CoachErrorInput, WorkoutCard } from '@/lib/ai/coach/protocol';
 import type { CoachActionId } from '@/lib/ai/coach/action-chips';
 import type { KellyMessageSource } from '@/lib/ai/coach/unified-thread';
+import type { SuggestionChip } from '@/lib/ai/coach/suggestions/types';
+import type { ProposalStatus, ProposalView } from '@/lib/ai/coach/schedule-proposal/types';
 
 export const LIVE_ID = '__live__';
 
@@ -29,6 +31,10 @@ export interface UiMessage {
   /** Unified Kelly only: who wrote a stored message (team replies get their own bubble). */
   source?: KellyMessageSource;
   senderName?: string;
+  /** Kelly phase 2: quick replies under this reply (shown under the newest one only). */
+  suggestions?: SuggestionChip[];
+  /** Kelly phase 2: a schedule change awaiting the user's "אשר". */
+  proposal?: ProposalView;
 }
 
 export type ChatPhase = 'loading' | 'idle' | 'sending' | 'streaming' | 'running_tool' | 'error';
@@ -59,6 +65,8 @@ export type ChatAction =
   /** The device ran the client tool and posted its result; `ok` false = it failed. */
   | { type: 'TOOL_POSTED'; ok?: boolean }
   | { type: 'FAILED'; error: CoachErrorInput }
+  /** Kelly phase 2: the confirm card's status changed on this device (before the stored copy arrives). */
+  | { type: 'PROPOSAL_STATUS'; messageId: string; status: ProposalStatus }
   | { type: 'DISMISS_ERROR' };
 
 export const initialChatState: ChatState = {
@@ -147,6 +155,10 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
               m.cards.some((c) => c.workoutId === ev.card.workoutId) ? m : { ...m, cards: [...m.cards, ev.card] },
             ),
           };
+        case 'suggestions':
+          return { ...s, messages: withLive(s.messages, (m) => ({ ...m, suggestions: ev.suggestions })) };
+        case 'proposal':
+          return { ...s, messages: withLive(s.messages, (m) => ({ ...m, proposal: ev.proposal })) };
         case 'actions':
           return { ...s, messages: withLive(s.messages, (m) => ({ ...m, actions: Array.from(new Set([...(m.actions ?? []), ...ev.actions])) })) };
         case 'client_tool':
@@ -193,6 +205,12 @@ export function chatReducer(s: ChatState, a: ChatAction): ChatState {
         error: a.error,
         workoutBuild: s.workoutBuild === 'building' ? 'idle' : s.workoutBuild,
         messages: dropEmptyLive(s.messages),
+      };
+
+    case 'PROPOSAL_STATUS':
+      return {
+        ...s,
+        messages: s.messages.map((m) => (m.id === a.messageId && m.proposal ? { ...m, proposal: { ...m.proposal, status: a.status } } : m)),
       };
 
     case 'DISMISS_ERROR':

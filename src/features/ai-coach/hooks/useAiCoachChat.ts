@@ -24,6 +24,15 @@ import { isCoachActionId } from '@/lib/ai/coach/action-chips';
 import { messageSourceOf, TEAM_FALLBACK_CODES } from '@/lib/ai/coach/unified-thread';
 import { refusedSendAction } from '@/lib/ai/coach/ai-pause';
 import { useKellyThreadMeta } from './useKellyThread';
+import { parseStoredSuggestions } from '@/lib/ai/coach/suggestions/stored';
+import { parseProposalView } from '@/lib/ai/coach/schedule-proposal/types';
+
+/** Kelly phase 2 fields of a stored message (absent unless ai_coach_phase2 wrote them). */
+function phase2Fields(x: DocumentData): Pick<UiMessage, 'suggestions' | 'proposal'> {
+  const suggestions = parseStoredSuggestions(x.suggestions);
+  const proposal = parseProposalView(x.proposal);
+  return { ...(suggestions.length ? { suggestions } : {}), ...(proposal ? { proposal } : {}) };
+}
 
 const HISTORY_LIMIT = 30;
 const UNIFIED_LIMIT = 50;
@@ -54,6 +63,7 @@ export function unifiedUiMessage(id: string, x: DocumentData): UiMessage {
     actions: Array.isArray(x.actions) ? (x.actions as unknown[]).filter(isCoachActionId) : [],
     source,
     ...(typeof x.senderName === 'string' ? { senderName: x.senderName } : {}),
+    ...phase2Fields(x),
   };
 }
 
@@ -145,6 +155,7 @@ export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachCha
                   }))
                 : [],
               actions: Array.isArray(x.actions) ? (x.actions as unknown[]).filter(isCoachActionId) : [],
+              ...phase2Fields(x),
             } as UiMessage;
           })
           .reverse();
@@ -265,6 +276,10 @@ export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachCha
   }, [run, sendToTeam]);
 
   const dismissError = useCallback(() => dispatch({ type: 'DISMISS_ERROR' }), []);
+  const setProposalStatus = useCallback(
+    (messageId: string, status: NonNullable<UiMessage['proposal']>['status']) => dispatch({ type: 'PROPOSAL_STATUS', messageId, status }),
+    [],
+  );
 
-  return { state, send, retry, dismissError, teamMode: unified && teamMode };
+  return { state, send, retry, dismissError, setProposalStatus, teamMode: unified && teamMode };
 }

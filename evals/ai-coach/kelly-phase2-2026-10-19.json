@@ -1,0 +1,1645 @@
+[
+  {
+    "id": "p2-01-chips-after-workout",
+    "name": "Follow-up chips after a built park workout: start, shorter, no bar",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: chips relevance after a workout card."
+    },
+    "message": "תבנה לי אימון בפארק של 25 דקות",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "assertions": {
+      "mustCallTool": "generate_workout",
+      "location": "park",
+      "suggestions": [
+        "start",
+        "shorter",
+        "no_bar"
+      ],
+      "noEnglish": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "p2-02-chips-after-schedule",
+    "name": "Follow-up chips after a schedule answer: move a day, tomorrow",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: chips relevance after a schedule answer."
+    },
+    "message": "מה בתוכנית השבוע?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "assertions": {
+      "suggestions": [
+        "move_day",
+        "tomorrow"
+      ],
+      "chips": [
+        "open_schedule"
+      ],
+      "noInventedDays": true,
+      "noEnglish": true
+    }
+  },
+  {
+    "id": "p2-03-chips-after-progress",
+    "name": "Follow-up chips after a progress answer (female user): the week, gendered",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: chips relevance after progress."
+    },
+    "message": "איך אני מתקדמת?",
+    "context": {
+      "firstName": "נועה",
+      "gender": "female",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "נועה",
+        "gender": "female",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "assertions": {
+      "mustCallTool": "get_progress",
+      "suggestions": [
+        "week"
+      ],
+      "noEnglish": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "p2-04-help-steps",
+    "name": "App help: connecting steps → get_app_help, the settings row, no guessing",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: app-help answer from the knowledge file."
+    },
+    "message": "איך מחברים את הצעדים לאפליקציה?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "נכנסים לפרופיל, לוחצים על גלגל השיניים, ובאזור \"כלים\" בוחרים \"HealthKit / Health Connect\" ומאשרים \"אפשר גישה\". זה עובד רק באפליקציה המותקנת."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "get_app_help",
+      "mustMatch": [
+        "הגדרות|גלגל השיניים|כלים"
+      ],
+      "suggestions": [
+        "team"
+      ],
+      "masculineSelfReference": true,
+      "maxSentences": 5
+    }
+  },
+  {
+    "id": "p2-05-help-shabbat",
+    "name": "App help: notifications on Shabbat → the שמירת שבת toggle",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: app-help answer."
+    },
+    "message": "איך אני מפסיק לקבל התראות בשבת?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "בהגדרות, תחת \"התראות\", יש מתג \"שמירת שבת\". כשהוא דולק לא נשלחות התראות משישי לפני כניסת שבת ועד מוצאי שבת."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "get_app_help",
+      "mustMatch": [
+        "שמירת שבת"
+      ],
+      "noEnglish": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "p2-06-help-delete-account",
+    "name": "App help: delete account → the real steps",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: app-help answer."
+    },
+    "message": "איך מוחקים את החשבון שלי?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "בתחתית ההגדרות יש \"מחק חשבון\". מקלידים \"מחק\" ולוחצים \"מחק לצמיתות\", וזה לא ניתן לביטול."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "get_app_help",
+      "mustMatch": [
+        "מחק חשבון"
+      ],
+      "noEnglish": true
+    }
+  },
+  {
+    "id": "p2-07-help-unknown",
+    "name": "App help: not in the guide → no guessing, offer the team, no handoff without consent",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: found:false → offer the team."
+    },
+    "message": "איך משנים את האפליקציה למצב כהה?",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "על זה אין לי תשובה בטוחה. אם תרצה, אני יכול להעביר את השאלה לצוות של OUT."
+      ]
+    },
+    "assertions": {
+      "mustCallTool": "get_app_help",
+      "mustNotCallTool": [
+        "handoff_to_human"
+      ],
+      "mustMatch": [
+        "צוות"
+      ],
+      "noEnglish": true
+    }
+  },
+  {
+    "id": "p2-08-proposal-move",
+    "name": "Schedule change: move Tuesday to Wednesday from now on → a proposal card, never claims it saved",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: propose_schedule_change → confirm card."
+    },
+    "message": "תזיז את האימון של יום שלישי ליום רביעי, מעכשיו והלאה",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "הכנתי לך הצעה: האימון של יום שלישי יעבור ליום רביעי, מעכשיו והלאה. זה יישמר רק אחרי שתלחץ על אשר בכרטיס למטה."
+      ],
+      "toolInputs": {
+        "propose_schedule_change": {
+          "scope": "from_now",
+          "moves": [
+            {
+              "from": "tuesday",
+              "to": "wednesday"
+            }
+          ]
+        }
+      }
+    },
+    "assertions": {
+      "mustCallTool": "propose_schedule_change",
+      "proposal": true,
+      "mustNotMatch": [
+        "(^|\\s)(שיניתי|הזזתי|עדכנתי|שמרתי|העברתי|עודכן|נשמר|הוזז|הועבר)(\\s|[.,!?]|$)"
+      ],
+      "mustMatch": [
+        "אשר"
+      ],
+      "noSuggestions": [
+        "*"
+      ],
+      "noEnglish": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "p2-09-proposal-guard",
+    "name": "Schedule change: a reply that claims it already moved the workout is re-prompted",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: the unconfirmed-save guard (mock replays the bad reply first)."
+    },
+    "message": "תעביר את האימון של חמישי לשישי רק השבוע",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "הזזתי את האימון של חמישי ליום שישי.",
+        "הכנתי הצעה: השבוע האימון של חמישי יעבור לשישי. זה יישמר רק אחרי שתלחץ על אשר בכרטיס."
+      ],
+      "toolInputs": {
+        "propose_schedule_change": {
+          "scope": "this_week",
+          "moves": [
+            {
+              "from": "thursday",
+              "to": "friday"
+            }
+          ]
+        }
+      }
+    },
+    "assertions": {
+      "mustCallTool": "propose_schedule_change",
+      "proposal": true,
+      "mustNotMatch": [
+        "(^|\\s)(שיניתי|הזזתי|עדכנתי|שמרתי|העברתי|עודכן|נשמר|הוזז|הועבר)(\\s|[.,!?]|$)"
+      ],
+      "noEnglish": true
+    }
+  },
+  {
+    "id": "p2-10-proposal-more-days",
+    "name": "Schedule change: adding days is the builder's job → no card, the builder chip, no false claim",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: created false → offer the schedule builder."
+    },
+    "message": "אני רוצה להתאמן כוח 6 ימים בשבוע במקום 3, מעכשיו והלאה",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "הוספת ימים עושים בבונה הלו״ז. אפשר לפתוח אותו בכפתור למטה."
+      ],
+      "toolInputs": {
+        "propose_schedule_change": {
+          "scope": "from_now",
+          "strengthDays": 6
+        }
+      }
+    },
+    "assertions": {
+      "proposal": false,
+      "mustNotMatch": [
+        "(^|\\s)(שיניתי|הזזתי|עדכנתי|שמרתי|העברתי|עודכן|נשמר|הוזז|הועבר)(\\s|[.,!?]|$)"
+      ],
+      "noEnglish": true,
+      "masculineSelfReference": true
+    }
+  },
+  {
+    "id": "p2-11-proposal-fewer-days",
+    "name": "Schedule change: 2 strength days instead of 3 from now on → a proposal card",
+    "source": {
+      "kind": "fixture",
+      "note": "Kelly phase 2: strengthDays via the advisor."
+    },
+    "message": "אני רוצה רק 2 אימוני כוח בשבוע במקום 3, מעכשיו והלאה",
+    "context": {
+      "firstName": "דוד",
+      "gender": "male",
+      "todayKey": "2026-10-19",
+      "israelDayOfWeek": 1,
+      "israelHour": 10,
+      "sheet": {
+        "firstName": "דוד",
+        "gender": "male",
+        "ageBand": "30-44",
+        "goals": {
+          "mainGoal": null,
+          "selected": []
+        },
+        "goalsHe": [
+          "אורח חיים בריא"
+        ],
+        "primaryTrack": "strength",
+        "programs": [
+          {
+            "id": "push",
+            "name": "דחיפה",
+            "level": 6,
+            "percentToNext": 30
+          },
+          {
+            "id": "legs",
+            "name": "רגליים",
+            "level": 4,
+            "percentToNext": 10
+          }
+        ],
+        "injuries": [],
+        "streakDays": 1,
+        "lastWorkouts": [
+          {
+            "date": "2026-10-18",
+            "type": "strength",
+            "minutes": 30
+          }
+        ],
+        "today": [],
+        "thisWeek": [
+          {
+            "date": "2026-10-20",
+            "weekday": "שלישי",
+            "type": "training",
+            "programs": [
+              "רגליים"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          },
+          {
+            "date": "2026-10-22",
+            "weekday": "חמישי",
+            "type": "training",
+            "programs": [
+              "דחיפה"
+            ],
+            "kind": "strength",
+            "startTime": null,
+            "plannedMinutes": null,
+            "completed": false,
+            "title": null,
+            "buildNow": {
+              "durationMin": null,
+              "domains": []
+            }
+          }
+        ],
+        "preferredTrainingTime": null,
+        "equipment": {
+          "home": [],
+          "office": [],
+          "outdoor": []
+        },
+        "area": null
+      },
+      "profile": {
+        "progression": {
+          "domains": {
+            "push": {
+              "currentLevel": 6
+            },
+            "legs": {
+              "currentLevel": 4
+            }
+          },
+          "activePrograms": [
+            {
+              "templateId": "push",
+              "name": "דחיפה",
+              "startDate": "2026-09-27T00:00:00Z"
+            }
+          ],
+          "lastActiveDate": "2026-10-18T18:00:00Z"
+        },
+        "lifestyle": {
+          "recurringTemplate": {
+            "א": [
+              "push"
+            ],
+            "ג": [
+              "legs"
+            ],
+            "ה": [
+              "push"
+            ]
+          },
+          "primaryTrack": "strength"
+        }
+      }
+    },
+    "flags": {
+      "phase2": true
+    },
+    "mock": {
+      "replies": [
+        "הכנתי הצעה לשבוע עם 2 ימי כוח. זה יישמר רק אחרי שתלחץ על אשר בכרטיס למטה."
+      ],
+      "toolInputs": {
+        "propose_schedule_change": {
+          "scope": "from_now",
+          "strengthDays": 2
+        }
+      }
+    },
+    "assertions": {
+      "mustCallTool": "propose_schedule_change",
+      "proposal": true,
+      "mustNotMatch": [
+        "(^|\\s)(שיניתי|הזזתי|עדכנתי|שמרתי|העברתי|עודכן|נשמר|הוזז|הועבר)(\\s|[.,!?]|$)"
+      ],
+      "noEnglish": true
+    }
+  }
+]

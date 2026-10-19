@@ -31,6 +31,11 @@ import { typoHints } from '@/lib/ai/coach/intent';
 import { chipsForTurn } from '@/lib/ai/coach/action-chips';
 import { estimateCostUsd, usageFromSdk, type AiUsage } from '@/lib/ai/ai-pricing';
 import { checkAssertions, type AssertionResult, type EvalCase, type EvalRunResult, type EvalToolCall } from './eval-case';
+import { appHelpToolResult, type GetAppHelpInputT } from '@/lib/ai/coach/app-help/retrieve';
+import { buildScheduleProposal, proposalToolResult } from '@/lib/ai/coach/schedule-proposal/build-proposal';
+import type { ProposeScheduleChangeInputT } from '@/lib/ai/coach/schedule-proposal/types';
+import type { AdvisorProfile } from '@/features/schedule/advisor/types';
+import { phase2TurnExtras } from '@/lib/ai/coach/phase2-turn';
 
 export type CallModel = (params: Anthropic.MessageStreamParams, onText: (delta: string) => void) => Promise<Anthropic.Message>;
 
@@ -74,11 +79,17 @@ function minimalSheet(ctx: EvalCase['context']): Record<string, unknown> {
   };
 }
 
+/** Per-run state of the phase 2 simulations (a proposal prepared this turn). */
+export interface SimTurn {
+  proposalCreated: boolean;
+}
+
 export function simulateServerTool(
   name: string,
   input: unknown,
   ctx: EvalCase['context'],
   shown: Map<string, Record<string, unknown>>,
+  turn: SimTurn = { proposalCreated: false },
 ): ToolExecResult {
   const sheet = ctx.sheet ?? minimalSheet(ctx);
   const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });
@@ -111,6 +122,19 @@ export function simulateServerTool(
     }
     case 'handoff_to_human':
       return json({ sent: true });
+    // Kelly phase 2: the REAL pure retrieval and proposal builder (nothing is written).
+    case 'get_app_help':
+      return json(appHelpToolResult(input as GetAppHelpInputT));
+    case 'propose_schedule_change': {
+      const built = ctx.profile
+        ? buildScheduleProposal(
+            { todayKey: ctx.todayKey, profile: ctx.profile as AdvisorProfile, workouts: [], scheduleDays: null },
+            input as ProposeScheduleChangeInputT,
+          )
+        : ({ ok: false, reason: 'no_strength' } as const);
+      if (built.ok) turn.proposalCreated = true;
+      return json(proposalToolResult(built));
+    }
     default:
       return { content: `unknown tool ${name}`, isError: true };
   }
@@ -206,7 +230,10 @@ export function scriptedMockModel(c: EvalCase): CallModel {
           input = { from: c.context.todayKey, to: addDays(c.context.todayKey, 6) };
         } else if (name === 'get_progress') {
           input = { range: 'week' };
+        } else if (name === 'get_app_help') {
+          input = { query: c.message };
         }
+        if (c.mock?.toolInputs?.[name]) input = { ...c.mock.toolInputs[name] };
         return { type: 'tool_use', id: `toolu_mock_${i}`, name, input } as Anthropic.ToolUseBlock;
       });
       return { ...base, content, stop_reason: 'tool_use' } as unknown as Anthropic.Message;
@@ -303,22 +330,49 @@ export async function runEvalCase(
   const sheetWeekDates = (Array.isArray(sheet.thisWeek) ? sheet.thisWeek : [])
     .filter((e) => e && e.type !== 'rest' && typeof e.date === 'string')
     .map((e) => e.date);
-  const finalRun = (finalText: string): EvalRunResult => ({
-    finalText,
-    safetyGate: false,
-    toolCalls,
-    todayDayOfWeek: ctx.israelDayOfWeek,
-    sheetWeekDates,
-    chips: chipsForTurn({
+  const phase2 = c.flags?.phase2 === true;
+  const simTurn: SimTurn = { proposalCreated: false };
+  const finalRun = (finalText: string): EvalRunResult => {
+    const toolNames = toolCalls.map((t) => t.name);
+    let chips: string[] = chipsForTurn({
       userText: c.message,
-      toolNames: toolCalls.map((t) => t.name),
+      toolNames,
       sheet,
       workoutDomains: workoutDomainsOf(toolCalls),
       needsAssessmentDomains: refusedDomainsOf(toolCalls),
       // Like the route: a case without history opens a new conversation; history carries no chips.
       opening: c.history.length === 0,
-    }),
-  });
+    });
+    let suggestions: string[] | undefined;
+    if (phase2) {
+      // Like the route (phase2-turn.ts), at the case's frozen hour and day.
+      const built = toolCalls.find((t) => t.name === 'generate_workout' && !t.isError);
+      const extras = phase2TurnExtras({
+        sheet,
+        profile: (ctx.profile as Record<string, unknown> | undefined) ?? null,
+        gender: ctx.gender,
+        now: new Date(`${ctx.todayKey}T${String(ctx.israelHour).padStart(2, '0')}:00:00+03:00`),
+        todayKey: ctx.todayKey,
+        hour: ctx.israelHour,
+        userText: c.message,
+        toolNames,
+        workoutInput: (built?.input as Record<string, unknown> | undefined) ?? null,
+        proposalCreated: simTurn.proposalCreated,
+        actions: chips as Parameters<typeof phase2TurnExtras>[0]['actions'],
+      });
+      chips = extras.actions;
+      suggestions = extras.suggestions.map((x) => x.id);
+    }
+    return {
+      finalText,
+      safetyGate: false,
+      toolCalls,
+      todayDayOfWeek: ctx.israelDayOfWeek,
+      sheetWeekDates,
+      chips,
+      ...(phase2 ? { suggestions, proposalCreated: simTurn.proposalCreated } : {}),
+    };
+  };
 
   // The route's deterministic safety gate runs before the model.
   const trigger = detectSafetyTrigger(c.message);
@@ -339,13 +393,14 @@ export async function runEvalCase(
         // Like the route: the user sheet and the typo hints are in every turn's context.
         sheet,
         typoHints: typoHints(c.message),
+        ...(phase2 ? { phase2: true } : {}),
       }),
     },
   ];
   const cfg = {
     model: deps.model,
     system,
-    tools: coachToolDefinitions(),
+    tools: coachToolDefinitions(phase2 ? { phase2: true } : {}),
     history: historyToModelMessages(c.history.map((h) => ({ role: h.role, text: h.text }))),
     maxRounds: COACH_MAX_TOOL_ROUNDS,
     maxTokens: COACH_MODEL_MAX_TOKENS,
@@ -370,7 +425,7 @@ export async function runEvalCase(
         emit: () => {},
         callModel,
         executeServerTool: async (name, input) => {
-          const r = simulateServerTool(name, input, ctx, shown);
+          const r = simulateServerTool(name, input, ctx, shown, simTurn);
           toolCalls.push({ name, input, result: parseMaybeJson(r.content), isError: !!r.isError });
           return r;
         },

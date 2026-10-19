@@ -37,6 +37,8 @@ import type { WorkoutToolResult } from './tools';
 import { isCoachActionId, type CoachActionId } from './action-chips';
 import { aiPauseReply, needsHumanReasonFor, nextAiPause, pausedMessageNeedsHuman, shouldSendPauseReply, type AiPauseCode, type NeedsHumanReason } from './ai-pause';
 import type { CoachGender } from './persona';
+import type { SuggestionChip } from './suggestions/types';
+import type { StoredProposal } from './schedule-proposal/types';
 import { hasTtl, isKellyMessageSource, nextTeamWindow, previewOf, roleForSource, type KellyMessageSource } from './unified-thread';
 
 export const AI_COACH_THREADS = 'ai_coach_threads';
@@ -69,6 +71,8 @@ export interface PendingTurn {
   pendingResults: Anthropic.ToolResultBlockParam[];
   /** Cards already produced earlier in this turn. */
   cards: StoredCard[];
+  /** Kelly phase 2: a schedule proposal prepared earlier in this turn (absent = none). */
+  proposal?: StoredProposal | null;
   createdAtMs: number;
 }
 
@@ -96,7 +100,7 @@ function parsePending(raw: unknown, now: number): PendingTurn | null {
   const createdAtMs = msOf(r.createdAt);
   if (now - createdAtMs > PENDING_TTL_MS) return null;
   try {
-    const body = JSON.parse(r.json) as Partial<Pick<PendingTurn, 'state' | 'pendingResults' | 'cards'>>;
+    const body = JSON.parse(r.json) as Partial<Pick<PendingTurn, 'state' | 'pendingResults' | 'cards' | 'proposal'>>;
     if (!body.state || !Array.isArray(body.pendingResults)) return null;
     return {
       toolUseId: r.toolUseId,
@@ -104,6 +108,7 @@ function parsePending(raw: unknown, now: number): PendingTurn | null {
       state: body.state,
       pendingResults: body.pendingResults,
       cards: Array.isArray(body.cards) ? body.cards : [],
+      ...(body.proposal ? { proposal: body.proposal } : {}),
       createdAtMs,
     };
   } catch {
@@ -152,6 +157,10 @@ export async function appendMessage(
      * also gets lastMessageAt + lastMessagePreview. Absent = the exact pre-unified writes.
      */
     source?: KellyMessageSource;
+    /** Kelly phase 2 (ai_coach_phase2): quick replies under this reply. Absent = not written. */
+    suggestions?: SuggestionChip[];
+    /** Kelly phase 2: the schedule proposal (confirm card) of this reply. Absent = not written. */
+    proposal?: StoredProposal | null;
   },
   now = Date.now(),
 ): Promise<string> {
@@ -165,6 +174,8 @@ export async function appendMessage(
     ...(msg.actions?.length ? { actions: [...msg.actions] } : {}),
     ...(msg.log ? { log: JSON.parse(JSON.stringify(msg.log)) } : {}),
     ...(msg.source ? { source: msg.source } : {}),
+    ...(msg.suggestions?.length ? { suggestions: msg.suggestions.map((c) => ({ ...c })) } : {}),
+    ...(msg.proposal ? { proposal: JSON.parse(JSON.stringify(msg.proposal)) } : {}),
     createdAt: Timestamp.fromMillis(now),
     ...(ttl ? { expireAt: Timestamp.fromMillis(now + AI_COACH_RETENTION_DAYS * 86_400_000) } : {}),
   });
@@ -380,7 +391,7 @@ export async function savePending(db: Firestore, uid: string, p: Omit<PendingTur
       pending: {
         toolUseId: p.toolUseId,
         toolName: p.toolName,
-        json: JSON.stringify({ state: p.state, pendingResults: p.pendingResults, cards: p.cards }),
+        json: JSON.stringify({ state: p.state, pendingResults: p.pendingResults, cards: p.cards, ...(p.proposal ? { proposal: p.proposal } : {}) }),
         createdAt: Timestamp.fromMillis(now),
       },
       updatedAt: FieldValue.serverTimestamp(),

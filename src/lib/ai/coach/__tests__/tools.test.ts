@@ -22,6 +22,8 @@ describe('tool registry', () => {
       'handoff_to_human',
       'recommend_week',
       'recommend_today',
+      'get_app_help',
+      'propose_schedule_change',
     ]);
     expect(toolKind('generate_workout')).toBe('client');
     expect(toolKind('get_progress')).toBe('server');
@@ -34,6 +36,14 @@ describe('tool registry', () => {
     const on = coachToolDefinitions({ scheduleAdvisor: true }).map((t) => t.name);
     expect(on).toEqual([...off, 'recommend_week', 'recommend_today']);
     expect(toolKind('recommend_week')).toBe('server');
+  });
+
+  it('the Kelly phase 2 tools are offered only with ai_coach_phase2 (off = byte-identical definitions)', () => {
+    expect(JSON.stringify(coachToolDefinitions({ phase2: false }))).toBe(JSON.stringify(coachToolDefinitions()));
+    expect(JSON.stringify(coachToolDefinitions({ scheduleAdvisor: true }))).toBe(JSON.stringify(coachToolDefinitions({ scheduleAdvisor: true, phase2: false })));
+    const on = coachToolDefinitions({ scheduleAdvisor: true, phase2: true }).map((t) => t.name);
+    expect(on.slice(-2)).toEqual(['get_app_help', 'propose_schedule_change']);
+    expect(toolKind('propose_schedule_change')).toBe('server');
   });
 
   it('definitions are deterministic (cache-stable) and carry no cache_control themselves', () => {
