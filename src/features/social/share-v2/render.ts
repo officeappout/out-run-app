@@ -7,7 +7,7 @@ import { drawBackground, type ShareImageSource } from './draw/background';
 import { FONT } from './draw/primitives';
 import { paletteFor, toneFor } from './palette';
 import { templateById } from './templates/registry';
-import { DESIGN_W, SHARE_PX, frameFor, type ShareBackground, type ShareFormat, type ShareModel } from './types';
+import { DESIGN_W, SHARE_PX, frameFor, type ShareBackground, type ShareFormat, type ShareInk, type ShareModel } from './types';
 
 let fontsReady: Promise<void> | null = null;
 
@@ -29,6 +29,8 @@ export interface RenderShareV2Options {
   format: ShareFormat;
   background: ShareBackground;
   photo?: ShareImageSource | null;
+  /** Sticker ink (format 'sticker' only; default white). */
+  ink?: ShareInk;
   /** Output width in px (default 1080). Previews use ~360. */
   widthPx?: number;
 }
@@ -46,9 +48,10 @@ export async function renderShareV2(o: RenderShareV2Options): Promise<HTMLCanvas
   if (!ctx) throw new Error('no 2d context');
   ctx.scale(k, k);
   // No usable photo → the template's OUT-colours look.
-  const bg: ShareBackground = o.background === 'photo' && !o.photo ? 'brand' : o.background;
+  // Stickers are always transparent; no usable photo → the template's OUT-colours look.
+  const bg: ShareBackground = o.format === 'sticker' ? 'none' : o.background === 'photo' && !o.photo ? 'brand' : o.background;
   drawBackground(ctx, frame, { bg, brand: tpl.brand, kind: o.model.kind, photo: o.photo, focal: tpl.focal, scrims: tpl.scrims?.(o.format) });
-  const palette = paletteFor(toneFor(bg, tpl.brand), o.model.kind);
+  const palette = paletteFor(toneFor(bg, tpl.brand, o.ink), o.model.kind);
   tpl.draw({ ctx, frame, model: o.model, palette, bg, photo: o.photo });
   return canvas;
 }

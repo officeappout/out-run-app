@@ -241,10 +241,11 @@ describe('palette — text flips with the background', () => {
 });
 
 describe('registry', () => {
-  it('3 templates per activity, all in story + square', () => {
-    expect(SHARE_TEMPLATES_V2.strength.map((t) => t.id)).toEqual(['strength-photo', 'strength-card', 'strength-minimal']);
-    expect(SHARE_TEMPLATES_V2.cardio.map((t) => t.id)).toEqual(['run-photo-route', 'run-dark-route', 'run-minimal']);
+  it('3 templates per activity in story + square', () => {
+    expect(templatesFor('strength', 'story').map((t) => t.id)).toEqual(['strength-photo', 'strength-card', 'strength-minimal']);
+    expect(templatesFor('cardio', 'story').map((t) => t.id)).toEqual(['run-photo-route', 'run-dark-route', 'run-minimal']);
     expect(templatesFor('cardio', 'square')).toHaveLength(3);
+    expect(SHARE_TEMPLATES_V2.cardio.length).toBeGreaterThan(3);
   });
 
   it('starts on the photo template only when there is a photo', () => {

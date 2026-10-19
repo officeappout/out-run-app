@@ -7,7 +7,7 @@ import { fitRoutePoints, pointAtFraction, type KmMark, type Pt } from '../route-
 import { drawText } from './primitives';
 
 export interface RouteStyle {
-  ink: 'white' | 'gradient';
+  ink: 'white' | 'gradient' | 'dark';
   /** Stroke width in design units. */
   width: number;
   glow?: number;
@@ -39,7 +39,7 @@ export function drawRoute(ctx: CanvasRenderingContext2D, shape: number[], x: num
     g.addColorStop(1, '#0cf2e3');
     ctx.strokeStyle = g;
   } else {
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = s.ink === 'dark' ? '#0e1419' : '#ffffff';
   }
   ctx.lineWidth = s.width;
   ctx.stroke(path);

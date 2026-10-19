@@ -6,6 +6,7 @@
 import { formatSecPerKm, paceBarHeights } from '../services/feed-post-details';
 import type { ShareImageInput } from '../services/share-image';
 import { kmMarkFractions } from './route-geometry';
+import { buildTogetherModel } from './together';
 import type { ShareModel, ShareSetRow, ShareStatV2 } from './types';
 
 const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -117,6 +118,7 @@ function runModel(input: ShareImageInput): ShareModel {
     splits,
     route,
     kmMarks: kmMarks?.length ? kmMarks : undefined,
+    together: buildTogetherModel(input.together),
   };
 }
 

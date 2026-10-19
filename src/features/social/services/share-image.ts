@@ -67,10 +67,25 @@ export interface ShareImageInput {
   /** When the workout happened (epoch ms). */
   dateMs?: number;
   parkName?: string;
+  together?: ShareTogether;
 }
 
 /** Extra share-only facts a summary can pass along with its workout. */
+/**
+ * A live group / pair run (from the summary's already-loaded group context).
+ * Names only — avatars are drawn as initials (no photos: there's no age
+ * signal for other participants on the device).
+ */
+export interface ShareTogether {
+  groupName?: string;
+  /** Joint distance (km), 0/undefined = unknown. */
+  collectiveKm?: number;
+  participantCount: number;
+  people: { name: string; km?: number; paceSecPerKm?: number; isMe?: boolean }[];
+}
+
 export interface ShareExtras {
+  together?: ShareTogether;
   totalSets?: number;
   totalReps?: number;
   exerciseCount?: number;
@@ -162,6 +177,7 @@ function v2Extras(post: ShareSource): Partial<ShareImageInput> {
   const date = posNum(post.dateMs) ? post.dateMs : post.createdAt instanceof Date ? post.createdAt.getTime() : undefined;
   if (date && Number.isFinite(date)) out.dateMs = date;
   if (typeof post.parkName === 'string' && post.parkName.trim()) out.parkName = post.parkName.trim();
+  if (post.together && post.together.participantCount >= 2 && post.together.people.length >= 2) out.together = post.together;
   return out;
 }
 

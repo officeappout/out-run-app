@@ -33,6 +33,7 @@ function size(img: ShareImageSource): [number, number] {
 
 export function drawBackground(ctx: CanvasRenderingContext2D, f: ShareFrame, s: BackgroundSpec) {
   const { w, h } = f;
+  if (s.bg === 'none') return; // transparent sticker
   if (s.bg === 'photo' && s.photo) {
     const [iw, ih] = size(s.photo);
     const r = coverRectFocal(iw, ih, w, h, s.focal?.[0] ?? 0.5, s.focal?.[1] ?? 0.4);

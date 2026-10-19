@@ -14,20 +14,23 @@ import type { KmMark } from './route-geometry';
 
 export type { ShareKind };
 
-/** Output format. 'sticker' (transparent PNG) is the planned next set. */
-export type ShareFormat = 'story' | 'square';
+/** Output format. 'sticker' = transparent PNG to lay over a photo (SH-5a/b). */
+export type ShareFormat = 'story' | 'square' | 'sticker';
+
+/** Sticker ink (SH-5d "צבע הסטיקר"): white with a soft shadow is the default. */
+export type ShareInk = 'white' | 'dark' | 'brand';
 
 /**
  * The picture behind the template — its own setting, independent of the
  * template. 'brand' = the template's OUT-colours look (cyan / navy / night).
  */
-export type ShareBackground = 'photo' | 'brand' | 'plain';
+export type ShareBackground = 'photo' | 'brand' | 'plain' | 'none';
 
 /** How a template's 'brand' background looks. */
 export type BrandStyle = 'cyan' | 'navy' | 'night';
 
 /** Text/ink family the background calls for — text colour flips with it. */
-export type ShareTone = 'dark' | 'cyan' | 'light';
+export type ShareTone = 'dark' | 'cyan' | 'light' | 'ink-white' | 'ink-dark' | 'ink-brand';
 
 export interface ShareFrame {
   format: ShareFormat;
@@ -41,6 +44,7 @@ export const DESIGN_W = 390;
 export const SHARE_PX: Record<ShareFormat, { width: number; height: number }> = {
   story: { width: 1080, height: 1920 },
   square: { width: 1080, height: 1080 },
+  sticker: { width: 1080, height: 1080 },
 };
 
 export function frameFor(format: ShareFormat): ShareFrame {
@@ -95,4 +99,32 @@ export interface ShareModel {
   route?: number[];
   /** Where each (marked) whole km falls along the drawn route. */
   kmMarks?: KmMark[];
+  /** Live group / pair run only (SH-5c). */
+  together?: ShareTogetherModel;
+}
+
+export interface ShareTogetherPerson {
+  name: string;
+  initials: string;
+  /** "5.2" — only when > 0. */
+  km?: string;
+  /** 0..1 of the longest distance (bar length). */
+  frac?: number;
+  pace?: string;
+  isMe?: boolean;
+}
+
+export interface ShareTogetherModel {
+  /** "נועה ודניאל" / "נועה, דניאל ועוד 3". */
+  names: string;
+  /** "רצנו יחד · קבוצת הבוקר". */
+  subline: string;
+  /** Up to 4 avatars (initials only) + how many more. */
+  avatars: string[];
+  moreCount: number;
+  /** Joint distance ("12.4"), when known. */
+  jointKm?: string;
+  participantCount: number;
+  /** Per-person rows (max 4), only people with a distance. */
+  people: ShareTogetherPerson[];
 }

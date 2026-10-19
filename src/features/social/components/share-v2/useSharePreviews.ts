@@ -9,13 +9,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadUsablePhoto, renderShareV2 } from '../../share-v2/render';
 import type { ShareTemplateDef } from '../../share-v2/templates/template';
-import type { ShareBackground, ShareFormat, ShareModel } from '../../share-v2/types';
+import type { ShareBackground, ShareFormat, ShareInk, ShareModel } from '../../share-v2/types';
 
 export const PREVIEW_PX = 360;
 
 export type PhotoState = { status: 'none' } | { status: 'loading' } | { status: 'ready'; img: HTMLImageElement } | { status: 'failed' };
 
-export function previewKey(templateId: string, format: ShareFormat, bg: ShareBackground, photoUrl: string | null): string {
+export function previewKey(templateId: string, format: ShareFormat, bg: ShareBackground, photoUrl: string | null, ink: ShareInk = 'white'): string {
+  if (format === 'sticker') return `${templateId}|sticker|${ink}`;
   return `${templateId}|${format}|${bg}|${bg === 'photo' ? photoUrl ?? '' : ''}`;
 }
 
@@ -49,10 +50,12 @@ export function useSharePreviews(opts: {
   photoUrl: string | null;
   /** Render this one first (the selected card). */
   priorityId: string;
+  /** Sticker ink (format 'sticker'). */
+  ink?: ShareInk;
 }): Record<string, string> {
   const cache = useRef(new Map<string, string>());
   const [, bump] = useState(0);
-  const { open, model, modelKey, templates, format, bgFor, photo, photoUrl, priorityId } = opts;
+  const { open, model, modelKey, templates, format, bgFor, photo, photoUrl, priorityId, ink = 'white' } = opts;
 
   // A new workout → drop the cache.
   useEffect(() => {
@@ -66,7 +69,7 @@ export function useSharePreviews(opts: {
   const jobs = templates
     .map((t) => ({ id: t.id, bg: bgFor(t.id) }))
     .sort((a, b) => Number(b.id === priorityId) - Number(a.id === priorityId));
-  const jobKey = jobs.map((j) => previewKey(j.id, format, j.bg, photoUrl)).join(',');
+  const jobKey = jobs.map((j) => previewKey(j.id, format, j.bg, photoUrl, ink)).join(',');
   const photoReady = photo.status === 'ready' || photo.status === 'failed' || photo.status === 'none';
 
   useEffect(() => {
@@ -74,7 +77,7 @@ export function useSharePreviews(opts: {
     let cancelled = false;
     (async () => {
       for (const j of jobs) {
-        const key = previewKey(j.id, format, j.bg, photoUrl);
+        const key = previewKey(j.id, format, j.bg, photoUrl, ink);
         if (cancelled) return;
         if (cache.current.has(key)) continue;
         try {
@@ -84,9 +87,11 @@ export function useSharePreviews(opts: {
             format,
             background: j.bg,
             photo: photo.status === 'ready' ? photo.img : null,
-            widthPx: PREVIEW_PX,
+            ink,
+            widthPx: format === 'sticker' ? PREVIEW_PX * 0.75 : PREVIEW_PX,
           });
-          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.85));
+          // Stickers keep their transparency (PNG); the rest are fine as JPEG.
+          const blob = await new Promise<Blob | null>((r) => (format === 'sticker' ? canvas.toBlob(r, 'image/png') : canvas.toBlob(r, 'image/jpeg', 0.85)));
           if (!blob || cancelled) return;
           cache.current.set(key, URL.createObjectURL(blob));
           bump((n) => n + 1);
@@ -104,7 +109,7 @@ export function useSharePreviews(opts: {
 
   const out: Record<string, string> = {};
   for (const j of jobs) {
-    const u = cache.current.get(previewKey(j.id, format, j.bg, photoUrl));
+    const u = cache.current.get(previewKey(j.id, format, j.bg, photoUrl, ink));
     if (u) out[j.id] = u;
   }
   return out;
