@@ -1,5 +1,6 @@
 /**
- * "מבנה האימון" — the numbered structure blocks of the v2 briefing (pure).
+ * "מבנה האימון" — the structure steps behind the run overview's axis legs
+ * (run-overview-legs.ts). Pure.
  *
  * Built on groupBlocksIntoSections (the legacy drawer's grouping):
  *   1 חימום   — the warm-up section + strides ("4 × 20 שנ׳ סטריידס")
@@ -12,9 +13,9 @@ import type { RunBlock } from '../../types/run-block.type';
 import type { RunZoneType } from '../../../../core/types/running.types';
 import { fmtBand, fmtClock, isRestBlock, isShortLeg } from '../../lib/planned-rep-results';
 import { groupBlocksIntoSections, isStrideBlock, type BriefingSection } from './run-sections';
-import { blockTargetBand, estimateBlockSeconds, repTarget, type RunPaceContext } from './run-estimates';
-import { blockSizeLabel, cleanBlockLabel, isGenericLabel, roundMinutes } from './run-title';
-import { blockPhase, stripColor } from './run-strip';
+import { blockTargetBand, repTarget, type RunPaceContext } from './run-estimates';
+import { blockSizeLabel, cleanBlockLabel, isGenericLabel } from './run-title';
+import { stripColor } from './run-strip';
 
 export interface StructureRow {
   key: string;
@@ -152,35 +153,4 @@ export function buildRunStructure(
   steps.push(...main);
   if (coolRows.length) steps.push({ key: 'cooldown', phase: 'cooldown', title: 'שחרור', color: WRAPPER_STEP_COLOR, rows: coolRows });
   return steps;
-}
-
-/** The 3-line structure of the map preview card: "חימום 12 דק׳ · קל" / "6 × 400 מ׳ · 90 שנ׳ מנוחה · 4:45–4:55" / … */
-export interface StructureLine {
-  key: string;
-  text: string;
-  side: string;
-  sideIsPace: boolean;
-  color: string;
-}
-
-export function buildStructureLines(
-  blocks: readonly RunBlock[],
-  ctx: RunPaceContext,
-  opts: { showPaceNumbers?: boolean } = {},
-): StructureLine[] {
-  const steps = buildRunStructure(blocks, ctx, opts);
-  return steps.map((st) => {
-    if (st.phase !== 'main') {
-      const seconds = blocks.reduce((sum, b) => sum + (blockPhase(b) === st.phase ? estimateBlockSeconds(b, ctx) ?? 0 : 0), 0);
-      return { key: st.key, text: `${st.title} ${roundMinutes(seconds)} דק׳`, side: 'קל', sideIsPace: false, color: st.color };
-    }
-    const work = st.rows.find((r) => !r.isRest) ?? st.rows[0];
-    const rest = st.rows.find((r) => r.isRest);
-    const workBlock = blocks[work?.blockIndex ?? -1];
-    const restBlock = rest ? blocks[rest.blockIndex] : undefined;
-    const size = workBlock ? blockSizeLabel(workBlock) : '';
-    const head = st.repeat ? `${st.repeat} × ${size}` : work?.text ?? '';
-    const restText = restBlock ? ` · ${blockSizeLabel(restBlock)} ${cleanBlockLabel(restBlock.label) || 'מנוחה'}` : '';
-    return { key: st.key, text: `${head}${restText}`, side: work?.side ?? '', sideIsPace: !!work?.sideIsPace, color: st.color };
-  });
 }

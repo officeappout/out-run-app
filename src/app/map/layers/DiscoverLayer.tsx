@@ -50,6 +50,7 @@ import { useMapLogic } from '@/features/parks';
 import { ParkPreview } from '@/features/parks/client/components/park-preview';
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useRouteOverviewHandoff } from '@/features/parks/core/hooks/useRouteOverviewHandoff';
 import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
 import { usePendingAddressStore } from '@/features/parks/core/store/usePendingAddressStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
@@ -778,6 +779,15 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // pre-existing compile-time behaviour of always being `true`.
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
   const { flags: mapFeatureFlags, rawFlags: mapRawFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
+
+  // v2: a route opened outside the map (GlobalDetailOverlay) arrives here → the ONE
+  // route overview drawer (ROUTE_CARD), selected + focused like a tap on the map.
+  useRouteOverviewHandoff(mapFeatureFlags.enableHomeV2, (route) => {
+    useMapStore.getState().setSelectedPark(null);
+    setSearchPick(null);
+    logic.setSelectedRoute(route);
+    logic.setFocusedRoute(route);
+  });
 
   // ── openHybridSlots / openDiscover deep-links (tutorial entry-mechanism
   // fast-follow, 06.10.2026) ─────────────────────────────────────────────────

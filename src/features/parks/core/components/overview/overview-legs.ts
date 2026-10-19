@@ -66,6 +66,18 @@ export interface AerobicLeg {
   loopNote?: boolean;
   /** The card's header toggles a details panel (OverviewLegAxis.renderLegDetail). */
   expandable?: boolean;
+  /**
+   * Run overview: technique drills / exercises inside this leg (strides,
+   * mobility in the warm-up / cool-down) — the axis' `onDrillTap` makes each
+   * a chip that opens its video.
+   */
+  drills?: OverviewDrill[];
+}
+
+/** A drill / exercise reference on a leg; `key` is the consumer's own id (run: the block index). */
+export interface OverviewDrill {
+  key: string;
+  label: string;
 }
 
 export interface StationLeg {
@@ -93,6 +105,8 @@ export interface GroupLegRow {
   paceKey?: string;
   /** The pace was edited for this workout ("מותאם"). */
   paceEdited?: boolean;
+  /** The row's block has a drill / exercise video — the axis' `onDrillTap` makes the row tappable. */
+  drillKey?: string;
 }
 
 export interface GroupLeg {

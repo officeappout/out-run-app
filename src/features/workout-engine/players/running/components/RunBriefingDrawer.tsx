@@ -10,9 +10,6 @@ import { useNearbyParks, PARK_FALLBACK_IMAGE } from '@/features/parks/core/hooks
 import ExerciseDetailContent from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import RunBlockBriefingCard from './RunBlockBriefingCard';
 import { groupBlocksIntoSections } from '../utils/run-preview/run-sections';
-import RunBriefingDrawerV2 from './preview-v2/RunBriefingDrawerV2';
-import type { RunWeekContext } from '../utils/run-preview/run-week';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import type RunWorkout from '../types/run-workout.type';
 import type { RunBlock } from '../types/run-block.type';
 import type { RunZoneType, RunnerProfileType } from '@/features/workout-engine/core/types/running.types';
@@ -78,23 +75,13 @@ interface RunBriefingDrawerProps {
   onGo: () => void;
   workout: RunWorkout | null;
   isLoading?: boolean;
-  /** v2 only — the template's category (the beginner path drops it from the workout). */
-  templateCategory?: string | null;
-  /** v2 only — "שבוע 3 מתוך 8 · אימון 2 השבוע". */
-  week?: RunWeekContext | null;
 }
 
 /**
- * enable_home_v2 → the v2 briefing (boards R1-prop-intervals / R1-prop-tempo);
- * flag off → today's drawer, unchanged.
+ * The legacy run briefing (flag off). v2 users (enable_home_v2) get the run
+ * overview on the ONE overview drawer instead (overview-v2/RunWorkoutOverview).
  */
-export default function RunBriefingDrawer(props: RunBriefingDrawerProps) {
-  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
-  return v2 ? <RunBriefingDrawerV2 {...props} /> : <RunBriefingDrawerLegacy {...props} />;
-}
-
-function RunBriefingDrawerLegacy({
+export default function RunBriefingDrawer({
   isOpen, onClose, onGo, workout, isLoading,
 }: RunBriefingDrawerProps) {
   const profile = useUserStore((s) => s.profile);
