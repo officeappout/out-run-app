@@ -21,6 +21,8 @@ export interface AxisDecorations {
   renderPace?: (slot: AxisPaceSlot) => ReactNode;
   /** A group leg's header action (e.g. "החלף") and a note under its header. */
   groupExtras?: (leg: GroupLeg) => { action?: ReactNode; note?: ReactNode } | null;
+  /** A drill / exercise tapped (a leg's `drills` chip or a group row's `drillKey`) — open its video. */
+  onDrillTap?: (drillKey: string) => void;
 }
 
 export const AxisDecor = createContext<AxisDecorations>({});

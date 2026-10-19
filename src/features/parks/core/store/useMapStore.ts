@@ -315,6 +315,19 @@ interface MapStore {
   setPendingRouteStart: (route: Route | null) => void;
   consumePendingRouteStart: () => Route | null;
   /**
+   * One-shot "show this route in the map's overview drawer" request (enable_home_v2):
+   * a route opened OUTSIDE the map (GlobalDetailOverlay — home cards, push deep links)
+   * goes to /map, where DiscoverLayer consumes it — selects + focuses the route, which
+   * opens the ONE route overview drawer (RouteOverviewOverlay) instead of the legacy
+   * RouteDetailSheet. `at` (ms) lets a hand-off the map never picked up expire.
+   */
+  pendingRouteOverview: { route: Route; at: number } | null;
+  setPendingRouteOverview: (route: Route | null) => void;
+  consumePendingRouteOverview: () => { route: Route; at: number } | null;
+  /** DiscoverLayer (the route overview's host) is mounted — v2 only; GlobalDetailOverlay's fallback check. */
+  routeOverviewHostMounted: boolean;
+  setRouteOverviewHostMounted: (mounted: boolean) => void;
+  /**
    * One-shot "start a workout at this exact park now" request — same pattern as
    * `pendingRouteStart` immediately above, for `ParkDetailSheet`'s "התחל אימון"
    * button. The workout drawer (`WorkoutPreviewDrawer`) has no global mount today
@@ -513,6 +526,15 @@ export const useMapStore = create<MapStore>((set, get) => ({
     if (current) set({ pendingRouteStart: null });
     return current;
   },
+  pendingRouteOverview: null,
+  setPendingRouteOverview: (route) => set({ pendingRouteOverview: route ? { route, at: Date.now() } : null }),
+  consumePendingRouteOverview: () => {
+    const current = get().pendingRouteOverview;
+    if (current) set({ pendingRouteOverview: null });
+    return current;
+  },
+  routeOverviewHostMounted: false,
+  setRouteOverviewHostMounted: (mounted) => set({ routeOverviewHostMounted: mounted }),
   pendingParkWorkoutStart: null,
   setPendingParkWorkoutStart: (park) => set({ pendingParkWorkoutStart: park }),
   consumePendingParkWorkoutStart: () => {

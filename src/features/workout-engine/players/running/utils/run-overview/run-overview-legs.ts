@@ -14,14 +14,15 @@
  * says exactly what the old "מבנה האימון" list said.
  */
 
-import type { AerobicLeg, AerobicMetaItem, GroupLeg, OverviewLeg } from '@/features/parks/core/components/overview/overview-legs';
+import type { AerobicLeg, AerobicMetaItem, GroupLeg, OverviewDrill, OverviewLeg } from '@/features/parks/core/components/overview/overview-legs';
 import type { RunBlock } from '../../types/run-block.type';
 import { fmtBand, isRestBlock } from '../../lib/planned-rep-results';
 import type { RunKind } from '../run-preview/run-kind';
 import { blockTargetBand, estimateBlockMeters, estimateBlockSeconds, estimatePaceFor, type RunPaceContext } from '../run-preview/run-estimates';
 import { blockPhase, type RunPhase } from '../run-preview/run-strip';
 import { buildRunStructure, type StructureRow, type StructureStep } from '../run-preview/run-structure';
-import { blockSizeLabel, roundMinutes } from '../run-preview/run-title';
+import { blockSizeLabel, cleanBlockLabel, roundMinutes } from '../run-preview/run-title';
+import { isStrideBlock } from '../run-preview/run-sections';
 import { isPaceBand, paceTargetKey } from './run-pace-override';
 
 const RUN = 'running';
@@ -40,6 +41,39 @@ export interface RunOverviewLegsOptions {
 }
 
 interface Totals { seconds: number; meters: number }
+
+/** Drill key on the axis = the block's index in the workout (the consumer opens blocks[key]). */
+export function drillKeyOf(blockIndex: number): string {
+  return String(blockIndex);
+}
+
+/**
+ * The drills / exercises (blocks with a `drillRef`) among these block indices —
+ * one chip per exercise (repeated strides = one), in workout order.
+ */
+export function drillsAt(blocks: readonly RunBlock[], indices: readonly number[]): OverviewDrill[] {
+  const out: OverviewDrill[] = [];
+  const seen = new Set<string>();
+  for (const i of indices) {
+    const b = blocks[i];
+    const id = b?.drillRef?.exerciseId;
+    if (!b || !id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ key: drillKeyOf(i), label: cleanBlockLabel(b.label) || (isStrideBlock(b) ? 'סטריידס' : 'תרגיל') });
+  }
+  return out;
+}
+
+function indicesWhere(blocks: readonly RunBlock[], pred: (b: RunBlock) => boolean): number[] {
+  const out: number[] = [];
+  blocks.forEach((b, i) => { if (pred(b)) out.push(i); });
+  return out;
+}
+
+function withDrills<T extends AerobicLeg>(leg: T, drills: OverviewDrill[]): T {
+  if (drills.length > 0) leg.drills = drills;
+  return leg;
+}
 
 function sumBlocks(blocks: readonly RunBlock[], ctx: RunPaceContext): Totals {
   let seconds = 0;
@@ -93,6 +127,10 @@ function rowPace(r: StructureRow, blocks: readonly RunBlock[]): { paceKey?: stri
   return k ? { paceKey: k, paceEdited: isPaceBand(b?.paceOverride) } : {};
 }
 
+function rowDrill(r: StructureRow): { drillKey?: string } {
+  return r.hasDrill ? { drillKey: drillKeyOf(r.blockIndex) } : {};
+}
+
 function groupLeg(step: StructureStep, blocks: readonly RunBlock[], ctx: RunPaceContext, sectionTotals: Totals): GroupLeg {
   const work = blocks[step.rows.find((r) => !r.isRest)?.blockIndex ?? step.rows[0]?.blockIndex ?? -1];
   return {
@@ -105,7 +143,7 @@ function groupLeg(step: StructureStep, blocks: readonly RunBlock[], ctx: RunPace
     stripLabel: work && step.repeat ? `${step.repeat} × ${blockSizeLabel(work)}` : undefined,
     rows: step.rows.map((r) => ({
       key: r.key, tone: r.isRest ? 'recovery' : 'work', label: r.text, paceText: r.side || undefined, color: r.color,
-      ...rowPace(r, blocks),
+      ...rowPace(r, blocks), ...rowDrill(r),
     })),
     meta: metas(sectionTotals, true),
     color: step.color,
@@ -135,7 +173,7 @@ function collapsedMainLeg(steps: readonly StructureStep[], blocks: readonly RunB
     kind: 'group', key: 'main-0', title: 'העיקר', activity: RUN, durationSec: totals.seconds, stripLabel,
     rows: rows.map((r, i) => ({
       key: `${r.key}-${i}`, tone: r.isRest ? 'recovery' : 'work', label: r.text, paceText: r.side || undefined, color: r.color,
-      ...rowPace(r, blocks),
+      ...rowPace(r, blocks), ...rowDrill(r),
     })),
     meta: metas(totals, true),
     color: steps[0]?.color,
@@ -170,7 +208,7 @@ export function buildRunOverviewLegs(
   if (opts.kind === 'easy' || opts.kind === 'long') {
     if (blocks.length) {
       const title = opts.kind === 'long' ? 'ריצה ארוכה' : 'ריצה קלה';
-      legs.push(steadyLeg('run', title, 'קצב שיחה', blocks, ctx, show, false));
+      legs.push(withDrills(steadyLeg('run', title, 'קצב שיחה', blocks, ctx, show, false), drillsAt(blocks, blocks.map((_, i) => i))));
     }
   } else {
     const steps = buildRunStructure(blocks, ctx, { showPaceNumbers: show });
@@ -180,7 +218,7 @@ export function buildRunOverviewLegs(
     const mainSteps = steps.filter((s) => s.phase === 'main');
 
     const w = phaseLeg('warmup', 'חימום', warm, ctx, show);
-    if (w) legs.push(w);
+    if (w) legs.push(withDrills(w, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'warmup'))));
     const collapse = opts.collapseMain && mainSteps.length > 1 ? opts.collapseMain : null;
     if (collapse) legs.push(collapsedMainLeg(mainSteps, blocks, mainBlocks, ctx, collapse.stripLabel));
     for (const st of collapse ? [] : mainSteps) {
@@ -190,11 +228,12 @@ export function buildRunOverviewLegs(
       } else {
         const own = st.rows.map((r) => blocks[r.blockIndex]).filter((b): b is RunBlock => !!b);
         const badge = opts.kind === 'tempo' ? 'טמפו' : 'ריצה';
-        legs.push(steadyLeg(st.key, st.title, badge, mainSteps.length === 1 ? mainBlocks : own, ctx, show, true));
+        const leg = steadyLeg(st.key, st.title, badge, mainSteps.length === 1 ? mainBlocks : own, ctx, show, true);
+        legs.push(withDrills(leg, drillsAt(blocks, st.rows.map((r) => r.blockIndex))));
       }
     }
     const c = phaseLeg('cooldown', 'שחרור', cool, ctx, show);
-    if (c) legs.push(c);
+    if (c) legs.push(withDrills(c, drillsAt(blocks, indicesWhere(blocks, (b) => blockPhase(b) === 'cooldown'))));
   }
 
   if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: 'הליכה חזרה', minutes: walk.backMin });

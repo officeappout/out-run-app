@@ -1,9 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import { useMapStore } from '../store/useMapStore';
+import { routeOpenTarget } from '../utils/route-open-target';
 
 const ParkDetailSheet = dynamic(
   () => import('@/features/parks/client/components/park-detail/ParkDetailSheet'),
@@ -41,6 +44,11 @@ const RouteDetailSheet = dynamic(
  * WorkoutPreviewDrawer, which is page-local state on `/home` (no global mount exists for
  * it). So this hands off via pendingParkWorkoutStart to `/home`'s own consumer effect
  * instead of driving anything here directly. See docs/research/park-start-workout-wiring-plan.md.
+ *
+ * Route under enable_home_v2 (19.10.2026): not the legacy RouteDetailSheet — the
+ * route goes to the map (useMapStore.pendingRouteOverview → DiscoverLayer), which
+ * selects it and opens the ONE route overview drawer (RouteOverviewOverlay).
+ * Falls back to the legacy sheet when the map can't take it (route-open-target.ts).
  */
 export default function GlobalDetailOverlay() {
   const globalSheet = useMapStore((s) => s.globalSheet);
@@ -49,6 +57,28 @@ export default function GlobalDetailOverlay() {
   const setPendingRouteStart = useMapStore((s) => s.setPendingRouteStart);
   const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
   const router = useRouter();
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const hostMounted = useMapStore((s) => s.routeOverviewHostMounted);
+  const setPendingRouteOverview = useMapStore((s) => s.setPendingRouteOverview);
+
+  const sheetRoute = globalSheet?.type === 'route' ? globalSheet.route : null;
+  const routeTarget = sheetRoute
+    ? routeOpenTarget({
+      v2,
+      route: sheetRoute,
+      onMap: typeof window !== 'undefined' && window.location.pathname === '/map',
+      hostMounted,
+    })
+    : null;
+
+  // v2: hand the route to the map's overview drawer (selected + focused there).
+  useEffect(() => {
+    if (!sheetRoute || routeTarget !== 'map') return;
+    setPendingRouteOverview(sheetRoute);
+    closeGlobalSheet();
+    if (window.location.pathname !== '/map') router.push('/map');
+  }, [sheetRoute, routeTarget, setPendingRouteOverview, closeGlobalSheet, router]);
 
   if (!globalSheet) return null;
 
@@ -69,6 +99,7 @@ export default function GlobalDetailOverlay() {
   }
 
   if (globalSheet.type === 'route') {
+    if (routeTarget === 'map') return null;
     return (
       <RouteDetailSheet
         isOpen

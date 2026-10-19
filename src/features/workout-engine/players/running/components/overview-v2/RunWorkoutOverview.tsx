@@ -11,6 +11,7 @@
  *   level    קליל · מאוזן · עוצמתי (M-7d) — the main set's structure only
  *   edits    tappable paces → "התאם קצב" (M-7a); "החלף" on the main set →
  *            "החלף מקטע" (M-7b/7c) — all in RunEdits, owned by the host
+ *   drills   a drill / exercise on the axis → its video (RunDrillSheet)
  *   axis     "המיקום שלך · יוצאים מכאן" → warm-up → main (group) → cool-down,
  *            or "המסלול שבחרת" → walk there → … → laps note → walk back
  *   CTA      RunOverviewCta (mode chosen by the host)
@@ -20,6 +21,8 @@
  */
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { lazyOverlay } from '@/components/system/lazyOverlay';
 import { ChevronDown } from 'lucide-react';
 import type { Route } from '@/features/parks/core/types/route.types';
 import { JourneyStrip } from '@/components/ui/v2';
@@ -45,6 +48,9 @@ import { ElevationPage, IntensityPage } from './RunOverviewGraphs';
 import RunChosenRouteRow from './RunChosenRouteRow';
 import RunOverviewCta, { type RunCtaMode } from './RunOverviewCta';
 import { useRunOverviewEditor } from './edit/useRunOverviewEditor';
+import type { RunDrillSheetProps } from './RunDrillSheet';
+import type { AxisDecorations } from '@/features/parks/core/components/overview/axis/axis-decor';
+import type { RunBlock } from '../../types/run-block.type';
 
 export interface RunOverviewRoute {
   route: Route;
@@ -78,6 +84,14 @@ export interface RunWorkoutOverviewProps {
 
 const ROUTE_RAIL_NEXT = '#93C5FD';
 
+// The drill / exercise video sheet — its chunk (exercise catalog + library sheet) loads on the first tap.
+const RunDrillSheet = lazyOverlay(
+  'run.RunDrillSheet',
+  dynamic(() => import('./RunDrillSheet'), { ssr: false }),
+  (p: RunDrillSheetProps) => !!p.block,
+  () => import('./RunDrillSheet'),
+);
+
 export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
   const { workout, templateCategory, week, edits, onEditsChange, chosen = null, origin = null, ctaMode } = props;
   const [detailOpen, setDetailOpen] = useState(false);
@@ -87,6 +101,16 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
   const extras = useMemo(() => ({ templateCategory, week }), [templateCategory, week]);
   const om = useRunOverviewModel(workout, edits, extras, view?.walk ?? null);
   const editor = useRunOverviewEditor(workout, om, edits, onEditsChange);
+  // A drill / exercise on the axis → its video (the old briefing's tap-to-watch). Keys = block indices.
+  const [drill, setDrill] = useState<RunBlock | null>(null);
+  const activeBlocks = om?.active.blocks;
+  const decorations = useMemo<AxisDecorations>(() => ({
+    ...editor.decorations,
+    onDrillTap: (key: string) => {
+      const b = activeBlocks?.[Number(key)];
+      if (b?.drillRef) setDrill(b);
+    },
+  }), [editor.decorations, activeBlocks]);
 
   const elevation = useMemo(() => {
     if (!om || !chosen) return null;
@@ -174,12 +198,13 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
           <div className="mb-1 whitespace-nowrap pr-14 text-[12px] font-extrabold text-v2-deep">{view.onRouteNote}</div>
         ) : undefined}
         showReturn={!!view?.walk && view.walk.backMin > 0}
-        decorations={editor.decorations}
+        decorations={decorations}
       />
       <div className="mt-3">
         <RunCoachTip text={model.tip} />
       </div>
       {editor.sheets}
+      <RunDrillSheet block={drill} onClose={() => setDrill(null)} />
     </OverviewDrawerShell>
   );
 }

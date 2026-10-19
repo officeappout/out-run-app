@@ -1,6 +1,6 @@
 /**
- * One view model for every v2 pre-run surface (map preview card, briefing
- * drawer, weekly list card) — so they show the same title, numbers and
+ * One view model for every v2 pre-run surface (the run overview drawer,
+ * the weekly list card) — so they show the same title, numbers and
  * strip. Pure: callers pass the zones (computeZones) and the context.
  */
 
@@ -11,7 +11,6 @@ import { inferRunKind, resolveRunCategory, runTypeLabel, RUN_KIND_STYLE, type Ru
 import { estimateRunTotals, findMainRep, repTarget, type RepTarget, type RunPaceContext } from './run-estimates';
 import { buildRunDisplayTitle } from './run-title';
 import { buildIntensityStrip, stripPhaseLabels, type StripSegment } from './run-strip';
-import { buildRunStructure, buildStructureLines, type StructureLine, type StructureStep } from './run-structure';
 import { buildZoneLadder, mainZone, type ZoneLadderItem } from './run-zone-ladder';
 import { runWeekContextLabel, type RunWeekContext } from './run-week';
 import { surfaceTilesFor, type SurfaceTile } from './run-surfaces';
@@ -43,7 +42,6 @@ export interface RunPreviewModel {
   /** Human title, falls back to the template name. */
   title: string;
   weekLabel: string;
-  weekLabelShort: string;
   minutes: number | null;
   /** Estimated km, one decimal; null when unknown. */
   km: number | null;
@@ -55,8 +53,6 @@ export interface RunPreviewModel {
   journey: JourneyStripItem[];
   strip: StripSegment[];
   stripLabels: string[];
-  steps: StructureStep[];
-  lines: StructureLine[];
   ladder: ZoneLadderItem[];
   tip: string | null;
   surfaces: SurfaceTile[];
@@ -92,7 +88,6 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     typeLabel: runTypeLabel(category, kind),
     title: buildRunDisplayTitle(w.blocks, kind, totals) ?? w.title,
     weekLabel: runWeekContextLabel(opts.week),
-    weekLabelShort: runWeekContextLabel(opts.week, { short: true }),
     minutes,
     km,
     reps,
@@ -101,8 +96,6 @@ export function buildRunPreviewModel(w: RunPreviewInput, opts: RunPreviewOptions
     journey: buildRunJourney(w.blocks, ctx),
     strip: buildIntensityStrip(w.blocks, ctx),
     stripLabels: stripPhaseLabels(w.blocks, ctx, { reps, mainLabel: kind === 'tempo' ? 'טמפו' : undefined }),
-    steps: buildRunStructure(w.blocks, ctx, { showPaceNumbers }),
-    lines: buildStructureLines(w.blocks, ctx, { showPaceNumbers }),
     ladder: showPaceNumbers ? buildZoneLadder(opts.zones, mainZone(w.blocks)) : [],
     tip: (w.logicCue || w.description || '').trim() || null,
     surfaces: surfaceTilesFor(kind),

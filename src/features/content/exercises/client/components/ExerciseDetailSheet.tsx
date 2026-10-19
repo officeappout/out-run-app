@@ -23,7 +23,7 @@ import { useUserStore } from '@/features/user';
 import MasterExerciseView from './MasterExerciseView';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
-import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { SHEET_Z, type SheetZIndex } from '@/components/ui/v2/tokens';
 import type { Exercise } from '../../core/exercise.types';
 
 export interface ExerciseDetailSheetProps {
@@ -75,9 +75,15 @@ export interface ExerciseDetailSheetProps {
     notice?: string | null;
     onClose: () => void;
   };
+  /**
+   * v2 chrome only: the panel / backdrop z-layer when the sheet opens over a
+   * higher surface (the run overview drawer, z-[100]). Omitted → z-[60]/z-[61],
+   * unchanged for every existing caller.
+   */
+  layer?: { zIndex: SheetZIndex; backdropZIndex: SheetZIndex };
 }
 
-export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled }: ExerciseDetailSheetProps = {}) {
+export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled, layer }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
   // Home v2 (enable_home_v2): sheet chrome styling only.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -170,7 +176,8 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
         open={isOpen && !!exercise}
         onClose={close}
         // Backdrop z-[60] / sheet z-[61] (.cursorrules), portalled after mount.
-        zIndex={SHEET_Z.drawerPanel}
+        zIndex={layer?.zIndex ?? SHEET_Z.drawerPanel}
+        backdropZIndex={layer?.backdropZIndex}
         keyboardAware={false}
         backdropClassName="bg-black/50"
         surface="rounded-t-[28px] bg-v2-surface shadow-v2-sheet"
