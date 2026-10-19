@@ -16,9 +16,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dumbbell, Timer, Tag, Clock, CalendarDays, Users } from 'lucide-react';
+import { Dumbbell, Timer, Tag, Clock, CalendarDays, Users } from 'lucide-react';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
+import Sheet from '@/components/ui/v2/Sheet';
+import ClassicFormSheet from '@/components/ui/ClassicFormSheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { upsertScheduleEntry } from '@/features/user/scheduling/services/userSchedule.service';
 import { toISODate } from '@/features/user/scheduling/utils/dateUtils';
@@ -317,294 +319,290 @@ export default function AddWorkoutModal({
   const v2 = useHomeV2();
   // v2 look (design lab): label / control styles shared across the sheet.
   const LBL = v2 ? 'flex items-center gap-1.5 text-[13px] font-extrabold text-v2-deep mb-2' : 'flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-1.5';
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="kb-fit fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-            onClick={(e) => e.stopPropagation()}
-            className={v2 ? 'kb-cap w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'kb-cap w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
-            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
-            dir="rtl"
-          >
-            <div className="flex justify-center pt-3 pb-1">
-              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
-            </div>
-
-            <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>{isEditMode ? 'ערוך אימון' : 'הוסף אימון'}</h3>
-              <button
-                onClick={onClose}
-                aria-label="סגירה"
-                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {targetDate && (
-              <div className={v2 ? 'mx-5 mb-3 flex items-center gap-2 rounded-[16px] bg-v2-tint px-3.5 py-2.5' : 'mx-5 mb-3 flex items-center gap-2 px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl'}>
-                <CalendarDays className={v2 ? 'h-4 w-4 text-v2-deep' : 'w-4 h-4 text-cyan-500'} />
-                <span className={v2 ? 'text-[14px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-700 dark:text-cyan-300'}>{formatTargetDate(targetDate)}</span>
-              </div>
-            )}
-
-            <div className="px-5 space-y-4 pb-4">
-              {/* Time — drum / scroll picker */}
-              <div>
-                <label className={LBL}>
-                  <Clock className="w-3.5 h-3.5" /> שעה <span className="text-red-400">*</span>
-                </label>
-                <DrumTimePicker value={startTime} onChange={setStartTime} />
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className={LBL}>
-                  <Tag className="w-3.5 h-3.5" /> שם
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="לדוגמא: אימון גב + חזה"
-                  className={
-                    v2
-                      ? 'h-12 w-full rounded-[16px] bg-white px-4 text-[15px] font-semibold text-v2-ink shadow-v2-ring placeholder:text-v2-muted focus:outline-none focus:ring-2 focus:ring-v2-accent'
-                      : 'w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all'
-                  }
-                />
-              </div>
-
-              {/* Type */}
-              <div>
-                <label className={LBL}>
-                  <Dumbbell className="w-3.5 h-3.5" /> סוג
-                </label>
-                <div className="flex gap-2">
-                  {TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setType(opt.value)}
-                      aria-pressed={type === opt.value}
-                      className={
-                        v2
-                          ? `flex h-[66px] flex-1 flex-col items-center justify-center gap-1 rounded-[18px] transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
-                              type === opt.value ? 'bg-white text-v2-deep shadow-v2-card ring-2 ring-v2-accent' : 'bg-white/70 text-v2-ink-2 shadow-v2-ring'
-                            }`
-                          : `flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
-                              type === opt.value
-                                ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
-                                : 'bg-gray-50 text-gray-500 border border-gray-100'
-                            }`
-                      }
-                    >
-                      {opt.icon}
-                      <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Program selector — strength only */}
-              {type === 'strength' && sortedTracks.length > 0 && (
-                <div
-                  className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
-                  style={{ scrollbarWidth: 'none' }}
-                >
-                  {sortedTracks.map((track) => {
-                    // Same resolveIconKey → ICON_MAP → SLUG_HEBREW_FALLBACK
-                    // cascade WorkoutBuilderSheet's displayPrograms uses
-                    // (program-icon.util.tsx) — no doc.name tier here since
-                    // this picker has no Firestore program catalog fetch.
-                    // track.id goes in as the first (firestoreIconKey) arg,
-                    // not the second (programAlias) — tier 1 checks ICON_MAP
-                    // directly before falling to PROGRAM_ALIAS_TO_ICON, so
-                    // it's a strict superset of tier 2 alone. Passing it as
-                    // programAlias would skip the direct ICON_MAP match (5
-                    // of ICON_MAP's 11 keys aren't in PROGRAM_ALIAS_TO_ICON:
-                    // muscle, pullup, leg, shoe, heart) and also run icon
-                    // resolution one tier "behind" resolveProgramLabel below,
-                    // which checks ICON_MAP first — the exact drift this
-                    // shared cascade exists to remove.
-                    const resolvedIconKey = resolveIconKey(track.id);
-                    // An id the icon/label cascade doesn't know came out raw
-                    // (e.g. "…yCZF") — show a neutral name instead.
-                    const resolvedLabel = resolveProgramLabel(track.id);
-                    const label = resolvedLabel && resolvedLabel !== track.id ? resolvedLabel : 'תוכנית';
-                    const isSelected = selectedProgramId === track.id;
-                    return (
-                      <button
-                        key={track.id}
-                        onClick={() => setSelectedProgramId(track.id)}
-                        className={
-                          v2
-                            ? `flex h-10 flex-shrink-0 items-center rounded-full px-3.5 text-[13.5px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
-                                isSelected ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
-                              }`
-                            : `flex-shrink-0 flex items-center px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 ${
-                                isSelected
-                                  ? 'bg-[#00C9F2]/10 ring-2 ring-[#00C9F2]/30'
-                                  : 'bg-gray-50 border border-gray-100'
-                              }`
-                        }
-                      >
-                        <span
-                          className="flex items-center gap-1.5"
-                          style={{ color: isSelected ? '#00C9F2' : '#1f2937' }}
-                        >
-                          {getProgramIcon(resolvedIconKey, 'w-4 h-4')}
-                          <span style={{ fontWeight: isSelected ? 700 : 500 }}>
-                            {label}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Duration — continuous range slider */}
-              <div>
-                <label className={v2 ? 'mb-2 flex items-center justify-between gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center justify-between gap-1.5 text-xs font-bold text-gray-500 mb-2'}>
-                  <span className="flex items-center gap-1.5">
-                    <Timer className="w-3.5 h-3.5" /> משך
-                  </span>
-                  <span className="text-[#00C9F2] tabular-nums">{duration} דק׳</span>
-                </label>
-                <div dir="rtl">
-                  <input
-                    type="range"
-                    min={10}
-                    max={120}
-                    step={5}
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer
-                      bg-gray-200
-                      [&::-webkit-slider-thumb]:appearance-none
-                      [&::-webkit-slider-thumb]:w-5
-                      [&::-webkit-slider-thumb]:h-5
-                      [&::-webkit-slider-thumb]:rounded-full
-                      [&::-webkit-slider-thumb]:bg-[#00C9F2]
-                      [&::-webkit-slider-thumb]:shadow-md
-                      [&::-webkit-slider-thumb]:shadow-cyan-400/40
-                      [&::-moz-range-thumb]:w-5
-                      [&::-moz-range-thumb]:h-5
-                      [&::-moz-range-thumb]:rounded-full
-                      [&::-moz-range-thumb]:bg-[#00C9F2]
-                      [&::-moz-range-thumb]:border-0"
-                    style={{
-                      background: `linear-gradient(to right, #e5e7eb ${100 - ((duration - 10) / 110) * 100}%, #00C9F2 ${100 - ((duration - 10) / 110) * 100}%)`,
-                    }}
-                  />
-                  <div className="flex justify-between text-[10px] text-gray-900 font-bold mt-1 tabular-nums">
-                    <span>10׳</span>
-                    <span>60׳</span>
-                    <span>120׳</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Share with community — Partner Finder entry point */}
-              <button
-                type="button"
-                onClick={() => setShareWithCommunity((v) => !v)}
-                className={
-                  v2
-                    ? 'flex w-full items-center gap-3 rounded-[18px] bg-v2-surface px-3.5 py-3 text-right ring-1 ring-inset ring-v2-hairline transition-transform active:scale-[0.99]'
-                    : 'w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-right active:scale-[0.99] transition-all'
-                }
-                aria-pressed={shareWithCommunity}
-              >
-                <div className="flex-shrink-0">
-                  <Users size={16} color="#00ADEF" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={v2 ? 'text-[14px] font-extrabold leading-tight text-v2-ink' : 'text-xs font-bold text-gray-900 leading-tight'}>
-                    {g(gender, 'שתף עם הקהילה', 'שתפי עם הקהילה')} — חפש שותף לאימון
-                  </div>
-                  <div className={v2 ? 'mt-0.5 text-[12px] font-bold leading-tight text-v2-muted' : 'text-[10px] text-gray-500 mt-0.5 leading-tight'}>
-                    {g(
-                      gender,
-                      'תופיע לאחרים שמחפשים שותף',
-                      'תופיעי לאחרים שמחפשים שותפה',
-                    )}
-                  </div>
-                </div>
-                <div
-                  className={`flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
-                    shareWithCommunity ? (v2 ? 'bg-v2-ink' : 'bg-[#0CF2E3]') : 'bg-gray-300'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
-                      shareWithCommunity ? 'left-0.5' : 'left-[18px]'
-                    }`}
-                  />
-                </div>
-              </button>
-
-              {/* Save */}
-              <button
-                onClick={handleSave}
-                disabled={!startTime || saving}
-                className={
-                  v2
-                    ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
-                    : 'w-full py-3 bg-brand-cta hover:brightness-105 text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
-                }
-              >
-                {saving ? 'שומר...' : isEditMode ? 'עדכן' : 'שמור'}
-              </button>
-
-              {/* Secondary CTA — open Smart Workout Builder with schedule context */}
-              {type === 'strength' && !isEditMode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const date = targetDate || toISODate(new Date());
-                    onClose();
-                    if (onOpenBuilder) {
-                      onOpenBuilder({
-                        mode: 'schedule',
-                        date,
-                        defaultDuration: String(duration),
-                        defaultProgramIds: selectedProgramId ?? undefined,
-                      });
-                    } else {
-                      const params = new URLSearchParams({
-                        mode: 'schedule',
-                        date,
-                        defaultDuration: String(duration),
-                      });
-                      if (selectedProgramId) params.set('defaultProgramIds', selectedProgramId);
-                      router.push(`/workout-builder?${params.toString()}`);
-                    }
-                  }}
-                  className={
-                    v2
-                      ? 'h-11 w-full rounded-full bg-white text-[14.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]'
-                      : 'w-full py-2.5 text-sm font-bold text-[#0284c7] bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 transition-all active:scale-[0.98]'
-                  }
-                >
-                  בנה אימון מותאם ←
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
+  const heading = isEditMode ? 'ערוך אימון' : 'הוסף אימון';
+  // Sheet body — shared by the v2 Sheet and the legacy chrome below.
+  const body = (
+    <>
+      {targetDate && (
+        <div className={v2 ? 'mx-5 mb-3 flex items-center gap-2 rounded-[16px] bg-v2-tint px-3.5 py-2.5' : 'mx-5 mb-3 flex items-center gap-2 px-3 py-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl'}>
+          <CalendarDays className={v2 ? 'h-4 w-4 text-v2-deep' : 'w-4 h-4 text-cyan-500'} />
+          <span className={v2 ? 'text-[14px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-700 dark:text-cyan-300'}>{formatTargetDate(targetDate)}</span>
+        </div>
       )}
-    </AnimatePresence>
+
+      <div className="px-5 space-y-4 pb-4">
+        {/* Time — drum / scroll picker */}
+        <div>
+          <label className={LBL}>
+            <Clock className="w-3.5 h-3.5" /> שעה <span className="text-red-400">*</span>
+          </label>
+          <DrumTimePicker value={startTime} onChange={setStartTime} />
+        </div>
+
+        {/* Title */}
+        <div>
+          <label className={LBL}>
+            <Tag className="w-3.5 h-3.5" /> שם
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="לדוגמא: אימון גב + חזה"
+            className={
+              v2
+                ? 'h-12 w-full rounded-[16px] bg-white px-4 text-[15px] font-semibold text-v2-ink shadow-v2-ring placeholder:text-v2-muted focus:outline-none focus:ring-2 focus:ring-v2-accent'
+                : 'w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 focus:border-cyan-300 transition-all'
+            }
+          />
+        </div>
+
+        {/* Type */}
+        <div>
+          <label className={LBL}>
+            <Dumbbell className="w-3.5 h-3.5" /> סוג
+          </label>
+          <div className="flex gap-2">
+            {TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setType(opt.value)}
+                aria-pressed={type === opt.value}
+                className={
+                  v2
+                    ? `flex h-[66px] flex-1 flex-col items-center justify-center gap-1 rounded-[18px] transition-[transform,box-shadow] duration-150 ease-v2 active:scale-[0.97] ${
+                        type === opt.value ? 'bg-white text-v2-deep shadow-v2-card ring-2 ring-v2-accent' : 'bg-white/70 text-v2-ink-2 shadow-v2-ring'
+                      }`
+                    : `flex-1 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                        type === opt.value
+                          ? 'bg-[#00C9F2]/10 text-[#00C9F2] ring-2 ring-[#00C9F2]/30'
+                          : 'bg-gray-50 text-gray-500 border border-gray-100'
+                      }`
+                }
+              >
+                {opt.icon}
+                <span className={v2 ? 'text-[13.5px] font-extrabold' : 'text-[10px]'}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Program selector — strength only */}
+        {type === 'strength' && sortedTracks.length > 0 && (
+          <div
+            className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {sortedTracks.map((track) => {
+              // Same resolveIconKey → ICON_MAP → SLUG_HEBREW_FALLBACK
+              // cascade WorkoutBuilderSheet's displayPrograms uses
+              // (program-icon.util.tsx) — no doc.name tier here since
+              // this picker has no Firestore program catalog fetch.
+              // track.id goes in as the first (firestoreIconKey) arg,
+              // not the second (programAlias) — tier 1 checks ICON_MAP
+              // directly before falling to PROGRAM_ALIAS_TO_ICON, so
+              // it's a strict superset of tier 2 alone. Passing it as
+              // programAlias would skip the direct ICON_MAP match (5
+              // of ICON_MAP's 11 keys aren't in PROGRAM_ALIAS_TO_ICON:
+              // muscle, pullup, leg, shoe, heart) and also run icon
+              // resolution one tier "behind" resolveProgramLabel below,
+              // which checks ICON_MAP first — the exact drift this
+              // shared cascade exists to remove.
+              const resolvedIconKey = resolveIconKey(track.id);
+              // An id the icon/label cascade doesn't know came out raw
+              // (e.g. "…yCZF") — show a neutral name instead.
+              const resolvedLabel = resolveProgramLabel(track.id);
+              const label = resolvedLabel && resolvedLabel !== track.id ? resolvedLabel : 'תוכנית';
+              const isSelected = selectedProgramId === track.id;
+              return (
+                <button
+                  key={track.id}
+                  onClick={() => setSelectedProgramId(track.id)}
+                  className={
+                    v2
+                      ? `flex h-10 flex-shrink-0 items-center rounded-full px-3.5 text-[13.5px] transition-transform duration-150 ease-v2 active:scale-[0.97] ${
+                          isSelected ? 'bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : 'bg-white shadow-v2-ring'
+                        }`
+                      : `flex-shrink-0 flex items-center px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 ${
+                          isSelected
+                            ? 'bg-[#00C9F2]/10 ring-2 ring-[#00C9F2]/30'
+                            : 'bg-gray-50 border border-gray-100'
+                        }`
+                  }
+                >
+                  <span
+                    className="flex items-center gap-1.5"
+                    style={{ color: isSelected ? '#00C9F2' : '#1f2937' }}
+                  >
+                    {getProgramIcon(resolvedIconKey, 'w-4 h-4')}
+                    <span style={{ fontWeight: isSelected ? 700 : 500 }}>
+                      {label}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Duration — continuous range slider */}
+        <div>
+          <label className={v2 ? 'mb-2 flex items-center justify-between gap-1.5 text-[13px] font-extrabold text-v2-deep' : 'flex items-center justify-between gap-1.5 text-xs font-bold text-gray-500 mb-2'}>
+            <span className="flex items-center gap-1.5">
+              <Timer className="w-3.5 h-3.5" /> משך
+            </span>
+            <span className="text-[#00C9F2] tabular-nums">{duration} דק׳</span>
+          </label>
+          <div dir="rtl">
+            <input
+              type="range"
+              min={10}
+              max={120}
+              step={5}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full h-1.5 rounded-full appearance-none cursor-pointer
+                bg-gray-200
+                [&::-webkit-slider-thumb]:appearance-none
+                [&::-webkit-slider-thumb]:w-5
+                [&::-webkit-slider-thumb]:h-5
+                [&::-webkit-slider-thumb]:rounded-full
+                [&::-webkit-slider-thumb]:bg-[#00C9F2]
+                [&::-webkit-slider-thumb]:shadow-md
+                [&::-webkit-slider-thumb]:shadow-cyan-400/40
+                [&::-moz-range-thumb]:w-5
+                [&::-moz-range-thumb]:h-5
+                [&::-moz-range-thumb]:rounded-full
+                [&::-moz-range-thumb]:bg-[#00C9F2]
+                [&::-moz-range-thumb]:border-0"
+              style={{
+                background: `linear-gradient(to right, #e5e7eb ${100 - ((duration - 10) / 110) * 100}%, #00C9F2 ${100 - ((duration - 10) / 110) * 100}%)`,
+              }}
+            />
+            <div className="flex justify-between text-[10px] text-gray-900 font-bold mt-1 tabular-nums">
+              <span>10׳</span>
+              <span>60׳</span>
+              <span>120׳</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Share with community — Partner Finder entry point */}
+        <button
+          type="button"
+          onClick={() => setShareWithCommunity((v) => !v)}
+          className={
+            v2
+              ? 'flex w-full items-center gap-3 rounded-[18px] bg-v2-surface px-3.5 py-3 text-right ring-1 ring-inset ring-v2-hairline transition-transform active:scale-[0.99]'
+              : 'w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-right active:scale-[0.99] transition-all'
+          }
+          aria-pressed={shareWithCommunity}
+        >
+          <div className="flex-shrink-0">
+            <Users size={16} color="#00ADEF" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className={v2 ? 'text-[14px] font-extrabold leading-tight text-v2-ink' : 'text-xs font-bold text-gray-900 leading-tight'}>
+              {g(gender, 'שתף עם הקהילה', 'שתפי עם הקהילה')} — חפש שותף לאימון
+            </div>
+            <div className={v2 ? 'mt-0.5 text-[12px] font-bold leading-tight text-v2-muted' : 'text-[10px] text-gray-500 mt-0.5 leading-tight'}>
+              {g(
+                gender,
+                'תופיע לאחרים שמחפשים שותף',
+                'תופיעי לאחרים שמחפשים שותפה',
+              )}
+            </div>
+          </div>
+          <div
+            className={`flex-shrink-0 w-9 h-5 rounded-full transition-colors relative ${
+              shareWithCommunity ? (v2 ? 'bg-v2-ink' : 'bg-[#0CF2E3]') : 'bg-gray-300'
+            }`}
+          >
+            <div
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
+                shareWithCommunity ? 'left-0.5' : 'left-[18px]'
+              }`}
+            />
+          </div>
+        </button>
+
+        {/* Save */}
+        <button
+          onClick={handleSave}
+          disabled={!startTime || saving}
+          className={
+            v2
+              ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40'
+              : 'w-full py-3 bg-brand-cta hover:brightness-105 text-on-brand font-bold rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
+          }
+        >
+          {saving ? 'שומר...' : isEditMode ? 'עדכן' : 'שמור'}
+        </button>
+
+        {/* Secondary CTA — open Smart Workout Builder with schedule context */}
+        {type === 'strength' && !isEditMode && (
+          <button
+            type="button"
+            onClick={() => {
+              const date = targetDate || toISODate(new Date());
+              onClose();
+              if (onOpenBuilder) {
+                onOpenBuilder({
+                  mode: 'schedule',
+                  date,
+                  defaultDuration: String(duration),
+                  defaultProgramIds: selectedProgramId ?? undefined,
+                });
+              } else {
+                const params = new URLSearchParams({
+                  mode: 'schedule',
+                  date,
+                  defaultDuration: String(duration),
+                });
+                if (selectedProgramId) params.set('defaultProgramIds', selectedProgramId);
+                router.push(`/workout-builder?${params.toString()}`);
+              }
+            }}
+            className={
+              v2
+                ? 'h-11 w-full rounded-full bg-white text-[14.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                : 'w-full py-2.5 text-sm font-bold text-[#0284c7] bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 transition-all active:scale-[0.98]'
+            }
+          >
+            בנה אימון מותאם ←
+          </button>
+        )}
+      </div>
+    </>
+  );
+
+  if (v2) {
+    // z-[60] band, rendered in place (as before) — the v2 Sheet owns the
+    // backdrop, spring, grabber, title row and safe-area padding.
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        title={heading}
+        layout="nested"
+        scroll="none"
+        zIndex={SHEET_Z.drawer}
+        portal={false}
+      >
+        {body}
+      </Sheet>
+    );
+  }
+
+  return (
+    <ClassicFormSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={heading}
+      backdropClassName="kb-fit fixed inset-0 z-[60] flex items-end justify-center bg-black/40"
+      panelClassName="kb-cap w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
+    >
+      {body}
+    </ClassicFormSheet>
   );
 }
