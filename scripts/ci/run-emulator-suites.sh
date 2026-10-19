@@ -47,6 +47,7 @@ GROUP_8089=(
   tests/military-panel-adversarial-audit.rules.test.ts
   tests/firestore-fix-agents-lockdown.rules.test.ts
   tests/pace-profile-self-correction.rules.test.ts
+  tests/workouts-timed-blocks.rules.test.ts
   src/features/readiness/core/services/__tests__/military-panel-adversarial-audit.emulator.test.ts
   src/app/api/authority-manager/city-summary/__tests__/city-summary.emulator.test.ts
   src/app/api/social/promote-waitlist/__tests__/promote-waitlist.emulator.test.ts

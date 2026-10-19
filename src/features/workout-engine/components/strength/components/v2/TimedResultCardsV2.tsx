@@ -5,12 +5,13 @@
  * (enable_home_v2): AMRAP "התוצאה שלך · 4 סבבים מלאים · ועוד 16 חזרות"
  * with a tile per round (board A-2f), EMOM "11/12 דקות בזמן" + minute-by-
  * minute bars (A-4f), tabata intervals. Presentational; the numbers come
- * from utils/timed-summary.model. The sets table below stays the shared one.
+ * from utils/timed-summary.model (live: this session's blocks; history: the
+ * doc's `timedBlocks`). The sets table below stays the shared one.
  */
 import React from 'react';
 import { Check, Timer } from 'lucide-react';
 import { Card, IconTile } from '@/components/ui/v2';
-import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
+import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 import {
   amrapSummaryModel,
   emomSummaryModel,
@@ -114,7 +115,7 @@ function EmomCards({ m }: { m: EmomSummaryModel }) {
   );
 }
 
-export default function TimedResultCardsV2({ results }: { results: readonly TimedBlockResult[] }) {
+export default function TimedResultCardsV2({ results }: { results: readonly TimedBlockRecord[] }) {
   return (
     <>
       {results.map((r, i) => {
