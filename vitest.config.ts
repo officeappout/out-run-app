@@ -48,6 +48,8 @@ export default defineConfig({
       'tests/firestore-fix-chats-messages-fieldguard.rules.test.ts',
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
+      // workouts.timedBlocks (enable_home_v2) write + read back — emulator :8089.
+      'tests/workouts-timed-blocks.rules.test.ts',
       'tests/firestore-trail-segments.rules.test.ts',
       // trails --apply write path on the emulator — self-skips unless FIRESTORE_EMULATOR_HOST is set.
       'tests/trails-apply.emulator.test.ts',

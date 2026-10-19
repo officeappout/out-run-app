@@ -1,10 +1,11 @@
 /**
  * timed-summary.model — the format cards of the v2 strength summary (pure;
  * boards A-2f AMRAP "התוצאה שלך", A-4f EMOM "דקה אחר דקה"). Input is the
- * timed engine's block result of THIS session (in memory; see
- * players/strength/timed/state/timed-results).
+ * compact TimedBlockRecord — built from this session's block results in the
+ * live summary, or read back from the saved doc (`timedBlocks`) in history,
+ * so both paths draw the exact same cards.
  */
-import type { TimedBlockResult } from '@/features/workout-engine/engines/timed/timed-result';
+import type { TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
 
 const clock = (sec: number) => {
   const s = Math.max(0, Math.round(sec));
@@ -17,6 +18,8 @@ export function roundOrdinal(n: number): string {
   return ORDINAL[n] ? `בסבב ${ORDINAL[n]}` : `בסבב ה-${n}`;
 }
 
+const minutesTitle = (name: string, sec: number) => `${name} ${Math.max(1, Math.round(sec / 60))}′`;
+
 export interface AmrapSummaryModel {
   title: string;
   fullRounds: number;
@@ -27,21 +30,20 @@ export interface AmrapSummaryModel {
   partial: { label: string; fraction: number } | null;
 }
 
-export function amrapSummaryModel(r: TimedBlockResult): AmrapSummaryModel | null {
+export function amrapSummaryModel(r: TimedBlockRecord): AmrapSummaryModel | null {
   if (!r.amrap) return null;
-  const { fullRounds, extraReps } = r.amrap.score;
-  const roundTarget = r.exerciseLog.reduce((a, e) => a + (e.repsSource?.includes('timer') ? 0 : e.targetReps || 0), 0);
-  const rounds = r.amrap.rounds
-    .filter((x) => x.complete)
-    .map((x, i) => ({ key: `r${x.index}`, label: `סבב ${i + 1}`, time: clock(x.durationSec) }));
-  const hasExtra = extraReps > 0;
+  const { fullRounds, partialReps, partialTarget, roundTimesSec } = r.amrap;
+  const hasExtra = partialReps > 0;
   return {
-    title: `AMRAP ${Math.max(1, Math.round(r.plannedSec / 60))}′`,
+    title: minutesTitle('AMRAP', r.plannedSec),
     fullRounds,
-    extraLine: hasExtra ? `ועוד ${extraReps} חזרות ${roundOrdinal(fullRounds + 1)}` : null,
-    rounds,
+    extraLine: hasExtra ? `ועוד ${partialReps} חזרות ${roundOrdinal(fullRounds + 1)}` : null,
+    rounds: roundTimesSec.map((t, i) => ({ key: `r${i}`, label: `סבב ${i + 1}`, time: clock(t) })),
     partial: hasExtra
-      ? { label: roundTarget > 0 ? `${extraReps}/${roundTarget}` : String(extraReps), fraction: roundTarget > 0 ? Math.min(1, extraReps / roundTarget) : 1 }
+      ? {
+          label: partialTarget > 0 ? `${partialReps}/${partialTarget}` : String(partialReps),
+          fraction: partialTarget > 0 ? Math.min(1, partialReps / partialTarget) : 1,
+        }
       : null,
   };
 }
@@ -62,37 +64,34 @@ export interface EmomSummaryModel {
   note: string | null;
 }
 
-export function emomSummaryModel(r: TimedBlockResult): EmomSummaryModel | null {
+export function emomSummaryModel(r: TimedBlockRecord): EmomSummaryModel | null {
   if (!r.emom) return null;
-  const { minutes, done, total } = r.emom;
-  const intervalSec = total > 0 ? r.plannedSec / total : 60;
+  const minutes = r.emom.minutes;
+  const total = minutes.length;
+  const done = minutes.filter((m) => m.status === 'done').length;
+  const intervalSec = total > 0 && r.plannedSec > 0 ? r.plannedSec / total : 60;
   const finished = minutes.filter((m) => m.status === 'done' && m.workSec != null);
   const avgWorkSec = finished.length ? finished.reduce((a, m) => a + (m.workSec ?? 0), 0) / finished.length : null;
-  const targetOf = (key: string) => r.exerciseLog.find((e) => e.exerciseId === key || e.exerciseName === key)?.targetReps ?? null;
-  const firstPartial = minutes.find((m) => m.status === 'partial');
+  const pIdx = minutes.findIndex((m) => m.status === 'partial');
+  const p = pIdx >= 0 ? minutes[pIdx] : null;
   return {
-    title: `EMOM ${Math.max(1, Math.round(r.plannedSec / 60))}′`,
+    title: minutesTitle('EMOM', r.plannedSec),
     doneLabel: `${done}/${total}`,
     percent: total > 0 ? Math.round((done / total) * 100) : 0,
     totalReps: minutes.reduce((a, m) => a + (m.status === 'missed' ? 0 : m.reps ?? 0), 0),
     avgWork: avgWorkSec != null ? clock(avgWorkSec) : null,
     avgRest: avgWorkSec != null ? clock(intervalSec - avgWorkSec) : null,
-    bars: Array.from({ length: total }, (_, i) => {
-      const m = minutes.find((x) => x.index === i);
-      const tone: MinuteTone = m?.status === 'done' ? 'done' : m?.status === 'partial' ? 'partial' : 'missed';
-      const fraction = tone === 'done' ? Math.min(1, (m?.workSec ?? intervalSec) / intervalSec) : tone === 'partial' ? 1 : 0.06;
-      return { key: `m${i}`, label: String(i + 1), fraction, tone };
-    }),
-    note: firstPartial
-      ? (() => {
-          const t = targetOf(firstPartial.itemKey);
-          return `דקה ${firstPartial.index + 1} (כתום): ${firstPartial.reps ?? 0}${t ? ` מתוך ${t}` : ''} חזרות`;
-        })()
-      : null,
+    bars: minutes.map((m, i) => ({
+      key: `m${i}`,
+      label: String(i + 1),
+      tone: m.status,
+      fraction: m.status === 'done' ? Math.min(1, (m.workSec ?? intervalSec) / intervalSec) : m.status === 'partial' ? 1 : 0.06,
+    })),
+    note: p ? `דקה ${pIdx + 1} (כתום): ${p.reps ?? 0}${p.target ? ` מתוך ${p.target}` : ''} חזרות` : null,
   };
 }
 
 /** Tabata: "8/8 אינטרוולים". */
-export function tabataSummaryLine(r: TimedBlockResult): string | null {
-  return r.tabata ? `${r.tabata.intervalsDone}/${r.tabata.intervalsTotal} אינטרוולים` : null;
+export function tabataSummaryLine(r: TimedBlockRecord): string | null {
+  return r.tabata ? `${r.tabata.intervals}/${r.tabata.intervalsTotal} אינטרוולים` : null;
 }

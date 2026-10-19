@@ -3,6 +3,8 @@ import { initTimed, reduceTimedAll } from '@/features/workout-engine/engines/tim
 import { buildTimedResult } from '@/features/workout-engine/engines/timed/timed-result';
 import type { TimedBlockSpec, TimedItem } from '@/features/workout-engine/engines/timed/timed.types';
 import { amrapSummaryModel, emomSummaryModel, roundOrdinal, tabataSummaryLine } from '../utils/timed-summary.model';
+import { toTimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
+const rec = (s: Parameters<typeof buildTimedResult>[0]) => toTimedBlockRecord('seg-main', buildTimedResult(s));
 
 const T0 = 1_000_000;
 const ex = (key: string, targetReps: number): TimedItem => ({ kind: 'exercise', key, exerciseId: key, name: key, targetReps });
@@ -18,7 +20,7 @@ describe('timed summary cards (A-2f / A-4f)', () => {
       { type: 'TICK', atMs: T0 + 600_000 },
       { type: 'LOG_REPS', atMs: T0 + 601_000, reps: 4 },
     ]);
-    const m = amrapSummaryModel(buildTimedResult(s))!;
+    const m = amrapSummaryModel(rec(s))!;
     expect(m.title).toBe('AMRAP 10′');
     expect(m.fullRounds).toBe(1);
     expect(m.extraLine).toBe('ועוד 16 חזרות בסבב השני');
@@ -35,7 +37,7 @@ describe('timed summary cards (A-2f / A-4f)', () => {
       { type: 'LOG_REPS', atMs: T0 + 119_000, reps: 8, index: 1 },
       { type: 'TICK', atMs: T0 + 181_000 },
     ]);
-    const m = emomSummaryModel(buildTimedResult(s))!;
+    const m = emomSummaryModel(rec(s))!;
     expect(m.doneLabel).toBe('1/3');
     expect(m.percent).toBe(33);
     expect(m.totalReps).toBe(20);
@@ -43,12 +45,12 @@ describe('timed summary cards (A-2f / A-4f)', () => {
     expect(m.avgRest).toBe('0:20');
     expect(m.bars.map((b) => b.tone)).toEqual(['done', 'partial', 'missed']);
     expect(m.note).toBe('דקה 2 (כתום): 8 מתוך 10 חזרות');
-    expect(amrapSummaryModel(buildTimedResult(s))).toBeNull();
+    expect(amrapSummaryModel(rec(s))).toBeNull();
   });
 
   it('tabata line', () => {
     const spec: TimedBlockSpec = { format: 'tabata', config: { workSec: 20, restSec: 10, rounds: 2 }, items: [ex('a', 0)] };
     const s = reduceTimedAll(initTimed(spec), [{ type: 'START', atMs: T0 }, { type: 'TICK', atMs: T0 + 60_000 }]);
-    expect(tabataSummaryLine(buildTimedResult(s))).toBe('2/2 אינטרוולים');
+    expect(tabataSummaryLine(rec(s))).toBe('2/2 אינטרוולים');
   });
 });

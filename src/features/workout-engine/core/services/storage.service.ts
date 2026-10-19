@@ -1,5 +1,6 @@
 // Workout Storage Service - Saves workout history to Firestore
 import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import type { TimedBlockRecord } from '../../engines/timed/timed-record';
 // NOTE: getStepsTrend lives in activity-history.service.ts (queries dailyActivity collection).
 import { db, auth } from '@/lib/firebase';
 import { clearHomeStartupCaches } from '@/lib/fast-startup/daily-record-cache';
@@ -310,6 +311,14 @@ export interface WorkoutHistoryEntry {
    * too). Recorded only — it changes no level and no progress.
    */
   feedback?: WorkoutFeedbackRecord;
+
+  /**
+   * enable_home_v2 — the AMRAP / EMOM / Tabata blocks of a strength session,
+   * compact and bounded (engines/timed/timed-record). Optional and additive;
+   * written only under the flag, in this same create. Read back by the
+   * history summary (strength-history-adapter) to redraw the format cards.
+   */
+  timedBlocks?: TimedBlockRecord[];
 }
 
 /**
