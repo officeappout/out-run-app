@@ -84,3 +84,34 @@ export function placeProgramSlide<T>(items: readonly T[], slide: T, plan: Progra
   if (plan.mode === 'start' || items.length === 0) return [slide, ...items];
   return [items[0], slide, ...items.slice(1)];
 }
+
+/** A daily carousel's state: showing cards, loading (its skeleton is up), or not showing. */
+export type HostCarouselState = 'ready' | 'loading' | 'none';
+
+/**
+ * Where the program slide renders:
+ *  - 'carousel'   — a daily carousel (pre- or post-workout) is showing; the slide is in it.
+ *  - 'pending'    — a carousel that will host the slide is still loading; its own
+ *                   skeleton holds the place (a second skeleton would double it and
+ *                   jump when the carousel lands).
+ *  - 'standalone' — no carousel (resolved empty, workout done with nothing suggested,
+ *                   another day selected): the slide renders on its own under the week
+ *                   strip, so "בחר תוכנית למטה" always has a card below it.
+ *  - null         — nothing to show (plan 'none'; an add card on a day other than today).
+ */
+export type ProgramSlideSurface = 'carousel' | 'pending' | 'standalone' | null;
+
+export function resolveProgramSlideSurface(input: {
+  plan: ProgramSlidePlan;
+  isViewingToday: boolean;
+  preCarousel: HostCarouselState;
+  postCarousel: HostCarouselState;
+}): ProgramSlideSurface {
+  const { plan, isViewingToday, preCarousel, postCarousel } = input;
+  if (plan.mode === 'none') return null;
+  if (preCarousel === 'ready' || postCarousel === 'ready') return 'carousel';
+  if (preCarousel === 'loading' || postCarousel === 'loading') return 'pending';
+  // The start pair answers the strip's hint on any day; "add a track" is a today nudge.
+  if (plan.mode === 'add' && !isViewingToday) return null;
+  return 'standalone';
+}
