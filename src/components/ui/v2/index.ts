@@ -19,6 +19,8 @@ export { default as Chip } from './Chip';
 export type { ChipProps, ChipTone } from './Chip';
 export { default as IconTile } from './IconTile';
 export type { IconTileProps, IconTileTone } from './IconTile';
+export { default as DoneRow, DoneCheck, DONE_SURFACE_STYLE, DONE_GREEN } from './DoneRow';
+export type { DoneRowProps } from './DoneRow';
 export { default as StatNumber } from './StatNumber';
 export type { StatNumberProps } from './StatNumber';
 export { default as DeltaBadge } from './DeltaBadge';

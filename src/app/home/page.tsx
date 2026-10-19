@@ -55,7 +55,6 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import type { BuilderContext, TrioSelector } from '@/features/home/components/StatsOverview';
 import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
-import { nextPlannedDay, totalMinutes as sumMinutes, totalXp } from '@/features/home/utils/done-today';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 import { todayCardFallbackTitle } from '@/features/home/utils/today-activity-labels';
 import type { WorkoutBuilderSheetProps, LocationId } from '@/features/home/components/WorkoutBuilderSheet';
@@ -703,7 +702,7 @@ export default function HomePage() {
   // StatsOverview already call it), each mounting its own onSnapshot pair.
   // Consistent with this page's existing convention (not a new pattern this
   // diff introduces), but a real modest listener cost, not a free read.
-  const { allGoalsMet, todayActivity, streak: activityStreak } = useDailyActivity();
+  const { allGoalsMet, todayActivity } = useDailyActivity();
   // Real-steps-connect plan (04.09.2026, staleness fix): reactive stepsRemaining, computed
   // via the SAME buildStepContext gate (healthConnected===false -> 0) the resolve side uses —
   // NOT a second, independently-invented computation. Reuses this file's own existing
@@ -2947,10 +2946,7 @@ export default function HomePage() {
             {featureFlags.enableHomeV2 && todayActivityCards.length > 0 ? (
               <DoneTodayCard
                 cards={todayStepGoalCard ? [...todayActivityCards, todayStepGoalCard] : todayActivityCards}
-                totalMinutes={sumMinutes(todayActivityCards.map((c) => c.minutes))}
-                xp={totalXp(todaysWorkouts ?? [])}
-                streak={activityStreak}
-                nextPlannedLabel={hasSchedule ? (nextPlannedDay(userScheduleDays, todayIndex)?.label ?? null) : null}
+                workouts={todaysWorkouts ?? []}
                 onCardTap={handleTodayActivityCardTap}
               />
             ) : (
