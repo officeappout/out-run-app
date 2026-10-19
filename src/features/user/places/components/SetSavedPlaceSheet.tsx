@@ -25,6 +25,11 @@ import {
   SAVED_PLACE_KIND_LABEL,
   type SavedPlaceKind,
 } from '../store/useSavedPlacesStore';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface SetSavedPlaceSheetProps {
   /** Which slot we're setting; null closes the sheet. */
@@ -49,6 +54,9 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<GeocoderHit[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   // Reset every time the sheet opens for a different kind so the user
   // never sees stale results when re-opening for the other slot.
@@ -106,6 +114,115 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
 
   const KindIcon = openKind ? KIND_ICON[openKind] : MapPin;
   const kindLabel = openKind ? SAVED_PLACE_KIND_LABEL[openKind] : '';
+
+  const searchAndResults = (
+    <>
+      {/* Search input — same pill shape as FloatingSearchBar */}
+      <div className="px-5 pb-3">
+        <div
+          className="rounded-2xl ring-1 ring-black/5 flex items-center h-12 ps-3 pe-3 gap-2"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.75)',
+            backdropFilter: 'blur(12px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+          }}
+        >
+          <Search size={16} className="text-gray-500 shrink-0" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`כתובת ה${kindLabel} שלך...`}
+            className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-400 text-right"
+          />
+          {isSearching && (
+            <Loader2 size={14} className="text-cyan-500 animate-spin shrink-0" />
+          )}
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="flex-1 overflow-y-auto px-3 pb-4">
+        {query.length < 3 ? (
+          <div className="text-center py-10 text-gray-400">
+            <MapPin size={28} className="mx-auto mb-2 opacity-60" />
+            <p className="text-xs font-medium">הקלד לפחות 3 תווים</p>
+          </div>
+        ) : hits.length === 0 && !isSearching ? (
+          <div className="text-center py-10 text-gray-400">
+            <p className="text-xs font-medium">לא נמצאו תוצאות</p>
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {hits.map((hit, idx) => (
+              <li key={`hit-${idx}-${hit.coords[0]}-${hit.coords[1]}`}>
+                <button
+                  type="button"
+                  onClick={() => handlePick(hit)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl active:bg-gray-100 transition-colors text-right"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                    <MapPin size={15} className="text-gray-500" />
+                  </div>
+                  <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                    {hit.text}
+                  </span>
+                  <Check size={14} className="text-cyan-500 opacity-0 group-active:opacity-100 shrink-0" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={!!openKind}
+        onClose={onClose}
+        // Backdrop and sheet both z-[100] (.cursorrules full-screen overlay
+        // tier, above the floating search bar z-[70]) — unchanged.
+        zIndex={SHEET_Z.overlay}
+        backdropZIndex={SHEET_Z.overlay}
+        portal={false}
+        // Has an input: the frame rides the keyboard (kb-sheet) + kb-cap (#455).
+        keyboardAware
+        backdropClassName=""
+        backdropStyle={{
+          backgroundColor: 'rgba(15, 23, 42, 0.32)',
+          backdropFilter: 'blur(8px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(8px) saturate(140%)',
+        }}
+        className="flex max-h-[80vh] flex-col"
+        safeArea="var(--kb-safe-bottom)"
+        scroll="none"
+        transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+        grabberClassName="flex justify-center pt-3 pb-2"
+        ariaLabel={`הגדרת ${kindLabel}`}
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-v2-tint">
+                <KindIcon size={18} className="text-v2-deep" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הגדרת {kindLabel}</h2>
+                <p className="truncate text-[12.5px] font-bold text-v2-muted">חפש כתובת ובחר מהרשימה</p>
+              </div>
+            </div>
+            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X size={16} className="text-v2-ink-2" />
+            </IconButton>
+          </div>
+        }
+      >
+        {searchAndResults}
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -174,64 +291,7 @@ export default function SetSavedPlaceSheet({ openKind, onClose }: SetSavedPlaceS
               </button>
             </div>
 
-            {/* Search input — same pill shape as FloatingSearchBar */}
-            <div className="px-5 pb-3">
-              <div
-                className="rounded-2xl ring-1 ring-black/5 flex items-center h-12 ps-3 pe-3 gap-2"
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.75)',
-                  backdropFilter: 'blur(12px) saturate(160%)',
-                  WebkitBackdropFilter: 'blur(12px) saturate(160%)',
-                }}
-              >
-                <Search size={16} className="text-gray-500 shrink-0" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={`כתובת ה${kindLabel} שלך...`}
-                  className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-gray-900 placeholder:text-gray-400 text-right"
-                />
-                {isSearching && (
-                  <Loader2 size={14} className="text-cyan-500 animate-spin shrink-0" />
-                )}
-              </div>
-            </div>
-
-            {/* Results */}
-            <div className="flex-1 overflow-y-auto px-3 pb-4">
-              {query.length < 3 ? (
-                <div className="text-center py-10 text-gray-400">
-                  <MapPin size={28} className="mx-auto mb-2 opacity-60" />
-                  <p className="text-xs font-medium">הקלד לפחות 3 תווים</p>
-                </div>
-              ) : hits.length === 0 && !isSearching ? (
-                <div className="text-center py-10 text-gray-400">
-                  <p className="text-xs font-medium">לא נמצאו תוצאות</p>
-                </div>
-              ) : (
-                <ul className="space-y-1">
-                  {hits.map((hit, idx) => (
-                    <li key={`hit-${idx}-${hit.coords[0]}-${hit.coords[1]}`}>
-                      <button
-                        type="button"
-                        onClick={() => handlePick(hit)}
-                        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl active:bg-gray-100 transition-colors text-right"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                          <MapPin size={15} className="text-gray-500" />
-                        </div>
-                        <span className="flex-1 text-sm font-medium text-gray-800 truncate">
-                          {hit.text}
-                        </span>
-                        <Check size={14} className="text-cyan-500 opacity-0 group-active:opacity-100 shrink-0" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {searchAndResults}
           </motion.div>
         </>
       )}

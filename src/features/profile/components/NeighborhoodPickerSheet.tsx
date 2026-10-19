@@ -24,6 +24,11 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import { getChildrenByParent } from '@/features/admin/services/authority.service';
 import type { Authority } from '@/types/admin-types';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 const ACCENT = '#00ADEF';
 
@@ -48,6 +53,9 @@ export function NeighborhoodPickerSheet({
   const [neighborhoods, setNeighborhoods] = useState<Authority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   useEffect(() => {
     if (!isOpen || !cityAuthorityId) return;
@@ -60,6 +68,88 @@ export function NeighborhoodPickerSheet({
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
   }, [isOpen, cityAuthorityId]);
+
+  const list = (
+    <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
+      {isLoading && (
+        <div className="py-8 text-center text-sm text-gray-400">טוען שכונות...</div>
+      )}
+
+      {!isLoading && error && (
+        <div className="py-8 text-center text-sm text-gray-400">שגיאה בטעינת רשימת השכונות</div>
+      )}
+
+      {!isLoading && !error && neighborhoods.length === 0 && (
+        <div className="py-8 text-center">
+          <p className="text-sm font-bold text-gray-700">עדיין אין שכונות מוגדרות ל{cityName ?? 'העיר שלך'}</p>
+          <p className="text-xs text-gray-400 mt-1">נעדכן ברגע שיתווספו</p>
+        </div>
+      )}
+
+      {!isLoading && !error && neighborhoods.map((n) => {
+        const selected = currentNeighborhoodId === n.id;
+        return (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => { onSelect(n); onClose(); }}
+            className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors"
+            style={{
+              border: selected ? `1.5px solid ${ACCENT}` : '0.5px solid #E5E7EB',
+              backgroundColor: selected ? '#EAF6FF' : '#fff',
+            }}
+          >
+            <span className="text-sm font-bold text-gray-900">{n.name}</span>
+            <span
+              className="w-4 h-4 rounded-full flex-shrink-0"
+              style={{
+                border: `2px solid ${selected ? ACCENT : '#D1D5DB'}`,
+                backgroundColor: selected ? ACCENT : 'transparent',
+              }}
+              aria-hidden
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // Backdrop z-[70] / panel z-[71] (.cursorrules) — clears SettingsModal
+        // (z-50), which opens it; in place, unchanged.
+        zIndex={SHEET_Z.filterPanel}
+        backdropZIndex={SHEET_Z.filter}
+        portal={false}
+        keyboardAware={false}
+        backdropClassName="bg-black/40 pointer-events-auto"
+        backdropStyle={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        frameClassName="pointer-events-auto max-w-md mx-auto"
+        safeArea="calc(env(safe-area-inset-bottom, 0px) + 56px)"
+        scroll="none"
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
+        grabberClassName="flex justify-center pt-3 pb-2"
+        ariaLabel="בחר שכונה"
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 pb-3">
+            <div className="min-w-0">
+              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">בחר שכונה</h2>
+              {cityName && <p className="truncate text-[12.5px] font-bold text-v2-muted">ב{cityName}</p>}
+            </div>
+            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X size={16} className="text-v2-ink-2" />
+            </IconButton>
+          </div>
+        }
+      >
+        {list}
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -122,48 +212,7 @@ export function NeighborhoodPickerSheet({
               <p className="text-center text-[12px] text-gray-500 -mt-1 pb-3 px-5">ב{cityName}</p>
             )}
 
-            <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
-              {isLoading && (
-                <div className="py-8 text-center text-sm text-gray-400">טוען שכונות...</div>
-              )}
-
-              {!isLoading && error && (
-                <div className="py-8 text-center text-sm text-gray-400">שגיאה בטעינת רשימת השכונות</div>
-              )}
-
-              {!isLoading && !error && neighborhoods.length === 0 && (
-                <div className="py-8 text-center">
-                  <p className="text-sm font-bold text-gray-700">עדיין אין שכונות מוגדרות ל{cityName ?? 'העיר שלך'}</p>
-                  <p className="text-xs text-gray-400 mt-1">נעדכן ברגע שיתווספו</p>
-                </div>
-              )}
-
-              {!isLoading && !error && neighborhoods.map((n) => {
-                const selected = currentNeighborhoodId === n.id;
-                return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => { onSelect(n); onClose(); }}
-                    className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors"
-                    style={{
-                      border: selected ? `1.5px solid ${ACCENT}` : '0.5px solid #E5E7EB',
-                      backgroundColor: selected ? '#EAF6FF' : '#fff',
-                    }}
-                  >
-                    <span className="text-sm font-bold text-gray-900">{n.name}</span>
-                    <span
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{
-                        border: `2px solid ${selected ? ACCENT : '#D1D5DB'}`,
-                        backgroundColor: selected ? ACCENT : 'transparent',
-                      }}
-                      aria-hidden
-                    />
-                  </button>
-                );
-              })}
-            </div>
+            {list}
           </motion.div>
         </>
       )}

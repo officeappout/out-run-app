@@ -65,3 +65,16 @@ describe('flag off — byte-identical to the pre-migration markup (portalled)', 
     expect(drawer()).toMatchSnapshot();
   });
 });
+
+describe('flag on — the shared <Sheet>', () => {
+  it('EquipmentDetailDrawer: portalled, z 200/201, 90vh, whole-panel drag, IconButton close', () => {
+    flags.enableHomeV2 = true;
+    const out = drawer();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index: 201');
+    expect(out).toContain('z-index: 200');
+    expect(out).toContain('max-h-[90vh]');
+    expect(out).toContain('animate-spin');
+    expect(out).toContain('data-v2-icon-button="white-ring"');
+  });
+});

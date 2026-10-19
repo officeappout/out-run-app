@@ -16,6 +16,9 @@ import { KELLY_UID, KELLY_NAME } from '../services/kelly-welcome-bot.service';
 import { isRootAdmin } from '@/config/feature-flags';
 import { AiCoachInboxRow, KellyInboxRow } from '@/features/ai-coach/components/AiCoachEntry';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -82,6 +85,9 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
   // replaces the "קלי AI" row and the old Kelly DM row for users. Admins keep the firehose.
   const { flags } = useFeatureFlags();
   const kellyUnified = flags.kellyUnifiedV1 === true && !isAdmin;
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const threads = isAdmin
     ? allThreads
     : kellyUnified
@@ -187,6 +193,265 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
     { key: 'groups', label: 'קבוצות', count: groupCount },
   ];
 
+  const title = openThread
+    ? getThreadDisplayName(openThread)
+    : isAdmin
+      ? 'הודעות (ניהול)'
+      : 'הודעות';
+
+  const body = (
+    <>
+      {/* Search bar */}
+      <AnimatePresence>
+        {searchOpen && !openThread && (
+          <m.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden px-5"
+            dir="rtl"
+          >
+            <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 mb-2">
+              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="חיפוש שיחות..."
+                className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-gray-200">
+                  <X className="w-3.5 h-3.5 text-gray-500" />
+                </button>
+              )}
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
+
+      {/* Category filters */}
+      {!openThread && (
+        <div className="px-5 pb-2" dir="rtl">
+          <div className="flex gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  filter === f.key
+                    ? 'bg-cyan-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {f.label}
+                {f.count !== undefined && f.count > 0 && (
+                  <span className={`mr-1 ${filter === f.key ? 'text-cyan-100' : 'text-gray-400'}`}>
+                    ({f.count})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        <AnimatePresence mode="wait">
+          {openThread ? (
+            <m.div
+              key="thread"
+              initial={{ x: -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              {/* Admins reply AS Kelly (senderUid = KELLY_UID) so the
+                  conversation reads as one continuous coach thread for the
+                  user. Regular users send as themselves. */}
+              <ChatThread
+                thread={openThread}
+                myUid={isAdmin ? KELLY_UID : (myUid ?? '')}
+                myName={isAdmin ? KELLY_NAME : myName}
+                createdByUid={groupCreatorUid}
+              />
+            </m.div>
+          ) : (
+            <m.div
+              key="list"
+              initial={{ x: 30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-y-auto h-full px-4 pb-8"
+              dir="rtl"
+            >
+              {/* "קלי AI" — the AI coach, pinned above every human thread. A separate
+                  AI-labeled screen, never inside the human Kelly support DM. Renders
+                  nothing unless aiCoachEnabled + entitlement (useAiCoachAccess). */}
+              {!isAdmin && filter === 'all' && !searchTerm.trim() && (
+                kellyUnified ? <KellyInboxRow onNavigate={onClose} /> : <AiCoachInboxRow onNavigate={onClose} />
+              )}
+
+              {isLoading && (
+                <p className="text-sm text-gray-400 text-center py-12 animate-pulse">
+                  טוען שיחות...
+                </p>
+              )}
+
+              {!isLoading && filteredThreads.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-3">
+                    <MessageCircle className="w-8 h-8 text-cyan-400" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-900">
+                    {filter === 'unread'
+                      ? isAdmin
+                        ? 'אין שיחות שממתינות לתגובה'
+                        : 'אין הודעות שלא נקראו'
+                      : filter === 'groups'
+                        ? 'אין שיחות קבוצתיות'
+                        : isAdmin
+                          ? 'אין שיחות פעילות'
+                          : 'עדיין אין הודעות...'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
+                    {isAdmin
+                      ? 'שיחות משתמשים יופיעו כאן לפי הזמן האחרון'
+                      : filter === 'all'
+                        ? 'לחץ על אווטיר במפה כדי לפתוח שיחה'
+                        : 'נסה לסנן לפי "הכל"'}
+                  </p>
+                </div>
+              )}
+
+              <div className="divide-y divide-gray-50">
+                {filteredThreads.map((thread) => {
+                  const unread = getUnread(thread);
+                  const displayName = getThreadDisplayName(thread);
+                  const isGroup = thread.type === 'group';
+                  const preview = getLastMessagePreview(thread);
+
+                  return (
+                    <button
+                      key={thread.id}
+                      onClick={() => setOpenThread(thread)}
+                      className="w-full flex items-center gap-3 py-3.5 px-1 hover:bg-gray-50 rounded-xl transition-colors text-right"
+                    >
+                      {/* Avatar: User initial vs Group icon */}
+                      {isGroup ? (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <Users className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <span className="text-white font-black text-sm">
+                            {displayName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`text-sm truncate ${unread > 0 ? 'font-black text-gray-900' : 'font-bold text-gray-700'}`}>
+                              {displayName}
+                            </span>
+                            {isGroup && (
+                              <span className="flex-shrink-0 text-[9px] bg-purple-100 text-purple-600 font-bold rounded px-1.5 py-0.5">
+                                קבוצה
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-gray-400 flex-shrink-0 mr-2">
+                            {timeAgo(thread.lastMessageAt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <p className={`text-xs truncate max-w-[200px] ${unread > 0 ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>
+                            {preview}
+                          </p>
+                          {unread > 0 && (
+                            <span className={`flex-shrink-0 w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center mr-2 ${isGroup ? 'bg-purple-500' : 'bg-cyan-500'}`}>
+                              {unread > 9 ? '9+' : unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        // Backdrop tap steps back from an open thread first, like before.
+        onClose={() => {
+          if (openThread) setOpenThread(null);
+          else onClose();
+        }}
+        // Backdrop z-[100] (clears PartnerOverlay z-[90]) / sheet z-[101]
+        // (clears OfflineBanner) — .cursorrules, unchanged; rendered in place, like before.
+        zIndex={SHEET_Z.aboveOffline}
+        backdropZIndex={SHEET_Z.overlay}
+        portal={false}
+        // The thread composer is an input: kb-sheet frame + kb-cap surface (#455).
+        keyboardAware
+        className="flex h-[90dvh] flex-col"
+        safeArea={false}
+        scroll="none"
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        ariaLabel={title}
+        header={
+          <div className="flex items-center justify-between gap-3 px-5 py-2" dir="rtl">
+            <div className="flex min-w-0 items-center gap-2">
+              {openThread && (
+                <IconButton aria-label="חזרה לרשימה" tone="surface" size={36} className="shrink-0" onClick={() => setOpenThread(null)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </IconButton>
+              )}
+              <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{title}</h2>
+              {openThread?.type === 'group' && (
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
+                  קבוצה
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {!openThread && (
+                <IconButton
+                  aria-label="חיפוש שיחות"
+                  aria-pressed={searchOpen}
+                  tone={searchOpen ? 'tint' : 'surface'}
+                  size={36}
+                  onClick={() => setSearchOpen((o) => !o)}
+                >
+                  <Search className="h-4 w-4" />
+                </IconButton>
+              )}
+              <IconButton aria-label="סגירה" tone="surface" size={36} onClick={onClose}>
+                <X className="h-4 w-4" />
+              </IconButton>
+            </div>
+          </div>
+        }
+      >
+        {body}
+      </Sheet>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -263,194 +528,7 @@ export default function ChatInbox({ isOpen, onClose, initialThread = null }: Cha
               </div>
             </div>
 
-            {/* Search bar */}
-            <AnimatePresence>
-              {searchOpen && !openThread && (
-                <m.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden px-5"
-                  dir="rtl"
-                >
-                  <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 mb-2">
-                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <input
-                      ref={searchRef}
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="חיפוש שיחות..."
-                      className="flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-                    />
-                    {searchTerm && (
-                      <button onClick={() => setSearchTerm('')} className="p-0.5 rounded-full hover:bg-gray-200">
-                        <X className="w-3.5 h-3.5 text-gray-500" />
-                      </button>
-                    )}
-                  </div>
-                </m.div>
-              )}
-            </AnimatePresence>
-
-            {/* Category filters */}
-            {!openThread && (
-              <div className="px-5 pb-2" dir="rtl">
-                <div className="flex gap-2">
-                  {FILTERS.map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => setFilter(f.key)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                        filter === f.key
-                          ? 'bg-cyan-500 text-white shadow-sm'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {f.label}
-                      {f.count !== undefined && f.count > 0 && (
-                        <span className={`mr-1 ${filter === f.key ? 'text-cyan-100' : 'text-gray-400'}`}>
-                          ({f.count})
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 overflow-hidden">
-              <AnimatePresence mode="wait">
-                {openThread ? (
-                  <m.div
-                    key="thread"
-                    initial={{ x: -30, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 30, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="h-full"
-                  >
-                    {/* Admins reply AS Kelly (senderUid = KELLY_UID) so the
-                        conversation reads as one continuous coach thread for the
-                        user. Regular users send as themselves. */}
-                    <ChatThread
-                      thread={openThread}
-                      myUid={isAdmin ? KELLY_UID : (myUid ?? '')}
-                      myName={isAdmin ? KELLY_NAME : myName}
-                      createdByUid={groupCreatorUid}
-                    />
-                  </m.div>
-                ) : (
-                  <m.div
-                    key="list"
-                    initial={{ x: 30, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -30, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-y-auto h-full px-4 pb-8"
-                    dir="rtl"
-                  >
-                    {/* "קלי AI" — the AI coach, pinned above every human thread. A separate
-                        AI-labeled screen, never inside the human Kelly support DM. Renders
-                        nothing unless aiCoachEnabled + entitlement (useAiCoachAccess). */}
-                    {!isAdmin && filter === 'all' && !searchTerm.trim() && (
-                      kellyUnified ? <KellyInboxRow onNavigate={onClose} /> : <AiCoachInboxRow onNavigate={onClose} />
-                    )}
-
-                    {isLoading && (
-                      <p className="text-sm text-gray-400 text-center py-12 animate-pulse">
-                        טוען שיחות...
-                      </p>
-                    )}
-
-                    {!isLoading && filteredThreads.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-16 text-center">
-                        <div className="w-16 h-16 rounded-full bg-cyan-50 flex items-center justify-center mb-3">
-                          <MessageCircle className="w-8 h-8 text-cyan-400" />
-                        </div>
-                        <p className="text-sm font-bold text-gray-900">
-                          {filter === 'unread'
-                            ? isAdmin
-                              ? 'אין שיחות שממתינות לתגובה'
-                              : 'אין הודעות שלא נקראו'
-                            : filter === 'groups'
-                              ? 'אין שיחות קבוצתיות'
-                              : isAdmin
-                                ? 'אין שיחות פעילות'
-                                : 'עדיין אין הודעות...'}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
-                          {isAdmin
-                            ? 'שיחות משתמשים יופיעו כאן לפי הזמן האחרון'
-                            : filter === 'all'
-                              ? 'לחץ על אווטיר במפה כדי לפתוח שיחה'
-                              : 'נסה לסנן לפי "הכל"'}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="divide-y divide-gray-50">
-                      {filteredThreads.map((thread) => {
-                        const unread = getUnread(thread);
-                        const displayName = getThreadDisplayName(thread);
-                        const isGroup = thread.type === 'group';
-                        const preview = getLastMessagePreview(thread);
-
-                        return (
-                          <button
-                            key={thread.id}
-                            onClick={() => setOpenThread(thread)}
-                            className="w-full flex items-center gap-3 py-3.5 px-1 hover:bg-gray-50 rounded-xl transition-colors text-right"
-                          >
-                            {/* Avatar: User initial vs Group icon */}
-                            {isGroup ? (
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <Users className="w-5 h-5 text-white" />
-                              </div>
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <span className="text-white font-black text-sm">
-                                  {displayName.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className={`text-sm truncate ${unread > 0 ? 'font-black text-gray-900' : 'font-bold text-gray-700'}`}>
-                                    {displayName}
-                                  </span>
-                                  {isGroup && (
-                                    <span className="flex-shrink-0 text-[9px] bg-purple-100 text-purple-600 font-bold rounded px-1.5 py-0.5">
-                                      קבוצה
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-[11px] text-gray-400 flex-shrink-0 mr-2">
-                                  {timeAgo(thread.lastMessageAt)}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between mt-0.5">
-                                <p className={`text-xs truncate max-w-[200px] ${unread > 0 ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>
-                                  {preview}
-                                </p>
-                                {unread > 0 && (
-                                  <span className={`flex-shrink-0 w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center mr-2 ${isGroup ? 'bg-purple-500' : 'bg-cyan-500'}`}>
-                                    {unread > 9 ? '9+' : unread}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </m.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {body}
           </m.div>
         </>
       )}

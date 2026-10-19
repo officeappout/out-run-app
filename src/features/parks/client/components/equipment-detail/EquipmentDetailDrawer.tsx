@@ -67,6 +67,9 @@ import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.cons
 import { bunnyImg } from '@/lib/bunny-image';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import type { Program } from '@/features/content/programs/core/program.types';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
+import EquipmentDetailSheetV2 from './EquipmentDetailSheetV2';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
@@ -221,6 +224,9 @@ export default function EquipmentDetailDrawer({
 }: EquipmentDetailDrawerProps) {
   // Portal mount guard so the drawer never renders during SSR.
   const [mounted, setMounted] = useState(false);
+  // enable_home_v2: the shared <Sheet> (EquipmentDetailSheetV2); flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -358,6 +364,370 @@ export default function EquipmentDetailDrawer({
   );
   const tips = useMemo(() => resolveEquipmentTips(equipment), [equipment]);
 
+  const body = (
+    <>
+      {loading && !equipment ? (
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-cyan-500" />
+        </div>
+      ) : error || !equipment ? (
+        <div className="min-h-[40vh] flex flex-col items-center justify-center px-6 gap-3">
+          <AlertTriangle size={32} className="text-amber-500" />
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-200 text-center">
+            {error === 'not-found'
+              ? 'המתקן לא נמצא'
+              : 'אירעה שגיאה בטעינת המתקן'}
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Hero — video-first (same pattern as MasterExerciseView).
+              Priority: Bunny HLS → YouTube/Vimeo iframe → brand image
+              (own, else another brand's — effectiveImageUrl, the
+              "Ludos" fallback) → icon/glyph.
+              Video aspect: 16:9 (landscape equipment demo).
+              Image/icon aspect: 4:3 (portrait product shot).
+              Bottom gradient fade matches MasterExerciseView. */}
+          <div
+            className={`relative w-full overflow-hidden ${
+              bunnyVideoId || videoEmbed
+                ? 'bg-slate-900'
+                : 'bg-gray-100 dark:bg-slate-800'
+            }`}
+            style={{ aspectRatio: bunnyVideoId || videoEmbed ? '16 / 9' : '4 / 3' }}
+          >
+            {bunnyVideoId ? (
+              <BunnyVideoPlayer
+                videoId={bunnyVideoId}
+                poster={effectiveImageUrl}
+              />
+            ) : videoEmbed ? (
+              <iframe
+                src={videoEmbed.src}
+                className="absolute inset-0 w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={`${equipmentName} demo video`}
+              />
+            ) : effectiveImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={bunnyImg(effectiveImageUrl, 720)}
+                alt={equipmentName}
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                {equipment.iconKey ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/assets/icons/equipment/${equipment.iconKey}.svg`}
+                    alt={equipmentName}
+                    className="w-24 h-24 object-contain opacity-80"
+                  />
+                ) : (
+                  <Dumbbell size={64} className="text-gray-300 dark:text-slate-600" />
+                )}
+              </div>
+            )}
+            {(bunnyVideoId || videoEmbed) && (
+              <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            )}
+          </div>
+
+          {/* Title block + content sections */}
+          <div className="px-5 pt-5 pb-12">
+            {/* Title + brand line */}
+            <div className="mb-4">
+              <h1
+                className="text-[20px] font-bold text-gray-900 dark:text-white leading-snug"
+                style={SECTION_FONT}
+              >
+                {equipmentName}
+              </h1>
+              {!pinnedToPark && activeBrand?.brandName && (
+                <p
+                  className="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                  style={SECTION_FONT}
+                >
+                  מותג:{' '}
+                  <span className="font-bold text-gray-700 dark:text-gray-200">
+                    {activeBrand.brandName}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Quick-meta pill row — functional flag only (recommendedLevel removed; targetPrograms shown below) */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {equipment.isFunctional && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                  style={{
+                    border:
+                      '1px solid rgba(16, 185, 129, 0.2)',
+                  }}
+                >
+                  ציוד פונקציונלי
+                </span>
+              )}
+            </div>
+
+            {/* Primary muscle (mirrors שריר ראשי block in ExerciseDetailSheet) */}
+            {primaryMuscle && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  שריר ראשי
+                </h3>
+                <div className="flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      MUSCLE_ICON_PATHS[primaryMuscle] ??
+                      MUSCLE_FALLBACK_ICON
+                    }
+                    alt=""
+                    width={36}
+                    height={36}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  <span
+                    className="text-sm font-normal text-gray-800 dark:text-gray-200"
+                    style={SECTION_FONT}
+                  >
+                    {getMuscleGroupLabel(primaryMuscle)}
+                  </span>
+                </div>
+              </section>
+            )}
+
+            {/* Secondary muscles */}
+            {secondaryMuscles.length > 0 && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  שרירים משניים
+                </h3>
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                  {secondaryMuscles.map((m) => (
+                    <div
+                      key={m}
+                      className="flex-shrink-0 flex items-center gap-2"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          MUSCLE_ICON_PATHS[m] ??
+                          MUSCLE_FALLBACK_ICON
+                        }
+                        alt=""
+                        width={36}
+                        height={36}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <span
+                        className="text-sm font-normal text-gray-800 dark:text-gray-200"
+                        style={SECTION_FONT}
+                      >
+                        {getMuscleGroupLabel(m)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Target programs (תוכניות מוקצות) */}
+            {equipment.targetPrograms && equipment.targetPrograms.length > 0 && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  תוכניות מוקצות
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {equipment.targetPrograms.map((tp) => {
+                    const prog = programs.find((p) => p.id === tp.programId);
+                    const label = prog ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? tp.programId) : tp.programId;
+                    return (
+                      <span
+                        key={tp.programId}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                        style={{ border: '1px solid rgba(99, 102, 241, 0.2)' }}
+                      >
+                        <Target size={12} />
+                        {label} · Level {tp.level}
+                      </span>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Cues / דגשים — numbered cyan circles, matching
+                the exercise drawer exactly. Doc `cues` →
+                `description` lines → muscle-derived auto-cues. */}
+            {cues.length > 0 && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  דגשים
+                </h3>
+                <ol className="space-y-2.5">
+                  {cues.map((cue, i) => (
+                    <li
+                      key={`${cue}_${i}`}
+                      className="flex gap-3 items-start"
+                    >
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center bg-cyan-500">
+                        {i + 1}
+                      </span>
+                      <span
+                        className="text-sm text-slate-700 dark:text-slate-300 flex-1 leading-relaxed"
+                        style={SECTION_FONT}
+                      >
+                        {cue}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {/* Tips / טיפים — easier/harder variants from the doc. */}
+            {tips.length > 0 && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  טיפים
+                </h3>
+                <ul className="space-y-2.5">
+                  {tips.map((tip, i) => (
+                    <li
+                      key={`${tip}_${i}`}
+                      className="flex gap-3 items-start bg-slate-50 dark:bg-slate-800/40 rounded-xl px-4 py-3"
+                      style={{ border: PILL_BORDER }}
+                    >
+                      <span
+                        className="text-sm text-slate-700 dark:text-slate-300 flex-1 leading-relaxed"
+                        style={SECTION_FONT}
+                      >
+                        {tip}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Description card — only when the דגשים above came
+                from the doc's own `cues`. When they came from the
+                description itself, repeating it here would show
+                the same steps twice. */}
+            {cuesSource === 'doc' && equipment.description && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  תיאור
+                </h3>
+                <div
+                  className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4"
+                  style={{ border: PILL_BORDER }}
+                >
+                  <Target
+                    size={18}
+                    className="flex-shrink-0 mt-0.5 text-cyan-600"
+                  />
+                  <p
+                    className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line"
+                    style={SECTION_FONT}
+                  >
+                    {equipment.description}
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {/* Brand switcher — catalogue context only (pinnedToPark=false).
+                In park context the brand is irrelevant to the user; hiding it
+                also makes mixed-brand tagging harmless. */}
+            {!pinnedToPark && equipment.brands && equipment.brands.length > 1 && (
+              <section className="mb-6">
+                <h3
+                  className="text-right text-[16px] font-semibold mb-3"
+                  style={SECTION_FONT}
+                >
+                  מותגים זמינים
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {equipment.brands.map((b, i) => {
+                    const isActive = i === activeBrandIndex;
+                    return (
+                      <button
+                        key={`${b.brandName}_${i}`}
+                        type="button"
+                        onClick={() => setActiveBrandIndex(i)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
+                          isActive
+                            ? 'bg-cyan-500 text-white shadow-sm'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        {b.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={bunnyImg(b.imageUrl, 40)}
+                            alt=""
+                            className="w-5 h-5 rounded-full object-cover bg-white"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <span className="text-xs font-bold">
+                          {b.brandName || `מותג ${i + 1}`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  if (v2) {
+    return (
+      <EquipmentDetailSheetV2 isOpen={isOpen} onClose={onClose} ariaLabel={equipmentName || 'פרטי מתקן'}>
+        {body}
+      </EquipmentDetailSheetV2>
+    );
+  }
+
   // ── Sheet body ───────────────────────────────────────────────────
   const sheet = (
     <AnimatePresence>
@@ -408,357 +778,7 @@ export default function EquipmentDetailDrawer({
 
             {/* Body — single scroll region (matches the lean exercise-sheet variant) */}
             <div className="flex-auto min-h-0 overflow-y-auto overscroll-contain">
-              {loading && !equipment ? (
-                <div className="min-h-[40vh] flex items-center justify-center">
-                  <Loader2 size={28} className="animate-spin text-cyan-500" />
-                </div>
-              ) : error || !equipment ? (
-                <div className="min-h-[40vh] flex flex-col items-center justify-center px-6 gap-3">
-                  <AlertTriangle size={32} className="text-amber-500" />
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200 text-center">
-                    {error === 'not-found'
-                      ? 'המתקן לא נמצא'
-                      : 'אירעה שגיאה בטעינת המתקן'}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Hero — video-first (same pattern as MasterExerciseView).
-                      Priority: Bunny HLS → YouTube/Vimeo iframe → brand image
-                      (own, else another brand's — effectiveImageUrl, the
-                      "Ludos" fallback) → icon/glyph.
-                      Video aspect: 16:9 (landscape equipment demo).
-                      Image/icon aspect: 4:3 (portrait product shot).
-                      Bottom gradient fade matches MasterExerciseView. */}
-                  <div
-                    className={`relative w-full overflow-hidden ${
-                      bunnyVideoId || videoEmbed
-                        ? 'bg-slate-900'
-                        : 'bg-gray-100 dark:bg-slate-800'
-                    }`}
-                    style={{ aspectRatio: bunnyVideoId || videoEmbed ? '16 / 9' : '4 / 3' }}
-                  >
-                    {bunnyVideoId ? (
-                      <BunnyVideoPlayer
-                        videoId={bunnyVideoId}
-                        poster={effectiveImageUrl}
-                      />
-                    ) : videoEmbed ? (
-                      <iframe
-                        src={videoEmbed.src}
-                        className="absolute inset-0 w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        title={`${equipmentName} demo video`}
-                      />
-                    ) : effectiveImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={bunnyImg(effectiveImageUrl, 720)}
-                        alt={equipmentName}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        {equipment.iconKey ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`/assets/icons/equipment/${equipment.iconKey}.svg`}
-                            alt={equipmentName}
-                            className="w-24 h-24 object-contain opacity-80"
-                          />
-                        ) : (
-                          <Dumbbell size={64} className="text-gray-300 dark:text-slate-600" />
-                        )}
-                      </div>
-                    )}
-                    {(bunnyVideoId || videoEmbed) && (
-                      <div className="absolute inset-x-0 bottom-0 h-12 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-                    )}
-                  </div>
-
-                  {/* Title block + content sections */}
-                  <div className="px-5 pt-5 pb-12">
-                    {/* Title + brand line */}
-                    <div className="mb-4">
-                      <h1
-                        className="text-[20px] font-bold text-gray-900 dark:text-white leading-snug"
-                        style={SECTION_FONT}
-                      >
-                        {equipmentName}
-                      </h1>
-                      {!pinnedToPark && activeBrand?.brandName && (
-                        <p
-                          className="mt-1 text-sm text-gray-500 dark:text-gray-400"
-                          style={SECTION_FONT}
-                        >
-                          מותג:{' '}
-                          <span className="font-bold text-gray-700 dark:text-gray-200">
-                            {activeBrand.brandName}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Quick-meta pill row — functional flag only (recommendedLevel removed; targetPrograms shown below) */}
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {equipment.isFunctional && (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                          style={{
-                            border:
-                              '1px solid rgba(16, 185, 129, 0.2)',
-                          }}
-                        >
-                          ציוד פונקציונלי
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Primary muscle (mirrors שריר ראשי block in ExerciseDetailSheet) */}
-                    {primaryMuscle && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          שריר ראשי
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={
-                              MUSCLE_ICON_PATHS[primaryMuscle] ??
-                              MUSCLE_FALLBACK_ICON
-                            }
-                            alt=""
-                            width={36}
-                            height={36}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          <span
-                            className="text-sm font-normal text-gray-800 dark:text-gray-200"
-                            style={SECTION_FONT}
-                          >
-                            {getMuscleGroupLabel(primaryMuscle)}
-                          </span>
-                        </div>
-                      </section>
-                    )}
-
-                    {/* Secondary muscles */}
-                    {secondaryMuscles.length > 0 && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          שרירים משניים
-                        </h3>
-                        <div className="flex flex-wrap gap-x-6 gap-y-3">
-                          {secondaryMuscles.map((m) => (
-                            <div
-                              key={m}
-                              className="flex-shrink-0 flex items-center gap-2"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={
-                                  MUSCLE_ICON_PATHS[m] ??
-                                  MUSCLE_FALLBACK_ICON
-                                }
-                                alt=""
-                                width={36}
-                                height={36}
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                              <span
-                                className="text-sm font-normal text-gray-800 dark:text-gray-200"
-                                style={SECTION_FONT}
-                              >
-                                {getMuscleGroupLabel(m)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    )}
-
-                    {/* Target programs (תוכניות מוקצות) */}
-                    {equipment.targetPrograms && equipment.targetPrograms.length > 0 && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          תוכניות מוקצות
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {equipment.targetPrograms.map((tp) => {
-                            const prog = programs.find((p) => p.id === tp.programId);
-                            const label = prog ? (typeof prog.name === 'string' ? prog.name : (prog.name as any)?.he ?? tp.programId) : tp.programId;
-                            return (
-                              <span
-                                key={tp.programId}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                                style={{ border: '1px solid rgba(99, 102, 241, 0.2)' }}
-                              >
-                                <Target size={12} />
-                                {label} · Level {tp.level}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    )}
-
-                    {/* Cues / דגשים — numbered cyan circles, matching
-                        the exercise drawer exactly. Doc `cues` →
-                        `description` lines → muscle-derived auto-cues. */}
-                    {cues.length > 0 && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          דגשים
-                        </h3>
-                        <ol className="space-y-2.5">
-                          {cues.map((cue, i) => (
-                            <li
-                              key={`${cue}_${i}`}
-                              className="flex gap-3 items-start"
-                            >
-                              <span className="flex-shrink-0 w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center bg-cyan-500">
-                                {i + 1}
-                              </span>
-                              <span
-                                className="text-sm text-slate-700 dark:text-slate-300 flex-1 leading-relaxed"
-                                style={SECTION_FONT}
-                              >
-                                {cue}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      </section>
-                    )}
-
-                    {/* Tips / טיפים — easier/harder variants from the doc. */}
-                    {tips.length > 0 && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          טיפים
-                        </h3>
-                        <ul className="space-y-2.5">
-                          {tips.map((tip, i) => (
-                            <li
-                              key={`${tip}_${i}`}
-                              className="flex gap-3 items-start bg-slate-50 dark:bg-slate-800/40 rounded-xl px-4 py-3"
-                              style={{ border: PILL_BORDER }}
-                            >
-                              <span
-                                className="text-sm text-slate-700 dark:text-slate-300 flex-1 leading-relaxed"
-                                style={SECTION_FONT}
-                              >
-                                {tip}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )}
-
-                    {/* Description card — only when the דגשים above came
-                        from the doc's own `cues`. When they came from the
-                        description itself, repeating it here would show
-                        the same steps twice. */}
-                    {cuesSource === 'doc' && equipment.description && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          תיאור
-                        </h3>
-                        <div
-                          className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4"
-                          style={{ border: PILL_BORDER }}
-                        >
-                          <Target
-                            size={18}
-                            className="flex-shrink-0 mt-0.5 text-cyan-600"
-                          />
-                          <p
-                            className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line"
-                            style={SECTION_FONT}
-                          >
-                            {equipment.description}
-                          </p>
-                        </div>
-                      </section>
-                    )}
-
-                    {/* Brand switcher — catalogue context only (pinnedToPark=false).
-                        In park context the brand is irrelevant to the user; hiding it
-                        also makes mixed-brand tagging harmless. */}
-                    {!pinnedToPark && equipment.brands && equipment.brands.length > 1 && (
-                      <section className="mb-6">
-                        <h3
-                          className="text-right text-[16px] font-semibold mb-3"
-                          style={SECTION_FONT}
-                        >
-                          מותגים זמינים
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {equipment.brands.map((b, i) => {
-                            const isActive = i === activeBrandIndex;
-                            return (
-                              <button
-                                key={`${b.brandName}_${i}`}
-                                type="button"
-                                onClick={() => setActiveBrandIndex(i)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors ${
-                                  isActive
-                                    ? 'bg-cyan-500 text-white shadow-sm'
-                                    : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200'
-                                }`}
-                              >
-                                {b.imageUrl && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={bunnyImg(b.imageUrl, 40)}
-                                    alt=""
-                                    className="w-5 h-5 rounded-full object-cover bg-white"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                    }}
-                                  />
-                                )}
-                                <span className="text-xs font-bold">
-                                  {b.brandName || `מותג ${i + 1}`}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    )}
-                  </div>
-                </>
-              )}
+              {body}
             </div>
           </motion.div>
         </>

@@ -210,3 +210,100 @@ describe('flag off — byte-identical to the pre-migration markup', () => {
     expect(scheduleBuilder()).toMatchSnapshot();
   });
 });
+
+describe('flag on — the shared <Sheet>', () => {
+  beforeEach(() => {
+    flags.enableHomeV2 = true;
+  });
+  it('LeagueFilterSheet: z 48/49 in place, grabber drag, tint selection, CTA footer', () => {
+    const out = leagueFilter();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:49');
+    expect(out).toContain('z-index:48');
+    expect(out).toContain('cursor-grab');
+    expect(out).toContain('bg-v2-tint text-v2-deep');
+    expect(out).toContain('bg-v2-cta');
+    expect(out).toContain('calc(env(safe-area-inset-bottom, 0px) + 56px)');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('OpponentPickerSheet: z 48/49, subtitle in the header, list kept', () => {
+    const out = opponentPicker();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:49');
+    expect(out).toContain('z-index:48');
+    expect(out).toContain('רק היריבה מתחלפת');
+    expect(out).toContain('נווה צדק');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('PostJoinSuccessDrawer: z 90/91, blurred backdrop, width-capped, body kept', () => {
+    const out = postJoin();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:91');
+    expect(out).toContain('z-index:90');
+    expect(out).toContain('backdrop-filter:blur(4px)');
+    expect(out).toContain('max-w-md mx-auto');
+    expect(out).toContain('הצטרפת ל-רצי הירקון');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('SessionDrawer: z 80/81, 85vh frame, media hero with glass close', () => {
+    const out = session();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:81');
+    expect(out).toContain('z-index:80');
+    expect(out).toContain('height:85vh');
+    expect(out).toContain('data-v2-icon-button="glass"');
+    expect(out).toContain('אימון בוקר בפארק');
+    expect(out).toContain('data-attendees');
+  });
+  it('NeighborhoodPickerSheet: z 70/71, blurred backdrop, city subtitle', () => {
+    const out = neighborhood();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:71');
+    expect(out).toContain('z-index:70');
+    expect(out).toContain('backdrop-filter:blur(12px)');
+    expect(out).toContain('בתל אביב');
+    expect(out).toContain('טוען שכונות');
+  });
+  it('EditProfileModal: nested, keyboard-aware, z 100, CTA footer', () => {
+    const out = editProfile();
+    expect(out).toContain('data-v2-sheet-modal="nested"');
+    expect(out).toContain('kb-fit fixed inset-0');
+    expect(out).toContain('kb-cap');
+    expect(out).toContain('z-index:100');
+    expect(out).toContain('sm:items-center');
+    expect(out).toContain('max-h-[92vh]');
+    expect(out).toContain('bg-v2-cta');
+    expect(out).toContain('placeholder="שמך"');
+    expect(out).toContain('data-v2-icon-button="surface"');
+  });
+  it('SetSavedPlaceSheet: z 100/100 in place, rides the keyboard, input kept', () => {
+    const out = savedPlace();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('kb-sheet fixed');
+    expect(out).toContain('kb-cap');
+    expect(out.match(/z-index:100/g)?.length).toBe(2);
+    expect(out).toContain('var(--kb-safe-bottom)');
+    expect(out).toContain('הגדרת בית');
+    expect(out).toContain('placeholder="כתובת הבית שלך..."');
+  });
+  it('ChatInbox: z 100/101 in place, keyboard-aware, 90dvh, list kept', () => {
+    const out = chatInbox();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out).toContain('z-index:101');
+    expect(out).toContain('z-index:100');
+    expect(out).toContain('kb-sheet fixed');
+    expect(out).toContain('h-[90dvh]');
+    expect(out).toContain('aria-label="חיפוש שיחות"');
+    expect(out).toContain('נועה');
+  });
+  it('ScheduleBuilderDrawer: z 101, tinted surface, 92vh, handle-row drag', () => {
+    const out = scheduleBuilder();
+    expect(out).toContain('data-v2-sheet-surface');
+    expect(out.match(/z-index:101/g)?.length).toBe(2);
+    expect(out).toContain('rounded-t-[28px] bg-v2-surface shadow-v2-sheet');
+    expect(out).toContain('height:92vh');
+    expect(out).toContain('cursor-grab');
+    expect(out).toContain('בואו נבנה לוז');
+    expect(out).toContain('data-v2-icon-button="white-ring"');
+  });
+});
