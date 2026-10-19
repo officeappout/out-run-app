@@ -248,6 +248,13 @@ export default function HybridOverviewScreen({ composed, cityName, onStart, onBa
           <Info size={15} /> {fallbackHint}
         </div>
       )}
+      {/* Budget light mode (enable_budget_light_mode): why this session is lighter. Flag off →
+          composed.budgetLightNote is never set, nothing renders. */}
+      {!fallbackHint && composed.budgetLightNote && (
+        <div className="flex items-center gap-2 mt-3 rounded-xl text-[12px] font-bold" style={{ background: '#EFF9FE', border: '0.5px solid #BAE6FD', color: '#0369A1', padding: '9px 12px' }}>
+          <Info size={15} className="flex-shrink-0" /> <span className="flex-1">{composed.budgetLightNote}</span>
+        </div>
+      )}
 
       {/* design-unification (05.08.2026): "פירוט" collapsible (defaultOpen=false) for
           EVERY hybrid card — was full-park-only; budget-split ("הליכה+כוח") used to

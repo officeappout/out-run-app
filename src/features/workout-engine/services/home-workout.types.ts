@@ -200,6 +200,25 @@ export interface HomeWorkoutOptions {
   isManualOverride?: boolean;
 
   /**
+   * Budget light mode (panel flag enable_budget_light_mode; src/features/workout-engine/budget-light).
+   * Who asked for this session: 'recommended' (home trio, map cards, full park, Kelly) gets a
+   * LIGHTER strength session when the strength budget is spent; 'manual' (the user builds it
+   * himself) gets no budget restriction at all. Absent → 'manual' when isManualOverride, else
+   * 'recommended'. Ignored while the flag is off (byte-identical).
+   */
+  budgetEntry?: 'recommended' | 'manual';
+
+  /**
+   * Budget light mode: this week's strength sets as the device knows them
+   * (budget-light/snapshot.ts). Absent → the policy falls back to remainingWeeklyBudget.
+   * Ignored while the flag is off.
+   */
+  strengthBudgetSnapshot?: import('../budget-light/policy').StrengthBudgetSnapshot;
+
+  /** Budget light mode flag override (tests). Undefined → readLiveFlag('enableBudgetLightMode'). */
+  budgetLightEnabled?: boolean;
+
+  /**
    * When `true`, only ONE trio slot is generated — the other two are skipped
    * entirely, cutting Firestore reads and generation latency by ~66%. Which
    * slot is computed is `targetOptionIndex` when set, otherwise the

@@ -91,6 +91,12 @@ export interface ComposedHybridSession {
    * עצירות"). Absent on every flag-off session → titles unchanged.
    */
   sessionTitle?: string;
+  /**
+   * Budget light mode (enable_budget_light_mode): the "why" line when this recommended session
+   * was made lighter because the strength set budget is spent. Absent otherwise (flag off →
+   * never set).
+   */
+  budgetLightNote?: string;
 }
 
 /** A dense square loop around a point, ~`km` perimeter — the no-route fallback. */
@@ -405,11 +411,16 @@ async function composeFullParkWorkout(
 
   try {
     // Home recommendation — READ-ONLY preview (skipCycleRestart). All 3 bolts, one call.
+    // Budget light mode: the week's strength sets for generateHomeWorkoutTrio's spent-budget
+    // policy (recommended entry). Flag off → nothing added, the call is unchanged.
+    const { readHybridBudgetLight } = await import('./budget-light-hybrid.runtime');
+    const fullParkLight = readHybridBudgetLight(profile);
     const trio = await generateHomeWorkoutTrio({
       userProfile: profile as any,
       location: 'park',
       parkEquipmentIds: oab.station.availableEquipment,
       skipCycleRestart: true,
+      ...(fullParkLight.enabled && fullParkLight.snapshot ? { strengthBudgetSnapshot: fullParkLight.snapshot } : {}),
     });
 
     const station = {
@@ -498,6 +509,10 @@ async function composeFullParkWorkout(
       // full_park has exactly one stop — stations mirrors station as a 1-element array.
       stations: [{ lat: oab.station.lat, lng: oab.station.lng, name: oab.station.name, image: oab.station.image, parkId: oab.station.parkId }],
       bolts: { plans, selectedIndex, labels: ['קליל', 'מאוזן', 'עוצמתי'] },
+      // Budget light mode: the light workout's own "why" (its description). Flag off → never set.
+      ...(trio.options[selectedIndex].result.workout.budgetLight
+        ? { budgetLightNote: trio.options[selectedIndex].result.workout.description }
+        : {}),
     };
   } catch (e) {
     // home-generator-v2 plan, step 3: a transient exception (network/parse) used to bounce
@@ -805,7 +820,8 @@ async function composeRouteStopsWorkout(
     { planFromPoint, detectTopology }, { getAllGymEquipmentCached },
     { useWeeklyVolumeStore },
     { resolveChildDomainsForParent }, { filterExercisesContextually }, { getWorkoutContext },
-    { applySpentBudgetCoreDefault, MIN_COHERENT_STATION_SETS }, { resolveMachineShareLevel },
+    { MIN_COHERENT_STATION_SETS }, { resolveMachineShareLevel },
+    budgetLight,
   ] = await tm.time('imports', Promise.all([
     import('@/features/user/identity/store/useUserStore'),
     import('@/features/content/exercises/core/exercise.service'),
@@ -821,6 +837,7 @@ async function composeRouteStopsWorkout(
     import('../services/split-decision/SplitDecisionService'),
     import('./weekly-budget-gate'),
     import('../services/compose-park-strength-workout.service'),
+    import('./budget-light-hybrid.runtime'),
   ]));
 
   const profile = useUserStore.getState().profile;
@@ -1050,9 +1067,16 @@ async function composeRouteStopsWorkout(
       tm.time('weeklyGaps', safeGetWeeklyGaps()),
       exercisesP, // already in flight since the top of the compose
     ]);
-  const coreDefault = applySpentBudgetCoreDefault(plannedStops, weeklyStrength, userProgramLevels);
+  // Budget light mode (enable_budget_light_mode, budget-light-hybrid.ts): flag ON → the stops stay
+  // strength and the session is made lighter below; flag OFF → applySpentBudgetCoreDefault, as before.
+  const light = budgetLight.readHybridBudgetLight(profile);
+  const coreDefault = budgetLight.planSpentBudgetStops({
+    enabled: light.enabled, stops: plannedStops, strength: weeklyStrength, snapshot: light.snapshot, userProgramLevels,
+  });
   const stops = coreDefault.stops;
-  if (coreDefault.reason !== 'not_spent' && plannedStops.some((s) => s.activityType === 'strength')) {
+  if (coreDefault.reason === 'light_strength') {
+    console.log(`[route-stops] strength budget spent (${coreDefault.decision.reasonKey}) → strength stops kept, light session (cap ${coreDefault.decision.setsCap} sets, easy bolt)`);
+  } else if (coreDefault.reason !== 'not_spent' && plannedStops.some((s) => s.activityType === 'strength')) {
     console.log(
       `[route-stops] weekly strength budget spent (remaining=${remainingStrengthBudget} < ${MIN_COHERENT_STATION_SETS}) → ` +
       (coreDefault.reason === 'defaulted_to_core'
@@ -1132,8 +1156,13 @@ async function composeRouteStopsWorkout(
       masterExercises, filterContext, generationContext, weeklyGaps, userWeightKg,
     });
   };
-  const plans = tm.sync('buildPlans', () => [1, 2, 3].map((d) => buildForBolt(d as 1 | 2 | 3)));
-  const selectedIndex = 1; // balanced default (bolt 2)
+  const isLight = coreDefault.decision.mode === 'light';
+  const plans = tm.sync('buildPlans', () => [1, 2, 3].map((d) => {
+    const plan = buildForBolt(d as 1 | 2 | 3);
+    return isLight ? budgetLight.capHybridPlanSets(plan, coreDefault.decision.setsCap) : plan;
+  }));
+  // balanced default (bolt 2); budget light mode → the easy bolt (intensity cap).
+  const selectedIndex = isLight ? Math.max(0, (coreDefault.decision.intensityCap ?? 2) - 1) : 1;
 
   // Part B gate: the field fallback fired AND the level-banded pool (standard-park-gear
   // since §10, was pure bodyweight before) was STILL too thin for a real
@@ -1212,6 +1241,7 @@ async function composeRouteStopsWorkout(
     fullParkRun: false,
     ...(noStationsHint ? { fallbackHint: noStationsHint.fallbackHint, assessmentDomains: noStationsHint.assessmentDomains } : {}),
     ...(opts.sessionTitle ? { sessionTitle: opts.sessionTitle } : {}),
+    ...(isLight ? { budgetLightNote: budgetLight.budgetLightNoteFor(coreDefault.decision, profile) } : {}),
   };
 }
 

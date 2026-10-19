@@ -191,6 +191,14 @@ export const FLAG_DEFS = [
   // panel toggle is the one switch (pre-auth code can't know who is a super admin).
   // Off = exactly today's startup.
   { key: 'enableFastStartupV1', firestoreKey: 'enable_fast_startup_v1', defaultValue: false, superAdminValue: false },
+  // Budget light mode (19.10.2026, owner decision) — when the daily or weekly strength set
+  // budget is spent, RECOMMENDATIONS (home trio, map hybrid cards / stations, full park, Kelly's
+  // generate_workout) offer a LIGHTER strength session (fewer sets, easier bolt, the user's own
+  // exercises) with a one-line "why" — instead of the recovery-stretch floor or the core default.
+  // A workout the user builds himself (builder / adjuster) gets no budget restriction at all.
+  // Read with readLiveFlag (src/features/workout-engine/budget-light). Fail-closed;
+  // superAdminValue false — the panel toggle is the one switch. Off = today, byte-identical.
+  { key: 'enableBudgetLightMode', firestoreKey: 'enable_budget_light_mode', defaultValue: false, superAdminValue: false },
   // Route quality v1 (19.10.2026, owner-approved phases 0+1) — the loop route generator places
   // waypoints ON quiet streets (geohash ring sampling, far fewer Firestore reads), pins them for
   // Mapbox (walkway bias + radius + travel bearing), drops blind synthetic points, trims dead-end
