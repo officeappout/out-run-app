@@ -20,6 +20,8 @@ import {
   onSnapshot,
   getDocs,
   limit,
+  orderBy,
+  documentId,
   Timestamp,
   type Query,
   type Unsubscribe,
@@ -34,6 +36,7 @@ import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPres
 import { useMapStore } from '../store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { computeAgeGroup } from '@/lib/age';
+import { isPartnerGroupVisible, partnerGroupQuerySpecs } from '../utils/partner-group-scope';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -264,6 +267,8 @@ export function usePartnerData(
   // SPEC-04 Wave A — required for the live-presence query below.
   const profile = useUserStore((s) => s.profile);
   const ageGroup = profile?.core?.ageGroup ?? computeAgeGroup(profile?.core?.birthDate);
+  // Scopes the community-groups listener (see partner-group-scope.ts).
+  const myAuthorityId = profile?.core?.authorityId ?? null;
   // Bucketed to ~1.1km resolution purely as an effect dependency — see
   // useGroupPresence.ts's identical locationBucketKey for the full reasoning
   // (avoid tearing down and rebuilding geohash-range listeners on every GPS
@@ -396,9 +401,14 @@ export function usePartnerData(
     // fan-out below on every community_events change anywhere, regardless
     // of relevance. Same bounding precedent as verified_global's limit(200).
     // See .claude/plans/cryptic-munching-gadget.md.
+    // orderBy(date desc) (19.10.2026): with limit(100) and no order the
+    // capped set was arbitrary; now it's the latest/upcoming events — the
+    // ones the past-event filter below would keep anyway. Index:
+    // community_events isActive ASC + date DESC.
     const q = query(
       collection(db, 'community_events'),
       where('isActive', '==', true),
+      orderBy('date', 'desc'),
       limit(100),
     );
 
@@ -487,68 +497,76 @@ export function usePartnerData(
       return;
     }
 
-    const q = query(
-      collection(db, 'community_groups'),
-      where('isActive', '==', true),
+    // Scoped + bounded (19.10.2026, partner-group-scope.ts): was one
+    // unbounded listener on EVERY active group. Now the user's authority
+    // (newest first, capped) plus their own groups by id, merged by doc id.
+    const groupsCol = collection(db, 'community_groups');
+    const queries = partnerGroupQuerySpecs(myAuthorityId, myGroupIds).map((spec) =>
+      spec.kind === 'authority'
+        ? query(groupsCol, where('authorityId', '==', spec.authorityId), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(spec.limit))
+        : spec.kind === 'fallback'
+          ? query(groupsCol, where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(spec.limit))
+          : query(groupsCol, where(documentId(), 'in', spec.ids)),
     );
 
     // Capture a stable snapshot of myGroupIds for use inside the closure.
     // Storing as a Set avoids O(n) includes() on every doc.
     const memberSet = new Set(myGroupIds);
+    const mergedGroups = new Map<string, any>();
 
-    unsubGroups.current = onSnapshot(
-      q,
-      (snap) => {
-        const partners: any[] = [];
-        for (const docSnap of snap.docs) {
-          const data = docSnap.data();
+    const flushGroups = () => {
+      const partners: any[] = [];
+      for (const { id: groupId, ...data } of mergedGroups.values()) {
+        const docSnap = { id: groupId as string };
 
-          // ── Hybrid visibility gate ────────────────────────────────────────
-          // Groups without isPublic field (legacy) default to visible.
-          const isPrivate = data.isPublic === false;
-          if (isPrivate && !memberSet.has(docSnap.id)) continue;
-          // ─────────────────────────────────────────────────────────────────
+        // ── Hybrid visibility gate ────────────────────────────────────────
+        // Active only; private groups only for members; groups without
+        // isPublic (legacy) default to visible.
+        if (!isPartnerGroupVisible(docSnap.id, data, memberSet)) continue;
+        // ─────────────────────────────────────────────────────────────────
 
-          const slots = extractSlots(data);
-          if (!slots.length) continue;
+        const slots = extractSlots(data);
+        if (!slots.length) continue;
 
-          const lat = data.meetingLocation?.location?.lat ?? data.meetingLocation?.lat ?? 0;
-          const lng = data.meetingLocation?.location?.lng ?? data.meetingLocation?.lng ?? 0;
-          const groupName = data.name ?? 'מפגש קבוצתי';
-          const participantCount = data.currentParticipants ?? 1;
+        const lat = data.meetingLocation?.location?.lat ?? data.meetingLocation?.lat ?? 0;
+        const lng = data.meetingLocation?.location?.lng ?? data.meetingLocation?.lng ?? 0;
+        const groupName = data.name ?? 'מפגש קבוצתי';
+        const participantCount = data.currentParticipants ?? 1;
 
-          for (let si = 0; si < slots.length; si++) {
-            const slot = slots[si];
-            const occurrences = expandSlotForWeek(slot);
-            for (let oi = 0; oi < occurrences.length; oi++) {
-              const occ = occurrences[oi];
-              partners.push({
-                id: `group_${docSnap.id}_${toISODate(occ)}_${slot.time.replace(':', '')}_s${si}_o${oi}`,
-                userId: `group_${docSnap.id}`,
-                displayName: groupName,
-                photoURL: data.photoURL ?? null,
-                routeId: data.meetingLocation?.routeId ?? '',
-                activityType: (data.activityType ?? 'running') as ActivityType,
-                level: 'all',
-                startTime: occ,
-                lat,
-                lng,
-                _source: 'group',
-                _sessionLabel: slot.label ?? groupName,
-                _groupId: docSnap.id,
-                _participantCount: participantCount,
-              });
-            }
+        for (let si = 0; si < slots.length; si++) {
+          const slot = slots[si];
+          const occurrences = expandSlotForWeek(slot);
+          for (let oi = 0; oi < occurrences.length; oi++) {
+            const occ = occurrences[oi];
+            partners.push({
+              id: `group_${docSnap.id}_${toISODate(occ)}_${slot.time.replace(':', '')}_s${si}_o${oi}`,
+              userId: `group_${docSnap.id}`,
+              displayName: groupName,
+              photoURL: data.photoURL ?? null,
+              routeId: data.meetingLocation?.routeId ?? '',
+              activityType: (data.activityType ?? 'running') as ActivityType,
+              level: 'all',
+              startTime: occ,
+              lat,
+              lng,
+              _source: 'group',
+              _sessionLabel: slot.label ?? groupName,
+              _groupId: docSnap.id,
+              _participantCount: participantCount,
+            });
           }
         }
-        setRawGroupPartners(partners);
-      },
-      () => {},
+      }
+      setRawGroupPartners(partners);
+    };
+    const groupUnsubs = queries.map((q) =>
+      subscribeMerged(q, mergedGroups, flushGroups, setIsLoading, 'community groups'),
     );
+    unsubGroups.current = () => groupUnsubs.forEach((u) => u());
 
     return () => unsubGroups.current?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myMode, myGroupIds.join(','), isForeground, isPressureCritical]);
+  }, [myMode, myGroupIds.join(','), myAuthorityId, isForeground, isPressureCritical]);
   // Note: myGroupIds.join(',') is a stable string dep — avoids a new listener
   // on every render while still re-subscribing when the set of groups changes.
 
