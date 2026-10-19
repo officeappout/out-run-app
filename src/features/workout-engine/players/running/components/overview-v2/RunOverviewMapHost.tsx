@@ -166,7 +166,7 @@ export default function RunOverviewMapHost({
           selectedId={chosen?.route.id ?? null}
           onSelect={(s) => choose(s)}
           onBack={clearRoute}
-          workoutLabel={typeof mainLabel === 'string' ? mainLabel.replace(/\s*מ׳$/u, '') : ''}
+          workoutLabel={typeof mainLabel === 'string' ? mainLabel.replace(/\s*מ׳$/, '') : ''}
           minutes={minutes}
           journey={journey}
         />

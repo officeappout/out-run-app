@@ -20,7 +20,7 @@ export interface RunVariantPickerProps {
 }
 
 export function variantOptionLabel(v: RunVariant, ctx: RunPaceContext): string {
-  if (/דק׳$/u.test(v.label)) return v.label;
+  if (/דק׳$/.test(v.label)) return v.label;
   const sec = estimateRunTotals(v.blocks, ctx).seconds;
   return sec ? `${v.label} · ${Math.max(1, Math.round(sec / 60))}׳` : v.label;
 }

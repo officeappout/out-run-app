@@ -35,7 +35,7 @@ export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSel
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-[70]" dir="rtl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
       <div className="pointer-events-auto flex items-center justify-between px-4">
-        <IconButton aria-label="חזרה" size={44} onClick={onBack}>
+        <IconButton aria-label="חזרה" size={40} onClick={onBack}>
           <ArrowRight className="h-[18px] w-[18px] text-v2-ink" />
         </IconButton>
         {suggestions.length > 0 && (
@@ -43,7 +43,7 @@ export default function RunRouteSuggestCarousel({ suggestions, selectedId, onSel
             <RouteIcon size={15} className="text-v2-deep" aria-hidden />{pillText(suggestions.length, workoutLabel, allLoops)}
           </span>
         )}
-        <span className="w-11" />
+        <span className="w-10" />
       </div>
       {suggestions.length > 0 && (
         <div className="pointer-events-auto mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2.5 pt-1.5"

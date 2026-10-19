@@ -37,7 +37,7 @@ export function isRunVariantKey(v: unknown): v is RunVariantKey {
 
 /** "400 מ׳" → "400", "10 דק׳" → "10" (the selector drops the unit, board M-6a). */
 export function bareSize(b: RunBlock): string {
-  return blockSizeLabel(b).replace(/\s*(מ׳|דק׳|שנ׳|ק״מ)$/u, '').trim();
+  return blockSizeLabel(b).replace(/\s*(מ׳|דק׳|שנ׳|ק״מ)$/, '').trim();
 }
 
 function sameShape(a: RunBlock, b: RunBlock): boolean {
