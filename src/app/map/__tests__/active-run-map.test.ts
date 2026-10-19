@@ -25,7 +25,7 @@ describe('TwoLayerShell exposes isDragging', () => {
   it('sets it on drag start and clears it on drag end', () => {
     expect(src).toContain('onDragStart={isActive ? () => setIsDragging(true) : undefined}');
     expect(src).toContain('setIsDragging(false); handleDragEnd(e, info);');
-    expect(src).toContain('children({ dragControls, isMinimized, onExpand, isDragging })');
+    expect(src).toContain('children({ dragControls, isMinimized, onExpand, onMinimize, isDragging })');
   });
 });
 

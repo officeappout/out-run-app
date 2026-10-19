@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getAllExercisesNoOrder } from '../../core/exercise.service';
+import { getAllExercisesCached } from '../../core/exercise.service';
 import {
   useExerciseLibraryStore,
   BODYWEIGHT_SENTINEL,
@@ -271,7 +271,7 @@ export function useExerciseLibraryFilters() {
     // because that pattern only protects React useState setters from
     // "Can't perform a React state update on an unmounted component"
     // warnings — Zustand actions don't have that restriction.
-    getAllExercisesNoOrder()
+    getAllExercisesCached()
       .then((list) => {
         // eslint-disable-next-line no-console
         console.log('[Library] DB Data (fetched):', list.length, 'exercises');

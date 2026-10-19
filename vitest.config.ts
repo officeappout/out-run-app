@@ -33,6 +33,8 @@ export default defineConfig({
       'src/**/__tests__/**/*.test.ts',
       // Design language v2 primitives — static-markup render tests (node env).
       'src/components/ui/v2/__tests__/**/*.test.tsx',
+      // Error boundaries + lazy overlay wrappers — same static-markup approach.
+      'src/components/system/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

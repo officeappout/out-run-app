@@ -55,6 +55,10 @@ export default function AerobicSummaryShell(props: Props) {
   // numbers include this session; today is marked trained either way.
   const streakWeek = useSummaryStreakWeek({ todayDone: !isReadOnly });
   const weeklySummary = useActivityStore((s) => s.weeklySummary);
+  // Home v2: the running program already on the profile (no extra reads)
+  // feeds the program ring; the history view leaves it out.
+  const activeProgram = useUserStore((st) => st.profile?.running?.activeProgram);
+  const programName = useUserStore((st) => st.profile?.running?.generatedProgramTemplate?.name);
   const v2Data: AerobicSummaryV2Data | undefined = v2
     ? {
         streak: isReadOnly ? null : streakWeek,
@@ -68,6 +72,7 @@ export default function AerobicSummaryShell(props: Props) {
                 max: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
               },
             ],
+        plan: isReadOnly || !activeProgram ? null : { program: activeProgram, programName },
       }
     : undefined;
 

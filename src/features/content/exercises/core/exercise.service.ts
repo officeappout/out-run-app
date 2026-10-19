@@ -13,15 +13,14 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  query,
-  orderBy,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Exercise, ExerciseFormData, getLocalizedText } from './exercise.types';
 import { logAction } from '@/features/admin/services/audit.service';
-import { createTtlAsyncCache } from '@/lib/ttlAsyncCache';
+import { readAllExercisesOrdered, readAllExercisesUnordered } from './exercise-collection.reads';
+import { invalidateExerciseCatalog } from './exercise-catalog';
 
 // Import sanitization and normalization utilities
 import {
@@ -76,10 +75,7 @@ const EXERCISES_COLLECTION = 'exercises';
  */
 export async function getAllExercises(): Promise<Exercise[]> {
   try {
-    const q = query(collection(db, EXERCISES_COLLECTION), orderBy('name', 'asc'));
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => normalizeExercise(doc.id, doc.data()));
+    return await readAllExercisesOrdered();
   } catch (error) {
     console.error('Error fetching exercises:', error);
     throw error;
@@ -87,21 +83,17 @@ export async function getAllExercises(): Promise<Exercise[]> {
 }
 
 /**
- * getAllExercises behind a short in-memory TTL cache + in-flight dedupe (route_stops compose perf,
- * 13.10.2026: this full-collection read was ~470ms on every compose). `getAllExercises` itself is
- * UNCHANGED (admin editors and every other caller still read live); only callers that opt in get
- * the cached copy, which can be up to EXERCISES_CACHE_TTL_MS stale. Returns a fresh array each
- * call so a caller that sorts/splices can't corrupt the shared copy (the exercise objects are
- * shared — treat them as read-only).
+ * Cached full-catalog read for every NON-admin caller (memory + IndexedDB, 30-min TTL, in-flight
+ * dedupe) — see ./exercise-catalog.ts. `getAllExercises` above stays live for the admin panel.
+ * `getAllExercisesCached` / `invalidateExercisesCache` are the historical names, kept as aliases.
  */
-export const EXERCISES_CACHE_TTL_MS = 5 * 60 * 1000;
-const exercisesCache = createTtlAsyncCache(getAllExercises, EXERCISES_CACHE_TTL_MS);
-export async function getAllExercisesCached(): Promise<Exercise[]> {
-  return [...(await exercisesCache.get())];
-}
-export function invalidateExercisesCache(): void {
-  exercisesCache.invalidate();
-}
+export {
+  getExerciseCatalog,
+  getExerciseCatalog as getAllExercisesCached,
+  invalidateExerciseCatalog,
+  invalidateExerciseCatalog as invalidateExercisesCache,
+  EXERCISE_CATALOG_TTL_MS,
+} from './exercise-catalog';
 
 /**
  * Fetch every exercise document WITHOUT an orderBy clause.
@@ -119,8 +111,7 @@ export function invalidateExercisesCache(): void {
  */
 export async function getAllExercisesNoOrder(): Promise<Exercise[]> {
   try {
-    const snapshot = await getDocs(collection(db, EXERCISES_COLLECTION));
-    return snapshot.docs.map((docSnap) => normalizeExercise(docSnap.id, docSnap.data()));
+    return await readAllExercisesUnordered();
   } catch (error) {
     console.error('[Exercise Service] getAllExercisesNoOrder failed:', error);
     throw error;
@@ -241,6 +232,7 @@ export async function createExercise(
 
     const cleanedExerciseData = convertUndefinedToNull(exerciseData);
     const docRef = await addDoc(collection(db, EXERCISES_COLLECTION), cleanedExerciseData);
+    invalidateExerciseCatalog();
 
     // Log audit action
     if (adminInfo) {
@@ -512,6 +504,7 @@ export async function updateExercise(
 
     const cleanedUpdateData = convertUndefinedToNull(updateData);
     await updateDoc(docRef, cleanedUpdateData);
+    invalidateExerciseCatalog();
     
     // =========================================================================
     // VERIFICATION: Check that ALL metadata fields are still in the database
@@ -665,6 +658,7 @@ export async function deleteExercise(
     
     const docRef = doc(db, EXERCISES_COLLECTION, exerciseId);
     await deleteDoc(docRef);
+    invalidateExerciseCatalog();
     
     // Log audit action
     if (adminInfo) {
@@ -836,6 +830,7 @@ export async function updateMethodWorkflow(
       execution_methods: updatedMethods,
       updatedAt: serverTimestamp(),
     });
+    invalidateExerciseCatalog();
   } catch (error) {
     console.error('Error updating method workflow:', error);
     throw error;
@@ -1057,6 +1052,7 @@ export async function bulkAssignBaseMovementIds(
 
     try {
       await batch.commit();
+      invalidateExerciseCatalog();
       updated += chunk.length;
     } catch (error) {
       console.error('[bulkAssignBaseMovementIds] Batch commit failed:', error);

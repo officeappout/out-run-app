@@ -39,6 +39,7 @@ import type { RouteTurn } from '../services/geoUtils';
 import {
   buildCumulativeMeters, advanceRouteProgress, splitPathAtMeters, easeAlong, type LngLat,
 } from '../services/route-progress';
+import RouteRunMapLayersV2 from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunMapLayersV2';
 import {
   isFiniteNum,
   isFiniteLngLat,
@@ -1945,6 +1946,10 @@ export default function AppMap({
                 <Layer id="ghost-path-line" type="line" paint={GHOST_PATH_LINE.paint as any} layout={GHOST_PATH_LINE.layout} />
               </Source>
             )}
+
+            {/* Home v2 (enable_home_v2, flag read inside): km badges, solid-grey walked slice,
+                the "navigate back" line. Zone-coloured planned runs stay untouched. */}
+            <RouteRunMapLayersV2 routePath={hasZoneSegments ? null : progressPath} />
 
           </>
         )}

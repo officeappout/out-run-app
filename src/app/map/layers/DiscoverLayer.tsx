@@ -10,13 +10,10 @@ import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { PRIMARY_CATEGORIES } from '@/features/user/onboarding/services/single-domain-assessment.service';
 import BottomJourneyContainer from '@/features/parks/core/components/BottomJourneyContainer';
 import NavigationHub from '@/features/parks/core/components/NavigationHub';
-import FreeRunDrawer from '@/features/parks/core/components/FreeRunDrawer';
 import LegPlanStartPreview from '@/features/parks/core/components/LegPlanStartPreview';
 import type { CompiledLegPlanRoute } from '@/features/parks/core/services/leg-plan.service';
 import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
 import OverviewTitleBar from '@/features/parks/core/components/hybrid/OverviewTitleBar';
-import ExerciseDetailDrawer from '@/features/workouts/components/workout-preview-drawer/components/ExerciseDetailDrawer';
-import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
 import { adaptationStampForPlan, swapStampForEntry } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
@@ -44,10 +41,7 @@ import FloatingSearchBar from '@/features/parks/core/components/FloatingSearchBa
 import MapModeHeader, { MapMode } from '@/features/parks/core/components/MapModeHeader';
 import RouteGenerationLoader from '@/features/parks/core/components/RouteGenerationLoader';
 import { useMapLogic } from '@/features/parks';
-import ContributionWizard from '@/features/parks/client/components/contribution-wizard';
-import QuickReportSheet from '@/features/parks/client/components/contribution-wizard/QuickReportSheet';
 import { ParkPreview } from '@/features/parks/client/components/park-preview';
-import RouteDetailSheet from '@/features/parks/client/components/route-preview/RouteDetailSheet';
 import { MapLayersControl } from '@/features/parks/core/components/MapLayersControl';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useLegPlanStore } from '@/features/parks/core/store/useLegPlanStore';
@@ -58,7 +52,6 @@ import { auth } from '@/lib/firebase';
 import { usePartnerData } from '@/features/parks/core/hooks/usePartnerData';
 import { useUserStore } from '@/features/user';
 import { useUserCityName } from '@/features/parks/core/hooks/useUserCityName';
-import SetSavedPlaceSheet from '@/features/user/places/components/SetSavedPlaceSheet';
 import type { SavedPlaceKind } from '@/features/user/places/store/useSavedPlacesStore';
 import { useRecentSearchesStore } from '@/features/parks/core/store/useRecentSearchesStore';
 import { SearchDestinationCard, SearchRouteCard, type SearchDestinationPick } from '@/features/parks/core/components/SearchPickCards';
@@ -77,8 +70,11 @@ import {
   Navigation,
   Plus, X, Zap,
 } from 'lucide-react';
-import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
-import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
+// Overlays are code-split + mounted on first open (drop-in replacements, see the module).
+import {
+  FreeRunDrawer, RouteDetailSheet, ExerciseReplacementModal, ExerciseDetailDrawer, ContributionWizard,
+  QuickReportSheet, PlannedActivityComposeSheet, UnifiedPlusDrawer, SetSavedPlaceSheet, useDiscoverOverlayPreload,
+} from './DiscoverOverlays';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -229,6 +225,8 @@ interface DiscoverLayerProps {
 
 export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter, firstRunTourEligible = false }: DiscoverLayerProps) {
   const router = useRouter();
+  // Warm the code-split overlay chunks once the map is idle (first tap stays instant).
+  useDiscoverOverlayPreload();
   const { setMode } = useMapMode();
   // Phase 3 (social-activities plan): opportunistically refresh the
   // userLocations/{uid} geohash index while the map has a GPS fix. Feeds

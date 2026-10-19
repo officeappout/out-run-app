@@ -165,6 +165,13 @@ export const FLAG_DEFS = [
   // switch (the server reads the real value and ignores the override anyway). Off = today's
   // behaviour: separate "קלי AI" screen + the human Kelly DM.
   { key: 'kellyUnifiedV1', firestoreKey: 'kelly_unified_v1', defaultValue: false, superAdminValue: false },
+  // iOS keyboard insets (19.10.2026) — the app-wide keyboard-inset controller
+  // (src/lib/keyboard): sheets / chat composers / map search sit above the keyboard,
+  // the focused field is scrolled into view, and the Capacitor Keyboard plugin is
+  // switched to resize:'none' at runtime. Web code ships to every iPhone on deploy,
+  // so it's fail-closed and super admins (owner + office) test it on-device first.
+  // Off = exactly today's behaviour (the CSS utilities are inert at --kb-inset: 0).
+  { key: 'enableKeyboardInsetsV1', firestoreKey: 'enable_keyboard_insets_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

@@ -26,6 +26,8 @@ import { hapticLight, hapticMedium, hapticWarning } from '@/lib/haptics';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import PlannedRunLiveV2 from './v2/PlannedRunLiveV2';
+import ContinuousRunLiveV2 from '../Continuous/v2/ContinuousRunLiveV2';
+import { isContinuousPlan } from '../../lib/continuous-run';
 
 const PACE_HINT_COOLDOWN_MS = 30_000;
 const PACE_HINT_THRESHOLD_S = 10;
@@ -233,6 +235,9 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
   );
 
   const blocks = currentWorkout?.blocks ?? [];
+  // v2: one steady block (easy / tempo / long, wrappers aside) → the continuous player.
+  const continuous = useMemo(() => isContinuousPlan(currentWorkout?.blocks), [currentWorkout]);
+  const LiveV2 = continuous ? ContinuousRunLiveV2 : PlannedRunLiveV2;
   const elapsedFormatted = formatElapsed(totalDuration);
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -245,7 +250,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       {v2 ? (
-        <PlannedRunLiveV2
+        <LiveV2
           engine={engine}
           blocks={blocks}
           title={currentWorkout?.title ?? 'אימון מתוכנן'}

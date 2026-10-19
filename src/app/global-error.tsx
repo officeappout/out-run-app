@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { isChunkLoadError } from '@/lib/sentry-shared';
+import { clearChunkReloadFlag, reloadOnceForChunkError } from '@/lib/chunk-reload';
 
 /**
  * Root-level error boundary for the Next.js App Router.
@@ -28,15 +29,10 @@ export default function GlobalError({
     console.error('[global-error]', error.message, '\nstack:', error.stack, '\ndigest:', error.digest);
     Sentry.captureException(error);
 
-    if (isChunkLoadError(error)) {
-      // Hard-reload fetches fresh HTML + fresh chunks from the current deploy.
-      // Avoid an infinite reload loop by checking a session flag.
-      const key = 'chunk_error_reload';
-      if (!sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, '1');
-        window.location.reload();
-      }
-    }
+    // Hard-reload fetches fresh HTML + fresh chunks from the current deploy
+    // (once — a session flag guards against a reload loop). Shared with the
+    // route-level error.tsx boundaries via src/lib/chunk-reload.ts.
+    reloadOnceForChunkError(error);
   }, [error]);
 
   return (
@@ -61,7 +57,7 @@ export default function GlobalError({
           ) : null}
           <button
             onClick={() => {
-              sessionStorage.removeItem('chunk_error_reload');
+              clearChunkReloadFlag();
               isChunkLoadError(error) ? window.location.reload() : reset();
             }}
             style={{

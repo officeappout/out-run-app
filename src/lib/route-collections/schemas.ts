@@ -57,6 +57,13 @@ const RouteFieldsSchema = z.object({
    *  detail, not route-level (see route.types.ts's own doc comment). */
   elevationGain: z.number().min(0).optional(),
   maxGrade: z.number().min(0).optional(),
+  /** Equally spaced elevations (m) along `path`, path order — elevationsM[i]
+   *  at i·stepM metres. Written by the trails pipeline (Copernicus GLO-30,
+   *  ~64 samples); read by the live route-run elevation strip. */
+  elevationProfile: z.object({
+    stepM: z.number().positive().finite(),
+    elevationsM: z.array(z.number().finite()).min(2).max(256),
+  }).optional(),
   /** Cross-refs to nearby climb_segments docs, written by Stage 3's spatial
    *  join (route-enrichment.service.ts). See Route.terrainFeatures's doc
    *  comment (route.types.ts) — mirrors RouteTerrainFeatureRef verbatim. */

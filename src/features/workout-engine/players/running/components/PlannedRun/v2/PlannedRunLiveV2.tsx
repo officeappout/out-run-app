@@ -10,15 +10,17 @@
  *           segmented per block + done badge) and the session clock
  *   bottom: the free-run-style white card over the map (PlannedLiveCardV2)
  *   behind: the session list (PlannedSessionListV2) — drag the player down
- *           or tap the cart; the player shrinks to a black mini bar.
+ *           or tap the cart; the player shrinks to the MiniPlayer
+ *           (shared shell: players/shared/v2/PlayerShell).
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useDragControls } from 'framer-motion';
-import { ChevronUp, LocateFixed, Pause, Play } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
+import { MiniPlayer, PlayerShell } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
@@ -26,8 +28,6 @@ import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
 import PlannedSessionListV2 from './PlannedSessionListV2';
-
-const MINI_BAR_HEIGHT = 72;
 
 interface Props {
   engine: PlannedRunEngine;
@@ -68,36 +68,6 @@ export default function PlannedRunLiveV2({
   const { currentBlock, currentBlockIndex, blockProgress, blockTimeRemaining, blockDistanceRemaining } = engine;
 
   const [listOpen, setListOpen] = useState(false);
-  const [winH, setWinH] = useState(typeof window !== 'undefined' ? window.innerHeight : 812);
-  const [safeBottom, setSafeBottom] = useState(0);
-  const safeRef = useRef<HTMLDivElement>(null);
-  const dragControls = useDragControls();
-
-  useEffect(() => {
-    const update = () => setWinH(window.innerHeight);
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-  useEffect(() => {
-    if (safeRef.current) setSafeBottom(safeRef.current.getBoundingClientRect().height);
-  }, []);
-  const miniY = winH - MINI_BAR_HEIGHT - safeBottom;
-
-  const onDragEnd = useCallback(
-    (_: unknown, info: { offset: { y: number }; velocity: { y: number } }) => {
-      if (!listOpen && (info.offset.y > 100 || info.velocity.y > 500)) setListOpen(true);
-      else if (listOpen && (info.offset.y < -50 || info.velocity.y < -500)) setListOpen(false);
-    },
-    [listOpen],
-  );
-  const startDrag = useCallback(
-    (e: React.PointerEvent) => {
-      if ((e.target as HTMLElement).closest('button')) return;
-      dragControls.start(e);
-    },
-    [dragControls],
-  );
 
   const segments = useMemo(() => blocks.map((b, i) => ({ key: b.id ?? String(i), color: v2BlockColor(b) })), [blocks]);
   const cartItems = useMemo(
@@ -124,75 +94,39 @@ export default function PlannedRunLiveV2({
   }, []);
 
   return (
-    <>
-      {/* ═══ BEHIND: the session list ═══ */}
-      {listOpen && (
-        <div className="absolute inset-0 z-10 pointer-events-auto">
-          <PlannedSessionListV2
-            title={title}
-            blocks={blocks}
-            currentBlockIndex={currentBlockIndex}
-            records={live.byIndex}
-            reps={reps}
-            resolveTarget={live.resolve}
-            showNumbers={engine.showNumbers}
-            currentRemaining={currentRemaining}
-            totals={totals}
-            onJumpToBlock={onJumpToBlock}
-            onClose={() => setListOpen(false)}
-          />
-        </div>
+    <PlayerShell
+      open={listOpen}
+      onOpenChange={setListOpen}
+      behind={
+        <PlannedSessionListV2
+          title={title}
+          blocks={blocks}
+          currentBlockIndex={currentBlockIndex}
+          records={live.byIndex}
+          reps={reps}
+          resolveTarget={live.resolve}
+          showNumbers={engine.showNumbers}
+          currentRemaining={currentRemaining}
+          totals={totals}
+          onJumpToBlock={onJumpToBlock}
+          onClose={() => setListOpen(false)}
+        />
+      }
+      mini={({ startDrag, height, safeBottom }) => (
+        <MiniPlayer
+          color={currentBlock ? v2BlockColor(currentBlock) : '#a9b7c2'}
+          title={currentBlock ? `${blockDisplayLabel(currentBlock)} · ${currentRemaining}` : 'אימון מתוכנן'}
+          subtitle={`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(1)} ק״מ`}
+          isPaused={isPaused}
+          onTogglePause={isPaused ? onResume : onPause}
+          onExpand={() => setListOpen(false)}
+          onPointerDown={startDrag}
+          height={height}
+          safeBottom={safeBottom}
+        />
       )}
-
-      {/* ═══ THE PLAYER (drags down to the mini bar) ═══ */}
-      <motion.div
-        className="absolute inset-0 z-20 pointer-events-none"
-        animate={{ y: listOpen ? miniY : 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        drag="y"
-        dragControls={dragControls}
-        dragListener={false}
-        dragConstraints={{ top: 0, bottom: listOpen ? miniY + 120 : miniY }}
-        dragElastic={0.12}
-        onDragEnd={onDragEnd}
-        dir="rtl"
-        style={{ fontFamily: 'var(--font-simpler)' }}
-      >
-        {listOpen ? (
-          <div
-            className="pointer-events-auto mx-0 flex cursor-pointer items-center gap-3 rounded-t-[22px] bg-v2-ink px-4 text-white"
-            style={{ height: MINI_BAR_HEIGHT + safeBottom, paddingBottom: safeBottom, touchAction: 'none' }}
-            onPointerDown={startDrag}
-            onClick={() => setListOpen(false)}
-          >
-            <span
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px]"
-              style={{ background: currentBlock ? v2BlockColor(currentBlock) : '#a9b7c2' }}
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate whitespace-nowrap text-[14.5px] font-black">
-                {currentBlock ? `${blockDisplayLabel(currentBlock)} · ${currentRemaining}` : 'אימון מתוכנן'}
-              </span>
-              <span dir="ltr" className="block truncate whitespace-nowrap text-right text-[12.5px] font-bold tabular-nums text-white/60">
-                {`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(1)} ק״מ`}
-              </span>
-            </span>
-            <button
-              type="button"
-              aria-label={isPaused ? 'המשך אימון' : 'השהה אימון'}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isPaused) onResume();
-                else onPause();
-              }}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/10 active:scale-[0.97] transition-transform duration-150 ease-v2"
-            >
-              {isPaused ? <Play size={20} fill="currentColor" aria-hidden /> : <Pause size={20} fill="currentColor" aria-hidden />}
-            </button>
-            <ChevronUp size={20} className="shrink-0 text-white/60" aria-hidden />
-          </div>
-        ) : (
+    >
+      {({ startDrag }) => (
           <>
             {/* Header — also the drag handle. */}
             <header
@@ -253,14 +187,7 @@ export default function PlannedRunLiveV2({
               />
             </div>
           </>
-        )}
-      </motion.div>
-
-      <div
-        ref={safeRef}
-        className="fixed bottom-0 left-0 w-0 pointer-events-none"
-        style={{ height: 'env(safe-area-inset-bottom, 0px)' }}
-      />
-    </>
+      )}
+    </PlayerShell>
   );
 }

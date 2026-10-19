@@ -137,7 +137,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
+    <div className="kb-fit fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900">

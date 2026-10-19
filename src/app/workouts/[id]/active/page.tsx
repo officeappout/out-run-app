@@ -8,15 +8,15 @@ import { useParams, useRouter } from 'next/navigation';
 import StrengthRunner from '@/features/workout-engine/players/strength/StrengthRunner';
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
 import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
-import ResumeWorkoutDialog from '@/features/workout-engine/players/strength/components/ResumeWorkoutDialog';
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
+// Mid-workout modals are code-split + mounted on first open (drop-in replacements).
+import { ExerciseReplacementModal, ResumeWorkoutDialog, useActiveWorkoutOverlayPreload } from './ActiveWorkoutOverlays';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
-import { getAllExercises, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
+import { getAllExercisesCached, getExercise as getFirestoreExercise, Exercise as FirestoreExercise, getLocalizedText, findMethodForLocation } from '@/features/content/exercises';
 import { normalizeGearId } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
 import { saveExerciseHistory, getHistoryMapForExercises } from '@/features/workout-engine/services/exercise-history.service';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
-import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
 import type { ExecutionMethod } from '@/features/content/exercises';
 import { 
   StrengthDopamineScreen, 
@@ -276,7 +276,7 @@ function enrichExercise(
 async function fetchWorkoutFromFirestore(workoutId: string, workoutLocation?: string): Promise<WorkoutPlan | null> {
   try {
     console.log('[ActiveWorkoutPage] Fetching all exercises from Firestore');
-    const exercises = await getAllExercises();
+    const exercises = await getAllExercisesCached();
     
     if (!exercises || exercises.length === 0) {
       console.warn('[ActiveWorkoutPage] No exercises found in Firestore');
@@ -575,6 +575,8 @@ let _summaryFinishInFlight = false;
 export default function ActiveWorkoutPage() {
   const params = useParams();
   const router = useRouter();
+  // Warm the code-split mid-workout modals right after mount (network is there now).
+  useActiveWorkoutOverlayPreload();
   const workoutId = params.id as string;
   
   // === FLOW STATE ===

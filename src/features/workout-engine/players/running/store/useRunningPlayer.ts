@@ -10,7 +10,7 @@ import { calculateDistance } from '@/lib/services/location.service';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import type RunWorkout from '../types/run-workout.type';
 import type { PlannedBlockResult } from '../../../core/services/pace-self-correction.service';
-import type { PlannedBlockRecord } from '../../../core/services/storage.service';
+import type { PlannedBlockRecord, RunSummaryMeta } from '../../../core/services/storage.service';
 import { advanceTarget, buildBlockRecords, resolveBlockTargetPace } from '../lib/planned-rep-results';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
@@ -302,6 +302,13 @@ interface RunningPlayerState {
   // See SessionGoal jsdoc for unit conventions.
   sessionGoal: SessionGoal | null;
 
+  /**
+   * Home v2 only: time in the planned zone of a continuous run's main block
+   * (smoothed in-zone flag, active seconds). Written by the v2 continuous
+   * player, read at finishWorkout into runMeta.timeInZone. null otherwise.
+   */
+  timeInZone: { inSec: number; totalSec: number } | null;
+
   // ── Commute Mode (A-to-B navigation) ─────────────────────────────
   // sessionMode is the SINGLE switch that all commute-vs-workout UI
   // and reward branching reads from. It is intentionally separate from
@@ -347,6 +354,7 @@ interface RunningPlayerState {
   setGuidedRouteDistanceKm: (km: number | null) => void;
   setGuidedRouteTurns: (turns: RouteTurn[] | null) => void;
   setSessionGoal: (goal: SessionGoal | null) => void;
+  setTimeInZone: (v: { inSec: number; totalSec: number } | null) => void;
   /**
    * Stage a commute session. Sets sessionMode → 'commute' AND stashes
    * the destination context. Must be called BEFORE startActiveWorkout
@@ -544,6 +552,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
 
   // Free-Run Session Goal — null until FreeRunDrawer pushes one.
   sessionGoal: null,
+  timeInZone: null,
 
   // Commute mode — defaults to 'workout' so existing flows are untouched.
   sessionMode: 'workout',
@@ -622,6 +631,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
   setGuidedRouteDistanceKm: (km) => set({ guidedRouteDistanceKm: km }),
   setGuidedRouteTurns: (turns) => set({ guidedRouteTurns: turns }),
   setSessionGoal: (goal) => set({ sessionGoal: goal }),
+  setTimeInZone: (v) => set({ timeInZone: v }),
 
   setCommuteContext: (ctx) =>
     set({
@@ -1469,6 +1479,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
     _traceBuffer = [];
     set({
       laps: [seedLap],
+      timeInZone: null,
       currentPace: 0,
       routeCoords: [],
       routeZones: [],
@@ -1540,6 +1551,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
       // Reset the goal so the next session starts blank — the next
       // FreeRunDrawer.handleStartCta will push a fresh one.
       sessionGoal: null,
+      timeInZone: null,
     });
   },
 
@@ -1812,6 +1824,30 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             }
           }
 
+          // ── Home v2 only: run-type summary data (optional `runMeta`) ──
+          // Category, target bands, time-in-zone, program position and GPS
+          // per-km splits — written only while enable_home_v2 is on.
+          let runMeta: RunSummaryMeta | null = null;
+          try {
+            const { homeV2EnabledNow, readPlannedRunPosition } = await import('../lib/home-v2-gate');
+            if (!isCommute && activityType !== 'walking' && homeV2EnabledNow()) {
+              const { buildRunSummaryMeta } = await import('../lib/run-summary-meta');
+              runMeta = buildRunSummaryMeta({
+                workout: plannedRunSnapshot?.workout ?? null,
+                results: plannedRunSnapshot?.results ?? [],
+                blockResults,
+                trace: _traceBuffer,
+                hasKmLaps: completedLaps.length > 0,
+                totalKm: safeDistance,
+                activeSec: safeDuration,
+                timeInZone: get().timeInZone,
+                plan: plannedRunSnapshot ? readPlannedRunPosition() : null,
+              });
+            }
+          } catch (e) {
+            console.warn('[useRunningPlayer] runMeta skipped:', e);
+          }
+
           // ── Build the single authoritative workout document ───────────
           // Commute sessions are tagged via `sessionKind: 'commute'` plus
           // the optional destination metadata — no dedicated workoutType,
@@ -1834,6 +1870,7 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             xpEarned: sessionXP,
             ...(completedLaps.length > 0 ? { laps: completedLaps } : {}),
             ...(blockResults.length > 0 ? { blockResults } : {}),
+            ...(runMeta ? { runMeta } : {}),
             ...(safeElevation !== undefined ? { elevationGain: safeElevation } : {}),
             ...(guidedRouteId ? { routeId: guidedRouteId } : {}),
             ...(detectedPark ? { parkId: detectedPark.parkId, parkName: detectedPark.parkName } : {}),

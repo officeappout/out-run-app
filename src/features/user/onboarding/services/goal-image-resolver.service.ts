@@ -1,7 +1,7 @@
 /**
  * Resolves the v2 program-path goal photos configured as `library` in
  * GOAL_IMAGE_CONFIG (constants/program-path-goal-images.ts) from the
- * exercise library — the same reader (getAllExercisesCached, 5-min shared
+ * exercise library — the same reader (getAllExercisesCached, 30-min shared
  * cache) and the same image resolver (resolveImageForLocation: Bunny
  * thumbnail → method image → legacy media image) the app already uses.
  * Program slugs are mapped to Firestore program ids with the onboarding

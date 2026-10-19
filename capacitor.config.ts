@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 // NEVER commit ios/App/App/capacitor.config.json or android/app/google-services.json
 // to git — they are generated artefacts (produced by cap sync) and may contain debug
@@ -56,7 +57,9 @@ const config: CapacitorConfig = {
     // 'body' is the safest cross-platform choice; the alternative 'native'
     // may cause flicker on older Android WebViews.
     Keyboard: {
-      resize: 'body' as const,
+      // Same value as before ('body'); the enum is needed now that the app
+      // imports @capacitor/keyboard (its typings augment PluginsConfig).
+      resize: KeyboardResize.Body,
       resizeOnFullScreen: true,
     },
   },

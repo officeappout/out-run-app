@@ -14,6 +14,10 @@
  * > 40 m off it) the top row says so and shows the distance to the route
  * instead of the route's own next turn, which would be misleading there.
  *
+ * Route run v2: the elevation-ahead strip sits under the progress bar when
+ * the route has elevation samples (useRouteRunV2Store, published by
+ * RouteRunLiveV2Controller).
+ *
  * Rendered only by TurnCarousel's THIN state when v2 is on; the legacy THIN
  * card / FULL carousel / BUBBLE pill are untouched. Tap → FULL swipe carousel
  * (same as the legacy THIN card). Progress row only during an active/paused
@@ -28,6 +32,8 @@ import { navBannerProgress, formatBannerDistance, isApproaching } from '../servi
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { isFiniteLatLng } from '@/utils/geoValidation';
+import { useRouteRunV2Store } from '@/features/workout-engine/players/running/store/useRouteRunV2Store';
+import RouteElevationAhead from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteElevationAhead';
 
 const DEST_GREEN = '#16A34A';
 
@@ -94,6 +100,7 @@ export default function NavBannerV2({
   const crossTrackM = userValid && !progress.joined
     ? crossTrackDistanceMeters(currentLocation, progressPath)
     : 0;
+  const elevation = useRouteRunV2Store((s) => s.elevation);
   const approaching = sessionActive && isApproaching(progress.joined, crossTrackM);
 
   const TopIcon = approaching ? Footprints : IconComp;
@@ -174,6 +181,14 @@ export default function NavBannerV2({
               style={{ width: `${progress.pct}%` }}
             />
           </div>
+          {progress.joined && (
+            <RouteElevationAhead
+              samples={elevation}
+              alongM={alongRef.current}
+              totalM={totalM}
+              className="mt-2.5"
+            />
+          )}
         </div>
       )}
     </div>

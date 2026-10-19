@@ -7,15 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
-import AlertModal from '@/features/home/components/AlertModal';
-import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
-import BlurryBridgeOverlay from '@/features/user/onboarding/components/BlurryBridgeOverlay';
-import WelcomeDrawer from '@/features/user/onboarding/components/WelcomeDrawer';
-import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
 import { FIRST_RUN_COACH, firstRunToursEnabled, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
-import LifestyleWizard from '@/features/user/onboarding/components/LifestyleWizard';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { type CompletionData } from '@/features/home/components/HeroWorkoutCard';
@@ -29,9 +23,6 @@ import { useDailyStrengthTarget } from '@/features/home/hooks/useDailyStrengthTa
 import { FRAGMENTER_MINUTES_PER_SET } from '@/features/home/utils/setsToMinutes';
 import { isTodayTrainingDay } from '@/features/home/utils/dailyStrengthTarget';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
-import CommunitySessionBanner from '@/features/arena/components/CommunitySessionBanner';
-import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
-import PostJoinSuccessDrawer from '@/features/arena/components/PostJoinSuccessDrawer';
 import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 
@@ -55,42 +46,25 @@ import { isAdminEmailAllowed, STRENGTH_RING_ENABLED, HOME_ANCHOR_V2_ENABLED, HOM
 import { setOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { resolveScheduleCardDecision } from '@/lib/running-onboarding-gate';
-import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/features/schedule/components/ScheduleBuilderDrawer';
+import { isScheduleBuilderDrawerEnabled } from '@/features/schedule/services/scheduleBuilderDrawerFlag';
 import { isScheduleBuilderSaveEnabled } from '@/features/schedule/services/scheduleBuilderSave';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import StatsOverview, { type BuilderContext, type TrioSelector } from '@/features/home/components/StatsOverview';
-import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
-import ProgramProgressRow from '@/features/home/components/rows/ProgramProgressRow';
-import ConsistencyWidget from '@/features/home/components/rows/ConsistencyWidget';
-import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
+import type { BuilderContext, TrioSelector } from '@/features/home/components/StatsOverview';
 import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
-import TodayActivityStrip from '@/features/home/components/TodayActivityStrip';
-import DoneTodayCard from '@/features/home/components/DoneTodayCard';
 import { nextPlannedDay, totalMinutes as sumMinutes, totalXp } from '@/features/home/utils/done-today';
 import type { TodayActivityCardData } from '@/features/home/components/TodayActivityCard';
 import { todayCardFallbackTitle } from '@/features/home/utils/today-activity-labels';
-import StepsSummaryCard from '@/features/home/components/widgets/StepsSummaryCard';
-import RacePredictionCard from '@/features/home/components/widgets/RacePredictionCard';
-import TrainingPlannerOverlay from '@/features/home/components/TrainingPlannerOverlay';
-import AddWorkoutModal from '@/features/home/components/AddWorkoutModal';
-import WorkoutBuilderSheet, { type WorkoutBuilderSheetProps, type LocationId } from '@/features/home/components/WorkoutBuilderSheet';
-import WeatherChip from '@/features/weather/components/WeatherChip';
+import type { WorkoutBuilderSheetProps, LocationId } from '@/features/home/components/WorkoutBuilderSheet';
 import { useWeather } from '@/features/weather/hooks/useWeather';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import type { WorkoutWeather } from '@/features/weather/core/weather.types';
-import { AiCoachHomeEntry } from '@/features/ai-coach/components/AiCoachEntry';
-import AnchorLocationChip from '@/features/home/components/AnchorLocationChip';
 import { useSwapAll } from '@/features/workouts/components/workout-preview-drawer/hooks/useSwapAll';
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
-import PlannedActivityComposeSheet from '@/features/parks/client/components/planned-activity/PlannedActivityComposeSheet';
-import UnifiedPlusDrawer from '@/features/parks/client/components/planned-activity/UnifiedPlusDrawer';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
-import ContributionWizard from '@/features/parks/client/components/contribution-wizard';
-import QuickReportSheet from '@/features/parks/client/components/contribution-wizard/QuickReportSheet';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { getScheduleEntries } from '@/features/user/scheduling/services/userSchedule.service';
@@ -99,16 +73,12 @@ import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user
 import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import WorkoutLocationSuggestions from '@/features/home/components/WorkoutLocationSuggestions';
 import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
-import CalmReturnCard from '@/features/home/components/CalmReturnCard';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
-import NearbyGroupsRow from '@/features/home/components/NearbyGroupsRow';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
-import { JITSetupModal } from '@/features/user/onboarding/components/JITSetupModal';
 import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 import type { UserContext } from '@/features/workout-engine/core/types/user-context.types';
@@ -119,13 +89,25 @@ import { suggestionToHomeGeneratedWorkout } from '@/features/workout-engine/core
 import { resolveFullStrengthWorkout, resolveFullStrengthWorkoutAtIndex } from '@/features/workout-engine/core/generators/full-strength.generator';
 import { resolveRouteWorkout, getCachedRoute } from '@/features/workout-engine/core/generators/route.generator';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
-import { PostWorkoutCardRenderer } from '@/features/home/components/PostWorkoutCardRenderer';
-import { PreWorkoutCardRenderer, resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey } from '@/features/home/components/PreWorkoutCardRenderer';
+import { resolveHeroWorkout, hasHeroCardTreatment, buildSafetyNetRouteCacheKey } from '@/features/home/components/PreWorkoutCardRenderer';
+// Overlays are code-split + mounted on first open; widgets are crash-contained.
+// Both are drop-in replacements for the original imports (see each module).
+import {
+  AlertModal, WorkoutPreviewDrawer, BlurryBridgeOverlay, WelcomeDrawer, FirstRunTour, LifestyleWizard,
+  GroupDetailsDrawer, PostJoinSuccessDrawer, ScheduleBuilderDrawer, TrainingPlannerOverlay, AddWorkoutModal,
+  WorkoutBuilderSheet, PlannedActivityComposeSheet, UnifiedPlusDrawer, ContributionWizard, QuickReportSheet,
+  JITSetupModal, HealthConnectDisclosureModal, useHomeOverlayPreload,
+} from './HomeOverlays';
+import {
+  StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
+  ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
+  RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
+  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner,
+} from './HomeWidgets';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
 import { BuildCustomButton, CarouselSkeleton } from '@/features/home/components/WorkoutSelectionCarousel';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
-import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useToast } from '@/components/ui/Toast';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 
@@ -374,6 +356,8 @@ function isRunningOnboardingGateEnabled(): boolean {
 
 export default function HomePage() {
   const router = useRouter();
+  // Warm the code-split overlay chunks once the screen is idle (first tap stays instant).
+  useHomeOverlayPreload();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);

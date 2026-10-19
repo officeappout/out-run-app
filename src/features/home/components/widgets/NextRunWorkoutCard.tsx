@@ -30,6 +30,8 @@ import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/util
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import type RunWorkout from '@/features/workout-engine/players/running/types/run-workout.type';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import RunWeekListV2 from './run-week-v2/RunWeekListV2';
 
 const DAY_TO_HE = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
@@ -108,6 +110,8 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   // Calm return: quality runs show (and run) as an easy run, with the tier's lighter volume.
   const calmLoad = calmReturn?.isLightened ? calmReturn.load : null;
   const router = useRouter();
+  // Home v2 (enable_home_v2): the week list (board R1-prop-types) + the v2 briefing.
+  const v2 = useHomeV2();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const running = profile?.running;
 
@@ -227,8 +231,11 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek]);
 
   // ── Load full workout when briefing drawer opens ──
+  // v2 loads today's workout up front (its card shows the strip + numbers);
+  // flag off → only when the drawer opens, as before. Same single load either way.
+  const preloadToday = v2 && isRunDay && !skippedToday;
   useEffect(() => {
-    if (!briefingOpen || !pendingWorkoutId) return;
+    if ((!briefingOpen && !preloadToday) || !pendingWorkoutId) return;
     if (briefingLoadedIdRef.current === pendingWorkoutId) return;
 
     const paceProfile = running?.paceProfile;
@@ -319,7 +326,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
         setBriefingLoading(false);
       })
       .catch(() => setBriefingLoading(false));
-  }, [briefingOpen, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag, calmLoad]);
+  }, [briefingOpen, preloadToday, pendingWorkoutId, running?.paceProfile, running?.activeProgram?.programId, pendingWeek, effectiveCurrentWeek, running?.lastWorkoutDate, weatherFlag, calmLoad]);
 
   const handleBriefingGo = () => {
     setBriefingOpen(false);
@@ -499,6 +506,35 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   const WorkoutIcon = WORKOUT_ICONS[displayWorkout];
 
   const effectiveRestDay = !isRunDay || skippedToday;
+
+  if (v2) {
+    const welcome = calmCopy(null);
+    return (
+      <>
+        <RunWeekListV2
+          schedule={running?.activeProgram?.schedule as any[] | undefined}
+          week={pendingWeek ?? effectiveCurrentWeek ?? 1}
+          totalWeeks={running?.generatedProgramTemplate?.canonicalWeeks}
+          programLabel={calmWelcomeBack ? `${welcome.welcomeBackTitle} · ${welcome.welcomeBackSubtitle}` : `תוכנית ${distLabel}`}
+          scheduleDays={scheduleDays}
+          targetDay={pendingDay}
+          isRunDay={!effectiveRestDay}
+          todayWorkout={briefingWorkout}
+          onStartToday={() => setBriefingOpen(true)}
+          onSkipToday={() => setSkippedToday(true)}
+          onUndoSkip={skippedToday ? () => setSkippedToday(false) : undefined}
+        />
+        <RunBriefingDrawer
+          isOpen={briefingOpen}
+          onClose={() => setBriefingOpen(false)}
+          onGo={handleBriefingGo}
+          workout={briefingWorkout}
+          isLoading={briefingLoading}
+          week={pendingWeek ? { week: pendingWeek, day: pendingDay, totalWeeks: running?.generatedProgramTemplate?.canonicalWeeks } : null}
+        />
+      </>
+    );
+  }
 
   if (effectiveRestDay) {
     // "Next run" preview — dayState.nextEntry/.nextEntryDaysAway already

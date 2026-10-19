@@ -34,7 +34,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import EquipmentFilterShell from './EquipmentFilterShell';
 import { X, ArrowRight, Home, MapPin, PersonStanding, Loader2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -521,73 +521,12 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     </>
   );
 
-  // Outer shell — branches by mode (chrome polish, equipment-full-screen
-  // round). Profile mode: full-screen, matching SettingsModal's own
-  // sub-screens (same slide-in-from-the-side pattern, no backdrop/drag —
-  // there's nothing "behind" a full-screen surface to dim or swipe past).
-  // filter/inline-onboarding modes: UNCHANGED bottom-sheet with backdrop +
-  // drag-to-dismiss — this branch is untouched byte-for-byte from before.
+  // Outer shell (v2 Sheet / profile full-screen / classic sheet) lives in
+  // EquipmentFilterShell — only the wrapper differs by mode.
   const sheet = (
-    <AnimatePresence>
-      {isOpen && (
-        isProfileMode ? (
-          // z-[102] — NOT z-[71] (that's the filter/inline bottom-sheet
-          // tier, correct for those but far below SettingsModal's z-[101]).
-          // This full-screen branch is launched FROM INSIDE SettingsModal
-          // (the "הציוד שלי" row) and must render above it, same stacking
-          // relationship as z-[130]/[131] (LegalDocModal) needing to clear
-          // z-[120] (HealthConnectDisclosureModal) which opens it inline —
-          // see .cursorrules' Z-Index Budget, updated with this entry.
-          // Portal mount itself was already correct (createPortal to
-          // document.body, same target every other full-screen overlay in
-          // this app uses, including SettingsModal) — the stacking bug was
-          // purely the numeric gap between z-[71] and SettingsModal's
-          // z-[101], not a stacking-context/portal issue.
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-            className={`fixed inset-0 z-[102] flex flex-col ${v2 ? 'bg-v2-surface' : 'bg-white'}`}
-            dir="rtl"
-          >
-            {innerContent}
-          </motion.div>
-        ) : (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 bg-black/40 z-[70]"
-              style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-            />
-
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.2}
-              onDragEnd={(_, info) => { if (info.offset.y > 120) onClose(); }}
-              className={v2
-                ? 'fixed bottom-0 left-0 right-0 z-[71] flex max-h-[85vh] flex-col overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet'
-                : 'fixed bottom-0 left-0 right-0 z-[71] bg-white rounded-t-3xl shadow-drawer max-h-[85vh] flex flex-col'}
-              dir="rtl"
-            >
-              {/* Drag handle */}
-              <div className={v2 ? 'flex justify-center pb-2 pt-2.5' : 'flex justify-center pt-2 pb-1'}>
-                <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
-              </div>
-              {innerContent}
-            </motion.div>
-          </>
-        )
-      )}
-    </AnimatePresence>
+    <EquipmentFilterShell isOpen={isOpen} onClose={onClose} isProfileMode={isProfileMode} v2={v2}>
+      {innerContent}
+    </EquipmentFilterShell>
   );
 
   if (!mounted) return null;

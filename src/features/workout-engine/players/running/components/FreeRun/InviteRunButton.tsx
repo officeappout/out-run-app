@@ -26,9 +26,11 @@ import { auth } from '@/lib/firebase';
 
 interface InviteRunButtonProps {
   activityType?: 'running' | 'walking';
+  /** Home v2: render in the caller's flow (no fixed corner position). */
+  inline?: boolean;
 }
 
-export default function InviteRunButton({ activityType = 'running' }: InviteRunButtonProps) {
+export default function InviteRunButton({ activityType = 'running', inline = false }: InviteRunButtonProps) {
   const [busy, setBusy] = useState(false);
 
   const handleInvite = async () => {
@@ -78,16 +80,18 @@ export default function InviteRunButton({ activityType = 'running' }: InviteRunB
       onClick={handleInvite}
       disabled={busy}
       aria-label="הזמן חבר לאימון"
-      className="pointer-events-auto absolute flex items-center justify-center rounded-full active:scale-90 transition-transform disabled:opacity-60"
+      className={`pointer-events-auto ${inline ? 'relative' : 'absolute'} flex items-center justify-center rounded-full active:scale-90 transition-transform disabled:opacity-60`}
       style={{
+        ...(inline ? {} : {
         // Floats above WorkoutControlCluster (which sits at --session-bar-clearance).
         // +74px = 62px cluster button height + 12px gap → no overlap.
         // zIndex 55 keeps it above MetricsDrawer (z-52) even when the card covers this area.
         bottom: 'calc(var(--session-bar-clearance, 88px) + 74px)',
         right:  '16px',
+        }),
         width:  44,
         height: 44,
-        zIndex: 55,
+        zIndex: inline ? undefined : 55,
         background:    'rgba(0, 0, 0, 0.55)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
