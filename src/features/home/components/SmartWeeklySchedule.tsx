@@ -14,7 +14,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
+import { Bed, Check, ChevronDown, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
@@ -109,6 +109,12 @@ interface SmartWeeklyScheduleProps {
   hasCompletedAssessment?: boolean;
   /** True when user has set scheduleDays */
   hasSchedule?: boolean;
+  /**
+   * enable_home_v2: a quiet label on the blurred overlay instead of the
+   * "התחל אבחון" / "קבע לו״ז" button (e.g. "בחר תוכנית למטה" while the
+   * carousel below shows the start cards). Omitted → the button, as before.
+   */
+  overlayHint?: string;
   /** Called when user taps "התחל אבחון" (Map path) */
   onStartAssessment?: () => void;
   /** Called when user taps "קבע לו״ז אימונים" (Assessment path) */
@@ -814,6 +820,7 @@ export default function SmartWeeklySchedule({
   onOpenPlanner,
   hasCompletedAssessment = false,
   hasSchedule = true,
+  overlayHint,
   onStartAssessment,
   onSetSchedule,
   runningSchedule,
@@ -1286,7 +1293,7 @@ export default function SmartWeeklySchedule({
     : hasSchedule
       ? 'active'
       : 'assessment';
-  const showOverlay = !hasSchedule && (onStartAssessment || onSetSchedule);
+  const showOverlay = !hasSchedule && !!(onStartAssessment || onSetSchedule || overlayHint);
 
   // When the glass scrim overlay is active, substitute real activity data with
   // the dummy preview so the blurred background shows a vibrant calisthenics
@@ -1734,6 +1741,12 @@ export default function SmartWeeklySchedule({
           <div
             className="absolute inset-0 z-20 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/15 dark:bg-slate-900/35 backdrop-blur-[2px]"
           >
+            {overlayHint ? (
+              <span className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-deep shadow-v2-ring">
+                {overlayHint}
+                <ChevronDown size={15} strokeWidth={2.6} aria-hidden="true" />
+              </span>
+            ) : (
             <button
               onClick={journeyState === 'map' ? onStartAssessment : onSetSchedule}
               className="px-7 py-2 text-black text-sm font-semibold rounded-full shadow-md shadow-cyan-400/25 transition-all duration-200 hover:brightness-105 active:scale-95"
@@ -1741,6 +1754,7 @@ export default function SmartWeeklySchedule({
             >
               {journeyState === 'map' ? 'התחל אבחון' : 'קבע לו״ז אימונים'}
             </button>
+            )}
           </div>
         )}
         <div

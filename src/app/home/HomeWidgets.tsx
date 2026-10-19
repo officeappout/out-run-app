@@ -15,6 +15,7 @@ import SmartWeeklyScheduleRaw from '@/features/home/components/SmartWeeklySchedu
 import ProgramProgressRowRaw from '@/features/home/components/rows/ProgramProgressRow';
 import ConsistencyWidgetRaw from '@/features/home/components/rows/ConsistencyWidget';
 import AddStrengthProgramCardRaw from '@/features/home/components/AddStrengthProgramCard';
+import HomeProgramSlideRaw from '@/features/home/components/start-cards/HomeProgramSlide';
 import TodayActivityStripRaw from '@/features/home/components/TodayActivityStrip';
 import DoneTodayCardRaw from '@/features/home/components/DoneTodayCard';
 import StepsSummaryCardRaw from '@/features/home/components/widgets/StepsSummaryCard';
@@ -46,6 +47,8 @@ export const SmartWeeklySchedule = withWidgetBoundary(SmartWeeklyScheduleRaw, 'h
 export const ProgramProgressRow = withWidgetBoundary(ProgramProgressRowRaw, 'home.ProgramProgressRow');
 export const ConsistencyWidget = withWidgetBoundary(ConsistencyWidgetRaw, 'home.ConsistencyWidget');
 export const AddStrengthProgramCard = withWidgetBoundary(AddStrengthProgramCardRaw, 'home.AddStrengthProgramCard');
+// enable_home_v2: the start-pair / add-track slide of the daily carousels.
+export const HomeProgramSlide = withWidgetBoundary(HomeProgramSlideRaw, 'home.HomeProgramSlide');
 export const DoneTodayCard = withWidgetBoundary(DoneTodayCardRaw, 'home.DoneTodayCard');
 export const StepsSummaryCard = withWidgetBoundary(StepsSummaryCardRaw, 'home.StepsSummaryCard');
 export const RacePredictionCard = withWidgetBoundary(RacePredictionCardRaw, 'home.RacePredictionCard');
