@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import HeroSheetFrame from '@/components/ui/HeroSheetFrame';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, Star, Play, Pencil, Navigation, MapPin, Flag, ChevronLeft, Loader2, Calendar, Users, UserPlus, RefreshCw, MessageCircle, Check } from 'lucide-react';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -647,625 +648,599 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+      <HeroSheetFrame
+        isOpen={isOpen}
+        onClose={onClose}
+        v2={v2}
+        y={y}
+        opacity={opacity}
+        dragControls={dragControls}
+        onDragEnd={handleDragEnd}
+        frameStyle={{ height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
+        classicClassName="kb-sheet fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+        keyboardAware
+        ariaLabel={park.name}
+      >
+        {/* Sticky Header — compositor-threaded opacity */}
+        <motion.div
+          className="absolute top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800"
+          style={{ opacity: headerOpacity, pointerEvents: headerPointerEvents }}
+        >
+          <div className="flex items-center justify-between px-4 pt-10 pb-3">
+            <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center active:scale-90 transition-transform">
+              <ChevronLeft size={20} className="text-gray-700 dark:text-gray-300" />
+            </button>
+            <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">
+              {park.name}
+            </h1>
+            <div className="w-10" />
+          </div>
+        </motion.div>
+
+        {/* Scrollable body */}
+        <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain pb-36">
+          {/* Hero image — overflow-hidden prevents bleed on overscroll */}
+          <motion.div
+            className="relative w-full overflow-hidden"
+            style={{ height: heroHeight, opacity: imageOpacity, scale: imageScale }}
+          >
+            {(park.imageUrl || park.image || park.images?.[0]) ? (
+              <img
+                src={bunnyImg(park.imageUrl || park.images?.[0] || park.image, 800)}
+                alt={park.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+                <MapPin size={48} className="text-slate-300 dark:text-slate-600" />
+              </div>
+            )}
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
+            <div
+              className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
+              style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
             />
 
-            {/* Bottom Sheet */}
+            {/* Top controls — fade with hero, pointer-events gated */}
             <motion.div
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 500 }}
-              dragElastic={{ top: 0.08, bottom: 0 }}
-              dragMomentum={false}
-              onDragEnd={handleDragEnd}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
-              style={{ y, opacity, height: DRAWER_HEIGHT, maxHeight: '92vh', willChange: 'transform' }}
-              className="kb-sheet fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
-              dir="rtl"
+              className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
+              style={{
+                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+                opacity: imageOpacity,
+                pointerEvents: heroControlsPointerEvents,
+              }}
             >
-              {/* Drag handle — full-width touch target */}
-              <div
-                className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing"
-                onPointerDown={(e) => dragControls.start(e)}
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-              </div>
+              <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
+                <X size={20} />
+              </button>
+            </motion.div>
+          </motion.div>
 
-              {/* Sticky Header — compositor-threaded opacity */}
-              <motion.div
-                className="absolute top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800"
-                style={{ opacity: headerOpacity, pointerEvents: headerPointerEvents }}
+          {/* Title + category badge — pulled OUTSIDE the hero so they
+              escape the hero's `overflow-hidden` (and its scroll-driven
+              height collapse + scale transform). When kept inside, long
+              Hebrew park names wrapping to 2–3 lines were getting their
+              top edge clipped because the absolute `bottom-0` block grew
+              upward past the collapsing hero's top edge.
+              Mirrors the structure used in WorkoutPreviewDrawer.tsx
+              (~line 932) where the title is the first sibling AFTER the
+              hero, with `-mt-14` to overlap the hero gradient visually. */}
+          <div className="relative z-20 -mt-14 px-5 pb-2">
+            {park.facilityType && (
+              <span
+                className={
+                  v2
+                    ? 'mb-2 inline-flex rounded-full bg-v2-cta px-3 py-1 text-[12.5px] font-extrabold text-v2-on-cta shadow-v2-cta'
+                    : 'inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm'
+                }
               >
-                <div className="flex items-center justify-between px-4 pt-10 pb-3">
-                  <button onClick={onClose} className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center active:scale-90 transition-transform">
-                    <ChevronLeft size={20} className="text-gray-700 dark:text-gray-300" />
-                  </button>
-                  <h1 className="text-lg font-black text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">
-                    {park.name}
-                  </h1>
-                  <div className="w-10" />
+                {FACILITY_LABELS[park.facilityType] || park.facilityType}
+              </span>
+            )}
+            <h1 className={v2 ? 'whitespace-normal text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal'}>
+              {park.name}
+            </h1>
+          </div>
+
+          {/* Content. The previous `-mt-10` overlap is gone now that the
+              title block above provides the hero→content transition; the
+              title's own `-mt-14` is what bridges the hero gradient. */}
+          <div className="bg-white dark:bg-slate-900 relative z-10 px-5 pt-2 pb-8">
+            {/* Rating + location + distance row */}
+            <div className="flex items-center gap-4 mb-4 flex-wrap">
+              {avgRating && (
+                <div className="flex items-center gap-1.5">
+                  <Star size={16} className="text-amber-400" fill="#FBBF24" />
+                  <span className="font-black text-gray-900 dark:text-white">{avgRating.toFixed(1)}</span>
+                  <span className="text-xs text-gray-400">({reviews.filter(r => r.rating).length})</span>
                 </div>
-              </motion.div>
+              )}
+              {distText && (
+                <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
+                  <Navigation size={12} />{distText}
+                </span>
+              )}
+              {park.city && (
+                <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
+                  <MapPin size={12} />{park.city}
+                </span>
+              )}
+              {park.status && park.status !== 'open' && (
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                  park.status === 'under_repair' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                }`}>
+                  {park.status === 'under_repair' ? 'בתיקון' : 'סגור'}
+                </span>
+              )}
+            </div>
 
-              {/* Scrollable body */}
-              <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain pb-36">
-                {/* Hero image — overflow-hidden prevents bleed on overscroll */}
-                <motion.div
-                  className="relative w-full overflow-hidden"
-                  style={{ height: heroHeight, opacity: imageOpacity, scale: imageScale }}
-                >
-                  {(park.imageUrl || park.image || park.images?.[0]) ? (
-                    <img
-                      src={bunnyImg(park.imageUrl || park.images?.[0] || park.image, 800)}
-                      alt={park.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
-                      <MapPin size={48} className="text-slate-300 dark:text-slate-600" />
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none" />
-                  <div
-                    className="absolute bottom-0 inset-x-0 h-[85%] pointer-events-none"
-                    style={{ background: 'linear-gradient(to top, white 15%, rgba(255,255,255,0.6) 50%, transparent 100%)' }}
-                  />
-
-                  {/* Top controls — fade with hero, pointer-events gated */}
-                  <motion.div
-                    className="absolute top-0 left-0 right-0 px-4 pb-4 flex justify-between items-start z-10"
-                    style={{
-                      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
-                      opacity: imageOpacity,
-                      pointerEvents: heroControlsPointerEvents,
-                    }}
-                  >
-                    <button onClick={onClose} className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform">
-                      <X size={20} />
-                    </button>
-                  </motion.div>
-                </motion.div>
-
-                {/* Title + category badge — pulled OUTSIDE the hero so they
-                    escape the hero's `overflow-hidden` (and its scroll-driven
-                    height collapse + scale transform). When kept inside, long
-                    Hebrew park names wrapping to 2–3 lines were getting their
-                    top edge clipped because the absolute `bottom-0` block grew
-                    upward past the collapsing hero's top edge.
-                    Mirrors the structure used in WorkoutPreviewDrawer.tsx
-                    (~line 932) where the title is the first sibling AFTER the
-                    hero, with `-mt-14` to overlap the hero gradient visually. */}
-                <div className="relative z-20 -mt-14 px-5 pb-2">
-                  {park.facilityType && (
-                    <span
-                      className={
-                        v2
-                          ? 'mb-2 inline-flex rounded-full bg-v2-cta px-3 py-1 text-[12.5px] font-extrabold text-v2-on-cta shadow-v2-cta'
-                          : 'inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm'
-                      }
-                    >
-                      {FACILITY_LABELS[park.facilityType] || park.facilityType}
+            {/* ── (2) WHO'S COMING — Park Pulse / מתאמנים ──────
+                Moved to the top of the body so the community
+                pulse + arrival CTA are the first thing the user
+                sees after the hero/metadata row. */}
+            <section className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5'}>
+                  {v2 ? <Users size={18} strokeWidth={2.4} className="text-v2-deep" /> : <Calendar size={14} className="text-emerald-500" />}
+                  <span>{v2 ? 'מתאמנים כאן' : 'מתאמנים'}</span>
+                  {parkEvents.length > 0 && (
+                    <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
+                      {parkEvents.reduce((s, e) => s + Math.max(1, e.currentRegistrations ?? 0), 0)}
                     </span>
                   )}
-                  <h1 className={v2 ? 'whitespace-normal text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal'}>
-                    {park.name}
-                  </h1>
+                </h3>
+                <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-0.5 bg-gray-100 rounded-lg p-0.5'}>
+                  {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setDayFilter(f)}
+                      className={
+                        v2
+                          ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${dayFilter === f ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                          : `px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                              dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
+                            }`
+                      }
+                    >
+                      {DAY_FILTER_LABELS[f]}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                {/* Content. The previous `-mt-10` overlap is gone now that the
-                    title block above provides the hero→content transition; the
-                    title's own `-mt-14` is what bridges the hero gradient. */}
-                <div className="bg-white dark:bg-slate-900 relative z-10 px-5 pt-2 pb-8">
-                  {/* Rating + location + distance row */}
-                  <div className="flex items-center gap-4 mb-4 flex-wrap">
-                    {avgRating && (
-                      <div className="flex items-center gap-1.5">
-                        <Star size={16} className="text-amber-400" fill="#FBBF24" />
-                        <span className="font-black text-gray-900 dark:text-white">{avgRating.toFixed(1)}</span>
-                        <span className="text-xs text-gray-400">({reviews.filter(r => r.rating).length})</span>
+              {/* Always-visible publish row — pulled out of the
+                  empty-state branch so the user can announce an
+                  arrival regardless of whether other arrivals
+                  already exist for the selected day.
+                  Time-window picker:
+                    • today/tomorrow → dual-range slider only
+                      (date is implied by the chip selection)
+                    • week           → date input + dual-range
+                      slider so the user can pick any day +
+                      window this week. */}
+              <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
+                <div className={v2 ? 'flex items-center gap-3 px-3.5 py-3' : 'flex items-center gap-3 py-2.5 px-3'}>
+                  <Users size={16} className={v2 ? 'flex-shrink-0 text-v2-deep' : 'text-emerald-500 flex-shrink-0'} />
+                  <span className={v2 ? 'flex-1 text-[14px] font-bold text-v2-ink-2' : 'text-xs text-emerald-700 font-bold flex-1'}>
+                    {filteredParkEvents.length === 0
+                      ? 'אף אחד עוד לא פרסם שהוא מגיע...'
+                      : 'גם אתה מתכנן להגיע?'}
+                  </span>
+                  <button
+                    onClick={() => setShowTimePicker((v) => !v)}
+                    className={
+                      v2
+                        ? 'h-9 flex-shrink-0 whitespace-nowrap rounded-full bg-v2-cta px-4 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                        : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
+                    }
+                  >
+                    {v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
+                  </button>
+                </div>
+                {showTimePicker && (
+                  <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-3">
+                    {/* Optional date input — only relevant when the
+                        user picked the השבוע chip; today/tomorrow
+                        implicitly fix the date already. */}
+                    {dayFilter === 'week' && (
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-emerald-500 flex-shrink-0" />
+                        <input
+                          type="date"
+                          value={pickedDate}
+                          onChange={(e) => setPickedDate(e.target.value)}
+                          className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 font-bold text-center"
+                          dir="ltr"
+                        />
                       </div>
                     )}
-                    {distText && (
-                      <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
-                        <Navigation size={12} />{distText}
-                      </span>
-                    )}
-                    {park.city && (
-                      <span className={v2 ? 'flex items-center gap-1 text-[13.5px] font-bold text-v2-muted' : 'text-xs text-gray-400 flex items-center gap-1'}>
-                        <MapPin size={12} />{park.city}
-                      </span>
-                    )}
-                    {park.status && park.status !== 'open' && (
-                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                        park.status === 'under_repair' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        {park.status === 'under_repair' ? 'בתיקון' : 'סגור'}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* ── (2) WHO'S COMING — Park Pulse / מתאמנים ──────
-                      Moved to the top of the body so the community
-                      pulse + arrival CTA are the first thing the user
-                      sees after the hero/metadata row. */}
-                  <section className="mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5'}>
-                        {v2 ? <Users size={18} strokeWidth={2.4} className="text-v2-deep" /> : <Calendar size={14} className="text-emerald-500" />}
-                        <span>{v2 ? 'מתאמנים כאן' : 'מתאמנים'}</span>
-                        {parkEvents.length > 0 && (
-                          <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
-                            {parkEvents.reduce((s, e) => s + Math.max(1, e.currentRegistrations ?? 0), 0)}
-                          </span>
-                        )}
-                      </h3>
-                      <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-0.5 bg-gray-100 rounded-lg p-0.5'}>
-                        {(['today', 'tomorrow', 'week'] as DayFilter[]).map((f) => (
-                          <button
-                            key={f}
-                            onClick={() => setDayFilter(f)}
-                            className={
-                              v2
-                                ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${dayFilter === f ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
-                                : `px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                                    dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
-                                  }`
-                            }
-                          >
-                            {DAY_FILTER_LABELS[f]}
-                          </button>
-                        ))}
+                    {/* Dual-handle time-range slider. The slider
+                        domain is minutes-of-day (0..1440, step 15)
+                        so the underlying values are easy to
+                        convert into concrete Dates in the publish
+                        handler. The window summary below the
+                        slider stays LTR ("17:00 - 19:00") so
+                        the dash in the middle reads correctly
+                        under the page-level RTL direction. */}
+                    <div className="px-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-emerald-700">
+                          חלון הגעה
+                        </span>
+                        <span
+                          className="text-[12px] font-black text-emerald-600"
+                          dir="ltr"
+                        >
+                          {minutesToLabel(timeRangeMinutes[0])} - {minutesToLabel(timeRangeMinutes[1])}
+                        </span>
                       </div>
+                      <DualRangeSlider
+                        min={RANGE_MIN}
+                        max={RANGE_MAX}
+                        step={RANGE_STEP_MIN}
+                        values={timeRangeMinutes}
+                        onChange={setTimeRangeMinutes}
+                        formatLabel={minutesToLabel}
+                        ariaLabelMin="שעת התחלה"
+                        ariaLabelMax="שעת סיום"
+                      />
                     </div>
 
-                    {/* Always-visible publish row — pulled out of the
-                        empty-state branch so the user can announce an
-                        arrival regardless of whether other arrivals
-                        already exist for the selected day.
-                        Time-window picker:
-                          • today/tomorrow → dual-range slider only
-                            (date is implied by the chip selection)
-                          • week           → date input + dual-range
-                            slider so the user can pick any day +
-                            window this week. */}
-                    <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
-                      <div className={v2 ? 'flex items-center gap-3 px-3.5 py-3' : 'flex items-center gap-3 py-2.5 px-3'}>
-                        <Users size={16} className={v2 ? 'flex-shrink-0 text-v2-deep' : 'text-emerald-500 flex-shrink-0'} />
-                        <span className={v2 ? 'flex-1 text-[14px] font-bold text-v2-ink-2' : 'text-xs text-emerald-700 font-bold flex-1'}>
-                          {filteredParkEvents.length === 0
-                            ? 'אף אחד עוד לא פרסם שהוא מגיע...'
-                            : 'גם אתה מתכנן להגיע?'}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handlePublishArrival}
+                        disabled={publishingSession}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
+                      >
+                        {publishingSession ? '...' : 'פרסם'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {eventsLoading ? (
+                <div className="space-y-1.5">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center gap-2 py-2 px-2.5 bg-emerald-50/60 rounded-lg">
+                      <div className="w-6 h-6 bg-emerald-100 rounded-full" />
+                      <div className="flex-1 h-3 bg-emerald-100 rounded w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredParkEvents.length === 0 ? null : (
+                <div className="space-y-1">
+                  {filteredParkEvents.map((ev, idx) => {
+                    let timeLabel = '';
+                    const d = new Date(ev.nextStartTime);
+                    if (!isNaN(d.getTime())) {
+                      const now = new Date();
+                      const isToday = d.toDateString() === now.toDateString();
+                      const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
+                      const isTomorrow = d.toDateString() === tmrw.toDateString();
+                      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                      timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
+                    }
+                    const isJoining = joiningEventId === ev.eventId;
+                    const count = Math.max(1, ev.currentRegistrations ?? 0);
+                    const alreadyJoined = isUserRegistered(ev);
+                    // Personal arrivals are individual "I'm heading here"
+                    // announcements — not joinable group sessions. We
+                    // render them with no Join CTA; the publisher gets
+                    // a "פרסמת" badge so they can see their own arrival
+                    // confirmed in the live list (this is also the
+                    // read-on-mount confirmation that survives refresh).
+                    const isOwnArrival =
+                      ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid;
+
+                    return (
+                      <div
+                        key={`park_${ev.eventId}_${idx}`}
+                        className={v2 ? 'flex items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 shadow-v2-ring' : 'flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors'}
+                      >
+                        <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
+                        <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
+                          {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
                         </span>
-                        <button
-                          onClick={() => setShowTimePicker((v) => !v)}
-                          className={
-                            v2
-                              ? 'h-9 flex-shrink-0 whitespace-nowrap rounded-full bg-v2-cta px-4 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
-                              : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
-                          }
-                        >
-                          {v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
-                        </button>
-                      </div>
-                      {showTimePicker && (
-                        <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-3">
-                          {/* Optional date input — only relevant when the
-                              user picked the השבוע chip; today/tomorrow
-                              implicitly fix the date already. */}
-                          {dayFilter === 'week' && (
-                            <div className="flex items-center gap-2">
-                              <Calendar size={14} className="text-emerald-500 flex-shrink-0" />
-                              <input
-                                type="date"
-                                value={pickedDate}
-                                onChange={(e) => setPickedDate(e.target.value)}
-                                className="flex-1 bg-white border border-emerald-200 rounded-lg px-2 py-1.5 text-sm text-gray-800 font-bold text-center"
-                                dir="ltr"
-                              />
-                            </div>
-                          )}
-
-                          {/* Dual-handle time-range slider. The slider
-                              domain is minutes-of-day (0..1440, step 15)
-                              so the underlying values are easy to
-                              convert into concrete Dates in the publish
-                              handler. The window summary below the
-                              slider stays LTR ("17:00 - 19:00") so
-                              the dash in the middle reads correctly
-                              under the page-level RTL direction. */}
-                          <div className="px-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] font-bold text-emerald-700">
-                                חלון הגעה
-                              </span>
-                              <span
-                                className="text-[12px] font-black text-emerald-600"
-                                dir="ltr"
-                              >
-                                {minutesToLabel(timeRangeMinutes[0])} - {minutesToLabel(timeRangeMinutes[1])}
-                              </span>
-                            </div>
-                            <DualRangeSlider
-                              min={RANGE_MIN}
-                              max={RANGE_MAX}
-                              step={RANGE_STEP_MIN}
-                              values={timeRangeMinutes}
-                              onChange={setTimeRangeMinutes}
-                              formatLabel={minutesToLabel}
-                              ariaLabelMin="שעת התחלה"
-                              ariaLabelMax="שעת סיום"
-                            />
-                          </div>
-
-                          <div className="flex justify-end">
-                            <button
-                              onClick={handlePublishArrival}
-                              disabled={publishingSession}
-                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
-                            >
-                              {publishingSession ? '...' : 'פרסם'}
+                        {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
+                        {!ev.isPersonalArrival && (
+                          <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
+                        )}
+                        <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
+                          {ev.avatars?.slice(0, 2).map((a, ai) => (
+                            <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
+                              {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : a.name.charAt(0)}
                             </button>
-                          </div>
+                          ))}
+                        </div>
+                        {ev.isPersonalArrival ? (
+                          isOwnArrival ? (
+                            <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
+                              <Check size={10} />
+                              פרסמת
+                            </span>
+                          ) : null
+                        ) : alreadyJoined ? (
+                          <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
+                            <Check size={10} />
+                            נרשמת
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleJoinEvent(ev)}
+                            disabled={isJoining || ev.spotsLeft === 0}
+                            className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
+                          >
+                            {isJoining ? '...' : 'הצטרף'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* ── (3) AMENITIES — "פירוט על הפארק" ────────────────
+                Renamed from "נוחויות" to make clearer that this
+                is the wider park-context info (shade, lighting,
+                benches, accessibility, etc.) — comfort features
+                that frame the experience without being fitness
+                gear. We render them as compact chips using the
+                same `IconChip` style as the strength-workout
+                equipment tags so the visual language stays
+                consistent across screens. Each tag falls back
+                through three icon strategies: dedicated SVG
+                asset → lucide vector → emoji placeholder
+                (see `amenity-icons.ts`). */}
+            <section className="mb-6">
+              <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>פירוט על הפארק</h3>
+              {park.featureTags && park.featureTags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {AMENITY_DISPLAY_ORDER
+                    .filter((tag) => park.featureTags?.includes(tag))
+                    .map((tag) => {
+                      const cfg = AMENITY_ICON_MAP[tag];
+                      if (!cfg) return null;
+                      return (
+                        <IconChip
+                          key={tag}
+                          label={cfg.label}
+                          iconSrc={cfg.iconSrc}
+                          IconComponent={cfg.IconComponent}
+                          v2={v2}
+                        />
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="text-center py-4 bg-gray-50 dark:bg-slate-800/30 rounded-xl">
+                  <p className="text-sm text-gray-400">לא צוינו תכונות</p>
+                </div>
+              )}
+            </section>
+
+            {/* ── (4) DESCRIPTION — free-text paragraph ────────── */}
+            {park.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                {park.description}
+              </p>
+            )}
+
+            {/* ── (5) EQUIPMENT — fitness gear installed at the
+                park (pullup bar, parallel bars, rings, etc.).
+                Source: `park.gymEquipment` resolved against the
+                `gym_equipment` collection, then split into
+                אירובי/פונקציונלי/הידראולי sections (see
+                equipmentSections above) — only non-empty sections
+                render. Each item is a tappable tile that opens the
+                `EquipmentDetailDrawer` (a bottom sheet matching
+                the in-library exercise-drawer pattern) without
+                tearing the user out of the park context.
+                The card carries forward the specific
+                `ParkGymEquipment.brandName` so the drawer
+                lands on the right brand variant out of the gate. */}
+            {parkEquipment.length > 0 && (
+              <section className="mb-6">
+                <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>
+                  מתקנים
+                  <span className="text-gray-400 dark:text-gray-500 font-medium"> ({park.gymEquipment?.length ?? 0})</span>
+                </h3>
+                <div className="space-y-4">
+                  {equipmentSections.map((section) => (
+                    <div key={section.key}>
+                      <h4 className="text-[13px] font-bold text-gray-500 dark:text-gray-400 mb-2">
+                        {section.label}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {section.items.map((eq) => {
+                          const parkRef = park.gymEquipment?.find(
+                            (g) => g.equipmentId === eq.id,
+                          );
+                          // Resolution: per-equipment override → park-level primaryBrand → ''
+                          const brandName = parkRef?.brandName || park.primaryBrand || '';
+                          return (
+                            <EquipmentCard
+                              key={eq.id}
+                              equipment={eq}
+                              brandName={brandName}
+                              layout="tile"
+                              onClick={() =>
+                                setSelectedEquipment({ id: eq.id, brand: brandName || null })
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── (6) PHOTOS — actual photo gallery (park images
+                + review snapshots). Stays at the bottom. */}
+            {photoGallery.length > 1 && (
+              <section className="mb-6">
+                <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>תמונות</h3>
+                <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
+                  {photoGallery.map((url, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setExpandedPhoto(url)}
+                      className="flex-shrink-0 w-[140px] h-[100px] rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 active:scale-95 transition-transform"
+                    >
+                      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Rate this place */}
+            <section className="mb-6">
+              <button
+                onClick={() => setRatingOpen(!ratingOpen)}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-amber-600 text-sm font-bold active:scale-[0.98] transition-transform"
+              >
+                <Star size={16} />
+                דרג את המקום
+              </button>
+              {ratingOpen && (
+                <div className="mt-3 bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
+                  {ratingDone ? (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <span className="text-emerald-500 text-sm font-bold">תודה! +{XP_REWARDS.review} XP</span>
+                    </div>
+                  ) : (
+                    <>
+                      <StarRatingWidget value={userRating} onChange={setUserRating} size={28} />
+                      {userRating > 0 && (
+                        <div className="mt-3 flex gap-2 items-end">
+                          <input
+                            type="text"
+                            value={ratingComment}
+                            onChange={e => setRatingComment(e.target.value)}
+                            placeholder="תגובה (לא חובה)..."
+                            className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 outline-none"
+                          />
+                          <button
+                            onClick={handleRatingSubmit}
+                            disabled={submittingRating}
+                            className="px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
+                          >
+                            {submittingRating ? <Loader2 size={16} className="animate-spin" /> : 'שלח'}
+                          </button>
                         </div>
                       )}
-                    </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
 
-                    {eventsLoading ? (
-                      <div className="space-y-1.5">
-                        {[1, 2].map((i) => (
-                          <div key={i} className="animate-pulse flex items-center gap-2 py-2 px-2.5 bg-emerald-50/60 rounded-lg">
-                            <div className="w-6 h-6 bg-emerald-100 rounded-full" />
-                            <div className="flex-1 h-3 bg-emerald-100 rounded w-3/4" />
+            {/* Reviews list — Google-style: no card fill/box, a thin
+                divider between entries, generous whitespace. Collapsed
+                to REVIEWS_COLLAPSED_COUNT by default; "צפה בעוד ביקורות"
+                reveals the rest (all of it — already fetched, no
+                further read). Reviewer name always comes from
+                reviewerNames (userPublic lookup, 'משתמש' fallback) —
+                never the raw uid. */}
+            {ratedReviews.length > 0 && (
+              <section className="mb-4">
+                <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>ביקורות</h3>
+                <div className="divide-y divide-gray-100 dark:divide-slate-800">
+                  {visibleReviews.map(review => {
+                    const reviewerName = (review.userId && reviewerNames[review.userId]) || 'משתמש';
+                    return (
+                      <div key={review.id} className="py-3.5 first:pt-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                            <span className="text-[11px] text-white font-black">{reviewerName.charAt(0).toUpperCase()}</span>
                           </div>
-                        ))}
-                      </div>
-                    ) : filteredParkEvents.length === 0 ? null : (
-                      <div className="space-y-1">
-                        {filteredParkEvents.map((ev, idx) => {
-                          let timeLabel = '';
-                          const d = new Date(ev.nextStartTime);
-                          if (!isNaN(d.getTime())) {
-                            const now = new Date();
-                            const isToday = d.toDateString() === now.toDateString();
-                            const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
-                            const isTomorrow = d.toDateString() === tmrw.toDateString();
-                            const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                            timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
-                          }
-                          const isJoining = joiningEventId === ev.eventId;
-                          const count = Math.max(1, ev.currentRegistrations ?? 0);
-                          const alreadyJoined = isUserRegistered(ev);
-                          // Personal arrivals are individual "I'm heading here"
-                          // announcements — not joinable group sessions. We
-                          // render them with no Join CTA; the publisher gets
-                          // a "פרסמת" badge so they can see their own arrival
-                          // confirmed in the live list (this is also the
-                          // read-on-mount confirmation that survives refresh).
-                          const isOwnArrival =
-                            ev.isPersonalArrival && ev.avatars?.[0]?.uid === currentUid;
-
-                          return (
-                            <div
-                              key={`park_${ev.eventId}_${idx}`}
-                              className={v2 ? 'flex items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 shadow-v2-ring' : 'flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors'}
-                            >
-                              <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
-                              <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
-                                {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
-                              </span>
-                              {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
-                              {!ev.isPersonalArrival && (
-                                <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
-                              )}
-                              <div className="flex -space-x-1 rtl:space-x-reverse flex-shrink-0">
-                                {ev.avatars?.slice(0, 2).map((a, ai) => (
-                                  <button key={`${ev.eventId}_av_${a.uid}_${ai}`} onClick={() => setProfileUser({ uid: a.uid, name: a.name, photoURL: a.photoURL })} className="w-5 h-5 rounded-full border border-white bg-emerald-100 flex items-center justify-center text-[7px] font-black text-emerald-700 overflow-hidden active:scale-90">
-                                    {a.photoURL ? <img src={a.photoURL} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : a.name.charAt(0)}
-                                  </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-gray-800 dark:text-gray-200 truncate">{reviewerName}</p>
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map(s => (
+                                  <Star key={s} size={11} className={s <= (review.rating ?? 0) ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'} fill={s <= (review.rating ?? 0) ? '#FBBF24' : 'none'} />
                                 ))}
                               </div>
-                              {ev.isPersonalArrival ? (
-                                isOwnArrival ? (
-                                  <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
-                                    <Check size={10} />
-                                    פרסמת
-                                  </span>
-                                ) : null
-                              ) : alreadyJoined ? (
-                                <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
-                                  <Check size={10} />
-                                  נרשמת
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => handleJoinEvent(ev)}
-                                  disabled={isJoining || ev.spotsLeft === 0}
-                                  className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
-                                >
-                                  {isJoining ? '...' : 'הצטרף'}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* ── (3) AMENITIES — "פירוט על הפארק" ────────────────
-                      Renamed from "נוחויות" to make clearer that this
-                      is the wider park-context info (shade, lighting,
-                      benches, accessibility, etc.) — comfort features
-                      that frame the experience without being fitness
-                      gear. We render them as compact chips using the
-                      same `IconChip` style as the strength-workout
-                      equipment tags so the visual language stays
-                      consistent across screens. Each tag falls back
-                      through three icon strategies: dedicated SVG
-                      asset → lucide vector → emoji placeholder
-                      (see `amenity-icons.ts`). */}
-                  <section className="mb-6">
-                    <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>פירוט על הפארק</h3>
-                    {park.featureTags && park.featureTags.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {AMENITY_DISPLAY_ORDER
-                          .filter((tag) => park.featureTags?.includes(tag))
-                          .map((tag) => {
-                            const cfg = AMENITY_ICON_MAP[tag];
-                            if (!cfg) return null;
-                            return (
-                              <IconChip
-                                key={tag}
-                                label={cfg.label}
-                                iconSrc={cfg.iconSrc}
-                                IconComponent={cfg.IconComponent}
-                                v2={v2}
-                              />
-                            );
-                          })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 bg-gray-50 dark:bg-slate-800/30 rounded-xl">
-                        <p className="text-sm text-gray-400">לא צוינו תכונות</p>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* ── (4) DESCRIPTION — free-text paragraph ────────── */}
-                  {park.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
-                      {park.description}
-                    </p>
-                  )}
-
-                  {/* ── (5) EQUIPMENT — fitness gear installed at the
-                      park (pullup bar, parallel bars, rings, etc.).
-                      Source: `park.gymEquipment` resolved against the
-                      `gym_equipment` collection, then split into
-                      אירובי/פונקציונלי/הידראולי sections (see
-                      equipmentSections above) — only non-empty sections
-                      render. Each item is a tappable tile that opens the
-                      `EquipmentDetailDrawer` (a bottom sheet matching
-                      the in-library exercise-drawer pattern) without
-                      tearing the user out of the park context.
-                      The card carries forward the specific
-                      `ParkGymEquipment.brandName` so the drawer
-                      lands on the right brand variant out of the gate. */}
-                  {parkEquipment.length > 0 && (
-                    <section className="mb-6">
-                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>
-                        מתקנים
-                        <span className="text-gray-400 dark:text-gray-500 font-medium"> ({park.gymEquipment?.length ?? 0})</span>
-                      </h3>
-                      <div className="space-y-4">
-                        {equipmentSections.map((section) => (
-                          <div key={section.key}>
-                            <h4 className="text-[13px] font-bold text-gray-500 dark:text-gray-400 mb-2">
-                              {section.label}
-                            </h4>
-                            <div className="grid grid-cols-2 gap-2">
-                              {section.items.map((eq) => {
-                                const parkRef = park.gymEquipment?.find(
-                                  (g) => g.equipmentId === eq.id,
-                                );
-                                // Resolution: per-equipment override → park-level primaryBrand → ''
-                                const brandName = parkRef?.brandName || park.primaryBrand || '';
-                                return (
-                                  <EquipmentCard
-                                    key={eq.id}
-                                    equipment={eq}
-                                    brandName={brandName}
-                                    layout="tile"
-                                    onClick={() =>
-                                      setSelectedEquipment({ id: eq.id, brand: brandName || null })
-                                    }
-                                  />
-                                );
-                              })}
+                              <span className="text-[10px] text-gray-400">{formatDate(review.createdAt)}</span>
                             </div>
                           </div>
-                        ))}
+                        </div>
+                        {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5 pr-10">{review.comment}</p>}
                       </div>
-                    </section>
-                  )}
-
-                  {/* ── (6) PHOTOS — actual photo gallery (park images
-                      + review snapshots). Stays at the bottom. */}
-                  {photoGallery.length > 1 && (
-                    <section className="mb-6">
-                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>תמונות</h3>
-                      <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 scrollbar-hide">
-                        {photoGallery.map((url, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setExpandedPhoto(url)}
-                            className="flex-shrink-0 w-[140px] h-[100px] rounded-xl overflow-hidden bg-gray-100 dark:bg-slate-800 active:scale-95 transition-transform"
-                          >
-                            <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                          </button>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Rate this place */}
-                  <section className="mb-6">
-                    <button
-                      onClick={() => setRatingOpen(!ratingOpen)}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-amber-600 text-sm font-bold active:scale-[0.98] transition-transform"
-                    >
-                      <Star size={16} />
-                      דרג את המקום
-                    </button>
-                    {ratingOpen && (
-                      <div className="mt-3 bg-gray-50 dark:bg-slate-800/50 rounded-xl p-4">
-                        {ratingDone ? (
-                          <div className="flex items-center justify-center gap-2 py-2">
-                            <span className="text-emerald-500 text-sm font-bold">תודה! +{XP_REWARDS.review} XP</span>
-                          </div>
-                        ) : (
-                          <>
-                            <StarRatingWidget value={userRating} onChange={setUserRating} size={28} />
-                            {userRating > 0 && (
-                              <div className="mt-3 flex gap-2 items-end">
-                                <input
-                                  type="text"
-                                  value={ratingComment}
-                                  onChange={e => setRatingComment(e.target.value)}
-                                  placeholder="תגובה (לא חובה)..."
-                                  className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 outline-none"
-                                />
-                                <button
-                                  onClick={handleRatingSubmit}
-                                  disabled={submittingRating}
-                                  className="px-5 py-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-95 transition-transform disabled:opacity-50"
-                                >
-                                  {submittingRating ? <Loader2 size={16} className="animate-spin" /> : 'שלח'}
-                                </button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Reviews list — Google-style: no card fill/box, a thin
-                      divider between entries, generous whitespace. Collapsed
-                      to REVIEWS_COLLAPSED_COUNT by default; "צפה בעוד ביקורות"
-                      reveals the rest (all of it — already fetched, no
-                      further read). Reviewer name always comes from
-                      reviewerNames (userPublic lookup, 'משתמש' fallback) —
-                      never the raw uid. */}
-                  {ratedReviews.length > 0 && (
-                    <section className="mb-4">
-                      <h3 className={v2 ? 'mb-3 text-[17px] font-black text-v2-ink' : 'text-[16px] font-bold text-gray-900 dark:text-white mb-3'}>ביקורות</h3>
-                      <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                        {visibleReviews.map(review => {
-                          const reviewerName = (review.userId && reviewerNames[review.userId]) || 'משתמש';
-                          return (
-                            <div key={review.id} className="py-3.5 first:pt-0">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                                  <span className="text-[11px] text-white font-black">{reviewerName.charAt(0).toUpperCase()}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[12px] font-bold text-gray-800 dark:text-gray-200 truncate">{reviewerName}</p>
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">
-                                      {[1, 2, 3, 4, 5].map(s => (
-                                        <Star key={s} size={11} className={s <= (review.rating ?? 0) ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'} fill={s <= (review.rating ?? 0) ? '#FBBF24' : 'none'} />
-                                      ))}
-                                    </div>
-                                    <span className="text-[10px] text-gray-400">{formatDate(review.createdAt)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              {review.comment && <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mt-1.5 pr-10">{review.comment}</p>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {!reviewsExpanded && ratedReviews.length > REVIEWS_COLLAPSED_COUNT && (
-                        <button
-                          onClick={() => setReviewsExpanded(true)}
-                          className="mt-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 active:opacity-70 transition-opacity"
-                        >
-                          צפה בעוד ביקורות ({ratedReviews.length - REVIEWS_COLLAPSED_COUNT})
-                        </button>
-                      )}
-                    </section>
-                  )}
+                    );
+                  })}
                 </div>
-              </div>
-
-              {/* Fixed bottom action bar */}
-              <div
-                className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
-                style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
-              >
-                <div className="flex items-center gap-2" dir="rtl">
-                  {/* Start Workout — primary CTA. Extra me-2 (on top of the
-                      row's gap-2) separates it from the secondary Edit/Navigate
-                      icon buttons, which stay tight to each other. */}
+                {!reviewsExpanded && ratedReviews.length > REVIEWS_COLLAPSED_COUNT && (
                   <button
-                    onClick={() => { onClose(); onStartWorkout?.(); }}
-                    className={
-                      v2
-                        ? 'me-2 flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[15.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98]'
-                        : 'flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]'
-                    }
-                    style={v2 ? undefined : { background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
+                    onClick={() => setReviewsExpanded(true)}
+                    className="mt-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 active:opacity-70 transition-opacity"
                   >
-                    <Play size={18} fill="currentColor" />
-                    <span>{startWorkoutCta}</span>
+                    צפה בעוד ביקורות ({ratedReviews.length - REVIEWS_COLLAPSED_COUNT})
                   </button>
+                )}
+              </section>
+            )}
+          </div>
+        </div>
 
-                  {/* Suggest Edit */}
-                  <button
-                    onClick={() => setSuggestEditOpen(true)}
-                    className={
-                      v2
-                        ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
-                        : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
-                    }
-                    style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
-                    title="עדכן פרטים"
-                  >
-                    <Pencil size={18} className={v2 ? 'text-v2-ink' : 'text-cyan-500'} />
-                  </button>
+        {/* Fixed bottom action bar */}
+        <div
+          className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
+        >
+          <div className="flex items-center gap-2" dir="rtl">
+            {/* Start Workout — primary CTA. Extra me-2 (on top of the
+                row's gap-2) separates it from the secondary Edit/Navigate
+                icon buttons, which stay tight to each other. */}
+            <button
+              onClick={() => { onClose(); onStartWorkout?.(); }}
+              className={
+                v2
+                  ? 'me-2 flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-v2-cta text-[15.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.98]'
+                  : 'flex-1 me-2 text-white font-extrabold rounded-full active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[15px]'
+              }
+              style={v2 ? undefined : { background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 44 }}
+            >
+              <Play size={18} fill="currentColor" />
+              <span>{startWorkoutCta}</span>
+            </button>
 
-                  {/* Navigate */}
-                  <button
-                    onClick={handleNavigate}
-                    className={
-                      v2
-                        ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
-                        : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
-                    }
-                    style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
-                    title="ניווט"
-                  >
-                    <Navigation size={18} className={v2 ? 'text-v2-deep' : 'text-emerald-500'} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            {/* Suggest Edit */}
+            <button
+              onClick={() => setSuggestEditOpen(true)}
+              className={
+                v2
+                  ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
+                  : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
+              }
+              style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
+              title="עדכן פרטים"
+            >
+              <Pencil size={18} className={v2 ? 'text-v2-ink' : 'text-cyan-500'} />
+            </button>
+
+            {/* Navigate */}
+            <button
+              onClick={handleNavigate}
+              className={
+                v2
+                  ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.96]'
+                  : 'flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm active:scale-90 transition-transform'
+              }
+              style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
+              title="ניווט"
+            >
+              <Navigation size={18} className={v2 ? 'text-v2-deep' : 'text-emerald-500'} />
+            </button>
+          </div>
+        </div>
+      </HeroSheetFrame>
 
       {/* Suggest Edit sheet */}
       {suggestEditOpen && park && (

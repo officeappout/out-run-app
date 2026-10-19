@@ -12,6 +12,8 @@ import React, { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import FavoritesTab from '@/features/favorites/components/FavoritesTab';
 import WorkoutPreviewDrawer from '@/features/workouts/components/WorkoutPreviewDrawer';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -54,6 +56,25 @@ export default function FavoritesSheet({ isOpen, onClose, v2 = false }: Favorite
 
   return (
     <>
+      {v2 ? (
+        <Sheet
+          open={isOpen}
+          onClose={onClose}
+          zIndex={SHEET_Z.profilePanel}
+          portal={false}
+          keyboardAware={false}
+          safeArea={false}
+          transition={{ type: 'spring', stiffness: 300, damping: 35 }}
+          className="max-h-[92dvh]"
+          grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
+          ariaLabel="שמורים"
+          header={<SheetHeader title="שמורים" onClose={onClose} closeLabel="סגור" className="flex items-center justify-between px-5 pb-3 pt-2" />}
+          bodyClassName="bg-v2-surface px-4 py-4"
+        >
+          <FavoritesTab onSelectWorkout={handleSelectWorkout} v2 />
+          <div className="h-6" />
+        </Sheet>
+      ) : (
       <AnimatePresence>
         {isOpen && (
           <>
@@ -70,36 +91,9 @@ export default function FavoritesSheet({ isOpen, onClose, v2 = false }: Favorite
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 35 }}
-              className={
-                v2
-                  ? 'fixed bottom-0 inset-x-0 z-[99] flex max-h-[92dvh] flex-col rounded-t-[28px] bg-white shadow-v2-sheet'
-                  : 'fixed bottom-0 inset-x-0 z-[99] bg-white rounded-t-3xl shadow-2xl max-h-[92dvh] flex flex-col'
-              }
+              className="fixed bottom-0 inset-x-0 z-[99] bg-white rounded-t-3xl shadow-2xl max-h-[92dvh] flex flex-col"
               dir="rtl"
             >
-              {v2 ? (
-                <>
-                  <div className="flex shrink-0 justify-center pb-1 pt-2.5">
-                    <div className="h-1.5 w-10 rounded-full bg-v2-pill-border" />
-                  </div>
-                  <div className="flex shrink-0 items-center justify-between px-5 pb-3 pt-2">
-                    <h2 className="text-[22px] font-black text-v2-ink !tracking-[-0.02em]">שמורים</h2>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                      aria-label="סגור"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto bg-v2-surface px-4 py-4">
-                    <FavoritesTab onSelectWorkout={handleSelectWorkout} v2 />
-                    <div className="h-6" />
-                  </div>
-                </>
-              ) : (
-              <>
               <div className="flex justify-center pt-3 pb-1 shrink-0">
                 <div className="w-10 h-1 bg-gray-300 rounded-full" />
               </div>
@@ -120,12 +114,11 @@ export default function FavoritesSheet({ isOpen, onClose, v2 = false }: Favorite
                 <FavoritesTab onSelectWorkout={handleSelectWorkout} />
                 <div className="h-6" />
               </div>
-              </>
-              )}
             </motion.div>
           </>
         )}
       </AnimatePresence>
+      )}
 
       <WorkoutPreviewDrawer
         isOpen={previewOpen}

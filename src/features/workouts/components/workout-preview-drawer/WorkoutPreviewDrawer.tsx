@@ -2,7 +2,9 @@
 
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import HeroSheetFrame from '@/components/ui/HeroSheetFrame';
+import IconButton from '@/components/ui/v2/IconButton';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -431,336 +433,309 @@ export default function WorkoutPreviewDrawer({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (workout || generatedWorkout) && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
-            />
+      <HeroSheetFrame
+        isOpen={isOpen && !!(workout || generatedWorkout)}
+        onClose={onClose}
+        v2={homeV2}
+        y={y}
+        opacity={opacity}
+        dragControls={dragControls}
+        onDragEnd={handleDragEnd}
+        frameStyle={{
+          height: DRAWER_HEIGHT,
+          maxHeight: '95vh',
+          fontFamily: 'var(--font-simpler)',
+          willChange: 'transform',
+        }}
+        classicClassName="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
+        ariaLabel={displayTitle || undefined}
+      >
+        <DrawerHeader
+          headerOpacity={headerOpacity}
+          displayTitle={displayTitle}
+          onClose={onClose}
+          onEditEntry={onEditEntry}
+        />
 
-            <motion.div
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 500 }}
-              dragElastic={{ top: 0.08, bottom: 0 }}
-              dragMomentum={false}
-              onDragEnd={handleDragEnd}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 40, stiffness: 260, mass: 0.8 }}
-              style={{
-                y,
-                opacity,
-                height: DRAWER_HEIGHT,
-                maxHeight: '95vh',
-                fontFamily: 'var(--font-simpler)',
-                willChange: 'transform',
-              }}
-              className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-slate-900 rounded-t-[32px] shadow-2xl overflow-hidden"
-              dir="rtl"
-            >
-              {/* Drag handle — full-width touch target; starts framer drag via dragControls */}
-              <div
-                className="absolute top-0 left-0 right-0 z-[60] flex justify-center pt-3 pb-4 cursor-grab active:cursor-grabbing"
-                onPointerDown={(e) => dragControls.start(e)}
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-              </div>
-
-              <DrawerHeader
-                headerOpacity={headerOpacity}
-                displayTitle={displayTitle}
-                onClose={onClose}
-                onEditEntry={onEditEntry}
-              />
-
-              {/* Unified scrollable container */}
-              <div
-                ref={scrollContainerRef}
-                className="h-full overflow-y-auto overflow-x-hidden overscroll-contain pb-36"
-              >
-                {/* Hero — overflow-hidden prevents image bleed on overscroll */}
-                <motion.div
-                  className="relative w-full overflow-hidden"
+        {/* Unified scrollable container */}
+        <div
+          ref={scrollContainerRef}
+          className="h-full overflow-y-auto overflow-x-hidden overscroll-contain pb-36"
+        >
+          {/* Hero — overflow-hidden prevents image bleed on overscroll */}
+          <motion.div
+            className="relative w-full overflow-hidden"
+            style={{
+              height: dynamicHeight,
+              opacity: imageOpacity,
+              scale: imageScale,
+            }}
+          >
+            {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
+              <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
+                {/* White backdrop revealed by the media mask's bottom fade — keeps the fade
+                    WHITE with NO separate layer above the video. (A static poster backdrop was
+                    tried to hide the switcher-open flash but the masked media revealed it through
+                    its dimmed band = double-exposure ghosting; the <body> portal removed the
+                    re-composite at its root, so the plain white floor is enough.) */}
+                <div className="absolute inset-0 bg-white" />
+                {/* Media wrapper. The mask does DOUBLE duty on iOS: (1) it IS the bottom fade —
+                    the media fades to transparent so the white backdrop shows through, so there
+                    is NO overlay layer for the <video> to paint above; (2) applying a mask forces
+                    the <video> OFF the iOS hardware-overlay fast-path (it must be composited to be
+                    masked) — the actual root of the raw-square-no-fade bug that z-index couldn't
+                    beat. */}
+                <div
+                  className="absolute inset-0"
                   style={{
-                    height: dynamicHeight,
-                    opacity: imageOpacity,
-                    scale: imageScale,
+                    WebkitMaskImage:
+                      'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
+                    maskImage:
+                      'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
+                    transform: 'translateZ(0)',
                   }}
                 >
-                  {(cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage) && (
-                    <div className="absolute inset-0" style={{ isolation: 'isolate' }}>
-                      {/* White backdrop revealed by the media mask's bottom fade — keeps the fade
-                          WHITE with NO separate layer above the video. (A static poster backdrop was
-                          tried to hide the switcher-open flash but the masked media revealed it through
-                          its dimmed band = double-exposure ghosting; the <body> portal removed the
-                          re-composite at its root, so the plain white floor is enough.) */}
-                      <div className="absolute inset-0 bg-white" />
-                      {/* Media wrapper. The mask does DOUBLE duty on iOS: (1) it IS the bottom fade —
-                          the media fades to transparent so the white backdrop shows through, so there
-                          is NO overlay layer for the <video> to paint above; (2) applying a mask forces
-                          the <video> OFF the iOS hardware-overlay fast-path (it must be composited to be
-                          masked) — the actual root of the raw-square-no-fade bug that z-index couldn't
-                          beat. */}
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          WebkitMaskImage:
-                            'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
-                          maskImage:
-                            'linear-gradient(to top, rgba(255,255,255,0) 13%, rgba(255,255,255,0.4) 42%, rgba(255,255,255,1) 85%)',
-                          transform: 'translateZ(0)',
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
-                          alt={displayTitle}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                        {(cachedHeroVideo || heroMedia?.videoUrl) && (
-                          <video
-                            ref={heroVideoRef}
-                            src={cachedHeroVideo || heroMedia?.videoUrl}
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
-                            {...{"webkit-playsinline": "true"}}
-                            preload="auto"
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-                      {/* Top dark gradient for close-button legibility. With the video no longer a
-                          free hardware overlay, this z-index now paints above it normally. */}
-                      <div
-                        className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none"
-                        style={{ transform: 'translateZ(0)', willChange: 'transform', zIndex: 2 }}
-                      />
-                    </div>
-                  )}
-
-                  {/* B: skeleton overlay over the hero while a select re-resolves media — reuses the
-                      same animate-pulse token as WorkoutLoadingSkeleton; below the z-10 close button. */}
-                  {isRecomputing && (
-                    <div className="absolute inset-0 bg-gray-100 dark:bg-slate-800 animate-pulse z-[5]" />
-                  )}
-
-                  {/* Hero close button — fades with hero */}
-                  <motion.div
-                    className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
-                    style={{
-                      paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
-                      opacity: imageOpacity,
-                      pointerEvents: heroClosePointerEvents,
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cachedHeroThumb || heroMedia?.thumbnailUrl || workout?.coverImage}
+                    alt={displayTitle}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
-                  >
-                    <button
-                      onClick={onClose}
-                      className={
-                        homeV2
-                          ? "v2-glass-chip w-10 h-10 rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
-                          : "w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
-                      }
-                      aria-label="סגור"
-                    >
-                      <X size={20} strokeWidth={2.5} />
-                    </button>
-                    </motion.div>
-                </motion.div>
-
-                {/* Workout title — compositor-thread scale collapse */}
-                <motion.div
-                  className="relative z-20 -mt-14 px-6 pb-2 will-change-transform"
-                  style={{
-                    scale: titleScale,
-                    originX: 1,
-                    originY: 1,
-                  }}
-                >
-                  <div className="flex items-start gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/icons/programs/full_body.svg"
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="flex-shrink-0 mt-0.5"
-                      style={{ filter: 'brightness(0)' }}
+                  />
+                  {(cachedHeroVideo || heroMedia?.videoUrl) && (
+                    <video
+                      ref={heroVideoRef}
+                      src={cachedHeroVideo || heroMedia?.videoUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      {...{"webkit-playsinline": "true"}}
+                      preload="auto"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
-                    <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight whitespace-normal">
-                      {displayTitle}
-                    </h1>
-                  </div>
-                </motion.div>
-
-                {/* Intensity toggle row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות"
-                    doc, 21.08.2026) — pattern replicated from HybridOverviewScreen's
-                    difficulty carousel (role="group" pill, per-option
-                    DifficultyBolts+label+minutes, active option tinted inline),
-                    not copied verbatim. Same trio engine as before (StatsOverview
-                    still owns trioResult/selectedOptionIndex/handleTrioSelect) —
-                    only the toggle's RENDER location moved, from the home screen's
-                    pill+bottom-sheet into this drawer. Only rendered when there's
-                    genuinely a choice; other WorkoutPreviewDrawer callers
-                    (calendar-tap preview, custom builder, FavoritesSheet) don't
-                    pass intensityOptions at all. */}
-                {intensityOptions && intensityOptions.length > 1 && (
-                  <div className="relative z-20 px-6 pb-3">
-                    <div
-                      className="flex w-full items-stretch bg-white dark:bg-slate-800 rounded-full"
-                      role="group"
-                      aria-label="בחירת עצימות"
-                      style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}
-                    >
-                      {intensityOptions.map((option, i) => {
-                        const active = i === selectedIntensityIndex;
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => onSelectIntensity?.(i)}
-                            aria-pressed={active}
-                            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
-                            style={{ padding: '7px 6px', background: active ? '#F0FBFF' : 'transparent' }}
-                          >
-                            <DifficultyBolts difficulty={option.difficulty} size="sm" showLabel={false} />
-                            <span
-                              className="text-[11px] font-bold whitespace-nowrap"
-                              style={{ color: active ? '#00ADEF' : '#6B7280' }}
-                            >
-                              {option.label} · {option.duration}׳
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
-                  {/* Priority: skeleton while loading → generated list → legacy overview */}
-                  {isGeneratingWorkout && !generatedWorkout ? (
-                    <WorkoutLoadingSkeleton />
-                  ) : generatedWorkout ? (
-                    <>
-                      {SWAP_ALL_ENABLED && (
-                        <WorkoutLocationSwitcher
-                          currentLocation={resolvedSwapLocation}
-                          isSwapping={isSwapping}
-                          onSwap={(v) => { void swapAll('location', v); }}
-                        />
-                      )}
-                      {isRecomputing ? (
-                        <WorkoutLoadingSkeleton />
-                      ) : (
-                        <GeneratedWorkoutExerciseList
-                          generatedWorkout={generatedWorkout}
-                          exercisePool={exercisePool}
-                          onSwap={handleOpenSwapModal}
-                          onSwapPyramidStep={handleOpenPyramidStepSwap}
-                          onExerciseTap={handleExerciseTap}
-                          isWarmupExpanded={isWarmupExpanded}
-                          isWarmupActive={isWarmupActive}
-                          onToggleWarmupExpanded={handleToggleWarmupExpanded}
-                          onToggleWarmupActive={handleToggleWarmupActive}
-                          actions={{
-                            isFav,
-                            isFavToggling,
-                            isFavDownloading,
-                            isFavDownloaded,
-                            downloadProgress: dlProgress,
-                            isSharing,
-                            onToggleFavorite: handleToggleFavorite,
-                            onShare: handleShare,
-                            onDownload: handleDownload,
-                          }}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    workoutPlan && (
-                      <StrengthOverviewCard
-                        workoutPlan={workoutPlan}
-                        userProfile={profile || undefined}
-                        coverImage={workout?.coverImage}
-                        onStartWorkout={handleStartWorkout}
-                      />
-                    )
-                  )}
-
-                  {/* "Where to Train" — nearest parks carousel */}
-                  {nearbyParks.length > 0 && (
-                    <section className="mt-6 mb-2">
-                      <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
-                        איפה כדאי להתאמן?
-                      </h3>
-                      <div
-                        className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
-                        dir="rtl"
-                      >
-                        {nearbyParks.map((park, idx) => (
-                          <motion.div
-                            key={park.id}
-                            initial={{ opacity: 0, x: 30 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.08, duration: 0.35 }}
-                            className="flex-shrink-0 w-[200px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
-                          >
-                            <ParkCardImage
-                              src={park.imageUrl}
-                              fallback={PARK_FALLBACK_IMAGE}
-                              alt={park.name}
-                              eager={idx < 2}
-                            />
-                            <div className="p-3">
-                              <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
-                                {park.name}
-                              </p>
-                              <div className="flex items-center gap-1 mt-1.5 text-slate-500 dark:text-slate-400">
-                                <MapPin size={13} className="flex-shrink-0" />
-                                <span className="text-xs font-medium">
-                                  {park.walkingMinutes <= 1
-                                    ? 'דקה הליכה ממך'
-                                    : `${park.walkingMinutes} דקות הליכה ממך`}
-                                </span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </section>
                   )}
                 </div>
+                {/* Top dark gradient for close-button legibility. With the video no longer a
+                    free hardware overlay, this z-index now paints above it normally. */}
+                <div
+                  className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent pointer-events-none"
+                  style={{ transform: 'translateZ(0)', willChange: 'transform', zIndex: 2 }}
+                />
               </div>
+            )}
 
-              <DrawerFooter
-                similarCount={similarCount}
-                onOpenLivePartners={handleOpenLivePartners}
-                workoutTitleForPresence={workoutTitleForPresence}
-                userLocation={userLocation}
-                isOnline={isOnline}
-                isFavDownloaded={isFavDownloaded}
-                onStart={handleStartWorkout}
-                onEditEntry={onEditEntry}
-                isAudioEnabled={isAudioEnabled}
-                onToggleAudio={toggleAudio}
+            {/* B: skeleton overlay over the hero while a select re-resolves media — reuses the
+                same animate-pulse token as WorkoutLoadingSkeleton; below the z-10 close button. */}
+            {isRecomputing && (
+              <div className="absolute inset-0 bg-gray-100 dark:bg-slate-800 animate-pulse z-[5]" />
+            )}
+
+            {/* Hero close button — fades with hero */}
+            <motion.div
+              className="absolute top-0 right-0 px-3 pb-3 z-10 transform-gpu will-change-transform"
+              style={{
+                paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)',
+                opacity: imageOpacity,
+                pointerEvents: heroClosePointerEvents,
+              }}
+            >
+              {homeV2 ? (
+                <IconButton aria-label="סגור" tone="glass" size={40} onClick={onClose}>
+                  <X size={20} strokeWidth={2.5} />
+                </IconButton>
+              ) : (
+                <button
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
+                  aria-label="סגור"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              )}
+              </motion.div>
+          </motion.div>
+
+          {/* Workout title — compositor-thread scale collapse */}
+          <motion.div
+            className="relative z-20 -mt-14 px-6 pb-2 will-change-transform"
+            style={{
+              scale: titleScale,
+              originX: 1,
+              originY: 1,
+            }}
+          >
+            <div className="flex items-start gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/icons/programs/full_body.svg"
+                alt=""
+                width={20}
+                height={20}
+                className="flex-shrink-0 mt-0.5"
+                style={{ filter: 'brightness(0)' }}
               />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight whitespace-normal">
+                {displayTitle}
+              </h1>
+            </div>
+          </motion.div>
+
+          {/* Intensity toggle row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות"
+              doc, 21.08.2026) — pattern replicated from HybridOverviewScreen's
+              difficulty carousel (role="group" pill, per-option
+              DifficultyBolts+label+minutes, active option tinted inline),
+              not copied verbatim. Same trio engine as before (StatsOverview
+              still owns trioResult/selectedOptionIndex/handleTrioSelect) —
+              only the toggle's RENDER location moved, from the home screen's
+              pill+bottom-sheet into this drawer. Only rendered when there's
+              genuinely a choice; other WorkoutPreviewDrawer callers
+              (calendar-tap preview, custom builder, FavoritesSheet) don't
+              pass intensityOptions at all. */}
+          {intensityOptions && intensityOptions.length > 1 && (
+            <div className="relative z-20 px-6 pb-3">
+              <div
+                className="flex w-full items-stretch bg-white dark:bg-slate-800 rounded-full"
+                role="group"
+                aria-label="בחירת עצימות"
+                style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}
+              >
+                {intensityOptions.map((option, i) => {
+                  const active = i === selectedIntensityIndex;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onSelectIntensity?.(i)}
+                      aria-pressed={active}
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full active:scale-[0.98] transition-all duration-200"
+                      style={{ padding: '7px 6px', background: active ? '#F0FBFF' : 'transparent' }}
+                    >
+                      <DifficultyBolts difficulty={option.difficulty} size="sm" showLabel={false} />
+                      <span
+                        className="text-[11px] font-bold whitespace-nowrap"
+                        style={{ color: active ? '#00ADEF' : '#6B7280' }}
+                      >
+                        {option.label} · {option.duration}׳
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-slate-900 relative z-10 px-4 pt-4 pb-8">
+            {/* Priority: skeleton while loading → generated list → legacy overview */}
+            {isGeneratingWorkout && !generatedWorkout ? (
+              <WorkoutLoadingSkeleton />
+            ) : generatedWorkout ? (
+              <>
+                {SWAP_ALL_ENABLED && (
+                  <WorkoutLocationSwitcher
+                    currentLocation={resolvedSwapLocation}
+                    isSwapping={isSwapping}
+                    onSwap={(v) => { void swapAll('location', v); }}
+                  />
+                )}
+                {isRecomputing ? (
+                  <WorkoutLoadingSkeleton />
+                ) : (
+                  <GeneratedWorkoutExerciseList
+                    generatedWorkout={generatedWorkout}
+                    exercisePool={exercisePool}
+                    onSwap={handleOpenSwapModal}
+                    onSwapPyramidStep={handleOpenPyramidStepSwap}
+                    onExerciseTap={handleExerciseTap}
+                    isWarmupExpanded={isWarmupExpanded}
+                    isWarmupActive={isWarmupActive}
+                    onToggleWarmupExpanded={handleToggleWarmupExpanded}
+                    onToggleWarmupActive={handleToggleWarmupActive}
+                    actions={{
+                      isFav,
+                      isFavToggling,
+                      isFavDownloading,
+                      isFavDownloaded,
+                      downloadProgress: dlProgress,
+                      isSharing,
+                      onToggleFavorite: handleToggleFavorite,
+                      onShare: handleShare,
+                      onDownload: handleDownload,
+                    }}
+                  />
+                )}
+              </>
+            ) : (
+              workoutPlan && (
+                <StrengthOverviewCard
+                  workoutPlan={workoutPlan}
+                  userProfile={profile || undefined}
+                  coverImage={workout?.coverImage}
+                  onStartWorkout={handleStartWorkout}
+                />
+              )
+            )}
+
+            {/* "Where to Train" — nearest parks carousel */}
+            {nearbyParks.length > 0 && (
+              <section className="mt-6 mb-2">
+                <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
+                  איפה כדאי להתאמן?
+                </h3>
+                <div
+                  className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
+                  dir="rtl"
+                >
+                  {nearbyParks.map((park, idx) => (
+                    <motion.div
+                      key={park.id}
+                      initial={{ opacity: 0, x: 30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.08, duration: 0.35 }}
+                      className="flex-shrink-0 w-[200px] rounded-2xl border-[0.5px] border-[#E0E9FF] dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800/60 shadow-sm"
+                    >
+                      <ParkCardImage
+                        src={park.imageUrl}
+                        fallback={PARK_FALLBACK_IMAGE}
+                        alt={park.name}
+                        eager={idx < 2}
+                      />
+                      <div className="p-3">
+                        <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                          {park.name}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1.5 text-slate-500 dark:text-slate-400">
+                          <MapPin size={13} className="flex-shrink-0" />
+                          <span className="text-xs font-medium">
+                            {park.walkingMinutes <= 1
+                              ? 'דקה הליכה ממך'
+                              : `${park.walkingMinutes} דקות הליכה ממך`}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+
+        <DrawerFooter
+          similarCount={similarCount}
+          onOpenLivePartners={handleOpenLivePartners}
+          workoutTitleForPresence={workoutTitleForPresence}
+          userLocation={userLocation}
+          isOnline={isOnline}
+          isFavDownloaded={isFavDownloaded}
+          onStart={handleStartWorkout}
+          onEditEntry={onEditEntry}
+          isAudioEnabled={isAudioEnabled}
+          onToggleAudio={toggleAudio}
+        />
+      </HeroSheetFrame>
 
       {/* Exercise detail hero drawer (memoised + lazy) — regular exercises only;
           machine pseudo-exercises are routed to EquipmentDetailDrawer below. */}

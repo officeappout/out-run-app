@@ -18,6 +18,8 @@ import { useUserStore } from '@/features/user';
 import { APP_CONFIG_LINKS } from '@/lib/config/app-urls';
 import { CalendarPlus, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Sheet from '@/components/ui/v2/Sheet';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { X, Footprints, Users, MapPin, Zap, ChevronLeft } from 'lucide-react';
 
 interface UnifiedPlusDrawerProps {
@@ -93,7 +95,7 @@ export default function UnifiedPlusDrawer({
     },
   ];
 
-  const renderRow = (row: Row) => v2 ? (
+  const renderV2Row = (row: Row) => (
     <button
       key={row.label}
       onClick={row.onSelect}
@@ -108,7 +110,9 @@ export default function UnifiedPlusDrawer({
       </span>
       <ChevronLeft size={17} strokeWidth={2.6} className="flex-shrink-0 text-v2-muted" />
     </button>
-  ) : (
+  );
+
+  const renderRow = (row: Row) => (
     <button
       key={row.label}
       onClick={row.onSelect}
@@ -124,6 +128,65 @@ export default function UnifiedPlusDrawer({
       <ChevronLeft size={16} className="text-gray-300 flex-shrink-0" />
     </button>
   );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        layout="nested"
+        scroll="none"
+        // z-[100]: matches this drawer's live siblings (ContributionWizard,
+        // QuickReportSheet, PlannedActivityComposeSheet — .cursorrules "Full-screen overlays").
+        zIndex={SHEET_Z.overlay}
+        portal={false}
+        keyboardAware={false}
+        backdropStyle={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        title="מה תרצה לעשות?"
+      >
+        <div className="space-y-4 px-5 pb-4">
+          {[
+            {
+              title: 'פעילות',
+              rows: [
+                ...(onAddWorkout
+                  ? [{ icon: <CalendarPlus size={18} />, label: 'הוספת אימון ללו״ז', sublabel: 'מתי, כמה זמן ואיזה סוג', onSelect: select(onAddWorkout) }]
+                  : []),
+                activityRows[0],
+              ],
+            },
+            {
+              title: 'חברתי',
+              rows: [
+                { icon: <UserPlus size={18} />, label: 'הזמנת חבר', sublabel: '+50 נק׳ לשכונה ולעיר שלך כשהוא מצטרף', onSelect: select(invite) },
+                activityRows[1],
+              ],
+            },
+          ].map((g) => (
+            <div key={g.title} className="space-y-2">
+              <div className="px-1 text-[13px] font-extrabold text-v2-deep">{g.title}</div>
+              <div className="space-y-2">{g.rows.map((row) => renderV2Row(row))}</div>
+            </div>
+          ))}
+          <div className="space-y-2">
+            <div className="px-1 text-[13px] font-extrabold text-v2-deep">תרומה למפה</div>
+            <div className="grid grid-cols-2 gap-2">
+              {contributeRows.map((row) => (
+                <button
+                  key={row.label}
+                  onClick={row.onSelect}
+                  className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] [&_svg]:!text-v2-deep"
+                >
+                  {row.icon}
+                  {row.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -145,83 +208,40 @@ export default function UnifiedPlusDrawer({
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className={v2 ? 'w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-v2-sheet' : 'w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden'}
+            className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl overflow-hidden"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             dir="rtl"
           >
             <div className="flex justify-center pt-3 pb-1">
-              <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 rounded-full bg-gray-200'} />
+              <div className="w-10 h-1 rounded-full bg-gray-200" />
             </div>
 
             <div className="flex items-center justify-between px-5 pb-2">
-              <h3 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>מה תרצה לעשות?</h3>
+              <h3 className="text-base font-black text-gray-900">מה תרצה לעשות?</h3>
               <button
                 onClick={onClose}
                 aria-label="סגירה"
-                className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline' : 'p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all'}
+                className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-gray-200 active:scale-90 transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {v2 ? (
-              <div className="space-y-4 px-5 pb-4">
-                {[
-                  {
-                    title: 'פעילות',
-                    rows: [
-                      ...(onAddWorkout
-                        ? [{ icon: <CalendarPlus size={18} />, label: 'הוספת אימון ללו״ז', sublabel: 'מתי, כמה זמן ואיזה סוג', onSelect: select(onAddWorkout) }]
-                        : []),
-                      activityRows[0],
-                    ],
-                  },
-                  {
-                    title: 'חברתי',
-                    rows: [
-                      { icon: <UserPlus size={18} />, label: 'הזמנת חבר', sublabel: '+50 נק׳ לשכונה ולעיר שלך כשהוא מצטרף', onSelect: select(invite) },
-                      activityRows[1],
-                    ],
-                  },
-                ].map((g) => (
-                  <div key={g.title} className="space-y-2">
-                    <div className="px-1 text-[13px] font-extrabold text-v2-deep">{g.title}</div>
-                    <div className="space-y-2">{g.rows.map((row) => renderRow(row))}</div>
-                  </div>
-                ))}
-                <div className="space-y-2">
-                  <div className="px-1 text-[13px] font-extrabold text-v2-deep">תרומה למפה</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {contributeRows.map((row) => (
-                      <button
-                        key={row.label}
-                        onClick={row.onSelect}
-                        className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] [&_svg]:!text-v2-deep"
-                      >
-                        {row.icon}
-                        {row.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
             <div className="px-5 pb-4 space-y-4">
               <div className="space-y-2">
-                <div className={v2 ? 'px-1 text-[13px] font-extrabold text-v2-deep' : 'text-[11px] font-bold text-gray-400 px-1'}>פעילות</div>
-                <div className={v2 ? 'space-y-2' : 'space-y-1.5'}>
+                <div className="text-[11px] font-bold text-gray-400 px-1">פעילות</div>
+                <div className="space-y-1.5">
                   {activityRows.map((row) => renderRow(row))}
                 </div>
               </div>
               <div className="space-y-2">
-                <div className={v2 ? 'px-1 text-[13px] font-extrabold text-v2-deep' : 'text-[11px] font-bold text-gray-400 px-1'}>תרומה למפה</div>
-                <div className={v2 ? 'space-y-2' : 'space-y-1.5'}>
+                <div className="text-[11px] font-bold text-gray-400 px-1">תרומה למפה</div>
+                <div className="space-y-1.5">
                   {renderRow(contributeRows[0])}
                   {renderRow(contributeRows[1])}
                 </div>
               </div>
             </div>
-            )}
           </motion.div>
         </motion.div>
       )}

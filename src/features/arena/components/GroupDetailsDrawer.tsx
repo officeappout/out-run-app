@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls } from 'framer-motion';
+import GroupSheetFrame from './group-details/GroupSheetFrame';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { useRouter } from 'next/navigation';
 import {
@@ -73,8 +74,6 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: s
 
 /** px the sheet is offset at initial open to show ~85 vh (95 - 85 = 10 vh). */
 const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.10) : 80;
-const CLOSE_THRESHOLD = 100;
-const EXPAND_THRESHOLD = 50;
 
 const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -635,1044 +634,1014 @@ export default function GroupDetailsDrawer({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[80] bg-black/40"
-              style={{ backdropFilter: 'blur(4px)' }}
-              onClick={onClose}
+      <GroupSheetFrame
+        isOpen={isOpen}
+        onClose={onClose}
+        v2={v2}
+        y={y}
+        opacity={opacity}
+        dragControls={dragControls}
+        peekY={PEEK_Y_PX}
+        ariaLabel={group.name}
+      >
+        {/* ── Hero image — drag target + bounding box ───────── */}
+        <div
+          className={`relative flex-shrink-0 ${v2 ? 'h-64' : 'h-56'} rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing`}
+          onPointerDown={(e) => dragControls.start(e)}
+          style={{ touchAction: 'none' }}
+        >
+          {coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={coverImage} alt={group.name} className="w-full h-full object-cover" decoding="async" />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
+              <span className="text-7xl drop-shadow-md select-none">{catConfig.icon}</span>
+            </div>
+          )}
+
+          {/* Gradient: image fades into content below */}
+          {v2 ? (
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ background: 'linear-gradient(to top, #fff 6%, rgba(255,255,255,0.55) 38%, transparent 70%)' }}
             />
-            <motion.div
-              initial={{ y: '100%' }}
-              // v2: open at full height (the owner's review — it used to stop at the peek).
-              animate={{ y: v2 ? 0 : PEEK_Y_PX }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
-              drag="y"
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 500 }}
-              dragElastic={{ top: 0.08, bottom: 0 }}
-              dragMomentum={false}
-              onDragEnd={(_, info) => {
-                const offset = info.offset.y;
-                const SPRING = { type: 'spring', damping: 40, stiffness: 260, mass: 0.8 } as const;
-                if (offset > CLOSE_THRESHOLD || info.velocity.y > 500) {
-                  onClose();
-                } else if (offset < -EXPAND_THRESHOLD) {
-                  animate(y, 0, SPRING);
-                } else {
-                  animate(y, PEEK_Y_PX, SPRING);
-                }
-              }}
-              className="kb-sheet fixed bottom-0 left-0 right-0 z-[81] max-w-md mx-auto bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl flex flex-col"
-              style={{ height: '95vh', y, opacity }}
-            >
-              {/* ── Hero image — drag target + bounding box ───────── */}
-              <div
-                className={`relative flex-shrink-0 ${v2 ? 'h-64' : 'h-56'} rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing`}
-                onPointerDown={(e) => dragControls.start(e)}
-                style={{ touchAction: 'none' }}
-              >
-                {coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverImage} alt={group.name} className="w-full h-full object-cover" decoding="async" />
-                ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${catConfig.gradient} flex items-center justify-center`}>
-                    <span className="text-7xl drop-shadow-md select-none">{catConfig.icon}</span>
-                  </div>
-                )}
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
+          )}
 
-                {/* Gradient: image fades into content below */}
-                {v2 ? (
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{ background: 'linear-gradient(to top, #fff 6%, rgba(255,255,255,0.55) 38%, transparent 70%)' }}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-900 via-black/10 to-transparent" />
-                )}
+          {/* Drag handle — overlaid on image */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/60 rounded-full" />
 
-                {/* Drag handle — overlaid on image */}
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-white/60 rounded-full" />
+          {/* Close button — ≥44px tap target */}
+          <button
+            onClick={onClose}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label="סגור מגירה"
+            className="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
+          >
+            <X size={18} className="text-white" />
+          </button>
 
-                {/* Close button — ≥44px tap target */}
-                <button
-                  onClick={onClose}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  aria-label="סגור מגירה"
-                  className="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
-                >
-                  <X size={18} className="text-white" />
-                </button>
+          {/* Category badge — overlaid bottom-right */}
+          <div
+            className={
+              v2
+                ? 'v2-glass-chip absolute bottom-14 right-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
+                : 'absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
+            }
+            dir="rtl"
+          >
+            <span>{catConfig.icon}</span>
+            <span>{catConfig.label}</span>
+          </div>
+        </div>
 
-                {/* Category badge — overlaid bottom-right */}
-                <div
+        {/* ── Scrollable content ─────────────────────────── */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
+          {/* Live session banner — shown when a session is approaching / in lobby / active.
+              Members always see the banner (private group members included).
+              Non-members see it only when canDropIn (public, unlocked, city-match). */}
+          {effectiveLiveSession && (
+            effectiveLiveSession.phase === 'approaching' ||
+            effectiveLiveSession.phase === 'lobby' ||
+            effectiveLiveSession.phase === 'active'
+          ) && (isJoined ? (
+            <CommunitySessionBanner
+              session={effectiveLiveSession}
+              onDismiss={onClose}
+              compact
+              isJoined
+              onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
+            />
+          ) : canDropIn ? (
+            <CommunitySessionBanner
+              session={effectiveLiveSession}
+              onDismiss={onClose}
+              compact
+              isJoined={false}
+              onDropIn={handleDropIn}
+              onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
+            />
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs font-bold" dir="rtl">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+              <span>
+                מפגש פעיל ·{' '}
+                {group.isCityOnly
+                  ? `לתושבי ${destAddress?.split(',')[0] ?? 'העיר'} בלבד`
+                  : 'לחברים בלבד'}
+              </span>
+            </div>
+          ))}
+
+          {/* Title */}
+          <h2 className={v2 ? 'text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-xl font-black text-gray-900 dark:text-white leading-tight'}>
+            {group.name}
+          </h2>
+
+          {/* Tags — immediately under title so users see session type first */}
+          {effectiveTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 -mt-2">
+              {effectiveTags.map((tag) => (
+                <span
+                  key={tag}
                   className={
                     v2
-                      ? 'v2-glass-chip absolute bottom-14 right-4 flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13.5px] font-extrabold text-white'
-                      : 'absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-3 py-1.5 rounded-full'
+                      ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring'
+                      : 'px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-bold'
                   }
-                  dir="rtl"
                 >
-                  <span>{catConfig.icon}</span>
-                  <span>{catConfig.label}</span>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* ── Next Session Banner (cyan) with spots integrated ── */}
+          {nextSessionData && !(liveSession && (liveSession.phase === 'approaching' || liveSession.phase === 'lobby' || liveSession.phase === 'active')) && (
+            <div
+              className={
+                v2
+                  ? 'space-y-3 rounded-[20px] bg-v2-tint p-4'
+                  : 'bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-cyan-100 dark:border-cyan-800/40 space-y-3'
+              }
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-600 uppercase tracking-widest'}>המפגש הבא</p>
+                  <p className={v2 ? 'text-[17px] font-black leading-snug text-v2-ink' : 'text-sm font-black text-gray-900 dark:text-white leading-snug'}>
+                    {nextSlot?.label || catConfig.label} · {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+                    {spotsLeft != null && (
+                      <span className={`mr-1.5 text-xs font-black ${isFull ? 'text-red-500' : 'text-cyan-600'}`}>
+                        {isFull ? ' · המפגש מלא' : ` · ${spotsLeft} מקומות נותרו`}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {effectivePrice != null && effectivePrice > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex-shrink-0">
+                    ₪{effectivePrice}
+                  </span>
+                )}
+              </div>
+
+              {nextSlot?.workoutGoal && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-cyan-200 text-[11px] font-bold text-cyan-700">
+                  🎯 יעד אישי · {nextSlot.workoutGoal.type === 'distance'
+                    ? `${nextSlot.workoutGoal.value.toFixed(1)} ק״מ`
+                    : `${Math.round(nextSlot.workoutGoal.value / 60)} דק׳`}
+                </span>
+              )}
+
+              {/* Book / Waitlist / Cancel button (only if joined) */}
+              {isJoined && (
+                <button
+                  disabled={bookingLoading}
+                  onClick={handleBookSession}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all active:scale-[0.97] ${
+                    isBooked
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                      : isWaitlisted
+                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                        : isFull
+                          ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                          : v2
+                            ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta !rounded-full !py-3.5 text-[15px]'
+                            : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                  }`}
+                >
+                  {bookingLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isBooked ? (
+                    <>✓ רשום/ה (בטל?)</>
+                  ) : isWaitlisted ? (
+                    <>⏳ ברשימת המתנה (בטל?)</>
+                  ) : isFull ? (
+                    <>הצטרף לרשימת המתנה</>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      הירשם למפגש
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* "See full schedule" toggle */}
+              {allSlots.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setScheduleOpen(!scheduleOpen)}
+                  className="flex items-center gap-1 text-xs text-cyan-600 font-bold hover:text-cyan-700 transition-colors mx-auto"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{scheduleOpen ? 'הסתר מערכת שעות' : 'לכל מערכת השעות'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${scheduleOpen ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── Expandable Full Schedule ────────────────────── */}
+          {scheduleOpen && allSlots.length > 1 && (
+            <div className={v2 ? 'overflow-hidden rounded-[20px] bg-white shadow-v2-ring' : 'bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/40 overflow-hidden'}>
+              <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/40">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  מערכת שעות מלאה
+                </p>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/40">
+                {allSlots.map((slot, i) => {
+                  const isNext = nextSlot === slot;
+                  const slotAddr = slot.location?.address || destAddress;
+                  const slotPrice = slot.price != null ? slot.price : group.price;
+                  const slotEquip = slot.requiredEquipment?.length ? slot.requiredEquipment : group.equipment;
+                  return (
+                    <div key={i} className={`px-4 py-2.5 flex items-center gap-3 ${isNext ? 'bg-cyan-50/60 dark:bg-cyan-900/10' : ''}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                          יום {DAY_LABELS[slot.dayOfWeek]} ב-{slot.time}
+                          {slot.label && <span className="text-gray-400 font-medium"> — {slot.label}</span>}
+                        </p>
+                        {slotAddr && (
+                          <p className="text-xs text-gray-400 truncate mt-0.5">📍 {slotAddr}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isNext && (
+                          <span className="px-1.5 py-0.5 rounded bg-cyan-500 text-white text-xs font-black">הבא</span>
+                        )}
+                        {slotPrice != null && slotPrice > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-bold">₪{slotPrice}</span>
+                        )}
+                        {slotEquip && slotEquip.length > 0 && (
+                          <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Drop-in recruitment prompt — shown after non-member joins a live session */}
+          {showJoinPrompt && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-2xl p-4 space-y-3"
+              dir="rtl"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏃</span>
+                <div>
+                  <p className="text-sm font-black text-gray-900 dark:text-gray-100">כל הכבוד, הצטרפת לאימון!</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">רוצה לקבל תזכורות למפגשים הבאים?</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleJoinFromPrompt}
+                  disabled={joiningGroup}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {joiningGroup
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : 'כן, הצטרפי לקבוצה'}
+                </button>
+                <button
+                  onClick={() => setShowJoinPrompt(false)}
+                  className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold transition-all active:scale-[0.97]"
+                >
+                  אולי אחר כך
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── "מי מגיע" — who's coming (tabs: המפגש הבא / השבוע) ── */}
+          {allSlots.length > 0 && (
+            <div>
+              {/* Header + tab pills */}
+              <div className="flex items-center justify-between mb-3">
+                <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5'}>
+                  <Users className={v2 ? 'h-[18px] w-[18px] text-v2-deep' : 'w-3.5 h-3.5'} />
+                  מי מגיע
+                </h4>
+                <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1'}>
+                  <button
+                    onClick={() => setWhoTab('next')}
+                    className={
+                      v2
+                        ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'next' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                        : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            whoTab === 'next'
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`
+                    }
+                  >
+                    המפגש הבא
+                  </button>
+                  <button
+                    onClick={() => { setWhoTab('week'); loadWeekSessions(); }}
+                    className={
+                      v2
+                        ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'week' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
+                        : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            whoTab === 'week'
+                              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                              : 'text-gray-500 dark:text-gray-400'
+                          }`
+                    }
+                  >
+                    השבוע
+                  </button>
                 </div>
               </div>
 
-              {/* ── Scrollable content ─────────────────────────── */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8 space-y-5" dir="rtl">
-                {/* Live session banner — shown when a session is approaching / in lobby / active.
-                    Members always see the banner (private group members included).
-                    Non-members see it only when canDropIn (public, unlocked, city-match). */}
-                {effectiveLiveSession && (
-                  effectiveLiveSession.phase === 'approaching' ||
-                  effectiveLiveSession.phase === 'lobby' ||
-                  effectiveLiveSession.phase === 'active'
-                ) && (isJoined ? (
-                  <CommunitySessionBanner
-                    session={effectiveLiveSession}
-                    onDismiss={onClose}
-                    compact
-                    isJoined
-                    onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
-                  />
-                ) : canDropIn ? (
-                  <CommunitySessionBanner
-                    session={effectiveLiveSession}
-                    onDismiss={onClose}
-                    compact
-                    isJoined={false}
-                    onDropIn={handleDropIn}
-                    onDevPhaseChange={(phase) => onLivePhaseChange?.(effectiveLiveSession.groupId, phase)}
-                  />
-                ) : (
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs font-bold" dir="rtl">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-                    <span>
-                      מפגש פעיל ·{' '}
-                      {group.isCityOnly
-                        ? `לתושבי ${destAddress?.split(',')[0] ?? 'העיר'} בלבד`
-                        : 'לחברים בלבד'}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Title */}
-                <h2 className={v2 ? 'text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-xl font-black text-gray-900 dark:text-white leading-tight'}>
-                  {group.name}
-                </h2>
-
-                {/* Tags — immediately under title so users see session type first */}
-                {effectiveTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 -mt-2">
-                    {effectiveTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={
-                          v2
-                            ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring'
-                            : 'px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 text-xs font-bold'
-                        }
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* ── Next Session Banner (cyan) with spots integrated ── */}
-                {nextSessionData && !(liveSession && (liveSession.phase === 'approaching' || liveSession.phase === 'lobby' || liveSession.phase === 'active')) && (
-                  <div
-                    className={
-                      v2
-                        ? 'space-y-3 rounded-[20px] bg-v2-tint p-4'
-                        : 'bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 rounded-2xl p-4 border border-cyan-100 dark:border-cyan-800/40 space-y-3'
-                    }
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-600 uppercase tracking-widest'}>המפגש הבא</p>
-                        <p className={v2 ? 'text-[17px] font-black leading-snug text-v2-ink' : 'text-sm font-black text-gray-900 dark:text-white leading-snug'}>
-                          {nextSlot?.label || catConfig.label} · {formatSessionDate(nextSessionData.date, nextSessionData.time)}
-                          {spotsLeft != null && (
-                            <span className={`mr-1.5 text-xs font-black ${isFull ? 'text-red-500' : 'text-cyan-600'}`}>
-                              {isFull ? ' · המפגש מלא' : ` · ${spotsLeft} מקומות נותרו`}
+              {/* Tab: המפגש הבא */}
+              {whoTab === 'next' && (
+                <div>
+                  {nextSessionData && v2 ? (
+                    <div className="flex items-center justify-between gap-3 rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
+                      <div className="flex -space-x-2 rtl:space-x-reverse">
+                        {Object.entries(attendance?.attendeeProfiles ?? {}).slice(0, 5).map(([uid, p]) =>
+                          p.photoURL ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={uid} src={p.photoURL} alt={p.name} className="h-8 w-8 rounded-full object-cover ring-2 ring-white" loading="lazy" decoding="async" />
+                          ) : (
+                            <span key={uid} className="grid h-8 w-8 place-items-center rounded-full bg-v2-tint text-[12px] font-black text-v2-deep ring-2 ring-white">
+                              {p.name?.charAt(0)}
                             </span>
-                          )}
+                          ),
+                        )}
+                      </div>
+                      <div className="text-end">
+                        <p className="text-[16px] font-black text-v2-ink" aria-live="polite">
+                          {(attendance?.currentCount ?? 0) > 0 ? `${attendance!.currentCount} מגיעים` : 'עוד אין רשומים'}
+                        </p>
+                        <p className="text-[12.5px] font-bold text-v2-muted">
+                          {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+                          {(attendance?.waitlist?.length ?? 0) > 0 ? ` · ${attendance!.waitlist!.length} בהמתנה` : ''}
                         </p>
                       </div>
-                      {effectivePrice != null && effectivePrice > 0 && (
-                        <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-black flex-shrink-0">
-                          ₪{effectivePrice}
-                        </span>
+                    </div>
+                  ) : nextSessionData ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-500 font-semibold">
+                        {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+                      </p>
+                      {attendance && attendance.currentCount > 0 ? (
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex -space-x-2 rtl:space-x-reverse">
+                            {Object.entries(attendance.attendeeProfiles ?? {}).slice(0, 7).map(([uid, p]) => (
+                              p.photoURL ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img key={uid} src={p.photoURL} alt={p.name} className="w-8 h-8 rounded-full border-2 border-white object-cover" loading="lazy" decoding="async" />
+                              ) : (
+                                <div key={uid} className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                                  <span className="text-xs text-white font-black">{p.name?.charAt(0)}</span>
+                                </div>
+                              )
+                            ))}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-gray-800 dark:text-gray-200" aria-live="polite">
+                              {attendance.currentCount} {attendance.currentCount === 1 ? 'נרשם/ה' : 'נרשמו'}
+                            </p>
+                            {(attendance?.waitlist?.length ?? 0) > 0 && (
+                              <p className="text-xs text-amber-600 font-semibold" aria-live="polite">
+                                {attendance.waitlist!.length} ברשימת המתנה
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 font-medium">
+                          אין רשומים עדיין — היה/י הראשון/ה!
+                        </p>
                       )}
                     </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">אין מפגש מתוכנן</p>
+                  )}
+                </div>
+              )}
 
-                    {nextSlot?.workoutGoal && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-cyan-200 text-[11px] font-bold text-cyan-700">
-                        🎯 יעד אישי · {nextSlot.workoutGoal.type === 'distance'
-                          ? `${nextSlot.workoutGoal.value.toFixed(1)} ק״מ`
-                          : `${Math.round(nextSlot.workoutGoal.value / 60)} דק׳`}
-                      </span>
-                    )}
-
-                    {/* Book / Waitlist / Cancel button (only if joined) */}
-                    {isJoined && (
-                      <button
-                        disabled={bookingLoading}
-                        onClick={handleBookSession}
-                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all active:scale-[0.97] ${
-                          isBooked
-                            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                            : isWaitlisted
-                              ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                              : isFull
-                                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                                : v2
-                                  ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta !rounded-full !py-3.5 text-[15px]'
-                                  : 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                        }`}
-                      >
-                        {bookingLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : isBooked ? (
-                          <>✓ רשום/ה (בטל?)</>
-                        ) : isWaitlisted ? (
-                          <>⏳ ברשימת המתנה (בטל?)</>
-                        ) : isFull ? (
-                          <>הצטרף לרשימת המתנה</>
-                        ) : (
-                          <>
-                            <UserPlus className="w-4 h-4" />
-                            הירשם למפגש
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    {/* "See full schedule" toggle */}
-                    {allSlots.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setScheduleOpen(!scheduleOpen)}
-                        className="flex items-center gap-1 text-xs text-cyan-600 font-bold hover:text-cyan-700 transition-colors mx-auto"
-                      >
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>{scheduleOpen ? 'הסתר מערכת שעות' : 'לכל מערכת השעות'}</span>
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${scheduleOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Expandable Full Schedule ────────────────────── */}
-                {scheduleOpen && allSlots.length > 1 && (
-                  <div className={v2 ? 'overflow-hidden rounded-[20px] bg-white shadow-v2-ring' : 'bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-700/40 overflow-hidden'}>
-                    <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/40">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        מערכת שעות מלאה
-                      </p>
+              {/* Tab: השבוע */}
+              {whoTab === 'week' && (
+                <div>
+                  {weekLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="h-14 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+                      ))}
                     </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-700/40">
-                      {allSlots.map((slot, i) => {
-                        const isNext = nextSlot === slot;
-                        const slotAddr = slot.location?.address || destAddress;
-                        const slotPrice = slot.price != null ? slot.price : group.price;
-                        const slotEquip = slot.requiredEquipment?.length ? slot.requiredEquipment : group.equipment;
-                        return (
-                          <div key={i} className={`px-4 py-2.5 flex items-center gap-3 ${isNext ? 'bg-cyan-50/60 dark:bg-cyan-900/10' : ''}`}>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                                יום {DAY_LABELS[slot.dayOfWeek]} ב-{slot.time}
-                                {slot.label && <span className="text-gray-400 font-medium"> — {slot.label}</span>}
-                              </p>
-                              {slotAddr && (
-                                <p className="text-xs text-gray-400 truncate mt-0.5">📍 {slotAddr}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {isNext && (
-                                <span className="px-1.5 py-0.5 rounded bg-cyan-500 text-white text-xs font-black">הבא</span>
-                              )}
-                              {slotPrice != null && slotPrice > 0 && (
-                                <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-bold">₪{slotPrice}</span>
-                              )}
-                              {slotEquip && slotEquip.length > 0 && (
-                                <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Drop-in recruitment prompt — shown after non-member joins a live session */}
-                {showJoinPrompt && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-2xl p-4 space-y-3"
-                    dir="rtl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🏃</span>
-                      <div>
-                        <p className="text-sm font-black text-gray-900 dark:text-gray-100">כל הכבוד, הצטרפת לאימון!</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">רוצה לקבל תזכורות למפגשים הבאים?</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleJoinFromPrompt}
-                        disabled={joiningGroup}
-                        className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {joiningGroup
-                          ? <Loader2 className="w-4 h-4 animate-spin" />
-                          : 'כן, הצטרפי לקבוצה'}
-                      </button>
-                      <button
-                        onClick={() => setShowJoinPrompt(false)}
-                        className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold transition-all active:scale-[0.97]"
-                      >
-                        אולי אחר כך
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* ── "מי מגיע" — who's coming (tabs: המפגש הבא / השבוע) ── */}
-                {allSlots.length > 0 && (
-                  <div>
-                    {/* Header + tab pills */}
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5'}>
-                        <Users className={v2 ? 'h-[18px] w-[18px] text-v2-deep' : 'w-3.5 h-3.5'} />
-                        מי מגיע
-                      </h4>
-                      <div className={v2 ? 'flex gap-0.5 rounded-full bg-v2-surface p-1 ring-1 ring-inset ring-v2-hairline' : 'flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1'}>
-                        <button
-                          onClick={() => setWhoTab('next')}
-                          className={
-                            v2
-                              ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'next' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
-                              : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                  whoTab === 'next'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400'
-                                }`
-                          }
+                  ) : weekSessions.length === 0 ? (
+                    <p className="text-xs text-gray-400">אין מפגשים נוספים השבוע</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {weekSessions.map((ws) => (
+                        <div
+                          key={`${ws.date}_${ws.time}`}
+                          className={v2 ? 'flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring' : 'flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl'}
                         >
-                          המפגש הבא
-                        </button>
-                        <button
-                          onClick={() => { setWhoTab('week'); loadWeekSessions(); }}
-                          className={
-                            v2
-                              ? `h-8 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold transition-colors ${whoTab === 'week' ? 'bg-white text-v2-ink shadow-v2-ring' : 'text-v2-muted'}`
-                              : `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                  whoTab === 'week'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400'
-                                }`
-                          }
-                        >
-                          השבוע
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Tab: המפגש הבא */}
-                    {whoTab === 'next' && (
-                      <div>
-                        {nextSessionData && v2 ? (
-                          <div className="flex items-center justify-between gap-3 rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline">
-                            <div className="flex -space-x-2 rtl:space-x-reverse">
-                              {Object.entries(attendance?.attendeeProfiles ?? {}).slice(0, 5).map(([uid, p]) =>
-                                p.photoURL ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img key={uid} src={p.photoURL} alt={p.name} className="h-8 w-8 rounded-full object-cover ring-2 ring-white" loading="lazy" decoding="async" />
-                                ) : (
-                                  <span key={uid} className="grid h-8 w-8 place-items-center rounded-full bg-v2-tint text-[12px] font-black text-v2-deep ring-2 ring-white">
-                                    {p.name?.charAt(0)}
-                                  </span>
-                                ),
-                              )}
-                            </div>
-                            <div className="text-end">
-                              <p className="text-[16px] font-black text-v2-ink" aria-live="polite">
-                                {(attendance?.currentCount ?? 0) > 0 ? `${attendance!.currentCount} מגיעים` : 'עוד אין רשומים'}
-                              </p>
-                              <p className="text-[12.5px] font-bold text-v2-muted">
-                                {formatSessionDate(nextSessionData.date, nextSessionData.time)}
-                                {(attendance?.waitlist?.length ?? 0) > 0 ? ` · ${attendance!.waitlist!.length} בהמתנה` : ''}
-                              </p>
-                            </div>
-                          </div>
-                        ) : nextSessionData ? (
-                          <div className="space-y-2">
-                            <p className="text-xs text-gray-500 font-semibold">
-                              {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+                          <div className="flex-1 min-w-0">
+                            <p className={v2 ? 'text-[14px] font-black text-v2-ink' : 'text-xs font-bold text-gray-800 dark:text-gray-200'}>
+                              {formatSessionDate(ws.date, ws.time)}
                             </p>
-                            {attendance && attendance.currentCount > 0 ? (
-                              <div className="flex items-center gap-2.5">
-                                <div className="flex -space-x-2 rtl:space-x-reverse">
-                                  {Object.entries(attendance.attendeeProfiles ?? {}).slice(0, 7).map(([uid, p]) => (
+                            {ws.attendance && ws.attendance.currentCount > 0 ? (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <div className="flex -space-x-1.5 rtl:space-x-reverse">
+                                  {Object.entries(ws.attendance.attendeeProfiles ?? {}).slice(0, 4).map(([uid, p]) => (
                                     p.photoURL ? (
                                       // eslint-disable-next-line @next/next/no-img-element
-                                      <img key={uid} src={p.photoURL} alt={p.name} className="w-8 h-8 rounded-full border-2 border-white object-cover" loading="lazy" decoding="async" />
+                                      <img key={uid} src={p.photoURL} alt={p.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" loading="lazy" />
                                     ) : (
-                                      <div key={uid} className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                                        <span className="text-xs text-white font-black">{p.name?.charAt(0)}</span>
+                                      <div key={uid} className="w-6 h-6 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                                        <span className="text-[10px] text-white font-black">{p.name?.charAt(0)}</span>
                                       </div>
                                     )
                                   ))}
                                 </div>
-                                <div>
-                                  <p className="text-sm font-black text-gray-800 dark:text-gray-200" aria-live="polite">
-                                    {attendance.currentCount} {attendance.currentCount === 1 ? 'נרשם/ה' : 'נרשמו'}
-                                  </p>
-                                  {(attendance?.waitlist?.length ?? 0) > 0 && (
-                                    <p className="text-xs text-amber-600 font-semibold" aria-live="polite">
-                                      {attendance.waitlist!.length} ברשימת המתנה
-                                    </p>
-                                  )}
-                                </div>
+                                <span className="text-xs text-gray-500 font-semibold">
+                                  {ws.attendance.currentCount} נרשמו
+                                </span>
                               </div>
                             ) : (
-                              <p className="text-xs text-gray-400 font-medium">
-                                אין רשומים עדיין — היה/י הראשון/ה!
+                              <p className="text-xs text-gray-400 mt-0.5">אין רשומים עדיין</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Description — fully visible, no clamp */}
+          {group.description && (
+            <p className={v2 ? 'text-[14px] font-semibold leading-relaxed text-v2-ink-2' : 'text-sm text-gray-600 dark:text-gray-400 leading-relaxed'}>
+              {group.description}
+            </p>
+          )}
+
+          {/* ── v2: the group's league this week — points, steps points, km ── */}
+          {v2 && (isJoined || isCreator) && <GroupLeagueStatsBoard groupId={group.id} timeWindow="weekly" />}
+
+          {/* ── Member List ──────────────────────────────────── */}
+          {(isJoined || isCreator) && (
+            <div>
+              <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2.5' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2.5'}>
+                <Users className="w-3.5 h-3.5" />
+                חברי הקהילה
+                {!membersLoading && groupMembers.length > 0 && (
+                  <span className="text-gray-400 normal-case tracking-normal font-semibold">({groupMembers.length})</span>
+                )}
+              </h4>
+              {membersLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {groupMembers.map((member) => {
+                    const initials = member.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('');
+                    const isGroupCreator = member.uid === group.createdBy;
+                    const isGroupAdminMember = !isGroupCreator && member.role === 'admin';
+                    const isSelf = member.uid === userId;
+                    // actions owner can do on this member
+                    const canPromote = !isGroupCreator && member.role === 'member' && isCurrentUserAdmin;
+                    const canDemote  = !isGroupCreator && member.role === 'admin'  && isCreator;
+                    const canRemove  = !isGroupCreator && !isSelf && (isCreator || (isCurrentUserAdmin && member.role === 'member'));
+                    const hasActions = canPromote || canDemote || canRemove;
+                    const isExpanded = activeActionUid === member.uid;
+                    return (
+                      <div key={member.uid} className="rounded-xl overflow-hidden">
+                        {/* Member row */}
+                        <button
+                          type="button"
+                          disabled={!hasActions}
+                          onClick={() => hasActions && setActiveActionUid(isExpanded ? null : member.uid)}
+                          className={`w-full flex items-center gap-3 py-2 px-3 bg-gray-50 dark:bg-gray-800/50 transition-colors ${hasActions ? 'active:bg-gray-100 dark:active:bg-gray-700/60 cursor-pointer' : 'cursor-default'}`}
+                        >
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isGroupCreator ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-cyan-400 to-blue-500'}`}>
+                            {initials.toUpperCase() || '?'}
+                          </div>
+                          <div className="flex-1 min-w-0 text-right">
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+                              {member.name}
+                            </p>
+                            {isGroupCreator && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                                <Crown className="w-3 h-3" />
+                                בעלים
+                              </p>
+                            )}
+                            {isGroupAdminMember && (
+                              <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5">
+                                <Shield className="w-3 h-3" />
+                                מנהל/ת
                               </p>
                             )}
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-400">אין מפגש מתוכנן</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Tab: השבוע */}
-                    {whoTab === 'week' && (
-                      <div>
-                        {weekLoading ? (
-                          <div className="space-y-2">
-                            {[1, 2].map((i) => (
-                              <div key={i} className="h-14 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
-                            ))}
-                          </div>
-                        ) : weekSessions.length === 0 ? (
-                          <p className="text-xs text-gray-400">אין מפגשים נוספים השבוע</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {weekSessions.map((ws) => (
-                              <div
-                                key={`${ws.date}_${ws.time}`}
-                                className={v2 ? 'flex items-center gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring' : 'flex items-center gap-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-xl'}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className={v2 ? 'text-[14px] font-black text-v2-ink' : 'text-xs font-bold text-gray-800 dark:text-gray-200'}>
-                                    {formatSessionDate(ws.date, ws.time)}
-                                  </p>
-                                  {ws.attendance && ws.attendance.currentCount > 0 ? (
-                                    <div className="flex items-center gap-1.5 mt-1">
-                                      <div className="flex -space-x-1.5 rtl:space-x-reverse">
-                                        {Object.entries(ws.attendance.attendeeProfiles ?? {}).slice(0, 4).map(([uid, p]) => (
-                                          p.photoURL ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img key={uid} src={p.photoURL} alt={p.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" loading="lazy" />
-                                          ) : (
-                                            <div key={uid} className="w-6 h-6 rounded-full border-2 border-white bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                                              <span className="text-[10px] text-white font-black">{p.name?.charAt(0)}</span>
-                                            </div>
-                                          )
-                                        ))}
-                                      </div>
-                                      <span className="text-xs text-gray-500 font-semibold">
-                                        {ws.attendance.currentCount} נרשמו
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-gray-400 mt-0.5">אין רשומים עדיין</p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Description — fully visible, no clamp */}
-                {group.description && (
-                  <p className={v2 ? 'text-[14px] font-semibold leading-relaxed text-v2-ink-2' : 'text-sm text-gray-600 dark:text-gray-400 leading-relaxed'}>
-                    {group.description}
-                  </p>
-                )}
-
-                {/* ── v2: the group's league this week — points, steps points, km ── */}
-                {v2 && (isJoined || isCreator) && <GroupLeagueStatsBoard groupId={group.id} timeWindow="weekly" />}
-
-                {/* ── Member List ──────────────────────────────────── */}
-                {(isJoined || isCreator) && (
-                  <div>
-                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2.5' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2.5'}>
-                      <Users className="w-3.5 h-3.5" />
-                      חברי הקהילה
-                      {!membersLoading && groupMembers.length > 0 && (
-                        <span className="text-gray-400 normal-case tracking-normal font-semibold">({groupMembers.length})</span>
-                      )}
-                    </h4>
-                    {membersLoading ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                        {groupMembers.map((member) => {
-                          const initials = member.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('');
-                          const isGroupCreator = member.uid === group.createdBy;
-                          const isGroupAdminMember = !isGroupCreator && member.role === 'admin';
-                          const isSelf = member.uid === userId;
-                          // actions owner can do on this member
-                          const canPromote = !isGroupCreator && member.role === 'member' && isCurrentUserAdmin;
-                          const canDemote  = !isGroupCreator && member.role === 'admin'  && isCreator;
-                          const canRemove  = !isGroupCreator && !isSelf && (isCreator || (isCurrentUserAdmin && member.role === 'member'));
-                          const hasActions = canPromote || canDemote || canRemove;
-                          const isExpanded = activeActionUid === member.uid;
-                          return (
-                            <div key={member.uid} className="rounded-xl overflow-hidden">
-                              {/* Member row */}
-                              <button
-                                type="button"
-                                disabled={!hasActions}
-                                onClick={() => hasActions && setActiveActionUid(isExpanded ? null : member.uid)}
-                                className={`w-full flex items-center gap-3 py-2 px-3 bg-gray-50 dark:bg-gray-800/50 transition-colors ${hasActions ? 'active:bg-gray-100 dark:active:bg-gray-700/60 cursor-pointer' : 'cursor-default'}`}
-                              >
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${isGroupCreator ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-gradient-to-br from-cyan-400 to-blue-500'}`}>
-                                  {initials.toUpperCase() || '?'}
-                                </div>
-                                <div className="flex-1 min-w-0 text-right">
-                                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                                    {member.name}
-                                  </p>
-                                  {isGroupCreator && (
-                                    <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
-                                      <Crown className="w-3 h-3" />
-                                      בעלים
-                                    </p>
-                                  )}
-                                  {isGroupAdminMember && (
-                                    <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5">
-                                      <Shield className="w-3 h-3" />
-                                      מנהל/ת
-                                    </p>
-                                  )}
-                                </div>
-                                {hasActions && (
-                                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                )}
-                              </button>
-
-                              {/* Inline action panel */}
-                              {isExpanded && (
-                                <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
-                                    {member.name} · פעולות מנהל
-                                  </p>
-                                  {canPromote && (
-                                    <button
-                                      disabled={actionPending === member.uid}
-                                      onClick={() => handleToggleAdmin(member)}
-                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                    >
-                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
-                                      הפוך למנהל
-                                      <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
-                                    </button>
-                                  )}
-                                  {canDemote && (
-                                    <button
-                                      disabled={actionPending === member.uid}
-                                      onClick={() => handleToggleAdmin(member)}
-                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                    >
-                                      {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
-                                      הסר ניהול
-                                    </button>
-                                  )}
-                                  {canRemove && (
-                                    <button
-                                      onClick={() => handleRemoveMember(member)}
-                                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                    >
-                                      <X className="w-4 h-4" />
-                                      הסר מהקבוצה
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Location — map thumbnail only. Tapping it already opens
-                    NavigationSheet whenever the user is far enough away to
-                    need turn-by-turn (handleLocationClick, >2km), or jumps
-                    straight to the in-app map when close — a dedicated
-                    "נווט למיקום" button duplicated that exact behavior
-                    unconditionally and was removed 07.09.2026. */}
-                {hasCoords ? (
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick(destLat, destLng)}
-                    aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
-                    className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
-                  >
-                    {staticMapUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                        <MapPin className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
-                      <span className="text-xs font-bold text-white truncate block max-w-[80%]">
-                        {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
-                      </span>
-                    </div>
-                  </button>
-                ) : destAddress ? (
-                  <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="font-medium">{destAddress}</span>
-                  </div>
-                ) : isMilitaryGroup ? (
-                  <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="font-medium">הפרטים מיועדים למילואימניקים.</span>
-                  </div>
-                ) : null}
-
-                {/* Target Muscles (slot override → group default) */}
-                {hasMuscles && (
-                  <div>
-                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
-                      <Target className="w-3.5 h-3.5 text-cyan-500" />
-                      קבוצות שרירים
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {effectiveMuscles.map((m) => (
-                        <span key={m} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-xs font-bold'}>
-                          {m}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Equipment (slot override → group default) */}
-                {hasEquipment && (
-                  <div>
-                    <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
-                      <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
-                      ציוד נדרש
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {effectiveEquipment.map((item) => (
-                        <span key={item} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold'}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Price (slot override → group default) */}
-                {hasPrice && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="w-4 h-4 text-amber-500" />
-                    <span className="font-bold text-gray-700 dark:text-gray-300">₪{effectivePrice}</span>
-                  </div>
-                )}
-
-                {/* Community Rules — dynamic from Firestore */}
-                {group.rules ? (
-                  <div className={v2 ? 'rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline' : 'bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-100 dark:border-amber-800/40'}>
-                    <p className={v2 ? 'mb-1.5 text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-amber-700 dark:text-amber-400 mb-1.5'}>כללי הקהילה</p>
-                    <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed whitespace-pre-line">
-                      {group.rules}
-                    </p>
-                  </div>
-                ) : null}
-
-
-                {/* ── Creator-only: Edit button ───────────────────── */}
-                {onEdit && userId === group.createdBy && (
-                  <button
-                    onClick={() => { onEdit(group.id); onClose(); }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
-                  >
-                    <Pencil className="w-4 h-4" />
-                    ערוך קהילה
-                  </button>
-                )}
-
-                {/* ── Owner / admin: Manage schedule ──────────────── */}
-                {isCurrentUserAdmin && group.hasMeetups !== false && (group.scheduleSlots?.length ?? 0) > 0 && (
-                  <button
-                    onClick={() => { setScheduleMgrOpen(true); setEditingSlotIndex(null); }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
-                  >
-                    <Settings className="w-4 h-4" />
-                    ניהול מפגשים
-                  </button>
-                )}
-
-                {/* Schedule manager panel — inline overlay inside the drawer */}
-                {scheduleMgrOpen && group.scheduleSlots && (
-                  <ScheduleManagerPanel
-                    group={group}
-                    editingSlotIndex={editingSlotIndex}
-                    onEdit={(i) => setEditingSlotIndex(i as number | null)}
-                    onClose={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
-                    onSaved={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
-                    showToast={showToast}
-                  />
-                )}
-
-                {showStartScheduledRun && (
-                  <button
-                    type="button"
-                    onClick={handleStartScheduledRun}
-                    className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                  >
-                    <Play className="h-[18px] w-[18px]" fill="currentColor" />
-                    {scheduledRunActivity === 'walking' ? 'צא להליכה' : 'צא לריצה'}
-                  </button>
-                )}
-
-                {/* ── Secondary actions row — icon + word, not full-width
-                    stacked buttons (07.09.2026: the old stack of full-width
-                    CTAs ate half the screen). Share is always visible;
-                    add-to-calendar only when a next session exists. ── */}
-                <div className="flex gap-2">
-                  {(() => {
-                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                    const deepLink = fetchedInviteCode
-                      ? `${origin}/join/${fetchedInviteCode}`
-                      : `${origin}/community?groupId=${group.id}`;
-                    const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
-                    const handleShare = () => {
-                      if (typeof navigator !== 'undefined' && navigator.share) {
-                        navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
-                      } else {
-                        window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${deepLink}`)}`, '_blank');
-                      }
-                    };
-                    return (
-                      <button
-                        onClick={handleShare}
-                        aria-label="שתף קבוצה"
-                        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        שתף
-                      </button>
-                    );
-                  })()}
-
-                  {calendarUrl && (
-                    <a
-                      href={calendarUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
-                    >
-                      <CalendarPlus className="w-4 h-4" />
-                      ליומן
-                    </a>
-                  )}
-                </div>
-
-                {/* ── Invite code panel — private group members / creator ──
-                    Code fetched on demand into fetchedInviteCode (SPEC-01
-                    task 2) — a null here means either not-yet-loaded, or
-                    the rule denied the read (isLocked/reserve-league group
-                    and this viewer isn't owner/admin), so the panel just
-                    doesn't render either way. */}
-                {!group.isPublic && (isJoined || isCreator) && fetchedInviteCode && (
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir="rtl">
-                    <div className="flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-gray-400" />
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">קוד הזמנה</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 text-center font-mono text-2xl font-black tracking-[0.25em] text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-xl py-3 border border-gray-200 dark:border-gray-600 select-all">
-                        {fetchedInviteCode}
-                      </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard?.writeText(fetchedInviteCode ?? '').catch(() => {});
-                          setInviteCopied(true);
-                          setTimeout(() => setInviteCopied(false), 2000);
-                        }}
-                        aria-label={inviteCopied ? 'הקוד הועתק' : 'העתק קוד הזמנה'}
-                        className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
-                      >
-                        {inviteCopied
-                          ? <Check className="w-4 h-4 text-emerald-500" />
-                          : <Copy className="w-4 h-4 text-gray-500" />
-                        }
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
-                        const link = `${origin}/join/${fetchedInviteCode}`;
-                        const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${fetchedInviteCode}\nאו לחץ על הקישור: ${link}`;
-                        if (typeof navigator !== 'undefined' && navigator.share) {
-                          navigator.share({ title: group.name, text, url: link }).catch(() => {});
-                        } else {
-                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                        }
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] shadow-lg shadow-emerald-500/20"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      הזמן חברים בוואטסאפ
-                    </button>
-                  </div>
-                )}
-
-                {/* Chat button (post-join) */}
-                {isJoined && (
-                  <button
-                    onClick={onOpenChat ?? onClose}
-                    className={
-                      showStartScheduledRun
-                        // The start CTA above is this screen's one gradient.
-                        ? 'flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[15px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
-                        : 'w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]'
-                    }
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    כנס לצ&apos;אט הקהילה
-                  </button>
-                )}
-
-                {/* Leave group (post-join) */}
-                {isJoined && onLeave && !confirmLeave && (
-                  <button
-                    onClick={() => setConfirmLeave(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold text-red-400 hover:text-red-500 transition-colors"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    עזוב קבוצה
-                  </button>
-                )}
-
-                {/* Leave confirmation */}
-                {isJoined && confirmLeave && (
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 border border-red-100 dark:border-red-800/40 space-y-3">
-                    <p className="text-sm font-bold text-red-700 dark:text-red-400 text-center">
-                      בטוח/ה? המפגשים יוסרו מלוז האימונים ומהיומן
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        disabled={!!leavingId}
-                        onClick={async () => {
-                          if (!onLeave) return;
-                          setLeavingId(group.id);
-                          try {
-                            await onLeave(group.id);
-                            setConfirmLeave(false);
-                            onClose();
-                          } catch {
-                            // handled upstream
-                          } finally {
-                            setLeavingId(null);
-                          }
-                        }}
-                        className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                      >
-                        {leavingId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
-                        כן, עזוב
-                      </button>
-                      <button
-                        onClick={() => setConfirmLeave(false)}
-                        className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-bold transition-all active:scale-95"
-                      >
-                        ביטול
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── External registration — the actual enrollment action
-                    when the group has one (e.g. "צו כושר" branches), always
-                    shown regardless of in-app join state: registering
-                    externally and joining the in-app chat/roster are two
-                    independent actions. This is the PRIMARY CTA whenever it
-                    exists — in-app join (below) is demoted to secondary.
-                    07.09.2026: previously entered in the panel but never
-                    rendered anywhere on the card/drawer. ── */}
-                {group.registrationLink && (
-                  <a
-                    href={group.registrationLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg transition-all active:scale-[0.97]"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    הרשמה
-                  </a>
-                )}
-
-                {/* Join button (pre-join) — three cases: tenant-locked / private / public */}
-                {!isJoined && onJoin && (
-                  group.isLocked && !codeUnlocked ? (
-                    /* Case 1: tenant / unit access-code gate */
-                    <AccessCodeGate
-                      orgName={group.name}
-                      groupType={group.groupType}
-                      tenantType={group.requiredAccessCodeType}
-                      contactPhone={null}
-                      hideSkip
-                      compact
-                      onSuccess={(result: AccessCodeResult) => {
-                        // SEC#1: the redeemed code must belong to THIS group's
-                        // authority/tenant. authorities/{id} ≡ tenants/{id} (twin),
-                        // so the code's tenantId must equal the group's authorityId —
-                        // otherwise any valid tenant code would unlock any locked group.
-                        // Defense-in-depth; the members/{uid} Firestore rule is the hard
-                        // gate, this just fails with an honest message instead of a
-                        // silent PERMISSION_DENIED. (fail-open when authorityId is absent
-                        // — the server rule still backstops that edge case.)
-                        if (group.authorityId && result.tenantId !== group.authorityId) {
-                          showToast('error', 'הקוד אינו שייך לקבוצה הזו.');
-                          return;
-                        }
-                        setCodeUnlocked(true);
-                        showToast('success', `ברוכים הבאים ל${group.name}!`);
-                        onJoin(group.id);
-                      }}
-                    />
-                  ) : !group.isPublic ? (
-                    /* Case 2: private group — invite code required */
-                    <div className="space-y-3" dir="rtl">
-                      {!inviteCodeMode ? (
-                        <button
-                          onClick={() => setInviteCodeMode(true)}
-                          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-900 text-white shadow-lg transition-all active:scale-[0.97]"
-                        >
-                          <Lock className="w-4 h-4" />
-                          הזן קוד הצטרפות
-                        </button>
-                      ) : (
-                        <div className="space-y-2.5">
-                          <p className="text-xs text-gray-500 text-center font-semibold">
-                            זו קהילה פרטית — הזינו את קוד ההצטרפות:
-                          </p>
-                          <div className="flex gap-2">
-                            <input
-                              dir="ltr"
-                              type="text"
-                              value={inviteInput}
-                              onChange={(e) => { setInviteInput(e.target.value.toUpperCase()); setInviteError(false); }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') void handleInviteCodeSubmit();
-                              }}
-                              maxLength={6}
-                              placeholder="XXXXXX"
-                              autoFocus
-                              aria-label="קוד הצטרפות לקהילה"
-                              className={`flex-1 text-center text-lg font-mono font-black tracking-widest border-2 rounded-2xl px-3 py-3 focus:outline-none transition-colors ${
-                                inviteError
-                                  ? 'border-red-400 bg-red-50 text-red-600'
-                                  : 'border-gray-200 focus:border-cyan-400'
-                              }`}
-                            />
-                            <button
-                              disabled={inviteSubmitting || !inviteInput.trim()}
-                              onClick={() => void handleInviteCodeSubmit()}
-                              className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-black disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"
-                            >
-                              {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
-                            </button>
-                          </div>
-                          {inviteError && (
-                            <p role="alert" className="text-sm text-red-500 font-bold text-center">
-                              קוד שגוי, אנא נסה שנית
-                            </p>
+                          {hasActions && (
+                            <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                           )}
-                          <button
-                            onClick={() => { setInviteCodeMode(false); setInviteInput(''); setInviteError(false); }}
-                            className="w-full text-xs text-gray-400 font-semibold py-1 hover:text-gray-600 transition-colors"
-                          >
-                            ביטול
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Case 3: public group — join directly. Demoted to a
-                       secondary/outline style when registrationLink exists
-                       above (07.09.2026) — that's the real enrollment now;
-                       this just adds the user to the in-app chat/roster. */
-                    <button
-                      disabled={joining}
-                      onClick={() => { if (!joining) onJoin(group.id); }}
-                      className={`w-full flex items-center justify-center gap-2 rounded-2xl transition-all active:scale-[0.97] disabled:opacity-50 ${
-                        group.registrationLink
-                          ? 'py-2.5 text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                          : v2
-                            ? '!rounded-full py-3.5 text-[15.5px] font-extrabold bg-v2-cta text-v2-on-cta shadow-v2-cta'
-                            : 'py-3.5 text-sm font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
-                      }`}
-                    >
-                      {joining ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4" />
-                          הצטרף לקבוצה
-                        </>
-                      )}
-                    </button>
-                  )
-                )}
+                        </button>
 
-                {/* Report link */}
+                        {/* Inline action panel */}
+                        {isExpanded && (
+                          <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
+                              {member.name} · פעולות מנהל
+                            </p>
+                            {canPromote && (
+                              <button
+                                disabled={actionPending === member.uid}
+                                onClick={() => handleToggleAdmin(member)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                              >
+                                {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
+                                הפוך למנהל
+                                <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
+                              </button>
+                            )}
+                            {canDemote && (
+                              <button
+                                disabled={actionPending === member.uid}
+                                onClick={() => handleToggleAdmin(member)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                              >
+                                {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
+                                הסר ניהול
+                              </button>
+                            )}
+                            {canRemove && (
+                              <button
+                                onClick={() => handleRemoveMember(member)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                                הסר מהקבוצה
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Location — map thumbnail only. Tapping it already opens
+              NavigationSheet whenever the user is far enough away to
+              need turn-by-turn (handleLocationClick, >2km), or jumps
+              straight to the in-app map when close — a dedicated
+              "נווט למיקום" button duplicated that exact behavior
+              unconditionally and was removed 07.09.2026. */}
+          {hasCoords ? (
+            <button
+              type="button"
+              onClick={() => handleLocationClick(destLat, destLng)}
+              aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
+              className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
+            >
+              {staticMapUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                  <MapPin className="w-8 h-8 text-gray-400" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-3" dir="rtl">
+                <span className="text-xs font-bold text-white truncate block max-w-[80%]">
+                  {destAddress || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
+                </span>
+              </div>
+            </button>
+          ) : destAddress ? (
+            <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <span className="font-medium">{destAddress}</span>
+            </div>
+          ) : isMilitaryGroup ? (
+            <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+              <span className="font-medium">הפרטים מיועדים למילואימניקים.</span>
+            </div>
+          ) : null}
+
+          {/* Target Muscles (slot override → group default) */}
+          {hasMuscles && (
+            <div>
+              <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
+                <Target className="w-3.5 h-3.5 text-cyan-500" />
+                קבוצות שרירים
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {effectiveMuscles.map((m) => (
+                  <span key={m} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-400 text-xs font-bold'}>
+                    {m}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Equipment (slot override → group default) */}
+          {hasEquipment && (
+            <div>
+              <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2' : 'text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5'}>
+                <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
+                ציוד נדרש
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {effectiveEquipment.map((item) => (
+                  <span key={item} className={v2 ? 'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[12.5px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold'}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Price (slot override → group default) */}
+          {hasPrice && (
+            <div className="flex items-center gap-2 text-sm">
+              <DollarSign className="w-4 h-4 text-amber-500" />
+              <span className="font-bold text-gray-700 dark:text-gray-300">₪{effectivePrice}</span>
+            </div>
+          )}
+
+          {/* Community Rules — dynamic from Firestore */}
+          {group.rules ? (
+            <div className={v2 ? 'rounded-[20px] bg-v2-surface px-4 py-3 ring-1 ring-inset ring-v2-hairline' : 'bg-amber-50 dark:bg-amber-900/20 rounded-2xl px-4 py-3 border border-amber-100 dark:border-amber-800/40'}>
+              <p className={v2 ? 'mb-1.5 text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-amber-700 dark:text-amber-400 mb-1.5'}>כללי הקהילה</p>
+              <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed whitespace-pre-line">
+                {group.rules}
+              </p>
+            </div>
+          ) : null}
+
+
+          {/* ── Creator-only: Edit button ───────────────────── */}
+          {onEdit && userId === group.createdBy && (
+            <button
+              onClick={() => { onEdit(group.id); onClose(); }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+            >
+              <Pencil className="w-4 h-4" />
+              ערוך קהילה
+            </button>
+          )}
+
+          {/* ── Owner / admin: Manage schedule ──────────────── */}
+          {isCurrentUserAdmin && group.hasMeetups !== false && (group.scheduleSlots?.length ?? 0) > 0 && (
+            <button
+              onClick={() => { setScheduleMgrOpen(true); setEditingSlotIndex(null); }}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+            >
+              <Settings className="w-4 h-4" />
+              ניהול מפגשים
+            </button>
+          )}
+
+          {/* Schedule manager panel — inline overlay inside the drawer */}
+          {scheduleMgrOpen && group.scheduleSlots && (
+            <ScheduleManagerPanel
+              group={group}
+              editingSlotIndex={editingSlotIndex}
+              onEdit={(i) => setEditingSlotIndex(i as number | null)}
+              onClose={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+              onSaved={() => { setScheduleMgrOpen(false); setEditingSlotIndex(null); }}
+              showToast={showToast}
+            />
+          )}
+
+          {showStartScheduledRun && (
+            <button
+              type="button"
+              onClick={handleStartScheduledRun}
+              className="flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              <Play className="h-[18px] w-[18px]" fill="currentColor" />
+              {scheduledRunActivity === 'walking' ? 'צא להליכה' : 'צא לריצה'}
+            </button>
+          )}
+
+          {/* ── Secondary actions row — icon + word, not full-width
+              stacked buttons (07.09.2026: the old stack of full-width
+              CTAs ate half the screen). Share is always visible;
+              add-to-calendar only when a next session exists. ── */}
+          <div className="flex gap-2">
+            {(() => {
+              const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+              const deepLink = fetchedInviteCode
+                ? `${origin}/join/${fetchedInviteCode}`
+                : `${origin}/community?groupId=${group.id}`;
+              const shareText = `מצאתי קבוצת ${catConfig.label} מעולה: \'${group.name}\'! בואו להצטרף אלינו.`;
+              const handleShare = () => {
+                if (typeof navigator !== 'undefined' && navigator.share) {
+                  navigator.share({ title: group.name, text: shareText, url: deepLink }).catch(() => {});
+                } else {
+                  window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${deepLink}`)}`, '_blank');
+                }
+              };
+              return (
                 <button
-                  onClick={() => setReportOpen(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
+                  onClick={handleShare}
+                  aria-label="שתף קבוצה"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
                 >
-                  <Flag className="w-3 h-3" />
-                  דיווח על תוכן לא ראוי
+                  <Share2 className="w-4 h-4" />
+                  שתף
+                </button>
+              );
+            })()}
+
+            {calendarUrl && (
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
+              >
+                <CalendarPlus className="w-4 h-4" />
+                ליומן
+              </a>
+            )}
+          </div>
+
+          {/* ── Invite code panel — private group members / creator ──
+              Code fetched on demand into fetchedInviteCode (SPEC-01
+              task 2) — a null here means either not-yet-loaded, or
+              the rule denied the read (isLocked/reserve-league group
+              and this viewer isn't owner/admin), so the panel just
+              doesn't render either way. */}
+          {!group.isPublic && (isJoined || isCreator) && fetchedInviteCode && (
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/40 space-y-3" dir="rtl">
+              <div className="flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-gray-400" />
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">קוד הזמנה</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 text-center font-mono text-2xl font-black tracking-[0.25em] text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-xl py-3 border border-gray-200 dark:border-gray-600 select-all">
+                  {fetchedInviteCode}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(fetchedInviteCode ?? '').catch(() => {});
+                    setInviteCopied(true);
+                    setTimeout(() => setInviteCopied(false), 2000);
+                  }}
+                  aria-label={inviteCopied ? 'הקוד הועתק' : 'העתק קוד הזמנה'}
+                  className="w-12 h-12 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
+                >
+                  {inviteCopied
+                    ? <Check className="w-4 h-4 text-emerald-500" />
+                    : <Copy className="w-4 h-4 text-gray-500" />
+                  }
                 </button>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={() => {
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://out-run-app.vercel.app';
+                  const link = `${origin}/join/${fetchedInviteCode}`;
+                  const text = `הוזמנת להצטרף לקהילה "${group.name}"! השתמש בקוד: ${fetchedInviteCode}\nאו לחץ על הקישור: ${link}`;
+                  if (typeof navigator !== 'undefined' && navigator.share) {
+                    navigator.share({ title: group.name, text, url: link }).catch(() => {});
+                  } else {
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 text-white text-sm font-black transition-all active:scale-[0.97] shadow-lg shadow-emerald-500/20"
+              >
+                <Share2 className="w-4 h-4" />
+                הזמן חברים בוואטסאפ
+              </button>
+            </div>
+          )}
+
+          {/* Chat button (post-join) */}
+          {isJoined && (
+            <button
+              onClick={onOpenChat ?? onClose}
+              className={
+                showStartScheduledRun
+                  // The start CTA above is this screen's one gradient.
+                  ? 'flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[15px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
+                  : 'w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97]'
+              }
+            >
+              <MessageCircle className="w-4 h-4" />
+              כנס לצ&apos;אט הקהילה
+            </button>
+          )}
+
+          {/* Leave group (post-join) */}
+          {isJoined && onLeave && !confirmLeave && (
+            <button
+              onClick={() => setConfirmLeave(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold text-red-400 hover:text-red-500 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              עזוב קבוצה
+            </button>
+          )}
+
+          {/* Leave confirmation */}
+          {isJoined && confirmLeave && (
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 border border-red-100 dark:border-red-800/40 space-y-3">
+              <p className="text-sm font-bold text-red-700 dark:text-red-400 text-center">
+                בטוח/ה? המפגשים יוסרו מלוז האימונים ומהיומן
+              </p>
+              <div className="flex gap-2">
+                <button
+                  disabled={!!leavingId}
+                  onClick={async () => {
+                    if (!onLeave) return;
+                    setLeavingId(group.id);
+                    try {
+                      await onLeave(group.id);
+                      setConfirmLeave(false);
+                      onClose();
+                    } catch {
+                      // handled upstream
+                    } finally {
+                      setLeavingId(null);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {leavingId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
+                  כן, עזוב
+                </button>
+                <button
+                  onClick={() => setConfirmLeave(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-bold transition-all active:scale-95"
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── External registration — the actual enrollment action
+              when the group has one (e.g. "צו כושר" branches), always
+              shown regardless of in-app join state: registering
+              externally and joining the in-app chat/roster are two
+              independent actions. This is the PRIMARY CTA whenever it
+              exists — in-app join (below) is demoted to secondary.
+              07.09.2026: previously entered in the panel but never
+              rendered anywhere on the card/drawer. ── */}
+          {group.registrationLink && (
+            <a
+              href={group.registrationLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg transition-all active:scale-[0.97]"
+            >
+              <ExternalLink className="w-4 h-4" />
+              הרשמה
+            </a>
+          )}
+
+          {/* Join button (pre-join) — three cases: tenant-locked / private / public */}
+          {!isJoined && onJoin && (
+            group.isLocked && !codeUnlocked ? (
+              /* Case 1: tenant / unit access-code gate */
+              <AccessCodeGate
+                orgName={group.name}
+                groupType={group.groupType}
+                tenantType={group.requiredAccessCodeType}
+                contactPhone={null}
+                hideSkip
+                compact
+                onSuccess={(result: AccessCodeResult) => {
+                  // SEC#1: the redeemed code must belong to THIS group's
+                  // authority/tenant. authorities/{id} ≡ tenants/{id} (twin),
+                  // so the code's tenantId must equal the group's authorityId —
+                  // otherwise any valid tenant code would unlock any locked group.
+                  // Defense-in-depth; the members/{uid} Firestore rule is the hard
+                  // gate, this just fails with an honest message instead of a
+                  // silent PERMISSION_DENIED. (fail-open when authorityId is absent
+                  // — the server rule still backstops that edge case.)
+                  if (group.authorityId && result.tenantId !== group.authorityId) {
+                    showToast('error', 'הקוד אינו שייך לקבוצה הזו.');
+                    return;
+                  }
+                  setCodeUnlocked(true);
+                  showToast('success', `ברוכים הבאים ל${group.name}!`);
+                  onJoin(group.id);
+                }}
+              />
+            ) : !group.isPublic ? (
+              /* Case 2: private group — invite code required */
+              <div className="space-y-3" dir="rtl">
+                {!inviteCodeMode ? (
+                  <button
+                    onClick={() => setInviteCodeMode(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-900 text-white shadow-lg transition-all active:scale-[0.97]"
+                  >
+                    <Lock className="w-4 h-4" />
+                    הזן קוד הצטרפות
+                  </button>
+                ) : (
+                  <div className="space-y-2.5">
+                    <p className="text-xs text-gray-500 text-center font-semibold">
+                      זו קהילה פרטית — הזינו את קוד ההצטרפות:
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        dir="ltr"
+                        type="text"
+                        value={inviteInput}
+                        onChange={(e) => { setInviteInput(e.target.value.toUpperCase()); setInviteError(false); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void handleInviteCodeSubmit();
+                        }}
+                        maxLength={6}
+                        placeholder="XXXXXX"
+                        autoFocus
+                        aria-label="קוד הצטרפות לקהילה"
+                        className={`flex-1 text-center text-lg font-mono font-black tracking-widest border-2 rounded-2xl px-3 py-3 focus:outline-none transition-colors ${
+                          inviteError
+                            ? 'border-red-400 bg-red-50 text-red-600'
+                            : 'border-gray-200 focus:border-cyan-400'
+                        }`}
+                      />
+                      <button
+                        disabled={inviteSubmitting || !inviteInput.trim()}
+                        onClick={() => void handleInviteCodeSubmit()}
+                        className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-black disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"
+                      >
+                        {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
+                      </button>
+                    </div>
+                    {inviteError && (
+                      <p role="alert" className="text-sm text-red-500 font-bold text-center">
+                        קוד שגוי, אנא נסה שנית
+                      </p>
+                    )}
+                    <button
+                      onClick={() => { setInviteCodeMode(false); setInviteInput(''); setInviteError(false); }}
+                      className="w-full text-xs text-gray-400 font-semibold py-1 hover:text-gray-600 transition-colors"
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Case 3: public group — join directly. Demoted to a
+                 secondary/outline style when registrationLink exists
+                 above (07.09.2026) — that's the real enrollment now;
+                 this just adds the user to the in-app chat/roster. */
+              <button
+                disabled={joining}
+                onClick={() => { if (!joining) onJoin(group.id); }}
+                className={`w-full flex items-center justify-center gap-2 rounded-2xl transition-all active:scale-[0.97] disabled:opacity-50 ${
+                  group.registrationLink
+                    ? 'py-2.5 text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                    : v2
+                      ? '!rounded-full py-3.5 text-[15.5px] font-extrabold bg-v2-cta text-v2-on-cta shadow-v2-cta'
+                      : 'py-3.5 text-sm font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg'
+                }`}
+              >
+                {joining ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    הצטרף לקבוצה
+                  </>
+                )}
+              </button>
+            )
+          )}
+
+          {/* Report link */}
+          <button
+            onClick={() => setReportOpen(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
+          >
+            <Flag className="w-3 h-3" />
+            דיווח על תוכן לא ראוי
+          </button>
+        </div>
+      </GroupSheetFrame>
 
       {/* ── Remove Member Confirmation Modal ────────────────────────────────── */}
       <AnimatePresence>
