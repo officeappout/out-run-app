@@ -2,13 +2,14 @@
 
 import React, { useState, useRef, useContext, useEffect } from 'react';
 
-import { motion, AnimatePresence, useDragControls, Reorder } from 'framer-motion';
+import { motion, Reorder } from 'framer-motion';
 import {
-  X, Play, Loader2, Trash2, GripVertical, Bike, Target, MapPin, Route as RouteIcon,
+  Play, Loader2, Trash2, GripVertical, Bike, Target, MapPin, Route as RouteIcon,
   SlidersHorizontal, Milestone, Plus, Flag, Dumbbell, Check, Scale,
 } from 'lucide-react';
 import { RunIcon, WalkingIcon } from '@/features/content/programs/core/program-icon.util';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { FreeRunMainFrame, FreeRunSubSheet } from './free-run/FreeRunSheetFrame';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
 import AerobicStrengthSlider from './hybrid/AerobicStrengthSlider';
@@ -47,11 +48,6 @@ const ACCENT = '#00ADEF';
 const FreeRunV2 = React.createContext(false);
 const V2_ACCENT = '#00baf7';
 
-const V2_SHEET = 'bg-white rounded-t-[28px] shadow-v2-sheet';
-const V2_HANDLE = 'h-1.5 w-10 rounded-full bg-v2-pill-border';
-const V2_TITLE = 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink whitespace-nowrap';
-const V2_CLOSE =
-  'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline active:scale-[0.97] transition-transform duration-150 ease-v2';
 const V2_CTA =
   'w-full h-12 flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 disabled:opacity-60';
 const V2_SECONDARY =
@@ -65,17 +61,6 @@ const V2_ICON_TILE = 'grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg
  *  includeStrength, trail → surface. circular/benches/stairs are documented
  *  dead toggles there, so the v2 sheet doesn't offer them. */
 const V2_LIVE_EXTRAS: ReadonlyArray<keyof ExtrasState> = ['gymParks', 'trail'];
-
-function V2SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
-  return (
-    <div className="flex items-center justify-between px-5 pb-4">
-      <h2 className={V2_TITLE}>{title}</h2>
-      <button type="button" onClick={onClose} className={V2_CLOSE} aria-label="סגור">
-        <X size={16} strokeWidth={2.4} className="text-v2-ink-2" />
-      </button>
-    </div>
-  );
-}
 
 // ── Scheduled run helpers ─────────────────────────────────────────────────────
 
@@ -760,282 +745,243 @@ function GoalSheet({
   /** Current in-progress leg count — shown on the button so the user sees plan state without opening the sheet. 0 when nothing composed yet. */
   legPlanCount?: number;
 }) {
-  const dragControls = useDragControls();
   const v2 = useContext(FreeRunV2);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/30 z-[102] pointer-events-auto"
-          />
+    <FreeRunSubSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      v2={v2}
+      title="מטרת אימון"
+      tier="goal"
+      v2Layout="scroll"
+      keyboardAware
+      legacy={{
+        backdropClassName: 'fixed inset-0 bg-black/30 z-[102] pointer-events-auto',
+        panelClassName: 'kb-sheet fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto bg-white rounded-t-3xl shadow-2xl',
+        panelStyle: { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' },
+        handleClassName: 'flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing',
+        headerClassName: 'flex items-center justify-between px-5 pb-4',
+        headerClose: true,
+      }}
+    >
+      {/* Goal type pills */}
+      <div className="px-5 mb-5">
+        <div className="flex gap-2">
+          <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>{v2 ? 'זמן' : '⏱ זמן'}</Pill>
+          <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>{v2 ? 'מרחק' : '📏 מרחק'}</Pill>
+          <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>{v2 ? 'קלוריות' : '🔥 קלוריות'}</Pill>
+        </div>
+      </div>
 
-          <motion.div
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.25}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-            }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`kb-sheet fixed bottom-0 left-0 right-0 z-[103] pointer-events-auto ${v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}`}
-            dir="rtl"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+      {/* Slider */}
+      <div className="px-5 mb-5">
+        {goalType === 'time' && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>משך האימון</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{timeValue} דק׳</span>
+            </div>
+            <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => `${v} דק׳`} />
+          </>
+        )}
+
+        {goalType === 'distance' && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>מרחק</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
+            </div>
+            {/* No product-chosen distance ceiling (David, 08.08) — Mapbox Directions
+                itself imposes no max route distance for walking/cycling (verified,
+                only a 25-waypoint-per-request limit exists and loop mode never
+                approaches it). 100 is a generous usability bound for the slider
+                widget only, not a claimed technical limit — trivially raisable. */}
+            <GoalSlider min={0.5} max={100} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
+          </>
+        )}
+
+        {goalType === 'calories' && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>קלוריות</span>
+              <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{caloriesValue} קק״ל</span>
+            </div>
+            <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
+            {weightMissing && (
+              <WeightInlineRow
+                genderDefault={genderDefault}
+                onSave={onSaveWeight}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Address destination (08.08 decision, revised 09.08) — additive
+          option below the goal tabs, not a replacement. Default (loop)
+          is unaffected unless explicitly tapped. Picking an address no
+          longer builds a route immediately (David, 09.08 — it used to
+          jump straight into RouteCarousel) — it returns here as an
+          editable, unconfirmed pick; only the explicit "🏁 התחל לכתובת
+          הזו" button below actually calls startCommute. */}
+      {v2 && (onRequestAddressDestination || onOpenLegPlan) && (
+        <p className="px-5 mb-2 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">אפשרויות מסלול</p>
+      )}
+      {onRequestAddressDestination && v2 && (
+        <div className="px-5 mb-2.5">
+          <button type="button" onClick={onRequestAddressDestination} className={V2_OPTION}>
+            <span className={V2_ICON_TILE}><MapPin size={18} strokeWidth={2.4} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
+                {pendingAddress ? (pendingAddress.label || 'היעד שנבחר') : 'יעד: כתובת'}
+              </span>
+              <span className="block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
+                {pendingAddress ? 'הקש לשינוי היעד' : 'מסלול מכאן לכתובת שתבחר'}
+              </span>
+            </span>
+          </button>
+          {pendingAddress && (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onConfirmAddressDestination?.(pendingAddress)}
+                className={`${V2_CTA} flex-1`}
+              >
+                <Flag size={16} strokeWidth={2.4} /> התחל לכתובת הזו
+              </button>
+              <button
+                type="button"
+                onClick={() => usePendingAddressStore.getState().clear()}
+                className={`${V2_SECONDARY} h-12 px-5 text-v2-ink-2`}
+              >
+                ביטול
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {onRequestAddressDestination && !v2 && (
+        <div className="px-5 mb-4">
+          <button
+            type="button"
+            onClick={onRequestAddressDestination}
+            className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform truncate"
+            style={{ backgroundColor: '#F3F4F6' }}
           >
-            {/* Drag handle */}
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => dragControls.start(e)}
-              style={{ touchAction: 'none' }}
-            >
-              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
-            </div>
+            {pendingAddress
+              ? `📍 ${pendingAddress.label || 'היעד שנבחר'} · שנה`
+              : '📍 יעד: כתובת'}
+          </button>
 
-            {/* Header */}
-            {v2 ? <V2SheetHeader title="מטרת אימון" onClose={onClose} /> : (
-            <div className="flex items-center justify-between px-5 pb-4">
-              <h2 className="text-base font-black text-gray-900">מטרת אימון</h2>
+          {pendingAddress && (
+            <div className="flex gap-2 mt-2">
               <button
                 type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
-                aria-label="סגור"
-              >
-                <X size={14} className="text-gray-600" />
-              </button>
-            </div>
-            )}
-
-            {/* Goal type pills */}
-            <div className="px-5 mb-5">
-              <div className="flex gap-2">
-                <Pill active={goalType === 'time'}     onClick={() => setGoalType('time')}>{v2 ? 'זמן' : '⏱ זמן'}</Pill>
-                <Pill active={goalType === 'distance'} onClick={() => setGoalType('distance')}>{v2 ? 'מרחק' : '📏 מרחק'}</Pill>
-                <Pill active={goalType === 'calories'} onClick={() => setGoalType('calories')}>{v2 ? 'קלוריות' : '🔥 קלוריות'}</Pill>
-              </div>
-            </div>
-
-            {/* Slider */}
-            <div className="px-5 mb-5">
-              {goalType === 'time' && (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>משך האימון</span>
-                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{timeValue} דק׳</span>
-                  </div>
-                  <GoalSlider min={5} max={120} step={5} value={timeValue} onChange={setTimeValue} formatLabel={(v) => `${v} דק׳`} />
-                </>
-              )}
-
-              {goalType === 'distance' && (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>מרחק</span>
-                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{distanceValue.toFixed(1)} ק״מ</span>
-                  </div>
-                  {/* No product-chosen distance ceiling (David, 08.08) — Mapbox Directions
-                      itself imposes no max route distance for walking/cycling (verified,
-                      only a 25-waypoint-per-request limit exists and loop mode never
-                      approaches it). 100 is a generous usability bound for the slider
-                      widget only, not a claimed technical limit — trivially raisable. */}
-                  <GoalSlider min={0.5} max={100} step={0.5} value={distanceValue} onChange={setDistanceValue} formatLabel={(v) => `${v.toFixed(1)} ק״מ`} />
-                </>
-              )}
-
-              {goalType === 'calories' && (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={v2 ? 'whitespace-nowrap text-[15px] font-black text-v2-ink' : 'text-[13px] font-black text-gray-800'}>קלוריות</span>
-                    <span className={v2 ? 'whitespace-nowrap text-[17px] font-black tabular-nums text-v2-deep' : 'text-[13px] font-black'} style={v2 ? undefined : { color: ACCENT }}>{caloriesValue} קק״ל</span>
-                  </div>
-                  <GoalSlider min={50} max={800} step={50} value={caloriesValue} onChange={setCaloriesValue} formatLabel={(v) => `${v} קק״ל`} />
-                  {weightMissing && (
-                    <WeightInlineRow
-                      genderDefault={genderDefault}
-                      onSave={onSaveWeight}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Address destination (08.08 decision, revised 09.08) — additive
-                option below the goal tabs, not a replacement. Default (loop)
-                is unaffected unless explicitly tapped. Picking an address no
-                longer builds a route immediately (David, 09.08 — it used to
-                jump straight into RouteCarousel) — it returns here as an
-                editable, unconfirmed pick; only the explicit "🏁 התחל לכתובת
-                הזו" button below actually calls startCommute. */}
-            {v2 && (onRequestAddressDestination || onOpenLegPlan) && (
-              <p className="px-5 mb-2 whitespace-nowrap text-[13px] font-extrabold text-v2-deep">אפשרויות מסלול</p>
-            )}
-            {onRequestAddressDestination && v2 && (
-              <div className="px-5 mb-2.5">
-                <button type="button" onClick={onRequestAddressDestination} className={V2_OPTION}>
-                  <span className={V2_ICON_TILE}><MapPin size={18} strokeWidth={2.4} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
-                      {pendingAddress ? (pendingAddress.label || 'היעד שנבחר') : 'יעד: כתובת'}
-                    </span>
-                    <span className="block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                      {pendingAddress ? 'הקש לשינוי היעד' : 'מסלול מכאן לכתובת שתבחר'}
-                    </span>
-                  </span>
-                </button>
-                {pendingAddress && (
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onConfirmAddressDestination?.(pendingAddress)}
-                      className={`${V2_CTA} flex-1`}
-                    >
-                      <Flag size={16} strokeWidth={2.4} /> התחל לכתובת הזו
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => usePendingAddressStore.getState().clear()}
-                      className={`${V2_SECONDARY} h-12 px-5 text-v2-ink-2`}
-                    >
-                      ביטול
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            {onRequestAddressDestination && !v2 && (
-              <div className="px-5 mb-4">
-                <button
-                  type="button"
-                  onClick={onRequestAddressDestination}
-                  className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform truncate"
-                  style={{ backgroundColor: '#F3F4F6' }}
-                >
-                  {pendingAddress
-                    ? `📍 ${pendingAddress.label || 'היעד שנבחר'} · שנה`
-                    : '📍 יעד: כתובת'}
-                </button>
-
-                {pendingAddress && (
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => onConfirmAddressDestination?.(pendingAddress)}
-                      className="flex-1 py-3 text-[13px] font-black text-white rounded-2xl active:scale-[0.98] transition-transform"
-                      style={{ backgroundColor: ACCENT }}
-                    >
-                      🏁 התחל לכתובת הזו
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => usePendingAddressStore.getState().clear()}
-                      className="px-4 py-3 text-[13px] font-black text-gray-400 rounded-2xl active:scale-[0.98] transition-transform"
-                      style={{ backgroundColor: '#F3F4F6' }}
-                    >
-                      ביטול
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Leg-plan composer (ג' Phase 1, 08.08 decision) — additive option
-                below the address-destination button, stays inside GoalSheet
-                (not a separate top-level drawer button — David's call).
-                Default (loop) is unaffected unless explicitly opened.
-                Brand-blue fill (08.08, David's 2nd button-confusion report):
-                the two buttons above/below each other in identical gray
-                pills were too easy to mis-tap without reading the text.
-                Minimal differentiation, not a redesign — old button stays
-                gray, this one gets the accent so the eye catches the
-                difference before the text does. */}
-            {onOpenLegPlan && v2 && (
-              <div className="px-5 mb-2.5">
-                <button type="button" onClick={onOpenLegPlan} className={V2_OPTION}>
-                  <span className={V2_ICON_TILE}><Milestone size={18} strokeWidth={2.4} /></span>
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
-                    הוסף עצירות בדרך
-                  </span>
-                  {legPlanCount ? (
-                    <span className="shrink-0 rounded-full bg-v2-tint px-2.5 py-0.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
-                      {legPlanCount}
-                    </span>
-                  ) : null}
-                </button>
-              </div>
-            )}
-            {onOpenLegPlan && !v2 && (
-              <div className="px-5 mb-4">
-                <button
-                  type="button"
-                  onClick={onOpenLegPlan}
-                  className="w-full py-3 text-[13px] font-black text-white flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
-                  style={{ backgroundColor: ACCENT }}
-                >
-                  🧭 הוסף עצירות בדרך{legPlanCount ? ` (${legPlanCount})` : ''}
-                </button>
-              </div>
-            )}
-
-            {/* Route extras shortcut */}
-            {v2 ? (
-              <div className="px-5 mb-4">
-                <button type="button" onClick={onOpenExtras} className={V2_OPTION}>
-                  <span className={V2_ICON_TILE}><SlidersHorizontal size={18} strokeWidth={2.4} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">הגדרות מסלול נוספות</span>
-                    <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">חלות על &quot;עם מסלול&quot;</span>
-                  </span>
-                </button>
-              </div>
-            ) : (
-            <div className="px-5 mb-4">
-              <button
-                type="button"
-                onClick={onOpenExtras}
-                className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
-                style={{ backgroundColor: '#F3F4F6' }}
-              >
-                ⚙️ הגדרות מסלול נוספות
-              </button>
-            </div>
-            )}
-
-            {/* Confirm — v2: the gradient moves to "התחל לכתובת הזו" while a
-                picked address is pending, so the sheet keeps exactly one. */}
-            <div className="px-5">
-              {v2 ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className={pendingAddress && onRequestAddressDestination ? `${V2_SECONDARY} h-12 w-full` : V2_CTA}
-                >
-                  אישור
-                </button>
-              ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
+                onClick={() => onConfirmAddressDestination?.(pendingAddress)}
+                className="flex-1 py-3 text-[13px] font-black text-white rounded-2xl active:scale-[0.98] transition-transform"
                 style={{ backgroundColor: ACCENT }}
               >
-                אישור
+                🏁 התחל לכתובת הזו
               </button>
-              )}
+              <button
+                type="button"
+                onClick={() => usePendingAddressStore.getState().clear()}
+                className="px-4 py-3 text-[13px] font-black text-gray-400 rounded-2xl active:scale-[0.98] transition-transform"
+                style={{ backgroundColor: '#F3F4F6' }}
+              >
+                ביטול
+              </button>
             </div>
-          </motion.div>
-        </>
+          )}
+        </div>
       )}
-    </AnimatePresence>
+
+      {/* Leg-plan composer (ג' Phase 1, 08.08 decision) — additive option
+          below the address-destination button, stays inside GoalSheet
+          (not a separate top-level drawer button — David's call).
+          Default (loop) is unaffected unless explicitly opened.
+          Brand-blue fill (08.08, David's 2nd button-confusion report):
+          the two buttons above/below each other in identical gray
+          pills were too easy to mis-tap without reading the text.
+          Minimal differentiation, not a redesign — old button stays
+          gray, this one gets the accent so the eye catches the
+          difference before the text does. */}
+      {onOpenLegPlan && v2 && (
+        <div className="px-5 mb-2.5">
+          <button type="button" onClick={onOpenLegPlan} className={V2_OPTION}>
+            <span className={V2_ICON_TILE}><Milestone size={18} strokeWidth={2.4} /></span>
+            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">
+              הוסף עצירות בדרך
+            </span>
+            {legPlanCount ? (
+              <span className="shrink-0 rounded-full bg-v2-tint px-2.5 py-0.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
+                {legPlanCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      )}
+      {onOpenLegPlan && !v2 && (
+        <div className="px-5 mb-4">
+          <button
+            type="button"
+            onClick={onOpenLegPlan}
+            className="w-full py-3 text-[13px] font-black text-white flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: ACCENT }}
+          >
+            🧭 הוסף עצירות בדרך{legPlanCount ? ` (${legPlanCount})` : ''}
+          </button>
+        </div>
+      )}
+
+      {/* Route extras shortcut */}
+      {v2 ? (
+        <div className="px-5 mb-4">
+          <button type="button" onClick={onOpenExtras} className={V2_OPTION}>
+            <span className={V2_ICON_TILE}><SlidersHorizontal size={18} strokeWidth={2.4} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">הגדרות מסלול נוספות</span>
+              <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">חלות על &quot;עם מסלול&quot;</span>
+            </span>
+          </button>
+        </div>
+      ) : (
+      <div className="px-5 mb-4">
+        <button
+          type="button"
+          onClick={onOpenExtras}
+          className="w-full py-3 text-[13px] font-black text-gray-700 flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform"
+          style={{ backgroundColor: '#F3F4F6' }}
+        >
+          ⚙️ הגדרות מסלול נוספות
+        </button>
+      </div>
+      )}
+
+      {/* Confirm — v2: the gradient moves to "התחל לכתובת הזו" while a
+          picked address is pending, so the sheet keeps exactly one. */}
+      <div className="px-5">
+        {v2 ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className={pendingAddress && onRequestAddressDestination ? `${V2_SECONDARY} h-12 w-full` : V2_CTA}
+          >
+            אישור
+          </button>
+        ) : (
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
+          style={{ backgroundColor: ACCENT }}
+        >
+          אישור
+        </button>
+        )}
+      </div>
+    </FreeRunSubSheet>
   );
 }
 
@@ -1066,7 +1012,6 @@ function LegPlanSheet({
   onRequestAddLeg?: () => void;
   onStartLegPlanRun?: (compiled: CompiledLegPlanRoute) => void;
 }) {
-  const dragControls = useDragControls();
   const v2 = useContext(FreeRunV2);
   const legs = useLegPlanStore((s) => s.legs);
   const atMaxLegs = legs.length >= MAX_LEGS_PER_PLAN;
@@ -1109,188 +1054,149 @@ function LegPlanSheet({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/30 z-[104] pointer-events-auto"
-          />
+    <FreeRunSubSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      v2={v2}
+      title="עצירות בדרך"
+      tier="extras"
+      v2Layout="column"
+      legacy={{
+        backdropClassName: 'fixed inset-0 bg-black/30 z-[104] pointer-events-auto',
+        panelClassName: 'fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto bg-white rounded-t-3xl shadow-2xl',
+        panelStyle: { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' },
+        handleClassName: 'flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing shrink-0',
+        headerClassName: 'flex items-center justify-between px-5 pb-4 shrink-0',
+        headerClose: true,
+      }}
+    >
+      {/* Ordered leg list — drag to reorder */}
+      <div className="px-5 overflow-y-auto flex-1">
+        {legs.length === 0 ? (
+          <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-muted' : 'text-[13px] text-gray-500 text-center py-6'}>
+            עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.
+          </p>
+        ) : (
+          <Reorder.Group axis="y" values={legs} onReorder={handleReorder} as="div" className="space-y-2">
+            {legs.map((leg, idx) => (
+              <Reorder.Item
+                key={leg.id}
+                value={leg}
+                as="div"
+                className={v2 ? 'flex items-center gap-2 rounded-[18px] bg-white px-3 py-3 shadow-v2-ring' : 'flex items-center gap-2 rounded-2xl px-3 py-3'}
+                style={v2 ? undefined : { backgroundColor: '#F3F4F6' }}
+                whileDrag={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 50, backgroundColor: '#FFFFFF' }}
+              >
+                <GripVertical size={16} className={v2 ? 'shrink-0 text-v2-muted' : 'text-gray-400 shrink-0'} />
+                {v2 && (
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-v2-tint text-[12px] font-extrabold tabular-nums text-v2-deep">
+                    {idx + 1}
+                  </span>
+                )}
+                <span className={v2 ? 'flex-1 truncate whitespace-nowrap text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-[13px] font-bold text-gray-800 truncate'}>
+                  {leg.label || `עצירה ${idx + 1}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => useLegPlanStore.getState().removeLeg(leg.id)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
+                  aria-label="הסר עצירה"
+                >
+                  <Trash2 size={14} className={v2 ? 'text-v2-muted' : 'text-gray-400'} />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        )}
+      </div>
 
-          <motion.div
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.25}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-            }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
-            dir="rtl"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+      {v2 ? (
+        <div className="px-5 pt-4 shrink-0">
+          <button
+            type="button"
+            onClick={handleAddStop}
+            disabled={atMaxLegs || !userPosition}
+            className={`${V2_SECONDARY} h-12 w-full text-v2-deep`}
           >
-            {/* Drag handle */}
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing shrink-0"
-              onPointerDown={(e) => dragControls.start(e)}
-              style={{ touchAction: 'none' }}
-            >
-              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
-            </div>
-
-            {/* Header */}
-            {v2 ? <div className="shrink-0"><V2SheetHeader title="עצירות בדרך" onClose={onClose} /></div> : (
-            <div className="flex items-center justify-between px-5 pb-4 shrink-0">
-              <h2 className="text-base font-black text-gray-900">עצירות בדרך</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
-                aria-label="סגור"
-              >
-                <X size={14} className="text-gray-600" />
-              </button>
-            </div>
-            )}
-
-            {/* Ordered leg list — drag to reorder */}
-            <div className="px-5 overflow-y-auto flex-1">
-              {legs.length === 0 ? (
-                <p className={v2 ? 'py-6 text-center text-[14px] font-bold text-v2-muted' : 'text-[13px] text-gray-500 text-center py-6'}>
-                  עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.
-                </p>
-              ) : (
-                <Reorder.Group axis="y" values={legs} onReorder={handleReorder} as="div" className="space-y-2">
-                  {legs.map((leg, idx) => (
-                    <Reorder.Item
-                      key={leg.id}
-                      value={leg}
-                      as="div"
-                      className={v2 ? 'flex items-center gap-2 rounded-[18px] bg-white px-3 py-3 shadow-v2-ring' : 'flex items-center gap-2 rounded-2xl px-3 py-3'}
-                      style={v2 ? undefined : { backgroundColor: '#F3F4F6' }}
-                      whileDrag={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)', zIndex: 50, backgroundColor: '#FFFFFF' }}
-                    >
-                      <GripVertical size={16} className={v2 ? 'shrink-0 text-v2-muted' : 'text-gray-400 shrink-0'} />
-                      {v2 && (
-                        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-v2-tint text-[12px] font-extrabold tabular-nums text-v2-deep">
-                          {idx + 1}
-                        </span>
-                      )}
-                      <span className={v2 ? 'flex-1 truncate whitespace-nowrap text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-[13px] font-bold text-gray-800 truncate'}>
-                        {leg.label || `עצירה ${idx + 1}`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => useLegPlanStore.getState().removeLeg(leg.id)}
-                        className="w-7 h-7 rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
-                        aria-label="הסר עצירה"
-                      >
-                        <Trash2 size={14} className={v2 ? 'text-v2-muted' : 'text-gray-400'} />
-                      </button>
-                    </Reorder.Item>
-                  ))}
-                </Reorder.Group>
-              )}
-            </div>
-
-            {v2 ? (
-              <div className="px-5 pt-4 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleAddStop}
-                  disabled={atMaxLegs || !userPosition}
-                  className={`${V2_SECONDARY} h-12 w-full text-v2-deep`}
-                >
-                  {atMaxLegs ? (
-                    <span className="truncate text-v2-muted">מקסימום {MAX_LEGS_PER_PLAN} עצירות</span>
-                  ) : (
-                    <><Plus size={17} strokeWidth={2.6} /> הוסף עצירה</>
-                  )}
-                </button>
-                {legs.length > 0 && onStartLegPlanRun && (
-                  <button
-                    type="button"
-                    onClick={handleStartRun}
-                    disabled={isCompiling || !userPosition}
-                    className={`${V2_CTA} mt-2.5`}
-                  >
-                    {isCompiling
-                      ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
-                      : <><Flag size={16} strokeWidth={2.4} /> {activity === 'walking' ? 'התחל הליכה' : activity === 'cycling' ? 'התחל רכיבה' : 'התחל ריצה'}</>}
-                  </button>
-                )}
-                {compileError && (
-                  <p className="mt-2 text-center text-[12.5px] font-bold leading-tight text-v2-down">{compileError}</p>
-                )}
-                {legs.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAll}
-                    className="mt-1.5 w-full py-2 text-[13px] font-extrabold text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
-                  >
-                    נקה הכל
-                  </button>
-                )}
-              </div>
+            {atMaxLegs ? (
+              <span className="truncate text-v2-muted">מקסימום {MAX_LEGS_PER_PLAN} עצירות</span>
             ) : (
-            <div className="px-5 pt-4 shrink-0">
-              {/* Add stop */}
-              <button
-                type="button"
-                onClick={handleAddStop}
-                disabled={atMaxLegs || !userPosition}
-                className="w-full py-3 text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
-                style={{ backgroundColor: atMaxLegs ? '#F3F4F6' : ACCENT, color: atMaxLegs ? '#6B7280' : '#FFFFFF' }}
-              >
-                {atMaxLegs
-                  ? `הגעת למספר המרבי של עצירות (${MAX_LEGS_PER_PLAN})`
-                  : '➕ הוסף עצירה'}
-              </button>
-
-              {/* Start run — compiles the plan into one route via a single
-                  Mapbox call and hands off straight to the active workout,
-                  no route-carousel picker (David's decision #4). */}
-              {legs.length > 0 && onStartLegPlanRun && (
-                <button
-                  type="button"
-                  onClick={handleStartRun}
-                  disabled={isCompiling || !userPosition}
-                  className="w-full py-3 mt-2 text-white text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
-                  style={{ backgroundColor: ACCENT }}
-                >
-                  {isCompiling
-                    ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
-                    : '🏁 התחל ריצה'}
-                </button>
-              )}
-
-              {compileError && (
-                <p className="text-[12px] text-red-500 text-center mt-2 leading-tight">{compileError}</p>
-              )}
-
-              {legs.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="w-full py-2 mt-2 text-[12px] font-bold text-gray-400 active:scale-[0.98] transition-transform"
-                >
-                  נקה הכל
-                </button>
-              )}
-            </div>
+              <><Plus size={17} strokeWidth={2.6} /> הוסף עצירה</>
             )}
-          </motion.div>
-        </>
+          </button>
+          {legs.length > 0 && onStartLegPlanRun && (
+            <button
+              type="button"
+              onClick={handleStartRun}
+              disabled={isCompiling || !userPosition}
+              className={`${V2_CTA} mt-2.5`}
+            >
+              {isCompiling
+                ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
+                : <><Flag size={16} strokeWidth={2.4} /> {activity === 'walking' ? 'התחל הליכה' : activity === 'cycling' ? 'התחל רכיבה' : 'התחל ריצה'}</>}
+            </button>
+          )}
+          {compileError && (
+            <p className="mt-2 text-center text-[12.5px] font-bold leading-tight text-v2-down">{compileError}</p>
+          )}
+          {legs.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="mt-1.5 w-full py-2 text-[13px] font-extrabold text-v2-muted active:scale-[0.97] transition-transform duration-150 ease-v2"
+            >
+              נקה הכל
+            </button>
+          )}
+        </div>
+      ) : (
+      <div className="px-5 pt-4 shrink-0">
+        {/* Add stop */}
+        <button
+          type="button"
+          onClick={handleAddStop}
+          disabled={atMaxLegs || !userPosition}
+          className="w-full py-3 text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+          style={{ backgroundColor: atMaxLegs ? '#F3F4F6' : ACCENT, color: atMaxLegs ? '#6B7280' : '#FFFFFF' }}
+        >
+          {atMaxLegs
+            ? `הגעת למספר המרבי של עצירות (${MAX_LEGS_PER_PLAN})`
+            : '➕ הוסף עצירה'}
+        </button>
+
+        {/* Start run — compiles the plan into one route via a single
+            Mapbox call and hands off straight to the active workout,
+            no route-carousel picker (David's decision #4). */}
+        {legs.length > 0 && onStartLegPlanRun && (
+          <button
+            type="button"
+            onClick={handleStartRun}
+            disabled={isCompiling || !userPosition}
+            className="w-full py-3 mt-2 text-white text-[13px] font-black flex items-center justify-center gap-2 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-60"
+            style={{ backgroundColor: ACCENT }}
+          >
+            {isCompiling
+              ? <><Loader2 size={16} className="animate-spin" /> מרכיב מסלול...</>
+              : '🏁 התחל ריצה'}
+          </button>
+        )}
+
+        {compileError && (
+          <p className="text-[12px] text-red-500 text-center mt-2 leading-tight">{compileError}</p>
+        )}
+
+        {legs.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className="w-full py-2 mt-2 text-[12px] font-bold text-gray-400 active:scale-[0.98] transition-transform"
+          >
+            נקה הכל
+          </button>
+        )}
+      </div>
       )}
-    </AnimatePresence>
+    </FreeRunSubSheet>
   );
 }
 
@@ -1304,89 +1210,59 @@ function ExtrasSheet({
   extras: ExtrasState;
   onToggle: (key: keyof ExtrasState) => void;
 }) {
-  const dragControls = useDragControls();
   const v2 = useContext(FreeRunV2);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/30 z-[104] pointer-events-auto"
-          />
-
-          <motion.div
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.25}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-            }}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className={`fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto ${v2 ? V2_SHEET : 'bg-white rounded-t-3xl shadow-2xl'}`}
-            dir="rtl"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
-          >
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => dragControls.start(e)}
-              style={{ touchAction: 'none' }}
-            >
-              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
-            </div>
-
-            {v2 ? <V2SheetHeader title="הגדרות נוספות" onClose={onClose} /> : (
-            <div className="px-5 pb-4">
-              <h2 className="text-base font-black text-gray-900">הגדרות נוספות</h2>
-            </div>
-            )}
-
-            {v2 ? (
-              <div className="mx-5 rounded-[20px] bg-white px-4 shadow-v2-ring">
-                {V2_LIVE_EXTRAS.includes('gymParks') && (
-                  <ToggleRow emoji="" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
-                )}
-                {V2_LIVE_EXTRAS.includes('trail') && (
-                  <ToggleRow emoji="" label="שבילי עפר" value={extras.trail} onToggle={() => onToggle('trail')} />
-                )}
-              </div>
-            ) : (
-            <div className="px-5">
-              <ToggleRow emoji="🔄" label="מעגלי"              value={extras.circular} onToggle={() => onToggle('circular')} />
-              <ToggleRow emoji="🏋️" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
-              <ToggleRow emoji="🪑" label="עבור דרך ספסלים"      value={extras.benches}  onToggle={() => onToggle('benches')}  />
-              <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
-              <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
-            </div>
-            )}
-
-            <div className="px-5 pt-5">
-              {v2 ? (
-                <button type="button" onClick={onClose} className={V2_CTA}>סיום</button>
-              ) : (
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
-                style={{ backgroundColor: ACCENT }}
-              >
-                סגור
-              </button>
-              )}
-            </div>
-          </motion.div>
-        </>
+    <FreeRunSubSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      v2={v2}
+      title="הגדרות נוספות"
+      tier="extras"
+      v2Layout="plain"
+      legacy={{
+        backdropClassName: 'fixed inset-0 bg-black/30 z-[104] pointer-events-auto',
+        panelClassName: 'fixed bottom-0 left-0 right-0 z-[105] pointer-events-auto bg-white rounded-t-3xl shadow-2xl',
+        panelStyle: { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' },
+        handleClassName: 'flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing',
+        headerClassName: 'px-5 pb-4',
+        headerClose: false,
+      }}
+    >
+      {v2 ? (
+        <div className="mx-5 rounded-[20px] bg-white px-4 shadow-v2-ring">
+          {V2_LIVE_EXTRAS.includes('gymParks') && (
+            <ToggleRow emoji="" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+          )}
+          {V2_LIVE_EXTRAS.includes('trail') && (
+            <ToggleRow emoji="" label="שבילי עפר" value={extras.trail} onToggle={() => onToggle('trail')} />
+          )}
+        </div>
+      ) : (
+      <div className="px-5">
+        <ToggleRow emoji="🔄" label="מעגלי"              value={extras.circular} onToggle={() => onToggle('circular')} />
+        <ToggleRow emoji="🏋️" label="עבור דרך גינות כושר" value={extras.gymParks} onToggle={() => onToggle('gymParks')} />
+        <ToggleRow emoji="🪑" label="עבור דרך ספסלים"      value={extras.benches}  onToggle={() => onToggle('benches')}  />
+        <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
+        <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
+      </div>
       )}
-    </AnimatePresence>
+
+      <div className="px-5 pt-5">
+        {v2 ? (
+          <button type="button" onClick={onClose} className={V2_CTA}>סיום</button>
+        ) : (
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform rounded-xl"
+          style={{ backgroundColor: ACCENT }}
+        >
+          סגור
+        </button>
+        )}
+      </div>
+    </FreeRunSubSheet>
   );
 }
 
@@ -1408,7 +1284,6 @@ export default function FreeRunDrawer({
   onStartLegPlanRun,
   initialPlannedRun,
 }: FreeRunDrawerProps) {
-  const dragControls = useDragControls();
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -1691,158 +1566,105 @@ export default function FreeRunDrawer({
 
   return (
     <FreeRunV2.Provider value={v2}>
-      <div className="fixed inset-0 z-[100] pointer-events-none">
-        {/* Scrim */}
-        <div className="absolute inset-0 pointer-events-auto" onClick={onClose} />
+      <FreeRunMainFrame onClose={onClose} v2={v2} title="אירובי חופשי">
+        {/* ── Block 1: Activity chips ──────────────────────────────────── */}
+        <ActivityChips selected={selectedActivity} onSelect={handleActivitySelect} />
 
-        <motion.div
-          drag="y"
-          dragControls={dragControls}
-          dragListener={false}
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.25}
-          onDragEnd={(_, info) => {
-            if (info.offset.y > 80 || info.velocity.y > 300) onClose();
-          }}
-          initial={{ y: 400 }}
-          animate={{ y: 0 }}
-          exit={{ y: 400 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="absolute bottom-0 left-0 right-0 pointer-events-auto"
-        >
-          {/* v2: capped at 90dvh and scrollable — with strength stations on +
-              "אחר כך" (date/time row) the stack is ~700px, taller than a small
-              phone, and the sheet had no max-height, so its header was pushed
-              off-screen. Drag stays on the handle only (dragListener=false). */}
-          <div
-            className={v2 ? `${V2_SHEET} max-h-[90dvh] overflow-y-auto overscroll-contain` : 'bg-white rounded-t-3xl shadow-2xl'}
-            dir="rtl"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
-          >
-            {/* Drag handle */}
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => dragControls.start(e)}
-              style={{ touchAction: 'none' }}
-            >
-              {v2 ? <div className={V2_HANDLE} /> : <div className="rounded-full bg-gray-300" style={{ width: 36, height: 4 }} />}
-            </div>
+        {/* ── Block 2: Goal summary (collapsed) ───────────────────────── */}
+        <GoalSummaryRow
+          goalType={goalType}
+          timeValue={timeValue}
+          distanceValue={distanceValue}
+          caloriesValue={caloriesValue}
+          onEdit={() => setGoalSheetOpen(true)}
+        />
 
-            {/* Header */}
-            {v2 ? <V2SheetHeader title="אירובי חופשי" onClose={onClose} /> : (
-            <div className="flex items-center justify-between px-5 pb-4">
-              <h2 className="text-base font-black text-gray-900">אירובי חופשי</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform shrink-0"
-                aria-label="סגור"
-              >
-                <X size={14} className="text-gray-600" />
-              </button>
-            </div>
-            )}
-
-            {/* ── Block 1: Activity chips ──────────────────────────────────── */}
-            <ActivityChips selected={selectedActivity} onSelect={handleActivitySelect} />
-
-            {/* ── Block 2: Goal summary (collapsed) ───────────────────────── */}
-            <GoalSummaryRow
-              goalType={goalType}
-              timeValue={timeValue}
-              distanceValue={distanceValue}
-              caloriesValue={caloriesValue}
-              onEdit={() => setGoalSheetOpen(true)}
-            />
-
-            {/* ── Block 2c: Hybrid toggle + ratio slider (design §4.1/§4.2) ──
-                Flag-gated: while enableHybridSlots is false the toggle is not
-                rendered, so hybridEnabled stays false → the free-run drawer is
-                byte-identical to pre-hybrid and no compose path is reachable. */}
-            {enableHybridSlots && (
-              <>
-                <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} v2={v2} />
-                {hybridEnabled && (
-                  <AerobicStrengthSlider
-                    aerobicShare={aerobicShare}
-                    onChange={setAerobicShare}
-                    goalType={goalType}
-                    timeBudgetMin={goalType === 'time' ? timeValue : 40}
-                    stations={1}
-                    accent={ACCENT}
-                    v2={v2}
-                  />
-                )}
-              </>
-            )}
-
-            {/* ── Block 2b: Invite + broadcast (RunShareBar) ───────────────── */}
-            <RunShareBar
-              activityType={selectedActivity === 'walking' ? 'walking' : 'running'}
-              userLocation={userPosition}
-              className="px-5 mb-4"
-              timing={timing}
-              onTimingChange={setTiming}
-              schedDate={schedDate}
-              schedTime={schedTime}
-              onDateChange={setSchedDate}
-              onTimeChange={setSchedTime}
-              onShareScheduled={handleShareScheduled}
-              v2={v2}
-              nowInvite={v2 ? { pending: inviteOnStart, onChange: setInviteOnStart } : undefined}
-            />
-
-            {/* ── Block 3: Entry buttons / Save ───────────────────────────── */}
-            {v2 && timing === 'later' ? (
-              <div className="px-5 pb-2">
-                <button type="button" onClick={handleSaveOnly} disabled={isSaving} className={V2_CTA}>
-                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
-                  <span>{isSaving ? 'שומר...' : 'שמור לאימונים'}</span>
-                </button>
-              </div>
-            ) : v2 && hybridEnabled ? (
-              <div className="px-5 pb-2">
-                <button type="button" onClick={handleStartHybrid} aria-label="התחל אימון משולב" className={V2_CTA}>
-                  <Dumbbell size={17} strokeWidth={2.4} />
-                  <span>התחל משולב</span>
-                </button>
-              </div>
-            ) : timing === 'later' ? (
-              <div className="px-5 pb-2">
-                <button
-                  type="button"
-                  onClick={handleSaveOnly}
-                  disabled={isSaving}
-                  className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl disabled:opacity-60"
-                  style={{ height: 52, backgroundColor: ACCENT }}
-                >
-                  {isSaving && <Loader2 size={16} className="animate-spin" />}
-                  <span>{isSaving ? 'שומר...' : '✓ שמור לאימונים'}</span>
-                </button>
-              </div>
-            ) : hybridEnabled ? (
-              <div className="px-5 pb-2">
-                <button
-                  type="button"
-                  onClick={handleStartHybrid}
-                  aria-label="התחל אימון משולב"
-                  className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl"
-                  style={{ height: 52, backgroundColor: ACCENT }}
-                >
-                  <span>💪🏃 התחל משולב</span>
-                </button>
-              </div>
-            ) : (
-              <EntryButtons
-                onStartFree={handleStartFree}
-                onStartWithRoute={handleStartWithRoute}
-                canStartWithRoute={canStartWithRoute}
-                cityName={cityName}
+        {/* ── Block 2c: Hybrid toggle + ratio slider (design §4.1/§4.2) ──
+            Flag-gated: while enableHybridSlots is false the toggle is not
+            rendered, so hybridEnabled stays false → the free-run drawer is
+            byte-identical to pre-hybrid and no compose path is reachable. */}
+        {enableHybridSlots && (
+          <>
+            <StrengthStationsToggle enabled={hybridEnabled} onToggle={setHybridEnabled} accent={ACCENT} v2={v2} />
+            {hybridEnabled && (
+              <AerobicStrengthSlider
+                aerobicShare={aerobicShare}
+                onChange={setAerobicShare}
+                goalType={goalType}
+                timeBudgetMin={goalType === 'time' ? timeValue : 40}
+                stations={1}
+                accent={ACCENT}
+                v2={v2}
               />
             )}
+          </>
+        )}
+
+        {/* ── Block 2b: Invite + broadcast (RunShareBar) ───────────────── */}
+        <RunShareBar
+          activityType={selectedActivity === 'walking' ? 'walking' : 'running'}
+          userLocation={userPosition}
+          className="px-5 mb-4"
+          timing={timing}
+          onTimingChange={setTiming}
+          schedDate={schedDate}
+          schedTime={schedTime}
+          onDateChange={setSchedDate}
+          onTimeChange={setSchedTime}
+          onShareScheduled={handleShareScheduled}
+          v2={v2}
+          nowInvite={v2 ? { pending: inviteOnStart, onChange: setInviteOnStart } : undefined}
+        />
+
+        {/* ── Block 3: Entry buttons / Save ───────────────────────────── */}
+        {v2 && timing === 'later' ? (
+          <div className="px-5 pb-2">
+            <button type="button" onClick={handleSaveOnly} disabled={isSaving} className={V2_CTA}>
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Check size={17} strokeWidth={2.6} />}
+              <span>{isSaving ? 'שומר...' : 'שמור לאימונים'}</span>
+            </button>
           </div>
-        </motion.div>
-      </div>
+        ) : v2 && hybridEnabled ? (
+          <div className="px-5 pb-2">
+            <button type="button" onClick={handleStartHybrid} aria-label="התחל אימון משולב" className={V2_CTA}>
+              <Dumbbell size={17} strokeWidth={2.4} />
+              <span>התחל משולב</span>
+            </button>
+          </div>
+        ) : timing === 'later' ? (
+          <div className="px-5 pb-2">
+            <button
+              type="button"
+              onClick={handleSaveOnly}
+              disabled={isSaving}
+              className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl disabled:opacity-60"
+              style={{ height: 52, backgroundColor: ACCENT }}
+            >
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
+              <span>{isSaving ? 'שומר...' : '✓ שמור לאימונים'}</span>
+            </button>
+          </div>
+        ) : hybridEnabled ? (
+          <div className="px-5 pb-2">
+            <button
+              type="button"
+              onClick={handleStartHybrid}
+              aria-label="התחל אימון משולב"
+              className="w-full flex items-center justify-center gap-2 text-white text-[14px] font-black active:scale-[0.97] transition-transform rounded-2xl"
+              style={{ height: 52, backgroundColor: ACCENT }}
+            >
+              <span>💪🏃 התחל משולב</span>
+            </button>
+          </div>
+        ) : (
+          <EntryButtons
+            onStartFree={handleStartFree}
+            onStartWithRoute={handleStartWithRoute}
+            canStartWithRoute={canStartWithRoute}
+            cityName={cityName}
+          />
+        )}
+      </FreeRunMainFrame>
 
       {/* Goal sheet — z-[102/103] */}
       <GoalSheet

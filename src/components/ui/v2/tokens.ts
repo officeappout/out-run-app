@@ -78,10 +78,26 @@ export const SHEET_Z = {
   filter: 70,
   /** Library filter sheet panel over its z-[70] backdrop — budget row z-[70] (panel z-[71]). */
   filterPanel: 71,
+  /** GroupDetailsDrawer backdrop — budget row z-[80]/z-[81]. */
+  group: 80,
+  /** GroupDetailsDrawer panel — budget row z-[80]/z-[81]. */
+  groupPanel: 81,
+  /** Profile sheets (Favorites / History / Achievements) backdrop — budget row z-[98]/z-[99]. */
+  profile: 98,
+  /** Profile sheets panel — budget row z-[98]/z-[99]. */
+  profilePanel: 99,
   /** Full-screen overlays & map sheets — budget row z-[100]. */
   overlay: 100,
   /** Clears OfflineBanner (z-[100]) — budget row z-[101]. */
   aboveOffline: 101,
+  /** FreeRunDrawer's GoalSheet backdrop (over the z-[100] drawer) — budget row z-[102]/z-[103]. */
+  freeRunGoal: 102,
+  /** FreeRunDrawer's GoalSheet panel — budget row z-[102]/z-[103]. */
+  freeRunGoalPanel: 103,
+  /** FreeRunDrawer's Extras / LegPlan sheets backdrop (over GoalSheet) — budget row z-[104]/z-[105]. */
+  freeRunExtras: 104,
+  /** FreeRunDrawer's Extras / LegPlan sheets panel — budget row z-[104]/z-[105]. */
+  freeRunExtrasPanel: 105,
 } as const;
 
 export type SheetZIndex = (typeof SHEET_Z)[keyof typeof SHEET_Z];

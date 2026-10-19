@@ -13,10 +13,14 @@ import React, { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Crown, Dumbbell, Flame, Footprints, MapPin, Scale, Swords, UserPlus, X, type LucideIcon } from 'lucide-react';
-import { EASE_V2 } from '@/components/ui/v2/tokens';
 import IconTile from '@/components/ui/v2/IconTile';
 import StatNumber from '@/components/ui/v2/StatNumber';
 import Button from '@/components/ui/v2/Button';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { EASE_V2, SHEET_Z } from '@/components/ui/v2/tokens';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user';
 import type { LeaderboardEntry } from '@/features/arena/services/ranking.service';
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { splitScore } from './league-board-logic';
@@ -34,13 +38,48 @@ export function BoardSheet({ isOpen, onClose, title, children }: BoardSheetProps
   const reduce = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || v2) return; // v2: <Sheet closeOnEscape>
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, v2]);
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // backdrop z-[100] / sheet z-[101] (.cursorrules — clears OfflineBanner).
+        zIndex={SHEET_Z.aboveOffline}
+        keyboardAware={false}
+        closeOnEscape
+        respectReducedMotion
+        backdropClassName="bg-v2-ink/40"
+        frameClassName="mx-auto max-w-md"
+        className="max-h-[85vh]"
+        safeArea={false}
+        transition={{ duration: 0.42, ease: EASE_V2 }}
+        grabberClassName="flex justify-center pt-2.5 pb-1"
+        ariaLabel={title}
+        header={
+          <div className="flex items-center justify-between px-5 pt-1 pb-2">
+            <span className="text-[17px] font-black text-v2-ink tracking-v2-tight">{title}</span>
+            <IconButton aria-label="סגור" tone="surface" size={36} onClick={onClose}>
+              <X size={18} strokeWidth={2.4} />
+            </IconButton>
+          </div>
+        }
+        bodyClassName="px-5 pb-[calc(20px+env(safe-area-inset-bottom))]"
+      >
+        {children}
+      </Sheet>
+    );
+  }
 
   if (!mounted) return null;
 

@@ -41,6 +41,9 @@ import {
   resolveParentChildSlugs,
 } from '@/features/progression-map/services/progress-hub-bucketing.service';
 import { domainTypeForSlug } from './program-groups.utils';
+import Sheet from '@/components/ui/v2/Sheet';
+import IconButton from '@/components/ui/v2/IconButton';
+import { SHEET_Z } from '@/components/ui/v2/tokens';
 
 interface ParentProgramSheetProps {
   /** The parent's raw id or slug; null = closed. */
@@ -188,6 +191,87 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
         icon: 'text-gray-900',
       };
 
+  const content = (
+    <div className="px-5 pb-2 space-y-5">
+      <p className={c.body}>{PARENT_SHEET_EXPLAINER}</p>
+
+      {assessed.length > 0 && (
+        <div className="space-y-2">
+          <p className={c.label}>תוכניות בנות</p>
+          {assessed.map((r) => (
+            <button key={r.slug} type="button" onClick={() => openChild(r.slug)} className={c.row}>
+              <span className={c.icon}>{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
+              <div className="min-w-0 flex-1">
+                <p className={c.rowName}>{r.name}</p>
+                <p className={c.rowMeta}>
+                  רמה {r.level}{r.maxLevel ? `/${r.maxLevel}` : ''}
+                  {r.excludedFromAverage ? ' · לא נכלל בממוצע' : ''}
+                </p>
+              </div>
+              <span className={c.pct}>{r.percent}%</span>
+              <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {unassessed.length > 0 && (
+        <div className="space-y-2">
+          <p className={c.label}>עוד לא בדקת רמה</p>
+          {unassessed.map((r) => (
+            <div key={r.slug} className={c.row}>
+              <span className="text-gray-400">{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
+              <div className="min-w-0 flex-1">
+                <p className={c.rowName}>{r.name}</p>
+                <p className={c.rowMeta}>האימונים לא יכללו את התוכנית עד שתבדקו רמה</p>
+              </div>
+              <button type="button" onClick={() => checkLevel(r.slug)} className={c.cta}>
+                בדקו רמה
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button type="button" onClick={onClose} className={c.close}>
+        סגירה
+      </button>
+    </div>
+  );
+
+  if (v2) {
+    return (
+      <Sheet
+        open={isOpen}
+        onClose={onClose}
+        // z-[60]/z-[61] (.cursorrules): the Progression screen's sheet band, clears BottomNavbar.
+        zIndex={SHEET_Z.drawerPanel}
+        scroll="panel"
+        keyboardAware={false}
+        className="max-h-[85vh]"
+        safeArea="max(1.25rem, env(safe-area-inset-bottom, 20px))"
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        ariaLabel={parentName}
+      >
+        <div className="mx-auto max-w-md">
+          <div className="flex items-start justify-between gap-3 px-5 pt-3 pb-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={c.icon}>{getProgramIcon(parentMeta?.iconKey ?? parentSlug ?? undefined, 'w-6 h-6')}</span>
+              <div className="min-w-0">
+                <h2 className={`truncate ${c.title}`}>{parentName}</h2>
+                <p className={c.sub}>{avg != null ? `רמה ${avg} (ממוצע)` : 'עוד אין רמה'}</p>
+              </div>
+            </div>
+            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </IconButton>
+          </div>
+          {content}
+        </div>
+      </Sheet>
+    );
+  }
+
   const sheet = (
     <AnimatePresence>
       {isOpen && (
@@ -236,51 +320,7 @@ export default function ParentProgramSheet({ parentId, onClose, v2 = false }: Pa
                 </button>
               </div>
 
-              <div className="px-5 pb-2 space-y-5">
-                <p className={c.body}>{PARENT_SHEET_EXPLAINER}</p>
-
-                {assessed.length > 0 && (
-                  <div className="space-y-2">
-                    <p className={c.label}>תוכניות בנות</p>
-                    {assessed.map((r) => (
-                      <button key={r.slug} type="button" onClick={() => openChild(r.slug)} className={c.row}>
-                        <span className={c.icon}>{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className={c.rowName}>{r.name}</p>
-                          <p className={c.rowMeta}>
-                            רמה {r.level}{r.maxLevel ? `/${r.maxLevel}` : ''}
-                            {r.excludedFromAverage ? ' · לא נכלל בממוצע' : ''}
-                          </p>
-                        </div>
-                        <span className={c.pct}>{r.percent}%</span>
-                        <ChevronLeft className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {unassessed.length > 0 && (
-                  <div className="space-y-2">
-                    <p className={c.label}>עוד לא בדקת רמה</p>
-                    {unassessed.map((r) => (
-                      <div key={r.slug} className={c.row}>
-                        <span className="text-gray-400">{getProgramIcon(r.iconKey, 'w-5 h-5')}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className={c.rowName}>{r.name}</p>
-                          <p className={c.rowMeta}>האימונים לא יכללו את התוכנית עד שתבדקו רמה</p>
-                        </div>
-                        <button type="button" onClick={() => checkLevel(r.slug)} className={c.cta}>
-                          בדקו רמה
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button type="button" onClick={onClose} className={c.close}>
-                  סגירה
-                </button>
-              </div>
+              {content}
             </div>
           </motion.div>
         </>

@@ -29,10 +29,12 @@ export {
   default as Sheet,
   SheetGrabber,
   SheetHeader,
+  SheetDragHandle,
   SHEET_SURFACE_CLASS,
   SHEET_GRABBER_CLASS,
   SHEET_TITLE_CLASS,
   DEFAULT_SHEET_SAFE_AREA,
+  SPRING_HERO_SNAP,
 } from './Sheet';
 export type { SheetProps, SheetDragOptions } from './Sheet';
 export { default as IconButton } from './IconButton';
