@@ -667,10 +667,10 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
         )
       }
 
-      {/* Home v2 route run (enable_home_v2, flag read inside): off-route detection + toast,
-          elevation samples. Outlives TurnCarousel's own hides (laps, station) for the session. */}
+      {/* Home v2 route run (enable_home_v2, flag read inside): publishes the route's stored
+          elevation samples for NavBannerV2's elevation-ahead strip. Renders nothing. */}
       {isActiveMode && sessionStatus !== 'finished' && logic.focusedRoute?.path && (
-        <RouteRunLiveV2Controller route={logic.focusedRoute} currentLocation={effectivePos} suspended={hybridStationLive} />
+        <RouteRunLiveV2Controller route={logic.focusedRoute} />
       )}
 
       {/* ══════ PARTICIPANT STRIP ══════

@@ -6,8 +6,7 @@
  * <Map> during an active workout with a planned route:
  *   • km badges along the session's path (lib/route-km-markers),
  *   • the walked part of the line in the board's solid grey (restyles
- *     AppMap's existing `route-passed-line`; restored on unmount),
- *   • the "נווט חזרה" walking line (dashed) while off-route.
+ *     AppMap's existing `route-passed-line`; restored on unmount).
  * Renders nothing for users without the flag.
  */
 
@@ -18,7 +17,6 @@ import { useUserStore } from '@/features/user';
 import type { LngLat } from '@/features/parks/core/services/route-progress';
 import { ROUTE_PASSED_LINE } from '@/features/parks/core/components/mapLayersConfig';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
-import { useRouteRunV2Store } from '../../../store/useRouteRunV2Store';
 import { buildKmMarkers, kmMarkersFeatureCollection } from '../../../lib/route-km-markers';
 
 const CARDIO = '#65a30d';
@@ -39,20 +37,11 @@ export default function RouteRunMapLayersV2({ routePath }: RouteRunMapLayersV2Pr
 
 function Layers({ routePath }: { routePath: LngLat[] }) {
   const sessionPath = useRunningPlayer((s) => s.activeRoutePath);
-  const navBackPath = useRouteRunV2Store((s) => s.navBackPath);
-  const guidanceDropped = useRouteRunV2Store((s) => s.guidanceDropped);
   const { current: mapRef } = useMap();
 
   // Km badges count from where THIS session starts (a loop is rotated to the user).
   const path = Array.isArray(sessionPath) && sessionPath.length >= 2 ? (sessionPath as LngLat[]) : routePath;
   const kmFC = useMemo(() => kmMarkersFeatureCollection(buildKmMarkers(path)), [path]);
-  const navBackFC = useMemo<GeoJSON.FeatureCollection | null>(
-    () => (navBackPath && navBackPath.length >= 2
-      ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: navBackPath } }] }
-      : null),
-    [navBackPath],
-  );
-
   // Solid grey for the walked slice. AppMap mounts the layer with the same
   // workout gate, possibly a frame after us → apply on styledata too.
   useEffect(() => {
@@ -80,16 +69,6 @@ function Layers({ routePath }: { routePath: LngLat[] }) {
 
   return (
     <>
-      {navBackFC && !guidanceDropped && (
-        <Source id="route-run-v2-nav-back" type="geojson" data={navBackFC}>
-          <Layer
-            id="route-run-v2-nav-back-line"
-            type="line"
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
-            paint={{ 'line-color': '#f59e0b', 'line-width': 4, 'line-dasharray': [1.2, 1.6] }}
-          />
-        </Source>
-      )}
       {kmFC.features.length > 0 && (
         <Source id="route-run-v2-km" type="geojson" data={kmFC}>
           <Layer
