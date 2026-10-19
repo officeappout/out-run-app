@@ -24,7 +24,9 @@ import { inferProgressQuestion, inferScheduleQuestion } from './intent';
 import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlug, type AssessableSlug } from './assessment-gaps';
 
 export type CheckLevelActionId = `check_level_${AssessableSlug}`;
-export type CoachActionId = 'open_schedule' | 'build_today' | 'open_builder' | CheckLevelActionId;
+/** Kelly phase 3 (ai_coach_proactive): "איך היה?" answers under a post-workout message. */
+export type WorkoutRatingActionId = 'rate_easy' | 'rate_right' | 'rate_hard';
+export type CoachActionId = 'open_schedule' | 'build_today' | 'open_builder' | 'build_home' | WorkoutRatingActionId | CheckLevelActionId;
 
 export const CHECK_LEVEL_PREFIX = 'check_level_';
 
@@ -32,7 +34,16 @@ export function checkLevelActionId(slug: AssessableSlug): CheckLevelActionId {
   return `${CHECK_LEVEL_PREFIX}${slug}` as CheckLevelActionId;
 }
 
-export const COACH_ACTION_IDS: readonly CoachActionId[] = ['open_schedule', 'build_today', 'open_builder', ...ASSESSABLE_SLUGS.map(checkLevelActionId)];
+export const WORKOUT_RATING_ACTION_IDS: readonly WorkoutRatingActionId[] = ['rate_easy', 'rate_right', 'rate_hard'];
+
+export const COACH_ACTION_IDS: readonly CoachActionId[] = [
+  'open_schedule',
+  'build_today',
+  'open_builder',
+  'build_home',
+  ...WORKOUT_RATING_ACTION_IDS,
+  ...ASSESSABLE_SLUGS.map(checkLevelActionId),
+];
 
 /** The schedule screen: /home opens the full-screen training planner on this param. */
 export const SCHEDULE_DEEP_LINK = '/home?openPlanner=true';
@@ -68,7 +79,11 @@ export interface CoachActionSpec {
   message?: string;
   /** Or: start the mini level check for one program. */
   assess?: CoachAssessTarget;
+  /** Or (phase 3): answer "איך היה?" — stored server-side (workout_feedback), no AI turn. */
+  rating?: WorkoutRating;
 }
+
+export type WorkoutRating = 'easy' | 'right' | 'hard';
 
 export function isCheckLevelActionId(id: string): id is CheckLevelActionId {
   return id.startsWith(CHECK_LEVEL_PREFIX) && isAssessableSlug(id.slice(CHECK_LEVEL_PREFIX.length));
@@ -98,6 +113,11 @@ export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
   open_schedule: { label: 'פתח את הלו״ז', href: SCHEDULE_DEEP_LINK },
   build_today: { label: 'בנה את האימון של היום', message: 'תבנה לי את האימון של היום' },
   open_builder: { label: 'סדר לי את השבוע', href: SCHEDULE_BUILDER_DEEP_LINK },
+  // Kelly phase 3 — only proactive messages carry these (nothing else writes them).
+  build_home: { label: 'בנה אימון בבית', message: 'תבנה לי אימון בבית להיום' },
+  rate_easy: { label: 'קל', rating: 'easy' },
+  rate_right: { label: 'בדיוק', rating: 'right' },
+  rate_hard: { label: 'קשה', rating: 'hard' },
   ...CHECK_LEVEL_ACTIONS,
 };
 
