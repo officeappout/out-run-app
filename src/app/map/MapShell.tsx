@@ -66,6 +66,7 @@ import UserProfileSheet, { type ProfileUser } from '@/features/parks/client/comp
 import AppHeader from '@/components/ui/AppHeader';
 import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import RouteRunLiveV2Controller from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunLiveV2Controller';
 import { hasMapDeepLink } from '@/features/user/onboarding/services/first-run-tour';
 
 const UnifiedLocationStep = lazy(
@@ -665,6 +666,12 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           />
         )
       }
+
+      {/* Home v2 route run (enable_home_v2, flag read inside): off-route detection + toast,
+          elevation samples. Outlives TurnCarousel's own hides (laps, station) for the session. */}
+      {isActiveMode && sessionStatus !== 'finished' && logic.focusedRoute?.path && (
+        <RouteRunLiveV2Controller route={logic.focusedRoute} currentLocation={effectivePos} suspended={hybridStationLive} />
+      )}
 
       {/* ══════ PARTICIPANT STRIP ══════
            Shows during an active group session when TurnCarousel is NOT mounted

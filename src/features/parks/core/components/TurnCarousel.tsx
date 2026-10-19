@@ -41,6 +41,7 @@ import { useMapStore } from '../store/useMapStore';
 import { isFiniteLatLng, isFiniteNum, isFiniteLngLat, isFiniteBounds, safeNumber } from '@/utils/geoValidation';
 import { reverseGeocodeStreet } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useRouteRunV2Store } from '@/features/workout-engine/players/running/store/useRouteRunV2Store';
 import { useUserStore } from '@/features/user';
 import NavBannerV2 from './NavBannerV2';
 
@@ -329,6 +330,10 @@ export default function TurnCarousel({
   // Home v2 (enable_home_v2): THIN becomes the combined NavBannerV2 (turn + route progress).
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  // v2 route run: off-route keeps the banner up (it carries the way back);
+  // "המשך חופשי" drops guidance for the rest of the session (recording continues).
+  const offRouteV2 = useRouteRunV2Store((s) => s.offRoute) && v2;
+  const guidanceDroppedV2 = useRouteRunV2Store((s) => s.guidanceDropped) && v2;
 
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -423,6 +428,8 @@ export default function TurnCarousel({
   // jumping to the swipe carousel; a manual tap still opens FULL.
   const carouselState: 'hidden' | 'bubble' | 'full' | 'thin' =
     isLapsOpen             ? 'hidden'
+    : guidanceDroppedV2    ? 'hidden'
+    : offRouteV2           ? 'thin'
     : proximityExpand      ? (v2 ? 'thin' : 'full')
     : navCarouselMinimized ? 'bubble'
     : isExpanded           ? 'full'

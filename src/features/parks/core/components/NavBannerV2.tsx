@@ -14,6 +14,11 @@
  * > 40 m off it) the top row says so and shows the distance to the route
  * instead of the route's own next turn, which would be misleading there.
  *
+ * Route run v2 extras (useRouteRunV2Store, driven by RouteRunLiveV2Controller):
+ * mid-run off-route turns the top row amber ("חזרה למסלול" + distance) and
+ * adds the "נווט חזרה / המשך חופשי" choice; the elevation-ahead strip sits
+ * under the progress bar when the route has elevation samples (none do yet).
+ *
  * Rendered only by TurnCarousel's THIN state when v2 is on; the legacy THIN
  * card / FULL carousel / BUBBLE pill are untouched. Tap → FULL swipe carousel
  * (same as the legacy THIN card). Progress row only during an active/paused
@@ -21,15 +26,19 @@
  */
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Footprints, Minimize2 } from 'lucide-react';
+import { CornerUpLeft, Footprints, Minimize2 } from 'lucide-react';
 import { crossTrackDistanceMeters } from '../services/geoUtils';
 import { advanceRouteProgress, buildCumulativeMeters, type LngLat } from '../services/route-progress';
 import { navBannerProgress, formatBannerDistance, isApproaching } from '../services/nav-banner';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { isFiniteLatLng } from '@/utils/geoValidation';
+import { useRouteRunV2Store } from '@/features/workout-engine/players/running/store/useRouteRunV2Store';
+import RouteElevationAhead from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteElevationAhead';
+import { ConnectedOffRouteChoice } from '@/features/workout-engine/players/running/components/RouteRun/v2/OffRouteChoiceCard';
 
 const DEST_GREEN = '#16A34A';
+const OFF_ROUTE_AMBER = '#f59e0b';
 
 export interface NavBannerV2Props {
   icon: React.ElementType;
@@ -94,19 +103,28 @@ export default function NavBannerV2({
   const crossTrackM = userValid && !progress.joined
     ? crossTrackDistanceMeters(currentLocation, progressPath)
     : 0;
-  const approaching = sessionActive && isApproaching(progress.joined, crossTrackM);
+  // Mid-run off-route (RouteRunLiveV2Controller's detector — only after the user joined the
+  // route, so it never overlaps approach mode): amber "back to the route" + the two choices.
+  const offRouteState = useRouteRunV2Store((s) => s.offRoute);
+  const offRouteDistanceM = useRouteRunV2Store((s) => s.offRouteDistanceM);
+  const navBackReady = useRouteRunV2Store((s) => s.navBackStatus === 'ready');
+  const elevation = useRouteRunV2Store((s) => s.elevation);
+  const offRoute = sessionActive && offRouteState;
+  const approaching = !offRoute && sessionActive && isApproaching(progress.joined, crossTrackM);
 
-  const TopIcon = approaching ? Footprints : IconComp;
-  const topDistance = approaching ? crossTrackM : distanceM;
-  const topHeadline = approaching ? 'הליכה אל המסלול' : headline;
-  const topAction = approaching ? 'עד הנקודה הקרובה במסלול' : actionLine;
-  const tileColor = !approaching && isDestination ? DEST_GREEN : '#0284c7';
+  const TopIcon = offRoute ? CornerUpLeft : approaching ? Footprints : IconComp;
+  const topDistance = offRoute ? offRouteDistanceM : approaching ? crossTrackM : distanceM;
+  const topHeadline = offRoute ? 'חזרה למסלול' : approaching ? 'הליכה אל המסלול' : headline;
+  const topAction = offRoute
+    ? (navBackReady ? 'עקבו אחרי הקו המקווקו' : 'עד הנקודה הקרובה במסלול')
+    : approaching ? 'עד הנקודה הקרובה במסלול' : actionLine;
+  const tileColor = offRoute ? OFF_ROUTE_AMBER : !approaching && isDestination ? DEST_GREEN : '#0284c7';
 
   return (
     <div
       dir="rtl"
       className={`v2-glass-card relative overflow-hidden rounded-[22px] pointer-events-auto transition-shadow duration-200 ease-v2 ${
-        imminent && !approaching ? 'ring-2 ring-v2-accent' : ''
+        imminent && !approaching && !offRoute ? 'ring-2 ring-v2-accent' : ''
       }`}
     >
       <button
@@ -139,6 +157,13 @@ export default function NavBannerV2({
           )}
         </div>
       </button>
+
+      {offRoute && (
+        <ConnectedOffRouteChoice
+          currentLocation={userValid ? currentLocation : null}
+          className="border-t border-v2-hairline px-3.5 pb-3.5 pt-3"
+        />
+      )}
 
       <button
         type="button"
@@ -174,6 +199,14 @@ export default function NavBannerV2({
               style={{ width: `${progress.pct}%` }}
             />
           </div>
+          {progress.joined && (
+            <RouteElevationAhead
+              samples={elevation}
+              alongM={alongRef.current}
+              totalM={totalM}
+              className="mt-2.5"
+            />
+          )}
         </div>
       )}
     </div>
