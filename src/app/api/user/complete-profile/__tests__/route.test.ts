@@ -226,4 +226,34 @@ describe('POST /api/user/complete-profile', () => {
     expect(data.core.gender).toBe('male');
     expect(data.createdAt).toBeUndefined();
   });
+  // enable_jit_identity_v1 — the JIT workout-start gate collects identity for a
+  // quick-signup (MAP_ONLY) user before the health declaration. That user must
+  // stay MAP_ONLY: no FULL_PROGRAM / IN_PROGRESS scaffold.
+  it('MAP_ONLY doc + keepOnboardingState:true → identity saved, onboarding state untouched', async () => {
+    state.EXISTING_DOC = {
+      onboardingPath: 'MAP_ONLY',
+      onboardingStatus: 'MAP_ONLY',
+      core: { name: '', gender: 'other' },
+    };
+
+    const res = await POST(fakeRequest({ name: 'Noa', gender: 'female', ...VALID_DOB, keepOnboardingState: true }));
+    expect(res.status).toBe(200);
+
+    const data = usersWrite();
+    expect(data.core.name).toBe('Noa');
+    expect(data.core.gender).toBe('female');
+    expect(data.core.birthDate).toBeInstanceOf(Date);
+    for (const key of ['onboardingPath', 'onboardingStatus', 'onboardingStep', 'onboardingProgress']) {
+      expect(Object.prototype.hasOwnProperty.call(data, key)).toBe(false);
+    }
+    expect(state.writes.some((w) => w.collection === 'userAge')).toBe(true);
+  });
+
+  it('MAP_ONLY doc without keepOnboardingState → today\'s scaffold (unchanged behaviour)', async () => {
+    state.EXISTING_DOC = { onboardingPath: 'MAP_ONLY', onboardingStatus: 'MAP_ONLY', core: { name: '', gender: 'other' } };
+
+    const res = await POST(fakeRequest({ name: 'Noa', gender: 'female', ...VALID_DOB }));
+    expect(res.status).toBe(200);
+    expect(usersWrite().onboardingPath).toBe('FULL_PROGRAM');
+  });
 });
