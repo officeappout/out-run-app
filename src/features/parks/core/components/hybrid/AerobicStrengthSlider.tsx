@@ -26,6 +26,10 @@ interface AerobicStrengthSliderProps {
   accent?: string;
   /** Home v2 (enable_home_v2) styling. Default false = today's UI. */
   v2?: boolean;
+  /** Replaces the workout-split helper line (the schedule's priority uses its own words). */
+  helperText?: string;
+  /** Where the "מומלץ" badge sits. Default: the balanced hybrid anchor. */
+  recommendedShare?: number;
 }
 
 export default function AerobicStrengthSlider({
@@ -36,10 +40,13 @@ export default function AerobicStrengthSlider({
   stations = 1,
   accent = '#00ADEF',
   v2 = false,
+  helperText,
+  recommendedShare = RECOMMENDED_AEROBIC_SHARE,
 }: AerobicStrengthSliderProps) {
   const pctAerobic = Math.round(aerobicShare * 100);
   const pctStrength = 100 - pctAerobic;
-  const isRecommended = Math.abs(aerobicShare - RECOMMENDED_AEROBIC_SHARE) < 0.03;
+  const isRecommended = Math.abs(aerobicShare - recommendedShare) < 0.03;
+  const helper = helperText ?? splitHelperText(goalType, timeBudgetMin, aerobicShare, stations);
 
   if (v2) {
     return (
@@ -65,7 +72,7 @@ export default function AerobicStrengthSlider({
           aria-label="יחס אירובי לעומת כוח"
         />
         <p className="mt-1.5 text-[12.5px] font-bold leading-snug text-v2-muted">
-          {splitHelperText(goalType, timeBudgetMin, aerobicShare, stations)}
+          {helper}
         </p>
       </div>
     );
@@ -96,7 +103,7 @@ export default function AerobicStrengthSlider({
       />
 
       <p className="mt-1.5 text-[11px] leading-snug text-gray-500 font-semibold">
-        {splitHelperText(goalType, timeBudgetMin, aerobicShare, stations)}
+        {helper}
       </p>
     </div>
   );

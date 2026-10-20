@@ -101,3 +101,6 @@ export type { LevelComparison, LevelCompareIconProps } from './LevelCompareIcon'
 export { default as RevealOnScroll } from './RevealOnScroll';
 export type { RevealOnScrollProps } from './RevealOnScroll';
 export * from './reveal';
+// Schedule proposals (add-track week): one day row + a session piece with a diff tag.
+export { default as WeekDayRow, WeekSessionPiece } from './WeekDayRow';
+export type { WeekDayRowProps, WeekSessionPieceProps, WeekSessionTagTone, WeekSessionNoteTone } from './WeekDayRow';

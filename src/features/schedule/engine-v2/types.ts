@@ -126,8 +126,11 @@ export interface ExistingWeek {
   /**
    * 'rebuild' = soft "keep the user's days" (S4).
    * 'add_track' = keep everything, move only what a hard rule forces, report it.
+   * 'add_only' = never move anything: days that already hold a session are pinned (like
+   *   past days) and the new sessions go only into free days ("השאר כמו שהיה ורק הוסף
+   *   בימים פנויים"). What doesn't fit is dropped and reported (RUNNING_REDUCED / STRENGTH_REDUCED).
    */
-  mode: 'rebuild' | 'add_track';
+  mode: 'rebuild' | 'add_track' | 'add_only';
   /** 'system-default' days are cheaper to move (S4: 2 instead of 5). */
   source?: 'user' | 'system-default';
 }

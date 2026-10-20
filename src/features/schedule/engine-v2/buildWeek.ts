@@ -80,7 +80,11 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
   const priority = input.priority ?? DEFAULT_PRIORITY;
   const fromDow = input.history?.todayDow ?? 0;
   const av = resolveDays(input.availability, fromDow);
-  const frozen = Array.from({ length: 7 }, (_, d) => d < fromDow);
+  const past = Array.from({ length: 7 }, (_, d) => d < fromDow);
+  // add_only: every day that already holds a session is pinned exactly like a past day —
+  // its sessions stay, nothing moves, nothing new lands on it (only free days get the new track).
+  const frozen = past.map((p, d) => p || (input.existing?.mode === 'add_only' && (input.existing.days[d]?.length ?? 0) > 0));
+  for (let d = 0; d < 7; d++) if (frozen[d] && !past[d]) av.open[d] = false;
   const plan = buildUnits(input, priority);
   const base = freezePast(input, frozen, plan.runUnits, plan.strengthUnits);
   const longRunTarget = longRunTargetDay(av.open, input.availability.preferredLongRunDay);
@@ -202,7 +206,7 @@ export function buildWeek(input: ScheduleEngineInput): WeekPlan {
     warnings,
     warningsHe: renderV2ReasonsHe(warnings),
     dropped: set.dropped.filter((u) => !u.overflow).flatMap(refOfUnit),
-    diff: diffWeek(days, input.existing, av, frozen),
+    diff: diffWeek(days, input.existing, av, past),
     penalty: best?.res.total ?? 0,
     penaltyBreakdown: best?.res.breakdown ?? {},
     hardViolations: [
