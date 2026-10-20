@@ -118,3 +118,7 @@ export { cityMappingDiscoveryPoller } from './geoDiscoveryWorker';
 // for the admin "תרגילים שמחליפים הכי הרבה" page. NOT deployed yet — see the
 // PR's deploy steps (functions:onExerciseSwapCreated,onWorkoutCreateExerciseStats).
 export { onExerciseSwapCreated, onWorkoutCreateExerciseStats } from './exerciseStats';
+// ── Demo world, layer A "life" (20.10.2026) — flag-gated (system_config/feature_flags.enable_demo_users,
+// default off; text moments also need demo_life_llm). New function: needs its own deploy, and the
+// ANTHROPIC_DEMO_KEY secret must exist first — see demoSimulatorTick.ts.
+export { demoSimulatorTick } from './demoSimulatorTick';

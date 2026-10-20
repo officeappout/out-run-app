@@ -7,11 +7,16 @@
  * super-admin API routes under /api/admin/demo/** (Admin SDK) — never the client SDK.
  *
  *   demo_registry/config                 caps + price table (written by the panel)
- *     { caps: DemoCaps, prices: PriceTable, updatedAt, updatedBy }
+ *     { caps: DemoCaps, prices: PriceTable, updatedAt, updatedBy,
+ *       life?: { model, maxLlmCallsPerDay, maxWorkoutsPerDay, maxMessagesPerDay, maxWritesPerDay } }
+ *       ← the life engine's own knobs (demoSimulatorTick); the panel keeps them when it saves
  *   demo_registry/control                run / stop handshake with the tester runner
  *     { testersStopRequested, stopRequestedAt, stopRequestedBy,
  *       lastDispatch: { at, by, workflow, ok, error? },
- *       testers: { state: 'running' | 'idle', lastSessionAt, findingsCount, runId } }  ← runner writes `testers`
+ *       testers: { state: 'running' | 'idle', lastSessionAt, findingsCount, runId },  ← runner writes `testers`
+ *       locks?: { [uid]: { until, by?, runId? } } }  ← a tester session locks a persona; the life engine skips it until `until`
+ *   demo_registry/life                   the life engine's state (last tick, presence pings, answered chats, joins)
+ *   demo_registry/life/feedback/{id}     park / app feedback moments of the life engine
  *   demo_registry/usage/days/{YYYY-MM-DD}  one doc per Israel day (written by the engines)
  *     { llmCalls, inputTokens, outputTokens, cachedTokens, model, usdEstimate,
  *       testerSessions, firestoreWritesEst, updatedAt,

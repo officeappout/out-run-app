@@ -94,11 +94,15 @@ async function audit(db: Firestore, uid: string, details: string, newValue: unkn
 
 export async function saveDemoConfig(db: Firestore, uid: string, config: DemoConfig): Promise<void> {
   // Full replace of caps + prices (the panel always sends the whole table), so a model
-  // removed in the panel is really removed.
-  await registry(db).doc(DEMO_CONFIG_DOC).set(
-    { caps: config.caps, prices: config.prices, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid },
-    { merge: false },
-  );
+  // removed in the panel is really removed. update() replaces those two fields whole and
+  // keeps the rest of the doc (e.g. `life` — the life engine's model + caps, demoSimulatorTick);
+  // a missing doc is created.
+  const data = { caps: config.caps, prices: config.prices, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid };
+  const ref = registry(db).doc(DEMO_CONFIG_DOC);
+  await ref.update(data).catch(async (e: { code?: number }) => {
+    if (e?.code !== 5) throw e; // 5 = NOT_FOUND
+    await ref.set(data);
+  });
   await audit(db, uid, 'Saved demo caps / price table via /admin/demo', config);
 }
 
