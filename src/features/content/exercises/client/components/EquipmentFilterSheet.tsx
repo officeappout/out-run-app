@@ -40,6 +40,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
+import { gearSectionOf, isPinnedHomeGear } from '../utils/gear-sections';
 import {
   useExerciseLibraryStore,
   BODYWEIGHT_SENTINEL,
@@ -179,11 +180,18 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     const improvisedArr: GearDefinition[] = [];
     const personalArr: GearDefinition[] = [];
     for (const g of gear) {
+      // v2: home-owned stationary gear (מתח לדלת) → ציוד אישי (gear-sections.ts). Off → unchanged.
+      if (v2) {
+        const sec = gearSectionOf(g, true);
+        (sec === 'park' ? parkArr : sec === 'improvised' ? improvisedArr : personalArr).push(g);
+        continue;
+      }
       if (isParkGear(g)) parkArr.push(g);
       else if (isImprovisedGear(g)) improvisedArr.push(g);
       else personalArr.push(g);
     }
     const cmp = (a: GearDefinition, b: GearDefinition) =>
+      Number(isPinnedHomeGear(b, v2)) - Number(isPinnedHomeGear(a, v2)) ||
       (a.name?.he || a.name?.en || a.id).localeCompare(
         b.name?.he || b.name?.en || b.id,
         'he',
@@ -192,7 +200,7 @@ export default function EquipmentFilterSheet({ isOpen, onClose, onApply, initial
     improvisedArr.sort(cmp);
     personalArr.sort(cmp);
     return { park: parkArr, improvised: improvisedArr, personal: personalArr };
-  }, [gear]);
+  }, [gear, v2]);
 
   // Convenient ID sets per section — used by both presets and detection.
   const idSets = useMemo(() => {

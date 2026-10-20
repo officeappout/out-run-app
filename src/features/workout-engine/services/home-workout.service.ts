@@ -84,7 +84,7 @@ import {
 } from './lead-program.service';
 import { getWorkoutContext, type SplitWorkoutContext } from './split-decision';
 import { resolveGeneratorDayFocus, stampDayFocus } from './split-decision/day-focus.generator';
-import type { DayFocus } from './split-decision/day-focus.utils';
+import { DAY_FOCUS_DOMAINS, type DayFocus } from './split-decision/day-focus.utils';
 import { isSplitDayFocusActive } from './split-decision/day-focus.switch';
 import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
 
@@ -179,6 +179,7 @@ import { withoutTestExercises } from '../shared/utils/test-exercise.utils';
 import { enforceStrictFocus, isOnStrictFocus } from '../logic/strict-focus.utils';
 import { minMainExercisesFor } from '../logic/session-frame.utils';
 import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.utils';
+import { balanceFocusAreas, widenFocusForPullGap } from '../logic/pull-gap.utils';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
 export { mapPersonaIdToLifestylePersona, calculateDaysInactive, extractInjuryShield } from './user-profile.utils';
@@ -1358,6 +1359,9 @@ async function generateHomeWorkoutTrioCore(
         difficulty: workout.difficulty,
         activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
       };
+      // enable_home_v2 day focus: every focus area represented (an upper day is never
+      // push-only); no pull gear → workout.pullGap for the overview's "why" line. Off → skipped.
+      if (pipeline.focusAreas?.length) balanceFocusAreas(workout, neverEmptyOpts, pipeline.focusAreas);
       const rescueNote = rescueEmptyMainBlock(workout, neverEmptyOpts);
       if (rescueNote) console.warn(`[NeverEmpty] empty main block rescued — ${rescueNote}`);
       // H3: below the duration's minimum with a thin reserve → top the reserve up
@@ -1961,6 +1965,8 @@ interface SharedPipelineState {
   decisionSignals: Omit<DecisionContext, 'skillFocus'> & { candidateSkills: string[] };
   /** enable_home_v2 day focus applied to this session (null = none / flag off). */
   dayFocus: DayFocus | null;
+  /** enable_home_v2 day focus: the areas every option must train (pull-gap.utils.ts). null = off. */
+  focusAreas?: string[] | null;
 }
 
 /**
@@ -2956,6 +2962,26 @@ async function _buildSharedPipeline(
   }
   genPerfMark('filter+score (ContextualEngine/ParkGating, CPU)');
 
+  // ── 1c-focus (b). enable_home_v2: every area of the day's focus ──────
+  // The generator selects as the master program does, and the strict pass then drops
+  // the off-focus picks — so each option re-balances its focus areas afterwards
+  // (pull-gap.utils.ts balanceFocusAreas). A day that wants pull with none here (home
+  // without a bar / rings / TRX / band) also takes core, so it never fills up on push.
+  // Off / no focus / full body → null → nothing changes.
+  let focusAreas: string[] | null = null;
+  if (dayFocus && dayFocus.focus !== 'full') {
+    const widened = widenFocusForPullGap(
+      { domains: dayFocus.domains, focusDomains: DAY_FOCUS_DOMAINS[dayFocus.focus] },
+      scoredExercises,
+    );
+    if (widened.domains !== dayFocus.domains && widened.domains) {
+      requiredDomainsOverride = widened.domains;
+      strictDomains = true;
+    }
+    focusAreas = widened.domains ?? [...DAY_FOCUS_DOMAINS[dayFocus.focus]];
+    if (widened.gap) console.log(`[DayFocus] no pull at this location/gear → focus [${focusAreas.join(', ')}] + gear-free pull per option`);
+  }
+
   // ── 5a. Progressive Overload goals ───────────────────────────────────
   let goalExerciseIds: Set<string> | undefined;
   let goalTargets: Map<string, { targetValue: number; unit: 'reps' | 'seconds' }> | undefined;
@@ -3444,6 +3470,7 @@ async function _buildSharedPipeline(
     adminPreferredProtocols,
     isSingleDomain: baseDomainCount === 1,
     dayFocus: dayFocus?.focus ?? null,
+    focusAreas,
     resultMeta: {
       daysInactive,
       persona,

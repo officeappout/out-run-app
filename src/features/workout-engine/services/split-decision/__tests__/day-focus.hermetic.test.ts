@@ -5,6 +5,7 @@
  *   flag OFF (option absent / false, switch default) → byte-identical output
  *   flag ON, Sunday (1st strength day)  → only push / pull main exercises, "עליון"
  *   flag ON, Monday (2nd strength day)  → only legs / core main exercises, "תחתון"
+ *   flag ON, upper day at home without pull gear → push AND pull in every option (bug 20.10.2026)
  */
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 
@@ -97,5 +98,26 @@ describe('day focus — generateHomeWorkoutTrio (hermetic)', () => {
     expect(on.options[1].result.workout.dayFocus).toBe('full');
     expect(mainDomains(on).length).toBeGreaterThan(2);
     expect(off.options[1].result.workout.dayFocus).toBeUndefined();
+  }, 120_000);
+
+  // Owner bug 20.10.2026: "the home strength workout is push-only". Home without a bar /
+  // rings / TRX / band on an upper day: every tagged pull needs gear, so the strict upper
+  // session used to be all push, silently. Now: a gear-free pull (or core) + pullGap.
+  it('flag ON, upper day at home with no pull gear → never push-only silently', async () => {
+    const trio = await run({ splitDayFocus: true, selectedDate: SUNDAY });
+    for (const o of trio.options) {
+      const w = o.result.workout;
+      const mains = w.exercises.filter((e) => (e.exerciseRole ?? 'main') === 'main' && !e.protocolBlock);
+      if (mains.length === 0) continue;
+      const d = new Set(mains.flatMap((e) => strictDomainsOfExercise(e.exercise)));
+      // Pull present, or the gap is stamped (the overview says why) — and push-only
+      // only when nothing else at all fits ('push_only').
+      if (!d.has('pull')) expect(w.pullGap).toBeTruthy();
+      if (d.size === 1 && d.has('push')) expect(w.pullGap).toBe('push_only');
+      if (w.pullGap === 'bodyweight_pull') expect(d.has('pull')).toBe(true);
+      // This corpus has gear-free pulls at home (rows / towel work): every option trains both.
+      expect(Array.from(d).sort()).toEqual(['pull', 'push']);
+      expect(w.pullGap).toBe('bodyweight_pull');
+    }
   }, 120_000);
 });

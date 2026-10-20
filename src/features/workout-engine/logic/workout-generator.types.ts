@@ -315,6 +315,12 @@ export interface GeneratedWorkout {
    */
   dayFocus?: import('../services/split-decision/day-focus.utils').DayFocus;
   /**
+   * enable_home_v2 day focus: the day wanted pulling but the location + gear hold no pull
+   * (pull-gap.utils.ts) — 'bodyweight_pull' = a gear-free pull was swapped in, 'core' =
+   * balanced with core, 'push_only' = nothing else fits. Absent otherwise.
+   */
+  pullGap?: import('../services/split-decision/why-this-workout').PullGapMode;
+  /**
    * absent=absent (⑨) safety-net flag (BUG 1 rework): set when NONE of the
    * domains relevant to the request have ever been assessed — the caller
    * asked for a workout, but the intersection of {requested domains} ∩

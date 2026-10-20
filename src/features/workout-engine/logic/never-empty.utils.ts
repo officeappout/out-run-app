@@ -57,7 +57,7 @@ export interface NeverEmptyOptions {
   activeProgramId?: string;
 }
 
-function methodFits(method: ExecutionMethod | null | undefined, location: ExecutionLocation, available: string[]): boolean {
+export function methodFits(method: ExecutionMethod | null | undefined, location: ExecutionLocation, available: string[]): boolean {
   if (!method) return false;
   const indoor = location === 'home' || location === 'office' || location === 'school';
   const avail = [...available.map(normalizeGearId), ...(indoor ? Array.from(ASSUMED_HOME_GEAR) : [])];
@@ -67,7 +67,7 @@ function methodFits(method: ExecutionMethod | null | undefined, location: Execut
 }
 
 /** Domain + level delta for a candidate (user level for its own area). */
-function levelOf(ex: Exercise, opts: NeverEmptyOptions): { domain?: string; delta: number; level: number } {
+export function levelOf(ex: Exercise, opts: NeverEmptyOptions): { domain?: string; delta: number; level: number } {
   const mg = ex.movementGroup as string | undefined;
   const raw = mg ? MG_TO_DOMAIN[mg] : undefined;
   const domain = raw ? (DOMAIN_RESOLUTION_SKILL_PARENT_MAP[raw] ?? raw) : undefined;
