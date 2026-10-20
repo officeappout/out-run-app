@@ -2,6 +2,7 @@
  * Onboarding Sync Service
  * Syncs onboarding progress to Firestore for admin visibility and drop-off tracking
  */
+import { normalizeLongRunDay } from '@/features/schedule/utils/longRunDay';
 import { doc, setDoc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore';
 import { stripUndefinedDeep } from '@/lib/firestore-sanitize';
 import { db, auth } from '@/lib/firebase';
@@ -696,6 +697,15 @@ export async function syncOnboardingToFirestore(
     if ((data as any).runningScheduleDaysSource !== undefined) {
       if (!updateData.running) updateData.running = {} as any;
       updateData.running.scheduleDaysSource = (data as any).runningScheduleDaysSource;
+    }
+    // enable_home_v2 run signup (#523): the long-run day of the week the user
+    // confirmed. RunSignupScheduleFlow — the flag-only step — is the only
+    // writer of runningLongRunDay, so this field is written only under the
+    // flag. Same merge-into-updateData.running pattern as scheduleDays.
+    const signupLongRunDay = normalizeLongRunDay((data as any).runningLongRunDay);
+    if (signupLongRunDay !== null) {
+      if (!updateData.running) updateData.running = {} as any;
+      (updateData.running as { longRunDay?: number }).longRunDay = signupLongRunDay;
     }
 
     // Update name if we have it from sessionStorage

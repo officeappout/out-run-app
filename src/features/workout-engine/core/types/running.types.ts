@@ -456,6 +456,15 @@ export interface RunningProfile {
    * an error.
    */
   scheduleDaysSource?: import('@/lib/running-schedule-source').RunningScheduleSource;
+  /**
+   * enable_home_v2 (20.10.2026): the user's long-run day, 0 = Sunday … 6 =
+   * Saturday — the day the run signup's week step showed / the user picked
+   * (onboarding store `runningLongRunDay`), or the long-run day of a week the
+   * schedule builder saved. Written ONLY under the flag; optional, no
+   * backfill. Read by runWeekByType (engine v2 `preferredLongRunDay`): the
+   * long run goes here when it is a run day, else on the last run day.
+   */
+  longRunDay?: number | null;
   onboardingData?: RunningOnboardingData;
   lastWorkoutDate?: string;
   /**

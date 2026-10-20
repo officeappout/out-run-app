@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planScheduleSave } from '../scheduleBuilderSave.plan';
+import { longRunDayOf, planScheduleSave } from '../scheduleBuilderSave.plan';
 import { adviseWeek } from '../../advisor';
 import type { WeaverInputProfile } from '../../engine/weaverInput';
 import { SCHEDULE_BUILDER_SAVE_V1 } from '@/config/feature-flags';
@@ -135,5 +135,37 @@ describe('schedule builder save plan (SCHEDULE_BUILDER_SAVE_V1)', () => {
     expect(strengthDays.length).toBe(2);
     // The running ids stay on the running days.
     for (const l of ['ב', 'ד', 'ש']) expect(plan.recurringTemplate![l] ?? []).toContain('run_plan_10k');
+  });
+});
+
+describe('schedule builder save plan — the long-run day (enable_home_v2)', () => {
+  const saved = (runsByType: boolean) => {
+    const profile = { ...hybrid(), running: { ...hybrid().running!, scheduleDaysSource: undefined } } as WeaverInputProfile;
+    const advice = advise(profile);
+    return { advice, plan: planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU, runsByType }) };
+  };
+
+  it('runsByType + running days saved → the week\'s long-run day', () => {
+    const { advice, plan } = saved(true);
+    expect(plan.runningScheduleDays).not.toBeNull();
+    expect(plan.runningLongRunDay).toBe(longRunDayOf(advice.week.running));
+    expect(plan.runningLongRunDay).not.toBeNull();
+  });
+
+  it('flag off → null (nothing written)', () => {
+    expect(saved(false).plan.runningLongRunDay).toBeNull();
+  });
+
+  it('running days not saved → null', () => {
+    const profile = hybrid();
+    const advice = advise(profile);
+    const plan = planScheduleSave({ profile, week: advice.week, controls: advice.controls, scope: 'from_now', todayKey: THU, runsByType: true });
+    expect(plan.runningScheduleDays).toBeNull();
+    expect(plan.runningLongRunDay).toBeNull();
+  });
+
+  it('longRunDayOf: the long run\'s day, null without one', () => {
+    expect(longRunDayOf([{ dayOfWeek: 2, category: 'tempo' }, { dayOfWeek: 6, category: 'long_run' }])).toBe(6);
+    expect(longRunDayOf([{ dayOfWeek: 2, category: 'tempo' }])).toBeNull();
   });
 });

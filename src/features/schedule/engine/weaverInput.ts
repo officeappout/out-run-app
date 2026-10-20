@@ -33,6 +33,10 @@ import {
   type ResolveSlug,
 } from './strengthVocabulary';
 import type { RunningExperienceLevel } from './runningRules';
+import { resolveRunningLevel } from './runningLevel';
+import { mapRunWeekByType, runPlacementOf } from '../utils/runWeekByType';
+
+export { resolveRunningLevel };
 import { resolveWeekForDate } from '@/lib/running-current-week';
 import { WHO_STRENGTH_TARGET_DAYS } from '@/lib/who-strength-target';
 
@@ -46,6 +50,8 @@ export interface WeaverInputProfile {
     scheduleDays?: string[];
     /** 'user-chosen' | 'system-default' (running-schedule-source.ts) — read by the builder's save planner. */
     scheduleDaysSource?: unknown;
+    /** enable_home_v2: the user's long-run day (0-6) — read only with opts.runsByType. */
+    longRunDay?: number | null;
     /** RunnerProfileType 1-4 — read by resolveRunningLevel (bug #10). */
     paceProfile?: { profileType?: number } | null;
     onboardingData?: { currentAbility?: { abilityTier?: string } | null } | null;
@@ -89,6 +95,14 @@ export interface WeaverInputOptions {
    * passes WHO_STRENGTH_TARGET_DAYS behind SCHEDULE_BUILDER_SAVE_V1.
    */
   unarrangedStrengthDays?: number;
+  /**
+   * enable_home_v2: the current week's runs sit on their weekday BY SLOT TYPE
+   * (utils/runWeekByType — engine v2, the same placement as signup and home; the
+   * long run on running.longRunDay when set, else the last run day), not the k-th
+   * run on the k-th day. The running rules (R6/R6b long-run protection, R4, RUN-0x)
+   * then read the real days. Omitted = today's ordinal mapping, byte for byte.
+   */
+  runsByType?: boolean;
 }
 
 /**
@@ -230,24 +244,6 @@ export function requestedStrengthDays(profile: WeaverInputProfile | null | undef
   return strengthDayCount(profile, opts);
 }
 
-/**
- * Bug #10: the running level used to be hardcoded 'intermediate' (RUN-04's consecutive-
- * days cap). Mapping, from running.types.ts's own RunnerProfileType doc:
- *   3 (beginner / returning, couch_to_5k)            → 'beginner'
- *   1 (fast improver, basePace under 6:00/km)        → 'advanced'
- *   2 (slow improver) / 4 (maintenance)              → 'intermediate'
- * No paceProfile: the onboarding ability tier ('none' / '5_15' → beginner); otherwise
- * 'intermediate' — exactly today's value, so an unknown runner sees no change.
- */
-export function resolveRunningLevel(running: WeaverInputProfile['running']): RunningExperienceLevel {
-  const t = running?.paceProfile?.profileType;
-  if (t === 3) return 'beginner';
-  if (t === 1) return 'advanced';
-  if (t === 2 || t === 4) return 'intermediate';
-  const tier = running?.onboardingData?.currentAbility?.abilityTier;
-  if (tier === 'none' || tier === '5_15') return 'beginner';
-  return 'intermediate';
-}
 
 /**
  * `RunProgramTemplate.targetDistance` ('2k'|'3k'|'5k'|'10k'|'maintenance')
@@ -296,6 +292,7 @@ function buildRunningSide(
   profile: WeaverInputProfile,
   owns: boolean,
   asOfDate: Date,
+  runsByType = false,
 ): { existingWeek: RunningWeekDay[]; requestedCount: number } {
   const scheduleDays = profile.running?.scheduleDays;
   const activeProgram = profile.running?.activeProgram;
@@ -316,8 +313,12 @@ function buildRunningSide(
   const weekEntries = activeProgram.schedule.filter((e) => e.week === currentWeek);
 
   const existingWeek = allRestRunningWeek();
+  const dayOf = new Map<(typeof weekEntries)[number], number>();
+  if (runsByType) {
+    mapRunWeekByType(weekEntries, trainingDayIndices, runPlacementOf(profile.running)).forEach((e, dow) => dayOf.set(e, dow));
+  }
   for (const entry of weekEntries) {
-    const dayOfWeek = trainingDayIndices[entry.day - 1];
+    const dayOfWeek = runsByType ? dayOf.get(entry) : trainingDayIndices[entry.day - 1];
     if (dayOfWeek === undefined) continue;
     existingWeek[dayOfWeek] = {
       dayOfWeek,
@@ -383,7 +384,7 @@ export function buildWeaverInput(
   if (!ownsStrength && !ownsRunning) return null;
 
   const strength = buildStrengthSide(profile, ownsStrength, opts);
-  const running = buildRunningSide(profile, ownsRunning, asOfDate);
+  const running = buildRunningSide(profile, ownsRunning, asOfDate, opts.runsByType === true);
 
   const strengthExcluded = mode === 'running';
   const runningExcluded = mode === 'strength';

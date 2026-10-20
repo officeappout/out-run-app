@@ -21,7 +21,7 @@
 import { DAY_LETTERS, type ScheduleDay } from '../types/smartSchedule.types';
 import { isStrengthTemplateId, type ResolveSlug } from '../engine/strengthVocabulary';
 import { strengthIdsForNewDays } from '../advisor/programTags';
-import type { RunningWeekDay } from '../engine/runningRules';
+import { isLongRunDay, type RunningWeekDay } from '../engine/runningRules';
 import { mergeDayItems } from './mergeDayItems';
 import type { WeaveControls, WeaverInputProfile } from '../engine/weaverInput';
 import { isRunningScheduleUserConfirmed } from '@/lib/running-schedule-source';
@@ -45,6 +45,12 @@ export interface SchedulePlan {
   runningFrequency: number | null;
   /** Why running was not saved even though it changed (null when it was / didn't change). */
   runningSkipped: 'single_run' | 'this_week_scope' | null;
+  /**
+   * enable_home_v2 (`PlanInput.runsByType`): the saved week's long-run day (0-6) →
+   * running.longRunDay, so home places the long run where the builder showed it.
+   * Only when the running days are saved and the week has a long run; else null.
+   */
+  runningLongRunDay?: number | null;
   /** this_week: per-date strength overrides from today to Saturday. */
   dayOverrides: DayOverridePlan[];
   prefs: { availableDayCount: number; focus: number };
@@ -58,6 +64,8 @@ export interface PlanInput {
   /** Local YYYY-MM-DD of today (the week containing it is "this week"). */
   todayKey: string;
   resolveSlug?: ResolveSlug;
+  /** enable_home_v2 — also save the week's long-run day (see SchedulePlan.runningLongRunDay). */
+  runsByType?: boolean;
 }
 
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
@@ -66,6 +74,11 @@ function addDays(key: string, n: number): string {
   return new Date(Date.parse(`${key}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 }
 
+
+/** The day of the week's long run, when it has one. */
+export function longRunDayOf(running: RunningWeekDay[]): number | null {
+  return running.find((d) => isLongRunDay(d))?.dayOfWeek ?? null;
+}
 
 export function planScheduleSave(i: PlanInput): SchedulePlan {
   const isStrength = (id: string) => isStrengthTemplateId(id, i.resolveSlug);
@@ -107,6 +120,7 @@ export function planScheduleSave(i: PlanInput): SchedulePlan {
       runningScheduleDays: null,
       runningFrequency: null,
       runningSkipped: runningChanged ? 'this_week_scope' : null,
+      runningLongRunDay: null,
       dayOverrides,
       prefs,
     };
@@ -138,6 +152,7 @@ export function planScheduleSave(i: PlanInput): SchedulePlan {
     runningScheduleDays: saveRunning ? newRunLetters : null,
     runningFrequency: saveRunning ? newRunLetters.length : null,
     runningSkipped: singleRun ? 'single_run' : null,
+    runningLongRunDay: saveRunning && i.runsByType ? longRunDayOf(i.week.running) : null,
     dayOverrides: [],
     prefs,
   };

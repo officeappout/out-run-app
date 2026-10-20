@@ -194,13 +194,14 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
   const result: WeekAdvice | null = useMemo(() => {
     try {
       return adviseWeek(
-        toAdvisorInputFromClient({ profile, now: asOfDate, controls: { mode, focus, availableDayCount }, resolveSlug: resolveToSlug, unarrangedStrengthDays }),
+        // enable_home_v2: runs by slot type, the same week home and signup show.
+        toAdvisorInputFromClient({ profile, now: asOfDate, controls: { mode, focus, availableDayCount }, resolveSlug: resolveToSlug, unarrangedStrengthDays, runsByType: v2 }),
       );
     } catch (err) {
       console.error('[ScheduleBuilderDrawer] adviseWeek threw — showing no data instead of crashing:', err);
       return null;
     }
-  }, [profile, mode, focus, availableDayCount, asOfDate, unarrangedStrengthDays]);
+  }, [profile, mode, focus, availableDayCount, asOfDate, unarrangedStrengthDays, v2]);
 
   // ── Save (SCHEDULE_BUILDER_SAVE_V1; off → the approve button stays disabled) ──
   const saveEnabled = isScheduleBuilderSaveEnabled();
@@ -214,6 +215,7 @@ export default function ScheduleBuilderDrawer({ isOpen, onClose, entry = 'planne
       scope,
       todayKey: localDateKey(asOfDate),
       resolveSlug: resolveToSlug,
+      runsByType: v2,
     });
     const outcome = await saveScheduleProposal(plan, { uid: userId, runningTime });
     setRunningNote(

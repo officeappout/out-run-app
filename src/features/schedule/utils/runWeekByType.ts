@@ -16,9 +16,12 @@
  */
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import { isLongRunDay, isQualityDay } from '../engine/runningRules';
-import { resolveRunningLevel } from '../engine/weaverInput';
+import { resolveRunningLevel } from '../engine/runningLevel';
 import type { RunSlot, TrainingLevel } from '../engine-v2/types';
 import { recommendRunWeek } from './runWeekRecommendation';
+import { normalizeLongRunDay } from './longRunDay';
+
+export { normalizeLongRunDay };
 
 const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
 const RUN_SLOTS: readonly RunSlot[] = ['quality_primary', 'quality_secondary', 'long_run', 'easy_run', 'recovery'];
@@ -165,17 +168,21 @@ export interface RunPlacementProfile {
   paceProfile?: { profileType?: number } | null;
   onboardingData?: { currentAbility?: { abilityTier?: string } | null } | null;
   generatedProgramTemplate?: { targetDistance?: string } | null;
+  /** enable_home_v2: the user's long-run day (signup / schedule builder). */
+  longRunDay?: number | null;
 }
 
 /**
  * Engine context from the stored running profile — the schedule builder's own
  * level rule (weaverInput.resolveRunningLevel: pace profile type, else the
- * onboarding ability tier) and the plan's target distance. No long-run day is
- * stored on the profile, so the engine's default (last run day) applies.
+ * onboarding ability tier), the plan's target distance, and the user's
+ * long-run day (`running.longRunDay`, written only under enable_home_v2).
+ * No long-run day → the engine's default (the last run day).
  */
 export function runPlacementOf(running: RunPlacementProfile | null | undefined): RunPlacementContext {
   return {
-    level: resolveRunningLevel((running ?? undefined) as Parameters<typeof resolveRunningLevel>[0]),
+    level: resolveRunningLevel(running),
     targetDistance: running?.generatedProgramTemplate?.targetDistance ?? null,
+    preferredLongRunDay: normalizeLongRunDay(running?.longRunDay),
   };
 }
