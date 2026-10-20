@@ -28,16 +28,14 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import {
   DEFAULT_QA_MINT_AUDIENCE,
-  DEFAULT_QA_RUNNER_SA_EMAIL,
   dailyMintLimit,
   decideMint,
-  extractIdToken,
   israelDayKey,
   nextQuota,
   parseMintRequest,
   registeredUids,
-  verifyCallerIdentity,
 } from './lib/demo-tester-token';
+import { audiencesFrom, expectedRunnerEmail, isQaRunnerRequest } from './lib/qa-runner-auth';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -45,26 +43,6 @@ if (!admin.apps.length) {
 
 const REGISTRY = 'demo_registry';
 const QUOTA_DOC = 'tester_token_quota';
-const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
-
-async function fetchTokenInfo(idToken: string): Promise<Record<string, unknown> | null> {
-  try {
-    const res = await fetch(TOKENINFO_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ id_token: idToken }).toString(),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function audiences(): string[] {
-  const raw = process.env.QA_MINT_AUDIENCE?.trim();
-  return raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [DEFAULT_QA_MINT_AUDIENCE];
-}
 
 export const mintDemoTesterToken = onRequest(
   {
@@ -82,10 +60,8 @@ export const mintDemoTesterToken = onRequest(
     }
 
     // 1. Caller = the qa-runner service account (Cloud Run IAM already said yes; check again).
-    const idToken = extractIdToken(req.headers as Record<string, unknown>);
-    const info = idToken ? await fetchTokenInfo(idToken) : null;
-    const expectedEmail = process.env.QA_RUNNER_SA_EMAIL?.trim() || DEFAULT_QA_RUNNER_SA_EMAIL;
-    if (!verifyCallerIdentity(info, { email: expectedEmail, audiences: audiences() }, Math.floor(Date.now() / 1000))) {
+    const expectedEmail = expectedRunnerEmail();
+    if (!(await isQaRunnerRequest(req.headers as Record<string, unknown>, audiencesFrom(process.env.QA_MINT_AUDIENCE, DEFAULT_QA_MINT_AUDIENCE)))) {
       logger.warn('[mintDemoTesterToken] caller not allowed');
       res.status(403).json({ error: 'caller_not_allowed' });
       return;

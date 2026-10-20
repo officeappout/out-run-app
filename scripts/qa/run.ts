@@ -7,8 +7,9 @@
  *   npx tsx scripts/qa/run.ts [--missions M01_walker58,…] [--device iphone-13] [--run-id …] [--max-sessions 3]
  *
  * Env: ANTHROPIC_DEMO_KEY · QA_ID_TOKEN (qa-runner Google ID token, audience = the mint URL) ·
+ *      QA_REPORT_ID_TOKEN (same identity, audience = the qaRunnerReport URL) · QA_REPORT_URL ·
  *      APPCHECK_DEBUG_TOKEN (optional) · QA_MINT_URL · QA_MODEL · QA_BASE_URL ·
- *      Google credentials for the Admin SDK (ADC — the WIF credentials file on Actions).
+ *      No Google credentials file: every read / write goes through qaRunnerReport (least privilege).
  *
  * Order: files valid → both switches on → no stop request → caps + prices set and not reached →
  * per mission (sequential, ONE browser at a time): session caps → mint → sign in → guarded loop →
@@ -18,9 +19,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { getIsraelDateKey } from '@/lib/israelTime';
-import { parseControl } from '@/lib/demo-control/control';
 import { checkCaps, summarizeUsage } from '@/lib/demo-control/usage-cost';
-import { DEFAULT_TESTER_MODEL, DEVICES, HARD_CAPS, PROJECT_ID, STORAGE_BUCKET } from './lib/config';
+import { DEFAULT_TESTER_MODEL, DEVICES, HARD_CAPS } from './lib/config';
 import { Budget, preflight } from './lib/budget';
 import { openBrowser } from './lib/browser';
 import { redactSecrets } from './lib/demo-guard';
@@ -30,7 +30,7 @@ import { FindingsBook } from './lib/findings';
 import { DEFAULT_MINT_URL, ID_TOKEN_MIN_LEFT_SEC, idTokenSecondsLeft, mintTesterToken } from './lib/mint';
 import { makeRunId, parseRunArgs, planRun } from './lib/plan';
 import { runSession, type SessionResult } from './lib/session';
-import { openStore, type Store } from './lib/store';
+import { DEFAULT_REPORT_URL, openStore, sessionStartDelta, type Store } from './lib/store';
 
 const log = (msg: string) => console.log(`[qa] ${redactSecrets(msg)}`);
 
@@ -50,13 +50,11 @@ async function main(): Promise<number> {
   const idToken = process.env.QA_ID_TOKEN?.trim();
   if (!apiKey) throw new Error('ANTHROPIC_DEMO_KEY is not set');
   if (!idToken) throw new Error('QA_ID_TOKEN is not set (google-github-actions/auth token_format: id_token)');
+  const reportToken = process.env.QA_REPORT_ID_TOKEN?.trim();
+  if (!reportToken) throw new Error('QA_REPORT_ID_TOKEN is not set (second auth step, audience = qaRunnerReport)');
 
-  const store = await openStore({ projectId: PROJECT_ID, bucket: STORAGE_BUCKET });
-  try {
-    return await runAll(store, { args, runId, model, apiKey, idToken, personas, missions });
-  } finally {
-    await store.close().catch(() => {});
-  }
+  const store = openStore({ url: process.env.QA_REPORT_URL?.trim() || DEFAULT_REPORT_URL, idToken: reportToken });
+  return runAll(store, { args, runId, model, apiKey, idToken, personas, missions });
 }
 
 async function runAll(
@@ -64,29 +62,29 @@ async function runAll(
   ctx: { args: ReturnType<typeof parseRunArgs>; runId: string; model: string; apiKey: string; idToken: string; personas: ReturnType<typeof loadPersonasAndMissions>['personas']; missions: ReturnType<typeof loadPersonasAndMissions>['missions'] },
 ): Promise<number> {
   const { args, runId, model } = ctx;
-  const flags = await store.readFlags();
-  if (flags?.enable_demo_users !== true || flags?.enable_ai_testers !== true) {
+  const status = await store.status();
+  if (!status.switchesOn) {
     log('enable_demo_users / enable_ai_testers is off — nothing to do.');
     return 0;
   }
-  if (parseControl(await store.readControlRaw(), Date.now()).testersStopRequested) {
+  if (status.stopRequested) {
     log('a stop is requested in the control center — not starting.');
     return 0;
   }
-  const config = await store.readConfig();
+  const config = status.config;
   const pre = preflight(config.caps, config.prices, model);
   if (!pre.ok) {
     log(`refusing to start: ${pre.reason} (set the daily $ cap and the price of ${model} on /admin/demo).`);
     return 1;
   }
   const todayKey = getIsraelDateKey(new Date());
-  const usage = summarizeUsage(await store.readUsageWindow(), todayKey, config.prices);
+  const usage = summarizeUsage(status.usageDays, todayKey, config.prices);
   if (checkCaps(usage, config.caps).blocksTesterRun) {
     log('a money / session cap is already reached today — not starting.');
     return 0;
   }
 
-  const roster = await store.readTesterRoster();
+  const roster = status.roster;
   const plan = planRun(ctx.missions, args, roster);
   for (const s of plan.skipped) log(`skip ${s.id}: ${s.reason}`);
   if (!plan.sessions.length) {
@@ -108,7 +106,7 @@ async function runAll(
   const results: Array<{ mission: string; device: string } & SessionResult> = [];
   let lastSessionAt = Date.now();
   const beat = (state: 'running' | 'idle') =>
-    store.heartbeat({ state, runId, lastSessionAt: new Date(lastSessionAt), findingsCount: book.size, spentUsd: Number(budget.spentUsd.toFixed(4)) }).catch(() => log('heartbeat failed'));
+    store.heartbeat({ state, runId, lastSessionAtMs: lastSessionAt, findingsCount: book.size, spentUsd: Number(budget.spentUsd.toFixed(4)) }).catch(() => log('heartbeat failed'));
   await beat('running');
   const timer = setInterval(() => void beat('running'), HARD_CAPS.heartbeatMs);
 
@@ -116,7 +114,7 @@ async function runAll(
   try {
     for (let i = 0; i < plan.sessions.length; i++) {
       const s = plan.sessions[i];
-      if (parseControl(await store.readControlRaw(), Date.now()).testersStopRequested) {
+      if (await store.stopRequested().catch(() => false)) {
         stopReason = 'stop_requested';
         break;
       }
@@ -131,7 +129,7 @@ async function runAll(
       }
       const persona = ctx.personas.get(s.mission.persona)!;
       log(`session ${i + 1}/${plan.sessions.length}: ${s.mission.id} as ${persona.id} on ${s.device}`);
-      await store.addSessionCount(getIsraelDateKey(new Date())).catch(() => log('session count write failed'));
+      await store.addUsage(getIsraelDateKey(new Date()), sessionStartDelta(model), true).catch(() => log('session count write failed'));
 
       const minted = await mintTesterToken({ url: process.env.QA_MINT_URL?.trim() || DEFAULT_MINT_URL, idToken: ctx.idToken, uid: s.mission.uid, runId });
       if (!minted.ok) {
@@ -165,7 +163,7 @@ async function runAll(
             runId,
             cohort: s.mission.cohort,
             dayKey: () => getIsraelDateKey(new Date()),
-            stopRequested: async () => parseControl(await store.readControlRaw(), Date.now()).testersStopRequested,
+            stopRequested: () => store.stopRequested().catch(() => false),
             log,
           },
           persona,

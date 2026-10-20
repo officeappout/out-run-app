@@ -77,9 +77,5 @@ export const BLOCKED_REQUEST_HOSTS = [
   'www.paypal.com',
 ] as const;
 
-/** Firestore collection for findings (server-only: no client rule allows it). */
-export const FINDINGS_COLLECTION = 'qa_findings';
 /** Storage prefix for screenshots: qa/{runId}/{session}/{step}.png */
 export const SCREENSHOT_PREFIX = 'qa';
-export const STORAGE_BUCKET = 'appout-1.firebasestorage.app';
-export const PROJECT_ID = 'appout-1';
