@@ -36,4 +36,11 @@ describe('recommendedSplitOfProfile — the card\'s split from a saved profile',
   it('handstand is not a hard skill', () => {
     expect(hardSkillCountOf(['handstand', 'planche', 'front_lever'])).toBe(2);
   });
+
+  it('6 chosen strength days → push / pull / legs for advanced, and intermediate with a muscle goal (owner 20.10.2026)', () => {
+    expect(recommendedSplitOfProfile({ progression: lvl(16) }, 6)).toBe('push_pull_legs');
+    expect(recommendedSplitOfProfile({ progression: lvl(8), selectedGoals: ['mass_building'] }, 6)).toBe('push_pull_legs');
+    expect(recommendedSplitOfProfile({ progression: lvl(8) }, 6)).toBe('upper_lower');
+    expect(recommendedSplitOfProfile({ progression: lvl(16) }, 5)).toBe('upper_lower');
+  });
 });

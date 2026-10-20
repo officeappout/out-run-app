@@ -26,6 +26,7 @@ import { Analytics } from '@/features/analytics/AnalyticsService';
 import type { WorkoutPreviewDrawerProps } from './types';
 import ParkCardImage from './components/ParkCardImage';
 import DrawerHeader from './components/DrawerHeader';
+import WorkoutWhyLine from './components/WorkoutWhyLine';
 import WorkoutLocationSwitcher from './components/WorkoutLocationSwitcher';
 import { useSwapAll } from './hooks/useSwapAll';
 import { SWAP_ALL_ENABLED } from '@/config/feature-flags';
@@ -582,6 +583,10 @@ export default function WorkoutPreviewDrawer({
                 {displayTitle}
               </h1>
             </div>
+            {/* enable_home_v2: why this workout (day focus · split · days / no pull gear). */}
+            {homeV2 && (
+              <WorkoutWhyLine workout={generatedWorkout} profile={profile} location={resolvedSwapLocation} />
+            )}
           </motion.div>
 
           {/* Intensity toggle row (Part א, "ארכיטקטורת הבית ומנוע-ההמלצות"
