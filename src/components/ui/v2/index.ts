@@ -113,3 +113,9 @@ export type { WeekDayRowProps, WeekSessionPieceProps, WeekSessionTagTone, WeekSe
 // Small progress ring with a lighter "planned" arc (home walking: steps + today's walk).
 export { default as MiniRing } from './MiniRing';
 export type { MiniRingProps } from './MiniRing';
+// Progress summary (P-1c): a ring split by activity + tiny bar sparklines next to numbers.
+export { default as SegmentedRing } from './SegmentedRing';
+export type { SegmentedRingProps } from './SegmentedRing';
+export * from './segmented-ring';
+export { default as SparkBars } from './SparkBars';
+export type { SparkBarsProps } from './SparkBars';

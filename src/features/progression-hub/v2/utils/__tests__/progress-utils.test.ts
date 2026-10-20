@@ -41,6 +41,7 @@ describe('progress-model', () => {
       stepsGoal: 8000,
       distanceMeters: 0,
       activeMinutes: 30,
+      minutesByCategory: { strength: 20, cardio: 10, maintenance: 0 },
     });
   });
 });

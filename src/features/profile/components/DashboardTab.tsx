@@ -74,6 +74,16 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   // Home v2 (enable_home_v2) — the profile is part of the same look.
   const { flags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = flags.enableHomeV2;
+  // enable_home_v2: "/profile?tab=badges#records" (the progress tab's "שיא חדש") opens on the records card.
+  useEffect(() => {
+    if (!v2 || typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('tab') !== 'badges') return;
+    setActiveTab('badges');
+    if (window.location.hash === '#records') {
+      const t = window.setTimeout(() => document.getElementById('records')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250);
+      return () => window.clearTimeout(t);
+    }
+  }, [v2]);
 
   // ── Debug: log profile.progression whenever it changes ────────────────────
   useEffect(() => {

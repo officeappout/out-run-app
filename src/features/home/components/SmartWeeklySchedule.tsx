@@ -160,6 +160,12 @@ interface SmartWeeklyScheduleProps {
    * separate views toggled by the host (health tab). Flame logic is untouched.
    */
   activityView?: boolean;
+  /**
+   * enable_home_v2: the strip embedded in another screen (the progress tab) —
+   * no "לו״ז אימונים" title and no "שינוי לוז" row; the host draws its own
+   * header. Default false → exactly as before.
+   */
+  hideHeader?: boolean;
 }
 
 interface DayActivityData {
@@ -846,6 +852,7 @@ export default function SmartWeeklySchedule({
   runningProgramId,
   scheduleVersion,
   activityView = false,
+  hideHeader = false,
 }: SmartWeeklyScheduleProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1678,7 +1685,7 @@ export default function SmartWeeklySchedule({
   return (
     <div className="mb-0 relative z-10 w-full max-w-[358px] mx-auto" dir="rtl">
       {/* ── Header — OUTSIDE the card ─────────────────────────── */}
-      <div className="flex items-center justify-between mb-1 px-1">
+      {!hideHeader && <div className="flex items-center justify-between mb-1 px-1">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">לו״ז אימונים</h2>
         {!hideMonthToggle && (
           <div className="flex items-center gap-2 relative z-20">
@@ -1696,10 +1703,10 @@ export default function SmartWeeklySchedule({
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Sub-header row — sync chip & edit link (hidden while schedule is unset) */}
-      {!showOverlay && <div className="flex items-center justify-between mb-2 px-1">
+      {!showOverlay && !hideHeader && <div className="flex items-center justify-between mb-2 px-1">
         {/* Calendar subscription:
             - iOS: webcal:// via window.open(_system) → UIApplication.open → Apple Calendar
             - Android: Google Calendar subscribe URL via window.open(_system) → ACTION_VIEW intent

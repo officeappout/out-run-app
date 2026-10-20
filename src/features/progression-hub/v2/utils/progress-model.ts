@@ -49,6 +49,8 @@ export interface ProgressDay {
   stepsGoal: number;
   distanceMeters: number;
   activeMinutes: number;
+  /** Active minutes per category (P-7: why a day counted — recovery = maintenance). */
+  minutesByCategory?: { strength: number; cardio: number; maintenance: number };
 }
 
 /** workoutType → lens. Hybrid sessions count as strength (their run km still count in the km total). */
@@ -135,12 +137,18 @@ export function toProgressDay(data: Record<string, unknown>, fallbackGoal: numbe
   if (!date) return null;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const cats = (data.categories ?? {}) as Record<string, { minutes?: unknown } | undefined>;
-  const activeMinutes = ['strength', 'cardio', 'maintenance'].reduce((s, k) => s + num(cats[k]?.minutes), 0);
+  const minutesByCategory = {
+    strength: num(cats.strength?.minutes),
+    cardio: num(cats.cardio?.minutes),
+    maintenance: num(cats.maintenance?.minutes),
+  };
+  const activeMinutes = minutesByCategory.strength + minutesByCategory.cardio + minutesByCategory.maintenance;
   return {
     date,
     steps: num(data.steps),
     stepsGoal: num(data.stepsGoal) || fallbackGoal,
     distanceMeters: num(data.distanceMeters),
     activeMinutes,
+    minutesByCategory,
   };
 }
