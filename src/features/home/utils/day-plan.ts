@@ -21,6 +21,7 @@ import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import { isQualityRunEntry, type HomeRunEntry } from './home-run-slot';
+import { titleWithFocusHe, type DayFocus } from '@/features/workout-engine/services/split-decision/day-focus.utils';
 
 export type DayTiming = 'past' | 'today' | 'future';
 
@@ -60,6 +61,11 @@ export interface BuildPlannedDayInput {
   run?: HomeRunEntry | null;
   /** The user has any schedule configured (strength days / template / run plan / walks). */
   hasSchedule: boolean;
+  /**
+   * The day's focus from the recommended split (planned-day-focus.ts) — shown in the
+   * computed strength title ("אימון עליון"). A title the entry carries itself is kept.
+   */
+  strengthFocus?: DayFocus | null;
 }
 
 export function strengthTitleOf(programIds: readonly string[] | undefined): string {
@@ -82,7 +88,8 @@ const joinParts = (...parts: Array<string | null | undefined>): string | undefin
 };
 
 export function buildPlannedDay(input: BuildPlannedDayInput): PlannedDay {
-  const { entries, templateDayIds, isStrengthScheduleDay, runningProgramId, run, hasSchedule } = input;
+  const { entries, templateDayIds, isStrengthScheduleDay, runningProgramId, run, hasSchedule, strengthFocus } = input;
+  const computedTitle = (t: string) => titleWithFocusHe(t, strengthFocus);
   const items: PlannedDayItem[] = [];
 
   const personal = entries.filter((e) => e.source !== 'community');
@@ -107,11 +114,11 @@ export function buildPlannedDay(input: BuildPlannedDayInput): PlannedDay {
   let strength: PlannedDayItem | null = null;
   if (strengthEntries.length > 0) {
     const e = strengthEntries[0];
-    strength = { kind: 'strength', title: e.title || strengthTitleOf(e.programIds), subtitle: timeLine(e), completed: !!e.completed };
+    strength = { kind: 'strength', title: e.title || computedTitle(strengthTitleOf(e.programIds)), subtitle: timeLine(e), completed: !!e.completed };
   } else if (!explicitRest && personal.filter((e) => !isPlannedWalkEntry(e)).length === 0) {
     const ids = (templateDayIds ?? []).filter((id) => id && id !== runningProgramId);
-    if (ids.length > 0) strength = { kind: 'strength', title: strengthTitleOf(ids) };
-    else if (isStrengthScheduleDay) strength = { kind: 'strength', title: 'אימון כוח' };
+    if (ids.length > 0) strength = { kind: 'strength', title: computedTitle(strengthTitleOf(ids)) };
+    else if (isStrengthScheduleDay) strength = { kind: 'strength', title: computedTitle('אימון כוח') };
   }
 
   const runItem: PlannedDayItem | null = run

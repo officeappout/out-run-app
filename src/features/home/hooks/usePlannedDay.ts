@@ -16,6 +16,7 @@ import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/util
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
 import { buildPlannedDay, type PlannedDay } from '../utils/day-plan';
 import type { HomeRunEntry } from '../utils/home-run-slot';
+import { plannedDayFocusOf } from '../utils/planned-day-focus';
 
 export function usePlannedDay(
   profile: UserFullProfile | null | undefined,
@@ -69,6 +70,13 @@ export function usePlannedDay(
 
     const scheduleDays = hasStrengthProgram ? lifestyle?.scheduleDays ?? [] : [];
     const template = hasStrengthProgram ? lifestyle?.recurringTemplate ?? {} : {};
+    // The recommended split's focus for that day ("אימון עליון") — same rule as the generator.
+    const dayIds = entries.list.find((e) => e.type === 'training' && e.source !== 'community' && e.programIds?.length)?.programIds
+      ?? template[letter]
+      ?? [profile?.progression?.activePrograms?.[0]?.templateId ?? ''];
+    const strengthFocus = hasStrengthProgram && profile
+      ? plannedDayFocusOf({ profile: profile as Parameters<typeof plannedDayFocusOf>[0]['profile'], dateISO, programIds: dayIds.filter(Boolean) })
+      : null;
     return buildPlannedDay({
       entries: entries.list,
       templateDayIds: template[letter] ?? null,
@@ -76,8 +84,11 @@ export function usePlannedDay(
       runningProgramId: running?.activeProgram?.programId,
       run,
       hasSchedule: scheduleDays.length > 0 || Object.keys(template).length > 0 || hasRunningPlan || entries.list.length > 0,
+      strengthFocus,
     });
-  }, [enabled, dateISO, entries, running, lifestyle, hasStrengthProgram]);
+    // profile: read for the focus only; running / lifestyle above already track its changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, dateISO, entries, running, lifestyle, hasStrengthProgram, profile?.progression]);
 
   return { plan, loading: enabled && !!dateISO && !plan };
 }

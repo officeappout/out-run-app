@@ -9,7 +9,7 @@
  *             the WHO minimum + a balance note)
  *   week k  = start(level) × 1.1^k, capped at the target, rounded down to 5′
  *   walks   = weekly minutes ÷ the comfortable walk length → 3–5, never more than
- *             the days the user has; each walk 20–45′; one longer walk a week
+ *             the days the user has; each walk 20–45′; one longer walk a week (≤ 60′)
  *   target  = time for most walks; the long walk (and every walk for the "steps"
  *             goal) is a distance — the free walk player's own goal types
  *
@@ -121,9 +121,13 @@ export function buildWalkWeek(
   const { min, max } = cfg.session;
   const longDow = longWalkDay(sorted);
   const base = total / n;
-  const longMinutes = longDow == null ? 0 : clamp(round5(base * cfg.longWalkFactor), min, max);
+  // The long walk: up to longWalkMax (owner 20.10.2026); the others stay within session.max.
+  const longMax = Math.max(max, cfg.longWalkMax ?? max);
+  let longMinutes = longDow == null ? 0 : clamp(round5(base * cfg.longWalkFactor), min, longMax);
   const others = longDow == null ? n : n - 1;
   const restMinutes = clamp(floor5((total - longMinutes) / Math.max(1, others)), min, max);
+  // Whatever the others' rounding / cap left over goes to the long walk (still ≤ longMax).
+  if (longDow != null) longMinutes = Math.min(longMax, Math.max(longMinutes, round5(total - restMinutes * others)));
   const allDistance = goal === 'steps';
 
   const walks: PlannedWalk[] = sorted.map((dow) => {

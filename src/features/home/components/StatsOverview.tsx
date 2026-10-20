@@ -45,6 +45,7 @@ import {
 import { useDailyActivity, useWeeklyProgress } from '@/features/activity';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { useCalmReturn } from '../hooks/useCalmReturn';
+import { useHomeV2 } from '../context/HomeV2Context';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Dumbbell, Footprints, SlidersHorizontal, Lock, Clock } from 'lucide-react';
 import { GeneratedWorkout, WorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
@@ -368,6 +369,11 @@ export default function StatsOverview({
   // manageEpisode); this instance only reads the state for its cards.
   const calm = useCalmReturn(profile, { isGuest });
   const calmReturnOn = calm.on;
+  // enable_home_v2: the recommended split decides the day's focus (upper / lower …) —
+  // read through a ref so flag-off users' generation effect is untouched.
+  const homeV2 = useHomeV2();
+  const splitDayFocusRef = useRef(homeV2);
+  splitDayFocusRef.current = homeV2;
   const calmState = calm.state;
   const calmWelcomeBack = calm.welcomeBack;
   const calmGender = profile?.core?.gender;
@@ -921,6 +927,7 @@ export default function StatsOverview({
           // Drawer fast-path: skip D1/D3 generation when only D2 is needed.
           generateSingleOption: generateSingleOptionRef.current || undefined,
           ...(genWeather ? { weather: genWeather } : {}),
+          ...(splitDayFocusRef.current ? { splitDayFocus: true } : {}),
         });
 
         setTrioResult(trio);

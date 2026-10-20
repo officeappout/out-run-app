@@ -83,6 +83,9 @@ import {
   resolveAggregateFullBodyBudget,
 } from './lead-program.service';
 import { getWorkoutContext, type SplitWorkoutContext } from './split-decision';
+import { resolveGeneratorDayFocus, stampDayFocus } from './split-decision/day-focus.generator';
+import type { DayFocus } from './split-decision/day-focus.utils';
+import { isSplitDayFocusActive } from './split-decision/day-focus.switch';
 import { calculateWeeklyBudget } from '../core/store/useWeeklyVolumeStore';
 
 // -- Extracted utility modules --
@@ -1760,7 +1763,7 @@ async function generateHomeWorkoutTrioCore(
 
   console.groupEnd();
 
-  return stampResolvedLocation({
+  return stampDayFocus(stampResolvedLocation({
     options: results as [WorkoutTrioOption, WorkoutTrioOption, WorkoutTrioOption],
     isRestDay,
     labelsSource,
@@ -1770,7 +1773,7 @@ async function generateHomeWorkoutTrioCore(
       coachCue: pipeline.sessionPolicy.coachCue,
       defaultFocusIndex: pipeline.sessionPolicy.defaultFocusIndex,
     },
-  });
+  }), pipeline.dayFocus);
 }
 
 /**
@@ -1956,6 +1959,8 @@ interface SharedPipelineState {
    * resolved per option (it depends on the final exercise list).
    */
   decisionSignals: Omit<DecisionContext, 'skillFocus'> & { candidateSkills: string[] };
+  /** enable_home_v2 day focus applied to this session (null = none / flag off). */
+  dayFocus: DayFocus | null;
 }
 
 /**
@@ -2001,12 +2006,12 @@ async function _buildSharedPipeline(
     domainSetsCompletedThisWeek,
     remainingScheduleDays,
     recentExerciseIds,
-    requiredDomains: requiredDomainsOverride,
-    strictDomains,
     parkEquipmentIds,
     isManualOverride,
     weather,
   } = options;
+  // `let`: the v2 day focus (below, after the pool is known) may narrow them.
+  let { requiredDomains: requiredDomainsOverride, strictDomains } = options;
 
   const WEEKLY_SA_CAP = 6;
 
@@ -2255,6 +2260,26 @@ async function _buildSharedPipeline(
         );
       }
     }
+  }
+
+  // ── 1c-focus. enable_home_v2 day focus (day-focus.generator.ts) ──────
+  // The recommended split decides the day: upper / lower, push / pull / legs, or
+  // balanced full body — narrowing the active programs' own pool through the existing
+  // strict body-area path. Caller didn't pass splitDayFocus → null → nothing changes.
+  const dayFocus = resolveGeneratorDayFocus({
+    enabled: options.splitDayFocus ?? isSplitDayFocusActive(),
+    profile: userProfile,
+    selectedDate,
+    pool: resolvedChildDomains,
+    isManualOverride,
+    hasExplicitDomains: (requiredDomainsOverride?.length ?? 0) > 0,
+    isRestDay: effectiveIsRecovery,
+    resolveSlug: resolveToSlug,
+  });
+  if (dayFocus?.domains) {
+    requiredDomainsOverride = dayFocus.domains;
+    strictDomains = true;
+    console.log(`[DayFocus] ${dayFocus.focus} → strict [${dayFocus.domains.join(', ')}] (pool [${resolvedChildDomains.join(', ')}])`);
   }
 
   // ── 1c. Resolve candidate exercise pool ──────────────────────────────
@@ -3418,6 +3443,7 @@ async function _buildSharedPipeline(
     // Expose so generateHomeWorkoutTrio can read them without crossing function scopes.
     adminPreferredProtocols,
     isSingleDomain: baseDomainCount === 1,
+    dayFocus: dayFocus?.focus ?? null,
     resultMeta: {
       daysInactive,
       persona,
