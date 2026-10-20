@@ -219,6 +219,13 @@ export interface HomeWorkoutOptions {
   budgetLightEnabled?: boolean;
 
   /**
+   * enable_home_v2 (owner 20.10.2026): the recommended split decides the day's focus —
+   * upper / lower days, push / pull / legs, or balanced full body (day-focus.generator.ts).
+   * Only the home v2 callers pass true. Absent / false → the generator runs exactly as before.
+   */
+  splitDayFocus?: boolean;
+
+  /**
    * When `true`, only ONE trio slot is generated — the other two are skipped
    * entirely, cutting Firestore reads and generation latency by ~66%. Which
    * slot is computed is `targetOptionIndex` when set, otherwise the

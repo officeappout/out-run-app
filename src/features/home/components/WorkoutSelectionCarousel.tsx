@@ -6,6 +6,7 @@ import { PersonStanding, Heart } from 'lucide-react';
 import ShimmerPhraseButton from '@/components/ui/ShimmerPhraseButton';
 import type { WorkoutTrioOption } from '@/features/workout-engine/services/home-workout.types';
 import { useFavoritesStore } from '@/features/favorites/store/useFavoritesStore';
+import { titleWithFocusHe } from '@/features/workout-engine/services/split-decision/day-focus.utils';
 import {
   pickHeroExercise,
   resolveHeroMedia,
@@ -465,7 +466,7 @@ function TrioCard({
             />
           )}
           <h4 className="font-bold text-gray-800 dark:text-white leading-snug text-[17px] truncate min-w-0">
-            {workout.title}
+            {titleWithFocusHe(workout.title, workout.dayFocus)}
           </h4>
         </div>
 

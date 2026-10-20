@@ -92,6 +92,7 @@ import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { setSplitDayFocusActive } from '@/features/workout-engine/services/split-decision/day-focus.switch';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
 import { useWorkoutSession } from '@/features/workouts/components/workout-preview-drawer/hooks/useWorkoutSession';
@@ -388,6 +389,10 @@ export default function HomePage() {
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
   const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  // enable_home_v2 day focus: the recommended split decides each strength day (upper / lower …)
+  // for every generation home triggers. Set during render (idempotent) so it is in place
+  // before any child effect generates; off → false → the generator runs as before.
+  setSplitDayFocusActive(featureFlags.enableHomeV2);
   // Weather (weather_enabled, default off; weather_admins_only, default on = super admins
   // only — isWeatherOnFor reads the LIVE toggles, not the super-admin override): one call
   // for the whole page. The chip renders
