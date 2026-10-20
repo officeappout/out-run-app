@@ -33,6 +33,10 @@
  * flag must read the document first and only fill keys that are genuinely absent —
  * never assume a value that was correct when first written is still correct.
  *
+ * qaTesterValue (optional, 20.10.2026): the value an AI tester sees (uid demo_qa_* + token claim
+ * qa, only while enable_demo_users && enable_ai_testers are on). Flags without it keep their
+ * stored value for testers. Testers NEVER get superAdminValue. See feature-flag-resolve.ts.
+ *
  * Adding a flag: add ONE entry here. useFeatureFlags.ts and the system-settings page
  * both derive everything they need from this array.
  */
@@ -125,7 +129,10 @@ export const FLAG_DEFS = [
   // language: streak flames per activity (brand Lottie), the connected streak capsule, the
   // day bubble, the v2 header. Fail-closed launch gate; superAdminValue true so David sees it
   // on his account while every other user keeps today's home until he flips it.
-  { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true },
+  // qaTesterValue true (20.10.2026, owner: AI testers test v2): a signed-in AI tester (uid
+  // demo_qa_* + token claim qa, while enable_demo_users && enable_ai_testers) sees v2 —
+  // see feature-flag-resolve.ts. Real users are untouched.
+  { key: 'enableHomeV2', firestoreKey: 'enable_home_v2', defaultValue: false, superAdminValue: true, qaTesterValue: true },
   // Calm return (CALM_RETURN_V1, 18.10.2026, policy approved by David) — coming back after
   // missed workouts costs the user as little attention as possible: one getDaysAway for the
   // whole app, tiered lighter loads (src/lib/calm-return), no realign/rebuild popups, no

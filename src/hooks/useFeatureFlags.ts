@@ -23,6 +23,8 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FLAG_DEFS } from './feature-flag-defs';
+import { resolveViewerFlags } from './feature-flag-resolve';
+import { useIsQaTester } from '@/lib/qa/useIsQaTester';
 
 // ============================================================================
 // TYPES (derived from FLAG_DEFS — no separate list to keep in sync)
@@ -173,10 +175,18 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
     };
   }, []);
 
+  // AI testers (uid demo_qa_* + claim qa) get each flag's qaTesterValue while the demo
+  // switches are on — never the super-admin set. false for every real user (from the uid alone).
+  const isQaTester = useIsQaTester();
+
   // Super Admins bypass all flags — they always see every feature enabled
   // (maintenanceMode is the one exception, per SUPER_ADMIN_FLAGS above).
   if (isSuperAdmin) {
     return { flags: SUPER_ADMIN_FLAGS, rawFlags: flags, loading: false };
+  }
+
+  if (isQaTester) {
+    return { flags: resolveViewerFlags(flags, { isSuperAdmin: false, isQaTester: true }, SUPER_ADMIN_FLAGS), rawFlags: flags, loading };
   }
 
   return { flags, rawFlags: flags, loading };

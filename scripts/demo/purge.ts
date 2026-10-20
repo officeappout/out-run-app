@@ -24,6 +24,7 @@ async function main() {
     const plan = await planPurge(t.db);
     if (!args.flags.has('--summary')) plan.deletes.forEach((p) => console.log(`  מחיקה  ${p}`));
     plan.updates.forEach((u) => console.log(`  ניקוי  ${u.path} (${u.describe})`));
+    if (plan.testerUids.length) console.log(`  כניסה  ${plan.testerUids.length} חשבונות Auth של בודקים (${plan.testerUids.join(', ')})`);
     console.log(`\n${plan.uids.length} משתמשי דמו · ${plan.deletes.length} מסמכים למחיקה · ${plan.updates.length} מסמכי צופים לניקוי`);
     console.table(summarizePlan(plan));
     if (plan.problems.length) {
@@ -36,6 +37,12 @@ async function main() {
       return;
     }
     await executePurge(t.db, plan, (s) => console.log(s));
+    if (plan.testerUids.length && (!t.emulator || process.env.FIREBASE_AUTH_EMULATOR_HOST)) {
+      // AI tester sign-in records (demo_qa_* only — the plan never lists anything else).
+      const { getAuth } = await import('firebase-admin/auth');
+      const r = await getAuth(t.app).deleteUsers(plan.testerUids);
+      console.log(`חשבונות כניסה של בודקים: נמחקו ${r.successCount}, נכשלו ${r.failureCount}`);
+    }
     const after = await planPurge(t.db);
     console.log(after.deletes.length ? `נשארו ${after.deletes.length} מסמכים — הרץ שוב.` : 'עולם הדמו נמחק. לא נשאר כלום.');
   } finally {

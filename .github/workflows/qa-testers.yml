@@ -1,0 +1,106 @@
+name: qa-testers
+
+# AI testers in the closed demo world (agent-briefs/ai-testers-design.md B3/B4, owner-approved
+# 20.10.2026). Started ONLY by hand: the owner's "הפעל בודקים" button on /admin/demo (which
+# dispatches this workflow with `requested_by`) or "Run workflow" in GitHub. No secrets in the
+# repo; no service-account key anywhere — Google access comes from Workload Identity Federation.
+# Setup + deploy steps: scripts/qa/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      requested_by:
+        description: 'Who started it (filled by /admin/demo)'
+        required: false
+        default: ''
+      missions:
+        description: 'Comma list of mission ids (empty = all)'
+        required: false
+        default: ''
+      device:
+        description: 'Device profile'
+        required: false
+        default: 'iphone-13'
+        type: choice
+        options: [iphone-13, iphone-se, iphone-15-pro-max, android-small]
+      max_sessions:
+        description: 'Max sessions in this run (hard cap 8)'
+        required: false
+        default: '3'
+  # Nightly tour — OFF until the owner decides (design §7.2 item 9).
+  # schedule:
+  #   - cron: '0 23 * * *' # 02:00 Israel (winter time)
+
+# Never two runs at once (one browser on production at a time).
+concurrency:
+  group: qa-testers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # GitHub OIDC → Google (WIF)
+
+jobs:
+  testers:
+    name: AI testers
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      # Optional device matrix — keep max-parallel 1 (sessions run one after another).
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        device: ['${{ inputs.device || ''iphone-13'' }}']
+    env:
+      QA_RUN_ID: qa-${{ github.run_id }}-${{ matrix.device }}
+      QA_DEVICE: ${{ matrix.device }}
+      QA_MISSIONS: ${{ inputs.missions }}
+      QA_MAX_SESSIONS: ${{ inputs.max_sessions || '3' }}
+      QA_MINT_URL: ${{ vars.QA_MINT_URL || 'https://us-central1-appout-1.cloudfunctions.net/mintDemoTesterToken' }}
+      QA_MODEL: ${{ vars.QA_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      # Playwright is not a repo dependency (browsers are big); pinned here.
+      - run: npm install --no-save --no-audit --no-fund --ignore-scripts playwright@1.55.0
+      - name: Install the browser
+        run: |
+          if [ "$QA_DEVICE" = "android-small" ]; then npx playwright install --with-deps chromium; else npx playwright install --with-deps webkit; fi
+
+      # One identity, two uses: an ID token for mintDemoTesterToken (audience = its URL) and the
+      # credentials file the Admin SDK reads (findings, usage, heartbeat, screenshots).
+      - name: Google auth (WIF, qa-runner)
+        id: gcp
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.QA_WIF_PROVIDER }}
+          service_account: ${{ vars.QA_RUNNER_SA }}
+          token_format: id_token
+          id_token_audience: ${{ env.QA_MINT_URL }}
+          id_token_include_email: true
+          create_credentials_file: true
+
+      - name: Run the testers
+        env:
+          ANTHROPIC_DEMO_KEY: ${{ secrets.ANTHROPIC_DEMO_KEY }}
+          APPCHECK_DEBUG_TOKEN: ${{ secrets.APPCHECK_DEBUG_TOKEN }}
+          QA_ID_TOKEN: ${{ steps.gcp.outputs.id_token }}
+        run: npx tsx scripts/qa/run.ts
+
+      - name: Overseer (report + control-center summary)
+        if: always()
+        run: npx tsx scripts/qa/overseer.ts --run-id "$QA_RUN_ID"
+
+      - name: Keep the run folder (report, findings, run.json) for 14 days
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.QA_RUN_ID }}
+          path: qa-out/
+          retention-days: 14
+          if-no-files-found: ignore

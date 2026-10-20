@@ -118,3 +118,8 @@ export { cityMappingDiscoveryPoller } from './geoDiscoveryWorker';
 // for the admin "תרגילים שמחליפים הכי הרבה" page. NOT deployed yet — see the
 // PR's deploy steps (functions:onExerciseSwapCreated,onWorkoutCreateExerciseStats).
 export { onExerciseSwapCreated, onWorkoutCreateExerciseStats } from './exerciseStats';
+// ── AI testers (20.10.2026, owner-approved — agent-briefs/ai-testers-design.md B2) ──
+// Custom tokens ONLY for demo_qa_* testers, only for the qa-runner service account (IAM
+// invoker + OIDC check), only while enable_demo_users && enable_ai_testers. NOT deployed by
+// the PR — see scripts/qa/README.md (deploy: functions:mintDemoTesterToken).
+export { mintDemoTesterToken } from './mintDemoTesterToken';
