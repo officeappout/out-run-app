@@ -20,6 +20,8 @@ export interface LineChartProps {
   labelEvery?: number;
   ariaLabel?: string;
   className?: string;
+  /** Prints the called-out value (e.g. a pace "5:42" from a plotted speed). Default: formatStat. */
+  formatValue?: (value: number) => string;
 }
 
 /**
@@ -39,6 +41,7 @@ export default function LineChart({
   labelEvery,
   ariaLabel,
   className = '',
+  formatValue = formatStat,
 }: LineChartProps) {
   const id = useId();
   const reduce = useReducedMotion();
@@ -116,7 +119,7 @@ export default function LineChart({
               <circle cx={px} cy={py} r="7" fill={color} opacity="0.18" />
               <circle cx={px} cy={py} r="4.5" fill="#fff" stroke={color} strokeWidth="2.5" />
               <text x={px} y={py - 12} textAnchor="middle" fontSize="11" fontWeight="800" fill="#0e1419">
-                {formatStat(data[i].value)}
+                {formatValue(data[i].value)}
               </text>
             </>
           ) : (
