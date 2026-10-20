@@ -22,8 +22,9 @@ import { db } from '@/lib/firebase';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import {
   readDate,
+  kindOfWorkoutType,
   toProgressDay,
-  toProgressWorkout,
+  toProgressWorkouts,
   type ProgressDay,
   type ProgressWorkout,
 } from '../utils/progress-model';
@@ -44,13 +45,16 @@ export async function getWorkoutsWindow(uid: string, start: Date, end: Date, max
     limit(max),
   );
   const snap = await getDocs(q);
-  return snap.docs
-    .map((d) => toProgressWorkout(d.id, d.data()))
-    .filter((w): w is ProgressWorkout => w !== null)
-    .reverse();
+  // A combined workout → one entry per part (run / walk / strength) — see toProgressWorkouts.
+  return snap.docs.flatMap((d) => toProgressWorkouts(d.id, d.data())).reverse();
 }
 
-/** The last `n` workouts of one workoutType, oldest → newest. */
+/**
+ * The last `n` workouts of one workoutType, oldest → newest. Combined workouts
+ * (hybrid) are fetched too and contribute only their part of this type — a
+ * route + stops run leg shows under runs, its stations under strength (owner,
+ * 20.10.2026). `in` on workoutType uses the same (userId, workoutType, date) index.
+ */
 export async function getRecentWorkoutsOfType(
   uid: string,
   workoutType: 'running' | 'walking' | 'strength',
@@ -60,14 +64,15 @@ export async function getRecentWorkoutsOfType(
   const q = query(
     collection(db, 'workouts'),
     where('userId', '==', uid),
-    where('workoutType', '==', workoutType),
+    where('workoutType', 'in', [workoutType, 'hybrid']),
     orderBy('date', 'desc'),
     limit(n),
   );
   const snap = await getDocs(q);
+  const lens = kindOfWorkoutType(workoutType);
   return snap.docs
-    .map((d) => toProgressWorkout(d.id, d.data()))
-    .filter((w): w is ProgressWorkout => w !== null)
+    .flatMap((d) => toProgressWorkouts(d.id, d.data()))
+    .filter((w) => w.kind === lens)
     .reverse();
 }
 

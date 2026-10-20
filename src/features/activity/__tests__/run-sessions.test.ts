@@ -14,6 +14,13 @@ describe('weekly runs count only runs (owner 20.10.2026)', () => {
     expect(isRunSession({ workoutType: 'hybrid', activityType: 'running' })).toBe(true);
     expect(isRunSession({ workoutType: 'hybrid', activityType: 'walking' })).toBe(false);
   });
+  it('a real hybrid doc (activityType "hybrid") counts by its legs', () => {
+    const station = { kind: 'strength', actual: { durationSec: 300, sets: 6 } };
+    const runLeg = { kind: 'aerobic', aerobicType: 'running', actual: { durationSec: 600, distanceKm: 2 } };
+    const walkLeg = { kind: 'aerobic', aerobicType: 'walking', actual: { durationSec: 600, distanceKm: 1 } };
+    expect(isRunSession({ workoutType: 'hybrid', activityType: 'hybrid', segments: [walkLeg, station, runLeg] })).toBe(true);
+    expect(isRunSession({ workoutType: 'hybrid', activityType: 'hybrid', segments: [walkLeg, station, walkLeg] })).toBe(false);
+  });
   it('counts a week of mixed docs', () => {
     expect(countRunSessions([
       { workoutType: 'running' }, { workoutType: 'walking' }, { workoutType: 'walking' },

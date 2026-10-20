@@ -2,7 +2,7 @@
  * P-1c summary card — the small per-day (week) / per-week (month) bars next to
  * each secondary number, and the activity split for the ring. Pure.
  */
-import type { ProgressDay, ProgressWorkout } from './progress-model';
+import { sessionKeyOf, type ProgressDay, type ProgressWorkout } from './progress-model';
 import type { DayRange, PeriodSummary, ProgressPeriod } from './progress-period';
 
 export interface PeriodSpark {
@@ -35,11 +35,17 @@ export function periodSpark(period: ProgressPeriod, range: DayRange, workouts: P
   const workoutsB = new Array<number>(count).fill(0);
   const kmB = new Array<number>(count).fill(0);
   const stepsB = new Array<number>(count).fill(0);
+  const counted = new Set<string>();
   for (const w of workouts) {
     if (w.date < range.start || w.date >= range.end) continue;
     const i = bucketOf(w.date);
     if (i < 0 || i >= count) continue;
-    workoutsB[i] += 1;
+    // A combined workout's parts are ONE workout (hybrid counting, 20.10.2026).
+    const key = sessionKeyOf(w);
+    if (!counted.has(key)) {
+      counted.add(key);
+      workoutsB[i] += 1;
+    }
     if (w.kind === 'run' || w.kind === 'walk' || w.type === 'hybrid') kmB[i] += w.km;
   }
   for (const d of days) {

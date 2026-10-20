@@ -31,6 +31,25 @@ describe('periodTotalsIncrements', () => {
     expect(h['progression.periodTotals.2026-10.minutes.strength']).toBe(30);
     expect(h['progression.periodTotals.2026-10.minutes.run']).toBe(20);
   });
+  it('hybrid with parts: run legs → run, walk legs → walk, stations → strength (owner 20.10.2026)', () => {
+    const h = periodTotalsIncrements(
+      {
+        workoutType: 'hybrid', durationMinutes: 45, distanceKm: 4.2, sets: 9,
+        categorySplits: [{ category: 'cardio', durationMinutes: 33 }, { category: 'strength', durationMinutes: 10 }],
+        hybridParts: { runMinutes: 18, runKm: 3, walkMinutes: 15, walkKm: 1.2, strengthMinutes: 10 },
+      },
+      NOW,
+    );
+    expect(h).toEqual({
+      'progression.periodTotals.2026-10.workouts': 1,
+      'progression.periodTotals.2026-10.minutes.run': 18,
+      'progression.periodTotals.2026-10.km.run': 3,
+      'progression.periodTotals.2026-10.minutes.walk': 15,
+      'progression.periodTotals.2026-10.km.walk': 1.2,
+      'progression.periodTotals.2026-10.minutes.strength': 10,
+      'progression.periodTotals.2026-10.sets': 9,
+    });
+  });
   it('month key pads', () => expect(monthKey(new Date(2026, 0, 5))).toBe('2026-01'));
 });
 

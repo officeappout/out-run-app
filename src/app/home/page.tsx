@@ -1694,7 +1694,8 @@ export default function HomePage() {
     isWalker: walkWeek.isWalker,
     isViewingToday: isSelectedDateToday,
     today: walkWeek.today,
-    walkedToday: (todaysWorkouts ?? []).some((w) => w.workoutType === 'walking' || w.activityType === 'walking'),
+    // A combined workout's walking leg counts as a walk (hybrid counting, 20.10.2026).
+    walkedToday: doneKindsOf(todaysWorkouts).includes('walk'),
     steps: walkStepsToday,
     stepGoal: walkStepGoal,
   });

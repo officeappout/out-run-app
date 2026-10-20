@@ -4,19 +4,22 @@
  * `categorySessions.cardio` lumps runs, walks and cycling together, so the runs come from
  * this week's workout docs instead. PURE.
  *
- * A run = workoutType / activityType 'running' (a run + strength hybrid with a running leg
- * counts too — the same rule as home's doneKindsOf). Weekly km stays combined (walk + run).
+ * A run = workoutType / activityType 'running', or a combined workout (hybrid) that has a
+ * running leg (owner, 20.10.2026 — counted per part, see hybrid-counting.ts; the hybrid doc's
+ * own activityType is always 'hybrid', so the leg types decide). Weekly km stays combined.
  */
+import { doneKindsOfDoc } from '@/features/workout-engine/hybrid/hybrid-counting';
+
 export interface RunSessionDoc {
   workoutType?: string | null;
   activityType?: string | null;
+  /** Combined workouts: the per-leg records (aerobicType decides run vs walk). */
+  segments?: unknown;
 }
 
 export function isRunSession(doc: RunSessionDoc | null | undefined): boolean {
   if (!doc) return false;
-  const type = doc.workoutType || doc.activityType || '';
-  if (type === 'running') return true;
-  return type === 'hybrid' && doc.activityType === 'running';
+  return doneKindsOfDoc(doc).includes('run');
 }
 
 export function countRunSessions(docs: ReadonlyArray<RunSessionDoc | null | undefined> | null | undefined): number {
