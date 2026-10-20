@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
+import { DEMO_ACTOR_TARGET_ERROR, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,9 +39,11 @@ export async function POST(request: NextRequest) {
 
     let uid: string;
     let displayName: string | undefined;
+    let actorIsDemo = false;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
       // Pass token name only if it's a real name (Google/Apple sign-in).
       // Anonymous users have no name in the token; passing 'משתמש' as a truthy
       // placeholder would shadow the real name in joinEngine's Firestore fallback.
@@ -63,12 +66,14 @@ export async function POST(request: NextRequest) {
         target: { type: 'group', inviteCode },
         uid,
         displayName,
+        actorIsDemo,
       });
     } catch (err) {
       if (err instanceof JoinEngineError) {
         if (err.code === 'target-not-found') {
           return NextResponse.json({ error: 'invalid-invite-code' }, { status: 404 });
         }
+        if (err.code === 'demo-actor-target') return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
         return NextResponse.json({ error: err.code }, { status: 400 });
       }
       throw err;

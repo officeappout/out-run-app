@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
+import { isDemoActorClaims } from '@/lib/demo-actor';
 import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
 
 export const runtime = 'nodejs';
@@ -40,10 +41,12 @@ export async function POST(request: NextRequest) {
     let uid: string;
     let displayName: string | undefined;
     let photoURL: string | undefined;
+    let actorIsDemo = false;
     try {
       // checkRevoked=true so stolen anonymous tokens are rejected promptly.
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
       // Pass token name only if it's a real name (Google/Apple sign-in).
       // Anonymous users have no name in the token; passing 'משתמש' as a truthy
       // placeholder would shadow the real name in joinEngine's Firestore fallback.
@@ -71,6 +74,7 @@ export async function POST(request: NextRequest) {
         uid,
         displayName,
         photoURL,
+        actorIsDemo,
       });
     } catch (err) {
       if (err instanceof JoinEngineError) {
@@ -80,6 +84,7 @@ export async function POST(request: NextRequest) {
           err.code === 'target-expired' ? 403 :
           err.code === 'max-uses-reached' ? 403 :
           err.code === 'host-not-member' ? 403 :
+          err.code === 'demo-actor-target' ? 403 :
           400;
         const errorKey =
           err.code === 'target-not-found' ? 'invalid-token' :

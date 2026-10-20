@@ -57,6 +57,8 @@ export default defineConfig({
       'tests/firestore-admin-costs.rules.test.ts',
       // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
       'tests/firestore-demo-registry.rules.test.ts',
+      // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
+      'tests/firestore-demo-actor-sandbox.rules.test.ts',
       // site_content published-only read / content_suggestions server-only — emulator :8089.
       'tests/firestore-site-content.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',

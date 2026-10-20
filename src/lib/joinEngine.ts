@@ -18,6 +18,8 @@
  */
 
 import { isContentRemoved } from '@/lib/moderation';
+import { isDemoUid } from '@/lib/demo';
+import { demoActorTargetBlocked } from '@/lib/demo-actor';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp, Firestore } from 'firebase-admin/firestore';
 
@@ -49,7 +51,9 @@ export type JoinEngineErrorCode =
   | 'target-expired'
   | 'max-uses-reached'
   | 'token-group-mismatch'
-  | 'host-not-member';
+  | 'host-not-member'
+  /** B1 sandbox: a demo actor (uid demo_* / claim demo) may only join demo- groups. */
+  | 'demo-actor-target';
 
 export class JoinEngineError extends Error {
   constructor(
@@ -77,6 +81,11 @@ export interface JoinEngineInput {
   /** Used for the member record name; falls back to existing core.name or 'משתמש'. */
   displayName?: string;
   photoURL?: string;
+  /**
+   * The verified token carries the `demo: true` claim (src/lib/demo-actor.ts). A `demo_`
+   * uid is detected here anyway; routes pass the claim so a claim-only actor is caught too.
+   */
+  actorIsDemo?: boolean;
 }
 
 export interface JoinResult {
@@ -216,6 +225,12 @@ export async function joinEngine(input: JoinEngineInput): Promise<JoinResult> {
     if (groupSnapForModeration.exists && isContentRemoved(groupSnapForModeration.data())) {
       throw new JoinEngineError('target-not-found', `[joinEngine] group "${groupId}" is not available`);
     }
+  }
+
+  // B1 demo sandbox (ai-testers-design.md §2.5): a demo actor never joins a real group —
+  // checked after resolution, before any write. No effect on real users.
+  if (demoActorTargetBlocked(input.actorIsDemo === true || isDemoUid(input.uid), [groupId])) {
+    throw new JoinEngineError('demo-actor-target', `[joinEngine] demo actor may not join non-demo group "${groupId}"`);
   }
 
   // ── Step 2: Identify user (new / existing) ─────────────────────────────────

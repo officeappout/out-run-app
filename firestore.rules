@@ -26,6 +26,53 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // ── Demo actor sandbox (B1, agent-briefs/ai-testers-design.md §2.5, owner-approved
+    // 20.10.2026). A DEMO ACTOR is a signed-in caller whose uid starts with `demo_` or
+    // whose token carries the custom claim `demo: true` (the AI testers sign in as
+    // demo_qa_* with that claim). A demo actor may write chat / kudos / group-join /
+    // reports ONLY to demo targets (`demo_` users, `demo-` groups, the owner's viewer
+    // accounts in demo_registry/viewers), and its own profile's authorityId / tenantId /
+    // neighborhoodId must be empty or `demo-*`. Every call site is written
+    // `!isDemoActor() || …`: for a real user isDemoActor() is false from the token alone
+    // (no document read), so nothing changes for real users. Same test as
+    // src/lib/demo-actor.ts (the Admin-SDK API routes). Tests:
+    // tests/firestore-demo-actor-sandbox.rules.test.ts. NOT DEPLOYED by the PR.
+    function isDemoActor() {
+      return request.auth != null
+        && (request.auth.uid.matches('^demo_.*') || request.auth.token.get('demo', false) == true);
+    }
+    function isDemoUidStr(v) {
+      return v is string && v.matches('^demo_.*');
+    }
+    function isDemoScopeStr(v) {
+      return v is string && v.matches('^demo-.*');
+    }
+    // A user a demo actor may reach: itself, another demo user, or a registered viewer.
+    // The viewers read happens only for a non-demo target (fails closed if the doc is missing).
+    function isDemoPeer(u) {
+      return u == request.auth.uid
+        || isDemoUidStr(u)
+        || u in get(/databases/$(database)/documents/demo_registry/viewers).data.get('uids', []);
+    }
+    // A chat a demo actor may write to: a demo- group's chat, or a DM between demo peers.
+    function isDemoChat(c) {
+      return (c.get('type', '') == 'group' && isDemoScopeStr(c.get('groupId', '')))
+        || (c.get('type', '') == 'dm'
+            && c.get('participants', []).size() == 2
+            && isDemoPeer(c.get('participants', [])[0])
+            && isDemoPeer(c.get('participants', [])[1]));
+    }
+    function isEmptyOrDemoScope(v) {
+      return v == null || v == '' || isDemoScopeStr(v);
+    }
+    function demoActorProfileOk() {
+      let nxt = request.resource.data.get('core', {});
+      return !isDemoActor()
+        || (isEmptyOrDemoScope(nxt.get('authorityId', ''))
+            && isEmptyOrDemoScope(nxt.get('tenantId', ''))
+            && isEmptyOrDemoScope(nxt.get('neighborhoodId', '')));
+    }
+
     // Root admin — hardcoded emails, case-insensitive.
     // Uses auth token directly (no Firestore read), so it never fails.
     // 14.10.2026 — a chat whose group/event was quarantined by moderation
@@ -502,7 +549,9 @@ service cloud.firestore {
                     && (isAdmin() || request.resource.data.get('core', {}).get('tenantId', '') == '')
                     && (isAdmin() || request.resource.data.get('core', {}).get('tenantType', '') == '')
                     && (isAdmin() || request.resource.data.get('core', {}).get('unitId', '') == '')
-                    && (isAdmin() || request.resource.data.get('core', {}).get('unitPath', []).size() == 0);
+                    && (isAdmin() || request.resource.data.get('core', {}).get('unitPath', []).size() == 0)
+                    // B1 demo sandbox: a demo actor's city / unit is demo-* (or empty).
+                    && demoActorProfileOk();
 
       // UPDATE — owner may write everything EXCEPT the protected groups
       // (admin/role, tenant, game-integrity, social-group-ids, and — since
@@ -516,7 +565,8 @@ service cloud.firestore {
                     && noGameIntegrityFieldsChanged()
                     && noSocialGroupIdsChanged()
                     && noLockedCoreFieldsChanged()
-                    && noEntitlementFieldsChanged();
+                    && noEntitlementFieldsChanged()
+                    && demoActorProfileOk();
 
       // DELETE — owner can delete their own doc.
       allow delete: if isOwner(userId);
@@ -2205,6 +2255,8 @@ service cloud.firestore {
         // Admin-SDK server route (/api/social/group-membership) that
         // handles the code-gated join path has its own equivalent check.
         allow create: if isAuthenticated() && !isAnonymous() && request.auth.uid == uid
+          // B1 demo sandbox: a demo actor joins only demo- groups.
+          && (!isDemoActor() || isDemoScopeStr(docId))
           && !blockedByGroupPersonaGate(docId)
           && (
             get(/databases/$(database)/documents/community_groups/$(docId)).data.get('isPublic', false) == true
@@ -2450,7 +2502,9 @@ service cloud.firestore {
       // SPEC-03 Wave C: sending a kudo is a social gesture visible to its
       // recipient — the same "like" category the policy names explicitly,
       // requires a real account.
-      allow create: if isAuthenticated() && !isAnonymous() && request.resource.data.fromUid == request.auth.uid;
+      allow create: if isAuthenticated() && !isAnonymous() && request.resource.data.fromUid == request.auth.uid
+                    // B1 demo sandbox: a demo actor high-fives only demo users / viewers.
+                    && (!isDemoActor() || isDemoPeer(recipientUid));
       allow update: if isOwner(recipientUid);
     }
 
@@ -2548,11 +2602,14 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/users/$(request.resource.data.participants[0]))
                          .data.get('core', {}).get('ageGroup', '') == 'adult'
                     && get(/databases/$(database)/documents/users/$(request.resource.data.participants[1]))
-                         .data.get('core', {}).get('ageGroup', '') == 'adult';
+                         .data.get('core', {}).get('ageGroup', '') == 'adult'
+                    // B1 demo sandbox: a demo actor opens DMs only with demo peers.
+                    && (!isDemoActor() || isDemoChat(request.resource.data));
       // Group chat create: requesting user in participants, type == 'group'
       allow create: if isAuthenticated()
                     && request.auth.uid in request.resource.data.participants
-                    && request.resource.data.type == 'group';
+                    && request.resource.data.type == 'group'
+                    && (!isDemoActor() || isDemoChat(request.resource.data));
 
       // Existing participants can update (send message metadata, mark read, etc.)
       // 14.10.2026 — no member update on a quarantined chat, and moderationState/
@@ -2562,7 +2619,8 @@ service cloud.firestore {
                     && request.auth.uid in resource.data.participants
                     && resource.data.get('moderationState', '') != 'removed'
                     && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['moderationState', 'removedBy', 'removedAt']);
+                         .hasAny(['moderationState', 'removedBy', 'removedAt'])
+                    && (!isDemoActor() || isDemoChat(resource.data));
       // Group chat JOIN: SPEC-02 SEC-03 (part 2) — this used to let ANY
       // authenticated user self-add to a group chat's `participants` via
       // arrayUnion(uid), with only `type == 'group'` checked. chatId is
@@ -2591,6 +2649,7 @@ service cloud.firestore {
                     && !request.resource.data.diff(resource.data).affectedKeys()
                          .hasAny(['moderationState', 'removedBy', 'removedAt'])
                     && request.auth.uid in request.resource.data.participants
+                    && (!isDemoActor() || isDemoChat(resource.data))
                     && (
                       exists(/databases/$(database)/documents/community_groups/$(resource.data.groupId)/members/$(request.auth.uid)) ||
                       exists(/databases/$(database)/documents/community_events/$(resource.data.groupId)/registrations/$(request.auth.uid))
@@ -2610,7 +2669,9 @@ service cloud.firestore {
                       && chatNotRemoved(chatId)
                       && request.auth.uid == request.resource.data.senderUid
                       && request.auth.uid in
-                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+                         get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      // B1 demo sandbox: a demo actor writes only in demo chats.
+                      && (!isDemoActor() || isDemoChat(get(/databases/$(database)/documents/chats/$(chatId)).data));
         // Update: only to add uid to readBy
         // 10.10.2026 (adversarial audit fix) — the comment above always
         // said "only to add uid to readBy," but the rule enforced nothing
@@ -2647,7 +2708,12 @@ service cloud.firestore {
     // Tests: tests/firestore-rules.test.ts RP-*.
     // ============================================================
     match /reports/{reportId} {
-      allow create: if request.auth != null;
+      // B1 demo sandbox: a demo actor reports only demo content (demo_ user / doc id, demo- group).
+      // isDemoActor() reads nothing, so the no-get() note above still holds.
+      allow create: if request.auth != null
+                    && (!isDemoActor()
+                        || isDemoUidStr(request.resource.data.get('targetId', ''))
+                        || isDemoScopeStr(request.resource.data.get('targetId', '')));
       allow read, update, delete: if isRootAdmin();
     }
 

@@ -22,6 +22,7 @@ import crypto from 'crypto';
 import { addScheduleEntryAdmin } from '@/lib/addScheduleEntryAdmin';
 import { sanitizePlannedRun } from '@/lib/planned-run';
 import { APP_ORIGIN } from '@/lib/config/domain';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, demoScopedId, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -99,9 +100,11 @@ export async function POST(request: NextRequest) {
 
   let uid: string;
   let displayName: string;
+  let actorIsDemo = false;
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken, true);
     uid          = decoded.uid;
+    actorIsDemo  = isDemoActorClaims(decoded);
     displayName  = decoded.name ?? 'משתמש';
   } catch {
     return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
@@ -142,6 +145,8 @@ export async function POST(request: NextRequest) {
 
   if (existingGroupId && existingAttendanceId) {
     // ── Re-invite: reuse existing live session ──────────────────────────────
+    // B1 demo sandbox: a demo actor only re-invites into a demo group.
+    if (demoActorTargetBlocked(actorIsDemo, [existingGroupId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
     const memberSnap = await db
       .doc(`community_groups/${existingGroupId}/members/${uid}`)
       .get();
@@ -152,7 +157,9 @@ export async function POST(request: NextRequest) {
     attendanceId = existingAttendanceId;
   } else {
     // ── Fresh invite: create ephemeral group ────────────────────────────────
-    groupId      = db.collection('community_groups').doc().id;
+    // B1 demo sandbox: a demo actor's ephemeral group gets a demo- id (+ isDemo) so it
+    // stays inside the demo world. Real callers: unchanged random id, no extra field.
+    groupId      = demoScopedId(actorIsDemo, db.collection('community_groups').doc().id, 'run');
     attendanceId = scheduledFor ? parseScheduledFor(scheduledFor).attendanceId : nowAttendanceId();
 
     const [datePart, timePart] = attendanceId.split('_');
@@ -174,6 +181,7 @@ export async function POST(request: NextRequest) {
       currentParticipants: 1,
       isActive:            true,
       isPublic:            false,
+      ...(actorIsDemo ? { isDemo: true } : {}),
       ...(plannedRun ? { plannedRun } : {}),
       createdAt:           FieldValue.serverTimestamp(),
       updatedAt:           FieldValue.serverTimestamp(),
