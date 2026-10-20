@@ -1663,8 +1663,11 @@ export default function HomePage() {
   const isProgramSlideCarouselItem = (
     item: Suggestion | { id: string },
   ): item is { id: typeof PROGRAM_SLIDE_ID } => item.id === PROGRAM_SLIDE_ID;
-  const programSlideNavigate = (track: ProgramTrack, navigate: () => void) => {
-    interceptWorkoutStart(navigate, track);
+  // Program slide is enable_home_v2-only. The tap opens a track's signup, not a
+  // workout: only the health declaration gates it ('program-signup' skips the soft
+  // equipment sheet). Closing the sheet without proceeding releases the card's spinner.
+  const programSlideNavigate = (track: ProgramTrack, navigate: () => void, cancel: () => void) => {
+    interceptWorkoutStart(navigate, featureFlags.enableHomeV2 ? 'program-signup' : track, cancel);
   };
   const programSlideCard = (
     <HomeProgramSlide
@@ -3409,7 +3412,7 @@ export default function HomePage() {
                         ) : isStrengthInviteCarouselItem(s) ? (
                           <AddStrengthProgramCard
                             profile={profile}
-                            onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
+                            onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'strength', cancel)}
                           />
                         ) : (
                           <PreWorkoutCardRenderer
@@ -3628,7 +3631,7 @@ export default function HomePage() {
                   ) : isStrengthInviteCarouselItem(s) ? (
                     <AddStrengthProgramCard
                       profile={profile}
-                      onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}
+                      onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'strength', cancel)}
                     />
                   ) : (
                     <PostWorkoutCardRenderer
