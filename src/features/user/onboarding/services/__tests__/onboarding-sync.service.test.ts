@@ -1450,3 +1450,44 @@ describe('syncOnboardingToFirestore — questionnaire level caps: skill→founda
     expect(written.progression.tracks.push.currentLevel).toBe(23);
   });
 });
+
+describe('syncOnboardingToFirestore — enable_home_v2: the signup long-run day (running.longRunDay)', () => {
+  it('the v2 week step stored runningLongRunDay → written to running.longRunDay, kept through the running bridge', async () => {
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+    const ok = await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ג', 'ו'],
+      runningScheduleTime: '07:00',
+      runningLongRunDay: 5,
+    } as any);
+    expect(ok).toBe(true);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect(written.running.isUnlocked).toBe(true);
+    expect(written.running.longRunDay).toBe(5);
+  });
+
+  it('no runningLongRunDay (flag off — only the v2 step sets it) → the field is not written', async () => {
+    stubBrowserStorage({
+      onboarding_running_answers: JSON.stringify({ goalPath: 'start_running', targetDistance: '5k' }),
+    });
+    await syncOnboardingToFirestore('COMPLETED', {
+      runningWeeklyFrequency: 3,
+      runningScheduleDays: ['א', 'ג', 'ה'],
+      runningScheduleTime: '07:00',
+    } as any);
+    const written = setDocMock.mock.calls[0][1] as any;
+    expect('longRunDay' in written.running).toBe(false);
+  });
+
+  it('null / out-of-range values are not written', async () => {
+    stubBrowserStorage();
+    for (const v of [null, 7, -1, 2.5]) {
+      setDocMock.mockClear();
+      await syncOnboardingToFirestore('SCHEDULE' as any, { runningScheduleDays: ['א'], runningLongRunDay: v } as any);
+      const written = setDocMock.mock.calls[0]?.[1] as any;
+      expect(written?.running?.longRunDay).toBeUndefined();
+    }
+  });
+});

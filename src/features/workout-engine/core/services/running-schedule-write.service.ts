@@ -1,4 +1,5 @@
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { normalizeLongRunDay } from '@/features/schedule/utils/longRunDay';
 import { db } from '@/lib/firebase';
 import { getPaceMapConfig, getRunWorkoutTemplates } from './running-admin.service';
 import { DEFAULT_PACE_MAP_CONFIG } from '../config/pace-map-config';
@@ -336,6 +337,12 @@ export interface CompleteRunningScheduleChoiceInput {
   frequency: number;
   /** HH:MM. */
   time: string;
+  /**
+   * enable_home_v2 (the schedule builder only): the long-run day (0-6) of the week
+   * the user approved → `running.longRunDay`, written with the days (same update).
+   * Omitted = the field is not touched.
+   */
+  longRunDay?: number | null;
 }
 
 export type CompleteRunningScheduleChoiceResult =
@@ -491,6 +498,8 @@ export async function completeRunningScheduleFirstChoice(
     'lifestyle.reminders.runningTime': time,
     'lifestyle.scheduleDays': mergedLifestyleScheduleDays,
   };
+  const longRunDay = normalizeLongRunDay(input.longRunDay);
+  if (longRunDay !== null) baseFields['running.longRunDay'] = longRunDay;
 
   if (builtActiveProgram) {
     try {

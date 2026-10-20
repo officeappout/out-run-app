@@ -73,6 +73,7 @@ export async function saveScheduleProposal(
           scheduleDays: plan.runningScheduleDays,
           frequency: plan.runningFrequency,
           time: ctx.runningTime,
+          ...(plan.runningLongRunDay != null ? { longRunDay: plan.runningLongRunDay } : {}),
         });
       }
       return { ok: true, running, runningSkipped: plan.runningSkipped };

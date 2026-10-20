@@ -136,10 +136,24 @@ describe('runPlacementOf', () => {
     expect(runPlacementOf({ paceProfile: { profileType: 3 }, generatedProgramTemplate: { targetDistance: '10k' } })).toEqual({
       level: 'beginner',
       targetDistance: '10k',
+      preferredLongRunDay: null,
     });
     expect(runPlacementOf({ paceProfile: { profileType: 1 } }).level).toBe('advanced');
     expect(runPlacementOf({ onboardingData: { currentAbility: { abilityTier: 'none' } } }).level).toBe('beginner');
-    expect(runPlacementOf(undefined)).toEqual({ level: 'intermediate', targetDistance: null });
+    expect(runPlacementOf(undefined)).toEqual({ level: 'intermediate', targetDistance: null, preferredLongRunDay: null });
+  });
+
+  it('the stored long-run day (running.longRunDay) → preferredLongRunDay; invalid values ignored', () => {
+    expect(runPlacementOf({ longRunDay: 5 }).preferredLongRunDay).toBe(5);
+    expect(runPlacementOf({ longRunDay: 9 }).preferredLongRunDay).toBeNull();
+    expect(runPlacementOf({ longRunDay: null }).preferredLongRunDay).toBeNull();
+  });
+
+  it('home places the long run on the signup choice: Sun/Tue/Fri with longRunDay Sunday', () => {
+    const m = mapRunWeek(week([Q1, L, Q2]), [0, 2, 5], { byType: true, ...runPlacementOf({ longRunDay: 0 }) });
+    const rec = recommendRunWeek({ slots: [Q1, L, Q2], days: [0, 2, 5], preferredLongRunDay: 0, level: 'intermediate', targetDistance: '5k' });
+    expect(m.get(0)?.slotType).toBe('long_run');
+    expect(layout(m)).toEqual(rec.days.map((d) => `${d.dow}:${d.slot}`));
   });
 });
 

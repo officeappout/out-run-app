@@ -140,6 +140,7 @@ export function adviseWeek(input: AdvisorInput): WeekAdvice | null {
   const weaveInput = buildWeaverInput(input.profile, controls.mode, controls.focus, controls.availableDayCount, at, {
     resolveSlug: input.resolveSlug,
     unarrangedStrengthDays: input.unarrangedStrengthDays,
+    ...(input.runsByType ? { runsByType: true } : {}),
   });
   if (!weaveInput) return null;
   const woven = weaveWeek(weaveInput);

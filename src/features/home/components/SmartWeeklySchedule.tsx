@@ -883,6 +883,7 @@ export default function SmartWeeklySchedule({
   // Map running schedule entries to week day indices (0=Sunday)
   const placeLevel = runPlacement?.level;
   const placeDistance = runPlacement?.targetDistance;
+  const placeLongDay = runPlacement?.preferredLongRunDay;
   const runningEntriesByDayIndex = useMemo(() => {
     // enable_home_v2: by slot type — the long run on its engine-v2 day, the
     // same week the signup summary showed (runWeekByType).
@@ -891,6 +892,7 @@ export default function SmartWeeklySchedule({
         byType: true,
         level: placeLevel,
         targetDistance: placeDistance,
+        preferredLongRunDay: placeLongDay,
       });
     }
     if (runOverlay) return mapRunEntriesToWeekdays(currentWeekEntries, runOverlayDays ?? [], HEBREW_DAYS);
@@ -907,7 +909,7 @@ export default function SmartWeeklySchedule({
       if (dayIdx !== undefined) map.set(dayIdx, entry);
     });
     return map;
-  }, [v2, placeLevel, placeDistance, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
+  }, [v2, placeLevel, placeDistance, placeLongDay, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
 
   const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
     const params = new URLSearchParams();

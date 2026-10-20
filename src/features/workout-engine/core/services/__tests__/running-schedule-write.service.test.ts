@@ -487,3 +487,21 @@ describe('completeRunningScheduleFirstChoice', () => {
     expect(payload['running.scheduleDays']).toEqual(['א']);
   });
 });
+
+describe('completeRunningScheduleFirstChoice — running.longRunDay (enable_home_v2, schedule builder)', () => {
+  it('longRunDay given → written in the same update as the days', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ו'], frequency: 3, time: '07:00', longRunDay: 5 });
+    expect(updateDocMock).toHaveBeenCalledTimes(1);
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect(payload['running.longRunDay']).toBe(5);
+    expect(payload['running.scheduleDays']).toEqual(['א', 'ג', 'ו']);
+  });
+
+  it('omitted (flag off / every other caller) → the field is not touched', async () => {
+    state.USER_DOC = { running: RUNNING_BASE, lifestyle: {} };
+    await completeRunningScheduleFirstChoice({ uid: 'uid-1', scheduleDays: ['א', 'ג', 'ה'], frequency: 3, time: '07:00' });
+    const [, payload] = updateDocMock.mock.calls[0];
+    expect('running.longRunDay' in payload).toBe(false);
+  });
+});

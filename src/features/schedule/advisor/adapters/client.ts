@@ -27,6 +27,8 @@ export interface ClientAdvisorArgs {
   resolveSlug?: ResolveSlug;
   weeklyDomainSets?: Record<string, number> | null;
   unarrangedStrengthDays?: number;
+  /** enable_home_v2 — see WeaverInputOptions.runsByType. */
+  runsByType?: boolean;
 }
 
 export function toAdvisorInputFromClient(a: ClientAdvisorArgs): AdvisorInput {
@@ -39,5 +41,6 @@ export function toAdvisorInputFromClient(a: ClientAdvisorArgs): AdvisorInput {
     resolveSlug: a.resolveSlug,
     weeklyDomainSets: a.weeklyDomainSets ?? null,
     ...(a.unarrangedStrengthDays !== undefined ? { unarrangedStrengthDays: a.unarrangedStrengthDays } : {}),
+    ...(a.runsByType ? { runsByType: true } : {}),
   };
 }
