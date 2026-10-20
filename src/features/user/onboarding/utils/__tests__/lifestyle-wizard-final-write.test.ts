@@ -125,3 +125,32 @@ describe('buildLifestyleWizardFinalWrite — lifestyleTags', () => {
     expect(out.lifestyle.lifestyleTags).toEqual([]);
   });
 });
+
+describe('buildLifestyleWizardFinalWrite — v2 shared reminders step (calendarSyncAnswered)', () => {
+  it('runner who saw the reminders step: the calendar answer is written, nothing else', () => {
+    const out = buildLifestyleWizardFinalWrite({ ...base, calendarSyncAnswered: true, calendarSyncEnabled: false, historyFrequency: '3+' });
+    expect(out.settings).toEqual({ calendarSync: false });
+    expect(out.lifestyle).not.toHaveProperty('trainingHistory');
+    expect(out.lifestyle).not.toHaveProperty('scheduleDays');
+  });
+
+  it('strength v2 week + reminders: days merged with running days, history + calendar written', () => {
+    const out = buildLifestyleWizardFinalWrite({
+      ...base,
+      strengthScheduleEdited: true,
+      editedScheduleDays: ['ה', 'א', 'ג'],
+      existingRunningScheduleDays: ['ב'],
+      historyFrequency: '1-2',
+      calendarSyncAnswered: true,
+      calendarSyncEnabled: true,
+    });
+    expect(out.lifestyle.scheduleDays).toEqual(['א', 'ב', 'ג', 'ה']);
+    expect(out.lifestyle.trainingHistory).toBe('1-2');
+    expect(out.settings).toEqual({ calendarSync: true });
+  });
+
+  it('answered flag without a boolean value writes nothing', () => {
+    const out = buildLifestyleWizardFinalWrite({ ...base, calendarSyncAnswered: true });
+    expect(out).not.toHaveProperty('settings');
+  });
+});

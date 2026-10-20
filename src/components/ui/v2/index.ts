@@ -101,3 +101,6 @@ export type { LevelComparison, LevelCompareIconProps } from './LevelCompareIcon'
 export { default as RevealOnScroll } from './RevealOnScroll';
 export type { RevealOnScrollProps } from './RevealOnScroll';
 export * from './reveal';
+// Signup schedule steps: the "ממליצים לך" pre-filled recommendation card.
+export { default as RecommendationCard } from './RecommendationCard';
+export type { RecommendationCardProps } from './RecommendationCard';
