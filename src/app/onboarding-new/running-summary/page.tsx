@@ -24,7 +24,7 @@ export default function RunningSummaryPage() {
       phaseLabel={RUNNING_PHASES.labels[RUNNING_PHASES.SUMMARY]}
       hideContinueButton
     >
-      <RunningPlanSummary onGenerate={handleGenerate} />
+      <RunningPlanSummary onGenerate={handleGenerate} onEditDays={() => router.back()} />
     </OnboardingLayout>
   );
 }

@@ -4,6 +4,7 @@ import {
   buildWeeklyVolumePattern,
   easyPaceRangeLabel,
   isConservativePlan,
+  paceTargetRows,
   recoveryCadenceWeeks,
   weekLabelsToShow,
 } from '../running-plan-shape';
@@ -84,6 +85,23 @@ describe('easyPaceRangeLabel', () => {
   it('10K in 50:00 → slow/fast table easy zone, formatted m:ss–m:ss', () => {
     const label = easyPaceRangeLabel({ goalPath: 'improve_time', targetDistance: '10k', paceInputSeconds: 3000 });
     expect(label).toMatch(/^\d+:\d{2}–\d+:\d{2}$/);
+  });
+});
+
+describe('paceTargetRows', () => {
+  it('[] without an entered result', () => {
+    expect(paceTargetRows({ goalPath: 'start_running', targetDistance: '5k' })).toEqual([]);
+  });
+  it('improve time → easy/long, tempo, short reps — easy matches easyPaceRangeLabel', () => {
+    const answers = { goalPath: 'improve_time', targetDistance: '10k', paceInputSeconds: 3000 };
+    const rows = paceTargetRows(answers);
+    expect(rows.map((r) => r.label)).toEqual(['קלה וארוכה', 'טמפו', 'חזרות קצרות']);
+    expect(rows[0].range).toBe(easyPaceRangeLabel(answers));
+    rows.forEach((r) => expect(r.range).toMatch(/^\d+:\d{2}–\d+:\d{2}$/));
+  });
+  it('other goals → easy + fartlek', () => {
+    const rows = paceTargetRows({ goalPath: 'maintain_fitness', targetDistance: '5k', paceInputSeconds: 1800 });
+    expect(rows.map((r) => r.label)).toEqual(['קלה וארוכה', 'פארטלק']);
   });
 });
 

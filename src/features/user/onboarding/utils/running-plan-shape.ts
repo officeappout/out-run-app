@@ -121,19 +121,48 @@ function mapGoal(goalPath: unknown, targetDistance: unknown): RunnerGoal {
  * falls back to this same default — if an admin changed the table, the
  * plan's real range can differ slightly. null when no result was given.
  */
-export function easyPaceRangeLabel(answers: {
-  goalPath?: unknown;
-  targetDistance?: unknown;
-  paceInputSeconds?: unknown;
-}): string | null {
+export function easyPaceRangeLabel(answers: PaceAnswers): string | null {
+  return paceZonesFor(answers)?.easy?.label ?? null;
+}
+
+type PaceAnswers = { goalPath?: unknown; targetDistance?: unknown; paceInputSeconds?: unknown };
+
+/** The default-pace-map zones for an entered result, or null when none was given. */
+function paceZonesFor(answers: PaceAnswers): ReturnType<typeof computeZones> | null {
   const secs = typeof answers.paceInputSeconds === 'number' ? answers.paceInputSeconds : 0;
   if (!(secs > 0)) return null;
   // Byte-for-byte the bridge's deriveBasePace(): reference = target distance.
   const km = DIST_KM[String(answers.targetDistance ?? '5k')] ?? 5;
   const basePace = calibrateBasePace(secs, km, km);
   const profileType = determineProfileType(mapGoal(answers.goalPath, answers.targetDistance), basePace);
-  const zones = computeZones(basePace, profileType, DEFAULT_PACE_MAP_CONFIG);
-  return zones.easy?.label ?? null;
+  return computeZones(basePace, profileType, DEFAULT_PACE_MAP_CONFIG);
+}
+
+export interface PaceTargetRow {
+  label: string;
+  /** "6:20–6:50" (min:sec per km). */
+  range: string;
+}
+
+/**
+ * "יעדי קצב" tile (enable_home_v2 plan summary, jr/J2-11): the zones this
+ * plan's sessions run in, from the same default pace map as the easy label
+ * above — easy/long always; tempo + short reps for a time-improvement plan
+ * (its quality pool), fartlek for the other goals. [] when no result was
+ * entered (paces are only known after the first runs then).
+ */
+export function paceTargetRows(answers: PaceAnswers): PaceTargetRow[] {
+  const z = paceZonesFor(answers);
+  if (!z) return [];
+  const rows: PaceTargetRow[] = [];
+  if (z.easy?.label) rows.push({ label: 'קלה וארוכה', range: z.easy.label });
+  if (answers.goalPath === 'improve_time') {
+    if (z.tempo?.label) rows.push({ label: 'טמפו', range: z.tempo.label });
+    if (z.interval_short?.label) rows.push({ label: 'חזרות קצרות', range: z.interval_short.label });
+  } else if (z.fartlek_medium?.label) {
+    rows.push({ label: 'פארטלק', range: z.fartlek_medium.label });
+  }
+  return rows;
 }
 
 // ── "מה יש בתוכנית" rows ───────────────────────────────────────────
