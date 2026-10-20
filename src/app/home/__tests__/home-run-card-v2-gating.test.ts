@@ -64,13 +64,19 @@ describe('home/page.tsx — v2 run card wiring', () => {
     expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2)');
     expect(pageSrc).toContain('!hasStrengthProgram && !featureFlags.enableHomeV2');
     // The walker's walk card (enable_home_v2) is placed between the run card and the program slide.
-    expect(pageSrc).toContain('placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, programSlide.plan)');
-    expect(pageSrc).toMatch(/featureFlags\.enableHomeV2\s*\?\s*placeProgramSlide<[^>]*>\(postWorkoutSuggestions/);
+    expect(pageSrc).toContain('placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, carouselProgramPlan)');
+    // The new user's start rows take the slide out of the carousels; otherwise it is programSlide.plan.
+    expect(pageSrc).toContain("const carouselProgramPlan: typeof programSlide.plan = newUserHome.startRows ? { mode: 'none' } : programSlide.plan;");
+    expect(pageSrc).toMatch(/featureFlags\.enableHomeV2\s*\?\s*placeProgramSlide<[^>]*>\(postWorkoutItems/);
+    // postWorkoutItems: the v2 next-up order; flag off it IS postWorkoutSuggestions.
+    expect(pageSrc).toMatch(/const postWorkoutItems = postWorkoutSuggestions && featureFlags\.enableHomeV2\s*\?[\s\S]*?:\s*postWorkoutSuggestions;/);
   });
 
   it('the program slide falls back to standalone under the strip when no carousel hosts it', () => {
     expect(pageSrc).toContain('const programSurface = resolveProgramSlideSurface({');
-    expect(pageSrc).toContain("const programStandalone = programSurface === 'standalone' ? (");
+    // A new user's start rows (enable_home_v2) come first; otherwise the standalone slide.
+    expect(pageSrc).toContain("const programStandalone = newUserHome.startRows && programSlide.plan.mode === 'start' ? (");
+    expect(pageSrc).toContain(") : programSurface === 'standalone' ? (");
     expect(pageSrc).toContain('<>{calmCard}{programStandalone}{content}</>');
     // Flag off: plan 'none' → no standalone, the slot renders `content` exactly as before.
     expect(pageSrc).toMatch(/calmCard \|\| programStandalone\s*\?[\s\S]*?:\s*content;/);

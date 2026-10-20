@@ -243,8 +243,8 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   if (slot.kind === 'assessment_prompt') {
     return <AssessmentPromptCard onSelect={onSelect} onArm={onArm} consumeArmed={consumeArmed} />;
   }
-  // enable_home_v2 only (the slot never exists with the flag off): today's planned run.
-  if (slot.kind === 'planned_run') {
+  // enable_home_v2 only (the slots never exist with the flag off): today's planned run / walk.
+  if (slot.kind === 'planned_run' || slot.kind === 'planned_walk') {
     return (
       <PlannedRunSlotCard
         slot={slot}
