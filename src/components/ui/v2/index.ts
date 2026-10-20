@@ -119,3 +119,9 @@ export type { SegmentedRingProps } from './SegmentedRing';
 export * from './segmented-ring';
 export { default as SparkBars } from './SparkBars';
 export type { SparkBarsProps } from './SparkBars';
+// Progress comparison (P-1d / P-1e): one bar split by share, and now-vs-before paired bars.
+export { default as SplitBar } from './SplitBar';
+export type { SplitBarProps, SplitBarSegment } from './SplitBar';
+export { default as PairedBarRow, PAIRED_PREVIOUS_COLOR } from './PairedBarRow';
+export type { PairedBarRowProps } from './PairedBarRow';
+export * from './compare-bars';
