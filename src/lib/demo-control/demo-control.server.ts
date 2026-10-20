@@ -4,7 +4,7 @@ import 'server-only';
  * the routes check that). demo_registry is closed to every client by firestore.rules, so
  * this file is the panel's only path to it. Every read is bounded:
  *   - flags / config / control: 3 single-doc gets
- *   - usage: ONE query, newest 31 day docs (today + the 30 before = any month to date)
+ *   - usage: ONE getAll of the 31 day docs by id (today + the 30 before = any month to date)
  *   - demo users: ONE query on the `demo_` uid range, projected to lastActive, limit 500
  */
 import { FieldPath, FieldValue, type Firestore } from 'firebase-admin/firestore';
@@ -42,33 +42,63 @@ export function isDispatchConfigured(): boolean {
   return !!process.env.GITHUB_DISPATCH_TOKEN?.trim();
 }
 
+/** The last USAGE_WINDOW_DAYS Israel date keys, newest first (day docs are keyed by date). */
+export function usageWindowKeys(now: Date, days = USAGE_WINDOW_DAYS): string[] {
+  const keys: string[] = [];
+  for (let i = 0; keys.length < days && i < days + 2; i++) {
+    const k = getIsraelDateKey(new Date(now.getTime() - i * 86_400_000));
+    if (!keys.includes(k)) keys.push(k);
+  }
+  return keys;
+}
+
+/** One failing read must not blank the whole panel — log which part failed, use the fallback. */
+async function safeRead<T>(part: string, read: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await read();
+  } catch (err) {
+    console.error(`[demo-control] status read failed: ${part}`, err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 export async function loadDemoStatus(db: Firestore, now = new Date()): Promise<DemoStatusPayload> {
-  const [flagsSnap, configSnap, controlSnap, usageSnap, usersSnap] = await Promise.all([
-    db.collection('system_config').doc('feature_flags').get(),
-    registry(db).doc(DEMO_CONFIG_DOC).get(),
-    registry(db).doc(DEMO_CONTROL_DOC).get(),
-    usageDays(db).orderBy(FieldPath.documentId(), 'desc').limit(USAGE_WINDOW_DAYS).get(),
-    db
-      .collection('users')
-      .where(FieldPath.documentId(), '>=', DEMO_UID_PREFIX)
-      .where(FieldPath.documentId(), '<', DEMO_UID_RANGE_END)
-      .select('lastActive')
-      .limit(DEMO_USERS_READ_LIMIT)
-      .get(),
+  // Usage day docs are keyed YYYY-MM-DD, so read them by id (getAll) — no ordered
+  // query on __name__ and no index needed.
+  const usageRefs = usageWindowKeys(now).map((k) => usageDays(db).doc(k));
+  const [flagsSnap, configSnap, controlSnap, usageSnaps, usersSnap] = await Promise.all([
+    safeRead('flags', () => db.collection('system_config').doc('feature_flags').get(), null),
+    safeRead('config', () => registry(db).doc(DEMO_CONFIG_DOC).get(), null),
+    safeRead('control', () => registry(db).doc(DEMO_CONTROL_DOC).get(), null),
+    safeRead('usage', () => db.getAll(...usageRefs), []),
+    safeRead(
+      'demo-users',
+      () =>
+        db
+          .collection('users')
+          .where(FieldPath.documentId(), '>=', DEMO_UID_PREFIX)
+          .where(FieldPath.documentId(), '<', DEMO_UID_RANGE_END)
+          .select('lastActive')
+          .limit(DEMO_USERS_READ_LIMIT)
+          .get(),
+      null,
+    ),
   ]);
+  const usageDocs = usageSnaps.filter((d) => d.exists).map((d) => ({ id: d.id, data: d.data() ?? {} }));
+  const userDocs = usersSnap?.docs ?? [];
 
   return buildDemoStatus({
     nowMs: now.getTime(),
     todayKey: getIsraelDateKey(now),
-    flagsRaw: flagsSnap.data(),
-    configRaw: configSnap.data(),
-    controlRaw: controlSnap.data(),
-    usageDocs: usageSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
-    demoUserActiveDays: usersSnap.docs.map((d) => {
+    flagsRaw: flagsSnap?.data(),
+    configRaw: configSnap?.data(),
+    controlRaw: controlSnap?.data(),
+    usageDocs,
+    demoUserActiveDays: userDocs.map((d) => {
       const ms = millisOf(d.get('lastActive'));
       return ms === null ? null : getIsraelDateKey(new Date(ms));
     }),
-    demoUsersCapped: usersSnap.size >= DEMO_USERS_READ_LIMIT,
+    demoUsersCapped: userDocs.length >= DEMO_USERS_READ_LIMIT,
     dispatchConfigured: isDispatchConfigured(),
   });
 }
