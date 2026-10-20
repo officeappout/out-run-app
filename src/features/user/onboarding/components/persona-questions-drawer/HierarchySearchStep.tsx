@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { isDemoTenant } from '@/lib/demo';
 import { ChevronRight, Search, Check, Plus } from 'lucide-react';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { db, auth } from '@/lib/firebase';
@@ -79,7 +80,10 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
     where('parentId', '==', parentId),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
+  // Demo world guard: a demo unit is never offered to a real soldier (the
+  // functions already keep demo out of unitDirectory — belt and braces).
+  const docs = snap.docs.filter((d) => !isDemoTenant(d.data(), d.data().orgId));
+  return docs.map((d) => {
     const data = d.data();
     return {
       directoryId: d.id,

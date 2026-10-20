@@ -55,6 +55,8 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
+      // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
+      'tests/firestore-demo-registry.rules.test.ts',
       // site_content published-only read / content_suggestions server-only — emulator :8089.
       'tests/firestore-site-content.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',

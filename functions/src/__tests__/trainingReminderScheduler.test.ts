@@ -207,6 +207,19 @@ describe('trainingReminderScheduler — personalized hour targeting', () => {
     expect(tokens.sort()).toEqual(uids.map((u) => `tok-${u}`));
   });
 
+  it('demo world guard (20.10.2026): a demo user is never reminded, the real one next to them is', async () => {
+    setIsraelTime(18);
+    seedSchedule('demo_c1', TODAY);
+    seedUser('demo_c1', '18:00');
+    seedSchedule('user1', TODAY);
+    seedUser('user1', '18:00');
+
+    await (trainingReminderScheduler as any)();
+
+    const tokens = fakeMessaging.sendEachForMulticast.mock.calls.flatMap((c: any) => c[0].tokens);
+    expect(tokens).toEqual(['tok-user1']);
+  });
+
   it('does not fire when the run hour does not match the preferred hour', async () => {
     setIsraelTime(17);
     seedSchedule('user1', TODAY);

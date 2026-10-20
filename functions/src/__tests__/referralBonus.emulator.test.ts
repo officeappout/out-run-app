@@ -67,6 +67,12 @@ describe('applyReferralBonus', () => {
     expect((await db.doc(week('city', 'tlv')).get()).data()!.totalCredit).toBe(50);
   });
 
+  it('demo world guard (20.10.2026): no bonus when the invitee or the referrer is a demo user', async () => {
+    expect(await applyReferralBonus(db, ts, inc, 'r1_demo_c1', { referrerUid: 'r1', inviteeUid: 'demo_c1' }, NOW)).toBe('no-user');
+    expect(await applyReferralBonus(db, ts, inc, 'demo_c1_x', { referrerUid: 'demo_c1', inviteeUid: 'x' }, NOW)).toBe('no-user');
+    expect((await db.doc('league_scope_stats_processed/referral_r1_demo_c1').get()).exists).toBe(false);
+  });
+
   it('no self-referral', async () => {
     expect(await applyReferralBonus(db, ts, inc, 'r1_r1', { referrerUid: 'r1', inviteeUid: 'r1' }, NOW)).toBe('self');
   });

@@ -37,6 +37,7 @@ import {
   type ScopeKind,
   type ScopeStatsDoc,
 } from '@/features/arena/services/league-scope-keys';
+import { isDemoScope, isDemoTenantId } from '@/lib/demo';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
   let docs = await readPeriod(periodKey);
 
   // Names, kinds and parents of every scope on the board (one batched read).
-  const meta = new Map<string, { name: string; kind: ScopeKind; parentId: string | null }>();
+  const meta = new Map<string, { name: string; kind: ScopeKind; parentId: string | null; isDemo: boolean }>();
   const loadMeta = async (ids: string[]) => {
     const missing = ids.filter((id) => !meta.has(id));
     if (!missing.length) return;
@@ -106,13 +107,19 @@ export async function GET(req: NextRequest) {
         name: (a.exists && (d.name as string)) || a.id,
         kind: scopeKindOf(d.type, d.parentAuthorityId),
         parentId: typeof d.parentAuthorityId === 'string' ? d.parentAuthorityId : null,
+        isDemo: d.isDemo === true,
       });
     });
   };
   await loadMeta(Array.from(new Set(docs.map((d) => d.scopeId))));
 
   // National boards: settlements vs real neighborhoods; the city board by kind.
+  // Demo world guard (demo-users-design.md L4): demo cities / neighborhoods
+  // never appear on a real board. Only a demo city's own neighborhood board
+  // (an explicit demo parentId) shows demo scopes.
+  const demoParentBoard = board === 'neighborhood' && isDemoTenantId(parentId);
   const keep = (id: string) => {
+    if (!demoParentBoard && isDemoScope(id, meta.get(id))) return false;
     const k = meta.get(id)?.kind ?? 'other';
     if (board === 'settlement') return k === 'settlement';
     if (board === 'neighborhood-national') return k !== 'settlement';

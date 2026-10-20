@@ -30,6 +30,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isDemoTenantId, isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -119,6 +120,14 @@ export const onMilitaryDeclarationWritten = onDocumentWritten(
     const { uid } = event.params;
     const before = event.data?.before?.exists ? event.data.before.data() : null;
     const after = event.data?.after?.exists ? event.data.after.data() : null;
+
+    // Demo world guard (demo-users-design.md L3): a demo soldier (or a
+    // declaration under a demo org) never joins the real national reserve
+    // league — demo reservists only live in their demo unit.
+    if (isDemoUid(uid) || isDemoTenantId(after?.orgId) || isDemoTenantId(before?.orgId)) {
+      logger.info(`[militaryReserveLeague] ${uid} is demo — reserve league untouched`);
+      return;
+    }
 
     const wasReserve = before?.status === 'reserve';
     const isReserve = after?.status === 'reserve';

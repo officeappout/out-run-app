@@ -421,7 +421,13 @@ service cloud.firestore {
       let cur = resource.data.get('core', {});
       let nxt = request.resource.data.get('core', {});
       return cur.get('ageGroup',  '') == nxt.get('ageGroup',  cur.get('ageGroup',  ''))
-          && cur.get('birthDate', null) == nxt.get('birthDate', cur.get('birthDate', null));
+          && cur.get('birthDate', null) == nxt.get('birthDate', cur.get('birthDate', null))
+          // Demo world stamp (20.10.2026, demo-users-design.md L1) — written
+          // only by the Admin SDK seed script; an owner can't add, change or
+          // remove it on their own doc. Strict (no fallback, unlike the two
+          // above): only a stamped doc can ever fail this, and real users
+          // have none.
+          && cur.get('demo', null) == nxt.get('demo', null);
     }
 
     // ============================================================
@@ -478,6 +484,8 @@ service cloud.firestore {
                     && !('role' in request.resource.data)
                     && !('ageGroup'  in request.resource.data.get('core', {}))
                     && !('birthDate' in request.resource.data.get('core', {}))
+                    // Demo world stamp — Admin SDK only (see noLockedCoreFieldsChanged).
+                    && !('demo' in request.resource.data.get('core', {}))
                     && request.resource.data.get('core', {}).get('isSuperAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isSystemAdmin', false) == false
                     && request.resource.data.get('core', {}).get('isVerticalAdmin', false) == false
@@ -3345,6 +3353,21 @@ service cloud.firestore {
     //
     // NOT YET DEPLOYED as of this commit — deploy from main after merge.
     match /agents/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
+    // DEMO REGISTRY (20.10.2026, owner-approved closed demo world —
+    // agent-briefs/demo-users-design.md L5). The allow-list of demo uids,
+    // demo groups/chats/authorities and the owner's viewer accounts
+    // (demo_registry/viewers = { uids }). Server-only: written by the
+    // Admin SDK seed / bind-viewer scripts, read by Cloud Function guards.
+    // No client — not even a super admin — may read or write it. The ROOT
+    // ADMIN FALLBACK below still matches for the two root accounts;
+    // tests/firestore-demo-registry.rules.test.ts pins everyone else out.
+    // NOT YET DEPLOYED as of this commit — deploy from main after merge.
+    // ============================================================
+    match /demo_registry/{document=**} {
       allow read, write: if false;
     }
 

@@ -20,6 +20,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import type { GroupBoard } from './league-scope-keys';
 import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
+import { isDemoTenantId, isDemoUid } from '@/lib/demo';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -462,6 +463,8 @@ export async function getStreakLeaderboard(params: {
   snap.forEach((d) => {
     const data = d.data();
     const uid = d.id; // doc ID === uid
+    // Demo world guard — demo streaks only on a demo scope's own board.
+    if (isDemoUid(uid) && !isDemoTenantId(scopeId)) return;
     const streak = (data.currentStreak as number) || 0;
     if (streak <= 0) return;
     const name =

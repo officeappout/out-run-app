@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp, type Query } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isDemoTenantId, isDemoUid } from '@/lib/demo';
 import {
   boardScopeField,
   boardWindowStart,
@@ -115,7 +116,13 @@ export async function GET(req: NextRequest) {
     }
     const snap = await ref.limit(MAX_DOCS).get();
     if (snap.size >= MAX_DOCS) console.warn('[individual-board] read cap hit', { key });
-    const docs = snap.docs.map((d) => d.data());
+    // Demo world guard (demo-users-design.md L3): demo rows never reach a real
+    // board (they are written with ageGroup:'demo' so the queries above miss
+    // them anyway). A demo scope's own board keeps them.
+    const keepDemo = isDemoTenantId(scopeId);
+    const docs = snap.docs
+      .map((d) => d.data())
+      .filter((d) => keepDemo || !(isDemoUid(d.uid) || isDemoUid(d.authorUid) || isDemoUid(d.userId)));
     rows = { at: Date.now(), rows: mode === 'steps' ? stepsRows(docs) : feedRows(docs, mode, mode === 'credit' ? category : null) };
     cache.set(key, rows);
     if (cache.size > 500) cache.delete(cache.keys().next().value as string);

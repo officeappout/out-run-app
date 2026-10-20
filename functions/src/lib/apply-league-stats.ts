@@ -17,6 +17,7 @@ import {
   workoutCreditParts,
   type LeagueWindow,
 } from './league-scope-stats';
+import { demoSafeScopeTargets } from './demo';
 
 const WINDOWS: LeagueWindow[] = ['weekly', 'monthly'];
 type Bucket = { credit: number; members: number };
@@ -39,7 +40,8 @@ export async function applyWorkoutToLeagueStats(
 
   const u = (await db.collection('users').doc(uid).get()).data() ?? {};
   const core = (u.core ?? {}) as Record<string, unknown>;
-  const targets = scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []);
+  // Demo world guard: a demo user counts toward demo scopes only.
+  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []));
   if (!targets.length) return 'no-scope';
   const gender = core.gender === 'male' || core.gender === 'female' ? core.gender : null;
 
@@ -138,7 +140,8 @@ export async function applyStepsToLeagueStats(
   const u = (await db.collection('users').doc(uid).get()).data();
   if (!u) return 'no-user';
   const core = (u.core ?? {}) as Record<string, unknown>;
-  const targets = scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []);
+  // Demo world guard: a demo user counts toward demo scopes only.
+  const targets = demoSafeScopeTargets(uid, core, scopeTargetsFor(core, (u.social as { groupIds?: unknown } | undefined)?.groupIds ?? []));
   if (!targets.length) return 'no-scope';
   const gender = core.gender === 'male' || core.gender === 'female' ? core.gender : null;
   // Midday in Israel on that date → the right week / month keys.

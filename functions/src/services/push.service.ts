@@ -84,6 +84,7 @@ import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions';
 import { writePushSentEvent } from './push-events.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './shabbat.service';
+import { withoutDemoUids } from '../lib/demo';
 import {
   RETENTION_LAST_DAY,
   lapsedSuppressionReason,
@@ -403,7 +404,7 @@ export interface SendPushResult {
  */
 export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const {
-    toUids,
+    toUids: requestedUids,
     channel,
     title,
     body,
@@ -412,6 +413,11 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
     dryRun = false,
     skipQuietHours = false,
   } = opts;
+
+  // Demo world guard (demo-users-design.md L3): a simulated demo user is
+  // never a push recipient — no token reads, no push_rate / push_events
+  // writes. Real uids pass through unchanged.
+  const toUids = withoutDemoUids(requestedUids);
 
   // system channel: no rate cap, no quiet hours, no pref filter
   const isSystem = channel === 'system';

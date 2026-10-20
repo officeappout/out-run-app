@@ -121,6 +121,7 @@ import {
   firstNameFromUserData,
 } from './services/push-copy.service';
 import type { PushAudience } from './shared/push-library.core';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -358,6 +359,7 @@ export const onboardingDropoffDispatcher = onSchedule(
     for (const docSnap of candidateDocs) {
       const data = docSnap.data() as Record<string, any>;
       const uid = docSnap.id;
+      if (isDemoUid(uid)) continue; // demo world guard — sends FCM directly, not via sendPush
 
       // Lifetime cap + cooldown guard.
       const capReason = dropoffCapSkipReason(data);

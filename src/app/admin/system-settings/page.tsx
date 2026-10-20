@@ -68,6 +68,7 @@ interface FlagState {
   enable_org_access_code_prompt: boolean;
   enable_entry_globe_v1: boolean;
   enable_jit_identity_v1: boolean;
+  enable_demo_users: boolean;
 }
 
 // ============================================================================
@@ -455,6 +456,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פרטים לפני הצהרת הבריאות',
     description: 'משתמש בלי שם (הרשמה מהירה) ממלא שם, פנייה ותאריך לידה לפני ההצהרה, כדי שההצהרה תיחתם על שמו.',
+  },
+  // Demo world (20.10.2026).
+  {
+    key: 'enable_demo_users',
+    icon: Users,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-600',
+    title: 'משתמשי דמו',
+    description: 'מפעיל את הסימולטור של עולם הדמו הסגור (עיריית דמו, יחידת דמו, ארגון דמו). כבוי = הסימולטור לא כותב כלום. משתמשי דמו לעולם לא מופיעים למשתמשים אמיתיים, גם כשהדגל דולק. לא נדלק אוטומטית לסופר-אדמין.',
   },
 ];
 

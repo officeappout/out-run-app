@@ -107,6 +107,7 @@ import {
 } from './services/push-copy.service';
 import type { PushAudience } from './shared/push-library.core';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -279,7 +280,7 @@ export const trainingReminderScheduler = onSchedule(
         };
 
         const uid = data.userId;
-        if (!uid) continue;
+        if (!uid || isDemoUid(uid)) continue; // demo world guard
 
         const entries = Array.isArray(data.entries) ? data.entries : [];
         // Find first uncompleted training entry for today
