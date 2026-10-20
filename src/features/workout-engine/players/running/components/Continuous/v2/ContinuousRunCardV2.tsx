@@ -142,7 +142,8 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
           </div>
         )}
 
-        <div className="mt-3">
+        {/* data-coach (inert): the route-player tip's target (enable_entry_whatnow_v1). */}
+        <div className="mt-3" data-coach="route-player-controls">
           <PlayerControls isPaused={isPaused} onPause={onPause} onResume={onResume} onLap={handleLap} onStop={onStop} />
         </div>
       </div>

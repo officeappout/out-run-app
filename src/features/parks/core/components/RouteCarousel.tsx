@@ -253,6 +253,12 @@ interface RouteCarouselProps {
    * a tap on it opens that drawer for the route. Omitted → today's cards.
    */
   onOpenRoute?: (route: Route) => void;
+  /**
+   * enable_entry_whatnow_v1 only: mark the focused card + its CTA as the first-route tutorial's
+   * targets and show `firstWorkoutNote` under the CTA. Omitted → byte-identical.
+   */
+  entryTutorial?: boolean;
+  firstWorkoutNote?: string | null;
 }
 
 type Phase = 'searching' | 'cards' | 'empty';
@@ -274,6 +280,8 @@ export default function RouteCarousel({
   onBack,
   onFocusChange,
   onOpenRoute,
+  entryTutorial = false,
+  firstWorkoutNote = null,
 }: RouteCarouselProps) {
   const setFreeRunCarouselRoutes = useMapStore((s) => s.setFreeRunCarouselRoutes);
 
@@ -483,6 +491,8 @@ export default function RouteCarousel({
             onBack={onBack}
             onFocusChange={onFocusChange}
             onOpenRoute={onOpenRoute}
+            entryTutorial={entryTutorial}
+            firstWorkoutNote={firstWorkoutNote}
           />
         )}
       </AnimatePresence>
@@ -767,6 +777,8 @@ function CardsState({
   onBack,
   onFocusChange,
   onOpenRoute,
+  entryTutorial = false,
+  firstWorkoutNote = null,
 }: {
   mode: 'loop' | 'commute';
   routes: Route[];
@@ -779,6 +791,8 @@ function CardsState({
   onBack: () => void;
   onFocusChange?: (route: Route) => void;
   onOpenRoute?: (route: Route) => void;
+  entryTutorial?: boolean;
+  firstWorkoutNote?: string | null;
 }) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -1030,6 +1044,8 @@ function CardsState({
               userPosition={userPosition}
               onStart={() => onSelect(route)}
               onOpen={onOpenRoute ? () => onOpenRoute(route) : undefined}
+              coach={entryTutorial && isActive}
+              footnote={entryTutorial ? firstWorkoutNote : null}
             />
           );
         })}
@@ -1069,6 +1085,8 @@ function RouteCard({
   userPosition,
   onStart,
   onOpen,
+  coach = false,
+  footnote = null,
 }: {
   route: Route;
   activity: ActivityType;
@@ -1077,7 +1095,14 @@ function RouteCard({
   onStart: () => void;
   /** v2 (enable_home_v2): render the overview drawer's compact header; tap → the drawer. */
   onOpen?: () => void;
+  /** enable_entry_whatnow_v1: this is the focused card → the tutorial's targets. */
+  coach?: boolean;
+  footnote?: string | null;
 }) {
+  // `data-coach` ids of the first-route tour (FIRST_RUN_COACH.routeCard / routeStart in
+  // user/onboarding/services/first-run-tour.ts) — literals, no cross-domain import.
+  const coachId = coach ? 'route-card' : undefined;
+  const ctaCoachId = coach ? 'route-start' : undefined;
   const stars = scoreToStars(route.score);
   const highlight = useMemo(() => routeHighlight(route), [route]);
   const displayName = route.name?.trim() || 'סיבוב מעגלי';
@@ -1129,6 +1154,9 @@ function RouteCard({
         blockedReason={blockedReason}
         blockedLabel={tooFarLabels.cta}
         onBlocked={(reason) => showToast('error', reason)}
+        coachId={coachId}
+        ctaCoachId={ctaCoachId}
+        footnote={footnote}
       />
     );
   }
@@ -1148,6 +1176,9 @@ function RouteCard({
         onCta={onStart}
         ctaBlockedReason={blockedReason}
         onCtaBlocked={(reason) => showToast('error', reason)}
+        coachId={coachId}
+        ctaCoachId={ctaCoachId}
+        footnote={footnote}
         ctaContent={
           <>
             <Play size={14} fill="currentColor" />
@@ -1162,6 +1193,7 @@ function RouteCard({
   return (
     <div
       dir="rtl"
+      data-coach={coachId}
       className={`${ROUTE_CARD_WIDTH} snap-center snap-always flex-shrink-0 bg-white rounded-3xl p-5 transition-all duration-300 ${
         isActive
           ? 'shadow-[0_0_0_2.5px_rgba(0,229,255,0.85),0_14px_32px_rgba(0,0,0,0.18)] scale-[1.02]'
@@ -1235,6 +1267,7 @@ function RouteCard({
       {/* Start CTA — same shape as ActivityCarousel CTA */}
       <button
         type="button"
+        data-coach={ctaCoachId}
         onClick={onStart}
         className="w-full text-center py-3 rounded-xl text-white text-sm font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
         style={{ backgroundColor: ACCENT }}

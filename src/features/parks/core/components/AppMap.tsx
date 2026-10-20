@@ -2294,15 +2294,16 @@ export default function AppMap({
           const isApproaching = stop.parkId != null && stop.parkId === approachingStationId;
           return (
           <Marker key={`hybrid-stop-${i}-${stop.lat}-${stop.lng}`} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
+            {/* data-coach (inert): the first stop is the first-route tour's step-2 target. */}
             {stop.image ? (
-              <div className="relative flex items-center justify-center pointer-events-none">
+              <div className="relative flex items-center justify-center pointer-events-none" data-coach={i === 0 ? 'route-strength-stop' : undefined}>
                 {isApproaching && (
                   <div className="absolute rounded-full animate-ping" style={{ width: 74, height: 74, background: 'rgba(0,186,247,0.25)' }} />
                 )}
                 <ParkPhotoMarker name={stop.name ?? 'תחנת כוח'} photoUrl={stop.image} size={64} isSelected />
               </div>
             ) : (
-              <div className="flex flex-col items-center pointer-events-none">
+              <div className="flex flex-col items-center pointer-events-none" data-coach={i === 0 ? 'route-strength-stop' : undefined}>
                 {stop.name && (
                   <div dir="rtl" className="mb-1 px-2 py-0.5 rounded-full text-[11px] font-black text-white whitespace-nowrap"
                     style={{ background: '#00BAF7', boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>

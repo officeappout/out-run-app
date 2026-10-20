@@ -32,10 +32,14 @@ export interface RouteOverviewCompactCardProps {
   blockedLabel?: string;
   onBlocked?: (reason: string) => void;
   className?: string;
+  /** enable_entry_whatnow_v1: inert `data-coach` targets (card / CTA) + the first-workout line. */
+  coachId?: string;
+  ctaCoachId?: string;
+  footnote?: string | null;
 }
 
 export default function RouteOverviewCompactCard({
-  route, activity, isActive, onOpen, onStart, blockedReason = null, blockedLabel, onBlocked, className = '',
+  route, activity, isActive, onOpen, onStart, blockedReason = null, blockedLabel, onBlocked, className = '', coachId, ctaCoachId, footnote,
 }: RouteOverviewCompactCardProps) {
   const act = initialRouteActivity(route, activity);
   const min = activityMinutes(route.distance, act);
@@ -49,7 +53,7 @@ export default function RouteOverviewCompactCard({
     onStart();
   };
   return (
-    <div dir="rtl" onClick={open} role="button" tabIndex={0}
+    <div dir="rtl" data-coach={coachId} onClick={open} role="button" tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter') open(); }}
       className={`${ROUTE_CARD_WIDTH} shrink-0 cursor-pointer rounded-[22px] bg-white transition-all duration-300 ease-v2 ${
         isActive ? 'shadow-v2-float ring-2 ring-v2-accent scale-[1.02]' : 'shadow-v2-card opacity-90 scale-[0.97]'
@@ -75,7 +79,7 @@ export default function RouteOverviewCompactCard({
       </div>
       <div className="mt-3">
         {isActive ? (
-          <button type="button" onClick={cta} aria-disabled={!!blockedReason}
+          <button type="button" data-coach={ctaCoachId} onClick={cta} aria-disabled={!!blockedReason}
             className={`flex h-[42px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full text-[15px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
               blockedReason ? 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline' : 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
             }`}>
@@ -87,6 +91,9 @@ export default function RouteOverviewCompactCard({
             className="flex h-[42px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]">
             בחר את המסלול הזה <ChevronLeft size={15} />
           </button>
+        )}
+        {footnote && (
+          <p className="mt-1.5 text-center text-[11.5px] leading-snug text-[#94a3b8]">{footnote}</p>
         )}
       </div>
     </div>
