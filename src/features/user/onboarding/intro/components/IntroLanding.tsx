@@ -35,7 +35,6 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
         <motion.img
           src={`${INTRO_IMG}/city-portrait.jpg`}
           alt={LANDING_COPY.cityAlt}
-          fetchPriority="high"
           className="absolute inset-0 h-full w-full object-cover object-center"
           style={{ transformOrigin: '50% 60%' }}
           initial={reduce ? false : { scale: 1.06 }}
