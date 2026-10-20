@@ -57,6 +57,8 @@ import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { usePlannedDay } from '@/features/home/hooks/usePlannedDay';
 import { useNextRecommendation } from '@/features/home/hooks/useNextRecommendation';
 import PlannedDayPreview from '@/features/home/components/day-preview/PlannedDayPreview';
+import ProgramStartRows from '@/features/home/components/start-cards/ProgramStartRows';
+import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
 import { dayTimingOf, type PlanKind } from '@/features/home/utils/day-plan';
 import { dropStepsDuplicate, nextHeaderHe, orderByNext, suggestionKindOf } from '@/features/home/utils/next-recommendation';
 import { useWalkTopUp } from '@/features/home/hooks/useWalkTopUp';
@@ -1772,6 +1774,25 @@ export default function HomePage() {
       onDismissAdd={programSlide.dismissAdd}
     />
   );
+  // enable_home_v2 new user (no strength / run / walk plan, owner 20.10.2026): the start
+  // cards become full-width rows under the week strip (not a carousel slide), the
+  // generated workout carousel stays below as "או אימון מהיר עכשיו", and before the first
+  // workout the tabs block shows only steps (with health data) or nothing. Any plan → inactive.
+  const weekSessionsAll = useActivityStore((s) => {
+    const c = s.weeklySummary?.categorySessions as Record<string, number> | undefined;
+    return c ? Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
+  });
+  const newUserHome = resolveNewUserHome({
+    v2: featureFlags.enableHomeV2,
+    programPlanMode: programSlide.plan.mode,
+    isWalker: walkWeek.isWalker,
+    workoutCount: (profile?.progression as { workoutCount?: number } | undefined)?.workoutCount,
+    weekSessions: weekSessionsAll,
+    todayWorkouts: todaysWorkouts?.length ?? 0,
+    healthConnected,
+  });
+  // The plan the carousels place the program slide by — none while the start rows show.
+  const carouselProgramPlan: typeof programSlide.plan = newUserHome.startRows ? { mode: 'none' } : programSlide.plan;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3198,7 +3219,12 @@ export default function HomePage() {
           // swap order with continueActivityBlock further down, based on
           // isTodayWorkoutDone. Internal tabs/content logic is completely untouched, only
           // extracted into a variable — same JSX, same behavior when nothing has changed.
-          const widgetsBlock = (
+          // enable_home_v2 new user before the first workout: steps only (with health data) or nothing.
+          const widgetsBlock = newUserHome.widgets === 'none' ? null : newUserHome.widgets === 'steps' ? (
+            <div className="flex flex-col gap-4 mt-0" data-new-user-widgets="steps">
+              <StepsSummaryCard variant="compact" />
+            </div>
+          ) : (
             <div className="flex flex-col gap-4 mt-0">
               {/* ── Tabs bar ─────────────────────────────────────────── */}
               <div
@@ -3346,7 +3372,7 @@ export default function HomePage() {
                 // week strip, so "בחר תוכנית למטה" always has a card below it. A loading
                 // carousel keeps the place with its own skeleton. Flag off → plan 'none' → null.
                 const programSurface = resolveProgramSlideSurface({
-                  plan: programSlide.plan,
+                  plan: carouselProgramPlan,
                   isViewingToday,
                   preCarousel: readyPreWorkoutSuggestions ? 'ready' : preWorkoutSuggestionsLoading ? 'loading' : 'none',
                   postCarousel: !isSelectedDateToday ? 'none'
@@ -3354,7 +3380,11 @@ export default function HomePage() {
                     : postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone) && postWorkoutSuggestions === null ? 'loading'
                     : 'none',
                 });
-                const programStandalone = programSurface === 'standalone' ? (
+                const programStandalone = newUserHome.startRows && programSlide.plan.mode === 'start' ? (
+                  <ErrorBoundary fallback={null}>
+                    <ProgramStartRows order={programSlide.plan.order} profile={profile} onNavigate={programSlideNavigate} />
+                  </ErrorBoundary>
+                ) : programSurface === 'standalone' ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4" data-program-slide-standalone>
                     {programSlideCard}
                   </div>
@@ -3441,12 +3471,14 @@ export default function HomePage() {
                       <div className="relative mb-1 flex items-center justify-between gap-2">
                         <h3
                           className={
-                            featureFlags.enableHomeV2
+                            newUserHome.startRows
+                              ? 'whitespace-nowrap text-[16px] font-black text-v2-ink'
+                              : featureFlags.enableHomeV2
                               ? 'text-[19px] font-black text-[#0e1419] dark:text-white'
                               : 'text-2xl font-extrabold text-gray-900 dark:text-white'
                           }
                         >
-                          {calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
+                          {newUserHome.startRows ? 'או אימון מהיר עכשיו' : calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
                         </h3>
                         {isActiveSuggestionHeroTreated && (
                           <AnchorLocationChip
@@ -3459,9 +3491,11 @@ export default function HomePage() {
                           />
                         )}
                       </div>
+                      {newUserHome.startRows ? <div className="mb-2" /> : (
                       <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
                         {preWorkoutDescription}
                       </p>
+                      )}
                     </div>
 
                     {/* maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test
@@ -3497,7 +3531,7 @@ export default function HomePage() {
                           ? placeWalkCard(withRun, { id: WALK_CARD_ID }, walkSlot)
                           : withRun;
                         return featureFlags.enableHomeV2
-                          ? placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, programSlide.plan)
+                          ? placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, carouselProgramPlan)
                           : withWalk;
                       })()}
                       keyExtractor={(s) => s.id}
@@ -3574,7 +3608,7 @@ export default function HomePage() {
                         the old anchor never conditioned this on workout type either). Reuses
                         handleBuildCustom as-is (home/page.tsx's own, already shared with the old
                         anchor) — no new builder-context logic. */}
-                    <div className="flex flex-col items-center px-4 mt-3">
+                    {!newUserHome.startRows && <div className="flex flex-col items-center px-4 mt-3">
                       {/* TODO(programIds): StatsOverview.tsx's own handleBuildCustomWrapped
                           (lines 1006-1017) also pre-fills programIds from
                           scheduledProgramIdsRef.current — a ref private to StatsOverview, with
@@ -3589,7 +3623,7 @@ export default function HomePage() {
                         })}
                         userGender={profile?.core?.gender}
                       />
-                    </div>
+                    </div>}
                   </div>
                 ) : preWorkoutSuggestionsLoading ? (
                   // Sized to match the resolved carousel above exactly (same 330px card
@@ -3750,7 +3784,7 @@ export default function HomePage() {
               <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID }>
                 items={
                   featureFlags.enableHomeV2
-                    ? placeProgramSlide<Suggestion | { id: typeof PROGRAM_SLIDE_ID }>(postWorkoutItems, { id: PROGRAM_SLIDE_ID }, programSlide.plan)
+                    ? placeProgramSlide<Suggestion | { id: typeof PROGRAM_SLIDE_ID }>(postWorkoutItems, { id: PROGRAM_SLIDE_ID }, carouselProgramPlan)
                     : !hasStrengthProgram
                     ? [{ id: STRENGTH_INVITE_CARD_ID }, ...postWorkoutSuggestions]
                     : postWorkoutSuggestions

@@ -51,7 +51,10 @@ describe('DiscoverLayer wiring (source-level)', () => {
   );
   it('the run card is enable_home_v2 only', () => {
     expect(src).toContain('useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram, mapFeatureFlags.enableHomeV2)');
-    expect(src).toContain('withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null)');
+    // Flag off → the slots unchanged; flag on → the plan cards (run / walk) in home's order.
+    expect(src).toContain('if (!mapFeatureFlags.enableHomeV2) return slots;');
+    expect(src).toContain('const run = buildPlannedRunSlot(homeRun.slot);');
+    expect(src).toContain('return withTodayPlanSlots(slots, {');
     expect(src).toContain('slots={carouselSlots}');
   });
   it('selecting it navigates to the planned run link (no compose)', () => {
