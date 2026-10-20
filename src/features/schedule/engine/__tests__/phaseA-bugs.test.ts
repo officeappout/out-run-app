@@ -210,6 +210,7 @@ describe('bug #6 — reasons bind on the final week, rendered in Hebrew only', (
       { code: 'TODAY_DONE', kind: 'run' },
       { code: 'TODAY_PLANNED', kind: 'strength' },
       { code: 'MAKEUP_MISSED', kind: 'run', day: 1 },
+      { code: 'WALK_ALSO_TODAY' },
       { code: 'KEY_RUN_TOMORROW', run: 'quality' },
       { code: 'HARD_DAY_YESTERDAY' },
       { code: 'WHO_STRENGTH_GAP', done: 1, target: 2 },

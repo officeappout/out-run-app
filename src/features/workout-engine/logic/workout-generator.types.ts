@@ -309,6 +309,12 @@ export interface GeneratedWorkout {
    */
   budgetLight?: { reasonKey: 'budget_light.weekly_spent' | 'budget_light.daily_spent'; setsCap: number };
   /**
+   * enable_home_v2 day focus (split-decision/day-focus.*): what the recommended split
+   * makes this day train ('upper' / 'lower' / …). Set only when the caller passed
+   * splitDayFocus and a focus applied. Absent otherwise.
+   */
+  dayFocus?: import('../services/split-decision/day-focus.utils').DayFocus;
+  /**
    * absent=absent (⑨) safety-net flag (BUG 1 rework): set when NONE of the
    * domains relevant to the request have ever been assessed — the caller
    * asked for a workout, but the intersection of {requested domains} ∩

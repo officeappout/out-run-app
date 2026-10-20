@@ -10,6 +10,7 @@ import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import { coachGenderOf, firstNameOf, type CoachGender } from './persona';
 import { deriveAssessmentGaps, type AssessmentGap } from './assessment-gaps';
 import type { SheetPlan } from './schedule-tools';
+import { plannedActivityOf } from '@/features/schedule/advisor/plannedActivity';
 
 export interface RawWorkout {
   date: Date | null;
@@ -248,7 +249,8 @@ function plannedMinutesOf(e: RawScheduleEntry): number | null {
 
 function kindOf(e: RawScheduleEntry): string | null {
   const cats = strList(e.scheduledCategories, 4, 20);
-  if (e.plannedRun) return 'cardio';
+  // A planned walk (walking signup, enable_home_v2) carries plannedRun too: it is a walk, not a run.
+  if (e.plannedRun) return plannedActivityOf(e) === 'walk' ? 'walking' : 'cardio';
   for (const k of ['strength', 'cardio', 'walking', 'maintenance']) if (cats.includes(k)) return k;
   return null;
 }
@@ -298,7 +300,7 @@ export interface BuildSheetInput {
    * entry completed, so a strength / run WORKOUT logged today marks today's matching
    * entries done here — no "build today's workout" after it was already trained.
    */
-  doneToday?: { strength: boolean; run: boolean };
+  doneToday?: { strength: boolean; run: boolean; walk?: boolean };
 }
 
 export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
@@ -338,7 +340,9 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
 
   const week = i.weekSchedule.map(sheetScheduleEntry).map((e) => {
     if (!i.doneToday || e.date !== i.todayKey || e.completed || e.type !== 'training') return e;
-    const done = e.kind === 'cardio' ? i.doneToday.run : e.kind === 'walking' || e.kind === 'maintenance' ? false : i.doneToday.strength;
+    // walking: done by a logged walk (doneToday.walk, present only when a walk is planned today).
+    const done =
+      e.kind === 'cardio' ? i.doneToday.run : e.kind === 'walking' ? i.doneToday.walk === true : e.kind === 'maintenance' ? false : i.doneToday.strength;
     return done ? { ...e, completed: true, buildNow: null } : e;
   });
 

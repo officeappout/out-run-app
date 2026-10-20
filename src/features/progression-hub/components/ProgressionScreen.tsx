@@ -19,8 +19,8 @@
  * id→slug map are ready (no flash of a wrong section).
  *
  * Tapping a card opens that program's map in view mode; a parent program
- * (no map of its own) opens ParentProgramSheet instead. There is no v2 look
- * for this screen yet; cards stay ProgramProgressCard (via SkillMapCard).
+ * (no map of its own) opens ParentProgramSheet instead. Under enable_home_v2
+ * the whole tab is ProgressScreenV2 (../v2/components).
  */
 import AppHeader from '@/components/ui/AppHeader';
 import { IdentityHeroCard } from '@/features/user/progression/components/IdentityHeroCard';
@@ -29,8 +29,20 @@ import { useProgressHubBuckets } from '@/features/progression-map/hooks/useProgr
 import { MyProgramsSection } from './MyProgramsSection';
 import { NeedsAssessmentSection } from './NeedsAssessmentSection';
 import { DiscoverMoreSection } from './DiscoverMoreSection';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import ProgressScreenV2 from '../v2/components/ProgressScreenV2';
 
 export function ProgressionScreen() {
+  // enable_home_v2: the tab holds everything about what you did (P-1…P-4).
+  const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  if (v2) return <ProgressScreenV2 />;
+  return <ProgressionScreenV1 />;
+}
+
+/** Flag-off: exactly today's screen. */
+function ProgressionScreenV1() {
   const { ready, buckets } = useProgressHubBuckets();
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir="rtl">

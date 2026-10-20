@@ -30,11 +30,16 @@ export interface WalkPlanConfig {
   weeklyRampCap: number;
   /** One walk's length bounds (minutes). */
   session: { min: number; max: number };
+  /**
+   * The week's ONE long walk may go up to this (owner 20.10.2026) — the others stay
+   * ≤ session.max — so a higher weekly target is reachable with 3 walks (45+45+60).
+   */
+  longWalkMax: number;
   /** The usual walk length the user said is comfortable (WR-3a). */
   comfortSessionMinutes: Record<WalkComfort, number>;
   /** Walks a week. */
   frequency: { min: number; max: number };
-  /** The week's one longer walk: × the usual walk, capped at session.max. */
+  /** The week's one longer walk: × the usual walk, capped at longWalkMax. */
   longWalkFactor: number;
   /** Brisk walking ≈ this many steps per minute (display / step tie-in). */
   stepsPerMinute: number;
@@ -68,6 +73,7 @@ export const WALK_PLAN_CONFIG: WalkPlanConfig = {
   stepGoalStretch: 1.1,
   weeklyRampCap: 0.1,
   session: { min: 20, max: 45 },
+  longWalkMax: 60,
   comfortSessionMinutes: { short: 20, medium: 30, long: 40 },
   frequency: { min: 3, max: 5 },
   longWalkFactor: 1.4,

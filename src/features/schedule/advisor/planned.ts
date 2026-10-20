@@ -10,6 +10,9 @@
  *      through the shared mapper (utils/runWeekByType — the same week home and signup show:
  *      the long run on running.longRunDay when set), so a planned / missed run (and the
  *      make-up offered for it) is the run home shows on that day. Off: unchanged.
+ *   4. a planned walk in the doc (enable_home_v2's walking signup, plannedActivityOf) is its
+ *      own 'walk' entry — never a run: it does not keep a running-plan run on a rest-override
+ *      day, and a logged walk (workouts kind 'walk') marks it done.
  *
  * Then detectMissed joins them with the workouts collection by date + kind (bug #8): a
  * strength entry is DONE when a strength (or hybrid) workout exists that day, or the entry
@@ -21,12 +24,14 @@ import { classifyStrengthId, type ResolveSlug } from '../engine/strengthVocabula
 import { calculateCurrentWeek } from '@/lib/running-current-week';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 import { mapRunWeekByType, runPlacementOf } from '../utils/runWeekByType';
+import { plannedActivityOf, walkGoalOf, walkNameHe } from './plannedActivity';
 import type { ScheduleItemId } from '../types/smartSchedule.types';
 import type {
   AdvisorProfile,
   AdvisorScheduleDay,
   AdvisorWorkout,
   PlannedEntry,
+  PlannedKind,
   PlannedWithStatus,
 } from './types';
 
@@ -62,7 +67,6 @@ export function keysBetween(fromKey: string, toKey: string): string[] {
 // ── Materialization ──────────────────────────────────────────────────────────
 
 const STRENGTH_CATEGORIES = new Set(['strength']);
-const RUN_CATEGORIES = new Set(['cardio']);
 
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
@@ -149,6 +153,7 @@ export function materializePlanned(
     let strengthPlanned: { slugs: string[]; scheduleIds: ScheduleItemId[]; completed: boolean } | null = null;
     let runFromDoc = false;
     let restOverride = false;
+    let walkPlanned: { goal: ReturnType<typeof walkGoalOf>; completed: boolean } | null = null;
 
     if (docEntries.length > 0) {
       for (const e of docEntries) {
@@ -159,7 +164,14 @@ export function materializePlanned(
         if (e.type !== 'training' || e.source === 'community') continue;
         const cats = strList(e.scheduledCategories);
         const s = strengthOf(strList(e.programIds), resolveSlug);
-        const isRun = !!e.plannedRun || cats.some((c) => RUN_CATEGORIES.has(c));
+        const activity = plannedActivityOf(e);
+        if (activity === 'walk') {
+          // A planned walk is its own entry (one per day) — never a run, never runFromDoc.
+          walkPlanned = walkPlanned ?? { goal: walkGoalOf(e.plannedRun), completed: false };
+          if (e.completed === true) walkPlanned.completed = true;
+          continue;
+        }
+        const isRun = activity === 'run';
         if (isRun) runFromDoc = true;
         if (s.scheduleIds.length > 0 || (cats.some((c) => STRENGTH_CATEGORIES.has(c)) && !isRun)) {
           strengthPlanned = strengthPlanned ?? { slugs: [], scheduleIds: [], completed: false };
@@ -174,7 +186,9 @@ export function materializePlanned(
       if (s.scheduleIds.length > 0) strengthPlanned = { ...s, completed: false };
     }
 
-    if (restOverride && !strengthPlanned) continue;
+    // An explicit rest override drops the template / running plan, never the doc's own
+    // entries (strength, or a walk). Without a planned walk this is exactly the old rule.
+    if (restOverride && !strengthPlanned && !walkPlanned) continue;
 
     if (strengthPlanned) {
       out.push({
@@ -191,15 +205,31 @@ export function materializePlanned(
       });
     }
     const run = plannedRunFor(profile, key, opts);
-    if (run && !(restOverride && !runFromDoc)) out.push(run);
+    if (run && !(restOverride && (!runFromDoc || !strengthPlanned))) out.push(run);
+    if (walkPlanned) {
+      out.push({
+        date: key,
+        dayOfWeek: dow,
+        kind: 'walk',
+        source: 'override',
+        strengthSlugs: [],
+        strengthIds: [],
+        runRef: null,
+        runDay: null,
+        runName: walkNameHe(walkPlanned.goal),
+        walkGoal: walkPlanned.goal,
+        completedAtSource: walkPlanned.completed,
+      });
+    }
   }
   return out;
 }
 
 // ── Done / missed ────────────────────────────────────────────────────────────
 
-export function workoutMatchesKind(w: AdvisorWorkout, kind: 'strength' | 'run'): boolean {
+export function workoutMatchesKind(w: AdvisorWorkout, kind: PlannedKind): boolean {
   if (w.kind === 'hybrid') return true;
+  if (kind === 'walk') return w.kind === 'walk';
   return kind === 'strength' ? w.kind === 'strength' : w.kind === 'run';
 }
 
@@ -209,9 +239,14 @@ export function workoutMatchesKind(w: AdvisorWorkout, kind: 'strength' | 'run'):
  *   today     — today's entry, not done yet
  *   missed    — a past entry with no matching workout
  *   upcoming  — after today
+ * A planned walk on a day with a logged run is dropped (the day became a run).
  */
 export function detectMissed(planned: PlannedEntry[], workouts: AdvisorWorkout[], todayKey: string): PlannedWithStatus[] {
-  return planned.map((p) => {
+  // Owner (PR #536): a run logged on a day with a planned walk makes that day a run — the
+  // walk is dropped for that date (not done, not missed, never a make-up). Only a run does
+  // this; strength / other leave the walk as is, hybrid still completes it.
+  const ranOn = new Set(workouts.filter((w) => w.kind === 'run').map((w) => w.date));
+  return planned.filter((p) => !(p.kind === 'walk' && ranOn.has(p.date))).map((p) => {
     const done = p.completedAtSource || workouts.some((w) => w.date === p.date && workoutMatchesKind(w, p.kind));
     const status = done ? 'done' : p.date === todayKey ? 'today' : p.date < todayKey ? 'missed' : 'upcoming';
     return { ...p, status };

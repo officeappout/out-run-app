@@ -163,6 +163,25 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
     console.warn('[completion-sync] workoutCount increment failed:', err);
   }
 
+  // 2c. enable_home_v2 — month totals + personal records on the user doc
+  // (owner approved 20.10.2026; additive, forward-only). Flag-off: nothing.
+  try {
+    const uid = auth.currentUser?.uid;
+    const { homeV2EnabledNow } = await import('@/features/workout-engine/players/running/lib/home-v2-gate');
+    if (uid && homeV2EnabledNow()) {
+      const { writeWorkoutAggregates } = await import('@/features/user/progression/records/records-write.service');
+      await writeWorkoutAggregates(uid, {
+        workoutType: payload.workoutType,
+        durationMinutes: payload.durationMinutes,
+        distanceKm: payload.distanceKm,
+        sets: payload.strengthCompletion?.completedSets,
+        categorySplits: payload.categorySplits,
+      });
+    }
+  } catch (err) {
+    console.warn('[completion-sync] workout aggregates failed:', err);
+  }
+
   // 3. Session flag for Home Screen celebration mode
   //
   // Home Screen bug fix (22.08.2026, David caught on-device): home/page.tsx

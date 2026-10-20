@@ -36,6 +36,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { WorkoutExerciseResult } from '@/features/user/core/types/progression.types';
+import { nextExerciseAggregate, type ExerciseAggregate } from '@/features/user/progression/records/records.utils';
 import { genPerfRead } from '@/lib/gen-perf';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -110,6 +111,12 @@ export async function saveExerciseHistory(
     return;
   }
 
+  // enable_home_v2 (owner approved 20.10.2026): keep bestReps / bestAt /
+  // recentMax on the top-level doc — forward-only, one small read per
+  // exercise. Flag-off: exactly the original overwrite below.
+  const { homeV2EnabledNow } = await import('@/features/workout-engine/players/running/lib/home-v2-gate');
+  const aggregates = homeV2EnabledNow() ? await readExerciseAggregates(userId, exercises) : null;
+
   const writes = exercises.flatMap((ex) => {
     // ── Write 1: overwrite the "last session" document (original behavior) ──
     const lastSessionRef = doc(db, 'users', userId, SUB_COLLECTION, ex.exerciseId);
@@ -120,7 +127,8 @@ export async function saveExerciseHistory(
       targetReps: ex.targetReps,
       updatedAt: serverTimestamp(),
     };
-    const lastSessionWrite = setDoc(lastSessionRef, lastSessionEntry);
+    const agg = aggregates?.get(ex.exerciseId);
+    const lastSessionWrite = setDoc(lastSessionRef, agg ? { ...lastSessionEntry, ...agg } : lastSessionEntry);
 
     // ── Write 2: append to the time-series sub-collection (new) ──
     const sessionsColRef = collection(
@@ -148,6 +156,30 @@ export async function saveExerciseHistory(
     `[ExerciseHistory] Dual-write complete: ${exercises.length} exercises` +
     ` (last-session overwrite + sessions append) for user ${userId}`,
   );
+}
+
+/** v2 aggregates for each exercise of this session (prev doc read → next values). */
+async function readExerciseAggregates(
+  userId: string,
+  exercises: WorkoutExerciseResult[],
+): Promise<Map<string, ExerciseAggregate>> {
+  const now = Date.now();
+  const out = new Map<string, ExerciseAggregate>();
+  await Promise.all(
+    exercises.map(async (ex) => {
+      try {
+        const snap = await getDoc(doc(db, 'users', userId, SUB_COLLECTION, ex.exerciseId));
+        const prev = snap.exists() ? (snap.data() as Partial<ExerciseAggregate>) : null;
+        const sessionMax = ex.repsPerSet.length > 0 ? Math.max(...ex.repsPerSet) : 0;
+        const { bestReps, bestAt, recentMax } = nextExerciseAggregate(prev, sessionMax, now);
+        out.set(ex.exerciseId, { bestReps, bestAt, recentMax });
+      } catch (e) {
+        // No aggregate for this exercise this time — the save itself goes on.
+        console.warn('[ExerciseHistory] aggregate read failed', ex.exerciseId, e);
+      }
+    }),
+  );
+  return out;
 }
 
 // ── Read (single) ──────────────────────────────────────────────────────────
