@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
     const snap = await ref.limit(MAX_DOCS).get();
     if (snap.size >= MAX_DOCS) console.warn('[individual-board] read cap hit', { key });
     const docs = snap.docs.map((d) => d.data());
-    rows = { at: Date.now(), rows: mode === 'steps' ? stepsRows(docs) : feedRows(docs, mode) };
+    rows = { at: Date.now(), rows: mode === 'steps' ? stepsRows(docs) : feedRows(docs, mode, mode === 'credit' ? category : null) };
     cache.set(key, rows);
     if (cache.size > 500) cache.delete(cache.keys().next().value as string);
   }

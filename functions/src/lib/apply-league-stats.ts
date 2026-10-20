@@ -7,17 +7,14 @@
  */
 import type { firestore } from 'firebase-admin';
 import {
-  activityOf,
-  creditOf,
   distanceMetersOfDay,
   isCountedMember,
-  minutesOf,
   periodKeysFor,
   scopeTargetsFor,
   statsDocId,
   stepsCreditOf,
   stepsDayDelta,
-  type LeagueActivity,
+  workoutCreditParts,
   type LeagueWindow,
 } from './league-scope-stats';
 
@@ -34,8 +31,10 @@ export async function applyWorkoutToLeagueStats(
 ): Promise<ApplyResult> {
   const uid: string = data.userId ?? data.uid ?? '';
   if (!uid) return 'no-user';
-  const activity: LeagueActivity = activityOf(data.category, data.workoutType ?? data.activityType);
-  const credit = creditOf(minutesOf(data.duration), activity);
+  // One part per workout; a combined workout counts per part (run/walk →
+  // cardio, stations → strength — workoutCreditParts).
+  const parts = workoutCreditParts(data);
+  const credit = parts.reduce((sum, p) => sum + p.credit, 0);
   if (credit <= 0) return 'no-credit';
 
   const u = (await db.collection('users').doc(uid).get()).data() ?? {};
@@ -63,11 +62,14 @@ export async function applyWorkoutToLeagueStats(
       const m = mem.data() ?? {};
       // Not yet counted (no doc, or a km-only doc from leagueStepsRollup).
       const newMember = !isCountedMember(m);
-      const activities: string[] = Array.isArray(m.activities) ? m.activities : [];
-      const newInActivity = !activities.includes(activity);
+      const activities: string[] = Array.isArray(m.activities) ? [...m.activities] : [];
       const byActivity = { ...(s.byActivity ?? {}) } as Record<string, Bucket>;
-      const a = byActivity[activity] ?? { credit: 0, members: 0 };
-      byActivity[activity] = { credit: a.credit + credit, members: a.members + (newInActivity ? 1 : 0) };
+      for (const { activity, credit: partCredit } of parts) {
+        const newInActivity = !activities.includes(activity);
+        const a = byActivity[activity] ?? { credit: 0, members: 0 };
+        byActivity[activity] = { credit: a.credit + partCredit, members: a.members + (newInActivity ? 1 : 0) };
+        if (newInActivity) activities.push(activity);
+      }
       const byGender = { ...(s.byGender ?? {}) } as Record<string, Bucket>;
       if (gender) {
         const g = byGender[gender] ?? { credit: 0, members: 0 };
@@ -92,7 +94,7 @@ export async function applyWorkoutToLeagueStats(
       });
       tx.set(member, {
         credit: (typeof m.credit === 'number' ? m.credit : 0) + credit,
-        activities: newInActivity ? [...activities, activity] : activities,
+        activities,
         gender,
         ...(typeof m.distanceMeters === 'number' ? { distanceMeters: m.distanceMeters } : {}),
         // The member's steps points (leagueStepsRollup) — kept as well.

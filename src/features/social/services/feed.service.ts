@@ -19,6 +19,7 @@ import { auth, db } from '@/lib/firebase';
 import { applyFeedPrefs, feedPrefsFrom, savePendingShare } from './feed-prefs';
 import { alignScopeWithAuthorDoc } from './feed-scope.utils';
 import { postDetailsForWrite, withoutPostDetails, type FeedPostDetails } from './feed-post-details';
+import { postActivityCredit, type FeedHybridParts } from './feed-hybrid';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types
@@ -64,17 +65,15 @@ export interface FeedPost extends FeedPostDetails {
    * cut (feed-route.ts buildRouteShape). Never coordinates.
    */
   routeShape?: number[];
+  /** Combined workout only: per-part minutes / km / sets (feed-hybrid.ts). */
+  hybridParts?: FeedHybridParts;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // Activity Credit weight mapping
 // ────────────────────────────────────────────────────────────────────────────
 
-const CREDIT_MULTIPLIER: Record<string, number> = {
-  strength: 2,
-  cardio: 1,
-  maintenance: 1,
-};
+// Weights live in feed-hybrid.ts (FEED_CREDIT_MULTIPLIER, postActivityCredit).
 
 // ────────────────────────────────────────────────────────────────────────────
 // Write
@@ -105,6 +104,11 @@ export async function createWorkoutPost(params: {
   groupIds?: string[];
   /** Location-free route line (feed-route.ts) — cardio, home v2 only. */
   routeShape?: number[];
+  /**
+   * Combined workout only (useHybridRun → hybrid-feed-post.ts): per-part data.
+   * Points are counted per part (feed-hybrid.ts postActivityCredit).
+   */
+  hybridParts?: FeedHybridParts;
 } & FeedPostDetails, opts: {
   /**
    * The user tapped "share" (the feed's share prompt). Without it a post is
@@ -179,8 +183,7 @@ export async function createWorkoutPost(params: {
       }
     }
 
-    const multiplier = CREDIT_MULTIPLIER[params.activityCategory] ?? 1;
-    const activityCredit = params.durationMinutes * multiplier;
+    const activityCredit = postActivityCredit(params);
 
     const ref = await addDoc(collection(db, 'feed_posts'), {
       authorUid: params.authorUid,
@@ -208,6 +211,7 @@ export async function createWorkoutPost(params: {
       ...(params.activityCategory === 'cardio' && params.routeShape && params.routeShape.length >= 6
         ? { routeShape: params.routeShape }
         : {}),
+      ...(params.hybridParts ? { hybridParts: params.hybridParts } : {}),
       ...postDetailsForWrite(params),
       createdAt: serverTimestamp(),
     });

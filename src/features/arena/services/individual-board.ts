@@ -14,6 +14,7 @@
  * read from it instead — groupBoardToResult.
  */
 import type { GroupBoard } from './league-scope-keys';
+import { postCreditForCategory } from '@/features/social/services/feed-hybrid';
 
 export type BoardScope = 'city' | 'school' | 'park' | 'neighborhood' | 'global' | 'league' | 'reserve';
 export type BoardMode = 'credit' | 'distance' | 'steps';
@@ -98,12 +99,14 @@ export function stepsDateRange(now: Date = new Date()): { from: string; to: stri
 type Doc = Record<string, unknown>;
 
 /** feed_posts → per-user rows. credit = activityCredit; distance = distanceKm (posts without one skipped, rounded to 0.1). */
-export function feedRows(docs: Doc[], mode: 'credit' | 'distance'): BoardRow[] {
+export function feedRows(docs: Doc[], mode: 'credit' | 'distance', category: string | null = null): BoardRow[] {
   const m = new Map<string, BoardRow>();
   for (const d of docs) {
     const uid = typeof d.authorUid === 'string' ? d.authorUid : '';
     if (!uid) continue;
-    const v = mode === 'credit' ? (Number(d.activityCredit) || 0) : (Number(d.distanceKm) || 0);
+    // A combined workout's post counts only its own part on a category board
+    // (feed-hybrid.ts); every other post is its activityCredit, as before.
+    const v = mode === 'credit' ? postCreditForCategory(d, category) : (Number(d.distanceKm) || 0);
     if (mode === 'distance' && v <= 0) continue;
     const name = (typeof d.authorName === 'string' && d.authorName) || '???';
     const r = m.get(uid);
