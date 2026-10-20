@@ -41,6 +41,8 @@ export default defineConfig({
       'src/features/workout-engine/players/running/components/overview-v2/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
+      // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
+      'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
