@@ -4,6 +4,9 @@ import {
   hasRunningIntent,
   isAddDismissActive,
   placeProgramSlide,
+  placeProgramSlides,
+  programStartSlideId,
+  programStartTrackOf,
   resolveProgramSlide,
   resolveProgramSlideSurface,
 } from '../program-start-cards';
@@ -119,5 +122,24 @@ describe('resolveProgramSlideSurface', () => {
     expect(s({ isViewingToday: false })).toBe('standalone');
     expect(s({ plan: add })).toBe('standalone');
     expect(s({ plan: add, isViewingToday: false })).toBeNull();
+  });
+});
+
+describe('placeProgramSlides (owner 20.10.2026: one card per slide)', () => {
+  const slides = { start: (t: 'strength' | 'running') => `start:${t}`, add: 'ADD' };
+  it('start → one slide per track, in the plan order, leading', () => {
+    expect(placeProgramSlides(['a', 'b'], { mode: 'start', order: ['running', 'strength'] }, slides)).toEqual(['start:running', 'start:strength', 'a', 'b']);
+  });
+  it('start with nothing generated (new user before the first workout) → just the two slides', () => {
+    expect(placeProgramSlides([], { mode: 'start', order: ['strength', 'running'] }, slides)).toEqual(['start:strength', 'start:running']);
+  });
+  it('add → the single slide second; none → unchanged', () => {
+    expect(placeProgramSlides(['a', 'b'], { mode: 'add', track: 'running' }, slides)).toEqual(['a', 'ADD', 'b']);
+    expect(placeProgramSlides(['a'], { mode: 'none' }, slides)).toEqual(['a']);
+  });
+  it('slide ids round-trip', () => {
+    expect(programStartTrackOf(programStartSlideId('running'))).toBe('running');
+    expect(programStartTrackOf(programStartSlideId('strength'))).toBe('strength');
+    expect(programStartTrackOf('program-slide')).toBeNull();
   });
 });

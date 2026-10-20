@@ -20,6 +20,7 @@ import React from 'react';
 import { Footprints, Activity } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useWeeklyRunningKm } from '@/features/activity';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
 import { predictRaceSeconds, targetDistanceKm } from '@/features/workout-engine/core/services/race-prediction.service';
 
@@ -54,6 +55,9 @@ function RacePaceTile() {
 
 function WeeklyKmTile() {
   const { km, loading } = useWeeklyRunningKm();
+  // The km are walks + runs together (every cardio workout) — fine, owner 20.10.2026; under
+  // enable_home_v2 the label says so. The weekly RUN count is runs only (useWeeklyRunCount).
+  const v2 = useHomeV2();
   const target = 20; // soft target for the ring; can be tied to weeklyFrequency * avg later
   const percentage = Math.min(100, Math.round((km / target) * 100));
 
@@ -61,7 +65,7 @@ function WeeklyKmTile() {
     <CompactMetricTile
       percentage={percentage}
       icon={<Footprints size={16} className="-scale-x-100" />}
-      label="ק״מ השבוע"
+      label={v2 ? 'ק״מ השבוע · הליכה + ריצה' : 'ק״מ השבוע'}
       value={loading ? '—' : km.toFixed(1)}
       unit={`/ ${target} ק״מ יעד`}
       ariaLabel={`קילומטרים שנצברו השבוע: ${loading ? 'טוען' : km.toFixed(1)}`}

@@ -2,9 +2,11 @@
  * A new user's home (enable_home_v2, owner 20.10.2026) — no strength program, no run
  * plan, no walk plan yet. PURE.
  *
- *  - the questionnaire start cards leave the carousel: full-width compact rows right
- *    under the week strip, the page's primary thing (startRows);
- *  - the generated-workout carousel stays, secondary, under them ("או אימון מהיר עכשיו");
+ *  - the questionnaire start cards stay in the carousel, one full slide per card
+ *    (placeProgramSlides — owner 20.10.2026, correcting the stacked rows of #538);
+ *  - until the first workout the generated strength workouts are hidden entirely
+ *    (startOnly: "או אימון מהיר עכשיו" confused new users) — the carousel is just the start
+ *    cards. A first workout (or a plan) brings the generated cards back, after the start slides;
  *  - before the first workout, the tabs block is noise: the strength tab and weekly
  *    activity / consistency are empty — only the steps card stays, and only with health
  *    data; without it the whole block hides (widgets). The first workout brings it back.
@@ -29,11 +31,12 @@ export interface NewUserHomeInput {
 
 export interface NewUserHome {
   active: boolean;
-  startRows: boolean;
+  /** Before the first workout: the carousel holds only the start slides (no generated workout). */
+  startOnly: boolean;
   widgets: NewUserWidgets;
 }
 
-export const INACTIVE_NEW_USER_HOME: NewUserHome = { active: false, startRows: false, widgets: 'all' };
+export const INACTIVE_NEW_USER_HOME: NewUserHome = { active: false, startOnly: false, widgets: 'all' };
 
 export function resolveNewUserHome(input: NewUserHomeInput): NewUserHome {
   const { v2, programPlanMode, isWalker, workoutCount, weekSessions, todayWorkouts, healthConnected } = input;
@@ -41,7 +44,7 @@ export function resolveNewUserHome(input: NewUserHomeInput): NewUserHome {
   const neverTrained = !(Number(workoutCount) > 0) && weekSessions <= 0 && todayWorkouts <= 0;
   return {
     active: true,
-    startRows: true,
+    startOnly: neverTrained,
     widgets: !neverTrained ? 'all' : healthConnected === true ? 'steps' : 'none',
   };
 }

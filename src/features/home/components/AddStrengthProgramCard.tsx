@@ -24,7 +24,7 @@ interface AddStrengthProgramCardProps {
   onNavigate?: OnboardingEntryNavigate;
   /**
    * Home v2 (enable_home_v2, S-7b): the compact start card that sits next to
-   * "תוכנית ריצה" in ProgramStartPair. Same tap / navigation; omitted → the
+   * "תוכנית ריצה" (kept for other callers; home now uses ProgramStartSlide). Omitted → the
    * original full-width card, unchanged.
    */
   compact?: boolean;

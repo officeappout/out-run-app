@@ -5,6 +5,8 @@
  *
  * Owner's order:
  *   1. something still planned for today (not done) → that, in the plan's order;
+ *   1b. strength done today but only part of the daily set goal → "אימון משלים"
+ *       (strength-top-up.ts — the one exception to "never the same kind twice");
  *   2. steps still missing → a short walk;
  *   3. strength sessions still due this week (and no strength done today) → strength;
  *   4. runs still due this week (and no run done today) → a run;
@@ -33,23 +35,29 @@ export interface NextRecommendationInput {
   hasStrengthProgram: boolean;
   hasRunningPlan: boolean;
   week: WeekGoals | null;
+  /** Sets still missing from today's strength goal (strength-top-up.ts); 0 / absent = none. */
+  strengthTopUpSets?: number;
 }
 
 export interface NextRecommendation {
   kind: NextKind;
   /** Why — 'planned' (still on today's plan) / 'steps' / 'week' (weekly goal) / 'done'. */
-  why: 'planned' | 'steps' | 'week' | 'done';
+  why: 'planned' | 'topup' | 'steps' | 'week' | 'done';
+  /** why 'topup' only: the sets still missing today. */
+  sets?: number;
 }
 
 /** Below this, a "short walk" isn't worth a card (stepGapWalk uses the same floor idea). */
 export const MIN_STEPS_GAP = 500;
 
 export function resolveNextRecommendation(input: NextRecommendationInput): NextRecommendation {
-  const { doneToday, plannedToday, stepsRemaining, hasStrengthProgram, hasRunningPlan, week } = input;
+  const { doneToday, plannedToday, stepsRemaining, hasStrengthProgram, hasRunningPlan, week, strengthTopUpSets = 0 } = input;
   const done = new Set(doneToday);
 
   const pending = plannedToday.find((k) => k !== 'group' && !done.has(k));
   if (pending && pending !== 'group') return { kind: pending, why: 'planned' };
+
+  if (done.has('strength') && strengthTopUpSets > 0) return { kind: 'strength', why: 'topup', sets: strengthTopUpSets };
 
   if (stepsRemaining != null && stepsRemaining >= MIN_STEPS_GAP) return { kind: 'walk', why: 'steps' };
 
@@ -104,12 +112,32 @@ export function nextHeaderHe(next: NextRecommendation): string {
     case 'walk':
       return next.why === 'planned' ? 'עוד מחכה לך היום: הליכה' : 'נשארו צעדים — הליכה קצרה תסגור את היום';
     case 'strength':
+      if (next.why === 'topup') return 'אימון משלים — לסגור את יעד הכוח של היום';
       return next.why === 'planned' ? 'עוד מחכה לך היום: אימון כוח' : 'נשאר אימון כוח השבוע';
     case 'run':
       return next.why === 'planned' ? 'עוד מחכה לך היום: ריצה' : 'נשארה ריצה השבוע';
     default:
       return 'סיימת הכל, מגיע לך מנוחה';
   }
+}
+
+/**
+ * "הריצה הבאה" after a workout (owner-approved, audit ש5): a run is still due this week, none
+ * was done today, and the plan's next run is on another day (home-run-slot kind 'next').
+ */
+export function nextRunCardDue(input: {
+  hasRunningPlan: boolean;
+  doneToday: readonly PlanKind[];
+  week: Pick<WeekGoals, 'runDone' | 'runTarget'> | null;
+  runSlotKind: 'today' | 'next' | null | undefined;
+}): boolean {
+  const { hasRunningPlan, doneToday, week, runSlotKind } = input;
+  return hasRunningPlan && runSlotKind === 'next' && !doneToday.includes('run') && !!week && week.runDone < week.runTarget;
+}
+
+/** Puts the next-run card first when the run is the recommendation, otherwise last. */
+export function placeNextRunCard<T>(items: readonly T[], card: T, next: NextRecommendation | null): T[] {
+  return next?.kind === 'run' ? [card, ...items] : [...items, card];
 }
 
 /** Kinds done today from today's workout docs (hybrid = walk/run + strength). */

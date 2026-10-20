@@ -33,6 +33,7 @@ import { buildMapUserContext } from '@/features/workout-engine/core/context/buil
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
 import { buildPlannedRunSlot } from '@/features/workout-engine/hybrid/planned-run-slot';
 import { buildPlannedWalkSlot, withTodayPlanSlots } from '@/features/workout-engine/hybrid/planned-walk-slot';
+import { isMapRestDay, restDaySlots } from '@/features/workout-engine/hybrid/rest-day-slots';
 import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { resolveHomeWalkSlot } from '@/features/home/utils/home-walk-slot';
 import { isQualityRunEntry } from '@/features/home/utils/home-run-slot';
@@ -953,6 +954,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // pins — leads too, and the plan's cards keep home's order (day-plan.ts leadPlanKinds).
   // One batched read of the coming week (useWalkWeek), flag off → no read, no slot.
   const mapWalkWeek = useWalkWeek(profile?.id, mapFeatureFlags.enableHomeV2);
+  // enable_home_v2 rest day (audit ש4, approved): steps still missing today — the walk +
+  // strength card stays (light) only while they are. null = no step data yet.
+  const mapStepsRemaining = useActivityStore((st) => (st.today ? buildStepContext(st.today).stepsRemaining : null));
   const carouselSlots = useMemo(() => {
     if (!mapFeatureFlags.enableHomeV2) return slots;
     const run = buildPlannedRunSlot(homeRun.slot);
@@ -960,17 +964,26 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       v2: true, isWalker: mapWalkWeek.isWalker, isViewingToday: true, today: mapWalkWeek.today,
       walkedToday: false, steps: null, stepGoal: null,
     }));
-    return withTodayPlanSlots(slots, {
+    const strengthToday = hasStrengthProgram && isTodayTrainingDay(
+      profile?.lifestyle?.scheduleDays,
+      profile?.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
+      new Date(),
+    );
+    // A rest day (a plan, nothing on it today): no strength cards — recovery / walk instead.
+    const restDay = isMapRestDay({
+      hasStrengthProgram,
+      hasRunningPlan: homeRun.hasRunningPlan,
+      strengthToday,
+      runToday: homeRun.slot?.kind === 'today',
+      walkToday: !!mapWalkWeek.today,
+    });
+    return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining), {
       walk,
       run,
       runIsQuality: !!homeRun.slot && isQualityRunEntry(homeRun.slot.entry),
-      strengthToday: hasStrengthProgram && isTodayTrainingDay(
-        profile?.lifestyle?.scheduleDays,
-        profile?.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
-        new Date(),
-      ),
+      strengthToday,
     });
-  }, [slots, mapFeatureFlags.enableHomeV2, homeRun.slot, mapWalkWeek, hasStrengthProgram, profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate]);
+  }, [slots, mapFeatureFlags.enableHomeV2, homeRun.slot, homeRun.hasRunningPlan, mapWalkWeek, hasStrengthProgram, profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate, mapStepsRemaining]);
 
   // ── Entry flow v2, step 2 (enable_entry_whatnow_v1) ──────────────────────────
   // Flag off → entryWhatNowOn is false: the host renders nothing, the carousels get no

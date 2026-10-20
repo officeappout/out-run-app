@@ -57,10 +57,12 @@ import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { usePlannedDay } from '@/features/home/hooks/usePlannedDay';
 import { useNextRecommendation } from '@/features/home/hooks/useNextRecommendation';
 import PlannedDayPreview from '@/features/home/components/day-preview/PlannedDayPreview';
-import ProgramStartRows from '@/features/home/components/start-cards/ProgramStartRows';
+import ProgramStartSlide from '@/features/home/components/start-cards/ProgramStartSlide';
+import { applyStrengthTopUp, resolveStrengthTopUp, topUpTitleHe } from '@/features/home/utils/strength-top-up';
+import { useWeeklyRunCount } from '@/features/activity';
 import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
 import { dayTimingOf, type PlanKind } from '@/features/home/utils/day-plan';
-import { dropStepsDuplicate, nextHeaderHe, orderByNext, suggestionKindOf } from '@/features/home/utils/next-recommendation';
+import { doneKindsOf, dropStepsDuplicate, nextHeaderHe, nextRunCardDue, orderByNext, placeNextRunCard, suggestionKindOf } from '@/features/home/utils/next-recommendation';
 import { useWalkTopUp } from '@/features/home/hooks/useWalkTopUp';
 import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
 import { placeWalkCard, resolveHomeTabs, resolveHomeWalkSlot, resolveWalkSlotSurface, type HomeTab } from '@/features/home/utils/home-walk-slot';
@@ -123,7 +125,7 @@ import {
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
-import { placeProgramSlide, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
+import { placeProgramSlides, programStartSlideId, programStartTrackOf, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT } from '@/features/home/components/start-cards/program-start-copy';
 import { placeRunCard, resolveRunSlotSurface } from '@/features/home/utils/home-run-slot';
 import { buildStepContext } from '@/features/workout-engine/core/context/build-step-context';
@@ -1149,6 +1151,10 @@ export default function HomePage() {
   // below is driven purely by data-readiness. Superseded the former
   // showPostWorkoutSuggestions boolean entirely — removed, not left dead.
   const [postWorkoutSuggestions, setPostWorkoutSuggestions] = useState<Suggestion[] | null>(null);
+  // enable_home_v2 (owner 20.10.2026): sets still missing from today's strength goal, set in
+  // render below (strengthTopUp) and read when the post_workout engine runs — it lets the
+  // engine's partial-completion card build the rest of the day's sets. 0 = flag off / none.
+  const strengthTopUpSetsRef = useRef(0);
   const [startingSuggestionId, setStartingSuggestionId] = useState<string | null>(null);
   // POST_WORKOUT_SUGGESTION_CAROUSEL_ENABLED flipped true (22.08.2026) — the admin-email OR
   // this carried while the flag was off for everyone is gone; it was the actual gate keeping
@@ -1207,7 +1213,11 @@ export default function HomePage() {
     // context.ts) for why this builder doesn't fetch it internally.
     getScheduleEntries(profile.id, toISODate(new Date())).then((todayScheduleEntries) => {
       if (cancelled) return;
-      const context = buildHomeUserContext({ profile, location: gpsCoords, surface: 'post_workout', todayScheduleEntries, healthConnected });
+      const topUpSets = strengthTopUpSetsRef.current;
+      const context = buildHomeUserContext({
+        profile, location: gpsCoords, surface: 'post_workout', todayScheduleEntries, healthConnected,
+        ...(topUpSets > 0 ? { dailyStrengthTopUpSets: topUpSets } : {}),
+      });
       return runSuggestionEngine(context).then((ranked) => {
         if (!cancelled) setPostWorkoutSuggestions(ranked);
       });
@@ -1735,7 +1745,22 @@ export default function HomePage() {
     ...(homeRun.slot?.kind === 'today' && !homeRun.slot.skippedToday ? (['run'] as const) : []),
     ...(strengthPlannedToday ? (['strength'] as const) : []),
   ];
-  const nextRec = useNextRecommendation({
+  // enable_home_v2 (owner 20.10.2026): extra strength on a day you already did strength
+  // depends on the DAILY goal (the strength ring's target vs today's sets) — part of it done →
+  // "אימון משלים" (the engine's partial-completion card, titled with the sets left); goal
+  // reached → no more strength today. Weekly runs = runs only (not walks).
+  const strengthTopUp = resolveStrengthTopUp({
+    strengthDoneToday: featureFlags.enableHomeV2 && hasStrengthProgram && isSelectedDateToday
+      && doneKindsOf(todaysWorkouts).includes('strength'),
+    targetSets: dailyStrengthTarget.targetSets,
+    completedSets: todayStrengthVolume.setsCompleted,
+  });
+  strengthTopUpSetsRef.current = strengthTopUp.mode === 'top-up' ? strengthTopUp.remainingSets : 0;
+  const weekRunsV2 = useWeeklyRunCount(
+    featureFlags.enableHomeV2 && homeRun.hasRunningPlan,
+    `${todaysWorkouts?.length ?? 0}`,
+  );
+  const nextUp = useNextRecommendation({
     enabled: featureFlags.enableHomeV2 && isSelectedDateToday,
     profile,
     hasStrengthProgram,
@@ -1743,11 +1768,29 @@ export default function HomePage() {
     todaysWorkouts,
     plannedToday: plannedTodayKinds,
     stepsRemaining: healthConnected === false ? null : liveStepsRemaining,
+    weekRuns: weekRunsV2,
+    // The header promises the "אימון משלים" card only when the engine actually built it.
+    strengthTopUpSets: strengthTopUp.mode === 'top-up'
+      && (!postWorkoutSuggestions || postWorkoutSuggestions.some((sg) => sg.generatorId === 'partial-completion'))
+      ? strengthTopUp.remainingSets : 0,
   });
+  const nextRec = nextUp?.next ?? null;
   const shortWalkShown = walkSlot?.kind === 'gap';
   const postWorkoutItems = postWorkoutSuggestions && featureFlags.enableHomeV2
-    ? orderByNext(dropStepsDuplicate(postWorkoutSuggestions, shortWalkShown), suggestionKindOf, nextRec?.kind ?? 'rest')
+    ? orderByNext(
+      applyStrengthTopUp(dropStepsDuplicate(postWorkoutSuggestions, shortWalkShown), strengthTopUp, (sg) => suggestionKindOf(sg) === 'strength'),
+      suggestionKindOf,
+      nextRec?.kind ?? 'rest',
+    )
     : postWorkoutSuggestions;
+  // enable_home_v2 (audit ש5, approved): a run still due this week but not today → "הריצה
+  // הבאה" (the home run card in its 'next' state) joins the cards after a workout.
+  const nextRunCardShown = !!nextUp && nextRunCardDue({
+    hasRunningPlan: homeRun.hasRunningPlan,
+    doneToday: nextUp.doneToday,
+    week: nextUp.week,
+    runSlotKind: homeRun.slot?.kind,
+  });
   const runPlacement = useMemo(() => runPlacementOf(profile?.running), [profile?.running]);
   const RUN_PLAN_CARD_ID = 'run-plan-card';
   const isRunPlanCarouselItem = (
@@ -1777,9 +1820,9 @@ export default function HomePage() {
     />
   );
   // enable_home_v2 new user (no strength / run / walk plan, owner 20.10.2026): the start
-  // cards become full-width rows under the week strip (not a carousel slide), the
-  // generated workout carousel stays below as "או אימון מהיר עכשיו", and before the first
-  // workout the tabs block shows only steps (with health data) or nothing. Any plan → inactive.
+  // cards stay in the carousel, ONE card per slide; before the first workout the generated
+  // workouts are hidden entirely (only the start slides) and the tabs block shows only steps
+  // (with health data) or nothing. Any plan → inactive.
   const weekSessionsAll = useActivityStore((s) => {
     const c = s.weeklySummary?.categorySessions as Record<string, number> | undefined;
     return c ? Object.values(c).reduce((a, b) => a + (Number(b) || 0), 0) : 0;
@@ -1793,8 +1836,21 @@ export default function HomePage() {
     todayWorkouts: todaysWorkouts?.length ?? 0,
     healthConnected,
   });
-  // The plan the carousels place the program slide by — none while the start rows show.
-  const carouselProgramPlan: typeof programSlide.plan = newUserHome.startRows ? { mode: 'none' } : programSlide.plan;
+  // enable_home_v2: each start card is its own carousel slide (placeProgramSlides).
+  type ProgramStartItem = { id: ReturnType<typeof programStartSlideId> };
+  const isProgramStartCarouselItem = (item: Suggestion | { id: string }): item is ProgramStartItem =>
+    programStartTrackOf(item.id) !== null;
+  const programSlideItems = { start: (track: ProgramTrack): ProgramStartItem => ({ id: programStartSlideId(track) }), add: { id: PROGRAM_SLIDE_ID } as const };
+  const programStartSlide = (track: ProgramTrack) => (
+    <ProgramStartSlide track={track} profile={profile} onNavigate={programSlideNavigate} />
+  );
+  // The cards after a workout (v2): the engine's ranked list (next-up order, top-up rule)
+  // + "הריצה הבאה" when due; the program slides join at render. Flag off → untouched.
+  type PostWorkoutItem = Suggestion | { id: typeof RUN_PLAN_CARD_ID };
+  const postWorkoutBase: PostWorkoutItem[] | null = featureFlags.enableHomeV2 && postWorkoutItems
+    ? (nextRunCardShown && homeRun.slot ? placeNextRunCard<PostWorkoutItem>(postWorkoutItems, { id: RUN_PLAN_CARD_ID }, nextRec) : postWorkoutItems)
+    : postWorkoutItems;
+  const postWorkoutHasCards = postWorkoutCarouselEnabled && !!postWorkoutSuggestions && (postWorkoutBase?.length ?? 0) > 0;
   const isMapOnlyUser = profile?.onboardingPath === 'MAP_ONLY' && !hasProgram;
   // Health declaration check
   const isHealthMissing = (() => {
@@ -3343,8 +3399,12 @@ export default function HomePage() {
                 // isTodayWorkoutDone itself moved to the outer component scope (Gap 2 fix,
                 // 30.08.2026) — read via closure here, not redeclared, so the widgets/
                 // continue-activity reorder decision further down uses this exact same value.
+                // enable_home_v2 new user before the first workout (owner 20.10.2026): no
+                // generated workout at all — the start slides are the whole carousel.
+                const startOnlyToday = newUserHome.startOnly && isViewingToday;
                 const readyPreWorkoutSuggestions = (
                   HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
+                  && !startOnlyToday
                   && isViewingToday
                   && !isTodayWorkoutDone
                   && preWorkoutSuggestions
@@ -3365,6 +3425,7 @@ export default function HomePage() {
                 // same as before, unchanged) fixes it without touching StatsOverview at all.
                 const preWorkoutSuggestionsLoading =
                   HOME_PRE_WORKOUT_SUGGESTION_CAROUSEL_ENABLED
+                  && !startOnlyToday
                   && isViewingToday
                   && !isTodayWorkoutDone
                   && preWorkoutSuggestions === null;
@@ -3374,18 +3435,18 @@ export default function HomePage() {
                 // week strip, so "בחר תוכנית למטה" always has a card below it. A loading
                 // carousel keeps the place with its own skeleton. Flag off → plan 'none' → null.
                 const programSurface = resolveProgramSlideSurface({
-                  plan: carouselProgramPlan,
+                  plan: programSlide.plan,
                   isViewingToday,
                   preCarousel: readyPreWorkoutSuggestions ? 'ready' : preWorkoutSuggestionsLoading ? 'loading' : 'none',
                   postCarousel: !isSelectedDateToday ? 'none'
-                    : postWorkoutCarouselReady && (postWorkoutItems?.length ?? 0) > 0 ? 'ready'
+                    : postWorkoutHasCards ? 'ready'
                     : postWorkoutCarouselEnabled && (postWorkoutData || todayWorkoutDone) && postWorkoutSuggestions === null ? 'loading'
                     : 'none',
                 });
-                const programStandalone = newUserHome.startRows && programSlide.plan.mode === 'start' ? (
-                  <ErrorBoundary fallback={null}>
-                    <ProgramStartRows order={programSlide.plan.order} profile={profile} onNavigate={programSlideNavigate} />
-                  </ErrorBoundary>
+                // A start plan on its own = the two start cards as their own carousel (one card
+                // per slide, full width — no padded wrapper around a carousel).
+                const programStandalone = programSurface === 'standalone' && programSlide.plan.mode === 'start' ? (
+                  <ErrorBoundary fallback={null}>{programSlideCard}</ErrorBoundary>
                 ) : programSurface === 'standalone' ? (
                   <div className="mx-auto mb-4 w-full max-w-[358px] px-4" data-program-slide-standalone>
                     {programSlideCard}
@@ -3473,14 +3534,12 @@ export default function HomePage() {
                       <div className="relative mb-1 flex items-center justify-between gap-2">
                         <h3
                           className={
-                            newUserHome.startRows
-                              ? 'whitespace-nowrap text-[16px] font-black text-v2-ink'
-                              : featureFlags.enableHomeV2
+                            featureFlags.enableHomeV2
                               ? 'text-[19px] font-black text-[#0e1419] dark:text-white'
                               : 'text-2xl font-extrabold text-gray-900 dark:text-white'
                           }
                         >
-                          {newUserHome.startRows ? 'או אימון מהיר עכשיו' : calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
+                          {calmReturn.welcomeBack ? calmCopy(profile?.core?.gender).welcomeBackTitle : 'האימון היומי שלך'}
                         </h3>
                         {isActiveSuggestionHeroTreated && (
                           <AnchorLocationChip
@@ -3493,11 +3552,9 @@ export default function HomePage() {
                           />
                         )}
                       </div>
-                      {newUserHome.startRows ? <div className="mb-2" /> : (
                       <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-4 leading-relaxed text-right">
                         {preWorkoutDescription}
                       </p>
-                      )}
                     </div>
 
                     {/* maxCardWidthPx/maxCardWidthVw (26.08.2026, David's device-test
@@ -3511,14 +3568,14 @@ export default function HomePage() {
                         actually binds on any real device width, mirroring the old card's own
                         unconditional sizing. Same per-instance override mechanism
                         TodayActivityStrip already uses for its own wider-card case. */}
-                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | { id: typeof WALK_CARD_ID }>
+                    <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID }>
                       items={(() => {
                         // enable_home_v2: the program slide replaces the strength invite (placed below).
                         // enable_home_v2 walker: the short-walk card replaces the generic steps card.
                         const preItems = featureFlags.enableHomeV2 && walkSlotSurface === 'carousel'
                           ? dropStepsDuplicate(readyPreWorkoutSuggestions, shortWalkShown)
                           : readyPreWorkoutSuggestions;
-                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | { id: typeof WALK_CARD_ID }> = !hasStrengthProgram && !featureFlags.enableHomeV2
+                        const base: Array<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof RUN_PLAN_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem | { id: typeof WALK_CARD_ID }> = !hasStrengthProgram && !featureFlags.enableHomeV2
                           ? [{ id: STRENGTH_INVITE_CARD_ID }, ...readyPreWorkoutSuggestions]
                           : preItems;
                         // Both flag states (the card differs, see renderCard).
@@ -3533,7 +3590,7 @@ export default function HomePage() {
                           ? placeWalkCard(withRun, { id: WALK_CARD_ID }, walkSlot)
                           : withRun;
                         return featureFlags.enableHomeV2
-                          ? placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, carouselProgramPlan)
+                          ? placeProgramSlides<typeof withWalk[number]>(withWalk, programSlide.plan, programSlideItems)
                           : withWalk;
                       })()}
                       keyExtractor={(s) => s.id}
@@ -3544,7 +3601,7 @@ export default function HomePage() {
                         // The invite / run slides have no generator-resolved content to settle
                         // on — skip them rather than feeding a non-Suggestion object into
                         // handlePreWorkoutSettle's resolveHomeTier2 call.
-                        if (isRunPlanCarouselItem(item) || isProgramSlideCarouselItem(item) || isWalkCarouselItem(item)) return;
+                        if (isRunPlanCarouselItem(item) || isProgramSlideCarouselItem(item) || isWalkCarouselItem(item) || isProgramStartCarouselItem(item)) return;
                         if (!isStrengthInviteCarouselItem(item)) handlePreWorkoutSettle(item);
                       }}
                       renderCard={(s) =>
@@ -3568,7 +3625,9 @@ export default function HomePage() {
                             onSkipToday={homeRun.skipToday}
                             onUndoSkip={homeRun.undoSkip}
                           />
-                        ) : isRunPlanCarouselItem(s) ? null : isProgramSlideCarouselItem(s) ? (
+                        ) : isRunPlanCarouselItem(s) ? null : isProgramStartCarouselItem(s) ? (
+                          programStartSlide(programStartTrackOf(s.id)!)
+                        ) : isProgramSlideCarouselItem(s) ? (
                           programSlideCard
                         ) : isStrengthInviteCarouselItem(s) ? (
                           <AddStrengthProgramCard
@@ -3610,7 +3669,7 @@ export default function HomePage() {
                         the old anchor never conditioned this on workout type either). Reuses
                         handleBuildCustom as-is (home/page.tsx's own, already shared with the old
                         anchor) — no new builder-context logic. */}
-                    {!newUserHome.startRows && <div className="flex flex-col items-center px-4 mt-3">
+                    <div className="flex flex-col items-center px-4 mt-3">
                       {/* TODO(programIds): StatsOverview.tsx's own handleBuildCustomWrapped
                           (lines 1006-1017) also pre-fills programIds from
                           scheduledProgramIdsRef.current — a ref private to StatsOverview, with
@@ -3625,7 +3684,7 @@ export default function HomePage() {
                         })}
                         userGender={profile?.core?.gender}
                       />
-                    </div>}
+                    </div>
                   </div>
                 ) : preWorkoutSuggestionsLoading ? (
                   // Sized to match the resolved carousel above exactly (same 330px card
@@ -3649,7 +3708,7 @@ export default function HomePage() {
                       <div className="w-full h-[52px] rounded-full bg-gray-100 dark:bg-slate-800 animate-pulse" />
                     </div>
                   </div>
-                ) : viewingFutureV2 ? (
+                ) : startOnlyToday ? null : viewingFutureV2 ? (
                   // enable_home_v2 (audit-carousel.md §3): a future day previews its plan —
                   // never today's generic trio / run card / "start now".
                   <ErrorBoundary fallback={null}>
@@ -3766,7 +3825,7 @@ export default function HomePage() {
               <div className="h-4 w-40 rounded-lg bg-gray-100 dark:bg-slate-800 animate-pulse mb-3" dir="rtl" />
               <CarouselSkeleton />
             </div>
-          ) : isSelectedDateToday && postWorkoutCarouselReady && postWorkoutItems && postWorkoutItems.length > 0 ? (
+          ) : isSelectedDateToday && postWorkoutSuggestions && (featureFlags.enableHomeV2 ? postWorkoutHasCards : postWorkoutCarouselReady) && postWorkoutBase && postWorkoutBase.length > 0 ? (
             /* post_workout suggestion carousel (home-generator-v2 plan, step 6) — Phase B
                (18.08.2026): auto-reveals the moment postWorkoutSuggestions resolves,
                directly below the same completion card, same vertical slot. No tap
@@ -3783,10 +3842,10 @@ export default function HomePage() {
               <h3 className="text-right text-[16px] font-bold text-gray-900 mb-3" dir="rtl">
                 {nextRec ? nextHeaderHe(nextRec) : allGoalsMet ? 'סיימת הכל, מגיע לך מנוחה' : 'המשך הפעילות של היום'}
               </h3>
-              <SuggestionCarousel<Suggestion | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID }>
+              <SuggestionCarousel<PostWorkoutItem | { id: typeof STRENGTH_INVITE_CARD_ID } | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>
                 items={
                   featureFlags.enableHomeV2
-                    ? placeProgramSlide<Suggestion | { id: typeof PROGRAM_SLIDE_ID }>(postWorkoutItems, { id: PROGRAM_SLIDE_ID }, carouselProgramPlan)
+                    ? placeProgramSlides<PostWorkoutItem | { id: typeof PROGRAM_SLIDE_ID } | ProgramStartItem>(postWorkoutBase, programSlide.plan, programSlideItems)
                     : !hasStrengthProgram
                     ? [{ id: STRENGTH_INVITE_CARD_ID }, ...postWorkoutSuggestions]
                     : postWorkoutSuggestions
@@ -3794,7 +3853,23 @@ export default function HomePage() {
                 keyExtractor={(s) => s.id}
                 cardHeight={330}
                 renderCard={(s) =>
-                  isProgramSlideCarouselItem(s) ? (
+                  isRunPlanCarouselItem(s) ? (
+                    homeRun.slot ? (
+                      <ErrorBoundary fallback={null}>
+                        <HomeRunCarouselCard
+                          slot={homeRun.slot}
+                          profile={profile}
+                          currentWeek={homeRun.currentWeek}
+                          weatherFlag={homeWeather?.workoutWeather?.flag ?? null}
+                          calmReturn={calmReturn.state}
+                          onSkipToday={homeRun.skipToday}
+                          onUndoSkip={homeRun.undoSkip}
+                        />
+                      </ErrorBoundary>
+                    ) : null
+                  ) : isProgramStartCarouselItem(s) ? (
+                    programStartSlide(programStartTrackOf(s.id)!)
+                  ) : isProgramSlideCarouselItem(s) ? (
                     programSlideCard
                   ) : isStrengthInviteCarouselItem(s) ? (
                     <AddStrengthProgramCard
@@ -3804,6 +3879,7 @@ export default function HomePage() {
                   ) : (
                     <PostWorkoutCardRenderer
                       suggestion={s}
+                      titleOverride={strengthTopUp.mode === 'top-up' && s.generatorId === 'partial-completion' ? topUpTitleHe(strengthTopUp.remainingSets) : undefined}
                       onStart={() => handlePostWorkoutSuggestionStart(s)}
                       isStarting={startingSuggestionId === s.id}
                       userGender={profile?.core?.gender}

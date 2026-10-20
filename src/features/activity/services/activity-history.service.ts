@@ -25,6 +25,7 @@ import { db } from '@/lib/firebase';
 import { DAILY_STEP_GOAL } from '@/config/health-goals';
 import type { UserFullProfile } from '@/types/user-profile';
 import type { WeeklyActivitySummary } from '../types/activity.types';
+import { countRunSessions, type RunSessionDoc } from '../utils/run-sessions';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -151,6 +152,9 @@ function startOfCurrentWeekSunday(): Date {
 }
 
 /**
+ * Walks AND runs together, on purpose ("כמה הלכתי/רצתי יחד", owner 20.10.2026) — the weekly
+ * RUN count is runs only (getWeeklyRunCount).
+ *
  * Sum kilometres of all `category === 'cardio'` workouts saved by the user
  * since the start of the current Sunday-anchored week.
  *
@@ -192,6 +196,31 @@ export async function getWeeklyRunningKm(userId: string): Promise<number> {
   } catch (error) {
     console.warn('[ActivityHistory] getWeeklyRunningKm failed:', error);
     return 0;
+  }
+}
+
+/**
+ * Runs (not walks) saved since the start of the current Sunday-anchored week
+ * (enable_home_v2 — see utils/run-sessions.ts). Same query shape as getWeeklyRunningKm
+ * (no new index), bounded. Returns null on offline / error so callers can keep a fallback.
+ */
+export const WEEKLY_RUN_COUNT_LIMIT = 60;
+
+export async function getWeeklyRunCount(userId: string): Promise<number | null> {
+  if (!userId) return null;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return null;
+  try {
+    const q = query(
+      collection(db, 'workouts'),
+      where('userId', '==', userId),
+      where('date', '>=', Timestamp.fromDate(startOfCurrentWeekSunday())),
+      firestoreLimit(WEEKLY_RUN_COUNT_LIMIT),
+    );
+    const snap = await getDocs(q);
+    return countRunSessions(snap.docs.map((d) => d.data() as RunSessionDoc));
+  } catch (error) {
+    console.warn('[ActivityHistory] getWeeklyRunCount failed:', error);
+    return null;
   }
 }
 

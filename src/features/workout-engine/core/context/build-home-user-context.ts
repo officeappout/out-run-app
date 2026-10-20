@@ -149,6 +149,8 @@ export interface BuildHomeUserContextInput {
    * through to UserContext.weather. Optional — every caller that doesn't pass it is unchanged.
    */
   weather?: WorkoutWeather | null;
+  /** enable_home_v2 only — see UserContext.dailyStrengthTopUpSets. Absent → unchanged. */
+  dailyStrengthTopUpSets?: number;
 }
 
 export function buildHomeUserContext({
@@ -159,6 +161,7 @@ export function buildHomeUserContext({
   todayScheduleEntries,
   healthConnected,
   weather,
+  dailyStrengthTopUpSets,
 }: BuildHomeUserContextInput): UserContext {
   const stepContext = buildStepContext(useActivityStore.getState().today, healthConnected);
 
@@ -223,5 +226,6 @@ export function buildHomeUserContext({
     workdayState: detectWorkdayState(),
     activitySignal: null,
     ...(weather ? { weather } : {}),
+    ...(dailyStrengthTopUpSets && dailyStrengthTopUpSets > 0 ? { dailyStrengthTopUpSets } : {}),
   };
 }

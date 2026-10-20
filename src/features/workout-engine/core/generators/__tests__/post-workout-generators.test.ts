@@ -78,4 +78,19 @@ describe('partialCompletionGenerator', () => {
     expect(withStepsRemaining).toBe(false);
     expect(withStepsRemaining).toBe(withoutStepsRemaining);
   });
+
+  it('enable_home_v2 daily gap (dailyStrengthTopUpSets) makes it eligible once there is a profile', async () => {
+    const { useUserStore } = await import('@/features/user/identity/store/useUserStore');
+    const prev = useUserStore.getState().profile;
+    // No profile → still false, gap or not.
+    expect(partialCompletionGenerator.eligible(makeContext({ dailyStrengthTopUpSets: 6 }))).toBe(false);
+    useUserStore.setState({ profile: { id: 'u1' } as never });
+    try {
+      expect(partialCompletionGenerator.eligible(makeContext({ dailyStrengthTopUpSets: 6 }))).toBe(true);
+      // Field absent (flag off) and no session gap → today's rule: not eligible.
+      expect(partialCompletionGenerator.eligible(makeContext())).toBe(false);
+    } finally {
+      useUserStore.setState({ profile: prev });
+    }
+  });
 });

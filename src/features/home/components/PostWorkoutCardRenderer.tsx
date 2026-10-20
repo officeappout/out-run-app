@@ -56,13 +56,20 @@ interface PostWorkoutCardRendererProps {
   /** Opens the shared health-permission disclosure flow. Required together with
    *  `healthConnected` for the 'route' + not-connected branch to render ConnectStepsCard. */
   onConnectSteps?: () => void;
+  /**
+   * enable_home_v2 only (owner 20.10.2026): the card's title in place of the workout's —
+   * the "אימון משלים" card reads "השלמת סטים · נשארו X סטים להיום". Absent → unchanged.
+   */
+  titleOverride?: string;
 }
 
 function ScaledHeroRecoveryCard({
   onStart,
   userGender,
   workout,
+  titleOverride,
 }: {
+  titleOverride?: string;
   onStart: () => void;
   userGender?: 'male' | 'female' | 'other' | null;
   // Generic GeneratedWorkout, not NonNullable<ReturnType<typeof getCachedRecoveryWorkout>> —
@@ -93,7 +100,7 @@ function ScaledHeroRecoveryCard({
     <div ref={slotRef} className="h-full w-full flex items-center justify-center overflow-hidden">
       <div style={{ transform: `scale(${scale})` }}>
         <HeroWorkoutCard
-          workout={generatedToHeroWorkout(workout)}
+          workout={titleOverride ? { ...generatedToHeroWorkout(workout), title: titleOverride } : generatedToHeroWorkout(workout)}
           exercises={workout.exercises}
           onStart={onStart}
           variant="active"
@@ -111,6 +118,7 @@ export function PostWorkoutCardRenderer({
   userGender,
   healthConnected,
   onConnectSteps,
+  titleOverride,
 }: PostWorkoutCardRendererProps) {
   if (suggestion.generatorId === 'recovery-follow-up') {
     const workout = getCachedRecoveryWorkout(suggestion.id);
@@ -124,7 +132,7 @@ export function PostWorkoutCardRenderer({
   if (suggestion.generatorId === 'partial-completion') {
     const workout = getCachedPartialCompletionWorkout(suggestion.id);
     if (workout) {
-      return <ScaledHeroRecoveryCard onStart={onStart} userGender={userGender} workout={workout} />;
+      return <ScaledHeroRecoveryCard onStart={onStart} userGender={userGender} workout={workout} titleOverride={titleOverride} />;
     }
     // Defensive: cache miss — degrade to the generic card rather than render nothing.
   }
@@ -133,5 +141,5 @@ export function PostWorkoutCardRenderer({
     return <ConnectStepsCard onConnect={onConnectSteps} />;
   }
 
-  return <SuggestionCard suggestion={suggestion} onStart={onStart} isStarting={isStarting} />;
+  return <SuggestionCard suggestion={titleOverride ? { ...suggestion, title: titleOverride } : suggestion} onStart={onStart} isStarting={isStarting} />;
 }

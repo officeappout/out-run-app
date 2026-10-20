@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { runOnboardingEntryTap } from '../entry-tap';
 import { closeJitWithoutProceeding } from '@/features/user/onboarding/utils/required-setup';
 
-// A home start card (ProgramStartPair / AddTrackCard / AddStrengthProgramCard)
+// A home start card (ProgramStartSlide / AddTrackCard / AddStrengthProgramCard)
 // locks itself into a loading state on tap. If home's JIT sheet was then closed
 // without proceeding, the card used to stay spinning forever.
 
