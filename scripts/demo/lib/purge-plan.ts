@@ -22,11 +22,12 @@ import {
   SCOPE_AUTHORITY_COLLECTIONS,
   SCOPE_ID_PREFIX_COLLECTIONS,
 } from './purge-targets';
+import { leaveDemoGroupsAsViewer } from './viewer-membership';
 
 export interface PurgeUpdate {
   path: string;
   describe: string;
-  patch: Record<string, unknown>;
+  apply: () => Promise<void>;
 }
 
 export interface PurgePlan {
@@ -183,16 +184,20 @@ export async function planPurge(db: Firestore): Promise<PurgePlan> {
   for (const v of reg.viewers) {
     const [user, mem, conn] = await db.getAll(db.doc(`users/${v}`), db.doc(`user_memberships/${v}`), db.doc(`connections/${v}`));
     const ug = ((user.data()?.social as { groupIds?: unknown[] } | undefined)?.groupIds ?? []).filter(isDemoTenantId) as string[];
-    if (ug.length) updates.push({ path: `users/${v}`, describe: `social.groupIds −${ug.length}`, patch: { 'social.groupIds': FieldValue.arrayRemove(...ug) } });
     const mg = ((mem.data()?.groupIds as unknown[]) ?? []).filter(isDemoTenantId) as string[];
-    if (mg.length) updates.push({ path: `user_memberships/${v}`, describe: `groupIds −${mg.length}`, patch: { groupIds: FieldValue.arrayRemove(...mg) } });
+    const leave = Array.from(new Set([...ug, ...mg]));
+    if (leave.length) {
+      updates.push({ path: `users/${v} + user_memberships/${v}`, describe: `קבוצות דמו −${leave.length}`, apply: () => leaveDemoGroupsAsViewer(db, v, leave) });
+    }
     const fw = ((conn.data()?.following as unknown[]) ?? []).filter(isDemoUid) as string[];
     const fr = ((conn.data()?.followers as unknown[]) ?? []).filter(isDemoUid) as string[];
     if (fw.length || fr.length) {
       updates.push({
         path: `connections/${v}`,
         describe: `following −${fw.length}, followers −${fr.length}`,
-        patch: { ...(fw.length ? { following: FieldValue.arrayRemove(...fw) } : {}), ...(fr.length ? { followers: FieldValue.arrayRemove(...fr) } : {}) },
+        apply: async () => {
+          await db.doc(`connections/${v}`).update({ ...(fw.length ? { following: FieldValue.arrayRemove(...fw) } : {}), ...(fr.length ? { followers: FieldValue.arrayRemove(...fr) } : {}) });
+        },
       });
     }
     const kudos = await db.collection(`kudos/${v}/inbox`).where('fromUid', '>=', DEMO_UID_PREFIX).where('fromUid', '<', DEMO_UID_PREFIX + END).get();
@@ -224,7 +229,7 @@ export function summarizePlan(plan: PurgePlan): Record<string, number> {
 
 export async function executePurge(db: Firestore, plan: PurgePlan, log: (s: string) => void = () => {}): Promise<Record<string, number>> {
   if (plan.problems.length) throw new Error(`עצירה — לא נמחק כלום:\n${plan.problems.join('\n')}`);
-  for (const u of plan.updates) await db.doc(u.path).update(u.patch);
+  for (const u of plan.updates) await u.apply();
   const registry = plan.deletes.filter((p) => p.startsWith(`${REGISTRY_COLLECTION}/`));
   const rest = plan.deletes.filter((p) => !p.startsWith(`${REGISTRY_COLLECTION}/`));
   // Deepest first, so a subcollection doc never outlives its parent mid-run.

@@ -3,15 +3,15 @@
  * (demo_registry/viewers.uids — the guards in functions/src/lib/demo-world.ts read it).
  *
  * addViewer always: adds the uid to demo_registry/viewers and to managerIds of the demo
- * authorities (demo docs only). With `groups: true` it also joins the demo groups the way
- * joinEngine does (member doc + group chat participant + the viewer's social.groupIds +
- * user_memberships) — the only writes to a real account's docs; purge.ts removes exactly
- * those ids again (it never deletes a viewer's own docs).
+ * authorities (demo docs only). With `groups: true` it also joins the demo groups
+ * (viewer-membership.ts, the joinEngine-style atomic write) — the only writes to a real
+ * account's docs; purge.ts removes exactly those ids again (never a viewer's own docs).
  */
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { isDemoUid } from '@/lib/demo';
 import { DEMO_CITIES, DEMO_UNITS, REGISTRY_COLLECTION, REGISTRY_DOCS } from './config';
 import { DEMO_GROUPS, groupChatId } from './social';
+import { joinDemoGroupAsViewer } from './viewer-membership';
 
 export interface AddViewerResult {
   uid: string;
@@ -39,12 +39,7 @@ export async function addViewer(db: Firestore, uid: string, opts: { groups?: boo
     for (const g of DEMO_GROUPS) {
       const snap = await db.collection('community_groups').doc(g.id).get();
       if (!snap.exists || snap.data()?.isDemo !== true) continue;
-      const batch = db.batch();
-      batch.set(db.doc(`community_groups/${g.id}/members/${uid}`), { uid, name, role: 'member', joinedAt: FieldValue.serverTimestamp(), isViewer: true });
-      batch.set(db.doc(`chats/${groupChatId(g.id)}`), { participants: FieldValue.arrayUnion(uid), participantNames: { [uid]: name } }, { merge: true });
-      batch.set(db.doc(`user_memberships/${uid}`), { groupIds: FieldValue.arrayUnion(g.id), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      batch.set(db.doc(`users/${uid}`), { social: { groupIds: FieldValue.arrayUnion(g.id) } }, { mergeFields: ['social.groupIds'] });
-      await batch.commit();
+      await joinDemoGroupAsViewer(db, uid, name, g.id, groupChatId(g.id));
       groups.push(g.id);
     }
   }
