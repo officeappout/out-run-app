@@ -68,6 +68,7 @@ import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import RouteRunLiveV2Controller from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunLiveV2Controller';
 import { hasMapDeepLink } from '@/features/user/onboarding/services/first-run-tour';
+import { consumeEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
 
 const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep'),
@@ -120,9 +121,12 @@ interface MapShellInnerProps {
   /** First-run map tour (slice 2): a plain /map arrival (no deep link / context / workout
    *  id, captured at mount) with the location gate down. DiscoverLayer adds its own guards. */
   firstRunTourEligible?: boolean;
+  /** Entry flow v2 (C1 → C2 contract): this visit is the location step's landing (captured once
+   *  at mount). Read only behind enable_entry_whatnow_v1 (DiscoverLayer's step 2 drawer). */
+  entryV2Landing?: boolean;
 }
 
-function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false, firstRunTourEligible = false }: MapShellInnerProps) {
+function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = false, initialOpenHybridSlots = false, initialOpenDiscover = false, firstRunTourEligible = false, entryV2Landing = false }: MapShellInnerProps) {
   const { mode, setMode, activityType: contextActivity } = useMapMode();
 
   // devSim + profile hoisted above useMapLogic (David, 22.09.2026, field-test
@@ -752,7 +756,7 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
       </AnimatePresence>
 
       {/* ══════ LAYER ROUTER ══════ */}
-      {mode === 'discover' && <DiscoverLayer logic={logic} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} firstRunTourEligible={firstRunTourEligible} />}
+      {mode === 'discover' && <DiscoverLayer logic={logic} devSim={devSim} initialOpenRun={initialOpenRun} targetSteps={targetSteps} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} onRecenter={handleRecenter} firstRunTourEligible={firstRunTourEligible} entryV2Landing={entryV2Landing} />}
       {mode === 'builder' && <BuilderLayer logic={logic} />}
       {mode === 'navigate' && <NavigateLayer logic={logic} />}
       {mode === 'free_run' && <FreeRunLayer logic={logic} effectivePos={effectivePos} />}
@@ -892,6 +896,12 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
   // drawer/flow means "not this visit" (the tour waits for a later plain visit).
   const [plainMapArrival] = useState(
     () => !initialWorkoutId && !initialContext && !spotFocus && !hasMapDeepLink(searchParams),
+  );
+  // Entry flow v2: the location step's landing signal (URL entry=v2 — stripped by the
+  // fromExplorer effect below — or the sessionStorage hint). Consumed once, at mount, so a
+  // reload or a later /map visit never re-opens step 2.
+  const [entryV2Landing] = useState(() =>
+    typeof window !== 'undefined' && consumeEntryV2Landing(window.sessionStorage, searchParams),
   );
 
   // Social-activities push deep-link (Phase 3) — see openParkId/openRouteId
@@ -1068,7 +1078,7 @@ export default function MapShell({ initialWorkoutId, initialContext, spotFocus }
     <>
       {/* Map tree always mounts — Mapbox warms up behind the gate */}
       <MapModeProvider initialWorkoutId={initialWorkoutId ?? null} initialContext={initialContext}>
-        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} firstRunTourEligible={plainMapArrival && !needsLocationGate} />
+        <MapShellInner spotFocus={spotFocus ?? null} initialOpenRun={initialOpenRun} targetSteps={targetSteps} isDemoMode={isDemoMode} initialOpenHybridSlots={initialOpenHybridSlots} initialOpenDiscover={initialOpenDiscover} firstRunTourEligible={plainMapArrival && !needsLocationGate} entryV2Landing={entryV2Landing} />
       </MapModeProvider>
 
       {/* Location gate — high z-index overlay, not a tree gate.

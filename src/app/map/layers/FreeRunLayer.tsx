@@ -48,6 +48,7 @@ import type { DrawerSlide } from '@/features/workout-engine/players/running/type
 import FreeRunOverlayV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunOverlayV2';
 import FreeRunLapsLayerV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunLapsLayerV2';
 import FreeRunMiniV2 from '@/features/workout-engine/players/running/components/FreeRun/v2/FreeRunMiniV2';
+import { RoutePlayerTip } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
 import {
   HybridPlayerV2Provider, HybridOverlayV2, HybridSessionListV2, HybridMiniV2, HybridStationHostV2,
 } from '@/features/workout-engine/hybrid/v2';
@@ -103,7 +104,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // Home v2 (enable_home_v2): the continuous-run player (R2-prop-easy / U-B / U-C).
   // Commute keeps today's UI (its own ETA carousel). Off ⇒ today's UI, unchanged.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const homeV2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const { flags: adminAwareFlags, loading: adminAwareFlagsLoading } = useFeatureFlags(isSuperAdmin);
+  const homeV2 = adminAwareFlags.enableHomeV2;
+  // Entry flow v2 (enable_entry_whatnow_v1): the one-time long-press tip on the player controls.
+  const entryPlayerTipOn = !adminAwareFlagsLoading && adminAwareFlags.enableEntryWhatnowV1;
+  const runnerUid = useUserStore((s) => s.profile?.id);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const v2 = homeV2 && sessionMode !== 'commute';
   // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
@@ -373,6 +378,11 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
             <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
               {/* Everything hidden when minimized — laps list must be unobstructed. */}
               {!isMinimized && hybridV2 && <HybridOverlayV2 dragControls={dragControls} onMinimize={onMinimize} />}
+              {/* Entry flow v2: first time the route player runs — one tip on pause / stop (design R6).
+                  Flag off → not mounted. The tip only shows where its target exists (the v2 controls). */}
+              {entryPlayerTipOn && (
+                <RoutePlayerTip armed={!isMinimized} uid={runnerUid} gender={runnerGender} />
+              )}
               {!isMinimized && v2 && !hybridV2 && (
                 <>
                   <FreeRunOverlayV2

@@ -92,6 +92,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
 import { logHybridShown } from '@/features/generation-review/capture/hooks';
+import EntryWhatNowMount from './EntryWhatNowMount';
+import { RouteFirstTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
+import { firstWorkoutNote, routeSuggestionFromSlots } from '@/features/user/onboarding/services/entry-whatnow';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -233,9 +237,11 @@ interface DiscoverLayerProps {
   onRecenter?: () => void;
   /** First-run map tour (slice 2): this is a plain map arrival (see MapShell). */
   firstRunTourEligible?: boolean;
+  /** Entry flow v2: this visit is the location step's landing (MapShell, captured at mount). */
+  entryV2Landing?: boolean;
 }
 
-export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter, firstRunTourEligible = false }: DiscoverLayerProps) {
+export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSteps, initialOpenHybridSlots, initialOpenDiscover, onRecenter, firstRunTourEligible = false, entryV2Landing = false }: DiscoverLayerProps) {
   const router = useRouter();
   // Warm the code-split overlay chunks once the map is idle (first tap stays instant).
   useDiscoverOverlayPreload();
@@ -936,6 +942,22 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     () => withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null),
     [slots, mapFeatureFlags.enableHomeV2, homeRun.slot],
   );
+
+  // ── Entry flow v2, step 2 (enable_entry_whatnow_v1) ──────────────────────────
+  // Flag off → entryWhatNowOn is false: the host renders nothing, the carousels get no
+  // tutorial props and no footnote (byte-identical).
+  const entryWhatNowOn = !mapFlagsLoading && mapFeatureFlags.enableEntryWhatnowV1;
+  // The route card's numbers come from the map's own suggestion (first walk/run + strength slot).
+  const entryRouteSuggestion = useMemo(
+    () => (entryWhatNowOn && entryV2Landing ? routeSuggestionFromSlots(carouselSlots, slotActivity) : null),
+    [entryWhatNowOn, entryV2Landing, carouselSlots, slotActivity],
+  );
+  const entryAnchor = useMemo(() => {
+    const lat = profile?.core?.anchorLat;
+    const lng = profile?.core?.anchorLng;
+    return typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : null;
+  }, [profile?.core?.anchorLat, profile?.core?.anchorLng]);
+  const entryFirstWorkoutNote = firstWorkoutNote(entryWhatNowOn, hasAcceptedHealthDeclaration(profile));
 
   // Draw a composed hybrid loop on the LIVE map (READ-ONLY — no save, no run).
   // id MUST be 'hybrid-route': MapShell draws a standalone composed loop ONLY
@@ -2233,6 +2255,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 // G1.1 (flag enable_carousel_swipe_hint, fail-closed): only once the flags have
                 // loaded, so the hint/width never switch mid-view.
                 swipeHint={!mapFlagsLoading && mapFeatureFlags.enableCarouselSwipeHint}
+                // enable_entry_whatnow_v1 only (false / null otherwise → byte-identical).
+                entryTutorial={entryWhatNowOn}
+                firstWorkoutNote={entryFirstWorkoutNote}
                 onSelectSlot={handleSelectSlot}
                 onSettleSlot={handleSettleSlot}
                 computingPreview={hybridPreviewComposing}
@@ -2481,6 +2506,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   }}
                   // v2: the cards are the overview drawer's compact header; a tap opens it.
                   onOpenRoute={mapFeatureFlags.enableHomeV2 ? (route) => { logic.setFocusedRoute(route); setRouteOverview(route); } : undefined}
+                  // enable_entry_whatnow_v1 only (false / null otherwise → byte-identical).
+                  entryTutorial={entryWhatNowOn}
+                  firstWorkoutNote={entryFirstWorkoutNote}
                 />
               )}
 
@@ -2561,6 +2589,36 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       {renderScreen()}
 
       <FirstRunTour tour="map" active={mapTourActive} uid={profile?.id} gender={profile?.core?.gender} delayMs={900} />
+
+      {/* Entry flow v2, step 2 (enable_entry_whatnow_v1): the one-time "מה בא לך עכשיו?" drawer
+          after the location step's landing, and the first-route finger tutorial. Flag off → none. */}
+      {entryWhatNowOn && entryV2Landing && (
+        <EntryWhatNowMount
+          enabled={entryWhatNowOn}
+          landing={entryV2Landing}
+          uid={profile?.id}
+          position={userLocation ?? entryAnchor}
+          route={entryRouteSuggestion}
+          blocked={
+            !isMapVisuallyReady || logic.isWorkoutActive || mapMode !== 'idle' || logic.isGenerating || !!mapGlobalSheet
+          }
+          kellyUnified={mapFeatureFlags.kellyUnifiedV1 === true}
+          onRoute={() => {
+            // The map's existing "מה עושים היום?" carousel — same entry as its own button /
+            // the openHybridSlots deep-link; the settle-preview draws the route + stops.
+            resetHybridFlow('slots');
+            setMapMode('freeRun');
+          }}
+        />
+      )}
+      <RouteFirstTour
+        armed={
+          entryWhatNowOn && mapMode === 'freeRun' && (freeRunStep === 'route' || freeRunStep === 'slots') &&
+          !logic.isWorkoutActive && !hybridComposing
+        }
+        uid={profile?.id}
+        gender={profile?.core?.gender}
+      />
       {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}
       <TourReplayHost tour="map" ready={isMapVisuallyReady} gender={profile?.core?.gender} delayMs={900} />
 
