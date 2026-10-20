@@ -23,6 +23,7 @@ import EditProfileModal from './EditProfileModal';
 import WorkoutGrid from './WorkoutGrid';
 import ProfileHeader from './ProfileHeader';
 import PartnersHighlightsRow from './PartnersHighlightsRow';
+import ProgressLinkRow from './ProgressLinkRow';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import StreakFlame from '@/components/ui/v2/StreakFlame';
 import { EASE_V2 } from '@/components/ui/v2';
@@ -138,7 +139,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
   }, [isHydrated, progress]);
 
   const levelName = getLevelName(globalLevel, gender);
-  const totalWorkouts = workouts.length;
+  // v2: the lifetime counter — the loaded list is capped at 50.
+  const lifetimeCount = profile?.progression?.workoutCount;
+  const totalWorkouts = v2 && typeof lifetimeCount === 'number' && lifetimeCount >= workouts.length ? lifetimeCount : workouts.length;
+  // v2: skills + programs moved to the progress tab (/progression); the
+  // profile keeps identity & social — workouts and achievements.
+  const visibleTabs = v2 ? PROFILE_TABS.filter((t) => t.id === 'workouts' || t.id === 'badges') : PROFILE_TABS;
 
   return (
     <div className="space-y-4 pb-24" dir="rtl">
@@ -215,7 +221,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             stats={[
               {
                 key: 'workouts',
-                value: historyLoading ? '—' : totalWorkouts,
+                value: historyLoading && !(v2 && typeof lifetimeCount === 'number') ? '—' : totalWorkouts,
                 label: 'אימונים',
                 onClick: onNavigateToHistory,
               },
@@ -297,6 +303,12 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
             onAddClick={() => router.push('/search?tab=people')}
           />
         </div>
+
+        {v2 && (
+          <div className="mt-4">
+            <ProgressLinkRow />
+          </div>
+        )}
       </motion.div>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -312,8 +324,8 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
         className={v2 ? 'sticky top-0 z-[2] -mx-4 bg-v2-surface/95 px-4 pb-2 pt-1 backdrop-blur-sm' : 'border-b border-gray-100'}
       >
         {v2 ? (
-          <div className="grid grid-cols-4 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label="תצוגת פרופיל">
-            {PROFILE_TABS.map((tab) => {
+          <div className="grid grid-cols-2 rounded-full bg-white p-1 shadow-v2-ring" role="tablist" aria-label="תצוגת פרופיל">
+            {visibleTabs.map((tab) => {
               const on = activeTab === tab.id;
               return (
                 <button
@@ -410,6 +422,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           תוכנית" → the real assessment questionnaire) carries over
           unchanged — this is a pure relocation, ProgramsSection.tsx itself
           is untouched.) */}
+      {!v2 && (
       <div className={activeTab === 'skills' ? 'space-y-4' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
@@ -419,6 +432,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           <ProgramsSection v2={v2} />
         </motion.div>
       </div>
+      )}
 
       {/* ── הישגים ── BLOCK 3 — flat, no card wrapper ("פרופיל חלק" follow-up) */}
       <div className={activeTab === 'badges' ? 'space-y-4' : 'hidden'}>
@@ -468,6 +482,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           NOT on PrioritiesSection's wrapper: it renders null for most users
           (single-item selections don't qualify), and a border attached to
           an empty block would show as a stray trailing line. */}
+      {!v2 && (
       <div className={activeTab === 'programs' ? '' : 'hidden'}>
         <motion.div
           initial={{ y: 16, opacity: 0 }}
@@ -509,6 +524,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
           <PrioritiesSection v2={v2} />
         </motion.div>
       </div>
+      )}
 
       {/* ── Achievement Sheet (full-screen) ── */}
       <AchievementSheet
