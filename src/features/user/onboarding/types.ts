@@ -158,7 +158,11 @@ export interface OnboardingData {
   runningNotificationsEnabled?: boolean;   // running reminder preference
   runningPlanWeeks?: number;               // user-selected plan length (4–52), overrides resolveWeeks()
   runningScheduleDaysSource?: string;      // 'system-default' | 'user-chosen' — stored as running.scheduleDaysSource
-  
+  // enable_home_v2 run signup (journey 2) — IN-SESSION ONLY, never synced:
+  // the per-day time-of-day chips and the long-run day the summary shows.
+  runningScheduleDayWindows?: Partial<Record<number, 'morning' | 'noon' | 'evening'>>;
+  runningLongRunDay?: number | null;
+
   // Account Security (Backup & Security)
   accountSecured?: boolean; // True if user linked Google/Email/Phone
   accountStatus?: 'secured' | 'unsecured'; // Status terminology (replaces 'anonymous')

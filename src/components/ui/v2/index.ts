@@ -97,3 +97,7 @@ export type { ErrorStateProps, ErrorStateAction } from './ErrorState';
 // Swap sheets (strength "החלפת תרגיל", run "החלף מקטע"): the level below / same / above marks.
 export { default as LevelCompareIcon, LEVEL_COMPARE_ICONS } from './LevelCompareIcon';
 export type { LevelComparison, LevelCompareIconProps } from './LevelCompareIcon';
+// Staggered entrance on scroll (plan summary tiles); reduced motion = no motion.
+export { default as RevealOnScroll } from './RevealOnScroll';
+export type { RevealOnScrollProps } from './RevealOnScroll';
+export * from './reveal';

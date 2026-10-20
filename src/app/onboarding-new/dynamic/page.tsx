@@ -27,6 +27,7 @@ import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure
 import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboardingV2';
 import { questionMotionClass, questionnaireScreen } from '@/features/user/onboarding/utils/questionnaire-screen';
 import { Loader2 } from 'lucide-react';
+import { runSignupNextRoute } from '@/features/user/onboarding/utils/run-signup-routing';
 
 /**
  * Dynamic Onboarding Page
@@ -574,7 +575,7 @@ export default function DynamicOnboardingPage() {
       // Running track: skip loading animation, go straight to schedule
       if (isRunningTrack) {
         firePhaseConfetti();
-        router.push('/onboarding-new/running-schedule');
+        router.push(runSignupNextRoute('dynamic', v2));
         return;
       }
 
@@ -584,7 +585,7 @@ export default function DynamicOnboardingPage() {
       console.error('Error completing onboarding:', err);
       alert('שגיאה בשמירת הפרופיל. אנא נסה שוב.');
     }
-  }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile, router]);
+  }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile, router, v2]);
 
   // Handle result loading complete - show program result
   const handleResultLoadingComplete = useCallback(() => {
@@ -600,11 +601,11 @@ export default function DynamicOnboardingPage() {
       !!sessionStorage.getItem('onboarding_running_answers');
 
     if (hasRunningAnswers) {
-      router.push('/onboarding-new/running-schedule');
+      router.push(runSignupNextRoute('dynamic', v2));
     } else {
       router.push('/onboarding-new/health');
     }
-  }, [router]);
+  }, [router, v2]);
 
   // Show reveal screens if active
   if (showResultLoading) {
