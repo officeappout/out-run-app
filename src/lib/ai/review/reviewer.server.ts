@@ -12,6 +12,9 @@
  *      new messages → turns → deterministic pre-checks → one grader call (AI_MODEL_SMART,
  *      structured JSON) → ai_coach_reviews/{uid}_{reviewId} + ai_coach_review_stats/{day}
  *      increments + the cursor, in one batch
+ *      Demo world: threads of demo users are never graded — `demo_` uids drop from the
+ *      candidates before any read; a core.demo user (seen on the users read above) is skipped
+ *      like an opt-out (cursor moved, so the thread does not hold a slot every morning)
  *   4. stops early on the time budget (the route has 60 s) and reports `remaining`
  *
  * Read-only towards the coach: it never touches ai_coach_threads, prompts or flags.
@@ -36,6 +39,7 @@ import { coachGenderOf, firstNameOf } from '@/lib/ai/coach/persona';
 import { GRADER_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT_WITH_TOPICS, gradeTurns, type CallGrader } from './grader';
 import { mergeTurnTopics } from './topics';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
+import { isDemoCore, isDemoUid } from '@/lib/demo';
 import { mergeIssues, runPrechecks } from './prechecks';
 import {
   AI_COACH_REVIEWS,
@@ -72,6 +76,8 @@ export interface RunReviewResult {
   day: string;
   reviewed: number;
   skippedOptOut: number;
+  /** Demo users' threads skipped (uid prefix before any read, or core.demo). */
+  skippedDemo: number;
   skippedNoNew: number;
   failed: number;
   remaining: boolean;
@@ -128,6 +134,7 @@ export async function runAiCoachReview(
     day,
     reviewed: 0,
     skippedOptOut: 0,
+    skippedDemo: 0,
     skippedNoNew: 0,
     failed: 0,
     remaining: false,
@@ -161,7 +168,9 @@ export async function runAiCoachReview(
     .orderBy('updatedAt', 'asc')
     .limit(AI_REVIEW_MAX_THREADS_PER_RUN * 3)
     .get();
-  const threads = tSnap.docs.map((d) => ({ uid: d.id, updatedAtMs: msOf(d.data()?.updatedAt) }));
+  const allThreads = tSnap.docs.map((d) => ({ uid: d.id, updatedAtMs: msOf(d.data()?.updatedAt) }));
+  const threads = allThreads.filter((t) => !isDemoUid(t.uid));
+  result.skippedDemo += allThreads.length - threads.length;
   const cursorSnaps = threads.length
     ? await db.getAll(...threads.map((t) => db.collection(AI_COACH_REVIEW_CURSORS).doc(t.uid)))
     : [];
@@ -182,6 +191,11 @@ export async function runAiCoachReview(
     const cursorRef = db.collection(AI_COACH_REVIEW_CURSORS).doc(uid);
     const userSnap = await db.collection('users').doc(uid).get();
     const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+    if (isDemoCore(core)) {
+      result.skippedDemo++;
+      if (!opts.dryRun) await cursorRef.set({ reviewedUntil: Timestamp.fromMillis(now.getTime()), demo: true }, { merge: true });
+      return;
+    }
     if (core.aiReviewOptOut === true || core.analyticsOptOut === true) {
       result.skippedOptOut++;
       if (!opts.dryRun) await cursorRef.set({ reviewedUntil: Timestamp.fromMillis(now.getTime()), optedOut: true }, { merge: true });

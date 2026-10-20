@@ -67,7 +67,8 @@ export const col = (path: string): any => ({ doc: (id: string) => ref(`${path}/$
 
 export const db: any = {
   collection: col,
-  getAll: async (...refs: any[]) => refs.map((r) => snapOf(r.__path)),
+  // Like the Admin SDK: a trailing ReadOptions object ({ fieldMask }) is not a ref.
+  getAll: async (...refs: any[]) => refs.filter((r) => typeof r?.__path === 'string').map((r) => snapOf(r.__path)),
   runTransaction: async (fn: (tx: any) => Promise<unknown>) =>
     fn({
       get: (r: any) => r.get(),
