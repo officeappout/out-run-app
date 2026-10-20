@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  doneKindsOf, dropStepsDuplicate, nextHeaderHe, orderByNext, resolveNextRecommendation, suggestionKindOf,
+  doneKindsOf, dropStepsDuplicate, nextHeaderHe, nextRunCardDue, orderByNext, placeNextRunCard, resolveNextRecommendation, suggestionKindOf,
   type NextRecommendationInput,
 } from '../next-recommendation';
 
@@ -69,5 +69,37 @@ describe('doneKindsOf / nextHeaderHe', () => {
   });
   it('rest header keeps the old copy', () => {
     expect(nextHeaderHe({ kind: 'rest', why: 'done' })).toBe('סיימת הכל, מגיע לך מנוחה');
+  });
+});
+
+describe('strength top-up (owner 20.10.2026: depends on the daily goal)', () => {
+  it('part of the daily sets done → "אימון משלים" before steps / the week', () => {
+    expect(resolveNextRecommendation({ ...base, stepsRemaining: 3000, strengthTopUpSets: 6 })).toEqual({ kind: 'strength', why: 'topup', sets: 6 });
+  });
+  it("today's pending plan still comes first", () => {
+    expect(resolveNextRecommendation({ ...base, plannedToday: ['strength', 'run'], strengthTopUpSets: 6 })).toEqual({ kind: 'run', why: 'planned' });
+  });
+  it('no strength done today → the top-up is ignored', () => {
+    expect(resolveNextRecommendation({ ...base, doneToday: ['run'], plannedToday: ['run'], strengthTopUpSets: 6 }).why).not.toBe('topup');
+  });
+  it('header says why', () => {
+    expect(nextHeaderHe({ kind: 'strength', why: 'topup', sets: 6 })).toBe('אימון משלים — לסגור את יעד הכוח של היום');
+  });
+});
+
+describe('next run card (audit ש5)', () => {
+  const due = { hasRunningPlan: true, doneToday: ['strength'] as const, week: { runDone: 1, runTarget: 3 }, runSlotKind: 'next' as const };
+  it('a run still due this week, the next one on another day → the card', () => {
+    expect(nextRunCardDue(due)).toBe(true);
+  });
+  it('not when today has the run, a run was done, the week is reached or there is no plan', () => {
+    expect(nextRunCardDue({ ...due, runSlotKind: 'today' })).toBe(false);
+    expect(nextRunCardDue({ ...due, doneToday: ['run'] })).toBe(false);
+    expect(nextRunCardDue({ ...due, week: { runDone: 3, runTarget: 3 } })).toBe(false);
+    expect(nextRunCardDue({ ...due, hasRunningPlan: false })).toBe(false);
+  });
+  it('leads when the run is the recommendation, otherwise goes last', () => {
+    expect(placeNextRunCard(['a', 'b'], 'R', { kind: 'run', why: 'week' })).toEqual(['R', 'a', 'b']);
+    expect(placeNextRunCard(['a', 'b'], 'R', { kind: 'walk', why: 'steps' })).toEqual(['a', 'b', 'R']);
   });
 });

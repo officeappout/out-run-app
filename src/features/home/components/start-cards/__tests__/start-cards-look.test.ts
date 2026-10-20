@@ -11,7 +11,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }));
 
 import ProgramStartCard from '../ProgramStartCard';
 import AddTrackCard from '../AddTrackCard';
-import ProgramStartPair from '../ProgramStartPair';
+import ProgramStartSlide from '../ProgramStartSlide';
+import ProgramStartCarousel from '../ProgramStartCarousel';
 import AddStrengthProgramCard from '../../AddStrengthProgramCard';
 import { PROGRAM_START_COPY, ADD_TRACK_CTA, ADD_TRACK_DISMISS } from '../program-start-copy';
 import { PROGRAM_TRACK_VISUAL } from '../program-track-visual';
@@ -78,10 +79,25 @@ describe('AddTrackCard — an image strip in the same treatment', () => {
   });
 });
 
-describe('ProgramStartPair', () => {
-  it('two photo cards in the given order', () => {
-    const out = renderToStaticMarkup(h(ProgramStartPair, { order: ['running', 'strength'] as const, profile: null }));
+describe('ProgramStartSlide (owner 20.10.2026: one card per slide)', () => {
+  it.each(['strength', 'running'] as const)('%s: ONE card filling the slide, all its copy', (track) => {
+    const out = renderToStaticMarkup(h(ProgramStartSlide, { track, profile: null }));
+    expect(out.match(/data-program-start="/g)?.length).toBe(1);
+    expect(out).toContain('data-program-start-slide');
+    expect(out).toContain('h-full w-full');
+    expect(out).not.toContain('flex-1');
+    expect(out).toContain(PROGRAM_START_COPY[track].title);
+    expect(out).toContain(PROGRAM_START_COPY[track].valueLine);
+    expect(out).toContain(PROGRAM_START_COPY[track].chip);
+  });
+});
+
+describe('ProgramStartCarousel', () => {
+  it('the two start cards, each its own slide, in the given order, with the header + hint', () => {
+    const out = renderToStaticMarkup(h(ProgramStartCarousel, { order: ['running', 'strength'] as const, profile: null }));
+    expect(out).toContain('בוא נבנה לך תוכנית');
     expect(out.indexOf('data-program-start="running"')).toBeLessThan(out.indexOf('data-program-start="strength"'));
+    expect(out.match(/data-program-start-slide/g)?.length).toBe(2);
     expect(out).toContain(STRENGTH_IMG);
     expect(out).toContain(RUN_IMG);
   });

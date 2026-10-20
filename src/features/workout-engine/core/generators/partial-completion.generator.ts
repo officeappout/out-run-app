@@ -184,12 +184,15 @@ export const partialCompletionGenerator: Generator = {
   name: 'השלמת אימון',
   surfaces: ['post_workout'],
 
-  eligible: () => {
+  eligible: (context) => {
     const { setsCompleted, setsPlanned } = summarizeTodayStrengthVolume(
       useWeeklyVolumeStore.getState().sessionLogs,
     );
     const hasProfile = useUserStore.getState().profile !== null;
-    const result = setsCompleted < setsPlanned && hasProfile;
+    // enable_home_v2 (owner 20.10.2026): part of today's DAILY goal still missing counts too,
+    // even when the session itself was finished. Field absent (flag off) → today's rule.
+    const dailyGap = (context?.dailyStrengthTopUpSets ?? 0) > 0;
+    const result = (setsCompleted < setsPlanned || dailyGap) && hasProfile;
     console.log(
       `${LOG_PREFIX} eligible(): setsCompleted=${setsCompleted} setsPlanned=${setsPlanned} ` +
       `hasProfile=${hasProfile} → ${result}`,

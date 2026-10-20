@@ -14,6 +14,11 @@ export interface ProgramStartCardProps {
   chipLabel: string;
   loading?: boolean;
   onTap: () => void;
+  /**
+   * enable_home_v2 (owner 20.10.2026): the card fills a whole carousel slide (one card per
+   * slide, full card width, all text visible) instead of half of a shared tile.
+   */
+  slide?: boolean;
 }
 
 const SIMPLER = { fontFamily: 'var(--font-simpler)' } as const;
@@ -25,25 +30,26 @@ const SIMPLER = { fontFamily: 'var(--font-simpler)' } as const;
  * the bottom, then the duration chip and a round go mark. Sized by its
  * parent (the pair splits the carousel slot in two).
  */
-export default function ProgramStartCard({ track, title, valueLine, chipLabel, loading = false, onTap }: ProgramStartCardProps) {
+export default function ProgramStartCard({ track, title, valueLine, chipLabel, loading = false, onTap, slide = false }: ProgramStartCardProps) {
   return (
     <button
       type="button"
       onClick={onTap}
       disabled={loading}
       data-program-start={track}
-      className="group relative h-[244px] min-w-0 flex-1 overflow-hidden rounded-[24px] bg-white text-right shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
+      data-program-start-slide={slide ? '' : undefined}
+      className={`group relative ${slide ? 'h-full w-full' : 'h-[244px] min-w-0 flex-1'} overflow-hidden rounded-[24px] bg-white text-right shadow-lg transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60`}
       dir="rtl"
     >
-      <ProgramArt track={track} crop="tall" fade="72%" />
-      <div className="absolute inset-x-0 bottom-0 flex flex-col items-start p-3">
+      <ProgramArt track={track} crop="tall" fade={slide ? '58%' : '72%'} />
+      <div className={`absolute inset-x-0 bottom-0 flex flex-col items-start ${slide ? 'p-4' : 'p-3'}`}>
         <div className="mb-1 flex min-w-0 max-w-full items-center gap-1.5">
-          <ProgramTrackIcon track={track} />
-          <h2 className="truncate whitespace-nowrap text-[19px] font-bold leading-tight text-slate-900" style={SIMPLER}>
+          <ProgramTrackIcon track={track} className={slide ? 'h-[22px] w-[22px]' : undefined} />
+          <h2 className={`truncate whitespace-nowrap ${slide ? 'text-[22px]' : 'text-[19px]'} font-bold leading-tight text-slate-900`} style={SIMPLER}>
             {title}
           </h2>
         </div>
-        <p className="min-h-[34px] text-[12.5px] font-medium leading-[1.35] text-slate-900" style={SIMPLER}>
+        <p className={slide ? 'text-[14px] font-medium leading-[1.4] text-slate-900' : 'min-h-[34px] text-[12.5px] font-medium leading-[1.35] text-slate-900'} style={SIMPLER}>
           {valueLine}
         </p>
         <div className="mt-2 flex w-full items-center justify-between gap-1">

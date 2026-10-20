@@ -85,6 +85,32 @@ export function placeProgramSlide<T>(items: readonly T[], slide: T, plan: Progra
   return [items[0], slide, ...items.slice(1)];
 }
 
+/**
+ * enable_home_v2 (owner 20.10.2026): a new user's start cards stay IN the carousel, but each
+ * questionnaire card is its OWN full slide (one card per slide, full card width) — never two
+ * squeezed into one tile. Start plan → one slide per track, in the plan's order, leading;
+ * add plan → the single add slide, second (as placeProgramSlide); none → unchanged.
+ */
+export function placeProgramSlides<T>(
+  items: readonly T[],
+  plan: ProgramSlidePlan,
+  slides: { start: (track: ProgramTrack) => T; add: T },
+): T[] {
+  if (plan.mode === 'start') return [...plan.order.map((track) => slides.start(track)), ...items];
+  return placeProgramSlide(items, slides.add, plan);
+}
+
+/** The carousel id of a track's start slide. */
+export type ProgramStartSlideId = `program-start-${ProgramTrack}`;
+export const programStartSlideId = (track: ProgramTrack): ProgramStartSlideId => `program-start-${track}`;
+
+/** The track of a start-slide id, or null for any other item. */
+export function programStartTrackOf(id: string): ProgramTrack | null {
+  if (id === programStartSlideId('strength')) return 'strength';
+  if (id === programStartSlideId('running')) return 'running';
+  return null;
+}
+
 /** A daily carousel's state: showing cards, loading (its skeleton is up), or not showing. */
 export type HostCarouselState = 'ready' | 'loading' | 'none';
 
