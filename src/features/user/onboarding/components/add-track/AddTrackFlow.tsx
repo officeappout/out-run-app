@@ -26,8 +26,8 @@ import {
   presetPriority,
   priorityFromShare,
   shareOfPriority,
-  weekDates,
 } from '@/features/schedule/add-track/addTrackWeek';
+import { comingDayOfMonthByDow } from '@/features/schedule/utils/comingWeekDates';
 import type { AddTrackSavePlan } from '@/features/schedule/add-track/addTrackSave';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useAddTrackContext } from '../../hooks/useAddTrackContext';
@@ -47,7 +47,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
   const ctx = useAddTrackContext(added);
   const profile = useUserStore((s) => s.profile);
   const updateData = useOnboardingStore((s) => s.updateData);
-  const dates = useMemo(() => weekDates(new Date()), []);
+  const dates = useMemo(() => comingDayOfMonthByDow(new Date()), []);
 
   const [share, setShare] = useState(() => shareOfPriority(presetPriority(added)));
   const [keepOnly, setKeepOnly] = useState(false);

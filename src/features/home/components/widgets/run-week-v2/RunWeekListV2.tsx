@@ -17,6 +17,7 @@ import {
   runWeekSummary,
   type RunScheduleEntryLike,
 } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
+import type { RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 import RunWeekCardV2 from './RunWeekCardV2';
 
 interface RunWeekListV2Props {
@@ -35,14 +36,18 @@ interface RunWeekListV2Props {
   onSkipToday?: () => void;
   /** Undo a skip ("ביטול — אני בכל זאת רוצה להתאמן"). */
   onUndoSkip?: () => void;
+  /** Runs on their weekday by slot type (runWeekByType). */
+  placement?: RunWeekMapOptions;
 }
 
 export default function RunWeekListV2({
-  schedule, week, totalWeeks, programLabel, scheduleDays, targetDay, isRunDay, todayWorkout, onStartToday, onSkipToday, onUndoSkip,
+  schedule, week, totalWeeks, programLabel, scheduleDays, targetDay, isRunDay, todayWorkout, onStartToday, onSkipToday, onUndoSkip, placement,
 }: RunWeekListV2Props) {
+  const placeKey = placement ? JSON.stringify(placement) : '';
   const rows = useMemo(
-    () => buildRunWeekRows(schedule, week, scheduleDays, { targetDay, isRunDay }),
-    [schedule, week, scheduleDays, targetDay, isRunDay],
+    () => buildRunWeekRows(schedule, week, scheduleDays, { targetDay, isRunDay, placement }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `placement` by value (placeKey)
+    [schedule, week, scheduleDays, targetDay, isRunDay, placeKey],
   );
   const summary = runWeekSummary(rows);
   const todayCategory = rows.find((r) => r.state === 'today')?.entry.category ?? null;

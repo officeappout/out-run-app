@@ -17,7 +17,7 @@ const hookSrc = readFileSync(
 
 describe('home/page.tsx — v2 run card wiring', () => {
   it('the slot is resolved for every runner (ungated fix, 19.10.2026)', () => {
-    expect(pageSrc).toContain('useHomeRunSlot(profile, true, hasStrengthProgram)');
+    expect(pageSrc).toContain('useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2)');
     expect(hookSrc).toContain('if (!enabled || !hasRunningPlan) return { slot: null');
   });
 

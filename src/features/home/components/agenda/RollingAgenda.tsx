@@ -690,6 +690,7 @@ export default function RollingAgenda({
                 scheduleMap={scheduleMap}
                 actualWorkoutsMap={actualWorkoutsMap}
                 rowRef={(el) => setCardRef(iso, el)}
+                runsByType={v2}
               />
             </Reorder.Item>
           ))}

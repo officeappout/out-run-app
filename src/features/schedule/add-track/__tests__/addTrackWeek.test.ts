@@ -6,7 +6,6 @@ import {
   priorityFromShare,
   priorityLineHe,
   shareOfPriority,
-  weekDates,
   type AddTrackInput,
 } from '../addTrackWeek';
 
@@ -122,8 +121,5 @@ describe('add track · copy', () => {
     expect(addTrackTitleHe('running', 3, 2)).toBe('נוסיף 3 ריצות ונזיז 2 אימונים');
     expect(addTrackTitleHe('strength', 2, 1)).toBe('נוסיף 2 אימוני כוח ונזיז ריצה אחת');
     expect(addTrackTitleHe('strength', 1, 0)).toBe('נוסיף אימון כוח אחד סביב הריצות');
-  });
-  it('week dates run Sunday..Saturday', () => {
-    expect(weekDates(new Date(2026, 9, 21))).toEqual([18, 19, 20, 21, 22, 23, 24]);
   });
 });

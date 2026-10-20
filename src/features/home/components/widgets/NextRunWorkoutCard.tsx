@@ -17,6 +17,7 @@ import {
 import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import { mapRunWeekFromLetters, runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
@@ -143,12 +144,17 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   // the program is the source of truth instead of a permanent "rest day"
   // (04.09.2026 fix — see src/lib/running-day-resolution.ts's own doc
   // comment for the bug this closes).
+  // enable_home_v2: runs on their weekday by slot type (runWeekByType — the
+  // signup placement); flag off → the k-th run on the k-th day, as today.
+  const { level: placeLevel, targetDistance: placeDistance } = runPlacementOf(running);
+  const placement = v2 ? { byType: true, level: placeLevel, targetDistance: placeDistance } : undefined;
   const dayState = resolveRunningDayState(
     scheduleDays,
     running?.activeProgram?.schedule as any[] | undefined,
     effectiveCurrentWeek ?? 1,
     new Date(),
     running?.activeProgram?.startDate,
+    placement,
   );
   const isRunDay = dayState.isRunDay;
 
@@ -181,8 +187,10 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
 
       const todayIdx = new Date().getDay();
 
-      let todayEntry: any | undefined;
-      for (const entry of weekEntries) {
+      let todayEntry: any | undefined = v2
+        ? mapRunWeekFromLetters(weekEntries, scheduleDays, { byType: true, level: placeLevel, targetDistance: placeDistance }).get(todayIdx)
+        : undefined;
+      if (!v2) for (const entry of weekEntries) {
         const slotIndex = entry.day - 1;
         const dayIdx = trainingDayIndices[slotIndex];
         if (dayIdx === todayIdx) {
@@ -216,7 +224,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
       pendingWeek: effectiveCurrentWeek ?? 1,
       pendingDay: undefined as number | undefined,
     };
-  }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek]);
+  }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek, v2, placeLevel, placeDistance]);
 
   // ── Load full workout when briefing drawer opens ──
   // v2 loads today's workout up front (its card shows the strip + numbers);
@@ -437,6 +445,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
           onStartToday={() => setBriefingOpen(true)}
           onSkipToday={() => setSkippedToday(true)}
           onUndoSkip={skippedToday ? () => setSkippedToday(false) : undefined}
+          placement={placement}
         />
         <RunOverviewHomeSheet
           isOpen={briefingOpen}

@@ -218,13 +218,3 @@ export function buildAddTrackWeek(i: AddTrackInput, priority: SchedulePriority, 
   };
 }
 
-/** Day of month for Sunday..Saturday of the week containing `now` (display only). */
-export function weekDates(now: Date): number[] {
-  const start = new Date(now);
-  start.setDate(now.getDate() - now.getDay());
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d.getDate();
-  });
-}

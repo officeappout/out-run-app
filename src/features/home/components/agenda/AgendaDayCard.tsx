@@ -22,6 +22,7 @@ import { WalkingIcon, RunIcon, getProgramIcon, resolveIconKey } from '@/features
 import { SKILL_DISPLAY } from '@/features/schedule/types/smartSchedule.types';
 import { useUserStore } from '@/features/user';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import { runPlacementOf, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { hapticLight } from '@/lib/haptics';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
@@ -273,6 +274,11 @@ interface AgendaDayCardProps {
   suppressScheduleDaysFallback?: boolean;
   /** Home v2 planner look (enable_home_v2) — passed only by the planner list. */
   v2?: boolean;
+  /**
+   * enable_home_v2: the day's run by slot type (runWeekByType — the signup
+   * placement), not the k-th run on the k-th day. Defaults to `v2`.
+   */
+  runsByType?: boolean;
 }
 
 export interface ResolvedRunningWorkout {
@@ -366,11 +372,12 @@ function resolveRunningEntry(
   schedule: any[],
   programStartDate: Date | string | number | undefined,
   currentWeek: number,
+  placement?: RunWeekMapOptions,
 ): ResolvedRunningWorkout | null {
   if (!schedule?.length) return null;
 
   const d = new Date(iso + 'T00:00:00');
-  const dayState = resolveRunningDayState(scheduleDays ?? [], schedule, currentWeek, d, programStartDate);
+  const dayState = resolveRunningDayState(scheduleDays ?? [], schedule, currentWeek, d, programStartDate, placement);
   const entry = dayState.todayEntry;
   if (!entry) return null;
 
@@ -911,6 +918,7 @@ export default function AgendaDayCard({
   runningOverride,
   suppressScheduleDaysFallback,
   v2 = false,
+  runsByType = v2,
 }: AgendaDayCardProps) {
   const { profile } = useUserStore();
   /**
@@ -941,8 +949,10 @@ export default function AgendaDayCard({
       running.activeProgram.schedule as any[],
       running.activeProgram.startDate,
       running.activeProgram.currentWeek ?? 1,
+      // enable_home_v2 planner: runs on their weekday by slot type (runWeekByType).
+      runsByType ? { byType: true, ...runPlacementOf(running) } : undefined,
     );
-  }, [date, profile?.running, runningOverride]);
+  }, [date, profile?.running, runningOverride, runsByType]);
 
   const hasRunning = !!runningWorkout;
   const runCompleted = runningWorkout?.status === 'completed';

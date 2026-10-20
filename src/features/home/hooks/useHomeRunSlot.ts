@@ -10,6 +10,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
+import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveHomeRunSlot, type HomeRunEntry, type HomeRunSlot } from '@/features/home/utils/home-run-slot';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';
@@ -26,12 +27,16 @@ export function useHomeRunSlot(
   profile: UserFullProfile | null | undefined,
   enabled: boolean,
   hasStrengthProgram: boolean,
+  /** enable_home_v2: runs sit on their weekday by slot type (the signup placement). */
+  byType = false,
 ): HomeRunSlotState {
   const running = profile?.running;
   const schedule = running?.activeProgram?.schedule as HomeRunEntry[] | undefined;
   const startDate = running?.activeProgram?.startDate;
   const storedWeek = running?.activeProgram?.currentWeek;
   const scheduleDays = running?.scheduleDays as string[] | undefined;
+
+  const { level: placeLevel, targetDistance: placeDistance } = runPlacementOf(running);
 
   // Recompute when the day rolls over while home stays open.
   const todayKey = new Date().toDateString();
@@ -51,13 +56,14 @@ export function useHomeRunSlot(
       currentWeek ?? 1,
       new Date(),
       startDate as any,
+      byType ? { byType: true, level: placeLevel, targetDistance: placeDistance } : undefined,
     );
     return {
       slot: resolveHomeRunSlot({ enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday }),
       hasRunningPlan,
       currentWeek,
     };
-  }, [enabled, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey, skippedToday]);
+  }, [enabled, byType, placeLevel, placeDistance, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey, skippedToday]);
 
   return { ...resolved, skipToday, undoSkip };
 }

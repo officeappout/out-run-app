@@ -8,9 +8,9 @@
  * הוזז: … · כי …), the "keep it as it was, only add on free days" alternative and one CTA.
  * Presentational: the engine week comes in ready (add-track/addTrackWeek.ts).
  */
-import { Footprints, Info, Sparkles, Zap } from 'lucide-react';
+import { Footprints, Info, Zap } from 'lucide-react';
 import StickyActionButton from '@/components/ui/StickyActionButton';
-import { IconTile, WeekDayRow, WeekSessionPiece } from '@/components/ui/v2';
+import { IconTile, RecommendationCard, WeekDayRow, WeekSessionPiece } from '@/components/ui/v2';
 import AerobicStrengthSlider from '@/features/parks/core/components/hybrid/AerobicStrengthSlider';
 import { getProgramIcon, resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 import { DAY_LETTERS_HE } from '@/features/schedule/utils/runWeekRecommendation';
@@ -74,14 +74,7 @@ export default function AddTrackWeekStep(p: AddTrackWeekStepProps) {
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{copy.title}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{copy.subtitle}</p>
 
-        <div className="mt-3.5 rounded-[20px] bg-v2-tint px-3.5 py-3 ring-1 ring-inset ring-v2-accent/40">
-          <p className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px] font-extrabold text-v2-deep">
-            <Sparkles size={14} strokeWidth={2.4} aria-hidden />
-            ממליצים לך
-          </p>
-          <p className="mt-1 text-[18px] font-black leading-snug !tracking-[-0.01em]">{p.week.titleHe}</p>
-          <p className="mt-1.5 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2">{priorityLineHe(p.priority, p.added)}</p>
-        </div>
+        <RecommendationCard className="mt-3.5" title={p.week.titleHe} detail={priorityLineHe(p.priority, p.added)} />
       </div>
 
       <div className="-mx-1 mt-1">

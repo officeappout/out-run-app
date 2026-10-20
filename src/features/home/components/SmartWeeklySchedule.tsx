@@ -40,6 +40,7 @@ import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { mapRunEntriesToWeekdays, runOverlayDayFields } from '@/features/home/utils/run-overlay-day';
+import { mapRunWeekFromLetters, type RunPlacementContext } from '@/features/schedule/utils/runWeekByType';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -128,6 +129,11 @@ interface SmartWeeklyScheduleProps {
    * on shared days) — run-overlay-day.ts. Ignored in running mode.
    */
   runOverlayDays?: string[];
+  /**
+   * enable_home_v2 (with `v2`): the engine context for placing the week's
+   * runs by slot type (runWeekByType.runPlacementOf(profile.running)).
+   */
+  runPlacement?: RunPlacementContext;
   /**
    * Stage H (18.08.2026) — the active running program's own id
    * (profile.running.activeProgram.programId). Used ONLY to filter
@@ -825,6 +831,7 @@ export default function SmartWeeklySchedule({
   onSetSchedule,
   runningSchedule,
   runOverlayDays,
+  runPlacement,
   runningCurrentWeek,
   runningProgramStartDate,
   runningBasePace,
@@ -874,7 +881,18 @@ export default function SmartWeeklySchedule({
   }, [isRunningMode, runOverlay, runningSchedule, effectiveCurrentWeek]);
 
   // Map running schedule entries to week day indices (0=Sunday)
+  const placeLevel = runPlacement?.level;
+  const placeDistance = runPlacement?.targetDistance;
   const runningEntriesByDayIndex = useMemo(() => {
+    // enable_home_v2: by slot type — the long run on its engine-v2 day, the
+    // same week the signup summary showed (runWeekByType).
+    if (v2 && (runOverlay || isRunningMode)) {
+      return mapRunWeekFromLetters(currentWeekEntries, runOverlay ? runOverlayDays ?? [] : scheduleDays, {
+        byType: true,
+        level: placeLevel,
+        targetDistance: placeDistance,
+      });
+    }
     if (runOverlay) return mapRunEntriesToWeekdays(currentWeekEntries, runOverlayDays ?? [], HEBREW_DAYS);
     if (!isRunningMode || !currentWeekEntries.length) return new Map<number, RunningScheduleEntry>();
     const map = new Map<number, RunningScheduleEntry>();
@@ -889,7 +907,7 @@ export default function SmartWeeklySchedule({
       if (dayIdx !== undefined) map.set(dayIdx, entry);
     });
     return map;
-  }, [isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
+  }, [v2, placeLevel, placeDistance, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
 
   const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
     const params = new URLSearchParams();
