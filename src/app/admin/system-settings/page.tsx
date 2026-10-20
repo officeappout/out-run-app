@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -69,6 +69,7 @@ interface FlagState {
   enable_entry_globe_v1: boolean;
   enable_jit_identity_v1: boolean;
   enable_entry_intro_v1: boolean;
+  enable_strength_quiz_hint_v2: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -469,6 +470,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כניסה: מסך פתיחה וסיפורי החסמים',
     description: 'מסך הפתיחה החדש (העיר), 5 סיפורי החסמים, והמעגל שנסגר לכדור הארץ.',
+  },
+  // Entry flow v2 — strength quiz drag hint (20.10.2026).
+  {
+    key: 'enable_strength_quiz_hint_v2',
+    icon: Pointer,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'שאלון כוח: הדרכת גרירה חדשה',
+    description: 'בלי טשטוש: השורה מדגימה את עצמה בקטגוריה הראשונה, תזכורת קצרה בשאר, וההדרכה נשארת עד הגרירה הראשונה.',
   },
   // Demo world (20.10.2026).
   {

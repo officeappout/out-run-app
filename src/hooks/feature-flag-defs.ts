@@ -325,6 +325,13 @@ export const FLAG_DEFS = [
   // preview it once signed in (the landing itself is pre-auth, so it follows the global value).
   // Off = today's landing and flow, byte-identical.
   { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: false, superAdminValue: true },
+  // Entry flow v2 — strength quiz drag hint (20.10.2026, owner-approved design Q1–Q3, brief G).
+  // The v2 coverflow strip in the strength assessment teaches itself: no blur mask, no bubble
+  // card; on the first category the strip demos itself (harder, harder, back — the video and the
+  // CTA follow), a dark coach pill above it until the first real drag, then a light "now stop on
+  // the hardest" line; later categories get one short nudge. Fail-closed; super admins preview it.
+  // Off = today's tutorial (mask + bubble + finger), byte-identical.
+  { key: 'enableStrengthQuizHintV2', firestoreKey: 'enable_strength_quiz_hint_v2', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
