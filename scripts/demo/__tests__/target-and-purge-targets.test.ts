@@ -20,6 +20,8 @@ describe('target: never a guessed project', () => {
     expect(resolveDemoTarget({ project: 'appout-1', emulator: false }, { FIREBASE_SERVICE_ACCOUNT_KEY: key }).emulator).toBeNull();
     expect(() => resolveDemoTarget({ project: 'other', emulator: false }, { FIREBASE_SERVICE_ACCOUNT_KEY: key })).toThrow(/appout-1/);
     expect(() => resolveDemoTarget({ project: 'appout-1', emulator: false }, {})).toThrow(/FIREBASE_SERVICE_ACCOUNT_KEY/);
+    expect(resolveDemoTarget({ project: 'appout-1', emulator: false }, { DEMO_ADC: '1' })).toMatchObject({ adc: true, credentialJson: null, emulator: null });
+    expect(() => resolveDemoTarget({ project: 'appout-1', emulator: false }, { DEMO_ADC: '1', FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' })).toThrow(/--emulator/);
     expect(() => resolveDemoTarget({ project: 'appout-1', emulator: false }, { FIREBASE_SERVICE_ACCOUNT_KEY: key, FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' })).toThrow(/--emulator/);
   });
   it('confirmation phrases must match exactly', () => {

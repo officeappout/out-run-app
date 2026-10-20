@@ -69,7 +69,7 @@ export function describeDemoTarget(t: Pick<DemoTarget, 'projectId' | 'emulator'>
 export function resolveDemoTarget(
   args: Pick<DemoArgs, 'project' | 'emulator'>,
   env: Record<string, string | undefined>,
-): { projectId: string; emulator: string | null; credentialJson: string | null } {
+): { projectId: string; emulator: string | null; credentialJson: string | null; adc?: boolean } {
   if (!args.project) throw new Error('חסר --project <id>. הסקריפט לא רץ בלי פרויקט מפורש.');
   if (args.emulator) {
     const host = env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
@@ -80,7 +80,10 @@ export function resolveDemoTarget(
     throw new Error(`FIRESTORE_EMULATOR_HOST מוגדר (${env.FIRESTORE_EMULATOR_HOST}) אבל לא ביקשת --emulator. הסר אותו או הוסף --emulator.`);
   }
   const raw = env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY לא מוגדר (מצופה ב-.env.local).');
+  // DEMO_ADC=1: use the owner's gcloud Application Default Credentials
+  // (`gcloud auth application-default login`) instead of a service-account key file.
+  if (!raw && env.DEMO_ADC === '1') return { projectId: args.project, emulator: null, credentialJson: null, adc: true };
+  if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY לא מוגדר (מצופה ב-.env.local), או הרץ עם DEMO_ADC=1 אחרי gcloud auth application-default login.');
   let cred: { project_id?: string };
   try {
     cred = JSON.parse(raw);
@@ -107,13 +110,15 @@ export async function loadEnvLocal(): Promise<void> {
 
 export async function openDemoTarget(args: DemoArgs, env: Record<string, string | undefined> = process.env): Promise<DemoTarget> {
   const r = resolveDemoTarget(args, env);
-  const { initializeApp, cert } = await import('firebase-admin/app');
+  const { initializeApp, cert, applicationDefault } = await import('firebase-admin/app');
   const { getFirestore } = await import('firebase-admin/firestore');
   const name = `demo-world-${r.projectId}-${Date.now()}`;
   let app: App;
   if (r.emulator) {
     process.env.FIRESTORE_EMULATOR_HOST = r.emulator;
     app = initializeApp({ projectId: r.projectId }, name);
+  } else if (r.adc) {
+    app = initializeApp({ credential: applicationDefault(), projectId: r.projectId }, name);
   } else {
     app = initializeApp({ credential: cert(JSON.parse(r.credentialJson!)), projectId: r.projectId }, name);
   }
