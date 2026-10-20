@@ -24,7 +24,9 @@ vi.mock('@/features/social/hooks/useActivityFeed', () => ({
   useActivityFeed: () => ({
     isLoading: false,
     items: [
-      { id: 'a1', type: 'high_five', fromUid: 'u2', fromName: 'נועה', read: false, createdAt: new Date(0), message: 'נועה שלחה לך כיף' },
+      // A fixed AGE (20745.5 days — the "לפני 20745 ימים" the snapshot recorded), taken
+      // at render time, so the parity markup doesn't drift with the calendar.
+      { id: 'a1', type: 'high_five', fromUid: 'u2', fromName: 'נועה', read: false, createdAt: new Date(Date.now() - 20745.5 * 86_400_000), message: 'נועה שלחה לך כיף' },
     ],
   }),
 }));
@@ -72,15 +74,7 @@ describe('flag off — byte-identical to the pre-migration markup', () => {
     expect(achievements()).toMatchSnapshot();
   });
   it('ActivityPanel', () => {
-    // The row shows "לפני N ימים" since createdAt (epoch) — pin "now" to the day
-    // the snapshot was recorded so the parity check doesn't drift daily.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
-    try {
-      expect(activity()).toMatchSnapshot();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(activity()).toMatchSnapshot();
   });
   it('ReportContentSheet', () => {
     expect(report()).toMatchSnapshot();
