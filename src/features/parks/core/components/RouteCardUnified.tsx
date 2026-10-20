@@ -94,6 +94,12 @@ interface RouteCardUnifiedProps {
    * "this route takes N min (walking/running)", not an unlabeled time. Curated cards only.
    */
   durationActivity?: 'walking' | 'running';
+  /** enable_entry_whatnow_v1: inert `data-coach` targets for the first-route tutorial (card / CTA). */
+  coachId?: string;
+  ctaCoachId?: string;
+  /** enable_entry_whatnow_v1: a small grey line under the CTA (e.g. the first-workout note).
+   *  Omitted by every other caller → byte-identical. */
+  footnote?: string | null;
 }
 
 export default function RouteCardUnified({
@@ -115,6 +121,9 @@ export default function RouteCardUnified({
   onCtaBlocked,
   variant = 'default',
   durationActivity,
+  coachId,
+  ctaCoachId,
+  footnote,
 }: RouteCardUnifiedProps) {
   // Home v2 (enable_home_v2): the design-lab card — white v2 card, 17px black title,
   // 13px muted meta, tinted badge and the single v2 gradient CTA. Flag off = today's card.
@@ -144,6 +153,7 @@ export default function RouteCardUnified({
   return (
     <div
       dir="rtl"
+      data-coach={coachId}
       onClick={handleClick}
       className={`${ROUTE_CARD_WIDTH} shrink-0 bg-white ${v2 ? 'rounded-v2-card' : 'rounded-3xl'} ${compact ? 'px-4 pt-2.5 pb-2.5' : slim ? 'px-4 py-3' : 'p-5'} transition-all duration-300 ${v2 ? 'ease-v2 ' : ''}${
         v2
@@ -247,6 +257,7 @@ export default function RouteCardUnified({
       ) : (
         <button
           type="button"
+          data-coach={ctaCoachId}
           onPointerDown={onCtaPointerDown}
           onClick={handleCta}
           aria-disabled={!!ctaBlockedReason}
@@ -261,6 +272,9 @@ export default function RouteCardUnified({
         >
           {ctaContent}
         </button>
+      )}
+      {footnote && (
+        <p className="mt-1.5 text-center text-[11.5px] leading-snug text-[#94a3b8]">{footnote}</p>
       )}
     </div>
   );

@@ -174,7 +174,7 @@ function AssessmentPromptCard({ onSelect, onArm, consumeArmed }: {
 // — pointerdown on card A must not let a click on card B fire (id match); (c) stale
 // arms from a carousel drag — the track's onDragStart clears the armed id. The card
 // body is NOT clickable (compose is a deliberate CTA action, never a body/auto tap).
-function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false, guardInactiveCta = false, onFocusCard }: {
+function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTotal, slim = false, guardInactiveCta = false, onFocusCard, coach = false, footnote = null }: {
   slot: HybridSlot;
   onSelect: () => void;
   onArm: () => void;
@@ -188,6 +188,9 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
   routeStopsTotal?: CardTotal | null;
   /** Focused-suggestions state → RouteCardUnified's slim variant (this carousel only). */
   slim?: boolean;
+  /** enable_entry_whatnow_v1: the focused card → the first-route tutorial's targets. */
+  coach?: boolean;
+  footnote?: string | null;
 }) {
   // route_stops only: the real total as a compact framed pill (same border/shadow language as the
   // overview's calorie/distance chips). The wrapper keeps a fixed height so the card doesn't jump
@@ -270,6 +273,10 @@ function SlotCard({ slot, onSelect, onArm, consumeArmed, isActive, routeStopsTot
         // slim: fill the carousel wrapper (cardW) instead of the 85vw token, so the card can't overflow it
         className={slim ? '!w-full !max-w-none' : undefined}
         isActive={isActive}
+        // first-route tour targets (FIRST_RUN_COACH.routeCard / routeStart) — literals, no cross-domain import
+        coachId={coach ? 'route-card' : undefined}
+        ctaCoachId={coach ? 'route-start' : undefined}
+        footnote={footnote}
         onCtaPointerDown={onArm}
         onCta={(e) => {
           e.stopPropagation();
@@ -390,6 +397,12 @@ interface HybridSlotCarouselProps {
    * centres it. false/omitted → today's #207 behaviour, byte-identical.
    */
   swipeHint?: boolean;
+  /**
+   * enable_entry_whatnow_v1 only: mark the focused card + its CTA as the first-route tutorial's
+   * targets and show `firstWorkoutNote` under the CTA. Omitted → byte-identical.
+   */
+  entryTutorial?: boolean;
+  firstWorkoutNote?: string | null;
 }
 
 export default function HybridSlotCarousel({
@@ -405,6 +418,8 @@ export default function HybridSlotCarousel({
   routeStopsTotal = null,
   focused = false,
   swipeHint = false,
+  entryTutorial = false,
+  firstWorkoutNote = null,
 }: HybridSlotCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -591,6 +606,8 @@ export default function HybridSlotCarousel({
                     routeStopsTotal={routeStopsTotal}
                     slim={focused}
                     guardInactiveCta={swipeHint}
+                    coach={entryTutorial && isActive}
+                    footnote={entryTutorial ? firstWorkoutNote : null}
                     onFocusCard={() => handleSelect(i)}
                     onSelect={() => onSelectSlot(slot)}
                     onArm={() => { armedSlotIdRef.current = slot.id; }}

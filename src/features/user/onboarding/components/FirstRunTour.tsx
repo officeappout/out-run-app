@@ -21,7 +21,7 @@ import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs
 import type { AppGender } from '@/lib/utils/gendered-text';
 import { useIsNewUserForTours } from '../hooks/useIsNewUserForTours';
 import {
-  firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
+  firstRunTourChrome, firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
   type FirstRunTourId,
 } from '../services/first-run-tour';
 
@@ -99,7 +99,7 @@ export default function FirstRunTour({ tour, active, uid, gender, onClose, delay
 
   return createPortal(
     <div className="fixed inset-0 z-[1000]" data-first-run-tour={tour}>
-      <CoachMarks steps={steps} onFinish={finish} />
+      <CoachMarks steps={steps} onFinish={finish} {...firstRunTourChrome(tour)} />
     </div>,
     document.body,
   );

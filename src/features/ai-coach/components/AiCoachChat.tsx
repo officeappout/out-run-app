@@ -69,6 +69,7 @@ export default function AiCoachChat({
   proactive = false,
   memory = false,
   round4 = false,
+  starterChips = null,
   runsByType = false,
 }: {
   profile: UserFullProfile;
@@ -87,6 +88,11 @@ export default function AiCoachChat({
   memory?: boolean;
   /** Kelly round 4 (ai_coach_round4): walk / run cards, nearby parks, tour and questionnaire chips. */
   round4?: boolean;
+  /**
+   * enable_entry_whatnow_v1 (entry step 2, "משהו אחר? לדבר עם קלי"): ready chips the chat opens
+   * with, in place of its own quick replies, until the user sends something. null → unchanged.
+   */
+  starterChips?: readonly string[] | null;
   /** enable_home_v2 for this user (runsByTypeFor): today's program run by slot type, like home. */
   runsByType?: boolean;
 }) {
@@ -102,6 +108,7 @@ export default function AiCoachChat({
   const [openCard, setOpenCard] = useState<WorkoutCard | null>(null);
   const [missingCard, setMissingCard] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [starterUsed, setStarterUsed] = useState(false);
   // Optimistic "איך היה?" answers until the live listener brings the stored one.
   const [localRated, setLocalRated] = useState<Record<string, WorkoutRating>>({});
   const handleRate = (messageId: string, rating: WorkoutRating) => {
@@ -167,6 +174,7 @@ export default function AiCoachChat({
     if (!input.trim() || busy) return;
     send(input);
     setInput('');
+    setStarterUsed(true);
   };
 
   // The workout skeleton card stands in for a status line while a workout is being built.
@@ -393,11 +401,27 @@ export default function AiCoachChat({
         <div ref={bottomRef} />
       </div>
 
+      {/* Entry step 2: ready chips (shown until the first send of this visit). */}
+      {starterChips && starterChips.length > 0 && !starterUsed && !busy && !teamMode && (
+        <div className="flex flex-wrap gap-2 px-4 pb-2" dir="rtl">
+          {starterChips.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => { setStarterUsed(true); send(q); }}
+              className="shrink-0 rounded-full border border-cyan-200 bg-white px-3.5 py-2 text-[13px] font-bold text-cyan-700 shadow-sm active:scale-[0.97]"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Quick replies (first open) */}
-      {showIntro && !busy && openingChips && (
+      {!starterChips && showIntro && !busy && openingChips && (
         <AiCoachSuggestionChips chips={openingChips} onSend={(q) => send(q)} className="px-4 pb-2" />
       )}
-      {showIntro && !busy && !openingChips && (
+      {!starterChips && showIntro && !busy && !openingChips && (
         <div className="flex gap-2 overflow-x-auto px-4 pb-2">
           {quickReplies(gender).map((q) => (
             <button

@@ -264,6 +264,14 @@ export const FLAG_DEFS = [
   // The exercise library under "תרגילים" is the same component as today. Fail-closed; super
   // admins preview it. Off = today's /search and map search, byte-identical.
   { key: 'enableUnifiedSearch', firestoreKey: 'enable_unified_search', defaultValue: false, superAdminValue: true },
+  // Entry flow v2 — step 2 on the map (20.10.2026, owner-approved design canvas N2/N2b/N2k,
+  // R1–R3, R6). After the location step (enable_entry_globe_v1) lands on /map with entry=v2,
+  // a one-time "מה בא לך עכשיו?" drawer (route card when a park / route is near, the personal
+  // plan hero, Kelly with ready chips); the first floating route card gets a 3-bubble finger
+  // tutorial, the route card a "first workout" line until the health declaration is accepted,
+  // and the route player a one-time long-press tip. Fail-closed; super admins preview it.
+  // Off = byte-identical map, cards and player.
+  { key: 'enableEntryWhatnowV1', firestoreKey: 'enable_entry_whatnow_v1', defaultValue: false, superAdminValue: true },
   // Generation review (19.10.2026, owner) — learn from every generated session: each session a
   // generator SHOWS (home trio, Kelly workouts, hybrid compositions, generated loops / A→B routes,
   // planned runs) is summarized on the device (no names, area = geohash-5, route ends trimmed) and
