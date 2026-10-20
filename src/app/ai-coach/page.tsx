@@ -14,6 +14,7 @@ import AiCoachChat from '@/features/ai-coach/components/AiCoachChat';
 import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
+import { starterChipsFor } from '@/features/user/onboarding/services/entry-whatnow';
 
 export default function AiCoachPage() {
   const router = useRouter();
@@ -32,6 +33,11 @@ export default function AiCoachPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
   const weatherOn = isWeatherOnFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
 
+  // Entry step 2 (enable_entry_whatnow_v1): /ai-coach?starter=entry opens with ready chips. Only
+  // that flag's drawer links here with the param, so without it this is null (unchanged).
+  const starterChips =
+    typeof window === 'undefined' ? null : starterChipsFor(new URLSearchParams(window.location.search).get('starter'));
+
   const close = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) router.back();
     else router.replace('/home');
@@ -41,7 +47,7 @@ export default function AiCoachPage() {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
 
-  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} />;
+  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} starterChips={starterChips} />;
 
   if (!canUseAi) {
     return (
@@ -55,5 +61,5 @@ export default function AiCoachPage() {
     );
   }
 
-  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} round4={round4} />;
+  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} round4={round4} starterChips={starterChips} />;
 }
