@@ -95,12 +95,38 @@ export function seedOnboardingTrackEntry(
 export function resolveOnboardingEntryHref(
   profile: UserFullProfile | null | undefined,
   track: OnboardingTrack,
+  options: OnboardingEntryOptions = {},
 ): string {
   seedOnboardingTrackEntry(profile, track);
+  return onboardingEntryHref(track, hasKnownIdentity(profile), options);
+}
 
-  if (!hasKnownIdentity(profile)) {
+export interface OnboardingEntryOptions {
+  /**
+   * enable_home_v2 home program cards (journeys J1 / J2, owner 20.10.2026): open the
+   * track's questionnaire straight away even when name / gender / birth date are still
+   * missing — the flow asks for them once, right before its first save
+   * (useDeferredIdentity), and the health declaration at its own step after that.
+   */
+  deferIdentity?: boolean;
+}
+
+/** PURE — the entry route for a track (no side effects; see resolveOnboardingEntryHref). */
+export function onboardingEntryHref(
+  track: OnboardingTrack,
+  identityKnown: boolean,
+  options: OnboardingEntryOptions = {},
+): string {
+  if (!identityKnown && !options.deferIdentity) {
     return '/onboarding-new/profile';
   }
-
   return track === 'RUNNING' ? '/onboarding-new/dynamic' : '/onboarding-new/program-path';
+}
+
+/**
+ * Exposed for useDeferredIdentity: after the inline identity screen saved, the flow's
+ * screens (dynamic's name check, the sync, the health declaration) read these keys.
+ */
+export function backfillOnboardingIdentitySession(profile: UserFullProfile | null | undefined): void {
+  backfillPersonalSessionStorage(profile);
 }

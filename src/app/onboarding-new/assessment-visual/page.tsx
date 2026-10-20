@@ -65,7 +65,10 @@ import { writeSingleDomainAssessment } from '@/features/user/onboarding/services
 import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/skill-result-levels';
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
 import { getFoundationAssessmentMax } from '@/features/user/onboarding/utils/assessment-level-caps';
-import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useDeferredIdentity } from '@/features/user/onboarding/hooks/useDeferredIdentity';
+import { demographicsFromSession } from '@/features/user/onboarding/utils/deferred-identity';
+import { backfillOnboardingIdentitySession } from '@/features/user/onboarding/utils/onboarding-entry';
 import { strengthResultNextRoute } from '@/features/user/onboarding/utils/add-track-routing';
 import { hasRunningTrack } from '@/lib/track-ownership';
 
@@ -164,7 +167,11 @@ function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
 export default function VisualAssessmentPage() {
   const router = useRouter();
   // enable_home_v2 — see the root container below (one-viewport fit).
-  const v2 = useOnboardingV2();
+  const { v2, ready: flagsReady } = useOnboardingV2State();
+  // enable_home_v2 (journey J1): a home start card opens the strength flow without the
+  // identity form — name / gender / birth date (the assessment's videos need them) are
+  // asked here, inline, right after the program path; back returns to the program path.
+  const { runAfterIdentity, identityOverlay } = useDeferredIdentity(v2, () => router.back());
 
   // ── Auth state ───────────────────────────────────────────────
 
@@ -344,7 +351,20 @@ export default function VisualAssessmentPage() {
   useEffect(() => {
     if (!isHydrated) return;
     if (!authReady || !demographics) {
-      if (authReady && !demographics) router.replace('/onboarding-new/profile');
+      if (authReady && !demographics) {
+        // The flag decides where identity is asked — wait until it's known.
+        if (!flagsReady) return;
+        if (!v2) { router.replace('/onboarding-new/profile'); return; }
+        runAfterIdentity(() => {
+          backfillOnboardingIdentitySession(useUserStore.getState().profile);
+          const fromSession = demographicsFromSession(
+            sessionStorage.getItem('onboarding_personal_dob'),
+            sessionStorage.getItem('onboarding_personal_gender'),
+          );
+          if (fromSession) setDemographics(fromSession);
+          else router.replace('/onboarding-new/profile');
+        });
+      }
       return;
     }
     if (!pathConfig) return;
@@ -367,7 +387,7 @@ export default function VisualAssessmentPage() {
       setCategoryIndex(0);
     }
     setStep('why');
-  }, [authReady, isHydrated, demographics, pathConfig, router]);
+  }, [authReady, isHydrated, demographics, pathConfig, router, flagsReady, v2, runAfterIdentity]);
 
   // ── Diagnostic: log categories fed to sliders ───────────────
   useEffect(() => {
@@ -1076,6 +1096,7 @@ export default function VisualAssessmentPage() {
           />
           <p className="text-slate-400 text-sm font-medium">טוען הערכה...</p>
         </div>
+        {identityOverlay}
       </div>
     );
   }
@@ -1105,6 +1126,7 @@ export default function VisualAssessmentPage() {
         : 'h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col overflow-hidden'}
       dir="rtl"
     >
+      {identityOverlay}
       {/* Flow content — fills all available space */}
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto overflow-hidden min-h-0">
         <AnimatePresence mode="wait">

@@ -58,6 +58,7 @@ import { usePlannedDay } from '@/features/home/hooks/usePlannedDay';
 import { useNextRecommendation } from '@/features/home/hooks/useNextRecommendation';
 import PlannedDayPreview from '@/features/home/components/day-preview/PlannedDayPreview';
 import ProgramStartSlide from '@/features/home/components/start-cards/ProgramStartSlide';
+import { programSignupNavigate } from '@/features/home/components/start-cards/program-signup-gate';
 import { applyStrengthTopUp, resolveStrengthTopUp, topUpTitleHe } from '@/features/home/utils/strength-top-up';
 import { useWeeklyRunCount } from '@/features/activity';
 import { resolveNewUserHome } from '@/features/home/utils/new-user-home';
@@ -1812,12 +1813,10 @@ export default function HomePage() {
   const isProgramSlideCarouselItem = (
     item: Suggestion | { id: string },
   ): item is { id: typeof PROGRAM_SLIDE_ID } => item.id === PROGRAM_SLIDE_ID;
-  // Program slide is enable_home_v2-only. The tap opens a track's signup, not a
-  // workout: only the health declaration gates it ('program-signup' skips the soft
-  // equipment sheet). Closing the sheet without proceeding releases the card's spinner.
-  const programSlideNavigate = (track: ProgramTrack, navigate: () => void, cancel: () => void) => {
-    interceptWorkoutStart(navigate, featureFlags.enableHomeV2 ? 'program-signup' : track, cancel);
-  };
+  // Program slide is enable_home_v2-only. The tap opens a track's signup flow, not a
+  // workout: no JIT gate in front of it — each flow asks for the health declaration once,
+  // at its own step (programSignupNavigate). Flag off: the old gate, unchanged.
+  const programSlideNavigate = programSignupNavigate(featureFlags.enableHomeV2, interceptWorkoutStart);
   const programSlideCard = (
     <HomeProgramSlide
       plan={programSlide.plan}

@@ -6,6 +6,7 @@ import ProgramStartCard from './ProgramStartCard';
 import { PROGRAM_START_COPY } from './program-start-copy';
 import { useOnboardingEntryTap } from './useOnboardingEntryTap';
 import type { ProgramTrackNavigate } from './entry-tap';
+import { PROGRAM_CARD_ENTRY } from './program-signup-gate';
 
 const TRACK_ENTRY = { strength: 'STRENGTH', running: 'RUNNING' } as const;
 
@@ -26,6 +27,7 @@ export default function ProgramStartSlide({ track, profile, onNavigate }: Progra
     profile,
     TRACK_ENTRY[track],
     onNavigate ? (navigate, cancel) => onNavigate(track, navigate, cancel) : undefined,
+    PROGRAM_CARD_ENTRY,
   );
   const copy = PROGRAM_START_COPY[track];
   return <ProgramStartCard slide track={track} title={copy.title} valueLine={copy.valueLine} chipLabel={copy.chip} loading={loading} onTap={tap} />;

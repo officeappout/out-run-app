@@ -8,12 +8,16 @@
  *     tenant / group only with BOTH (id prefix `demo-` + isDemo:true). Otherwise: stop.
  *   - a chat that holds anyone who is not demo or a registered viewer stops the purge
  *     (that would be a leak — the owner must look at it, not a script).
+ *   - AI tester accounts (demo_qa_*, scripts/qa) are the one exception to "core.demo": the app
+ *     itself creates their users doc on sign-in (the stamp is rules-locked), so for them the two
+ *     markers are the `demo_qa_` uid AND the roster demo_registry/testers. Their Firebase Auth
+ *     records are deleted too (plan.testerUids → purge.ts).
  *   - viewers' own docs are never deleted: only the demo ids are removed from their
  *     groupIds / follows, and demo kudos in their inbox are deleted.
  */
 import { FieldPath, FieldValue, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
 import { isDemoTenantId, isDemoUid } from '@/lib/demo';
-import { DEMO_TENANT_PREFIX, DEMO_UID_PREFIX, REGISTRY_COLLECTION, REGISTRY_DOCS } from './config';
+import { DEMO_TENANT_PREFIX, DEMO_UID_PREFIX, REGISTRY_COLLECTION, REGISTRY_DOCS, isTesterUid } from './config';
 import {
   CHATS_COLLECTION,
   PER_USER_DOCS,
@@ -32,6 +36,8 @@ export interface PurgeUpdate {
 
 export interface PurgePlan {
   uids: string[];
+  /** demo_qa_* testers on the roster — their Auth records are deleted after the docs. */
+  testerUids: string[];
   viewers: string[];
   deletes: string[];
   updates: PurgeUpdate[];
@@ -65,10 +71,11 @@ class Collector {
 }
 
 async function readRegistry(db: Firestore) {
-  const [personas, tenants, viewers] = await db.getAll(
+  const [personas, tenants, viewers, testers] = await db.getAll(
     db.collection(REGISTRY_COLLECTION).doc(REGISTRY_DOCS.personas),
     db.collection(REGISTRY_COLLECTION).doc(REGISTRY_DOCS.tenants),
     db.collection(REGISTRY_COLLECTION).doc(REGISTRY_DOCS.viewers),
+    db.collection(REGISTRY_COLLECTION).doc(REGISTRY_DOCS.testers),
   );
   const arr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x) : []);
   const t = tenants.data() ?? {};
@@ -79,6 +86,7 @@ async function readRegistry(db: Firestore) {
     groupIds: arr(t.groupIds),
     chatIds: arr(t.chatIds),
     viewers: arr(viewers.data()?.uids),
+    testers: arr(testers.data()?.uids).filter(isTesterUid),
   };
 }
 
@@ -91,19 +99,21 @@ export async function planPurge(db: Firestore): Promise<PurgePlan> {
   // ── Who: registry ∩ users range, both markers ───────────────────────────
   const usersSnap = await idRange(db, 'users', DEMO_UID_PREFIX).get();
   const rangeUids = usersSnap.docs.map((d) => d.id);
-  const regSet = new Set(reg.uids);
+  const testerSet = new Set(reg.testers);
+  const regSet = new Set([...reg.uids, ...reg.testers]);
   const missingInRange = reg.uids.filter((u) => !rangeUids.includes(u));
   const missingInReg = rangeUids.filter((u) => !regSet.has(u));
   // A registry uid without a users doc is fine (partial seed / earlier purge) — but an
   // unregistered demo_ user is not something this script created: stop.
   if (missingInReg.length) problems.push(`משתמשי demo_ שאינם ב-demo_registry: ${missingInReg.join(', ')}`);
   for (const d of usersSnap.docs) {
+    if (testerSet.has(d.id)) continue;
     if (typeof (d.data().core as { demo?: unknown } | undefined)?.demo !== 'object') problems.push(`users/${d.id}: אין core.demo — לא נמחק`);
   }
   if (missingInRange.length) {
     // informational only — they may have been purged before
   }
-  const uids = Array.from(new Set([...reg.uids, ...rangeUids])).filter(isDemoUid);
+  const uids = Array.from(new Set([...reg.uids, ...reg.testers, ...rangeUids])).filter(isDemoUid);
 
   // ── Per-user (mirror of purgeUserData + the rest) ────────────────────────
   for (const uid of uids) {
@@ -214,7 +224,7 @@ export async function planPurge(db: Firestore): Promise<PurgePlan> {
   // Never a viewer's own docs (only their membership rows in demo groups / demo kudos).
   const viewerOwn = new Set(reg.viewers.flatMap((v) => [`users/${v}`, `user_memberships/${v}`, `connections/${v}`, `streaks/${v}`]));
   const deletes = Array.from(c.deletes).filter((p) => !viewerOwn.has(p));
-  return { uids, viewers: reg.viewers, deletes, updates, problems };
+  return { uids, testerUids: reg.testers, viewers: reg.viewers, deletes, updates, problems };
 }
 
 export function summarizePlan(plan: PurgePlan): Record<string, number> {

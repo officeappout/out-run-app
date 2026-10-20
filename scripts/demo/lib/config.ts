@@ -17,7 +17,13 @@ export const SEED_CONFIRM_PHRASE = 'צור את עולם הדמו';
 export const PURGE_CONFIRM_PHRASE = 'מחק את עולם הדמו';
 
 export const REGISTRY_COLLECTION = 'demo_registry';
-export const REGISTRY_DOCS = { personas: 'personas', tenants: 'tenants', viewers: 'viewers' } as const;
+export const REGISTRY_DOCS = { personas: 'personas', tenants: 'tenants', viewers: 'viewers', testers: 'testers' } as const;
+
+/** AI tester accounts (scripts/qa, roster demo_registry/testers) — same shape mintDemoTesterToken signs. */
+export const TESTER_UID_RE = /^demo_qa_[a-z0-9_]{3,40}$/;
+export function isTesterUid(uid: unknown): uid is string {
+  return typeof uid === 'string' && TESTER_UID_RE.test(uid);
+}
 
 export interface DemoCity {
   kind: 'city';

@@ -5,6 +5,7 @@ import type { UserFullProfile } from '@/types/user-profile';
 import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { ProgramArt, ProgramTrackIcon } from './program-track-visual';
 import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './useOnboardingEntryTap';
+import { PROGRAM_CARD_ENTRY } from './program-signup-gate';
 import { ADD_TRACK_CTA, ADD_TRACK_DISMISS, PROGRAM_START_COPY } from './program-start-copy';
 
 interface AddTrackCardProps {
@@ -23,7 +24,7 @@ interface AddTrackCardProps {
  * same way AddStrengthProgramCard sits there.
  */
 export default function AddTrackCard({ track, profile, onNavigate, onDismiss }: AddTrackCardProps) {
-  const { loading, tap } = useOnboardingEntryTap(profile, track === 'running' ? 'RUNNING' : 'STRENGTH', onNavigate);
+  const { loading, tap } = useOnboardingEntryTap(profile, track === 'running' ? 'RUNNING' : 'STRENGTH', onNavigate, PROGRAM_CARD_ENTRY);
   const copy = PROGRAM_START_COPY[track];
   return (
     <div className="flex h-full w-full items-center justify-center">
