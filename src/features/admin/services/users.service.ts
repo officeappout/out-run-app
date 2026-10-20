@@ -18,6 +18,7 @@ import { db, auth } from '@/lib/firebase';
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { isSerializedSentinel } from '@/lib/firestore-sanitize';
+import { isDemoUser } from '@/lib/demo';
 
 const USERS_COLLECTION = 'users';
 const WORKOUTS_COLLECTION = 'workouts';
@@ -163,6 +164,8 @@ export interface AdminUserListItem {
    */
   isTestData?: boolean;
   isMockData?: boolean;
+  /** Demo-world user (uid demo_* / core.demo — src/lib/demo.ts). The admin list's "דמו" chip. */
+  isDemo?: boolean;
   /**
    * Real per-user completed-workout count (from the `workouts` collection,
    * not progression.workoutCount — that field is client-written and can
@@ -251,6 +254,7 @@ export async function getAllUsers(): Promise<AdminUserListItem[]> {
         marketingAttribution,
         isTestData: core.isTestData === true,
         isMockData: core.isMockData === true,
+        isDemo: isDemoUser(docSnap.id, core),
       };
     });
   } catch (error) {

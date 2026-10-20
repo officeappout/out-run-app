@@ -46,6 +46,8 @@
  * touch the approval flow itself, only reads its current state.
  */
 import type { Firestore } from 'firebase-admin/firestore';
+import { isDemoUser } from '@/lib/demo';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import {
   isMemberWithinScope,
   resolveReadinessTargetScope,
@@ -296,12 +298,13 @@ export async function computeUnitRoster(
         snaps.filter((s): s is FirebaseFirestore.QueryDocumentSnapshot => s.exists) as unknown as FirebaseFirestore.QueryDocumentSnapshot[],
       );
 
-  const [soldiersSnap, resultsSnap, thresholdsSnap, usersSnap, unitDocs] = await Promise.all([
+  const [soldiersSnap, resultsSnap, thresholdsSnap, usersSnap, unitDocs, tenantIsDemo] = await Promise.all([
     db.collection('readiness_soldiers').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_results').where('tenantId', '==', targetTenantId).get(),
     db.collection('readiness_thresholds').doc('global').get(),
     db.collection('users').where('core.tenantId', '==', targetTenantId).get(),
     unitDocsPromise,
+    resolveTenantIsDemo(db, 'tenants', targetTenantId),
   ]);
 
   const units: RosterUnitEntry[] = unitDocs.map((d) => ({
@@ -393,6 +396,7 @@ export async function computeUnitRoster(
   let unapprovedPendingCount = 0;
   for (const doc of usersSnap.docs) {
     const core = (doc.data()?.core ?? {}) as Record<string, unknown>;
+    if (!tenantIsDemo && isDemoUser(doc.id, core)) continue; // demo world: demo soldiers only in a demo unit
     if (!inScope(core.unitId)) continue;
     if (core.unitMembershipSource !== 'self_declared') continue;
     if (linkedUids.has(doc.id)) continue; // already linked to a readiness_soldiers record

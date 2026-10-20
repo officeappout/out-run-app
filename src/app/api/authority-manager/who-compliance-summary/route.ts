@@ -32,7 +32,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { type Firestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -66,6 +67,8 @@ function toDateStr(d: Date): string {
 
 /** Admin-SDK port of getAuthorityUsers. */
 async function resolveAuthorityUserIds(db: Firestore, authorityId: string): Promise<string[]> {
+  // Demo world: demo residents count only on a demo city's own dashboard.
+  const authorityIsDemo = await resolveTenantIsDemo(db, 'authorities', authorityId);
   const childrenSnap = await db.collection('authorities').where('parentAuthorityId', '==', authorityId).get();
   const authorityIds = [
     authorityId,
@@ -78,7 +81,7 @@ async function resolveAuthorityUserIds(db: Firestore, authorityId: string): Prom
   await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
     const snap = await db.collection('users').where('core.authorityId', 'in', batch).get();
     snap.docs.forEach((d) => {
-      if (!isTestOrMockUser(d.data()?.core)) userIds.push(d.id);
+      if (!isExcludedResident(d.data()?.core, { authorityIsDemo, uid: d.id })) userIds.push(d.id);
     });
   }));
   return userIds;

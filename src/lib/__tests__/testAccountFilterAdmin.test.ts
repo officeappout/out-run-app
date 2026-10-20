@@ -42,3 +42,17 @@ describe('countExcludingTestAndMock', () => {
     expect(whereCalls.every(([, op]) => op === '==')).toBe(true);
   });
 });
+
+describe('countExcludingTestAndMock — demo authority (PR 2)', () => {
+  it('a real authority (default / authorityIsDemo:false) runs exactly the old three queries', async () => {
+    const { query, whereCalls } = makeFakeQuery({ total: 100, mock: 10, test: 20 });
+    await expect(countExcludingTestAndMock(query, { authorityIsDemo: false })).resolves.toBe(70);
+    expect(whereCalls).toEqual([['core.isMockData', '==', true], ['core.isTestData', '==', true]]);
+  });
+
+  it('a demo authority keeps its demo residents and subtracts only test accounts', async () => {
+    const { query, whereCalls } = makeFakeQuery({ total: 31, mock: 30, test: 1 });
+    await expect(countExcludingTestAndMock(query, { authorityIsDemo: true })).resolves.toBe(30);
+    expect(whereCalls).toEqual([['core.isTestData', '==', true]]);
+  });
+});

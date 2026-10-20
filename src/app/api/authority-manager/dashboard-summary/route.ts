@@ -58,7 +58,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // Canonical (01.09.2026+) + legacy persona label map — verbatim copy of
@@ -114,6 +115,7 @@ export async function GET(request: NextRequest) {
     // reused for gender/age distribution AND to build the uid list DAU/MAU
     // query the workouts collection with. Mirrors getUserDocsForAuthority's
     // single-fetch shape (analytics.service.ts) — just server-side.
+    const authorityIsDemo = await resolveTenantIsDemo(db, 'authorities', authorityId);
     const usersSnap = await db
       .collection('users')
       .where('core.authorityId', '==', authorityId)
@@ -129,7 +131,8 @@ export async function GET(request: NextRequest) {
     usersSnap.docs.forEach((docSnap) => {
       const data = docSnap.data();
       const core = data?.core ?? {};
-      if (isTestOrMockUser(core)) return; // demo + test residents excluded, same as city-summary
+      // test residents excluded; demo residents only on a demo city — same as city-summary
+      if (isExcludedResident(core, { authorityIsDemo, uid: docSnap.id })) return;
 
       residentUids.push(docSnap.id);
 
