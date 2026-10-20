@@ -56,7 +56,7 @@ export async function runMemorySlice(
   const uids = snap.docs.map((d) => d.id).sort();
   out.threads = uids.length;
   const inSlice = opts.cursor ? uids.filter((u) => u > opts.cursor!) : uids;
-  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db));
+  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db, flags));
   const demo = new Set(inSlice.filter(isDemoUid));
   const toCheck = inSlice.filter((u) => !demo.has(u));
   if (toCheck.length) {

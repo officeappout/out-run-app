@@ -4,12 +4,11 @@
  * is on, demo users run like anyone else and every LLM call made FOR a demo user is counted
  * in the demo center's cost counter. Real users never write here.
  *
- * Flag: system_config/feature_flags.demo_kelly (default OFF). Registered in FLAG_DEFS +
- * the /admin/demo switch by the demo control center PR (#552); read here straight from the
- * flag doc so this guard does not depend on that PR's merge order. Read failure ⇒ OFF.
+ * Flag: demo_kelly (FLAG_DEFS `demoKelly`, default OFF; the /admin/demo switch "קלי לדמו"),
+ * read through the server flag reader — a read failure returns the defaults ⇒ OFF.
  *
- * Usage: demo_registry/usage/days/{YYYY-MM-DD} (Israel day) — the doc the demo center reads
- * (src/lib/demo-control/paths.ts in #552: `usage` is a doc, `days` a subcollection, since a
+ * Usage: demo_registry/usage/days/{YYYY-MM-DD} (Israel day) — exactly the doc the demo center
+ * reads (src/lib/demo-control/paths.ts: `usage` is a doc, `days` a subcollection, since a
  * document path needs an even number of segments). Several writers share a day doc, so
  * everything is FieldValue.increment with merge: the totals AND bySource.kelly.*.
  * A failed usage write is logged and never breaks the run.
@@ -17,25 +16,27 @@
 import 'server-only';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { getIsraelDateKey } from '@/lib/israelTime';
+import { DEMO_REGISTRY, DEMO_USAGE_DAYS, DEMO_USAGE_DOC, type UsageSource } from '@/lib/demo-control/paths';
 import type { AiUsage } from './ai-pricing';
+import { getServerFeatureFlags, type ServerFeatureFlags } from './entitlement.server';
 
-export const DEMO_KELLY_FLAG = 'demo_kelly';
-export const DEMO_USAGE_SOURCE = 'kelly';
+export const DEMO_USAGE_SOURCE: UsageSource = 'kelly';
 
-/** demo_kelly switch. Any read failure → false (skip demo users, no spend). */
-export async function isDemoKellyOn(db: Firestore): Promise<boolean> {
+/**
+ * demo_kelly switch. Pass the run's flags when it already has them (no extra read); a flag
+ * read failure yields the FLAG_DEFS defaults → false (skip demo users, no spend).
+ */
+export async function isDemoKellyOn(db: Firestore, flags?: Pick<ServerFeatureFlags, 'demoKelly'>): Promise<boolean> {
   try {
-    const snap = await db.collection('system_config').doc('feature_flags').get();
-    return snap.data()?.[DEMO_KELLY_FLAG] === true;
-  } catch (err) {
-    console.warn('[demo-kelly] flag read failed — demo users skipped', (err as Error)?.message);
+    return (flags ?? (await getServerFeatureFlags(db))).demoKelly === true;
+  } catch {
     return false;
   }
 }
 
 /** The demo center's usage day doc. */
 export function demoUsageDayRef(db: Firestore, now: Date) {
-  return db.collection('demo_registry').doc('usage').collection('days').doc(getIsraelDateKey(now));
+  return db.collection(DEMO_REGISTRY).doc(DEMO_USAGE_DOC).collection(DEMO_USAGE_DAYS).doc(getIsraelDateKey(now));
 }
 
 /** The merge payload for one LLM call (exported for tests). */

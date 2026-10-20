@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+vi.mock('@/lib/firebase-admin', () => ({ getAdminDb: () => { throw new Error('pass a db'); } }));
 vi.mock('firebase-admin/firestore', () => ({
   FieldValue: { increment: (n: number) => ({ __inc: n }), serverTimestamp: () => ({ __ts: true }) },
 }));
@@ -12,10 +13,15 @@ import { demoUsageIncrements, isDemoKellyOn, recordDemoKellyUsage } from '../dem
 const flagDb = (get: () => Promise<unknown>): any => ({ collection: () => ({ doc: () => ({ get }) }) });
 
 describe('isDemoKellyOn', () => {
-  it('true only when system_config/feature_flags.demo_kelly === true', async () => {
-    expect(await isDemoKellyOn(flagDb(async () => ({ data: () => ({ demo_kelly: true }) })))).toBe(true);
-    expect(await isDemoKellyOn(flagDb(async () => ({ data: () => ({ demo_kelly: 'yes' }) })))).toBe(false);
-    expect(await isDemoKellyOn(flagDb(async () => ({ data: () => undefined })))).toBe(false);
+  it('true only when system_config/feature_flags.demo_kelly === true (default off)', async () => {
+    expect(await isDemoKellyOn(flagDb(async () => ({ exists: true, data: () => ({ demo_kelly: true }) })))).toBe(true);
+    expect(await isDemoKellyOn(flagDb(async () => ({ exists: true, data: () => ({ demo_kelly: 'yes' }) })))).toBe(false);
+    expect(await isDemoKellyOn(flagDb(async () => ({ exists: false, data: () => undefined })))).toBe(false);
+  });
+  it('uses the run\'s flags when given (no read)', async () => {
+    const db = flagDb(async () => { throw new Error('must not read'); });
+    expect(await isDemoKellyOn(db, { demoKelly: true })).toBe(true);
+    expect(await isDemoKellyOn(db, { demoKelly: false })).toBe(false);
   });
   it('read failure → off', async () => {
     expect(await isDemoKellyOn(flagDb(async () => { throw new Error('unavailable'); }))).toBe(false);

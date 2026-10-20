@@ -117,7 +117,7 @@ export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions
   if (!proactiveEnabled(flags)) return { ...out, stoppedBy: 'flag_off' };
   if (due.length === 0) return { ...out, stoppedBy: 'nothing_due' };
 
-  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db));
+  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db, flags));
   const { uids, dueFor, recent, demoDropped } = await collectCandidates(db, due, now, clock.dateKey, allowDemo);
   out.candidates = uids.length;
   out.skippedDemo = demoDropped;
