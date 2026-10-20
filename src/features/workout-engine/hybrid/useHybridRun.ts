@@ -22,7 +22,7 @@ import { reverseHybridSegments } from './reverse-plan';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
-import { stationCompletedSets } from './hybrid-counting';
+import { stationCompletedSets, hybridPartMinutes } from './hybrid-counting';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
 import { createDemoSeenStore, type DemoSeenStore } from '../players/strength/logic/demo-gate';
@@ -483,7 +483,7 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
       const uid = auth.currentUser?.uid;
       if (uid) {
         const { saveHybridWorkout } = await import('./hybrid-save.service');
-        await saveHybridWorkout(result, {
+        const savedId = await saveHybridWorkout(result, {
           userId: uid,
           aerobicKind: planAerobicKind,
           totalCalories: planCalories,
@@ -495,12 +495,21 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
         // session into run / walk / strength parts). Single sync point — the
         // suppressed runner teardown below never reaches syncWorkoutCompletion.
         const { syncHybridCompletion } = await import('./hybrid-completion-sync');
-        await syncHybridCompletion({
+        const parts = await syncHybridCompletion({
           result,
           plan: get().plan,
           aerobicKind: planAerobicKind,
           calories: { total: planCalories, aerobic: planAerobicCalories, strength: planStrengthCalories },
         });
+
+        // ── Feed post (leagues) — like a run / strength workout, once, only
+        // after the workout doc was saved. Same writer + privacy prefs as
+        // every other workout; counted per part (hybrid-feed-post.ts).
+        // Background: never blocks the finish.
+        if (savedId) {
+          const { publishHybridFeedPost } = await import('./hybrid-feed-post');
+          void publishHybridFeedPost(uid, hybridPartMinutes(parts), get().plan, stationNames);
+        }
       }
     } catch (e) {
       console.error('[useHybridRun] hybrid save failed', e);

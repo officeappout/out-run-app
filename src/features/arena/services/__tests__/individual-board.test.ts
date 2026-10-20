@@ -65,6 +65,13 @@ describe('feedRows', () => {
       { uid: 'b', name: '???', total: 2.3, count: 1 },
     ]);
   });
+  it('a combined workout post counts only its own part on a category board', () => {
+    const hybrid = [{ authorUid: 'h', authorName: 'H', activityCredit: 52, activityCategory: 'cardio',
+      hybridParts: { runKm: 2, walkKm: 1, runMinutes: 12, walkMinutes: 10, strengthMinutes: 15, strengthSets: 9 } }];
+    expect(feedRows(hybrid, 'credit')[0].total).toBe(52);
+    expect(feedRows(hybrid, 'credit', 'overall')[0].total).toBe(52);
+    expect(feedRows(hybrid, 'credit', 'cardio')[0].total).toBe(22);
+  });
 });
 
 describe('stepsRows', () => {

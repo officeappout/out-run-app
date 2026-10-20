@@ -43,6 +43,54 @@ export function creditOf(minutes: number, activity: LeagueActivity): number {
   return Math.max(0, Math.round(minutes)) * CREDIT_MULTIPLIER[activity];
 }
 
+export interface CreditPart {
+  activity: LeagueActivity;
+  credit: number;
+}
+
+const secOf = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
+
+/**
+ * A workout's league points, PER PART (owner, 20.10.2026). A combined
+ * ('hybrid') workout with segments counts its run / walk legs as cardio
+ * (× 1) and its done stations as strength (× 2) — same rules as the app's
+ * hybrid-counting.ts (a leg counts when it has an actual; a station when it
+ * has an actual and wasn't skipped). Every other workout — and a hybrid doc
+ * without segments — is one part, exactly as before (activityOf + creditOf).
+ * Parts with 0 points are dropped.
+ */
+export function workoutCreditParts(data: {
+  category?: unknown;
+  workoutType?: unknown;
+  activityType?: unknown;
+  duration?: unknown;
+  segments?: unknown;
+}): CreditPart[] {
+  const type = String(data.category ?? data.workoutType ?? data.activityType ?? '').toLowerCase();
+  if (type === 'hybrid' && Array.isArray(data.segments) && data.segments.length > 0) {
+    let aerobicSec = 0;
+    let strengthSec = 0;
+    for (const raw of data.segments) {
+      const seg = (raw ?? {}) as { kind?: unknown; aerobicType?: unknown; skipped?: unknown; actual?: { durationSec?: unknown } | null };
+      if (!seg.actual) continue;
+      const sec = secOf(seg.actual.durationSec);
+      if (seg.kind === 'aerobic') {
+        if (seg.aerobicType === 'cycling') continue; // never part of a combined workout
+        aerobicSec += sec;
+      } else if (seg.kind === 'strength' && seg.skipped !== true) {
+        strengthSec += sec;
+      }
+    }
+    return [
+      { activity: 'cardio' as const, credit: creditOf(minutesOf(aerobicSec), 'cardio') },
+      { activity: 'strength' as const, credit: creditOf(minutesOf(strengthSec), 'strength') },
+    ].filter((p) => p.credit > 0);
+  }
+  const activity = activityOf(data.category, data.workoutType ?? data.activityType);
+  const credit = creditOf(minutesOf(data.duration), activity);
+  return credit > 0 ? [{ activity, credit }] : [];
+}
+
 /** Calendar parts of a moment in Asia/Jerusalem. */
 function jerusalemYmd(d: Date): { y: number; m: number; day: number; weekday: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {

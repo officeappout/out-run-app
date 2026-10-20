@@ -1385,11 +1385,8 @@ function AdminLayoutInner({
                                                     <SidebarLink href="/admin/ai-coach/proactive" icon={MessageCircle} label="קלי · הודעות יזומות" />
                                                 )}
                                             </NavGroup>
-                                            {isSuperAdmin && (
-                                                <NavGroup label="כלי דמו">
-                                                    <SidebarLink href="/admin/demo-seed" icon={FlaskConical} label="נתוני דמו לרשויות" />
-                                                </NavGroup>
-                                            )}
+                                            {/* "כלי דמו" (/admin/demo-seed) removed 20.10.2026 — the old
+                                                in-browser demo seeder is disabled (LegacyDemoToolDisabled). */}
                                         </div>
                                     )}
                                 </>
