@@ -9,6 +9,7 @@ import {
   INTERACTION_DEBOUNCE_MS,
   buildDemoLoop,
   coachCopy,
+  ctaPressOutcome,
   initStripHint,
   stripHintReducer,
   stripHintView,
@@ -174,6 +175,34 @@ describe('demo loop (Q2 timing)', () => {
   it('clamps to the last tile on a short strip', () => {
     const selects = buildDemoLoop(0, 2).filter((e) => e.kind === 'select').map((e) => (e.kind === 'select' ? e.index : -1));
     expect(selects).toEqual([1, 1, 0]);
+  });
+});
+
+describe('CTA tap while the demo runs', () => {
+  it('confirms nothing: snaps back to the start tile instead', () => {
+    expect(ctaPressOutcome(true, 0)).toEqual({ confirm: false, snapTo: 0 });
+  });
+
+  it('stops the demo for good and switches to the "after" line, like a first interaction', () => {
+    const s = run(initStripHint(FIRST), { type: 'interact', kind: 'press', at: 500 });
+    expect(s.demoRunning).toBe(false);
+    expect(s.pill).toBe('after');
+    // So the NEXT tap confirms as usual.
+    expect(ctaPressOutcome(s.demoRunning, 0)).toEqual({ confirm: true });
+  });
+
+  it('confirms as usual when no demo is running (other categories, reduced motion, after takeover)', () => {
+    expect(ctaPressOutcome(initStripHint(LATER).demoRunning, 0)).toEqual({ confirm: true });
+    expect(ctaPressOutcome(initStripHint({ ...FIRST, reducedMotion: true }).demoRunning, 0)).toEqual({ confirm: true });
+  });
+
+  it('VisualSlider wires it: interact + snap back + return before onLevelConfirm', () => {
+    const src = readFileSync(path.resolve(__dirname, '../VisualSlider.tsx'), 'utf8');
+    const body = src.slice(src.indexOf('const handleConfirm = () => {'), src.indexOf('// ── Derived values'));
+    expect(body).toMatch(
+      /ctaPressOutcome\(isDemoRunning\(\), 0\);\s*if \(!outcome\.confirm\) \{\s*stripHint\.interact\('press'\);\s*applyDemoSelection\(outcome\.snapTo\);\s*return;/,
+    );
+    expect(body).not.toMatch(/onLevelConfirm\(steps\[0\]\)/);
   });
 });
 

@@ -8,7 +8,7 @@ import VideoPlayer, { type VideoTier } from './VideoPlayer';
 import CoverflowStrip from './CoverflowStrip';
 import StripDragHint from './StripDragHint';
 import { useStripHint } from './useStripHint';
-import { NUDGE_MS, NUDGE_PX } from './strip-hint';
+import { NUDGE_MS, NUDGE_PX, ctaPressOutcome } from './strip-hint';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 import type { UserDemographics } from '../../types/visual-assessment.types';
@@ -384,10 +384,16 @@ export default function VisualSlider({
   );
 
   const handleConfirm = () => {
-    // CTA during the demo: the user never chose — confirm where the demo started.
-    if (stripHintOn && steps && isDemoRunning()) {
-      onLevelConfirm(steps[0]);
-      return;
+    // CTA during the demo: nothing is saved (the label shows a tile the user never chose).
+    // It stops the demo for good, snaps back to the start tile and switches to the "after"
+    // line — like a first real interaction. The next tap confirms as usual.
+    if (stripHintOn) {
+      const outcome = ctaPressOutcome(isDemoRunning(), 0);
+      if (!outcome.confirm) {
+        stripHint.interact('press');
+        applyDemoSelection(outcome.snapTo);
+        return;
+      }
     }
     onLevelConfirm(level);
   };

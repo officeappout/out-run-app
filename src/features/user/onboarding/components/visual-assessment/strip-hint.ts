@@ -172,6 +172,22 @@ export function stripHintReducer(state: StripHintState, action: StripHintAction)
   }
 }
 
+// ── CTA during the demo ─────────────────────────────────────────────
+
+export type CtaOutcome =
+  | { confirm: true }
+  /** Nothing is saved: stop the demo (as a first real interaction) and snap back to `snapTo`. */
+  | { confirm: false; snapTo: number };
+
+/**
+ * A CTA tap while the demo still drives the selection must never confirm — the label shows a
+ * tile the user never chose. It stops the demo for good, snaps back to where the demo started
+ * and switches to the "after" line (dispatch an `interact` press); the NEXT tap confirms.
+ */
+export function ctaPressOutcome(demoRunning: boolean, baseIndex: number): CtaOutcome {
+  return demoRunning ? { confirm: false, snapTo: baseIndex } : { confirm: true };
+}
+
 // ── Derived view ────────────────────────────────────────────────────
 
 export interface StripHintView {
