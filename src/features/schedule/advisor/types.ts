@@ -61,7 +61,15 @@ export interface AdvisorInput {
 
 // ── Planned entries (virtual materialization) ────────────────────────────────
 
-export type PlannedKind = 'strength' | 'run';
+/** 'walk' = a planned walk (enable_home_v2's walking signup, `walkplan_` entries) — never a run. */
+export type PlannedKind = 'strength' | 'run' | 'walk';
+
+/** A planned walk's goal (its entry's plannedRun.goal). */
+export interface WalkGoal {
+  type: 'time' | 'distance';
+  /** Minutes (time) or km (distance). */
+  value: number;
+}
 
 export interface PlannedEntry {
   date: string;
@@ -76,7 +84,10 @@ export interface PlannedEntry {
   /** Run: the plan entry this is (week + 1-based slot), for the run player. */
   runRef: { week: number; day: number; workoutId?: string } | null;
   runDay: RunningWeekDay | null;
+  /** Run: the plan's workout name. Walk: its Hebrew name ("הליכה של 30 דקות"). */
   runName: string | null;
+  /** Walk only (absent on strength / run entries): the walk's goal, null when unreadable. */
+  walkGoal?: WalkGoal | null;
   /** Marked done at the source (userSchedule.completed / running status 'completed'). */
   completedAtSource: boolean;
 }
@@ -172,8 +183,12 @@ export interface TodayAdvice {
   runEntryRef: { week: number; day: number; workoutId?: string } | null;
   /** Today's planned entries with their derived status. */
   today: PlannedWithStatus[];
-  /** A matching workout exists today (planned or not) — the derived "done" (bug #8). */
-  doneToday: { strength: boolean; run: boolean };
+  /**
+   * A matching workout exists today (planned or not) — the derived "done" (bug #8).
+   * `walk` is present only when a walk is planned today (absent otherwise, so profiles
+   * without planned walks keep the exact same shape).
+   */
+  doneToday: { strength: boolean; run: boolean; walk?: boolean };
   /** The one session offered as a makeup (mode 'makeup'), else null. Never a list. */
   makeup: PlannedWithStatus | null;
   /** welcome_back: today → Saturday; fresh_start: today + 6 days. Empty otherwise. */

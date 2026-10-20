@@ -16,6 +16,8 @@ import type { RunningDayRole } from './runningRules';
 export type ScheduleDomain = 'strength' | 'running';
 export type KeyRun = 'quality' | 'long';
 export type TodayKind = 'strength' | 'run' | 'combined' | 'walk' | 'rest';
+/** A single planned session's kind in today's reasons. */
+export type TodaySessionKind = 'strength' | 'run' | 'walk';
 
 export type ScheduleReason =
   // ── weave (the week) — only reasons that bind on the FINAL week ──
@@ -39,9 +41,10 @@ export type ScheduleReason =
   | { code: 'RUN_PEAK_WEEK'; runWeek: number }
   | { code: 'RUN_TAPER_WEEK'; runWeek: number }
   // ── today ──
-  | { code: 'TODAY_DONE'; kind: 'strength' | 'run' }
-  | { code: 'TODAY_PLANNED'; kind: 'strength' | 'run' }
-  | { code: 'MAKEUP_MISSED'; kind: 'strength' | 'run'; day: number }
+  // 'walk' = a planned walk (enable_home_v2 walking track), never phrased as a run.
+  | { code: 'TODAY_DONE'; kind: TodaySessionKind }
+  | { code: 'TODAY_PLANNED'; kind: TodaySessionKind }
+  | { code: 'MAKEUP_MISSED'; kind: TodaySessionKind; day: number }
   | { code: 'KEY_RUN_TOMORROW'; run: KeyRun }
   | { code: 'HARD_DAY_YESTERDAY' }
   | { code: 'WHO_STRENGTH_GAP'; done: number; target: number }
@@ -150,11 +153,13 @@ export function renderScheduleReasonHe(r: ScheduleReason): string {
     case 'RUN_TAPER_WEEK':
       return `שבוע ${r.runWeek} הוא שבוע ההורדה לפני היעד בריצה: פחות נפח, לשמור על רעננות.`;
     case 'TODAY_DONE':
+      if (r.kind === 'walk') return 'ההליכה של היום כבר בוצעה.';
       return r.kind === 'strength' ? 'אימון הכוח של היום כבר בוצע.' : 'הריצה של היום כבר בוצעה.';
     case 'TODAY_PLANNED':
+      if (r.kind === 'walk') return 'היום מתוכננת הליכה.';
       return `היום מתוכנן ${r.kind === 'strength' ? 'אימון כוח' : 'אימון ריצה'}.`;
     case 'MAKEUP_MISSED':
-      return `אפשר להשלים היום את ${r.kind === 'strength' ? 'אימון הכוח' : 'הריצה'} של ${dayHe(r.day)}.`;
+      return `אפשר להשלים היום את ${r.kind === 'strength' ? 'אימון הכוח' : r.kind === 'walk' ? 'ההליכה' : 'הריצה'} של ${dayHe(r.day)}.`;
     case 'KEY_RUN_TOMORROW':
       return r.run === 'long'
         ? 'מחר הריצה הארוכה, אז היום בלי אימון רגליים.'
