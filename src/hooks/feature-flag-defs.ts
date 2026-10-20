@@ -318,6 +318,23 @@ export const FLAG_DEFS = [
   // preview it once signed in (the landing itself is pre-auth, so it follows the global value).
   // Off = today's landing and flow, byte-identical.
   { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: false, superAdminValue: true },
+  // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
+  // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
+  // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
+  // OFF and superAdminValue FALSE on purpose: a super admin must never switch the demo world
+  // on just by opening the app — only the explicit toggle in system settings does.
+  { key: 'enableDemoUsers', firestoreKey: 'enable_demo_users', defaultValue: false, superAdminValue: false },
+  // Demo control center (20.10.2026, owner: start/stop everything live from /admin/demo).
+  // Sub-switches of enable_demo_users — both meaningless while it is off. Same reasoning as above:
+  // default OFF, superAdminValue FALSE (only the explicit switch turns them on). Read by the
+  // server-side demo engines (life-engine chat replies, AI tester runner), never by app UI.
+  //   demo_life_llm      — the life engine may write chat replies with a small LLM (else phrase bank)
+  //   enable_ai_testers  — the AI tester runner may start (agent-briefs/ai-testers-design.md §5.3)
+  //   demo_kelly         — Kelly (proactive sends, memory, workout reviewer) also runs on demo
+  //                        users; its usage counts toward the demo budget (usage bySource.kelly)
+  { key: 'demoLifeLlm', firestoreKey: 'demo_life_llm', defaultValue: false, superAdminValue: false },
+  { key: 'enableAiTesters', firestoreKey: 'enable_ai_testers', defaultValue: false, superAdminValue: false },
+  { key: 'demoKelly', firestoreKey: 'demo_kelly', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

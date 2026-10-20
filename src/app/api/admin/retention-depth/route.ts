@@ -33,7 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -138,7 +138,7 @@ export async function computeRetentionDepth(db: FirebaseFirestore.Firestore, sco
       : authorityIds.length === 0
         ? []
         : (await Promise.all(chunk(authorityIds, 30).map((b) => db.collection('users').where('core.authorityId', 'in', b).get()))).flatMap((s) => s.docs);
-  const realUserDocs = userDocs.filter((d) => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined));
+  const realUserDocs = userDocs.filter((d) => !isExcludedFromGlobalKpis(d.data()?.core as Record<string, unknown> | undefined, d.id));
   const realUserIds = new Set(realUserDocs.map((d) => d.id));
   const createdAtByUser = new Map<string, Date>();
   realUserDocs.forEach((d) => {

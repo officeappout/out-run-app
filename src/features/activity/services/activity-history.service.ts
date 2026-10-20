@@ -185,8 +185,10 @@ export async function getWeeklyRunningKm(userId: string): Promise<number> {
     snap.docs.forEach((docSnap) => {
       const data = docSnap.data() as { category?: string; distance?: number };
       // Filter cardio runs/walks/cycling client-side to keep query simple
-      // (avoids a composite index just for this aggregation).
-      if (data.category !== 'cardio') return;
+      // (avoids a composite index just for this aggregation). A combined
+      // workout's root distance IS its walk/run legs' km (hybrid-save.service)
+      // — counted too (hybrid counting, owner 20.10.2026).
+      if (data.category !== 'cardio' && data.category !== 'hybrid') return;
       const km = typeof data.distance === 'number' && !isNaN(data.distance) ? data.distance : 0;
       totalKm += km;
     });

@@ -27,6 +27,7 @@ import {
   workoutToStatsUpdates,
   type StatsUpdate,
 } from './lib/exercise-stats';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -53,6 +54,7 @@ async function applyStatsUpdates(markerId: string, updates: StatsUpdate[]): Prom
 export const onExerciseSwapCreated = onDocumentCreated('exercise_swaps/{swapId}', async (event) => {
   const snap = event.data;
   if (!snap) return;
+  if (isDemoUid(snap.data().userId)) return; // demo world guard
   try {
     await applyStatsUpdates(`swap_${event.params.swapId}`, swapToStatsUpdates(snap.data()));
   } catch (e) {
@@ -64,6 +66,8 @@ export const onExerciseSwapCreated = onDocumentCreated('exercise_swaps/{swapId}'
 export const onWorkoutCreateExerciseStats = onDocumentCreated('workouts/{docId}', async (event) => {
   const snap = event.data;
   if (!snap) return;
+  // Demo world guard: simulated workouts never feed the global counters.
+  if (isDemoUid(snap.data().userId)) return;
   const updates = workoutToStatsUpdates(snap.data());
   if (updates.length === 0) return; // non-strength / no per-set detail — nothing to count
   try {

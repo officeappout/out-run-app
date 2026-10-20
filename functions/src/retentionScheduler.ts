@@ -113,6 +113,7 @@ import {
   type ActivityFlags,
   type RetentionMilestone,
 } from './lib/user-activity';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -298,6 +299,7 @@ export async function collectRetentionCandidates(
   const consider = (id: string, data: Record<string, unknown>, allowUnknownDocActivity: boolean) => {
     if (seen.has(id)) return;
     seen.add(id);
+    if (isDemoUid(id)) return; // demo world guard — simulated users are never re-engaged
     const c = toRetentionCandidate(id, data, o.nowMs, o.inShabbatWindow, {
       thresholdDays: o.thresholdDays,
       useAllSignals: o.useAllSignals,

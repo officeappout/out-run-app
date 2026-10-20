@@ -5,6 +5,7 @@
  * (services/progress-data.service.ts) so nothing heavy (routePath, laps…)
  * is kept in React state. Plain .ts, no React / Firebase — safe for tests.
  */
+import { splitHybridWorkout } from '@/features/workout-engine/hybrid/hybrid-counting';
 
 /** The four activity lenses of the tab. Walk & steps share amber (owner, 20.10.2026). */
 export type ProgressKind = 'strength' | 'run' | 'walk' | 'other';
@@ -39,6 +40,17 @@ export interface ProgressWorkout {
   /** Sets per program domain ("push": 12) — only docs saved with exerciseLog.domain. */
   domainSets: Record<string, number>;
   title?: string;
+  /**
+   * Set only on a PART of a combined workout (hybrid counting, owner 20.10.2026):
+   * the saved doc's id. A combined doc becomes one entry per part (run / walk /
+   * strength) so each lens counts its own part; session counts dedupe on this.
+   */
+  sessionId?: string;
+}
+
+/** The session a workout entry belongs to (its doc id, also for combined-workout parts). */
+export function sessionKeyOf(w: Pick<ProgressWorkout, 'id' | 'sessionId'>): string {
+  return w.sessionId ?? w.id;
 }
 
 /** One dailyActivity doc, reduced. */
@@ -49,9 +61,11 @@ export interface ProgressDay {
   stepsGoal: number;
   distanceMeters: number;
   activeMinutes: number;
+  /** Active minutes per category (P-7: why a day counted — recovery = maintenance). */
+  minutesByCategory?: { strength: number; cardio: number; maintenance: number };
 }
 
-/** workoutType → lens. Hybrid sessions count as strength (their run km still count in the km total). */
+/** workoutType → lens. A whole hybrid doc (legacy, no segments) counts as strength; see toProgressWorkouts. */
 export function kindOfWorkoutType(type: string | null | undefined): ProgressKind {
   switch (type) {
     case 'running':
@@ -135,12 +149,52 @@ export function toProgressDay(data: Record<string, unknown>, fallbackGoal: numbe
   if (!date) return null;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const cats = (data.categories ?? {}) as Record<string, { minutes?: unknown } | undefined>;
-  const activeMinutes = ['strength', 'cardio', 'maintenance'].reduce((s, k) => s + num(cats[k]?.minutes), 0);
+  const minutesByCategory = {
+    strength: num(cats.strength?.minutes),
+    cardio: num(cats.cardio?.minutes),
+    maintenance: num(cats.maintenance?.minutes),
+  };
+  const activeMinutes = minutesByCategory.strength + minutesByCategory.cardio + minutesByCategory.maintenance;
   return {
     date,
     steps: num(data.steps),
     stepsGoal: num(data.stepsGoal) || fallbackGoal,
     distanceMeters: num(data.distanceMeters),
     activeMinutes,
+    minutesByCategory,
   };
+}
+
+/**
+ * A raw `workouts` doc → the entries the tab counts. A combined workout (hybrid)
+ * with segments → one entry per part (run legs, walk legs, done stations), each
+ * tagged with `sessionId`; every other doc → its single entry.
+ */
+export function toProgressWorkouts(id: string, data: Record<string, unknown>): ProgressWorkout[] {
+  const whole = toProgressWorkout(id, data);
+  if (!whole) return [];
+  if (whole.type !== 'hybrid' || !Array.isArray(data.segments) || data.segments.length === 0) return [whole];
+  const p = splitHybridWorkout(data.segments);
+  const parts: ProgressWorkout[] = [];
+  const base = { date: whole.date, type: whole.type, title: whole.title, sessionId: id };
+  const aerobic = (kind: 'run' | 'walk', a: { sec: number; km: number; legs: number }) => {
+    if (a.legs === 0 || (a.sec <= 0 && a.km <= 0)) return;
+    const minutes = a.sec / 60;
+    parts.push({ ...base, id: `${id}:${kind}`, kind, minutes, km: a.km, pace: a.km > 0 ? minutes / a.km : 0, sets: 0, domainSets: {} });
+  };
+  aerobic('run', p.running);
+  aerobic('walk', p.walking);
+  if (p.strength.stations > 0) {
+    parts.push({
+      ...base,
+      id: `${id}:strength`,
+      kind: 'strength',
+      minutes: p.strength.sec / 60,
+      km: 0,
+      pace: 0,
+      sets: p.strength.setsCompleted,
+      domainSets: p.strength.domainSets,
+    });
+  }
+  return parts.length > 0 ? parts : [whole];
 }

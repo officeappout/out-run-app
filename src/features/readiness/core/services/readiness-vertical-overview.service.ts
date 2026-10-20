@@ -52,6 +52,7 @@ import { UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unit
 import { computeBrigadeDashboard, type DashboardComponentBreakdown, type DashboardUnitStatusBreakdown } from './readiness-dashboard.service';
 import { computeReadinessAppActivity } from './readiness-app-activity.service';
 import { computeInternalGap } from './readiness-command.util';
+import { isDemoTenant } from '@/lib/demo';
 
 const DENIED_MESSAGE = 'אין לך הרשאה לצפות בתצוגה זו.';
 
@@ -146,6 +147,10 @@ export async function computeReadinessVerticalOverview(
   const authoritiesSnap = await db.collection('authorities').where('type', '==', 'military_unit').get();
   const militaryAuthorities = authoritiesSnap.docs
     .filter((d) => inScopeIds === null || inScopeIds.has(d.id))
+    // Demo world guard (20.10.2026, demo-users-design.md L4): a demo unit
+    // (isDemo / `demo-` id) never shows on a real chief officer's or root's
+    // cross-brigade list. A demo viewer's own access is a later PR.
+    .filter((d) => !isDemoTenant(d.data(), d.id))
     .map((d) => ({
       id: d.id,
       name: typeof d.data().name === 'string' ? (d.data().name as string) : d.id,

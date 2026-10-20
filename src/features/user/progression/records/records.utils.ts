@@ -40,6 +40,8 @@ export interface WorkoutForAggregates {
   sets?: number;
   /** Per-category minutes for hybrid sessions. */
   categorySplits?: Array<{ category: string; durationMinutes: number }>;
+  /** Hybrid: the session split per part (hybrid-counting.ts). Wins over categorySplits. */
+  hybridParts?: { runMinutes: number; runKm: number; walkMinutes: number; walkKm: number; strengthMinutes: number };
 }
 
 /** Months are keyed "YYYY-MM" (local time). */
@@ -65,6 +67,13 @@ export function periodTotalsIncrements(w: WorkoutForAggregates, now: Date): Reco
     add('km.walk', km);
   } else if (w.workoutType === 'strength') {
     add('minutes.strength', w.durationMinutes);
+  } else if (w.workoutType === 'hybrid' && w.hybridParts) {
+    // Per part (owner, 20.10.2026): run legs → run, walk legs → walk, stations → strength.
+    add('minutes.run', w.hybridParts.runMinutes);
+    add('km.run', w.hybridParts.runKm);
+    add('minutes.walk', w.hybridParts.walkMinutes);
+    add('km.walk', w.hybridParts.walkKm);
+    add('minutes.strength', w.hybridParts.strengthMinutes);
   } else if (w.workoutType === 'hybrid') {
     const splits = w.categorySplits ?? [];
     const strengthMin = splits.filter((s) => s.category === 'strength').reduce((a, s) => a + s.durationMinutes, 0);

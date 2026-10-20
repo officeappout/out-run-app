@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldPath } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 import {
   aggregateJourneySources,
@@ -76,7 +76,7 @@ export async function computeJourneySources(
   const usersSnap = await db.collection('users').get();
   const userDocs = usersSnap.docs.filter((d) => {
     const data = d.data();
-    if (isTestOrMockUser(data?.core as Record<string, unknown> | undefined)) return false;
+    if (isExcludedFromGlobalKpis(data?.core as Record<string, unknown> | undefined, d.id)) return false;
     const created = toDateSafe(data?.createdAt);
     return !!created && created >= from && created <= to;
   });

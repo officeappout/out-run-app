@@ -70,6 +70,8 @@ import {
   loadPushSubjectGender,
 } from './services/push-copy.service';
 import { israelHHMM, type PushCopyContext, type PushGender } from './shared/push-library.core';
+import { isDemoUid, restrictToDemoWorld } from './lib/demo';
+import { loadDemoViewerUids } from './lib/demo-world';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -253,9 +255,18 @@ export const onPlannedActivityCreated = onDocumentCreated(
       logger.warn('[onPlannedActivityCreated] connections read failed', err);
     }
 
+    // Demo world guard (demo-users-design.md L3): a demo creator never
+    // reaches strangers — no radius axis — and partners are narrowed to the
+    // demo world (demo users + the owner's registered viewer accounts).
+    const creatorIsDemo = isDemoUid(creatorUid);
+    if (creatorIsDemo) {
+      partnerUids = restrictToDemoWorld(partnerUids, await loadDemoViewerUids(db));
+    }
+
     // ── Radius axis — public sessions only. ───────────────────────────────
     let nearbyUids: string[] = [];
     if (
+      !creatorIsDemo &&
       privacyMode === 'verified_global' &&
       typeof session.lat === 'number' &&
       typeof session.lng === 'number'

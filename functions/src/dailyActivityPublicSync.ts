@@ -71,6 +71,7 @@ import * as admin from 'firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { envInt, forEachQueryPage } from './lib/paginate';
 import { publicRowOf, publicRowUnchanged } from './lib/daily-activity-public';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -169,7 +170,12 @@ export const dailyActivityPublicSync = onSchedule(
         async (docs) => {
           read += docs.length;
           const candidateUids = Array.from(
-            new Set(docs.map((doc) => doc.data().userId as string | undefined).filter((v): v is string => !!v)),
+            new Set(
+              docs
+                .map((doc) => doc.data().userId as string | undefined)
+                // Demo users are never mirrored (publicRowOf) — don't spend Auth / userAge lookups on them.
+                .filter((v): v is string => !!v && !isDemoUid(v)),
+            ),
           );
           if (!candidateUids.length) return;
           const [realUids, ageGroups] = await Promise.all([

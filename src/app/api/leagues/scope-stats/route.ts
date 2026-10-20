@@ -37,6 +37,8 @@ import {
   type ScopeKind,
   type ScopeStatsDoc,
 } from '@/features/arena/services/league-scope-keys';
+import { isDemoScope, isDemoTenantId } from '@/lib/demo';
+import { isInDemoWorld } from '@/lib/demo-world.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,8 +53,9 @@ type Gender = 'all' | 'male' | 'female';
 export async function GET(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  let callerUid: string;
   try {
-    await getAdminAuth().verifyIdToken(token);
+    callerUid = (await getAdminAuth().verifyIdToken(token)).uid;
   } catch {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
@@ -95,7 +98,7 @@ export async function GET(req: NextRequest) {
   let docs = await readPeriod(periodKey);
 
   // Names, kinds and parents of every scope on the board (one batched read).
-  const meta = new Map<string, { name: string; kind: ScopeKind; parentId: string | null }>();
+  const meta = new Map<string, { name: string; kind: ScopeKind; parentId: string | null; isDemo: boolean }>();
   const loadMeta = async (ids: string[]) => {
     const missing = ids.filter((id) => !meta.has(id));
     if (!missing.length) return;
@@ -106,13 +109,26 @@ export async function GET(req: NextRequest) {
         name: (a.exists && (d.name as string)) || a.id,
         kind: scopeKindOf(d.type, d.parentAuthorityId),
         parentId: typeof d.parentAuthorityId === 'string' ? d.parentAuthorityId : null,
+        isDemo: d.isDemo === true,
       });
     });
   };
   await loadMeta(Array.from(new Set(docs.map((d) => d.scopeId))));
 
   // National boards: settlements vs real neighborhoods; the city board by kind.
+  // Demo world guard (demo-users-design.md L4): demo cities / neighborhoods
+  // never appear on a real board. Only a demo city's own neighborhood board
+  // (an explicit demo parentId) shows demo scopes.
+  // Viewer exception: a demo user or the owner's viewer accounts see the demo
+  // world as if they lived in it — demo scopes stay on their boards. The
+  // viewers lookup runs only when a demo scope is actually on the board, so a
+  // real board costs nothing extra; a real caller never sees a demo scope.
+  const hasDemo = docs.some((d) => isDemoScope(d.scopeId, meta.get(d.scopeId)));
+  const showDemo = hasDemo && (await isInDemoWorld(db, callerUid));
+  const demoParentBoard = board === 'neighborhood' && isDemoTenantId(parentId);
+  if (demoParentBoard && !showDemo) docs = [];
   const keep = (id: string) => {
+    if (!showDemo && isDemoScope(id, meta.get(id))) return false;
     const k = meta.get(id)?.kind ?? 'other';
     if (board === 'settlement') return k === 'settlement';
     if (board === 'neighborhood-national') return k !== 'settlement';

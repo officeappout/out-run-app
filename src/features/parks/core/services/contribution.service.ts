@@ -25,6 +25,7 @@ import { getAllParks } from './parks.service';
 import type { Park } from '../types/park.types';
 import type { ParkRatingSummary } from './park-rating.utils';
 import { resolveAuthorityForPoint, parseBoundaryGeoJSON, type AuthorityBoundary } from '@/lib/route-collections/authority-resolution';
+import { isDemoTenant } from '@/lib/demo';
 
 const COLLECTION = 'user_contributions';
 
@@ -306,6 +307,8 @@ async function fetchAuthorityBoundaries(): Promise<AuthorityBoundary[]> {
     const data = d.data();
     const type = data.type ?? '(no type)';
     if (EXCLUDED_AUTHORITY_TYPES.has(type)) continue;
+    // Demo world guard: a real contribution is never attributed to a demo city.
+    if (isDemoTenant(data, d.id)) continue;
     if (!KNOWN_TOP_AUTHORITY_TYPES.has(type)) {
       unrecognizedTypes.set(type, (unrecognizedTypes.get(type) ?? 0) + 1);
     }

@@ -1,17 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminApi } from '@/lib/api-auth';
-import { seedSderotDemo } from '@/features/admin/services/seed-sderot-demo';
+import { NextResponse } from 'next/server';
+import { LEGACY_DEMO_TOOL_DISABLED_MESSAGE } from '@/features/admin/components/legacy-demo/legacy-demo';
 
-export async function POST(request: NextRequest) {
-  const denied = await requireAdminApi(request);
-  if (denied) return denied;
-  try {
-    const result = await seedSderotDemo();
-    if (result.success) {
-      return NextResponse.json({ ok: true, message: result.message });
-    }
-    return NextResponse.json({ ok: false, message: result.message }, { status: 500 });
-  } catch (error: any) {
-    return NextResponse.json({ ok: false, message: error?.message ?? 'Unknown error' }, { status: 500 });
-  }
+// Old demo seeder endpoint — disabled by the owner (20.10.2026). Writes nothing.
+export async function POST() {
+  return NextResponse.json({ ok: false, message: LEGACY_DEMO_TOOL_DISABLED_MESSAGE }, { status: 410 });
 }

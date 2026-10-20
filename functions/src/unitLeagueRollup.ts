@@ -49,6 +49,7 @@ import * as admin from 'firebase-admin';
 import { computeUnitAggregates, type UnitDirectoryEntry, type ReservistActivity } from './unit-league-aggregation';
 import { distanceMetersOfDay } from './lib/league-scope-stats';
 import { mapWithConcurrency } from './lib/paginate';
+import { isDemoTenant, isDemoTenantId, isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -71,7 +72,10 @@ function dateStringDaysAgo(daysAgo: number): string {
 
 async function loadUnitDirectory(): Promise<UnitDirectoryEntry[]> {
   const snap = await db.collection('unitDirectory').get();
-  return snap.docs.map((d) => {
+  // Demo world guard: a demo unit never gets a public aggregate (onUnitWrite /
+  // onAuthorityWrite already keep demo out of unitDirectory — belt and braces).
+  const realDocs = snap.docs.filter((d) => !isDemoTenant(d.data(), d.data().orgId));
+  return realDocs.map((d) => {
     const data = d.data();
     return {
       directoryId: d.id,
@@ -89,7 +93,11 @@ async function loadReservistActivity(): Promise<ReservistActivity[]> {
   const dates = Array.from({ length: WINDOW_DAYS }, (_, i) => dateStringDaysAgo(i));
 
   // Bounded (19.10.2026): was Promise.all over every reservist at once.
-  return mapWithConcurrency(declSnap.docs, LOAD_CONCURRENCY, async (declDoc) => {
+  // Demo world guard: demo soldiers / demo-org declarations never count
+  // toward a real unit's aggregate.
+  const realDecls = declSnap.docs.filter((d) => !isDemoUid(d.id) && !isDemoTenantId(d.data().orgId));
+
+  return mapWithConcurrency(realDecls, LOAD_CONCURRENCY, async (declDoc) => {
     const uid = declDoc.id;
     const data = declDoc.data();
     const orgId = (data.orgId as string) ?? '';

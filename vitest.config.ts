@@ -57,6 +57,10 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
+      // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
+      'tests/firestore-demo-registry.rules.test.ts',
+      // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
+      'tests/firestore-demo-actor-sandbox.rules.test.ts',
       // site_content published-only read / content_suggestions server-only — emulator :8089.
       'tests/firestore-site-content.rules.test.ts',
       'tests/firestore-exercise-swaps.rules.test.ts',
@@ -75,6 +79,8 @@ export default defineConfig({
       'functions/src/**/__tests__/**/*.test.ts',
       // CI tooling — the tsc baseline gate's normalizer + compare mode (17.10.2026).
       'scripts/ci/__tests__/**/*.test.ts',
+      // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
+      'scripts/demo/__tests__/**/*.test.ts',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain

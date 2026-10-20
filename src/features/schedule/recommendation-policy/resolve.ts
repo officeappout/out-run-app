@@ -44,6 +44,7 @@ export function matchesWhen(when: PolicyWhen, ctx: Ctx): boolean {
   if (when.maxHardSkills != null && s.hardSkillCount > when.maxHardSkills) return false;
   if (when.minAvailableDays != null && ctx.available < when.minAvailableDays) return false;
   if (when.maxAvailableDays != null && ctx.available > when.maxAvailableDays) return false;
+  if (when.minChosenDays != null && (s.availableDays == null || s.availableDays < when.minChosenDays)) return false;
   if (when.targetDistances && (!s.targetDistance || !when.targetDistances.includes(s.targetDistance))) return false;
   return true;
 }

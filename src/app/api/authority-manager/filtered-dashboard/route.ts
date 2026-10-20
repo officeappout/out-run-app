@@ -59,7 +59,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Resolve authority + children (rollup — see header comment for why).
+    const authorityIsDemo = await resolveTenantIsDemo(db, 'authorities', authorityId);
     const childrenSnap = await db.collection('authorities').where('parentAuthorityId', '==', authorityId).get();
     const authorityIds = [
       authorityId,
@@ -156,7 +158,7 @@ export async function GET(request: NextRequest) {
       const snap = await db.collection('users').where('core.authorityId', 'in', batch).get();
       snap.docs.forEach((d) => {
         const data = d.data();
-        if (!isTestOrMockUser(data?.core)) residentDocs.push({ id: d.id, data });
+        if (!isExcludedResident(data?.core, { authorityIsDemo, uid: d.id })) residentDocs.push({ id: d.id, data });
       });
     }));
 

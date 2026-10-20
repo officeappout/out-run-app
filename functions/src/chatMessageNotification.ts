@@ -49,6 +49,8 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
+import { isDemoUid, restrictToDemoWorld } from './lib/demo';
+import { loadDemoViewerUids } from './lib/demo-world';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -140,9 +142,14 @@ export const chatMessageNotification = onDocumentCreated(
     const participants = Array.isArray(chatData.participants)
       ? (chatData.participants as string[])
       : [];
-    const recipientUids = participants.filter(
+    const allRecipientUids = participants.filter(
       (uid) => typeof uid === 'string' && uid !== senderUid,
     );
+    // Demo world guard (demo-users-design.md L3): a demo sender only ever
+    // notifies the demo world (demo users + registered viewer accounts).
+    const recipientUids = isDemoUid(senderUid)
+      ? restrictToDemoWorld(allRecipientUids, await loadDemoViewerUids(db))
+      : allRecipientUids;
 
     if (recipientUids.length === 0) {
       logger.info(`[chatMessageNotification] no recipients in chat ${chatId}`);

@@ -135,6 +135,7 @@ import { useHealthConnected } from '@/hooks/useHealthConnected';
 import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import { useToast } from '@/components/ui/Toast';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { resolveStripSchedule } from '@/features/home/utils/strip-schedule';
 import { useFastStartGuard } from '@/features/home/hooks/useFastStartGuard';
 import { useHomeCarouselStartupCache } from '@/features/home/fast-startup/useHomeCarouselStartupCache';
 import { logGeneratedWorkout } from '@/features/generation-review/capture/hooks';
@@ -1693,7 +1694,8 @@ export default function HomePage() {
     isWalker: walkWeek.isWalker,
     isViewingToday: isSelectedDateToday,
     today: walkWeek.today,
-    walkedToday: (todaysWorkouts ?? []).some((w) => w.workoutType === 'walking' || w.activityType === 'walking'),
+    // A combined workout's walking leg counts as a walk (hybrid counting, 20.10.2026).
+    walkedToday: doneKindsOf(todaysWorkouts).includes('walk'),
     steps: walkStepsToday,
     stepGoal: walkStepGoal,
   });
@@ -2978,24 +2980,29 @@ export default function HomePage() {
   }
 
   // Build week schedule data
-  const lifestyleScheduleDays = (profile?.lifestyle?.scheduleDays as string[]) || [];
+  // The strip's mapping lives in strip-schedule.ts (pure, tested) so the progress tab
+  // (enable_home_v2) draws the exact same week. Values identical to the old inline code.
   const runningScheduleDays = (profile?.running?.scheduleDays as string[]) ?? [];
-  const isRunningMode = resolvedDashboardMode === 'RUNNING' || resolvedDashboardMode === 'HYBRID';
-  const userScheduleDays = isRunningMode && runningScheduleDays.length > 0
-    ? runningScheduleDays
-    : lifestyleScheduleDays;
-  const hasSchedule = userScheduleDays.length > 0;
+  const strip = resolveStripSchedule({
+    lifestyleScheduleDays: (profile?.lifestyle?.scheduleDays as string[]) || [],
+    runningScheduleDays,
+    dashboardMode: resolvedDashboardMode,
+    v2: featureFlags.enableHomeV2,
+    hasStrengthProgram,
+    hasRunningPlan: homeRun.hasRunningPlan,
+    primaryTrack: (profile?.lifestyle as any)?.primaryTrack,
+    todayIndex: new Date().getDay(),
+  });
+  const { isRunningMode, userScheduleDays, hasSchedule } = strip;
   // enable_home_v2: the week strip for a running-only user (see the strip below).
   // Flag off → false → the strip's gate and props are exactly as before.
-  const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;
+  const runStripOnly = strip.runStripOnly;
   // enable_home_v2: a dual-track user outside running mode (PERFORMANCE / DEFAULT) — the
   // strength strip also shows the run days (run-overlay-day.ts). Flag off → undefined.
   // enable_home_v2: a user with no program yet sees the strip blurred, pointing at the
   // start cards in the carousel ("בחר תוכנית למטה", S-7b). Flag off → false.
   const pickProgramStrip = featureFlags.enableHomeV2 && programSlide.plan.mode === 'start';
-  const runOverlayDays = featureFlags.enableHomeV2 && hasStrengthProgram && homeRun.hasRunningPlan && !isRunningMode
-    ? runningScheduleDays
-    : undefined;
+  const runOverlayDays = strip.runOverlayDays;
   // 2b (idempotent-booping-sunrise.md) — the value actually fed to
   // SmartWeeklySchedule's `hasSchedule` prop (below), not `hasSchedule`
   // itself. Decision logic lives in resolveCardHasScheduleAndPersona
@@ -3021,24 +3028,7 @@ export default function HomePage() {
   // which screen answers it is decided here, at render, from the live profile.
   const showWizardScreen = showLifestyleWizard && scheduleCard.ctaTarget === 'wizard';
   const showSecondTrackDrawer = showLifestyleWizard && scheduleCard.ctaTarget === 'drawer';
-  const WEEK_DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
-  const todayIndex = new Date().getDay();
-  const realSchedule: DaySchedule[] = WEEK_DAYS.map((day, i) => {
-    const isToday = i === todayIndex;
-    const isTrainingDay = userScheduleDays.includes(day);
-    // Past training days are NOT auto-marked 'completed'. The real
-    // completion state is resolved downstream by `useDayStatus`, which
-    // reads `weekActivities` (Zustand/Firestore) + `dailyProgress.workoutCompleted`.
-    // Hard-coding 'completed' here would force a flame icon for any past
-    // scheduled day, regardless of whether the user actually trained.
-    const status: DaySchedule['status'] = isToday
-      ? 'today'
-      : isTrainingDay
-        ? 'scheduled'
-        : 'rest';
-    return { day, date: i + 1, status };
-  });
-  const primaryTrack = (profile?.lifestyle as any)?.primaryTrack;
+  const realSchedule: DaySchedule[] = strip.schedule;
 
   return (
     <HomeV2Context.Provider value={featureFlags.enableHomeV2}>
@@ -3185,8 +3175,8 @@ export default function HomePage() {
             <SmartWeeklySchedule
               v2={featureFlags.enableHomeV2}
               schedule={realSchedule}
-              currentTrack={isRunningMode || runStripOnly ? 'running' : (primaryTrack === 'performance' ? 'performance' : 'wellness')}
-              scheduleDays={runStripOnly ? runningScheduleDays : userScheduleDays}
+              currentTrack={strip.currentTrack}
+              scheduleDays={strip.scheduleDays}
               programIconKey={programIconKey}
               selectedDate={selectedDate}
               onDaySelect={setSelectedDate}

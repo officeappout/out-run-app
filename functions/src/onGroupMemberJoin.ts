@@ -37,6 +37,8 @@ import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
 import type { PushGender } from './shared/push-library.core';
+import { isDemoUid, restrictToDemoWorld } from './lib/demo';
+import { loadDemoViewerUids } from './lib/demo-world';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -129,6 +131,8 @@ export const onGroupMemberJoin = onDocumentCreated(
 
     // ── 2. New-member alert → admin (only when different from joiner) ───────
     if (!adminUid || adminUid === joinerUid) return;
+    // Demo world guard: a demo joiner never alerts a real group admin.
+    if (isDemoUid(joinerUid) && restrictToDemoWorld([adminUid], await loadDemoViewerUids(db)).length === 0) return;
 
     try {
       const leader = await loadPushRecipient(adminUid);

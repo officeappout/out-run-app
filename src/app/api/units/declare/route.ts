@@ -88,6 +88,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
 import { authorityTypeToTenantType } from '@/features/admin/config/tenantLabels';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -283,9 +284,11 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getAdminAuth();
     let uid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -302,6 +305,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
+    // B1 demo sandbox: a demo actor declares only into a demo- unit/org.
+    if (demoActorTargetBlocked(actorIsDemo, [(body as Record<string, unknown>)?.orgId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
     const result = await computeUnitDeclaration(db, uid, {
       orgId: (body as Record<string, unknown>)?.orgId,
       unitId: (body as Record<string, unknown>)?.unitId,

@@ -101,6 +101,7 @@ import { DEFAULT_OUTCOME_WINDOW_HOURS } from './services/push-events.service';
 import type { PersonaResolvableProfile } from './services/persona-alias-map.service';
 import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -433,7 +434,9 @@ export const stepGoalNudgeScheduler = onSchedule(
           db.collection('users').where('onboardingStatus', '==', 'COMPLETED'),
           { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
           async (pageDocs) => {
-            const rawCandidates = pageDocs.map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
+            const rawCandidates = pageDocs
+              .filter((d) => !isDemoUid(d.id)) // demo world guard
+              .map((d) => toCandidateUser(d.id, d.data() as Record<string, unknown>));
             const stepsByUid = await fetchTodaySteps(rawCandidates.map((c) => c.uid), today);
             // No below-goal pre-filter: bucket-based selection (dispatchToUser)
             // naturally skips hit/over-bucket users when no content matches —

@@ -170,3 +170,41 @@ describe('onPlannedActivityCreated — recipient gate by privacyMode', () => {
     expect(sendPushMock).not.toHaveBeenCalled();
   });
 });
+
+describe('onPlannedActivityCreated — demo world guard (20.10.2026)', () => {
+  beforeEach(() => {
+    state.store.clear();
+    sendPushMock.mockClear();
+    setDoc('app_config', 'feature_flags', { socialActivityNearbyPushEnabled: true });
+    setDoc('connections', 'demo_c1', { followers: ['real1', 'viewer1', 'demo_c2'] });
+    setDoc('demo_registry', 'viewers', { uids: ['viewer1'] });
+    for (const u of ['real1', 'viewer1', 'demo_c2', 'nearby1']) setDoc('users', u, { core: { name: u } });
+    state.userLocations = [{ id: 'nearby1', data: { lat: 32.0001, lng: 34.8001 } }];
+  });
+
+  it('a demo creator of a PUBLIC session: no radius axis, partners narrowed to demo users + viewers', async () => {
+    await (onPlannedActivityCreated as any)(
+      makeEvent('d1', { ...BASE_SESSION, userId: 'demo_c1', privacyMode: 'verified_global' }),
+    );
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]).sort();
+    expect(recipients).toEqual(['demo_c2', 'viewer1']);
+  });
+
+  it('no viewers registered (missing registry doc) → only demo followers, never a real one', async () => {
+    state.store.delete('demo_registry/viewers');
+    await (onPlannedActivityCreated as any)(
+      makeEvent('d2', { ...BASE_SESSION, userId: 'demo_c1', privacyMode: 'squad' }),
+    );
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]);
+    expect(recipients).toEqual(['demo_c2']);
+  });
+
+  it('a real creator is unchanged (radius axis still reaches nearby users)', async () => {
+    setDoc('connections', 'creator1', { followers: ['real1'] });
+    await (onPlannedActivityCreated as any)(
+      makeEvent('d3', { ...BASE_SESSION, privacyMode: 'verified_global' }),
+    );
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]).sort();
+    expect(recipients).toEqual(['nearby1', 'real1']);
+  });
+});

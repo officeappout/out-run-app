@@ -14,6 +14,12 @@ const hookSrc = readFileSync(
   fileURLToPath(new URL('../../../features/home/hooks/useHomeRunSlot.ts', import.meta.url)),
   'utf8',
 );
+// The strip mapping moved into a pure util shared with the progress tab (behaviour unit-tested in
+// features/home/utils/__tests__/strip-schedule.test.ts); the page feeds it the flag.
+const stripSrc = readFileSync(
+  fileURLToPath(new URL('../../../features/home/utils/strip-schedule.ts', import.meta.url)),
+  'utf8',
+);
 
 describe('home/page.tsx — v2 run card wiring', () => {
   it('the slot is resolved for every runner (ungated fix, 19.10.2026)', () => {
@@ -49,7 +55,10 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('the running-only week strip is gated on the flag', () => {
-    expect(pageSrc).toContain('const runStripOnly = featureFlags.enableHomeV2 && !hasStrengthProgram && homeRun.hasRunningPlan;');
+    expect(stripSrc).toContain('const runStripOnly = v2 && !hasStrengthProgram && hasRunningPlan;');
+    expect(pageSrc).toContain('v2: featureFlags.enableHomeV2,');
+    expect(pageSrc).toContain('hasRunningPlan: homeRun.hasRunningPlan,');
+    expect(pageSrc).toContain('const runStripOnly = strip.runStripOnly;');
     expect(pageSrc).toContain('{(hasStrengthProgram || runStripOnly || pickProgramStrip) && (');
     expect(pageSrc).toContain("const pickProgramStrip = featureFlags.enableHomeV2 && programSlide.plan.mode === 'start';");
   });
@@ -98,7 +107,8 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('the strength-mode strip run overlay is gated on the flag', () => {
-    expect(pageSrc).toMatch(/const runOverlayDays = featureFlags\.enableHomeV2 && hasStrengthProgram && homeRun\.hasRunningPlan && !isRunningMode/);
+    expect(stripSrc).toMatch(/const runOverlayDays = v2 && hasStrengthProgram && hasRunningPlan && !isRunningMode/);
+    expect(pageSrc).toContain('const runOverlayDays = strip.runOverlayDays;');
     expect(pageSrc).toContain('runOverlayDays={runOverlayDays}');
   });
 });

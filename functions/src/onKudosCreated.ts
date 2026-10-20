@@ -40,6 +40,8 @@ import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient, loadPushSubjectGender } from './services/push-copy.service';
 import type { PushCopyContext, PushGender } from './shared/push-library.core';
+import { isDemoUid } from './lib/demo';
+import { loadDemoViewerUids } from './lib/demo-world';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -110,6 +112,14 @@ export const onKudosCreated = onDocumentCreated(
     // Guard: don't push self-kudos (shouldn't happen but defensive)
     if (kudoData.fromUid === recipientUid) {
       logger.info(`[onKudosCreated] self-kudo uid=${recipientUid} — skip`);
+      return;
+    }
+
+    // Demo world guard (demo-users-design.md L3): no push to a demo recipient,
+    // and a demo sender reaches only the owner's registered viewer accounts.
+    if (isDemoUid(recipientUid)) return;
+    if (isDemoUid(kudoData.fromUid) && !(await loadDemoViewerUids(db)).has(recipientUid)) {
+      logger.info(`[onKudosCreated] demo sender → real uid=${recipientUid} — skip`);
       return;
     }
 

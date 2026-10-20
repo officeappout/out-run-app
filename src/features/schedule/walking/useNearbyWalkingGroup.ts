@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isDemoDoc } from '@/lib/demo';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { CommunityGroup } from '@/types/community.types';
@@ -25,7 +26,10 @@ async function fetchWalkingGroups(): Promise<CommunityGroup[]> {
     limit(MAX_GROUPS),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CommunityGroup, 'id'>) }) as CommunityGroup);
+  // Demo world guard — "לא לבד" never suggests a demo group (they are isPublic:false by design; belt and braces).
+  return snap.docs
+    .filter((d) => !isDemoDoc(d.data(), d.id))
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<CommunityGroup, 'id'>) }) as CommunityGroup);
 }
 
 export function useNearbyWalkingGroup(enabled: boolean): WalkingGroupSuggestion | null {

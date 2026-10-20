@@ -58,6 +58,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isDemoUser } from '@/lib/demo';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
 import { resolveUnitPermissionScope, resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
@@ -119,9 +121,14 @@ async function resolveTargetUids(
   if (scopeResult.status !== 200) return scopeResult;
   const { targetTenantId, targetUnitIds } = scopeResult;
 
-  const usersSnap = await db.collection('users').where('core.tenantId', '==', targetTenantId).get();
+  const [usersSnap, tenantIsDemo] = await Promise.all([
+    db.collection('users').where('core.tenantId', '==', targetTenantId).get(),
+    resolveTenantIsDemo(db, 'tenants', targetTenantId),
+  ]);
   const uids: string[] = [];
   usersSnap.docs.forEach((d) => {
+    // Demo world: a demo soldier counts only in a demo unit's roster.
+    if (!tenantIsDemo && isDemoUser(d.id, d.data()?.core)) return;
     const unitId = d.data()?.core?.unitId;
     if (targetUnitIds === null || (typeof unitId === 'string' && targetUnitIds.includes(unitId))) {
       uids.push(d.id);

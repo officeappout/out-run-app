@@ -7,7 +7,7 @@
  * Pure — no React, no Firebase.
  */
 import type { FlameTone } from '@/components/ui/v2/streak';
-import type { ProgressDay, ProgressKind, ProgressWorkout } from './progress-model';
+import { sessionKeyOf, type ProgressDay, type ProgressKind, type ProgressWorkout } from './progress-model';
 
 export type ProgressPeriod = 'week' | 'month';
 
@@ -98,10 +98,10 @@ export function summarizePeriod(workouts: ProgressWorkout[], days: ProgressDay[]
   const activeDates = new Set<string>();
   let minutes = 0;
   let km = 0;
-  let count = 0;
+  const sessions = new Set<string>();
   for (const w of workouts) {
     if (!inRange(w.date, r)) continue;
-    count += 1;
+    sessions.add(sessionKeyOf(w)); // a combined workout's parts are ONE workout
     minutes += w.minutes;
     km += w.kind === 'run' || w.kind === 'walk' || w.type === 'hybrid' ? w.km : 0;
     const k = byKind[w.kind];
@@ -117,7 +117,7 @@ export function summarizePeriod(workouts: ProgressWorkout[], days: ProgressDay[]
     steps += d.steps;
     if (d.activeMinutes > 0) activeDates.add(d.date);
   }
-  return { workouts: count, minutes: Math.round(minutes), km: round1(km), steps, activeDays: activeDates.size, byKind };
+  return { workouts: sessions.size, minutes: Math.round(minutes), km: round1(km), steps, activeDays: activeDates.size, byKind };
 }
 
 export function round1(n: number): number {

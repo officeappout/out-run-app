@@ -167,6 +167,19 @@ describe('computeReadinessVerticalOverview — the real list', () => {
     expect(row2!.hasData).toBe(false); // "טרם הוזנו נתונים" — a real row, not a missing one
   });
 
+  it('demo world (20.10.2026): a demo military unit never appears — not for root, not for a vertical grant listing it', async () => {
+    await db.collection('authorities').doc('demo-unit').set({ name: 'יחידת דמו', type: 'military_unit', isDemo: true });
+    await db.collection('authorities').doc('emu-flagged-demo').set({ name: 'דמו מסומן', type: 'military_unit', isDemo: true });
+    const scope: UnitPermissionScope = { kind: 'vertical', vertical: 'military', authorityIds: [TENANT_MIL_1, TENANT_MIL_2, 'demo-unit', 'emu-flagged-demo'] };
+    for (const s of [scope, { kind: 'root' } as UnitPermissionScope]) {
+      const result = await computeReadinessVerticalOverview(db, s);
+      expect(result.status).toBe(200);
+      if (result.status !== 200) return;
+      const ids = result.body.rows.map((r) => r.tenantId).sort();
+      expect(ids).toEqual([TENANT_MIL_1, TENANT_MIL_2].sort());
+    }
+  });
+
   it('never returns a municipal/educational tenant, even if one is (incorrectly) present in scope.authorityIds', async () => {
     const result = await computeReadinessVerticalOverview(db, VERTICAL_SCOPE); // VERTICAL_SCOPE includes TENANT_SCHOOL on purpose
     expect(result.status).toBe(200);

@@ -34,7 +34,7 @@ export default function PersonalRecordsCard({ active }: { active: boolean }) {
   const fresh = tiles.filter((t) => t.isNew).sort((a, b) => (b.at ?? 0) - (a.at ?? 0))[0];
 
   return (
-    <section>
+    <section id="records" className="scroll-mt-20">
       <h3 className="mb-3 text-[15px] font-black text-v2-ink">השיאים שלך</h3>
       {fresh && (
         <div className="mb-3 flex items-center gap-3 rounded-v2-card bg-v2-tint p-3.5 ring-1 ring-inset ring-v2-accent/40">

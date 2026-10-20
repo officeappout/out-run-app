@@ -15,6 +15,7 @@
  * on one day is not a recommendation — see audit-carousel.md, question Q3).
  */
 import type { PlanKind } from './day-plan';
+import { doneKindsOfDoc } from '@/features/workout-engine/hybrid/hybrid-counting';
 
 export type NextKind = 'walk' | 'run' | 'strength' | 'rest';
 
@@ -140,20 +141,16 @@ export function placeNextRunCard<T>(items: readonly T[], card: T, next: NextReco
   return next?.kind === 'run' ? [card, ...items] : [...items, card];
 }
 
-/** Kinds done today from today's workout docs (hybrid = walk/run + strength). */
+/**
+ * Kinds done today from today's workout docs. A combined workout counts per part
+ * (owner, 20.10.2026): its running legs → run, walking legs → walk, stations → strength.
+ */
 export function doneKindsOf(
-  workouts: ReadonlyArray<{ workoutType?: string | null; activityType?: string | null }> | null | undefined,
+  workouts: ReadonlyArray<{ workoutType?: string | null; activityType?: string | null; segments?: unknown }> | null | undefined,
 ): PlanKind[] {
   const out = new Set<PlanKind>();
   for (const w of workouts ?? []) {
-    const t = w.workoutType || w.activityType || '';
-    if (t === 'walking') out.add('walk');
-    else if (t === 'running') out.add('run');
-    else if (t === 'strength' || t === 'workout') out.add('strength');
-    else if (t === 'hybrid') {
-      out.add('strength');
-      out.add(w.activityType === 'running' ? 'run' : 'walk');
-    }
+    for (const k of doneKindsOfDoc(w)) out.add(k);
   }
   return Array.from(out);
 }

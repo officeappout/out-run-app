@@ -74,6 +74,23 @@ export interface CompletionPayload {
    * still fire exactly once using the aggregate `durationMinutes`/`calories`.
    */
   categorySplits?: Array<{ category: ActivityCategory; durationMinutes: number; calories: number }>;
+  /**
+   * Strength sets actually done this session (strength solo: the logged sets;
+   * hybrid: the stations' sets). Feeds the month totals only — independent of
+   * HOME_DAILY_GOAL_V1 (the strengthCompletion snapshot is flag-gated).
+   */
+  setsCompleted?: number;
+  /**
+   * Hybrid only — the session split per part (hybrid-counting.ts), so the month
+   * totals put run legs under run, walk legs under walk and stations under strength.
+   */
+  hybridParts?: {
+    runMinutes: number;
+    runKm: number;
+    walkMinutes: number;
+    walkKm: number;
+    strengthMinutes: number;
+  };
 }
 
 /**
@@ -174,8 +191,9 @@ export async function syncWorkoutCompletion(payload: CompletionPayload): Promise
         workoutType: payload.workoutType,
         durationMinutes: payload.durationMinutes,
         distanceKm: payload.distanceKm,
-        sets: payload.strengthCompletion?.completedSets,
+        sets: payload.setsCompleted ?? payload.strengthCompletion?.completedSets,
         categorySplits: payload.categorySplits,
+        hybridParts: payload.hybridParts,
       });
     }
   } catch (err) {

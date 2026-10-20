@@ -12,7 +12,9 @@
  *
  * Strength rules approved 20.10.2026 (agent-briefs/strength-matrix-proposal.md):
  * 3 days → full body ×3 (every level), 4+ days → upper / lower ×4 for intermediate+,
- * beginners with 5+ days → 3 strength + light movement / walk days on the rest.
+ * beginners with 5+ days → 3 strength + light movement / walk days on the rest;
+ * advanced (and intermediate with a muscle / performance goal) who CHOSE 6 days →
+ * push / pull / legs ×2.
  * The level is the average of push / pull / legs (strengthLevelOf).
  * `splits` is this policy's own table (v2 users only). The workout generator's
  * SPLIT_MATRIX — shared by every user — is unchanged; the cells the owner didn't
@@ -48,7 +50,8 @@ export const RECOMMENDATION_POLICY: RecommendationPolicy = {
       },
       advanced: {
         '1': 'full_body_max', '2': 'full_body_max', '3': 'full_body_max',
-        '4': 'upper_lower', '5': 'skill_dominance', '6': 'hyper_skill_blocks',
+        // 6 → push / pull / legs ×2 (owner 20.10.2026, rule ppl_six_days; was hyper_skill_blocks).
+        '4': 'upper_lower', '5': 'skill_dominance', '6': 'push_pull_legs',
       },
     },
   },
@@ -88,6 +91,18 @@ export const RECOMMENDATION_POLICY: RecommendationPolicy = {
       note: 'ביניים עם 4+ ימים פנויים (כוח בלבד): עליון / תחתון ×4 — כל שריר פעמיים בשבוע. אושר 20.10.2026 (החליף את muscle_intermediate)',
       when: { strengthBands: ['intermediate'], minAvailableDays: 4, tracks: ['strength'], audiences: ['general'] },
       then: { strengthFrequency: 4, reasonHe: 'כל שריר פעמיים בשבוע, עם מנוחה מלאה בין לבין' },
+    },
+    {
+      id: 'ppl_six_days_advanced',
+      note: 'מתקדם שבחר 6 ימים (כוח בלבד, בלי סקילים): דחיפה / משיכה / רגליים ×2. אושר 20.10.2026',
+      when: { strengthBands: ['advanced'], minChosenDays: 6, tracks: ['strength'], audiences: ['general', 'athlete'], maxHardSkills: 0 },
+      then: { strengthFrequency: 6, reasonHe: '6 ימים · דחיפה, משיכה ורגליים — כל אחד פעמיים בשבוע' },
+    },
+    {
+      id: 'ppl_six_days_intermediate',
+      note: 'ביניים עם מטרת מסה / ביצועים שבחר 6 ימים (כוח בלבד, בלי סקילים): דחיפה / משיכה / רגליים ×2. אושר 20.10.2026',
+      when: { strengthBands: ['intermediate'], goalsAny: ['muscle', 'performance'], minChosenDays: 6, tracks: ['strength'], audiences: ['general'], maxHardSkills: 0 },
+      then: { strengthFrequency: 6, reasonHe: '6 ימים · דחיפה, משיכה ורגליים — כל אחד פעמיים בשבוע' },
     },
     {
       id: 'health_cap',

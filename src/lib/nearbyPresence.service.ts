@@ -53,6 +53,7 @@ import {
 } from 'firebase/firestore';
 import { geohashQueryBounds, distanceBetween } from 'geofire-common';
 import { db } from './firebase';
+import { isDemoDoc } from './demo';
 
 export type RawPresenceDoc = Record<string, any> & { uid: string };
 
@@ -113,6 +114,9 @@ export function subscribeToNearbyPresence(
       for (const d of docs) merged.set(d.uid, d);
     });
     const trimmed = Array.from(merged.values()).filter((d) => {
+      // Demo world guard — a simulated user is never a live dot on a real map
+      // (demo presence is written mode:'group' only, design L2; belt and braces).
+      if (isDemoDoc(d, d.uid)) return false;
       if (typeof d.lat !== 'number' || typeof d.lng !== 'number') return false;
       if (!Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return false;
       return distanceBetween([center.lat, center.lng], [d.lat, d.lng]) <= radiusKm;

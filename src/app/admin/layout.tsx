@@ -1372,6 +1372,10 @@ function AdminLayoutInner({
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />
                                                 )}
+                                                {/* demo control center — live switches, tester runs, live cost; super admins only (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/demo" icon={Bot} label="מרכז הדמו" />
+                                                )}
                                                 {/* nightly review of generated workouts / routes — super admins only (API: requireSuperAdminApi) */}
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/generation-review" icon={ListChecks} label="בקרת אימונים ומסלולים" />
@@ -1385,11 +1389,8 @@ function AdminLayoutInner({
                                                     <SidebarLink href="/admin/ai-coach/proactive" icon={MessageCircle} label="קלי · הודעות יזומות" />
                                                 )}
                                             </NavGroup>
-                                            {isSuperAdmin && (
-                                                <NavGroup label="כלי דמו">
-                                                    <SidebarLink href="/admin/demo-seed" icon={FlaskConical} label="נתוני דמו לרשויות" />
-                                                </NavGroup>
-                                            )}
+                                            {/* "כלי דמו" (/admin/demo-seed) removed 20.10.2026 — the old
+                                                in-browser demo seeder is disabled (LegacyDemoToolDisabled). */}
                                         </div>
                                     )}
                                 </>

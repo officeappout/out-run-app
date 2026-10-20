@@ -37,6 +37,7 @@ import { useMapStore } from '../store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { computeAgeGroup } from '@/lib/age';
 import { isPartnerGroupVisible, partnerGroupQuerySpecs } from '../utils/partner-group-scope';
+import { isDemoDoc } from '@/lib/demo';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -232,13 +233,15 @@ function subscribeMerged(
   flush: () => void,
   setLoading: (v: boolean) => void,
   errorLabel: string,
+  /** Demo world guard — drop demo-world docs (public slices only; a member's own squad slice keeps them). */
+  dropDemo = false,
 ): Unsubscribe {
   return onSnapshot(
     q,
     (snap) => {
       snap.docChanges().forEach((change) => {
         const id = change.doc.id;
-        if (change.type === 'removed') merged.delete(id);
+        if (change.type === 'removed' || (dropDemo && isDemoDoc(change.doc.data(), id))) merged.delete(id);
         else merged.set(id, { id, ...change.doc.data() });
       });
       flush();
@@ -350,7 +353,7 @@ export function usePartnerData(
         where('status', 'in', ['planned', 'active']),
         where('expiresAt', '>=', now),
       ),
-      merged, flush, setIsLoading, 'public scheduled sessions',
+      merged, flush, setIsLoading, 'public scheduled sessions', true,
     ));
 
     // Own slice — any privacyMode, so the publisher always sees their own
@@ -418,6 +421,7 @@ export function usePartnerData(
         const partners: any[] = [];
         for (const docSnap of snap.docs) {
           const ev = docSnap.data();
+          if (isDemoDoc(ev, docSnap.id)) continue; // demo world guard — this list is global
           const lat = ev.location?.lat ?? 0;
           const lng = ev.location?.lng ?? 0;
           const eventName = ev.name ?? 'אימון קהילתי';
@@ -523,6 +527,8 @@ export function usePartnerData(
         // Active only; private groups only for members; groups without
         // isPublic (legacy) default to visible.
         if (!isPartnerGroupVisible(docSnap.id, data, memberSet)) continue;
+        // Demo world guard — a demo group only ever shows to its own members.
+        if (!memberSet.has(docSnap.id) && isDemoDoc(data, docSnap.id)) continue;
         // ─────────────────────────────────────────────────────────────────
 
         const slots = extractSlots(data);

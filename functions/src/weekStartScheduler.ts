@@ -59,6 +59,7 @@ import {
   isShabbatObserver,
   SHABBAT_OBSERVER_FIELD,
 } from './services/shabbat.service';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -134,6 +135,7 @@ export async function runWeekStart(now: Date = new Date()): Promise<WeekStartRun
     }
 
     const uids = snap.docs
+      .filter((d) => !isDemoUid(d.id)) // demo world guard
       .filter((d) => isWeekStartRecipient(d.data() as Record<string, unknown>))
       .map((d) => d.id);
     out.candidates += uids.length;

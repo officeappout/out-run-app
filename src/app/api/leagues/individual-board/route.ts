@@ -14,7 +14,8 @@
  * Group boards with weekly / monthly windows come from the league aggregates
  * on the client (getGroupLeagueBoard) — this route serves the rest.
  *
- * Age cohort: as before, the caller only sees their own cohort. Steps use the
+ * Age cohort: as before, the caller only sees their own cohort. A demo scope
+ * (`demo-` id) ranks the 'demo' cohort, for the demo world only (demo-board-cohort.ts). Steps use the
  * caller's userAge doc (missing → 'minor', the dailyActivityPublic rule's own
  * default); feed boards use userAge when present, else the client hint (the
  * client's previous default, 'adult').
@@ -26,6 +27,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp, type Query } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isDemoUid } from '@/lib/demo';
+import { isInDemoWorld } from '@/lib/demo-world.server';
+import { isDemoBoardScope, resolveBoardCohort } from '@/features/arena/services/demo-board-cohort';
 import {
   boardScopeField,
   boardWindowStart,
@@ -88,7 +92,15 @@ export async function GET(req: NextRequest) {
   const ageDoc = (await db.doc(`userAge/${uid}`).get()).data();
   const known = ageDoc?.ageGroup === 'adult' || ageDoc?.ageGroup === 'minor' ? (ageDoc.ageGroup as 'adult' | 'minor') : null;
   const hint = q.get('ageGroup') === 'minor' ? 'minor' : 'adult';
-  const ageGroup: 'adult' | 'minor' = known ?? (mode === 'steps' ? 'minor' : hint);
+  // Demo world (demo-users-design.md L3): a demo scope ranks the 'demo'
+  // cohort, for demo users and the owner's viewers only. Real scopes: as before
+  // (and no extra read — the viewers lookup runs only for a demo scope id).
+  const inDemoWorld = isDemoBoardScope(scope, scopeId) ? await isInDemoWorld(db, uid) : false;
+  const cohort = resolveBoardCohort({ scope, scopeId, mode, known, hint }, inDemoWorld);
+  if (cohort.denied) {
+    return NextResponse.json({ ...rankBoard([], uid, q.get('name') ?? undefined, max), window: mode === 'steps' ? 'weekly' : window });
+  }
+  const ageGroup = cohort.ageGroup;
 
   const now = new Date();
   const windowKey = mode === 'steps' ? stepsDateRange(now).to : boardWindowStart(window, now).toISOString();
@@ -115,8 +127,14 @@ export async function GET(req: NextRequest) {
     }
     const snap = await ref.limit(MAX_DOCS).get();
     if (snap.size >= MAX_DOCS) console.warn('[individual-board] read cap hit', { key });
-    const docs = snap.docs.map((d) => d.data());
-    rows = { at: Date.now(), rows: mode === 'steps' ? stepsRows(docs) : feedRows(docs, mode) };
+    // Demo world guard (demo-users-design.md L3): demo rows never reach a real
+    // board (they are written with ageGroup:'demo' so the queries above miss
+    // them anyway). A demo scope's own board keeps them.
+    const keepDemo = cohort.keepDemoRows;
+    const docs = snap.docs
+      .map((d) => d.data())
+      .filter((d) => keepDemo || !(isDemoUid(d.uid) || isDemoUid(d.authorUid) || isDemoUid(d.userId)));
+    rows = { at: Date.now(), rows: mode === 'steps' ? stepsRows(docs) : feedRows(docs, mode, mode === 'credit' ? category : null) };
     cache.set(key, rows);
     if (cache.size > 500) cache.delete(cache.keys().next().value as string);
   }
