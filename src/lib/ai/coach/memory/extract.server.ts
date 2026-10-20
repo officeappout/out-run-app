@@ -8,7 +8,7 @@ import 'server-only';
 import type Anthropic from '@anthropic-ai/sdk';
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { assertAiBudget, getAiModel, getAnthropicClient, recordAiUsage, withPromptCaching } from '@/lib/ai/anthropic.server';
-import { usageFromSdk } from '@/lib/ai/ai-pricing';
+import { usageFromSdk, type AiUsage } from '@/lib/ai/ai-pricing';
 import { AI_COACH_THREADS } from '../thread-store.server';
 import { MEMORY_EXTRACT_SYSTEM, buildExtractUserContent, parseExtraction, type ExtractMessage } from './extract-prompt';
 import { applyExtraction } from './merge';
@@ -17,7 +17,9 @@ import { loadMemory, saveMemory } from './store.server';
 export const MEMORY_FEATURE = 'ai_coach_memory';
 export const MEMORY_BATCH_MAX = 40;
 
-export type ExtractOutcome = { status: 'no_new_messages' } | { status: 'updated' | 'unchanged'; facts: number; costUsd: number } | { status: 'model_unusable'; costUsd: number };
+/** `usage` / `model`: the call's token counts (the demo center counts demo users' calls). */
+type CallInfo = { costUsd: number; usage?: AiUsage; model?: string };
+export type ExtractOutcome = { status: 'no_new_messages' } | ({ status: 'updated' | 'unchanged'; facts: number } & CallInfo) | ({ status: 'model_unusable' } & CallInfo);
 
 /** User-written messages after `sinceMs`, oldest first (team-only and AI-chat messages alike). */
 async function newUserMessages(db: Firestore, uid: string, sinceMs: number): Promise<Array<ExtractMessage & { at: number }>> {
@@ -52,17 +54,18 @@ export async function extractMemoryForUser(db: Firestore, uid: string, now = Dat
     ...withPromptCaching({ system: MEMORY_EXTRACT_SYSTEM }),
     messages: [{ role: 'user', content: buildExtractUserContent(mem.facts, msgs) }],
   });
-  const { costUsd } = await recordAiUsage(uid, model, usageFromSdk(res.usage), { feature: MEMORY_FEATURE, db });
+  const usage = usageFromSdk(res.usage);
+  const { costUsd } = await recordAiUsage(uid, model, usage, { feature: MEMORY_FEATURE, db });
   const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '';
   const ops = res.stop_reason === 'refusal' ? null : parseExtraction(text, msgs.map((m) => m.id));
   const until = msgs[msgs.length - 1].at;
   if (!ops) {
     // Not retried forever: the batch is marked read (a broken answer is not worth a second bill).
     await saveMemory(db, uid, { facts: mem.facts, extractedUntil: until });
-    return { status: 'model_unusable', costUsd };
+    return { status: 'model_unusable', costUsd, usage, model };
   }
   const facts = applyExtraction(mem.facts, ops, now);
   await saveMemory(db, uid, { facts, extractedUntil: until });
   const changed = JSON.stringify(facts) !== JSON.stringify(mem.facts);
-  return { status: changed ? 'updated' : 'unchanged', facts: facts.length, costUsd };
+  return { status: changed ? 'updated' : 'unchanged', facts: facts.length, costUsd, usage, model };
 }

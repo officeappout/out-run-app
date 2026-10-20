@@ -72,6 +72,8 @@ export interface GapRef {
 /** Everything the triggers and the policy read about one user. Built by context.server.ts. */
 export interface ProactiveUserState {
   uid: string;
+  /** A demo user evaluated because demo_kelly is on — their LLM calls count in the demo budget. */
+  demo?: boolean;
   gender: CoachGender;
   firstName: string;
   clock: IsraelClock;

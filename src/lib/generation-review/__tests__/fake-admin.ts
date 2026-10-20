@@ -46,6 +46,7 @@ export const ref = (path: string): any => ({
   get: async () => snapOf(path),
   set: async (d: any, o?: { merge?: boolean }) => write(path, d, o?.merge ? 'merge' : 'set'),
   update: async (d: any) => write(path, d, 'update'),
+  collection: (name: string) => col(`${path}/${name}`),
 });
 
 const query = (path: string, filters: Array<[string, any]>, order: string | null, lim: number): any => ({

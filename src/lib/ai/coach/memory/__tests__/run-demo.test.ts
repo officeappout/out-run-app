@@ -6,16 +6,22 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const st = vi.hoisted(() => ({ extracted: [] as string[] }));
+const st = vi.hoisted(() => ({ extracted: [] as string[], flagOn: false, usage: [] as Array<{ usage: unknown; model: unknown }> }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { fromMillis: (ms: number) => ({ toMillis: () => ms }) } }));
 vi.mock('@/lib/ai/anthropic.server', () => ({ AiUnavailableError: class extends Error {} }));
 vi.mock('@/lib/ai/entitlement.server', () => ({ getServerFeatureFlags: async () => ({ aiCoachMemory: true }) }));
+vi.mock('@/lib/ai/demo-kelly.server', () => ({
+  isDemoKellyOn: async () => st.flagOn,
+  recordDemoKellyUsage: async (_db: unknown, usage: unknown, model: unknown) => {
+    st.usage.push({ usage, model });
+  },
+}));
 vi.mock('../extract.server', () => ({
   extractMemoryForUser: vi.fn(async (_db: unknown, uid: string) => {
     st.extracted.push(uid);
-    return { status: 'updated', facts: 1, costUsd: 0.01 };
+    return { status: 'updated', facts: 1, costUsd: 0.01, usage: { inputTokens: 900, outputTokens: 60, cacheReadTokens: 0, cacheWriteTokens: 0 }, model: 'claude-haiku-test' };
   }),
 }));
 
@@ -49,6 +55,8 @@ function makeDb(opts: { failGetAll?: boolean } = {}) {
 
 beforeEach(() => {
   st.extracted = [];
+  st.flagOn = false;
+  st.usage = [];
 });
 
 describe('runMemorySlice — demo world', () => {
@@ -61,6 +69,19 @@ describe('runMemorySlice — demo world', () => {
     expect(getAllCalls).toHaveLength(1);
     expect(getAllCalls[0].ids).toEqual(['u1', 'u2', 'u9']);
     expect(getAllCalls[0].options).toEqual({ fieldMask: ['core.demo'] });
+    expect(st.usage).toEqual([]); // real users never write demo usage
+  });
+
+  it('demo_kelly on: demo users are extracted and only their calls are counted', async () => {
+    st.flagOn = true;
+    const { db } = makeDb();
+    const r = await runMemorySlice(db, { now: new Date('2026-10-20T00:30:00Z') });
+    expect(st.extracted).toEqual(['demo_p1', 'u1', 'u2', 'u9']);
+    expect(r).toMatchObject({ skippedDemo: 0, demoLlmCalls: 2, extracted: 4 });
+    expect(st.usage).toEqual([
+      { usage: { inputTokens: 900, outputTokens: 60, cacheReadTokens: 0, cacheWriteTokens: 0 }, model: 'claude-haiku-test' },
+      { usage: { inputTokens: 900, outputTokens: 60, cacheReadTokens: 0, cacheWriteTokens: 0 }, model: 'claude-haiku-test' },
+    ]);
   });
 
   it('fails closed: the demo check failing extracts nobody', async () => {

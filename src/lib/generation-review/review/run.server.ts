@@ -9,10 +9,12 @@
  *      gets the increments — one batch per session
  *   3. enable_generation_review_llm: a Sonnet "does this make sense" pass on a small sample
  *      (reported → flagged → rest), under assertAiBudget + a daily cap of its own
- *   Demo world: a log whose uid is a `demo_` uid is marked reviewed (reviewSkipped:'demo') with
- *   no review doc, no stats and no LLM; before the LLM pass the sample's uids get ONE batched
- *   read of core.demo (field mask) and demo users drop from it — that read failing skips the
- *   LLM pass (fail closed).
+ *   Demo world, demo_kelly OFF (default / read failure): a log whose uid is a `demo_` uid is
+ *   marked reviewed (reviewSkipped:'demo') with no review doc, no stats and no LLM; before the
+ *   LLM pass the sample's uids get ONE batched read of core.demo (field mask) and demo users
+ *   drop from it. demo_kelly ON: demo logs are reviewed like any other and each LLM call for a
+ *   demo user is counted in demo_registry/usage (demo-kelly.server.ts). Either way the core.demo
+ *   read failing skips the LLM pass (fail closed: no uncounted demo spend).
  *   4. stops on the time budget (the route has 60 s) and reports `remaining`
  *
  * A report that arrives after the review flips the log back to reviewed:false — the next run
@@ -22,6 +24,7 @@ import 'server-only';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { AiUnavailableError, aiDayKey, assertAiBudget, getAiModel, loadAiConfig } from '@/lib/ai/anthropic.server';
 import { isDemoCore, isDemoUid } from '@/lib/demo';
+import { isDemoKellyOn, recordDemoKellyUsage } from '@/lib/ai/demo-kelly.server';
 import { runInvariants, type Finding } from '../invariants';
 import { loadGenerationReviewConfig } from '../server/gate.server';
 import {
@@ -48,14 +51,18 @@ export interface RunGenReviewOptions {
   timeBudgetMs?: number;
   dryRun?: boolean;
   now?: Date;
+  /** Tests: injected demo_kelly switch (else read from the flag doc; read failure = off). */
+  demoKelly?: boolean;
 }
 
 export interface RunGenReviewResult {
   day: string;
   reviewed: number;
   flagged: number;
-  /** Demo users' logs skipped (uid prefix in the rules pass, core.demo before the LLM pass). */
+  /** demo_kelly off: demo users' logs skipped (uid prefix in the rules pass, core.demo before the LLM pass). */
   skippedDemo: number;
+  /** demo_kelly on: LLM calls made for demo users' logs (counted in demo_registry usage). */
+  demoLlmCalls: number;
   failed: number;
   llmReviewed: number;
   remaining: boolean;
@@ -117,9 +124,11 @@ export async function runGenerationReview(
   const maxSessions = Math.min(Math.max(opts.maxSessions ?? GEN_REVIEW_MAX_SESSIONS_PER_RUN, 0), GEN_REVIEW_MAX_SESSIONS_PER_RUN);
   const timeBudgetMs = opts.timeBudgetMs ?? 45_000;
   const result: RunGenReviewResult = {
-    day: today, reviewed: 0, flagged: 0, skippedDemo: 0, failed: 0, llmReviewed: 0, remaining: false, stoppedBy: null, costUsd: 0,
+    day: today, reviewed: 0, flagged: 0, skippedDemo: 0, demoLlmCalls: 0, failed: 0, llmReviewed: 0, remaining: false, stoppedBy: null, costUsd: 0,
     ...(opts.dryRun ? { dryRun: [] } : {}),
   };
+
+  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db));
 
   // ── 1. Rules pass ─────────────────────────────────────────────────────────
   const snap = await db.collection(GENERATION_LOG).where('reviewed', '==', false).orderBy('createdAt', 'asc').limit(maxSessions).get();
@@ -134,7 +143,7 @@ export async function runGenerationReview(
     }
     try {
       const log = doc.data() as Raw;
-      if (isDemoUid(log.uid)) {
+      if (!allowDemo && isDemoUid(log.uid)) {
         if (!opts.dryRun) await doc.ref.update({ reviewed: true, reviewSkipped: 'demo' });
         result.skippedDemo++;
         continue;
@@ -214,7 +223,8 @@ export async function runGenerationReview(
   const demoUids = await demoUidsOf(db, sample.map((c) => c.uid));
   if (demoUids === null) return result;
   for (const c of sample) {
-    if (c.uid && demoUids.has(c.uid)) {
+    const demo = !!c.uid && (isDemoUid(c.uid) || demoUids.has(c.uid));
+    if (demo && !allowDemo) {
       result.skippedDemo++;
       continue;
     }
@@ -228,6 +238,10 @@ export async function runGenerationReview(
       spent += j.costUsd;
       result.costUsd += j.costUsd;
       result.llmReviewed++;
+      if (demo) {
+        result.demoLlmCalls++;
+        await recordDemoKellyUsage(db, j.usage, model, now);
+      }
       const batch = db.batch();
       batch.set(db.collection(GENERATION_REVIEWS).doc(c.logId), {
         llm: j.output ? { ...j.output, model, atMs: now.getTime() } : { error: j.error, model, atMs: now.getTime() },

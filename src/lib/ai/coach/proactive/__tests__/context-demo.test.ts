@@ -38,4 +38,10 @@ describe('buildProactiveState — demo world', () => {
       expect(onDemo).toHaveBeenCalledTimes(1);
     });
   }
+  it('allowDemo (demo_kelly on): a demo user gets a state marked demo', async () => {
+    const onDemo = vi.fn();
+    const s = await buildProactiveState({ db, uid: 'demo_p1', now: new Date('2026-10-20T05:00:00Z'), flags: { aiCoachFreeForAll: true } as any, due: ['post_workout'], allowDemo: true, onDemo });
+    expect(onDemo).not.toHaveBeenCalled();
+    expect(s?.demo).toBe(true);
+  });
 });
