@@ -36,6 +36,9 @@ const ERRORS: Record<string, string> = {
   bad_monthlyUsdCap: 'תקרה חודשית לא תקינה',
   bad_maxTesterSessionsPerDay: 'מספר סיורים ביום לא תקין',
   bad_maxLlmCallsPerDay: 'מספר קריאות AI ביום לא תקין',
+  not_found: 'הפריט כבר לא קיים (אולי עולם הדמו נמחק).',
+  no_screenshot: 'לממצא הזה אין צילום מסך.',
+  sign_failed: 'לא הצלחנו לפתוח את צילום המסך (חתימת הקישור נכשלה בשרת).',
   Unauthorized: 'צריך להתחבר מחדש',
   Forbidden: 'אין הרשאה',
 };
