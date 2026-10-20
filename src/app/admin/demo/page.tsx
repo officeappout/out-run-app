@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
  *   switches   system_config/feature_flags (live listener; one key per press)
  *   everything else  /api/admin/demo/status, polled while the tab is visible
  *              (demo_registry is server-only — no client SDK reads)
+ *   "משוב דמו"  /api/admin/demo/feedback/** — life engine feedback + AI tester findings
  */
 import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -17,7 +18,7 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { subscribeDemoSwitches, writeDemoSwitch } from '@/features/admin/services/demo-switch.service';
-import { ErrorState, PageHeader, Skeleton } from '@/features/admin/components/ui';
+import { ErrorState, PageHeader, SegmentTabs, Skeleton } from '@/features/admin/components/ui';
 import type { DemoSwitchKey } from '@/lib/demo-control/paths';
 import { demoFetch, readError } from '@/features/admin/components/demo-control/demo-client';
 import { useDemoStatus } from '@/features/admin/components/demo-control/useDemoStatus';
@@ -26,6 +27,13 @@ import DemoSwitches from '@/features/admin/components/demo-control/DemoSwitches'
 import TesterRunPanel from '@/features/admin/components/demo-control/TesterRunPanel';
 import LiveCostPanel from '@/features/admin/components/demo-control/LiveCostPanel';
 import CapsEditor from '@/features/admin/components/demo-control/CapsEditor';
+import DemoFeedbackTab from '@/features/admin/components/demo-control/feedback/DemoFeedbackTab';
+
+type Tab = 'control' | 'feedback';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'control', label: 'שליטה ועלויות' },
+  { id: 'feedback', label: 'משוב דמו' },
+];
 
 const CONFIRM_ON: Partial<Record<DemoSwitchKey, string>> = {
   demo_life_llm: 'להדליק AI בצ׳אט? כל תגובה בצ׳אט הדמו תעלה כסף, עד התקרה שהגדרתם.',
@@ -42,6 +50,7 @@ export default function DemoControlCenterPage() {
   const [runBusy, setRunBusy] = useState<'run' | 'stop' | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [tab, setTab] = useState<Tab>('control');
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -139,17 +148,21 @@ export default function DemoControlCenterPage() {
         subtitle="מדליקים ומכבים את עולם הדמו ואת בודקי ה-AI, ורואים כמה זה עולה, בזמן אמת. משתמשי דמו לעולם לא מופיעים למשתמשים אמיתיים."
       />
 
-      {notice && (
+      <SegmentTabs label="מרכז הדמו" tabs={TABS} value={tab} onChange={setTab} />
+
+      {tab === 'feedback' && <DemoFeedbackTab enabled={allowed} />}
+
+      {tab === 'control' && notice && (
         <p role="status" className={`rounded-xl px-3 py-2 text-[14px] font-bold ${notice.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
           {notice.text}
         </p>
       )}
 
-      {loading && <Skeleton height={110} count={3} />}
-      {error && !data && <ErrorState message={error} onRetry={() => void reload()} />}
-      {error && data && <p className="text-[13px] font-bold text-amber-700">הרענון האחרון נכשל ({error}). מוצגים הנתונים האחרונים.</p>}
+      {tab === 'control' && loading && <Skeleton height={110} count={3} />}
+      {tab === 'control' && error && !data && <ErrorState message={error} onRetry={() => void reload()} />}
+      {tab === 'control' && error && data && <p className="text-[13px] font-bold text-amber-700">הרענון האחרון נכשל ({error}). מוצגים הנתונים האחרונים.</p>}
 
-      {data && (
+      {tab === 'control' && data && (
         <>
           <DemoStatusCards data={{ ...data, switches: liveSwitches ?? data.switches }} />
           <div className="grid gap-5 lg:grid-cols-2">

@@ -17,6 +17,7 @@
  *       locks?: { [uid]: { until, by?, runId? } } }  ← a tester session locks a persona; the life engine skips it until `until`
  *   demo_registry/life                   the life engine's state (last tick, presence pings, answered chats, joins)
  *   demo_registry/life/feedback/{id}     park / app feedback moments of the life engine
+ *                                        (+ triage: { status, by, at } — the panel's "טופל / לא רלוונטי" mark)
  *   demo_registry/usage/days/{YYYY-MM-DD}  one doc per Israel day (written by the engines)
  *     { llmCalls, inputTokens, outputTokens, cachedTokens, model, usdEstimate,
  *       testerSessions, firestoreWritesEst, updatedAt,
@@ -44,6 +45,11 @@ export const DEMO_USAGE_DOC = 'usage';
 export const DEMO_USAGE_DAYS = 'days';
 export const DEMO_QA_SUMMARY_DOC = 'qa_summary';
 export const DEMO_TESTERS_DOC = 'testers';
+export const DEMO_PERSONAS_DOC = 'personas';
+export const DEMO_LIFE_DOC = 'life';
+export const DEMO_LIFE_FEEDBACK = 'feedback';
+/** The AI testers' findings (functions/src/qaRunnerReport.ts; no client rule = server-only). */
+export const QA_FINDINGS = 'qa_findings';
 
 /** One bounded query covers today + the 30 days before it (= any month to date). */
 export const USAGE_WINDOW_DAYS = 31;
