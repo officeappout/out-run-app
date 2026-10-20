@@ -41,6 +41,9 @@ type Gender = 'male' | 'female' | 'other' | '';
 /** Kelly's intro line when the screen opens from the JIT workout-start gate. */
 export const WORKOUT_CONTEXT_INTRO =
   'אני קלי. לפני שיוצאים למסלול אני צריך רק 3 דברים קטנים, ואחריהם הצהרת בריאות קצרה.';
+/** context 'program' (enable_home_v2): asked inside a signup flow, right before its first save. */
+export const PROGRAM_CONTEXT_INTRO =
+  'אני קלי. כדי לשמור את התוכנית שבנינו אני צריך רק 3 דברים קטנים.';
 
 interface IdentityProfileScreenProps {
   /** The /onboarding-new/profile ?context= value ('profile-only' | 'express'), or 'workout'. */
@@ -68,7 +71,10 @@ export default function IdentityProfileScreen({
    * JIT workout-start gate (enable_jit_identity_v1): collect identity before the
    * health declaration, then hand back to the gate. Never reached with the flag off.
    */
-  const isWorkout = context === 'workout';
+  // 'program' (enable_home_v2, useDeferredIdentity): same inline contract as 'workout' —
+  // keeps the onboarding state, hands back via onWorkoutIdentitySaved — with its own intro.
+  const isProgram = context === 'program';
+  const isWorkout = context === 'workout' || isProgram;
   const { profile, updateProfile, refreshProfile } = useUserStore();
   const direction = 'rtl';
   // enable_home_v2 — styling only. This route is top-padding exempt (the
@@ -594,7 +600,9 @@ export default function IdentityProfileScreen({
                 initial="hidden"
                 animate="show"
               >
-                {(isWorkout
+                {(isProgram
+                  ? PROGRAM_CONTEXT_INTRO
+                  : isWorkout
                   ? WORKOUT_CONTEXT_INTRO
                   : isProfileOnly
                   ? 'היי, אני קלי — המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'

@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserFullProfile } from '@/types/user-profile';
-import { resolveOnboardingEntryHref, type OnboardingTrack } from '@/features/user/onboarding/utils/onboarding-entry';
+import { resolveOnboardingEntryHref, type OnboardingEntryOptions, type OnboardingTrack } from '@/features/user/onboarding/utils/onboarding-entry';
 
 import { runOnboardingEntryTap, type OnboardingEntryNavigate } from './entry-tap';
 
@@ -19,6 +19,7 @@ export function useOnboardingEntryTap(
   profile: UserFullProfile | null | undefined,
   track: OnboardingTrack,
   onNavigate?: OnboardingEntryNavigate,
+  entryOptions?: OnboardingEntryOptions,
 ): { loading: boolean; tap: () => void } {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -26,9 +27,9 @@ export function useOnboardingEntryTap(
     if (loading) return;
     runOnboardingEntryTap(
       setLoading,
-      () => router.push(resolveOnboardingEntryHref(profile, track)),
+      () => router.push(resolveOnboardingEntryHref(profile, track, entryOptions)),
       onNavigate,
     );
-  }, [loading, onNavigate, profile, router, track]);
+  }, [loading, onNavigate, profile, router, track, entryOptions]);
   return { loading, tap };
 }
