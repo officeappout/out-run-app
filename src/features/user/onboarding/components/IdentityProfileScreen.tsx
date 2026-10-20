@@ -124,7 +124,9 @@ export default function IdentityProfileScreen({
   useEffect(() => {
     if (profile?.core?.name)
       setFormData(prev => ({ ...prev, name: profile.core.name }));
-    if (profile?.core?.gender)
+    // Workout context: quick signup (MAP_ONLY) writes gender 'other' as a
+    // placeholder the user never chose — don't pre-select it.
+    if (profile?.core?.gender && !(isWorkout && profile.core.gender === 'other'))
       setFormData(prev => ({ ...prev, gender: profile.core.gender as Gender }));
     if (profile?.core?.birthDate) {
       const bd = profile.core.birthDate;
@@ -138,7 +140,7 @@ export default function IdentityProfileScreen({
         }));
       }
     }
-  }, [profile]);
+  }, [profile, isWorkout]);
 
   // Validate DOB
   const validateDOB = useCallback(() => {
