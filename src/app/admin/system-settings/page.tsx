@@ -68,6 +68,7 @@ interface FlagState {
   enable_org_access_code_prompt: boolean;
   enable_entry_globe_v1: boolean;
   enable_jit_identity_v1: boolean;
+  enable_entry_intro_v1: boolean;
 }
 
 // ============================================================================
@@ -455,6 +456,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פרטים לפני הצהרת הבריאות',
     description: 'משתמש בלי שם (הרשמה מהירה) ממלא שם, פנייה ותאריך לידה לפני ההצהרה, כדי שההצהרה תיחתם על שמו.',
+  },
+  // Entry flow v2 — landing + intro stories (20.10.2026).
+  {
+    key: 'enable_entry_intro_v1',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כניסה: מסך פתיחה וסיפורי החסמים',
+    description: 'מסך הפתיחה החדש (העיר), 5 סיפורי החסמים, והמעגל שנסגר לכדור הארץ.',
   },
 ];
 
