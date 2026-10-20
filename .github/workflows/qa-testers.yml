@@ -4,6 +4,8 @@ name: qa-testers
 # 20.10.2026). Started ONLY by hand: the owner's "הפעל בודקים" button on /admin/demo (which
 # dispatches this workflow with `requested_by`) or "Run workflow" in GitHub. No secrets in the
 # repo; no service-account key anywhere — Google access comes from Workload Identity Federation.
+# Least privilege: the qa-runner identity can ONLY invoke mintDemoTesterToken + qaRunnerReport
+# (no Firestore / Storage role, no credentials file) — every write goes through qaRunnerReport.
 # Setup + deploy steps: scripts/qa/README.md.
 
 on:
@@ -58,6 +60,7 @@ jobs:
       QA_MISSIONS: ${{ inputs.missions }}
       QA_MAX_SESSIONS: ${{ inputs.max_sessions || '3' }}
       QA_MINT_URL: ${{ vars.QA_MINT_URL || 'https://us-central1-appout-1.cloudfunctions.net/mintDemoTesterToken' }}
+      QA_REPORT_URL: ${{ vars.QA_REPORT_URL || 'https://us-central1-appout-1.cloudfunctions.net/qaRunnerReport' }}
       QA_MODEL: ${{ vars.QA_MODEL }}
     steps:
       - uses: actions/checkout@v4
@@ -72,10 +75,10 @@ jobs:
         run: |
           if [ "$QA_DEVICE" = "android-small" ]; then npx playwright install --with-deps chromium; else npx playwright install --with-deps webkit; fi
 
-      # One identity, two uses: an ID token for mintDemoTesterToken (audience = its URL) and the
-      # credentials file the Admin SDK reads (findings, usage, heartbeat, screenshots).
-      - name: Google auth (WIF, qa-runner)
-        id: gcp
+      # Two ID tokens of the same qa-runner identity — one per function (Cloud Run checks the
+      # audience). No credentials file: the runner holds no Google role beyond invoking these two.
+      - name: Google auth — token for mintDemoTesterToken
+        id: gcp_mint
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.QA_WIF_PROVIDER }}
@@ -83,17 +86,42 @@ jobs:
           token_format: id_token
           id_token_audience: ${{ env.QA_MINT_URL }}
           id_token_include_email: true
-          create_credentials_file: true
+          create_credentials_file: false
+      - name: Google auth — token for qaRunnerReport
+        id: gcp_report
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.QA_WIF_PROVIDER }}
+          service_account: ${{ vars.QA_RUNNER_SA }}
+          token_format: id_token
+          id_token_audience: ${{ env.QA_REPORT_URL }}
+          id_token_include_email: true
+          create_credentials_file: false
 
       - name: Run the testers
         env:
           ANTHROPIC_DEMO_KEY: ${{ secrets.ANTHROPIC_DEMO_KEY }}
           APPCHECK_DEBUG_TOKEN: ${{ secrets.APPCHECK_DEBUG_TOKEN }}
-          QA_ID_TOKEN: ${{ steps.gcp.outputs.id_token }}
+          QA_ID_TOKEN: ${{ steps.gcp_mint.outputs.id_token }}
+          QA_REPORT_ID_TOKEN: ${{ steps.gcp_report.outputs.id_token }}
         run: npx tsx scripts/qa/run.ts
 
+      # A fresh token: the run may have used most of the first one's hour.
+      - name: Google auth — fresh token for the overseer
+        id: gcp_overseer
+        if: always()
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.QA_WIF_PROVIDER }}
+          service_account: ${{ vars.QA_RUNNER_SA }}
+          token_format: id_token
+          id_token_audience: ${{ env.QA_REPORT_URL }}
+          id_token_include_email: true
+          create_credentials_file: false
       - name: Overseer (report + control-center summary)
         if: always()
+        env:
+          QA_REPORT_ID_TOKEN: ${{ steps.gcp_overseer.outputs.id_token }}
         run: npx tsx scripts/qa/overseer.ts --run-id "$QA_RUN_ID"
 
       - name: Keep the run folder (report, findings, run.json) for 14 days

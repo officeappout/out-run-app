@@ -5,7 +5,7 @@ import { checkPage, isBlockedRequestHost, isTesterUid, redactSecrets } from '../
 import { parseToolCall } from '../lib/tool-input';
 import { FindingsBook, findingDocId, fingerprint, type Finding } from '../lib/findings';
 import { makeRunId, parseRunArgs, planRun } from '../lib/plan';
-import { assertRunnerUpload, assertRunnerWrite, usageIncrements } from '../lib/store';
+import { openStore, parseStatus, ReportCallError, sessionStartDelta } from '../lib/store';
 import { idTokenSecondsLeft, mintTesterToken } from '../lib/mint';
 import { loadPersonasAndMissions } from '../lib/files';
 import { validateMission } from '../lib/missions';
@@ -191,24 +191,60 @@ describe('plan + args', () => {
   });
 });
 
-describe('store guard', () => {
-  it('the runner writes only its own docs', () => {
-    expect(() => assertRunnerWrite('qa_findings/qa-1__abc')).not.toThrow();
-    expect(() => assertRunnerWrite('demo_registry/control')).not.toThrow();
-    expect(() => assertRunnerWrite('demo_registry/usage/days/2026-10-20')).not.toThrow();
-    expect(() => assertRunnerWrite('demo_registry/qa_summary')).not.toThrow();
-    for (const p of ['users/abc', 'demo_registry/config', 'demo_registry/testers', 'system_config/feature_flags', 'qa_findings/a/b/c']) {
-      expect(() => assertRunnerWrite(p)).toThrow();
-    }
-    expect(() => assertRunnerUpload('qa/qa-1/M01/001.png')).not.toThrow();
-    expect(() => assertRunnerUpload('users/abc/avatar.png')).toThrow();
-    expect(() => assertRunnerUpload('qa/qa-1/../x.png')).toThrow();
+describe('report client (qaRunnerReport)', () => {
+  type Call = { url: string; init?: RequestInit };
+  const fake = (responder: (c: Call) => Response) => {
+    const calls: Call[] = [];
+    const f = (async (url: string, init?: RequestInit) => {
+      const c = { url, init };
+      calls.push(c);
+      return responder(c);
+    }) as unknown as typeof fetch;
+    return { f, calls };
+  };
+  const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
+  const body = (c: Call) => JSON.parse(String(c.init?.body)) as { op: string; args: Record<string, unknown> };
+
+  it('every call is one POST {op,args} with the ID token in both headers', async () => {
+    const { f, calls } = fake(() => json({ ok: true }));
+    const s = openStore({ url: 'https://r', idToken: 'ID', fetchImpl: f });
+    await s.addUsage('2026-10-20', sessionStartDelta('m'), true);
+    expect(calls[0].url).toBe('https://r');
+    expect(body(calls[0])).toEqual({ op: 'usage', args: { day: '2026-10-20', delta: sessionStartDelta('m'), sessionStarted: true } });
+    const h = calls[0].init?.headers as Record<string, string>;
+    expect(h.Authorization).toBe('Bearer ID');
+    expect(h['X-Qa-Id-Token']).toBe('ID');
   });
-  it('usage writes are increments, totals + bySource.testers', () => {
-    const inc = (n: number) => ({ inc: n });
-    const d = usageIncrements({ llmCalls: 1, inputTokens: 10, outputTokens: 5, cachedTokens: 2, model: 'm', usd: 0.5 }, true, inc, 'NOW');
-    expect(d).toMatchObject({ llmCalls: { inc: 1 }, testerSessions: { inc: 1 }, usdEstimate: { inc: 0.5 }, bySource: { testers: { inputTokens: { inc: 10 }, model: 'm' } }, updatedAt: 'NOW' });
-    expect(usageIncrements({ llmCalls: 1, inputTokens: 0, outputTokens: 0, cachedTokens: 0, model: 'm', usd: 0 }, false, inc, 0)).not.toHaveProperty('testerSessions');
+  it('errors carry the function error code', async () => {
+    const { f } = fake(() => json({ error: 'switch_off' }, 409));
+    const s = openStore({ url: 'https://r', idToken: 'ID', fetchImpl: f });
+    await expect(s.saveFinding('x', {} as never)).rejects.toEqual(new ReportCallError('finding', 'switch_off'));
+    const { f: html } = fake(() => new Response('<html>', { status: 403 }));
+    await expect(openStore({ url: 'https://r', idToken: 'ID', fetchImpl: html }).stopRequested()).rejects.toMatchObject({ code: 'http_403' });
+  });
+  it('screenshots: signed URL from the function, then a PUT straight to it', async () => {
+    const { f, calls } = fake((c) => (c.url === 'https://r' ? json({ url: 'https://signed/x' }) : new Response(null, { status: 200 })));
+    const path = 'qa/qa-1/M01/003-abcdef12.png';
+    expect(await openStore({ url: 'https://r', idToken: 'ID', fetchImpl: f }).uploadScreenshot(path, Buffer.from([1, 2]))).toBe(path);
+    expect(body(calls[0])).toEqual({ op: 'upload_url', args: { path } });
+    expect(calls[1]).toMatchObject({ url: 'https://signed/x', init: { method: 'PUT' } });
+    const { f: refused } = fake(() => json({ error: 'bad_path' }, 400));
+    expect(await openStore({ url: 'https://r', idToken: 'ID', fetchImpl: refused }).uploadScreenshot(path, Buffer.from([1]))).toBeNull();
+  });
+  it('parses the status payload leniently', () => {
+    const st = parseStatus({
+      switches: { enable_demo_users: true, enable_ai_testers: true },
+      config: { caps: { dailyUsdCap: 15 }, prices: { 'claude-sonnet-5-5': { inputPerMTok: 2, outputPerMTok: 10, cachedPerMTok: 0.2 } } },
+      stopRequested: false,
+      usageDays: [{ id: '2026-10-20', data: { llmCalls: 3, updatedAt: 5 } }, { bad: 1 }],
+      roster: ['demo_qa_walker58', 7],
+    });
+    expect(st).toMatchObject({ switchesOn: true, stopRequested: false, config: { caps: { dailyUsdCap: 15 } } });
+    expect(st.usageDays).toHaveLength(1);
+    expect(st.usageDays[0]).toMatchObject({ date: '2026-10-20', llmCalls: 3, updatedAtMs: 5 });
+    expect(Array.from(st.roster)).toEqual(['demo_qa_walker58']);
+    expect(parseStatus({}).switchesOn).toBe(false);
+    expect(parseStatus({ switches: { enable_demo_users: true } }).switchesOn).toBe(false);
   });
 });
 
