@@ -18,6 +18,8 @@ import { syncLocationToFirestore, getUserFromFirestore } from '@/lib/firestore.s
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
 import { auth } from '@/lib/firebase';
+import { useEntryGlobeV1 } from '@/features/user/onboarding/hooks/useEntryGlobeV1';
+import { ENTRY_V2_MAP_URL, markEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
 
 // ── Lazy import preserves forwardRef (unlike next/dynamic) ───────────
 const UnifiedLocationStep = lazy(
@@ -40,6 +42,14 @@ export default function ExplorerPage() {
 
   // Client-only guard — prevents SSR of browser-dependent code
   const [mounted, setMounted] = useState(false);
+
+  // enable_entry_globe_v1 — the new location-step presentation, for the
+  // quick-signup path only: an explicit edit intent (explorer_return_to, e.g.
+  // Profile's "עיר" row) keeps today's picker.
+  const entryGlobeFlag = useEntryGlobeV1();
+  const hasEditIntent = mounted && typeof window !== 'undefined'
+    && !!sessionStorage.getItem('explorer_return_to');
+  const entryGlobe = entryGlobeFlag && !hasEditIntent;
 
   // Fix 2a — before showing the location picker, check for a durably-saved
   // map-arrival answer (written by UnifiedLocationStep, Fix 1). If present,
@@ -85,6 +95,7 @@ export default function ExplorerPage() {
     <Suspense fallback={<LoadingPlaceholder />}>
       <UnifiedLocationStep
         mode="explorer"
+        entryGlobe={entryGlobe}
         onNext={() => {}}
         onExplorerDismiss={async () => {
           const returnTo = typeof window !== 'undefined'
@@ -94,6 +105,13 @@ export default function ExplorerPage() {
           // Default guest/MAP_ONLY path — unchanged. The actual Firestore
           // write happens in MapShell's fromExplorer effect.
           if (returnTo !== 'profile') {
+            if (entryGlobe) {
+              // Entry flow v2 landing contract (see entry-v2-landing.ts): the
+              // sessionStorage hint survives MapShell's fromExplorer URL cleanup.
+              markEntryV2Landing(sessionStorage);
+              router.push(ENTRY_V2_MAP_URL);
+              return;
+            }
             router.push('/map?fromExplorer=true');
             return;
           }
