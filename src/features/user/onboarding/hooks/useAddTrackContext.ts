@@ -7,6 +7,9 @@
  *   J3 (added running): the strength days in the template; the new run plan's week-1 slots
  *       from this signup's answers at the recommended frequency (never asked again).
  *   J4 (added strength): the plan's run days; the new program × the WHO minimum (2).
+ * Both counts now come from the recommendation policy (owner 20.10.2026: level × goals ×
+ * persona, both tracks) and fall back to the old numbers if it throws. Saturday stays
+ * closed unless the user marked it (lifestyle / running scheduleDays hold 'ש').
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -31,6 +34,10 @@ import {
   type AddTrackTimesProfile,
 } from '@/features/schedule/add-track/addTrackProfile';
 import type { AddTrackInput } from '@/features/schedule/add-track/addTrackWeek';
+import { clampRunningFrequency } from '@/lib/running-frequency-bounds';
+import { addTrackPolicyCounts, profileMarksSaturday } from '../utils/add-track-policy';
+import { useOnboardingStore } from '../store/useOnboardingStore';
+import { readPolicyInputs, type PolicyInputs, type PolicyProfileSlice, type PolicyStoreSlice } from '../utils/policy-inputs';
 
 export interface AddTrackContext {
   input: AddTrackInput;
@@ -44,16 +51,24 @@ export interface AddTrackContext {
 
 const isStrengthId = (id: string) => isStrengthTemplateId(id, resolveToSlug);
 
-export function buildAddTrackContext(added: AddedTrack, profile: WeaverInputProfile & AddTrackTimesProfile, now: Date): AddTrackContext {
+export function buildAddTrackContext(
+  added: AddedTrack,
+  profile: WeaverInputProfile & AddTrackTimesProfile,
+  now: Date,
+  policyInputs: PolicyInputs = { goalIds: [], personaIds: [], age: null },
+): AddTrackContext {
   const existingStrength = existingStrengthDays(profile, resolveToSlug, added === 'running');
+  const allowSaturday = profileMarksSaturday(profile as Parameters<typeof profileMarksSaturday>[0]);
   const existingStrengthIds: Partial<Record<number, string[]>> = {};
   for (const d of existingStrength) existingStrengthIds[d.dow] = d.ids;
 
   if (added === 'running') {
     const answers = readRunningAnswers();
+    const counts = addTrackPolicyCounts(profile, answers, policyInputs);
+    const runFrequency = counts ? clampRunningFrequency(counts.runs) : resolveDefaultRunningSchedule(profile).frequency;
     let slots: AddTrackInput['newRunSlots'] = [];
     try {
-      slots = firstWeekRunSlots(answers, resolveDefaultRunningSchedule(profile).frequency);
+      slots = firstWeekRunSlots(answers, runFrequency);
     } catch {
       slots = [];
     }
@@ -65,6 +80,7 @@ export function buildAddTrackContext(added: AddedTrack, profile: WeaverInputProf
         newRunSlots: slots,
         runLevel: runLevelFromAnswers(answers),
         targetDistance: runTargetDistance(answers),
+        allowSaturday,
       },
       existingStrengthIds,
       newStrengthIds: [],
@@ -81,9 +97,13 @@ export function buildAddTrackContext(added: AddedTrack, profile: WeaverInputProf
       added,
       existingStrength,
       existingRuns: existingRunDays(profile, now),
-      newStrength: { slug, sessionsPerWeek: Math.max(0, WHO_STRENGTH_TARGET_DAYS - existingStrength.length) },
+      newStrength: {
+        slug,
+        sessionsPerWeek: Math.max(0, (addTrackPolicyCounts(profile, null, policyInputs)?.strength ?? WHO_STRENGTH_TARGET_DAYS) - existingStrength.length),
+      },
       runLevel: resolveRunningLevel(profile.running),
       targetDistance: profile.running?.generatedProgramTemplate?.targetDistance ?? '5k',
+      allowSaturday,
     },
     existingStrengthIds,
     newStrengthIds: programIds.length ? [programIds[0]] : [fallbackId],
@@ -109,7 +129,8 @@ export function useAddTrackContext(added: AddedTrack): AddTrackContext | null {
   return useMemo(() => {
     if (!warm || !profile) return null;
     try {
-      return buildAddTrackContext(added, profile as unknown as WeaverInputProfile & AddTrackTimesProfile, now);
+      const inputs = readPolicyInputs(useOnboardingStore.getState().data as PolicyStoreSlice, profile as unknown as PolicyProfileSlice);
+      return buildAddTrackContext(added, profile as unknown as WeaverInputProfile & AddTrackTimesProfile, now, inputs);
     } catch (err) {
       console.error('[AddTrack] could not read the existing week', err);
       return null;
