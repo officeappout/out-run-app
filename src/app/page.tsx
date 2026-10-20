@@ -30,6 +30,9 @@ import { startupMark } from '@/lib/fast-startup/perf';
 import { useToast } from '@/components/ui/Toast';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import ExistingAccountModal from '@/components/ExistingAccountModal';
+import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
+import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
+import { INTRO_SEEN_PREF, isIntroSeen, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -298,6 +301,12 @@ export default function LandingPage() {
   // untouched while this is up; cancel just clears it back to null.
   const [existingAccountProvider, setExistingAccountProvider] = useState<'google' | 'apple' | null>(null);
 
+  // enable_entry_intro_v1 — the new landing (city portrait) + the once-per-device
+  // intro stories after quick signup. Off = the carousel landing below, unchanged.
+  // While this device has never loaded the flags, keep the splash up so the
+  // wrong landing never paints first (capped by useFeatureFlags' LOADING_CAP_MS).
+  const { enabled: introOn, loading: introFlagLoading } = useEntryIntroV1();
+
   // ── Unified carousel index — drives both background AND tagline ──
   // Owned here so a single timer keeps both in perfect sync.
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -502,7 +511,15 @@ export default function LandingPage() {
     quickSignupInFlightRef.current = true;
     setAuthState('authenticated'); // reuse the branded splash while this resolves
     try {
-      const proceeded = await runExploreMapFlow(router);
+      // enable_entry_intro_v1: the flow's final `/explorer` push becomes `/intro`
+      // until the intro has been seen on this device; invite redirects untouched.
+      const flowRouter = introOn
+        ? withIntroRedirect(router, {
+            introOn,
+            introSeen: isIntroSeen(await getOnboardingPrefAsync(INTRO_SEEN_PREF)),
+          })
+        : router;
+      const proceeded = await runExploreMapFlow(flowRouter);
       if (!proceeded) {
         // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
         // flow.ts's single chokepoint) — this is the visible half (P0-1,
@@ -520,7 +537,7 @@ export default function LandingPage() {
       setAuthState('guest');
       showToast('error', 'החיבור לא הצליח. נסו שוב.');
     }
-  }, [router, showToast]);
+  }, [router, showToast, introOn]);
 
   // ── Secondary: "התחברות" → Open login drawer ──
   const handleLoginOpen = useCallback(() => {
@@ -725,7 +742,7 @@ export default function LandingPage() {
           Rendered above the marketing UI (z-[100]) so the carousel can
           preload in the background without the user seeing a flash. */}
       <AnimatePresence>
-        {authState !== 'guest' && (
+        {(authState !== 'guest' || introFlagLoading) && (
           <motion.div
             key="branded-splash"
             initial={{ opacity: 1 }}
@@ -739,6 +756,10 @@ export default function LandingPage() {
       </AnimatePresence>
     
     <div className="min-h-[100dvh] bg-white relative overflow-hidden flex flex-col">
+      {introOn ? (
+        <IntroLanding onQuickSignup={handleQuickSignup} onLogin={handleLoginOpen} />
+      ) : (
+      <>
       {/* ── Animated Background Carousel ── */}
       <BackgroundCarousel index={carouselIndex} />
 
@@ -814,6 +835,8 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* ── Login Drawer ──
           Hidden (not just covered) while the existing-account modal is
