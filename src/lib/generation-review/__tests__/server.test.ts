@@ -215,6 +215,66 @@ describe('runGenerationReview', () => {
     expect(res.llmReviewed).toBe(1);
     expect(store.get(`generation_reviews/${d.id}`)!.llm.verdict).toBe('bad');
   });
+  it('demo world: a demo_ uid log is skipped whole; a core.demo user never reaches the LLM; real users unchanged', async () => {
+    const real = draftOf(walkStrengthPushOnly);
+    const demoPrefix = draftOf(walkStrengthPushOnly);
+    const demoCore = draftOf(walkStrengthPushOnly);
+    for (const d of [real, demoPrefix, demoCore]) await logPOST(req('tok-u1', d));
+    // re-own two of the logs (synthetic): one demo_ uid, one core.demo user
+    store.set(`generation_log/${demoPrefix.id}`, { ...store.get(`generation_log/${demoPrefix.id}`)!, uid: 'demo_p1' });
+    store.set(`generation_log/${demoCore.id}`, { ...store.get(`generation_log/${demoCore.id}`)!, uid: 'u9' });
+    store.set('users/u9', { core: { demo: { tenantId: 'demo-city', personaId: 'p9', v: 1 } } });
+    st.flags.enableGenerationReviewLlm = true;
+    __resetGateCacheForTests();
+    const call = vi.fn(async () => ({
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 1000, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({ verdict: 'bad', problems: ['רק דחיפה'], suggestion: 'לאזן' }) }],
+    }));
+    const res = await runGenerationReview(db, {}, { callLlm: call as never });
+    expect(res).toMatchObject({ reviewed: 2, skippedDemo: 2, llmReviewed: 1 });
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(store.get(`generation_reviews/${real.id}`)!.llm.verdict).toBe('bad');
+    expect(store.get(`generation_reviews/${demoCore.id}`)!.llm).toBeUndefined();
+    // the demo_ log: marked reviewed, no review doc, not in the stats
+    expect(store.get(`generation_log/${demoPrefix.id}`)).toMatchObject({ reviewed: true, reviewSkipped: 'demo' });
+    expect(store.has(`generation_reviews/${demoPrefix.id}`)).toBe(false);
+    const day = store.get(`generation_log/${real.id}`)!.day;
+    expect(store.get(`generation_review_stats/${day}`)!.sessions).toBe(2);
+  });
+  it('demo_kelly on: demo logs are reviewed and judged; only demo calls land in demo_registry usage', async () => {
+    const real = draftOf(walkStrengthPushOnly);
+    const demoPrefix = draftOf(walkStrengthPushOnly);
+    const demoCore = draftOf(walkStrengthPushOnly);
+    for (const d of [real, demoPrefix, demoCore]) await logPOST(req('tok-u1', d));
+    store.set(`generation_log/${demoPrefix.id}`, { ...store.get(`generation_log/${demoPrefix.id}`)!, uid: 'demo_p1' });
+    store.set(`generation_log/${demoCore.id}`, { ...store.get(`generation_log/${demoCore.id}`)!, uid: 'u9' });
+    store.set('users/u9', { core: { demo: { tenantId: 'demo-city', personaId: 'p9', v: 1 } } });
+    st.flags.enableGenerationReviewLlm = true;
+    __resetGateCacheForTests();
+    const call = vi.fn(async () => ({
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 1000, output_tokens: 200 },
+      content: [{ type: 'text', text: JSON.stringify({ verdict: 'bad', problems: ['רק דחיפה'], suggestion: 'לאזן' }) }],
+    }));
+    const now = new Date('2026-10-20T09:00:00Z');
+    const res = await runGenerationReview(db, { now, demoKelly: true }, { callLlm: call as never });
+    expect(res).toMatchObject({ reviewed: 3, skippedDemo: 0, llmReviewed: 3, demoLlmCalls: 2 });
+    expect(call).toHaveBeenCalledTimes(3);
+    const usage = store.get('demo_registry/usage/days/2026-10-20')!;
+    expect(usage).toMatchObject({ llmCalls: 2, inputTokens: 2000, outputTokens: 400 });
+    expect(usage.bySource.kelly).toMatchObject({ llmCalls: 2, inputTokens: 2000, outputTokens: 400, model: 'claude-sonnet-test' });
+  });
+  it('demo_kelly off: real users never write demo usage', async () => {
+    const d = draftOf(walkStrengthPushOnly);
+    await logPOST(req('tok-u1', d));
+    st.flags.enableGenerationReviewLlm = true;
+    __resetGateCacheForTests();
+    const call = vi.fn(async () => ({ stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: 'text', text: JSON.stringify({ verdict: 'ok', problems: [], suggestion: '' }) }] }));
+    await runGenerationReview(db, {}, { callLlm: call as never });
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(Array.from(store.keys()).some((k) => k.startsWith('demo_registry'))).toBe(false);
+  });
   it('dry run writes nothing', async () => {
     const d = draftOf(walkStrengthPushOnly);
     await logPOST(req('tok-u1', d));

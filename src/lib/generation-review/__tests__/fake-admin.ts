@@ -46,6 +46,7 @@ export const ref = (path: string): any => ({
   get: async () => snapOf(path),
   set: async (d: any, o?: { merge?: boolean }) => write(path, d, o?.merge ? 'merge' : 'set'),
   update: async (d: any) => write(path, d, 'update'),
+  collection: (name: string) => col(`${path}/${name}`),
 });
 
 const query = (path: string, filters: Array<[string, any]>, order: string | null, lim: number): any => ({
@@ -67,7 +68,8 @@ export const col = (path: string): any => ({ doc: (id: string) => ref(`${path}/$
 
 export const db: any = {
   collection: col,
-  getAll: async (...refs: any[]) => refs.map((r) => snapOf(r.__path)),
+  // Like the Admin SDK: a trailing ReadOptions object ({ fieldMask }) is not a ref.
+  getAll: async (...refs: any[]) => refs.filter((r) => typeof r?.__path === 'string').map((r) => snapOf(r.__path)),
   runTransaction: async (fn: (tx: any) => Promise<unknown>) =>
     fn({
       get: (r: any) => r.get(),

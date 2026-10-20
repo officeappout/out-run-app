@@ -18,6 +18,8 @@
 import 'server-only';
 import type { Firestore } from 'firebase-admin/firestore';
 import { getServerFeatureFlags, type ServerFeatureFlags } from '@/lib/ai/entitlement.server';
+import { isDemoUid } from '@/lib/demo';
+import { isDemoKellyOn, recordDemoKellyUsage } from '@/lib/ai/demo-kelly.server';
 import { buildProactiveState, israelClock } from './context.server';
 import { personalizeFlex, PROACTIVE_LLM_MAX_PER_RUN } from './llm.server';
 import { usersActiveSince, usersTrainingToday, workoutsSavedBetween } from './loaders.server';
@@ -37,11 +39,17 @@ export interface ProactiveRunOptions {
   dryRun?: boolean;
   /** Tests: injected flags. */
   flags?: ServerFeatureFlags;
+  /** Tests: injected demo_kelly switch (else read from the flag doc; read failure = off). */
+  demoKelly?: boolean;
 }
 
 export interface ProactiveRunResult {
   due: ProactiveTrigger[];
   candidates: number;
+  /** demo_kelly off: demo users dropped before any per-user work (uid prefix, or core.demo on the user doc). */
+  skippedDemo: number;
+  /** demo_kelly on: LLM calls made for demo users (counted in demo_registry usage). */
+  demoLlmCalls: number;
   evaluated: number;
   sent: number;
   byTrigger: Partial<Record<ProactiveTrigger, number>>;
@@ -61,9 +69,11 @@ interface Candidates {
   /** uid → the due triggers this user is a candidate for. */
   dueFor: Map<string, ProactiveTrigger[]>;
   recent: Map<string, RecentWorkout>;
+  /** Distinct `demo_` uids dropped from the candidate list (no read, no LLM). */
+  demoDropped: number;
 }
 
-async function collectCandidates(db: Firestore, due: ProactiveTrigger[], now: Date, dateKey: string): Promise<Candidates> {
+async function collectCandidates(db: Firestore, due: ProactiveTrigger[], now: Date, dateKey: string, allowDemo: boolean): Promise<Candidates> {
   const t = now.getTime();
   const recent = new Map<string, RecentWorkout>();
   const dueFor = new Map<string, ProactiveTrigger[]>();
@@ -89,7 +99,10 @@ async function collectCandidates(db: Firestore, due: ProactiveTrigger[], now: Da
   if (due.includes('assessment')) jobs.push(usersActiveSince(db, t - 3 * 86_400_000).then((u) => u.forEach((x) => add(x, ['assessment']))));
   await Promise.all(jobs);
   recent.forEach((_w, uid) => add(uid, ['post_workout']));
-  return { uids: Array.from(dueFor.keys()).sort(), dueFor, recent };
+  // Demo world (demo_kelly off): simulated users never cost a read past this point, nor an LLM call.
+  const all = Array.from(dueFor.keys());
+  const uids = all.filter((u) => allowDemo || !isDemoUid(u)).sort();
+  return { uids, dueFor, recent, demoDropped: all.length - uids.length };
 }
 
 export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions = {}): Promise<ProactiveRunResult> {
@@ -98,14 +111,16 @@ export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions
   const budget = opts.timeBudgetMs ?? 40_000;
   const clock = israelClock(now);
   const due = dueTriggers(clock);
-  const out: ProactiveRunResult = { due, candidates: 0, evaluated: 0, sent: 0, byTrigger: {}, llmCalls: 0, costUsd: 0, remaining: false, cursor: null, stoppedBy: null };
+  const out: ProactiveRunResult = { due, candidates: 0, skippedDemo: 0, demoLlmCalls: 0, evaluated: 0, sent: 0, byTrigger: {}, llmCalls: 0, costUsd: 0, remaining: false, cursor: null, stoppedBy: null };
 
   const flags = opts.flags ?? (await getServerFeatureFlags(db));
   if (!proactiveEnabled(flags)) return { ...out, stoppedBy: 'flag_off' };
   if (due.length === 0) return { ...out, stoppedBy: 'nothing_due' };
 
-  const { uids, dueFor, recent } = await collectCandidates(db, due, now, clock.dateKey);
+  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db, flags));
+  const { uids, dueFor, recent, demoDropped } = await collectCandidates(db, due, now, clock.dateKey, allowDemo);
   out.candidates = uids.length;
+  out.skippedDemo = demoDropped;
   const start = opts.cursor ? uids.findIndex((u) => u > opts.cursor!) : 0;
   const todo = start < 0 ? [] : uids.slice(start);
   const llmOn = flags.aiCoachProactiveLlm === true;
@@ -122,7 +137,7 @@ export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions
       // Only the triggers this user is a candidate for (a post-workout candidate is not
       // evaluated for the morning unless today's schedule list has them too).
       const mine = dueFor.get(uid) ?? [];
-      const state = await buildProactiveState({ db, uid, now, flags, due: mine, recentWorkout: recent.get(uid) ?? null });
+      const state = await buildProactiveState({ db, uid, now, flags, due: mine, recentWorkout: recent.get(uid) ?? null, allowDemo, onDemo: () => { out.skippedDemo++; } });
       if (!state) continue;
       const pick = selectProactive(state, { only: mine });
       if (!pick) continue;
@@ -132,6 +147,10 @@ export async function runProactiveSlice(db: Firestore, opts: ProactiveRunOptions
         out.llmCalls++;
         const r = await personalizeFlex(db, { uid, gender: state.gender, hint: rendered.flexHint, facts: flexFacts(state) });
         out.costUsd += r.costUsd;
+        if (state.demo) {
+          out.demoLlmCalls++;
+          await recordDemoKellyUsage(db, r.usage, r.model ?? null, now);
+        }
         if (r.sentence) {
           rendered = renderProactive({ templateKey: pick.templateKey, vars: pick.vars, gender: state.gender, firstName: state.firstName, flex: r.sentence });
           llm = true;

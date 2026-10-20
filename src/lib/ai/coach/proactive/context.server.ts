@@ -29,6 +29,7 @@ import {
 } from './loaders.server';
 import type { IsraelClock, ProactiveTrigger, ProactiveUserState, RecentWorkout, TodayPlan } from './types';
 import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
+import { isDemoUser } from '@/lib/demo';
 
 export function israelClock(now: Date): IsraelClock {
   const minute = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', minute: 'numeric' }).format(now)) || 0;
@@ -71,6 +72,10 @@ export interface BuildStateInput {
   due: readonly ProactiveTrigger[];
   /** The newest saved workout, from the run's candidate query (post_workout). */
   recentWorkout?: RecentWorkout | null;
+  /** demo_kelly on: demo users are evaluated like anyone else (state.demo = true). Default off. */
+  allowDemo?: boolean;
+  /** Called when a demo user (core.demo / `demo_` uid) is skipped (allowDemo off) — no state, no LLM. */
+  onDemo?: () => void;
 }
 
 const SHEET_TRIGGERS: readonly ProactiveTrigger[] = ['morning', 'weather', 'assessment'];
@@ -87,6 +92,12 @@ export async function buildProactiveState(i: BuildStateInput): Promise<Proactive
   if (!userSnap.exists) return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
   const profile = (userSnap.data() ?? {}) as Record<string, any>;
+  // Demo world: no proactive message (and no LLM call) for a simulated user unless demo_kelly is on.
+  const demo = isDemoUser(uid, profile.core);
+  if (demo && i.allowDemo !== true) {
+    i.onDemo?.();
+    return null;
+  }
   const settings = (profile.settings ?? {}) as Record<string, unknown>;
   const rate = rateSnap.exists ? (rateSnap.data() as Record<string, unknown>) : undefined;
 
@@ -126,6 +137,7 @@ export async function buildProactiveState(i: BuildStateInput): Promise<Proactive
 
   return {
     uid,
+    ...(demo ? { demo: true } : {}),
     gender: coachGenderOf(profile.core?.gender),
     firstName: firstNameOf(profile.core?.name),
     clock,

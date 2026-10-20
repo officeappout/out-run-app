@@ -241,6 +241,60 @@ describe('runAiCoachReview', () => {
     expect(grader).toHaveBeenCalledTimes(1);
   });
 
+  it('demo world: a demo_ uid and a core.demo user are never graded; real users unchanged', async () => {
+    const demoThread = (uid: string): Record<string, Data> => ({
+      [`ai_coach_threads/${uid}`]: { updatedAt: T(1) },
+      [`ai_coach_threads/${uid}/messages/m1`]: { role: 'user', text: 'שלום', createdAt: T(1.5) },
+      [`ai_coach_threads/${uid}/messages/m2`]: { role: 'assistant', text: 'היי', createdAt: T(1.4) },
+    });
+    const db = createDb({
+      ...seed(),
+      ...demoThread('demo_p1'),
+      'users/demo_p1': { core: { name: 'דמו' } },
+      ...demoThread('u9'),
+      'users/u9': { core: { name: 'דמו', demo: { tenantId: 'demo-city', personaId: 'p9', v: 1 } } },
+    });
+    const grader = vi.fn().mockResolvedValue(graderReply());
+    const r = await runAiCoachReview(db as any, { now: NOW }, { callGrader: grader });
+    expect(r).toMatchObject({ reviewed: 1, skippedOptOut: 1, skippedDemo: 2, failed: 0 });
+    expect(grader).toHaveBeenCalledTimes(1);
+    expect(r.reviewDocIds.every((id) => id.startsWith('u1_'))).toBe(true);
+    // the core.demo thread's cursor moves (no slot every morning); the demo_ one is never touched
+    expect(db.docs.get('ai_coach_review_cursors/u9')!.demo).toBe(true);
+    expect(db.docs.has('ai_coach_review_cursors/demo_p1')).toBe(false);
+    expect(st.usage).toHaveLength(1);
+  });
+
+  it('demo_kelly on: demo users are graded and their calls counted in demo_registry usage; real users never are', async () => {
+    const demoThread = (uid: string): Record<string, Data> => ({
+      [`ai_coach_threads/${uid}`]: { updatedAt: T(1) },
+      [`ai_coach_threads/${uid}/messages/m1`]: { role: 'user', text: 'שלום', createdAt: T(1.5) },
+      [`ai_coach_threads/${uid}/messages/m2`]: { role: 'assistant', text: 'היי', createdAt: T(1.4) },
+    });
+    const db = createDb({
+      ...seed(),
+      'system_config/feature_flags': { demo_kelly: true },
+      ...demoThread('demo_p1'),
+      'users/demo_p1': { core: { name: 'דמו' } },
+      ...demoThread('u9'),
+      'users/u9': { core: { name: 'דמו', demo: { tenantId: 'demo-city', personaId: 'p9', v: 1 } } },
+    });
+    const grader = vi.fn().mockResolvedValue(graderReply());
+    const r = await runAiCoachReview(db as any, { now: NOW }, { callGrader: grader });
+    expect(r).toMatchObject({ reviewed: 3, skippedDemo: 0, demoLlmCalls: 2 });
+    expect(grader).toHaveBeenCalledTimes(3);
+    const usage = db.docs.get('demo_registry/usage/days/2026-10-18')!;
+    // only the two demo users' calls (4000 in / 800 out each); u1's call is not here
+    expect(usage).toMatchObject({ llmCalls: 2, inputTokens: 8000, outputTokens: 1600 });
+    expect(usage.bySource.kelly).toMatchObject({ llmCalls: 2, inputTokens: 8000, outputTokens: 1600, model: 'claude-sonnet-5-5' });
+  });
+
+  it('demo_kelly off: no usage doc is ever written', async () => {
+    const db = createDb({ ...seed(), 'system_config/feature_flags': { demo_kelly: false } });
+    await runAiCoachReview(db as any, { now: NOW }, { callGrader: vi.fn().mockResolvedValue(graderReply()) });
+    expect(db.writes.filter((p) => p.startsWith('demo_registry'))).toEqual([]);
+  });
+
   it('dryRun writes nothing', async () => {
     const db = createDb(seed());
     const r = await runAiCoachReview(db as any, { now: NOW, dryRun: true }, { callGrader: vi.fn().mockResolvedValue(graderReply()) });

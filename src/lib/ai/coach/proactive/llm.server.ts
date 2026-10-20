@@ -13,7 +13,7 @@ import 'server-only';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Firestore } from 'firebase-admin/firestore';
 import { assertAiBudget, getAiModel, getAnthropicClient, recordAiUsage, withPromptCaching } from '@/lib/ai/anthropic.server';
-import { usageFromSdk } from '@/lib/ai/ai-pricing';
+import { usageFromSdk, type AiUsage } from '@/lib/ai/ai-pricing';
 import type { CoachGender } from '../persona';
 import { validateFlexSentence } from './flex-guard';
 import { FLEX_MAX_TOKENS, FLEX_SYSTEM, flexUserContent } from './flex-prompt';
@@ -30,7 +30,7 @@ export interface FlexRequest {
   facts: string[];
 }
 
-export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ sentence: string | null; costUsd: number }> {
+export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ sentence: string | null; costUsd: number; usage?: AiUsage; model?: string }> {
   try {
     await assertAiBudget(db);
   } catch {
@@ -47,10 +47,11 @@ export async function personalizeFlex(db: Firestore, r: FlexRequest): Promise<{ 
   };
   try {
     const res = await getAnthropicClient().messages.create(params);
-    const { costUsd } = await recordAiUsage(r.uid, model, usageFromSdk(res.usage), { feature: PROACTIVE_LLM_FEATURE, db });
-    if (res.stop_reason === 'refusal') return { sentence: null, costUsd };
+    const usage = usageFromSdk(res.usage);
+    const { costUsd } = await recordAiUsage(r.uid, model, usage, { feature: PROACTIVE_LLM_FEATURE, db });
+    if (res.stop_reason === 'refusal') return { sentence: null, costUsd, usage, model };
     const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '';
-    return { sentence: validateFlexSentence(text, r.gender), costUsd };
+    return { sentence: validateFlexSentence(text, r.gender), costUsd, usage, model };
   } catch (err) {
     console.warn('[kelly-proactive] flex sentence failed, using the template', (err as Error)?.name);
     return { sentence: null, costUsd: 0 };
