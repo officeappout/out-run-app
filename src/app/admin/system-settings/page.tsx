@@ -62,6 +62,7 @@ interface FlagState {
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
   enable_unified_search: boolean;
+  enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
@@ -398,6 +399,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'חיפוש מאוחד',
     description: 'מסך החיפוש מחפש בבת אחת בתרגילים, גינות, מסלולים, אנשים וקבוצות, אירועים, מאמרים ועזרה (התוכן מ"תוכן ושאלות" בניהול): צ׳יפים עם מספרים, "הכל" מקובץ, חיפושים אחרונים, הצעות לפי המצב, "אולי חיפשת" ושאל את קלי. ספריית התרגילים תחת "תרגילים" נשארת בדיוק כמו היום. בחיפוש במפה נוספים צ׳יפים מהירים ושורת "חיפוש בכל האפליקציה". מנהלי־על רואים אותו תמיד. כבוי = כמו היום.',
+  },
+  // Entry flow v2 — step 2 on the map (20.10.2026).
+  {
+    key: 'enable_entry_whatnow_v1',
+    icon: ListChecks,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כניסה: מה בא לך עכשיו + הדרכה',
+    description: 'אחרי אישור הבית: מגירה עם 3 אפשרויות לפי המצב, ובועות אצבע במסלול הראשון.',
   },
   // Generation review (19.10.2026).
   {
