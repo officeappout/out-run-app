@@ -20,6 +20,9 @@ export interface RunDaysStepProps {
   onToggleDay: (dow: number) => void;
   onWindow: (dow: number, w: TimeWindow) => void;
   onNext: () => void;
+  /** Header override (the walking signup: "מתי נצא להליכה?"). Default: the run copy. */
+  title?: string;
+  subtitle?: string;
 }
 
 export default function RunDaysStep(p: RunDaysStepProps) {
@@ -27,8 +30,8 @@ export default function RunDaysStep(p: RunDaysStepProps) {
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">באילו ימים?</h1>
-        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">ומתי ביום</p>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{p.title ?? 'באילו ימים?'}</h1>
+        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle ?? 'ומתי ביום'}</p>
 
         <div className="mb-2.5 mt-3.5 flex items-center justify-between gap-2">
           <span className="inline-flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">

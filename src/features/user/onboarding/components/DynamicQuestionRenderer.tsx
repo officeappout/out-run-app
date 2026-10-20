@@ -11,6 +11,9 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { RunningAbilityPickerV2, RunningGoalPickerV2 } from './running-v2/RunningChoiceV2';
+import { useRouter } from 'next/navigation';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { WALK_SIGNUP_ROUTE } from '../utils/walk-signup-routing';
 
 interface DynamicQuestionRendererProps {
   question: DynamicQuestionNode;
@@ -81,6 +84,10 @@ export default function DynamicQuestionRenderer({
   onAnswer,
 }: DynamicQuestionRendererProps) {
   const v2 = useOnboardingV2();
+  const router = useRouter();
+  // Walking (enable_home_v2): offered to a signed-in user only — the walking signup
+  // writes straight to their schedule.
+  const signedIn = useUserStore((s) => !!s.profile?.id);
   // Pre-fetch exercises for answers that have exerciseId
   const [exerciseMap, setExerciseMap] = useState<Record<string, Exercise>>({});
 
@@ -162,7 +169,14 @@ export default function DynamicQuestionRenderer({
       answerText: (a: DynamicQuestionNode['answers'][number]) => getTextValue(a.text as any, language, gender),
       isFemale: gender === 'female',
     };
-    if (question.id === 'q_run_goal') return <RunningGoalPickerV2 {...runProps} />;
+    if (question.id === 'q_run_goal') {
+      return (
+        <RunningGoalPickerV2
+          {...runProps}
+          walking={signedIn ? { onChoose: () => router.push(WALK_SIGNUP_ROUTE) } : undefined}
+        />
+      );
+    }
     if (question.id === 'q_run_beginner_ability' || question.id === 'q_run_maintain_ability') {
       return <RunningAbilityPickerV2 {...runProps} />;
     }

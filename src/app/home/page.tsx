@@ -52,6 +52,8 @@ import { isScheduleBuilderDrawerEnabled } from '@/features/schedule/services/sch
 import { isScheduleBuilderSaveEnabled } from '@/features/schedule/services/scheduleBuilderSave';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import HomeWalkToday from '@/features/home/components/walk/HomeWalkToday';
+import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import type { BuilderContext, TrioSelector } from '@/features/home/components/StatsOverview';
 import { useWeeklyProgress, useDailyActivity } from '@/features/activity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
@@ -1651,6 +1653,9 @@ export default function HomePage() {
   // (owner-approved ungated fix, 19.10.2026): enable_home_v2 picks the card —
   // HomeRunCarouselCard with the flag, the legacy NextRunWorkoutCard without.
   const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2);
+  // enable_home_v2 walking track (owner 20.10.2026): planned walks in the coming week →
+  // today's walk + the step ring move to the top of home (HomeWalkToday). Flag off: no read.
+  const walkWeek = useWalkWeek(profile?.id, featureFlags.enableHomeV2, scheduleVersion);
   const runPlacement = useMemo(() => runPlacementOf(profile?.running), [profile?.running]);
   const RUN_PLAN_CARD_ID = 'run-plan-card';
   const isRunPlanCarouselItem = (
@@ -2938,6 +2943,18 @@ export default function HomePage() {
           <div className="flex pt-1" dir="rtl">
             <WeatherChip weather={homeWeather} />
           </div>
+        )}
+
+        {/* enable_home_v2 walking track — a walker's day starts with today's walk and the
+            step ring (board wr/WR-4), above the week strip and the workout carousel. */}
+        {featureFlags.enableHomeV2 && walkWeek.isWalker && isSelectedDateToday && (
+          <ErrorBoundary fallback={null}>
+            <HomeWalkToday
+              today={walkWeek.today}
+              walkedToday={(todaysWorkouts ?? []).some((w) => w.workoutType === 'walking' || w.activityType === 'walking')}
+              onOpenGroup={handleOpenGroupFromBanner}
+            />
+          </ErrorBoundary>
         )}
 
         {/* "קלי AI" entry — renders nothing unless aiCoachEnabled + entitlement + adult. */}

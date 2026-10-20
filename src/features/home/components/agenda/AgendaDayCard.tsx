@@ -15,6 +15,8 @@ import { useRouter } from 'next/navigation';
 import { motion, useDragControls, useMotionValue, animate, type PanInfo } from 'framer-motion';
 import { Plus, GripVertical, Footprints, Check, Zap, Timer, TrendingUp, Mountain, Users, Trash2, Pencil } from 'lucide-react';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
+import { isPlannedWalkEntry } from '@/features/schedule/walking/walkEntry';
+import { startWalkEntry } from '@/features/schedule/walking/startWalk';
 import type { UserScheduleEntry, RecurringTemplate, ScheduleActivityCategory } from '@/features/user/scheduling/types/schedule.types';
 import { getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import { COMMUNITY_CATEGORY_COLORS } from '@/features/home/utils/day-display.utils';
@@ -641,9 +643,15 @@ function StrengthCard({
       router.push(`/workouts/${entry.completedWorkoutId}/history`);
       return;
     }
+    // enable_home_v2: a planned walk (the walking signup) opens the free walk with its
+    // goal (time / distance) — not the strength preview. Flag off: v2 is false.
+    if (v2 && baseMode !== 'past' && !entry.completed && isPlannedWalkEntry(entry)) {
+      startWalkEntry(entry, (href) => router.push(href));
+      return;
+    }
     onPreviewEntry?.(entry);
     onTap?.(entry.date, skipCompletedLookupOnTap);
-  }, [baseMode, isCommunity, entry, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, router, skipCompletedLookupOnTap]);
+  }, [baseMode, isCommunity, entry, onCommunityTap, onTap, swipeX, closeSwipe, onPreviewEntry, router, skipCompletedLookupOnTap, v2]);
 
   const handleTap = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
