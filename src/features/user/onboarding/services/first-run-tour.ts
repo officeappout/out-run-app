@@ -10,7 +10,7 @@
  */
 import { g, type AppGender } from '@/lib/utils/gendered-text';
 
-export type FirstRunTourId = 'home' | 'map' | 'community' | 'player';
+export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player';
 
 /** The WelcomeDrawer's choices (v2 adds the quiet "סתם בא לי להסתכל באפליקציה" link). */
 export type WelcomeChoice = 'strength' | 'nearby' | 'browse' | 'skip-to-map';
@@ -29,12 +29,23 @@ export const FIRST_RUN_COACH = {
   playerProgress: 'player-progress',
   playerDone: 'player-done',
   playerHowTo: 'player-how-to',
+  /** enable_entry_whatnow_v1 — the first floating route card (the focused one in either carousel). */
+  routeCard: 'route-card',
+  /** The focused route card's start CTA. */
+  routeStart: 'route-start',
+  /** The first strength-stop marker drawn on the map (a DOM <Marker>, AppMap hybrid stops). */
+  routeStop: 'route-strength-stop',
+  /** The running player's pause / stop controls. */
+  routePlayerControls: 'route-player-controls',
 } as const;
 
 export interface FirstRunTourStep {
   target: string;
   text: string;
-  finger?: boolean;
+  /** true = the tapping finger; 'swipe' = a sideways swipe finger (CoachMarks). */
+  finger?: boolean | 'swipe';
+  /** A pulse ring around the target (CoachMarks). */
+  ring?: boolean;
   /** Keep the step (bubble centered) even when its target isn't in the DOM. */
   allowCentered?: boolean;
 }
@@ -139,9 +150,39 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
         { target: FIRST_RUN_COACH.playerHowTo, text: 'כאן ההסבר איך מבצעים את התרגיל' },
         { target: FIRST_RUN_COACH.playerDone, text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
       ];
+    // enable_entry_whatnow_v1 (entry flow v2, designs R1–R3): the first floating route card.
+    case 'route':
+      return [
+        { target: FIRST_RUN_COACH.routeCard, text: 'זה המסלול שלך. מחליקים הצידה כדי לראות עוד מסלולים באזור.', finger: 'swipe' },
+        {
+          target: FIRST_RUN_COACH.routeStop,
+          text: 'בעצירות האלה עוצרים לכמה דקות כוח על המתקנים בגינה. הנגן יגיד לך מתי.',
+          finger: true,
+          allowCentered: true,
+        },
+        { target: FIRST_RUN_COACH.routeStart, text: 'מוכנים? לוחצים התחל. נבקש 3 פרטים והצהרת בריאות, רק בפעם הראשונה.', ring: true },
+      ];
+    // enable_entry_whatnow_v1 (design R6): one tip the first time the route player runs.
+    case 'route-player':
+      return [
+        { target: FIRST_RUN_COACH.routePlayerControls, text: 'לחיצה ארוכה על השהיה או סיום, כדי שלא ייגמר בטעות בכיס.' },
+      ];
     default:
       return [];
   }
+}
+
+/** Bubble chrome per tour. The entry-flow tours use the dark bubble (designs R1–R6); the
+ *  original tours keep CoachMarks' defaults (undefined → byte-identical). */
+export interface FirstRunTourChrome {
+  variant: 'dark';
+  counterLabel: (index: number, total: number) => string;
+}
+
+export function firstRunTourChrome(tour: FirstRunTourId): FirstRunTourChrome | undefined {
+  if (tour === 'route') return { variant: 'dark', counterLabel: (i, n) => `${i + 1} מתוך ${n}` };
+  if (tour === 'route-player') return { variant: 'dark', counterLabel: () => 'טיפ אחד' };
+  return undefined;
 }
 
 /**
