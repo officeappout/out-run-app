@@ -100,3 +100,6 @@ scripts/_investigate-*
 # extracts) and dry-run outputs. Large, re-downloadable, never committed.
 /.cache/
 /.trails-out/
+
+# AI tester runner output (scripts/qa) — uploaded as a workflow artifact, never committed
+qa-out/

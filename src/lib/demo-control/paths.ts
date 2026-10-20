@@ -23,6 +23,11 @@
  *     with its own model, and any top-level remainder not attributed to a source is
  *     priced with the top-level model (see usage-cost.ts dayUsd).
  *
+ *   demo_registry/qa_summary             the AI tester overseer's latest summary (scripts/qa/overseer.ts)
+ *     { runId, generatedAt, findings, bySeverity, clusters[] } — parsed by ./qa-summary.ts
+ *   demo_registry/testers                the AI tester roster { uids } (scripts/qa/register-testers.ts);
+ *                                        mintDemoTesterToken signs only uids listed here
+ *
  * Usage docs are one level deeper than "demo_registry/usage/{day}" because a Firestore
  * document path needs an even number of segments (usage = doc, days = subcollection).
  * The purge script removes all of demo_registry recursively, usage included.
@@ -32,6 +37,8 @@ export const DEMO_CONFIG_DOC = 'config';
 export const DEMO_CONTROL_DOC = 'control';
 export const DEMO_USAGE_DOC = 'usage';
 export const DEMO_USAGE_DAYS = 'days';
+export const DEMO_QA_SUMMARY_DOC = 'qa_summary';
+export const DEMO_TESTERS_DOC = 'testers';
 
 /** One bounded query covers today + the 30 days before it (= any month to date). */
 export const USAGE_WINDOW_DAYS = 31;

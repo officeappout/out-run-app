@@ -79,6 +79,8 @@ export default defineConfig({
       'scripts/ci/__tests__/**/*.test.ts',
       // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
       'scripts/demo/__tests__/**/*.test.ts',
+      // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).
+      'scripts/qa/__tests__/**/*.test.ts',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain
