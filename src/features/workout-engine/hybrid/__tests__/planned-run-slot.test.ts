@@ -54,7 +54,8 @@ describe('DiscoverLayer wiring (source-level)', () => {
     // Flag off → the slots unchanged; flag on → the plan cards (run / walk) in home's order.
     expect(src).toContain('if (!mapFeatureFlags.enableHomeV2) return slots;');
     expect(src).toContain('const run = buildPlannedRunSlot(homeRun.slot);');
-    expect(src).toContain('return withTodayPlanSlots(slots, {');
+    // enable_home_v2 rest day (audit ש4): the strength cards drop before the plan cards are placed.
+    expect(src).toContain('return withTodayPlanSlots(restDaySlots(slots, restDay, mapStepsRemaining), {');
     expect(src).toContain('slots={carouselSlots}');
   });
   it('selecting it navigates to the planned run link (no compose)', () => {
