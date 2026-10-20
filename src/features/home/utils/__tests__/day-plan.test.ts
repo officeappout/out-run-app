@@ -74,3 +74,15 @@ describe('leadPlanKinds', () => {
     expect(leadPlanKinds({ walk: false, run: { quality: false }, strength: false })).toEqual(['run']);
   });
 });
+
+describe('buildPlannedDay — day focus title (enable_home_v2)', () => {
+  it('computed titles carry the focus; a stored entry title is kept', () => {
+    expect(buildPlannedDay({ entries: [], isStrengthScheduleDay: true, hasSchedule: true, strengthFocus: 'upper' }).items[0].title).toBe('אימון עליון');
+    expect(buildPlannedDay({ entries: [], templateDayIds: ['FULL_BODY'], hasSchedule: true, strengthFocus: 'lower' }).items[0].title).not.toContain('כל הגוף');
+    expect(buildPlannedDay({ entries: [entry({ title: 'כל הגוף', programIds: ['FULL_BODY'] })], hasSchedule: true, strengthFocus: 'lower' }).items[0].title).toBe('כל הגוף');
+  });
+  it('no focus / full body → unchanged', () => {
+    expect(buildPlannedDay({ entries: [], isStrengthScheduleDay: true, hasSchedule: true }).items[0].title).toBe('אימון כוח');
+    expect(buildPlannedDay({ entries: [], isStrengthScheduleDay: true, hasSchedule: true, strengthFocus: 'full' }).items[0].title).toBe('אימון כוח');
+  });
+});

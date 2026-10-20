@@ -46,3 +46,11 @@ describe('generatedToHeroWorkout — R Track 1 hero adapter', () => {
     expect(generatedToHeroWorkout(gw()).imageUrl).toBe('');
   });
 });
+
+describe('generatedToHeroWorkout — day focus (enable_home_v2)', () => {
+  it('a focus shows in the title; absent → the title as is', () => {
+    expect(generatedToHeroWorkout(gw({ title: 'אימון כוח', dayFocus: 'upper' })).title).toBe('אימון עליון');
+    expect(generatedToHeroWorkout(gw({ title: 'כוח בבית', dayFocus: 'lower' })).title).toBe('כוח בבית · תחתון');
+    expect(generatedToHeroWorkout(gw({ title: 'כוח בבית' })).title).toBe('כוח בבית');
+  });
+});

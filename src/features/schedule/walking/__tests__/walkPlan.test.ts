@@ -162,3 +162,32 @@ describe('labels', () => {
     expect(walkTargetLabelHe({ type: 'distance', km: 2.5 })).toBe('2.5 ק״מ');
   });
 });
+
+describe('one long walk up to 60′ (owner 20.10.2026)', () => {
+  it('3 walks reach the WHO 150′: 45 + 45 + 60', () => {
+    const w = buildWalkWeek(0, 150, [0, 2, 5], 'health');
+    expect(w.totalMinutes).toBe(150);
+    const long = w.walks.filter((x) => x.isLong);
+    expect(long).toHaveLength(1);
+    expect(long[0].minutes).toBe(WALK_PLAN_CONFIG.longWalkMax);
+    for (const x of w.walks.filter((x) => !x.isLong)) expect(x.minutes).toBeLessThanOrEqual(WALK_PLAN_CONFIG.session.max);
+  });
+
+  it('a higher target with 3 walks: the long walk never passes 60′, the others never 45′', () => {
+    const w = buildWalkWeek(0, 250, [0, 2, 5], 'weight_loss');
+    expect(Math.max(...w.walks.map((x) => x.minutes))).toBe(60);
+    expect(w.walks.filter((x) => x.minutes > WALK_PLAN_CONFIG.session.max)).toHaveLength(1);
+    expect(w.totalMinutes).toBe(150);
+  });
+
+  it('the long walk takes the rounding remainder (4 walks, 150′ → still 150′)', () => {
+    const w = buildWalkWeek(0, 150, [0, 1, 3, 5], 'health');
+    expect(w.totalMinutes).toBe(150);
+    expect(w.walks.find((x) => x.isLong)!.minutes).toBeLessThanOrEqual(60);
+  });
+
+  it('small weeks are unchanged', () => {
+    const w = buildWalkWeek(0, 60, [0, 2, 4], 'health');
+    for (const x of w.walks) expect(x.minutes).toBeLessThanOrEqual(WALK_PLAN_CONFIG.session.max);
+  });
+});

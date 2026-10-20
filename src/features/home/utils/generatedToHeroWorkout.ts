@@ -1,5 +1,6 @@
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { MockWorkout } from '../data/mock-schedule-data';
+import { titleWithFocusHe } from '@/features/workout-engine/services/split-decision/day-focus.utils';
 
 /**
  * Adapter (R Track 1) — maps an engine `GeneratedWorkout` to the `MockWorkout`
@@ -14,7 +15,8 @@ import type { MockWorkout } from '../data/mock-schedule-data';
 export function generatedToHeroWorkout(gw: GeneratedWorkout): MockWorkout {
   return {
     id: 'anchor-hero',
-    title: gw.title,
+    // enable_home_v2 day focus ('אימון עליון' / '… · תחתון'); absent → the title as is.
+    title: titleWithFocusHe(gw.title, gw.dayFocus),
     type: gw.isRecovery ? 'recovery' : 'strength',
     difficulty: gw.difficulty,
     duration: gw.estimatedDuration,
