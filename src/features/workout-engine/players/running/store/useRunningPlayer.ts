@@ -1955,6 +1955,19 @@ export const useRunningPlayer = create<RunningPlayerState>((set, get) => ({
             );
           }
 
+          // enable_home_v2 walking track: a walk started from a planned walk marks that
+          // schedule entry completed (existing fields; no marker → no-op).
+          if (workoutSaved && activityType === 'walking' && !isCommute) {
+            const walkWorkoutId = get().savedWorkoutId ?? null;
+            import('../lib/home-v2-gate')
+              .then(async ({ homeV2EnabledNow }) => {
+                if (!homeV2EnabledNow()) return;
+                const { completePendingPlannedWalk } = await import('@/features/schedule/walking/walkComplete.service');
+                await completePendingPlannedWalk(currentUser.uid, walkWorkoutId);
+              })
+              .catch((e) => console.warn('[useRunningPlayer] planned walk completion skipped:', e));
+          }
+
           // Guided route analytics
           if (workoutSaved && guidedRouteId) {
             import('@/lib/firebase').then(async ({ db }) => {

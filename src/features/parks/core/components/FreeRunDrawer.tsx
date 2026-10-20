@@ -31,6 +31,7 @@ import type { DrawerGoal, DrawerActivity } from '../services/route-request.utils
 import { useLegPlanStore } from '../store/useLegPlanStore';
 import { isWeightMissing } from '@/features/user/core/utils/weight-status';
 import { usePendingAddressStore } from '../store/usePendingAddressStore';
+import { useAutoRouteOnce } from '../hooks/useAutoRouteOnce';
 import {
   compileLegPlan,
   MAX_LEGS_PER_PLAN,
@@ -163,6 +164,13 @@ interface FreeRunDrawerProps {
    * data is ignored and the drawer opens on its normal defaults.
    */
   initialPlannedRun?: PlannedRunSettings | null;
+  /**
+   * v2 (enable_home_v2, walking track): open straight on the route step — fire
+   * "עם מסלול" once with the prefilled goal (useAutoRouteOnce). `onAutoRouteHandled`
+   * lets the parent drop the request so coming back here never re-fires it.
+   */
+  autoRoute?: boolean;
+  onAutoRouteHandled?: () => void;
 }
 
 // ── Activity data ──────────────────────────────────────────────────────────────
@@ -1283,6 +1291,8 @@ export default function FreeRunDrawer({
   onRequestAddLeg,
   onStartLegPlanRun,
   initialPlannedRun,
+  autoRoute = false,
+  onAutoRouteHandled,
 }: FreeRunDrawerProps) {
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -1314,6 +1324,8 @@ export default function FreeRunDrawer({
   // The prop can arrive a render late (feature flags still loading at mount) —
   // apply it once then too. Never re-applied over the user's own edits.
   const prefillAppliedRef = useRef(!!initialPlannedRun);
+  // State twin of the ref: the auto-route below must read the goal AFTER the late prefill landed.
+  const [prefillReady, setPrefillReady] = useState(!!initialPlannedRun);
   const [goalType,      setGoalType]      = useState<GoalType>(prefill?.goalType ?? defaults.goalType);
   const [timeValue,     setTimeValue]     = useState(prefill?.timeValue ?? defaults.time);
   const [distanceValue, setDistanceValue] = useState(prefill?.distanceValue ?? defaults.distance);
@@ -1353,6 +1365,7 @@ export default function FreeRunDrawer({
     if (prefillAppliedRef.current || !initialPlannedRun) return;
     prefillAppliedRef.current = true;
     const p = prefillFrom(initialPlannedRun);
+    setPrefillReady(true);
     if (!p) return;
     setGoalType(p.goalType);
     setTimeValue(p.timeValue);
@@ -1505,6 +1518,13 @@ export default function FreeRunDrawer({
   };
 
   const canStartWithRoute = !!userPosition && !!onRequestRouteGeneration;
+
+  useAutoRouteOnce({
+    enabled: v2 && autoRoute,
+    ready: prefillReady && canStartWithRoute,
+    fire: handleStartWithRoute,
+    onHandled: onAutoRouteHandled,
+  });
 
   // ── Scheduled run handlers ─────────────────────────────────────────────────
 

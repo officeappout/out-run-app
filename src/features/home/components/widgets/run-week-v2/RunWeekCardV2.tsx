@@ -8,6 +8,7 @@
  * (ring) and carries the screen's one gradient CTA.
  */
 
+import type { ReactNode } from 'react';
 import { Check, Play } from 'lucide-react';
 import { JourneyStrip, ProfileStrip } from '@/components/ui/v2';
 import RunKindTile from '@/features/workout-engine/players/running/components/preview-v2/RunKindIcon';
@@ -25,9 +26,18 @@ export interface RunWeekCardV2Props {
   /** Today's materialized workout, when loaded. */
   model?: RunPreviewModel | null;
   onStart?: () => void;
+  /** Optional overrides for a non-run activity on the same card (the walk card):
+   *  the leading tile, the type label colour and the CTA label. Defaults = the run kind's. */
+  tile?: ReactNode;
+  accentText?: string;
+  startLabel?: string;
+  /** Extra rows under the header (e.g. the walk's goal + step ring). */
+  children?: ReactNode;
 }
 
-export default function RunWeekCardV2({ kind, typeLabel, title, state, dayLetter, model, onStart }: RunWeekCardV2Props) {
+export default function RunWeekCardV2({
+  kind, typeLabel, title, state, dayLetter, model, onStart, tile, accentText, startLabel = 'התחל', children,
+}: RunWeekCardV2Props) {
   const today = state === 'today';
   const style = RUN_KIND_STYLE[kind];
   return (
@@ -36,9 +46,9 @@ export default function RunWeekCardV2({ kind, typeLabel, title, state, dayLetter
       aria-current={today ? 'true' : undefined}
     >
       <div className="flex items-center gap-2.5">
-        <RunKindTile kind={kind} size={40} />
+        {tile ?? <RunKindTile kind={kind} size={40} />}
         <div className="min-w-0 flex-1">
-          <p className="truncate whitespace-nowrap text-[12px] font-extrabold" style={{ color: style.text }}>
+          <p className="truncate whitespace-nowrap text-[12px] font-extrabold" style={{ color: accentText ?? style.text }}>
             {today ? `${typeLabel} · היום` : typeLabel}
           </p>
           <h3 className={`truncate whitespace-nowrap text-[16.5px] font-black ${state === 'done' || state === 'skipped' ? 'text-v2-ink-2' : 'text-v2-ink'}`}>
@@ -61,7 +71,7 @@ export default function RunWeekCardV2({ kind, typeLabel, title, state, dayLetter
             className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-v2-cta px-3 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <Play size={13} strokeWidth={2.6} fill="currentColor" aria-hidden />
-            התחל
+            {startLabel}
           </button>
         )}
         {state === 'upcoming' && dayLetter && (
@@ -86,6 +96,7 @@ export default function RunWeekCardV2({ kind, typeLabel, title, state, dayLetter
           )}
         </>
       )}
+      {children}
     </article>
   );
 }
