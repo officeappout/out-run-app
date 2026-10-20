@@ -8,6 +8,8 @@
  * real week (boards jr/J2-05 → J2-06); the reminders step lives inside the
  * running-schedule route, right before the summary (J2-09 → J2-10).
  */
+import { addTrackWeekRoute } from './add-track-routing';
+
 export const RUN_SIGNUP_ROUTES = {
   schedule: '/onboarding-new/running-schedule',
   planLength: '/onboarding-new/running-plan-length',
@@ -23,12 +25,8 @@ export function runSignupNextRoute(from: RunSignupScreen, v2: boolean): string {
 }
 
 /**
- * TODO(journeys J3 / S-6b — "add track" combined week, built next by another
- * agent): a runner who ALREADY trains strength (runScheduleStepMode →
- * 'add_track') must get the combined strength + run week, not the run-only
- * days step. Set this to that screen's route and the running-schedule page
- * hands those users off (router.replace) instead of showing the run-only
- * week. While it is null they keep today's behaviour (the silent default
- * write in RunningScheduleStep), so nothing changes for them yet.
+ * Journeys J3 / S-6b — a runner who ALREADY trains strength (runScheduleStepMode →
+ * 'add_track') gets the combined strength + run week, not the run-only days step: the
+ * running-schedule page hands those users off (router.replace) to this route.
  */
-export const ADD_TRACK_COMBINED_WEEK_ROUTE: string | null = null;
+export const ADD_TRACK_COMBINED_WEEK_ROUTE: string | null = addTrackWeekRoute('running');

@@ -288,7 +288,7 @@ function parseTargetDistanceKm(targetDistance: string | undefined): number {
  * copied the formula without the `isDateWithinRunningPlan` guard that
  * formula depends on when given an arbitrary date.
  */
-function buildRunningSide(
+export function buildRunningSide(
   profile: WeaverInputProfile,
   owns: boolean,
   asOfDate: Date,

@@ -41,7 +41,7 @@ describe('runSignupNextRoute', () => {
     expect(runSignupNextRoute('running-plan-length', true)).toBe(RUN_SIGNUP_ROUTES.schedule);
     expect(runSignupNextRoute('running-schedule', true)).toBe(RUN_SIGNUP_ROUTES.summary);
   });
-  it('the add-track hand-off is not wired yet', () => {
-    expect(ADD_TRACK_COMBINED_WEEK_ROUTE).toBeNull();
+  it('a strength user is handed off to the combined add-track week', () => {
+    expect(ADD_TRACK_COMBINED_WEEK_ROUTE).toBe('/onboarding-new/add-track-week?added=running');
   });
 });

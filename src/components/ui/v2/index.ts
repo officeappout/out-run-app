@@ -104,3 +104,6 @@ export * from './reveal';
 // Signup schedule steps: the "ממליצים לך" pre-filled recommendation card.
 export { default as RecommendationCard } from './RecommendationCard';
 export type { RecommendationCardProps } from './RecommendationCard';
+// Schedule proposals (add-track week): one day row + a session piece with a diff tag.
+export { default as WeekDayRow, WeekSessionPiece } from './WeekDayRow';
+export type { WeekDayRowProps, WeekSessionPieceProps, WeekSessionTagTone, WeekSessionNoteTone } from './WeekDayRow';

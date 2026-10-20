@@ -66,6 +66,8 @@ import { baselineSkillMasterSubLevels } from '@/features/user/onboarding/utils/s
 import { SKILL_TO_FOUNDATION_DOMAIN } from '@/features/user/onboarding/constants/skill-foundation-domain.constants';
 import { getFoundationAssessmentMax } from '@/features/user/onboarding/utils/assessment-level-caps';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { strengthResultNextRoute } from '@/features/user/onboarding/utils/add-track-routing';
+import { hasRunningTrack } from '@/lib/track-ownership';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -1027,7 +1029,14 @@ export default function VisualAssessmentPage() {
       }
 
       firePhaseConfetti();
-      router.push('/onboarding-new/health');
+      // enable_home_v2 (journey J4): a runner adding strength (declaration already signed)
+      // goes to the combined add-track week; everyone else → health, exactly as before.
+      const latestProfile = useUserStore.getState().profile;
+      router.push(strengthResultNextRoute({
+        v2,
+        hasRunningTrack: hasRunningTrack(latestProfile),
+        healthAccepted: hasAcceptedHealthDeclaration(latestProfile as Parameters<typeof hasAcceptedHealthDeclaration>[0]),
+      }));
     } catch (err) {
       console.error('[Assessment] Save error:', err);
       reportSignupFailure('ASSESSMENT_SAVE', extractErrorCode(err));
@@ -1035,7 +1044,7 @@ export default function VisualAssessmentPage() {
       setSaveError(describeSaveError(err));
       setStep('result');
     }
-  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories]);
+  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories, v2]);
 
   // ── Slide animation variants ─────────────────────────────────
 

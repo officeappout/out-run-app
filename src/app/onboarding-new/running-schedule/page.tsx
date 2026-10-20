@@ -39,8 +39,8 @@ import { ADD_TRACK_COMBINED_WEEK_ROUTE, runSignupNextRoute } from '@/features/us
  * recommended week (engine v2), days + time of day, the week, then the
  * shared reminders step; reached after running-plan-length and followed by
  * running-summary (run-signup-routing.ts). A user who already trains
- * strength is handed to the add-track combined week once it exists
- * (ADD_TRACK_COMBINED_WEEK_ROUTE); until then they keep the pass-through.
+ * strength is handed to the add-track combined week
+ * (ADD_TRACK_COMBINED_WEEK_ROUTE → /onboarding-new/add-track-week, journey J3).
  *
  * Route guard: when enable_running_programs is false, immediately redirects to /home.
  */
