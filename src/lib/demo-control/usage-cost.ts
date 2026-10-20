@@ -39,6 +39,16 @@ export interface DemoConfig {
   prices: PriceTable;
 }
 
+/** One writer's share of a day (usage bySource.<source>). */
+export interface SourceUsage {
+  llmCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  model: string | null;
+  usdEstimate: number | null;
+}
+
 export interface UsageDay {
   /** YYYY-MM-DD (Israel day) — the doc id. */
   date: string;
@@ -52,6 +62,8 @@ export interface UsageDay {
   testerSessions: number;
   firestoreWritesEst: number;
   updatedAtMs: number | null;
+  /** Per-writer breakdown (kelly / life / testers …); empty when the writers don't split. */
+  bySource: Record<string, SourceUsage>;
 }
 
 export const EMPTY_CAPS: DemoCaps = {
@@ -91,8 +103,28 @@ function millisOf(v: unknown): number | null {
   return maybe && typeof maybe.toMillis === 'function' ? maybe.toMillis() : null;
 }
 
+const SOURCE_KEY = /^[a-z][a-z0-9_]{0,31}$/;
+
+function parseSource(raw: unknown): SourceUsage {
+  const d = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    llmCalls: num(d.llmCalls),
+    inputTokens: num(d.inputTokens),
+    outputTokens: num(d.outputTokens),
+    cachedTokens: num(d.cachedTokens),
+    model: typeof d.model === 'string' && d.model ? d.model : null,
+    usdEstimate: numOrNull(d.usdEstimate),
+  };
+}
+
 export function parseUsageDay(id: string, raw: Record<string, unknown> | undefined | null): UsageDay {
   const d = raw ?? {};
+  const bySource: Record<string, SourceUsage> = {};
+  if (d.bySource && typeof d.bySource === 'object') {
+    for (const [k, v] of Object.entries(d.bySource as Record<string, unknown>)) {
+      if (SOURCE_KEY.test(k)) bySource[k] = parseSource(v);
+    }
+  }
   return {
     date: id,
     llmCalls: num(d.llmCalls),
@@ -104,6 +136,7 @@ export function parseUsageDay(id: string, raw: Record<string, unknown> | undefin
     testerSessions: num(d.testerSessions),
     firestoreWritesEst: num(d.firestoreWritesEst),
     updatedAtMs: millisOf(d.updatedAt),
+    bySource,
   };
 }
 
@@ -191,17 +224,19 @@ export function validateConfigInput(body: unknown): ValidationResult<DemoConfig>
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
 
+type Priceable = Pick<SourceUsage, 'inputTokens' | 'outputTokens' | 'cachedTokens' | 'model'>;
+
 /** Tokens × the owner's price for that model; null when the model or a needed price is missing. */
-export function priceFromTokens(day: UsageDay, prices: PriceTable): number | null {
-  const tokens = day.inputTokens + day.outputTokens + day.cachedTokens;
+export function priceFromTokens(part: Priceable, prices: PriceTable): number | null {
+  const tokens = part.inputTokens + part.outputTokens + part.cachedTokens;
   if (tokens === 0) return 0;
-  if (!day.model) return null;
-  const p = prices[day.model];
+  if (!part.model) return null;
+  const p = prices[part.model];
   if (!p) return null;
   const parts: Array<[number, number | null]> = [
-    [day.inputTokens, p.inputPerMTok],
-    [day.outputTokens, p.outputPerMTok],
-    [day.cachedTokens, p.cachedPerMTok],
+    [part.inputTokens, p.inputPerMTok],
+    [part.outputTokens, p.outputPerMTok],
+    [part.cachedTokens, p.cachedPerMTok],
   ];
   let usd = 0;
   for (const [count, perMTok] of parts) {
@@ -214,16 +249,68 @@ export function priceFromTokens(day: UsageDay, prices: PriceTable): number | nul
 
 export type UsdSource = 'priced' | 'engine' | 'unpriced';
 
-/** The owner's price table wins; else the engine's estimate; else 0 and flagged unpriced. */
-export function dayUsd(day: UsageDay, prices: PriceTable): { usd: number; source: UsdSource } {
-  // No token counts but an engine estimate (e.g. a runner that reports $ only): use it.
-  if (day.inputTokens + day.outputTokens + day.cachedTokens === 0 && day.usdEstimate !== null) {
-    return { usd: day.usdEstimate, source: 'engine' };
+/** One part: the owner's table wins; else the writer's estimate; else 0 and flagged unpriced. */
+function partUsd(part: Priceable & { usdEstimate: number | null }, prices: PriceTable): { usd: number; source: UsdSource } {
+  // No token counts but an estimate (e.g. a writer that reports $ only): use it.
+  if (part.inputTokens + part.outputTokens + part.cachedTokens === 0 && part.usdEstimate !== null) {
+    return { usd: part.usdEstimate, source: 'engine' };
   }
-  const priced = priceFromTokens(day, prices);
+  const priced = priceFromTokens(part, prices);
   if (priced !== null) return { usd: priced, source: 'priced' };
-  if (day.usdEstimate !== null) return { usd: day.usdEstimate, source: 'engine' };
+  if (part.usdEstimate !== null) return { usd: part.usdEstimate, source: 'engine' };
   return { usd: 0, source: 'unpriced' };
+}
+
+const WORST: Record<UsdSource, number> = { priced: 0, engine: 1, unpriced: 2 };
+
+/**
+ * A day's parts: each bySource entry (priced with its own model) plus the top-level
+ * remainder not attributed to any source (priced with the top-level model). A writer that
+ * only increments the totals therefore still counts, and nothing is counted twice.
+ */
+export type DayPart = Priceable & { usdEstimate: number | null; key: string };
+
+export function dayParts(day: UsageDay): DayPart[] {
+  const sources = Object.entries(day.bySource);
+  const sum = (f: 'inputTokens' | 'outputTokens' | 'cachedTokens') => sources.reduce((a, [, v]) => a + v[f], 0);
+  const sumEst = sources.reduce((a, [, v]) => a + (v.usdEstimate ?? 0), 0);
+  const rest: DayPart = {
+    key: '_rest',
+    inputTokens: Math.max(0, day.inputTokens - sum('inputTokens')),
+    outputTokens: Math.max(0, day.outputTokens - sum('outputTokens')),
+    cachedTokens: Math.max(0, day.cachedTokens - sum('cachedTokens')),
+    model: day.model,
+    usdEstimate: day.usdEstimate === null ? null : sources.length ? Math.max(0, day.usdEstimate - sumEst) : day.usdEstimate,
+  };
+  const out: DayPart[] = sources.map(([key, v]) => ({ key, inputTokens: v.inputTokens, outputTokens: v.outputTokens, cachedTokens: v.cachedTokens, model: v.model, usdEstimate: v.usdEstimate }));
+  const restHasAnything = rest.inputTokens + rest.outputTokens + rest.cachedTokens > 0 || (rest.usdEstimate ?? 0) > 0;
+  if (restHasAnything || out.length === 0) out.push(rest);
+  return out;
+}
+
+/** Sum of the parts; the day's source is the weakest part's (any estimate ⇒ 'engine'). */
+export function dayUsd(day: UsageDay, prices: PriceTable): { usd: number; source: UsdSource } {
+  let usd = 0;
+  let source: UsdSource = 'priced';
+  for (const part of dayParts(day)) {
+    const r = partUsd(part, prices);
+    usd += r.usd;
+    if (r.usd > 0 || part.inputTokens + part.outputTokens + part.cachedTokens > 0) {
+      if (WORST[r.source] > WORST[source]) source = r.source;
+    }
+  }
+  return { usd, source };
+}
+
+/** $ per source over a set of days (the panel's breakdown); the remainder is '_rest'. */
+export function usdBySource(days: UsageDay[], prices: PriceTable): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const d of days) {
+    for (const part of dayParts(d)) {
+      out[part.key] = (out[part.key] ?? 0) + partUsd(part, prices).usd;
+    }
+  }
+  return out;
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
@@ -248,6 +335,9 @@ export interface UsageSummary {
   unpricedModels: string[];
   /** Any usd in the window came from an engine estimate or is missing. */
   hasEstimates: boolean;
+  /** $ per writer (kelly / life / testers; '_rest' = not attributed) — today and month to date. */
+  bySourceToday: Record<string, number>;
+  bySourceMonth: Record<string, number>;
 }
 
 const ZERO: UsageTotals = { usd: 0, llmCalls: 0, testerSessions: 0, inputTokens: 0, outputTokens: 0, cachedTokens: 0, firestoreWritesEst: 0 };
@@ -275,16 +365,27 @@ export function summarizeUsage(days: UsageDay[], todayKey: string, prices: Price
   const sorted = [...valid].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   const out = sorted.map((d) => {
     const { usd, source } = dayUsd(d, prices);
-    if (source === 'engine' && usd > 0) hasEstimates = true;
-    if (source !== 'priced' && d.inputTokens + d.outputTokens + d.cachedTokens > 0) {
-      hasEstimates = true;
-      if (d.model) unpriced.add(d.model);
+    if (source !== 'priced' && usd > 0) hasEstimates = true;
+    for (const part of dayParts(d)) {
+      if (part.inputTokens + part.outputTokens + part.cachedTokens > 0 && priceFromTokens(part, prices) === null) {
+        hasEstimates = true;
+        if (part.model) unpriced.add(part.model);
+      }
     }
     if (d.date === todayKey) today = add(today, d, usd);
     if (d.date.startsWith(month)) monthToDate = add(monthToDate, d, usd);
     return { ...d, usd, usdSource: source };
   });
-  return { todayKey, today, monthToDate, days: out, unpricedModels: Array.from(unpriced).sort(), hasEstimates };
+  return {
+    todayKey,
+    today,
+    monthToDate,
+    days: out,
+    unpricedModels: Array.from(unpriced).sort(),
+    hasEstimates,
+    bySourceToday: usdBySource(sorted.filter((d) => d.date === todayKey), prices),
+    bySourceMonth: usdBySource(sorted.filter((d) => d.date.startsWith(month)), prices),
+  };
 }
 
 // ── Caps ──────────────────────────────────────────────────────────────────────

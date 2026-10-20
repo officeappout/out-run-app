@@ -321,8 +321,11 @@ export const FLAG_DEFS = [
   // server-side demo engines (life-engine chat replies, AI tester runner), never by app UI.
   //   demo_life_llm      — the life engine may write chat replies with a small LLM (else phrase bank)
   //   enable_ai_testers  — the AI tester runner may start (agent-briefs/ai-testers-design.md §5.3)
+  //   demo_kelly         — Kelly (proactive sends, memory, workout reviewer) also runs on demo
+  //                        users; its usage counts toward the demo budget (usage bySource.kelly)
   { key: 'demoLifeLlm', firestoreKey: 'demo_life_llm', defaultValue: false, superAdminValue: false },
   { key: 'enableAiTesters', firestoreKey: 'enable_ai_testers', defaultValue: false, superAdminValue: false },
+  { key: 'demoKelly', firestoreKey: 'demo_kelly', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

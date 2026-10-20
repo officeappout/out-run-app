@@ -1,7 +1,7 @@
 'use client';
 /**
- * /admin/demo — the three live switches. Each press writes ONE key of
- * system_config/feature_flags (demo-switch.service.ts). The two sub-switches are
+ * /admin/demo — the live switches. Each press writes ONE key of
+ * system_config/feature_flags (demo-switch.service.ts). The sub-switches are
  * inert while "חיים" is off (the engines ignore them then anyway).
  */
 import { Panel } from '@/features/admin/components/ui';
@@ -11,6 +11,7 @@ const ROWS: Array<{ key: DemoSwitchKey; title: string; hint: string; costly?: bo
   { key: 'enable_demo_users', title: 'חיים', hint: 'מנוע החיים של עולם הדמו: מתאמנים, הולכים, כותבים. כבוי = שום דבר לא נכתב, והבודקים לא רצים.' },
   { key: 'demo_life_llm', title: 'AI בצ׳אט', hint: 'תגובות בצ׳אטים של הדמו נכתבות במודל AI קטן (עולה כסף). כבוי = משפטים מוכנים.', costly: true, child: true },
   { key: 'enable_ai_testers', title: 'בודקים', hint: 'מאפשר סיורי בודקי AI באפליקציה. כיבוי עוצר גם סיור שכבר רץ.', costly: true, child: true },
+  { key: 'demo_kelly', title: 'קלי לדמו', hint: 'קלי ירוץ גם על משתמשי הדמו (הודעות יזומות, זיכרון, סוקר אימונים) — נספר בתקציב הדמו', costly: true, child: true },
 ];
 
 function Switch({ on, disabled, onClick, label }: { on: boolean; disabled: boolean; onClick: () => void; label: string }) {

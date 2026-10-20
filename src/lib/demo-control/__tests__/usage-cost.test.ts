@@ -136,3 +136,48 @@ describe('config parsing / validation', () => {
     expect(validateConfigInput({ caps: {}, prices: many })).toEqual({ ok: false, error: 'too_many_models' });
   });
 });
+
+describe('several writers on one day (bySource)', () => {
+  it('parses bySource and drops bad keys', () => {
+    const d = parseUsageDay('2026-10-20', { bySource: { kelly: { llmCalls: 2, inputTokens: 10, model: 'model-a' }, 'Bad Key': {} } });
+    expect(Object.keys(d.bySource)).toEqual(['kelly']);
+    expect(d.bySource.kelly).toMatchObject({ llmCalls: 2, inputTokens: 10, model: 'model-a', usdEstimate: null });
+  });
+  it('prices each source with its own model + the unattributed remainder with the top-level model', () => {
+    const d = parseUsageDay('2026-10-20', {
+      llmCalls: 5,
+      inputTokens: 4_000_000, // 1M kelly (model-a) + 1M life (model-b) + 2M not attributed
+      model: 'model-b',
+      bySource: {
+        kelly: { llmCalls: 2, inputTokens: 1_000_000, model: 'model-a' },
+        life: { llmCalls: 1, inputTokens: 1_000_000, model: 'model-b' },
+      },
+    });
+    expect(dayUsd(d, PRICES)).toEqual({ usd: 2 + 1 + 2, source: 'priced' });
+    const s = summarizeUsage([d], '2026-10-20', PRICES);
+    expect(s.today.usd).toBe(5);
+    expect(s.today.llmCalls).toBe(5); // totals are the truth for counts
+    expect(s.bySourceToday).toEqual({ kelly: 2, life: 1, _rest: 2 });
+    expect(s.bySourceMonth).toEqual({ kelly: 2, life: 1, _rest: 2 });
+  });
+  it('no double count when every writer attributes everything', () => {
+    const d = parseUsageDay('2026-10-20', {
+      inputTokens: 2_000_000,
+      model: 'model-a',
+      bySource: { kelly: { inputTokens: 1_000_000, model: 'model-a' }, testers: { inputTokens: 1_000_000, model: 'model-b' } },
+    });
+    expect(dayUsd(d, PRICES).usd).toBe(3);
+    expect(summarizeUsage([d], '2026-10-20', PRICES).bySourceToday).toEqual({ kelly: 2, testers: 1 });
+  });
+  it('an unpriced source falls back to its own estimate and is flagged', () => {
+    const d = parseUsageDay('2026-10-20', {
+      inputTokens: 10,
+      usdEstimate: 0.4,
+      bySource: { kelly: { inputTokens: 10, model: 'unknown-model', usdEstimate: 0.4 } },
+    });
+    expect(dayUsd(d, PRICES)).toEqual({ usd: 0.4, source: 'engine' });
+    const s = summarizeUsage([d], '2026-10-20', PRICES);
+    expect(s.unpricedModels).toEqual(['unknown-model']);
+    expect(s.hasEstimates).toBe(true);
+  });
+});

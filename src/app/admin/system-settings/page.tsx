@@ -71,6 +71,7 @@ interface FlagState {
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
+  demo_kelly: boolean;
 }
 
 // ============================================================================
@@ -485,6 +486,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-amber-600',
     title: 'דמו: בודקי AI',
     description: 'מאפשר להריץ את בודקי ה-AI (סיור באפליקציה כמשתמשי דמו). כבוי = שום סיור לא מתחיל, וסיור פעיל נעצר. פועל רק כשמשתמשי הדמו דולקים. מפעילים ממרכז הדמו.',
+    parentKey: 'enable_demo_users',
+  },
+  {
+    key: 'demo_kelly',
+    icon: MessageCircle,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-600',
+    title: 'דמו: קלי לדמו',
+    description: 'קלי ירוץ גם על משתמשי הדמו (הודעות יזומות, זיכרון, סוקר אימונים) — נספר בתקציב הדמו. פועל רק כשמשתמשי הדמו דולקים.',
     parentKey: 'enable_demo_users',
   },
 ];

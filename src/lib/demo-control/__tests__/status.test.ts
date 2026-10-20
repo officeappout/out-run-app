@@ -39,7 +39,7 @@ describe('buildDemoStatus', () => {
     const s = buildDemoStatus({
       nowMs: NOW,
       todayKey: '2026-10-20',
-      flagsRaw: { enable_demo_users: true, demo_life_llm: 'yes', enable_ai_testers: false },
+      flagsRaw: { enable_demo_users: true, demo_life_llm: 'yes', enable_ai_testers: false, demo_kelly: true },
       configRaw: { caps: { dailyUsdCap: 1 } },
       controlRaw: undefined,
       usageDocs: [{ id: '2026-10-20', data: { usdEstimate: 1.5, testerSessions: 1 } }],
@@ -47,7 +47,7 @@ describe('buildDemoStatus', () => {
       demoUsersCapped: false,
       dispatchConfigured: false,
     });
-    expect(s.switches).toEqual({ enable_demo_users: true, demo_life_llm: false, enable_ai_testers: false });
+    expect(s.switches).toEqual({ enable_demo_users: true, demo_life_llm: false, enable_ai_testers: false, demo_kelly: true });
     expect(s.population).toEqual({ demoUsers: 4, activeToday: 2, capped: false });
     expect(s.usage.today.usd).toBe(1.5);
     expect(s.caps.dailyUsd.state).toBe('exceeded');

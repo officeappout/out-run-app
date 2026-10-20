@@ -9,6 +9,22 @@ import type { DemoStatusPayload } from '@/lib/demo-control/status';
 import type { CapStatus } from '@/lib/demo-control/usage-cost';
 import { fmtInt, fmtUsd } from './demo-client';
 
+const SOURCE_LABEL: Record<string, string> = { life: 'מנוע החיים', kelly: 'קלי', testers: 'בודקים', _rest: 'לא משויך' };
+
+function SourceBreakdown({ today, month }: { today: Record<string, number>; month: Record<string, number> }) {
+  const keys = Array.from(new Set([...Object.keys(today), ...Object.keys(month)])).filter((k) => (today[k] ?? 0) > 0 || (month[k] ?? 0) > 0);
+  if (keys.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {keys.map((k) => (
+        <span key={k} className="whitespace-nowrap rounded-full bg-slate-50 px-3 py-1 text-[12px] font-bold text-slate-700 ring-1 ring-inset ring-slate-200">
+          {SOURCE_LABEL[k] ?? k}: {fmtUsd(today[k] ?? 0)} היום · {fmtUsd(month[k] ?? 0)} החודש
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const BAR = { unset: 'bg-slate-300', ok: 'bg-cyan-500', warn: 'bg-amber-500', exceeded: 'bg-rose-500' } as const;
 
 function CapRow({ label, status, money }: { label: string; status: CapStatus; money?: boolean }) {
@@ -51,6 +67,8 @@ export default function LiveCostPanel({ data, updatedAgoSec }: { data: DemoStatu
         <CapRow label="סיורי בודקים היום" status={caps.testerSessions} />
         <CapRow label="קריאות AI היום" status={caps.llmCalls} />
       </div>
+
+      <SourceBreakdown today={usage.bySourceToday} month={usage.bySourceMonth} />
 
       {usage.unpricedModels.length > 0 && (
         <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-800">

@@ -30,6 +30,7 @@ import CapsEditor from '@/features/admin/components/demo-control/CapsEditor';
 const CONFIRM_ON: Partial<Record<DemoSwitchKey, string>> = {
   demo_life_llm: 'להדליק AI בצ׳אט? כל תגובה בצ׳אט הדמו תעלה כסף, עד התקרה שהגדרתם.',
   enable_ai_testers: 'להדליק את בודקי ה-AI? סיורים עולים כסף, עד התקרה שהגדרתם.',
+  demo_kelly: 'להדליק את קלי למשתמשי הדמו? ההודעות היזומות, הזיכרון וסוקר האימונים ירוצו גם עליהם, ויספרו בתקציב הדמו.',
 };
 
 export default function DemoControlCenterPage() {

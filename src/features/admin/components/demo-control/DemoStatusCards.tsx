@@ -20,7 +20,7 @@ export default function DemoStatusCards({ data }: { data: DemoStatusPayload }) {
       <KpiCard
         label="מנוע החיים"
         value={<StatusPill tone={switches.enable_demo_users ? 'good' : 'neutral'}>{switches.enable_demo_users ? 'דולק' : 'כבוי'}</StatusPill>}
-        sub={switches.demo_life_llm ? 'AI בצ׳אט דולק' : 'משפטים מוכנים בצ׳אט'}
+        sub={`${switches.demo_life_llm ? 'AI בצ׳אט דולק' : 'משפטים מוכנים בצ׳אט'}${switches.demo_kelly ? ' · קלי דולקת' : ''}`}
       />
       <KpiCard
         label="בודקי AI"
