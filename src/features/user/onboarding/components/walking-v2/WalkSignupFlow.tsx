@@ -8,7 +8,8 @@
  * (the adaptive step goal, #414), the goal, the free days (Saturday off), the
  * audience (policy, #529) → a weekly-minutes target that ramps ≤ 10% a week.
  * "אישור השבוע" writes the walks to the schedule (walkSave.service — existing
- * userSchedule entry fields only). Reminders: the shared step (#523).
+ * userSchedule entry fields only) and the goal + weekly target to
+ * lifestyle.walkingGoal (the weekly top-up grows toward it). Reminders: the shared step (#523).
  * `sub` lives in the page so its header back button can step back here.
  */
 import { useMemo, useState, useEffect } from 'react';
@@ -34,6 +35,7 @@ import {
   type WalkGoal,
 } from '@/features/schedule/walking';
 import { saveWalkPlan } from '@/features/schedule/walking/walkSave.service';
+import { walkingGoalToStore } from '@/features/schedule/walking/walkingGoal';
 import { useNearbyWalkingGroup } from '@/features/schedule/walking/useNearbyWalkingGroup';
 import type { RecurringTemplate } from '@/features/user/scheduling/types/schedule.types';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
@@ -121,6 +123,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
         recurringTemplate: lifestyle.recurringTemplate ?? null,
         reminders: lifestyle.reminders,
         setHealthTrack: !hasStrengthTrack(profile) && !hasRunningTrack(profile) && !lifestyle.primaryTrack,
+        walkingGoal: walkingGoalToStore(goal ?? 'health', plan),
       });
       setSub(3);
     } catch (err) {

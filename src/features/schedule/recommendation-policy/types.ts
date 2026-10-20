@@ -27,7 +27,10 @@ export type PolicyAudience = 'senior' | 'athlete' | 'general';
 
 export interface PolicySignals {
   tracks: TrackMix;
-  /** null = the user has no strength level yet (treated as beginner). */
+  /**
+   * The level the split is chosen by: the AVERAGE of push / pull / legs, rounded
+   * down (owner 20.10.2026; strengthLevelOf). null = no level yet (treated as beginner).
+   */
   strengthLevel: number | null;
   runBand: RunBand | null;
   goals: PolicyGoal[];
@@ -50,15 +53,16 @@ export interface PolicyWhen {
   /** Matches only when the user has NONE of these goals. */
   goalsNone?: PolicyGoal[];
   audiences?: PolicyAudience[];
-  /** Matches when hardSkillCount ≥ this. */
+  /** Matches when hardSkillCount ≥ / ≤ this. */
   minHardSkills?: number;
+  maxHardSkills?: number;
   /** Matches when availableDays (or the default pool) ≥ / ≤ this. */
   minAvailableDays?: number;
   maxAvailableDays?: number;
   targetDistances?: string[];
 }
 
-export type AddOnKind = 'core' | 'mobility';
+export type AddOnKind = 'core' | 'mobility' | 'movement';
 
 /** A short extra session on top of the main week (shown with the recommendation). */
 export interface PolicyAddOn {
@@ -66,8 +70,13 @@ export interface PolicyAddOn {
   minutes: number;
   perWeek: number;
   window?: TimeWindow;
-  /** "ליבה 10′ ×2 בערב" */
+  /** "ליבה 10′ ×2 בערב" — `{k}` is filled with perWeek. */
   labelHe: string;
+  /**
+   * Fill the free days: perWeek = available days − the week's sessions (dropped when
+   * none are left). E.g. a beginner's light movement / walk days next to 3 strength.
+   */
+  fillsFreeDays?: boolean;
 }
 
 export interface PolicyEffect {
@@ -108,6 +117,12 @@ export interface RecommendationPolicy {
     /** Hard-skill count → minimum strength days (the existing ERR_DAYS_MIN table). */
     skillMinDays: Record<string, number>;
     skillMinReasonHe: string;
+    /**
+     * The split by level × sessions a week ('1'…'6'), owner-approved 20.10.2026:
+     * 3 → full body (every level), 4 → upper / lower (intermediate+). The cells the
+     * owner didn't change keep the generator's SPLIT_MATRIX value.
+     */
+    splits: Record<StrengthBand, Record<string, SessionType>>;
   };
   running: {
     base: Record<RunBand, { frequency: number; reasonHe: string }>;
@@ -115,7 +130,7 @@ export interface RecommendationPolicy {
   };
   /** Applied in order after the base; later rules see earlier results. */
   rules: PolicyRule[];
-  /** Hebrew names of the generator's real splits (SPLIT_MATRIX session types). */
+  /** Hebrew names of the split session types. */
   splitNamesHe: Record<SessionType, string>;
   /** Name shown instead when the user trains hard skills (the generator's skill-dominance days). */
   skillSplitNameHe: string;

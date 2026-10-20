@@ -35,6 +35,21 @@ describe('policy config stays in sync with the code it mirrors', () => {
     for (const row of Object.values(SPLIT_MATRIX)) for (const t of Object.values(row)) expect(RECOMMENDATION_POLICY.splitNamesHe[t]).toBeTruthy();
   });
 
+  it('the policy split table: a Hebrew name per cell; only the owner-approved cells differ from SPLIT_MATRIX', () => {
+    const approved = new Set(['intermediate:3', 'advanced:3', 'intermediate:4', 'advanced:4']);
+    const freqIndex = (n: number) => (n <= 2 ? 0 : n === 3 ? 1 : n <= 5 ? 2 : 3);
+    for (const [band, row] of Object.entries(RECOMMENDATION_POLICY.strength.splits)) {
+      for (let n = 1; n <= 6; n++) {
+        const t = row[String(n)];
+        expect(RECOMMENDATION_POLICY.splitNamesHe[t]).toBeTruthy();
+        if (!approved.has(`${band}:${n}`)) expect(t).toBe(SPLIT_MATRIX[freqIndex(n)][band as 'beginner']);
+      }
+    }
+    // The shared generator matrix itself is unchanged (flag-off users).
+    expect(SPLIT_MATRIX[1]).toEqual({ beginner: 'full_body_ab', intermediate: 'upper_lower', advanced: 'push_pull_mixed' });
+    expect(SPLIT_MATRIX[2]).toEqual({ beginner: 'habit_builder', intermediate: 'push_pull_rotation', advanced: 'skill_dominance' });
+  });
+
   it('Saturday is off by default and the default pool is Sun–Fri', () => {
     expect(RECOMMENDATION_POLICY.saturdayDefaultOff).toBe(true);
     expect(RECOMMENDATION_POLICY.defaultAvailableDays).toBe(6);
@@ -53,22 +68,49 @@ describe('strength by level', () => {
     expect(resolveRecommendation(sig({ strengthLevel: null })).strength).toMatchObject({ frequency: 3, band: 'beginner' });
   });
 
-  it('intermediate: 3 → the generator\'s upper / lower', () => {
-    const r = resolveRecommendation(sig({ strengthLevel: 9 }));
-    expect(r.strength).toMatchObject({ frequency: 3, split: 'upper_lower', splitHe: 'עליון / תחתון' });
+  it('3 free days → full body ×3 at every level (owner 20.10.2026)', () => {
+    for (const lvl of [3, 9, 16]) {
+      const r = resolveRecommendation(sig({ strengthLevel: lvl, availableDays: 3 }));
+      expect(r.strength?.frequency).toBe(3);
+      expect(r.strength?.splitHe).toBe('כל הגוף');
+    }
+    expect(resolveRecommendation(sig({ strengthLevel: 9, availableDays: 3 })).strength?.split).toBe('full_body_ab');
   });
 
-  it('intermediate + muscle goal with 5+ days: 4 (push / pull rotation)', () => {
-    const r = resolveRecommendation(sig({ strengthLevel: 9, goals: ['muscle'] }));
-    expect(r.strength).toMatchObject({ frequency: 4, split: 'push_pull_rotation' });
-    expect(r.firedRuleIds).toContain('muscle_intermediate');
-    // only 4 free days → no 4th day rule, 3 stays
-    expect(resolveRecommendation(sig({ strengthLevel: 9, goals: ['muscle'], availableDays: 4 })).strength?.frequency).toBe(3);
+  it('intermediate with 4+ free days → upper / lower ×4, with or without a muscle goal', () => {
+    for (const days of [4, 5, 6, null]) {
+      const r = resolveRecommendation(sig({ strengthLevel: 9, availableDays: days }));
+      expect(r.strength).toMatchObject({ frequency: 4, split: 'upper_lower', splitHe: 'עליון / תחתון', band: 'intermediate' });
+      expect(r.firedRuleIds).toContain('upper_lower_intermediate');
+      expect(r.reasonsHe[0]).toBe('ביניים · עליון / תחתון 4 פעמים בשבוע');
+    }
+    expect(resolveRecommendation(sig({ strengthLevel: 9, goals: ['muscle'], availableDays: 4 })).strength?.frequency).toBe(4);
   });
 
-  it('advanced: 4 → skill + support', () => {
-    const r = resolveRecommendation(sig({ strengthLevel: 16 }));
-    expect(r.strength).toMatchObject({ frequency: 4, split: 'skill_dominance', band: 'advanced' });
+  it('advanced: 4 → upper / lower; skill users still see skill + support (skill logic untouched)', () => {
+    expect(resolveRecommendation(sig({ strengthLevel: 16 })).strength).toMatchObject({ frequency: 4, split: 'upper_lower', band: 'advanced' });
+    expect(resolveRecommendation(sig({ strengthLevel: 16, hardSkillCount: 2 })).strength?.splitHe).toBe('סקיל + תמיכה');
+  });
+
+  it('beginner with 5+ free days: 3 strength + light movement / walk days on the rest', () => {
+    const r6 = resolveRecommendation(sig({ strengthLevel: 3 }));
+    expect(r6.strength).toMatchObject({ frequency: 3, split: 'full_body_ab' });
+    expect(r6.addOns).toContainEqual({ kind: 'movement', minutes: 20, perWeek: 3, fillsFreeDays: true, labelHe: 'הליכה / תנועה קלה 20′ ×3' });
+    expect(r6.firedRuleIds).toContain('beginner_light_days');
+    const r5 = resolveRecommendation(sig({ strengthLevel: 3, availableDays: 5 }));
+    expect(r5.strength?.frequency).toBe(3);
+    expect(r5.addOns.find((a) => a.kind === 'movement')?.perWeek).toBe(2);
+    expect(addOnsLineHe(r5.addOns)).toBe('+ הליכה / תנועה קלה 20′ ×2');
+    // 4 free days, seniors, skill users, both tracks → no light days
+    expect(resolveRecommendation(sig({ strengthLevel: 3, availableDays: 4 })).addOns).toEqual([]);
+    expect(resolveRecommendation(sig({ strengthLevel: 3, audience: 'senior' })).addOns.map((a) => a.kind)).toEqual(['mobility']);
+    expect(resolveRecommendation(sig({ strengthLevel: 3, hardSkillCount: 4 })).firedRuleIds).not.toContain('beginner_light_days');
+    expect(resolveRecommendation(sig({ tracks: 'both', runBand: 'beginner' })).firedRuleIds).not.toContain('beginner_light_days');
+  });
+
+  it('seniors and both-tracks users keep their numbers (the 4th day is strength-only, general audience)', () => {
+    expect(resolveRecommendation(sig({ strengthLevel: 9, audience: 'senior' })).strength?.frequency).toBe(2);
+    expect(resolveRecommendation(sig({ tracks: 'both', strengthLevel: 9, runBand: 'intermediate' })).strength?.frequency).toBe(2);
   });
 
   it('health / routine goal caps at 3', () => {
@@ -80,7 +122,7 @@ describe('strength by level', () => {
 
 describe('goals', () => {
   it('fat loss: 10′ evening core on 2 days as an add-on', () => {
-    const r = resolveRecommendation(sig({ goals: ['fat_loss'] }));
+    const r = resolveRecommendation(sig({ goals: ['fat_loss'], availableDays: 4 }));
     expect(r.addOns).toEqual([{ kind: 'core', minutes: 10, perWeek: 2, window: 'evening', labelHe: 'ליבה 10′ ×2 בערב' }]);
     expect(r.reasonsHe).toContain('בטן וליבה · 2 אימוני ליבה קצרים של 10′ בערב');
     expect(r.strength?.frequency).toBe(3);
@@ -220,9 +262,17 @@ describe('signals', () => {
     expect(runBandOf({ profileType: 1, abilityTier: 'none' })).toBe('advanced');
   });
 
-  it('strength level ignores running / flexibility', () => {
-    expect(strengthLevelOf({ tracks: { running: { currentLevel: 20 }, push: { currentLevel: 7 } }, domains: { core: { currentLevel: 9 } } })).toBe(9);
+  it('split level = average of push / pull / legs, rounded down (not the max)', () => {
+    expect(strengthLevelOf({ tracks: { pull: { currentLevel: 14 }, push: { currentLevel: 8 }, legs: { currentLevel: 4 } } })).toBe(8);
+    expect(strengthLevelOf({ domains: { push: { currentLevel: 7 }, pull: { currentLevel: 8 } } })).toBe(7);
+    // track vs domain of the same category → the higher; others (core, skills, running) ignored
+    expect(strengthLevelOf({ tracks: { running: { currentLevel: 20 }, push: { currentLevel: 7 } }, domains: { push: { currentLevel: 9 }, core: { currentLevel: 15 } } })).toBe(9);
+  });
+
+  it('no push / pull / legs level → the highest other strength level; running / flexibility ignored', () => {
+    expect(strengthLevelOf({ tracks: { full_body: { currentLevel: 6 }, running: { currentLevel: 20 } }, domains: { core: { currentLevel: 9 } } })).toBe(9);
     expect(strengthLevelOf({ tracks: { running: { currentLevel: 4 } } })).toBeNull();
+    expect(strengthLevelOf(null)).toBeNull();
   });
 
   it('age from YYYY-MM-DD', () => {
