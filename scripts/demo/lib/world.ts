@@ -24,7 +24,7 @@ import {
   type DemoUnit,
 } from './config';
 import { offset } from './geo';
-import { buildHistory, type DemoPark, type DocWrite, type PersonaContext } from './history';
+import { actorOf, buildHistory, sessionTitle, type DemoPark, type DocWrite, type PersonaContext } from './history';
 import { PERSONAS, personaUid, type Persona } from './personas';
 import { roll } from './rng';
 import { weekFor, startTimeOf } from './schedule';
@@ -63,6 +63,47 @@ function tenantDocs(now: Date): DocWrite[] {
     }
   }
   return docs;
+}
+
+/**
+ * The live engine's view of a persona (demo_registry/personas.personas[i].life, parsed by
+ * functions/src/demo-life/persona.ts): the session actor + knobs + the engine-built week,
+ * flat (Firestore has no nested arrays).
+ */
+export function lifeEntryOf(ctx: PersonaContext): Record<string, unknown> {
+  const p = ctx.persona;
+  const a = actorOf(ctx);
+  const sessions = ctx.week.days.flatMap((ss, dow) =>
+    ss.map((s, i) => ({
+      dow,
+      i,
+      kind: s.kind,
+      ...(s.slug ? { slug: s.slug } : {}),
+      ...(s.slot ? { slot: s.slot } : {}),
+      minutes: s.minutes,
+      title: sessionTitle(s),
+      start: startTimeOf(s.window),
+    })),
+  );
+  return {
+    name: a.name,
+    gender: a.gender,
+    age: a.age,
+    tone: p.personaKind,
+    adherence: p.adherence,
+    shareRate: a.shareRate,
+    stepGoal: p.stepGoal,
+    parkUser: a.parkUser,
+    authorityId: a.authorityId,
+    neighborhoodId: a.neighborhoodId,
+    tenantId: a.tenantId,
+    unitId: a.unitId,
+    groupIds: a.groupIds,
+    home: a.home,
+    park: a.park,
+    runLevel: a.runLevel,
+    sessions,
+  };
 }
 
 function homeOf(p: Persona) {
@@ -161,6 +202,7 @@ export function buildDemoWorld(opts: WorldOptions): DemoWorld {
   const docs: DocWrite[] = [...tenantDocs(now)];
   const workoutIds: string[] = [];
   const steps: DemoWorld['steps'] = {};
+  const lifeByUid: Record<string, Record<string, unknown>> = {};
 
   for (const p of personas) {
     const uid = personaUid(p);
@@ -179,6 +221,7 @@ export function buildDemoWorld(opts: WorldOptions): DemoWorld {
       groupIds: groupIdsOf(p.key),
     };
     const h = buildHistory(ctx, now, historyDays, aheadDays);
+    lifeByUid[uid] = lifeEntryOf(ctx);
     docs.push({ path: `users/${uid}`, data: userDoc(p, ctx, h, now) });
     docs.push({
       path: `streaks/${uid}`,
@@ -198,7 +241,7 @@ export function buildDemoWorld(opts: WorldOptions): DemoWorld {
   const uids = personas.map(personaUid);
   docs.push({
     path: `${REGISTRY_COLLECTION}/${REGISTRY_DOCS.personas}`,
-    data: { uids, personas: personas.map((p) => ({ uid: personaUid(p), key: p.key, scenario: p.scenario, journey: p.journey, tenantId: p.tenantId })), v: DEMO_SEED_VERSION, updatedAt: now },
+    data: { uids, personas: personas.map((p) => ({ uid: personaUid(p), key: p.key, scenario: p.scenario, journey: p.journey, tenantId: p.tenantId, life: lifeByUid[personaUid(p)] })), v: DEMO_SEED_VERSION, updatedAt: now },
   });
   docs.push({
     path: `${REGISTRY_COLLECTION}/${REGISTRY_DOCS.tenants}`,
