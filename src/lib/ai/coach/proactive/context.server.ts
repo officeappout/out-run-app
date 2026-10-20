@@ -28,6 +28,7 @@ import {
   proactiveMessageId,
 } from './loaders.server';
 import type { IsraelClock, ProactiveTrigger, ProactiveUserState, RecentWorkout, TodayPlan } from './types';
+import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
 
 export function israelClock(now: Date): IsraelClock {
   const minute = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', minute: 'numeric' }).format(now)) || 0;
@@ -99,7 +100,7 @@ export async function buildProactiveState(i: BuildStateInput): Promise<Proactive
   const needsSheet = i.due.some((t) => SHEET_TRIGGERS.includes(t));
   let sheet: UserContextSheet | null = null;
   if (needsSheet && hasAi) {
-    sheet = await loadUserContextSheet({ db, uid, profile, now, knownCards: new Map(), turn: { handoffDone: false }, scheduleAdvisor: flags.aiCoachScheduleAdvisor === true }).catch((err) => {
+    sheet = await loadUserContextSheet({ db, uid, profile, now, knownCards: new Map(), turn: { handoffDone: false }, scheduleAdvisor: flags.aiCoachScheduleAdvisor === true, ...(runsByTypeFor(flags, profile.core?.isSuperAdmin === true) ? { runsByType: true } : {}) }).catch((err) => {
       console.warn('[kelly-proactive] sheet unavailable', err);
       return null;
     });
