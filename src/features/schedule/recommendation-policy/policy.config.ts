@@ -6,16 +6,22 @@
  * unchanged. Owner-readable copy: agent-briefs/recommendation-policy.md.
  *
  * How it reads: base number by level band → rules top to bottom (a rule fires when
- * every field of `when` matches) → hard-skill minimum → bounds → available days.
- * The split is NOT chosen here: it is the workout generator's own SPLIT_MATRIX cell
- * for the final number × level tier (split-decision.types.ts), so the card never
- * promises a split the workouts won't deliver. `{n}` / `{runs}` / `{split}` in a
- * reason are filled with the final values.
+ * every field of `when` matches) → hard-skill minimum → bounds → available days →
+ * the split = `strength.splits[band][final number]`. `{n}` / `{runs}` / `{split}` in
+ * a reason are filled with the final values; `{k}` in an add-on label = its count.
+ *
+ * Strength rules approved 20.10.2026 (agent-briefs/strength-matrix-proposal.md):
+ * 3 days → full body ×3 (every level), 4+ days → upper / lower ×4 for intermediate+,
+ * beginners with 5+ days → 3 strength + light movement / walk days on the rest.
+ * The level is the average of push / pull / legs (strengthLevelOf).
+ * `splits` is this policy's own table (v2 users only). The workout generator's
+ * SPLIT_MATRIX — shared by every user — is unchanged; the cells the owner didn't
+ * change are copied from it (tested). Skill logic is untouched (set aside).
  */
 import type { RecommendationPolicy } from './types';
 
 export const RECOMMENDATION_POLICY: RecommendationPolicy = {
-  version: 1,
+  version: 2,
   saturdayDefaultOff: true,
   defaultAvailableDays: 6,
 
@@ -29,6 +35,22 @@ export const RECOMMENDATION_POLICY: RecommendationPolicy = {
     // = MIN_DAYS_FOR_HARD_SKILLS (engine/scheduleRules.ts) — 1 skill → 2 days …
     skillMinDays: { '1': 2, '2': 3, '3': 4, '4': 5 },
     skillMinReasonHe: 'סקילים · לפחות {n} ימים כדי שכל סקיל יקבל את שלו',
+    // sessions a week → split. 3 = full body for every level; 4 = upper / lower for
+    // intermediate+. 1–2 / 5 / 6 and the beginner 4 = the generator's SPLIT_MATRIX.
+    splits: {
+      beginner: {
+        '1': 'full_body_basic', '2': 'full_body_basic', '3': 'full_body_ab',
+        '4': 'habit_builder', '5': 'habit_builder', '6': 'habit_builder_ultra',
+      },
+      intermediate: {
+        '1': 'full_body_high', '2': 'full_body_high', '3': 'full_body_ab',
+        '4': 'upper_lower', '5': 'push_pull_rotation', '6': 'push_pull_legs',
+      },
+      advanced: {
+        '1': 'full_body_max', '2': 'full_body_max', '3': 'full_body_max',
+        '4': 'upper_lower', '5': 'skill_dominance', '6': 'hyper_skill_blocks',
+      },
+    },
   },
 
   running: {
@@ -62,10 +84,10 @@ export const RECOMMENDATION_POLICY: RecommendationPolicy = {
       then: { strengthMin: 4, strengthFrequency: 4, reasonHe: 'מותאם לספורטאי' },
     },
     {
-      id: 'muscle_intermediate',
-      note: 'ביניים+ שרוצה מסה / ביצועים ויש לו 5+ ימים: יום רביעי',
-      when: { strengthBands: ['intermediate'], goalsAny: ['muscle', 'performance'], minAvailableDays: 5, tracks: ['strength'] },
-      then: { strengthFrequency: 4, reasonHe: 'מטרה: מסה וביצועים · יום רביעי לנפח' },
+      id: 'upper_lower_intermediate',
+      note: 'ביניים עם 4+ ימים פנויים (כוח בלבד): עליון / תחתון ×4 — כל שריר פעמיים בשבוע. אושר 20.10.2026 (החליף את muscle_intermediate)',
+      when: { strengthBands: ['intermediate'], minAvailableDays: 4, tracks: ['strength'], audiences: ['general'] },
+      then: { strengthFrequency: 4, reasonHe: 'כל שריר פעמיים בשבוע, עם מנוחה מלאה בין לבין' },
     },
     {
       id: 'health_cap',
@@ -105,6 +127,15 @@ export const RECOMMENDATION_POLICY: RecommendationPolicy = {
       note: 'ריצה בלבד, ביניים, יעד 10 ק״מ ומעלה ו-5+ ימים: ריצה רביעית',
       when: { tracks: ['running'], runBands: ['intermediate'], targetDistances: ['10k', 'half', 'marathon'], minAvailableDays: 5 },
       then: { runFrequency: 4, reasonHe: 'יעד 10 ק״מ · ריצה רביעית קלה לנפח' },
+    },
+    {
+      id: 'beginner_light_days',
+      note: 'מתחיל עם 5+ ימים פנויים (כוח בלבד): 3 אימוני כוח, ובשאר הימים תנועה קלה / הליכה — לא עוד כוח. אושר 20.10.2026',
+      when: { strengthBands: ['beginner'], minAvailableDays: 5, tracks: ['strength'], audiences: ['general'], maxHardSkills: 0 },
+      then: {
+        addOns: [{ kind: 'movement', minutes: 20, perWeek: 0, fillsFreeDays: true, labelHe: 'הליכה / תנועה קלה 20′ ×{k}' }],
+        reasonHe: '3 אימוני כוח טובים, ובשאר הימים תנועה קלה — ככה בונים הרגל',
+      },
     },
   ],
 

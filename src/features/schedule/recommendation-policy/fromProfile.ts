@@ -10,17 +10,33 @@ type Leveled = { currentLevel?: number; level?: number } | null | undefined;
 
 const NON_STRENGTH = new Set(['running', 'flexibility']);
 
+/** The categories the split level is averaged over (owner 20.10.2026). */
+export const SPLIT_LEVEL_DOMAINS = ['push', 'pull', 'legs'] as const;
+
+const levelOf = (v: Leveled): number => {
+  const l = v?.currentLevel ?? v?.level ?? 0;
+  return typeof l === 'number' && Number.isFinite(l) && l > 0 ? l : 0;
+};
+
 /**
- * The user's strength level: the highest strength track / domain level (running and
- * flexibility excluded). null when nothing is assessed yet.
+ * The level the split is chosen by (owner 20.10.2026): the AVERAGE of push / pull /
+ * legs, rounded down — not the max, so someone strong only in pull doesn't get an
+ * advanced split. Each category = its track or domain level (the higher of the two);
+ * missing categories are left out of the average. No push / pull / legs level at all
+ * → the highest other strength level (running / flexibility excluded), as before.
+ * null when nothing is assessed yet.
  */
 export function strengthLevelOf(progression: { tracks?: Record<string, Leveled> | null; domains?: Record<string, Leveled> | null } | null | undefined): number | null {
+  const tracks = progression?.tracks ?? {};
+  const domains = progression?.domains ?? {};
+  const split = SPLIT_LEVEL_DOMAINS.map((k) => Math.max(levelOf(tracks[k]), levelOf(domains[k]))).filter((l) => l > 0);
+  if (split.length) return Math.max(1, Math.floor(split.reduce((s, l) => s + l, 0) / split.length));
+
   let best = 0;
-  for (const obj of [progression?.tracks, progression?.domains]) {
-    for (const [key, v] of Object.entries(obj ?? {})) {
+  for (const obj of [tracks, domains]) {
+    for (const [key, v] of Object.entries(obj)) {
       if (NON_STRENGTH.has(key) || v == null) continue;
-      const l = v.currentLevel ?? v.level ?? 0;
-      if (typeof l === 'number' && Number.isFinite(l) && l > best) best = l;
+      best = Math.max(best, levelOf(v));
     }
   }
   return best > 0 ? best : null;

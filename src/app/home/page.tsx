@@ -55,6 +55,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import HomeWalkCarouselCard from '@/features/home/components/walk/HomeWalkCarouselCard';
 import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
 import { useWalkTopUp } from '@/features/home/hooks/useWalkTopUp';
+import { readStoredWalkingGoal } from '@/features/schedule/walking/walkingGoal';
 import { placeWalkCard, resolveHomeTabs, resolveHomeWalkSlot, resolveWalkSlotSurface, type HomeTab } from '@/features/home/utils/home-walk-slot';
 import { startShortWalk, startWalkEntry } from '@/features/schedule/walking/startWalk';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
@@ -1680,6 +1681,7 @@ export default function HomePage() {
     uid: profile?.id,
     enabled: featureFlags.enableHomeV2 && walkWeek.isWalker,
     stepGoal: walkStepGoal,
+    targetWeeklyMinutes: readStoredWalkingGoal(profile?.lifestyle?.walkingGoal)?.targetWeeklyMinutes ?? null,
     recurringTemplate: profile?.lifestyle?.recurringTemplate ?? null,
     reminders: profile?.lifestyle?.reminders,
   });
