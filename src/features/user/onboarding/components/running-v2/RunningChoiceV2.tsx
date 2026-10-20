@@ -41,6 +41,25 @@ interface BaseProps {
   isFemale: boolean;
 }
 
+/**
+ * Walking (owner 20.10.2026): a 4th choice on q_run_goal that is NOT a Firestore
+ * answer — it leaves the running tree for the walking signup (/onboarding-new/walking).
+ * Only passed under enable_home_v2; absent → the picker is exactly the 3 answers.
+ */
+export interface WalkingChoice {
+  onChoose: () => void;
+}
+
+const WALKING_ID = '__walking';
+const WALKING_VISUAL: RunningGoalVisual = {
+  goalPath: null,
+  src: null,
+  alt: '',
+  heroPosition: '50% 50%',
+  thumbPosition: '50% 50%',
+  tint: { from: '#fff7e8', to: '#fde7bf', ink: '#d97706' },
+};
+
 function meta(a: Answer): Record<string, unknown> | null {
   return a.metadata ?? null;
 }
@@ -107,6 +126,13 @@ function Header({ title, description }: { title: string; description?: string })
 // ── Goal picker ────────────────────────────────────────────────────
 
 function GoalTint({ v, size }: { v: RunningGoalVisual; size: number }) {
+  if (v === WALKING_VISUAL) {
+    return (
+      <span className="grid h-full w-full place-items-center" style={{ background: `linear-gradient(160deg, ${v.tint.from}, ${v.tint.to})` }}>
+        <Footprints size={size} strokeWidth={1.8} style={{ color: v.tint.ink }} aria-hidden />
+      </span>
+    );
+  }
   return (
     <span
       className="grid h-full w-full place-items-center"
@@ -137,11 +163,23 @@ function PhotoLayer({ v, mode }: { v: RunningGoalVisual; mode: 'hero' | 'thumb' 
 }
 
 export function RunningGoalPickerV2({
-  question, title, description, selectedAnswerId, onAnswer, answerText, isFemale,
-}: BaseProps) {
-  const { picked, setPicked, submit } = usePick(selectedAnswerId, onAnswer);
-  const answers = question.answers;
-  const visuals = answers.map((a) => resolveRunningGoalVisual({ id: a.id, metadata: meta(a), imageUrl: a.imageUrl }));
+  question, title, description, selectedAnswerId, onAnswer, answerText, isFemale, walking,
+}: BaseProps & { walking?: WalkingChoice }) {
+  const { picked, setPicked, submit } = usePick(selectedAnswerId, (id) => {
+    if (id === WALKING_ID) walking?.onChoose();
+    else onAnswer(id);
+  });
+  // The walking choice is a pseudo-answer at the end (the 4th option).
+  const answers: Array<{ id: string; label: string; visual: RunningGoalVisual; sub: string | null }> = [
+    ...question.answers.map((a) => {
+      const visual = resolveRunningGoalVisual({ id: a.id, metadata: meta(a), imageUrl: a.imageUrl });
+      return { id: a.id, label: answerText(a), visual, sub: runningGoalSubtitle(visual.goalPath, isFemale) };
+    }),
+    ...(walking
+      ? [{ id: WALKING_ID, label: 'הליכה', visual: WALKING_VISUAL, sub: 'בלי ריצה — הליכה מהירה, ירידה במשקל, תנועה יומית' }]
+      : []),
+  ];
+  const visuals = answers.map((a) => a.visual);
   // Before a pick, the hero shows the first goal that has a photo.
   const firstPhoto = answers.findIndex((_, i) => !!visuals[i].src);
   const activeIdx = picked ? answers.findIndex((a) => a.id === picked) : Math.max(0, firstPhoto);
@@ -176,7 +214,7 @@ export function RunningGoalPickerV2({
         {answers.map((a, i) => {
           const on = picked === a.id;
           const v = visuals[i];
-          const sub = runningGoalSubtitle(v.goalPath, isFemale);
+          const sub = a.sub;
           return (
             <button
               key={a.id}
@@ -193,7 +231,7 @@ export function RunningGoalPickerV2({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate whitespace-nowrap text-[16.5px] font-black !tracking-[-0.01em]">
-                  {answerText(a)}
+                  {a.label}
                 </span>
                 {sub && (
                   <span className="mt-0.5 block text-[12.5px] font-bold leading-[1.4] text-v2-muted line-clamp-2">{sub}</span>

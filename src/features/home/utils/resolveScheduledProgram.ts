@@ -1,6 +1,7 @@
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import { isPlannedWalkEntry } from '@/features/schedule/walking/walkEntry';
 
 /**
  * Pure decision logic behind StatsOverview's "what should today's workout be
@@ -42,13 +43,25 @@ export interface ScheduledProgramResolution {
   scheduledProgramIds: string[];
 }
 
+/**
+ * The day's own personal entry: a training one, else an explicit rest. A planned walk
+ * (enable_home_v2 walking signup — no program ids) is not the day's strength program:
+ * it is skipped, so the day still hydrates / resolves exactly as it would without it.
+ * Users without planned walks: identical to the previous inline rule.
+ */
+export function pickScheduledEntry(rawEntries: readonly UserScheduleEntry[]): UserScheduleEntry | null {
+  const own = rawEntries.filter((e) => !isPlannedWalkEntry(e));
+  return (
+    own.find((e) => e.type === 'training' && e.source !== 'community') ??
+    own.find((e) => e.type === 'rest') ??
+    null
+  );
+}
+
 export function resolveScheduledProgram(input: ScheduledProgramInput): ScheduledProgramResolution {
   const { rawEntries, hydrated, templateDayIds, hasScheduleConfigured, activeProgramId, runningProgramId } = input;
 
-  const rawMatch: UserScheduleEntry | null =
-    rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
-    rawEntries.find((e) => e.type === 'rest') ??
-    null;
+  const rawMatch = pickScheduledEntry(rawEntries);
 
   // Single-value rest-day signal — prefer the raw match; if hydration ran
   // instead (rawMatch was null), fall back to whatever it produced.

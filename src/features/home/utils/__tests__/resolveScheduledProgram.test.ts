@@ -221,3 +221,28 @@ describe('resolveScheduledProgram', () => {
     });
   });
 });
+
+// enable_home_v2 walking signup: a planned walk (no program ids, walking, plannedRun)
+// must not turn a strength rest day into a "training" day, nor hide the template.
+describe('planned walks are not the day\'s program', () => {
+  const walk = {
+    entryId: 'walkplan_2026-09-02', userId: 'u1', date: '2026-09-02', programIds: [], type: 'training', source: 'auto',
+    completed: false, scheduledCategories: ['walking'], plannedRun: { goal: { type: 'time', value: 30 } },
+  } as UserScheduleEntry;
+
+  it('a walk alone on a configured off day stays an off day', () => {
+    const r = resolveScheduledProgram({
+      rawEntries: [walk], hydrated: [], templateDayIds: undefined, hasScheduleConfigured: true,
+      activeProgramId: 'full_body', runningProgramId: undefined,
+    });
+    expect(r.isRestDay).toBe(true);
+    expect(r.scheduledProgramIds).toEqual([]);
+  });
+
+  it('a walk next to the strength entry keeps the strength program', async () => {
+    const { pickScheduledEntry } = await import('../resolveScheduledProgram');
+    const strength = { entryId: 'e-push', userId: 'u1', date: '2026-09-02', programIds: ['push'], type: 'training', source: 'recurring', completed: false } as UserScheduleEntry;
+    expect(pickScheduledEntry([walk, strength])?.entryId).toBe('e-push');
+    expect(pickScheduledEntry([walk])).toBeNull();
+  });
+});

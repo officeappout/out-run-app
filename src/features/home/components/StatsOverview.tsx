@@ -60,7 +60,7 @@ import {
 import { resolveActiveProgramBudget } from '@/features/workout-engine/services/lead-program.service';
 import { getScheduleEntries, hydrateFromTemplate } from '@/features/user/scheduling/services/userSchedule.service';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
-import { resolveScheduledProgram } from '../utils/resolveScheduledProgram';
+import { pickScheduledEntry, resolveScheduledProgram } from '../utils/resolveScheduledProgram';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import { toISODate, isLateNightPivot, getHebrewDayLetter } from '@/features/user/scheduling/utils/dateUtils';
 import UserWorkoutAdjuster from './UserWorkoutAdjuster';
@@ -809,10 +809,8 @@ export default function StatsOverview({
         // silently miss everything hydration just wrote, degrading a freshly
         // planned multi-item day into an apparent rest day.
         const rawEntries = await rawEntriesPromise;
-        const rawMatch =
-          rawEntries.find((e) => e.type === 'training' && e.source !== 'community') ??
-          rawEntries.find((e) => e.type === 'rest') ??
-          null;
+        // Same rule as resolveScheduledProgram (a planned walk is not the day's program).
+        const rawMatch = pickScheduledEntry(rawEntries);
         let hydrated: UserScheduleEntry[] = [];
         if (!rawMatch && profile.lifestyle?.recurringTemplate) {
           hydrated = await hydrateFromTemplate(profile.id, targetDate, profile.lifestyle.recurringTemplate, profile.lifestyle?.reminders);

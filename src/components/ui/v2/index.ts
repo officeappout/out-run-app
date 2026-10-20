@@ -110,3 +110,6 @@ export type { RecommendationCardProps } from './RecommendationCard';
 // Schedule proposals (add-track week): one day row + a session piece with a diff tag.
 export { default as WeekDayRow, WeekSessionPiece } from './WeekDayRow';
 export type { WeekDayRowProps, WeekSessionPieceProps, WeekSessionTagTone, WeekSessionNoteTone } from './WeekDayRow';
+// Small progress ring with a lighter "planned" arc (home walking: steps + today's walk).
+export { default as MiniRing } from './MiniRing';
+export type { MiniRingProps } from './MiniRing';
