@@ -16,6 +16,9 @@ import {
 } from '../services/health-declaration-record';
 import LegalDocModal from '@/features/legal/components/LegalDocModal';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { useJitIdentityV1 } from '../hooks/useJitIdentityV1';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { resolveSignerIdentity } from '../utils/health-signer-identity';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
 
 interface HealthDeclarationStepProps {
@@ -60,13 +63,16 @@ export default function HealthDeclarationStep({
   // untouched; v2 swaps classes (legacy classes kept verbatim in the else arm).
   const v2 = useOnboardingV2();
 
-  // ── User data from sessionStorage ──
-  const userName = typeof window !== 'undefined'
-    ? sessionStorage.getItem('onboarding_personal_name') || ''
-    : '';
-  const gender = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_personal_gender') || 'male') as 'male' | 'female'
-    : 'male' as const;
+  // ── User data: sessionStorage (legacy); enable_jit_identity_v1 → the profile
+  // store first (the JIT identity step saves it), sessionStorage as fallback ──
+  const useProfileIdentity = useJitIdentityV1();
+  const profileCore = useUserStore((st) => st.profile?.core);
+  const { userName, gender } = resolveSignerIdentity({
+    useProfile: useProfileIdentity,
+    profileCore,
+    sessionName: typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_name') : null,
+    sessionGender: typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_gender') : null,
+  });
   const isFemale = gender === 'female';
 
   // ── Direction (i18n-ready — swap for a prop/context in a future i18n pass) ──

@@ -62,12 +62,18 @@ export async function POST(request: NextRequest) {
 
     // ── Body ──────────────────────────────────────────────────────────────
     const body = await request.json();
-    const { name, gender, birthDay, birthMonth, birthYear } = body as {
+    const { name, gender, birthDay, birthMonth, birthYear, keepOnboardingState } = body as {
       name: string;
       gender: 'male' | 'female' | 'other';
       birthDay: number;
       birthMonth: number;
       birthYear: number;
+      /**
+       * Sent only by the JIT workout-start gate (enable_jit_identity_v1): the
+       * user is collecting identity before the health declaration, not starting
+       * onboarding — a MAP_ONLY (quick signup) user must stay MAP_ONLY.
+       */
+      keepOnboardingState?: boolean;
     };
 
     if (!name?.trim() || !gender || !birthDay || !birthMonth || !birthYear) {
@@ -130,7 +136,7 @@ export async function POST(request: NextRequest) {
     // being silently reset to IN_PROGRESS for a returning user was part of
     // the original bug this endpoint had.
     const scaffoldUpdate: Record<string, unknown> = {};
-    if (isFirstIdentitySubmission) {
+    if (isFirstIdentitySubmission && keepOnboardingState !== true) {
       scaffoldUpdate.onboardingPath = 'FULL_PROGRAM';
       scaffoldUpdate.onboardingStatus = 'IN_PROGRESS';
       scaffoldUpdate.onboardingStep = 'IDENTITY';

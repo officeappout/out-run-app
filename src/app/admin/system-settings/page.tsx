@@ -66,6 +66,7 @@ interface FlagState {
   enable_generation_review: boolean;
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
+  enable_jit_identity_v1: boolean;
 }
 
 // ============================================================================
@@ -435,6 +436,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-sky-600',
     title: 'קוד גישה מהארגון לעובדי משרד',
     description: 'כשמשתמש בוחר "עובד משרד / עובדת משרד" במסך "שנכיר?", נפתח חלון "יש לך קוד גישה מהארגון?" (לא חובה, אפשר לדלג). קוד תקין מצרף אותו לארגון ופותח את לשונית הליגה של החברה. מיועד ללקוחות B2B. כבוי = הפרסונה פשוט נבחרת, בלי חלון קוד (עד היום החלון הופיע לכל המשתמשים).',
+  },
+  // JIT identity before the health declaration (20.10.2026).
+  {
+    key: 'enable_jit_identity_v1',
+    icon: ShieldAlert,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-500',
+    title: 'פרטים לפני הצהרת הבריאות',
+    description: 'משתמש בלי שם (הרשמה מהירה) ממלא שם, פנייה ותאריך לידה לפני ההצהרה, כדי שההצהרה תיחתם על שמו.',
   },
 ];
 

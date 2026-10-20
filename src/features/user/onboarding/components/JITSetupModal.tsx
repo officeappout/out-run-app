@@ -10,7 +10,7 @@
  *   - Brand Cyan primary button
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Heart } from 'lucide-react';
@@ -34,6 +34,8 @@ function RingsIcon({ className }: { className?: string }) {
 }
 import type { MissingRequirement } from '../hooks/useRequiredSetup';
 import HealthDeclarationStep from './HealthDeclarationStep';
+import IdentityProfileScreen from './IdentityProfileScreen';
+import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 interface JITSetupModalProps {
   isOpen: boolean;
@@ -84,14 +86,51 @@ export function JITSetupModal({
 }: JITSetupModalProps) {
   const router = useRouter();
   const [showInlineStep, setShowInlineStep] = useState(false);
+  // enable_jit_identity_v1: the identity step (only ever present in
+  // `requirements` with the flag on) was saved during this opening.
+  const [identitySaved, setIdentitySaved] = useState(false);
   const v2 = useOnboardingV2();
   const isFemale = useUserStore((st) => st.profile?.core?.gender === 'female');
+
+  useEffect(() => {
+    if (!isOpen) setIdentitySaved(false);
+  }, [isOpen]);
 
   if (!isOpen || requirements.length === 0) return null;
 
   const hasHardBlock = requirements.some((r) => r.isHardBlock);
   const firstHardBlock = requirements.find((r) => r.isHardBlock);
   const primaryReq = firstHardBlock || requirements[0];
+
+  // ── Inline identity screen (enable_jit_identity_v1) ──
+  // The existing /onboarding-new/profile screen, rendered here so the gate's
+  // onComplete (the original workout start) is kept. Opens straight away — its
+  // own Kelly line says what comes next; back closes the gate (onCancel).
+  // After saving: the health declaration (signed with the saved name), or the
+  // workout if the declaration is somehow already accepted.
+  if (primaryReq.step === 'IDENTITY' && !identitySaved && !showInlineStep) {
+    return (
+      // Same layer as the inline health declaration below (z-[140]). The screen's
+      // header pads the top inset itself; the bottom inset is padded here (the
+      // route version gets it from <main>).
+      <div
+        className="fixed inset-0 z-[140] flex flex-col bg-white"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <IdentityProfileScreen
+          context="workout"
+          onWorkoutBack={onCancel}
+          onWorkoutIdentitySaved={() => {
+            setIdentitySaved(true);
+            const live = useUserStore.getState().profile;
+            const needsHealth = requirements.some((r) => r.id === 'health') && !hasAcceptedHealthDeclaration(live);
+            if (needsHealth) setShowInlineStep(true);
+            else onComplete?.();
+          }}
+        />
+      </div>
+    );
+  }
 
   const handleCompleteNow = () => {
     if (primaryReq.step === 'HEALTH_DECLARATION') {

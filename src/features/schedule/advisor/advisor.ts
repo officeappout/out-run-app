@@ -268,7 +268,7 @@ export function resolveTodayMode(input: AdvisorInput, planned: PlannedWithStatus
 export function adviseToday(input: AdvisorInput): TodayAdvice {
   const today = input.todayKey;
   const windowKeys = keysBetween(addDaysToKey(today, -13), addDaysToKey(today, 1));
-  const planned = detectMissed(materializePlanned(input.profile, windowKeys, input.scheduleDays, input.resolveSlug), input.workouts, today);
+  const planned = detectMissed(materializePlanned(input.profile, windowKeys, input.scheduleDays, input.resolveSlug, input.runsByType ? { runsByType: true } : {}), input.workouts, today);
   const tomorrow = addDaysToKey(today, 1);
   const yesterday = addDaysToKey(today, -1);
 

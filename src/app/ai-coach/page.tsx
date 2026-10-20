@@ -15,6 +15,7 @@ import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import { starterChipsFor } from '@/features/user/onboarding/services/entry-whatnow';
+import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
 
 export default function AiCoachPage() {
   const router = useRouter();
@@ -32,6 +33,9 @@ export default function AiCoachPage() {
   const round4 = flags.aiCoachRound4 === true;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
   const weatherOn = isWeatherOnFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
+  // enable_home_v2 the way home reads it (live value, or super admin): program run by slot type.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
+  const runsByType = runsByTypeFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
 
   // Entry step 2 (enable_entry_whatnow_v1): /ai-coach?starter=entry opens with ready chips. Only
   // that flag's drawer links here with the param, so without it this is null (unchanged).
@@ -47,7 +51,7 @@ export default function AiCoachPage() {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
   }
 
-  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} starterChips={starterChips} />;
+  if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} runsByType={runsByType} starterChips={starterChips} />;
 
   if (!canUseAi) {
     return (
@@ -61,5 +65,5 @@ export default function AiCoachPage() {
     );
   }
 
-  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} round4={round4} starterChips={starterChips} />;
+  return <AiCoachChat profile={profile} onClose={close} phase2={phase2} weatherOn={weatherOn} memory={memory} round4={round4} runsByType={runsByType} starterChips={starterChips} />;
 }

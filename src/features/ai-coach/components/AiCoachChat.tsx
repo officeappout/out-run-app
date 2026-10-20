@@ -70,6 +70,7 @@ export default function AiCoachChat({
   memory = false,
   round4 = false,
   starterChips = null,
+  runsByType = false,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -92,6 +93,8 @@ export default function AiCoachChat({
    * with, in place of its own quick replies, until the user sends something. null → unchanged.
    */
   starterChips?: readonly string[] | null;
+  /** enable_home_v2 for this user (runsByTypeFor): today's program run by slot type, like home. */
+  runsByType?: boolean;
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
@@ -294,7 +297,7 @@ export default function AiCoachChat({
               {round4 && !mine && m.round4 && (
                 <Round4MessageExtras
                   extras={m.round4}
-                  onOpenAerobic={(card) => void openAerobicCard(card, profile, (href) => router.push(href))}
+                  onOpenAerobic={(card) => void openAerobicCard(card, profile, (href) => router.push(href), runsByType ? { runsByType: true } : {})}
                   onOpenPark={(id) => router.push(parkHref(id))}
                 />
               )}

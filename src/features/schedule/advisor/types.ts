@@ -53,7 +53,7 @@ export interface AdvisorInput {
   resolveSlug?: ResolveSlug;
   /** See WeaverInputOptions.unarrangedStrengthDays (the drawer, behind SCHEDULE_BUILDER_SAVE_V1). */
   unarrangedStrengthDays?: number;
-  /** enable_home_v2, the drawer only (server / Kelly never set it) — see WeaverInputOptions.runsByType. */
+  /** enable_home_v2 (the drawer, and Kelly's server adapter for the user's own flag) — see WeaverInputOptions.runsByType; also places planned / missed runs (planned.ts). */
   runsByType?: boolean;
   /** Device-local per-domain sets this week (useWeeklyVolumeStore). null = unknown (server). */
   weeklyDomainSets?: Record<string, number> | null;
