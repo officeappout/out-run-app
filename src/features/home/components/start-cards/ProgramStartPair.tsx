@@ -6,12 +6,16 @@ import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
 import AddStrengthProgramCard from '@/features/home/components/AddStrengthProgramCard';
 import AddRunningProgramCard from './AddRunningProgramCard';
 import { PROGRAM_START_HINT } from './program-start-copy';
+import type { OnboardingEntryNavigate } from './useOnboardingEntryTap';
+
+/** Home's gate for a track's entry tap — see OnboardingEntryNavigate. */
+export type ProgramTrackNavigate = (track: ProgramTrack, navigate: () => void, cancel: () => void) => void;
 
 interface ProgramStartPairProps {
   order: readonly [ProgramTrack, ProgramTrack];
   profile: UserFullProfile | null | undefined;
   /** Wraps each navigation in home's health gate, per track. */
-  onNavigate?: (track: ProgramTrack, navigate: () => void) => void;
+  onNavigate?: ProgramTrackNavigate;
 }
 
 /**
@@ -21,7 +25,8 @@ interface ProgramStartPairProps {
  * on the right.
  */
 export default function ProgramStartPair({ order, profile, onNavigate }: ProgramStartPairProps) {
-  const nav = (track: ProgramTrack) => (onNavigate ? (navigate: () => void) => onNavigate(track, navigate) : undefined);
+  const nav = (track: ProgramTrack): OnboardingEntryNavigate | undefined =>
+    onNavigate ? (navigate, cancel) => onNavigate(track, navigate, cancel) : undefined;
   return (
     <div className="flex h-full w-full flex-col justify-center" dir="rtl" data-program-start-pair={order.join(',')}>
       <div className="flex items-stretch gap-3">

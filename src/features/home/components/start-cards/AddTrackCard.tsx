@@ -4,14 +4,14 @@ import { Loader2 } from 'lucide-react';
 import type { UserFullProfile } from '@/types/user-profile';
 import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PROGRAM_TRACK_VISUAL } from './ProgramStartCard';
-import { useOnboardingEntryTap } from './useOnboardingEntryTap';
+import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './useOnboardingEntryTap';
 import { ADD_TRACK_CTA, ADD_TRACK_DISMISS, PROGRAM_START_COPY } from './program-start-copy';
 
 interface AddTrackCardProps {
   /** The track the user does NOT have yet. */
   track: ProgramTrack;
   profile: UserFullProfile | null | undefined;
-  onNavigate?: (navigate: () => void) => void;
+  onNavigate?: OnboardingEntryNavigate;
   /** "לא עכשיו" — the caller hides the card (14 days, local). */
   onDismiss: () => void;
 }

@@ -4,11 +4,12 @@ import type { UserFullProfile } from '@/types/user-profile';
 import type { ProgramSlidePlan, ProgramTrack } from '@/features/home/utils/program-start-cards';
 import ProgramStartPair from './ProgramStartPair';
 import AddTrackCard from './AddTrackCard';
+import type { ProgramTrackNavigate } from './ProgramStartPair';
 
 export interface HomeProgramSlideProps {
   plan: ProgramSlidePlan;
   profile: UserFullProfile | null | undefined;
-  onNavigate?: (track: ProgramTrack, navigate: () => void) => void;
+  onNavigate?: ProgramTrackNavigate;
   onDismissAdd: (track: ProgramTrack) => void;
 }
 
@@ -23,7 +24,7 @@ export default function HomeProgramSlide({ plan, profile, onNavigate, onDismissA
       <AddTrackCard
         track={track}
         profile={profile}
-        onNavigate={onNavigate ? (navigate) => onNavigate(track, navigate) : undefined}
+        onNavigate={onNavigate ? (navigate, cancel) => onNavigate(track, navigate, cancel) : undefined}
         onDismiss={() => onDismissAdd(track)}
       />
     );
