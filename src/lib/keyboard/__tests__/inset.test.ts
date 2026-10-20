@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  insetChangeNeedsReveal,
   MIN_KEYBOARD_INSET_PX,
   computeRevealDelta,
   opensKeyboard,
@@ -108,5 +109,25 @@ describe('opensKeyboard', () => {
     expect(opensKeyboard('button', null, false)).toBe(false);
     expect(opensKeyboard('input', 'text', false, true)).toBe(false);
     expect(opensKeyboard('div', null, false)).toBe(false);
+  });
+});
+
+describe('insetChangeNeedsReveal', () => {
+  it('reveals when the keyboard opens', () => {
+    expect(insetChangeNeedsReveal(0, 336)).toBe(true);
+  });
+  it('reveals when an open keyboard grows (number pad → text keyboard, year → name)', () => {
+    expect(insetChangeNeedsReveal(260, 336)).toBe(true);
+  });
+  it('does not move anything when the keyboard shrinks, closes or stays the same', () => {
+    expect(insetChangeNeedsReveal(336, 260)).toBe(false);
+    expect(insetChangeNeedsReveal(336, 0)).toBe(false);
+    expect(insetChangeNeedsReveal(336, 336)).toBe(false);
+    expect(insetChangeNeedsReveal(0, 0)).toBe(false);
+  });
+  it('treats non-finite / negative input as closed', () => {
+    expect(insetChangeNeedsReveal(Number.NaN, 300)).toBe(true);
+    expect(insetChangeNeedsReveal(-20, 0)).toBe(false);
+    expect(insetChangeNeedsReveal(300, Number.POSITIVE_INFINITY)).toBe(false);
   });
 });

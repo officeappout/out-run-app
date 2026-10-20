@@ -109,3 +109,17 @@ export function opensKeyboard(tagName: string, type: string | null, isContentEdi
   if (tag !== 'INPUT') return false;
   return !NON_TEXT_INPUT_TYPES.has((type ?? 'text').toLowerCase());
 }
+
+/**
+ * Whether a change of the keyboard inset should re-reveal the focused field
+ * once the keyboard settles. True when the keyboard opens AND when an already
+ * open keyboard grows — e.g. the birth-year field (iOS number pad) auto-
+ * advancing to the name field (taller text keyboard + QuickType bar): the
+ * focus-time reveal ran against the shorter pad, so the name field would end
+ * up under the taller keyboard. Shrinking / closing never moves anything.
+ */
+export function insetChangeNeedsReveal(prevInset: number, nextInset: number): boolean {
+  const prev = Math.max(0, finite(prevInset));
+  const next = Math.max(0, finite(nextInset));
+  return next > 0 && next > prev;
+}
