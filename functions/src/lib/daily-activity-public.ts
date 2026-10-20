@@ -2,6 +2,7 @@
  * dailyActivityPublic mirror rows — pure helpers for dailyActivityPublicSync
  * (no Firebase), so the "skip unchanged writes" rule is unit-tested.
  */
+import { isDemoUid } from './demo';
 
 export interface PublicStepsRow {
   uid: string;
@@ -12,7 +13,13 @@ export interface PublicStepsRow {
   ageGroup: 'minor' | 'adult';
 }
 
-/** The public row for one dailyActivity doc, or null when it must not be mirrored (no uid / no authorityId yet). */
+/**
+ * The public row for one dailyActivity doc, or null when it must not be
+ * mirrored (no uid / no authorityId yet / a demo user). Demo users are never
+ * mirrored by this sync: their age would otherwise fail closed to 'minor' and
+ * put them on the minors' board (demo-users-design.md §1.2) — the demo
+ * simulator writes its own rows with ageGroup:'demo'.
+ */
 export function publicRowOf(
   data: Record<string, unknown>,
   date: string,
@@ -20,7 +27,7 @@ export function publicRowOf(
 ): PublicStepsRow | null {
   const uid = typeof data.userId === 'string' ? data.userId : '';
   const authorityId = typeof data.authorityId === 'string' ? data.authorityId : '';
-  if (!uid || !authorityId) return null;
+  if (!uid || !authorityId || isDemoUid(uid)) return null;
   return {
     uid,
     displayName: typeof data.displayName === 'string' ? data.displayName : '???',

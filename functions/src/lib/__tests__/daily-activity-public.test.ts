@@ -16,6 +16,10 @@ describe('publicRowOf', () => {
     expect(publicRowOf({ authorityId: 'a1', steps: 5 }, D, 'adult')).toBeNull();
     expect(publicRowOf({ userId: 'u1', steps: 5 }, D, 'adult')).toBeNull();
   });
+  it('demo world guard: a demo user is never mirrored — would otherwise fail closed onto the minors\' board', () => {
+    expect(publicRowOf({ userId: 'demo_c01', authorityId: 'demo-city', steps: 8000 }, D, undefined)).toBeNull();
+    expect(publicRowOf({ userId: 'demo_c01', authorityId: 'demo-city', steps: 8000 }, D, 'adult')).toBeNull();
+  });
 });
 
 describe('publicRowUnchanged', () => {

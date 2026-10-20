@@ -20,6 +20,7 @@
  */
 import type { firestore } from 'firebase-admin';
 import { periodKeysFor, scopeTargetsFor, statsDocId, type LeagueWindow } from './league-scope-stats';
+import { isDemoUid } from './demo';
 
 export const REFERRAL_BONUS = 50;
 export const MAX_BONUSES_PER_WEEK = 5;
@@ -39,6 +40,9 @@ export async function applyReferralBonus(
   const invitee: string = typeof data.inviteeUid === 'string' ? data.inviteeUid : '';
   if (!referrer || !invitee) return 'no-user';
   if (referrer === invitee) return 'self';
+  // Demo world guard (20.10.2026): a demo referrer or invitee never earns a
+  // league bonus — simulated sign-ups must not lift a real city's board.
+  if (isDemoUid(referrer) || isDemoUid(invitee)) return 'no-user';
 
   const userRef = db.collection('users').doc(referrer);
   const u = (await userRef.get()).data();

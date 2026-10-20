@@ -141,6 +141,7 @@ import {
   type ReminderRecipient,
 } from './trainingReminderScheduler';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
+import { isDemoUid } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -237,6 +238,7 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
       { pageSize: BATCH_LIMIT, maxPages: MAX_PAGES },
       (pageDocs) => {
         for (const d of pageDocs) {
+          if (isDemoUid(d.id)) continue; // demo world guard — no claim, no push
           const data = d.data() as Record<string, unknown>;
           matchedUids.push(d.id);
           recipientByUid.set(d.id, { uid: d.id, firstName: firstNameFromUserData(data), audience: audienceFromUserData(data) });
@@ -377,7 +379,7 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
             entries?: Array<{ entryId?: string; type?: string; completed?: boolean; scheduledCategories?: string[]; startTime?: string }>;
           };
           const uid = data.userId;
-          if (!uid) continue;
+          if (!uid || isDemoUid(uid)) continue; // demo world guard
           const entries = Array.isArray(data.entries) ? data.entries : [];
           for (const e of entries) {
             if (e.type !== 'training' || e.completed === true || !e.startTime || !e.entryId) continue;

@@ -52,6 +52,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isDemoUser } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -89,6 +90,14 @@ export const userPublicSync = onDocumentWritten('users/{uid}', async (event) => 
 
   const before = event.data?.before?.exists ? event.data.before.data() : undefined;
   const afterCore = (after.core ?? {}) as Record<string, unknown>;
+
+  // Demo world guard (demo-users-design.md L2/L3): a demo user is never in
+  // the public user search, whatever core.discoverable says.
+  if (isDemoUser(uid, afterCore)) {
+    await publicRef.delete().catch(() => {});
+    return;
+  }
+
   const beforeCore = (before?.core ?? {}) as Record<string, unknown>;
 
   // Default-to-discoverable (chrome polish follow-up, display-default-only

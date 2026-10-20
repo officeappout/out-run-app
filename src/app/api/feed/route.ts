@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { canSeePost, feedPostJson, type AuthorConnections } from '@/features/social/services/feed-visibility';
+import { isDemoUid } from '@/lib/demo';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,13 @@ export async function GET(req: NextRequest) {
 
   let authors: string[];
   if (author) {
+    // Demo world guard (demo-users-design.md L2): a demo user's posts reach
+    // only someone who follows them (the owner's viewer accounts) — demo users
+    // aren't discoverable, so no real user ever follows one.
+    if (isDemoUid(author) && author !== viewer) {
+      const mine = (await db.collection('connections').doc(viewer).get()).data() as AuthorConnections | undefined;
+      if (!(mine?.following ?? []).includes(author)) return NextResponse.json({ posts: [] });
+    }
     authors = [author];
   } else {
     const mine = (await db.collection('connections').doc(viewer).get()).data() as AuthorConnections | undefined;

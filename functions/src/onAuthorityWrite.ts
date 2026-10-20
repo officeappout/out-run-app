@@ -21,6 +21,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isDemoTenant } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -117,7 +118,9 @@ export const onAuthorityWrite = onDocumentWritten(
     const data = event.data!.after.data() as Record<string, unknown>;
     const name = typeof data.name === 'string' ? data.name.trim() : '';
 
-    if (!isMilitaryAuthority(data) || !name) {
+    // Demo world guard (demo-users-design.md L4): a demo brigade/authority is
+    // never published to the public unit search (unitDirectory).
+    if (!isMilitaryAuthority(data) || !name || isDemoTenant(data, authorityId)) {
       // Not military, or reclassified/renamed to blank — remove any
       // stale entry rather than leave a wrong one behind.
       await db.collection('unitDirectory').doc(authorityId).delete().catch(() => {});

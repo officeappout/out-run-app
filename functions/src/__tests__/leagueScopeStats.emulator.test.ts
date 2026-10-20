@@ -76,6 +76,23 @@ describe('applyWorkoutToLeagueStats', () => {
     expect(hood.totalCredit).toBe(20);
   });
 
+  it('demo world guard (20.10.2026): a demo user counts toward demo scopes only — never a real city, neighborhood or group', async () => {
+    // Mis-pointed on purpose: real city / neighborhood / group next to the demo ones.
+    await db.doc('users/demo_c1').set({
+      core: { authorityId: 'tlv', neighborhoodId: 'n1', gender: 'female' },
+      social: { groupIds: ['g1', 'demo-grp-walk'] },
+    });
+    expect(await applyWorkoutToLeagueStats(db, ts, 'wd1', { userId: 'demo_c1', category: 'strength', duration: 1800, date: FRI })).toBe('applied');
+    expect((await db.doc(`league_scope_stats/${week('city', 'tlv')}`).get()).exists).toBe(false);
+    expect((await db.doc(`league_scope_stats/${week('neighborhood', 'n1')}`).get()).exists).toBe(false);
+    expect((await db.doc(`league_scope_stats/${week('group', 'g1')}`).get()).exists).toBe(false);
+    expect((await db.doc(`league_scope_stats/${week('group', 'demo-grp-walk')}`).get()).data()?.totalCredit).toBe(60);
+
+    // A demo user whose only scopes are real → no scope at all.
+    await db.doc('users/demo_c2').set({ core: { authorityId: 'tlv' }, social: { groupIds: ['g1'] } });
+    expect(await applyWorkoutToLeagueStats(db, ts, 'wd2', { userId: 'demo_c2', category: 'strength', duration: 1800, date: FRI })).toBe('no-scope');
+  });
+
   it('skips a zero-length workout and a user with no scopes', async () => {
     await db.doc('users/u3').set({ core: {} });
     expect(await applyWorkoutToLeagueStats(db, ts, 'w4', { userId: 'u1', category: 'strength', duration: 10, date: FRI })).toBe('no-credit');

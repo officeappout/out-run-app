@@ -19,6 +19,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { isDemoTenant } from './lib/demo';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -78,7 +79,12 @@ export const onUnitWrite = onDocumentWritten(
     const directoryId = directoryIdForUnit(tenantId, unitId);
     const afterExists = event.data?.after?.exists ?? false;
 
-    if (!afterExists) {
+    // Demo world guard (demo-users-design.md L4): a demo unit never enters
+    // the public unit search (unitDirectory) — and a stale entry is removed.
+    const tenantIsDemo =
+      isDemoTenant(tenantDoc.exists ? (tenantDoc.data() as { isDemo?: unknown }) : null, tenantId) ||
+      isDemoTenant(authDoc.exists ? (authDoc.data() as { isDemo?: unknown }) : null);
+    if (!afterExists || tenantIsDemo) {
       await db.collection('unitDirectory').doc(directoryId).delete().catch(() => {
         // Already absent — fine, deletes are idempotent here.
       });

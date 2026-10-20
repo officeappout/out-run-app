@@ -309,6 +309,12 @@ export const FLAG_DEFS = [
   // gendered copy. onboardingPath / onboardingStatus are left untouched. Fail-closed; super admins
   // preview it. Off = today's JIT gate (health declaration only), byte-identical.
   { key: 'enableJitIdentityV1', firestoreKey: 'enable_jit_identity_v1', defaultValue: false, superAdminValue: true },
+  // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
+  // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
+  // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
+  // OFF and superAdminValue FALSE on purpose: a super admin must never switch the demo world
+  // on just by opening the app — only the explicit toggle in system settings does.
+  { key: 'enableDemoUsers', firestoreKey: 'enable_demo_users', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
