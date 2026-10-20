@@ -1035,7 +1035,7 @@ export default function VisualAssessmentPage() {
       router.push(strengthResultNextRoute({
         v2,
         hasRunningTrack: hasRunningTrack(latestProfile),
-        healthAccepted: hasAcceptedHealthDeclaration(latestProfile as any),
+        healthAccepted: hasAcceptedHealthDeclaration(latestProfile as Parameters<typeof hasAcceptedHealthDeclaration>[0]),
       }));
     } catch (err) {
       console.error('[Assessment] Save error:', err);
