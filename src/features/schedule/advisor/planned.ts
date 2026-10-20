@@ -239,9 +239,14 @@ export function workoutMatchesKind(w: AdvisorWorkout, kind: PlannedKind): boolea
  *   today     — today's entry, not done yet
  *   missed    — a past entry with no matching workout
  *   upcoming  — after today
+ * A planned walk on a day with a logged run is dropped (the day became a run).
  */
 export function detectMissed(planned: PlannedEntry[], workouts: AdvisorWorkout[], todayKey: string): PlannedWithStatus[] {
-  return planned.map((p) => {
+  // Owner (PR #536): a run logged on a day with a planned walk makes that day a run — the
+  // walk is dropped for that date (not done, not missed, never a make-up). Only a run does
+  // this; strength / other leave the walk as is, hybrid still completes it.
+  const ranOn = new Set(workouts.filter((w) => w.kind === 'run').map((w) => w.date));
+  return planned.filter((p) => !(p.kind === 'walk' && ranOn.has(p.date))).map((p) => {
     const done = p.completedAtSource || workouts.some((w) => w.date === p.date && workoutMatchesKind(w, p.kind));
     const status = done ? 'done' : p.date === todayKey ? 'today' : p.date < todayKey ? 'missed' : 'upcoming';
     return { ...p, status };

@@ -83,6 +83,8 @@ export interface TodayToolResult {
    * name ("הליכה של 30 דקות"). Absent otherwise — never a run, never a run make-up.
    */
   walk?: { name: string | null };
+  /** Strength recommended and a planned walk is also on today: its Hebrew name (secondary). */
+  alsoWalk?: { name: string | null };
   doneToday: TodayAdvice['doneToday'];
   reasons: string[];
   text: string[];
@@ -98,6 +100,10 @@ export function todayToolResult(advice: TodayAdvice, allowedDomains: readonly st
     advice.recommendation === 'walk'
       ? advice.today.find((t) => t.kind === 'walk' && t.status !== 'done') ?? (advice.makeup?.kind === 'walk' ? advice.makeup : null)
       : null;
+  const alsoWalk =
+    advice.reasons.some((r) => r.code === 'WALK_ALSO_TODAY')
+      ? advice.today.find((t) => t.kind === 'walk' && t.status !== 'done') ?? null
+      : null;
   return {
     proposalOnly: true,
     mode: advice.mode,
@@ -109,6 +115,7 @@ export function todayToolResult(advice: TodayAdvice, allowedDomains: readonly st
         ? { name: plannedRun?.runName ?? null, kind: plannedRun?.runDay ? RUN_KIND_HE({ ...plannedRun.runDay, category: plannedRun.runDay.category!, programId: null }) : null }
         : null,
     ...(plannedWalk ? { walk: { name: plannedWalk.runName } } : {}),
+    ...(alsoWalk ? { alsoWalk: { name: alsoWalk.runName } } : {}),
     doneToday: advice.doneToday,
     reasons: advice.reasons.map((r) => r.code),
     text: advice.notes,

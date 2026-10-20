@@ -45,6 +45,8 @@ export type ScheduleReason =
   | { code: 'TODAY_DONE'; kind: TodaySessionKind }
   | { code: 'TODAY_PLANNED'; kind: TodaySessionKind }
   | { code: 'MAKEUP_MISSED'; kind: TodaySessionKind; day: number }
+  // Strength is recommended and a planned walk is also on today (secondary mention).
+  | { code: 'WALK_ALSO_TODAY' }
   | { code: 'KEY_RUN_TOMORROW'; run: KeyRun }
   | { code: 'HARD_DAY_YESTERDAY' }
   | { code: 'WHO_STRENGTH_GAP'; done: number; target: number }
@@ -62,6 +64,7 @@ export const SCHEDULE_REASON_RANK: readonly ScheduleReasonCode[] = [
   'WELCOME_BACK',
   'MAKEUP_MISSED',
   'TODAY_PLANNED',
+  'WALK_ALSO_TODAY',
   'KEY_RUN_TOMORROW',
   'HARD_DAY_YESTERDAY',
   'REST_DAY',
@@ -160,6 +163,8 @@ export function renderScheduleReasonHe(r: ScheduleReason): string {
       return `היום מתוכנן ${r.kind === 'strength' ? 'אימון כוח' : 'אימון ריצה'}.`;
     case 'MAKEUP_MISSED':
       return `אפשר להשלים היום את ${r.kind === 'strength' ? 'אימון הכוח' : r.kind === 'walk' ? 'ההליכה' : 'הריצה'} של ${dayHe(r.day)}.`;
+    case 'WALK_ALSO_TODAY':
+      return 'וגם הליכה מתוכננת היום.';
     case 'KEY_RUN_TOMORROW':
       return r.run === 'long'
         ? 'מחר הריצה הארוכה, אז היום בלי אימון רגליים.'

@@ -374,6 +374,9 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
   }
   const strengthToday = todays.find((p) => p.kind === 'strength' && p.status !== 'done');
   const runToday = todays.find((p) => p.kind === 'run' && p.status !== 'done');
+  // Strength wins the day; a planned walk alongside it gets a short secondary mention.
+  const walkAlsoToday = !!strengthToday && todays.some((p) => p.kind === 'walk' && p.status !== 'done');
+  if (walkAlsoToday) reasons.push({ code: 'WALK_ALSO_TODAY' });
 
   if (strengthToday && runToday) {
     reasons.push({ code: 'TODAY_PLANNED', kind: 'strength' }, { code: 'TODAY_PLANNED', kind: 'run' });

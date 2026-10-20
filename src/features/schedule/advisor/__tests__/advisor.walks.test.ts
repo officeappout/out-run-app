@@ -100,10 +100,21 @@ describe('detectMissed — walks', () => {
     expect(detectMissed(planned(), [w(WED, 'walk', 30)], THU)[0].status).toBe('done');
   });
 
-  it('a run or strength workout does not complete a walk; no walk → missed', () => {
-    expect(detectMissed(planned(), [w(WED, 'run')], THU)[0].status).toBe('missed');
+  it('a strength workout does not complete a walk; no walk → missed', () => {
     expect(detectMissed(planned(), [w(WED, 'strength')], THU)[0].status).toBe('missed');
+    expect(detectMissed(planned(), [w(WED, 'other')], THU)[0].status).toBe('missed');
     expect(detectMissed(planned(), [], THU)[0].status).toBe('missed');
+  });
+
+  it('a hybrid workout still completes the walk', () => {
+    expect(detectMissed(planned(), [w(WED, 'hybrid')], THU)[0].status).toBe('done');
+  });
+
+  it('a run logged that day replaces the walk: dropped — not done, not missed', () => {
+    expect(detectMissed(planned(), [w(WED, 'run')], THU)).toEqual([]);
+    expect(detectMissed(planned(), [w(WED, 'run'), w(WED, 'hybrid')], THU)).toEqual([]);
+    // A run on another day does not touch it.
+    expect(detectMissed(planned(), [w(TUE, 'run')], THU)[0].status).toBe('missed');
   });
 });
 
@@ -159,10 +170,49 @@ describe('adviseToday — walks', () => {
     expect(walkingOf(sheet(undefined)).completed).toBeFalsy();
   });
 
+  it('a run on the walk day: no walk make-up, the run counts as a run', () => {
+    const advice = adviseToday(input(walker(), { workouts: [w(TUE, 'walk', 30), w(WED, 'run', 30)], scheduleDays: days({ [WED]: [walkEntry(WED)] }) }));
+    expect(advice.makeup).toBeNull();
+    expect(advice.mode).toBe('on_track');
+    expect(advice.reasons.some((r) => r.code === 'MAKEUP_MISSED')).toBe(false);
+    expect(advice.weeklyLoad.aerobicModerateMin).toBeGreaterThan(30);
+  });
+
+  it("a run today on today's walk: the walk is gone, no walk key", () => {
+    const advice = adviseToday(input(walker(), { workouts: [w(WED, 'walk', 30), w(THU, 'run', 30)], scheduleDays: days({ [THU]: [walkEntry(THU)] }) }));
+    expect(advice.today).toEqual([]);
+    expect(Object.prototype.hasOwnProperty.call(advice.doneToday, 'walk')).toBe(false);
+    expect(advice.doneToday.run).toBe(true);
+    expect(advice.recommendation).not.toBe('walk');
+  });
+
+  it('strength + a planned walk today: strength recommended, the walk mentioned second (and passed to Kelly)', () => {
+    // Thursday is a legs day in the hybrid template.
+    const advice = adviseToday(
+      input(hybrid(), {
+        workouts: [w('2026-10-11', 'strength'), w('2026-10-12', 'run'), w(TUE, 'strength'), w(WED, 'run')],
+        scheduleDays: days({ [THU]: [{ type: 'training', source: 'manual', programIds: ['legs'], scheduledCategories: ['strength'] }, walkEntry(THU)] }),
+      }),
+    );
+    expect(advice.recommendation).toBe('strength');
+    expect(advice.reasons).toContainEqual({ code: 'WALK_ALSO_TODAY' });
+    const iPlanned = advice.notes.findIndex((n) => n === 'היום מתוכנן אימון כוח.');
+    const iWalk = advice.notes.indexOf('וגם הליכה מתוכננת היום.');
+    expect(iPlanned).toBeGreaterThanOrEqual(0);
+    expect(iWalk).toBeGreaterThan(iPlanned);
+    const tool = todayToolResult(advice, ['push', 'pull', 'legs', 'core']);
+    expect(tool.reasons).toContain('WALK_ALSO_TODAY');
+    expect(tool.text).toContain('וגם הליכה מתוכננת היום.');
+    expect(tool.alsoWalk).toEqual({ name: 'הליכה של 30 דקות' });
+    expect(tool.walk).toBeUndefined();
+  });
+
   it('profiles without walk entries: no walk key, same shape as before', () => {
     const advice = adviseToday(input(hybrid(), { workouts: [w('2026-10-11', 'strength'), w('2026-10-12', 'run'), w(TUE, 'strength'), w(WED, 'run')] }));
     expect(Object.prototype.hasOwnProperty.call(advice.doneToday, 'walk')).toBe(false);
     expect(advice.today.every((t) => !Object.prototype.hasOwnProperty.call(t, 'walkGoal'))).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(todayToolResult(advice, []), 'walk')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(todayToolResult(advice, []), 'alsoWalk')).toBe(false);
+    expect(advice.reasons.some((r) => r.code === 'WALK_ALSO_TODAY')).toBe(false);
   });
 });
