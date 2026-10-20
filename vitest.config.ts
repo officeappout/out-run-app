@@ -77,6 +77,8 @@ export default defineConfig({
       'functions/src/**/__tests__/**/*.test.ts',
       // CI tooling — the tsc baseline gate's normalizer + compare mode (17.10.2026).
       'scripts/ci/__tests__/**/*.test.ts',
+      // Demo world scripts (seed / purge / add-viewer) — pure units + one emulator suite (:8089).
+      'scripts/demo/__tests__/**/*.test.ts',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain
