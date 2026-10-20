@@ -160,12 +160,12 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
           finger: true,
           allowCentered: true,
         },
-        { target: FIRST_RUN_COACH.routeStart, text: 'מוכנים? לוחצים התחל. נבקש 3 פרטים והצהרת בריאות, רק בפעם הראשונה.', ring: true },
+        { target: FIRST_RUN_COACH.routeStart, text: 'מוכנים? לוחצים כאן ויוצאים. באימון הראשון נבקש 3 פרטים והצהרת בריאות קצרה.', ring: true },
       ];
     // enable_entry_whatnow_v1 (design R6): one tip the first time the route player runs.
     case 'route-player':
       return [
-        { target: FIRST_RUN_COACH.routePlayerControls, text: 'לחיצה ארוכה על השהיה או סיום, כדי שלא ייגמר בטעות בכיס.' },
+        { target: FIRST_RUN_COACH.routePlayerControls, text: 'לסיום האימון לוחצים לחיצה ארוכה, כדי שלא ייגמר בטעות בכיס.' },
       ];
     default:
       return [];
