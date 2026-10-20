@@ -2098,7 +2098,7 @@ function applyIntensitySafetyValve(
  * Drop lowest-priority (highest number) slots when canonical frequency exceeds slot count.
  * Returns slots sorted by priority (lowest number = most important = kept first).
  */
-function resolveActiveSlots(slots: WeekSlot[], userFrequency: number): WeekSlot[] {
+export function resolveActiveSlots(slots: WeekSlot[], userFrequency: number): WeekSlot[] {
   const sorted = [...slots].sort((a, b) => a.priority - b.priority);
   const requiredSlots = sorted.filter((s) => s.required);
   const optionalSlots = sorted.filter((s) => !s.required);

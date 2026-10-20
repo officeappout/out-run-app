@@ -11,7 +11,7 @@ import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardi
 import OnboardingLayout from '@/features/user/onboarding/components/OnboardingLayout';
 import { STRENGTH_PHASES, RUNNING_PHASES } from '@/features/user/onboarding/constants/onboarding-phases';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
-import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
+import { isHealthDeclarationSatisfied } from '@/lib/health-declaration';
 import { isMiniAssessmentActive, consumeMiniAssessmentState } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { createSkipAttemptGuard } from '@/features/user/onboarding/utils/skip-attempt-guard';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
@@ -49,7 +49,12 @@ export default function HealthDeclarationPage() {
   // for a user who'd already accepted it via strength). Same pattern
   // already used by NextRunWorkoutCard.tsx / home/page.tsx for this exact
   // class of race.
-  const alreadyAccepted = !!profile && hasAcceptedHealthDeclaration(profile as any);
+  //
+  // 20.10.2026 — also true when the declaration was signed earlier in THIS
+  // session (JIT on home → running signup): the onboarding store holds the
+  // flag immediately, before the debounced Firestore sync / any profile
+  // refresh. The declaration must never be filled twice.
+  const alreadyAccepted = isHealthDeclarationSatisfied(profile, onboardingData);
 
   useEffect(() => {
     setMounted(true);
@@ -251,6 +256,19 @@ export default function HealthDeclarationPage() {
     return true;
   };
 
+  // Manual submit on THIS page: signing flips alreadyAccepted to true (the
+  // in-memory profile + onboarding store are marked synchronously), which
+  // would otherwise fire the auto-skip effect too and run handleContinue —
+  // the COMPLETED sync + navigation — a second time. Claim the skip guard
+  // first; if the continue fails, surface the retry screen (the signature is
+  // already saved, so retry just continues without re-asking).
+  const handleManualContinue = (value: boolean): boolean => {
+    skipGuardRef.current.markStarted();
+    const success = handleContinue(value);
+    if (!success) setSkipFailed(true);
+    return success;
+  };
+
   // alreadyAccepted also gates the render (not just the effect above) — the
   // effect only starts the async handleContinue, it doesn't run
   // synchronously with this render, so without this check the real form
@@ -316,7 +334,7 @@ export default function HealthDeclarationPage() {
       <HealthDeclarationStep
         title="הצהרת בריאות"
         description="כדי להתאים לך אימון בטוח, נשמח לדעת על מצבך הרפואי"
-        onContinue={handleContinue}
+        onContinue={handleManualContinue}
       />
     </Suspense>
   );

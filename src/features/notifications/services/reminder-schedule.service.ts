@@ -56,3 +56,19 @@ export async function removeReminderSlot(uid: string, slot: ReminderSlot): Promi
   });
   return remaining;
 }
+
+/**
+ * Adds several reminder slots in ONE read + ONE write (no per-slot round
+ * trips). Slots already present are skipped. Returns the resulting list.
+ */
+export async function addReminderSlots(uid: string, slots: ReminderSlot[]): Promise<ReminderSlot[]> {
+  const current = await getReminderSchedule(uid);
+  const fresh = slots.filter((s) => !current.some((c) => slotsEqual(c, s)));
+  if (fresh.length === 0) return current;
+
+  await updateDoc(doc(db, 'users', uid), {
+    'lifestyle.reminders.schedule': arrayUnion(...fresh),
+    updatedAt: serverTimestamp(),
+  });
+  return [...current, ...fresh];
+}

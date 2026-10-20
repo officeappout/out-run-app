@@ -6,11 +6,12 @@ import { Calendar, RotateCw, Timer, MapPin, Footprints } from 'lucide-react';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import RunningPlanSummaryV2 from '../running-v2/RunningPlanSummaryV2';
-import { useUserStore } from '@/features/user';
-import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
+import { buildSummaryWeek } from '../running-v2/summary/summary-week';
 
 interface RunningPlanSummaryProps {
   onGenerate: () => void;
+  /** enable_home_v2: "שינוי" on the chosen-days tile (back to the days step). */
+  onEditDays?: () => void;
 }
 
 const DIST_LABELS: Record<string, { he: string; km: number }> = {
@@ -59,10 +60,9 @@ function formatTotalTime(totalSeconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryProps) {
+export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPlanSummaryProps) {
   const v2 = useOnboardingV2();
   const { data } = useOnboardingStore();
-  const profile = useUserStore((s) => s.profile);
 
   const summary = useMemo(() => {
     const answers = getRunningAnswers();
@@ -98,30 +98,21 @@ export default function RunningPlanSummary({ onGenerate }: RunningPlanSummaryPro
   }, [data]);
 
   if (v2) {
-    // enable_home_v2 — owner-approved R6 summary (structure only).
+    // enable_home_v2 — R6 hero + journey-2 tiles (jr/J2-10, J2-11).
     const answers = getRunningAnswers();
     const end = new Date();
     end.setDate(end.getDate() + summary.weeks * 7);
-    // "Already has a strength track" — the canonical assessed-strength check,
-    // or strength days the signup default had to schedule around
-    // (scheduleDays = strength ∪ running, see running-schedule-signup-default.ts).
-    const runDays = ((data as any).runningScheduleDays ?? []) as string[];
-    const mergedDays = ((data as any).scheduleDays ?? []) as string[];
-    const hasStrengthTrack =
-      hasAssessedStrengthDomain(profile as any) ||
-      (profile?.lifestyle?.scheduleDays ?? []).some((d: string) => !runDays.includes(d)) ||
-      mergedDays.some((d) => !runDays.includes(d));
+    const week = buildSummaryWeek(answers, data);
     return (
       <RunningPlanSummaryV2
         answers={answers}
         distLabel={summary.distLabel}
         weeks={summary.weeks}
         frequency={summary.frequency}
-        currentResult={summary.paceInputSeconds > 0 ? summary.totalTime : null}
-        endDateShort={end.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}
-        scheduleDays={((data as any).runningScheduleDays ?? []) as string[]}
-        scheduleTime={((data as any).runningScheduleTime ?? null) as string | null}
-        hasStrengthTrack={hasStrengthTrack}
+        endDateShort={end.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+        weekDays={week.days}
+        timesLine={week.timesLine}
+        onEditDays={(data as any).runningScheduleDaysSource === 'user-chosen' ? onEditDays : undefined}
         onGenerate={onGenerate}
       />
     );
