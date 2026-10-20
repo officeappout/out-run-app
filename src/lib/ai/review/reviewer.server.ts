@@ -12,6 +12,11 @@
  *      new messages → turns → deterministic pre-checks → one grader call (AI_MODEL_SMART,
  *      structured JSON) → ai_coach_reviews/{uid}_{reviewId} + ai_coach_review_stats/{day}
  *      increments + the cursor, in one batch
+ *      Demo world, demo_kelly OFF (default / read failure): threads of demo users are never
+ *      graded — `demo_` uids drop from the candidates before any read; a core.demo user (seen
+ *      on the users read above) is skipped like an opt-out (cursor moved, so the thread does
+ *      not hold a slot every morning). demo_kelly ON: graded like anyone else, and each grader
+ *      call for a demo user is counted in demo_registry/usage (demo-kelly.server.ts)
  *   4. stops early on the time budget (the route has 60 s) and reports `remaining`
  *
  * Read-only towards the coach: it never touches ai_coach_threads, prompts or flags.
@@ -36,6 +41,8 @@ import { coachGenderOf, firstNameOf } from '@/lib/ai/coach/persona';
 import { GRADER_SYSTEM_PROMPT, GRADER_SYSTEM_PROMPT_WITH_TOPICS, gradeTurns, type CallGrader } from './grader';
 import { mergeTurnTopics } from './topics';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
+import { isDemoCore, isDemoUid } from '@/lib/demo';
+import { isDemoKellyOn, recordDemoKellyUsage } from '@/lib/ai/demo-kelly.server';
 import { mergeIssues, runPrechecks } from './prechecks';
 import {
   AI_COACH_REVIEWS,
@@ -66,12 +73,18 @@ export interface RunReviewOptions {
   concurrency?: number;
   dryRun?: boolean;
   now?: Date;
+  /** Tests: injected demo_kelly switch (else read from the flag doc; read failure = off). */
+  demoKelly?: boolean;
 }
 
 export interface RunReviewResult {
   day: string;
   reviewed: number;
   skippedOptOut: number;
+  /** demo_kelly off: demo users' threads skipped (uid prefix before any read, or core.demo). */
+  skippedDemo: number;
+  /** demo_kelly on: grader calls made for demo users (counted in demo_registry usage). */
+  demoLlmCalls: number;
   skippedNoNew: number;
   failed: number;
   remaining: boolean;
@@ -128,6 +141,8 @@ export async function runAiCoachReview(
     day,
     reviewed: 0,
     skippedOptOut: 0,
+    skippedDemo: 0,
+    demoLlmCalls: 0,
     skippedNoNew: 0,
     failed: 0,
     remaining: false,
@@ -161,7 +176,10 @@ export async function runAiCoachReview(
     .orderBy('updatedAt', 'asc')
     .limit(AI_REVIEW_MAX_THREADS_PER_RUN * 3)
     .get();
-  const threads = tSnap.docs.map((d) => ({ uid: d.id, updatedAtMs: msOf(d.data()?.updatedAt) }));
+  const allowDemo = opts.demoKelly ?? (await isDemoKellyOn(db));
+  const allThreads = tSnap.docs.map((d) => ({ uid: d.id, updatedAtMs: msOf(d.data()?.updatedAt) }));
+  const threads = allowDemo ? allThreads : allThreads.filter((t) => !isDemoUid(t.uid));
+  result.skippedDemo += allThreads.length - threads.length;
   const cursorSnaps = threads.length
     ? await db.getAll(...threads.map((t) => db.collection(AI_COACH_REVIEW_CURSORS).doc(t.uid)))
     : [];
@@ -182,6 +200,12 @@ export async function runAiCoachReview(
     const cursorRef = db.collection(AI_COACH_REVIEW_CURSORS).doc(uid);
     const userSnap = await db.collection('users').doc(uid).get();
     const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
+    const demo = isDemoUid(uid) || isDemoCore(core);
+    if (demo && !allowDemo) {
+      result.skippedDemo++;
+      if (!opts.dryRun) await cursorRef.set({ reviewedUntil: Timestamp.fromMillis(now.getTime()), demo: true }, { merge: true });
+      return;
+    }
     if (core.aiReviewOptOut === true || core.analyticsOptOut === true) {
       result.skippedOptOut++;
       if (!opts.dryRun) await cursorRef.set({ reviewedUntil: Timestamp.fromMillis(now.getTime()), optedOut: true }, { merge: true });
@@ -223,6 +247,10 @@ export async function runAiCoachReview(
         spent += costUsd;
         result.costUsd += costUsd;
         if (!opts.dryRun) await recordAiUsage(AI_REVIEW_LEDGER_UID, model, usage, { feature: AI_REVIEW_FEATURE, now });
+        if (demo) {
+          result.demoLlmCalls++;
+          if (!opts.dryRun) await recordDemoKellyUsage(db, usage, model, now);
+        }
       }
     }
 

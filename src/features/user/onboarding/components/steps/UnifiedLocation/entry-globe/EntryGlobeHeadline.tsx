@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ENTRY_COPY } from './entry-copy';
+import { EntryLogoSlot } from './EntryLogoSlot';
 
 const ROTATE_MS = 2600;
 
@@ -10,7 +11,7 @@ const ROTATE_MS = 2600;
  * "בשביל / ‹rotating goal› / לא צריך כלום" over the light sky, with the faint
  * grid (masked to fade out downwards) — the website hero's opener.
  */
-export function EntryGlobeHeadline() {
+export function EntryGlobeHeadline({ logoSlot = false }: { logoSlot?: boolean }) {
   const reduce = !!useReducedMotion();
   const goals = ENTRY_COPY.headlineGoals;
   const [idx, setIdx] = useState(0);
@@ -34,6 +35,7 @@ export function EntryGlobeHeadline() {
           maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%, #000 55%, transparent 100%)',
         }}
       />
+      {logoSlot && <EntryLogoSlot />}
       <h1
         className="relative flex flex-col items-center px-5 text-center text-v2-ink"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 11vh)' }}

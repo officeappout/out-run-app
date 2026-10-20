@@ -26,7 +26,7 @@
  * the keyboard has settled.
  */
 
-import { computeRevealDelta, opensKeyboard, resolveKeyboardInset } from './inset';
+import { computeRevealDelta, insetChangeNeedsReveal, opensKeyboard, resolveKeyboardInset } from './inset';
 
 /** Matches the CSS transition on --kb-inset (globals.css) + a small buffer. */
 const KEYBOARD_SETTLE_MS = 320;
@@ -175,10 +175,12 @@ export function installKeyboardInsetController(): () => void {
       visualHeight: vv?.height ?? window.innerHeight,
       visualOffsetTop: vv?.offsetTop ?? 0,
     });
-    const opened = next > 0 && currentInset === 0;
+    // Opened, or grew while open (number pad → text keyboard): reveal again
+    // once the keyboard + --kb-inset transition have settled.
+    const reveal = insetChangeNeedsReveal(currentInset, next);
     publish(next);
     if (next > 0) undoDocumentPan();
-    if (opened) scheduleReveal(KEYBOARD_SETTLE_MS);
+    if (reveal) scheduleReveal(KEYBOARD_SETTLE_MS);
   };
 
   const schedule = () => {
