@@ -91,6 +91,7 @@ import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocation
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
 import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
+import { consumeWalkAutoRoute } from '@/features/schedule/walking/walkHandoff';
 import { logHybridShown } from '@/features/generation-review/capture/hooks';
 import EntryWhatNowMount from './EntryWhatNowMount';
 import { RouteFirstTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
@@ -466,6 +467,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // drawer is pre-filled with it. Kept for the whole free-run visit (the
   // drawer remounts on address/leg round-trips) and dropped when it ends.
   const [scheduledPlannedRun, setScheduledPlannedRun] = useState<PlannedRunSettings | null>(null);
+  // v2 walking track: a planned / short walk opens on the route step (one shot, walkHandoff).
+  const [walkAutoRoute, setWalkAutoRoute] = useState(false);
   const prevMapModeRef = useRef(mapMode);
   useEffect(() => {
     if (prevMapModeRef.current === 'freeRun' && mapMode !== 'freeRun') setScheduledPlannedRun(null);
@@ -504,6 +507,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     // Read-once (also clears a stale/mismatched stash). Only the v2 start
     // action writes it; the drawer prop below is v2-gated as well.
     setScheduledPlannedRun(consumePendingPlannedRun(initialOpenRun));
+    const walkRouteAsked = consumeWalkAutoRoute();
+    if (initialOpenRun === 'walking' && !jumpedToRoute) setWalkAutoRoute(walkRouteAsked);
 
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
@@ -2152,6 +2157,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 // enable_hybrid_cards_v2: "תחנות כוח" only when an equipped park is within reach.
                 enableHybridSlots={mapFeatureFlags.enableHybridSlots && (!hybridCardsV2 || smartHybrid.drawerParkId != null)}
                 initialPlannedRun={mapFeatureFlags.enableHomeV2 ? scheduledPlannedRun : null}
+                autoRoute={mapFeatureFlags.enableHomeV2 && walkAutoRoute}
+                onAutoRouteHandled={() => setWalkAutoRoute(false)}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
                   // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL

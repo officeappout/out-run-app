@@ -45,7 +45,7 @@ describe('home/page.tsx — v2 run card wiring', () => {
   });
 
   it('the run slide never reaches handlePreWorkoutSettle', () => {
-    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\) \|\| isProgramSlideCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
+    expect(pageSrc).toMatch(/if \(isRunPlanCarouselItem\(item\) \|\| isProgramSlideCarouselItem\(item\) \|\| isWalkCarouselItem\(item\)\) return;\s*if \(!isStrengthInviteCarouselItem\(item\)\) handlePreWorkoutSettle\(item\);/);
   });
 
   it('the running-only week strip is gated on the flag', () => {
@@ -63,7 +63,8 @@ describe('home/page.tsx — v2 run card wiring', () => {
   it('v2 program slide (start pair / add card) replaces the strength invite only under the flag', () => {
     expect(pageSrc).toContain('useProgramSlide(profile, hasStrengthProgram, featureFlags.enableHomeV2)');
     expect(pageSrc).toContain('!hasStrengthProgram && !featureFlags.enableHomeV2');
-    expect(pageSrc).toContain('placeProgramSlide(withRun, { id: PROGRAM_SLIDE_ID }, programSlide.plan)');
+    // The walker's walk card (enable_home_v2) is placed between the run card and the program slide.
+    expect(pageSrc).toContain('placeProgramSlide(withWalk, { id: PROGRAM_SLIDE_ID }, programSlide.plan)');
     expect(pageSrc).toMatch(/featureFlags\.enableHomeV2\s*\?\s*placeProgramSlide<[^>]*>\(postWorkoutSuggestions/);
   });
 
