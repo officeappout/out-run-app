@@ -10,6 +10,7 @@ import {
   walkEntryMinutes,
 } from '../walkTopUp';
 import { walkEntryFor } from '../walkSchedule';
+import { readStoredWalkingGoal, topUpCeilingMinutes, walkingGoalToStore } from '../walkingGoal';
 
 // Tuesday 20.10.2026; its week starts Sunday 18.10.
 const today = new Date(2026, 9, 20);
@@ -99,5 +100,48 @@ describe('guards', () => {
     expect(topUpDueToday(null, today)).toBe(true);
     expect(topUpDueToday('2026-10-20', today)).toBe(false);
     expect(topUpDueToday('2026-10-19', today)).toBe(true);
+  });
+});
+
+describe('stored walking goal (lifestyle.walkingGoal) — the top-up ceiling', () => {
+  it('grows past 150 toward the stored target, same ±10% rule', () => {
+    expect(nextWeeklyMinutes(150, 1, null, WALK_PLAN_CONFIG, 250)).toBe(165);
+    expect(nextWeeklyMinutes(240, 1, null, WALK_PLAN_CONFIG, 250)).toBe(250);
+    expect(nextWeeklyMinutes(250, 1, null, WALK_PLAN_CONFIG, 250)).toBe(250);
+    expect(nextWeeklyMinutes(200, 0, null, WALK_PLAN_CONFIG, 250)).toBe(180);
+    expect(nextWeeklyMinutes(200, null, 11000, WALK_PLAN_CONFIG, 250)).toBe(220);
+  });
+  it('missing / junk target → today\'s 150 ceiling; never above the WHO max', () => {
+    expect(nextWeeklyMinutes(150, 1, null, WALK_PLAN_CONFIG, null)).toBe(150);
+    expect(topUpCeilingMinutes(undefined)).toBe(150);
+    expect(topUpCeilingMinutes(Number.NaN)).toBe(150);
+    expect(topUpCeilingMinutes(100)).toBe(150);
+    expect(topUpCeilingMinutes(999)).toBe(300);
+  });
+  it('planWalkTopUp passes the target through', () => {
+    // 5 walks a week × 30′ = 150′ (3 walks can't pass 135′: one walk is ≤ 45′).
+    const byDate: Record<string, UserScheduleEntry[]> = {};
+    for (const s of ['2026-10-11', '2026-10-18', '2026-10-25']) {
+      for (const off of [0, 1, 2, 3, 4]) {
+        const d = new Date(`${s}T00:00:00`);
+        d.setDate(d.getDate() + off);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        byDate[iso] = [walk(iso, 30, { completed: iso < '2026-10-20' })];
+      }
+    }
+    const sum = (o: Record<string, UserScheduleEntry> | null) => Object.values(o ?? {}).reduce((s, e) => s + walkEntryMinutes(e), 0);
+    const capped = sum(planWalkTopUp({ byDate, today, uid: 'u', stepGoal: null }));
+    const grown = sum(planWalkTopUp({ byDate, today, uid: 'u', stepGoal: null, targetWeeklyMinutes: 250 }));
+    expect(capped).toBeLessThanOrEqual(150);
+    expect(grown).toBeGreaterThan(150);
+    expect(grown).toBeLessThanOrEqual(165);
+  });
+  it('read / store helpers validate', () => {
+    expect(readStoredWalkingGoal({ goal: 'weight_loss', targetWeeklyMinutes: 250 })).toEqual({ goal: 'weight_loss', targetWeeklyMinutes: 250 });
+    expect(readStoredWalkingGoal({ goal: 'nope', targetWeeklyMinutes: 250 })).toBeNull();
+    expect(readStoredWalkingGoal({ goal: 'health' })).toBeNull();
+    expect(readStoredWalkingGoal(null)).toBeNull();
+    expect(walkingGoalToStore('belly', { targetWeeklyMinutes: 200 })).toEqual({ goal: 'belly', targetWeeklyMinutes: 200 });
+    expect(walkingGoalToStore('health', { targetWeeklyMinutes: 400 }).targetWeeklyMinutes).toBe(300);
   });
 });

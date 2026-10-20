@@ -32,6 +32,8 @@ export function useWalkTopUp(opts: {
   uid: string | null | undefined;
   enabled: boolean;
   stepGoal: number | null;
+  /** lifestyle.walkingGoal.targetWeeklyMinutes (missing → the 150′ ceiling). */
+  targetWeeklyMinutes?: number | null;
   recurringTemplate?: RecurringTemplate | null;
   reminders?: { runningTime?: string; strengthTime?: string };
 }): void {
@@ -45,6 +47,7 @@ export function useWalkTopUp(opts: {
       .then(({ topUpWalkPlan }) =>
         topUpWalkPlan({
           stepGoal: opts.stepGoal,
+          targetWeeklyMinutes: opts.targetWeeklyMinutes ?? null,
           recurringTemplate: opts.recurringTemplate ?? null,
           reminders: opts.reminders,
           now,

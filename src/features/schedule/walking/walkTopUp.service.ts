@@ -14,6 +14,8 @@ import { commitWalkDayWrites, hydrateWalkDays } from './walkSave.service';
 
 export interface WalkTopUpServiceInput {
   stepGoal: number | null;
+  /** lifestyle.walkingGoal.targetWeeklyMinutes (missing → the 150′ ceiling). */
+  targetWeeklyMinutes?: number | null;
   recurringTemplate?: RecurringTemplate | null;
   reminders?: { runningTime?: string; strengthTime?: string };
   now?: Date;
@@ -27,7 +29,7 @@ export async function topUpWalkPlan(input: WalkTopUpServiceInput): Promise<{ wri
   if (!existing) throw new Error('schedule read failed');
   const byDate: Record<string, UserScheduleEntry[]> = { ...existing };
 
-  const walks = planWalkTopUp({ byDate, today: now, uid, stepGoal: input.stepGoal });
+  const walks = planWalkTopUp({ byDate, today: now, uid, stepGoal: input.stepGoal, targetWeeklyMinutes: input.targetWeeklyMinutes ?? null });
   if (!walks) return { written: 0 };
 
   await hydrateWalkDays(uid, byDate, walks, input.recurringTemplate ?? null, input.reminders);

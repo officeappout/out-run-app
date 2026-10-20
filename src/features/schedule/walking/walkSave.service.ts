@@ -10,7 +10,10 @@
  *     (this flow's old walks replaced, see planWalkDayWrites);
  *  4. a walking-only user (no strength / running track) with no primaryTrack yet
  *     gets primaryTrack 'health' — an existing value: dashboardMode DEFAULT, the
- *     health metrics (steps) first. Nothing else on the profile changes.
+ *     health metrics (steps) first;
+ *  5. the walking goal (owner 20.10.2026): ONE optional additive field,
+ *     lifestyle.walkingGoal = { goal, targetWeeklyMinutes } (walkingGoal.ts) — the
+ *     weekly top-up grows toward it. Nothing else on the profile changes.
  */
 import { doc, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -21,6 +24,7 @@ import {
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import type { TimeWindow } from '../engine-v2/types';
 import type { WalkPlan } from './walkPlan.types';
+import type { StoredWalkingGoal } from './walkingGoal';
 import { buildWalkEntries, datesNeedingHydration, planWalkDayWrites, walkHorizon, type WalkDayWrite } from './walkSchedule';
 
 const COLLECTION = 'userSchedule';
@@ -71,6 +75,8 @@ export interface SaveWalkPlanInput {
   reminders?: { runningTime?: string; strengthTime?: string };
   /** Set primaryTrack 'health' (walking-only user without one). */
   setHealthTrack: boolean;
+  /** lifestyle.walkingGoal — the goal + weekly target the top-up grows toward. */
+  walkingGoal?: StoredWalkingGoal | null;
   now?: Date;
 }
 
@@ -92,11 +98,14 @@ export async function saveWalkPlan(input: SaveWalkPlanInput): Promise<{ written:
   const writes = planWalkDayWrites(byDate, walks, horizon);
   await commitWalkDayWrites(uid, writes);
 
-  if (input.setHealthTrack) {
+  const profilePatch: Record<string, unknown> = {};
+  if (input.setHealthTrack) profilePatch['lifestyle.primaryTrack'] = 'health';
+  if (input.walkingGoal) profilePatch['lifestyle.walkingGoal'] = { ...input.walkingGoal };
+  if (Object.keys(profilePatch).length) {
     try {
-      await updateDoc(doc(db, 'users', uid), { 'lifestyle.primaryTrack': 'health', updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'users', uid), { ...profilePatch, updatedAt: serverTimestamp() });
     } catch (err) {
-      console.error('[walkSave] primaryTrack write failed (non-fatal)', err);
+      console.error('[walkSave] profile write failed (non-fatal)', err);
     }
   }
   return { written: writes.length };

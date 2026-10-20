@@ -4,12 +4,13 @@
  * The signup writes the walks a few weeks ahead (WALK_PLAN_CONFIG.horizonWeeks).
  * When the saved walks reach less than TOP_UP_AHEAD_DAYS ahead, the NEXT week is
  * computed with the same algorithm (buildWalkWeek, same config) from what is
- * actually saved and done — no stored goal/comfort fields exist, and none are added:
+ * actually saved and done, plus the one stored target (walkingGoal.ts):
  *   - the template = the last saved week: its days, its time of day per day, its
  *     total minutes, time vs distance targets (all-distance = the "steps" goal);
  *   - the ramp, gentle (≤ weeklyRampCap):
- *       planned walks of the last 7 days mostly done (≥ 2/3)  → +10%, up to the WHO
- *         minimum (150′); at or above it → hold;
+ *       planned walks of the last 7 days mostly done (≥ 2/3)  → +10%, up to the
+ *         stored walking goal's weekly target (lifestyle.walkingGoal, WHO band
+ *         150–300′; missing → the WHO minimum 150′); at or above it → hold;
  *       mostly missed (< 1/3)                                → −10% (floor: the
  *         sedentary start minutes);
  *       otherwise → hold;
@@ -23,6 +24,7 @@ import { WALK_PLAN_CONFIG, type WalkPlanConfig } from './walkPlan.config';
 import { activityLevelFromStepGoal, buildWalkWeek } from './walkPlan';
 import { isOwnWalkEntry, isPlannedWalkEntry } from './walkEntry';
 import { isoDate, parseIso, walkEntryFor, type WalkDayWrite } from './walkSchedule';
+import { topUpCeilingMinutes } from './walkingGoal';
 
 /** Top up when the last saved walk is less than this many days ahead (~3 weeks). */
 export const TOP_UP_AHEAD_DAYS = 21;
@@ -63,8 +65,11 @@ export function nextWeeklyMinutes(
   adherence: number | null,
   stepGoal: number | null,
   cfg: WalkPlanConfig = WALK_PLAN_CONFIG,
+  /** The stored weekly target (lifestyle.walkingGoal); missing → 150′. */
+  targetWeeklyMinutes: number | null = null,
 ): number {
-  const grow = () => Math.max(lastTotal, Math.min(round5(lastTotal * (1 + cfg.weeklyRampCap)), cfg.who.minWeeklyMinutes));
+  const ceiling = topUpCeilingMinutes(targetWeeklyMinutes, cfg);
+  const grow = () => Math.max(lastTotal, Math.min(round5(lastTotal * (1 + cfg.weeklyRampCap)), ceiling));
   if (adherence === null) {
     const level = activityLevelFromStepGoal(stepGoal, cfg);
     return level === 'moderate' || level === 'active' ? grow() : lastTotal;
@@ -79,6 +84,8 @@ export interface WalkTopUpInput {
   today: Date;
   uid: string;
   stepGoal: number | null;
+  /** lifestyle.walkingGoal.targetWeeklyMinutes (null / missing → the 150′ ceiling). */
+  targetWeeklyMinutes?: number | null;
   cfg?: WalkPlanConfig;
 }
 
@@ -106,7 +113,7 @@ export function planWalkTopUp(input: WalkTopUpInput): Record<string, UserSchedul
   const past = walks.filter((w) => w.date >= weekAgo && w.date < todayIso);
   const adherence = past.length ? past.filter((w) => w.completed === true).length / past.length : null;
 
-  const total = nextWeeklyMinutes(lastTotal, adherence, input.stepGoal, cfg);
+  const total = nextWeeklyMinutes(lastTotal, adherence, input.stepGoal, cfg, input.targetWeeklyMinutes ?? null);
   const week = buildWalkWeek(0, total, days, allDistance ? 'steps' : 'health', cfg);
 
   const thisSunday = sundayOf(todayIso);

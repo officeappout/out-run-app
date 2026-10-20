@@ -8,7 +8,8 @@
  *    goal, compact cards with a thumbnail + "who it's for" line, single
  *    choice, one gradient CTA.
  *  • RunningAbilityPickerV2 — q_run_*_ability ("כמה זמן אפשר לרוץ ברצף?").
- *    Cards with a 4-step level glyph + a reassurance line (R5-prop-ability).
+ *    Cards with a 4-step level glyph + a reassurance line (R5-prop-ability),
+ *    and a short training-experience hint per card (owner 20.10.2026).
  *
  * Same answers, same onAnswer(answerId) the generic renderer calls — the
  * only interaction change is tap-to-select + "המשך" instead of
@@ -22,6 +23,7 @@ import type { DynamicQuestionNode } from '../../engine/DynamicOnboardingEngine';
 import {
   ABILITY_LEVEL,
   abilityCopy,
+  abilityExperienceHe,
   abilityTierOf,
   resolveRunningGoalVisual,
   runningGoalSubtitle,
@@ -279,6 +281,7 @@ export function RunningAbilityPickerV2({
           const on = picked === a.id;
           const tier = abilityTierOf({ metadata: meta(a) });
           const copy = tier ? abilityCopy(tier, isFemale) : null;
+          const experience = tier ? abilityExperienceHe(tier, isFemale) : null;
           const label = copy?.title ?? answerText(a);
           return (
             <button
@@ -298,6 +301,9 @@ export function RunningAbilityPickerV2({
                 <span className="block truncate whitespace-nowrap text-[16.5px] font-black">{label}</span>
                 {copy?.sub && (
                   <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{copy.sub}</span>
+                )}
+                {experience && (
+                  <span className="mt-0.5 block text-[12px] font-bold leading-[1.35] text-v2-deep line-clamp-2">{experience}</span>
                 )}
               </span>
               <Radio on={on} />

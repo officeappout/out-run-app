@@ -60,22 +60,27 @@ interface TierSelectionCardProps {
   isFemale?: boolean;
 }
 
-// v2 copy — same three tiers, gendered instead of "מתאמן/ת".
-const TIER_V2: Record<Tier['id'], { Icon: typeof Sprout; label: [string, string]; description: [string, string]}> = {
+// v2 copy — same three tiers, gendered instead of "מתאמן/ת". `experience` (owner
+// 20.10.2026): a short training-experience hint so the user can place themselves
+// without an extra question.
+const TIER_V2: Record<Tier['id'], { Icon: typeof Sprout; label: [string, string]; description: [string, string]; experience: [string, string] }> = {
   beginner: {
     Icon: Sprout,
     label: ['מתחילים', 'מתחילות'],
     description: ['חדש באימונים או חוזר אחרי הפסקה ארוכה', 'חדשה באימונים או חוזרת אחרי הפסקה ארוכה'],
+    experience: ['מתאמן פחות מחצי שנה? כנראה מתחיל', 'מתאמנת פחות מחצי שנה? כנראה מתחילה'],
   },
   intermediate: {
     Icon: Dumbbell,
     label: ['בינוניים', 'בינוניות'],
     description: ['מתאמן באופן קבוע ומכיר את הבסיס', 'מתאמנת באופן קבוע ומכירה את הבסיס'],
+    experience: ['מתאמן כבר שנה+ / חוזר אחרי הפסקה קצרה? כנראה בינוני', 'מתאמנת כבר שנה+ / חוזרת אחרי הפסקה קצרה? כנראה בינונית'],
   },
   advanced: {
     Icon: Flame,
     label: ['מתקדמים', 'מתקדמות'],
     description: ['ניסיון רב, מחפש אתגר אמיתי', 'ניסיון רב, מחפשת אתגר אמיתי'],
+    experience: ['מתאמן כבר כמה שנים ברצף? כנראה מתקדם', 'מתאמנת כבר כמה שנים ברצף? כנראה מתקדמת'],
   },
 };
 
@@ -120,6 +125,9 @@ export default function TierSelectionCard({
                   <span className="block truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{c.label[gi]}</span>
                   <span className="mt-0.5 block text-[12.5px] font-semibold leading-[1.35] text-v2-ink-2 line-clamp-2">
                     {c.description[gi]}
+                  </span>
+                  <span className="mt-1 block text-[12px] font-bold leading-[1.35] text-v2-deep line-clamp-2">
+                    {c.experience[gi]}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-center rounded-2xl bg-v2-surface px-2.5 py-1.5 ring-1 ring-inset ring-v2-hairline">

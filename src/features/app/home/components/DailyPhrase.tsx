@@ -59,11 +59,13 @@ export default function DailyPhrase({ location: locationOverride, className = ''
   const loadPhrase = async () => {
     setLoading(true);
     try {
+      // Legacy lifestyle fields not on the typed profile (read as before; type-only cast).
+      const legacyLifestyle = profile?.lifestyle as { preferredLocation?: string; persona?: string } | undefined;
       // Determine location (from override, profile, or default)
-      const userLocation = locationOverride || profile?.lifestyle?.preferredLocation || 'home';
+      const userLocation = locationOverride || legacyLifestyle?.preferredLocation || 'home';
       
       // Determine persona (from profile or default)
-      const userPersona = profile?.lifestyle?.persona || 'general';
+      const userPersona = legacyLifestyle?.persona || 'general';
       
       // Get current time of day
       const timeOfDay = getTimeOfDay();

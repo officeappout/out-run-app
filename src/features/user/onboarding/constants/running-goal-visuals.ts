@@ -162,3 +162,24 @@ export function abilityCopy(tier: AbilityTier, isFemale: boolean): { title: stri
       return { title: null, sub: 'בסיס סיבולת יציב' };
   }
 }
+
+/**
+ * Training-experience hint under each ability card (enable_home_v2, owner 20.10.2026):
+ * helps the user place themselves without an extra "experience" question.
+ * null = no hint (the "not running yet" card already says it).
+ */
+export function abilityExperienceHe(tier: AbilityTier, isFemale: boolean): string | null {
+  const g = (m: string, f: string) => (isFemale ? f : m);
+  switch (tier) {
+    case 'none':
+      return null;
+    case '5_15':
+      return g('מתחיל לרוץ או חוזר אחרי הפסקה ארוכה?', 'מתחילה לרוץ או חוזרת אחרי הפסקה ארוכה?');
+    case '15_30':
+      return g('רץ כבר כמה חודשים? כנראה כאן', 'רצה כבר כמה חודשים? כנראה כאן');
+    case '30_45':
+      return g('רץ בקביעות כבר שנה+? כנראה כאן', 'רצה בקביעות כבר שנה+? כנראה כאן');
+    case '45_plus':
+      return g('רץ כמה שנים, 10 ק״מ זה לא חדש לך', 'רצה כמה שנים, 10 ק״מ זה לא חדש לך');
+  }
+}
