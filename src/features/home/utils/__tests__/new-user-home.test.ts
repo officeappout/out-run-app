@@ -12,8 +12,8 @@ describe('resolveNewUserHome', () => {
     expect(resolveNewUserHome({ ...base, programPlanMode: 'none' })).toEqual(INACTIVE_NEW_USER_HOME);
     expect(resolveNewUserHome({ ...base, isWalker: true })).toEqual(INACTIVE_NEW_USER_HOME);
   });
-  it('no plan, never trained, no health data → start rows, widgets hidden', () => {
-    expect(resolveNewUserHome(base)).toEqual({ active: true, startRows: true, widgets: 'none' });
+  it('no plan, never trained, no health data → only the start slides, widgets hidden', () => {
+    expect(resolveNewUserHome(base)).toEqual({ active: true, startOnly: true, widgets: 'none' });
   });
   it('no plan, never trained, steps granted → only the steps card', () => {
     expect(resolveNewUserHome({ ...base, healthConnected: true }).widgets).toBe('steps');
@@ -22,5 +22,8 @@ describe('resolveNewUserHome', () => {
     expect(resolveNewUserHome({ ...base, workoutCount: 1 }).widgets).toBe('all');
     expect(resolveNewUserHome({ ...base, weekSessions: 1 }).widgets).toBe('all');
     expect(resolveNewUserHome({ ...base, todayWorkouts: 1 }).widgets).toBe('all');
+  });
+  it('the first workout brings the generated workouts back (start slides stay while there is no plan)', () => {
+    expect(resolveNewUserHome({ ...base, workoutCount: 1 })).toEqual({ active: true, startOnly: false, widgets: 'all' });
   });
 });

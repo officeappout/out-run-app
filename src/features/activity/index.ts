@@ -110,8 +110,12 @@ export {
   type UseWeeklyRunningKmResult,
 } from './hooks/useWeeklyRunningKm';
 
+export { useWeeklyRunCount } from './hooks/useWeeklyRunCount';
+export { countRunSessions, isRunSession, type RunSessionDoc } from './utils/run-sessions';
+
 export {
   getWeeklyRunningKm,
+  getWeeklyRunCount,
   getStrengthAdherence,
   type StrengthAdherence,
 } from './services/activity-history.service';

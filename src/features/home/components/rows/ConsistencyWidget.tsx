@@ -20,7 +20,7 @@ import React from 'react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
-import { useWeeklyProgress, getStrengthAdherence } from '@/features/activity';
+import { useWeeklyProgress, getStrengthAdherence, useWeeklyRunCount } from '@/features/activity';
 import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVolumeWidget';
 import { GhostUpsell } from './GhostUpsell';
 import { hasStrengthSurvey, hasRunSurvey } from '@/features/home/hooks/useProgramProgress';
@@ -156,6 +156,11 @@ export function ConsistencyWidget() {
 
   const { done: strengthSessions, target: strengthTarget } = getStrengthAdherence(profile, summary);
   const cardioSessions = summary?.categorySessions?.cardio ?? 0;
+  // enable_home_v2 (owner 20.10.2026): the "ריצה" bar counts only runs, never walks
+  // (categorySessions.cardio lumps them together). Re-read when a cardio session lands.
+  const v2 = useHomeV2();
+  const weekRuns = useWeeklyRunCount(v2, cardioSessions);
+  const runSessions = v2 ? (weekRuns ?? 0) : cardioSessions;
   const runTarget = profile?.running?.weeklyFrequency
     ?? profile?.running?.scheduleDays?.length
     ?? 3;
@@ -172,14 +177,13 @@ export function ConsistencyWidget() {
   const runRow = (
     <MiniBars
       caption="ריצה"
-      done={cardioSessions}
+      done={runSessions}
       target={runTarget}
       fillColor="#84CC16"
       icon={<RunGlyph />}
     />
   );
 
-  const v2 = useHomeV2();
   return (
     <div
       className={v2 ? 'flex h-full w-full flex-col justify-center gap-4 overflow-hidden rounded-v2-card bg-white p-3.5 shadow-v2-card' : 'bg-white dark:bg-slate-800 w-full h-full flex flex-col justify-center gap-3 overflow-hidden'}

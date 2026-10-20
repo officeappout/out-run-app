@@ -177,4 +177,12 @@ export interface UserContext {
    * rain → resolveWorkoutContext's 'weather-rain-home'; every flag → HomeWorkoutOptions.weather.
    */
   weather?: WorkoutWeather | null;
+
+  /**
+   * enable_home_v2 only (home post_workout, owner 20.10.2026): sets still missing from today's
+   * DAILY strength goal (strength ring target − today's sets, strength-top-up.ts). > 0 lets
+   * partial-completion build the rest of the day's sets even when the session itself was
+   * finished. Absent everywhere else → every generator unchanged.
+   */
+  dailyStrengthTopUpSets?: number;
 }

@@ -1,3 +1,5 @@
+import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
+
 /**
  * Pure core of useOnboardingEntryTap: lock the card, then either go straight to
  * the entry or hand both outcomes to home's gate. `cancel` (gate closed without
@@ -17,3 +19,10 @@ export function runOnboardingEntryTap(
   }
   onNavigate(navigate, () => setLoading(false));
 }
+
+/** Home's gate for a track's entry tap, per track (see OnboardingEntryNavigate). */
+export type ProgramTrackNavigate = (
+  track: ProgramTrack,
+  navigate: () => void,
+  cancel: () => void,
+) => void;
