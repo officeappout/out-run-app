@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 import { isRootAdmin } from '@/config/feature-flags';
 import { computeWeekPulse, type HomeUser, type HomeWorkout } from '@/features/admin/services/home-today';
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     const users: HomeUser[] = [];
     for (const d of usersSnap.docs) {
       const data = d.data();
-      if (isTestOrMockUser(data?.core as Record<string, unknown> | undefined)) continue;
+      if (isExcludedFromGlobalKpis(data?.core as Record<string, unknown> | undefined, d.id)) continue;
       realUids.add(d.id);
       const createdAt = toDateSafe(data.createdAt);
       if (!createdAt || createdAt < new Date(now.getTime() - 35 * DAY)) continue;

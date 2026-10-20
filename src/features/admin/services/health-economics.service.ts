@@ -16,7 +16,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAuthorityWithChildrenIds } from './analytics.service';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { isDemoTenantClient } from './demo-tenant.client';
 
 const WORKOUTS_COLLECTION = 'workouts';
 export const AVERAGE_HEALTH_SAVINGS_PER_ACTIVE_PERSON = 500; // ₪500/active person/month
@@ -233,6 +234,7 @@ async function getBulkWorkoutMinutes(
 async function getAuthorityUsers(authorityId: string): Promise<string[]> {
   try {
     const authorityIds = await getAuthorityWithChildrenIds(authorityId);
+    const authorityIsDemo = await isDemoTenantClient('authorities', authorityId);
     const userIds: string[] = [];
 
     await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
@@ -242,7 +244,7 @@ async function getAuthorityUsers(authorityId: string): Promise<string[]> {
       );
       const snap = await getDocs(q);
       snap.docs.forEach(doc => {
-        if (!isTestOrMockUser(doc.data()?.core as Record<string, unknown> | undefined)) {
+        if (!isExcludedResident(doc.data()?.core as Record<string, unknown> | undefined, { authorityIsDemo, uid: doc.id })) {
           userIds.push(doc.id);
         }
       });

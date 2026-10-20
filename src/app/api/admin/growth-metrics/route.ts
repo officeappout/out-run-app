@@ -76,7 +76,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
 import { getAgeInYears } from '@/lib/age-buckets';
@@ -272,7 +272,7 @@ export async function computeGrowthMetrics(
         : (await Promise.all(chunk(authorityIds, 30).map((b) => db.collection('users').where('core.authorityId', 'in', b).get()))).flatMap((s) => s.docs);
   const now = new Date();
   const realUserDocs = userDocs
-    .filter((d) => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined))
+    .filter((d) => !isExcludedFromGlobalKpis(d.data()?.core as Record<string, unknown> | undefined, d.id))
     .filter((d) => userMatchesFilters(d.data(), filters, now));
   const realUserIds = new Set(realUserDocs.map((d) => d.id));
   const userIdToAuthorityId = new Map<string, string>();

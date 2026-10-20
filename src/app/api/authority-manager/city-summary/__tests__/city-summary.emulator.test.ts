@@ -110,4 +110,29 @@ describe('computeCitySummary — chokepoint migration (real Firestore)', () => {
     expect(directScope).not.toBeNull();
     expect(result.body.authorityId).toBe(directScope!.authorityId);
   });
+
+  it('[DEMO PR 2] a real city never counts demo residents — same numbers as before (mock/test/demo excluded)', async () => {
+    await db.doc('authorities/cityA').set({ name: 'City A', managerIds: ['realManagerUid'] });
+    await db.doc('users/resident1').set({ core: { authorityId: 'cityA', isApproved: true } });
+    await db.doc('users/mockResident').set({ core: { authorityId: 'cityA', isApproved: true, isMockData: true } });
+    await db.doc('users/testResident').set({ core: { authorityId: 'cityA', isApproved: true, isTestData: true } });
+    await db.doc('users/demo_c01').set({ core: { authorityId: 'cityA', isApproved: true, isMockData: true, demo: { v: 1 } } });
+
+    const result = await computeCitySummary(db, 'realManagerUid');
+    if (result.status !== 200) throw new Error('expected 200');
+    expect(result.body.totalUsers).toBe(1);
+    expect(result.body.approvedUsers).toBe(1);
+  });
+
+  it('[DEMO PR 2] a demo city (demo- id AND isDemo:true) counts its demo residents, never test accounts', async () => {
+    await db.doc('authorities/demo-city').set({ name: 'עיריית דמו', isDemo: true, managerIds: ['viewerUid'] });
+    await db.doc('users/demo_c01').set({ core: { authorityId: 'demo-city', isApproved: true, isMockData: true, demo: { v: 1 } } });
+    await db.doc('users/demo_c02').set({ core: { authorityId: 'demo-city', isApproved: false, isMockData: true, demo: { v: 1 } } });
+    await db.doc('users/viewerUid').set({ core: { authorityId: 'demo-city', isApproved: true, isTestData: true } });
+
+    const result = await computeCitySummary(db, 'viewerUid');
+    if (result.status !== 200) throw new Error('expected 200');
+    expect(result.body.totalUsers).toBe(2);
+    expect(result.body.approvedUsers).toBe(1);
+  });
 });

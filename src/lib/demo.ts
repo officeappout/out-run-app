@@ -107,3 +107,12 @@ export function isDemoDoc(data: Record<string, unknown> | null | undefined, id?:
 export function withoutDemoDocs<T extends { id?: unknown }>(items: readonly T[]): T[] {
   return items.filter((item) => !isDemoDoc(item as unknown as Record<string, unknown>, item.id));
 }
+
+/**
+ * STRICT demo authority / tenant — for INCLUSION decisions (counting demo
+ * residents on a dashboard): BOTH the `demo-` id prefix AND isDemo:true.
+ * (isDemoTenant above is the OR-ed, fail-closed check for exclusion.)
+ */
+export function isStrictDemoTenant(doc: { isDemo?: unknown } | null | undefined, id: unknown): boolean {
+  return doc?.isDemo === true && isDemoTenantId(id);
+}

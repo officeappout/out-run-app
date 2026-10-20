@@ -44,6 +44,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 import { countExcludingTestAndMock } from '@/lib/testAccountFilterAdmin';
+import { isStrictDemoTenant } from '@/lib/demo';
 import type { Firestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -86,9 +87,11 @@ export async function computeCitySummary(
   // see src/lib/testAccountFilterAdmin.ts for why this subtracts rather
   // than querying the exclusion directly (Firestore's `!=` would wrongly
   // exclude every doc where the field is simply absent).
+  // Demo world: on a demo city the demo residents ARE the population.
+  const authorityIsDemo = isStrictDemoTenant(authorityData, authorityId);
   const [totalUsers, approvedUsers] = await Promise.all([
-    countExcludingTestAndMock(usersRef),
-    countExcludingTestAndMock(approvedRef),
+    countExcludingTestAndMock(usersRef, { authorityIsDemo }),
+    countExcludingTestAndMock(approvedRef, { authorityIsDemo }),
   ]);
 
   return {

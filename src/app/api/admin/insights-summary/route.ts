@@ -29,7 +29,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,7 +95,7 @@ export async function computeInsightsSummary(db: FirebaseFirestore.Firestore, sc
 
   {
     const userDocs = await fetchScopedUsers(db, authorityIds);
-    const realUserDocs = userDocs.filter((d) => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined));
+    const realUserDocs = userDocs.filter((d) => !isExcludedFromGlobalKpis(d.data()?.core as Record<string, unknown> | undefined, d.id));
 
     // ── Health Wake-Up Metric ────────────────────────────────────────────
     const inactiveUserIds: string[] = [];

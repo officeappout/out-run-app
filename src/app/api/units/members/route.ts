@@ -37,6 +37,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isDemoUser } from '@/lib/demo';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { resolveUnitPermissionScope, resolveReadinessTargetScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
@@ -124,14 +126,17 @@ export async function computeUnitMembers(
   // "fetch once per scope, group in memory" pattern, rather than one query
   // per unit (fewer reads, and equality-only + collection-scoped so no new
   // composite index — see the report for the index analysis).
-  const [membersSnap, pendingSnap] = await Promise.all([
+  const [membersSnap, pendingSnap, tenantIsDemo] = await Promise.all([
     db.collection('users').where('core.tenantId', '==', targetTenantId).get(),
     db.collection('unit_join_requests').where('tenantId', '==', targetTenantId).where('status', '==', 'pending').get(),
+    resolveTenantIsDemo(db, 'tenants', targetTenantId),
   ]);
 
   const membersByUnit = new Map<string, MemberEntry[]>();
   membersSnap.docs.forEach((d) => {
     const core = d.data()?.core ?? {};
+    // Demo world: a demo soldier is listed only in a demo unit.
+    if (!tenantIsDemo && isDemoUser(d.id, core)) return;
     const unitId = core.unitId;
     if (typeof unitId !== 'string') return;
     if (!membersByUnit.has(unitId)) membersByUnit.set(unitId, []);

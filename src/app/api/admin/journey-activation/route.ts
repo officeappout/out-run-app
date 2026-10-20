@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 import { parseRange } from '@/features/admin/services/journey-sources';
 import {
@@ -57,7 +57,7 @@ export async function computeJourneyActivation(
   const usersSnap = await db.collection('users').get();
   const docs = usersSnap.docs.filter((d) => {
     const data = d.data();
-    if (isTestOrMockUser(data?.core as Record<string, unknown> | undefined)) return false;
+    if (isExcludedFromGlobalKpis(data?.core as Record<string, unknown> | undefined, d.id)) return false;
     const created = toDateSafe(data?.createdAt);
     return !!created && created >= range.from && created <= range.to;
   });
