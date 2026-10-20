@@ -200,6 +200,10 @@ export async function runActivitySync(params: UseActivitySyncParams): Promise<vo
     // branch stays unreachable.
     isRecovery: RECOVERY_DAY_BADGE_FIX_ENABLED ? isRecovery : undefined,
     strengthCompletion,
+    // Month totals' sets — the real logged sets, whether or not
+    // HOME_DAILY_GOAL_V1 computed the strengthCompletion snapshot above
+    // (recovery content never counts as training sets).
+    setsCompleted: isRecovery ? undefined : actualSetsCompleted,
   });
 
   // 2. Progression Store (global coins)

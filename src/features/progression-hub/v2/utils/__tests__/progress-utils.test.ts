@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { kindOfWorkoutType, setsFromDoc, toProgressDay, toProgressWorkout, type ProgressWorkout } from '../progress-model';
+import { kindOfWorkoutType, setsFromDoc, toProgressDay, toProgressWorkout, toProgressWorkouts, type ProgressWorkout } from '../progress-model';
 import { longestActiveRun, monthCells, periodRanges, summarizePeriod, weekCells } from '../progress-period';
+import { periodSpark } from '../period-spark';
 import { domainBreakdown, monthCompare, paceOf, paceSeries, stepsStats, weeklySeries } from '../progress-series';
 import { formatMinutes, formatPace, relativeDay, weekRangeLabel } from '../progress-format';
 import { runningPlanProgress } from '../running-plan-progress';
@@ -78,6 +79,32 @@ describe('summarizePeriod', () => {
     expect(cur).toMatchObject({ workouts: 3, minutes: 90, km: 7.1, steps: 9000, activeDays: 3 });
     expect(cur.byKind.strength.sets).toBe(20);
     expect(summarizePeriod(ws, days, r.previous)).toMatchObject({ workouts: 1, km: 4 });
+  });
+
+  it('a combined workout counts per part but as ONE workout (owner 20.10.2026)', () => {
+    const doc = {
+      workoutType: 'hybrid', activityType: 'hybrid', date: new Date(2026, 9, 20, 8), duration: 2700, distance: 4.2,
+      segments: [
+        { kind: 'aerobic', aerobicType: 'walking', actual: { durationSec: 900, distanceKm: 1.2 } },
+        { kind: 'strength', actual: { durationSec: 600, sets: 2, exerciseLog: [{ exerciseId: 'p', confirmedReps: [10, 9], domain: 'push' }] } },
+        { kind: 'aerobic', aerobicType: 'running', actual: { durationSec: 1080, distanceKm: 3 } },
+      ],
+    };
+    const parts = toProgressWorkouts('h1', doc);
+    expect(parts.map((p) => p.kind)).toEqual(['run', 'walk', 'strength']);
+    expect(parts.every((p) => p.sessionId === 'h1')).toBe(true);
+    expect(parts[0]).toMatchObject({ id: 'h1:run', km: 3, minutes: 18, pace: 6 });
+    expect(parts[2]).toMatchObject({ sets: 2, domainSets: { push: 2 } });
+    const r = periodRanges('week', NOW);
+    const cur = summarizePeriod(parts, [], r.current);
+    expect(cur.workouts).toBe(1);
+    expect(cur.km).toBe(4.2);
+    expect(cur.byKind.run).toMatchObject({ count: 1, km: 3, minutes: 18 });
+    expect(cur.byKind.walk).toMatchObject({ count: 1, km: 1.2, minutes: 15 });
+    expect(cur.byKind.strength).toMatchObject({ count: 1, sets: 2, minutes: 10 });
+    expect(periodSpark('week', r.current, parts, [], NOW).workouts.reduce((a, b) => a + b, 0)).toBe(1);
+    // A segment-less (old) hybrid doc stays one strength entry.
+    expect(toProgressWorkouts('h0', { workoutType: 'hybrid', date: new Date(2026, 9, 20) }).map((p) => p.kind)).toEqual(['strength']);
   });
 
   it('builds the 7-day strip and month calendar', () => {

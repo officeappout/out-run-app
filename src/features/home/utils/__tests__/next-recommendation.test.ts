@@ -66,6 +66,12 @@ describe('doneKindsOf / nextHeaderHe', () => {
     expect(doneKindsOf([{ workoutType: 'walking' }, { workoutType: 'strength' }]).sort()).toEqual(['strength', 'walk']);
     expect(doneKindsOf([{ workoutType: 'hybrid', activityType: 'running' }]).sort()).toEqual(['run', 'strength']);
     expect(doneKindsOf(null)).toEqual([]);
+    // A real combined doc: its legs decide (owner 20.10.2026 — counted per part).
+    const segments = [
+      { kind: 'aerobic', aerobicType: 'running', actual: { durationSec: 600, distanceKm: 2 } },
+      { kind: 'strength', actual: { durationSec: 300, sets: 6 } },
+    ];
+    expect(doneKindsOf([{ workoutType: 'hybrid', activityType: 'hybrid', segments }]).sort()).toEqual(['run', 'strength']);
   });
   it('rest header keeps the old copy', () => {
     expect(nextHeaderHe({ kind: 'rest', why: 'done' })).toBe('סיימת הכל, מגיע לך מנוחה');

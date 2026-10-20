@@ -22,6 +22,7 @@ import { reverseHybridSegments } from './reverse-plan';
 import { strengthBlockToWorkoutPlan } from './strength-block-to-plan';
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { isNegligibleHybridSession } from './hybrid-finish-policy';
+import { stationCompletedSets } from './hybrid-counting';
 import type { SegmentExerciseDetail } from '../core/services/storage.service';
 import type { StrengthBlockResult } from '../core/pipeline/strength-block.service';
 import { createDemoSeenStore, type DemoSeenStore } from '../players/strength/logic/demo-gate';
@@ -321,14 +322,10 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
   completeStation: (exerciseLog, completedAtMs) => {
     if (!controllerRef) return;
     const station = controllerRef.getActiveStation();
-    // F1 (19.08.2026): `sets` here is still the PLANNED total, not derived
-    // from exerciseLog — a known pre-existing gap (see hybrid-orchestrator's
-    // STATION_DONE handling), deliberately left untouched by this change.
-    // exerciseLog is carried alongside it purely for summary-screen display;
-    // it must not be used to correct `sets`/volume-tracking here — that's a
-    // separate, unrelated fix (flagged, not in scope for the detail-capture
-    // work this diff is doing).
-    const sets = station?.content?.totalPlannedSets ?? 0;
+    // Hybrid counting fix (owner, 20.10.2026): record the sets the user actually
+    // logged (values > 0 — same rule as the v2 sequencer's countDoneSets); the
+    // planned total stays only as the fallback when no log is passed.
+    const sets = stationCompletedSets(exerciseLog, station?.content?.totalPlannedSets ?? 0);
     // Bug fix (23.08.2026): this used to be treated as the REAL station
     // duration and stored as such — it's actually the station's pre-planned
     // estimate (fixed at plan-composition time), the same class of gap the
@@ -492,66 +489,18 @@ export const useHybridRun = create<HybridRunStore>((set, get) => ({
           totalCalories: planCalories,
         });
 
-        // ── dailyActivity / streak / daily-goal — SPLIT cardio vs strength ────
-        // saveHybridWorkout writes only the `workouts` history doc; the rings,
-        // streak, daily-goal checkmark, weekly volume and HealthKit write-back
-        // all live behind syncWorkoutCompletion (which the suppressed runner
-        // teardown below never reaches). This is the single sync point.
-        // totalDurationSec computed above (minimum-activity guard) — reused here.
-        const aerobicSec = result.summary.totalActualAerobicSec;
-        const strengthSec = Math.max(0, totalDurationSec - aerobicSec);
-
-        const { syncWorkoutCompletion } = await import(
-          '@/features/workout-engine/services/completion-sync.service'
-        );
-        await syncWorkoutCompletion({
-          workoutType: 'hybrid',
-          // Bug fix (23.08.2026, David caught on-device): this was never
-          // sent, so home's completionData.workoutTitle was always
-          // undefined for a hybrid completion — the card silently fell back
-          // to its generic category label, which for hybrid (styled as
-          // 'strength' for display, see home/page.tsx) reads "אימון כוח"
-          // even though a hybrid session was completed. No per-session name
-          // exists for a hybrid workout (HybridPlan carries no name/title
-          // field, confirmed before this fix) — HybridSummary.tsx's own
-          // header hardcodes the identical literal for the same reason;
-          // matching it here keeps the card and the summary screen in sync.
-          workoutTitle: 'אימון משולב',
-          durationMinutes: Math.max(Math.round(totalDurationSec / 60), 1),
-          calories: planCalories,
-          activityCategory: 'cardio', // aggregate fallback (unused — categorySplits wins)
-          displayIcon: 'activity',
-          distanceKm: result.summary.totalActualDistanceKm,
-          categorySplits: [
-            { category: 'cardio', durationMinutes: Math.round(aerobicSec / 60), calories: planAerobicCalories },
-            { category: 'strength', durationMinutes: Math.round(strengthSec / 60), calories: planStrengthCalories },
-          ],
+        // ── dailyActivity / streak / weekly volume / muscle shield — PER PART ──
+        // saveHybridWorkout writes only the `workouts` history doc; everything
+        // else lives in syncHybridCompletion (hybrid-counting.ts splits the
+        // session into run / walk / strength parts). Single sync point — the
+        // suppressed runner teardown below never reaches syncWorkoutCompletion.
+        const { syncHybridCompletion } = await import('./hybrid-completion-sync');
+        await syncHybridCompletion({
+          result,
+          plan: get().plan,
+          aerobicKind: planAerobicKind,
+          calories: { total: planCalories, aerobic: planAerobicCalories, strength: planStrengthCalories },
         });
-
-        // ── Weekly volume — aerobic distance + strength sets (mirrors solo) ───
-        // Kept in the caller (like the strength-solo path) because the set /
-        // difficulty data lives on the finalize result, not the sync payload.
-        try {
-          const { useWeeklyVolumeStore } = await import(
-            '@/features/workout-engine/core/store/useWeeklyVolumeStore'
-          );
-          const wv = useWeeklyVolumeStore.getState();
-          if (result.summary.totalActualDistanceKm > 0) {
-            wv.recordRunningSession(result.summary.totalActualDistanceKm, Math.round(aerobicSec / 60));
-          }
-          if (result.summary.totalStrengthSets > 0) {
-            wv.recordStrengthSession(
-              result.summary.totalStrengthSets, // completed
-              result.summary.totalStrengthSets, // planned (MVP: no per-set plan on finalize)
-              2,     // difficulty — neutral default (no bolt data on the finalize result)
-              false, // isRecovery
-              undefined,
-              Math.round(strengthSec / 60),
-            );
-          }
-        } catch (volErr) {
-          console.error('[useHybridRun] weekly volume record failed', volErr);
-        }
       }
     } catch (e) {
       console.error('[useHybridRun] hybrid save failed', e);
