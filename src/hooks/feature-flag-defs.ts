@@ -285,6 +285,13 @@ export const FLAG_DEFS = [
   // PersonaStep via useFeatureFlags() without the super-admin override, so the panel toggle is
   // the one switch. Fail-closed; superAdminValue false.
   { key: 'enableOrgAccessCodePrompt', firestoreKey: 'enable_org_access_code_prompt', defaultValue: false, superAdminValue: false },
+  // JIT identity before the health declaration (20.10.2026, entry flow v2 brief B) — a user with
+  // no known identity (quick signup "הרשמה מהירה" → MAP_ONLY, no name / birth date) who starts a
+  // workout first fills the existing identity screen (gender, birth date, name — same validation,
+  // v2 look) inside the JIT gate, so the health declaration is signed with their real name and
+  // gendered copy. onboardingPath / onboardingStatus are left untouched. Fail-closed; super admins
+  // preview it. Off = today's JIT gate (health declaration only), byte-identical.
+  { key: 'enableJitIdentityV1', firestoreKey: 'enable_jit_identity_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
