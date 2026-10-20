@@ -64,6 +64,7 @@ GROUP_8089=(
   functions/src/__tests__/leagueSteps.emulator.test.ts
   functions/src/__tests__/leagueRollups.emulator.test.ts
   functions/src/__tests__/onGroupMemberWrite.emulator.test.ts
+  scripts/demo/__tests__/demo-world.emulator.test.ts
 )
 
 RESULTS=$(mktemp)
