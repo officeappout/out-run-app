@@ -123,6 +123,9 @@ export { onExerciseSwapCreated, onWorkoutCreateExerciseStats } from './exerciseS
 // invoker + OIDC check), only while enable_demo_users && enable_ai_testers. NOT deployed by
 // the PR — see scripts/qa/README.md (deploy: functions:mintDemoTesterToken).
 export { mintDemoTesterToken } from './mintDemoTesterToken';
+// AI tester runner's only door to Firestore / Storage (least privilege — the qa-runner SA has no
+// Firestore or Storage role). Same identity gate as mintDemoTesterToken. NOT deployed by the PR.
+export { qaRunnerReport } from './qaRunnerReport';
 // ── Demo world, layer A "life" (20.10.2026) — flag-gated (system_config/feature_flags.enable_demo_users,
 // default off; text moments also need demo_life_llm). New function: needs its own deploy, and the
 // ANTHROPIC_DEMO_KEY secret must exist first — see demoSimulatorTick.ts.
