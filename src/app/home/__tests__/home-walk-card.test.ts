@@ -36,4 +36,9 @@ describe('home/page.tsx — walker pinned card', () => {
   it('the walk slot is v2-only', () => {
     expect(pageSrc).toMatch(/resolveHomeWalkSlot\(\{\s*v2: featureFlags\.enableHomeV2,/);
   });
+
+  it('a walking-only user sees just today\'s walk card; the weekly top-up is v2 + walker only', () => {
+    expect(pageSrc).toContain("if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return [{ id: WALK_CARD_ID }];");
+    expect(pageSrc).toContain('enabled: featureFlags.enableHomeV2 && walkWeek.isWalker,');
+  });
 });

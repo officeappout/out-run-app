@@ -54,6 +54,7 @@ import { resolveToSlug } from '@/features/workout-engine/services/program-hierar
 import ErrorBoundary from '@/components/ErrorBoundary';
 import HomeWalkCarouselCard from '@/features/home/components/walk/HomeWalkCarouselCard';
 import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
+import { useWalkTopUp } from '@/features/home/hooks/useWalkTopUp';
 import { placeWalkCard, resolveHomeTabs, resolveHomeWalkSlot, resolveWalkSlotSurface, type HomeTab } from '@/features/home/utils/home-walk-slot';
 import { startShortWalk, startWalkEntry } from '@/features/schedule/walking/startWalk';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
@@ -1673,6 +1674,16 @@ export default function HomePage() {
     steps: walkStepsToday,
     stepGoal: walkStepGoal,
   });
+  // Weekly top-up: the next week of walks once the saved ones reach < ~3 weeks ahead
+  // (once a day per device, fire-and-forget; never breaks home).
+  useWalkTopUp({
+    uid: profile?.id,
+    enabled: featureFlags.enableHomeV2 && walkWeek.isWalker,
+    stepGoal: walkStepGoal,
+    recurringTemplate: profile?.lifestyle?.recurringTemplate ?? null,
+    reminders: profile?.lifestyle?.reminders,
+  });
+  const walkOnlyUser = featureFlags.enableHomeV2 && walkWeek.isWalker && !hasStrengthProgram && !homeRun.hasRunningPlan;
   const WALK_CARD_ID = 'walk-card';
   const isWalkCarouselItem = (
     item: Suggestion | { id: string },
@@ -3439,6 +3450,9 @@ export default function HomePage() {
                           ? placeRunCard(base, { id: RUN_PLAN_CARD_ID }, homeRun.slot.position)
                           : base;
                         // enable_home_v2 walker: today's walk leads (the pinned card), the short walk goes last.
+                        // A walking-only user (no strength / running plan) sees just today's walk card
+                        // (owner: simply what they have today, no extra cards).
+                        if (walkOnlyUser && walkSlotSurface === 'carousel' && walkSlot) return [{ id: WALK_CARD_ID }];
                         const withWalk = walkSlotSurface === 'carousel' && walkSlot
                           ? placeWalkCard(withRun, { id: WALK_CARD_ID }, walkSlot)
                           : withRun;
