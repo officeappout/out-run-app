@@ -6,6 +6,10 @@
  *   2. otherwise the recurring template's strength ids for that weekday;
  *   3. running comes from running.activeProgram.schedule (week + 1-based slot → weekday via
  *      the sorted running.scheduleDays, the same formula weaverInput / running-day-resolution use).
+ *      With `runsByType` (enable_home_v2) the week's runs take their weekday BY SLOT TYPE
+ *      through the shared mapper (utils/runWeekByType — the same week home and signup show:
+ *      the long run on running.longRunDay when set), so a planned / missed run (and the
+ *      make-up offered for it) is the run home shows on that day. Off: unchanged.
  *
  * Then detectMissed joins them with the workouts collection by date + kind (bug #8): a
  * strength entry is DONE when a strength (or hybrid) workout exists that day, or the entry
@@ -16,6 +20,7 @@ import { DAY_LETTERS } from '../types/smartSchedule.types';
 import { classifyStrengthId, type ResolveSlug } from '../engine/strengthVocabulary';
 import { calculateCurrentWeek } from '@/lib/running-current-week';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
+import { mapRunWeekByType, runPlacementOf } from '../utils/runWeekByType';
 import type { ScheduleItemId } from '../types/smartSchedule.types';
 import type {
   AdvisorProfile,
@@ -82,8 +87,26 @@ function runningTrainingDays(profile: AdvisorProfile): number[] {
     .sort((a, b) => a - b);
 }
 
+export interface MaterializeOptions {
+  /** enable_home_v2 — runs on their weekday by slot type (see the header). Omitted = ordinal. */
+  runsByType?: boolean;
+}
+
+type RunEntry = NonNullable<NonNullable<AdvisorProfile['running']>['activeProgram']>['schedule'][number];
+
+/** The plan entry the run on `dow` is, for the given week: by slot type, or the k-th run on the k-th day. */
+function runEntryOn(profile: AdvisorProfile, week: number, dow: number, trainingDays: number[], byType: boolean): RunEntry | undefined {
+  const schedule = profile.running?.activeProgram?.schedule ?? [];
+  if (byType) {
+    const weekEntries = schedule.filter((e) => e.week === week);
+    return mapRunWeekByType(weekEntries, trainingDays, runPlacementOf(profile.running)).get(dow);
+  }
+  const slot = trainingDays.indexOf(dow);
+  return schedule.find((e) => e.week === week && e.day === slot + 1);
+}
+
 /** The running plan entry for a calendar day, or null. */
-function plannedRunFor(profile: AdvisorProfile, key: string): PlannedEntry | null {
+function plannedRunFor(profile: AdvisorProfile, key: string, opts: MaterializeOptions = {}): PlannedEntry | null {
   const program = profile.running?.activeProgram;
   if (!profile.running?.isUnlocked || !program?.schedule?.length) return null;
   const at = keyToDate(key);
@@ -91,9 +114,8 @@ function plannedRunFor(profile: AdvisorProfile, key: string): PlannedEntry | nul
   const week = calculateCurrentWeek(program.startDate, at);
   const dow = dayOfWeekOfKey(key);
   const trainingDays = runningTrainingDays(profile);
-  const slot = trainingDays.indexOf(dow);
-  if (slot < 0) return null;
-  const entry = program.schedule.find((e) => e.week === week && e.day === slot + 1);
+  if (!trainingDays.includes(dow)) return null;
+  const entry = runEntryOn(profile, week, dow, trainingDays, opts.runsByType === true);
   if (!entry || !entry.category) return null;
   return {
     date: key,
@@ -114,6 +136,7 @@ export function materializePlanned(
   keys: string[],
   scheduleDays: AdvisorScheduleDay[] | null,
   resolveSlug?: ResolveSlug,
+  opts: MaterializeOptions = {},
 ): PlannedEntry[] {
   const byDate = new Map((scheduleDays ?? []).map((d) => [d.date, d]));
   const template = profile.lifestyle?.recurringTemplate ?? {};
@@ -167,7 +190,7 @@ export function materializePlanned(
         completedAtSource: strengthPlanned.completed,
       });
     }
-    const run = plannedRunFor(profile, key);
+    const run = plannedRunFor(profile, key, opts);
     if (run && !(restOverride && !runFromDoc)) out.push(run);
   }
   return out;
