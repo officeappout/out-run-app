@@ -238,6 +238,12 @@ function keyRunOf(p: PlannedWithStatus | undefined): KeyRun | null {
 const daysBetweenKeys = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
+/**
+ * Same-day misses: the one that wins as "most recent" (sorted last). Strength over run keeps
+ * the old order; a walk only wins a day nothing else was missed on.
+ */
+const MAKEUP_KIND_RANK: Record<PlannedWithStatus['kind'], number> = { walk: 0, run: 1, strength: 2 };
+
 /** Makeup window: only a miss at most this many days old is ever offered. */
 export const MAKEUP_MAX_AGE_DAYS = 2;
 /** No workout for this many days → welcome_back; this many → fresh_start. */
@@ -273,9 +279,12 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
   const yesterday = addDaysToKey(today, -1);
 
   const todays = planned.filter((p) => p.date === today);
-  const doneToday = {
+  const walkedToday = input.workouts.some((w) => w.date === today && workoutMatchesKind(w, 'walk'));
+  const doneToday: TodayAdvice['doneToday'] = {
     strength: input.workouts.some((w) => w.date === today && workoutMatchesKind(w, 'strength')),
     run: input.workouts.some((w) => w.date === today && workoutMatchesKind(w, 'run')),
+    // Only when a walk is planned today: no walk entries = the exact old shape.
+    ...(todays.some((p) => p.kind === 'walk') ? { walk: walkedToday } : {}),
   };
   const weeklyLoad = weeklyLoadOf(input);
   const periodization = periodizationView(input);
@@ -341,9 +350,13 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
         light: baseMode === 'fresh_start' || i === 0,
       };
     });
-    if (doneToday.strength || doneToday.run) return finish(baseMode, 'rest', null, null, { replan });
+    if (doneToday.strength || doneToday.run || doneToday.walk) return finish(baseMode, 'rest', null, null, { replan });
     const plannedStrength = todays.find((p) => p.kind === 'strength');
     const plannedRun = todays.find((p) => p.kind === 'run');
+    // Only a planned walk today: that walk is the light session (never a run, never strength).
+    if (!plannedStrength && !plannedRun && todays.some((p) => p.kind === 'walk' && p.status !== 'done')) {
+      return finish(baseMode, 'walk', null, null, { replan });
+    }
     if (plannedStrength || (!plannedRun && hasStrengthTrack(input.profile))) {
       return finish(baseMode, 'strength', strengthParams(plannedStrength?.strengthSlugs ?? activeProgramSlugs()), null, { replan });
     }
@@ -357,10 +370,13 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
 
   // ── on_track: today's plan first ──
   for (const t of todays) {
-    if (t.status === 'done') reasons.push({ code: 'TODAY_DONE', kind: t.kind === 'strength' ? 'strength' : 'run' });
+    if (t.status === 'done') reasons.push({ code: 'TODAY_DONE', kind: t.kind });
   }
   const strengthToday = todays.find((p) => p.kind === 'strength' && p.status !== 'done');
   const runToday = todays.find((p) => p.kind === 'run' && p.status !== 'done');
+  // Strength wins the day; a planned walk alongside it gets a short secondary mention.
+  const walkAlsoToday = !!strengthToday && todays.some((p) => p.kind === 'walk' && p.status !== 'done');
+  if (walkAlsoToday) reasons.push({ code: 'WALK_ALSO_TODAY' });
 
   if (strengthToday && runToday) {
     reasons.push({ code: 'TODAY_PLANNED', kind: 'strength' }, { code: 'TODAY_PLANNED', kind: 'run' });
@@ -379,13 +395,17 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
     reasons.push({ code: 'TODAY_PLANNED', kind: 'run' });
     return finish('on_track', 'run', null, runToday.runRef);
   }
+  if (todays.some((p) => p.kind === 'walk' && p.status !== 'done')) {
+    reasons.push({ code: 'TODAY_PLANNED', kind: 'walk' });
+    return finish('on_track', 'walk', null, null);
+  }
   if (todays.length > 0) return finish('on_track', 'rest', null, null); // everything planned today is done
 
   // ── Nothing planned today (the week has room): at most ONE makeup — the most recent
   // miss, ≤2 days old, only if it breaks no recovery rule. Older misses are dropped. ──
   const lastMiss = planned
     .filter((p) => p.status === 'missed')
-    .sort((a, b) => (a.date === b.date ? (a.kind === 'strength' ? 1 : -1) : a.date < b.date ? -1 : 1))
+    .sort((a, b) => (a.date === b.date ? MAKEUP_KIND_RANK[a.kind] - MAKEUP_KIND_RANK[b.kind] : a.date < b.date ? -1 : 1))
     .pop();
   const fresh = lastMiss && daysBetweenKeys(lastMiss.date, today) <= MAKEUP_MAX_AGE_DAYS;
   if (lastMiss && fresh) {
@@ -403,6 +423,11 @@ export function adviseToday(input: AdvisorInput): TodayAdvice {
     if (runOk) {
       reasons.push({ code: 'MAKEUP_MISSED', kind: 'run', day: lastMiss.dayOfWeek });
       return finish('makeup', 'run', null, lastMiss.runRef, { makeup: lastMiss });
+    }
+    // A missed walk is made up as a walk (light: no recovery rule binds) — never as a run.
+    if (lastMiss.kind === 'walk' && !walkedToday) {
+      reasons.push({ code: 'MAKEUP_MISSED', kind: 'walk', day: lastMiss.dayOfWeek });
+      return finish('makeup', 'walk', null, null, { makeup: lastMiss });
     }
   }
 
