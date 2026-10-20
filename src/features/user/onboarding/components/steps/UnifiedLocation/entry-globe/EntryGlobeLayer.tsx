@@ -12,6 +12,8 @@ import { EntrySearchOverlay } from './EntrySearchOverlay';
 
 export interface EntryGlobeLayerProps {
   stage: LocationStage;
+  /** enable_entry_intro_v1 — the OUT logo above the headline. */
+  logoSlot?: boolean;
   /** The Earth is on screen (above the street map). */
   showGlobe: boolean;
   globePhase: GlobePhase;
@@ -73,7 +75,7 @@ export function EntryGlobeLayer(p: EntryGlobeLayerProps) {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <EntryGlobeHeadline />
+                  <EntryGlobeHeadline logoSlot={p.logoSlot} />
                 </motion.div>
               )}
             </AnimatePresence>

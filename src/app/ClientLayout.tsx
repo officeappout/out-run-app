@@ -37,7 +37,7 @@ function MidnightClock() {
 // of the screen, so the global BottomNavbar can coexist at the bottom.
 // '/privacy', '/terms' and '/accessibility' are standalone public compliance pages that must
 // render as clean web documents without any mobile app chrome.
-const HIDDEN_NAV_ROUTES = ['/explorer', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth'];
+const HIDDEN_NAV_ROUTES = ['/explorer', '/intro', '/library', '/onboarding-new', '/gateway', '/privacy', '/terms', '/accessibility', '/public', '/join', '/challenge', '/booth'];
 
 export default function ClientLayout({
   children,

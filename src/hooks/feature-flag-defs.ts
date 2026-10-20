@@ -309,6 +309,15 @@ export const FLAG_DEFS = [
   // gendered copy. onboardingPath / onboardingStatus are left untouched. Fail-closed; super admins
   // preview it. Off = today's JIT gate (health declaration only), byte-identical.
   { key: 'enableJitIdentityV1', firestoreKey: 'enable_jit_identity_v1', defaultValue: false, superAdminValue: true },
+  // Entry flow v2 — landing + the 5-barrier intro stories (20.10.2026, owner-approved design canvas
+  // intro-S1/SB/S2–S6/G1, brief E). The landing becomes the city portrait ("ברוכים הבאים ל-OUT");
+  // "הרשמה מהירה" runs the same quick signup, then — once per device (onboardingPrefs
+  // entry_intro_seen) — /intro: the "why it's hard to keep going" bridge + five story screens
+  // (time, community, access, money, know-how), and the ring closes into the OUT logo over the
+  // location step's globe. Pending invites keep their own redirects. Fail-closed; super admins
+  // preview it once signed in (the landing itself is pre-auth, so it follows the global value).
+  // Off = today's landing and flow, byte-identical.
+  { key: 'enableEntryIntroV1', firestoreKey: 'enable_entry_intro_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
