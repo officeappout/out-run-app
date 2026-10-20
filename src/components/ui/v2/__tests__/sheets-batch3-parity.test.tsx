@@ -72,7 +72,15 @@ describe('flag off — byte-identical to the pre-migration markup', () => {
     expect(achievements()).toMatchSnapshot();
   });
   it('ActivityPanel', () => {
-    expect(activity()).toMatchSnapshot();
+    // The row shows "לפני N ימים" since createdAt (epoch) — pin "now" to the day
+    // the snapshot was recorded so the parity check doesn't drift daily.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T12:00:00Z'));
+    try {
+      expect(activity()).toMatchSnapshot();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('ReportContentSheet', () => {
     expect(report()).toMatchSnapshot();
