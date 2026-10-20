@@ -32,7 +32,7 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import ExistingAccountModal from '@/components/ExistingAccountModal';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
-import { INTRO_SEEN_PREF, isIntroSeen, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
+import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -302,10 +302,16 @@ export default function LandingPage() {
   const [existingAccountProvider, setExistingAccountProvider] = useState<'google' | 'apple' | null>(null);
 
   // enable_entry_intro_v1 — the new landing (city portrait) + the once-per-device
-  // intro stories after quick signup. Off = the carousel landing below, unchanged.
-  // While this device has never loaded the flags, keep the splash up so the
-  // wrong landing never paints first (capped by useFeatureFlags' LOADING_CAP_MS).
-  const { enabled: introOn, loading: introFlagLoading } = useEntryIntroV1();
+  // intro stories after quick signup. Decided from the cached/known flags only —
+  // never waits for them (unknown = today's carousel landing, unchanged).
+  // `/?intro=preview` (owner preview, client-side only) shows it regardless of the
+  // flag and of "seen", and the intro then never marks itself seen.
+  const { enabled: introFlag } = useEntryIntroV1();
+  const [introPreview, setIntroPreview] = useState(false);
+  useEffect(() => {
+    if (isIntroPreview(window.location.search, 'landing')) setIntroPreview(true);
+  }, []);
+  const introOn = introFlag || introPreview;
 
   // ── Unified carousel index — drives both background AND tagline ──
   // Owned here so a single timer keeps both in perfect sync.
@@ -513,12 +519,14 @@ export default function LandingPage() {
     try {
       // enable_entry_intro_v1: the flow's final `/explorer` push becomes `/intro`
       // until the intro has been seen on this device; invite redirects untouched.
-      const flowRouter = introOn
-        ? withIntroRedirect(router, {
-            introOn,
-            introSeen: isIntroSeen(await getOnboardingPrefAsync(INTRO_SEEN_PREF)),
-          })
-        : router;
+      const flowRouter = introPreview
+        ? withIntroRedirect(router, { introOn: true, introSeen: false, preview: true })
+        : introOn
+          ? withIntroRedirect(router, {
+              introOn,
+              introSeen: isIntroSeen(await getOnboardingPrefAsync(INTRO_SEEN_PREF)),
+            })
+          : router;
       const proceeded = await runExploreMapFlow(flowRouter);
       if (!proceeded) {
         // resolveUser() already logged AUTH_ANONYMOUS (run-explore-map-
@@ -537,7 +545,7 @@ export default function LandingPage() {
       setAuthState('guest');
       showToast('error', 'החיבור לא הצליח. נסו שוב.');
     }
-  }, [router, showToast, introOn]);
+  }, [router, showToast, introOn, introPreview]);
 
   // ── Secondary: "התחברות" → Open login drawer ──
   const handleLoginOpen = useCallback(() => {
@@ -742,7 +750,7 @@ export default function LandingPage() {
           Rendered above the marketing UI (z-[100]) so the carousel can
           preload in the background without the user seeing a flash. */}
       <AnimatePresence>
-        {(authState !== 'guest' || introFlagLoading) && (
+        {authState !== 'guest' && (
           <motion.div
             key="branded-splash"
             initial={{ opacity: 1 }}

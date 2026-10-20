@@ -9,9 +9,9 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
  * landing is pre-auth (no profile, isSuperAdmin false), so the global Firestore
  * value decides there; a signed-in super admin always previews it.
  *
- * `loading` is true only until this device has ever known the flags (the hook
- * starts from the last-known cached values), so the landing can keep its splash
- * up instead of painting the wrong design first.
+ * Starts from the device's cached/known flags; callers never wait on `loading`
+ * (unknown flags = today's landing — a one-time swap on a fresh install is fine,
+ * a delay on cold start is not).
  */
 export function useEntryIntroV1(): { enabled: boolean; loading: boolean } {
   const isSuperAdmin = useUserStore(

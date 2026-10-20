@@ -15,6 +15,8 @@
  */
 
 export const INTRO_ROUTE = '/intro';
+/** Owner preview: the intro regardless of the flag and of "seen", never marks it seen. */
+export const INTRO_PREVIEW_ROUTE = '/intro?preview=1';
 export const EXPLORER_ROUTE = '/explorer';
 /** onboardingPrefs key — durable, "1" once the intro finished or was skipped. */
 export const INTRO_SEEN_PREF = 'entry_intro_seen';
@@ -30,21 +32,37 @@ export function isIntroSeen(prefValue: string | null | undefined): boolean {
 }
 
 /**
+ * Preview entry (client-side only, no data writes): `/?intro=preview` on the
+ * landing, `/intro?preview=1` on the intro itself. `search` is location.search.
+ */
+export function isIntroPreview(search: string | null | undefined, where: 'landing' | 'intro'): boolean {
+  if (!search) return false;
+  try {
+    const q = new URLSearchParams(search);
+    return where === 'landing' ? q.get('intro') === 'preview' : q.get('preview') === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The href the quick signup should actually navigate to. Only the plain
  * `/explorer` landing is redirected; invite redirects keep their own target.
  */
 export function resolveQuickSignupHref(
   href: string,
-  opts: { introOn: boolean; introSeen: boolean },
+  opts: { introOn: boolean; introSeen: boolean; preview?: boolean },
 ): string {
+  if (href !== EXPLORER_ROUTE) return href;
+  if (opts.preview) return INTRO_PREVIEW_ROUTE;
   if (!opts.introOn || opts.introSeen) return href;
-  return href === EXPLORER_ROUTE ? INTRO_ROUTE : href;
+  return INTRO_ROUTE;
 }
 
 /** Wraps a router so runExploreMapFlow's final push honours resolveQuickSignupHref. */
 export function withIntroRedirect<R extends { push: (href: string) => void }>(
   router: R,
-  opts: { introOn: boolean; introSeen: boolean },
+  opts: { introOn: boolean; introSeen: boolean; preview?: boolean },
 ): { push: (href: string) => void } {
   return { push: (href: string) => router.push(resolveQuickSignupHref(href, opts)) };
 }

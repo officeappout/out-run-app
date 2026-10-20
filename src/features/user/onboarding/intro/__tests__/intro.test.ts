@@ -3,7 +3,7 @@ import {
   BARRIER_LABELS, BARRIER_STORIES, BRIDGE_COPY, LANDING_COPY, RING_TONES, storyImages,
 } from '../intro-copy';
 import {
-  EXPLORER_ROUTE, INTRO_ARRIVAL_KEY, INTRO_ROUTE, consumeIntroArrival, isIntroSeen,
+  EXPLORER_ROUTE, INTRO_ARRIVAL_KEY, INTRO_PREVIEW_ROUTE, INTRO_ROUTE, consumeIntroArrival, isIntroPreview, isIntroSeen,
   markIntroArrival, resolveQuickSignupHref, withIntroRedirect,
 } from '../intro-route';
 import { arcPath, labelCenter, segmentPath } from '../ring-geometry';
@@ -105,6 +105,28 @@ describe('quick-signup route decision', () => {
         }
       }
     }
+  });
+
+  it('preview → /intro?preview=1 regardless of flag and seen; invites still untouched', () => {
+    for (const introOn of [true, false]) {
+      for (const introSeen of [true, false]) {
+        expect(resolveQuickSignupHref(EXPLORER_ROUTE, { introOn, introSeen, preview: true })).toBe(INTRO_PREVIEW_ROUTE);
+        for (const href of invites) {
+          expect(resolveQuickSignupHref(href, { introOn, introSeen, preview: true })).toBe(href);
+        }
+      }
+    }
+  });
+
+  it('preview query parsing', () => {
+    expect(isIntroPreview('?intro=preview', 'landing')).toBe(true);
+    expect(isIntroPreview('?a=1&intro=preview', 'landing')).toBe(true);
+    expect(isIntroPreview('?intro=1', 'landing')).toBe(false);
+    expect(isIntroPreview('', 'landing')).toBe(false);
+    expect(isIntroPreview(null, 'landing')).toBe(false);
+    expect(isIntroPreview('?preview=1', 'intro')).toBe(true);
+    expect(isIntroPreview('?preview=0', 'intro')).toBe(false);
+    expect(isIntroPreview('?intro=preview', 'intro')).toBe(false);
   });
 
   it('withIntroRedirect forwards the resolved href to the real router', () => {

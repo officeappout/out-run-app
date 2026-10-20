@@ -63,9 +63,13 @@ export default function ExplorerPage() {
   // reduced motion skips straight to the final frame = the logo in its slot).
   const { enabled: introOn } = useEntryIntroV1();
   const [ringClose, setRingClose] = useState(false);
+  // Arrived from /intro (also its flag-independent ?preview=1): keep the logo slot
+  // for this visit so the overlay's logo has somewhere to land.
+  const [fromIntro, setFromIntro] = useState(false);
   useEffect(() => {
     const arriving = consumeIntroArrival(window.sessionStorage);
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (arriving) setFromIntro(true);
     if (arriving && !reduce) setRingClose(true);
   }, []);
   const ringCloseOverlay = ringClose ? (
@@ -120,7 +124,7 @@ export default function ExplorerPage() {
       <UnifiedLocationStep
         mode="explorer"
         entryGlobe={entryGlobe}
-        entryLogo={introOn && entryGlobe}
+        entryLogo={(introOn || fromIntro) && entryGlobe}
         onNext={() => {}}
         onExplorerDismiss={async () => {
           const returnTo = typeof window !== 'undefined'
