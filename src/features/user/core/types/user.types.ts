@@ -455,6 +455,16 @@ export interface UserFullProfile {
     primaryTrack?: PrimaryTrack; // Persona-derived track: drives dashboard mode, ring priority, WHO compliance
     lifestyleTags?: string[]; // Lifestyle tags from selected persona(s) (e.g., ['office_worker', 'student']) — content-tag matching, independent of the `personas` identity array below
     /**
+     * Walking goal (enable_home_v2, owner 20.10.2026). Optional, additive; written only
+     * by the flag-gated walking signup (walkSave.service). The weekly walk top-up grows
+     * toward targetWeeklyMinutes (WHO band 150–300′); missing → a 150′ ceiling.
+     * See features/schedule/walking/walkingGoal.ts.
+     */
+    walkingGoal?: {
+      goal: 'weight_loss' | 'health' | 'steps' | 'belly';
+      targetWeeklyMinutes: number;
+    };
+    /**
      * UTS Phase 1 — per-day program assignment template.
      * Keys = Hebrew day letters (Sun='א'…Sat='ש').
      * Values = Firestore program document ID array for that day.

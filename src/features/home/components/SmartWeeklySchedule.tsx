@@ -40,6 +40,7 @@ import { resolveTodayRunningWorkout } from '@/lib/running-today-workout';
 import { RUNNING_WORKOUT_CATEGORY_LABELS_HE } from '@/lib/running-workout-labels';
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { mapRunEntriesToWeekdays, runOverlayDayFields } from '@/features/home/utils/run-overlay-day';
+import { walkDayCell, walkSessionOverride, WALK_DAY_COLOR } from '@/features/home/utils/walk-day-cell';
 import { mapRunWeekFromLetters, type RunPlacementContext } from '@/features/schedule/utils/runWeekByType';
 import { 
   ACTIVITY_COLORS, 
@@ -195,6 +196,10 @@ interface DayActivityData {
   communityIconKey?: string;
   /** Primary personal schedule entry for this day — used for per-entry icon resolution. */
   primaryEntry?: UserScheduleEntry;
+  /** enable_home_v2: the day's training is a planned walk only (walk colour). */
+  walkPrimary?: boolean;
+  /** enable_home_v2: a planned walk of this day is completed (its entry's `completed`). */
+  walkDone?: boolean;
   /**
    * Stage H (18.08.2026) — every distinct activity/goal relevant to this day,
    * completed or planned. Fed to resolveDayDisplayProps so DayIconCell can
@@ -305,6 +310,7 @@ function buildPlannedSessions(
   manualEntries: UserScheduleEntry[],
   runEntry: RunningScheduleEntry | undefined,
   runningProgramId: string | undefined,
+  v2 = false,
 ): DaySessionInput[] {
   const sessions: DaySessionInput[] = excludeRunningShadowEntry(manualEntries, runningProgramId)
     .filter((e) => e.type === 'training')
@@ -315,6 +321,8 @@ function buildPlannedSessions(
         e.source === 'community'
           ? PROGRAM_ALIAS_TO_ICON[e.scheduledCategories?.[0] ?? '']
           : resolveIconKey(e.programIds?.[0] ?? e.scheduledCategories?.[0]),
+      // enable_home_v2: a planned walk is its own activity (walk colour), not a run.
+      ...(v2 ? walkSessionOverride(e) ?? {} : {}),
     }));
 
   if (runEntry && runEntry.status === 'pending') {
@@ -1130,7 +1138,10 @@ export default function SmartWeeklySchedule({
         manualEntries,
         isRunningMode || runOverlay ? runningEntriesByDayIndex.get(i) : undefined,
         isRunningMode || runOverlay ? runningProgramId : undefined,
+        v2,
       );
+      // enable_home_v2: planned walks — own colour, and the entry's own completed = done.
+      const walkCell = v2 ? walkDayCell(manualEntries) : null;
       // Run overlay (v2): a run on a strength rest day makes it a run day. The
       // running bridge's own shadow entry (same program id) doesn't count as strength.
       const overlay = runOverlay
@@ -1167,6 +1178,8 @@ export default function SmartWeeklySchedule({
           ?? manualEntries[0],
         sessions: isFuture ? plannedSessions : [],
         sessionsCompleted: false,
+        walkPrimary: walkCell?.walkPrimary ?? false,
+        walkDone: walkCell?.walkDone ?? false,
       };
 
       const scheduleDay = schedule.find(s => s.day === dayLetter);
@@ -1202,7 +1215,7 @@ export default function SmartWeeklySchedule({
         };
         // Mark missed: past training day with no activity and not completed.
         // Prefer the manual entry override; fall back to scheduleDay / scheduleDays.
-        if (!isToday && !status.isCompleted) {
+        if (!isToday && !status.isCompleted && !dayData.walkDone) {
           const isTraining = hasManualRest
             ? false
             : hasManualTraining
@@ -1276,7 +1289,7 @@ export default function SmartWeeklySchedule({
     }
 
     return map;
-  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runOverlay, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap]);
+  }, [schedule, scheduleDays, todayActivity, getDayStatus, dateKey, isRunningMode, runOverlay, runningEntriesByDayIndex, runningProgramId, scheduleVersion, weekScheduleEntries, pastProgressMap, v2]);
   
   // Get indices of completed days for the liquid path
   const completedIndices = useMemo(() => {
@@ -1413,7 +1426,7 @@ export default function SmartWeeklySchedule({
         isSelected: isCellSelected,
         isRest: dayData.isRest,
         isMissed: dayData.isMissed,
-        isCompleted: dayData.workoutDone ?? false,
+        isCompleted: (dayData.workoutDone ?? false) || !!dayData.walkDone,
         debtCleared: dayData.debtCleared,
         // Flame colour comes from the SCHEDULED WORKOUT type (S7), never activity:
         // leave dominantCategory null so resolveCategory / resolveFlameSrc fall to
@@ -1423,8 +1436,9 @@ export default function SmartWeeklySchedule({
         stepGoalMet: false,
         // Run overlay (v2): a run-only day shows the run's flame (runningCategory wins).
         runningCategory: dayData.overlayRunCategory,
-        runningColor: dayData.overlayRunCategory ? getCategoryColor(dayData.overlayRunCategory) : undefined,
-        programIconKey: dayData.overlayRunCategory ? 'shoe' :
+        runningColor: dayData.overlayRunCategory ? getCategoryColor(dayData.overlayRunCategory)
+          : dayData.walkPrimary ? WALK_DAY_COLOR : undefined,
+        programIconKey: dayData.overlayRunCategory ? 'shoe' : dayData.walkPrimary ? 'walking' :
           dayData.communityIconKey ??
           resolveIconKey(dayData.primaryEntry?.programIds?.[0] ?? dayData.primaryEntry?.scheduledCategories?.[0]) ??
           resolvedIconKey,

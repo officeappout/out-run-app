@@ -10,7 +10,10 @@
  *     (this flow's old walks replaced, see planWalkDayWrites);
  *  4. a walking-only user (no strength / running track) with no primaryTrack yet
  *     gets primaryTrack 'health' — an existing value: dashboardMode DEFAULT, the
- *     health metrics (steps) first. Nothing else on the profile changes.
+ *     health metrics (steps) first;
+ *  5. the walking goal (owner 20.10.2026): ONE optional additive field,
+ *     lifestyle.walkingGoal = { goal, targetWeeklyMinutes } (walkingGoal.ts) — the
+ *     weekly top-up grows toward it. Nothing else on the profile changes.
  */
 import { doc, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -21,12 +24,48 @@ import {
 import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
 import type { TimeWindow } from '../engine-v2/types';
 import type { WalkPlan } from './walkPlan.types';
-import { buildWalkEntries, datesNeedingHydration, planWalkDayWrites, walkHorizon } from './walkSchedule';
+import type { StoredWalkingGoal } from './walkingGoal';
+import { buildWalkEntries, datesNeedingHydration, planWalkDayWrites, walkHorizon, type WalkDayWrite } from './walkSchedule';
 
 const COLLECTION = 'userSchedule';
 
 function clean<T extends object>(obj: T): T {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
+
+/**
+ * Hydrate the template weekdays that get a walk but have no day doc yet (the app's own
+ * transactional hydrateFromTemplate) — a walk written alone would hide that day's
+ * strength workout. Mutates `byDate` with what hydration returned.
+ */
+export async function hydrateWalkDays(
+  uid: string,
+  byDate: Record<string, UserScheduleEntry[]>,
+  walks: Readonly<Record<string, UserScheduleEntry>>,
+  template: RecurringTemplate | null,
+  reminders?: { runningTime?: string; strengthTime?: string },
+): Promise<void> {
+  if (!template) return;
+  const letters = new Set(Object.keys(template).filter((k) => Array.isArray(template[k as keyof RecurringTemplate])));
+  const toHydrate = datesNeedingHydration(byDate, walks, letters);
+  const hydrated = await Promise.all(toHydrate.map((d) => hydrateFromTemplate(uid, d, template, reminders)));
+  toHydrate.forEach((d, i) => {
+    if (hydrated[i].length) byDate[d] = hydrated[i];
+  });
+}
+
+/** One writeBatch: each day doc = its full entries list (merge: false). */
+export async function commitWalkDayWrites(uid: string, writes: readonly WalkDayWrite[]): Promise<void> {
+  if (!writes.length) return;
+  const batch = writeBatch(db);
+  for (const w of writes) {
+    batch.set(
+      doc(db, COLLECTION, `${uid}_${w.date}`),
+      { userId: uid, date: w.date, entries: w.entries.map((e) => clean(e)), updatedAt: serverTimestamp() },
+      { merge: false },
+    );
+  }
+  await batch.commit();
 }
 
 export interface SaveWalkPlanInput {
@@ -36,6 +75,8 @@ export interface SaveWalkPlanInput {
   reminders?: { runningTime?: string; strengthTime?: string };
   /** Set primaryTrack 'health' (walking-only user without one). */
   setHealthTrack: boolean;
+  /** lifestyle.walkingGoal — the goal + weekly target the top-up grows toward. */
+  walkingGoal?: StoredWalkingGoal | null;
   now?: Date;
 }
 
@@ -52,34 +93,19 @@ export async function saveWalkPlan(input: SaveWalkPlanInput): Promise<{ written:
   if (!existing) throw new Error('schedule read failed');
   const byDate: Record<string, UserScheduleEntry[]> = { ...existing };
 
-  const template = input.recurringTemplate ?? null;
-  if (template) {
-    const letters = new Set(Object.keys(template).filter((k) => Array.isArray(template[k as keyof RecurringTemplate])));
-    const toHydrate = datesNeedingHydration(byDate, walks, letters);
-    const hydrated = await Promise.all(toHydrate.map((d) => hydrateFromTemplate(uid, d, template, input.reminders)));
-    toHydrate.forEach((d, i) => {
-      if (hydrated[i].length) byDate[d] = hydrated[i];
-    });
-  }
+  await hydrateWalkDays(uid, byDate, walks, input.recurringTemplate ?? null, input.reminders);
 
   const writes = planWalkDayWrites(byDate, walks, horizon);
-  if (writes.length) {
-    const batch = writeBatch(db);
-    for (const w of writes) {
-      batch.set(
-        doc(db, COLLECTION, `${uid}_${w.date}`),
-        { userId: uid, date: w.date, entries: w.entries.map((e) => clean(e)), updatedAt: serverTimestamp() },
-        { merge: false },
-      );
-    }
-    await batch.commit();
-  }
+  await commitWalkDayWrites(uid, writes);
 
-  if (input.setHealthTrack) {
+  const profilePatch: Record<string, unknown> = {};
+  if (input.setHealthTrack) profilePatch['lifestyle.primaryTrack'] = 'health';
+  if (input.walkingGoal) profilePatch['lifestyle.walkingGoal'] = { ...input.walkingGoal };
+  if (Object.keys(profilePatch).length) {
     try {
-      await updateDoc(doc(db, 'users', uid), { 'lifestyle.primaryTrack': 'health', updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'users', uid), { ...profilePatch, updatedAt: serverTimestamp() });
     } catch (err) {
-      console.error('[walkSave] primaryTrack write failed (non-fatal)', err);
+      console.error('[walkSave] profile write failed (non-fatal)', err);
     }
   }
   return { written: writes.length };

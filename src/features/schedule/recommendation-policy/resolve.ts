@@ -3,18 +3,14 @@
  *
  * signals (level, running ability, goals, audience, tracks, available days)
  *   + policy (policy.config.ts today, a Firestore doc later — same shape)
- *   → how many strength / run sessions a week, the split the workout generator
- *     will actually run (SPLIT_MATRIX), optional add-ons and Hebrew reasons.
+ *   → how many strength / run sessions a week, the split (the policy's own
+ *     level × sessions table, policy.strength.splits), optional add-ons and
+ *     Hebrew reasons.
  *
  * Order: base by band → rules in order → hard-skill minimum → bounds →
- * available days. The split is never invented: it is the generator's own
- * SPLIT_MATRIX cell for the final frequency × level tier.
+ * available days → split → free-day add-ons.
  */
-import {
-  SPLIT_MATRIX,
-  getFrequencyIndex,
-  getLevelTier,
-} from '@/features/workout-engine/services/split-decision/split-decision.types';
+import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
 import { RECOMMENDATION_POLICY } from './policy.config';
 import type {
   PolicyAddOn,
@@ -45,6 +41,7 @@ export function matchesWhen(when: PolicyWhen, ctx: Ctx): boolean {
   if (when.goalsNone && when.goalsNone.some((g) => s.goals.includes(g))) return false;
   if (when.audiences && !when.audiences.includes(s.audience)) return false;
   if (when.minHardSkills != null && s.hardSkillCount < when.minHardSkills) return false;
+  if (when.maxHardSkills != null && s.hardSkillCount > when.maxHardSkills) return false;
   if (when.minAvailableDays != null && ctx.available < when.minAvailableDays) return false;
   if (when.maxAvailableDays != null && ctx.available > when.maxAvailableDays) return false;
   if (when.targetDistances && (!s.targetDistance || !when.targetDistances.includes(s.targetDistance))) return false;
@@ -52,9 +49,10 @@ export function matchesWhen(when: PolicyWhen, ctx: Ctx): boolean {
 }
 
 /** "{n}" → the number, "{split}" → the split's Hebrew name. */
-function fill(template: string, vars: { n?: number | null; split?: string; runs?: number | null }): string {
+function fill(template: string, vars: { n?: number | null; split?: string; runs?: number | null; k?: number | null }): string {
   return template
     .replace(/\{n\}/g, vars.n != null ? String(vars.n) : '')
+    .replace(/\{k\}/g, vars.k != null ? String(vars.k) : '')
     .replace(/\{runs\}/g, vars.runs != null ? String(vars.runs) : '')
     .replace(/\{split\}/g, vars.split ?? '')
     .replace(/\s+/g, ' ')
@@ -140,7 +138,16 @@ export function resolveRecommendation(
     ruleReasons.push(fill(policy.availableDaysReasonHe, { n: available }));
   }
 
-  const split = sf != null ? SPLIT_MATRIX[getFrequencyIndex(sf)][band] : null;
+  const split = sf != null ? policy.strength.splits[band]?.[String(clamp(sf, 1, 6))] ?? null : null;
+
+  // Add-ons that fill the free days (e.g. a beginner's light movement days):
+  // count = available − the week's sessions; none left → dropped.
+  for (const [kind, a] of Array.from(addOns.entries())) {
+    if (!a.fillsFreeDays) continue;
+    const k = available - (sf ?? 0) - (rf ?? 0);
+    if (k <= 0) addOns.delete(kind);
+    else addOns.set(kind, { ...a, perWeek: k, labelHe: fill(a.labelHe, { k }) });
+  }
   const splitHe = !split ? '' : signals.hardSkillCount > 0 ? policy.skillSplitNameHe : policy.splitNamesHe[split];
 
   const reasonsHe: string[] = [];

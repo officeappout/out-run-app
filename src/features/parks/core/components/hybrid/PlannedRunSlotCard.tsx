@@ -2,16 +2,18 @@
 
 /**
  * Today's planned run in the map's "מה עושים היום?" carousel (enable_home_v2 only —
- * the slot is built by planned-run-slot.ts and only exists with the flag). v2 card:
+ * the slot is built by planned-run-slot.ts and only exists with the flag). Also today's
+ * planned walk (planned-walk-slot.ts): its CTA opens the free walk on the route step. v2 card:
  * program line, the run's name, the "why" line, and one CTA "הצע לי מסלול" that opens
  * the run overview with route suggestions. Keeps the carousel's anti-ghost-click arming.
  */
 
 import { Footprints, MapPin } from 'lucide-react';
-import type { PlannedRunSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
+import type { PlannedRunSlot, PlannedWalkSlot } from '@/features/workout-engine/hybrid/hybrid-slots';
 
 export interface PlannedRunSlotCardProps {
-  slot: PlannedRunSlot;
+  /** Today's planned run, or (walkers) today's planned walk — same card, its own colour. */
+  slot: PlannedRunSlot | PlannedWalkSlot;
   onArm: () => void;
   /** The carousel's armed check (true → this card's CTA got the pointerdown). */
   onCta: () => void;
@@ -22,7 +24,7 @@ export default function PlannedRunSlotCard({ slot, onArm, onCta }: PlannedRunSlo
     <div className="flex h-full w-full flex-col justify-between gap-3 rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: `${slot.accent}1f`, color: '#65a30d' }}>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: `${slot.accent}1f`, color: slot.kind === 'planned_walk' ? '#00865a' : '#65a30d' }}>
             <Footprints size={18} aria-hidden />
           </span>
           <div className="min-w-0">

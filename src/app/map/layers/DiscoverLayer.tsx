@@ -31,7 +31,13 @@ import { hybridSessionTitle } from '@/features/workout-engine/hybrid/aerobic-kin
 import { useSuggestionEngineStore } from '@/features/workout-engine/core/store/useSuggestionEngineStore';
 import { buildMapUserContext } from '@/features/workout-engine/core/context/build-map-user-context';
 import { applyRankedSlotOrder } from '@/features/workout-engine/core/context/apply-ranked-slot-order';
-import { buildPlannedRunSlot, withPlannedRunSlot } from '@/features/workout-engine/hybrid/planned-run-slot';
+import { buildPlannedRunSlot } from '@/features/workout-engine/hybrid/planned-run-slot';
+import { buildPlannedWalkSlot, withTodayPlanSlots } from '@/features/workout-engine/hybrid/planned-walk-slot';
+import { useWalkWeek } from '@/features/home/hooks/useWalkWeek';
+import { resolveHomeWalkSlot } from '@/features/home/utils/home-walk-slot';
+import { isQualityRunEntry } from '@/features/home/utils/home-run-slot';
+import { isTodayTrainingDay } from '@/features/home/utils/dailyStrengthTarget';
+import { markPendingWalkEntry } from '@/features/schedule/walking/walkHandoff';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
 import { HYBRID_SLOT_PREVIEW_ENABLED, MAP_OVERVIEW_CHROME_V1, MAP_REC_ENGINE_RANKING_V1, IS_STEP_GOAL_ROUTE_PREVIEW_ENABLED, IS_STEP_GOAL_SHORT_ROUTE_ENABLED } from '@/config/feature-flags';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -90,7 +96,8 @@ import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ViewportBounds } from '@/features/parks/core/store/useMapStore';
-import { consumePendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
+import { consumePendingPlannedRun, stashPendingPlannedRun, type PlannedRunSettings } from '@/lib/planned-run';
+import { consumeWalkAutoRoute } from '@/features/schedule/walking/walkHandoff';
 import { logHybridShown } from '@/features/generation-review/capture/hooks';
 import EntryWhatNowMount from './EntryWhatNowMount';
 import { RouteFirstTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
@@ -466,6 +473,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // drawer is pre-filled with it. Kept for the whole free-run visit (the
   // drawer remounts on address/leg round-trips) and dropped when it ends.
   const [scheduledPlannedRun, setScheduledPlannedRun] = useState<PlannedRunSettings | null>(null);
+  // v2 walking track: a planned / short walk opens on the route step (one shot, walkHandoff).
+  const [walkAutoRoute, setWalkAutoRoute] = useState(false);
   const prevMapModeRef = useRef(mapMode);
   useEffect(() => {
     if (prevMapModeRef.current === 'freeRun' && mapMode !== 'freeRun') setScheduledPlannedRun(null);
@@ -504,6 +513,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     // Read-once (also clears a stale/mismatched stash). Only the v2 start
     // action writes it; the drawer prop below is v2-gated as well.
     setScheduledPlannedRun(consumePendingPlannedRun(initialOpenRun));
+    const walkRouteAsked = consumeWalkAutoRoute();
+    if (initialOpenRun === 'walking' && !jumpedToRoute) setWalkAutoRoute(walkRouteAsked);
 
     // Pre-select host's activity type (default, not locked — user can change it)
     logic.handleActivityChange(initialOpenRun as ActivityType);
@@ -938,10 +949,28 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // leads the carousel; its CTA opens the run overview with "הצע לי מסלול". Flag off →
   // plannedRunSlot is null and carouselSlots === slots.
   const homeRun = useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram, mapFeatureFlags.enableHomeV2);
-  const carouselSlots = useMemo(
-    () => withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null),
-    [slots, mapFeatureFlags.enableHomeV2, homeRun.slot],
-  );
+  // enable_home_v2 walker (audit-carousel.md §4): today's planned walk — the same slot home
+  // pins — leads too, and the plan's cards keep home's order (day-plan.ts leadPlanKinds).
+  // One batched read of the coming week (useWalkWeek), flag off → no read, no slot.
+  const mapWalkWeek = useWalkWeek(profile?.id, mapFeatureFlags.enableHomeV2);
+  const carouselSlots = useMemo(() => {
+    if (!mapFeatureFlags.enableHomeV2) return slots;
+    const run = buildPlannedRunSlot(homeRun.slot);
+    const walk = buildPlannedWalkSlot(resolveHomeWalkSlot({
+      v2: true, isWalker: mapWalkWeek.isWalker, isViewingToday: true, today: mapWalkWeek.today,
+      walkedToday: false, steps: null, stepGoal: null,
+    }));
+    return withTodayPlanSlots(slots, {
+      walk,
+      run,
+      runIsQuality: !!homeRun.slot && isQualityRunEntry(homeRun.slot.entry),
+      strengthToday: hasStrengthProgram && isTodayTrainingDay(
+        profile?.lifestyle?.scheduleDays,
+        profile?.lifestyle?.recurringTemplate as Record<string, string[] | undefined> | undefined,
+        new Date(),
+      ),
+    });
+  }, [slots, mapFeatureFlags.enableHomeV2, homeRun.slot, mapWalkWeek, hasStrengthProgram, profile?.lifestyle?.scheduleDays, profile?.lifestyle?.recurringTemplate]);
 
   // ── Entry flow v2, step 2 (enable_entry_whatnow_v1) ──────────────────────────
   // Flag off → entryWhatNowOn is false: the host renders nothing, the carousels get no
@@ -1193,6 +1222,21 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
       resetHybridFlow();
       setMapMode('idle');
       router.push(slot.href);
+      return;
+    }
+    // enable_home_v2 (planned-walk-slot.ts): today's planned walk → the free walk drawer,
+    // on the route step, with the walk's goal — in place (the /map?openRun deep link is
+    // one-shot per visit). Same hand-off as home's startWalkEntry: saving the walk
+    // completes the entry.
+    if (slot.kind === 'planned_walk') {
+      resetHybridFlow();
+      stashPendingPlannedRun('walking', slot.entry.plannedRun);
+      markPendingWalkEntry({ date: slot.entry.date, entryId: slot.entry.entryId });
+      setScheduledPlannedRun(consumePendingPlannedRun('walking'));
+      setWalkAutoRoute(true);
+      logic.handleActivityChange('walking' as ActivityType);
+      setMapMode('freeRun');
+      setFreeRunStep('config');
       return;
     }
     if (slot.kind === 'hybrid') {
@@ -2152,6 +2196,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 // enable_hybrid_cards_v2: "תחנות כוח" only when an equipped park is within reach.
                 enableHybridSlots={mapFeatureFlags.enableHybridSlots && (!hybridCardsV2 || smartHybrid.drawerParkId != null)}
                 initialPlannedRun={mapFeatureFlags.enableHomeV2 ? scheduledPlannedRun : null}
+                autoRoute={mapFeatureFlags.enableHomeV2 && walkAutoRoute}
+                onAutoRouteHandled={() => setWalkAutoRoute(false)}
                 onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
                   // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL

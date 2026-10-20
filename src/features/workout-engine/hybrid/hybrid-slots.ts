@@ -141,7 +141,18 @@ export interface PlannedRunSlot extends SlotBase {
   href: string;
 }
 
-export type HybridSlot = HybridPresetSlot | AerobicQuickSlot | AssessmentPromptSlot | PlannedRunSlot;
+/**
+ * enable_home_v2 only: today's planned walk (planned-walk-slot.ts — the walker's pinned
+ * card on home). No compose step — its CTA opens the free walk drawer on the route step
+ * with the walk's goal (time / distance), and saving the walk completes the entry.
+ */
+export interface PlannedWalkSlot extends SlotBase {
+  kind: 'planned_walk';
+  /** The userSchedule entry's start data (startWalkEntry). */
+  entry: { date?: string; entryId?: string; plannedRun?: unknown };
+}
+
+export type HybridSlot = HybridPresetSlot | AerobicQuickSlot | AssessmentPromptSlot | PlannedRunSlot | PlannedWalkSlot;
 
 /** Environment the resolver reads — all caller-supplied, so the fn stays pure. */
 export interface SlotEnv {

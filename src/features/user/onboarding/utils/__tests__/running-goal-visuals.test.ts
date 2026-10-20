@@ -3,6 +3,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   abilityCopy,
+  abilityExperienceHe,
   abilityTierOf,
   ABILITY_LEVEL,
   RUNNING_GOAL_PHOTOS,
@@ -71,5 +72,15 @@ describe('running goal photos — size guard (anti-flicker)', () => {
     const file = join(process.cwd(), 'public', src);
     expect(existsSync(file)).toBe(true);
     expect(statSync(file).size).toBeLessThan(500 * 1024);
+  });
+});
+
+describe('abilityExperienceHe (owner 20.10.2026)', () => {
+  it('a gendered experience hint for every running tier but "none"', () => {
+    expect(abilityExperienceHe('none', false)).toBeNull();
+    for (const t of ['5_15', '15_30', '30_45', '45_plus'] as const) {
+      expect(abilityExperienceHe(t, false)).toBeTruthy();
+      expect(abilityExperienceHe(t, true)).not.toBe(abilityExperienceHe(t, false));
+    }
   });
 });
