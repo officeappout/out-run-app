@@ -107,6 +107,7 @@ import {
   HomeProgramSlide,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
+import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { useProgramSlide } from '@/features/home/hooks/useProgramSlide';
 import { placeProgramSlide, resolveProgramSlideSurface, type ProgramTrack } from '@/features/home/utils/program-start-cards';
 import { PICK_PROGRAM_STRIP_HINT } from '@/features/home/components/start-cards/program-start-copy';
@@ -1649,7 +1650,8 @@ export default function HomePage() {
   // strength invite above. Pure, from the loaded profile. Resolved for EVERY runner
   // (owner-approved ungated fix, 19.10.2026): enable_home_v2 picks the card —
   // HomeRunCarouselCard with the flag, the legacy NextRunWorkoutCard without.
-  const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram);
+  const homeRun = useHomeRunSlot(profile, true, hasStrengthProgram, featureFlags.enableHomeV2);
+  const runPlacement = useMemo(() => runPlacementOf(profile?.running), [profile?.running]);
   const RUN_PLAN_CARD_ID = 'run-plan-card';
   const isRunPlanCarouselItem = (
     item: Suggestion | { id: string },
@@ -3021,6 +3023,7 @@ export default function HomePage() {
               onSetSchedule={() => setShowLifestyleWizard(true)}
               runningSchedule={profile?.running?.activeProgram?.schedule as any}
               runOverlayDays={runOverlayDays}
+              runPlacement={runPlacement}
               runningCurrentWeek={profile?.running?.activeProgram?.currentWeek}
               runningProgramStartDate={profile?.running?.activeProgram?.startDate as any}
               runningBasePace={profile?.running?.paceProfile?.basePace}

@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { resolveRunningDayState, type RunningScheduleEntry } from '@/lib/running-day-resolution';
+import { runPlacementOf } from '@/features/schedule/utils/runWeekByType';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import type { PaceProfile } from '@/features/workout-engine/core/types/running.types';
 import type RunWorkout from '../../types/run-workout.type';
@@ -71,6 +72,9 @@ export function useTodayPlannedRun(enabled: boolean): TodayPlannedRun | null {
       week,
       new Date(),
       running.activeProgram.startDate as Date | string | number | undefined,
+      // A v2-only surface (enable_home_v2): today's run by slot type, the same
+      // weekday the home week strip / run list show (runWeekByType).
+      { byType: true, ...runPlacementOf(running) },
     );
     const e = state.isRunDay ? state.todayEntry : undefined;
     if (!e?.workoutId || (e.status && e.status !== 'pending')) return null;
