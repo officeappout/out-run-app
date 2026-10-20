@@ -1,5 +1,6 @@
 import { isDateWithinRunningPlan } from './running-plan-date-range';
 import { calculateCurrentWeek } from '@/features/workout-engine/core/services/workout-completion.service';
+import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 
 // Minimal structural type, not an import of NextRunWorkoutCard's own
 // `ActiveRunningProgram.schedule` entry shape — src/lib/ shouldn't depend on
@@ -13,6 +14,9 @@ export interface RunningScheduleEntry {
   workoutId?: string;
   workoutName?: string;
   category?: string;
+  /** Read only by the by-type placement (enable_home_v2). */
+  slotType?: string;
+  isQualityWorkout?: boolean;
 }
 
 /**
@@ -98,6 +102,13 @@ export function resolveRunningDayState<T extends RunningScheduleEntry>(
   currentWeek: number,
   date: Date,
   startDate: Date | string | number | undefined,
+  /**
+   * enable_home_v2: `{ byType: true, ...runPlacementOf(running) }` maps the
+   * week's runs to weekdays by slot type (schedule engine v2, the signup
+   * placement) instead of the k-th run on the k-th day. Omitted / byType
+   * false → exactly today's ordinal behaviour.
+   */
+  placement?: RunWeekMapOptions,
 ): RunningDayState<T> {
   if (startDate && !isDateWithinRunningPlan(startDate, date)) {
     return {
@@ -111,6 +122,23 @@ export function resolveRunningDayState<T extends RunningScheduleEntry>(
 
   const weekForDate = startDate ? calculateCurrentWeek(startDate, date) : currentWeek;
   const weekEntries = (schedule ?? []).filter((e) => e.week === weekForDate);
+
+  if (scheduleDays.length > 0 && placement?.byType) {
+    const byDay = mapRunWeekFromLetters(weekEntries, scheduleDays, placement);
+    const todayIdx = date.getDay();
+    const isRunDay = scheduleDays.includes(DAY_TO_HE[todayIdx]);
+    let nextEntry: T | undefined;
+    let nextEntryDaysAway: number | undefined;
+    for (let offset = 1; offset <= 7; offset++) {
+      const checkIdx = (todayIdx + offset) % 7;
+      if (scheduleDays.includes(DAY_TO_HE[checkIdx])) {
+        nextEntry = byDay.get(checkIdx);
+        nextEntryDaysAway = offset;
+        break;
+      }
+    }
+    return { isRunDay, todayEntry: byDay.get(todayIdx), nextEntry, nextEntryDaysAway, source: 'scheduleDays' };
+  }
 
   if (scheduleDays.length > 0) {
     const trainingDayIndices = scheduleDays

@@ -931,7 +931,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // enable_home_v2 only: today's planned run (the same slot home's daily carousel resolves)
   // leads the carousel; its CTA opens the run overview with "הצע לי מסלול". Flag off →
   // plannedRunSlot is null and carouselSlots === slots.
-  const homeRun = useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram);
+  const homeRun = useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram, mapFeatureFlags.enableHomeV2);
   const carouselSlots = useMemo(
     () => withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null),
     [slots, mapFeatureFlags.enableHomeV2, homeRun.slot],

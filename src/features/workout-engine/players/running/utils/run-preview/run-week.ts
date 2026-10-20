@@ -1,6 +1,7 @@
 /**
  * Week / day context for the v2 run preview and the weekly run list (pure).
  */
+import { mapRunWeekFromLetters, type RunWeekMapOptions } from '@/features/schedule/utils/runWeekByType';
 
 const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
@@ -47,6 +48,8 @@ export interface RunScheduleEntryLike {
   status?: string;
   category?: string;
   workoutName?: string;
+  slotType?: string;
+  isQualityWorkout?: boolean;
 }
 
 export type RunWeekRowState = 'done' | 'skipped' | 'today' | 'upcoming';
@@ -58,16 +61,37 @@ export interface RunWeekRow<E extends RunScheduleEntryLike = RunScheduleEntryLik
   dayLetter: string | null;
 }
 
+function rowState(entry: RunScheduleEntryLike, opts: { targetDay?: number; isRunDay: boolean }): RunWeekRowState {
+  if (entry.status === 'completed') return 'done';
+  if (entry.status === 'skipped') return 'skipped';
+  return opts.isRunDay && opts.targetDay === entry.day ? 'today' : 'upcoming';
+}
+
 /**
  * This week's entries in slot order. "today" = the entry the home card
  * targets (`targetDay`) on a run day; done / skipped from the stored status.
+ * `placement.byType` (enable_home_v2): each run on its weekday by slot type
+ * (runWeekByType — the signup placement), rows in weekday order.
  */
 export function buildRunWeekRows<E extends RunScheduleEntryLike>(
   schedule: readonly E[] | null | undefined,
   week: number,
   scheduleDays: readonly string[],
-  opts: { targetDay?: number; isRunDay: boolean },
+  opts: { targetDay?: number; isRunDay: boolean; placement?: RunWeekMapOptions },
 ): RunWeekRow<E>[] {
+  if (opts.placement?.byType) {
+    const entries = (schedule ?? []).filter((e) => e.week === week).sort((a, b) => a.day - b.day);
+    const dowOf = new Map<E, number>();
+    mapRunWeekFromLetters(entries, scheduleDays, opts.placement).forEach((e, dow) => dowOf.set(e, dow));
+    return entries
+      .map((entry) => ({ entry, dow: dowOf.get(entry) }))
+      .sort((a, b) => (a.dow ?? 7) - (b.dow ?? 7) || a.entry.day - b.entry.day)
+      .map(({ entry, dow }) => ({
+        entry,
+        state: rowState(entry, opts),
+        dayLetter: dow != null ? `${DAY_LETTERS[dow]}׳` : null,
+      }));
+  }
   const trainingDayIndices = scheduleDays
     .map((letter) => DAY_LETTERS.indexOf(letter))
     .filter((i) => i >= 0)

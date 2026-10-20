@@ -50,7 +50,7 @@ describe('DiscoverLayer wiring (source-level)', () => {
     'utf8',
   );
   it('the run card is enable_home_v2 only', () => {
-    expect(src).toContain('useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram)');
+    expect(src).toContain('useHomeRunSlot(profile, mapFeatureFlags.enableHomeV2, hasStrengthProgram, mapFeatureFlags.enableHomeV2)');
     expect(src).toContain('withPlannedRunSlot(slots, mapFeatureFlags.enableHomeV2 ? buildPlannedRunSlot(homeRun.slot) : null)');
     expect(src).toContain('slots={carouselSlots}');
   });
