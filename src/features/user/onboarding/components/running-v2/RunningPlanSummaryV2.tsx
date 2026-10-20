@@ -17,7 +17,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { Card, MediaHeroFade, RevealOnScroll } from '@/components/ui/v2';
 import type { RunWeekDay } from '@/features/schedule/utils/runWeekRecommendation';
@@ -39,7 +39,17 @@ export interface RunningPlanSummaryV2Props {
   timesLine: string | null;
   /** "שינוי" on the days tile (back to the days step). */
   onEditDays?: () => void;
-  onGenerate: () => void;
+  onGenerate?: () => void;
+  /**
+   * enable_home_v2 progress tab: 'view' shows an existing plan — the chip
+   * reads "שבוע X מתוך Y", the volume chart marks done / this week / ahead,
+   * and there is no CTA (onBack instead). Default 'create' = unchanged.
+   */
+  mode?: 'create' | 'view';
+  /** view mode: the plan's current week + sessions done so far. */
+  progress?: { currentWeek: number; done: number; dueSoFar: number };
+  /** view mode: the back button. */
+  onBack?: () => void;
 }
 
 export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
@@ -47,6 +57,7 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
   const bars = useMemo(() => buildWeeklyVolumePattern(p.weeks, isConservativePlan(p.answers)), [p.weeks, p.answers]);
   const paceRows = useMemo(() => paceTargetRows(p.answers), [p.answers]);
 
+  const view = p.mode === 'view';
   const title = p.answers.targetDistance === 'maintenance' ? 'תוכנית לשמירה על כושר' : `תוכנית ${p.distLabel}`;
 
   const tiles = [
@@ -60,7 +71,7 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
             <h2 className="whitespace-nowrap text-[15px] font-black">נפח שבועי</h2>
             <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-muted">נפח יחסי</span>
           </div>
-          <PlanVolumeChart bars={bars} />
+          <PlanVolumeChart bars={bars} currentWeek={view ? p.progress?.currentWeek : undefined} />
         </Card>
       ),
     },
@@ -84,11 +95,13 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
         >
           <span className="inline-flex h-7 items-center gap-[5px] whitespace-nowrap rounded-full bg-white px-2.5 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring">
             <Check size={14} strokeWidth={3} aria-hidden />
-            התוכנית שלך מוכנה
+            {view && p.progress ? `שבוע ${p.progress.currentWeek} מתוך ${p.weeks}` : 'התוכנית שלך מוכנה'}
           </span>
           <h1 className="mt-2.5 truncate whitespace-nowrap text-[30px] font-black leading-[1.1] !tracking-[-0.03em]">{title}</h1>
           <p className="mt-1 truncate whitespace-nowrap text-[14px] font-bold text-v2-ink-2">
-            {p.weeks} שבועות · עד {p.endDateShort} · {p.frequency} ריצות בשבוע
+            {view && p.progress
+              ? `${p.progress.done}/${p.progress.dueSoFar} אימונים בוצעו · עד ${p.endDateShort} · ${p.frequency} ריצות בשבוע`
+              : `${p.weeks} שבועות · עד ${p.endDateShort} · ${p.frequency} ריצות בשבוע`}
           </p>
         </motion.div>
 
@@ -101,7 +114,18 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
 
       <div className="flex-grow" />
 
-      <StickyActionButton variant="v2" label="בואו נתחיל" onPress={p.onGenerate} />
+      {!view && p.onGenerate && <StickyActionButton variant="v2" label="בואו נתחיל" onPress={p.onGenerate} />}
+      {view && p.onBack && (
+        <button
+          type="button"
+          onClick={p.onBack}
+          aria-label="חזרה"
+          className="fixed start-4 top-[max(16px,env(safe-area-inset-top))] z-[2] grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        >
+          <ChevronRight className="h-5 w-5 text-v2-ink" aria-hidden />
+        </button>
+      )}
+      {view && <div className="h-[max(24px,env(safe-area-inset-bottom))]" />}
     </div>
   );
 }

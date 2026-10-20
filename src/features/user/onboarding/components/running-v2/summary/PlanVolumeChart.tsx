@@ -10,7 +10,11 @@ export const BAR_COLOR: Record<PlanWeekBar['kind'], string> = {
   goal: '#ffc83d',
 };
 
-export default function PlanVolumeChart({ bars }: { bars: PlanWeekBar[] }) {
+/**
+ * `currentWeek` (plan view mode, enable_home_v2 progress tab): weeks before it
+ * read as done, the current one gets a ring, weeks ahead are faded.
+ */
+export default function PlanVolumeChart({ bars, currentWeek }: { bars: PlanWeekBar[]; currentWeek?: number }) {
   const labels = weekLabelsToShow(bars.length);
   const gap = bars.length > 20 ? 2 : 4;
   return (
@@ -22,7 +26,10 @@ export default function PlanVolumeChart({ bars }: { bars: PlanWeekBar[] }) {
               className="w-full rounded-[6px]"
               style={{
                 height: `${Math.max(8, Math.round(b.relative * 100))}%`,
-                background: b.week === 1 && b.kind === 'build' ? '#0284c7' : BAR_COLOR[b.kind],
+                background:
+                  currentWeek == null && b.week === 1 && b.kind === 'build' ? '#0284c7' : BAR_COLOR[b.kind],
+                opacity: currentWeek != null && b.week > currentWeek ? 0.35 : 1,
+                boxShadow: currentWeek === b.week ? '0 0 0 2px #fff, 0 0 0 3.5px #0284c7' : undefined,
               }}
             />
           </div>
