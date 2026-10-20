@@ -113,9 +113,17 @@ export function JITSetupModal({
       // Same layer as the inline health declaration below (z-[140]). The screen's
       // header pads the top inset itself; the bottom inset is padded here (the
       // route version gets it from <main>).
+      // Keyboard (20.10.2026 owner bug — birth date / name typed behind the
+      // keyboard): this overlay is `fixed`, so <main>'s --kb-inset padding never
+      // reached it and, with the keyboard controller on (resize 'none'), the
+      // screen kept its full height — its scroll area ended BEHIND the keyboard
+      // and, the form fitting, wasn't scrollable, so nothing could reveal the
+      // field. `kb-fit` ends the overlay at the keyboard like <main> (inert while
+      // enable_keyboard_insets_v1 is off); --kb-safe-bottom drops the home-
+      // indicator pad while the keyboard covers it (= env() when it's closed).
       <div
-        className="fixed inset-0 z-[140] flex flex-col bg-white"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="kb-fit fixed inset-0 z-[140] flex flex-col bg-white"
+        style={{ paddingBottom: 'var(--kb-safe-bottom, env(safe-area-inset-bottom, 0px))' }}
       >
         <IdentityProfileScreen
           context="workout"
