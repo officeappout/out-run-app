@@ -32,6 +32,8 @@ const GoalCarousel = dynamic(() => import('./widgets/GoalCarousel'), { ssr: fals
 const ExerciseWishlistStrip = dynamic(() => import('./widgets/ExerciseWishlistStrip'), { ssr: false });
 const ProgramsSection = dynamic(() => import('./widgets/ProgramsSection'), { ssr: false });
 const PrioritiesSection = dynamic(() => import('./widgets/PrioritiesSection'), { ssr: false });
+// enable_home_v2 — personal records (P-3), above the badges.
+const PersonalRecordsCard = dynamic(() => import('./records/PersonalRecordsCard'), { ssr: false });
 
 interface DashboardTabProps {
   /** Opens the SettingsModal — wired by the gear icon in Block 1. */
@@ -420,6 +422,7 @@ export default function DashboardTab({ onOpenSettings, onNavigateToHistory }: Da
 
       {/* ── הישגים ── BLOCK 3 — flat, no card wrapper ("פרופיל חלק" follow-up) */}
       <div className={activeTab === 'badges' ? 'space-y-4' : 'hidden'}>
+        {v2 && <PersonalRecordsCard active={activeTab === 'badges'} />}
         <motion.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
