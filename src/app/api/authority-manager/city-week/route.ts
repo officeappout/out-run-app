@@ -14,7 +14,8 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
 import { resolveAdminAnalyticsScope } from '@/lib/adminAnalyticsScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { isStrictDemoTenant } from '@/lib/demo';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 import { computeCityWeek, type CityParkVisit, type CityReport, type CityWorkout } from '@/features/admin/services/city-week';
 
@@ -50,6 +51,8 @@ export async function computeCityWeekForAuthority(db: Firestore, authorityId: st
   const authSnap = await db.collection('authorities').doc(authorityId).get();
   if (!authSnap.exists) return { status: 404 as const, body: { error: 'הרשות לא נמצאה.' } };
   const authorityName = (authSnap.data()?.name as string) || authorityId;
+  // Demo world: demo residents count only on a demo city's own week.
+  const authorityIsDemo = isStrictDemoTenant(authSnap.data(), authorityId);
   const ids = await cityAndChildren(db, authorityId);
   const since14 = new Date(now.getTime() - 14 * DAY);
   const since30 = new Date(now.getTime() - 30 * DAY);
@@ -58,7 +61,7 @@ export async function computeCityWeekForAuthority(db: Firestore, authorityId: st
   const residentUids: string[] = [];
   await Promise.all(chunk(ids, 30).map(async (b) => {
     const s = await db.collection('users').where('core.authorityId', 'in', b).get();
-    s.docs.forEach((d) => { if (!isTestOrMockUser(d.data()?.core)) residentUids.push(d.id); });
+    s.docs.forEach((d) => { if (!isExcludedResident(d.data()?.core, { authorityIsDemo, uid: d.id })) residentUids.push(d.id); });
   }));
 
   // their real workouts in the last 14 days (filtered in memory: no composite index needed)

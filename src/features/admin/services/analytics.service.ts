@@ -23,7 +23,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getChildrenByParent } from './authority.service';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { isDemoTenantClient } from './demo-tenant.client';
 
 
 const USERS_COLLECTION = 'users';
@@ -330,7 +331,11 @@ async function getUserDocsForAuthority(authorityId: string, tenantId?: string): 
     }));
   }
 
-  const filtered = docs.filter(d => !isTestOrMockUser(d.data.core as Record<string, unknown> | undefined));
+  // Demo world: demo residents count only on a demo authority / tenant's own dashboard.
+  const authorityIsDemo = tenantId
+    ? await isDemoTenantClient('tenants', tenantId)
+    : await isDemoTenantClient('authorities', authorityId);
+  const filtered = docs.filter(d => !isExcludedResident(d.data.core as Record<string, unknown> | undefined, { authorityIsDemo, uid: d.id }));
   cacheSet(cacheKey, filtered);
   return filtered;
 }
@@ -894,6 +899,7 @@ export async function getNeighborhoodBreakdown(
     // 1. Fetch ALL users of the CITY itself (core.authorityId never varies
     // by neighborhood — single equality match, no 30-item chunking needed).
     const allUserDocs: { id: string; neighborhoodId: string | null; birthYear: number | null }[] = [];
+    const authorityIsDemo = await isDemoTenantClient('authorities', cityId);
     const citySnap = await getDocs(query(
       collection(db, USERS_COLLECTION),
       where('core.authorityId', '==', cityId)
@@ -901,7 +907,7 @@ export async function getNeighborhoodBreakdown(
     citySnap.docs.forEach(d => {
       const data = d.data() as Record<string, unknown>;
       const core = data.core as Record<string, unknown> | undefined;
-      if (isTestOrMockUser(core)) return; // demo + test residents excluded
+      if (isExcludedResident(core, { authorityIsDemo, uid: d.id })) return; // test excluded; demo only on a demo city
       const birthDate = core?.birthDate;
       let birthYear: number | null = null;
       if (birthDate) {

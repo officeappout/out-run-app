@@ -45,7 +45,7 @@ import { removeGroupFromPresence } from '@/features/safecity/services/presence.s
 import { auth } from '@/lib/firebase';
 import { isContentRemoved } from '@/lib/moderation';
 import { isPlainObject } from '@/lib/firestore-sanitize';
-import { isDemoDoc } from '@/lib/demo';
+import { isDemoDoc, isDemoTenantId } from '@/lib/demo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -698,8 +698,11 @@ export async function getGroupsByScopeId(scopeId: string): Promise<CommunityGrou
   );
 
   const snap = await getDocs(q);
-  // Demo world guard — public discovery never lists a demo group.
-  return snap.docs.filter((d) => !isDemoDoc(d.data(), d.id)).map((d) => ({
+  // Demo world guard — public discovery never lists a demo group, except on a
+  // demo scope's own page (reached only from inside the demo world: a demo
+  // user's or a bound viewer's own city — a real user's scope is never `demo-`).
+  const keepDemo = isDemoTenantId(scopeId);
+  return snap.docs.filter((d) => keepDemo || !isDemoDoc(d.data(), d.id)).map((d) => ({
     id: d.id,
     ...(d.data() as Omit<CommunityGroup, 'id' | 'createdAt' | 'updatedAt'>),
     createdAt: tsToDate(d.data().createdAt),

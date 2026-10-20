@@ -38,7 +38,8 @@ import {
 } from '@/types/admin-types';
 import { logAction } from './audit.service';
 import { parseBoundaryGeoJSON } from '@/lib/route-collections/authority-resolution';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isDemoResident, isExcludedResident } from '@/lib/testAccountFilter';
+import { isDemoTenantClient } from './demo-tenant.client';
 
 /**
  * Convert Date to Firestore-safe format (ISO string for nested objects)
@@ -846,8 +847,8 @@ export async function syncUserCount(authorityId: string): Promise<number> {
     collection(db, 'users'),
     where('core.authorityId', '==', authorityId),
   );
-  const snap = await getDocs(q);
-  const count = snap.docs.filter(d => !isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined)).length;
+  const [snap, authorityIsDemo] = await Promise.all([getDocs(q), isDemoTenantClient('authorities', authorityId)]);
+  const count = snap.docs.filter(d => !isExcludedResident(d.data()?.core as Record<string, unknown> | undefined, { authorityIsDemo, uid: d.id })).length;
 
   const docRef = doc(db, AUTHORITIES_COLLECTION, authorityId);
   await updateDoc(docRef, { userCount: count, updatedAt: serverTimestamp() });
@@ -862,13 +863,26 @@ export async function syncAllUserCounts(): Promise<Map<string, number>> {
   const usersSnap = await getDocs(collection(db, 'users'));
   const countMap = new Map<string, number>();
 
+  // Demo world: demo residents are tallied apart and count only toward a demo
+  // authority (strict check, reads only `demo-` ids). Real authorities: unchanged.
+  const demoCountMap = new Map<string, number>();
   usersSnap.docs.forEach((d) => {
-    if (isTestOrMockUser(d.data()?.core as Record<string, unknown> | undefined)) return;
+    const core = d.data()?.core as Record<string, unknown> | undefined;
+    if (isExcludedResident(core, { authorityIsDemo: false, uid: d.id })) {
+      const aid = core?.authorityId;
+      if (core?.isTestData !== true && isDemoResident(core, d.id) && typeof aid === 'string' && aid) {
+        demoCountMap.set(aid, (demoCountMap.get(aid) ?? 0) + 1);
+      }
+      return;
+    }
     const aid = d.data()?.core?.authorityId;
     if (aid && typeof aid === 'string') {
       countMap.set(aid, (countMap.get(aid) ?? 0) + 1);
     }
   });
+  for (const [aid, n] of Array.from(demoCountMap)) {
+    if (await isDemoTenantClient('authorities', aid)) countMap.set(aid, (countMap.get(aid) ?? 0) + n);
+  }
 
   const batch = writeBatch(db);
   let batchCount = 0;

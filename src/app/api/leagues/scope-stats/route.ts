@@ -38,6 +38,7 @@ import {
   type ScopeStatsDoc,
 } from '@/features/arena/services/league-scope-keys';
 import { isDemoScope, isDemoTenantId } from '@/lib/demo';
+import { isInDemoWorld } from '@/lib/demo-world.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +53,9 @@ type Gender = 'all' | 'male' | 'female';
 export async function GET(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  let callerUid: string;
   try {
-    await getAdminAuth().verifyIdToken(token);
+    callerUid = (await getAdminAuth().verifyIdToken(token)).uid;
   } catch {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
@@ -117,9 +119,16 @@ export async function GET(req: NextRequest) {
   // Demo world guard (demo-users-design.md L4): demo cities / neighborhoods
   // never appear on a real board. Only a demo city's own neighborhood board
   // (an explicit demo parentId) shows demo scopes.
+  // Viewer exception: a demo user or the owner's viewer accounts see the demo
+  // world as if they lived in it — demo scopes stay on their boards. The
+  // viewers lookup runs only when a demo scope is actually on the board, so a
+  // real board costs nothing extra; a real caller never sees a demo scope.
+  const hasDemo = docs.some((d) => isDemoScope(d.scopeId, meta.get(d.scopeId)));
+  const showDemo = hasDemo && (await isInDemoWorld(db, callerUid));
   const demoParentBoard = board === 'neighborhood' && isDemoTenantId(parentId);
+  if (demoParentBoard && !showDemo) docs = [];
   const keep = (id: string) => {
-    if (!demoParentBoard && isDemoScope(id, meta.get(id))) return false;
+    if (!showDemo && isDemoScope(id, meta.get(id))) return false;
     const k = meta.get(id)?.kind ?? 'other';
     if (board === 'settlement') return k === 'settlement';
     if (board === 'neighborhood-national') return k !== 'settlement';

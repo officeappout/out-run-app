@@ -23,7 +23,8 @@ import { logAction } from '@/features/admin/services/audit.service';
 import { usePagination } from '@/features/admin/hooks/usePagination';
 import Pagination from '@/features/admin/components/shared/Pagination';
 import { formatFirebaseTimestamp, convertTimestampToDate } from '@/lib/utils/date-formatter';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isDemoUser } from '@/lib/demo';
+import { matchesAccountKind, type TestAccountFilter } from '@/features/admin/utils/user-account-filter';
 import { formatLastActivity, securityBadge, computeEffectiveLevel } from '../shared.utils';
 
 export default function AllUsersPage() {
@@ -47,7 +48,9 @@ export default function AllUsersPage() {
   // matches isTestOrMockUser() filtering already applied to statistics-summary/
   // insights-summary/analytics.service; this list was the one surface not
   // applying it, which is why it showed ~777 instead of the real population.
-  const [testAccountFilter, setTestAccountFilter] = useState<'HIDE' | 'ALL' | 'ONLY'>('HIDE');
+  const [testAccountFilter, setTestAccountFilter] = useState<TestAccountFilter>('HIDE');
+  // Demo world chip (demo-users-design.md PR 2): only the simulated demo users.
+  const [demoOnly, setDemoOnly] = useState(false);
   // Ghost quick-filter (David, 04.10.2026): no email AND 0 workouts AND
   // default level AND no name — see user.isGhost, computed in loadUsers().
   const [ghostOnly, setGhostOnly] = useState(false);
@@ -132,10 +135,7 @@ export default function AllUsersPage() {
         workoutsCompleted > 5; // PRO
 
       // 6. Test/Mock Account Check
-      const isTestOrMock = isTestOrMockUser({ isTestData: user.isTestData, isMockData: user.isMockData });
-      const matchesTestAccount = testAccountFilter === 'ALL' ? true :
-        testAccountFilter === 'HIDE' ? !isTestOrMock :
-        isTestOrMock; // ONLY
+      const matchesTestAccount = matchesAccountKind(user, { testFilter: testAccountFilter, demoOnly });
 
       // 7. Ghost quick-filter (no email AND 0 workouts AND default level AND no name)
       const matchesGhost = !ghostOnly || user.isGhost === true;
@@ -144,7 +144,7 @@ export default function AllUsersPage() {
     });
 
     setFilteredUsers(filtered);
-  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, ghostOnly]);
+  }, [searchTerm, users, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, demoOnly, ghostOnly]);
 
   // Sort filtered users by join date — applied before pagination so sorting
   // is stable across pages, not just within the current page's 10 rows.
@@ -162,7 +162,7 @@ export default function AllUsersPage() {
   useEffect(() => {
     resetPagination();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, ghostOnly, joinDateSort]);
+  }, [searchTerm, statusFilter, stepFilter, typeFilter, activityFilter, testAccountFilter, demoOnly, ghostOnly, joinDateSort]);
 
 
   const loadUsers = async (filterByAuthority: boolean = false, authorityIds: string[] = []) => {
@@ -317,6 +317,7 @@ export default function AllUsersPage() {
           birthDate: core.birthDate || undefined,
           isTestData: core.isTestData === true,
           isMockData: core.isMockData === true,
+          isDemo: isDemoUser(docSnap.id, core),
           workoutCount,
           lastWorkoutDate: lastWorkoutDateByUid.get(docSnap.id),
           currentStreak: typeof progression.currentStreak === 'number' ? progression.currentStreak : 0,
@@ -600,13 +601,31 @@ export default function AllUsersPage() {
             <label className="block text-xs font-bold text-gray-700 mb-1.5 font-simpler">חשבונות טסט/דמו</label>
             <select
               value={testAccountFilter}
-              onChange={(e) => setTestAccountFilter(e.target.value as 'HIDE' | 'ALL' | 'ONLY')}
+              onChange={(e) => setTestAccountFilter(e.target.value as TestAccountFilter)}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-simpler focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent outline-none text-black"
             >
               <option value="HIDE">הסתר (מומלץ)</option>
               <option value="ALL">הצג הכל</option>
               <option value="ONLY">הצג רק טסט/דמו</option>
             </select>
+          </div>
+
+          {/* Demo chip — only the simulated demo-world users */}
+          <div className="min-w-[110px]">
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 font-simpler">דמו</label>
+            <button
+              type="button"
+              onClick={() => setDemoOnly((v) => !v)}
+              aria-pressed={demoOnly}
+              title="משתמשי עולם הדמו (uid demo_*) — מוסתרים בכל מקום אחר ולא נספרים במדדים"
+              className={`w-full px-3 py-2 rounded-lg text-sm font-simpler border whitespace-nowrap transition-colors ${
+                demoOnly
+                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                  : 'bg-white text-gray-700 border-slate-200 hover:border-amber-300'
+              }`}
+            >
+              {demoOnly ? '✓ רק דמו' : 'רק דמו'}
+            </button>
           </div>
 
           {/* Ghost Quick-Filter */}
@@ -786,6 +805,11 @@ export default function AllUsersPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-gray-900 font-simpler truncate max-w-[180px]">{user.name}</span>
+                            {user.isDemo && (
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold font-simpler shrink-0 bg-amber-100 text-amber-800">
+                                דמו
+                              </span>
+                            )}
                             {(() => {
                               const badge = securityBadge(user);
                               return (

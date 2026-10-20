@@ -49,7 +49,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
     const ageMax = Number.isFinite(ageMaxRaw) && ageMaxRaw > 0 ? ageMaxRaw : 55;
 
     // 1. Children, for the output rows themselves (and their display names).
+    const authorityIsDemo = await resolveTenantIsDemo(db, 'authorities', cityId);
     const childrenSnap = await db.collection('authorities').where('parentAuthorityId', '==', cityId).get();
     const children = childrenSnap.docs
       .filter((d) => !d.id.includes('__SCHEMA_INIT__') && d.data()?.name !== '__SCHEMA_INIT__')
@@ -114,7 +116,7 @@ export async function GET(request: NextRequest) {
     citySnap.docs.forEach((d) => {
       const data = d.data();
       const core = data?.core as Record<string, unknown> | undefined;
-      if (isTestOrMockUser(core)) return;
+      if (isExcludedResident(core, { authorityIsDemo, uid: d.id })) return;
       const birthDate = core?.birthDate;
       let birthYear: number | null = null;
       if (birthDate) {

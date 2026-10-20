@@ -41,7 +41,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { resolveAuthorityManagerScope } from '@/lib/authorityManagerScope';
-import { isTestOrMockUser } from '@/lib/testAccountFilter';
+import { isExcludedResident } from '@/lib/testAccountFilter';
+import { resolveTenantIsDemo } from '@/lib/demo-world.server';
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -94,12 +95,12 @@ async function computePopularParks(db: Firestore, authorityIds: string[], limit:
   }));
 }
 
-async function resolveResidentUids(db: Firestore, authorityIds: string[]): Promise<string[]> {
+async function resolveResidentUids(db: Firestore, authorityIds: string[], authorityIsDemo: boolean): Promise<string[]> {
   const uids: string[] = [];
   await Promise.all(chunk(authorityIds, 30).map(async (batch) => {
     const snap = await db.collection('users').where('core.authorityId', 'in', batch).get();
     snap.docs.forEach((d) => {
-      if (!isTestOrMockUser(d.data()?.core)) uids.push(d.id);
+      if (!isExcludedResident(d.data()?.core, { authorityIsDemo, uid: d.id })) uids.push(d.id);
     });
   }));
   return uids;
@@ -214,7 +215,9 @@ export async function GET(request: NextRequest) {
     const parksLimit = Math.max(1, Math.min(50, Number(url.searchParams.get('parksLimit')) || 5));
 
     const authorityIds = await getChildAuthorityIds(db, authorityId);
-    const residentUids = await resolveResidentUids(db, authorityIds);
+    // Demo world: demo residents count only on a demo city's own dashboard.
+    const authorityIsDemo = await resolveTenantIsDemo(db, 'authorities', authorityId);
+    const residentUids = await resolveResidentUids(db, authorityIds, authorityIsDemo);
 
     const [popularParks, activityTrend, cityStepsTotals] = await Promise.all([
       computePopularParks(db, authorityIds, parksLimit),
