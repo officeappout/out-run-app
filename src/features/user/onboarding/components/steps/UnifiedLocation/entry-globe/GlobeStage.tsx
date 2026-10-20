@@ -50,6 +50,8 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
   const spinRef = useRef({ raf: 0, offset: 0 });
   const skyRafRef = useRef(0);
   const prevPhaseRef = useRef<GlobePhase>('rest');
+  /** The fog is (going) dark — set once per dive, even if the dive started before the map loaded. */
+  const skyDarkRef = useRef(false);
 
   const viewport = (): Viewport => ({
     width: nodeRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 390),
@@ -210,8 +212,11 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
       const map = mapRef.current;
       if (!ready || !map) return;
       const gen = ++runRef.current;
-      if (prev === 'dive') {
+      if (skyDarkRef.current) {
+        skyDarkRef.current = false;
         animateSky(0);
+      }
+      if (prev === 'dive') {
         spinRef.current.offset = 0;
         void runStep(map, buildRestStep(viewport(), reduce)).then(() => {
           if (runRef.current === gen) startSpin();
@@ -237,7 +242,10 @@ export default function GlobeStage({ phase, target, onArrived }: GlobeStageProps
       return () => clearTimeout(t);
     }
     const gen = ++runRef.current;
-    if (prev !== 'dive') animateSky(1);
+    if (!skyDarkRef.current) {
+      skyDarkRef.current = true;
+      animateSky(1);
+    }
     const steps = buildDiveSequence({ viewport: viewport(), target, reduceMotion: reduce });
     void (async () => {
       for (const step of steps) {
