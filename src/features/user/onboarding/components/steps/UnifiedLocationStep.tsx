@@ -84,7 +84,7 @@ const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer
 // MAIN COMPONENT (State Machine & Map)
 // ============================================
 
-function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose, entryGlobe = false }: UnifiedLocationStepProps) {
+function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose, entryGlobe = false, entryLogo = false }: UnifiedLocationStepProps) {
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
   const isExplorer = mode === 'explorer' || mode === 'bridge';
   const mapRef = useRef<MapRef>(null);
@@ -1336,6 +1336,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       {entryGlobe ? (
         <EntryGlobeLayer
           stage={stage}
+          logoSlot={entryLogo}
           showGlobe={showEntryGlobe}
           globePhase={globeDive === 'dive' ? 'dive' : 'rest'}
           diving={entryDiving}

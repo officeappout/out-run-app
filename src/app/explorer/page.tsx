@@ -20,6 +20,13 @@ import { useToast } from '@/components/ui/Toast';
 import { auth } from '@/lib/firebase';
 import { useEntryGlobeV1 } from '@/features/user/onboarding/hooks/useEntryGlobeV1';
 import { ENTRY_V2_MAP_URL, markEntryV2Landing } from '@/features/user/onboarding/entry-v2-landing';
+import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
+import { consumeIntroArrival } from '@/features/user/onboarding/intro/intro-route';
+
+// enable_entry_intro_v1 — the ring closing into the logo, only on the hop from /intro.
+const RingCloseOverlay = lazy(() =>
+  import('@/features/user/onboarding/intro/components/RingCloseOverlay').then((m) => ({ default: m.RingCloseOverlay })),
+);
 
 // ── Lazy import preserves forwardRef (unlike next/dynamic) ───────────
 const UnifiedLocationStep = lazy(
@@ -50,6 +57,22 @@ export default function ExplorerPage() {
   const hasEditIntent = mounted && typeof window !== 'undefined'
     && !!sessionStorage.getItem('explorer_return_to');
   const entryGlobe = entryGlobeFlag && !hasEditIntent;
+
+  // enable_entry_intro_v1 — the OUT logo slot above the globe headline, and the
+  // ring-close overlay when this visit is the hop from /intro (one-shot hint;
+  // reduced motion skips straight to the final frame = the logo in its slot).
+  const { enabled: introOn } = useEntryIntroV1();
+  const [ringClose, setRingClose] = useState(false);
+  useEffect(() => {
+    const arriving = consumeIntroArrival(window.sessionStorage);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (arriving && !reduce) setRingClose(true);
+  }, []);
+  const ringCloseOverlay = ringClose ? (
+    <Suspense fallback={<div className="fixed inset-0 z-[100] bg-[#f8fafc]" />}>
+      <RingCloseOverlay onDone={() => setRingClose(false)} />
+    </Suspense>
+  ) : null;
 
   // Fix 2a — before showing the location picker, check for a durably-saved
   // map-arrival answer (written by UnifiedLocationStep, Fix 1). If present,
@@ -89,13 +112,15 @@ export default function ExplorerPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (!mounted) return <LoadingPlaceholder />;
+  if (!mounted) return <><LoadingPlaceholder />{ringCloseOverlay}</>;
 
   return (
+    <>
     <Suspense fallback={<LoadingPlaceholder />}>
       <UnifiedLocationStep
         mode="explorer"
         entryGlobe={entryGlobe}
+        entryLogo={introOn && entryGlobe}
         onNext={() => {}}
         onExplorerDismiss={async () => {
           const returnTo = typeof window !== 'undefined'
@@ -160,5 +185,7 @@ export default function ExplorerPage() {
         }}
       />
     </Suspense>
+    {ringCloseOverlay}
+    </>
   );
 }

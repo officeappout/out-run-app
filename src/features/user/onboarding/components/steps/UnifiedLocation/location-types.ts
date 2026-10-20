@@ -30,6 +30,9 @@ export interface UnifiedLocationStepProps {
    *  "גרים ב…?" drawer, grouped search). Set by /explorer's quick-signup path only.
    *  Presentation only; default false = today's step. */
   entryGlobe?: boolean;
+  /** enable_entry_intro_v1 — reserve the OUT logo slot above the globe headline
+   *  (where the intro's ring-close logo comes to rest). Presentation only. */
+  entryLogo?: boolean;
 }
 
 // ── Lifestyle / Persona ──────────────────────────────────
