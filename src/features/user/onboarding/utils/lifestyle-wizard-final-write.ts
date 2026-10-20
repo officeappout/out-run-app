@@ -32,6 +32,12 @@ export interface LifestyleWizardFinalWriteInput {
   historyFrequency: string | undefined;
   /** ScheduleStep's calendar toggle value (only meaningful when edited). */
   calendarSyncEnabled: boolean | undefined;
+  /**
+   * enable_home_v2: the shared reminders step showed its calendar toggle in
+   * THIS session (any track) — its value is then written even when the
+   * strength schedule screen was not shown. Flag off never sets it.
+   */
+  calendarSyncAnswered?: boolean;
   /** Persona + goal tags collected in this session. */
   sessionLifestyleTags: string[] | undefined;
   /** True when the goal question was not shown (captured at signup). */
@@ -79,6 +85,10 @@ export function buildLifestyleWizardFinalWrite(
   const out: LifestyleWizardFinalWrite = {
     lifestyle: { lifestyleTags: uniq([...sessionTags, ...keptGoalTags]) },
   };
+
+  if (input.calendarSyncAnswered && typeof input.calendarSyncEnabled === 'boolean') {
+    out.settings = { calendarSync: input.calendarSyncEnabled };
+  }
 
   if (!input.strengthScheduleEdited) return out;
 

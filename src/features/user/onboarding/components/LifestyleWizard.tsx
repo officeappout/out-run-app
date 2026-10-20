@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, Bell, Check, Share, Smartphone } from 'lucide-react';
+import { X, ChevronRight, Share, Smartphone } from 'lucide-react';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
@@ -26,6 +26,16 @@ import { useWizardIdentity } from '../hooks/useWizardIdentity';
 import { buildLifestyleWizardFinalWrite } from '../utils/lifestyle-wizard-final-write';
 import { writeLifestyleWizardCompletion } from '../services/lifestyle-wizard-submit.service';
 import { resolvePersonaGoalMode } from '../utils/persona-goals';
+import { useRouter } from 'next/navigation';
+import { resolveOnboardingEntryHref } from '../utils/onboarding-entry';
+import StrengthSignupScheduleFlow from './strength-v2/signup-schedule/StrengthSignupScheduleFlow';
+import WizardRemindersStepV2 from './wizard-v2/WizardRemindersStepV2';
+import {
+  EMPTY_REMINDER_PLAN,
+  runningReminderPlan,
+  strengthReminderPlan,
+  type WizardReminderPlan,
+} from '../utils/wizard-reminder-plan';
 
 interface LifestyleWizardProps {
   onComplete: () => void;
@@ -58,6 +68,16 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   const [currentStep, setCurrentStep] = useState<WizardStep>('persona');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showIOSModal, setShowIOSModal] = useState(false);
+  const router = useRouter();
+
+  // ── enable_home_v2 only ──
+  // Sub-step of the recommendation-first strength schedule (count → days →
+  // week); the header back button steps back through it.
+  const [scheduleSub, setScheduleSub] = useState(0);
+  // What the shared reminders step shows/schedules (from the confirmed week).
+  const [strengthPlan, setStrengthPlan] = useState<WizardReminderPlan | null>(null);
+  // The reminders step's calendar answer, kept while the iOS sheet is open.
+  const iosCalendarSyncRef = useRef<boolean | undefined>(undefined);
 
   // Gender-aware copy — from the profile (this wizard opens from /home in
   // later sessions, where sessionStorage is empty); the signup's
@@ -90,7 +110,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // `settings.notificationPrefs` schema BEFORE this runs). The legacy
   // `lifestyle.pushEnabled` key was removed: it was never read by the
   // server (`sendPushFromQueue` only reads `settings.*`).
-  const handleFinalSubmit = useCallback(async () => {
+  // `opts.calendarSync` (enable_home_v2): the shared reminders step's calendar
+  // toggle. Returns whether the write succeeded (flag-off callers ignore it).
+  const handleFinalSubmit = useCallback(async (opts?: { calendarSync?: boolean }): Promise<boolean> => {
     setIsSubmitting(true);
     try {
       const uid = auth.currentUser?.uid;
@@ -105,12 +127,16 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       // Only what the user answered in this session (utils/lifestyle-wizard-final-write.ts):
       // scheduleDays / trainingHistory / calendarSync only after the strength
       // schedule screen; the running screen already saved its own days.
-      const store = onboardingData as Record<string, any>;
+      // v2 reads the store fresh: its strength week is written in the same
+      // tap that submits ("רוצה להוסיף ריצה?"), before this closure re-renders.
+      const store = (v2 ? useOnboardingStore.getState().data : onboardingData) as Record<string, any>;
+      const calendarSyncAnswered = v2 && typeof opts?.calendarSync === 'boolean';
       const lifestyleWrite = buildLifestyleWizardFinalWrite({
         strengthScheduleEdited: strengthScheduleEditedRef.current,
         editedScheduleDays: store?.scheduleDays,
         historyFrequency: store?.historyFrequency,
-        calendarSyncEnabled: store?.calendarSyncEnabled,
+        calendarSyncEnabled: calendarSyncAnswered ? opts?.calendarSync : store?.calendarSyncEnabled,
+        calendarSyncAnswered,
         sessionLifestyleTags: store?.lifestyleTags,
         goalsSkipped: !resolvePersonaGoalMode(profile).askGoals,
         existingLifestyleTags: profile?.lifestyle?.lifestyleTags,
@@ -131,13 +157,15 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       // entry points instead, so the OS dialog only ever appears after an
       // explicit user gesture.
       onComplete();
+      return true;
     } catch (error) {
       console.error('[LifestyleWizard] Submit error:', error);
       alert('שגיאה בשמירה');
+      return false;
     } finally {
       setIsSubmitting(false);
     }
-  }, [onComplete, onboardingData, profile]);
+  }, [onComplete, onboardingData, profile, v2]);
 
   // Write-once guard for the early `personas` write: goToPreviousStep lets a
   // user go back to persona and forward again within the same open wizard
@@ -272,11 +300,36 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   };
 
   // ── v2 (enable_home_v2) ────────────────────────────────────────
-  // Same steps, handlers and writes. This wizard is a fixed overlay on /home
+  // Same three steps and the same final write (#517 guard). Strength users get
+  // the recommendation-first week (StrengthSignupScheduleFlow → ScheduleStep's
+  // own store fields); everyone gets the shared reminders step
+  // (WizardRemindersStepV2 → ReminderOptInStep). This wizard is a fixed overlay on /home
   // (outside OnboardingLayout's <main>), so it pads the top and bottom
   // safe-area insets itself — once, on the root. The step CTAs inside
   // (StickyActionButton variant="v2") add only their own 12px.
   if (v2) {
+    const handleBackV2 = () => {
+      if (currentStep === 'schedule' && !isRunningTrack && scheduleSub > 0) {
+        setScheduleSub(scheduleSub - 1);
+        return;
+      }
+      goToPreviousStep();
+    };
+    // "אישור השבוע": the flow already wrote the week to the store.
+    const handleStrengthConfirmed = (week: Parameters<typeof strengthReminderPlan>[0]) => {
+      setStrengthPlan(strengthReminderPlan(week));
+      handleScheduleNext();
+    };
+    // "רוצה להוסיף ריצה?": save the strength week + finish the wizard, then
+    // the running signup (journey 3 — its add-track week asks reminders for both).
+    const handleAddRun = async () => {
+      strengthScheduleEditedRef.current = true;
+      const ok = await handleFinalSubmit();
+      if (ok) router.push(resolveOnboardingEntryHref(profile, 'RUNNING'));
+    };
+    const reminderPlan: WizardReminderPlan = isRunningTrack
+      ? runningReminderPlan(onboardingData as Record<string, unknown>)
+      : strengthPlan ?? EMPTY_REMINDER_PLAN;
     const v2StepBadge = (n: number) => (
       <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-[13px] font-black text-v2-deep">
         {n}
@@ -296,7 +349,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
           {stepIndex > 0 ? (
             <button
               type="button"
-              onClick={goToPreviousStep}
+              onClick={handleBackV2}
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
               aria-label="Back"
             >
@@ -353,9 +406,16 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                 exit={{ opacity: 0, x: -20 }}
                 className="h-full"
               >
-                {isRunningTrack
-                  ? <RunningScheduleStep onNext={handleScheduleNext} isJIT />
-                  : <ScheduleStep onNext={handleScheduleNext} />}
+                {isRunningTrack ? (
+                  <RunningScheduleStep onNext={handleScheduleNext} isJIT />
+                ) : (
+                  <StrengthSignupScheduleFlow
+                    sub={scheduleSub}
+                    setSub={setScheduleSub}
+                    onConfirmed={handleStrengthConfirmed}
+                    onAddRun={handleAddRun}
+                  />
+                )}
               </motion.div>
             )}
 
@@ -367,52 +427,15 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                 exit={{ opacity: 0, x: -20 }}
                 className="flex min-h-full flex-col"
               >
-                <div className="flex-1 px-4 pb-6 pt-3">
-                  <h2 className="mb-5 text-[26px] font-black leading-[1.15] !tracking-[-0.02em]">
-                    {NOTIFICATIONS_TITLE}
-                  </h2>
-
-                  <div className="rounded-v2-card bg-white p-5 shadow-v2-card">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep" aria-hidden>
-                        <Bell size={22} strokeWidth={2.25} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-[16px] font-black text-v2-ink">תזכורות חכמות</h3>
-                        <p className="text-[14px] font-medium text-v2-ink-2">נשלח לך בדיוק בזמן הנכון</p>
-                      </div>
-                    </div>
-                    <ul className="space-y-2.5 text-[14.5px] font-semibold text-v2-ink">
-                      <li className="flex items-start gap-2.5">
-                        <Check size={18} strokeWidth={2.75} className="mt-0.5 flex-shrink-0 text-v2-up" aria-hidden />
-                        <span>תזכורות לפי הימים שבחרת</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check size={18} strokeWidth={2.75} className="mt-0.5 flex-shrink-0 text-v2-up" aria-hidden />
-                        <span>עדכוני התקדמות ויעדים</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                <StickyActionButton
-                  variant="v2"
-                  label="אשמח לקבל תזכורות"
-                  successLabel="מעולה!"
-                  disabled={isSubmitting}
-                  onPress={() => handleNotificationsNext(true)}
+                <WizardRemindersStepV2
+                  plan={reminderPlan}
+                  initialCalendarSync={(onboardingData as { calendarSyncEnabled?: boolean }).calendarSyncEnabled === true}
+                  onFinish={(calendarSync) => handleFinalSubmit({ calendarSync })}
+                  onIOSBlocked={(calendarSync) => {
+                    iosCalendarSyncRef.current = calendarSync;
+                    setShowIOSModal(true);
+                  }}
                 />
-
-                <div className="flex justify-center px-4 pb-3">
-                  <button
-                    type="button"
-                    onClick={() => handleNotificationsNext(false)}
-                    disabled={isSubmitting}
-                    className="flex h-10 items-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-50"
-                  >
-                    {t('דלג בשלב זה', 'דלגי בשלב זה')}
-                  </button>
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -501,8 +524,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   type="button"
                   onClick={async () => {
                     setShowIOSModal(false);
-                    // Skip push, continue onboarding
-                    await handleNotificationsNext(false);
+                    // Skip push, continue onboarding (the reminders step's calendar answer kept)
+                    await handleFinalSubmit({ calendarSync: iosCalendarSyncRef.current });
                   }}
                   className="mx-auto mt-1 flex h-11 items-center justify-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
                 >
