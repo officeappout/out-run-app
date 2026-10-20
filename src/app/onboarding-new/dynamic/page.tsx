@@ -25,6 +25,7 @@ import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-c
 import { generateFirstWorkout } from '@/features/workout-engine/services/first-workout.service';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { useOnboardingV2State } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useDeferredIdentity } from '@/features/user/onboarding/hooks/useDeferredIdentity';
 import { questionMotionClass, questionnaireScreen } from '@/features/user/onboarding/utils/questionnaire-screen';
 import { Loader2 } from 'lucide-react';
 import { runSignupNextRoute } from '@/features/user/onboarding/utils/run-signup-routing';
@@ -42,6 +43,10 @@ export default function DynamicOnboardingPage() {
   // the v2 look of ResultLoading/ProgramResult). Same flow and handlers.
   // flagsReady: hold the question until the flag is known (see questionnaireScreen).
   const { v2, ready: flagsReady } = useOnboardingV2State();
+  // enable_home_v2 (journey J2): a home start card opens this flow without the identity
+  // form — name / gender / birth date are asked at the end of the questionnaire, right
+  // before the first save (handleComplete). Back there leaves the questionnaire.
+  const { runAfterIdentity, identityOverlay } = useDeferredIdentity(v2, () => router.back());
 
   // Claim params (from Guest Mode)
   const claimCoins = searchParams.get('coins');
@@ -319,7 +324,7 @@ export default function DynamicOnboardingPage() {
   // When called immediately after setState, React hasn't re-rendered yet,
   // so assignedLevel/assignedProgramId etc. in the closure are still undefined.
   // Passing them directly from the engine result guarantees fresh values.
-  const handleComplete = useCallback(async (resultOverride?: {
+  const completeOnboarding = useCallback(async (resultOverride?: {
     assignedLevel?: number;
     assignedLevelId?: string;
     assignedProgramId?: string;
@@ -587,6 +592,15 @@ export default function DynamicOnboardingPage() {
     }
   }, [assignedLevel, assignedLevelId, assignedProgramId, assignedResults, masterProgramSubLevels, engine, initializeProfile, router, v2]);
 
+  // The first save — behind the deferred identity screen when name / gender / birth date
+  // are still unknown (enable_home_v2 only; otherwise runs at once, exactly as before).
+  // The ref runs the latest render's completeOnboarding (fresh state after the screen).
+  const completeOnboardingRef = useRef(completeOnboarding);
+  completeOnboardingRef.current = completeOnboarding;
+  const handleComplete = useCallback(async (resultOverride?: Parameters<typeof completeOnboarding>[0]) => {
+    runAfterIdentity(() => { void completeOnboardingRef.current(resultOverride); });
+  }, [runAfterIdentity]);
+
   // Handle result loading complete - show program result
   const handleResultLoadingComplete = useCallback(() => {
     setShowResultLoading(false);
@@ -790,6 +804,7 @@ export default function DynamicOnboardingPage() {
     return (
       <div className="flex h-full items-center justify-center bg-v2-surface" dir="rtl">
         <p className="text-[13px] font-bold text-v2-muted">טוען תוצאות...</p>
+        {identityOverlay}
       </div>
     );
   }
