@@ -28,6 +28,8 @@ export interface StrengthCountStepProps {
   recommendationTitle: string;
   /** "רמה 4 · 48 שעות התאוששות בין אימונים" */
   whyLine: string;
+  /** More policy reasons + the add-ons line (recommendation policy). */
+  notes?: string[];
   /** "כוח · כל הגוף" */
   planLine: string;
   recommendedFrequency: number;
@@ -52,7 +54,7 @@ export default function StrengthCountStep(p: StrengthCountStepProps) {
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">מתי נתאמן?</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">הכנו המלצה — אישור בלחיצה</p>
 
-        <RecommendationCard className="mt-3.5" title={p.recommendationTitle} detail={p.whyLine} aside="אפשר לשנות" />
+        <RecommendationCard className="mt-3.5" title={p.recommendationTitle} detail={p.whyLine} notes={p.notes} aside="אפשר לשנות" />
 
         <p className="mt-4 truncate whitespace-nowrap text-[13px] font-extrabold text-v2-muted">{p.planLine}</p>
         <p className="mt-2.5 truncate whitespace-nowrap text-[16px] font-black">{p.question}</p>

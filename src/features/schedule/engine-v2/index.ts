@@ -4,6 +4,7 @@
  * Spec: agent-briefs/schedule-combos.md §4; fixtures: __tests__/fixtures/.
  */
 export { buildWeek } from './buildWeek';
+export { defaultTrainingDays, saturdayMarked } from './availability';
 export { planMakeup, type MakeupInput, type MakeupPlan, type MakeupChange, type MakeupAction } from './makeup';
 export { planReturn, type ReturnInput, type ReturnPlan } from './returnPlan';
 export { validateLayout, breaksH5 } from './validate';

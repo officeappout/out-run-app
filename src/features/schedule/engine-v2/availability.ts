@@ -2,6 +2,7 @@
  * Availability → which days the engine may place main sessions on (H1), their windows,
  * and the long-run target day (S1 + the owner's default rule).
  */
+import { SATURDAY_DEFAULT_OFF, SATURDAY_DOW } from './config';
 import type { Availability, AvailabilityException, TimeWindow } from './types';
 
 const WINDOW_ORDER: TimeWindow[] = ['morning', 'noon', 'evening'];
@@ -59,4 +60,18 @@ export function longRunTargetDay(
   if (preferred != null && open[preferred]) return { day: preferred, source: 'preferred' };
   for (let d = 6; d >= 0; d--) if (open[d]) return { day: d, source: 'last_free' };
   return { day: null, source: 'last_free' };
+}
+
+/**
+ * OWNER (20.10.2026, config SATURDAY_DEFAULT_OFF): the days a recommendation may
+ * pre-mark — Sunday–Friday, plus Saturday only when the user marked it free.
+ */
+export function defaultTrainingDays(allowSaturday = false): number[] {
+  const all = [0, 1, 2, 3, 4, 5, 6];
+  return SATURDAY_DEFAULT_OFF && !allowSaturday ? all.filter((d) => d !== SATURDAY_DOW) : all;
+}
+
+/** Did the user mark Saturday as a training day (any of these day lists holds it)? */
+export function saturdayMarked(...dayLists: ReadonlyArray<readonly number[] | null | undefined>): boolean {
+  return dayLists.some((l) => !!l && l.includes(SATURDAY_DOW));
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addTrackOpenDays,
   addTrackTitleHe,
   buildAddTrackWeek,
   presetPriority,
@@ -121,5 +122,25 @@ describe('add track · copy', () => {
     expect(addTrackTitleHe('running', 3, 2)).toBe('נוסיף 3 ריצות ונזיז 2 אימונים');
     expect(addTrackTitleHe('strength', 2, 1)).toBe('נוסיף 2 אימוני כוח ונזיז ריצה אחת');
     expect(addTrackTitleHe('strength', 1, 0)).toBe('נוסיף אימון כוח אחד סביב הריצות');
+  });
+});
+
+describe('Shabbat — Saturday only when marked (owner 20.10.2026)', () => {
+  const onSaturday = (w: ReturnType<typeof buildAddTrackWeek>) => all(w).filter((s) => s.dow === 6);
+
+  it('J3 / J4: nothing lands on Saturday by default; the long run goes to Friday at the latest', () => {
+    for (const input of [J3, J4]) {
+      for (const p of ['strength_first', 'balanced', 'run_first'] as const) {
+        expect(onSaturday(buildAddTrackWeek(input, p, false))).toEqual([]);
+      }
+    }
+    const long = all(buildAddTrackWeek(J3, 'balanced', false)).find((s) => s.slot === 'long_run');
+    expect(long?.dow).toBeLessThanOrEqual(5);
+  });
+
+  it('opens Saturday when the user marked it, or already trains on it', () => {
+    expect(addTrackOpenDays({ ...J3, allowSaturday: true })).toContain(6);
+    expect(addTrackOpenDays({ ...J4, existingRuns: [...J4.existingRuns.slice(0, 2), { dow: 6, slot: 'long_run' }] })).toContain(6);
+    expect(addTrackOpenDays(J3)).toEqual([0, 1, 2, 3, 4, 5]);
   });
 });

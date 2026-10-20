@@ -7,7 +7,7 @@
  * + diff into rows ("חדש" / "נשאר" / "הוזז: … · כי …") and the one-line recommendation.
  * Pure.
  */
-import { buildWeek } from '../engine-v2';
+import { buildWeek, defaultTrainingDays, saturdayMarked } from '../engine-v2';
 import { refKey, refNameHe } from '../engine-v2/diff';
 import { slugNameHe } from '../engine-v2/programProfiles';
 import type {
@@ -33,6 +33,12 @@ export interface AddTrackInput {
   runLevel: TrainingLevel;
   strengthLevel?: TrainingLevel | null;
   targetDistance: string;
+  /**
+   * Shabbat (owner 20.10.2026): the user marked Saturday free. Saturday is also open when
+   * the existing week already trains on it (they marked it before). Otherwise the engine
+   * never puts a session there.
+   */
+  allowSaturday?: boolean;
 }
 
 export type AddTrackSessionStatus = 'new' | 'kept' | 'moved';
@@ -109,7 +115,11 @@ export const priorityHelperHe = (priority: SchedulePriority): string => PRIORITY
 
 // ── Engine input ──────────────────────────────────────────────────────
 
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+/** The days the combined week may use: Sun–Fri, plus Saturday when marked / already used. */
+export function addTrackOpenDays(i: AddTrackInput): number[] {
+  const used = [...i.existingStrength.map((d) => d.dow), ...i.existingRuns.map((d) => d.dow)];
+  return defaultTrainingDays(i.allowSaturday === true || saturdayMarked(used));
+}
 
 export function addTrackEngineInput(i: AddTrackInput, priority: SchedulePriority, keepOnly: boolean): ScheduleEngineInput {
   const existingDays: Partial<Record<number, SessionRef[]>> = {};
@@ -133,11 +143,11 @@ export function addTrackEngineInput(i: AddTrackInput, priority: SchedulePriority
   const sessions = strength.reduce((n, p) => n + p.sessionsPerWeek, 0) + runSlots.length;
 
   return {
-    // Every day is open; the week stays at one day per session where it can (maxTrainingDays).
+    // Every open day (Saturday only when marked); one day per session where it can (maxTrainingDays).
     availability: {
-      days: ALL_DAYS,
+      days: addTrackOpenDays(i),
       maxSessionsPerDay: 2,
-      maxTrainingDays: Math.min(7, Math.max(1, sessions)),
+      maxTrainingDays: Math.min(addTrackOpenDays(i).length, Math.max(1, sessions)),
       preferredLongRunDay: longRun?.dow ?? null,
     },
     strength,

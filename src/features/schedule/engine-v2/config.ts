@@ -192,3 +192,9 @@ export const SEARCH_NODE_BUDGET = 400_000;
 
 /** Days are linked across Saturday → Sunday for H3 / H4 / H6 / H7 / S7 / S8 (the week repeats). */
 export const WRAP_WEEK = true;
+
+// ── Shabbat (OWNER 20.10.2026) ──────────────────────────────────────────────
+
+/** Saturday (day 6) is not a training day by default; it opens only when the user marks it free. */
+export const SATURDAY_DOW = 6;
+export const SATURDAY_DEFAULT_OFF = true;

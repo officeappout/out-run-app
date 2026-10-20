@@ -50,10 +50,20 @@ export const getSmartDefaultDays = (freq: number): number[] => {
  * With no strength days it returns getSmartDefaultDays(freq) unchanged, so
  * a pure-runner signup gets exactly today's default.
  */
-export function pickRunDaysAvoidingStrength(freq: number, strengthDayIndices: number[]): number[] {
+export function pickRunDaysAvoidingStrength(
+  freq: number,
+  strengthDayIndices: number[],
+  /**
+   * enable_home_v2 (owner 20.10.2026, Shabbat): days to avoid even before strength
+   * overlap — e.g. [6] when Saturday isn't marked free. Used only when no other choice
+   * keeps the length. Omitted → exactly the previous behaviour.
+   */
+  avoidDays: number[] = [],
+): number[] {
   const n = Math.max(0, Math.min(7, Math.round(freq)));
   const blocked = new Set(strengthDayIndices.filter((i) => Number.isInteger(i) && i >= 0 && i <= 6));
-  if (blocked.size === 0) return getSmartDefaultDays(n);
+  const avoid = new Set(avoidDays.filter((i) => Number.isInteger(i) && i >= 0 && i <= 6));
+  if (blocked.size === 0 && !getSmartDefaultDays(n).some((d) => avoid.has(d))) return getSmartDefaultDays(n);
   if (n === 0) return [];
   if (n === 7) return [0, 1, 2, 3, 4, 5, 6];
 
@@ -66,6 +76,7 @@ export function pickRunDaysAvoidingStrength(freq: number, strengthDayIndices: nu
     for (let d = 0; d < 7; d++) if (mask & (1 << d)) days.push(d);
     if (days.length !== n) continue;
 
+    const avoided = days.filter((d) => avoid.has(d)).length;
     const overlap = days.filter((d) => blocked.has(d)).length;
     let spread = 0;
     for (let i = 0; i < n; i++) {
@@ -76,7 +87,7 @@ export function pickRunDaysAvoidingStrength(freq: number, strengthDayIndices: nu
     // Lower is better on every component; masks iterate low->high so the
     // first found wins exact ties — combined with the sort key below that's
     // the lexicographically smallest day list.
-    const key = [overlap, spread, -keptDefault, ...days];
+    const key = [avoided, overlap, spread, -keptDefault, ...days];
     if (!bestKey || lexLess(key, bestKey)) {
       bestKey = key;
       best = days;
