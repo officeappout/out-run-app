@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { joinEngine, JoinEngineError } from '@/lib/joinEngine';
+import { isDemoActorClaims } from '@/lib/demo-actor';
 import { validateDirectGroupJoin } from '@/lib/validateGroupJoinAccess';
 
 export const runtime = 'nodejs';
@@ -36,9 +37,11 @@ export async function POST(request: NextRequest) {
     let uid: string;
     let displayName: string;
     let isAnonymous: boolean;
+    let actorIsDemo = false;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
       displayName = decoded.name ?? 'משתמש';
       isAnonymous = decoded.firebase?.sign_in_provider === 'anonymous';
     } catch {
@@ -114,10 +117,11 @@ export async function POST(request: NextRequest) {
           target: { type: 'direct', groupId },
           uid,
           displayName,
+          actorIsDemo,
         });
       } catch (err) {
         if (err instanceof JoinEngineError) {
-          return NextResponse.json({ error: err.code }, { status: 400 });
+          return NextResponse.json({ error: err.code }, { status: err.code === 'demo-actor-target' ? 403 : 400 });
         }
         throw err;
       }

@@ -31,6 +31,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,9 +46,11 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getAdminAuth();
     let uid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -63,6 +66,11 @@ export async function POST(request: NextRequest) {
     const hasNeighborhoodKey = Object.prototype.hasOwnProperty.call(body, 'neighborhoodId');
     if (hasNeighborhoodKey && neighborhoodId != null && typeof neighborhoodId !== 'string') {
       return NextResponse.json({ error: 'neighborhoodId must be a string or null' }, { status: 400 });
+    }
+
+    // B1 demo sandbox: a demo actor's city / neighborhood is always a demo- one.
+    if (demoActorTargetBlocked(actorIsDemo, [authorityId, ...(hasNeighborhoodKey && neighborhoodId ? [neighborhoodId] : [])])) {
+      return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
     }
 
     const db = getAdminDb();

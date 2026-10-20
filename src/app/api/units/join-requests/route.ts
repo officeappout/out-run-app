@@ -26,6 +26,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,9 +94,11 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getAdminAuth();
     let uid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -112,6 +115,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
+    // B1 demo sandbox: a demo actor asks to join only a demo- tenant's unit.
+    if (demoActorTargetBlocked(actorIsDemo, [(body as { tenantId?: unknown } | null)?.tenantId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
     const result = await computeCreateJoinRequest(db, uid, body);
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
