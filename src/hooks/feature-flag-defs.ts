@@ -285,6 +285,15 @@ export const FLAG_DEFS = [
   // PersonaStep via useFeatureFlags() without the super-admin override, so the panel toggle is
   // the one switch. Fail-closed; superAdminValue false.
   { key: 'enableOrgAccessCodePrompt', firestoreKey: 'enable_org_access_code_prompt', defaultValue: false, superAdminValue: false },
+  // Entry flow v2 — location step (20.10.2026, owner-approved design canvas M1b–M5). The
+  // quick-signup location step (/explorer → UnifiedLocationStep mode="explorer") gets the new
+  // presentation: the live Earth with the "בשביל ___ לא צריך כלום" headline, a dive from space
+  // to the user's street while fast-locate runs, the "גרים ב…?" confirm drawer with the nearest
+  // park, and the grouped city/neighbourhood search. All the step's logic (GPS on tap, lookups,
+  // drag-to-refine, handleConfirm) is unchanged. Confirm lands on /map?fromExplorer=true&entry=v2
+  // + sessionStorage entry_v2_landing=1 (read by the entry flow's step 2). Fail-closed; super
+  // admins preview it. Off = byte-identical location step.
+  { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: false, superAdminValue: true },
   // JIT identity before the health declaration (20.10.2026, entry flow v2 brief B) — a user with
   // no known identity (quick signup "הרשמה מהירה" → MAP_ONLY, no name / birth date) who starts a
   // workout first fills the existing identity screen (gender, birth date, name — same validation,

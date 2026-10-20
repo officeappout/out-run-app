@@ -26,6 +26,10 @@ export interface UnifiedLocationStepProps {
   skipGPS?: boolean;
   /** Context for the location step: changes copy/behavior based on why the user arrived. */
   purpose?: MapPurpose;
+  /** enable_entry_globe_v1 — the entry flow's new presentation (live Earth, dive,
+   *  "גרים ב…?" drawer, grouped search). Set by /explorer's quick-signup path only.
+   *  Presentation only; default false = today's step. */
+  entryGlobe?: boolean;
 }
 
 // ── Lifestyle / Persona ──────────────────────────────────

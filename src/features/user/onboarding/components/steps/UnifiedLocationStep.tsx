@@ -69,6 +69,9 @@ import { LocatingCard } from './UnifiedLocation/sub-components/LocatingCard';
 import { ConfirmationCard } from './UnifiedLocation/sub-components/ConfirmationCard';
 import { SearchOverlay } from './UnifiedLocation/sub-components/SearchOverlay';
 import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
+// enable_entry_globe_v1 — the entry flow's new presentation (explorer quick-signup only)
+import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
+import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
 
 // ── Dynamic Mapbox Imports (avoid SSR) ───────────────────
 // MapboxMap uses a forwardRef wrapper so next/dynamic correctly passes ref={mapRef}
@@ -81,12 +84,17 @@ const MapboxLayer = dynamic(() => import('react-map-gl').then((mod) => mod.Layer
 // MAIN COMPONENT (State Machine & Map)
 // ============================================
 
-function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose }: UnifiedLocationStepProps) {
+function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, purpose, entryGlobe = false }: UnifiedLocationStepProps) {
   const { updateData, setMajorRoadmapStep } = useOnboardingStore();
   const isExplorer = mode === 'explorer' || mode === 'bridge';
   const mapRef = useRef<MapRef>(null);
   // enable_home_v2 — v2 sheets/search over the map (styling only).
   const v2 = useOnboardingV2();
+  // enable_entry_globe_v1 (decided by the caller — /explorer's quick-signup
+  // path only). It runs the v2 fast-locate pipeline (coarse → precise, ticketed
+  // lookups) so the dive can start the moment the first fix lands; `v2` itself
+  // stays the styling switch. Off: fastLocate === v2, i.e. today's behaviour.
+  const fastLocate = v2 || entryGlobe;
   
   // Get gender from sessionStorage
   const gender = typeof window !== 'undefined'
@@ -197,6 +205,15 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   const stageRef = useRef(stage);
   stageRef.current = stage;
 
+  // ── enable_entry_globe_v1: the live Earth + dive (presentation only) ──
+  // rest = the half-Earth idling · dive = flying in (to the fix / picked place
+  // once known) · arrived = landed, the street map below takes over.
+  const [globeDive, setGlobeDive] = useState<'rest' | 'dive' | 'arrived'>('rest');
+  // "גוררים את המפה כדי לדייק" hides after the user's first drag.
+  const [mapDragged, setMapDragged] = useState(false);
+  const entryGlobeRef = useRef(entryGlobe);
+  entryGlobeRef.current = entryGlobe;
+
   // ══════════════════════════════════════════════════════════════════
   // EFFECTS
   // ══════════════════════════════════════════════════════════════════
@@ -278,6 +295,12 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     }
   }, [searchQuery, cities]);
 
+  // Entry globe: back on INITIAL (first load, or a denied / failed fix) the
+  // Earth rests again as the half circle.
+  useEffect(() => {
+    if (entryGlobe && stage === LocationStage.INITIAL) setGlobeDive('rest');
+  }, [entryGlobe, stage]);
+
   // Focus search input
   useEffect(() => {
     if (stage === LocationStage.SEARCHING && searchInputRef.current) {
@@ -344,6 +367,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // placing the pin themselves; a late GPS refinement must not override it.
     const byUser = isUserCameraMove(evt);
     if (byUser) userTookOverRef.current = true;
+    if (byUser && entryGlobeRef.current) setMapDragged(true);
     setIsDragging(true);
     // Only a new user gesture supersedes a pending drag lookup — a
     // programmatic move (fitBounds etc.) no longer re-schedules it on
@@ -365,7 +389,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     // v2: a programmatic camera move (fitBounds on the hero route) landing
     // while the GPS pipeline is still resolving must not start a second,
     // competing pipeline — the GPS one is about to set everything.
-    if (v2 && isResolvingGpsRef.current) return;
+    if (fastLocate && isResolvingGpsRef.current) return;
     
     // ── IMMEDIATE: Sync coords right away so the marker doesn't feel "stuck" ──
     const centerLat = viewState.latitude;
@@ -381,7 +405,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       // v2: take a pipeline ticket; bail after each await if a newer one
       // (e.g. a GPS refinement) started meanwhile.
       const runId = ++lookupRunRef.current;
-      const stale = () => v2 && lookupRunRef.current !== runId;
+      const stale = () => fastLocate && lookupRunRef.current !== runId;
       setIsUpdatingLocation(true);
       
       const result = await reverseGeocode(centerLat, centerLng);
@@ -451,7 +475,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       
       setIsUpdatingLocation(false);
     }, 500);
-  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer, v2]);
+  }, [stage, viewState.latitude, viewState.longitude, updateData, selectedSportId, isExplorer, fastLocate]);
 
   // ── v2: location → lookups, shown progressively ─────────────────────
   // Same lookups and the same state/sessionStorage/onboarding writes as the
@@ -607,7 +631,10 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   const handleFindLocation = async () => {
-    if (v2) return handleFindLocationV2();
+    if (fastLocate) {
+      if (entryGlobe) setGlobeDive('dive');
+      return handleFindLocationV2();
+    }
 
     setStage(LocationStage.LOCATING);
     setLocationError(null);
@@ -835,7 +862,9 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   };
 
   const handleCitySelect = async (city: CityData) => {
-    if (v2) cancelGpsV2();
+    if (fastLocate) cancelGpsV2();
+    // Entry globe: picking a place while the Earth is still up dives to it.
+    if (entryGlobe && globeDive !== 'arrived') setGlobeDive('dive');
     setSearchQuery('');
 
     // Clear any previous selection so stale data from an earlier pick in the
@@ -954,11 +983,21 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
   // RENDER
   // ══════════════════════════════════════════════════════════════════
 
+  // enable_entry_globe_v1 — what the Earth layer shows (all false when off).
+  const entryDiving = entryGlobe && stage === LocationStage.CONFIRMING && globeDive === 'dive';
+  const showEntryGlobe =
+    entryGlobe &&
+    globeDive !== 'arrived' &&
+    (globeDive === 'dive' ||
+      stage === LocationStage.INITIAL ||
+      stage === LocationStage.LOCATING ||
+      (stage === LocationStage.SEARCHING && !userLocation));
+
   return (
     <div
       dir="rtl"
       className={
-        v2
+        v2 || entryGlobe
           // v2: no h-screen — 100vh is taller than the visible viewport on iOS
           // Safari and would push the bottom sheet under the toolbar; inset-0 alone
           // pins the step to the visible viewport. Sheets add the bottom inset once.
@@ -1279,12 +1318,50 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
                 className="absolute w-14 h-4 bg-black/50 rounded-full blur-md"
                 style={{ top: 'calc(100% + 4px)' }}
               />
+
+              {/* enable_entry_globe_v1: drag hint under the pin, until the first drag */}
+              {entryGlobe && (
+                <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'calc(100% + 18px)' }}>
+                  <AnimatePresence>
+                    {!entryDiving && !mapDragged && <DragHintChip key="drag-hint" />}
+                  </AnimatePresence>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
       </div>
 
       {/* UI Overlays */}
+      {entryGlobe ? (
+        <EntryGlobeLayer
+          stage={stage}
+          showGlobe={showEntryGlobe}
+          globePhase={globeDive === 'dive' ? 'dive' : 'rest'}
+          diving={entryDiving}
+          diveTarget={entryDiving ? userLocation : null}
+          onDiveArrived={() => setGlobeDive('arrived')}
+          locationError={locationError}
+          onFindLocation={handleFindLocation}
+          onSearchManually={handleSearchManually}
+          onSearchInsteadOfLocating={handleSearchInsteadOfLocating}
+          displayName={displayName}
+          detectedNeighborhood={detectedNeighborhood}
+          detectedCity={detectedCity}
+          nearbyFacilities={nearbyFacilities}
+          isLoadingParks={isLoadingParks}
+          gender={gender}
+          sportContext={sportContext}
+          trainingContext={trainingContext}
+          onConfirm={handleConfirm}
+          onSearchOther={handleSearchOtherCity}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filteredCities={filteredCities}
+          onCitySelect={handleCitySelect}
+          onBackFromSearch={handleBackFromSearch}
+        />
+      ) : (
       <AnimatePresence mode="wait">
         {stage === LocationStage.INITIAL && (
           <InitialCard
@@ -1344,6 +1421,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           />
         )}
       </AnimatePresence>
+      )}
     </div>
   );
 }
