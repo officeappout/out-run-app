@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import type { SessionAttendance } from '@/types/community.types';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -109,9 +110,11 @@ export async function POST(request: NextRequest) {
     }
 
     let uid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -121,6 +124,8 @@ export async function POST(request: NextRequest) {
     if (!groupId || !date || !time) {
       return NextResponse.json({ error: 'groupId, date, and time are required' }, { status: 400 });
     }
+    // B1 demo sandbox: a demo actor never moves real people off a real waitlist.
+    if (demoActorTargetBlocked(actorIsDemo, [groupId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
 
     const db = getAdminDb();
 

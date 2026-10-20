@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -69,6 +69,9 @@ interface FlagState {
   enable_entry_globe_v1: boolean;
   enable_jit_identity_v1: boolean;
   enable_demo_users: boolean;
+  demo_life_llm: boolean;
+  enable_ai_testers: boolean;
+  demo_kelly: boolean;
 }
 
 // ============================================================================
@@ -465,6 +468,34 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-amber-600',
     title: 'משתמשי דמו',
     description: 'מפעיל את הסימולטור של עולם הדמו הסגור (עיריית דמו, יחידת דמו, ארגון דמו). כבוי = הסימולטור לא כותב כלום. משתמשי דמו לעולם לא מופיעים למשתמשים אמיתיים, גם כשהדגל דולק. לא נדלק אוטומטית לסופר-אדמין.',
+  },
+  // Demo control center sub-switches (20.10.2026) — also switched live from /admin/demo.
+  {
+    key: 'demo_life_llm',
+    icon: MessageCircle,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-600',
+    title: 'דמו: AI בצ׳אט',
+    description: 'משתמשי הדמו עונים בצ׳אטים של הדמו עם מודל AI קטן (בעלות). כבוי = משפטים מוכנים מבנק. פועל רק כשמשתמשי הדמו דולקים.',
+    parentKey: 'enable_demo_users',
+  },
+  {
+    key: 'enable_ai_testers',
+    icon: Bot,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-600',
+    title: 'דמו: בודקי AI',
+    description: 'מאפשר להריץ את בודקי ה-AI (סיור באפליקציה כמשתמשי דמו). כבוי = שום סיור לא מתחיל, וסיור פעיל נעצר. פועל רק כשמשתמשי הדמו דולקים. מפעילים ממרכז הדמו.',
+    parentKey: 'enable_demo_users',
+  },
+  {
+    key: 'demo_kelly',
+    icon: MessageCircle,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-600',
+    title: 'דמו: קלי לדמו',
+    description: 'קלי ירוץ גם על משתמשי הדמו (הודעות יזומות, זיכרון, סוקר אימונים) — נספר בתקציב הדמו. פועל רק כשמשתמשי הדמו דולקים.',
+    parentKey: 'enable_demo_users',
   },
 ];
 

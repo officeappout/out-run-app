@@ -49,6 +49,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isRateLimited } from '@/lib/rateLimit';
 import { RATE_LIMITS } from '@/lib/rateLimitConfig';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 import { resolveUnitPermissionScope, isMemberWithinScope, UNIT_SCOPE_UNKNOWN_MESSAGE, type UnitPermissionScope } from '@/lib/unitPermissionScope';
 
 export const runtime = 'nodejs';
@@ -156,9 +157,11 @@ export async function POST(request: NextRequest) {
 
     const adminAuth = getAdminAuth();
     let callerUid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await adminAuth.verifyIdToken(idToken, true);
       callerUid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -177,6 +180,8 @@ export async function POST(request: NextRequest) {
       parentUnitId: typeof (body as Record<string, unknown>)?.parentUnitId === 'string' ? (body as Record<string, unknown>).parentUnitId as string : null,
     };
 
+    // B1 demo sandbox: a demo actor creates units only under a demo- tenant.
+    if (demoActorTargetBlocked(actorIsDemo, [input.tenantId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
     const scope = await resolveUnitPermissionScope(callerUid);
     const result = await computeCreateUnit(db, scope, input);
     return NextResponse.json(result.body, { status: result.status });

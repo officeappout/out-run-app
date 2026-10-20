@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { DEMO_ACTOR_TARGET_ERROR, demoActorTargetBlocked, isDemoActorClaims } from '@/lib/demo-actor';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,9 +31,11 @@ export async function POST(request: NextRequest) {
     }
 
     let uid: string;
+    let actorIsDemo = false;
     try {
       const decoded = await getAdminAuth().verifyIdToken(idToken, true);
       uid = decoded.uid;
+      actorIsDemo = isDemoActorClaims(decoded);
     } catch {
       return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
     }
@@ -47,6 +50,8 @@ export async function POST(request: NextRequest) {
     if (typeof value !== 'number' || value < 1 || value > 3600) {
       return NextResponse.json({ error: 'value must be 1–3600 seconds' }, { status: 400 });
     }
+    // B1 demo sandbox: a demo actor's result never lands on a real challenge board.
+    if (demoActorTargetBlocked(actorIsDemo, [groupId])) return NextResponse.json({ error: DEMO_ACTOR_TARGET_ERROR }, { status: 403 });
 
     const db = getAdminDb();
 

@@ -1372,6 +1372,10 @@ function AdminLayoutInner({
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />
                                                 )}
+                                                {/* demo control center — live switches, tester runs, live cost; super admins only (API: requireSuperAdminApi) */}
+                                                {isSuperAdmin && (
+                                                    <SidebarLink href="/admin/demo" icon={Bot} label="מרכז הדמו" />
+                                                )}
                                                 {/* nightly review of generated workouts / routes — super admins only (API: requireSuperAdminApi) */}
                                                 {isSuperAdmin && (
                                                     <SidebarLink href="/admin/generation-review" icon={ListChecks} label="בקרת אימונים ומסלולים" />

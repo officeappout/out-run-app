@@ -48,6 +48,7 @@ GROUP_8089=(
   tests/firestore-fix-agents-lockdown.rules.test.ts
   tests/firestore-admin-costs.rules.test.ts
   tests/firestore-demo-registry.rules.test.ts
+  tests/firestore-demo-actor-sandbox.rules.test.ts
   tests/firestore-site-content.rules.test.ts
   tests/pace-profile-self-correction.rules.test.ts
   tests/workouts-timed-blocks.rules.test.ts
@@ -56,6 +57,7 @@ GROUP_8089=(
   src/app/api/social/promote-waitlist/__tests__/promote-waitlist.emulator.test.ts
   src/features/parks/core/hooks/__tests__/planned-sessions-query-shapes.test.ts
   src/lib/__tests__/joinEngine.hostuid-escalation.emulator.test.ts
+  src/lib/__tests__/joinEngine.demo-actor.emulator.test.ts
   src/app/api/admin/agents/__tests__/agents-routes.emulator.test.ts
   src/features/user/onboarding/services/__tests__/lifestyle-wizard-submit.emulator.test.ts
   functions/src/__tests__/reminderSweepScheduler.emulator.test.ts
@@ -64,6 +66,7 @@ GROUP_8089=(
   functions/src/__tests__/leagueSteps.emulator.test.ts
   functions/src/__tests__/leagueRollups.emulator.test.ts
   functions/src/__tests__/onGroupMemberWrite.emulator.test.ts
+  scripts/demo/__tests__/demo-world.emulator.test.ts
 )
 
 RESULTS=$(mktemp)
