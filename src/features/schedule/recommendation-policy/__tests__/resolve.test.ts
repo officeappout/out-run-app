@@ -36,7 +36,7 @@ describe('policy config stays in sync with the code it mirrors', () => {
   });
 
   it('the policy split table: a Hebrew name per cell; only the owner-approved cells differ from SPLIT_MATRIX', () => {
-    const approved = new Set(['intermediate:3', 'advanced:3', 'intermediate:4', 'advanced:4']);
+    const approved = new Set(['intermediate:3', 'advanced:3', 'intermediate:4', 'advanced:4', 'advanced:6']);
     const freqIndex = (n: number) => (n <= 2 ? 0 : n === 3 ? 1 : n <= 5 ? 2 : 3);
     for (const [band, row] of Object.entries(RECOMMENDATION_POLICY.strength.splits)) {
       for (let n = 1; n <= 6; n++) {
@@ -217,7 +217,8 @@ describe('available days 2–6', () => {
     [2, 2],
     [3, 3],
     [4, 4],
-    [6, 4],
+    [5, 4],
+    [6, 6], // chose 6 → push / pull / legs ×2 (owner 20.10.2026)
   ])('advanced with %i free days → %i', (days, expected) => {
     expect(resolveRecommendation(sig({ strengthLevel: 18, availableDays: days })).strength?.frequency).toBe(expected);
   });
@@ -292,5 +293,38 @@ describe('skill users see the skill split name', () => {
     const r = resolveRecommendation(sig({ hardSkillCount: 2 }));
     expect(r.strength?.splitHe).toBe('סקיל + תמיכה');
     expect(r.reasonsHe[0]).toBe('מתחיל · סקיל + תמיכה 3 פעמים — הכי יעיל ברמה הזו');
+  });
+});
+
+describe('6 chosen days → push / pull / legs ×2 (owner 20.10.2026)', () => {
+  it('advanced who chose 6 days → 6 · push / pull / legs', () => {
+    const r = resolveRecommendation(sig({ strengthLevel: 16, availableDays: 6 }));
+    expect(r.strength).toMatchObject({ frequency: 6, split: 'push_pull_legs', splitHe: 'דחיפה / משיכה / רגליים' });
+    expect(r.firedRuleIds).toContain('ppl_six_days_advanced');
+  });
+
+  it('intermediate with a muscle or performance goal who chose 6 days → 6 · push / pull / legs', () => {
+    for (const goal of ['muscle', 'performance'] as const) {
+      const r = resolveRecommendation(sig({ strengthLevel: 9, availableDays: 6, goals: [goal] }));
+      expect(r.strength).toMatchObject({ frequency: 6, split: 'push_pull_legs' });
+      expect(r.firedRuleIds).toContain('ppl_six_days_intermediate');
+    }
+  });
+
+  it('everyone else stays as before', () => {
+    // intermediate without a muscle / performance goal → upper / lower ×4
+    expect(resolveRecommendation(sig({ strengthLevel: 9, availableDays: 6 })).strength).toMatchObject({ frequency: 4, split: 'upper_lower' });
+    // beginner → 3 full body
+    expect(resolveRecommendation(sig({ strengthLevel: 3, availableDays: 6, goals: ['muscle'] })).strength?.frequency).toBe(3);
+    // advanced with 5 days → 4 upper / lower
+    expect(resolveRecommendation(sig({ strengthLevel: 16, availableDays: 5 })).strength).toMatchObject({ frequency: 4, split: 'upper_lower' });
+    // days not chosen yet (the default Sun–Fri pool) → no 6-day jump
+    expect(resolveRecommendation(sig({ strengthLevel: 16, availableDays: null })).strength).toMatchObject({ frequency: 4, split: 'upper_lower' });
+    // strength + running → the rule doesn't apply
+    expect(resolveRecommendation(sig({ tracks: 'both', strengthLevel: 16, availableDays: 6, runBand: 'intermediate' })).firedRuleIds)
+      .not.toContain('ppl_six_days_advanced');
+    // senior / hard skills → unchanged
+    expect(resolveRecommendation(sig({ strengthLevel: 16, availableDays: 6, audience: 'senior' })).strength?.frequency).toBeLessThanOrEqual(3);
+    expect(resolveRecommendation(sig({ strengthLevel: 16, availableDays: 6, hardSkillCount: 1 })).firedRuleIds).not.toContain('ppl_six_days_advanced');
   });
 });

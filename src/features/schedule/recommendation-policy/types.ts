@@ -59,6 +59,11 @@ export interface PolicyWhen {
   /** Matches when availableDays (or the default pool) ≥ / ≤ this. */
   minAvailableDays?: number;
   maxAvailableDays?: number;
+  /**
+   * Matches only when the user actually CHOSE their days (availableDays given, not the
+   * policy's default pool) and chose at least this many — e.g. "picked 6 days".
+   */
+  minChosenDays?: number;
   targetDistances?: string[];
 }
 

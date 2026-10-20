@@ -21,6 +21,8 @@ import type { ActivityType } from '@/features/parks/core/types/route.types';
 import { MAP_ROUTE_STOPS_V1 } from '@/config/feature-flags';
 import { deriveAerobicTargetKm } from './hybrid-aerobic.util';
 import { withoutTestExercises } from '../shared/utils/test-exercise.utils';
+import { isSplitDayFocusActive } from '../services/split-decision/day-focus.switch';
+import { routeTargetDomainsOf, singleStationDomainMode } from './station-balance';
 import { bucketTopology, composeRoundTripLegs, fetchMapboxWalkLeg, type RoundTripLegs } from './round-trip';
 import { hasAssessedStrengthDomain } from '@/features/user/identity/services/access-control.service';
 import { buildStepContext } from '../core/context/build-step-context';
@@ -1125,8 +1127,13 @@ async function composeRouteStopsWorkout(
   //  • globalExercisePool = a bodyweight FIELD pool so the domain-quota / FullBodyDomainGuarantee
   //    can fall back to BODYWEIGHT (squat/lunge) for a TARGET domain the park has no equipment for.
   // Both scoped to route-stops via generationContext → byte-identical everywhere else.
-  const activeProgramId = (profile as any)?.progression?.activePrograms?.[0]?.templateId;
-  const targetDomains = resolveChildDomainsForParent(activeProgramId, profile as any);
+  // enable_home_v2 (device switch, day-focus.switch.ts): every active program's domains,
+  // not only activePrograms[0] — a first 'push' program made every station push (station-balance.ts).
+  const targetDomains = routeTargetDomainsOf(
+    (profile as any)?.progression?.activePrograms,
+    (id) => resolveChildDomainsForParent(id, profile as any),
+    isSplitDayFocusActive(),
+  );
   const bodyweightGuaranteePool = tm.sync('bodyweightPool', () => filterExercisesContextually(masterExercises, {
     ...filterContext, availableEquipment: [], intentMode: 'field',
   }).exercises.map((e) => e.exercise));
@@ -1556,7 +1563,10 @@ export async function composeHybridPlan(
     paceProfile, routePath, stopCandidates, masterExercises, filterContext, generationContext,
     weeklyGaps, userWeightKg, shape: resolveHybridShape('sandwich'),
   });
-  const plan = composeHybridSession(input);
+  // enable_home_v2: the one station trains every area ('multi'), not the push-first
+  // "neglected" focus that made this card push-only (station-balance.ts). Off → unchanged.
+  const v2 = isSplitDayFocusActive();
+  const plan = composeHybridSession(v2 ? { ...input, stationDomainMode: singleStationDomainMode(v2, input.stationDomainMode) } : input);
   const station = source.kind === 'park' && source.lat != null && source.lng != null
     ? { lat: source.lat, lng: source.lng, name: source.name, image: source.image }
     : undefined;
