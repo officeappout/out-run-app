@@ -66,6 +66,7 @@ interface FlagState {
   enable_generation_review_llm: boolean;
   enable_org_access_code_prompt: boolean;
   enable_entry_globe_v1: boolean;
+  enable_jit_identity_v1: boolean;
 }
 
 // ============================================================================
@@ -435,6 +436,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'כניסה: כדור הארץ והמיקום',
     description: 'שלב המיקום בכניסה בעיצוב החדש: כדור הארץ, צלילה לשכונה, אישור הבית וחיפוש.',
+  },
+  // JIT identity before the health declaration (20.10.2026).
+  {
+    key: 'enable_jit_identity_v1',
+    icon: ShieldAlert,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-500',
+    title: 'פרטים לפני הצהרת הבריאות',
+    description: 'משתמש בלי שם (הרשמה מהירה) ממלא שם, פנייה ותאריך לידה לפני ההצהרה, כדי שההצהרה תיחתם על שמו.',
   },
 ];
 

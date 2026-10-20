@@ -101,3 +101,27 @@ describe('pickRunDaysAvoidingStrength', () => {
     expect(pickRunDaysAvoidingStrength(4, [2])).toEqual(pickRunDaysAvoidingStrength(4, [2]));
   });
 });
+
+describe('pickRunDaysAvoidingStrength — avoidDays (Shabbat, enable_home_v2)', () => {
+  it('no avoidDays → exactly the previous picks', () => {
+    for (let f = 2; f <= 4; f++) {
+      for (const strength of [[], [0, 2, 4], [1, 3, 5], [0, 1, 2, 3]]) {
+        expect(pickRunDaysAvoidingStrength(f, strength, [])).toEqual(pickRunDaysAvoidingStrength(f, strength));
+      }
+    }
+  });
+
+  it('never Saturday when avoided and another choice exists', () => {
+    for (let f = 2; f <= 6; f++) {
+      for (const strength of [[], [0, 2, 4], [1, 3, 5], [0, 1, 2, 3, 4]]) {
+        const days = pickRunDaysAvoidingStrength(f, strength, [6]);
+        expect(days).toHaveLength(f);
+        expect(days).not.toContain(6);
+      }
+    }
+  });
+
+  it('keeps the length when every day is needed', () => {
+    expect(pickRunDaysAvoidingStrength(7, [], [6])).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});

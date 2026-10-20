@@ -120,7 +120,8 @@ export function buildScheduleProposal(input: AdvisorInput, req: ProposeScheduleC
       controls.focus,
       controls.availableDayCount,
       keyToDate(input.todayKey),
-      { resolveSlug },
+      // enable_home_v2 (input.runsByType): the same run week adviseWeek read above.
+      { resolveSlug, ...(input.runsByType ? { runsByType: true } : {}) },
     );
     if (!wi) return { ok: false, reason: 'unsupported' };
     week = wi.strength.existingWeek;

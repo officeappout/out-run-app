@@ -17,6 +17,11 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { useOnboardingStore } from '../../../store/useOnboardingStore';
 import { resolveDefaultRunningSchedule, strengthDayIndicesFromProfile } from '@/lib/running-schedule-defaults';
+import { pickRunDaysAvoidingStrength } from '@/lib/running-schedule-smart-defaults';
+import { clampRunningFrequency } from '@/lib/running-frequency-bounds';
+import { SATURDAY_DOW, saturdayMarked } from '@/features/schedule/engine-v2';
+import { addOnsLineHe, buildPolicySignals, resolveRecommendation } from '@/features/schedule/recommendation-policy';
+import { readPolicyInputs, type PolicyProfileSlice, type PolicyStoreSlice } from '../../../utils/policy-inputs';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
 import {
   DAY_LETTERS_HE,
@@ -79,7 +84,42 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
   const dates = useMemo(() => currentWeekDates(), []);
 
   const strengthDays = useMemo(() => strengthDayIndicesFromProfile(profile), [profile]);
-  const recommended = useMemo(() => resolveDefaultRunningSchedule(profile), [profile]);
+  // Shabbat (owner 20.10.2026): Saturday is pre-marked only when the user already marked it.
+  const avoidDays = useMemo(
+    () => (saturdayMarked(data.runningScheduleDayIndices) ? [] : [SATURDAY_DOW]),
+    // Decided once per step: tapping Saturday later is the user's own choice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Recommendation policy (owner 20.10.2026): running ability × goals × persona —
+  // replaces the same-3-for-everyone default. Falls back to it if the policy throws.
+  const policy = useMemo(() => {
+    try {
+      const inputs = readPolicyInputs(data as PolicyStoreSlice, profile as unknown as PolicyProfileSlice);
+      return resolveRecommendation(
+        buildPolicySignals({
+          tracks: 'running',
+          strengthLevel: null,
+          run: answers,
+          goalIds: inputs.goalIds,
+          personaIds: inputs.personaIds,
+          age: inputs.age,
+          targetDistance,
+        }),
+      );
+    } catch (err) {
+      console.error('[RunSignup] recommendation policy failed', err);
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers]);
+
+  const recommended = useMemo(() => {
+    if (!policy?.running) return resolveDefaultRunningSchedule(profile);
+    const frequency = clampRunningFrequency(policy.running.frequency);
+    return { frequency, dayIndices: pickRunDaysAvoidingStrength(frequency, strengthDays, avoidDays) };
+  }, [policy, profile, strengthDays, avoidDays]);
 
   const [frequency, setFrequency] = useState<number>(() => {
     const stored = data.runningScheduleDayIndices;
@@ -123,7 +163,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
 
   const handleFrequency = (n: number) => {
     setFrequency(n);
-    setDays((cur) => daysForFrequency(cur, n, strengthDays));
+    setDays((cur) => daysForFrequency(cur, n, strengthDays, avoidDays));
     setLongRunDay(null);
   };
 
@@ -166,6 +206,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
       <RunCountStep
         recommendationTitle={recommendationTitle(week)}
         planLine={planLine}
+        notes={policy ? [...policy.reasonsHe, addOnsLineHe(policy.addOns)].filter((x): x is string => !!x) : []}
         recommendedFrequency={recommended.frequency}
         frequency={frequency}
         onFrequency={handleFrequency}

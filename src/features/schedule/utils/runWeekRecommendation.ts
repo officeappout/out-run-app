@@ -124,17 +124,20 @@ export function dayLettersLine(days: number[]): string {
 
 // ── Selection rules ───────────────────────────────────────────────────
 
-/** Default run days for a frequency, avoiding known strength days. */
-export function defaultRunDays(frequency: number, strengthDays: number[] = []): number[] {
-  return pickRunDaysAvoidingStrength(frequency, strengthDays);
+/**
+ * Default run days for a frequency, avoiding known strength days — and `avoidDays`
+ * (Saturday unless marked free: engine-v2 SATURDAY_DEFAULT_OFF) before anything else.
+ */
+export function defaultRunDays(frequency: number, strengthDays: number[] = [], avoidDays: number[] = []): number[] {
+  return pickRunDaysAvoidingStrength(frequency, strengthDays, avoidDays);
 }
 
 /**
  * A new frequency keeps the current days when they already match it,
  * otherwise re-picks the defaults (the running step's own rule).
  */
-export function daysForFrequency(current: number[], frequency: number, strengthDays: number[] = []): number[] {
-  return current.length === frequency ? current : defaultRunDays(frequency, strengthDays);
+export function daysForFrequency(current: number[], frequency: number, strengthDays: number[] = [], avoidDays: number[] = []): number[] {
+  return current.length === frequency ? current : defaultRunDays(frequency, strengthDays, avoidDays);
 }
 
 /**

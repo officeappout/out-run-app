@@ -294,6 +294,13 @@ export const FLAG_DEFS = [
   // + sessionStorage entry_v2_landing=1 (read by the entry flow's step 2). Fail-closed; super
   // admins preview it. Off = byte-identical location step.
   { key: 'enableEntryGlobeV1', firestoreKey: 'enable_entry_globe_v1', defaultValue: false, superAdminValue: true },
+  // JIT identity before the health declaration (20.10.2026, entry flow v2 brief B) — a user with
+  // no known identity (quick signup "הרשמה מהירה" → MAP_ONLY, no name / birth date) who starts a
+  // workout first fills the existing identity screen (gender, birth date, name — same validation,
+  // v2 look) inside the JIT gate, so the health declaration is signed with their real name and
+  // gendered copy. onboardingPath / onboardingStatus are left untouched. Fail-closed; super admins
+  // preview it. Off = today's JIT gate (health declaration only), byte-identical.
+  { key: 'enableJitIdentityV1', firestoreKey: 'enable_jit_identity_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

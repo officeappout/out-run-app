@@ -99,6 +99,8 @@ export async function loadAdvisorInput(ctx: ServerToolContext): Promise<AdvisorI
     scheduleDays,
     resolveSlug: programIndex?.resolveSlug,
     weeklyDomainSets: null, // device-local only — unknown on the server
+    // enable_home_v2 (this user's value, route.ts): runs by slot type, the week home shows.
+    ...(ctx.runsByType ? { runsByType: true } : {}),
   };
 }
 

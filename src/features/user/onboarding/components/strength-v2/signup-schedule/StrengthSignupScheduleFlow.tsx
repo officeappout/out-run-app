@@ -38,6 +38,14 @@ import {
   type StrengthWeekRecommendation,
 } from '@/features/schedule/utils/strengthWeekRecommendation';
 import { scheduleIdNameHe } from '@/features/schedule/engine/strengthVocabulary';
+import {
+  addOnsLineHe,
+  buildPolicySignals,
+  resolveRecommendation,
+  strengthLevelOf,
+} from '@/features/schedule/recommendation-policy';
+import { hasRunningTrack } from '@/lib/track-ownership';
+import { readPolicyInputs, type PolicyProfileSlice, type PolicyStoreSlice } from '../../../utils/policy-inputs';
 import { useOnboardingStore } from '../../../store/useOnboardingStore';
 import { useWizardIdentity } from '../../../hooks/useWizardIdentity';
 import RunDaysStep from '../../running-v2/signup-schedule/RunDaysStep';
@@ -89,14 +97,36 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
   }, [profile]);
   const engineLevel = strengthTrainingLevel(level);
 
-  const personaIds = useMemo(() => {
-    const store = data as { selectedPersonaIds?: string[]; selectedPersonaId?: string };
-    if (store.selectedPersonaIds?.length) return store.selectedPersonaIds;
-    if (store.selectedPersonaId) return [store.selectedPersonaId];
-    return ((profile as { personas?: Array<{ id?: string }> } | null)?.personas ?? []).map((p) => p.id).filter((id): id is string => !!id);
-  }, [data, profile]);
+  // Recommendation policy (owner 20.10.2026): level × goals × persona × tracks —
+  // replaces the persona-only 2 / 3 / 4. Falls back to the old rule if it throws.
+  const policy = useMemo(() => {
+    try {
+      const inputs = readPolicyInputs(data as PolicyStoreSlice, profile as unknown as PolicyProfileSlice);
+      const running = (profile as { running?: { isUnlocked?: unknown; paceProfile?: { profileType?: number } | null; onboardingData?: { currentAbility?: { abilityTier?: string } | null } | null } } | null)?.running;
+      const both = hasRunningTrack(profile as { running?: { isUnlocked?: unknown } } | null);
+      const signals = buildPolicySignals({
+        tracks: both ? 'both' : 'strength',
+        strengthLevel: strengthLevelOf(profile?.progression as Parameters<typeof strengthLevelOf>[0]),
+        run: both ? { profileType: running?.paceProfile?.profileType, abilityTier: running?.onboardingData?.currentAbility?.abilityTier } : null,
+        goalIds: inputs.goalIds,
+        personaIds: inputs.personaIds,
+        age: inputs.age,
+        hardSkillCount: seed.skills.filter((sk) => sk.id !== 'HANDSTAND').length,
+      });
+      return resolveRecommendation(signals);
+    } catch (err) {
+      console.error('[StrengthSchedule] recommendation policy failed', err);
+      return null;
+    }
+    // Read once per step, like the seed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const rec = useMemo(() => recommendStrengthFrequency({ seed, personaIds }), [seed, personaIds]);
+  const rec = useMemo(() => {
+    if (policy?.strength) return { frequency: policy.strength.frequency, personaNoteHe: null };
+    return recommendStrengthFrequency({ seed, personaIds: readPolicyInputs(data as PolicyStoreSlice, profile as unknown as PolicyProfileSlice).personaIds });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [policy, seed]);
   const defaultWindow: TimeWindow =
     windowForTime((profile?.lifestyle as { trainingTime?: string } | undefined)?.trainingTime) ?? DEFAULT_STRENGTH_WINDOW;
 
@@ -133,7 +163,8 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
     return (
       <StrengthCountStep
         recommendationTitle={strengthRecommendationTitle(seed, days)}
-        whyLine={strengthWhyLine({ level, recoveryHours: week.recoveryHours, personaNoteHe: rec.personaNoteHe })}
+        whyLine={policy?.reasonsHe[0] ?? strengthWhyLine({ level, recoveryHours: week.recoveryHours, personaNoteHe: rec.personaNoteHe })}
+        notes={policy ? [...policy.reasonsHe.slice(1), addOnsLineHe(policy.addOns)].filter((x): x is string => !!x) : []}
         planLine={strengthPlanLine(seed)}
         recommendedFrequency={rec.frequency}
         frequency={frequency}

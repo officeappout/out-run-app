@@ -26,6 +26,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { useUserStore } from '../../identity/store/useUserStore';
+import { useJitIdentityV1 } from './useJitIdentityV1';
 import {
   closeJitWithoutProceeding,
   getMissingRequirements,
@@ -56,6 +57,11 @@ export interface JITState {
 
 export function useRequiredSetup() {
   const profile = useUserStore((s) => s.profile);
+  // enable_jit_identity_v1 — kept in a ref so a memoized interceptWorkoutStart
+  // (same staleness concern as the live profile read below) sees the live value.
+  const requireIdentity = useJitIdentityV1();
+  const requireIdentityRef = useRef(requireIdentity);
+  requireIdentityRef.current = requireIdentity;
   const [jitState, setJitState] = useState<JITState>({
     isModalOpen: false,
     requirements: [],
@@ -82,7 +88,9 @@ export function useRequiredSetup() {
   // instance or another, e.g. MapShell's) passes silently.
   const checkRequirements = useCallback(
     (activityType: WorkoutActivityType = 'unknown'): MissingRequirement[] =>
-      getMissingRequirements(useUserStore.getState().profile ?? profile, activityType),
+      getMissingRequirements(useUserStore.getState().profile ?? profile, activityType, {
+        requireIdentity: requireIdentityRef.current,
+      }),
     [profile],
   );
 
