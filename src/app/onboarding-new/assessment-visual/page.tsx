@@ -167,7 +167,7 @@ function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
 export default function VisualAssessmentPage() {
   const router = useRouter();
   // enable_home_v2 — see the root container below (one-viewport fit).
-  const { v2, ready: flagsReady } = useOnboardingV2State();
+  const { v2, ready: flagsReady, quizHintV2 } = useOnboardingV2State();
   // enable_home_v2 (journey J1): a home start card opens the strength flow without the
   // identity form — name / gender / birth date (the assessment's videos need them) are
   // asked here, inline, right after the program path; back returns to the program path.
@@ -1204,6 +1204,7 @@ export default function VisualAssessmentPage() {
                 )}
                 mode="simple"
                 v2={v2}
+                quizHintV2={quizHintV2}
               />
             </motion.div>
           )}
@@ -1277,6 +1278,10 @@ export default function VisualAssessmentPage() {
                 maxLevel={getFollowUpMaxLevel(pathConfig, followUpCategories[followUpIndex])}
                 mode="simple"
                 v2={v2}
+                quizHintV2={quizHintV2}
+                // The follow-up comes after the main categories — the demo was already
+                // seen there, so its first slider only gets the short reminder.
+                quizHintReminderOnly
               />
             </motion.div>
           )}

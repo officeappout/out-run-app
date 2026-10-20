@@ -6,6 +6,9 @@ import { ChevronRight, Minus, Plus, Pointer } from 'lucide-react';
 import clsx from 'clsx';
 import VideoPlayer, { type VideoTier } from './VideoPlayer';
 import CoverflowStrip from './CoverflowStrip';
+import StripDragHint from './StripDragHint';
+import { useStripHint } from './useStripHint';
+import { NUDGE_MS, NUDGE_PX } from './strip-hint';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 import type { UserDemographics } from '../../types/visual-assessment.types';
@@ -91,6 +94,11 @@ interface VisualSliderProps {
   mode?: 'simple' | 'deep';
   /** enable_home_v2 — one-viewport layout (see the v2 branch in render). */
   v2?: boolean;
+  /** enable_strength_quiz_hint_v2 — v2 coverflow only: the strip demos itself instead of
+   *  the blur mask + bubble tutorial (see useStripHint / strip-hint.ts). */
+  quizHintV2?: boolean;
+  /** With quizHintV2: even stepIndex 0 gets only the short reminder (the demo was seen earlier). */
+  quizHintReminderOnly?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────
@@ -109,6 +117,8 @@ export default function VisualSlider({
   maxLevel = 25,
   mode = 'deep',
   v2 = false,
+  quizHintV2 = false,
+  quizHintReminderOnly = false,
 }: VisualSliderProps) {
   const [dynamicSteps, setDynamicSteps] = useState<number[] | null>(null);
   const [stepsLoading, setStepsLoading] = useState(mode === 'simple');
@@ -330,7 +340,57 @@ export default function VisualSlider({
     [category, fetchContent, sliderMin, sliderMax, isSimple, steps, userInteracted],
   );
 
-  const handleConfirm = () => onLevelConfirm(level);
+  // ── enable_strength_quiz_hint_v2: the strip's self-demo (v2 coverflow only) ──
+  // Flag off (or not v2 / not the coverflow strip) → `stripHintOn` is false and nothing
+  // below changes today's behaviour.
+  const stripHintOn = v2 && quizHintV2 && isSimple && !!steps;
+  const thumbsReady = !!steps && steps.slice(0, 3).every((l) => thumbnails[l] !== undefined);
+
+  // A demo move: the selection (and so the video, the card and the CTA label) really moves,
+  // but it is NOT a choice — no userInteracted, no haptic, no tutorial/hint state touched.
+  const applyDemoSelection = useCallback(
+    (idx: number) => {
+      if (!steps) return;
+      const clamped = Math.max(0, Math.min(steps.length - 1, idx));
+      prevSliderValRef.current = clamped;
+      setSliderVal(clamped);
+      const realLevel = steps[clamped];
+      setLevel(realLevel);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      fetchContent(category, realLevel);
+    },
+    [steps, category, fetchContent],
+  );
+
+  const stripHint = useStripHint({
+    enabled: stripHintOn,
+    isFirstCategory: stepIndex === 0 && !quizHintReminderOnly,
+    resetKey: category,
+    stripReady: stripHintOn && thumbsReady,
+    stepsLength: steps?.length ?? 0,
+    baseIndex: 0,
+    onDemoSelect: applyDemoSelection,
+  });
+
+  // While the demo runs, the strip's own scroll-settle can only be an echo of a demo move
+  // (a real touch stops the demo first, on pointerdown) — never take it as a choice.
+  const { isDemoRunning } = stripHint;
+  const handleStripSelect = useCallback(
+    (idx: number) => {
+      if (isDemoRunning()) return;
+      handleSliderChange(idx);
+    },
+    [isDemoRunning, handleSliderChange],
+  );
+
+  const handleConfirm = () => {
+    // CTA during the demo: the user never chose — confirm where the demo started.
+    if (stripHintOn && steps && isDemoRunning()) {
+      onLevelConfirm(steps[0]);
+      return;
+    }
+    onLevelConfirm(level);
+  };
 
   // ── Derived values ───────────────────────────────────────────
   const sliderRange = sliderMax - sliderMin;
@@ -482,6 +542,45 @@ export default function VisualSlider({
   // handlers, same CoverflowStrip as the legacy layout below.
   if (v2) {
     const escapeLabel = isFemale ? 'עוד לא מצליחה?' : 'עוד לא מצליח?';
+    // enable_strength_quiz_hint_v2 replaces the mask + bubble + finger on the coverflow strip.
+    const tutorialOn = showTutorial && !stripHintOn;
+    // −/+ stepper — same DOM order as legacy: "−" (easier) right, "+" (harder) left. Shared by
+    // both coverflow branches. `onInteract` — the strip hint's "real interaction" signal
+    // (enable_strength_quiz_hint_v2); absent = today's handlers, unchanged.
+    const renderStepper = (onInteract?: () => void) => (
+      <div className="flex items-center gap-2 px-5 pt-1" dir="rtl">
+        <button
+          type="button"
+          onClick={() => {
+            onInteract?.();
+            if (isEscapeable) { onEscape!(); return; }
+            if (!isAtFloor) handleSliderChange(sliderVal - 1);
+          }}
+          disabled={isAtFloor && !isEscapeable}
+          aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
+        >
+          <Minus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
+          <span className="truncate whitespace-nowrap">{isEscapeable ? escapeLabel : 'קל יותר'}</span>
+        </button>
+        <div className="flex w-[64px] flex-shrink-0 flex-col items-center leading-none">
+          <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-muted">הרמה שלי</span>
+          {SHOW_STEPPER_LEVEL_NUMBER && (
+            <span className="mt-1 text-[18px] font-black tabular-nums text-v2-ink">{level}</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => { onInteract?.(); handleSliderChange(sliderVal + 1); }}
+          disabled={sliderVal >= sliderMax}
+          aria-label="תרגיל קשה יותר"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
+        >
+          <Plus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
+          <span className="truncate whitespace-nowrap">קשה יותר</span>
+        </button>
+      </div>
+    );
     return (
       <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white" dir="rtl">
         <header className="flex flex-shrink-0 items-center gap-2 px-3 pb-1 pt-1">
@@ -527,8 +626,8 @@ export default function VisualSlider({
         </div>
 
         <div
-          className={clsx('mt-auto flex-shrink-0', showTutorial && 'relative z-40')}
-          onPointerDownCapture={showTutorial ? () => setShowTutorial(false) : undefined}
+          className={clsx('mt-auto flex-shrink-0', tutorialOn && 'relative z-40')}
+          onPointerDownCapture={tutorialOn ? () => setShowTutorial(false) : undefined}
         >
           {/* Exercise + max reps + tier — fixed height so the layout never jumps. */}
           <div className="px-5 pt-1">
@@ -560,7 +659,35 @@ export default function VisualSlider({
             </p>
           </div>
 
-          {isSimple && steps ? (
+          {isSimple && steps && stripHintOn ? (
+            <>
+              {/* enable_strength_quiz_hint_v2 — no mask, no bubble: the strip demos itself.
+                  A press (or a scroll gesture) on the strip is the real interaction that stops it. */}
+              <div
+                className="relative"
+                onPointerDownCapture={() => stripHint.interact('press')}
+                onWheelCapture={() => stripHint.interact('scroll')}
+              >
+                <motion.div
+                  animate={{ x: stripHint.nudgeActive ? [0, NUDGE_PX, 0] : 0 }}
+                  transition={{ duration: NUDGE_MS / 1000, times: [0, 0.5, 1], ease: 'easeInOut' }}
+                >
+                  <CoverflowStrip steps={steps} selectedIndex={sliderVal} thumbnails={thumbnails} onSelect={handleStripSelect} />
+                </motion.div>
+                <StripDragHint
+                  pill={stripHint.pill}
+                  isFemale={isFemale}
+                  showEndLabels={stripHint.showEndLabels}
+                  showDemoFinger={stripHint.showDemoFinger}
+                  showStaticFinger={stripHint.showStaticFinger}
+                  fingerRun={stripHint.fingerRun}
+                  reducedMotion={stripHint.reducedMotion}
+                  fingerNode={fingerNode}
+                />
+              </div>
+              {renderStepper(() => stripHint.interact('press'))}
+            </>
+          ) : isSimple && steps ? (
             <>
               <div className="relative">
                 <CoverflowStrip steps={steps} selectedIndex={sliderVal} thumbnails={thumbnails} onSelect={handleSliderChange} />
@@ -586,38 +713,7 @@ export default function VisualSlider({
                 {renderTutorialBubble(true)}
               </div>
 
-              {/* −/+ stepper — same DOM order as legacy: "−" (easier) right, "+" (harder) left. */}
-              <div className="flex items-center gap-2 px-5 pt-1" dir="rtl">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isEscapeable) { onEscape!(); return; }
-                    if (!isAtFloor) handleSliderChange(sliderVal - 1);
-                  }}
-                  disabled={isAtFloor && !isEscapeable}
-                  aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
-                  className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
-                >
-                  <Minus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
-                  <span className="truncate whitespace-nowrap">{isEscapeable ? escapeLabel : 'קל יותר'}</span>
-                </button>
-                <div className="flex w-[64px] flex-shrink-0 flex-col items-center leading-none">
-                  <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-muted">הרמה שלי</span>
-                  {SHOW_STEPPER_LEVEL_NUMBER && (
-                    <span className="mt-1 text-[18px] font-black tabular-nums text-v2-ink">{level}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSliderChange(sliderVal + 1)}
-                  disabled={sliderVal >= sliderMax}
-                  aria-label="תרגיל קשה יותר"
-                  className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
-                >
-                  <Plus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
-                  <span className="truncate whitespace-nowrap">קשה יותר</span>
-                </button>
-              </div>
+              {renderStepper()}
             </>
           ) : (
             <div className="relative px-6 py-4">
@@ -676,7 +772,7 @@ export default function VisualSlider({
         </div>
 
         <AnimatePresence>
-          {showTutorial && (
+          {tutorialOn && (
             <motion.div
               key="tutorial-mask"
               initial={{ opacity: 0 }}
