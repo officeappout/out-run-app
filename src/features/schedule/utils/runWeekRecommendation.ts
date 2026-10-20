@@ -161,7 +161,7 @@ export function dominantRunWindow(days: number[], windows: Partial<Record<number
     const w = windows[d] ?? DEFAULT_RUN_WINDOW;
     count.set(w, (count.get(w) ?? 0) + 1);
   }
-  const max = Math.max(...count.values());
+  const max = Math.max(...Array.from(count.values()));
   for (const d of sorted) {
     const w = windows[d] ?? DEFAULT_RUN_WINDOW;
     if (count.get(w) === max) return w;
