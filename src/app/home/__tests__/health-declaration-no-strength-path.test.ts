@@ -24,6 +24,11 @@ const cardPath = fileURLToPath(new URL('../../../features/home/components/AddStr
 const tapHookPath = fileURLToPath(new URL('../../../features/home/components/start-cards/useOnboardingEntryTap.ts', import.meta.url));
 const cardSrc = readFileSync(cardPath, 'utf8');
 const tapHookSrc = readFileSync(tapHookPath, 'utf8');
+// Its pure core (lock → gate or navigate; cancel releases the lock), 20.10.2026.
+const entryTapSrc = readFileSync(
+  fileURLToPath(new URL('../../../features/home/components/start-cards/entry-tap.ts', import.meta.url)),
+  'utf8',
+);
 
 describe('home/page.tsx — handleHeroPress no-strength branch now passes through the health gate', () => {
   it('wraps the assessment-visual navigation in interceptWorkoutStart, same as the hasStrengthProgram branch', () => {
@@ -40,7 +45,7 @@ describe('home/page.tsx — handleHeroPress no-strength branch now passes throug
   });
 
   it('both AddStrengthProgramCard render sites in the home carousels pass onNavigate wired to interceptWorkoutStart', () => {
-    const occurrences = pageSrc.split("onNavigate={(navigate) => interceptWorkoutStart(navigate, 'strength')}").length - 1;
+    const occurrences = pageSrc.split("onNavigate={(navigate, cancel) => interceptWorkoutStart(navigate, 'strength', cancel)}").length - 1;
     expect(occurrences).toBe(2);
   });
 });
@@ -48,11 +53,12 @@ describe('home/page.tsx — handleHeroPress no-strength branch now passes throug
 describe('AddStrengthProgramCard — onNavigate is optional, non-workout-start callers are unaffected', () => {
   it('calls onNavigate when provided instead of navigating directly', () => {
     expect(cardSrc).toContain("useOnboardingEntryTap(profile, 'STRENGTH', onNavigate)");
-    expect(tapHookSrc).toContain('if (onNavigate) onNavigate(navigate);');
-    expect(tapHookSrc).toContain('else navigate();');
+    expect(tapHookSrc).toContain('runOnboardingEntryTap(');
+    expect(entryTapSrc).toContain('onNavigate(navigate, () => setLoading(false));');
+    expect(entryTapSrc).toMatch(/if \(!onNavigate\) \{\s*navigate\(\);/);
   });
 
   it('the prop is optional — a caller outside the workout-start flow (e.g. TrackedProgramsSection) keeps working unchanged', () => {
-    expect(cardSrc).toMatch(/onNavigate\?:\s*\(navigate: \(\) => void\) => void;/);
+    expect(cardSrc).toMatch(/onNavigate\?:\s*OnboardingEntryNavigate;/);
   });
 });

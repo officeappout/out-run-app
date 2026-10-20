@@ -17,6 +17,7 @@ import GlobalErrorOverlay from "@/components/system/GlobalErrorOverlay";
 import OnboardingSyncErrorToast from "@/components/system/OnboardingSyncErrorToast";
 import { useMidnightRefresh } from "@/features/activity";
 import HealthDeclarationSelfHeal from "@/features/user/onboarding/components/HealthDeclarationSelfHeal";
+import OnboardingSessionReset from "@/features/user/onboarding/components/OnboardingSessionReset";
 import EdgeSwipeBack from "@/components/system/EdgeSwipeBack";
 import { isTopPaddingExemptRoute } from "@/lib/top-padding-exempt-routes";
 
@@ -162,6 +163,8 @@ export default function ClientLayout({
           {/* Regenerates a signed health-declaration PDF that never reached Storage — once per
               session, in the background (renders nothing). */}
           <HealthDeclarationSelfHeal />
+          {/* Sign-out / account switch → wipe the previous account's onboarding state (renders nothing). */}
+          <OnboardingSessionReset />
           <OnboardingSyncErrorToast />
         </LazyMotion>
       </ToastProvider>

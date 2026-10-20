@@ -27,6 +27,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useUserStore } from '../../identity/store/useUserStore';
 import {
+  closeJitWithoutProceeding,
   getMissingRequirements,
   type MissingRequirement,
   type WorkoutActivityType,
@@ -45,6 +46,8 @@ export interface JITState {
   requirements: MissingRequirement[];
   /** Callback to invoke after the user completes/dismisses */
   onComplete: (() => void) | null;
+  /** Callback to invoke when the modal is closed without proceeding */
+  onCancel?: (() => void) | null;
 }
 
 // ============================================================================
@@ -90,6 +93,8 @@ export function useRequiredSetup() {
    * @param activityType - drives requirement filtering (see
    *   `checkRequirements`). Pass `'running'` for free runs and guided
    *   routes so the equipment prompt is bypassed.
+   * @param onCancel - invoked if the modal is closed without proceeding
+   *   (cancelJIT), so a caller holding a loading state can release it.
    * @returns `true` if the user can proceed immediately, `false` if a
    *   modal was shown
    */
@@ -97,6 +102,7 @@ export function useRequiredSetup() {
     (
       onProceed: () => void,
       activityType: WorkoutActivityType = 'unknown',
+      onCancel?: () => void,
     ): boolean => {
       // After first-time check, let subsequent starts pass through
       if (hasShownJIT.current) {
@@ -119,9 +125,10 @@ export function useRequiredSetup() {
         requirements: missing,
         onComplete: () => {
           hasShownJIT.current = true;
-          setJitState((s) => ({ ...s, isModalOpen: false, onComplete: null }));
+          setJitState((s) => ({ ...s, isModalOpen: false, onComplete: null, onCancel: null }));
           onProceed();
         },
+        onCancel: onCancel ?? null,
       });
       return false;
     },
@@ -144,8 +151,10 @@ export function useRequiredSetup() {
    * Close modal without proceeding (cancel).
    */
   const cancelJIT = useCallback(() => {
-    setJitState({ isModalOpen: false, requirements: [], onComplete: null });
-  }, []);
+    const { next, notify } = closeJitWithoutProceeding(jitState);
+    setJitState(next);
+    notify?.();
+  }, [jitState]);
 
   return {
     checkRequirements,
