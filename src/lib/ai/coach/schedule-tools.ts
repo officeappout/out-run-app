@@ -11,7 +11,7 @@
 import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import { scheduleIdNameHe } from '@/features/schedule/engine/strengthVocabulary';
 import { RUNNING_SLOT_NAME_HE, isLongRunDay, isQualityDay } from '@/features/schedule/engine/runningRules';
-import type { TodayAdvice, WeekAdvice, AdvisedDay } from '@/features/schedule/advisor/types';
+import type { TodayAdvice, WeekAdvice, AdvisedDay, PlannedKind } from '@/features/schedule/advisor/types';
 import { WEEKDAY_NAMES_HE } from './context-sheet';
 
 const RUN_KIND_HE = (run: NonNullable<AdvisedDay['run']>): string => {
@@ -78,7 +78,12 @@ export interface TodayToolResult {
   /** generate_workout settings when the recommendation is strength / combined. */
   buildNow: { domains: string[]; difficulty: 1 | 2 | 3; durationMin: number | null; areasHe: string[] } | null;
   run: { name: string | null; kind: string | null } | null;
-  doneToday: { strength: boolean; run: boolean };
+  /**
+   * Only when the walk recommended is a PLANNED walk (today's, or the makeup): its Hebrew
+   * name ("הליכה של 30 דקות"). Absent otherwise — never a run, never a run make-up.
+   */
+  walk?: { name: string | null };
+  doneToday: TodayAdvice['doneToday'];
   reasons: string[];
   text: string[];
 }
@@ -89,6 +94,10 @@ export function todayToolResult(advice: TodayAdvice, allowedDomains: readonly st
   const plannedRun = advice.runEntryRef
     ? advice.today.find((t) => t.kind === 'run') ?? advice.makeup ?? null
     : null;
+  const plannedWalk =
+    advice.recommendation === 'walk'
+      ? advice.today.find((t) => t.kind === 'walk' && t.status !== 'done') ?? (advice.makeup?.kind === 'walk' ? advice.makeup : null)
+      : null;
   return {
     proposalOnly: true,
     mode: advice.mode,
@@ -99,6 +108,7 @@ export function todayToolResult(advice: TodayAdvice, allowedDomains: readonly st
       advice.recommendation === 'run' || advice.recommendation === 'combined'
         ? { name: plannedRun?.runName ?? null, kind: plannedRun?.runDay ? RUN_KIND_HE({ ...plannedRun.runDay, category: plannedRun.runDay.category!, programId: null }) : null }
         : null,
+    ...(plannedWalk ? { walk: { name: plannedWalk.runName } } : {}),
     doneToday: advice.doneToday,
     reasons: advice.reasons.map((r) => r.code),
     text: advice.notes,
@@ -115,8 +125,8 @@ export interface SheetPlan {
   /** Today's mode (on_track / makeup / welcome_back / fresh_start). Never a list of misses. */
   todayMode: TodayAdvice['mode'];
   /** The one makeup on offer (≤2 days old), else null. */
-  makeup: { weekday: string; kind: 'strength' | 'run' } | null;
-  doneToday: { strength: boolean; run: boolean };
+  makeup: { weekday: string; kind: PlannedKind } | null;
+  doneToday: TodayAdvice['doneToday'];
   /** WHO weekly targets vs this week so far. */
   who: { strengthDays: number; strengthTarget: number; aerobicMinutes: number; aerobicTarget: number };
 }
