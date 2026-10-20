@@ -69,6 +69,7 @@ export default function AiCoachChat({
   proactive = false,
   memory = false,
   round4 = false,
+  runsByType = false,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -86,6 +87,8 @@ export default function AiCoachChat({
   memory?: boolean;
   /** Kelly round 4 (ai_coach_round4): walk / run cards, nearby parks, tour and questionnaire chips. */
   round4?: boolean;
+  /** enable_home_v2 for this user (runsByTypeFor): today's program run by slot type, like home. */
+  runsByType?: boolean;
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
@@ -286,7 +289,7 @@ export default function AiCoachChat({
               {round4 && !mine && m.round4 && (
                 <Round4MessageExtras
                   extras={m.round4}
-                  onOpenAerobic={(card) => void openAerobicCard(card, profile, (href) => router.push(href))}
+                  onOpenAerobic={(card) => void openAerobicCard(card, profile, (href) => router.push(href), runsByType ? { runsByType: true } : {})}
                   onOpenPark={(id) => router.push(parkHref(id))}
                 />
               )}

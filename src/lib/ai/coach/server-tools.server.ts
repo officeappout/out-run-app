@@ -50,6 +50,11 @@ export interface ServerToolContext {
   /** system_config/feature_flags.ai_coach_schedule_advisor (route.ts). Off → the advisor tools don't exist. */
   scheduleAdvisor?: boolean;
   /**
+   * enable_home_v2 for this user (route.ts, runsByTypeFor: the live flag, or super admin):
+   * the advisor places the run week by slot type — the week home shows. Absent = ordinal.
+   */
+  runsByType?: boolean;
+  /**
    * kelly_unified_v1 ON: handoff_to_human flags the unified thread (needsHuman + summary)
    * instead of writing into the old chats/ DM. Absent/false = the old behaviour.
    */

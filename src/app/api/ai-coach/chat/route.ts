@@ -75,6 +75,7 @@ import { ROUND4_NOTE, coachSystemPrompt } from '@/lib/ai/coach/round4/prompt';
 import { hasRound4Extras, newRound4TurnState, type Round4TurnState } from '@/lib/ai/coach/round4/types';
 import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
 import { primeHelpEntries } from '@/lib/content-items/help-prime.server';
+import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -255,6 +256,9 @@ export async function POST(request: Request) {
   // Kelly phase 2 (ai_coach_phase2): quick replies, get_app_help, propose_schedule_change.
   // Off = every prompt, tool list, event and write below exactly as before.
   const phase2 = auth.flags?.aiCoachPhase2 === true;
+  // enable_home_v2 for this user (the live flag, or a super admin — home's own gating):
+  // the advisor reads the run week by slot type, the week home shows. Off = ordinal, as before.
+  const runsByType = runsByTypeFor(auth.flags, profile.core?.isSuperAdmin === true);
   const toolCtx: ServerToolContext = {
     db,
     uid,
@@ -263,6 +267,7 @@ export async function POST(request: Request) {
     knownCards,
     turn: { handoffDone: false, ...(phase2 ? { proposal: carriedProposal } : {}) },
     scheduleAdvisor,
+    ...(runsByType ? { runsByType: true } : {}),
     ...(unified ? { unified: true } : {}),
     ...(phase2 ? { phase2: true } : {}),
   };
