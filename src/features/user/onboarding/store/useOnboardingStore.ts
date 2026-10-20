@@ -159,6 +159,14 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => {
       }
     },
 
-    reset: () => set(initialState),
+    // Also drops a still-pending debounced sync: reset runs on sign-out /
+    // account switch, and a timer firing after it would write (or, with no
+    // signed-in user, mint an anonymous user for) the wrong account.
+    reset: () => {
+      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = null;
+      syncGeneration += 1;
+      set(initialState);
+    },
   };
 });

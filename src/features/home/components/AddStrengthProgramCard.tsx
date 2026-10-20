@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import type { UserFullProfile } from '@/types/user-profile';
 import ProgramStartCard from './start-cards/ProgramStartCard';
-import { useOnboardingEntryTap } from './start-cards/useOnboardingEntryTap';
+import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './start-cards/useOnboardingEntryTap';
 import { PROGRAM_START_COPY } from './start-cards/program-start-copy';
 
 interface AddStrengthProgramCardProps {
@@ -21,7 +21,7 @@ interface AddStrengthProgramCardProps {
    * stats screen — not about to start anything) omits it and navigation
    * stays direct, byte-identical to before.
    */
-  onNavigate?: (navigate: () => void) => void;
+  onNavigate?: OnboardingEntryNavigate;
   /**
    * Home v2 (enable_home_v2, S-7b): the compact start card that sits next to
    * "תוכנית ריצה" in ProgramStartPair. Same tap / navigation; omitted → the

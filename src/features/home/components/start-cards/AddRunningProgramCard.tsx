@@ -2,13 +2,13 @@
 
 import type { UserFullProfile } from '@/types/user-profile';
 import ProgramStartCard from './ProgramStartCard';
-import { useOnboardingEntryTap } from './useOnboardingEntryTap';
+import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './useOnboardingEntryTap';
 import { PROGRAM_START_COPY } from './program-start-copy';
 
 interface AddRunningProgramCardProps {
   profile: UserFullProfile | null | undefined;
   /** Home's health-declaration gate (interceptWorkoutStart), as for the strength card. */
-  onNavigate?: (navigate: () => void) => void;
+  onNavigate?: OnboardingEntryNavigate;
 }
 
 /** Home v2 (S-7b) — "תוכנית ריצה": starts the running onboarding. The strength twin is AddStrengthProgramCard (compact). */
