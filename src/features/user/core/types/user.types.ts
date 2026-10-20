@@ -121,6 +121,16 @@ export interface UserProgression {
   stepGoalComputedOn?: string | null;
   dailyFloorGoal: number;    // Adaptive floor goal (starts at 3, adjusts +10%/-5%)
   currentStreak: number;     // Days meeting at least baseline (1500 steps OR 1 floor)
+  /** Mirrored from streaks/{uid} by useActivityStore.syncToServer (best-effort). */
+  longestStreak?: number;
+  /**
+   * enable_home_v2 (owner approved 20.10.2026) — additive, forward-only, no
+   * backfill. Written on workout completion; see
+   * src/features/user/progression/records/records.utils.ts.
+   */
+  records?: import('@/features/user/progression/records/records.utils').ProgressionRecords;
+  /** "YYYY-MM" → month totals (increment() on completion, enable_home_v2). */
+  periodTotals?: Record<string, import('@/features/user/progression/records/records.utils').PeriodTotals>;
   goalHistory: Array<{
     date: string;            // 'YYYY-MM-DD'
     stepsAchieved: number;
