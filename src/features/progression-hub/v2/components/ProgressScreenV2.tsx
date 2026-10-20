@@ -5,7 +5,8 @@
  * (boards runcanvas/pr P-1a…P-7). Everything about what the user DID lives
  * here; the profile keeps identity & social.
  *
- *   header → השבוע / החודש → summary ring vs the previous period (P-1c)
+ *   header → השבוע / החודש → summary ring vs the previous period (P-1c);
+ *     its "מול שבוע שעבר" pill / ring / ▲▼ open the comparison sheet (P-1e)
  *   → "שיא חדש" (→ profile records) → the home week strip / month calendar
  *   → התמדה: which days counted and why (P-7) → לפי פעילות tabs (P-2)
  *   → התוכניות שלך (P-4)
@@ -24,6 +25,7 @@ import { longestActiveRun, monthCells, summarizePeriod, type ProgressPeriod } fr
 import { periodSpark, type SplitKind } from '../utils/period-spark';
 import { consistencyDays } from '../utils/consistency-days';
 import PeriodSummaryRingCard from './PeriodSummaryRingCard';
+import PeriodCompareSheet from './PeriodCompareSheet';
 import ActivityDaysCard from './ActivityDaysCard';
 import ProgressWeekStrip from './ProgressWeekStrip';
 import ConsistencyCard from './ConsistencyCard';
@@ -49,6 +51,9 @@ function PeriodBlock({ period, onSelectKind }: { period: ProgressPeriod; onSelec
   const { data, loading, error, ranges, now } = usePeriodData(period);
   const streaks = useStreaks();
   const consistencyRef = useRef<HTMLDivElement>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const openCompare = useCallback(() => setCompareOpen(true), []);
+  const closeCompare = useCallback(() => setCompareOpen(false), []);
   const model = useMemo(() => {
     if (!data) return null;
     const current = summarizePeriod(data.workouts, data.days, ranges.current);
@@ -79,7 +84,19 @@ function PeriodBlock({ period, onSelectKind }: { period: ProgressPeriod; onSelec
         previous={model.previous}
         spark={model.spark}
         onSelectKind={onSelectKind}
+        onOpenCompare={openCompare}
       />
+      <WidgetBoundary name="progress.compare" fallback={() => null}>
+        <PeriodCompareSheet
+          open={compareOpen}
+          onClose={closeCompare}
+          period={period}
+          ranges={ranges}
+          current={model.current}
+          previous={model.previous}
+          now={now}
+        />
+      </WidgetBoundary>
       <WidgetBoundary name="progress.newRecord" fallback={() => null}>
         <NewRecordHighlight />
       </WidgetBoundary>
