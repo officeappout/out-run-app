@@ -170,6 +170,8 @@ export interface OnboardingData {
   securedEmail?: string; // Email used for backup (if email method)
   securedPhone?: string; // Phone used for backup (if phone method)
   termsVersion?: string; // Terms version accepted (e.g., '1.0')
+  /** Set by HealthDeclarationStep on submit (synced to users/{uid}.healthDeclarationAccepted). */
+  healthDeclarationAccepted?: boolean;
   termsAcceptedAt?: Date; // When terms were accepted
   
   // Dynamic Questionnaire Results (from DynamicOnboardingEngine)

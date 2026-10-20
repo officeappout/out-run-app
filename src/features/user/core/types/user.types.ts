@@ -297,6 +297,13 @@ export interface ReminderSlot {
 // ==========================================
 export interface UserFullProfile {
   id: string;
+  /**
+   * Top-level health-declaration acceptance flag (users/{uid}.healthDeclarationAccepted,
+   * written by the onboarding light sync). Read via hasAcceptedHealthDeclaration()
+   * (src/lib/health-declaration.ts). Also set in memory right after the user signs,
+   * so no gate asks twice in the same session.
+   */
+  healthDeclarationAccepted?: boolean;
 
   core: {
     name: string;
@@ -496,7 +503,12 @@ export interface UserFullProfile {
   /** Park ID used for the first workout (if park workout) */
   firstWorkoutParkId?: string;
 
-  health: { injuries: string[]; connectedWatch: 'apple' | 'garmin' | 'none' };
+  health: {
+    injuries: string[];
+    connectedWatch: 'apple' | 'garmin' | 'none';
+    /** Legacy nested acceptance shape — read via hasAcceptedHealthDeclaration(). */
+    healthDeclarationAccepted?: boolean;
+  };
 
   /** User settings (push notifications, calendar sync, etc.) */
   settings?: {

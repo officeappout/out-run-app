@@ -7,6 +7,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 
+// Relative to now so the committed snapshot ("לפני 20745 ימים") never drifts
+// day to day (was `new Date(0)` — the day count grew by one every midnight).
+const FIXED_AGO = new Date(Date.now() - (20745 * 86400 + 3600) * 1000);
+
 const flags = { enableHomeV2: false, enableLeagues: true };
 const userState = { profile: { id: 'u1', core: { isSuperAdmin: false, name: 'דנה' } } };
 
@@ -24,7 +28,7 @@ vi.mock('@/features/social/hooks/useActivityFeed', () => ({
   useActivityFeed: () => ({
     isLoading: false,
     items: [
-      { id: 'a1', type: 'high_five', fromUid: 'u2', fromName: 'נועה', read: false, createdAt: new Date(0), message: 'נועה שלחה לך כיף' },
+      { id: 'a1', type: 'high_five', fromUid: 'u2', fromName: 'נועה', read: false, createdAt: FIXED_AGO, message: 'נועה שלחה לך כיף' },
     ],
   }),
 }));

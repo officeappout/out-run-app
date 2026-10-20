@@ -22,3 +22,19 @@ export function hasAcceptedHealthDeclaration(
 ): boolean {
   return !!(profile?.healthDeclarationAccepted || profile?.health?.healthDeclarationAccepted);
 }
+
+/**
+ * The health-declaration page's skip decision (/onboarding-new/health):
+ * accepted on the user profile, OR already signed earlier in this session
+ * (the onboarding store holds `healthDeclarationAccepted: true` the moment
+ * HealthDeclarationStep's submit completes — before the debounced Firestore
+ * sync lands and before useUserStore.profile is ever refreshed). Belt and
+ * braces for the in-memory profile update — the declaration must never be
+ * filled twice.
+ */
+export function isHealthDeclarationSatisfied(
+  profile: Parameters<typeof hasAcceptedHealthDeclaration>[0],
+  onboardingData: { healthDeclarationAccepted?: unknown } | null | undefined,
+): boolean {
+  return hasAcceptedHealthDeclaration(profile) || onboardingData?.healthDeclarationAccepted === true;
+}

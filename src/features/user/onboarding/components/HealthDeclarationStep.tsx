@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, ShieldCheck, Zap, X, Loader2, Info } from 'lucide-react';
 import { HEALTH_QUESTIONS, LEGAL_TEXT } from '../data/health-questions';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { markHealthDeclarationAcceptedLocally } from '../services/health-declaration-local';
 // pdf-service is NOT statically imported here — see the preload useEffect below.
 // Keeping it out of the static import graph prevents pdf-lib (~600 KB) from being
 // bundled into this page's initial JS chunk, eliminating the main-thread freeze
@@ -277,6 +278,12 @@ export default function HealthDeclarationStep({
           usedFastTrack,
         },
         () => {
+          // ── Mirror into the in-memory profile FIRST ──
+          // The JIT gate (home / map) and /onboarding-new/health read
+          // useUserStore.profile; without this they asked again in the same
+          // session (the debounced sync below only reaches Firestore).
+          markHealthDeclarationAcceptedLocally();
+
           // ── Persist to onboarding store with all metadata ──
           // (healthDeclarationPdfUrl is written to private/legal by the background job itself.)
           updateData({
