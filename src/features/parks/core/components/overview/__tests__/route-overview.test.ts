@@ -5,6 +5,11 @@ import {
 } from '../route/route-overview';
 import { journeyItemsFromLegs, legColor, transportMinutes, type OverviewLeg } from '../overview-legs';
 import { nextDetent, detentHeightPx } from '../overview-detents';
+import { makeT } from '@/lib/i18n/t';
+import { map } from '@/messages/ns/map';
+
+// The route helpers take the `map` namespace's t(); Hebrew here, as the app renders it.
+const t = makeT('he', map);
 
 // ~1.1 km per 0.01° of latitude.
 const line = (n: number, dLat = 0.001): [number, number][] => Array.from({ length: n }, (_, i) => [34.8, 32 + i * dLat]);
@@ -49,7 +54,7 @@ describe('loop detection', () => {
 describe('route legs', () => {
   const route = { name: 'לולאת הירקון', distance: 4.2, routeShape: 'loop' as const, path: loop };
   it('ONE expandable aerobic leg, standard layout, pace pill for run, loop note', () => {
-    const legs = buildRouteLegs(route, 'running', null);
+    const legs = buildRouteLegs(route, 'running', null, t);
     expect(legs).toHaveLength(1);
     const leg = legs[0];
     expect(leg.kind).toBe('aerobic');
@@ -62,11 +67,11 @@ describe('route legs', () => {
     expect(leg.expandable).toBe(true);
   });
   it('a ride has no pace pill', () => {
-    const leg = buildRouteLegs(route, 'cycling', null)[0];
+    const leg = buildRouteLegs(route, 'cycling', null, t)[0];
     expect(leg.kind === 'aerobic' && leg.paceSecPerKm).toBeFalsy();
   });
   it('walk there / back become transport legs around it', () => {
-    const legs = buildRouteLegs(route, 'walking', { thereMin: 4, backMin: 4 });
+    const legs = buildRouteLegs(route, 'walking', { thereMin: 4, backMin: 4 }, t);
     expect(legs.map((l) => l.kind)).toEqual(['transport', 'aerobic', 'transport']);
     expect(transportMinutes(legs, 'there')).toBe(4);
     expect(journeyItemsFromLegs(legs).map((i) => [i.kind, i.seconds])).toEqual([['transport', 240], ['aerobic', 3000], ['transport', 240]]);
@@ -81,7 +86,7 @@ describe('route legs', () => {
 
 describe('leg details', () => {
   it('positive / known signals only', () => {
-    expect(routeDetailChips({}, null)).toEqual([]);
+    expect(routeDetailChips({}, null, t)).toEqual([]);
     const chips = routeDetailChips({
       elevationGain: 18.4,
       qualitySignals: {
@@ -89,13 +94,13 @@ describe('leg details', () => {
         lighting: { status: 'computed', litCoveragePct: null, isLit: true },
         computedAt: null, source: 'osm_overpass_v1',
       },
-    }, null);
+    }, null, t);
     expect(chips.map((c) => c.label)).toEqual(['מואר', 'שביל ייעודי 72%', '18 מ׳ עלייה']);
     // unverified lighting never claims "lit"
-    expect(routeDetailChips({ qualitySignals: { composition: { sidewalkPct: 0, genuinePct: 0, ordinaryPct: 0, otherPct: 0 }, lighting: { status: 'unknown', litCoveragePct: null, isLit: null }, computedAt: null, source: 'osm_overpass_v1' } }, null)).toEqual([]);
+    expect(routeDetailChips({ qualitySignals: { composition: { sidewalkPct: 0, genuinePct: 0, ordinaryPct: 0, otherPct: 0 }, lighting: { status: 'unknown', litCoveragePct: null, isLit: null }, computedAt: null, source: 'osm_overpass_v1' } }, null, t)).toEqual([]);
   });
   it('ascent falls back to the profile gain', () => {
-    const chips = routeDetailChips({}, { stepM: 100, elevationsM: [10, 20, 15, 30] });
+    const chips = routeDetailChips({}, { stepM: 100, elevationsM: [10, 20, 15, 30] }, t);
     expect(chips).toEqual([{ key: 'ascent', label: '25 מ׳ עלייה' }]);
   });
 });
@@ -137,17 +142,17 @@ describe('along the route', () => {
         { amenityId: 'x', category: 'crossing', distanceFromPathMeters: 1, location: at(2) },
         { amenityId: 'b1', category: 'bench', distanceFromPathMeters: 3, location: at(9) },
       ],
-    });
+    }, t);
     expect(pts.map((p) => p.label)).toEqual(['התחלה', 'ברזייה', 'גינת כושר רוקח', 'ספסלים']);
     expect(pts.map((p) => +p.km.toFixed(1))).toEqual([0, 0.3, 0.7, 1]);
-    expect(alongRoutePoints({ path, nearbyAmenities: [] })).toEqual([]);
+    expect(alongRoutePoints({ path, nearbyAmenities: [] }, t)).toEqual([]);
   });
 });
 
 describe('description', () => {
   it('own prose first, else a neutral line', () => {
-    expect(routeDescription({ description: ' שביל לאורך הנחל ', distance: 3 })).toBe('שביל לאורך הנחל');
-    expect(routeDescription({ distance: 4.21 }, 'תל אביב')).toBe('מסלול של 4.2 ק״מ, בתל אביב.');
+    expect(routeDescription({ description: ' שביל לאורך הנחל ', distance: 3 }, t)).toBe('שביל לאורך הנחל');
+    expect(routeDescription({ distance: 4.21 }, t, 'תל אביב')).toBe('מסלול של 4.2 ק״מ, בתל אביב.');
   });
 });
 

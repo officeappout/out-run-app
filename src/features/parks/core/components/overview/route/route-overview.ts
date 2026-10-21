@@ -12,6 +12,12 @@ import { isRouteLitVerified } from '@/features/parks/core/services/route-quality
 import { readElevationSamples, type ElevationSamples } from '@/features/workout-engine/players/running/lib/route-elevation-ahead';
 import { formatMinutes } from '../../hybrid/hybrid-format';
 import type { OverviewLeg } from '../overview-legs';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { map } from '@/messages/ns/map';
+
+/** The `map` namespace's t() (useT(map) in the caller) — these helpers stay pure. */
+export type MapT = (key: NamespaceKey<typeof map>, values?: MessageValues) => string;
 
 export type RouteActivity = 'walking' | 'running' | 'cycling';
 export const ROUTE_ACTIVITIES: readonly RouteActivity[] = ['walking', 'running', 'cycling'];
@@ -22,8 +28,6 @@ export const ROUTE_ACTIVITIES: readonly RouteActivity[] = ['walking', 'running',
  * walking 12), so the trio's numbers agree with the stored duration.
  */
 export const ACTIVITY_MIN_PER_KM: Record<RouteActivity, number> = { walking: 12, running: 6, cycling: 3 };
-
-export const ACTIVITY_LABEL: Record<RouteActivity, string> = { walking: 'הליכה', running: 'ריצה', cycling: 'רכיבה' };
 
 export function activityMinutes(distanceKm: number, activity: RouteActivity): number {
   const km = Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : 0;
@@ -63,11 +67,12 @@ export function buildRouteLegs(
   route: Pick<Route, 'name' | 'distance' | 'routeShape' | 'path'>,
   activity: RouteActivity,
   walk: { thereMin: number; backMin: number } | null,
+  t: MapT,
 ): OverviewLeg[] {
   const min = activityMinutes(route.distance, activity);
-  const label = ACTIVITY_LABEL[activity];
+  const label = t('overview.route.activity', { activity });
   const legs: OverviewLeg[] = [];
-  if (walk && walk.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: 'הליכה אל המסלול', minutes: walk.thereMin });
+  if (walk && walk.thereMin > 0) legs.push({ kind: 'transport', key: 'walk-there', phase: 'there', label: t('overview.route.leg.walkThere'), minutes: walk.thereMin });
   legs.push({
     kind: 'aerobic',
     key: 'route',
@@ -75,10 +80,10 @@ export function buildRouteLegs(
     durationSec: min * 60,
     distanceKm: route.distance,
     layout: 'standard',
-    title: `${label} · ${route.name?.trim() || 'מסלול'}`,
+    title: t('overview.route.leg.title', { activity, name: route.name?.trim() || t('overview.route.nameFallback') }),
     badge: label,
     meta: [
-      { key: 'km', icon: 'distance', text: `${(route.distance ?? 0).toFixed(1)} ק״מ` },
+      { key: 'km', icon: 'distance', text: t('overview.route.meta.km', { km: (route.distance ?? 0).toFixed(1) }) },
       { key: 'min', icon: 'time', text: formatMinutes(min * 60) },
     ],
     // A ride has no meaningful per-km pace pill.
@@ -86,7 +91,7 @@ export function buildRouteLegs(
     loopNote: isLoopRoute(route),
     expandable: true,
   });
-  if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: 'הליכה חזרה', minutes: walk.backMin });
+  if (walk && walk.backMin > 0) legs.push({ kind: 'transport', key: 'walk-back', phase: 'back', label: t('overview.route.leg.walkBack'), minutes: walk.backMin });
   return legs;
 }
 
@@ -106,16 +111,16 @@ export function routeWalkLegs(walkToRouteMinutes: number | null | undefined, loo
 export interface RouteDetailChip { key: 'lighting' | 'dedicated' | 'ascent'; label: string }
 
 /** Lighting (verified only), dedicated path share, ascent — positive / known only. */
-export function routeDetailChips(route: Pick<Route, 'qualitySignals' | 'elevationGain'>, samples: ElevationSamples | null): RouteDetailChip[] {
+export function routeDetailChips(route: Pick<Route, 'qualitySignals' | 'elevationGain'>, samples: ElevationSamples | null, t: MapT): RouteDetailChip[] {
   const chips: RouteDetailChip[] = [];
   if (isRouteLitVerified(route)) {
     const pct = route.qualitySignals?.lighting?.litCoveragePct;
-    chips.push({ key: 'lighting', label: pct != null && Number.isFinite(pct) ? `מואר ${Math.round(pct)}%` : 'מואר' });
+    chips.push({ key: 'lighting', label: pct != null && Number.isFinite(pct) ? t('overview.route.chip.litPct', { pct: String(Math.round(pct)) }) : t('overview.route.chip.lit') });
   }
   const genuine = route.qualitySignals?.composition?.genuinePct;
-  if (genuine != null && Number.isFinite(genuine) && genuine > 0) chips.push({ key: 'dedicated', label: `שביל ייעודי ${Math.round(genuine)}%` });
+  if (genuine != null && Number.isFinite(genuine) && genuine > 0) chips.push({ key: 'dedicated', label: t('overview.route.chip.dedicated', { pct: String(Math.round(genuine)) }) });
   const gain = route.elevationGain ?? (samples ? elevationSummary(samples).gainM : null);
-  if (gain != null && Number.isFinite(gain) && gain >= 1) chips.push({ key: 'ascent', label: `${Math.round(gain)} מ׳ עלייה` });
+  if (gain != null && Number.isFinite(gain) && gain >= 1) chips.push({ key: 'ascent', label: t('overview.route.chip.ascent', { m: String(Math.round(gain)) }) });
   return chips;
 }
 
@@ -182,8 +187,9 @@ export function elevationPaths(s: ElevationSamples, w: number, h: number, pad = 
 export type AlongPointKind = 'start' | 'stop' | AmenityCategory;
 export interface AlongPoint { key: string; kind: AlongPointKind; label: string; km: number }
 
-const AMENITY_LABEL: Partial<Record<AmenityCategory, string>> = {
-  drinking_water: 'ברזייה', bench: 'ספסלים', fitness_station: 'מתקני כושר', court: 'מגרש ספורט', dog_park: 'גינת כלבים',
+const AMENITY_LABEL_KEY: Partial<Record<AmenityCategory, NamespaceKey<typeof map>>> = {
+  drinking_water: 'overview.route.along.drinkingWater', bench: 'overview.route.along.bench',
+  fitness_station: 'overview.route.along.fitnessStation', court: 'overview.route.along.court', dog_park: 'overview.route.along.dogPark',
 };
 export const MAX_ALONG_POINTS = 6;
 /** Same-label points closer than this collapse into the first. */
@@ -208,7 +214,7 @@ function nearestVertex(path: readonly [number, number][], lat: number, lng: numb
 }
 
 /** Start + facility stops + nearby amenities, ordered by km from the start (capped). */
-export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | 'nearbyAmenities'>, max = MAX_ALONG_POINTS): AlongPoint[] {
+export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | 'nearbyAmenities'>, t: MapT, max = MAX_ALONG_POINTS): AlongPoint[] {
   const path = route.path;
   if (!Array.isArray(path) || path.length < 2) return [];
   const cum = cumulativeKm(path);
@@ -219,8 +225,9 @@ export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | '
     pts.push({ key: `stop-${s.id}`, kind: 'stop', label: s.name, km: cum[idx] });
   }
   for (const a of route.nearbyAmenities ?? []) {
-    const label = AMENITY_LABEL[a.category];
-    if (!label || !a.location) continue;
+    const labelKey = AMENITY_LABEL_KEY[a.category];
+    if (!labelKey || !a.location) continue;
+    const label = t(labelKey);
     pts.push({ key: `am-${a.amenityId}`, kind: a.category, label, km: cum[nearestVertex(path, a.location.lat, a.location.lng)] });
   }
   pts.sort((p, q) => p.km - q.km);
@@ -230,16 +237,17 @@ export function alongRoutePoints(route: Pick<Route, 'path' | 'facilityStops' | '
     kept.push(p);
   }
   if (kept.length === 0) return [];
-  const start: AlongPoint = { key: 'start', kind: 'start', label: 'התחלה', km: 0 };
+  const start: AlongPoint = { key: 'start', kind: 'start', label: t('overview.route.along.start'), km: 0 };
   return [start, ...kept].slice(0, max);
 }
 
 /** Placeholder prose until per-route descriptions come from the admin panel. */
-export function routeDescription(route: Pick<Route, 'description' | 'distance' | 'city'>, cityName?: string): string {
+export function routeDescription(route: Pick<Route, 'description' | 'distance' | 'city'>, t: MapT, cityName?: string): string {
   const own = route.description?.trim();
   if (own) return own;
   const city = cityName ?? route.city;
-  return `מסלול של ${(route.distance ?? 0).toFixed(1)} ק״מ${city ? `, ב${city}` : ''}.`;
+  const km = (route.distance ?? 0).toFixed(1);
+  return city ? t('overview.route.descriptionInCity', { km, city }) : t('overview.route.description', { km });
 }
 
 /** "HH:MM" finish estimate. */

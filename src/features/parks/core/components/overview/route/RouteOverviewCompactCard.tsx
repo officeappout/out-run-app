@@ -16,7 +16,9 @@ import { JourneyStrip, WorkoutOverviewHeader } from '@/components/ui/v2';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { ROUTE_CARD_WIDTH } from '../../../constants/routeCardSize';
 import { journeyItemsFromLegs } from '../overview-legs';
-import { ACTIVITY_LABEL, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity } from './route-overview';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import { activityMinutes, buildRouteLegs, finishClock, initialRouteActivity } from './route-overview';
 
 export interface RouteOverviewCompactCardProps {
   route: Route;
@@ -41,9 +43,10 @@ export interface RouteOverviewCompactCardProps {
 export default function RouteOverviewCompactCard({
   route, activity, isActive, onOpen, onStart, blockedReason = null, blockedLabel, onBlocked, className = '', coachId, ctaCoachId, footnote,
 }: RouteOverviewCompactCardProps) {
+  const t = useT(map);
   const act = initialRouteActivity(route, activity);
   const min = activityMinutes(route.distance, act);
-  const items = journeyItemsFromLegs(buildRouteLegs(route, act, null));
+  const items = journeyItemsFromLegs(buildRouteLegs(route, act, null, t));
   const open = () => { hapticLight(); onOpen(); };
   const cta = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -61,7 +64,7 @@ export default function RouteOverviewCompactCard({
       style={{ padding: '12px 14px 14px' }}>
       <div className="flex items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate whitespace-nowrap text-[17px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
-          {route.name?.trim() || 'סיבוב מעגלי'}
+          {route.name?.trim() || t('overview.route.card.nameFallback')}
         </h3>
         <span className="inline-flex shrink-0 items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline" style={{ padding: '3px 9px' }}>
           <DifficultyBolts difficulty={route.difficulty} size="sm" />
@@ -69,9 +72,9 @@ export default function RouteOverviewCompactCard({
       </div>
       <div className="mt-0.5">
         <WorkoutOverviewHeader v2 title={null} meta={[
-          { key: 'time', text: `${min} דק׳`, tone: 'primary' },
-          { key: 'km', text: `${(route.distance ?? 0).toFixed(1)} ק״מ`, tone: 'secondary' },
-          { key: 'finish', text: `מסיים ~${finishClock(Date.now(), min)}`, tone: 'secondary' },
+          { key: 'time', text: t('overview.route.meta.min', { min: String(min) }), tone: 'primary' },
+          { key: 'km', text: t('overview.route.meta.km', { km: (route.distance ?? 0).toFixed(1) }), tone: 'secondary' },
+          { key: 'finish', text: t('overview.route.meta.finish', { time: finishClock(Date.now(), min) }), tone: 'secondary' },
         ]} />
       </div>
       <div className="mt-2.5">
@@ -84,12 +87,12 @@ export default function RouteOverviewCompactCard({
               blockedReason ? 'bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline' : 'bg-v2-cta text-v2-on-cta shadow-v2-cta'
             }`}>
             <Play size={16} className={blockedReason ? undefined : 'fill-current'} />
-            {blockedReason && blockedLabel ? blockedLabel : `התחל ${ACTIVITY_LABEL[act]}`}
+            {blockedReason && blockedLabel ? blockedLabel : t('overview.route.cta.start', { activity: act })}
           </button>
         ) : (
           <button type="button" onClick={cta}
             className="flex h-[42px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]">
-            בחר את המסלול הזה <ChevronLeft size={15} />
+            {t('overview.route.card.choose')} <ChevronLeft size={15} />
           </button>
         )}
         {footnote && (

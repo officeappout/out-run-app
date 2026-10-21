@@ -36,10 +36,12 @@ import RoundTripPill from '../RoundTripPill';
 import { journeyItemsFromLegs } from '../overview-legs';
 import RouteLegDetail from './RouteLegDetail';
 import {
-  ACTIVITY_LABEL, ROUTE_ACTIVITIES, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity,
+  ROUTE_ACTIVITIES, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity,
   isLoopRoute, routeDescription, routeWalkLegs, type RouteActivity,
 } from './route-overview';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface RouteOverviewDrawerProps {
   route: Route;
@@ -61,6 +63,7 @@ export interface RouteOverviewDrawerProps {
 export default function RouteOverviewDrawer({
   route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails, topSlot,
 }: RouteOverviewDrawerProps) {
+  const t = useT(map);
   const [activity, setActivity] = useState<RouteActivity>(() => initialRouteActivity(route, initialActivity));
   const [detailOpen, setDetailOpen] = useState(false);
   const [weightNudge, setWeightNudge] = useState(false);
@@ -77,9 +80,9 @@ export default function RouteOverviewDrawer({
   const loop = isLoopRoute(route);
   const walk = routeWalkLegs(walkToRouteMinutes, loop);
   const legs = useMemo(
-    () => buildRouteLegs(route, activity, roundTripOn ? walk : null),
+    () => buildRouteLegs(route, activity, roundTripOn ? walk : null, t),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [route, activity, roundTripOn, walk?.thereMin, walk?.backMin],
+    [route, activity, roundTripOn, walk?.thereMin, walk?.backMin, t],
   );
   const routeMin = activityMinutes(route.distance, activity);
   const totalMin = routeMin + (roundTripOn && walk ? walk.thereMin + walk.backMin : 0);
@@ -94,7 +97,7 @@ export default function RouteOverviewDrawer({
     return formatTooFarLabels(km, walkToRouteMinutes);
   }, [userLocation, route.path, walkToRouteMinutes]);
 
-  const label = ACTIVITY_LABEL[activity];
+  const startLabel = t('overview.route.cta.start', { activity });
   const start = () => {
     if (tooFar) { showToast('error', tooFarLabels.toast); return; }
     onStart(route, activity);
@@ -107,11 +110,11 @@ export default function RouteOverviewDrawer({
       header={<>
         <WorkoutOverviewHeader
           v2
-          title={route.name?.trim() || 'מסלול'}
+          title={route.name?.trim() || t('overview.route.nameFallback')}
           meta={[
-            { key: 'time', text: `${totalMin} דק׳`, tone: 'primary' },
-            { key: 'km', text: `${(route.distance ?? 0).toFixed(1)} ק״מ`, tone: 'secondary' },
-            { key: 'finish', text: `מסיים ~${finishClock(Date.now(), totalMin)}`, tone: 'secondary' },
+            { key: 'time', text: t('overview.route.meta.min', { min: String(totalMin) }), tone: 'primary' },
+            { key: 'km', text: t('overview.route.meta.km', { km: (route.distance ?? 0).toFixed(1) }), tone: 'secondary' },
+            { key: 'finish', text: t('overview.route.meta.finish', { time: finishClock(Date.now(), totalMin) }), tone: 'secondary' },
           ]}
         />
         {walk && <RoundTripPill v2 on={roundTripOn} walkMin={walk.thereMin + walk.backMin} onToggle={toggleRoundTrip} />}
@@ -121,10 +124,10 @@ export default function RouteOverviewDrawer({
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <OverviewStartButton v2 blocked={tooFar} onClick={start}
-              label={tooFar ? tooFarLabels.cta : `התחל ${label}`} ariaLabel={`התחל ${label}`} />
+              label={tooFar ? tooFarLabels.cta : startLabel} ariaLabel={startLabel} />
           </div>
           {onNavigate && (
-            <IconButton aria-label="ניווט למסלול" size={48} className="shrink-0" onClick={() => onNavigate(route)}>
+            <IconButton aria-label={t('overview.route.navigate.label')} size={48} className="shrink-0" onClick={() => onNavigate(route)}>
               <Navigation className="h-[18px] w-[18px] text-v2-deep" />
             </IconButton>
           )}
@@ -136,7 +139,7 @@ export default function RouteOverviewDrawer({
       <div className="mt-3 flex items-center justify-between gap-2">
         <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
           className="flex items-center gap-1 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]">
-          <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
+          <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> {t('overview.route.details.toggle')}
         </button>
         <span className="inline-flex shrink-0 items-center rounded-full bg-white shadow-v2-ring" style={{ padding: '5px 12px' }}>
           <DifficultyBolts difficulty={route.difficulty} size="sm" />
@@ -145,11 +148,11 @@ export default function RouteOverviewDrawer({
       {detailOpen && (
         <div className="mt-2">
           <div className="mb-2.5 flex items-start gap-1.5 text-[14px] leading-relaxed text-v2-ink-2">
-            <MapPin size={14} style={{ color: '#64748b', flexShrink: 0, marginTop: 4 }} /> {routeDescription(route, cityName)}
+            <MapPin size={14} style={{ color: '#64748b', flexShrink: 0, marginTop: 4 }} /> {routeDescription(route, t, cityName)}
           </div>
           <div className="flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-[13px] font-bold text-v2-ink-2 shadow-v2-ring">
-              <Ruler size={15} className="text-v2-deep" />{`${(route.distance ?? 0).toFixed(1)} ק״מ`}
+              <Ruler size={15} className="text-v2-deep" />{t('overview.route.meta.km', { km: (route.distance ?? 0).toFixed(1) })}
             </span>
             <CaloriesChip calories={calories} weightDependent onEditWeight={() => setWeightNudge(true)} />
           </div>
@@ -157,7 +160,7 @@ export default function RouteOverviewDrawer({
           {onOpenFullDetails && (
             <button type="button" onClick={onOpenFullDetails}
               className="mt-2.5 inline-flex items-center gap-1 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]">
-              כל פרטי המסלול <ChevronLeft size={15} />
+              {t('overview.route.details.all')} <ChevronLeft size={15} />
             </button>
           )}
         </div>
@@ -166,18 +169,18 @@ export default function RouteOverviewDrawer({
       {/* Activity — the same trio shape as the intensity selector, with each activity's time */}
       <SegmentedPicker
         className="mt-2.5"
-        ariaLabel="בחירת פעילות"
+        ariaLabel={t('overview.route.activityPicker.label')}
         value={activity}
         onChange={setActivity}
         options={ROUTE_ACTIVITIES.map((a) => ({
           key: a,
-          label: `${ACTIVITY_LABEL[a]} · ${activityMinutes(route.distance, a)}׳`,
+          label: t('overview.route.activityOption', { activity: a, min: String(activityMinutes(route.distance, a)) }),
           icon: <ActivityGlyph kind="aerobic" subtype={a} className="w-[18px] h-[18px]" />,
         }))}
       />
 
       <div className="mt-5 mb-2.5 flex items-center gap-1.5 whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">
-        מהלך המסלול
+        {t('overview.route.course.title')}
       </div>
       <OverviewLegAxis
         v2
