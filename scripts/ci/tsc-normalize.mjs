@@ -130,7 +130,12 @@ export function normalizeType(typeText) {
 /** Normalize every '…'-quoted type in one error line. */
 export function normalizeLine(line) {
   // tsc quotes types with single quotes; types themselves don't contain "'".
-  return line.replace(/'([^']*)'/g, (_m, inner) => `'${normalizeType(inner)}'`);
+  // English contractions in tsc's wording ("can't", "doesn't") are not type quotes — mask
+  // their apostrophe so the '…' pairing stays aligned, then put it back.
+  const masked = line.replace(/([a-z])'([a-z])/gi, '$1\u0000$2');
+  return masked
+    .replace(/'([^']*)'/g, (_m, inner) => `'${normalizeType(inner)}'`)
+    .replace(/\u0000/g, "'");
 }
 
 const isMain = import.meta.url === `file://${process.argv[1]}`;
