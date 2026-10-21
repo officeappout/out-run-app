@@ -30,6 +30,7 @@ import { FindingsBook } from './lib/findings';
 import { DEFAULT_MINT_URL, ID_TOKEN_MIN_LEFT_SEC, idTokenSecondsLeft, mintTesterToken } from './lib/mint';
 import { makeRunId, parseRunArgs, planRun } from './lib/plan';
 import { runSession, type SessionResult } from './lib/session';
+import { missionUids } from './lib/design/checkpoints';
 import { DEFAULT_REPORT_URL, openStore, sessionStartDelta, type Store } from './lib/store';
 
 const log = (msg: string) => console.log(`[qa] ${redactSecrets(msg)}`);
@@ -41,7 +42,7 @@ async function main(): Promise<number> {
   const model = process.env.QA_MODEL?.trim() || DEFAULT_TESTER_MODEL;
 
   if (args.dryRun) {
-    const plan = planRun(missions, args, new Set(missions.map((m) => m.uid)));
+    const plan = planRun(missions, args, new Set(missions.flatMap(missionUids)));
     log(`dry run ${runId}: ${plan.sessions.map((s) => `${s.mission.id}@${s.device}`).join(', ') || '(nothing)'}; skipped ${JSON.stringify(plan.skipped)}`);
     return 0;
   }
@@ -128,10 +129,10 @@ async function runAll(
         break;
       }
       const persona = ctx.personas.get(s.mission.persona)!;
-      log(`session ${i + 1}/${plan.sessions.length}: ${s.mission.id} as ${persona.id} on ${s.device}`);
+      log(`session ${i + 1}/${plan.sessions.length}: ${s.mission.id}${s.resumeFrom ? `@${s.resumeFrom}` : ''} as ${persona.id} on ${s.device}`);
       await store.addUsage(getIsraelDateKey(new Date()), sessionStartDelta(model), true).catch(() => log('session count write failed'));
 
-      const minted = await mintTesterToken({ url: process.env.QA_MINT_URL?.trim() || DEFAULT_MINT_URL, idToken: ctx.idToken, uid: s.mission.uid, runId });
+      const minted = await mintTesterToken({ url: process.env.QA_MINT_URL?.trim() || DEFAULT_MINT_URL, idToken: ctx.idToken, uid: s.uid, runId });
       if (!minted.ok) {
         log(`mint refused: ${minted.error}`);
         results.push({ mission: s.mission.id, device: s.device, outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: 0, newFindings: 0 });
@@ -170,6 +171,7 @@ async function runAll(
           s.mission,
           s.device,
           driver,
+          { resumeFrom: s.resumeFrom },
         );
         log(`→ ${r.outcome}${r.reason ? ` (${r.reason})` : ''}, ${r.steps} steps, ${r.newFindings} new findings`);
         results.push({ mission: s.mission.id, device: s.device, ...r });

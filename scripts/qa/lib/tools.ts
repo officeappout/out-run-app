@@ -86,6 +86,12 @@ export const TOOLS: Tool[] = [
     input_schema: { type: 'object', properties: { mode: { type: 'string', enum: ['online', 'offline'] } }, required: ['mode'], additionalProperties: false },
   },
   {
+    name: 'keyboard',
+    description:
+      'Simulate the phone keyboard after tapping an input: "open" shrinks the screen by a keyboard\'s height (~40%), "closed" restores it. Use it to check that the field and its button stay visible.',
+    input_schema: { type: 'object', properties: { state: { type: 'string', enum: ['open', 'closed'] } }, required: ['state'], additionalProperties: false },
+  },
+  {
     name: 'wait',
     description: 'Let real time pass (a running timer, the GPS moving). Max 60 s.',
     input_schema: { type: 'object', properties: { seconds: { type: 'number' } }, required: ['seconds'], additionalProperties: false },
@@ -100,6 +106,7 @@ export const TOOLS: Tool[] = [
         category: { type: 'string', enum: ['broken', 'ux', 'design-rule', 'copy', 'perf', 'a11y'] },
         severity: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
         rule: { type: 'string', description: 'Rule id from the checklist, or empty.' },
+        screen: { type: 'string', description: 'snake_case screen id (the checkpoint id in a design sweep) — groups findings by screen.' },
         title: { type: 'string', description: 'Short, Hebrew.' },
         element: { type: 'string', description: 'The element label it is about, if any.' },
         expected: { type: 'string', description: 'Hebrew.' },
@@ -107,6 +114,24 @@ export const TOOLS: Tool[] = [
         confidence: { type: 'number', description: '0–1' },
       },
       required: ['category', 'severity', 'title', 'expected', 'actual', 'confidence'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'score_screen',
+    description:
+      'Score the screen you see now (first visit of each screen or state), 1–5 per dimension. Every dimension ≤ 3 also needs a report_finding with a rule id.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        screen: { type: 'string', description: 'snake_case screen id; in a design sweep the checkpoint id.' },
+        clarity: { type: 'integer', minimum: 1, maximum: 5 },
+        consistency: { type: 'integer', minimum: 1, maximum: 5, description: 'Visual consistency with the v2 design language.' },
+        density: { type: 'integer', minimum: 1, maximum: 5 },
+        rtl: { type: 'integer', minimum: 1, maximum: 5 },
+        notes: { type: 'string', description: 'One or two Hebrew sentences: what is good, what is off.' },
+      },
+      required: ['screen', 'clarity', 'consistency', 'density', 'rtl', 'notes'],
       additionalProperties: false,
     },
   },

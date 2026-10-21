@@ -57,6 +57,7 @@ export interface PwPage {
   mouse: PwMouse;
   keyboard: PwKeyboard;
   waitForTimeout(ms: number): Promise<void>;
+  setViewportSize(size: { width: number; height: number }): Promise<void>;
   waitForLoadState(state?: 'load' | 'domcontentloaded' | 'networkidle', opts?: { timeout?: number }): Promise<void>;
   on(event: 'console', cb: (m: PwConsoleMessage) => void): void;
   on(event: 'response', cb: (r: PwResponse) => void): void;

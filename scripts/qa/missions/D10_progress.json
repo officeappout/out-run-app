@@ -1,0 +1,56 @@
+{
+  "id": "D10_progress",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_strength",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: לשונית ההתקדמות. פתחי את ההתקדמות, את חלון ההשוואה, ואת עמוד של תרגיל אחד.",
+  "success": [
+    "ההתקדמות, ההשוואה ועמוד התרגיל קיבלו ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 28,
+    "maxMinutes": 12
+  },
+  "focusRules": [
+    "STATE-EMPTY",
+    "V2-SHEET",
+    "LAY-DENSITY",
+    "LAY-CUT-TEXT",
+    "V2-ICONS"
+  ],
+  "checkpoints": [
+    {
+      "id": "progress",
+      "screen": "התקדמות",
+      "how": "לשונית ההתקדמות",
+      "path": "/progress"
+    },
+    {
+      "id": "progress_scrolled",
+      "screen": "התקדמות — גלילה",
+      "how": "גללי למטה פעם אחת"
+    },
+    {
+      "id": "progress_compare",
+      "screen": "חלון השוואה",
+      "how": "פתחי את ההשוואה (מגירה)"
+    },
+    {
+      "id": "exercise_page",
+      "screen": "עמוד תרגיל",
+      "how": "פתחי תרגיל אחד מההתקדמות או מהספרייה"
+    }
+  ]
+}

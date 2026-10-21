@@ -1,0 +1,70 @@
+{
+  "id": "D02_onboard_run",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_run",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: שאלון ההרשמה לריצה ומסך הבית של רצה. את מסכי הפתיחה הראשונים עברי מהר בלי לתת להם ציון (הם בעיצוב מחדש). כשמבקשים עיר, בחרי עיר שמתחילה ב'דמו', למשל 'דמו · תל אביב'. בחרי ריצה, רמה בינונית, ומלאי זמן 5 ק\"מ או קצב בשדה עם מקלדת. תני ציון בכל מסך שבצ'קליסט.",
+  "success": [
+    "כל מסכי שאלון הריצה קיבלו ציון",
+    "מסך הבית של ריצה קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 40,
+    "maxMinutes": 18
+  },
+  "focusRules": [
+    "MOB-KEYBOARD",
+    "V2-SELECTED-TINT",
+    "V2-CTA-1",
+    "LAY-CUT-TEXT",
+    "RTL-ALIGN",
+    "V2-MIXED-GEN"
+  ],
+  "checkpoints": [
+    {
+      "id": "onb_run_level",
+      "screen": "רמת ריצה ומטרה",
+      "how": "שאלות הרמה והמטרה (5K/10K/חצי)"
+    },
+    {
+      "id": "onb_run_pace_keyboard",
+      "screen": "שדה זמן/קצב עם מקלדת",
+      "how": "שדה זמן 5 ק\"מ או קצב — המקלדת פתוחה, השדה והכפתור גלויים",
+      "keyboard": true
+    },
+    {
+      "id": "onb_run_schedule",
+      "screen": "ימי ריצה",
+      "how": "בחירת ימים ומספר ריצות בשבוע",
+      "path": "/onboarding-new/running-schedule"
+    },
+    {
+      "id": "onb_run_plan_length",
+      "screen": "אורך התוכנית",
+      "how": "בחירת אורך התוכנית בשבועות"
+    },
+    {
+      "id": "onb_run_summary",
+      "screen": "סיכום תוכנית הריצה",
+      "how": "המסך שמסכם את תוכנית הריצה"
+    },
+    {
+      "id": "home_run",
+      "screen": "מסך הבית — רצה",
+      "how": "הבית עם תוכנית ריצה, כרטיס האימון של היום",
+      "path": "/home"
+    }
+  ]
+}

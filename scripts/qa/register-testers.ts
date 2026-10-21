@@ -15,13 +15,14 @@ import { DEMO_REGISTRY, DEMO_TESTERS_DOC } from '@/lib/demo-control/paths';
 import { closeDemoTarget, describeDemoTarget, loadEnvLocal, openDemoTarget, parseDemoArgs, requireConfirm } from '../demo/lib/target';
 import { loadPersonasAndMissions } from './lib/files';
 import { isTesterUid } from './lib/demo-guard';
+import { missionUids } from './lib/design/checkpoints';
 
 export const REGISTER_CONFIRM_PHRASE = 'רשום את הבודקים';
 
 async function main() {
   const args = parseDemoArgs(process.argv.slice(2));
   const { missions } = loadPersonasAndMissions();
-  const uids = Array.from(new Set(missions.map((m) => m.uid))).sort();
+  const uids = Array.from(new Set(missions.flatMap(missionUids))).sort();
   if (!uids.every(isTesterUid)) throw new Error('a mission uid is not demo_qa_*');
   console.log(`בודקים: ${uids.join(', ')}`);
   if (args.dryRun) return;

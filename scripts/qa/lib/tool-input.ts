@@ -5,6 +5,7 @@
 import { isCategory, isSeverity, type FindingCategory, type Severity } from './findings';
 import { RULE_IDS } from './checklist';
 import { HARD_CAPS } from './config';
+import { normalizeScreenId, parseScores, type Scores } from './design/dimensions';
 
 export type ToolCall =
   | { name: 'observe' }
@@ -18,17 +19,20 @@ export type ToolCall =
   | { name: 'gps'; action: 'start' | 'lose_signal' | 'poor_accuracy'; seconds: number }
   | { name: 'network'; mode: 'online' | 'offline' }
   | { name: 'wait'; seconds: number }
+  | { name: 'keyboard'; state: 'open' | 'closed' }
   | {
       name: 'report_finding';
       category: FindingCategory;
       severity: Severity;
       rule: string | null;
+      screen: string | null;
       title: string;
       element: string;
       expected: string;
       actual: string;
       confidence: number;
     }
+  | { name: 'score_screen'; screen: string; scores: Scores; notes: string }
   | { name: 'end_mission'; outcome: 'success' | 'blocked' | 'gave_up'; summary: string };
 
 export type Parsed = { ok: true; call: ToolCall } | { ok: false; error: string };
@@ -79,6 +83,9 @@ export function parseToolCall(name: string, input: unknown): Parsed {
     case 'network':
       if (i.mode !== 'online' && i.mode !== 'offline') return bad('network mode is online|offline');
       return { ok: true, call: { name, mode: i.mode } };
+    case 'keyboard':
+      if (i.state !== 'open' && i.state !== 'closed') return bad('keyboard state is open|closed');
+      return { ok: true, call: { name, state: i.state } };
     case 'wait':
       return { ok: true, call: { name, seconds: clamp(num(i.seconds) ? (i.seconds as number) : 2, 0.5, HARD_CAPS.maxWaitSec) } };
     case 'report_finding': {
@@ -88,8 +95,15 @@ export function parseToolCall(name: string, input: unknown): Parsed {
       const confidence = clamp(num(i.confidence) ? (i.confidence as number) : 0.5, 0, 1);
       return {
         ok: true,
-        call: { name, category: i.category, severity: i.severity, rule, title: str(i.title, 140), element: str(i.element, 80), expected: str(i.expected, 400), actual: str(i.actual, 400), confidence },
+        call: { name, category: i.category, severity: i.severity, rule, screen: normalizeScreenId(i.screen), title: str(i.title, 140), element: str(i.element, 80), expected: str(i.expected, 400), actual: str(i.actual, 400), confidence },
       };
+    }
+    case 'score_screen': {
+      const screen = normalizeScreenId(i.screen);
+      if (!screen) return bad('score_screen needs a snake_case screen id');
+      const scores = parseScores(i);
+      if (!scores) return bad('score_screen needs clarity, consistency, density and rtl as integers 1–5');
+      return { ok: true, call: { name, screen, scores, notes: str(i.notes, 400) } };
     }
     case 'end_mission':
       if (!['success', 'blocked', 'gave_up'].includes(i.outcome as string)) return bad('end_mission outcome is success|blocked|gave_up');

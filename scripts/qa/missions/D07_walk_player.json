@@ -1,0 +1,90 @@
+{
+  "id": "D07_walk_player",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_walk",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: נגן הליכה וסיכום. התחילי את ההליכה של היום, הפעילי GPS (gps start), חכי כדקה, עצרי להפסקה, המשיכי, וסיימי.",
+  "success": [
+    "נגן ההליכה, ההפסקה והסיכום קיבלו ציון"
+  ],
+  "gps": {
+    "route": [
+      [
+        32.1003,
+        34.798
+      ],
+      [
+        32.101,
+        34.805
+      ],
+      [
+        32.1,
+        34.812
+      ],
+      [
+        32.0975,
+        34.814
+      ],
+      [
+        32.0965,
+        34.808
+      ],
+      [
+        32.0975,
+        34.801
+      ],
+      [
+        32.1003,
+        34.798
+      ]
+    ],
+    "profile": "walk_senior",
+    "basePaceMinPerKm": 11,
+    "loop": true
+  },
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 30,
+    "maxMinutes": 16
+  },
+  "focusRules": [
+    "V2-ACTIVITY-COLOR",
+    "V2-CTA-1",
+    "SUM-MAP-BEHIND",
+    "LAY-CUT-TEXT",
+    "A11Y-CONTRAST"
+  ],
+  "checkpoints": [
+    {
+      "id": "walk_preview",
+      "screen": "תצוגה מקדימה של הליכה",
+      "how": "פתחי את הליכת היום לפני התחלה"
+    },
+    {
+      "id": "walk_player",
+      "screen": "נגן הליכה",
+      "how": "אחרי התחלה ו-GPS: צעדים/מרחק/זמן"
+    },
+    {
+      "id": "walk_paused",
+      "screen": "הליכה בהפסקה",
+      "how": "מצב הפסקה של הנגן"
+    },
+    {
+      "id": "walk_summary",
+      "screen": "סיכום הליכה",
+      "how": "מסך הסיכום אחרי סיום"
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import type { Mission, Persona } from './missions';
 import type { SessionDriver, StepView } from './driver';
 import type { Store } from './store';
 import type { UsageDelta } from './budget';
+import { buildScoreFinding, scoreAck, withScreen } from './design/score-finding';
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
@@ -50,15 +51,29 @@ export interface SessionDeps {
 
 const imageBlock = (png: Buffer): ResultContent => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: png.toString('base64') } });
 
-export async function runSession(deps: SessionDeps, persona: Persona, mission: Mission, deviceId: string, driver: SessionDriver): Promise<SessionResult> {
+export interface SessionOptions {
+  /** Design sweep resumed from this checkpoint (plan.ts). */
+  resumeFrom?: string | null;
+}
+
+export async function runSession(
+  deps: SessionDeps,
+  persona: Persona,
+  mission: Mission,
+  deviceId: string,
+  driver: SessionDriver,
+  opts: SessionOptions = {},
+): Promise<SessionResult> {
   const startedAt = Date.now();
-  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: buildSystemPrompt(persona, mission), cache_control: { type: 'ephemeral' } }];
+  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: buildSystemPrompt(persona, mission, { deviceId, resumeFrom: opts.resumeFrom ?? null }), cache_control: { type: 'ephemeral' } }];
   let step = 0;
   let newFindings = 0;
   let lastStopPoll = 0;
+  /** The screen id the tester last scored — findings without their own screen id go under it. */
+  let currentScreen: string | null = null;
   let view: StepView = await driver.view();
   if (view.blocked === 'not_signed_in_as_tester') return { outcome: 'error', reason: 'not_signed_in_as_tester', summary: '', steps: 0, newFindings: 0 };
-  newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver);
+  newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen);
 
   const messages: MessageParam[] = [
     {
@@ -140,8 +155,17 @@ export async function runSession(deps: SessionDeps, persona: Persona, mission: M
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'ok' });
         continue;
       }
+      if (call.name === 'score_screen') {
+        currentScreen = call.screen;
+        const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, null);
+        const f = buildScoreFinding(b, call.screen, call.scores, call.notes);
+        f.id = findingDocId(deps.runId, f.fingerprint);
+        if (await persist(deps, f, view, {})) newFindings += 1;
+        results.push({ type: 'tool_result', tool_use_id: tu.id, content: scoreAck(call.screen, call.scores) });
+        continue;
+      }
       if (call.name === 'report_finding') {
-        const isNew = await recordModelFinding(deps, mission, persona, deviceId, view, step, driver, call);
+        const isNew = await recordModelFinding(deps, mission, persona, deviceId, view, step, driver, call, call.screen ?? currentScreen);
         if (isNew) newFindings += 1;
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: isNew ? 'recorded' : 'already recorded (counted)' });
         continue;
@@ -163,7 +187,7 @@ export async function runSession(deps: SessionDeps, persona: Persona, mission: M
     if (needsView || events.length) {
       view = await driver.view();
       if (view.blocked === 'not_signed_in_as_tester') return finish('error', 'not_signed_in_as_tester');
-      newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver);
+      newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen);
       // The fresh screen goes with the last tool result of this turn.
       const last = results[results.length - 1];
       const text = observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events });
@@ -175,7 +199,7 @@ export async function runSession(deps: SessionDeps, persona: Persona, mission: M
 
 // ── Findings ──────────────────────────────────────────────────────────────────
 
-function baseFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver) {
+function baseFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver, screen: string | null) {
   const route = routePattern(new URL(view.url).pathname);
   return {
     runId: deps.runId,
@@ -186,7 +210,7 @@ function baseFinding(deps: SessionDeps, mission: Mission, persona: Persona, devi
     url: new URL(view.url).pathname,
     route,
     step,
-    repro: driver.repro.slice(-25),
+    repro: withScreen(driver.repro, screen),
     count: 1,
     createdAtMs: Date.now(),
   };
@@ -208,17 +232,27 @@ async function persist(deps: SessionDeps, f: Finding, view: StepView, shotCache:
   return true;
 }
 
-async function recordLint(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver): Promise<number> {
+async function recordLint(
+  deps: SessionDeps,
+  mission: Mission,
+  persona: Persona,
+  deviceId: string,
+  view: StepView,
+  step: number,
+  driver: SessionDriver,
+  screen: string | null,
+): Promise<number> {
   if (view.blocked) return 0;
   const shot: { path?: string | null } = {};
   let n = 0;
   for (const issue of view.lint) {
-    const b = baseFinding(deps, mission, persona, deviceId, view, step, driver);
+    const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, screen);
+    // Runtime errors vary per step — one finding per screen and severity, not per message.
+    const label = issue.rule === 'STAB-CONSOLE' ? issue.severity : (issue.examples[0] ?? '');
     const f: Finding = {
       ...b,
       id: '',
-      // Runtime errors vary per step — one finding per screen and severity, not per message.
-      fingerprint: fingerprint(b.route, issue.rule, issue.rule === 'STAB-CONSOLE' ? issue.severity : (issue.examples[0] ?? '')),
+      fingerprint: fingerprint(b.route, issue.rule, screen ? `${screen}|${label}` : label),
       category: issue.rule === 'STAB-CONSOLE' ? 'broken' : issue.rule.startsWith('MOB-') ? 'a11y' : 'design-rule',
       severity: issue.severity,
       rule: issue.rule,
@@ -248,12 +282,14 @@ async function recordModelFinding(
   step: number,
   driver: SessionDriver,
   c: Extract<ToolCall, { name: 'report_finding' }>,
+  screen: string | null,
 ): Promise<boolean> {
-  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver);
+  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, screen);
+  const label = c.element || c.title;
   const f: Finding = {
     ...b,
     id: '',
-    fingerprint: fingerprint(b.route, c.rule ?? c.category, c.element || c.title),
+    fingerprint: fingerprint(b.route, c.rule ?? c.category, screen ? `${screen}|${label}` : label),
     category: c.category,
     severity: c.severity,
     rule: c.rule,
@@ -269,7 +305,7 @@ async function recordModelFinding(
 }
 
 async function recordRunnerFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver, reason: RefuseReason): Promise<number> {
-  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver);
+  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, null);
   const f: Finding = {
     ...b,
     id: '',

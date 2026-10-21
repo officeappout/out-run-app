@@ -10,6 +10,7 @@ import { idTokenSecondsLeft, mintTesterToken } from '../lib/mint';
 import { loadPersonasAndMissions } from '../lib/files';
 import { validateMission } from '../lib/missions';
 import { buildSystemPrompt } from '../lib/prompt';
+import { missionUids } from '../lib/design/checkpoints';
 import { TOOLS } from '../lib/tools';
 import { EMPTY_CAPS } from '@/lib/demo-control/usage-cost';
 
@@ -157,9 +158,11 @@ describe('findings', () => {
 describe('plan + args', () => {
   const { missions, personas } = loadPersonasAndMissions();
   it('the shipped persona + mission files are valid', () => {
-    expect(missions.map((m) => m.id).sort()).toEqual(['M01_walker58', 'M02_runner_intervals', 'M03_home_beginner']);
-    expect(personas.size).toBe(3);
-    for (const m of missions) expect(isTesterUid(m.uid)).toBe(true);
+    const journeys = missions.filter((m) => m.kind !== 'design-sweep').map((m) => m.id).sort();
+    expect(journeys).toEqual(['M01_walker58', 'M02_runner_intervals', 'M03_home_beginner']);
+    expect(missions.filter((m) => m.kind === 'design-sweep').length).toBeGreaterThanOrEqual(12);
+    expect(personas.size).toBe(4);
+    for (const m of missions) for (const uid of missionUids(m)) expect(isTesterUid(uid)).toBe(true);
   });
   it('a mission must use a demo_qa_ account and known rules', () => {
     const bad = { ...missions[0], uid: 'demo_tlv01', focusRules: ['NOPE'] };

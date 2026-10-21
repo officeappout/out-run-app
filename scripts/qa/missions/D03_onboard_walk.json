@@ -1,0 +1,59 @@
+{
+  "id": "D03_onboard_walk",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_walk",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: שאלון ההרשמה להליכה ומסך הבית של הולכת. את מסכי הפתיחה הראשונים עברי מהר בלי לתת להם ציון (הם בעיצוב מחדש). כשמבקשים עיר, בחרי עיר שמתחילה ב'דמו', למשל 'דמו · תל אביב'. בחרי הליכה ומלאי כל שדה עם מקלדת. תני ציון בכל מסך שבצ'קליסט.",
+  "success": [
+    "כל מסכי שאלון ההליכה קיבלו ציון",
+    "מסך הבית של הליכה קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 30,
+    "maxMinutes": 14
+  },
+  "focusRules": [
+    "MOB-KEYBOARD",
+    "V2-SELECTED-TINT",
+    "V2-ACTIVITY-COLOR",
+    "V2-CTA-1",
+    "LAY-DENSITY"
+  ],
+  "checkpoints": [
+    {
+      "id": "onb_walk_goal",
+      "screen": "מטרת הליכה",
+      "how": "שאלות מטרה (צעדים/זמן/בריאות)",
+      "path": "/onboarding-new/walking"
+    },
+    {
+      "id": "onb_walk_keyboard",
+      "screen": "שדה עם מקלדת בהליכה",
+      "how": "שדה מספר (צעדים, גיל, משקל) עם המקלדת פתוחה",
+      "keyboard": true
+    },
+    {
+      "id": "onb_walk_days",
+      "screen": "ימי הליכה",
+      "how": "בחירת ימים ושעה"
+    },
+    {
+      "id": "home_walk",
+      "screen": "מסך הבית — הולכת",
+      "how": "הבית עם תוכנית הליכה וכרטיס הצעדים",
+      "path": "/home"
+    }
+  ]
+}

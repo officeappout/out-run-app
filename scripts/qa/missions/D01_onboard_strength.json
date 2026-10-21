@@ -1,0 +1,79 @@
+{
+  "id": "D01_onboard_strength",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_strength",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: שאלון ההרשמה לכוח ומסך הבית הראשון. את מסכי הפתיחה הראשונים עברי מהר בלי לתת להם ציון (הם בעיצוב מחדש). כשמבקשים עיר, בחרי עיר שמתחילה ב'דמו', למשל 'דמו · תל אביב'. בחרי מסלול כוח, ענִי על השאלות כמו מתאמנת בבית עם מתח, ועצרי לתת ציון בכל מסך שבצ'קליסט. בכל שדה טקסט או מספר — פתחי את המקלדת ותני ציון כשהיא פתוחה.",
+  "success": [
+    "כל מסכי השאלון קיבלו ציון",
+    "מסך הבית אחרי ההרשמה קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 40,
+    "maxMinutes": 18
+  },
+  "focusRules": [
+    "MOB-KEYBOARD",
+    "V2-SELECTED-TINT",
+    "V2-CTA-1",
+    "V2-NOWRAP",
+    "HEALTH-ONCE",
+    "V2-MIXED-GEN"
+  ],
+  "checkpoints": [
+    {
+      "id": "onb_strength_path",
+      "screen": "בחירת מסלול (כוח/ריצה/הליכה)",
+      "how": "המסך שבו בוחרים סוג אימון ראשי"
+    },
+    {
+      "id": "onb_strength_goal",
+      "screen": "מטרה ורמה בכוח",
+      "how": "שאלות המטרה והרמה של מסלול הכוח"
+    },
+    {
+      "id": "onb_strength_equipment",
+      "screen": "ציוד ומקום אימון",
+      "how": "בחירת ציוד (מתח, משקולות, בית/פארק) — בדקי את מצב 'נבחר'"
+    },
+    {
+      "id": "onb_profile_keyboard",
+      "screen": "פרטים אישיים עם מקלדת",
+      "how": "שדות גיל/גובה/משקל או שם — הקישי בשדה כך שהמקלדת פתוחה, ובדקי שהשדה והכפתור גלויים",
+      "keyboard": true
+    },
+    {
+      "id": "onb_strength_days",
+      "screen": "ימי אימון ושעה",
+      "how": "בחירת ימים בשבוע ושעת אימון"
+    },
+    {
+      "id": "onb_health",
+      "screen": "הצהרת בריאות",
+      "how": "מסך הצהרת הבריאות (פעם אחת בלבד)"
+    },
+    {
+      "id": "onb_strength_summary",
+      "screen": "סיכום התוכנית",
+      "how": "המסך שמציג את התוכנית שנבנתה לפני הכניסה לבית"
+    },
+    {
+      "id": "home_new_user",
+      "screen": "מסך הבית — משתמשת חדשה",
+      "how": "הבית מיד אחרי ההרשמה, לפני שבוצע אימון",
+      "path": "/home"
+    }
+  ]
+}

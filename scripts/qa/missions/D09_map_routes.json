@@ -1,0 +1,61 @@
+{
+  "id": "D09_map_routes",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_run",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: המפה, מגירת המסלולים ותצוגת מסלול. פתחי את המפה, חכי שתיטען, פתחי את מגירת המסלולים, בחרי מסלול לתצוגה, ופתחי פארק אחד אם מופיע.",
+  "success": [
+    "המפה, מגירת המסלולים ותצוגת המסלול קיבלו ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 34,
+    "maxMinutes": 16
+  },
+  "focusRules": [
+    "V2-SHEET",
+    "LAY-OVERLAP",
+    "MOB-SAFE-AREA",
+    "STATE-LOADING",
+    "V2-CTA-1"
+  ],
+  "checkpoints": [
+    {
+      "id": "map",
+      "screen": "מפה",
+      "how": "מסך המפה אחרי טעינה (בדקי את שלב הטעינה)",
+      "path": "/map"
+    },
+    {
+      "id": "map_route_drawer",
+      "screen": "מגירת מסלולים",
+      "how": "פתחי את המגירה עם רשימת המסלולים"
+    },
+    {
+      "id": "map_route_drawer_full",
+      "screen": "מגירת מסלולים פתוחה עד הסוף",
+      "how": "גררי את המגירה למעלה עד הסוף"
+    },
+    {
+      "id": "map_route_overview",
+      "screen": "תצוגת מסלול",
+      "how": "בחרי מסלול: הקו על המפה והפרטים"
+    },
+    {
+      "id": "map_park_sheet",
+      "screen": "כרטיס פארק",
+      "how": "הקישי על פארק במפה אם יש"
+    }
+  ]
+}

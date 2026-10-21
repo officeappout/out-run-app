@@ -14,6 +14,8 @@ export interface OpenBrowser {
   browser: PwBrowser;
   context: PwContext;
   page: PwPage;
+  /** The device's full viewport (the keyboard tool shrinks and restores it). */
+  viewport: { width: number; height: number };
   /** Errors since the last drain (the linters read and reset them each step). */
   drainErrors(): RuntimeErrors;
   close(): Promise<void>;
@@ -85,6 +87,7 @@ export async function openBrowser(device: DeviceProfile, opts: { appCheckDebugTo
     browser,
     context,
     page,
+    viewport: { ...device.viewport },
     drainErrors() {
       const out = { console: consoleErrors, failedRequests: failed };
       consoleErrors = [];
