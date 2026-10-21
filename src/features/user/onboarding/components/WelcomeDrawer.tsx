@@ -23,7 +23,9 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, Dumbbell, Footprints, MapPin, Route, Trees, X, type LucideIcon } from 'lucide-react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { useUserStore } from '../../identity/store/useUserStore';
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import type { EntryRouterGeoBranch } from '../hooks/useEntryRouter';
 
 interface WelcomeDrawerProps {
@@ -43,19 +45,10 @@ const SECONDARY_ICON_V2: Record<EntryRouterGeoBranch, { icon: LucideIcon; tile: 
   none: { icon: Footprints, tile: 'bg-[#f59e0b]/10 text-[#b45309]' },
 };
 
-const SECONDARY_COPY: Record<EntryRouterGeoBranch, { title: string; subtitle: string }> = {
-  gardens: {
-    title: 'אימון היברידי בגינת כושר קרובה',
-    subtitle: 'מצאנו לך מתחם עם מתקנים באזור שלך',
-  },
-  routes: {
-    title: 'מסלול ריצה מוכן באזור שלך',
-    subtitle: 'מסלול מתוכנן ומוכן להתחלה',
-  },
-  none: {
-    title: 'ריצה או הליכה חופשית',
-    subtitle: 'נתחיל במיקום שלך, בלי צורך בציוד',
-  },
+const SECONDARY_COPY: Record<EntryRouterGeoBranch, { title: OnboardingKey; subtitle: OnboardingKey }> = {
+  gardens: { title: 'welcome.secondary.gardens.title', subtitle: 'welcome.secondary.gardens.subtitle' },
+  routes: { title: 'welcome.secondary.routes.title', subtitle: 'welcome.secondary.routes.subtitle' },
+  none: { title: 'welcome.secondary.none.title', subtitle: 'welcome.secondary.none.subtitle' },
 };
 
 export default function WelcomeDrawer({
@@ -66,8 +59,11 @@ export default function WelcomeDrawer({
   onJustLook,
 }: WelcomeDrawerProps) {
   const v2 = useHomeV2();
+  const t = useT(onboarding);
   const gender = useUserStore((s) => s.profile?.core?.gender) as AppGender | undefined;
   const secondary = SECONDARY_COPY[geoBranch];
+  // g(gender, male, female, neutral): only 'female' / 'other' leave the masculine form.
+  const greetingGender = gender === 'female' || gender === 'other' ? gender : 'male';
 
   if (v2) {
     const sec = SECONDARY_ICON_V2[geoBranch];
@@ -97,16 +93,16 @@ export default function WelcomeDrawer({
           <div className="mb-5 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-                {g(gender, 'ברוך הבא ל-OUT', 'ברוכה הבאה ל-OUT', 'ברוכים הבאים ל-OUT')}
+                {t('welcome.greeting', { gender: greetingGender })}
               </p>
               <h2 className="mt-1 text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
-                מה הדבר הראשון שבא לך לעשות?
+                {t('welcome.title')}
               </h2>
             </div>
             <button
               type="button"
               onClick={onSkipToMap}
-              aria-label="דלג למפה"
+              aria-label={t('welcome.skipToMap')}
               className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline"
             >
               <X size={16} />
@@ -119,8 +115,8 @@ export default function WelcomeDrawer({
                 <Dumbbell size={24} strokeWidth={2.4} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[16px] font-black text-v2-ink">אימון כוח מותאם</span>
-                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">תוכנית בנויה בשבילך, לפי הרמה שלך</span>
+                <span className="block truncate text-[16px] font-black text-v2-ink">{t('welcome.strength.title')}</span>
+                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{t('welcome.strength.subtitle')}</span>
               </span>
               <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
             </button>
@@ -130,8 +126,8 @@ export default function WelcomeDrawer({
                 <SecIcon size={24} strokeWidth={2.4} aria-hidden />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[16px] font-black text-v2-ink">{secondary.title}</span>
-                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{secondary.subtitle}</span>
+                <span className="block truncate text-[16px] font-black text-v2-ink">{t(secondary.title)}</span>
+                <span className="mt-0.5 block text-[13px] font-bold leading-snug text-v2-muted">{t(secondary.subtitle)}</span>
               </span>
               <ChevronLeft size={18} className="flex-shrink-0 text-v2-muted" aria-hidden />
             </button>
@@ -143,7 +139,7 @@ export default function WelcomeDrawer({
               onClick={onJustLook}
               className="mx-auto mt-4 block whitespace-nowrap px-3 py-2 text-center text-[14px] font-bold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
-              סתם בא לי להסתכל באפליקציה
+              {t('welcome.justLook')}
             </button>
           )}
         </motion.div>
@@ -170,7 +166,7 @@ export default function WelcomeDrawer({
       >
         <button
           onClick={onSkipToMap}
-          aria-label="דלג למפה"
+          aria-label={t('welcome.skipToMap')}
           className="absolute left-4 top-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
         >
           <X size={16} />
@@ -179,10 +175,10 @@ export default function WelcomeDrawer({
         <div className="w-10 h-1.5 bg-slate-200 rounded-full mx-auto mb-5" />
 
         <h2 className="text-xl font-black text-slate-900 text-center mb-1">
-          ברוכים הבאים ל-OUT
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ברוכים הבאים ל-OUT
         </h2>
         <p className="text-slate-500 font-medium text-center mb-6">
-          מה בא לך לעשות?
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מה בא לך לעשות?
         </p>
 
         <div className="flex flex-col gap-3">
@@ -194,8 +190,8 @@ export default function WelcomeDrawer({
               <Dumbbell size={22} />
             </span>
             <span className="text-right flex-1">
-              <span className="block font-bold text-base leading-tight">אימון כוח מותאם</span>
-              <span className="block text-sm opacity-90">תוכנית בנויה בשבילך, לפי הרמה שלך</span>
+              <span className="block font-bold text-base leading-tight">{t('welcome.strength.title')}</span>
+              <span className="block text-sm opacity-90">{t('welcome.strength.subtitle')}</span>
             </span>
           </button>
 
@@ -207,8 +203,8 @@ export default function WelcomeDrawer({
               <MapPin size={22} className="text-[#3BA4D8]" />
             </span>
             <span className="text-right flex-1">
-              <span className="block font-bold text-base leading-tight text-slate-900">{secondary.title}</span>
-              <span className="block text-sm text-slate-500">{secondary.subtitle}</span>
+              <span className="block font-bold text-base leading-tight text-slate-900">{t(secondary.title)}</span>
+              <span className="block text-sm text-slate-500">{t(secondary.subtitle)}</span>
             </span>
           </button>
         </div>
@@ -217,7 +213,7 @@ export default function WelcomeDrawer({
           onClick={onSkipToMap}
           className="w-full text-center text-sm font-semibold text-slate-400 mt-5"
         >
-          דלג, רק תראו לי את המפה
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דלג, רק תראו לי את המפה
         </button>
       </motion.div>
     </div>

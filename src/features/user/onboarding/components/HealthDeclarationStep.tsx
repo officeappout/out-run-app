@@ -20,6 +20,9 @@ import { useJitIdentityV1 } from '../hooks/useJitIdentityV1';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { resolveSignerIdentity } from '../utils/health-signer-identity';
 import { LEGAL_VERSION } from '@/features/legal/legal-content';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 interface HealthDeclarationStepProps {
   title?: string;
@@ -73,7 +76,9 @@ export default function HealthDeclarationStep({
     sessionName: typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_name') : null,
     sessionGender: typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_gender') : null,
   });
-  const isFemale = gender === 'female';
+  const t = useT(onboarding);
+  // The signer's gender — anything but 'female' read the masculine copy (explicit: not always the profile's).
+  const copyGender = genderArg(gender);
 
   // ── Direction (i18n-ready — swap for a prop/context in a future i18n pass) ──
   // true  → Lemur on RIGHT, bubble on LEFT, tail points right.
@@ -475,12 +480,10 @@ export default function HealthDeclarationStep({
                   style={v2 ? { fontSize: '17px' } : { fontSize: '17px', color: '#000000' }}
                 >
                   {(() => {
-                    const sentence = isFemale
-                      ? 'רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרות עלייך ב100%.'
-                      : 'רגע לפני שיוצאים לדרך, חשוב לנו לוודא שאנחנו שומרים עליך ב100%.';
+                    const sentence = t('health.intro.sentence', { gender: copyGender });
                     const words = userName
-                      ? [`${userName},`, ...sentence.split(' ')]
-                      : [(title || 'הצהרת בריאות')];
+                      ? [t('health.intro.name', { name: userName }), ...sentence.split(' ')]
+                      : [(title || t('health.title'))];
                     return words.map((word, i) => (
                       <React.Fragment key={i}>
                         <motion.span
@@ -499,7 +502,7 @@ export default function HealthDeclarationStep({
                 </h1>
 
                 <p className={v2 ? 'text-[12.5px] font-bold text-v2-muted leading-relaxed' : 'text-xs text-slate-500 leading-relaxed'}>
-                  {'נשאר לנו רק לעבור על שאלון הבריאות הקצר ולחתום למטה.'.split(' ').map((word, i) => (
+                  {t('health.intro.sub').split(' ').map((word, i) => (
                     <React.Fragment key={i}>
                       <motion.span
                         variants={{
@@ -537,7 +540,7 @@ export default function HealthDeclarationStep({
               : 'flex items-center gap-1.5 text-[#5BC2F2] text-sm font-medium hover:text-[#4AADE3] transition-colors'}
           >
             <Info size={15} className="flex-shrink-0" />
-            <span>מידע על פרטיות ובטיחות</span>
+            <span>{t('health.privacyInfo')}</span>
           </button>
         </div>
 
@@ -561,10 +564,7 @@ export default function HealthDeclarationStep({
             >
               <Zap size={v2 ? 18 : 20} className="flex-shrink-0" />
               <span>
-                {isFemale
-                  ? 'אני מצהירה שכל התשובות הן "לא"'
-                  : 'אני מצהיר שכל התשובות הן "לא"'
-                }
+                {t('health.fastTrack.cta', { gender: copyGender })}
               </span>
             </button>
 
@@ -572,7 +572,7 @@ export default function HealthDeclarationStep({
             <div className={v2 ? 'flex items-start gap-2 bg-v2-amber/10 rounded-2xl p-3' : 'flex items-start gap-2 bg-orange-50/60 border border-orange-200/50 rounded-xl p-3'}>
               <AlertTriangle size={16} className={v2 ? 'text-v2-amber flex-shrink-0 mt-0.5' : 'text-orange-600 flex-shrink-0 mt-0.5'} />
               <p className={v2 ? 'text-[12.5px] font-semibold text-[#92400e] leading-relaxed' : 'text-xs text-orange-700 leading-relaxed'}>
-                <span className="font-bold">שימו לב:</span> לחיצה על כפתור זה מצהירה שאתם בריאים ולא סובלים מאף אחת מהבעיות הרפואיות המפורטות בשאלון. אם יש לכם ספק, אנא ענו על כל שאלה בנפרד.
+                {t.rich('health.fastTrack.note', { b: (chunks: React.ReactNode) => <span className="font-bold">{chunks}</span> })}
               </p>
             </div>
           </div>
@@ -616,7 +616,7 @@ export default function HealthDeclarationStep({
                       }`}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    לא
+                    {t('health.answer.no')}
                     {isAutoFilled && (
                       <span className={v2 ? 'absolute top-1 right-2 w-2 h-2 bg-v2-accent rounded-full' : 'absolute -top-1 -right-1 w-2 h-2 bg-sky-400 rounded-full'} title="Fast-Track" />
                     )}
@@ -636,7 +636,7 @@ export default function HealthDeclarationStep({
                       }`}
                     style={{ fontFamily: 'var(--font-simpler)' }}
                   >
-                    כן
+                    {t('health.answer.yes')}
                   </button>
                 </div>
 
@@ -655,10 +655,7 @@ export default function HealthDeclarationStep({
                           className={v2 ? 'text-[12.5px] font-semibold text-[#92400e] leading-relaxed' : 'text-xs text-amber-700 leading-relaxed'}
                           style={{ fontFamily: 'var(--font-simpler)' }}
                         >
-                          {isFemale
-                            ? 'שימי לב: עקב תשובתך, מומלץ להתייעץ עם רופא לפני תחילת פעילות גופנית.'
-                            : 'שים לב: עקב תשובתך, מומלץ להתייעץ עם רופא לפני תחילת פעילות גופנית.'
-                          }
+                          {t('health.answer.yesWarning', { gender: copyGender })}
                         </p>
                       </div>
                     </motion.div>
@@ -674,11 +671,9 @@ export default function HealthDeclarationStep({
 
           {/* Title + gender-responsive subtitle */}
           <div className="space-y-1" dir="rtl">
-            <h3 className={v2 ? 'font-black text-v2-ink text-[17px] !tracking-[-0.02em]' : 'font-black text-slate-900 text-lg'}>הצהרת בריאות ואישור תוכנית 📋</h3>
+            <h3 className={v2 ? 'font-black text-v2-ink text-[17px] !tracking-[-0.02em]' : 'font-black text-slate-900 text-lg'}>{t('health.signature.title')}</h3>
             <p className={v2 ? 'text-[14px] text-v2-ink-2 leading-relaxed' : 'text-sm text-slate-500 leading-relaxed'}>
-              {isFemale
-                ? 'אנא קראי ואשרי את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'
-                : 'אנא קרא ואשר את הצהרת הבריאות כדי שנוכל להנפיק את התוכנית'}
+              {t('health.signature.subtitle', { gender: copyGender })}
             </p>
           </div>
 
@@ -706,7 +701,7 @@ export default function HealthDeclarationStep({
             {/* Placeholder hint — hidden once the user starts drawing */}
             {!hasSigned && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" dir="rtl">
-                <span className={v2 ? 'text-v2-muted text-[14px] font-bold' : 'text-slate-300 text-sm'}>חתום/י כאן עם האצבע</span>
+                <span className={v2 ? 'text-v2-muted text-[14px] font-bold' : 'text-slate-300 text-sm'}>{t('health.signature.placeholder')}</span>
               </div>
             )}
             {/* Clear button — bottom-right corner */}
@@ -717,7 +712,7 @@ export default function HealthDeclarationStep({
                 ? 'absolute bottom-2.5 right-3 whitespace-nowrap text-[12px] font-extrabold text-v2-deep'
                 : 'absolute bottom-2.5 right-3 text-xs text-slate-400 hover:text-slate-600 transition-colors font-medium'}
             >
-              ניקוי חתימה
+              {t('health.signature.clear')}
             </button>
           </div>
 
@@ -725,7 +720,7 @@ export default function HealthDeclarationStep({
           <div className={v2
             ? `text-[12.5px] text-center font-bold transition-colors ${signatureData ? 'text-v2-up' : 'text-v2-muted'}`
             : `text-xs text-center font-bold transition-colors ${signatureData ? 'text-emerald-600' : 'text-slate-400'}`}>
-            {signatureData ? '✓ החתימה התקבלה' : 'יש לחתום בתיבה למעלה'}
+            {signatureData ? t('health.signature.received') : t('health.signature.missing')}
           </div>
 
           {/* ── Confirmation Checkbox — disabled until the user has signed ── */}
@@ -755,22 +750,27 @@ export default function HealthDeclarationStep({
                 </div>
               </div>
               <p className={v2 ? 'text-[14px] text-v2-ink leading-relaxed flex-1' : 'text-sm text-slate-700 leading-relaxed flex-1'} dir="rtl">
-                {isFemale ? 'אני מצהירה' : 'אני מצהיר'} כי כל הנתונים נכונים {isFemale ? 'ומסכימה' : 'ומסכים'} ל
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
-                  className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
-                >
-                  תנאי השימוש
-                </button>
-                ול
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }}
-                  className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
-                >
-                  מדיניות הפרטיות
-                </button>
+                {t.rich('health.terms', {
+                  gender: copyGender,
+                  terms: (chunks: React.ReactNode) => (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                      className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
+                    >
+                      {chunks}
+                    </button>
+                  ),
+                  privacy: (chunks: React.ReactNode) => (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }}
+                      className={v2 ? 'text-v2-deep underline underline-offset-2 mx-1 font-extrabold' : 'text-[#5BC2F2] underline hover:text-[#4AADE3] mx-1 font-medium'}
+                    >
+                      {chunks}
+                    </button>
+                  ),
+                })}
               </p>
             </label>
           </div>
@@ -803,10 +803,7 @@ export default function HealthDeclarationStep({
                   className={v2 ? 'text-[14px] text-[#b4232a] leading-relaxed font-bold' : 'text-sm text-red-700 leading-relaxed font-semibold'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  {isFemale
-                    ? 'עקב תשובותייך, לא ניתן להמשיך בתהליך ההרשמה. מומלץ להתייעץ עם רופא ומאמן מקצועי לפני תחילת פעילות גופנית.'
-                    : 'עקב תשובותיך, לא ניתן להמשיך בתהליך ההרשמה. מומלץ להתייעץ עם רופא ומאמן מקצועי לפני תחילת פעילות גופנית.'
-                  }
+                  {t('health.blocked', { gender: copyGender })}
                 </p>
               </div>
             </motion.div>
@@ -838,12 +835,12 @@ export default function HealthDeclarationStep({
           {isSubmitting ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              <span>מכין מסמך חתום...</span>
+              <span>{t('health.submitting')}</span>
             </>
           ) : hasMedicalIssue ? (
-            'לא ניתן להמשיך'
+            t('health.cta.blocked')
           ) : (
-            'אישור והמשך'
+            t('health.cta.submit')
           )}
         </motion.button>
 
@@ -853,7 +850,7 @@ export default function HealthDeclarationStep({
             className={v2 ? 'text-center text-[12px] font-bold text-v2-muted mt-2' : 'text-center text-xs text-slate-400 mt-2'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {`${answeredQuestions.size}/${HEALTH_QUESTIONS.length} שאלות נענו`}
+            {t('health.progress', { answered: String(answeredQuestions.size), total: String(HEALTH_QUESTIONS.length) })}
           </p>
         )}
         {allAnswered && !signatureData && !hasMedicalIssue && (
@@ -861,7 +858,7 @@ export default function HealthDeclarationStep({
             className={v2 ? 'text-center text-[12px] text-[#b45309] mt-2 font-bold' : 'text-center text-xs text-amber-500 mt-2 font-medium'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            נא לחתום בתיבת החתימה למעלה כדי להמשיך
+            {t('health.hint.sign')}
           </p>
         )}
         {allAnswered && signatureData && !termsAccepted && !hasMedicalIssue && (
@@ -869,7 +866,7 @@ export default function HealthDeclarationStep({
             className={v2 ? 'text-center text-[12px] text-[#b45309] mt-2 font-bold' : 'text-center text-xs text-amber-500 mt-2 font-medium'}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            נא לאשר את תנאי השימוש ומדיניות הפרטיות
+            {t('health.hint.terms')}
           </p>
         )}
       </div>
@@ -900,7 +897,7 @@ export default function HealthDeclarationStep({
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={20} className={v2 ? 'text-v2-deep flex-shrink-0' : 'text-[#5BC2F2] flex-shrink-0'} />
                   <h2 className={v2 ? 'text-[20px] font-black !tracking-[-0.02em] text-v2-ink whitespace-nowrap' : 'text-base font-bold text-slate-900'} style={{ fontFamily: 'var(--font-simpler)' }}>
-                    פרטיות ובטיחות
+                    {t('health.safety.title')}
                   </h2>
                 </div>
                 <button
@@ -914,10 +911,10 @@ export default function HealthDeclarationStep({
               </div>
               <div className="px-5 py-4 space-y-3" style={{ fontFamily: 'var(--font-simpler)' }}>
                 <p className={v2 ? 'text-[14px] text-v2-ink-2 leading-relaxed' : 'text-sm text-slate-600 leading-relaxed'}>
-                  כל המידע שתמלא נשמר באופן פרטי ומאובטח, ומשמש רק לצורך התאמת התוכנית האישית עבורך.
+                  {t('health.safety.private')}
                 </p>
                 <p className={v2 ? 'text-[14px] text-v2-ink font-bold leading-relaxed' : 'text-sm text-slate-800 font-semibold leading-relaxed'}>
-                  אם התשובה לאחת השאלות תצביע על בעיה רפואית, מומלץ להתייעץ עם רופא לפני תחילת פעילות גופנית.
+                  {t('health.safety.medical')}
                 </p>
               </div>
               <div className="px-5 pb-5">
@@ -928,7 +925,7 @@ export default function HealthDeclarationStep({
                     : 'w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-3 rounded-xl transition-all text-sm'}
                   style={{ fontFamily: 'var(--font-simpler)' }}
                 >
-                  הבנתי
+                  {t('health.safety.ok')}
                 </button>
               </div>
             </motion.div>

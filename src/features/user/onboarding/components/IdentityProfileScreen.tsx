@@ -19,6 +19,8 @@ import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { LEGACY_GATEWAY_ROUTE, WELCOME_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 import { contentEntryMotion, headerSafeTop, stepScrollOverscroll } from '@/features/user/onboarding/utils/fit-screen';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -34,19 +36,17 @@ function resolveUid(authUser: User | null): string | null {
 }
 
 const GENDER_OPTIONS = [
-  { value: 'male',   label: 'גבר',  emoji: '🙋‍♂️' },
-  { value: 'female', label: 'אישה', emoji: '🙋‍♀️' },
-  { value: 'other',  label: 'אחר',  emoji: '✨' },
-] as const;
+  { value: 'male',   labelKey: 'identity.gender.male',   emoji: '🙋‍♂️' },
+  { value: 'female', labelKey: 'identity.gender.female', emoji: '🙋‍♀️' },
+  { value: 'other',  labelKey: 'identity.gender.other',  emoji: '✨' },
+] as const satisfies ReadonlyArray<{ value: string; labelKey: OnboardingKey; emoji: string }>;
 
 type Gender = 'male' | 'female' | 'other' | '';
 
-/** Kelly's intro line when the screen opens from the JIT workout-start gate. */
-export const WORKOUT_CONTEXT_INTRO =
-  'אני קלי. לפני שיוצאים למסלול אני צריך רק 3 דברים קטנים, ואחריהם הצהרת בריאות קצרה.';
+/** Kelly's intro line (catalog key) when the screen opens from the JIT workout-start gate. */
+export const WORKOUT_CONTEXT_INTRO: OnboardingKey = 'identity.intro.workout';
 /** context 'program' (enable_home_v2): asked inside a signup flow, right before its first save. */
-export const PROGRAM_CONTEXT_INTRO =
-  'אני קלי. כדי לשמור את התוכנית שבנינו אני צריך רק 3 דברים קטנים.';
+export const PROGRAM_CONTEXT_INTRO: OnboardingKey = 'identity.intro.program';
 
 interface IdentityProfileScreenProps {
   /** The /onboarding-new/profile ?context= value ('profile-only' | 'express'), or 'workout'. */
@@ -73,6 +73,7 @@ export default function IdentityProfileScreen({
   hostPadsTop = false,
 }: IdentityProfileScreenProps) {
   const router = useRouter();
+  const t = useT(onboarding);
   /** When true the page was opened mid-session to collect a missing name only. */
   const isProfileOnly = context === 'profile-only';
   /** Fast path: collect identity then land at the deep-link destination. */
@@ -254,7 +255,7 @@ export default function IdentityProfileScreen({
       if (!uid) {
         console.error('[Profile] No uid from any source — waiting for auth');
         reportSignupFailure('IDENTITY_SUBMIT', 'no_uid');
-        alert('לא נמצא משתמש מחובר. נסה לרענן את הדף.');
+        alert(t('identity.alert.noUser'));
         setLoading(false);
         return;
       }
@@ -263,7 +264,7 @@ export default function IdentityProfileScreen({
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
         reportSignupFailure('IDENTITY_SUBMIT', 'no_id_token');
-        alert('שגיאה באימות המשתמש. נסה לרענן את הדף.');
+        alert(t('identity.alert.authError'));
         setLoading(false);
         return;
       }
@@ -397,7 +398,7 @@ export default function IdentityProfileScreen({
     } catch (error) {
       console.error('[Identity] Error saving profile:', error);
       reportSignupFailure('IDENTITY_SUBMIT', extractErrorCode(error));
-      alert('שגיאה בשמירת הפרופיל');
+      alert(t('identity.alert.saveError'));
       setLoading(false);
     }
   };
@@ -458,7 +459,7 @@ export default function IdentityProfileScreen({
       >
         <Loader2 size={36} className={v2 ? 'text-v2-accent animate-spin mb-4' : 'text-[#5BC2F2] animate-spin mb-4'} />
         <p className={v2 ? 'text-v2-muted text-[13px] font-bold' : 'text-slate-400 text-sm font-medium'} style={{ fontFamily: 'var(--font-simpler)' }}>
-          מאמת זהות...
+          {t('identity.verifying')}
         </p>
       </div>
     );
@@ -499,7 +500,7 @@ export default function IdentityProfileScreen({
               // 44×44 hit area around the same 40×40 circle; -m-0.5 keeps the header layout.
               ? 'group -m-0.5 flex-shrink-0 grid h-11 w-11 place-items-center rounded-full touch-manipulation'
               : 'flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation'}
-            aria-label="חזרה"
+            aria-label={t('identity.back')}
           >
             {v2 ? (
               <span className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 group-active:scale-[0.97]">
@@ -554,9 +555,9 @@ export default function IdentityProfileScreen({
               />
             </motion.div>
             {v2 ? (
-              <h2 className="whitespace-nowrap text-[26px] font-black !tracking-[-0.02em] text-v2-ink text-right">נעים להכיר!</h2>
+              <h2 className="whitespace-nowrap text-[26px] font-black !tracking-[-0.02em] text-v2-ink text-right">{t('identity.heading')}</h2>
             ) : (
-              <h2 className="text-2xl font-black text-slate-900 text-right">נעים להכיר! 👋</h2>
+              <h2 className="text-2xl font-black text-slate-900 text-right">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נעים להכיר! 👋</h2>
             )}
           </div>
 
@@ -602,10 +603,10 @@ export default function IdentityProfileScreen({
               /* Join-context two-line layout — group name prominent, no word animation */
               <div className="text-right" dir="rtl">
                 <p className={v2 ? 'text-[15px] font-black text-v2-ink mb-1' : 'text-base font-black text-slate-900 mb-1'}>
-                  מצטרפים לקבוצת {pendingGroupName}
+                  {t('identity.join.title', { group: pendingGroupName ?? '' })}
                 </p>
                 <p className={v2 ? 'text-[14px] font-medium text-v2-ink-2' : 'text-sm font-medium text-slate-600'}>
-                  {v2 ? 'היי, אני קלי. עוד כמה פרטים קטנים ומצטרפים.' : 'היי, אני קלי 👋 עוד כמה פרטים קטנים ומצטרפים.'}
+                  {v2 ? t('identity.join.sub') : /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ 'היי, אני קלי 👋 עוד כמה פרטים קטנים ומצטרפים.'}
                 </p>
               </div>
             ) : (
@@ -620,13 +621,13 @@ export default function IdentityProfileScreen({
                 initial="hidden"
                 animate="show"
               >
-                {(isProgram
+                {t(isProgram
                   ? PROGRAM_CONTEXT_INTRO
                   : isWorkout
                   ? WORKOUT_CONTEXT_INTRO
                   : isProfileOnly
-                  ? 'היי, אני קלי — המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'
-                  : 'אני קלי, המאמן האישי שלך. כדי שאבנה לך תוכנית שבאמת מתאימה — אני צריך רק 3 דברים קטנים.'
+                  ? 'identity.intro.profileOnly'
+                  : 'identity.intro.default'
                 ).split(' ').map((word, i) => (
                   <React.Fragment key={i}>
                     <motion.span
@@ -653,17 +654,17 @@ export default function IdentityProfileScreen({
           {/* Tapping auto-advances focus to the Day field (Step 2).            */}
           <div className="space-y-2">
             <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
-              איך היית רוצה שנפנה אלייך?
+              {t('identity.gender.label')}
             </label>
             <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
               {isJoinContext
-                ? 'רק כדי לדעת איך לפנות.'
+                ? t('identity.gender.hintJoin')
                 : v2
-                  ? 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'
-                  : 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'}
+                  ? t('identity.gender.hint')
+                  : /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ 'רק כדי שנדע מתי לפרגן לך ב\'כל הכבוד מלך!\' ומתי ב\'אלופה, שברת את המסך!\' 👑 (ובשביל דיוק המדדים הפיזיולוגיים שלך, כמובן).'}
             </p>
             <div className={v2 ? 'flex gap-2 pt-1' : 'flex gap-3'}>
-              {GENDER_OPTIONS.map(({ value, label, emoji }) => (
+              {GENDER_OPTIONS.map(({ value, labelKey, emoji }) => (
                 <motion.button
                   key={value}
                   type="button"
@@ -692,7 +693,7 @@ export default function IdentityProfileScreen({
                   }`}
                 >
                   {!v2 && <span className={value === 'other' ? 'text-lg' : 'text-xl'}>{emoji}</span>}
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                 </motion.button>
               ))}
             </div>
@@ -703,10 +704,10 @@ export default function IdentityProfileScreen({
           {/* Year complete → auto-advance focus to the Name field (Step 3).   */}
           <div className="space-y-2">
             <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
-              {v2 ? 'מתי חוגגים לך יום הולדת?' : 'מתי חוגגים לך יום הולדת? 🎂'}
+              {v2 ? t('identity.birthday.label') : /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ 'מתי חוגגים לך יום הולדת? 🎂'}
             </label>
             <p className={v2 ? 'text-[12.5px] font-bold leading-snug text-v2-muted text-right' : 'text-sm text-gray-400 text-right pr-1'}>
-              {isJoinContext ? 'כדי שנתאים את החוויה לגיל.' : 'עוזר לנו להתאים את עצימות האימון לגילך.'}
+              {isJoinContext ? t('identity.birthday.hintJoin') : t('identity.birthday.hint')}
             </p>
 
             <div className={v2 ? 'flex gap-2 flex-row items-center pt-1' : 'flex gap-3 flex-row'}>
@@ -732,7 +733,7 @@ export default function IdentityProfileScreen({
                     setFormData(prev => ({ ...prev, birthDay: prev.birthDay.padStart(2, '0') }));
                   }
                 }}
-                placeholder="יום"
+                placeholder={t('identity.birthday.day')}
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
 
@@ -768,7 +769,7 @@ export default function IdentityProfileScreen({
                     monthInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }, 150);
                 }}
-                placeholder="חודש"
+                placeholder={t('identity.birthday.month')}
                 className={`w-16 ${dateInputClass(hasDobError)}`}
               />
 
@@ -807,19 +808,19 @@ export default function IdentityProfileScreen({
                     yearInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }, 150);
                 }}
-                placeholder="שנה"
+                placeholder={t('identity.birthday.year')}
                 className={`w-20 ${dateInputClass(hasDobError)}`}
               />
             </div>
 
             {isUnder14 && (
               <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
-                השימוש באפליקציה מותר מגיל 14 ומעלה
+                {t('identity.birthday.under14')}
               </p>
             )}
             {isDobInvalid && (
               <p className={v2 ? 'text-[#b4232a] text-[12.5px] font-bold text-right' : 'text-red-500 text-sm font-medium text-right'}>
-                תאריך לא תקין
+                {t('identity.birthday.invalid')}
               </p>
             )}
           </div>
@@ -829,7 +830,7 @@ export default function IdentityProfileScreen({
           {/* Enter key submits the form if all fields are complete.            */}
           <div className="space-y-2">
             <label className={v2 ? 'block text-v2-ink font-black text-[17px] !tracking-[-0.01em] text-right' : 'block text-slate-900 font-black text-lg text-right pr-1'}>
-              איך קוראים לך?
+              {t('identity.name.label')}
             </label>
             <input
               ref={nameInputRef}
@@ -852,7 +853,7 @@ export default function IdentityProfileScreen({
               className={v2
                 ? 'w-full h-[52px] bg-white text-v2-ink placeholder:text-v2-muted rounded-2xl border-0 px-4 text-[16px] font-semibold shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none transition-shadow font-simpler text-right'
                 : 'w-full bg-white text-black placeholder-slate-400 rounded-2xl border-2 border-slate-200 py-4 px-5 shadow-sm focus:border-[#5BC2F2] focus:ring-4 focus:ring-[#5BC2F2]/10 outline-none transition-all font-medium font-simpler text-right'}
-              placeholder="השם שלך כאן..."
+              placeholder={t('identity.name.placeholder')}
             />
           </div>
 
@@ -878,11 +879,11 @@ export default function IdentityProfileScreen({
             }`}
           >
             {loading ? (
-              <span>שומר...</span>
+              <span>{t('identity.saving')}</span>
             ) : (
               <>
                 <span className="truncate">
-                  {isProfileOnly ? 'שמור וחזור ליצירת הקהילה' : formData.gender === 'female' ? 'המשיכי' : 'המשך'}
+                  {isProfileOnly ? t('identity.cta.profileOnly') : t('identity.cta.continue', { gender: formData.gender })}
                 </span>
                 <ChevronLeft size={18} className="shrink-0" />
               </>
@@ -905,15 +906,15 @@ export default function IdentityProfileScreen({
           } : { fontFamily: 'var(--font-simpler)' }}
         >
           {loading ? (
-            <span>שומר...</span>
+            <span>{t('identity.saving')}</span>
           ) : isProfileOnly ? (
             <>
-              <span>שמור וחזור ליצירת הקהילה</span>
+              <span>{t('identity.cta.profileOnly')}</span>
               <ChevronLeft size={20} />
             </>
           ) : (
             <>
-              <span>{formData.gender === 'female' ? 'המשיכי' : 'המשך'}</span>
+              <span>{t('identity.cta.continue', { gender: formData.gender })}</span>
               <ChevronLeft size={20} />
             </>
           )}

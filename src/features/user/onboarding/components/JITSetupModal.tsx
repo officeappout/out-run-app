@@ -16,6 +16,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Heart } from 'lucide-react';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 function RingsIcon({ className }: { className?: string }) {
   return (
@@ -52,9 +55,9 @@ const REQUIREMENT_ICONS: Record<string, React.ReactNode> = {
 };
 
 const REQUIREMENT_DESCRIPTIONS: Record<string, string> = {
-  health: 'יש להשלים הצהרת בריאות לפני תחילת האימון הראשון',
-  account: 'גבה את החשבון שלך כדי לא לאבד את ההתקדמות',
-  equipment: 'ספר לנו על הציוד שלך כדי שנתאים אימון מדויק',
+  health: 'יש להשלים הצהרת בריאות לפני תחילת האימון הראשון', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  account: 'גבה את החשבון שלך כדי לא לאבד את ההתקדמות', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  equipment: 'ספר לנו על הציוד שלך כדי שנתאים אימון מדויק', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 };
 
 // v2: one brand tint for every requirement icon (no red/blue/amber rings).
@@ -64,12 +67,12 @@ const REQUIREMENT_ICONS_V2: Record<string, React.ReactNode> = {
   equipment: <RingsIcon className="h-[22px] w-[22px]" />,
 };
 
-// v2: gendered forms of the legacy masculine copy.
-function requirementDescriptionV2(id: string, isFemale: boolean): string | undefined {
-  if (id === 'account') return isFemale ? 'גבי את החשבון שלך כדי לא לאבד את ההתקדמות' : REQUIREMENT_DESCRIPTIONS.account;
-  if (id === 'equipment') return isFemale ? 'ספרי לנו על הציוד שלך כדי שנתאים אימון מדויק' : REQUIREMENT_DESCRIPTIONS.equipment;
-  return REQUIREMENT_DESCRIPTIONS[id];
-}
+// v2: gendered forms of the legacy masculine copy (catalog keys; `account` / `equipment` select on gender).
+const REQUIREMENT_DESCRIPTION_KEYS_V2: Record<string, OnboardingKey> = {
+  health: 'jit.desc.health',
+  account: 'jit.desc.account',
+  equipment: 'jit.desc.equipment',
+};
 
 const REQUIREMENT_RING_COLORS: Record<string, string> = {
   health: 'border-red-400',
@@ -90,7 +93,9 @@ export function JITSetupModal({
   // `requirements` with the flag on) was saved during this opening.
   const [identitySaved, setIdentitySaved] = useState(false);
   const v2 = useOnboardingV2();
-  const isFemale = useUserStore((st) => st.profile?.core?.gender === 'female');
+  const t = useT(onboarding);
+  // The profile's gender — anything but 'female' read the masculine copy.
+  const gender = genderArg(useUserStore((st) => st.profile?.core?.gender));
 
   useEffect(() => {
     if (!isOpen) setIdentitySaved(false);
@@ -172,8 +177,8 @@ export function JITSetupModal({
       // header — it relies on ITS PARENT for safe-area padding, same as it does there.
       <div className="fixed inset-0 z-[140] bg-white overflow-y-auto" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <HealthDeclarationStep
-          title="הצהרת בריאות"
-          description="חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך."
+          title={t('health.title')}
+          description={t('health.description')}
           onContinue={(accepted: boolean) => {
             if (accepted) {
               setShowInlineStep(false);
@@ -218,10 +223,12 @@ export function JITSetupModal({
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
                 <h2 className="text-[22px] font-black leading-tight !tracking-[-0.02em]">
-                  {hasHardBlock ? 'עוד צעד אחד קטן!' : 'רגע לפני שמתחילים...'}
+                  {hasHardBlock ? t('jit.title.hardBlock') : t('jit.title.soft')}
                 </h2>
                 <p className="mt-1 text-[14.5px] font-medium leading-relaxed text-v2-ink-2">
-                  {requirementDescriptionV2(primaryReq.id, isFemale) || 'צריך להשלים כמה דברים לפני האימון'}
+                  {REQUIREMENT_DESCRIPTION_KEYS_V2[primaryReq.id]
+                    ? t(REQUIREMENT_DESCRIPTION_KEYS_V2[primaryReq.id], { gender })
+                    : t('jit.desc.fallback')}
                 </p>
               </div>
             </div>
@@ -240,7 +247,7 @@ export function JITSetupModal({
                       {req.label}
                     </span>
                     {req.isHardBlock && (
-                      <span className="flex-shrink-0 whitespace-nowrap text-[12px] font-bold text-[#b4232a]">(חובה)</span>
+                      <span className="flex-shrink-0 whitespace-nowrap text-[12px] font-bold text-[#b4232a]">{t('jit.required')}</span>
                     )}
                   </div>
                 ))}
@@ -253,7 +260,7 @@ export function JITSetupModal({
               className="mt-5 flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               <span className="truncate">
-                {hasHardBlock ? (isFemale ? 'השלימי עכשיו' : 'השלם עכשיו') : 'בואו נעדכן ציוד'}
+                {hasHardBlock ? t('jit.cta.complete', { gender }) : t('jit.cta.equipment')}
               </span>
             </button>
 
@@ -263,7 +270,7 @@ export function JITSetupModal({
                 onClick={onDismiss}
                 className="mx-auto mt-1 flex h-11 items-center justify-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
-                דלג בינתיים
+                {t('jit.skip')}
               </button>
             )}
           </motion.div>
@@ -306,13 +313,13 @@ export function JITSetupModal({
             className="text-xl font-black text-slate-900 dark:text-white mb-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {hasHardBlock ? 'עוד צעד אחד קטן!' : 'רגע לפני שמתחילים...'}
+            {hasHardBlock ? t('jit.title.hardBlock') : t('jit.title.soft')}
           </h2>
           <p
             className="text-sm text-slate-500 dark:text-slate-400 mb-3"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {REQUIREMENT_DESCRIPTIONS[primaryReq.id] || 'צריך להשלים כמה דברים לפני האימון'}
+            {REQUIREMENT_DESCRIPTIONS[primaryReq.id] || t('jit.desc.fallback')}
           </p>
 
           {/* Secondary requirements list (if >1) */}
@@ -329,7 +336,7 @@ export function JITSetupModal({
                   <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200">
                     {req.label}
                     {req.isHardBlock && (
-                      <span className="mr-1.5 text-[11px] text-red-500 font-bold">(חובה)</span>
+                      <span className="mr-1.5 text-[11px] text-red-500 font-bold">{t('jit.required')}</span>
                     )}
                   </span>
                 </div>
@@ -346,7 +353,7 @@ export function JITSetupModal({
               boxShadow: '0 4px 18px rgba(0, 185, 242, 0.38)',
             }}
           >
-            {hasHardBlock ? 'השלם עכשיו' : 'בואו נעדכן ציוד'}
+            {hasHardBlock ? /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */ 'השלם עכשיו' : t('jit.cta.equipment')}
           </button>
 
           {/* Secondary dismiss — plain text link */}
@@ -356,7 +363,7 @@ export function JITSetupModal({
               className="text-sm text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              דלג בינתיים
+              {t('jit.skip')}
             </button>
           )}
         </motion.div>

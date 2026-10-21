@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import OnboardingStoryBar from './OnboardingStoryBar';
 import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onboarding-phases';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 
 interface ResultLoadingProps {
   targetLevel: number;
@@ -13,14 +15,14 @@ interface ResultLoadingProps {
   v2?: boolean;
 }
 
-// Dynamic analysis phrases
-const ANALYSIS_PHRASES = {
-  he: [
-    "מנתח את מספר המתחים...",
-    "מחשב את נפח האימון האופטימלי...",
-    "בונה את פרופיל האתלט שלך...",
-    "מתאים תוכנית אישית...",
-  ],
+// Dynamic analysis phrases — Hebrew from the catalog (resultLoading.phrase.*), en / ru kept here.
+const HE_PHRASE_KEYS: readonly OnboardingKey[] = [
+  'resultLoading.phrase.pullups',
+  'resultLoading.phrase.volume',
+  'resultLoading.phrase.profile',
+  'resultLoading.phrase.program',
+];
+const ANALYSIS_PHRASES: Partial<Record<'he' | 'en' | 'ru', string[]>> = {
   en: [
     "Analyzing your movements...",
     "Calculating optimal training volume...",
@@ -39,7 +41,8 @@ export default function ResultLoading({ targetLevel, onComplete, language = 'he'
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [progress, setProgress] = useState(30); // Start at 30% (personal details done)
   
-  const phrases = ANALYSIS_PHRASES[language] || ANALYSIS_PHRASES.he;
+  const t = useT(onboarding);
+  const phrases = ANALYSIS_PHRASES[language] || HE_PHRASE_KEYS.map((k) => t(k));
   const direction = language === 'he' ? 'rtl' : 'ltr';
 
   // Cycle through phrases every 800ms

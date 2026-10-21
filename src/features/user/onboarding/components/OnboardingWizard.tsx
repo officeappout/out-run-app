@@ -28,6 +28,8 @@ import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { useLandingRealFallback } from '../hooks/useLandingRealFallback';
 import { LEGACY_GATEWAY_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -45,6 +47,7 @@ import { LEGACY_GATEWAY_ROUTE, resolveBackFallback } from '@/lib/landing-fallbac
  */
 export default function OnboardingWizard() {
   const router = useRouter();
+  const t = useT(onboarding);
   const { enabled: realFallback } = useLandingRealFallback();
   const searchParams = useSearchParams();
   const { currentStep, setStep, addCoins, updateData, data, coins, majorRoadmapStep } = useOnboardingStore();
@@ -398,8 +401,8 @@ export default function OnboardingWizard() {
         }
         return (
           <HealthDeclarationStep
-            title="הצהרת בריאות"
-            description="חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך."
+            title={t('health.title')}
+            description={t('health.description')}
             onContinue={(accepted: boolean) => {
               if (accepted) {
                 updateData({ healthDeclarationAccepted: true } as any);
@@ -509,23 +512,23 @@ export default function OnboardingWizard() {
   const getStepTitle = () => {
     switch (currentStep) {
       case 'ACCESS_CODE':
-        return savedLanguage === 'he' ? 'קוד גישה' : 'Access Code';
+        return savedLanguage === 'he' ? 'קוד גישה' : 'Access Code'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'PERSONA':
-        return savedLanguage === 'he' ? 'ספר/י לנו על עצמך' : 'Tell us about yourself';
+        return savedLanguage === 'he' ? 'ספר/י לנו על עצמך' : 'Tell us about yourself'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'PERSONAL_STATS':
-        return savedLanguage === 'he' ? 'נתונים אישיים' : 'Personal Stats';
+        return savedLanguage === 'he' ? 'נתונים אישיים' : 'Personal Stats'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'EQUIPMENT':
         return locale.equipment.title;
       case 'SCHEDULE':
-        return savedLanguage === 'he' ? 'לוח זמנים' : 'Schedule';
+        return savedLanguage === 'he' ? 'לוח זמנים' : 'Schedule'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'LOCATION':
-        return savedLanguage === 'he' ? 'המיקום שלך' : 'Your Location';
+        return savedLanguage === 'he' ? 'המיקום שלך' : 'Your Location'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'HEALTH_DECLARATION':
-        return savedLanguage === 'he' ? 'הצהרת בריאות' : 'Health Declaration';
+        return savedLanguage === 'he' ? 'הצהרת בריאות' : 'Health Declaration'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'ACCOUNT_SECURE':
-        return savedLanguage === 'he' ? 'גיבוי ואבטחה' : 'Backup & Security';
+        return savedLanguage === 'he' ? 'גיבוי ואבטחה' : 'Backup & Security'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       case 'SUMMARY':
-        return savedLanguage === 'he' ? 'סיכום' : 'Summary';
+        return savedLanguage === 'he' ? 'סיכום' : 'Summary'; // i18n-allow-hebrew: unreachable — getStepTitle() has no caller
       default:
         return '';
     }
@@ -549,9 +552,10 @@ export default function OnboardingWizard() {
 /** HEALTH_DECLARATION "טוען..." placeholder — v2 (enable_home_v2) muted label. */
 function HealthDeclarationLoadingLabel() {
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   return v2 ? (
-    <div className="text-[13px] font-bold text-v2-muted">טוען...</div>
+    <div className="text-[13px] font-bold text-v2-muted">{t('wizard.loading')}</div>
   ) : (
-    <div className="text-slate-500">טוען...</div>
+    <div className="text-slate-500">{t('wizard.loading')}</div>
   );
 }

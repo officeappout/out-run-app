@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Sparkles, Play } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface BlurryBridgeOverlayProps {
   onStartWizard: () => void;
@@ -13,6 +15,7 @@ export default function BlurryBridgeOverlay({
   onStartWizard,
   onSkip,
 }: BlurryBridgeOverlayProps) {
+  const t = useT(onboarding);
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center p-4" dir="rtl">
       {/* Semi-transparent backdrop with blur */}
@@ -42,22 +45,22 @@ export default function BlurryBridgeOverlay({
 
           {/* Title */}
           <h2 className="text-2xl font-black text-slate-900 mb-3 leading-tight">
-            בוא נכניס הכל ללו״ז
+            {t('bridge.title')}
           </h2>
 
           {/* Subtitle */}
           <p className="text-slate-600 font-medium mb-6 leading-relaxed">
-            נבנה לך תוכנית אישית שמתאימה בדיוק לשגרה שלך
+            {t('bridge.subtitle')}
           </p>
 
           {/* Feature badges */}
           <div className="flex flex-wrap gap-2 justify-center mb-6">
             <span className="px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold flex items-center gap-1">
               <Sparkles size={12} />
-              מותאם אישית
+              {t('bridge.badge.personal')}
             </span>
             <span className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
-              3 דקות
+              {t('bridge.badge.minutes')}
             </span>
           </div>
 
@@ -67,7 +70,7 @@ export default function BlurryBridgeOverlay({
             whileTap={{ scale: 0.97 }}
             className="w-full py-4 bg-gradient-to-r from-[#5BC2F2] to-[#3BA4D8] text-on-brand font-bold text-lg rounded-2xl shadow-lg shadow-cyan-500/30 active:shadow-xl transition-all mb-3"
           >
-            בואו נתחיל
+            {t('bridge.cta.start')}
           </motion.button>
 
           {/* Secondary CTA */}
@@ -76,12 +79,12 @@ export default function BlurryBridgeOverlay({
             className="w-full py-3 text-slate-600 font-semibold text-sm hover:text-slate-900 transition-colors flex items-center justify-center gap-2"
           >
             <Play size={16} />
-            אתחיל אימון עכשיו
+            {t('bridge.cta.workoutNow')}
           </button>
 
           {/* Micro-copy */}
           <p className="text-xs text-slate-400 mt-4">
-            תמיד אפשר לדלג ולמלא אחר כך
+            {t('bridge.note')}
           </p>
         </div>
       </motion.div>
