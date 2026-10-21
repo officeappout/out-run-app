@@ -11,6 +11,7 @@
  *   npx tsx scripts/city-inventory/run.ts --city="באר שבע"
  *   options: --pbf=<path> (default: $TRAILS_OSM_CACHE_DIR or .cache/osm, downloaded once)
  *            --no-shade   (skip the Technion layer)
+ *            --no-lighting | --lighting-file=<lighting/v1 .json.gz>  (default: read lighting/v1/<city>.json.gz from Storage if present)
  *            --env=<file> (default .env.local; needs FIREBASE_SERVICE_ACCOUNT_KEY)
  *
  * Writing (David only): add `--apply --project appout-1 --authority=<id>`; the
@@ -36,11 +37,14 @@ import { applyFlagErrors, applyInventory } from './lib/apply.node';
 import { extractInventoryFeatures } from './lib/osm-extract.node';
 import { readPeerRows, writeSummary, OUTPUT_ROOT } from './lib/output.node';
 import { countApprovedRoutes, loadTechnionShade, readAuthority } from './lib/prod-read.node';
+import { loadLightingFromFile, loadLightingFromStorage } from './lib/lighting-read.node';
 
 const AUTHORITY = flagValue(argv, 'authority');
 const CITY = flagValue(argv, 'city');
 const PBF = flagValue(argv, 'pbf');
 const NO_SHADE = argv.includes('--no-shade');
+const NO_LIGHTING = argv.includes('--no-lighting');
+const LIGHTING_FILE = flagValue(argv, 'lighting-file');
 const FLAGS = parseApplyFlags(argv);
 
 async function timed<T>(timings: Record<string, number>, key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -81,6 +85,13 @@ async function main() {
   const shade = NO_SHADE ? null : await timed(timings, 'shadeLoad', () => loadTechnionShade(prod.app, prod.projectId, authority.name));
   console.log(`approved routes: ${routes.approved} (${routes.byAuthorityId} by authorityId + ${routes.byCityName} legacy by city name; ${routes.pending} pending, ${routes.noStatus} with no published flag) · shade: ${shade ? `${shade.choice.sourceKey} ${shade.segmentCount} segments (${shade.snapshotDate})` : 'none'}`);
 
+  const lighting = NO_LIGHTING
+    ? null
+    : await timed(timings, 'lightingLoad', () => (LIGHTING_FILE ? loadLightingFromFile(LIGHTING_FILE) : loadLightingFromStorage(prod.app, prod.projectId, authority.name)));
+  if (lighting) console.log(`lighting: lighting/v1 ${lighting.file.city} — ${lighting.file.pieces.length} pieces, sources ${lighting.sources.map((s) => s.key).join(', ')}${lighting.pendingKeys.length ? ` (pending licence: ${lighting.pendingKeys.join(', ')})` : ''}`);
+  const pendingKeys = licensePendingKeys(TECHNION_PERMISSION);
+  for (const k of lighting?.pendingKeys ?? []) pendingKeys.add(k);
+
   const now = new Date();
   const runId = `ci-${now.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')}`;
   const { inventory, extras } = await timed(timings, 'build', () => buildCityInventory({
@@ -91,7 +102,8 @@ async function main() {
     approvedRoutes: routes.approved,
     shade,
     peers: readPeerRows(),
-    licensePendingKeys: licensePendingKeys(TECHNION_PERMISSION),
+    lighting,
+    licensePendingKeys: pendingKeys,
     now,
     runId,
     builtBy: 'scripts/city-inventory/run.ts',

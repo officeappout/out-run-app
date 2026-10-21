@@ -81,7 +81,9 @@ export type LayerMethod =
   | 'osm_tag_coverage'
   | 'osm_density_vs_peers'
   | 'technion_si_daily'
-  | 'canopy_estimate';
+  | 'canopy_estimate'
+  /** OSM `lit=*` merged with lamp posts within 25 m (lighting/v1 city file, RC7). */
+  | 'lamp_proximity_merge';
 
 export interface LayerSource {
   /** Stable key, e.g. `osm`, `technion_shade`, `canopy_estimate`. */
