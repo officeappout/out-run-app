@@ -12,6 +12,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dumbbell } from 'lucide-react';
 import { Card, ErrorState, IconTile } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 import { useExerciseSessionsPaged } from '../../hooks/useExerciseSessionsPaged';
 import { useExerciseMeta } from '../../hooks/useExerciseMeta';
 import { bestSession, filterRange, lastImprovement, type ExerciseMetric, type ExerciseRange } from './exercise-analytics.utils';
@@ -31,6 +33,7 @@ export interface ExerciseAnalyticsV2Props {
 
 export default function ExerciseAnalyticsV2({ exerciseId, userId, exerciseNameHint }: ExerciseAnalyticsV2Props) {
   const router = useRouter();
+  const t = useT(profile);
   const [range, setRange] = useState<ExerciseRange>('3m');
   const [metric, setMetric] = useState<ExerciseMetric>('maxReps');
   const [goalOpen, setGoalOpen] = useState(false);
@@ -71,11 +74,15 @@ export default function ExerciseAnalyticsV2({ exerciseId, userId, exerciseNameHi
             <div className="h-[140px] animate-pulse rounded-v2-card bg-white shadow-v2-ring" />
           </div>
         ) : data.error ? (
-          <ErrorState variant="compact" title="לא הצלחנו לטעון את ההיסטוריה" description="נסו שוב בעוד רגע." />
+          <ErrorState
+            variant="compact"
+            title={t('exerciseAnalytics.page.error.title')}
+            description={t('exerciseAnalytics.page.error.description')}
+          />
         ) : data.desc.length === 0 ? (
           <Card padding="none" className="flex flex-col items-center gap-2.5 px-5 py-8 text-center">
             <IconTile icon={Dumbbell} size="lg" />
-            <p className="text-[14px] font-bold text-v2-ink-2">אחרי האימון הראשון עם התרגיל הזה, ההתקדמות תופיע כאן.</p>
+            <p className="text-[14px] font-bold text-v2-ink-2">{t('exerciseAnalytics.page.empty')}</p>
           </Card>
         ) : (
           <>
@@ -89,7 +96,9 @@ export default function ExerciseAnalyticsV2({ exerciseId, userId, exerciseNameHi
               onLoadMore={onLoadMore}
             />
             {range === 'all' && data.hasMore && (
-              <p className="text-center text-[12px] font-bold text-v2-muted">הגרף מציג את {data.desc.length} האימונים האחרונים</p>
+              <p className="text-center text-[12px] font-bold text-v2-muted">
+                {t('exerciseAnalytics.page.chartShowsLast', { count: String(data.desc.length) })}
+              </p>
             )}
           </>
         )}

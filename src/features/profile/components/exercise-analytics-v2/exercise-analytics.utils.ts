@@ -12,8 +12,8 @@ export type ExerciseMetric = 'maxReps' | 'totalVolume';
 const DAY = 86_400_000;
 const RANGE_DAYS: Record<Exclude<ExerciseRange, 'all'>, number> = { '1m': 30, '3m': 90 };
 
-const MONTHS = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳'];
-const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const MONTHS = ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני', 'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳']; // i18n-allow-hebrew: wave 3 (fmt) — month names
+const WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: wave 3 (fmt) — weekday names
 
 export function filterRange(sessions: RichExerciseSession[], range: ExerciseRange, nowMs: number): RichExerciseSession[] {
   if (range === 'all') return sessions;
@@ -66,7 +66,7 @@ export function lastImprovement(sessions: RichExerciseSession[]): { previous: nu
 
 export function longDate(ms: number): string {
   const d = new Date(ms);
-  return `יום ${WEEKDAYS[d.getDay()]} ${d.getDate()} ב${MONTHS[d.getMonth()]}`;
+  return `יום ${WEEKDAYS[d.getDay()]} ${d.getDate()} ב${MONTHS[d.getMonth()]}`; // i18n-allow-hebrew: wave 3 (fmt) — long date
 }
 
 export function dayMonth(ms: number): { day: string; month: string } {
