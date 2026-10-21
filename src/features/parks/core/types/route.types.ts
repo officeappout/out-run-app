@@ -409,6 +409,8 @@ export interface RouteProvenance {
   osm?: { license: 'ODbL-1.0'; snapshot?: string | null; extract?: string };
   /** Stored elevation numbers came from this DEM — credit required. */
   elevation?: { provider: 'copernicus-glo30' | string };
+  /** Geometry came from a regulated open dataset (src/lib/dataset-import) — credit required. */
+  dataset?: { key: string; license: string; attribution: string; url?: string; snapshot?: string | null };
 }
 
 /** Trail-pipeline details (scripts/trails/import-named-routes.ts). All optional on read. */
