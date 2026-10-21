@@ -81,6 +81,8 @@ export default defineConfig({
       // i18n wave 2 (player namespace, gps.* / shareLive.* / preview.* / coachNote.* / strengthOverview.*) —
       // shared workout components, Hebrew markup parity, static markup.
       'src/features/workout-engine/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
+      'src/features/home/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
