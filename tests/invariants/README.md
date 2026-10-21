@@ -14,7 +14,7 @@ silently pushes a 15-min request to 30 min — not one-off data problems.
 npm run test:invariants      # runner.ts (groups A–F + H report) + the hermetic vitest ratchet
 npm run snapshot:corpus      # refresh the frozen provider fixture (Admin SDK, see below)
 npx tsx scripts/generator-qa.ts --ci     # the 40-scenario hard-invariant subset (+ ratchet)
-npx tsx scripts/generator-qa.ts --full   # every entry point, ~330 scenarios + coach references
+npx tsx scripts/generator-qa.ts --full   # every entry point, ~330 scenarios + coach references + the v2 matrix (Hebrew table)
 ```
 
 Wired into `/pre-commit` when a diff touches `src/features/workout-engine/**`; the vitest
@@ -56,6 +56,38 @@ UPDATE_HARD_BASELINE=1 npx vitest run src/features/workout-engine/__tests__/inva
 ```
 
 Full numbers and root causes: `docs/workout-engine/05-BENCHMARK.md` part 6.
+
+## enable_home_v2 matrix (2026-10-21) — `v2/`
+
+The v2 strength path (#539 day focus, #545 pull gap + why line + hybrid 'multi' station +
+route-stops domain union, #541 complementary sets) and the v2 week (engine v2, policy, walk plan).
+`npx tsx scripts/generator-qa.ts --full` runs it after the entry-point bench and prints a Hebrew
+summary table (out: `scripts/audit/out/v2-matrix.json` / `.csv`); `--export-review` also writes
+every failing / warned cell as a generation-review regression fixture
+(`scripts/audit/out/v2-review-fixtures/`, `RegressionFixture` + a `qa` block) for the admin LLM
+reviewer — nothing calls an LLM here.
+
+- `v2-oracle.ts` — the owner's approved rules as an independent oracle (band → sessions →
+  split → day focus).
+- `v2-scenarios.ts` — groups: focus (3 bands × 2–6 days × every day), equip (home no bar /
+  door bar / park / gym × upper, lower, push, pull, legs, full), ppl6, health_cap, beginner5,
+  pool, topup, hybrid, route_stops. `v2CiMatrix()` = 17 cells for CI.
+- `v2-runner.ts` — real entry points, flag ON (`splitDayFocus: true`; the device switch only
+  for route stops, reset after).
+- `v2-invariants.ts` / `v2-grade.ts` — **H6** upper / pull day has pull (or a flagged
+  `pullGap`; with pull gear pull is required) · **H7** `dayFocus` = oracle and main exercises
+  inside the focus · **H8** why line (`whyLineOfWorkout`) names the focus / split / days, says
+  "אין מתח" only without pull gear and with the right place word, and what it claims is in the
+  workout. Hybrid / route stops: H6 = a station is never push-only. Soft V1–V10 (report only).
+- `week-invariants.ts` — W1 Saturday off unless marked (+ W1b same week without Saturday) ·
+  W2 long run on the preferred day · W3 no heavy legs the day before a quality / long run ·
+  W4 strength count = requested or explained · W5 walk caps / WHO; P1–P6 policy grid;
+  K1–K6 walk-plan grid.
+
+Ratchets (CI, `vitest.ci.config.ts`): `src/features/workout-engine/__tests__/v2-matrix.hermetic.test.ts`
+(`v2-hard.baseline.json`, `UPDATE_V2_BASELINE=1`) and
+`src/features/schedule/engine-v2/__tests__/week-invariants.test.ts`
+(`week-invariants.baseline.json`, `UPDATE_WEEK_BASELINE=1`).
 
 ## The fixture is a FROZEN SNAPSHOT — refresh it periodically
 
@@ -107,6 +139,7 @@ gate must not become a brittle golden-snapshot.
 
 - `runner.ts` — the gate: builds the matrix, runs the trio, asserts invariants (A–F) + reports H.
 - `hard-invariants.ts` / `entry-points.ts` / `hard-invariants.baseline.json` — group H (see above).
+- `v2/` — the enable_home_v2 matrix + weekly invariants (see above).
 - `hermetic/` — Firebase/Firestore stubs, resolver guard, tsconfig, frozen raw corpus.
 - `profile-factory.ts` — `buildMockProfile()`, ported from the QA simulator (keep in sync).
 - `fixtures.ts` — loads the frozen corpus JSON.

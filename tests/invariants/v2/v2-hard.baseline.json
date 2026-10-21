@@ -1,0 +1,65 @@
+{
+ "v2/focus/L3/home-doorbar/30m/4d#2/performance/full_body#b1": [],
+ "v2/focus/L3/home-doorbar/30m/4d#2/performance/full_body#b2": [],
+ "v2/focus/L3/home-doorbar/30m/4d#2/performance/full_body#b3": [],
+ "v2/focus/L8/home-doorbar/30m/4d#0/performance/full_body#b1": [],
+ "v2/focus/L8/home-doorbar/30m/4d#0/performance/full_body#b2": [],
+ "v2/focus/L8/home-doorbar/30m/4d#0/performance/full_body#b3": [],
+ "v2/focus/L8/home-doorbar/30m/4d#1/performance/full_body#b1": [],
+ "v2/focus/L8/home-doorbar/30m/4d#1/performance/full_body#b2": [],
+ "v2/focus/L8/home-doorbar/30m/4d#1/performance/full_body#b3": [],
+ "v2/focus/L16/home-doorbar/30m/5d#4/performance/full_body#b1": [],
+ "v2/focus/L16/home-doorbar/30m/5d#4/performance/full_body#b2": [],
+ "v2/focus/L16/home-doorbar/30m/5d#4/performance/full_body#b3": [],
+ "v2/equip/L8/home-nogear/20m/4d#0/performance/full_body#b1": [],
+ "v2/equip/L8/home-nogear/20m/4d#0/performance/full_body#b2": [],
+ "v2/equip/L8/home-nogear/20m/4d#0/performance/full_body#b3": [],
+ "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b1": [
+  "H3"
+ ],
+ "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b2": [
+  "H3"
+ ],
+ "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b3": [
+  "H3"
+ ],
+ "v2/equip/L16/home-doorbar/45m/6d#1/performance/full_body#b1": [],
+ "v2/equip/L16/home-doorbar/45m/6d#1/performance/full_body#b2": [],
+ "v2/equip/L16/home-doorbar/45m/6d#1/performance/full_body#b3": [],
+ "v2/equip/L16/park-typical/20m/6d#2/performance/full_body#b1": [],
+ "v2/equip/L16/park-typical/20m/6d#2/performance/full_body#b2": [],
+ "v2/equip/L16/park-typical/20m/6d#2/performance/full_body#b3": [],
+ "v2/equip/L8/park-typical/45m/4d#0/performance/full_body#b1": [],
+ "v2/equip/L8/park-typical/45m/4d#0/performance/full_body#b2": [],
+ "v2/equip/L8/park-typical/45m/4d#0/performance/full_body#b3": [],
+ "v2/equip/L8/gym/45m/4d#0/performance/full_body#b1": [],
+ "v2/equip/L8/gym/45m/4d#0/performance/full_body#b2": [],
+ "v2/equip/L8/gym/45m/4d#0/performance/full_body#b3": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/muscle/full_body#b1": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/muscle/full_body#b2": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/muscle/full_body#b3": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/none/full_body#b1": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/none/full_body#b2": [],
+ "v2/ppl6/L10/home-doorbar/30m/6d#3/none/full_body#b3": [],
+ "v2/health_cap/L8/home-doorbar/30m/5d#1/health/full_body#b1": [],
+ "v2/health_cap/L8/home-doorbar/30m/5d#1/health/full_body#b2": [],
+ "v2/health_cap/L8/home-doorbar/30m/5d#1/health/full_body#b3": [],
+ "v2/health_cap/L16/home-doorbar/30m/4d#1/health/full_body#b1": [],
+ "v2/health_cap/L16/home-doorbar/30m/4d#1/health/full_body#b2": [],
+ "v2/health_cap/L16/home-doorbar/30m/4d#1/health/full_body#b3": [],
+ "v2/beginner5/L5/home-doorbar/30m/6d#5/health+fat_loss/full_body#b1": [],
+ "v2/beginner5/L5/home-doorbar/30m/6d#5/health+fat_loss/full_body#b2": [],
+ "v2/beginner5/L5/home-doorbar/30m/6d#5/health+fat_loss/full_body#b3": [],
+ "v2/pool/L8/home-doorbar/30m/4d#1/performance/upper_body#b1": [],
+ "v2/pool/L8/home-doorbar/30m/4d#1/performance/upper_body#b2": [],
+ "v2/pool/L8/home-doorbar/30m/4d#1/performance/upper_body#b3": [],
+ "v2/pool/L16/home-nogear/30m/6d#1/performance/upper_body#b1": [
+  "H3"
+ ],
+ "v2/pool/L16/home-nogear/30m/6d#1/performance/upper_body#b2": [
+  "H3"
+ ],
+ "v2/pool/L16/home-nogear/30m/6d#1/performance/upper_body#b3": [
+  "H3"
+ ]
+}
