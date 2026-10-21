@@ -45,3 +45,11 @@ export async function isQaRunnerRequest(
   const info = await fetchTokenInfo(idToken, opts.fetchImpl);
   return verifyCallerIdentity(info, { email: opts.email ?? expectedRunnerEmail(), audiences }, opts.nowSec ?? Math.floor(Date.now() / 1000));
 }
+
+/**
+ * Cloud Run invoker list for the AI-tester endpoints. Declared in code (not `'private'` +
+ * a manual `add-invoker-policy-binding`) because every `firebase deploy` re-applies the
+ * declared invoker — with `'private'` a redeploy silently wiped qa-runner's roles/run.invoker
+ * and the runner got http_403 (21.10.2026).
+ */
+export const QA_RUNNER_INVOKERS: string[] = [process.env.QA_RUNNER_SA_EMAIL?.trim() || DEFAULT_QA_RUNNER_SA_EMAIL];
