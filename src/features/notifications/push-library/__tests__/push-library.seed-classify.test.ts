@@ -19,6 +19,9 @@ describe('seedInsertRows', () => {
     expect(kudos.map((r) => [r.data.subjectGender, r.data.pairId])).toEqual([
       ['male', 'lib_kudos_single_pair_sent'],
       ['female', 'lib_kudos_single_pair_sent'],
+      // push-copy-v2 (21.10.2026), appended.
+      ['male', 'lib_kudos_single_pair_v2_sent'],
+      ['female', 'lib_kudos_single_pair_v2_sent'],
     ]);
     const asRows: PushCopyRow[] = rows.map((r) => ({ id: r.id, ...(r.data as Omit<PushCopyRow, 'id'>) }));
     expect(findUnpairedRows(asRows)).toEqual(new Map());

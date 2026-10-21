@@ -4,11 +4,16 @@
  * Manager collection, workoutMetadata/notifications/notifications) with the
  * rewritten push copy, and classifies the old rows for the owner.
  *
- *   npx tsx --env-file=.env.local scripts/seed-push-library.ts           # DRY RUN (default): reads only
- *   npx tsx --env-file=.env.local scripts/seed-push-library.ts --write   # apply
+ *   npx tsx scripts/seed-push-library.ts           # DRY RUN (default): reads only
+ *   npx tsx scripts/seed-push-library.ts --write   # apply
  *
- * Auth: FIREBASE_SERVICE_ACCOUNT_KEY (JSON) from .env.local, like the other
- * seed scripts. Nothing is written without --write.
+ * Auth (either):
+ *   - Application Default Credentials — no key file needed:
+ *       gcloud auth application-default login
+ *     (project: GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT, else 'appout-1');
+ *   - or FIREBASE_SERVICE_ACCOUNT_KEY (JSON) from .env.local
+ *     (`npx tsx --env-file=.env.local scripts/seed-push-library.ts`), which wins when set.
+ * Nothing is written without --write.
  *
  * What it does
  *   1. Reads the whole collection and saves a JSON backup to
@@ -66,6 +71,21 @@ const WRITE = process.argv.includes('--write');
 const ACTOR = 'seed-push-library';
 const ROOT = path.resolve(__dirname, '..');
 
+const DEFAULT_PROJECT_ID = 'appout-1';
+
+/**
+ * The service-account key when FIREBASE_SERVICE_ACCOUNT_KEY is set, else
+ * Application Default Credentials (`gcloud auth application-default login`).
+ * Exported for tests.
+ */
+export function firebaseInitOptions(env: NodeJS.ProcessEnv): admin.AppOptions {
+  const rawKey = env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (rawKey) return { credential: admin.credential.cert(JSON.parse(rawKey) as admin.ServiceAccount) };
+  const projectId = env.GOOGLE_CLOUD_PROJECT || env.GCLOUD_PROJECT || DEFAULT_PROJECT_ID;
+  console.log(`No FIREBASE_SERVICE_ACCOUNT_KEY — using application default credentials (project ${projectId}).`);
+  return { credential: admin.credential.applicationDefault(), projectId };
+}
+
 function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
@@ -73,14 +93,7 @@ function csvCell(v: string): string {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!rawKey) {
-    console.error('FIREBASE_SERVICE_ACCOUNT_KEY not set (run with --env-file=.env.local).');
-    process.exit(1);
-  }
-  if (!admin.apps.length) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(rawKey) as admin.ServiceAccount) });
-  }
+  if (!admin.apps.length) admin.initializeApp(firebaseInitOptions(process.env));
   const db = admin.firestore();
   const col = db.collection(PUSH_LIBRARY_COLLECTION);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');

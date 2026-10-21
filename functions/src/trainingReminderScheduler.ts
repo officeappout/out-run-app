@@ -501,6 +501,8 @@ export const trainingReminderScheduler = onSchedule(
           // Lapsed users (> 30 days away) and same-day retention recipients are held
           // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
           suppressIfLapsed: true,
+          // A reminder the user asked for (push policy v2: exempt from the proactive caps, allowed from 06:00).
+          policyKind: 'requested',
           // Personalized-hour sends must respect quiet hours — unlike the old
           // single blanket 07:30 run (always safely outside 22:00-07:00), a
           // user-chosen hour can legitimately fall inside the quiet window.

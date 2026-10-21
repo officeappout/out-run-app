@@ -124,7 +124,7 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
+  CalmReturnCard, FirstWeekHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
   HomeProgramSlide,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
@@ -3786,8 +3786,13 @@ export default function HomePage() {
                     />
                   </div>
                 ) : null;
-                const contentWithCalm = calmCard || programStandalone
-                  ? <>{calmCard}{programStandalone}{content}</>
+                // enable_home_v2: the first-week card (days 0–7 until the first workout;
+                // renders nothing otherwise). The calm-return card wins when both apply.
+                const firstWeekCard = featureFlags.enableHomeV2 && isViewingToday && !calmCard
+                  ? <FirstWeekHomeCard profile={profile} doneToday={todayWorkoutDone} />
+                  : null;
+                const contentWithCalm = calmCard || firstWeekCard || programStandalone
+                  ? <>{calmCard}{firstWeekCard}{programStandalone}{content}</>
                   : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
