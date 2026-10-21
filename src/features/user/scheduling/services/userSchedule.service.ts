@@ -31,7 +31,8 @@ import type {
   RecurringTemplate,
   ScheduleActivityCategory,
 } from '../types/schedule.types';
-import { getHebrewDayLetter, addDays } from '../utils/dateUtils';
+import { addDays } from '../utils/dateUtils';
+import { recurringDayPlan, recurringStartTime } from '../utils/recurring-day.core';
 
 const COLLECTION = 'userSchedule';
 
@@ -260,9 +261,6 @@ export async function getScheduleEntriesForDates(
  * Non-blocking entries (e.g. a community session) don't trip either guard —
  * the recurring training entries are added alongside them, same as before.
  */
-/** Fallback reminder time for a recurring entry when the caller has no per-user preference to pass — matches trainingReminderScheduler.ts's own DEFAULT_HOUR (7) fallback convention, so a freshly-hydrated entry and the existing reminder cron agree on "no preference set" without this file importing from functions/. */
-const DEFAULT_RECURRING_START_TIME = '07:00';
-
 export async function hydrateFromTemplate(
   _userId: string,
   date: string,
@@ -271,7 +269,7 @@ export async function hydrateFromTemplate(
    * Caller's per-user preferred time(s), when cheaply available (e.g.
    * `profile.lifestyle?.reminders`). Precedence: strengthTime (template-
    * generated entries are strength-program assignments) falls back to
-   * runningTime, then to DEFAULT_RECURRING_START_TIME. Fixes the gap where
+   * runningTime, then to DEFAULT_RECURRING_START_TIME (07:00, recurring-day.core). Fixes the gap where
    * recurring entries previously had no `startTime` at all — see
    * scheduling-capability-audit.md.
    */
@@ -280,11 +278,12 @@ export async function hydrateFromTemplate(
   const uid = await resolveAuthUid();
   if (!uid) return [];
 
-  const dayLetter = getHebrewDayLetter(new Date(date + 'T00:00:00'));
-  const programIds = template[dayLetter];
-  if (!programIds) return [];
-
-  const startTime = reminders?.strengthTime ?? reminders?.runningTime ?? DEFAULT_RECURRING_START_TIME;
+  // The template rules (weekday letter, rest day, start time) are shared with
+  // the server training reminder: utils/recurring-day.core.ts.
+  const plan = recurringDayPlan(template, date, reminders);
+  if (plan.kind === 'none') return [];
+  const programIds = plan.kind === 'training' ? plan.sessions.map((s) => s.programId) : [];
+  const startTime = recurringStartTime(reminders);
   const nowIso = new Date().toISOString();
   // A rest day (empty array) still gets exactly one entry, same as before.
   // A training day gets one entry PER id, in template order — genEntryId()

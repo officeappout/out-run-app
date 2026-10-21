@@ -16,7 +16,7 @@ import { BasicsSection, MethodsSection, ContentSection, GeneralMetricsSection, T
 import { useAutoSaveDraft } from './hooks/useAutoSaveDraft';
 import { discardExerciseDraft } from '../core/exercise.service';
 import { cleanCueItemsForSave } from '../services/exercise-mapping.utils';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import { Check, Dumbbell, Settings2, Send, Cloud, Video } from 'lucide-react';
 import { 
   MUSCLE_GROUP_LABELS, 

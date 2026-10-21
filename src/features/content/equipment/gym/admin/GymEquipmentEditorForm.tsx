@@ -27,7 +27,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { EquipmentLocation } from '../core/gym-equipment.types';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import { getAllOutdoorBrands, OutdoorBrand } from '../../../equipment/brands';
 import EquipmentTextListEditor from './EquipmentTextListEditor';
 import {

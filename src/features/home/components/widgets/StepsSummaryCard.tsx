@@ -24,7 +24,7 @@ import { useHealthWithDisclosure } from '@/hooks/useHealthWithDisclosure';
 import { useHealthConnected } from '@/hooks/useHealthConnected';
 import HealthConnectDisclosureModal from '@/components/ui/HealthConnectDisclosureModal';
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import { hapticMedium } from '@/lib/haptics';
 import { playSuccessChime } from '@/lib/sound';
 

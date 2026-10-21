@@ -318,5 +318,14 @@
   "run.overview.edit.undo": "בטל",
   "run.overview.fitCard.sub": "{fit} · {min} דק׳",
   "run.overview.fitCard.today": "יש לך היום: {title}",
-  "run.overview.fitCard.open": "לאימון הזה כאן"
+  "run.overview.fitCard.open": "לאימון הזה כאן",
+  "sessionInvite.error.expired": "הקישור פג תוקף",
+  "sessionInvite.error.invalid": "הקישור אינו תקף",
+  "sessionInvite.error.askHost": "בקש מהמארח לשלוח קישור חדש",
+  "sessionInvite.error.openApp": "פתח את Out",
+  "sessionInvite.subtitle.walk": "הוזמנת ללכת ביחד",
+  "sessionInvite.subtitle.run": "הוזמנת לרוץ ביחד",
+  "sessionInvite.subtitle.session": "הוזמנת להצטרף לאימון",
+  "sessionInvite.cta.run": "בוא/י לרוץ ביחד",
+  "sessionInvite.cta.session": "הצטרפ/י לאימון"
 }

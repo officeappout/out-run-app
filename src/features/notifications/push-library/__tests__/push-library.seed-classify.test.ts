@@ -2,8 +2,8 @@
  * The seed script's pure part: which rows it inserts, archives and keeps.
  */
 import { describe, it, expect } from 'vitest';
-import { PUSH_CATALOG, findUnpairedRows, type PushCopyRow } from '../push-library.core';
-import { classifyDormant, classifyLegacyInUse, seedInsertRows } from '../push-library.seed-classify';
+import { PUSH_CATALOG, PUSH_CATALOG_BY_TYPE, findUnpairedRows, type PushCopyRow } from '../push-library.core';
+import { classifyDormant, classifyLegacyInUse, seedConditionPatches, seedInsertRows } from '../push-library.seed-classify';
 
 describe('seedInsertRows', () => {
   const rows = seedInsertRows();
@@ -19,6 +19,9 @@ describe('seedInsertRows', () => {
     expect(kudos.map((r) => [r.data.subjectGender, r.data.pairId])).toEqual([
       ['male', 'lib_kudos_single_pair_sent'],
       ['female', 'lib_kudos_single_pair_sent'],
+      // push-copy-v2 (21.10.2026), appended.
+      ['male', 'lib_kudos_single_pair_v2_sent'],
+      ['female', 'lib_kudos_single_pair_v2_sent'],
     ]);
     const asRows: PushCopyRow[] = rows.map((r) => ({ id: r.id, ...(r.data as Omit<PushCopyRow, 'id'>) }));
     expect(findUnpairedRows(asRows)).toEqual(new Map());
@@ -83,5 +86,31 @@ describe('classifyDormant', () => {
     expect(by.e).toMatchObject({ decision: 'keep', gender: 'male' });
     expect(by.f).toMatchObject({ decision: 'keep', gender: 'female' });
     expect(by.b.gender).toBeUndefined();
+  });
+});
+
+describe('seedConditionPatches (21.10.2026: track / stage on already-seeded rows)', () => {
+  const row = (id: string, data: Record<string, unknown>) => ({ id, data });
+  const dropoff0 = PUSH_CATALOG_BY_TYPE.onboarding_dropoff.defaults[0];
+  const park = PUSH_CATALOG_BY_TYPE.retention_lapse.defaults[1];
+
+  it('adds the new default condition to an untouched seeded row', () => {
+    const patches = seedConditionPatches([
+      row('lib_onboarding_dropoff_0', { title: dropoff0.title, body: dropoff0.body, conditions: null }),
+      row('lib_retention_lapse_1', { title: park.title, body: park.body }),
+    ]);
+    expect(patches).toEqual([
+      { id: 'lib_retention_lapse_1', conditions: { track: ['strength'] } },
+      { id: 'lib_onboarding_dropoff_0', conditions: { stage: ['near_end'] } },
+    ]);
+  });
+
+  it('never touches an admin-edited row or one with its own conditions', () => {
+    expect(
+      seedConditionPatches([
+        row('lib_onboarding_dropoff_0', { title: dropoff0.title, body: 'טקסט שאדמין כתב' }),
+        row('lib_retention_lapse_1', { title: park.title, body: park.body, conditions: { milestone: ['d7'] } }),
+      ]),
+    ).toEqual([]);
   });
 });

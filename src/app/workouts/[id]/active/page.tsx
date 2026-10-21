@@ -68,6 +68,7 @@ import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/
 import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
 import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/features/workout-engine/components/PostWorkoutSurvey';
 import { noteGenerationSwap } from '@/features/generation-review/capture/hooks';
+import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 
 // ============================================================================
 // TYPES
@@ -2055,10 +2056,13 @@ export default function ActiveWorkoutPage() {
         </div>
       </div>
     ) : null;
+    // enable_home_v2 push re-ask (gates itself; waits for the survey).
+    const pushReAsk = <PushReAskAfterWorkout blocked={surveySessionNumber != null} />;
     if (STRENGTH_SUMMARY_V2_ENABLED) {
       return (
         <>
         {surveyOverlay}
+        {pushReAsk}
         <StrengthSummary
           duration={workoutStats.duration}
           totalReps={workoutStats.totalReps}
@@ -2085,6 +2089,7 @@ export default function ActiveWorkoutPage() {
     return (
       <>
       {surveyOverlay}
+      {pushReAsk}
       <StrengthSummaryPage
         duration={workoutStats.duration}
         totalReps={workoutStats.totalReps}

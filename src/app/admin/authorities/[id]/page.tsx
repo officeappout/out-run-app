@@ -8,7 +8,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { getAuthority, updateAuthority, createAuthority, syncUserCount } from '@/features/admin/services/authority.service';
 import { Authority, AuthorityType } from '@/types/admin-types';
 import { Save, X, Loader2, ArrowRight, Upload, Building2, Users, Search, Megaphone, TrendingUp, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import Link from 'next/link';
 import { ref, uploadBytesResumable, getDownloadURL, getStorage } from 'firebase/storage';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';

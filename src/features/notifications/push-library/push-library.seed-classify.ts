@@ -10,6 +10,9 @@
  *                       the write rules each one breaks
  *   classifyDormant     the never-sent Inactivity rows → keep (needs rewrite)
  *                       or archive
+ *   seedConditionPatches seeded rows whose code default gained a condition
+ *                       later (21.10.2026: track / stage) → add the condition,
+ *                       only while the row still carries the default's text
  */
 
 import {
@@ -44,7 +47,7 @@ export function seedInsertRows(): SeedInsertRow[] {
           title: d.title,
           body: d.body,
           text: d.body,
-          deepLink: entry.deepLinks[0],
+          deepLink: d.deepLink && entry.deepLinks.includes(d.deepLink) ? d.deepLink : entry.deepLinks[0],
           audience: d.audience ?? null,
           conditions: d.conditions ?? null,
           timeWindow: null,
@@ -60,6 +63,34 @@ export function seedInsertRows(): SeedInsertRow[] {
           source: SEED_SOURCE,
         },
       });
+    });
+  }
+  return out;
+}
+
+/**
+ * Rows seeded earlier (`lib_<pushType>_<n>`) whose code default now carries
+ * conditions it didn't have when seeded (21.10.2026: "the park" copy is
+ * strength-only, "נשאר רק עוד צעד" is for who stopped at the end). A row is
+ * patched only when an admin hasn't touched it: same title and body as the
+ * default, and no conditions of its own. Returns { id, conditions } per patch.
+ */
+export function seedConditionPatches(
+  existing: ReadonlyArray<{ id: string; data: Record<string, unknown> }>,
+): Array<{ id: string; conditions: Record<string, string[]> }> {
+  const byId = new Map(existing.map((r) => [r.id, r.data]));
+  const out: Array<{ id: string; conditions: Record<string, string[]> }> = [];
+  for (const entry of PUSH_CATALOG) {
+    entry.defaults.forEach((d, i) => {
+      if (!d.conditions || Object.keys(d.conditions).length === 0) return;
+      const id = `lib_${entry.pushType}_${i}`;
+      const row = byId.get(id);
+      if (!row) return;
+      const conds = row.conditions as Record<string, unknown> | null | undefined;
+      const hasOwn = !!conds && Object.values(conds).some((v) => Array.isArray(v) && v.length > 0);
+      if (hasOwn) return;
+      if (row.title !== d.title || row.body !== d.body) return;
+      out.push({ id, conditions: d.conditions });
     });
   }
   return out;

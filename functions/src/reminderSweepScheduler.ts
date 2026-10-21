@@ -317,6 +317,8 @@ async function runSettingsSlotPass(db: admin.firestore.Firestore): Promise<void>
         // Lapsed users (> 30 days away) and same-day retention recipients are held
         // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
         suppressIfLapsed: true,
+        // A reminder the user asked for (push policy v2: exempt from the proactive caps, allowed from 06:00).
+        policyKind: 'requested',
         skipQuietHours: false, // a user-chosen slot can legitimately fall in quiet hours — suppress, don't reroute
         measurement: {
           // variantId = the push library row (was `${title}__b${bodyIndex}`).
@@ -463,6 +465,8 @@ async function runWorkoutEntryPass(db: admin.firestore.Firestore, flagsData: Rec
         // Lapsed users (> 30 days away) and same-day retention recipients are held
         // back when app_config/feature_flags.lapsedPushSuppression is on (default off).
         suppressIfLapsed: true,
+        // A reminder the user asked for (push policy v2: exempt from the proactive caps, allowed from 06:00).
+        policyKind: 'requested',
         skipQuietHours: false, // same reasoning as trainingReminderScheduler — a near-workout reminder can legitimately fall in quiet hours; suppress, don't reroute
         measurement: {
           variantId: copy.rowId, // the push library row (was `${title}__b${bodyIndex}`)

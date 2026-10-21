@@ -41,7 +41,7 @@ import {
   USER_LIFESTYLES, 
   MESSAGE_VARIABLES,
   replaceMessageVariables,
-} from '@/core/constants';
+} from '@/lib/constants';
 
 // ============================================================================
 // TYPES

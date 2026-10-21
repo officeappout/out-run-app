@@ -19,8 +19,13 @@
  * A day is counted at most once: `lastStreakDate === today` is the
  * idempotency key shared by both rules (see advanceStreakForDay).
  */
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
-import { STREAK_MINIMUM_MINUTES } from '../types/activity.types';
+import {
+  dayActiveMinutes,
+  dayClosedByMinutes,
+  dayClosedBySteps,
+  dayStepGoal,
+  isDayClosed,
+} from './streak-day.core';
 
 /** Minimal shape of a day the rules need (a DailyActivity satisfies it). */
 export interface StreakDayInput {
@@ -29,30 +34,27 @@ export interface StreakDayInput {
   stepsGoal?: number;
 }
 
+// The day rules live in streak-day.core.ts (import-free, mirrored to Cloud Functions so the
+// server's "is today closed?" is the same code). These names stay for existing callers.
 export function totalActiveMinutes(day: StreakDayInput): number {
-  return Object.values(day.categories ?? {}).reduce(
-    (sum, cat) => sum + (Number(cat?.minutes) || 0),
-    0,
-  );
+  return dayActiveMinutes(day);
 }
 
 /** The step goal the user sees for this day. */
 export function effectiveStepsGoal(day: Pick<StreakDayInput, 'stepsGoal'>): number {
-  const goal = Number(day.stepsGoal);
-  return Number.isFinite(goal) && goal > 0 ? goal : DAILY_STEP_GOAL;
+  return dayStepGoal(day);
 }
 
 export function dayQualifiesByMinutes(day: StreakDayInput): boolean {
-  return totalActiveMinutes(day) >= STREAK_MINIMUM_MINUTES;
+  return dayClosedByMinutes(day);
 }
 
 export function dayQualifiesBySteps(day: StreakDayInput): boolean {
-  const steps = Number(day.steps) || 0;
-  return steps > 0 && steps >= effectiveStepsGoal(day);
+  return dayClosedBySteps(day);
 }
 
 export function dayQualifiesForStreak(day: StreakDayInput): boolean {
-  return dayQualifiesByMinutes(day) || dayQualifiesBySteps(day);
+  return isDayClosed(day);
 }
 
 export interface StreakCounters {

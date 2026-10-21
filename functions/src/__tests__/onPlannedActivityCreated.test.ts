@@ -139,8 +139,9 @@ describe('onPlannedActivityCreated — recipient gate by privacyMode', () => {
 
     setDoc('app_config', 'feature_flags', { socialActivityNearbyPushEnabled: true });
     setDoc('connections', 'creator1', { followers: ['follower1'] });
+    setDoc('users', 'creator1', { core: { name: 'Creator', ageGroup: 'adult' } });
     setDoc('users', 'follower1', { core: { name: 'Follower' } });
-    setDoc('users', 'nearby1', { core: { name: 'Nearby' } });
+    setDoc('users', 'nearby1', { core: { name: 'Nearby', ageGroup: 'adult' } });
     state.userLocations = [{ id: 'nearby1', data: { lat: 32.0001, lng: 34.8001 } }];
   });
 
@@ -178,7 +179,7 @@ describe('onPlannedActivityCreated — demo world guard (20.10.2026)', () => {
     setDoc('app_config', 'feature_flags', { socialActivityNearbyPushEnabled: true });
     setDoc('connections', 'demo_c1', { followers: ['real1', 'viewer1', 'demo_c2'] });
     setDoc('demo_registry', 'viewers', { uids: ['viewer1'] });
-    for (const u of ['real1', 'viewer1', 'demo_c2', 'nearby1']) setDoc('users', u, { core: { name: u } });
+    for (const u of ['real1', 'viewer1', 'demo_c2', 'nearby1', 'creator1']) setDoc('users', u, { core: { name: u, ageGroup: 'adult' } });
     state.userLocations = [{ id: 'nearby1', data: { lat: 32.0001, lng: 34.8001 } }];
   });
 
@@ -206,5 +207,47 @@ describe('onPlannedActivityCreated — demo world guard (20.10.2026)', () => {
     );
     const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]).sort();
     expect(recipients).toEqual(['nearby1', 'real1']);
+  });
+});
+
+describe('onPlannedActivityCreated — minors hard guard (21.10.2026)', () => {
+  beforeEach(() => {
+    state.store.clear();
+    sendPushMock.mockClear();
+    setDoc('app_config', 'feature_flags', { socialActivityNearbyPushEnabled: true });
+    setDoc('connections', 'creator1', { followers: ['follower1'] });
+    setDoc('users', 'creator1', { core: { name: 'Creator', ageGroup: 'adult' } });
+    setDoc('users', 'follower1', { core: { name: 'Follower' } });
+    state.userLocations = [
+      { id: 'adult1', data: { lat: 32.0, lng: 34.8 } },
+      { id: 'minor1', data: { lat: 32.0, lng: 34.8 } },
+      { id: 'teen_bd', data: { lat: 32.0, lng: 34.8 } },
+      { id: 'unknown1', data: { lat: 32.0, lng: 34.8 } },
+    ];
+    setDoc('users', 'adult1', { core: { name: 'A', ageGroup: 'adult' } });
+    setDoc('users', 'minor1', { core: { name: 'M', ageGroup: 'minor' } });
+    // ageGroup says adult but the birth date says 15 → still blocked.
+    setDoc('users', 'teen_bd', { core: { name: 'T', ageGroup: 'adult', birthDate: Date.now() - 15 * 365.25 * 86400000 } });
+    setDoc('users', 'unknown1', { core: { name: 'U' } });
+  });
+
+  it('a stranger nearby reaches only confirmed adults: minors, under-18 birth dates and unknown ages are blocked', async () => {
+    await (onPlannedActivityCreated as any)(makeEvent('m1', { ...BASE_SESSION, privacyMode: 'verified_global' }));
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]).sort();
+    expect(recipients).toEqual(['adult1', 'follower1']);
+  });
+
+  it("a minor's public session never reaches strangers (followers only)", async () => {
+    setDoc('users', 'creator1', { core: { name: 'Creator', ageGroup: 'minor' } });
+    await (onPlannedActivityCreated as any)(makeEvent('m2', { ...BASE_SESSION, privacyMode: 'verified_global' }));
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]);
+    expect(recipients).toEqual(['follower1']);
+  });
+
+  it('a creator of unknown age is treated as a minor (fail closed)', async () => {
+    setDoc('users', 'creator1', { core: { name: 'Creator' } });
+    await (onPlannedActivityCreated as any)(makeEvent('m3', { ...BASE_SESSION, privacyMode: 'verified_global' }));
+    const recipients = sendPushMock.mock.calls.map((c: any) => c[0].toUids[0]);
+    expect(recipients).toEqual(['follower1']);
   });
 });

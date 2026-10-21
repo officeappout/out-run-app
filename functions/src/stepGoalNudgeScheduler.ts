@@ -102,6 +102,11 @@ import type { PersonaResolvableProfile } from './services/persona-alias-map.serv
 import { resolveUserStepGoal } from './lib/resolveUserStepGoal';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 import { isDemoUid } from './lib/demo';
+import { readEngagementFlags, resolveTonedCopy, toneSegmentFrom } from './services/push-tone.service';
+import { toneOrder, type PushTone } from './shared/first-week.core';
+
+/** pushToneRotation (DEFAULT OFF): every tone; the segment filter drops the casual one where needed. */
+const STEP_TONES: ReadonlyArray<PushTone> = ['cute', 'personal', 'curious', 'friendly'];
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -288,7 +293,16 @@ async function dispatchToUser(
   if (isMorningOnlyBucketAtThisHour(bucket, hourIsrael())) {
     return { sent: false, bucket, reason: 'morning-only bucket at an afternoon/evening run', morningOnly: true };
   }
-  const copy = await resolvePushCopy('step_goal', stepGoalCopyContext(user, bucket));
+  const ctx = stepGoalCopyContext(user, bucket);
+  let copy;
+  let tone: PushTone | 'none' | undefined;
+  if ((await readEngagementFlags(db)).toneRotation) {
+    const toned = await resolveTonedCopy('step_goal', ctx, toneOrder(STEP_TONES, toneSegmentFrom(user.audience)));
+    copy = toned?.copy ?? null;
+    tone = toned?.tone;
+  } else {
+    copy = await resolvePushCopy('step_goal', ctx);
+  }
 
   if (!copy) {
     return { sent: false, bucket, reason: `no content for persona=${persona} bucket=${bucket}` };
@@ -314,6 +328,7 @@ async function dispatchToUser(
       outcomeWindowHours: DEFAULT_OUTCOME_WINDOW_HOURS,
       pushType: copy.pushType,
       copyRowId: copy.rowId,
+      ...(tone ? { tone, lever: 'steps' } : {}),
     },
   });
 

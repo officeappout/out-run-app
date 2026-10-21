@@ -4,11 +4,16 @@
  * Manager collection, workoutMetadata/notifications/notifications) with the
  * rewritten push copy, and classifies the old rows for the owner.
  *
- *   npx tsx --env-file=.env.local scripts/seed-push-library.ts           # DRY RUN (default): reads only
- *   npx tsx --env-file=.env.local scripts/seed-push-library.ts --write   # apply
+ *   npx tsx scripts/seed-push-library.ts           # DRY RUN (default): reads only
+ *   npx tsx scripts/seed-push-library.ts --write   # apply
  *
- * Auth: FIREBASE_SERVICE_ACCOUNT_KEY (JSON) from .env.local, like the other
- * seed scripts. Nothing is written without --write.
+ * Auth (either):
+ *   - Application Default Credentials — no key file needed:
+ *       gcloud auth application-default login
+ *     (project: GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT, else 'appout-1');
+ *   - or FIREBASE_SERVICE_ACCOUNT_KEY (JSON) from .env.local
+ *     (`npx tsx --env-file=.env.local scripts/seed-push-library.ts`), which wins when set.
+ * Nothing is written without --write.
  *
  * What it does
  *   1. Reads the whole collection and saves a JSON backup to
@@ -31,6 +36,10 @@
  *                  that address one gender. Text NOT rewritten.
  *        archive → active:false, archived:true, archivedReason.
  *   5. Writes a CSV report of every classification to scripts/output/.
+ *   6. PATCHES conditions onto rows seeded before their default gained one
+ *      (21.10.2026: retention "the park" rows → track strength; drop-off
+ *      "נשאר רק עוד צעד" rows → stage near_end) — only rows still carrying
+ *      the default's exact text and no conditions (seedConditionPatches).
  *
  * The classification itself is pure and unit-tested:
  * src/features/notifications/push-library/push-library.seed-classify.ts.
@@ -52,6 +61,7 @@ import {
 import {
   classifyDormant,
   classifyLegacyInUse,
+  seedConditionPatches,
   seedInsertRows,
   type Classification,
 } from '../src/features/notifications/push-library/push-library.seed-classify';
@@ -61,6 +71,21 @@ const WRITE = process.argv.includes('--write');
 const ACTOR = 'seed-push-library';
 const ROOT = path.resolve(__dirname, '..');
 
+const DEFAULT_PROJECT_ID = 'appout-1';
+
+/**
+ * The service-account key when FIREBASE_SERVICE_ACCOUNT_KEY is set, else
+ * Application Default Credentials (`gcloud auth application-default login`).
+ * Exported for tests.
+ */
+export function firebaseInitOptions(env: NodeJS.ProcessEnv): admin.AppOptions {
+  const rawKey = env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (rawKey) return { credential: admin.credential.cert(JSON.parse(rawKey) as admin.ServiceAccount) };
+  const projectId = env.GOOGLE_CLOUD_PROJECT || env.GCLOUD_PROJECT || DEFAULT_PROJECT_ID;
+  console.log(`No FIREBASE_SERVICE_ACCOUNT_KEY — using application default credentials (project ${projectId}).`);
+  return { credential: admin.credential.applicationDefault(), projectId };
+}
+
 function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
@@ -68,14 +93,7 @@ function csvCell(v: string): string {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!rawKey) {
-    console.error('FIREBASE_SERVICE_ACCOUNT_KEY not set (run with --env-file=.env.local).');
-    process.exit(1);
-  }
-  if (!admin.apps.length) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(rawKey) as admin.ServiceAccount) });
-  }
+  if (!admin.apps.length) admin.initializeApp(firebaseInitOptions(process.env));
   const db = admin.firestore();
   const col = db.collection(PUSH_LIBRARY_COLLECTION);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -104,6 +122,9 @@ async function main(): Promise<void> {
   // 2. Inserts (code defaults incl. the gendered pairs; an existing row is never overwritten)
   const inserts = seedInsertRows().filter((r) => !byId.has(r.id));
   const insertSkipped = seedInsertRows().filter((r) => byId.has(r.id)).map((r) => r.id);
+
+  // 6. Condition patches on already-seeded default rows (admin-edited rows untouched)
+  const conditionPatches = seedConditionPatches(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
 
   // 3 + 4. Classify the rows that predate the library
   const unclassified = snap.docs.filter((d) => {
@@ -157,6 +178,8 @@ async function main(): Promise<void> {
   for (const [k, v] of Array.from(reasonCounts)) console.log(`      archive · ${k}: ${v}`);
   for (const [k, v] of Array.from(rewriteCounts)) console.log(`      keep · ${k}: ${v}`);
   if (otherUnclassified) console.log(`  other docs without pushType (untouched): ${otherUnclassified}`);
+  console.log(`  condition patches on seeded rows: ${conditionPatches.length}`);
+  for (const p of conditionPatches) console.log(`      ${p.id} → ${JSON.stringify(p.conditions)}`);
   console.log(`  report: ${path.relative(ROOT, reportPath)}`);
 
   if (!WRITE) {
@@ -215,6 +238,9 @@ async function main(): Promise<void> {
     } else {
       await applyUpdate(r.id, { active: false, archived: true, archivedReason: r.reasons.join('; '), archivedAt: now, archivedBy: ACTOR });
     }
+  }
+  for (const p of conditionPatches) {
+    await applyUpdate(p.id, { conditions: p.conditions });
   }
   console.log(`\nAPPLIED — created ${created}, updated ${updated}, skipped ${skipped}.\n`);
 }

@@ -43,6 +43,9 @@ interface FlagState {
   enable_league_aggregates: boolean;
   enable_home_v2: boolean;
   enable_calm_return_v1: boolean;
+  enable_shabbat_free_streak: boolean;
+  enable_streak_shields: boolean;
+  enable_streak_pushes: boolean;
   ai_coach_enabled: boolean;
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
@@ -146,6 +149,30 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-500',
     title: 'חזרה רגועה אחרי הפסקה',
     description: 'מי שחוזר אחרי כמה ימים בלי אימון מקבל אימון קליל יותר, בלי חלונות קופצים ובלי באנר "פספסת". 4-6 ימים: רק כותרת הכרטיס משתנה. שבוע ומעלה: שבוע חדש מהיום וכרטיס אחד בפתיחה הראשונה. רצף: יום חסד אחד בשבוע. כבוי = כמו היום',
+  },
+  {
+    key: 'enable_shabbat_free_streak',
+    icon: Dumbbell,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: 'שבת לא שוברת רצף',
+    description: 'לכל המשתמשים: שבת בלי פעילות לא שוברת את הרצף ולא מוסיפה לו יום. שבת עם פעילות נספרת כרגיל. כבוי = כמו היום',
+  },
+  {
+    key: 'enable_streak_shields',
+    icon: Dumbbell,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: 'מגן רצף',
+    description: 'כל 7 ימי רצף מקבלים מגן אחד (עד 2). ביום שלא נסגר המגן נכנס לפעולה לבד והרצף נשמר. כבוי = כמו היום',
+  },
+  {
+    key: 'enable_streak_pushes',
+    icon: Dumbbell,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: 'פושים של רצף',
+    description: 'הצלת רצף ב-19:30 (רצף 2+) ושוב ב-21:15 (רצף 7+, אם הראשון לא נפתח), "הרצף נעצר" ב-10:00 (רצף 7+), ואבני דרך ב-20:00 למי שלא ראה באפליקציה. דורש פריסה של streakRescueScheduler',
   },
   {
     key: 'enable_hybrid_slots',

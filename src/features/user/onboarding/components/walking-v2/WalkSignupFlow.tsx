@@ -21,7 +21,12 @@ import { hasRunningTrack, hasStrengthTrack } from '@/lib/track-ownership';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
 import { dayLettersLine, runSessionTimes, toggleRunDay, RUN_TIME_PRESETS, DEFAULT_RUN_WINDOW } from '@/features/schedule/utils/runWeekRecommendation';
 import { isReminderAlreadyActive, reminderSlotsFor } from '@/features/schedule/utils/reminderOptIn';
-import { getPushPermissionState, requestReminderPermission, saveReminderOptIn } from '@/features/schedule/services/reminderOptIn.service';
+import {
+  getPushPermissionState,
+  recordReminderDeferral,
+  requestReminderPermission,
+  saveReminderOptIn,
+} from '@/features/schedule/services/reminderOptIn.service';
 import ReminderOptInStep from '@/features/schedule/components/ReminderOptInStep';
 import {
   DEFAULT_WALK_DAYS,
@@ -136,8 +141,8 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
   const acceptReminders = async ({ leadMinutes }: { leadMinutes: 15 | 30 | 60; calendarSync: boolean }) => {
     const uid = auth.currentUser?.uid;
     // The OS prompt must be the first await (web user-gesture rule).
-    if (uid) await requestReminderPermission(uid);
-    if (uid) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
+    // Saved only when the OS allows it (an earlier answer never re-prompts).
+    if (uid && (await requestReminderPermission(uid))) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
     onDone();
   };
 
@@ -196,7 +201,10 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
       sampleDetail={first ? `${first.minutes} דק׳ · ~${first.estSteps.toLocaleString('he-IL')} צעדים` : undefined}
       alreadyActive={alreadyActive}
       onAccept={acceptReminders}
-      onSkip={() => onDone()}
+      onSkip={() => {
+        recordReminderDeferral();
+        onDone();
+      }}
     />
   );
 }

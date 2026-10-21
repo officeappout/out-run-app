@@ -42,6 +42,8 @@ export {
 } from './Sheet';
 export type { SheetProps, SheetDragOptions } from './Sheet';
 export { default as ConfirmSheet, CONFIRM_ACTION_CLASS } from './ConfirmSheet';
+export { default as SoftAskCard } from './SoftAskCard';
+export type { SoftAskCardProps } from './SoftAskCard';
 export type { ConfirmSheetProps, ConfirmSheetAction, ConfirmActionTone } from './ConfirmSheet';
 export { default as IconButton } from './IconButton';
 export type { IconButtonProps, IconButtonTone, IconButtonSize } from './IconButton';

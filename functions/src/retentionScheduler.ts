@@ -101,11 +101,14 @@ import type { PushAudience, PushCopyContext } from './shared/push-library.core';
 import {
   MS_PER_DAY,
   RETENTION_FIRST_DAY,
+  RETENTION_LADDER_V2,
+  RETENTION_MILESTONES,
   activityFlagsFrom,
   activityToMillis,
   daysAwayBetween,
   isQueryableTimestamp,
   lastActivityFromUserData,
+  latestWorkoutMs,
   nextRetentionMilestone,
   recordRetentionMilestone,
   resolveLastActivityMs,
@@ -114,6 +117,16 @@ import {
   type RetentionMilestone,
 } from './lib/user-activity';
 import { isDemoUid } from './lib/demo';
+import { readEngagementFlags, resolveTonedCopy, toneSegmentFrom, type EngagementFlags } from './services/push-tone.service';
+import { firstWeekDayIndex, toneOrder, type PushTone } from './shared/first-week.core';
+import {
+  pushTrackFromUserData,
+  recordRetentionLegacySend,
+  retentionLegacyCapReached,
+  retentionLegacyLogFrom,
+  trackConditions,
+  type PushTrack,
+} from './lib/push-lifecycle';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -163,13 +176,16 @@ export function retentionCopyContext(
   c: RetentionCandidate,
   now: Date = new Date(),
   milestone: RetentionMilestone | null = null,
+  /** The user's track (21.10.2026): "the park" copy is strength-only; runners/walkers get their own rows. */
+  track: PushTrack | null = null,
 ): PushCopyContext {
+  const conditions = trackConditions(track, { milestone });
   return {
     uid: c.uid,
     now,
     audience: c.audience ?? {},
     vars: { '@שם': c.name.trim() },
-    ...(milestone ? { conditions: { milestone } } : {}),
+    ...(Object.keys(conditions).length > 0 ? { conditions } : {}),
   };
 }
 
@@ -359,6 +375,16 @@ export async function collectRetentionCandidates(
   return { candidates, fetched, fetchedUntimed };
 }
 
+/** Every tone the return copy may use; the segment filter removes the casual one where needed. */
+const RETENTION_TONES: ReadonlyArray<PushTone> = ['cute', 'personal', 'curious', 'friendly'];
+
+/** With firstWeekSequenceEnabled, the first 7 days after signup belong to the first-week sequence. Pure (tests). */
+export function retentionYieldsToFirstWeek(eng: Pick<EngagementFlags, 'firstWeekSequence'>, data: Record<string, unknown>, nowMs: number): boolean {
+  if (!eng.firstWeekSequence) return false;
+  const day = firstWeekDayIndex(activityToMillis(data.createdAt), nowMs);
+  return day !== null && day <= 7;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const retentionScheduler = onSchedule(
@@ -372,17 +398,29 @@ export const retentionScheduler = onSchedule(
   async () => {
     // Flags — a read failure keeps the defaults (guard ON, cadence OFF).
     let flags = activityFlagsFrom(undefined);
+    // firstWorkoutPushEnabled (DEFAULT OFF, 21.10.2026): never-trained users get
+    // the first-workout copy instead of "מוכן לחזור?", and the legacy 48h
+    // cadence stops after RETENTION_LEGACY_MAX_SENDS per absence (lib/push-lifecycle.ts).
+    let lifecycle = false;
     try {
       const snap = await db.doc('app_config/feature_flags').get();
-      flags = activityFlagsFrom(snap.data() as Record<string, unknown> | undefined);
+      const raw = snap.data() as Record<string, unknown> | undefined;
+      flags = activityFlagsFrom(raw);
+      lifecycle = raw?.firstWorkoutPushEnabled === true;
     } catch (err: unknown) {
       logger.warn('[retention] feature_flags read failed, using defaults (guard on, cadence off)', err);
     }
+    // 21.10.2026 (each DEFAULT OFF): retentionLadderV2 (d4, d7, d14, d21, d28,
+    // then quiet — implies the milestone cadence), firstWeekSequenceEnabled
+    // (the first 7 days belong to the first-week sequence), pushToneRotation.
+    const eng: EngagementFlags = await readEngagementFlags(db);
+    if (eng.retentionLadderV2) flags = { ...flags, milestoneCadence: true };
+    const ladder = eng.retentionLadderV2 ? RETENTION_LADDER_V2 : RETENTION_MILESTONES;
     const thresholdDays = retentionThresholdDays(flags);
 
     logger.info(
       `[retention] Starting run — thresholdDays=${thresholdDays} guard=${flags.realActivityGuard} ` +
-        `cadence=${flags.milestoneCadence} batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
+        `cadence=${flags.milestoneCadence} lifecycle=${lifecycle} batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
     );
 
     // Shabbat/yom tov: observers only — filtered per user below.
@@ -421,9 +459,11 @@ export const retentionScheduler = onSchedule(
     let lookupFailed = 0;
     let noMilestone = 0;
     let noSignal = 0;
+    let legacyCapped = 0;
 
     const sendOne = async ({ c: docCandidate, data }: { c: RetentionCandidate; data: Record<string, unknown> }): Promise<void> => {
       try {
+        if (retentionYieldsToFirstWeek(eng, data, nowMs)) return;
         // 1. Real activity (workouts collection) — skip when actually active.
         let c: RetentionCandidate | null = docCandidate;
         if (flags.realActivityGuard) {
@@ -448,22 +488,65 @@ export const retentionScheduler = onSchedule(
         if (flags.milestoneCadence) {
           const rateSnap = await db.collection('push_rate').doc(c.uid).get();
           rateData = rateSnap.exists ? (rateSnap.data() as Record<string, unknown>) : undefined;
-          milestone = nextRetentionMilestone(c.daysSince, anchor, retentionSentLogFrom(rateData));
+          milestone = nextRetentionMilestone(c.daysSince, anchor, retentionSentLogFrom(rateData), ladder);
           if (!milestone) {
             noMilestone++;
             return;
           }
         }
 
+        // 2b. Lifecycle flag: cap the legacy cadence; never-trained → first-workout copy.
+        let neverTrained = false;
+        if (lifecycle) {
+          if (!flags.milestoneCadence) {
+            if (!rateData) {
+              const rateSnap = await db.collection('push_rate').doc(c.uid).get();
+              rateData = rateSnap.exists ? (rateSnap.data() as Record<string, unknown>) : undefined;
+            }
+            if (retentionLegacyCapReached(retentionLegacyLogFrom(rateData), anchor)) {
+              legacyCapped++;
+              return;
+            }
+          }
+          const runLogged = !!(data?.running as { lastWorkoutDate?: unknown } | undefined)?.lastWorkoutDate;
+          if (!runLogged) {
+            try {
+              neverTrained = (await latestWorkoutMs(db, c.uid)) === null;
+            } catch {
+              neverTrained = false; // unknown → the regular copy
+            }
+          }
+        }
+
         if (TEST_MODE) {
           logger.warn(
             `[retention] TEST_MODE — would push uid=${c.uid} name="${c.name}" ` +
-              `daysAway=${c.daysSince} milestone=${milestone ?? '-'}`,
+              `daysAway=${c.daysSince} milestone=${milestone ?? '-'} neverTrained=${neverTrained}`,
           );
           return;
         }
 
-        const copy = await resolvePushCopy('retention_lapse', retentionCopyContext(c, new Date(nowMs), milestone));
+        const track = pushTrackFromUserData(data);
+        let copy = neverTrained
+          ? await resolvePushCopy('first_workout', {
+              uid: c.uid,
+              now: new Date(nowMs),
+              audience: c.audience ?? {},
+              vars: { '@שם': c.name.trim() },
+              conditions: trackConditions(track, { when: 'later' }),
+            })
+          : null;
+        let tone: PushTone | 'none' | undefined;
+        if (!neverTrained) {
+          const ctx = retentionCopyContext(c, new Date(nowMs), milestone, track);
+          if (eng.toneRotation) {
+            const toned = await resolveTonedCopy('retention_lapse', ctx, toneOrder(RETENTION_TONES, toneSegmentFrom(c.audience)));
+            copy = toned?.copy ?? null;
+            tone = toned?.tone;
+          } else {
+            copy = await resolvePushCopy('retention_lapse', ctx);
+          }
+        }
         if (!copy) return;
         const result = await sendPush({
           toUids: [c.uid],
@@ -475,11 +558,26 @@ export const retentionScheduler = onSchedule(
             triggerType: 'Inactivity',
             daysSince: String(c.daysSince),
             ...(milestone ? { milestone } : {}),
+            ...(neverTrained ? { neverTrained: 'true' } : {}),
             ...pushCopyData(copy),
           },
           // The cadence's sent log already stops repeats; the cap only spaces
           // milestones a day apart. Without the cadence: the old 48h.
           rateCapHours: flags.milestoneCadence ? 24 : 48,
+          // Tone learning (pushToneRotation only — no push_events writes otherwise).
+          ...(tone
+            ? {
+                measurement: {
+                  variantId: copy.rowId,
+                  category: 'Inactivity',
+                  persona: c.audience?.persona ?? 'generic',
+                  pushType: copy.pushType,
+                  copyRowId: copy.rowId,
+                  tone,
+                  lever: milestone ?? 'return',
+                },
+              }
+            : {}),
         });
         totalDelivered += result.delivered;
         totalSkipped +=
@@ -495,6 +593,13 @@ export const retentionScheduler = onSchedule(
             { merge: true },
           );
         }
+        if (lifecycle && !flags.milestoneCadence && result.delivered > 0) {
+          const next = recordRetentionLegacySend(retentionLegacyLogFrom(rateData), anchor);
+          await db.collection('push_rate').doc(c.uid).set(
+            { retention_legacyAnchor: next.anchor, retention_legacyCount: next.count },
+            { merge: true },
+          );
+        }
       } catch (err: unknown) {
         logger.error(`[retention] sendPush failed for uid=${docCandidate.uid}`, err);
       }
@@ -506,7 +611,8 @@ export const retentionScheduler = onSchedule(
 
     logger.info(
       `[retention] Run complete — candidates=${candidates.length} activeAfterWorkoutCheck=${activeAfterCheck} ` +
-        `noActivitySignal=${noSignal} lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} delivered=${totalDelivered} skipped=${totalSkipped}`,
+        `noActivitySignal=${noSignal} lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} legacyCapped=${legacyCapped} ` +
+        `delivered=${totalDelivered} skipped=${totalSkipped}`,
     );
   },
 );

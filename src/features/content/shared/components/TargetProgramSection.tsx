@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { TargetProgramRef } from '@/features/content/exercises/core/exercise.types';
 import { Program } from '@/features/content/programs/core/program.types';
 import { Link as LinkIcon, Plus, Trash2, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 
 interface TargetProgramSectionProps {
   programs: Program[];

@@ -15,7 +15,7 @@ import { advanceTarget, buildBlockRecords, resolveBlockTargetPace } from '../lib
 import { cyclingCalories, effectiveAutoLapKm, gpsFilterThresholds, savedWorkoutLabels, type AerobicActivity } from '../lib/aerobic-activity';
 import { crossTrackDistanceMeters, type RouteTurn } from '@/features/parks/core/services/geoUtils';
 import type { WorkoutHistoryEntry } from '../../../core/services/storage.service';
-import { rdpSimplify, truncatePrecision } from '@/utils/pathSimplify';
+import { rdpSimplify, truncatePrecision } from '@/lib/geo/path-simplify';
 import { runnerShouldSelfSave, shouldRedirectToHybridFinish } from '@/features/workout-engine/hybrid/hybrid-finish-policy';
 import { RUNNING_NATIVE_KEEP_AWAKE_ENABLED } from '@/config/feature-flags';
 // Direct sibling import — both stores live under workout-engine/* with no

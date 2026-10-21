@@ -23,6 +23,7 @@ import {
   reminderPreviewTitle,
   type ReminderLeadMinutes,
 } from '../utils/reminderOptIn';
+import { PUSH_SOFT_ASK_COPY } from '../utils/pushReAsk';
 
 export interface ReminderOptInResult {
   leadMinutes: ReminderLeadMinutes;
@@ -41,9 +42,9 @@ export interface ReminderOptInStepProps {
   alreadyActive: boolean;
   initialLeadMinutes?: ReminderLeadMinutes;
   initialCalendarSync?: boolean;
-  /** "כן, תזכיר לי" / "המשך" (compact). */
+  /** "כן, תזכירו לי" / "המשך" (compact). */
   onAccept: (result: ReminderOptInResult) => void | Promise<void>;
-  /** "לא עכשיו" (full variant only). */
+  /** "לא עכשיו" (full variant only) — never prompts; callers record the deferral (recordReminderDeferral). */
   onSkip: (result: Pick<ReminderOptInResult, 'calendarSync'>) => void | Promise<void>;
 }
 
@@ -76,6 +77,7 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
       <div className="px-4 pb-2 pt-1">
         <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">שנזכיר לך לפני כל אימון?</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle}</p>
+        {!p.alreadyActive && <p className="mt-1.5 text-[14.5px] font-bold leading-snug text-v2-ink-2">{PUSH_SOFT_ASK_COPY.body}</p>}
 
         {/* Sample notification over a soft brand glow */}
         <div
@@ -174,7 +176,7 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
           className="flex h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-v2-cta text-[16.5px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-80"
         >
           {busy === 'accept' && <Loader2 size={20} className="animate-spin" aria-hidden />}
-          {p.alreadyActive ? 'המשך' : 'כן, תזכיר לי'}
+          {p.alreadyActive ? 'המשך' : PUSH_SOFT_ASK_COPY.accept}
         </button>
         {!p.alreadyActive && (
           <button
@@ -183,7 +185,7 @@ export default function ReminderOptInStep(p: ReminderOptInStepProps) {
             disabled={!!busy}
             className="mt-1 h-10 w-full whitespace-nowrap text-[15px] font-extrabold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
-            לא עכשיו
+            {PUSH_SOFT_ASK_COPY.defer}
           </button>
         )}
       </div>
