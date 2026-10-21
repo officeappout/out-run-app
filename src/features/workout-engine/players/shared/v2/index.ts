@@ -18,3 +18,10 @@ export { useHoldToConfirm } from './useHoldToConfirm';
 export { usePublishedHeaderHeight } from './usePublishedHeaderHeight';
 export { usePublishedPlayerChrome, readSafeAreaInsets } from './usePublishedPlayerChrome';
 export type { PlayerChromeOffsets } from './usePublishedPlayerChrome';
+// enable_run_player_drawer_v1 — run / walk players: metrics drawer + attached header strip.
+export { default as RunMetricsDrawer } from './RunMetricsDrawer';
+export type { RunMetricsDrawerProps } from './RunMetricsDrawer';
+export { default as RunDrawerCompact } from './RunDrawerCompact';
+export type { RunDrawerCompactProps } from './RunDrawerCompact';
+export { default as RunHeaderStrip } from './RunHeaderStrip';
+export type { RunHeaderStripProps } from './RunHeaderStrip';

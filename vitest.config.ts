@@ -41,6 +41,8 @@ export default defineConfig({
       'src/features/workout-engine/players/running/components/overview-v2/__tests__/**/*.test.tsx',
       // i18n wave 2 (player namespace, run.*) — Hebrew markup parity of the running players, static markup.
       'src/features/workout-engine/players/running/components/**/__tests__/**/*.test.tsx',
+      // Run / walk metrics drawer + attached header (enable_run_player_drawer_v1) — static markup.
+      'src/features/workout-engine/players/shared/v2/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.

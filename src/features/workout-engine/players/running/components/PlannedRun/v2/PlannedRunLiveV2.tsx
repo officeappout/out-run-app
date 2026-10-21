@@ -20,12 +20,13 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { MiniPlayer, PlayerShell, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { MiniPlayer, PlayerShell, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
-import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { rateLabels } from '../../../lib/aerobic-activity';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
 import PlannedSessionListV2 from './PlannedSessionListV2';
 import { useT } from '@/hooks/useT';
@@ -42,6 +43,11 @@ interface Props {
   onSkip: () => void;
   onEnd: () => void;
   onJumpToBlock: (index: number) => void;
+  /**
+   * enable_run_player_drawer_v1: the card becomes the metrics drawer (the
+   * header here is already attached to the top edge). Off = today's layout.
+   */
+  drawerV1?: boolean;
 }
 
 export default function PlannedRunLiveV2({
@@ -55,6 +61,7 @@ export default function PlannedRunLiveV2({
   onSkip,
   onEnd,
   onJumpToBlock,
+  drawerV1 = false,
 }: Props) {
   const t = useT(player);
   const totalDuration = useSessionStore((s) => s.totalDuration);
@@ -72,7 +79,7 @@ export default function PlannedRunLiveV2({
 
   const [listOpen, setListOpen] = useState(false);
   // Map camera keeps the runner's marker between the header and the card.
-  const chrome = usePublishedPlayerChrome({ bottomGapPx: 14, headerIncludesSafeTop: true });
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: 14, headerIncludesSafeTop: true, drawer: drawerV1 });
 
   const segments = useMemo(() => blocks.map((b, i) => ({ key: b.id ?? String(i), color: v2BlockColor(b) })), [blocks]);
   const cartItems = useMemo(
@@ -97,6 +104,22 @@ export default function PlannedRunLiveV2({
     useRunningPlayer.getState().triggerLap();
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15);
   }, []);
+
+  const card = (
+    <PlannedLiveCardV2
+      engine={engine}
+      blocks={blocks}
+      reps={reps}
+      lastRep={live.lastRep}
+      blockElapsedSeconds={blockElapsedSeconds}
+      totals={totals}
+      canSkip={canSkip}
+      onSkip={onSkip}
+      onPause={onPause}
+      onEnd={onEnd}
+      onLap={triggerLap}
+    />
+  );
 
   return (
     <PlayerShell
@@ -177,21 +200,28 @@ export default function PlannedRunLiveV2({
             </AnimatePresence>
 
             {/* The card over the map. */}
-            <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
-              <PlannedLiveCardV2
-                engine={engine}
-                blocks={blocks}
-                reps={reps}
-                lastRep={live.lastRep}
-                blockElapsedSeconds={blockElapsedSeconds}
-                totals={totals}
-                canSkip={canSkip}
-                onSkip={onSkip}
-                onPause={onPause}
-                onEnd={onEnd}
-                onLap={triggerLap}
+            {drawerV1 ? (
+              <RunMetricsDrawer
+                cardRef={chrome.cardRef}
+                bottomGapPx={14}
+                onOpenList={() => setListOpen(true)}
+                full={card}
+                compact={{
+                  time: fmtClock(totals.durationSec),
+                  distanceKm: totals.distanceKm.toFixed(2),
+                  rate: fmtPace(engine.currentPaceSeconds),
+                  rateLabel: rateLabels('pace').page,
+                  isPaused,
+                  onPause,
+                  onResume,
+                  onStop: onEnd,
+                }}
               />
-            </div>
+            ) : (
+              <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
+                {card}
+              </div>
+            )}
           </>
       )}
     </PlayerShell>

@@ -65,7 +65,10 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
 
   // Home v2 (enable_home_v2): the approved F-1c…F-1e live layout. Off ⇒ today's UI.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const { flags: runFlagsV2, loading: runFlagsLoading } = useFeatureFlags(isSuperAdmin);
+  const v2 = runFlagsV2.enableHomeV2;
+  // enable_run_player_drawer_v1: metrics drawer + attached header inside the v2 players.
+  const drawerV1 = v2 && !runFlagsLoading && runFlagsV2.enableRunPlayerDrawerV1;
 
   const {
     currentBlock,
@@ -264,6 +267,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
           onSkip={handleSkipBlock}
           onEnd={() => { hapticWarning(); handleFinishWorkout(); }}
           onJumpToBlock={jumpToBlock}
+          drawerV1={drawerV1}
         />
       ) : (
       <>

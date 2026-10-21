@@ -20,11 +20,12 @@ import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
-import { HeaderProgressBar, PlayerHeaderCard, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { HeaderProgressBar, PlayerHeaderCard, RunHeaderStrip, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useGroupSessionGoal } from '../../../hooks/useGroupSessionGoal';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
-import { V2_BLOCK_COLORS, fmtClock } from '../../../lib/planned-rep-results';
+import { V2_BLOCK_COLORS, fmtClock, fmtPace } from '../../../lib/planned-rep-results';
+import { fmtSpeed, paceSecToKmh, rateLabels } from '../../../lib/aerobic-activity';
 import { goalView, heroKind } from '../../../lib/continuous-run';
 import ContinuousRunCardV2 from '../../Continuous/v2/ContinuousRunCardV2';
 import SideRail from '../SideRail';
@@ -42,6 +43,11 @@ interface Props {
   onSelectParticipant?: (uid: string) => void;
   /** For the invite button (same as today's overlay). */
   activityType: 'running' | 'walking';
+  /**
+   * enable_run_player_drawer_v1: header attached to the top edge, metrics as a
+   * drawer (compact ⇄ full), camera keeps the marker above it. Off = today's layout.
+   */
+  drawerV1?: boolean;
 }
 
 function Toast({ children, tone = 'dark' }: { children: React.ReactNode; tone?: 'dark' | 'good' }) {
@@ -57,7 +63,7 @@ function Toast({ children, tone = 'dark' }: { children: React.ReactNode; tone?: 
   );
 }
 
-export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailParticipants, onSelectParticipant, activityType }: Props) {
+export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailParticipants, onSelectParticipant, activityType, drawerV1 = false }: Props) {
   useGroupSessionGoal();
   useEffect(() => {
     const s = useSharedSession.getState();
@@ -110,7 +116,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
   const headerRef = useRef<HTMLDivElement>(null);
   // Map camera keeps the runner's marker between the header and the card
   // (the legacy framing put it right under the bottom card).
-  const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true });
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true, drawer: drawerV1 });
   const [headerH, setHeaderH] = useState(96);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
   const navCardH = useMapStore((s) => s.navCardHeight);
@@ -129,26 +135,54 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     return () => setStoreStoryBarHeight(0);
   }, [headerH, setStoreStoryBarHeight]);
 
+  const startShellDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    dragControls.start(e);
+  };
+  const headerProps = {
+    leading: <CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={t('run.free.v2.lapsListAria', { done: String(cartItems.filter((i) => i.done).length) })} />,
+    eyebrow: gv ? `${live.title} · ${gv.targetText}` : live.title,
+    eyebrowColor: '#4d7c0f',
+    title: gv ? gv.remainingText : t('run.free.v2.lapTitle', { n: String(lapNo), time: fmtClock(live.totals.durationSec) }),
+    trailing: gv ? <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span> : null,
+    strip: gv ? <HeaderProgressBar progress={gv.progress} color={V2_BLOCK_COLORS.easy} /> : null,
+  };
+
+  const card = (
+    <ContinuousRunCardV2
+      data={{
+        heroKind: kind,
+        heroSeconds: live.totals.durationSec,
+        heroKm: live.totals.distanceKm,
+        zone: null,
+        tracking,
+        currentPaceSec: live.currentPaceSec,
+        showLivePace: true,
+        totals: live.totals,
+        plannedKm: live.goal?.type === 'distance' ? live.goal.target : null,
+        metric: live.metric,
+      }}
+      isPaused={live.isPaused}
+      onPause={live.pause}
+      onResume={live.resume}
+      onLap={live.lap}
+      onStop={live.stop}
+    />
+  );
+  const rateText =
+    live.currentPaceSec > 0 ? (live.metric === 'speed' ? fmtSpeed(paceSecToKmh(live.currentPaceSec)) : fmtPace(live.currentPaceSec)) : '--:--';
+
   return (
     <>
+      {drawerV1 ? (
+        <RunHeaderStrip outerRef={chrome.headerRef} innerRef={headerRef} onPointerDown={startShellDrag} {...headerProps} />
+      ) : (
       <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div ref={headerRef} className="px-3 pt-2">
-          <PlayerHeaderCard
-            onPointerDown={(e) => {
-              if ((e.target as HTMLElement).closest('button')) return;
-              dragControls.start(e);
-            }}
-            leading={<CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={t('run.free.v2.lapsListAria', { done: String(cartItems.filter((i) => i.done).length) })} />}
-            eyebrow={gv ? `${live.title} · ${gv.targetText}` : live.title}
-            eyebrowColor="#4d7c0f"
-            title={gv ? gv.remainingText : t('run.free.v2.lapTitle', { n: String(lapNo), time: fmtClock(live.totals.durationSec) })}
-            trailing={
-              gv ? <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span> : null
-            }
-            strip={gv ? <HeaderProgressBar progress={gv.progress} color={V2_BLOCK_COLORS.easy} /> : null}
-          />
+          <PlayerHeaderCard onPointerDown={startShellDrag} {...headerProps} />
         </div>
       </div>
+      )}
 
       {/* Left column under the header (the recenter pill owns the right side). */}
       <div
@@ -179,27 +213,29 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
 
       <SideRail participants={sideRailParticipants ?? []} storyBarHeight={headerH} onSelect={onSelectParticipant} />
 
-      <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
-        <ContinuousRunCardV2
-          data={{
-            heroKind: kind,
-            heroSeconds: live.totals.durationSec,
-            heroKm: live.totals.distanceKm,
-            zone: null,
-            tracking,
-            currentPaceSec: live.currentPaceSec,
-            showLivePace: true,
-            totals: live.totals,
-            plannedKm: live.goal?.type === 'distance' ? live.goal.target : null,
-            metric: live.metric,
+      {drawerV1 ? (
+        <RunMetricsDrawer
+          cardRef={chrome.cardRef}
+          bottomGapPx={12}
+          className="z-10"
+          onOpenList={onMinimize}
+          full={card}
+          compact={{
+            time: fmtClock(live.totals.durationSec),
+            distanceKm: live.totals.distanceKm.toFixed(2),
+            rate: rateText,
+            rateLabel: rateLabels(live.metric ?? 'pace').page,
+            isPaused: live.isPaused,
+            onPause: live.pause,
+            onResume: live.resume,
+            onStop: live.stop,
           }}
-          isPaused={live.isPaused}
-          onPause={live.pause}
-          onResume={live.resume}
-          onLap={live.lap}
-          onStop={live.stop}
         />
-      </div>
+      ) : (
+        <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+          {card}
+        </div>
+      )}
 
       <WorkoutSettingsDrawer isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
