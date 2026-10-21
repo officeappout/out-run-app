@@ -80,3 +80,17 @@ src/features/content/exercises/client/components/SecondaryFiltersTrigger.tsx
 src/features/content/exercises/client/hooks/
 src/features/content/exercises/client/store/
 src/features/content/exercises/client/utils/
+# wave 2 (namespace community, social.* keys) — feed post, publishing / share-image sheets,
+# activity panel, follow card, route line. Single files, not the folder: ChatInbox.tsx /
+# ChatThread.tsx (busy in other work) and DiscoverSection.tsx (dead) are not migrated.
+# ShareImageSheet.tsx's legacy (enable_home_v2 off) sheet is marked i18n-allow-hebrew.
+src/features/social/components/ActivityPanel.tsx
+src/features/social/components/FeedPostCard.tsx
+src/features/social/components/FeedPostCardV2.tsx
+src/features/social/components/FeedPublishSheets.tsx
+src/features/social/components/PartnerCard.tsx
+src/features/social/components/RouteLine.tsx
+src/features/social/components/ShareImageSheet.tsx
+src/features/social/components/SummaryFeedShare.tsx
+src/features/social/components/social-t.ts
+src/features/social/components/share-v2/

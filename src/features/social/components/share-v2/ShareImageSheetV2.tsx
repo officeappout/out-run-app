@@ -23,11 +23,17 @@ import ShareFormatControl from './ShareFormatControl';
 import ShareStickerInkTiles from './ShareStickerInkTiles';
 import ShareTemplateCarousel from './ShareTemplateCarousel';
 import { useSharePhoto, useSharePreviews } from './useSharePreviews';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { SocialT } from '../social-t';
 
-function subtitle(input: ShareImageInput): string {
-  const min = `${Math.round(input.durationMinutes)} דק׳`;
-  if (input.kind === 'cardio') return ['ריצה', input.distanceKm ? `${input.distanceKm.toFixed(1)} ק״מ` : null, min].filter(Boolean).join(' · ');
-  return ['אימון כוח', input.programName || input.title, min].filter(Boolean).join(' · ');
+function subtitle(t: SocialT, input: ShareImageInput): string {
+  const min = t('social.share.subtitle.minutes', { n: String(Math.round(input.durationMinutes)) });
+  if (input.kind === 'cardio')
+    return [t('social.share.subtitle.run'), input.distanceKm ? t('social.share.subtitle.km', { km: input.distanceKm.toFixed(1) }) : null, min]
+      .filter(Boolean)
+      .join(' · ');
+  return [t('social.share.subtitle.strength'), input.programName || input.title, min].filter(Boolean).join(' · ');
 }
 
 function fileName(kind: ShareImageInput['kind'], format: ShareFormat): string {
@@ -45,6 +51,7 @@ export default function ShareImageSheetV2({
   input: ShareImageInput | null;
   photoUrl?: string | null;
 }) {
+  const t = useT(community);
   const { showToast } = useToast();
   const inputKey = input ? JSON.stringify(input) : '';
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,7 +78,7 @@ export default function ShareImageSheetV2({
   useEffect(() => () => { if (ownPhoto) URL.revokeObjectURL(ownPhoto); }, [ownPhoto]);
 
   const templates = templatesFor(kind, format, model);
-  const tid = templates.some((t) => t.id === templateId) ? templateId : defaultTemplateId(kind, hasPhoto, format);
+  const tid = templates.some((def) => def.id === templateId) ? templateId : defaultTemplateId(kind, hasPhoto, format);
   const sticker = format === 'sticker';
   const bgFor = (id: string): ShareBackground => {
     const want = bgPick[id] ?? templateById(kind, id).naturalBackground(hasPhoto);
@@ -86,7 +93,7 @@ export default function ShareImageSheetV2({
       setOwnPhoto(picked.previewUrl);
       setBgPick((m) => ({ ...m, [tid]: 'photo' }));
     } catch {
-      showToast('error', 'לא הצלחנו לפתוח את התמונה');
+      showToast('error', t('social.share.toast.photoError'));
     }
   };
 
@@ -109,10 +116,10 @@ export default function ShareImageSheetV2({
     setBusy('share');
     try {
       const res = await shareOrDownload(await fullImage(), fileName(input.kind, format));
-      if (res === 'downloaded') showToast('success', 'התמונה נשמרה');
+      if (res === 'downloaded') showToast('success', t('social.share.toast.saved'));
       if (res !== 'cancelled') onClose();
     } catch {
-      showToast('error', 'השיתוף לא הצליח');
+      showToast('error', t('social.share.toast.shareFailed'));
     } finally {
       setBusy(null);
     }
@@ -124,10 +131,10 @@ export default function ShareImageSheetV2({
     try {
       // Photos (native app with the plugin) → share sheet (older builds) → download (web).
       const res = await saveImageToGallery(await fullImage(), fileName(input.kind, format));
-      if (res === 'saved' || res === 'downloaded') showToast('success', 'התמונה נשמרה');
-      if (res === 'denied') showToast('error', 'אין הרשאה לשמור בגלריה — אפשר לאשר בהגדרות הטלפון');
+      if (res === 'saved' || res === 'downloaded') showToast('success', t('social.share.toast.saved'));
+      if (res === 'denied') showToast('error', t('social.share.toast.denied'));
     } catch {
-      showToast('error', 'השמירה לא הצליחה');
+      showToast('error', t('social.share.toast.saveFailed'));
     } finally {
       setBusy(null);
     }
@@ -135,8 +142,8 @@ export default function ShareImageSheetV2({
 
   const tpl = templateById(kind, tid);
   return (
-    <Sheet open={open && !!input} title="שיתוף לרשתות" onClose={onClose}>
-      {input && <p className="-mt-3 mb-1 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{subtitle(input)}</p>}
+    <Sheet open={open && !!input} title={t('social.share.title')} onClose={onClose}>
+      {input && <p className="-mt-3 mb-1 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{subtitle(t, input)}</p>}
 
       <ShareTemplateCarousel templates={templates} selectedId={tid} previews={previews} format={format} onSelect={setTemplateId} />
 
@@ -144,7 +151,7 @@ export default function ShareImageSheetV2({
         <ShareFormatControl value={format} onChange={setFormat} />
       </div>
 
-      <div className="mt-3.5 text-[13px] font-extrabold text-v2-deep">{sticker ? 'צבע הסטיקר' : 'רקע'}</div>
+      <div className="mt-3.5 text-[13px] font-extrabold text-v2-deep">{sticker ? t('social.share.stickerInkTitle') : t('social.share.backgroundTitle')}</div>
       <div className="mt-1.5">
         {sticker ? (
           <ShareStickerInkTiles value={ink} onChange={setInk} />
@@ -163,7 +170,7 @@ export default function ShareImageSheetV2({
 
       <Button variant="cta" block className="mt-5" disabled={!model || !!busy} onClick={() => void handleShare()}>
         <Share2 size={18} strokeWidth={2.6} aria-hidden />
-        שיתוף
+        {t('social.share.share')}
       </Button>
       <button
         type="button"
@@ -172,7 +179,7 @@ export default function ShareImageSheetV2({
         className="mt-2 flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[14.5px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
       >
         <Download size={17} strokeWidth={2.4} className="text-v2-ink-2" aria-hidden />
-        שמירה לגלריה
+        {t('social.share.saveToGallery')}
       </button>
     </Sheet>
   );
