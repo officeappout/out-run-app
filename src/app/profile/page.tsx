@@ -14,6 +14,8 @@ import HistorySheet from '@/features/profile/components/HistorySheet';
 import SettingsModal from '@/features/home/components/SettingsModal';
 import AppHeader from '@/components/ui/AppHeader';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
+import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 
 const CreatorManagementDrawer = nextDynamic(
   () => import('@/features/arena/components/CreatorManagementDrawer'),
@@ -91,7 +93,7 @@ export default function ProfilePage() {
   const managedGroups = myGroups.filter((g) => g.createdBy === profile?.id);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Home v2 (enable_home_v2): the profile wears the same look as home.
-  const { flags: profileFlags, loading: flagsLoading } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const { flags: profileFlags, loading: flagsLoading, ready: flagsReady } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = profileFlags.enableHomeV2;
   const [historySheetOpen, setHistorySheetOpen] = useState(false);
 
@@ -313,6 +315,7 @@ export default function ProfilePage() {
   // seen the flags (first launch / cleared storage) — without it the profile
   // painted in the old look and then switched to v2 once the flags arrived.
   if (!_hasHydrated || flagsLoading) {
+    if (loadingLook(flagsReady, v2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="h-screen flex items-center justify-center bg-white">
         <p className="text-sm text-gray-500 animate-pulse">טוען...</p>

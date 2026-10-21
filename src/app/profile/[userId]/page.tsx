@@ -10,6 +10,8 @@ import { db, auth } from '@/lib/firebase';
 import { motion } from 'framer-motion';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
+import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { getUserPosts, type FeedPost } from '@/features/social/services/feed.service';
@@ -62,7 +64,8 @@ export default function PublicProfilePage() {
 
   const myProfile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the same look as the own profile.
-  const v2 = useFeatureFlags(!!(myProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const { flags: viewerFlags, ready: flagsReady } = useFeatureFlags(!!(myProfile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
+  const v2 = viewerFlags.enableHomeV2;
   const myUid = myProfile?.id;
   const { isFollowing, followUser, unfollowUser, isLoaded, loadConnections } = useSocialStore();
 
@@ -249,7 +252,9 @@ export default function PublicProfilePage() {
     }
   }, [myUid, isSelf, followed, targetUid, followUser, unfollowUser]);
 
-  if (loading) {
+  // Flags unknown, or v2: the neutral v2 skeleton — never the old look first.
+  if (loading || !flagsReady) {
+    if (loadingLook(flagsReady, v2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-sm text-gray-500 animate-pulse">טוען פרופיל...</p>

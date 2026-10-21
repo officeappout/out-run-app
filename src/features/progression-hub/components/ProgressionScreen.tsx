@@ -32,11 +32,15 @@ import { DiscoverMoreSection } from './DiscoverMoreSection';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import ProgressScreenV2 from '../v2/components/ProgressScreenV2';
+import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 
 export function ProgressionScreen() {
   // enable_home_v2: the tab holds everything about what you did (P-1…P-4).
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const { flags, ready } = useFeatureFlags(isSuperAdmin);
+  const v2 = flags.enableHomeV2;
+  // Flags unknown: a neutral skeleton, never v1 first and then v2.
+  if (!ready) return <ScreenSkeleton />;
   if (v2) return <ProgressScreenV2 />;
   return <ProgressionScreenV1 />;
 }

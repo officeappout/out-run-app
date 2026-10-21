@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/firebase', () => ({ db: {} }));
+vi.mock('@/features/user/identity/store/useUserStore', () => ({ useUserStore: () => null }));
 
 import { FLAGS_CACHE_KEY, readCachedFlags, initialFlags, __setFlagsMemoryForTests } from '../useFeatureFlags';
 
