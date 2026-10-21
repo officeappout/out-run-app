@@ -45,10 +45,85 @@ export function splitTopLevelUnion(text) {
   return parts;
 }
 
-/** Sort a type's top-level union members (recursively inside nothing else). */
+/** Split on a separator at depth 0 (outside brackets and strings). */
+function splitTopLevel(text, sep) {
+  if (sep === ' | ') return splitTopLevelUnion(text);
+  const parts = [];
+  let depth = 0;
+  let inStr = false;
+  let start = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (c === '\\') { i++; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '>' && text[i - 1] === '=') continue;
+    if (OPEN[c]) depth++;
+    else if (CLOSE.has(c)) depth = Math.max(0, depth - 1);
+    else if (depth === 0 && text.startsWith(sep, i)) {
+      parts.push(text.slice(start, i));
+      start = i + sep.length;
+      i += sep.length - 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/**
+ * Normalize the inside of every bracket group recursively: unions are sorted at every depth
+ * (Set<"push" | "pull"> too), object members ('a: X; b: Y') are sorted, and an object type
+ * tsc TRUNCATED with "..." collapses to "{…}" — its visible keys depend on member order, so
+ * they can't be compared (21.10.2026: DomainProgress map key order drifted on main).
+ */
+function normalizeNested(text) {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      const j = text.indexOf('"', i + 1);
+      const end = j === -1 ? text.length : j;
+      out += text.slice(i, end + 1);
+      i = end;
+      continue;
+    }
+    if (OPEN[c] && !(c === '<' && text[i - 1] === ' ' && text[i + 1] === '=')) {
+      // find the matching close
+      let depth = 0;
+      let j = i;
+      for (; j < text.length; j++) {
+        const d = text[j];
+        if (d === '"') { const k = text.indexOf('"', j + 1); if (k === -1) break; j = k; continue; }
+        if (d === '>' && text[j - 1] === '=') continue;
+        if (OPEN[d]) depth++;
+        else if (CLOSE.has(d)) { depth--; if (depth === 0) break; }
+      }
+      if (j >= text.length) {
+        // tsc truncates long types mid-object ("{ a?: X; b?: Y; ..." with no closing brace).
+        out += c === '{' && /\.\.\./.test(text.slice(i)) ? '{…' : text.slice(i);
+        break;
+      }
+      const inner = text.slice(i + 1, j);
+      let norm;
+      if (c === '{' && /\.\.\./.test(inner)) norm = '…';
+      else if (c === '{') norm = ' ' + splitTopLevel(inner.trim(), '; ').map((m) => normalizeType(m.trim())).filter(Boolean).sort().join('; ') + ' ';
+      else norm = normalizeType(inner);
+      out += c + norm + OPEN[c];
+      i = j;
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** Sort a type's union members at every depth (see normalizeNested). */
 export function normalizeType(typeText) {
-  const parts = splitTopLevelUnion(typeText);
-  if (parts.length < 2) return typeText;
+  const parts = splitTopLevelUnion(typeText).map((p) => normalizeNested(p));
+  if (parts.length < 2) return parts[0];
   return [...parts].sort().join(' | ');
 }
 

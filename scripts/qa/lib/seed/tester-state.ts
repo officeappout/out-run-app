@@ -69,6 +69,12 @@ function testerPersona(uid: string, spec: SeedSpec, who: TesterIdentity): Person
   };
 }
 
+/** 'YYYY-MM-DD' (local calendar day) `offset` days from `now`. */
+function isoDay(now: Date, offset: number): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const owned = (uid: string, path: string) => {
   const id = path.split('/')[1] ?? '';
   return id === uid || id.startsWith(`${uid}_`);
@@ -110,7 +116,10 @@ export function buildTesterState(
     { path: `users/${uid}`, data: user },
     {
       path: `streaks/${uid}`,
-      data: { userId: uid, displayName: who.name, currentStreak: h.streak.current, longestStreak: h.streak.longest, lastActivityDate: h.streak.lastActivityDate, authorityId: ctx.authorityId, neighborhoodId: ctx.neighborhoodId, ageGroup: 'demo', isDemo: true, updatedAt: now },
+      // lastActivityDate is never null on a real streak doc (the create rule needs a day key) —
+      // a null one makes every later client write fail the rule. No live streak → the oldest
+      // history day (a gap the app reads as "streak broken", exactly like a real lapsed user).
+      data: { userId: uid, displayName: who.name, currentStreak: h.streak.current, longestStreak: h.streak.longest, lastActivityDate: h.streak.lastActivityDate ?? h.steps[0]?.date ?? isoDay(now, -spec.historyDays), authorityId: ctx.authorityId, neighborhoodId: ctx.neighborhoodId, ageGroup: 'demo', isDemo: true, updatedAt: now },
     },
     ...h.docs,
   ];

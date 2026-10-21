@@ -180,7 +180,10 @@ export type PushVarKey =
   | '@אימון'
   | '@כמות'
   | '@עוד'
-  | '@שיא';
+  | '@שיא'
+  | '@אנשים'
+  | '@דירוג'
+  | '@מתחרה';
 
 export interface PushVariableDef {
   key: PushVarKey;
@@ -207,6 +210,9 @@ export const PUSH_VARIABLES: ReadonlyArray<PushVariableDef> = [
   { key: '@כמות', label: 'כמה כיפים התקבלו', sample: '4' },
   { key: '@עוד', label: 'כמה אנשים נוספים שלחו', sample: '3' },
   { key: '@שיא', label: 'השיא האישי ברצף (ימים)', sample: '23' },
+  { key: '@אנשים', label: 'כמה אנשים התאמנו שם השבוע (אמיתי)', sample: '12' },
+  { key: '@דירוג', label: 'המקום בטבלה לפני שעקפו', sample: '3' },
+  { key: '@מתחרה', label: 'מי שעקף בטבלה', sample: 'יואב' },
 ];
 
 const VARIABLE_BY_KEY: Record<string, PushVariableDef> = Object.fromEntries(
@@ -333,6 +339,8 @@ export interface PushDefaultCopy {
   subjectGender?: PushGender;
   /** Ties the male and female defaults of one pair (seeded as the row's pairId). */
   pair?: string;
+  /** Route id for this default's row (absent = the entry's first deep link). */
+  deepLink?: string;
 }
 
 export interface PushSubject {
@@ -363,7 +371,32 @@ export interface PushCatalogEntry {
   subject?: PushSubject;
   /** Not live in production code yet (sender not merged / not deployed). */
   pending?: string;
+  /**
+   * Rows may be gendered on BOTH axes at once (the subject's verb in the title,
+   * the recipient's grammar in the body — owner rule for "עקפו אותך"). Pairs
+   * then run along the subject axis per recipient gender.
+   */
+  dualGender?: boolean;
 }
+
+/**
+ * Tone of a row (owner, 21.10.2026). A sender that rotates tones passes
+ * conditions.tone; senders that don't, never match a toned row. 'friendly'
+ * (ישראלי-חברי) is singular and gendered in title AND body, never for 60+.
+ */
+export const TONE_CONDITION: PushCondition = {
+  key: 'tone',
+  label: 'טון',
+  options: [
+    { value: 'cute', label: 'חמוד ומצחיק' },
+    { value: 'personal', label: 'אישי ורגשי' },
+    { value: 'curious', label: 'מסקרן' },
+    { value: 'friendly', label: 'ישראלי-חברי' },
+  ],
+};
+
+/** The casual tone: a known age under 60 only (the sender also filters ותיקים and city broadcasts). */
+const CASUAL_AGES: PushAudienceFilter = { ageBand: ['under_18', '18_29', '30_44', '45_59'] };
 
 const LEVEL_OPTIONS = ['2', '3', '4', '5', '6', '7', '8', '9', '10'].map((v) => ({ value: v, label: `רמה ${v}` }));
 
@@ -456,7 +489,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     description:
       'סיימו אונבורדינג ולא התאמנו כמה ימים (לפי האימון האחרון או פתיחת האפליקציה האחרונה). בלי ספירת ימים ובלי אשמה.',
     whenSent:
-      'כל יום ב-10:00, למי שלא התאמן ולא פתח את האפליקציה 7 ימים ומעלה, לכל היותר פעם ב-48 שעות. כשהדגל retentionMilestoneCadence דולק: פעם אחת בכל שלב (יום 4 עד 6, שבוע, שבועיים, חודש: יום 30 עד 35) ואחרי יום 35 מפסיקים. לא בשבת ובחג.',
+      'כל יום ב-10:00, למי שלא התאמן ולא פתח את האפליקציה 7 ימים ומעלה, לכל היותר פעם ב-48 שעות. כשהדגל retentionMilestoneCadence דולק: פעם אחת בכל שלב (יום 4 עד 6, שבוע, שבועיים, חודש: יום 30 עד 35) ואחרי יום 35 מפסיקים. כשהדגל retentionLadderV2 דולק: יום 4, יום 7, יום 14, יום 21, יום 28, ואז שקט. כשהדגל firstWeekSequenceEnabled דולק, לא נשלח בשבוע הראשון (סדרת השבוע הראשון אחראית עליו). לא בשבת ובחג.',
     // No @ימים: the day count is not filled any more (owner, 18.10.2026), so
     // a row that uses it never renders.
     vars: ['@שם'],
@@ -469,9 +502,13 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
           { value: 'd7', label: 'שבוע (שבוע חדש)' },
           { value: 'd14', label: 'שבועיים' },
           { value: 'd30', label: 'חודש (האחרון)' },
+          // Ladder v2 (retentionLadderV2): d4, d7, d14, d21, d28, then quiet.
+          { value: 'd21', label: 'שלושה שבועות' },
+          { value: 'd28', label: 'יום 28 (האחרון בסולם החדש)' },
         ],
       },
       TRACK_CONDITION,
+      TONE_CONDITION,
     ],
     deepLinks: ['home', 'map'],
     defaults: [
@@ -511,6 +548,16 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'יוצאים להליכה?', body: 'הליכה קלה בקצב שלך. כל צעד נחשב.', conditions: { track: ['walk'] } },
       { title: '@שם, מוכן להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'male', pair: 'walk_ready', conditions: { track: ['walk'] } },
       { title: '@שם, מוכנה להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'female', pair: 'walk_ready', conditions: { track: ['walk'] } },
+      // push-copy-v2 (owner, 21.10.2026), per tone. Only a sender that rotates
+      // tones (pushToneRotation) passes conditions.tone. Appended, ids stable.
+      { title: 'בלי לחץ, רק להזכיר', body: '15 דקות ליד הבית, מתי שנוח', conditions: { milestone: ['d4'], tone: ['personal'] } },
+      { title: 'הנעליים שאלו עליכם', body: 'סיבוב של 15 דקות היום?', conditions: { milestone: ['d4'], track: ['walk'], tone: ['cute'] } },
+      { title: 'שבוע חדש, התחלה נקייה', body: 'אימון קל של 15 דקות. ממשיכים מכאן', conditions: { milestone: ['d7', 'd14', 'd21'], tone: ['personal'] } },
+      { title: 'הדלת תמיד פתוחה', body: 'נבנה לך תוכנית חדשה בדקה, מה שמתאים לך עכשיו', conditions: { milestone: ['d28', 'd30'], tone: ['personal'] } },
+      { title: 'מה קורה אחי?', body: 'בלי לחץ. 15 דקות ליד הבית מתי שבא לך', gender: 'male', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
+      { title: 'מה קורה אחותי?', body: 'בלי לחץ. 15 דקות ליד הבית מתי שבא לך', gender: 'female', pair: 'friendly_d4', audience: CASUAL_AGES, conditions: { milestone: ['d4'], tone: ['friendly'] } },
+      { title: 'התגעגענו, באמת', body: 'נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות', gender: 'male', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
+      { title: 'התגעגענו, באמת', body: 'נבנה לך תוכנית חדשה בדקה, בלי שאלות מיותרות', gender: 'female', pair: 'friendly_d28', audience: CASUAL_AGES, conditions: { milestone: ['d28', 'd30'], tone: ['friendly'] } },
     ],
   },
   {
@@ -557,7 +604,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     description:
       'סיימו הרשמה ועוד לא התאמנו אף פעם. במקום "לחזור" (הם עוד לא התחילו), הזמנה לאימון הראשון לפי המסלול.',
     whenSent:
-      'firstWorkoutScheduler: כל יום ב-17:00, ביום הראשון והשני אחרי ההרשמה, רק למי שעוד אין לו אף אימון. לכל היותר פעמיים. retentionScheduler: למי שמעולם לא התאמן, במקום הנוסח של "חזרה לשגרה". רק כשהדגל firstWorkoutPushEnabled דולק.',
+      'firstWorkoutScheduler: כל יום ב-17:00, ביום הראשון והשני אחרי ההרשמה, רק למי שעוד אין לו אף אימון. לכל היותר פעמיים. retentionScheduler: למי שמעולם לא התאמן, במקום הנוסח של "חזרה לשגרה". רק כשהדגל firstWorkoutPushEnabled דולק. כשהדגל firstWeekSequenceEnabled דולק, הסדרה של השבוע הראשון (first_week) מחליפה את הפוש של יום 1 ויום 2.',
     vars: ['@שם'],
     conditions: [
       {
@@ -624,6 +671,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       // Gendered pair (the sender).
       { title: '@שולח שלח לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לו כיף.', subjectGender: 'male', pair: 'sent' },
       { title: '@שולח שלחה לך כיף', body: 'על האימון האחרון שלך. אפשר להחזיר לה כיף.', subjectGender: 'female', pair: 'sent' },
+      // push-copy-v2 (cute). Appended, ids stable.
+      { title: '@שולח שלח לך כיף', body: 'מגיע לך. רוצים להחזיר?', subjectGender: 'male', pair: 'v2_sent' },
+      { title: '@שולח שלחה לך כיף', body: 'מגיע לך. רוצים להחזיר?', subjectGender: 'female', pair: 'v2_sent' },
     ],
   },
   {
@@ -739,6 +789,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
           { value: 'over', label: 'מעבר ליעד' },
         ],
       },
+      TONE_CONDITION,
     ],
     deepLinks: ['map_walk', 'activity_steps', 'home'],
     defaults: [
@@ -784,11 +835,20 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
         audience: { persona: ['parent'] },
         conditions: { bucket: ['start'] },
       },
+      // push-copy-v2 (owner, 21.10.2026), per tone — only with pushToneRotation
+      // (the sender passes conditions.tone). Appended, ids stable. The 'start'
+      // row is evening copy; the sender still skips 'start' from noon.
+      { title: 'כמעט שם, באמת כמעט', body: 'עוד @צעדים_שנותרו צעדים. זה בערך הדרך למכולת וחזרה', conditions: { bucket: ['close'], tone: ['cute'] } },
+      { title: 'כמה צעדים יש בשיר אחד?', body: 'בערך 400. עוד @צעדים_שנותרו לסגור את היום', conditions: { bucket: ['mid'], tone: ['curious'] } },
+      { title: 'יום עמוס? זה בסדר', body: '15 דקות הליכה אחרי ארוחת הערב שוות חצי יעד', conditions: { bucket: ['start'], tone: ['personal'] } },
+      { title: 'כמעט שם, אחי', body: 'עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת', gender: 'male', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
+      { title: 'כמעט שם, אחותי', body: 'עוד @צעדים_שנותרו צעדים. סיבוב ליד הבית וסגרת', gender: 'female', pair: 'friendly_close', audience: CASUAL_AGES, conditions: { bucket: ['close'], tone: ['friendly'] } },
     ],
   },
   // ── Streak (owner decisions 21.10.2026; sender streakRescueScheduler, flag
-  // enable_streak_pushes). Tones: cute / personal / curious + the Israeli-friendly
-  // pairs (adults 18 to 59 only, never 60+ or minors).
+  // enable_streak_pushes). Tones (conditions.tone, rotated by the sender): cute /
+  // personal / curious + the Israeli-friendly pairs (CASUAL_AGES: known age under 60).
+  // An untoned row per case is the fallback.
   {
     pushType: 'streak_rescue',
     label: 'הצלת רצף',
@@ -808,15 +868,16 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
           { value: 'late', label: '21:15 (רצף 7 ומעלה)' },
         ],
       },
+      TONE_CONDITION,
     ],
     deepLinks: ['home', 'map_walk'],
     defaults: [
-      { title: 'הרצף שלך שואל אם הכול בסדר', body: 'יום @רצף. עוד 10 דקות והוא נרגע.', conditions: { when: ['first'] } },
-      { title: '@רצף ימים. אל תוותרו עליהם', body: 'עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.', conditions: { when: ['first'] } },
+      { title: 'הרצף שלך שואל אם הכול בסדר', body: 'יום @רצף. עוד 10 דקות והוא נרגע.', conditions: { when: ['first'], tone: ['cute'] } },
+      { title: '@רצף ימים. אל תוותרו עליהם', body: 'עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.', conditions: { when: ['first'], tone: ['personal'] } },
       { title: 'יום @רצף ברצף', body: 'עוד @דקות דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.', conditions: { when: ['first'] } },
-      { title: 'אחי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { when: ['first'] }, pair: 'rescue_il' },
-      { title: 'אחותי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { when: ['first'] }, pair: 'rescue_il' },
-      { title: 'נשארה שעה. מספיק?', body: '10 דקות בסלון ושמרת על @רצף ימים.', conditions: { when: ['late'] } },
+      { title: 'אחי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'male', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
+      { title: 'אחותי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'female', audience: CASUAL_AGES, conditions: { when: ['first'], tone: ['friendly'] }, pair: 'rescue_il' },
+      { title: 'נשארה שעה. מספיק?', body: '10 דקות בסלון ושמרת על @רצף ימים.', conditions: { when: ['late'], tone: ['curious'] } },
       { title: 'עוד רגע נגמר היום', body: '10 דקות בסלון ושמרת על @רצף ימים ברצף.', conditions: { when: ['late'] } },
     ],
   },
@@ -830,12 +891,14 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     whenSent:
       'למחרת ב-10:00, פעם אחת לכל רצף שנעצר, רק לרצף של 7 ימים ומעלה. לא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_streak_pushes דולק.',
     vars: ['@שם', '@שיא'],
+    conditions: [TONE_CONDITION],
     deepLinks: ['home'],
     defaults: [
-      { title: 'הרצף נעצר. השיא נשאר', body: '@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?' },
-      { title: 'גם רצפים צריכים חופש', body: 'השיא שלך, @שיא ימים, מחכה שתשברו אותו.' },
-      { title: 'קורה לטובים ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, pair: 'broken_il' },
-      { title: 'קורה לטובות ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, pair: 'broken_il' },
+      { title: 'הרצף נעצר. השיא נשאר', body: '@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?', conditions: { tone: ['personal'] } },
+      { title: 'השיא שלך נשאר שלך', body: '@שיא ימים ברצף, וזה לא הולך לשום מקום. מתחילים היום?' },
+      { title: 'גם רצפים צריכים חופש', body: 'השיא שלך, @שיא ימים, מחכה שתשברו אותו.', conditions: { tone: ['cute'] } },
+      { title: 'קורה לטובים ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'male', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
+      { title: 'קורה לטובות ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'female', audience: CASUAL_AGES, conditions: { tone: ['friendly'] }, pair: 'broken_il' },
     ],
   },
   {
@@ -854,6 +917,7 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
         label: 'אבן דרך',
         options: ['3', '7', '14', '30', '50', '100', '365'].map((v) => ({ value: v, label: `${v} ימים` })),
       },
+      TONE_CONDITION,
     ],
     deepLinks: ['progression', 'home'],
     defaults: [
@@ -862,8 +926,8 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'שבוע שלם', body: '7 ימים ברצף. ככה נראה הרגל שנולד.', conditions: { milestone: ['7'] } },
       { title: 'שבועיים ברצף', body: '14 ימים. הגוף כבר מחכה לזה.', conditions: { milestone: ['14'] } },
       { title: 'חודש. וואו', body: '30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.', conditions: { milestone: ['30'] } },
-      { title: '30 יום. מי אתה בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { milestone: ['30'] }, pair: 'm30_il' },
-      { title: '30 יום. מי את בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { milestone: ['30'] }, pair: 'm30_il' },
+      { title: '30 יום. מי אתה בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'male', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
+      { title: '30 יום. מי את בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'female', audience: CASUAL_AGES, conditions: { milestone: ['30'], tone: ['friendly'] }, pair: 'm30_il' },
       { title: '50 ימים ברצף', body: 'חצי הדרך למאה. ממשיכים בקצב שלך.', conditions: { milestone: ['50'] } },
       { title: '100. מישהו פה רציני', body: '100 ימים ברצף. השכנים מדברים.', conditions: { milestone: ['100'] } },
       { title: 'שנה שלמה ברצף', body: '365 ימים. אין מילים, רק כבוד.', conditions: { milestone: ['365'] } },
@@ -918,6 +982,146 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'מתאמנים לידך', body: '@שולח יוצא להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'male', pair: 'any' },
       { title: 'מתאמנים לידך', body: '@שולח יוצאת להתאמן ב@מקום ב-@שעה. מצטרפים?', subjectGender: 'female', pair: 'any' },
     ],
+  },
+  // ─── push-copy-v2 (owner-approved 21.10.2026) ──────────────────────────────
+  {
+    pushType: 'first_week',
+    label: 'השבוע הראשון (עד האימון הראשון)',
+    lever: 'routine',
+    channel: 'retention',
+    sender: 'firstWorkoutScheduler (firstWeekSequenceEnabled)',
+    description:
+      'סדרת השבוע הראשון: יום 1 שגרה, יום 2 רף נמוך, יום 3 חברתי, יום 4 צעדים, יום 5 ערב, יום 7 התחלה חדשה. נעצרת באימון הראשון. ימים 0 ו-6 הם כרטיס בבית בלבד.',
+    whenSent:
+      'בדיקה כל שעה. פוש אחד לכל היותר ביום, ביום ובשעה של השלב (יום 1 בשעה שהמשתמש בחר, אחרת 18:00; 17:00; 17:00; 18:00; 20:00; יום 7 ב-10:00). יום 3 רק עם גינה ומספר אמיתיים ורק לבגירים. יום 4 רק עם מספר צעדים אמיתי. לא כשקלי כבר כתבה למשתמש באותו יום. הטון מוגרל מתוך הטונים שמתאימים למשתמש.',
+    vars: ['@שם', '@שעה', '@מקום', '@אנשים', '@צעדים_שנותרו'],
+    conditions: [
+      {
+        key: 'day',
+        label: 'יום בשבוע הראשון',
+        options: [
+          { value: 'd1', label: 'יום 1 (שגרה)' },
+          { value: 'd2', label: 'יום 2 (רף נמוך)' },
+          { value: 'd3', label: 'יום 3 (חברתי)' },
+          { value: 'd4', label: 'יום 4 (צעדים)' },
+          { value: 'd5', label: 'יום 5 (ערב)' },
+          { value: 'd7', label: 'יום 7 (התחלה חדשה)' },
+        ],
+      },
+      TONE_CONDITION,
+      { key: 'nearby', label: 'מה ידוע ליד הבית', options: [{ value: 'group', label: 'קבוצה פעילה' }] },
+    ],
+    deepLinks: ['home', 'map_walk', 'map', 'activity_steps'],
+    defaults: [
+      { title: 'האימון שלך מחכה בכניסה', body: 'הוא כבר חימם את עצמו. 12 דקות ואתם חברים', conditions: { day: ['d1'], tone: ['cute'] } },
+      { title: '@שעה. הזמן שבחרת לעצמך', body: '12 דקות שהן רק שלך. מתחילים?', conditions: { day: ['d1'], tone: ['personal'] } },
+      { title: 'מה קורה בגוף אחרי 12 דקות?', body: 'יש רק דרך אחת לגלות. האימון הראשון מוכן', conditions: { day: ['d1'], tone: ['curious'] } },
+      { title: 'אחי, האימון מוכן', body: '12 דקות, בלי ציוד. יאללה, רק תתחיל', gender: 'male', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
+      { title: 'אחותי, האימון מוכן', body: '12 דקות, בלי ציוד. יאללה, רק תתחילי', gender: 'female', pair: 'f_d1', audience: CASUAL_AGES, conditions: { day: ['d1'], tone: ['friendly'] } },
+      { title: 'הורדנו את הרף. ממש נמוך', body: '10 דקות הליכה. זה הכול. גם זה נספר', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['cute'] } },
+      { title: 'לא צריך להיות מושלם', body: 'צריך רק להתחיל. 10 דקות הליכה סוגרות לך יום ראשון', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['personal'] } },
+      { title: 'אימון בלי להחליף בגדים?', body: '10 דקות הליכה מהדלת. ככה מתחילים את הרצף', deepLink: 'map_walk', conditions: { day: ['d2'], tone: ['curious'] } },
+      { title: 'נו אחי, 10 דקות', body: 'הליכה מסביב לבלוק. זה הכול, נשבע', deepLink: 'map_walk', gender: 'male', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
+      { title: 'נו אחותי, 10 דקות', body: 'הליכה מסביב לבלוק. זה הכול, נשבעת', deepLink: 'map_walk', gender: 'female', pair: 'f_d2', audience: CASUAL_AGES, conditions: { day: ['d2'], tone: ['friendly'] } },
+      { title: 'ב@מקום כבר מתגעגעים', body: '@אנשים אנשים התאמנו שם השבוע. חסר רק אחד', deepLink: 'map', conditions: { day: ['d3'], tone: ['cute'] } },
+      { title: 'מי מתאמן ב@מקום?', body: '@אנשים שכנים כבר גילו. בואו לראות', deepLink: 'map', conditions: { day: ['d3'], tone: ['curious'] } },
+      // Claims a real group: only when the sender knows one (conditions.nearby = 'group').
+      { title: 'לא חייבים לבד', body: 'יש קבוצת הליכה ליד הבית שמחכה לחברים חדשים', deepLink: 'map', conditions: { day: ['d3'], tone: ['personal'], nearby: ['group'] } },
+      { title: 'כפרה עליך, אתה לא לבד', body: '@אנשים אנשים התאמנו ב@מקום השבוע. בוא', deepLink: 'map', gender: 'male', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
+      { title: 'כפרה עלייך, את לא לבד', body: '@אנשים אנשים התאמנו ב@מקום השבוע. בואי', deepLink: 'map', gender: 'female', pair: 'f_d3', audience: CASUAL_AGES, conditions: { day: ['d3'], tone: ['friendly'] } },
+      { title: 'הרגליים עשו עבודה יפה היום', body: 'עוד @צעדים_שנותרו צעדים ויש לך יום ראשון ברצף', deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['cute'] } },
+      { title: 'כמעט סגרת יום בלי לשים לב', body: 'עוד @צעדים_שנותרו צעדים. סיבוב קצר מסביב לבניין?', deepLink: 'activity_steps', conditions: { day: ['d4'], tone: ['curious'] } },
+      { title: 'היום היה של כולם', body: '10 הדקות הבאות יכולות להיות רק שלך', conditions: { day: ['d5'], tone: ['personal'] } },
+      { title: 'הספה תסלח לנו', body: '10 דקות בסלון, בלי ציוד. אחר כך חוזרים אליה', conditions: { day: ['d5'], tone: ['cute'] } },
+      { title: 'אחרי יום כזה? מגיע לך', body: '10 דקות בסלון, ואז ספה בלב שקט', gender: 'male', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
+      { title: 'אחרי יום כזה? מגיע לך', body: '10 דקות בסלון, ואז ספה בלב שקט', gender: 'female', pair: 'f_d5', audience: CASUAL_AGES, conditions: { day: ['d5'], tone: ['friendly'] } },
+      { title: 'שבוע חדש, דף חדש', body: 'בלי להסתכל אחורה. אימון של 10 דקות ומתחילים', conditions: { day: ['d7'], tone: ['personal'] } },
+      { title: 'מה אם השבוע זה יקרה?', body: 'אימון ראשון של 10 דקות. רק לנסות', conditions: { day: ['d7'], tone: ['curious'] } },
+    ],
+  },
+  {
+    pushType: 'second_workout',
+    label: 'האימון השני',
+    lever: 'progress',
+    channel: 'retention',
+    sender: 'firstWorkoutScheduler (firstWeekSequenceEnabled)',
+    description: 'עשו אימון ראשון אחד בלבד. הזמנה לאימון השני, שהוא מה שהופך סקרנות להרגל.',
+    whenSent: 'כל יום ב-18:00, למי שהאימון הראשון והיחיד שלו היה לפני 24 עד 48 שעות. פעם אחת. לא כשקלי כבר כתבה למשתמש באותו יום.',
+    vars: ['@שם'],
+    conditions: [TONE_CONDITION],
+    deepLinks: ['home', 'map'],
+    defaults: [
+      { title: 'האימון השני הוא הסוד', body: 'הראשון זה סקרנות. השני זה התחלה של הרגל', conditions: { tone: ['personal'] } },
+      { title: 'הגוף שלך שואל מתי שוב', body: '15 דקות. הוא מוכן אם גם אתם', conditions: { tone: ['cute'] } },
+      { title: 'האימון השני מחכה', body: 'הראשון כבר מאחוריך. 15 דקות וממשיכים', fallbackOnly: true },
+    ],
+  },
+  {
+    pushType: 'friend_joined',
+    label: 'חבר הצטרף',
+    lever: 'social',
+    channel: 'social',
+    sender: '(אין עדיין)',
+    description: 'מישהו שהמשתמש מכיר הצטרף לאפליקציה.',
+    whenSent: 'עוד לא נשלח. הטקסטים מוכנים לשולח שייבנה.',
+    pending: 'אין שולח עדיין',
+    vars: ['@שם', '@מצטרף'],
+    subject: { label: 'מי שהצטרף', var: '@מצטרף' },
+    deepLinks: ['community'],
+    defaults: [
+      { title: '@מצטרף הצטרף ל-OUT', body: 'שולחים כיף לדרך?', subjectGender: 'male', pair: 'joined' },
+      { title: '@מצטרף הצטרפה ל-OUT', body: 'שולחים כיף לדרך?', subjectGender: 'female', pair: 'joined' },
+    ],
+  },
+  {
+    pushType: 'league_overtaken',
+    label: 'עקפו אותך בטבלה',
+    lever: 'competition',
+    channel: 'community',
+    sender: '(אין עדיין)',
+    description: 'מישהו עקף את המשתמש בליגה השכונתית.',
+    whenSent: 'עוד לא נשלח. הטקסטים מוכנים לשולח שייבנה. בטון הישראלי: הפועל בכותרת לפי מי שעקף, הגוף לפי המקבל.',
+    pending: 'אין שולח עדיין',
+    vars: ['@שם', '@מתחרה', '@דירוג'],
+    subject: { label: 'מי שעקף', var: '@מתחרה' },
+    dualGender: true,
+    conditions: [TONE_CONDITION],
+    deepLinks: ['community'],
+    defaults: [
+      { title: 'מישהו עקף אותך בשכונה', body: 'אימון אחד ואתם חוזרים למקום @דירוג', conditions: { tone: ['curious'] } },
+      { title: '@מתחרה עקף אותך. בנימוס', body: 'אבל עדיין. אימון אחד וחזרתם', subjectGender: 'male', pair: 'cute', conditions: { tone: ['cute'] } },
+      { title: '@מתחרה עקפה אותך. בנימוס', body: 'אבל עדיין. אימון אחד וחזרתם', subjectGender: 'female', pair: 'cute', conditions: { tone: ['cute'] } },
+      { title: '@מתחרה עקף אותך. מה נסגר?', body: 'אימון אחד ואתה חוזר למקום @דירוג', gender: 'male', subjectGender: 'male', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: '@מתחרה עקפה אותך. מה נסגר?', body: 'אימון אחד ואתה חוזר למקום @דירוג', gender: 'male', subjectGender: 'female', pair: 'friendly_m', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: '@מתחרה עקף אותך. מה נסגר?', body: 'אימון אחד ואת חוזרת למקום @דירוג', gender: 'female', subjectGender: 'male', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+      { title: '@מתחרה עקפה אותך. מה נסגר?', body: 'אימון אחד ואת חוזרת למקום @דירוג', gender: 'female', subjectGender: 'female', pair: 'friendly_f', audience: CASUAL_AGES, conditions: { tone: ['friendly'] } },
+    ],
+  },
+  {
+    pushType: 'unit_league',
+    label: 'היחידה בליגה (מילואים)',
+    lever: 'competition',
+    channel: 'community',
+    sender: '(אין עדיין)',
+    description: 'היחידה של המשתמש קרובה למקום הראשון בליגת המילואים.',
+    whenSent: 'עוד לא נשלח. הטקסט מוכן לשולח שייבנה.',
+    pending: 'אין שולח עדיין',
+    vars: ['@שם'],
+    deepLinks: ['community'],
+    defaults: [{ title: 'היחידה צמודה למקום הראשון', body: 'כל אימון שלך מזיז את כולם' }],
+  },
+  {
+    pushType: 'steps_connect',
+    label: 'חיבור צעדים',
+    lever: 'progress',
+    channel: 'health_milestone',
+    sender: '(אין עדיין)',
+    description: 'המשתמש עוד לא חיבר את הצעדים מהטלפון.',
+    whenSent: 'עוד לא נשלח. הטקסט מוכן לשולח שייבנה.',
+    pending: 'אין שולח עדיין',
+    vars: ['@שם'],
+    deepLinks: ['activity_steps', 'home'],
+    defaults: [{ title: 'כל הליכה שלכם יכולה להיספר', body: 'מחברים צעדים בדקה, וגם הליכה לסופר נכנסת לרצף' }],
   },
 ];
 
@@ -997,7 +1201,7 @@ export function defaultRowsFor(pushType: string): PushCopyRow[] {
     pushType,
     title: d.title,
     body: d.body,
-    deepLink: entry.deepLinks[0],
+    deepLink: d.deepLink && entry.deepLinks.includes(d.deepLink) ? d.deepLink : entry.deepLinks[0],
     audience: d.audience ?? null,
     conditions: d.conditions ?? null,
     fallbackOnly: d.fallbackOnly === true,
@@ -1185,6 +1389,8 @@ export interface ResolvedPushCopy {
   /** Library doc id, or 'default:<pushType>:<n>' for a code default. Recorded on the push for per-row analytics. */
   rowId: string;
   source: PushCopySource;
+  /** The chosen row's conditions (e.g. { tone: ['cute'] }) — the sender records the tone it really got. */
+  conditions?: Record<string, string[]> | null;
 }
 
 function hashString(s: string): number {
@@ -1291,6 +1497,7 @@ export function pickFromRows(
     deepLinkId,
     rowId: chosen.row.id,
     source,
+    conditions: chosen.row.conditions ?? null,
   };
 }
 
@@ -1405,7 +1612,7 @@ export function validatePushCopyDraft(draft: PushCopyDraft): PushCopyIssue[] {
   if (sg !== 'any' && entry && !entry.subject) {
     issues.push({ field: 'gender', message: 'בפוש הזה אין אדם נוסף שהטקסט מדבר עליו' });
   }
-  if (g !== 'both' && sg !== 'any') {
+  if (g !== 'both' && sg !== 'any' && !entry?.dualGender) {
     issues.push({ field: 'gender', message: 'וריאנט מותאם למגדר של אדם אחד בלבד (הנמען או האדם הנוסף)' });
   }
   if (!draft.deepLink) {

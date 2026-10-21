@@ -43,12 +43,9 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
-import {
-  resolvePushCopy,
-  pushCopyData,
-  audienceFromUserData,
-  firstNameFromUserData,
-} from './services/push-copy.service';
+import { pushCopyData, audienceFromUserData, firstNameFromUserData } from './services/push-copy.service';
+import { resolveTonedCopy, toneSegmentFrom } from './services/push-tone.service';
+import { PUSH_TONES, toneOrder } from './shared/first-week.core';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 import { isDemoUid } from './lib/demo';
 import { activityToMillis, israelDateKey } from './lib/user-activity';
@@ -317,27 +314,36 @@ async function sendOne(
   const userData = userSnap.exists ? (userSnap.data() as Record<string, unknown>) : undefined;
   const now = new Date(nowMs);
   const pushType = slot === 'broken' ? 'streak_broken' : slot === 'milestone' ? 'streak_milestone' : 'streak_rescue';
-  const copy = await resolvePushCopy(pushType, {
-    uid,
-    now,
-    audience: audienceFromUserData(userData, now),
-    vars: {
-      '@שם': firstNameFromUserData(userData),
-      '@רצף': c.snap.currentStreak,
-      '@שיא': c.longest,
-      ...(slot === 'rescue' || slot === 'rescue_late'
-        ? { '@צעדים_שנותרו': left.steps.toLocaleString('en-US'), '@דקות': left.minutes }
-        : {}),
+  const audience = audienceFromUserData(userData, now);
+  // Tone rotation (push-tone.service): the tones this user's segment allows, in random
+  // order; the first that has a row wins, else the untoned row.
+  const toned = await resolveTonedCopy(
+    pushType,
+    {
+      uid,
+      now,
+      audience,
+      vars: {
+        '@שם': firstNameFromUserData(userData),
+        '@רצף': c.snap.currentStreak,
+        '@שיא': c.longest,
+        ...(slot === 'rescue' || slot === 'rescue_late'
+          ? { '@צעדים_שנותרו': left.steps.toLocaleString('en-US'), '@דקות': left.minutes }
+          : {}),
+      },
+      conditions:
+        slot === 'milestone'
+          ? { milestone: String(c.snap.currentStreak) }
+          : slot === 'broken'
+            ? {}
+            : { when: slot === 'rescue' ? 'first' : 'late' },
+      params: left.steps > 0 ? { targetSteps: left.steps } : {},
     },
-    conditions:
-      slot === 'milestone'
-        ? { milestone: String(c.snap.currentStreak) }
-        : slot === 'broken'
-          ? {}
-          : { when: slot === 'rescue' ? 'first' : 'late' },
-    params: left.steps > 0 ? { targetSteps: left.steps } : {},
-  });
-  if (!copy) return;
+    toneOrder(PUSH_TONES.map((t) => t.id), toneSegmentFrom(audience)),
+  );
+  if (!toned) return;
+  const { copy, tone } = toned;
+  const rescue = slot === 'rescue' || slot === 'rescue_late';
 
   const result = await sendPush({
     toUids: [uid],
@@ -348,6 +354,8 @@ async function sendOne(
     data: { triggerType: 'Streak', slot, ...pushCopyData(copy) },
     rateCapHours: 0,
     countTowardDailyCap: true,
+    // Push policy v2 (when on): a rescue is exempt from the first-week 1-a-day rule.
+    policyKind: rescue ? 'streak_rescue' : 'proactive',
     ...(slot === 'rescue' ? { dailyCapPriority: true } : {}),
     measurement: {
       variantId: copy.rowId,
@@ -355,6 +363,8 @@ async function sendOne(
       persona: 'generic',
       pushType: copy.pushType,
       copyRowId: copy.rowId,
+      tone,
+      lever: 'streak',
     },
   });
   if (result.delivered > 0) {

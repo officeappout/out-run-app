@@ -105,7 +105,23 @@ export function readSeenKeys(): Set<string> {
   }
 }
 
+// A tiny change signal so every reader (the card, the home page's "is there a card?")
+// re-reads the seen keys after a dismiss (useSyncExternalStore in StreakNoticeCard.tsx).
+let seenVersion = 0;
+const seenListeners = new Set<() => void>();
+export function subscribeSeen(fn: () => void): () => void {
+  seenListeners.add(fn);
+  return () => {
+    seenListeners.delete(fn);
+  };
+}
+export function getSeenVersion(): number {
+  return seenVersion;
+}
+
 export function addSeenKey(key: string): void {
+  seenVersion++;
+  seenListeners.forEach((fn) => fn());
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
     const next = [...Array.from(readSeenKeys()), key].filter((k, i, a) => a.indexOf(k) === i).slice(-SEEN_MAX);

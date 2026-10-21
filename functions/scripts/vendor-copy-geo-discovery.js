@@ -267,6 +267,8 @@ const COMMITTED_MIRRORS = {
   'src/features/user/scheduling/utils/recurring-day.core.ts': 'functions/src/shared/recurring-day.core.ts',
   // The streak-day policy — closed day, Saturday / shields, slots. Client streak + streakRescueScheduler.
   'src/features/activity/lib/streak-day.core.ts': 'functions/src/shared/streak-day.core.ts',
+  // The first-week sequence planner — home card + firstWorkoutScheduler (21.10.2026).
+  'src/features/notifications/first-week/first-week.core.ts': 'functions/src/shared/first-week.core.ts',
 };
 for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');

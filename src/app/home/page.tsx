@@ -98,6 +98,7 @@ import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useHasStreakCard } from '@/features/home/components/streak/useStreakCard';
 import { setSplitDayFocusActive } from '@/features/workout-engine/services/split-decision/day-focus.switch';
 import AppHeader from '@/components/ui/AppHeader';
 import { useRequiredSetup } from '@/features/user/onboarding/hooks/useRequiredSetup';
@@ -124,7 +125,7 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, StreakNoticeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
+  CalmReturnCard, StreakNoticeCard, FirstWeekHomeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
   HomeProgramSlide,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
@@ -1262,6 +1263,8 @@ export default function HomePage() {
   // return episode (the one write + the ONE fresh-week card per return); StatsOverview only
   // reads the same state for its card titles. Off → nothing here renders or writes.
   const calmReturn = useCalmReturn(profile, { manageEpisode: true });
+  // enable_home_v2: is there a streak card today (broken / shield / milestone)? Cheap store read.
+  const hasStreakNotice = useHasStreakCard();
   const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
   // Parity fix (27.08.2026): which suggestion the new carousel is currently centered on — the
   // old anchor's own header (title/description/location chip) always described exactly ONE
@@ -3786,14 +3789,20 @@ export default function HomePage() {
                     />
                   </div>
                 ) : null;
-                // Home v2: the one streak message of the day (renders nothing when there is none).
-                const streakCard = featureFlags.enableHomeV2 && isViewingToday ? (
+                // Home v2: the one streak message of the day — only when there is one (so the
+                // first-week card below still shows otherwise). One quiet card at a time:
+                // calm return, then the streak card, then the first-week card.
+                const streakCard = featureFlags.enableHomeV2 && isViewingToday && hasStreakNotice ? (
                   <div className="px-4 mb-3"><StreakNoticeCard /></div>
                 ) : null;
-                // The quiet cards above today's workout: calm return, then the streak card.
-                const calmCard = calmReturnCard || streakCard ? <>{calmReturnCard}{streakCard}</> : null;
-                const contentWithCalm = calmCard || programStandalone
-                  ? <>{calmCard}{programStandalone}{content}</>
+                const calmCard = calmReturnCard ?? streakCard;
+                // enable_home_v2: the first-week card (days 0–7 until the first workout;
+                // renders nothing otherwise). The calm-return card wins when both apply.
+                const firstWeekCard = featureFlags.enableHomeV2 && isViewingToday && !calmCard
+                  ? <FirstWeekHomeCard profile={profile} doneToday={todayWorkoutDone} />
+                  : null;
+                const contentWithCalm = calmCard || firstWeekCard || programStandalone
+                  ? <>{calmCard}{firstWeekCard}{programStandalone}{content}</>
                   : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
