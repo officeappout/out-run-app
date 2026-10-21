@@ -40,6 +40,8 @@ import {
   buildCumulativeMeters, advanceRouteProgress, splitPathAtMeters, easeAlong, type LngLat,
 } from '../services/route-progress';
 import RouteRunMapLayersV2 from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteRunMapLayersV2';
+import { useRunPlayerDrawerV1 } from '@/features/workout-engine/players/shared/v2/useRunPlayerDrawerV1';
+import { LIVE_TRAIL_LAYOUT, liveTrailKind, liveTrailPaintV1 } from './live-trail-paint';
 import {
   isFiniteNum,
   isFiniteLngLat,
@@ -1460,13 +1462,20 @@ export default function AppMap({
   // finding: gating only the fade layer left the other two mounting on
   // interval runs that carry a guided route).
   const hasZoneSegments = !!livePathZones?.some((z) => z != null);
+  // enable_run_player_drawer_v1 (fail-closed, read inside): the live trail is solid and
+  // brand / zone-coloured, and zone-coloured runs with a route also get the grey walked
+  // slice + km badges. Off ⇒ every gate below reads exactly as before.
+  const trailV1 = useRunPlayerDrawerV1();
+  const routeExtrasOff = hasZoneSegments && !trailV1;
+  const trailKindV1 = liveTrailKind(hasZoneSegments, !!ghostPathGeoJSON);
+  const trailPaintV1 = useMemo(() => liveTrailPaintV1(trailKindV1, activityType), [trailKindV1, activityType]);
 
   // Passed slice source — mounted (empty) whenever there's a route, so the imperative
   // updates always have a target.
   const passedPathGeoJSON = useMemo<GeoJSON.FeatureCollection | null>(
-    () => (progressPath && !hasZoneSegments ? EMPTY_FEATURE_COLLECTION : null),
+    () => (progressPath && !routeExtrasOff ? EMPTY_FEATURE_COLLECTION : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [progressRouteKey, hasZoneSegments],
+    [progressRouteKey, routeExtrasOff],
   );
 
   const targetAlongRef = useRef<number | null>(null);
@@ -1481,7 +1490,7 @@ export default function AppMap({
     if (!ghostSrc) return false;
     const { passed, ahead } = splitPathAtMeters(progressPath, progressCum, alongM);
     ghostSrc.setData(lineFC(ahead));
-    if (!hasZoneSegments) {
+    if (!routeExtrasOff) {
       (rawMap.getSource('route-passed') as mapboxgl.GeoJSONSource | undefined)?.setData(lineFC(passed));
     }
     return true;
@@ -1664,7 +1673,7 @@ export default function AppMap({
       'park-clusters-glow', 'park-clusters', 'park-pins', 'park-minor-pins', 'park-cluster-count',
       'routes-background', 'routes-active-glow', 'routes-active-outline', 'routes-active',
       'live-path-trace', 'live-path-trail-fade', 'ghost-path-glow', 'ghost-path-line', 'sim-walk-trail',
-      'route-passed-line',
+      'route-passed-line', 'live-path-casing-v1', 'live-path-line-v1',
       // Navigation ground visuals (curve + tip) — exempt from the Hebrew
       // label pass so it doesn't try to set text-field on a line/icon layer.
       'nav-arrow-line-glow', 'nav-arrow-line', 'nav-arrow-tip',
@@ -1785,6 +1794,34 @@ export default function AppMap({
       swLng: b.getSouthWest().lng, swLat: b.getSouthWest().lat,
     });
   };
+
+  // ── Live trail source (active workout) ──────────────────────────────────
+  // Always mounted while the workout is active so the imperative setData effect
+  // above can update it without waiting for the Source to be conditionally
+  // added. Starts with an empty FeatureCollection; the effect hydrates it on the
+  // first accepted GPS coord. lineMetrics is required for the free-run gradients
+  // — harmless for the flat-paint variants. Off (no enable_run_player_drawer_v1):
+  // two mutually-exclusive layer ids (never a paint-shape swap on one layer) — the
+  // fading comet-tail only for a FREE session (no route, no zone segments); guided
+  // routes keep the subtle trace, and zone-segmented planned runs are untouched (a
+  // per-feature gradient would restart the fade every zone).
+  const livePathSource = (
+    <Source id="live-path" type="geojson" data={EMPTY_FEATURE_COLLECTION as any} lineMetrics>
+      {trailV1 ? (
+        <>
+          <Layer key={`casing-${trailKindV1}`} id="live-path-casing-v1" type="line" paint={trailPaintV1.casing as any} layout={LIVE_TRAIL_LAYOUT} />
+          <Layer key={`line-${trailKindV1}`} id="live-path-line-v1" type="line" paint={trailPaintV1.line as any} layout={LIVE_TRAIL_LAYOUT} />
+        </>
+      ) : !ghostPathGeoJSON && !hasZoneSegments ? (
+        <Layer id="live-path-trail-fade" type="line" paint={TRAIL_FADE_LINE.paint as any} layout={TRAIL_FADE_LINE.layout} />
+      ) : (
+        <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
+      )}
+    </Source>
+  );
+  // enable_run_player_drawer_v1: a zone-coloured trail draws above the grey walked slice
+  // (it carries the zone information); every other trail stays underneath, as today.
+  const trailAbovePassed = trailV1 && trailKindV1 === 'zones';
 
   return (
     <div className="w-full h-full relative bg-[#f3f4f6] overflow-hidden">
@@ -1912,24 +1949,8 @@ export default function AppMap({
         {/* ── Active workout paths ───────────────────────────────────────── */}
         {isActiveWorkout && (
           <>
-            {/* Trace path: always mounted so the imperative setData effect above
-                can update it without waiting for the Source to be conditionally
-                added. Starts with an empty FeatureCollection; the effect hydrates
-                it on the first accepted GPS coord.
-                lineMetrics is required for the free-run fading gradient below —
-                harmless for the flat-paint variants.
-                Two mutually-exclusive layer ids (never a paint-shape swap on one
-                layer): the fading comet-tail renders only for a FREE session
-                (no route, no zone segments); guided routes keep the subtle
-                trace, and zone-segmented planned runs are untouched (a
-                per-feature gradient would restart the fade every zone). */}
-            <Source id="live-path" type="geojson" data={EMPTY_FEATURE_COLLECTION as any} lineMetrics>
-              {!ghostPathGeoJSON && !hasZoneSegments ? (
-                <Layer id="live-path-trail-fade" type="line" paint={TRAIL_FADE_LINE.paint as any} layout={TRAIL_FADE_LINE.layout} />
-              ) : (
-                <Layer id="live-path-trace" type="line" paint={TRACE_PATH_LINE.paint as any} layout={TRACE_PATH_LINE.layout} />
-              )}
-            </Source>
+            {/* Trace path (see livePathSource above). */}
+            {!trailAbovePassed && livePathSource}
 
             {/* Passed route slice: gray line BEHIND the user — drawn before the
                 ghost source so the bright remaining slice sits on top. */}
@@ -1938,6 +1959,9 @@ export default function AppMap({
                 <Layer id="route-passed-line" type="line" paint={ROUTE_PASSED_LINE.paint as any} layout={ROUTE_PASSED_LINE.layout} />
               </Source>
             )}
+
+            {/* enable_run_player_drawer_v1: a zone-coloured trail sits ABOVE the grey walked slice. */}
+            {trailAbovePassed && livePathSource}
 
             {/* Ghost path: the full planned route — vibrant cyan goal line, drawn on top */}
             {ghostPathGeoJSON && (
@@ -1949,7 +1973,7 @@ export default function AppMap({
 
             {/* Home v2 (enable_home_v2, flag read inside): km badges, solid-grey walked slice,
                 the "navigate back" line. Zone-coloured planned runs stay untouched. */}
-            <RouteRunMapLayersV2 routePath={hasZoneSegments ? null : progressPath} />
+            <RouteRunMapLayersV2 routePath={routeExtrasOff ? null : progressPath} />
 
           </>
         )}
