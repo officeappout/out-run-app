@@ -76,15 +76,27 @@ export function recommendRunWbWeek(ctx: RunWbContext, days: number[], longRunDow
   return runWeekToWb(rec, ctx, rules, longRunDow);
 }
 
+/** The caps a run week is validated by: one run a day, the chosen number of run days. */
+export const runRules = (frequency: number, level: TrainingLevel): WbRules => ({ maxPerDay: 1, maxTrainingDays: frequency, runLevel: level });
+
 /**
- * moveSession options for a run week: re-place on the new days with the long run where the
- * user put it (a moved long run is the user's choice from now on); the engine explains it.
+ * The long-run day after an edit: the day the user dragged the long run to, else the day
+ * they had already chosen (null = the engine's default, the last free day).
  */
-export function runMoveOptions(ctx: RunWbContext, rules: WbRules) {
+export function longRunAfterEdit(newLongDow: number | null, longRun: { chosen: number | null; current: number | null }): number | null {
+  return newLongDow !== longRun.current ? newLongDow : longRun.chosen;
+}
+
+/**
+ * moveSession options for a run week: re-place on the new days by the engine, the long run
+ * where the user put it (a moved long run becomes the user's choice) — exactly the week the
+ * flow will rebuild from the saved days + long-run day.
+ */
+export function runMoveOptions(ctx: RunWbContext, rules: WbRules, longRun: { chosen: number | null; current: number | null }) {
   return {
     normalize: (week: WbWeek): WbWeek => {
       const { days, longRunDow } = runDaysOf(week);
-      return recommendRunWbWeek(ctx, days, longRunDow, rules);
+      return recommendRunWbWeek(ctx, days, longRunAfterEdit(longRunDow, longRun), rules);
     },
     explain: (week: WbWeek): WbWeek => week,
   };

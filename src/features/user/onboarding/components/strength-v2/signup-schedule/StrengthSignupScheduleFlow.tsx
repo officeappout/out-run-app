@@ -54,6 +54,10 @@ import RunDaysStep from '../../running-v2/signup-schedule/RunDaysStep';
 import StrengthCountStep, { type HistoryFrequency } from './StrengthCountStep';
 import StrengthWeekStep from './StrengthWeekStep';
 import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import { needsWeekBuilder, shapeOfWeek } from '@/features/schedule/week-builder';
+import { strengthRules, strengthWeekToWb } from '@/features/schedule/week-builder/adapters/strength';
+import { defaultTrainingDays, saturdayMarked } from '@/features/schedule/engine-v2';
+import StrengthWeekBuilderStep from './StrengthWeekBuilderStep';
 
 export const STRENGTH_SCHEDULE_SUBSTEPS = 3;
 
@@ -160,10 +164,19 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
     setDays((cur) => (cur.length === n ? cur : recommendedStrengthDays(seed, n, engineLevel)));
   };
 
-  const save = async () => {
-    updateData(buildStrengthScheduleWrite({ week, historyFrequency: history }));
+  const save = async (saved: StrengthWeekRecommendation = week) => {
+    updateData(buildStrengthScheduleWrite({ week: saved, historyFrequency: history }));
     await Analytics.logOnboardingStepComplete('SCHEDULE', 0);
   };
+
+  // enable_week_builder_v1: a complex week (split, several programs, 5+ days) gets the week
+  // builder; the split steers each day's focus only without hard skills (the generator's rule).
+  const split = seed.skills.some((sk) => sk.id !== 'HANDSTAND') ? null : policy?.strength?.split ?? null;
+  const openDays = useMemo(() => defaultTrainingDays(saturdayMarked(days)), [days]);
+  const complexWeek = useMemo(
+    () => weekBuilderOn && needsWeekBuilder(shapeOfWeek(strengthWeekToWb({ week, openDays, split }, strengthRules(frequency)), split)),
+    [weekBuilderOn, week, openDays, split, frequency],
+  );
 
   if (sub === 0) {
     return (
@@ -197,9 +210,31 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
     );
   }
   const counts = strengthItemCounts(week).map((c) => `${scheduleIdNameHe(c.id)} ×${c.count}`);
+  const subtitle = t('signup.strength.week.subtitle', { hasCounts: counts.length > 0 ? 'yes' : 'no', counts: counts.join(' · ') });
+  if (complexWeek) {
+    return (
+      <StrengthWeekBuilderStep
+        subtitle={subtitle}
+        week={week}
+        split={split}
+        openDays={openDays}
+        dates={dates}
+        frequency={frequency}
+        onFrequency={handleFrequency}
+        onAddRun={async (edited) => {
+          await save(edited);
+          await onAddRun(edited);
+        }}
+        onConfirm={async (edited) => {
+          await save(edited);
+          await onConfirmed(edited);
+        }}
+      />
+    );
+  }
   return (
     <StrengthWeekStep
-      subtitle={t('signup.strength.week.subtitle', { hasCounts: counts.length > 0 ? 'yes' : 'no', counts: counts.join(' · ') })}
+      subtitle={subtitle}
       week={week}
       coming={coming}
       userId={auth.currentUser?.uid ?? profile?.id ?? 'preview'}

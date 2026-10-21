@@ -30,6 +30,8 @@ export interface WbSession<P = unknown> {
   locked?: boolean;
   /** The day it sits on in the user's saved week; null = new in this week. */
   homeDow: number | null;
+  /** Show the "חדש" tag (a session added to a week the user already has). */
+  isNew?: boolean;
   /** Host data (stored ids, the session's origin …) — never read by the builder. */
   data?: P;
 }
