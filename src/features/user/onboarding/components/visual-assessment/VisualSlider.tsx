@@ -21,8 +21,13 @@ import {
 } from '../../services/visual-content-resolver.service';
 import { resolveTierLabel, resolveSkillTierLabel, stepProportion, levelProportion } from '../../utils/assessment-tier-label';
 import { hapticSelection } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ── Category display metadata ──────────────────────────────────────
+// The displayed name goes through quiz.slider.category (src/messages/he/onboarding.json), a
+// select on these ids; `meta.he` only reaches the screen for an unknown category, where it is the
+// raw category id (the fallback below).
 
 const CATEGORY_META: Record<string, { he: string; en: string; emoji: string; color: string }> = {
   push:      { he: 'דחיפה',            en: 'Push',      emoji: '💪', color: '#5BC2F2' },
@@ -120,6 +125,7 @@ export default function VisualSlider({
   quizHintV2 = false,
   quizHintReminderOnly = false,
 }: VisualSliderProps) {
+  const t = useT(onboarding);
   const [dynamicSteps, setDynamicSteps] = useState<number[] | null>(null);
   const [stepsLoading, setStepsLoading] = useState(mode === 'simple');
   const [level, setLevel] = useState(Math.max(minLevel, Math.min(maxLevel, initialLevel)));
@@ -237,8 +243,8 @@ export default function VisualSlider({
 
   // Auto-dismiss hint after the animation finishes (2 loops × 3s = ~6s)
   useEffect(() => {
-    const t = setTimeout(() => setShowHint(false), 6500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowHint(false), 6500);
+    return () => clearTimeout(timer);
   }, [category]);
 
   // Auto-dismiss the JIT tutorial overlay after a few seconds even with zero
@@ -247,8 +253,8 @@ export default function VisualSlider({
   // dismiss never runs), which otherwise left the mask stuck up indefinitely.
   useEffect(() => {
     if (stepIndex !== 0) return;
-    const t = setTimeout(() => setShowTutorial(false), 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowTutorial(false), 5000);
+    return () => clearTimeout(timer);
   }, [stepIndex]);
 
   const fetchContent = useCallback(
@@ -275,7 +281,7 @@ export default function VisualSlider({
           videoUrl:     content.videoUrl     ?? null,
           thumbnailUrl: content.thumbnailUrl ?? null,
         };
-        setMountedTiers(prev => prev.some(t => t.id === tierId) ? prev : [...prev, newTier]);
+        setMountedTiers(prev => prev.some(tier => tier.id === tierId) ? prev : [...prev, newTier]);
         setActiveTierId(tierId);
 
         // Secondary HTTP cache warm-up (still useful as a byte-level layer).
@@ -300,7 +306,7 @@ export default function VisualSlider({
                 videoUrl:     adj.videoUrl     ?? null,
                 thumbnailUrl: adj.thumbnailUrl ?? null,
               };
-              setMountedTiers(prev => prev.some(t => t.id === adjId) ? prev : [...prev, adjTier]);
+              setMountedTiers(prev => prev.some(tier => tier.id === adjId) ? prev : [...prev, adjTier]);
             })
             .catch(() => { /* preload-only — silent failure is acceptable */ });
         }
@@ -403,6 +409,8 @@ export default function VisualSlider({
   const fillPct = sliderRange > 0 ? ((sliderVal - sliderMin) / sliderRange) * 100 : 0;
 
   const isFemale = demographics.gender === 'female';
+  // The quiz's gender comes from the onboarding answers (a prop), not the profile.
+  const gender = isFemale ? 'female' : 'other';
 
   // Tier pill: skill-keyed categories (planche, muscle_up, handstand, etc.) get
   // the 4-step קליסטניקס ladder; push/pull/legs/core keep the plain 3-tier label.
@@ -442,8 +450,7 @@ export default function VisualSlider({
   // standard Hebrew abbreviation (שנ׳); reps stay unabbreviated (חזרות).
   const targetReps = resolved?.targetReps || null;
   const unitType = resolved?.unitType ?? 'reps';
-  const unitWord = unitType === 'seconds' ? 'שנ׳' : 'חזרות';
-  const repsLabel = targetReps ? `מקסימום: ${targetReps} ${unitWord}` : null;
+  const repsLabel = targetReps ? t('quiz.slider.maxReps', { reps: targetReps, unit: unitType }) : null;
 
 
   // Swipe-hint finger: v2 uses an icon instead of the emoji.
@@ -490,26 +497,17 @@ export default function VisualSlider({
             )}
             <div className="space-y-6">
               <p className="text-lg font-medium text-slate-800 text-center leading-snug">
-                {isFemale
-                  ? 'גררי כדי לשנות את הקושי והתרגיל'
-                  : 'גרור כדי לשנות את הקושי והתרגיל'
-                }
+                {t('quiz.slider.tutorial.drag', { gender })}
               </p>
               <p className="text-lg font-medium text-slate-800 text-center leading-snug">
-                {isFemale
-                  ? 'בדקי את המינימום: הזמן והחזרות יופיעו כאן'
-                  : 'בדוק את המינימום: הזמן והחזרות יופיעו כאן'
-                }
+                {t('quiz.slider.tutorial.checkMin', { gender })}
               </p>
             </div>
 
             {/* Divider + anxiety-relief note */}
             <div className="mt-5 pt-4 border-t border-slate-100">
               <p className="text-sm font-normal text-slate-500 text-center leading-loose px-2">
-                {isFemale
-                  ? 'לא בטוחה ב-100%? לא מצליחה? תבחרי בערך, המערכת תלמד אותך ותתקן בהמשך'
-                  : 'לא בטוח ב-100%? לא מצליח? תבחר בערך, המערכת תלמד אותך ותתקן בהמשך'
-                }
+                {t('quiz.slider.tutorial.notSure', { gender })}
               </p>
             </div>
           </div>
@@ -547,7 +545,7 @@ export default function VisualSlider({
   // (ClientLayout), so the CTA only adds its own 12px. Same state, same
   // handlers, same CoverflowStrip as the legacy layout below.
   if (v2) {
-    const escapeLabel = isFemale ? 'עוד לא מצליחה?' : 'עוד לא מצליח?';
+    const escapeLabel = t('quiz.slider.escape', { gender });
     // enable_strength_quiz_hint_v2 replaces the mask + bubble + finger on the coverflow strip.
     const tutorialOn = showTutorial && !stripHintOn;
     // −/+ stepper — same DOM order as legacy: "−" (easier) right, "+" (harder) left. Shared by
@@ -563,14 +561,14 @@ export default function VisualSlider({
             if (!isAtFloor) handleSliderChange(sliderVal - 1);
           }}
           disabled={isAtFloor && !isEscapeable}
-          aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
+          aria-label={isEscapeable ? t('quiz.slider.escapeAria') : t('quiz.slider.easierAria')}
           className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
         >
           <Minus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
-          <span className="truncate whitespace-nowrap">{isEscapeable ? escapeLabel : 'קל יותר'}</span>
+          <span className="truncate whitespace-nowrap">{isEscapeable ? escapeLabel : t('quiz.slider.easier')}</span>
         </button>
         <div className="flex w-[64px] flex-shrink-0 flex-col items-center leading-none">
-          <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-muted">הרמה שלי</span>
+          <span className="whitespace-nowrap text-[11px] font-extrabold text-v2-muted">{t('quiz.slider.myLevel')}</span>
           {SHOW_STEPPER_LEVEL_NUMBER && (
             <span className="mt-1 text-[18px] font-black tabular-nums text-v2-ink">{level}</span>
           )}
@@ -579,11 +577,11 @@ export default function VisualSlider({
           type="button"
           onClick={() => { onInteract?.(); handleSliderChange(sliderVal + 1); }}
           disabled={sliderVal >= sliderMax}
-          aria-label="תרגיל קשה יותר"
+          aria-label={t('quiz.slider.harderAria')}
           className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
         >
           <Plus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
-          <span className="truncate whitespace-nowrap">קשה יותר</span>
+          <span className="truncate whitespace-nowrap">{t('quiz.slider.harder')}</span>
         </button>
       </div>
     );
@@ -595,7 +593,7 @@ export default function VisualSlider({
               type="button"
               onClick={onBack}
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring touch-manipulation"
-              aria-label="חזרה"
+              aria-label={t('quiz.slider.back')}
             >
               <ChevronRight size={20} className="text-v2-ink" />
             </button>
@@ -644,7 +642,7 @@ export default function VisualSlider({
             >
               <div className="min-w-0 flex-1 text-right">
                 <p className="truncate whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">
-                  {exerciseLabel ?? meta.he}
+                  {exerciseLabel ?? t('quiz.slider.category', { category: category.toLowerCase(), name: meta.he })}
                 </p>
                 {repsLabel && (
                   <p className="truncate whitespace-nowrap text-[13px] font-bold text-v2-muted">{repsLabel}</p>
@@ -658,10 +656,10 @@ export default function VisualSlider({
 
           <div className="px-5 pb-1 pt-2.5 text-center">
             <p className="text-[15px] font-black leading-tight text-v2-ink">
-              {isFemale ? 'עצרי על התרגיל הכי קשה שאת בטוחה שתבצעי' : 'עצור על התרגיל הכי קשה שאתה בטוח שתבצע'}
+              {t('quiz.slider.instruction', { gender })}
             </p>
             <p className="mt-0.5 truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
-              {isFemale ? 'לא בטוחה? בחרי בערך — נדייק תוך כמה אימונים' : 'לא בטוח? בחר בערך — נדייק תוך כמה אימונים'}
+              {t('quiz.slider.notSure', { gender })}
             </p>
           </div>
 
@@ -767,12 +765,12 @@ export default function VisualSlider({
             {exerciseLabel ? (
               <span className="flex w-full items-center justify-center gap-1 overflow-hidden">
                 <span className="min-w-0 truncate">{exerciseLabel}</span>
-                <span className="flex-shrink-0 whitespace-nowrap">זו הרמה שלי</span>
+                <span className="flex-shrink-0 whitespace-nowrap">{t('quiz.slider.cta.myLevel')}</span>
               </span>
             ) : stepIndex < totalSteps - 1 ? (
-              <span className="whitespace-nowrap">הבא</span>
+              <span className="whitespace-nowrap">{t('quiz.slider.cta.next')}</span>
             ) : (
-              <span className="whitespace-nowrap">סיום הערכה</span>
+              <span className="whitespace-nowrap">{t('quiz.slider.cta.finish')}</span>
             )}
           </button>
         </div>
@@ -827,7 +825,7 @@ export default function VisualSlider({
           <button
             onClick={onBack}
             className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation"
-            aria-label="חזרה"
+            aria-label="חזרה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           >
             <ChevronRight size={22} className="text-slate-600" />
           </button>
@@ -918,10 +916,10 @@ export default function VisualSlider({
                 input methods, instead of only describing the drag gesture. */}
             <div className="px-6 pb-1.5 text-center">
               <p className="text-base font-bold text-slate-800 leading-snug">
-                עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עצרו על התרגיל הכי קשה שאתם בטוחים שתבצעו
               </p>
               <p className="text-sm font-normal text-slate-400 mt-0.5 leading-snug">
-                אפשר להחליק את הרצועה, או להשתמש ב־ +/−
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אפשר להחליק את הרצועה, או להשתמש ב־ +/−
               </p>
             </div>
 
@@ -978,7 +976,7 @@ export default function VisualSlider({
                 users an estimate is fine, we'll fine-tune within a few
                 workouts. Small/muted so it adds no visual weight. ── */}
             <p className="px-6 pt-1 pb-0.5 text-center text-[11px] font-normal text-slate-400 leading-snug">
-              לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}לא בטוח? בחרו בערך — נדייק אתכם תוך כמה אימונים
             </p>
 
             {/* ── +/− stepper — explicit alternative to the drag gesture above
@@ -1000,17 +998,17 @@ export default function VisualSlider({
                   if (!isAtFloor) handleSliderChange(sliderVal - 1);
                 }}
                 disabled={isAtFloor && !isEscapeable}
-                aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
+                aria-label={isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'} // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#F76700]/25 bg-[#F76700]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#F76700]" aria-hidden>−</span>
                 <span className="text-[13px] font-bold text-[#F76700] text-center leading-snug">
-                  {isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isEscapeable ? 'עדיין לא מצליח את התרגיל?' : 'תרגיל קל יותר'}
                 </span>
               </button>
 
               <div className="flex-shrink-0 flex flex-col items-center gap-0.5 px-2">
-                <span className="text-[11px] font-bold text-slate-500">הרמה שלי</span>
+                <span className="text-[11px] font-bold text-slate-500">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הרמה שלי</span>
                 {SHOW_STEPPER_LEVEL_NUMBER && (
                   <span className="text-lg font-black text-slate-900 tabular-nums">{level}</span>
                 )}
@@ -1020,11 +1018,11 @@ export default function VisualSlider({
                 type="button"
                 onClick={() => handleSliderChange(sliderVal + 1)}
                 disabled={sliderVal >= sliderMax}
-                aria-label="תרגיל קשה יותר"
+                aria-label="תרגיל קשה יותר" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-2xl border border-[#0AC2B6]/25 bg-[#0AC2B6]/[0.06] disabled:opacity-30 disabled:pointer-events-none transition-opacity active:scale-95"
               >
                 <span className="text-xl font-black leading-none text-[#0AC2B6]" aria-hidden>+</span>
-                <span className="text-[13px] font-bold text-[#0AC2B6] text-center leading-snug">תרגיל קשה יותר</span>
+                <span className="text-[13px] font-bold text-[#0AC2B6] text-center leading-snug">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תרגיל קשה יותר</span>
               </button>
             </div>
           </div>
@@ -1120,15 +1118,15 @@ export default function VisualSlider({
           {exerciseLabel ? (
             <span className="w-full flex items-center justify-center gap-1 overflow-hidden px-2">
               <span className="truncate min-w-0">{exerciseLabel}</span>
-              <span className="flex-shrink-0 whitespace-nowrap">זו הרמה שלי</span>
+              <span className="flex-shrink-0 whitespace-nowrap">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}זו הרמה שלי</span>
             </span>
           ) : stepIndex < totalSteps - 1 ? (
             <>
-              <span>הבא</span>
+              <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הבא</span>
               <span className="text-xl">←</span>
             </>
           ) : (
-            <span>סיום הערכה</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}סיום הערכה</span>
           )}
         </button>
       </div>

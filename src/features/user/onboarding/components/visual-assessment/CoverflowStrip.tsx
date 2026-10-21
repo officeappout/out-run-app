@@ -3,6 +3,8 @@
 import { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { hapticSelection } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface CoverflowStripProps {
   /** Real levels in ascending order, e.g. [1, 4, 7, 10, 13, 16, 20]. */
@@ -40,6 +42,7 @@ export default function CoverflowStrip({
   thumbnails,
   onSelect,
 }: CoverflowStripProps) {
+  const t = useT(onboarding);
   const scrollRef = useRef<HTMLDivElement>(null);
   const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -277,7 +280,7 @@ export default function CoverflowStrip({
               type="button"
               ref={(el) => { tileRefs.current[displayIndex] = el; }}
               onClick={() => handleTap(displayIndex)}
-              aria-label={`רמה ${level}`}
+              aria-label={t('quiz.strip.levelAria', { level: String(level) })}
               aria-pressed={isSelected}
               className="flex-none flex items-center justify-center snap-center touch-manipulation"
               style={{ width: CELL_SIZE, height: CELL_SIZE }}

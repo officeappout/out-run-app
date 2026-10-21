@@ -37,3 +37,4 @@ src/features/parks/client/components/route-preview/
 src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
 src/features/workout-engine/players/running/components/
+src/features/user/onboarding/components/visual-assessment/
