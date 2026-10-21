@@ -50,6 +50,7 @@ import { readPolicyInputs, type PolicyProfileSlice, type PolicyStoreSlice } from
 import RunDaysStep from '../running-v2/signup-schedule/RunDaysStep';
 import WalkGoalStep from './WalkGoalStep';
 import WalkWeekStep from './WalkWeekStep';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
 
 export const WALK_SIGNUP_SUBSTEPS = 4;
 
@@ -72,6 +73,8 @@ export interface WalkSignupFlowProps {
 
 export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowProps) {
   const t = useT(onboarding);
+  // enable_week_builder_v1: the two-level schedule UI (S-2b days picker, week builder when complex).
+  const weekBuilderOn = useWeekBuilderV1();
   const router = useRouter();
   const { data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
@@ -168,6 +171,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
     const usual = recommended.weeks[0]?.walks.find((w) => !w.isLong) ?? recommended.weeks[0]?.walks[0];
     return (
       <RunDaysStep
+        look={weekBuilderOn ? 's2b' : undefined}
         title={t('signup.walk.days.title')}
         subtitle={t('signup.walk.days.subtitle', {
           hasUsual: usual ? 'yes' : 'no',

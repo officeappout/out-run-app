@@ -53,6 +53,7 @@ import { useWizardIdentity } from '../../../hooks/useWizardIdentity';
 import RunDaysStep from '../../running-v2/signup-schedule/RunDaysStep';
 import StrengthCountStep, { type HistoryFrequency } from './StrengthCountStep';
 import StrengthWeekStep from './StrengthWeekStep';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
 
 export const STRENGTH_SCHEDULE_SUBSTEPS = 3;
 
@@ -79,6 +80,8 @@ const isHistory = (v: unknown): v is HistoryFrequency => v === 'none' || v === '
 
 export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, onAddRun }: StrengthSignupScheduleFlowProps) {
   const t = useT(onboarding);
+  // enable_week_builder_v1: the two-level schedule UI (S-2b days picker, week builder when complex).
+  const weekBuilderOn = useWeekBuilderV1();
   const { data, updateData } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
   const { copyGender: gender } = useWizardIdentity();
@@ -182,6 +185,7 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
   if (sub === 1) {
     return (
       <RunDaysStep
+        look={weekBuilderOn ? 's2b' : undefined}
         frequency={frequency}
         days={days}
         windows={windowsWithDefault}

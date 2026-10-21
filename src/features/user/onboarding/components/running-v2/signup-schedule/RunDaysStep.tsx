@@ -25,6 +25,11 @@ export interface RunDaysStepProps {
   /** Header override (the walking signup: "מתי נצא להליכה?"). Default: the run copy. */
   title?: string;
   subtitle?: string;
+  /**
+   * enable_week_builder_v1: the simple days picker of the two-level schedule UI (board S-2b) —
+   * the same rows inside an accent-ringed card. Absent = today's look, byte-identical.
+   */
+  look?: 's2b';
 }
 
 export default function RunDaysStep(p: RunDaysStepProps) {
@@ -46,7 +51,7 @@ export default function RunDaysStep(p: RunDaysStepProps) {
           </span>
         </div>
 
-        <div className="overflow-hidden rounded-[22px] bg-white shadow-v2-card">
+        <div className={`overflow-hidden rounded-[22px] bg-white shadow-v2-card${p.look === 's2b' ? ' ring-1 ring-v2-accent/40' : ''}`}>
           {DAY_LETTERS_HE.map((letter, dow) => {
             const on = p.days.includes(dow);
             const w = p.windows[dow] ?? DEFAULT_RUN_WINDOW;

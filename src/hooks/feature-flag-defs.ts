@@ -373,6 +373,15 @@ export const FLAG_DEFS = [
   // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
   // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Two-level schedule UI (21.10.2026, owner-approved — agent-briefs/week-builder-brief.md, boards
+  // S-2a…S-2h). Inside the enable_home_v2 signup schedule flows: a simple plan (one repeated
+  // workout, one track, under 5 days) keeps the days picker (S-2b look) and today's week screen; a
+  // complex plan (a strength split, two tracks, a walking plan next to another track, or 5+ days)
+  // gets the week builder after the days step (per-day cards with the engine's "why" line, drag to
+  // another day validated by schedule engine v2, tap a day to edit, "אישור השבוע"). Same builder in
+  // add-second-track (S-6b / S-6c). Writes only what those flows already write. Fail-closed; super
+  // admins preview it. Off = byte-identical flows.
+  { key: 'enableWeekBuilderV1', firestoreKey: 'enable_week_builder_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

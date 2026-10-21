@@ -9,7 +9,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
-  Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
+  Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
   Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages,
   type LucideIcon,
 } from 'lucide-react';
@@ -77,6 +77,7 @@ interface FlagState {
   enable_strength_quiz_hint_v2: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
+  enable_week_builder_v1: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -541,6 +542,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'נגן ריצה/הליכה: המפה קודם',
     description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
+  },
+  // Two-level schedule UI — simple days picker / week builder (21.10.2026).
+  {
+    key: 'enable_week_builder_v1',
+    icon: CalendarDays,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'לו״ז: בונה השבוע',
+    description: 'תוכנית פשוטה (אימון אחד שחוזר) נשארת עם בחירת ימים. תוכנית מורכבת (פיצול, שני מסלולים, הליכה לצד מסלול אחר או 5+ ימים) מקבלת את בונה השבוע: כרטיס לכל יום עם "למה", גרירה ליום אחר שהמנוע בודק, ואישור השבוע. גם בהוספת מסלול שני.',
   },
   // Retire /gateway as the fallback (21.10.2026).
   {

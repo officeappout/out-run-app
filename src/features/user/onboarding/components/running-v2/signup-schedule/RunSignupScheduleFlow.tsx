@@ -50,6 +50,7 @@ import { firstWeekRunSlots, readRunningAnswers, runLevelFromAnswers, runTargetDi
 import RunCountStep from './RunCountStep';
 import RunDaysStep from './RunDaysStep';
 import RunWeekStep from './RunWeekStep';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
 
 export const RUN_SIGNUP_SUBSTEPS = 4;
 
@@ -79,6 +80,8 @@ export interface RunSignupScheduleFlowProps {
 
 export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignupScheduleFlowProps) {
   const t = useT(onboarding);
+  // enable_week_builder_v1: the two-level schedule UI (S-2b days picker, week builder when complex).
+  const weekBuilderOn = useWeekBuilderV1();
   const { data, updateData } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
 
@@ -225,6 +228,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
   if (sub === 1) {
     return (
       <RunDaysStep
+        look={weekBuilderOn ? 's2b' : undefined}
         frequency={frequency}
         days={days}
         windows={windows}
