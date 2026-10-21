@@ -36,3 +36,11 @@ src/features/heatmap/services/
 src/features/parks/client/components/route-preview/
 src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
+
+# wave 2 batch 1 (namespace community, group.* keys) — the group details sheet's sections + hooks.
+# utils/ is NOT migrated: CATEGORY_CONFIG labels and deriveGroupPageView's calendar description are
+# read by GroupDetailsDrawer.tsx (outside this folder) — manual list in the PR. DAY_LABELS = wave 3.
+src/features/arena/components/group-details/sections/
+src/features/arena/components/group-details/hooks/
+src/features/arena/components/group-details/services/
+src/features/arena/components/group-details/GroupSheetFrame.tsx

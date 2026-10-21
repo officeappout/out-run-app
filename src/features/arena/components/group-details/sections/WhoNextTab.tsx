@@ -2,6 +2,8 @@
 
 import type { SessionAttendance } from '@/types/community.types';
 import { formatSessionDate } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface WhoNextTabProps {
   v2: boolean;
@@ -11,6 +13,7 @@ interface WhoNextTabProps {
 
 /** "המפגש הבא" tab — avatars + count (+ waitlist) for the next session. */
 export default function WhoNextTab({ v2, nextSessionData, attendance }: WhoNextTabProps) {
+  const t = useT(community);
   return (
     <div>
       {nextSessionData && v2 ? (
@@ -29,18 +32,18 @@ export default function WhoNextTab({ v2, nextSessionData, attendance }: WhoNextT
           </div>
           <div className="text-end">
             <p className="text-[16px] font-black text-v2-ink" aria-live="polite">
-              {(attendance?.currentCount ?? 0) > 0 ? `${attendance!.currentCount} מגיעים` : 'עוד אין רשומים'}
+              {(attendance?.currentCount ?? 0) > 0 ? t('group.who.next.coming', { count: String(attendance!.currentCount) }) : t('group.who.next.none')}
             </p>
             <p className="text-[12.5px] font-bold text-v2-muted">
-              {formatSessionDate(nextSessionData.date, nextSessionData.time)}
-              {(attendance?.waitlist?.length ?? 0) > 0 ? ` · ${attendance!.waitlist!.length} בהמתנה` : ''}
+              {formatSessionDate(nextSessionData.date, nextSessionData.time, t)}
+              {(attendance?.waitlist?.length ?? 0) > 0 ? t('group.who.next.waiting', { count: String(attendance!.waitlist!.length) }) : ''}
             </p>
           </div>
         </div>
       ) : nextSessionData ? (
         <div className="space-y-2">
           <p className="text-xs text-gray-500 font-semibold">
-            {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+            {formatSessionDate(nextSessionData.date, nextSessionData.time, t)}
           </p>
           {attendance && attendance.currentCount > 0 ? (
             <div className="flex items-center gap-2.5">
@@ -58,23 +61,23 @@ export default function WhoNextTab({ v2, nextSessionData, attendance }: WhoNextT
               </div>
               <div>
                 <p className="text-sm font-black text-gray-800 dark:text-gray-200" aria-live="polite">
-                  {attendance.currentCount} {attendance.currentCount === 1 ? 'נרשם/ה' : 'נרשמו'}
+                  {t('group.who.next.registered', { n: attendance.currentCount, count: String(attendance.currentCount) })}
                 </p>
                 {(attendance?.waitlist?.length ?? 0) > 0 && (
                   <p className="text-xs text-amber-600 font-semibold" aria-live="polite">
-                    {attendance.waitlist!.length} ברשימת המתנה
+                    {t('group.who.next.waitlist', { count: String(attendance.waitlist!.length) })}
                   </p>
                 )}
               </div>
             </div>
           ) : (
             <p className="text-xs text-gray-400 font-medium">
-              אין רשומים עדיין — היה/י הראשון/ה!
+              {t('group.who.next.beFirst')}
             </p>
           )}
         </div>
       ) : (
-        <p className="text-xs text-gray-400">אין מפגש מתוכנן</p>
+        <p className="text-xs text-gray-400">{t('group.who.next.noSession')}</p>
       )}
     </div>
   );

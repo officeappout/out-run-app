@@ -2,9 +2,12 @@
 
 import type { WeekSession } from '../hooks/useWeekSessions';
 import { formatSessionDate } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /** "השבוע" tab — each of this week's sessions with its sign-ups. */
 export default function WhoWeekTab({ v2, loading, sessions }: { v2: boolean; loading: boolean; sessions: WeekSession[] }) {
+  const t = useT(community);
   return (
     <div>
       {loading ? (
@@ -14,7 +17,7 @@ export default function WhoWeekTab({ v2, loading, sessions }: { v2: boolean; loa
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-gray-400">אין מפגשים נוספים השבוע</p>
+        <p className="text-xs text-gray-400">{t('group.who.week.empty')}</p>
       ) : (
         <div className="space-y-2">
           {sessions.map((ws) => (
@@ -24,7 +27,7 @@ export default function WhoWeekTab({ v2, loading, sessions }: { v2: boolean; loa
             >
               <div className="flex-1 min-w-0">
                 <p className={v2 ? 'text-[14px] font-black text-v2-ink' : 'text-xs font-bold text-gray-800 dark:text-gray-200'}>
-                  {formatSessionDate(ws.date, ws.time)}
+                  {formatSessionDate(ws.date, ws.time, t)}
                 </p>
                 {ws.attendance && ws.attendance.currentCount > 0 ? (
                   <div className="flex items-center gap-1.5 mt-1">
@@ -41,11 +44,11 @@ export default function WhoWeekTab({ v2, loading, sessions }: { v2: boolean; loa
                       ))}
                     </div>
                     <span className="text-xs text-gray-500 font-semibold">
-                      {ws.attendance.currentCount} נרשמו
+                      {t('group.who.week.registered', { count: String(ws.attendance.currentCount) })}
                     </span>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 mt-0.5">אין רשומים עדיין</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{t('group.who.week.none')}</p>
                 )}
               </div>
             </div>
