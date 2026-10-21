@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { RefreshCcw } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface SignaturePadProps {
   onEnd: (signatureData: string | null) => void;
@@ -8,6 +10,7 @@ interface SignaturePadProps {
 
 export default function SignaturePad({ onEnd }: SignaturePadProps) {
   const sigPad = useRef<SignatureCanvas>(null);
+  const t = useT(onboarding);
 
   const clear = () => {
     sigPad.current?.clear();
@@ -39,13 +42,13 @@ export default function SignaturePad({ onEnd }: SignaturePadProps) {
         />
 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none text-gray-300 text-sm select-none">
-          חתום כאן עם האצבע
+          {t('signaturePad.hint')}
         </div>
 
         <button 
           onClick={clear}
           className="absolute top-2 right-2 p-1.5 bg-white shadow-sm rounded-full text-gray-500 hover:text-red-500 border border-gray-200 z-10"
-          title="נקה חתימה"
+          title={t('signaturePad.clear')}
           type="button" // חשוב כדי שלא ירפרש את הטופס
         >
           <RefreshCcw size={16} />

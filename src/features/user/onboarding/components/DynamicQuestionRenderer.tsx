@@ -14,6 +14,8 @@ import { RunningAbilityPickerV2, RunningGoalPickerV2 } from './running-v2/Runnin
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { WALK_SIGNUP_ROUTE } from '../utils/walk-signup-routing';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface DynamicQuestionRendererProps {
   question: DynamicQuestionNode;
@@ -84,6 +86,7 @@ export default function DynamicQuestionRenderer({
   onAnswer,
 }: DynamicQuestionRendererProps) {
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const router = useRouter();
   // Walking (enable_home_v2): offered to a signed-in user only — the walking signup
   // writes straight to their schedule.
@@ -491,7 +494,7 @@ export default function DynamicQuestionRenderer({
     <div className="w-full font-simpler text-center p-8" dir={language === 'he' ? 'rtl' : 'ltr'}>
       <h2 className="text-xl font-black text-slate-900 mb-2">{title}</h2>
       {description && <p className="text-sm text-slate-500">{description}</p>}
-      <p className="text-sm text-red-400 mt-4">סוג שאלה לא מוכר: {question.type}</p>
+      <p className="text-sm text-red-400 mt-4">{t('dynamic.unknownType', { type: String(question.type) })}</p>
     </div>
   );
 }
@@ -511,10 +514,11 @@ const SEC_VALS  = Array.from({ length: 60 }, (_, i) => i);
 
 type DistKey = '3k' | '5k' | '10k';
 
-const DIST_OPTIONS: { key: DistKey; label: string; km: number; defaultMin: number }[] = [
-  { key: '3k',  label: '3 ק״מ',  km: 3,  defaultMin: 15 },
-  { key: '5k',  label: '5 ק״מ',  km: 5,  defaultMin: 25 },
-  { key: '10k', label: '10 ק״מ', km: 10, defaultMin: 50 },
+// Hebrew label: catalog `dynamic.pace.dist` (select on `key`).
+const DIST_OPTIONS: { key: DistKey; km: number; defaultMin: number }[] = [
+  { key: '3k',  km: 3,  defaultMin: 15 },
+  { key: '5k',  km: 5,  defaultMin: 25 },
+  { key: '10k', km: 10, defaultMin: 50 },
 ];
 
 function getInitialDist(): DistKey {
@@ -642,8 +646,10 @@ function PaceTimeInput({
   v2?: boolean;
   isFemale?: boolean;
 }) {
+  const t = useT(onboarding);
   const distance = useRef(getInitialDist()).current;
   const meta = DIST_OPTIONS.find((d) => d.key === distance)!;
+  const distLabel = t('dynamic.pace.dist', { dist: meta.key });
 
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(meta.defaultMin);
@@ -669,18 +675,16 @@ function PaceTimeInput({
 
         <div className="mb-4 px-1">
           <h2 className="text-[22px] font-black leading-[1.2] !tracking-[-0.02em]">
-            מעולה! ומה התוצאה הכי טובה שלך כרגע ל-{meta.label}?
+            {t('dynamic.pace.title', { dist: distLabel })}
           </h2>
           <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
-            {isFemale
-              ? 'הכוונה לתוצאה שאת יכולה לבצע היום, לא לשיא היסטורי!'
-              : 'הכוונה לתוצאה שאתה יכול לבצע היום, לא לשיא היסטורי!'}
+            {t('dynamic.pace.hint', { gender: isFemale ? 'female' : 'male' })}
           </p>
         </div>
 
         <div className="rounded-v2-card bg-white px-3 pb-4 pt-3.5 shadow-v2-card">
           <p className="mb-2 text-center text-[13px] font-extrabold text-v2-deep">
-            השיא שלי ב-{meta.label} הוא:
+            {t('dynamic.pace.record', { dist: distLabel })}
           </p>
           <div className="relative overflow-hidden rounded-2xl" style={{ height: WHEEL_H }}>
             <div
@@ -699,7 +703,7 @@ function PaceTimeInput({
           </div>
           <div className="mt-3 flex justify-center">
             <span className="inline-flex items-center whitespace-nowrap rounded-full bg-v2-tint px-3.5 py-1.5 text-[13px] font-extrabold tabular-nums text-v2-deep">
-              קצב: {fmtPace()} דק׳/ק״מ
+              {t('dynamic.pace.pace', { pace: fmtPace() })}
             </span>
           </div>
         </div>
@@ -707,7 +711,7 @@ function PaceTimeInput({
         {isElite && (
           <div className="mt-3 rounded-[14px] bg-[#e5484d]/[0.08] px-3.5 py-3 ring-1 ring-inset ring-[#e5484d]/30" role="status">
             <p className="text-center text-[13px] font-bold leading-snug text-[#b4232a]">
-              המערכת אינה מותאמת כרגע לאתלטים ברמה הזו... אנו עובדים על עדכון בקרוב.
+              {t('dynamic.pace.elite')}
             </p>
           </div>
         )}
@@ -724,7 +728,7 @@ function PaceTimeInput({
                 : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
             }`}
           >
-            המשך
+            {t('dynamic.pace.continue')}
           </button>
         </div>
       </div>
@@ -738,17 +742,17 @@ function PaceTimeInput({
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="px-4 mb-2">
         <h2 className="text-2xl font-black leading-tight text-slate-900 mb-2">
-          מעולה! ומה התוצאה הכי טובה שלך כרגע ל-{meta.label}?
+          {t('dynamic.pace.title', { dist: distLabel })}
         </h2>
         <p className="text-sm text-slate-500 leading-relaxed">
-          הכוונה לתוצאה שאת/ה יכול/ה לבצע היום 😉, לא לשיא היסטורי!
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הכוונה לתוצאה שאת/ה יכול/ה לבצע היום 😉, לא לשיא היסטורי!
         </p>
       </div>
 
       {/* ── Center Label ───────────────────────────────────────── */}
       <div className="text-center mt-6 mb-4 px-4">
         <p className="text-lg font-bold text-slate-700">
-          השיא שלי ב-{meta.label} הוא:
+          {t('dynamic.pace.record', { dist: distLabel })}
         </p>
       </div>
 
@@ -782,7 +786,7 @@ function PaceTimeInput({
           className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold tabular-nums"
           style={{ background: '#0AC2B6', color: '#212121' }}
         >
-          קצב: {fmtPace()} דק׳/ק״מ
+          {t('dynamic.pace.pace', { pace: fmtPace() })}
         </span>
       </div>
 
@@ -793,7 +797,7 @@ function PaceTimeInput({
           style={{ background: '#B00020' + '10', borderColor: '#B00020' + '30', borderWidth: 1 }}
         >
           <p className="text-sm font-semibold text-center leading-relaxed" style={{ color: '#B00020' }}>
-            המערכת אינה מותאמת כרגע לאתלטים ברמה הזו... אנו עובדים על עדכון בקרוב.
+            {t('dynamic.pace.elite')}
           </p>
         </div>
       )}
@@ -811,7 +815,7 @@ function PaceTimeInput({
           `}
           style={isValid && !isElite ? { background: '#00BAF7', boxShadow: '0 10px 25px -5px rgba(0,186,247,0.35)' } : undefined}
         >
-          המשך
+          {t('dynamic.pace.continue')}
         </button>
       </div>
     </div>

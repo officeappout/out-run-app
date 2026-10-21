@@ -10,6 +10,9 @@ import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onb
 import { SKILL_ICON_PATHS } from '../constants/program-path.constants';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 // ── Real progression data (Progression Manager — מנהל התקדמות) ──────
 // Source of truth: src/features/user/core/types/progression.types.ts
@@ -41,23 +44,26 @@ const BRAND_GRADIENT = 'linear-gradient(98deg, #0CF2E3 0%, #00BAF7 98%)';
 // ── Canonical category colors ──────────────────────────────────────
 // Authoritative source: src/features/user/onboarding/components/visual-assessment/VisualSlider.tsx
 // Do NOT change these without updating VisualSlider.tsx simultaneously.
+// Hebrew labels: catalog `result.category` (select on `key`).
 const CATEGORY_DISPLAY = [
-  { key: 'push' as const, en: 'Push', he: 'דחיפה',          emoji: '💪', color: '#5BC2F2', lightBg: '#5BC2F212', Icon: Dumbbell   },
-  { key: 'pull' as const, en: 'Pull', he: 'משיכה',          emoji: '🤸', color: '#8b5cf6', lightBg: '#8b5cf612', Icon: ChevronsUp },
-  { key: 'legs' as const, en: 'Legs', he: 'פלג גוף תחתון', emoji: '🦵', color: '#10b981', lightBg: '#10b98112', Icon: Footprints  },
-  { key: 'core' as const, en: 'Core', he: 'ליבה',           emoji: '🔥', color: '#f59e0b', lightBg: '#f59e0b12', Icon: Activity   },
+  { key: 'push' as const, en: 'Push', emoji: '💪', color: '#5BC2F2', lightBg: '#5BC2F212', Icon: Dumbbell   },
+  { key: 'pull' as const, en: 'Pull', emoji: '🤸', color: '#8b5cf6', lightBg: '#8b5cf612', Icon: ChevronsUp },
+  { key: 'legs' as const, en: 'Legs', emoji: '🦵', color: '#10b981', lightBg: '#10b98112', Icon: Footprints  },
+  { key: 'core' as const, en: 'Core', emoji: '🔥', color: '#f59e0b', lightBg: '#f59e0b12', Icon: Activity   },
 ];
+const CATEGORY_KEYS = new Set<string>(CATEGORY_DISPLAY.map((c) => c.key));
 
 // ── Calisthenics skill display metadata ────────────────────────────
-// Keeps Hebrew labels, emoji and brand colours in sync with VisualSlider.tsx.
-const SKILL_META: Record<string, { he: string; emoji: string; color: string }> = {
-  front_lever:        { he: 'פרונט ליבר',                     emoji: '🏋️',   color: '#10b981' },
-  muscle_up:          { he: 'עליית כוח',                      emoji: '🤸',   color: '#6366f1' },
-  planche:            { he: "פלאנץ'",                         emoji: '⚖️',   color: '#f59e0b' },
-  handstand:          { he: 'עמידת ידיים',                    emoji: '🤸‍♂️', color: '#ec4899' },
-  hspu:               { he: 'שכיבות סמיכה בעמידת ידיים',     emoji: '🤸‍♂️', color: '#8b5cf6' },
-  one_arm_pullup:     { he: 'מתח יד אחת',                    emoji: '💪',   color: '#8b5cf6' },
-  calisthenics_upper: { he: 'קליסטניקס עליון',               emoji: '⭐',   color: '#6366f1' },
+// Keeps emoji and brand colours in sync with VisualSlider.tsx. Hebrew labels: catalog
+// `result.skill` (select on the skill id; an unknown id shows the id with spaces).
+const SKILL_META: Record<string, { emoji: string; color: string }> = {
+  front_lever:        { emoji: '🏋️',   color: '#10b981' },
+  muscle_up:          { emoji: '🤸',   color: '#6366f1' },
+  planche:            { emoji: '⚖️',   color: '#f59e0b' },
+  handstand:          { emoji: '🤸‍♂️', color: '#ec4899' },
+  hspu:               { emoji: '🤸‍♂️', color: '#8b5cf6' },
+  one_arm_pullup:     { emoji: '💪',   color: '#8b5cf6' },
+  calisthenics_upper: { emoji: '⭐',   color: '#6366f1' },
 };
 
 // ── Reveal phase state machine ─────────────────────────────────────
@@ -161,6 +167,7 @@ const CircularGauge = ({
   levelName: string | null;
   onCountComplete?: () => void;
 }) => {
+  const t = useT(onboarding);
   const [arcPct, setArcPct] = useState(0);
   const countCompleteRef    = useRef(false);
 
@@ -230,7 +237,7 @@ const CircularGauge = ({
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
           >
-            רמה {levelNumber} מתוך {maxLevel}
+            {t('result.gauge.level', { level: String(levelNumber), max: String(maxLevel) })}
           </motion.span>
         </div>
       </div>
@@ -249,7 +256,7 @@ const CircularGauge = ({
           className="text-[11px] font-bold px-3 py-0.5 rounded-full text-white"
           style={{ background: BRAND_GRADIENT }}
         >
-          1% — קו ההתחלה שלך
+          {t('result.gauge.startLine')}
         </span>
       </motion.div>
     </div>
@@ -271,7 +278,10 @@ const SummaryCard = ({
   v2?: boolean;
   /** v2 skills path: the skill's own SVG instead of an emoji. */
   iconSrc?: string;
-}) => v2 ? (
+}) => {
+  const t = useT(onboarding);
+  const levelText = levelValue != null && levelValue > 0 ? t('result.card.level', { level: String(levelValue) }) : '—';
+  return v2 ? (
   // v2: no overflow-hidden + 3px top stripe — the rounded corners clipped
   // that stripe into a thin arc, which read as the card's top edge being
   // cut off. Plain ring card, never below 11px text, no emoji.
@@ -293,7 +303,7 @@ const SummaryCard = ({
     </div>
     <span className="w-full truncate whitespace-nowrap text-center text-[11px] font-extrabold text-v2-muted">{label}</span>
     <span className="whitespace-nowrap text-[14px] font-black leading-none text-v2-deep">
-      {levelValue != null && levelValue > 0 ? `רמה ${levelValue}` : '—'}
+      {levelText}
     </span>
   </motion.div>
 ) : (
@@ -325,11 +335,12 @@ const SummaryCard = ({
         {label}
       </span>
       <span className="text-sm font-black leading-none text-[#00BAF7]">
-        {levelValue != null && levelValue > 0 ? `רמה ${levelValue}` : '—'}
+        {levelText}
       </span>
     </div>
   </motion.div>
 );
+};
 
 
 // ── Main Component ─────────────────────────────────────────────────
@@ -349,6 +360,7 @@ export default function ProgramResult({
   v2 = false,
 }: ProgramResultProps) {
   const uiGender = useUiGender();
+  const t = useT(onboarding);
   void getOnboardingLocale(language); // keep import used
 
   const [revealPhase,   setRevealPhase]   = useState<RevealPhase>('calculating');
@@ -378,8 +390,8 @@ export default function ProgramResult({
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => setShowConfetti(false), 3500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowConfetti(false), 3500);
+    return () => clearTimeout(timer);
   }, []);
 
   // ── Derived values ─────────────────────────────────────────────
@@ -390,32 +402,31 @@ export default function ProgramResult({
   const getProgramName = () => {
     // Skills path
     if (isSkillsPath) {
-      return language === 'he' ? 'תוכנית מיומנויות מותאמת' : 'Custom Skills Program';
+      return language === 'he' ? t('result.program.skills') : 'Custom Skills Program';
     }
 
     // Compute name from assessed categories when available
     if (assessedCategories?.length) {
-      const HE_LABELS: Record<string, string> = {
-        push: 'דחיפה', pull: 'משיכה', legs: 'פלג גוף תחתון', core: 'ליבה',
-      };
       const ALL_FOUR = ['push', 'pull', 'legs', 'core'];
       const isFullBody = ALL_FOUR.every(k => assessedCategories.includes(k));
 
-      if (isFullBody) return language === 'he' ? 'תוכנית כל הגוף' : 'Full Body Program';
+      if (isFullBody) return language === 'he' ? t('result.program.fullBody') : 'Full Body Program';
 
-      const heLabels = assessedCategories.filter(k => HE_LABELS[k]).map(k => HE_LABELS[k]);
+      const heLabels = assessedCategories
+        .filter(k => CATEGORY_KEYS.has(k))
+        .map(k => t('result.category', { category: k }));
 
       if (language !== 'he') {
         return `${assessedCategories.map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(' & ')} Program`;
       }
-      if (heLabels.length === 1) return `תוכנית ${heLabels[0]}`;
+      if (heLabels.length === 1) return t('result.program.one', { category: heLabels[0] });
       // Two or more: "תוכנית דחיפה ומשיכה" / "תוכנית דחיפה, משיכה ורגליים"
       const last = heLabels[heLabels.length - 1];
       const rest = heLabels.slice(0, -1);
-      return `תוכנית ${rest.join(', ')} ו${last}`;
+      return t('result.program.many', { rest: rest.join(', '), last });
     }
 
-    return language === 'he' ? 'תוכנית אימונים מותאמת אישית' : 'Personalized Training Program';
+    return language === 'he' ? t('result.program.custom') : 'Personalized Training Program';
   };
 
   /** True when the user is on a calisthenics skills path with real skill levels. */
@@ -462,15 +473,18 @@ export default function ProgramResult({
     ? (sessionStorage.getItem('onboarding_personal_gender') ?? 'male')
     : 'male';
   const nextLevel = levelNumber + 1;
-  const achievementText = gender === 'female'
-    ? `כ-1,280 משתמשות התחילו ב-1% בדיוק כמוך — רובן הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`
-    : `כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך — רובם הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`;
+  // sessionStorage gender (default 'male') — anything but 'female' read the masculine copy.
+  const copyGender = genderArg(gender);
+  const achievementText = t('result.achievement', {
+    gender: copyGender,
+    level: String(nextLevel),
+    sessions: String(sessions),
+  });
 
   const continueLabel =
     language === 'ru' ? 'Продолжим: Адаптация к стилю жизни'
     : language === 'en' ? "Let's continue"
-    : gender === 'female' ? 'בואי נמשיך'
-    : 'בוא נמשיך';
+    : t('result.continue', { gender: copyGender });
 
   // ── Confetti ────────────────────────────────────────────────────
   const confettiColors = [
@@ -579,7 +593,7 @@ export default function ProgramResult({
                 animate={{ opacity: [0.6, 1, 0.6] }}
                 transition={{ duration: 1.4, repeat: Infinity }}
               >
-                מנתח את הביצועים שלך...
+                {t('result.analyzing')}
               </motion.p>
               <p className="text-sm text-slate-400 mt-1 font-medium">
                 {getProgramName()}
@@ -613,7 +627,6 @@ export default function ProgramResult({
                 // (visibleSkillLevels — post-escape, see its doc comment above)
                 ? Object.entries(visibleSkillLevels!).map(([skillId, lvl], i) => {
                     const meta = SKILL_META[skillId] ?? {
-                      he: skillId.replace(/_/g, ' '),
                       emoji: '⭐',
                       color: '#6366f1',
                     };
@@ -621,7 +634,7 @@ export default function ProgramResult({
                       <SummaryCard
                         key={skillId}
                         emoji={meta.emoji}
-                        label={meta.he}
+                        label={t('result.skill', { skill: skillId, name: skillId.replace(/_/g, ' ') })}
                         levelValue={lvl}
                         delay={i * 0.18}
                         v2={v2}
@@ -635,7 +648,7 @@ export default function ProgramResult({
                       <SummaryCard
                         key={cat.key}
                         emoji={cat.emoji}
-                        label={cat.he}
+                        label={t('result.category', { category: cat.key })}
                         levelValue={assessmentLevels?.[cat.key]}
                         delay={i * 0.18}
                         Icon={cat.Icon}
@@ -726,9 +739,7 @@ export default function ProgramResult({
                   : 'text-center text-base text-slate-500 leading-relaxed px-2 font-medium'}
                 dir="rtl"
               >
-                {gender === 'female'
-                  ? `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה.${v2 ? '' : ' 🚀'}`
-                  : `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה.${v2 ? '' : ' 🚀'}`}
+                {`${t('result.journey', { gender: copyGender })}${v2 ? '' : ' 🚀'}`}
               </p>
 
               {/* Save-failure banner — inline, specific, never a native alert. */}
@@ -772,7 +783,7 @@ export default function ProgramResult({
                   className="w-full text-slate-500 font-bold text-sm py-2 underline underline-offset-2 active:opacity-60 transition-opacity"
                   dir="rtl"
                 >
-                  המשך בלי לשמור עכשיו
+                  {t('result.skipSave')}
                 </button>
               )}
             </motion.div>

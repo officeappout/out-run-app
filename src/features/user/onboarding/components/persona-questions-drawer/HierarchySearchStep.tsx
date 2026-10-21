@@ -14,6 +14,8 @@ import { declareUnit } from '@/features/user/onboarding/services/unit-declaratio
 import type { UnitLevel as PendingUnitLevel } from '@/lib/unit-id';
 import { currentUiGender, useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface DirectoryEntry {
   directoryId: string;
@@ -128,6 +130,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
  */
 export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight, v2 = false }: HierarchySearchStepProps) {
   const uiGender = useUiGender();
+  const t = useT(onboarding);
   // breadcrumb[0] = top level (brigades); each entry is the directoryId
   // drilled into to reach the NEXT level's entries.
   const [breadcrumb, setBreadcrumb] = useState<DirectoryEntry[]>([]);
@@ -219,12 +222,12 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       // Never silent, never advances — the outer drawer must not treat
       // this as "done" when it isn't (David, explicit).
       setDeclareState('error');
-      setDeclareErrorMessage(result.error ?? pickGendered(currentUiGender(), { male: 'שמירת ההצהרה נכשלה. נסה שוב.', female: 'שמירת ההצהרה נכשלה. נסי שוב.', other: 'שמירת ההצהרה נכשלה. נסו שוב.' }));
+      setDeclareErrorMessage(result.error ?? t('hierarchy.declareFailed', { gender: currentUiGender() }));
       return;
     }
     setDeclareState('idle');
     onDone();
-  }, [value.orgId, value.unitId, onDone]);
+  }, [value.orgId, value.unitId, onDone, t]);
 
   // ── "היחידה שלי לא ברשימה — הוסף" (04.09.2026, משימה 2) ──────────────
   // Saved under the parent already selected/reached, never floating — the
@@ -297,11 +300,11 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       setAddMode('submitted');
     } catch (err) {
       console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
-      setAddError(pickGendered(currentUiGender(), { male: 'השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.', female: 'השמירה נכשלה. בדקי חיבור לאינטרנט ונסי שוב.', other: 'השמירה נכשלה. בדקו חיבור לאינטרנט ונסו שוב.' }));
+      setAddError(t('hierarchy.addFailed', { gender: currentUiGender() }));
     } finally {
       setAddBusy(false);
     }
-  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath, onChange, value]);
+  }, [addName, pendingLevel, pendingOrgId, pendingParentUnitId, pendingParentUnitPath, onChange, value, t]);
 
   const handleAddSubmit = useCallback(() => {
     const name = addName.trim();
@@ -343,7 +346,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => onNeedsExpandedHeight?.(true)}
             onBlur={() => onNeedsExpandedHeight?.(false)}
-            placeholder="חיפוש לפי שם או מספר..."
+            placeholder={t('hierarchy.searchPlaceholder')}
             className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white pl-4 pr-10 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full pr-9 pl-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
             dir="rtl"
           />
@@ -351,17 +354,17 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       )}
 
       {loading ? (
-        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>טוען...</div>
+        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>{t('hierarchy.loading')}</div>
       ) : entries.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
           <p className={v2 ? 'text-[13px] font-bold text-v2-muted' : 'text-slate-400 text-sm'}>
             {breadcrumb.length > 0
-              ? `אין תת-יחידות נוספות תחת ${breadcrumb[breadcrumb.length - 1].name}`
-              : 'אין תוצאות'}
+              ? t('hierarchy.noSubunits', { name: breadcrumb[breadcrumb.length - 1].name })
+              : t('hierarchy.noResults')}
           </p>
         </div>
       ) : filteredEntries.length === 0 ? (
-        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>אין תוצאות עבור "{searchQuery}"</div>
+        <div className={v2 ? 'flex flex-1 items-center justify-center text-[13px] font-bold text-v2-muted' : 'flex-1 flex items-center justify-center text-slate-400 text-sm'}>{t('hierarchy.noMatch', { query: searchQuery })}</div>
       ) : (
         <div className={v2 ? 'flex flex-1 flex-col gap-2.5 overflow-y-auto p-0.5' : 'flex-1 overflow-y-auto flex flex-col gap-2'}>
           {filteredEntries.map((entry) => {
@@ -401,7 +404,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
           className={v2 ? 'flex flex-shrink-0 items-center justify-center gap-1.5 whitespace-nowrap py-2.5 text-[14px] font-extrabold text-v2-deep' : 'flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-slate-500 flex-shrink-0'}
         >
           <Plus size={16} />
-          <span>היחידה שלי לא ברשימה — הוסף</span>
+          <span>{t('hierarchy.add.open')}</span>
         </button>
       )}
 
@@ -413,7 +416,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             onChange={(e) => setAddName(e.target.value)}
             onFocus={() => onNeedsExpandedHeight?.(true)}
             onBlur={() => onNeedsExpandedHeight?.(false)}
-            placeholder="שם היחידה"
+            placeholder={t('hierarchy.add.namePlaceholder')}
             autoFocus
             className={v2 ? 'h-[52px] w-full rounded-2xl border-0 bg-white px-4 text-[16px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted focus:ring-2 focus:ring-inset focus:ring-v2-accent/60' : 'w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-[#00E5FF] focus:outline-none'}
             dir="rtl"
@@ -426,10 +429,10 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               disabled={!addName.trim() || addBusy}
               className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-v2-tint text-[15px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40' : 'flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm disabled:opacity-40'}
             >
-              {addBusy ? 'שולח...' : 'שליחה'}
+              {addBusy ? t('hierarchy.add.sending') : t('hierarchy.add.send')}
             </button>
             <button type="button" onClick={() => setAddMode('closed')} className={v2 ? 'h-12 flex-shrink-0 whitespace-nowrap rounded-full bg-white px-5 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'px-4 py-2.5 text-sm text-slate-500'}>
-              ביטול
+              {t('hierarchy.add.cancel')}
             </button>
           </div>
         </div>
@@ -437,7 +440,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
       {addMode === 'confirmMatch' && matchedSibling && (
         <div className="pt-2 pb-1 flex-shrink-0 flex flex-col gap-2 text-center">
-          <p className={v2 ? 'text-[14px] font-medium text-v2-ink-2' : 'text-sm text-slate-700'}>מצאנו את <span className="font-bold">{matchedSibling.name}</span> — זו שלך?</p>
+          <p className={v2 ? 'text-[14px] font-medium text-v2-ink-2' : 'text-sm text-slate-700'}>{t.rich('hierarchy.add.match', { name: matchedSibling.name, b: (chunks: React.ReactNode) => <span className="font-bold">{chunks}</span> })}</p>
           {addError && <p className={v2 ? 'text-[12.5px] font-bold text-[#b4232a]' : 'text-xs text-red-600'}>{addError}</p>}
           <div className="flex gap-2">
             <button
@@ -445,7 +448,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               onClick={() => attachToSibling(matchedSibling)}
               className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-v2-tint px-3 text-[15px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex-1 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm'}
             >
-              כן, זו היחידה שלי
+              {t('hierarchy.add.matchYes')}
             </button>
             <button
               type="button"
@@ -453,7 +456,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
               disabled={addBusy}
               className={v2 ? 'flex h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full bg-white px-3 text-[15px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-40' : 'flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40'}
             >
-              {addBusy ? 'שולח...' : 'לא, זו לא'}
+              {addBusy ? t('hierarchy.add.sending') : t('hierarchy.add.matchNo')}
             </button>
           </div>
         </div>
@@ -461,7 +464,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
 
       {addMode === 'submitted' && (
         <div className="pt-2 pb-1 flex-shrink-0 text-center">
-          <p className={v2 ? 'text-[13px] font-bold text-v2-up' : 'text-sm text-slate-500'}>ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.</p>
+          <p className={v2 ? 'text-[13px] font-bold text-v2-up' : 'text-sm text-slate-500'}>{t('hierarchy.add.submitted')}</p>
         </div>
       )}
 
@@ -479,7 +482,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             disabled={declareState === 'saving'}
             className={v2 ? 'flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-none disabled:bg-v2-hairline disabled:text-v2-muted disabled:shadow-none' : 'w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm disabled:opacity-50'}
           >
-            {declareState === 'saving' ? 'שומר...' : declareState === 'error' ? pickGendered(uiGender, GENDERED_COPY.retry) : 'סיום'}
+            {declareState === 'saving' ? t('hierarchy.saving') : declareState === 'error' ? pickGendered(uiGender, GENDERED_COPY.retry) : t('hierarchy.finish')}
           </button>
         </div>
       )}

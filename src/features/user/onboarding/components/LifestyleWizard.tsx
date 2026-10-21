@@ -28,6 +28,9 @@ import { buildLifestyleWizardFinalWrite } from '../utils/lifestyle-wizard-final-
 import { writeLifestyleWizardCompletion } from '../services/lifestyle-wizard-submit.service';
 import { resolvePersonaGoalMode } from '../utils/persona-goals';
 import { useRouter } from 'next/navigation';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { resolveOnboardingEntryHref } from '../utils/onboarding-entry';
 import StrengthSignupScheduleFlow from './strength-v2/signup-schedule/StrengthSignupScheduleFlow';
 import WizardRemindersStepV2 from './wizard-v2/WizardRemindersStepV2';
@@ -45,7 +48,7 @@ interface LifestyleWizardProps {
 
 type WizardStep = 'persona' | 'schedule' | 'notifications';
 
-const NOTIFICATIONS_TITLE = 'תזכורות';
+const NOTIFICATIONS_TITLE = 'תזכורות'; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 
 export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardProps) {
   // Slide the global BottomNavbar off-screen for the duration of this wizard
@@ -89,7 +92,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // in THIS wizard session — the only case the final submit may write
   // lifestyle.scheduleDays / trainingHistory / settings.calendarSync.
   const strengthScheduleEditedRef = useRef(false);
-  const t = (male: string, female: string) => (gender === 'female' ? female : male);
+  const t = useT(onboarding);
+  // The wizard's identity gender — anything but 'female' read the masculine copy.
+  const copyGender = genderArg(gender);
 
   const stepIndex = ['persona', 'schedule', 'notifications'].indexOf(currentStep);
   const totalSteps = 3;
@@ -161,12 +166,12 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
       return true;
     } catch (error) {
       console.error('[LifestyleWizard] Submit error:', error);
-      alert('שגיאה בשמירה');
+      alert(t('lifestyle.saveError'));
       return false;
     } finally {
       setIsSubmitting(false);
     }
-  }, [onComplete, onboardingData, profile, v2]);
+  }, [onComplete, onboardingData, profile, v2, t]);
 
   // Write-once guard for the early `personas` write: goToPreviousStep lets a
   // user go back to persona and forward again within the same open wizard
@@ -369,7 +374,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               />
             </div>
             <p className="mt-1.5 whitespace-nowrap text-center text-[12px] font-bold text-v2-muted">
-              {stepIndex + 1} מתוך {totalSteps}
+              {t('lifestyle.progress', { step: String(stepIndex + 1), total: String(totalSteps) })}
             </p>
           </div>
 
@@ -475,11 +480,10 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     <h3 className="text-[22px] font-black leading-tight !tracking-[-0.02em] text-v2-ink">
-                      לקבלת התראות באייפון
+                      {t('lifestyle.ios.title')}
                     </h3>
                     <p className="mt-1 text-[14px] font-medium leading-relaxed text-v2-ink-2">
-                      Apple מאפשרת התראות רק לאפליקציות שמותקנות על מסך הבית.
-                      זה לוקח פחות מדקה
+                      {t('lifestyle.ios.body')}
                     </p>
                   </div>
                 </div>
@@ -488,26 +492,32 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
                     {v2StepBadge(1)}
                     <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
-                      {t('פתח', 'פתחי')} את ספארי {t('ולחץ', 'ולחצי')} על סמל השיתוף{' '}
-                      <Share size={16} strokeWidth={2.25} className="inline-block align-[-3px] text-v2-deep" aria-label="שיתוף" />{' '}
-                      בסרגל התחתון
+                      {t.rich('lifestyle.ios.step1', {
+                        gender: copyGender,
+                        icon: () => (
+                          <Share size={16} strokeWidth={2.25} className="inline-block align-[-3px] text-v2-deep" aria-label={t('lifestyle.ios.shareAria')} />
+                        ),
+                      })}
                     </span>
                   </div>
 
                   <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
                     {v2StepBadge(2)}
                     <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
-                      {t('גלול מטה ובחר', 'גללי מטה ובחרי')}{' '}
-                      <span className="font-extrabold">&quot;הוסף למסך הבית&quot;</span>
+                      {t.rich('lifestyle.ios.step2', {
+                        gender: copyGender,
+                        b: (chunks: React.ReactNode) => <span className="font-extrabold">{chunks}</span>,
+                      })}
                     </span>
                   </div>
 
                   <div className="flex items-start gap-3 rounded-[18px] bg-white px-4 py-3 shadow-v2-ring">
                     {v2StepBadge(3)}
                     <span className="pt-0.5 text-[14.5px] font-medium leading-snug text-v2-ink">
-                      {t('פתח', 'פתחי')} את{' '}
-                      <span className="font-extrabold">Out</span>{' '}
-                      מהסמל החדש על מסך הבית {t('ואשר', 'ואשרי')} את ההתראות
+                      {t.rich('lifestyle.ios.step3', {
+                        gender: copyGender,
+                        b: (chunks: React.ReactNode) => <span className="font-extrabold">{chunks}</span>,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -517,7 +527,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   onClick={() => setShowIOSModal(false)}
                   className="flex h-[52px] w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
                 >
-                  <span className="truncate">הבנתי, אוסיף למסך הבית</span>
+                  <span className="truncate">{t('lifestyle.ios.ok')}</span>
                 </button>
 
                 <button
@@ -529,7 +539,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   }}
                   className="mx-auto mt-1 flex h-11 items-center justify-center whitespace-nowrap px-4 text-[14.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
                 >
-                  {t('דלג בשלב זה', 'דלגי בשלב זה')}
+                  {t('lifestyle.skip', { gender: copyGender })}
                 </button>
               </motion.div>
             </motion.div>
@@ -565,7 +575,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
             />
           </div>
           <p className="text-xs text-slate-500 text-center mt-1">
-            {stepIndex + 1} מתוך {totalSteps}
+            {t('lifestyle.progress', { step: String(stepIndex + 1), total: String(totalSteps) })}
           </p>
         </div>
 
@@ -629,18 +639,18 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                       🔔
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-bold text-slate-900">תזכורות חכמות</h3>
-                      <p className="text-sm text-slate-600">נשלח לך בדיוק בזמן הנכון</p>
+                      <h3 className="font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תזכורות חכמות</h3>
+                      <p className="text-sm text-slate-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נשלח לך בדיוק בזמן הנכון</p>
                     </div>
                   </div>
                   <ul className="text-sm text-slate-700 space-y-2">
                     <li className="flex items-start gap-2">
                       <span className="text-green-500 mt-0.5">✓</span>
-                      <span>תזכורות לפי הימים שבחרת</span>
+                      <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תזכורות לפי הימים שבחרת</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-green-500 mt-0.5">✓</span>
-                      <span>עדכוני התקדמות ויעדים</span>
+                      <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עדכוני התקדמות ויעדים</span>
                     </li>
                   </ul>
                 </div>
@@ -652,8 +662,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   All of these are baked into StickyActionButton variant="premium". */}
               <StickyActionButton
                 variant="premium"
-                label="אשמח לקבל תזכורות 🔔"
-                successLabel="מעולה!"
+                label="אשמח לקבל תזכורות 🔔" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                successLabel="מעולה!" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 disabled={isSubmitting}
                 onPress={() => handleNotificationsNext(true)}
               />
@@ -669,7 +679,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   disabled={isSubmitting}
                   className="text-sm text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50"
                 >
-                  {t('דלג בשלב זה', 'דלגי בשלב זה')}
+                  {t('lifestyle.skip', { gender: copyGender })}
                 </button>
               </div>
             </motion.div>
@@ -709,11 +719,11 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
               <div className="text-center mb-5">
                 <div className="text-5xl mb-3">📱</div>
                 <h3 className="text-xl font-black text-slate-900 mb-2">
-                  לקבלת התראות באייפון
+                  {t('lifestyle.ios.title')}
                 </h3>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  Apple מאפשרת התראות רק לאפליקציות שמותקנות על מסך הבית.
-                  זה לוקח פחות מדקה ✨
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}Apple מאפשרת התראות רק לאפליקציות שמותקנות על מסך הבית.
+                  זה לוקח פחות מדקה ✨{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                 </p>
               </div>
 
@@ -727,9 +737,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                     1
                   </span>
                   <span className="text-sm text-slate-700 leading-snug">
-                    פתח את ספארי ולחץ על סמל השיתוף{' '}
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פתח את ספארי ולחץ על סמל השיתוף{' '}
                     <span className="font-semibold">⬜↑</span>{' '}
-                    בסרגל התחתון
+                    בסרגל התחתון{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                   </span>
                 </div>
 
@@ -741,8 +751,8 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                     2
                   </span>
                   <span className="text-sm text-slate-700 leading-snug">
-                    גלול מטה ובחר{' '}
-                    <span className="font-semibold">"הוסף למסך הבית"</span>
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}גלול מטה ובחר{' '}
+                    <span className="font-semibold">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}"הוסף למסך הבית"</span>
                   </span>
                 </div>
 
@@ -754,9 +764,9 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                     3
                   </span>
                   <span className="text-sm text-slate-700 leading-snug">
-                    פתח את{' '}
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פתח את{' '}
                     <span className="font-semibold">Out</span>{' '}
-                    מהסמל החדש על מסך הבית ואשר את ההתראות
+                    מהסמל החדש על מסך הבית ואשר את ההתראות{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                   </span>
                 </div>
               </div>
@@ -770,7 +780,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                   boxShadow: '0 6px 20px rgba(0,186,247,0.35)',
                 }}
               >
-                הבנתי, אוסיף למסך הבית
+                {t('lifestyle.ios.ok')}
               </button>
 
               <button
@@ -781,7 +791,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
                 }}
                 className="w-full mt-2.5 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
               >
-                {t('דלג בשלב זה', 'דלגי בשלב זה')}
+                {t('lifestyle.skip', { gender: copyGender })}
               </button>
             </motion.div>
           </motion.div>

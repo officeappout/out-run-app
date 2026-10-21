@@ -14,6 +14,8 @@ import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // 08.09.2026 — real incident: a full military-persona declaration (status +
 // brigade/battalion/company, several screens) silently failed to save.
@@ -75,6 +77,7 @@ const slideVariants = {
  */
 export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, v2 = false }: PersonaQuestionsDrawerProps) {
   const uiGender = useUiGender();
+  const t = useT(onboarding);
   const questions = useMemo(() => PERSONA_QUESTIONS[personaId] ?? [], [personaId]);
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
@@ -283,10 +286,10 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
           </div>
         )}
         <div className={v2 ? 'flex items-center justify-between gap-3 px-5 pb-2 pt-2' : 'flex items-center justify-between px-5 pt-5 pb-3'}>
-          <h2 className={v2 ? 'min-w-0 truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-bold text-slate-900'}>עוד קצת עלייך</h2>
+          <h2 className={v2 ? 'min-w-0 truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-bold text-slate-900'}>{t('personaDrawer.title')}</h2>
           <button
             onClick={handleDismiss}
-            aria-label={v2 ? 'סגירה' : undefined}
+            aria-label={v2 ? t('personaDrawer.close') : undefined}
             className={v2
               ? 'grid h-9 w-9 flex-shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
               : 'p-2 rounded-full bg-slate-100 text-slate-500 active:scale-90 transition-transform'}
@@ -298,10 +301,10 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
         {saveFailed ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 pb-8 text-center" dir="rtl">
             <p className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-slate-800'}>
-              לא הצלחנו לשמור את התשובות שלך כרגע.
+              {t('personaDrawer.saveFailed.title')}
             </p>
             <p className={v2 ? 'text-[13px] font-medium leading-relaxed text-v2-ink-2' : 'text-xs text-slate-500 leading-relaxed'}>
-              מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.
+              {t('personaDrawer.saveFailed.body')}
             </p>
             <button
               onClick={handleRetryAfterFailure}
@@ -314,7 +317,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
           </div>
         ) : (
           <>
-            <p className={v2 ? 'px-5 pb-3 text-[12.5px] font-bold text-v2-muted' : 'px-5 pb-3 text-xs text-slate-400'} dir="rtl">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
+            <p className={v2 ? 'px-5 pb-3 text-[12.5px] font-bold text-v2-muted' : 'px-5 pb-3 text-xs text-slate-400'} dir="rtl">{t('personaDrawer.privacy')}</p>
 
             <div className="flex items-center justify-center gap-2 pb-4">
               {questions.map((q, i) => (
@@ -333,7 +336,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
 
             {showStaleUnitNotice && (
               <div className={v2 ? 'mx-5 mb-3 rounded-[14px] bg-[#fff7e6] px-4 py-2.5 ring-1 ring-inset ring-v2-amber/30' : 'mx-5 mb-3 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200'} dir="rtl">
-                <p className={v2 ? 'text-[12.5px] font-bold text-v2-on-gold' : 'text-xs font-semibold text-amber-700'}>היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש</p>
+                <p className={v2 ? 'text-[12.5px] font-bold text-v2-on-gold' : 'text-xs font-semibold text-amber-700'}>{t('personaDrawer.staleUnit')}</p>
               </div>
             )}
 
@@ -389,7 +392,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
                       ? 'w-full whitespace-nowrap py-2 text-center text-[14px] font-extrabold text-v2-deep'
                       : 'w-full text-center text-sm font-semibold text-slate-400 py-2'}
                   >
-                    דלג
+                    {t('personaDrawer.skip')}
                   </button>
                 </div>
               )}

@@ -14,6 +14,8 @@ import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import { isTopPaddingExemptRoute } from '@/lib/top-padding-exempt-routes';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
 import { stepScrollOverscroll } from '../utils/fit-screen';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface OnboardingLayoutProps {
   /** 'stepper' = deprecated roadmap header; 'progress' = all current screens */
@@ -94,6 +96,7 @@ export default function OnboardingLayout({
   // insets on every non-exempt route, so the v2 header/footer don't add
   // them a second time (the legacy branch keeps its doubled inset as-is).
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const mainPadsTop = !!pathname && !pathname.startsWith('/map') && !isTopPaddingExemptRoute(pathname);
   const mainPadsBottom = !!pathname && !pathname.startsWith('/map');
   const coins = useOnboardingStore((state) => state.coins);
@@ -263,7 +266,7 @@ export default function OnboardingLayout({
             className={v2
               ? 'flex-shrink-0 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring touch-manipulation'
               : 'flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation'}
-            aria-label={direction === 'rtl' ? 'חזרה' : 'Back'}
+            aria-label={direction === 'rtl' ? t('layout.back') : 'Back'}
           >
             <ChevronRight size={20} className={v2 ? 'text-v2-ink' : 'text-slate-600'} />
           </motion.button>
@@ -337,10 +340,10 @@ export default function OnboardingLayout({
       try {
         label = getTranslation(continueLabelKey, currentLanguage);
       } catch {
-        label = currentLanguage === 'he' ? 'המשך' : currentLanguage === 'ru' ? 'Далее' : 'Continue';
+        label = currentLanguage === 'he' ? t('layout.continue') : currentLanguage === 'ru' ? 'Далее' : 'Continue';
       }
     } else {
-      label = currentLanguage === 'he' ? 'המשך' : currentLanguage === 'ru' ? 'Далее' : 'Continue';
+      label = currentLanguage === 'he' ? t('layout.continue') : currentLanguage === 'ru' ? 'Далее' : 'Continue';
     }
 
     if (v2) {
@@ -396,9 +399,9 @@ export default function OnboardingLayout({
   // ── Stepper header (deprecated — no active render path routes here) ───────
   const renderStepperHeader = () => {
     const steps = [
-      { label: currentLanguage === 'he' ? 'מוכן' : currentLanguage === 'ru' ? 'Готово' : 'Ready', stepNumber: 3 },
-      { label: currentLanguage === 'he' ? 'התאמה' : currentLanguage === 'ru' ? 'Адаптация' : 'Matching', stepNumber: 2 },
-      { label: currentLanguage === 'he' ? 'אבחון' : currentLanguage === 'ru' ? 'Оценка' : 'Assessment', stepNumber: 1 },
+      { label: currentLanguage === 'he' ? 'מוכן' : currentLanguage === 'ru' ? 'Готово' : 'Ready', stepNumber: 3 }, // i18n-allow-hebrew: unreachable — renderStepperHeader (deprecated, no active render path)
+      { label: currentLanguage === 'he' ? 'התאמה' : currentLanguage === 'ru' ? 'Адаптация' : 'Matching', stepNumber: 2 }, // i18n-allow-hebrew: unreachable — renderStepperHeader (deprecated, no active render path)
+      { label: currentLanguage === 'he' ? 'אבחון' : currentLanguage === 'ru' ? 'Оценка' : 'Assessment', stepNumber: 1 }, // i18n-allow-hebrew: unreachable — renderStepperHeader (deprecated, no active render path)
     ];
     return (
       <div className="w-full px-5 py-3 z-10 bg-white">

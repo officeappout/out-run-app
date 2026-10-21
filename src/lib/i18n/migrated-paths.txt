@@ -276,3 +276,22 @@ src/features/user/onboarding/components/walking-v2/
 src/features/user/onboarding/components/add-track/
 src/features/user/onboarding/components/entry-whatnow/
 src/features/user/onboarding/components/program-path/
+# wave 2 batch t (namespace onboarding, keys bridge.* / welcome.* / healthConnect.* / resultLoading.* / jit.* /
+# health.* / identity.* / lifestyle.* / result.* / dynamic.* / wizard.* / layout.* / personaDrawer.* /
+# hierarchy.* / signaturePad.*) — the remaining live onboarding screens, one file each (the folder still holds
+# dead files and data: location-utils.ts, the PAR-Q questions in ../data).
+src/features/user/onboarding/components/BlurryBridgeOverlay.tsx
+src/features/user/onboarding/components/DynamicQuestionRenderer.tsx
+src/features/user/onboarding/components/HealthConnectOptInStep.tsx
+src/features/user/onboarding/components/HealthDeclarationStep.tsx
+src/features/user/onboarding/components/IdentityProfileScreen.tsx
+src/features/user/onboarding/components/JITSetupModal.tsx
+src/features/user/onboarding/components/LifestyleWizard.tsx
+src/features/user/onboarding/components/OnboardingLayout.tsx
+src/features/user/onboarding/components/OnboardingWizard.tsx
+src/features/user/onboarding/components/PersonaQuestionsDrawer.tsx
+src/features/user/onboarding/components/ProgramResult.tsx
+src/features/user/onboarding/components/ResultLoading.tsx
+src/features/user/onboarding/components/SignaturePad.tsx
+src/features/user/onboarding/components/WelcomeDrawer.tsx
+src/features/user/onboarding/components/persona-questions-drawer/HierarchySearchStep.tsx
