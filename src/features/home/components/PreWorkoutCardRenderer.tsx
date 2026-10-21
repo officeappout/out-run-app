@@ -62,6 +62,13 @@ import { ConnectStepsCard } from './ConnectStepsCard';
 import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGenerator';
 import type { Suggestion } from '@/features/workout-engine/core/types/suggestion.types';
 import type { Route } from '@/features/parks/core/types/route.types';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+
+/** The caller's translator for the home namespace (useT(home)), passed into the module-level helpers below. */
+type HomeT = (key: NamespaceKey<typeof home>, values?: MessageValues) => string;
 
 const HERO_CARD_NATURAL_WIDTH = 300;
 const HERO_CARD_NATURAL_HEIGHT = 330;
@@ -128,11 +135,11 @@ export function buildSafetyNetRouteCacheKey(suggestionId: string, stepsRemaining
  *  Suggestion — same generic SuggestionCard, real content instead of the static placeholder.
  *  Ranking-relevant fields (id/generatorId/score/scoreBreakdown/goalTags/etc.) are left
  *  untouched: this is a display-layer swap only, not a new ranked candidate. */
-function buildRouteSuggestionFromRoute(route: Route, base: Suggestion): Suggestion {
+function buildRouteSuggestionFromRoute(route: Route, base: Suggestion, t: HomeT): Suggestion {
   return {
     ...base,
     title: route.name,
-    subtitle: `${route.distance.toFixed(1)} ק״מ · ~${route.duration} דק׳`,
+    subtitle: t('preWorkout.route.subtitle', { km: route.distance.toFixed(1), minutes: String(route.duration) }),
     difficulty: ROUTE_DIFFICULTY_MAP[route.difficulty],
     structure: { ...base.structure, durationMin: route.duration },
   };
@@ -145,11 +152,11 @@ function buildRouteSuggestionFromRoute(route: Route, base: Suggestion): Suggesti
  * resolve (home/page.tsx's handlePreWorkoutCardTap) — this is display-only, same overlay
  * pattern as buildRouteSuggestionFromRoute above.
  */
-function buildStepsRemainingSuggestion(base: Suggestion, stepsRemaining: number): Suggestion {
+function buildStepsRemainingSuggestion(base: Suggestion, stepsRemaining: number, t: HomeT): Suggestion {
   return {
     ...base,
-    title: 'עוד קצת ותשלימו את יעד הצעדים',
-    subtitle: `${stepsRemaining.toLocaleString('he-IL')} צעדים נותרו היום`,
+    title: t('preWorkout.steps.title'),
+    subtitle: t('preWorkout.steps.subtitle', { steps: stepsRemaining.toLocaleString('he-IL') }),
   };
 }
 
@@ -234,6 +241,7 @@ export function PreWorkoutCardRenderer({
   onConnectSteps,
   stepsRemaining,
 }: PreWorkoutCardRendererProps) {
+  const t = useT(home);
   if (hasHeroCardTreatment(suggestion.generatorId)) {
     const workout = resolveHeroWorkout(suggestion, overrideWorkout);
     return (
@@ -263,13 +271,13 @@ export function PreWorkoutCardRenderer({
     if (route) {
       return (
         <SuggestionCard
-          suggestion={buildRouteSuggestionFromRoute(route, suggestion)}
+          suggestion={buildRouteSuggestionFromRoute(route, suggestion, t)}
           onStart={onStart}
           isStarting={isStarting}
           // Bug 1 fix (04.09.2026): tapping this card opens a route-preview sheet
           // (useMapStore.openGlobalRouteSheet, home/page.tsx's handlePreWorkoutCardTap), not a
           // workout — 'התחל' would misleadingly imply the workout starts immediately.
-          ctaLabel="צפה במסלול"
+          ctaLabel={t('preWorkout.cta.viewRoute')}
         />
       );
     }
@@ -282,10 +290,10 @@ export function PreWorkoutCardRenderer({
     if ((stepsRemaining ?? 0) > 0) {
       return (
         <SuggestionCard
-          suggestion={buildStepsRemainingSuggestion(suggestion, stepsRemaining ?? 0)}
+          suggestion={buildStepsRemainingSuggestion(suggestion, stepsRemaining ?? 0, t)}
           onStart={onStart}
           isStarting={isStarting}
-          ctaLabel="מצא לי מסלול"
+          ctaLabel={t('preWorkout.cta.findRoute')}
         />
       );
     }

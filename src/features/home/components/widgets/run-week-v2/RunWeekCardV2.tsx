@@ -16,6 +16,8 @@ import type { RunKind } from '@/features/workout-engine/players/running/utils/ru
 import { RUN_KIND_STYLE } from '@/features/workout-engine/players/running/utils/run-preview/run-kind';
 import type { RunPreviewModel } from '@/features/workout-engine/players/running/utils/run-preview/run-preview-model';
 import type { RunWeekRowState } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface RunWeekCardV2Props {
   kind: RunKind;
@@ -36,8 +38,9 @@ export interface RunWeekCardV2Props {
 }
 
 export default function RunWeekCardV2({
-  kind, typeLabel, title, state, dayLetter, model, onStart, tile, accentText, startLabel = 'התחל', children,
+  kind, typeLabel, title, state, dayLetter, model, onStart, tile, accentText, startLabel, children,
 }: RunWeekCardV2Props) {
+  const t = useT(home);
   const today = state === 'today';
   const style = RUN_KIND_STYLE[kind];
   return (
@@ -49,7 +52,7 @@ export default function RunWeekCardV2({
         {tile ?? <RunKindTile kind={kind} size={40} />}
         <div className="min-w-0 flex-1">
           <p className="truncate whitespace-nowrap text-[12px] font-extrabold" style={{ color: accentText ?? style.text }}>
-            {today ? `${typeLabel} · היום` : typeLabel}
+            {today ? t('runWeekCard.today', { type: typeLabel }) : typeLabel}
           </p>
           <h3 className={`truncate whitespace-nowrap text-[16.5px] font-black ${state === 'done' || state === 'skipped' ? 'text-v2-ink-2' : 'text-v2-ink'}`}>
             {title}
@@ -58,11 +61,11 @@ export default function RunWeekCardV2({
         {state === 'done' && (
           <span className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-v2-tint px-2.5 text-[12px] font-extrabold text-v2-deep">
             <Check size={13} strokeWidth={2.8} aria-hidden />
-            בוצע
+            {t('runWeekCard.done')}
           </span>
         )}
         {state === 'skipped' && (
-          <span className="shrink-0 whitespace-nowrap text-[12px] font-extrabold text-v2-muted">דילגת</span>
+          <span className="shrink-0 whitespace-nowrap text-[12px] font-extrabold text-v2-muted">{t('runWeekCard.skipped')}</span>
         )}
         {today && onStart && (
           <button
@@ -71,7 +74,7 @@ export default function RunWeekCardV2({
             className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-v2-cta px-3 text-[13px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <Play size={13} strokeWidth={2.6} fill="currentColor" aria-hidden />
-            {startLabel}
+            {startLabel ?? t('runWeekCard.start')}
           </button>
         )}
         {state === 'upcoming' && dayLetter && (

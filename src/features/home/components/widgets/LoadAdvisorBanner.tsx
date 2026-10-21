@@ -18,6 +18,8 @@ import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, TrendingUp, Shield, Zap } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ============================================================================
 // SENTENCE BANK
@@ -26,7 +28,8 @@ import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWe
 interface Advice {
   id: string;
   icon: React.ReactNode;
-  message: string;
+  /** Catalog key (src/messages/he/home.json), translated at render. */
+  messageKey: 'loadAdvisor.budgetHigh' | 'loadAdvisor.pushDominant' | 'loadAdvisor.pullDominant' | 'loadAdvisor.onTrack';
   severity: 'info' | 'warning' | 'success';
 }
 
@@ -45,7 +48,7 @@ function deriveAdvice(state: {
     return {
       id: 'budget-high',
       icon: <Shield className="w-4 h-4" />,
-      message: 'תקציב הנפח השבועי כמעט מלא. שקול אימון שחזור או מנוחה.',
+      messageKey: 'loadAdvisor.budgetHigh',
       severity: 'warning',
     };
   }
@@ -70,7 +73,7 @@ function deriveAdvice(state: {
       return {
         id: 'push-dominant',
         icon: <TrendingUp className="w-4 h-4" />,
-        message: `תרגילי Push עברו את היעד. התמקד באימוני Pull לאיזון שרירי.`,
+        messageKey: 'loadAdvisor.pushDominant',
         severity: 'info',
       };
     }
@@ -78,7 +81,7 @@ function deriveAdvice(state: {
       return {
         id: 'pull-dominant',
         icon: <TrendingUp className="w-4 h-4" />,
-        message: `תרגילי Pull עברו את היעד. התמקד באימוני Push לאיזון שרירי.`,
+        messageKey: 'loadAdvisor.pullDominant',
         severity: 'info',
       };
     }
@@ -89,7 +92,7 @@ function deriveAdvice(state: {
     return {
       id: 'on-track',
       icon: <Zap className="w-4 h-4" />,
-      message: 'את/ה בדרך הנכונה! איזון מעולה בין קבוצות השרירים.',
+      messageKey: 'loadAdvisor.onTrack',
       severity: 'success',
     };
   }
@@ -108,6 +111,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 };
 
 export function LoadAdvisorBanner({ className = '' }: { className?: string }) {
+  const t = useT(home);
   const strength = useWeeklyVolumeStore((s) => s.strength);
   const sessionLogs = useWeeklyVolumeStore((s) => s.sessionLogs);
 
@@ -138,7 +142,7 @@ export function LoadAdvisorBanner({ className = '' }: { className?: string }) {
             dir="rtl"
           >
             <span className="flex-shrink-0">{advice.icon}</span>
-            <p className="flex-1 leading-relaxed">{advice.message}</p>
+            <p className="flex-1 leading-relaxed">{t(advice.messageKey)}</p>
           </div>
         </motion.div>
       )}

@@ -13,6 +13,8 @@
  */
 
 import { useSettingsStore } from '@/features/home/store/useSettingsStore';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface ConnectStepsCardProps {
   onConnect: () => void;
@@ -23,7 +25,8 @@ const BRAND = '#00ADEF';
 
 export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCardProps) {
   const healthPermissionAsked = useSettingsStore((s) => s.healthPermissionAsked);
-  const subtitle = healthPermissionAsked ? 'דחית קודם, רוצה לחבר?' : 'עוד לא חובר';
+  const t = useT(home);
+  const subtitle = healthPermissionAsked ? t('connectSteps.status.declined') : t('connectSteps.status.notConnected');
 
   if (variant === 'compact') {
     return (
@@ -33,7 +36,7 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
         dir="rtl"
         className="w-full bg-white rounded-2xl p-3 shadow-[0_6px_16px_rgba(0,0,0,0.10)] text-right"
       >
-        <p className="text-[13px] font-black text-gray-900">חבר את הצעדים שלך</p>
+        <p className="text-[13px] font-black text-gray-900">{t('connectSteps.compact.title')}</p>
         <p className="text-[11px] font-semibold text-gray-500 mt-0.5">{subtitle}</p>
       </button>
     );
@@ -46,9 +49,9 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
         className="w-full bg-white rounded-3xl p-5 shadow-[0_10px_28px_rgba(0,0,0,0.14)]"
       >
         <div>
-          <h3 className="text-[15px] font-black text-gray-900 leading-tight">חבר את הצעדים שלך</h3>
+          <h3 className="text-[15px] font-black text-gray-900 leading-tight">{t('connectSteps.card.title')}</h3>
           <p className="text-[13px] font-semibold text-gray-500 mt-1.5 leading-snug">
-            כדי לקבל הצעת הליכה מותאמת ליעד הצעדים היומי שלך
+            {t('connectSteps.card.body')}
           </p>
           <p className="text-[13px] font-normal text-gray-600 mt-1.5">{subtitle}</p>
         </div>
@@ -59,7 +62,7 @@ export function ConnectStepsCard({ onConnect, variant = 'card' }: ConnectStepsCa
           className="mt-4 w-full rounded-full py-2.5 text-[14px] font-black text-white transition-opacity"
           style={{ background: BRAND }}
         >
-          חבר עכשיו
+          {t('connectSteps.card.cta')}
         </button>
       </div>
     </div>

@@ -18,6 +18,8 @@ import { resolveIconKey, getProgramIcon } from '@/features/content/programs/core
 import DoneRow from '@/components/ui/v2/DoneRow';
 import { buildDoneWorkoutRows, type DoneRowWorkout } from '@/features/home/utils/done-workout-rows';
 import type { TodayActivityCardData } from './TodayActivityCard';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface DoneTodayCardProps {
   /** Same list the classic strip renders (real workout docs + a met step goal). */
@@ -36,12 +38,13 @@ const TONE = {
 
 export default function DoneTodayCard({ cards, workouts, onCardTap }: DoneTodayCardProps) {
   const v2 = useHomeV2();
+  const t = useT(home);
   if (!v2 || cards.length === 0) return null;
   const rows = buildDoneWorkoutRows(cards, workouts);
 
   return (
-    <section dir="rtl" aria-label="סיכום היום">
-      <h3 className="mb-1.5 whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep">הפעילות שלי היום</h3>
+    <section dir="rtl" aria-label={t('doneToday.aria')}>
+      <h3 className="mb-1.5 whitespace-nowrap px-1 text-[13px] font-extrabold text-v2-deep">{t('doneToday.title')}</h3>
       <ul className="space-y-1.5">
         {rows.map(({ card, meta, tappable }) => {
           const tone = TONE[card.category] ?? TONE.strength;

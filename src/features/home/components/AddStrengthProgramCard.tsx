@@ -6,7 +6,9 @@ import { Loader2 } from 'lucide-react';
 import type { UserFullProfile } from '@/types/user-profile';
 import ProgramStartCard from './start-cards/ProgramStartCard';
 import { useOnboardingEntryTap, type OnboardingEntryNavigate } from './start-cards/useOnboardingEntryTap';
-import { PROGRAM_START_COPY } from './start-cards/program-start-copy';
+import { PROGRAM_START_KEYS } from './start-cards/program-start-copy';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface AddStrengthProgramCardProps {
   profile: UserFullProfile | null | undefined;
@@ -50,11 +52,12 @@ interface AddStrengthProgramCardProps {
  */
 export default function AddStrengthProgramCard({ profile, onNavigate, compact = false }: AddStrengthProgramCardProps) {
   const { loading, tap: handleTap } = useOnboardingEntryTap(profile, 'STRENGTH', onNavigate);
+  const t = useT(home);
 
   if (compact) {
-    const copy = PROGRAM_START_COPY.strength;
+    const keys = PROGRAM_START_KEYS.strength;
     return (
-      <ProgramStartCard track="strength" title={copy.title} valueLine={copy.valueLine} chipLabel={copy.chip} loading={loading} onTap={handleTap} />
+      <ProgramStartCard track="strength" title={t(keys.title)} valueLine={t(keys.valueLine)} chipLabel={t(keys.chip)} loading={loading} onTap={handleTap} />
     );
   }
 
@@ -86,11 +89,11 @@ export default function AddStrengthProgramCard({ profile, onNavigate, compact = 
               className="w-[18px] h-[18px] object-contain"
             />
             <h2 className="text-xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-simpler)' }}>
-              תוכנית כוח
+              {t('addStrength.title')}
             </h2>
           </div>
           <p className="text-sm text-slate-900 font-medium" style={{ fontFamily: 'var(--font-simpler)' }} dir="rtl">
-            אימון מותאם אישית למטרות שלך
+            {t('addStrength.body')}
           </p>
         </div>
       </motion.button>

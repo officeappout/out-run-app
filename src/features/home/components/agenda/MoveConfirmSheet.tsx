@@ -17,6 +17,8 @@
 import { motion } from 'framer-motion';
 import ConfirmSheet from '@/components/ui/v2/ConfirmSheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface MoveConfirmSheetProps {
   open: boolean;
@@ -31,6 +33,7 @@ export interface MoveConfirmSheetProps {
 }
 
 export function MoveConfirmSheetClassic({ open, title, fromLabel, toLabel, onMoveOnce, onMoveAll, onCancel }: MoveConfirmSheetProps) {
+  const t = useT(home);
   return (
         <>
           <motion.div
@@ -97,21 +100,21 @@ export function MoveConfirmSheetClassic({ open, title, fromLabel, toLabel, onMov
                 style={{ background: '#00C9F2' }}
                 onClick={onMoveOnce}
               >
-                שנה רק את האימון הזה
+                {t('agenda.move.once')}
               </button>
               <button
                 type="button"
                 className="w-full py-3.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-700 active:scale-[0.98] transition-transform"
                 onClick={onMoveAll}
               >
-                שנה את כל הלוז קדימה
+                {t('agenda.move.all')}
               </button>
               <button
                 type="button"
                 className="w-full py-3 text-sm text-gray-400 active:scale-[0.98] transition-transform"
                 onClick={onCancel}
               >
-                ביטול
+                {t('agenda.move.cancel')}
               </button>
             </div>
           </motion.div>
@@ -121,6 +124,7 @@ export function MoveConfirmSheetClassic({ open, title, fromLabel, toLabel, onMov
 
 /** enable_home_v2 — same actions on the shared ConfirmSheet (portals itself). */
 export function MoveConfirmSheetV2({ open, title, fromLabel, toLabel, onMoveOnce, onMoveAll, onCancel }: MoveConfirmSheetProps) {
+  const t = useT(home);
   return (
     <ConfirmSheet
       open={open}
@@ -131,9 +135,9 @@ export function MoveConfirmSheetV2({ open, title, fromLabel, toLabel, onMoveOnce
       backdropZIndex={SHEET_Z.agendaMoveBackdrop}
       safeArea="max(1.75rem, env(safe-area-inset-bottom, 28px))"
       actions={[
-        { label: 'שנה רק את האימון הזה', tone: 'cta', onClick: onMoveOnce },
-        { label: 'שנה את כל הלוז קדימה', tone: 'secondary', onClick: onMoveAll },
-        { label: 'ביטול', tone: 'ghost', onClick: onCancel },
+        { label: t('agenda.move.once'), tone: 'cta', onClick: onMoveOnce },
+        { label: t('agenda.move.all'), tone: 'secondary', onClick: onMoveAll },
+        { label: t('agenda.move.cancel'), tone: 'ghost', onClick: onCancel },
       ]}
     />
   );

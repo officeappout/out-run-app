@@ -19,6 +19,8 @@ import type { SmartMessage } from '@/features/messages/services/MessageService';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { hapticMedium } from '@/lib/haptics';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // Hero-media selection + resolution moved to a shared util so the map/workout
 // preview drawer can compute the hero from its OWN generatedWorkout (no more
@@ -91,13 +93,13 @@ export function HeroMediaBackground({
 }
 
 // ============================================================================
-// Difficulty labels (Hebrew) — keyed by 1–3
+// Difficulty labels — keyed by 1–3 (catalog keys, src/messages/he/home.json)
 // ============================================================================
-export const DIFFICULTY_LABELS: Record<number, string> = {
-  1: 'קל',
-  2: 'בינוני',
-  3: 'מאתגר',
-};
+export const DIFFICULTY_KEYS = {
+  1: 'hero.difficulty.easy',
+  2: 'hero.difficulty.medium',
+  3: 'hero.difficulty.hard',
+} as const satisfies Record<1 | 2 | 3, string>;
 
 // CSS filter to recolor a black SVG to Cyan #00C9F2
 const BOLT_FILTER_CYAN =
@@ -126,18 +128,19 @@ export function BoltIcon({ filled }: { filled: boolean }) {
  *   Recovery: [Recovery Label] | [Duration] דקות   (no bolts)
  */
 function MetadataRow({ difficulty, duration, isRecovery }: { difficulty: number; duration: number; isRecovery?: boolean }) {
+  const t = useT(home);
   if (isRecovery) {
     return (
       <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
-        <span>🧘 התאוששות פעילה</span>
+        <span>{t('hero.recovery')}</span>
         <span style={{ color: '#343434' }}>|</span>
-        <span>{duration} דקות</span>
+        <span>{t('hero.minutes', { n: String(duration) })}</span>
       </div>
     );
   }
 
   const clamped = Math.min(3, Math.max(1, difficulty));
-  const label = DIFFICULTY_LABELS[clamped] ?? DIFFICULTY_LABELS[2];
+  const label = t(DIFFICULTY_KEYS[clamped as 1 | 2 | 3] ?? DIFFICULTY_KEYS[2]);
 
   return (
     <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
@@ -148,7 +151,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: { difficulty: number;
         ))}
       </span>
       <span style={{ color: '#343434' }}>|</span>
-      <span>{duration} דקות</span>
+      <span>{t('hero.minutes', { n: String(duration) })}</span>
     </div>
   );
 }
@@ -277,6 +280,7 @@ export function EquipmentBadgeRow({
    */
   showBodyweightFallback?: boolean;
 }) {
+  const t = useT(home);
   const iconSize = Math.round(badgeSize * 0.55);
   const badgeBase = {
     width: badgeSize,
@@ -291,7 +295,7 @@ export function EquipmentBadgeRow({
         <div
           className="bg-white/90 shadow-sm flex items-center justify-center"
           style={badgeBase}
-          title="ללא ציוד – משקל גוף"
+          title={t('hero.bodyweight')}
         >
           <PersonStanding className="text-slate-500" style={{ width: iconSize, height: iconSize }} />
         </div>
@@ -353,22 +357,22 @@ type UserGender = 'male' | 'female' | 'other' | null | undefined;
 
 const CTA_COPY_BANKS: Record<'male' | 'female' | 'neutral', readonly string[]> = {
   male: [
-    'גלה מה מצפה לך היום...',
-    'סקרן לדעת מה באימון?',
-    'בוא נראה מה מחכה לנו!',
-    'מוכן לגלות את האתגר?',
+    'גלה מה מצפה לך היום...', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'סקרן לדעת מה באימון?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'בוא נראה מה מחכה לנו!', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'מוכן לגלות את האתגר?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
   ],
   female: [
-    'גלי מה מצפה לך היום...',
-    'סקרנית לדעת מה באימון?',
-    'בואי נראה מה מחכה לנו!',
-    'מוכנה לגלות את האתגר?',
+    'גלי מה מצפה לך היום...', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'סקרנית לדעת מה באימון?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'בואי נראה מה מחכה לנו!', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'מוכנה לגלות את האתגר?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
   ],
   neutral: [
-    'גלו מה מצפה לכם היום...',
-    'סקרנים לדעת מה באימון?',
-    'בואו נראה מה מחכה לנו!',
-    'מוכנים לגלות את האתגר?',
+    'גלו מה מצפה לכם היום...', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'סקרנים לדעת מה באימון?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'בואו נראה מה מחכה לנו!', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
+    'מוכנים לגלות את האתגר?', // i18n-allow-hebrew: getGenderedCtaText bank (rotating 3-way gender helper, HOW-TO §5.2 manual)
   ],
 } as const;
 

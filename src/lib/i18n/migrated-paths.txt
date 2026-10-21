@@ -229,3 +229,43 @@ src/features/workout-engine/components/ShareAsLiveToggle.tsx
 src/features/workout-engine/components/WorkoutPreviewHeader.tsx
 src/features/workout-engine/components/CoachNoteBlock.tsx
 src/features/workout-engine/components/StrengthOverviewCard.tsx
+# wave 2 (namespace home, new; keys hero.* / buildCustom.* / programStart.* / addStrength.* / nearbyGroups.* / personas.* /
+# racePrediction.* / runCard.* / walkCard.* / runWeekCard.* / agenda.* / planner.* / preWorkout.* / connectSteps.* /
+# loadAdvisor.* / consistency.* / todayActivity.* / doneToday.* / steps.* / programProgress.* / programProgressRow.*) —
+# the free home components. Listed per file: the rest of src/features/home/components is busy in other open work
+# (SettingsModal, WorkoutBuilderSheet, AgendaDayCard, RollingAgenda, UserWorkoutAdjuster, SmartWeeklySchedule,
+# NextRunWorkoutCard, StatsOverview, WorkoutLocationSuggestions, AddWorkoutModal, streak/, first-week/, AddTrackCard,
+# ProgramStartRow(s), PlannedDayPreview, RunWeekListV2, TodayActivityStrip), dead (dead-files.txt), never rendered
+# (StrengthVolumeWidget, RunForecastWidget: imported for a constant / not at all), unreachable (AlertModal: showAlert is
+# never set) or Hebrew only in a mode no live caller uses (ConcentricRingsProgress's legend / minutes centre) — manual
+# list in the PR. Marked i18n-allow-hebrew: month names (wave 3), city coordinates + the Firestore fallback member name,
+# TodayActivityCard's prefix regex, getGenderedCtaText's rotating gender bank (manual), the trio carousel behind
+# HOME_ANCHOR_V2_ENABLED = true (unreachable). program-start-copy.ts keeps its Hebrew constants (read from the catalog)
+# for home/page.tsx + AddTrackCard (busy).
+src/features/home/components/AddStrengthProgramCard.tsx
+src/features/home/components/ConnectStepsCard.tsx
+src/features/home/components/DoneTodayCard.tsx
+src/features/home/components/HeroWorkoutCard.tsx
+src/features/home/components/NearbyGroupsRow.tsx
+src/features/home/components/PreWorkoutCardRenderer.tsx
+src/features/home/components/TodayActivityCard.tsx
+src/features/home/components/TrainingPlannerOverlay.tsx
+src/features/home/components/WorkoutSelectionCarousel.tsx
+src/features/home/components/agenda/DeleteEntrySheet.tsx
+src/features/home/components/agenda/MoveConfirmSheet.tsx
+src/features/home/components/calendar/MonthlyCalendarGrid.tsx
+src/features/home/components/rows/ConsistencyWidget.tsx
+src/features/home/components/rows/ProgramProgressRow.tsx
+src/features/home/components/settings/MyPersonasSection.tsx
+src/features/home/components/start-cards/AddRunningProgramCard.tsx
+src/features/home/components/start-cards/ProgramStartCarousel.tsx
+src/features/home/components/start-cards/ProgramStartSlide.tsx
+src/features/home/components/start-cards/program-start-copy.ts
+src/features/home/components/walk/HomeWalkCarouselCard.tsx
+src/features/home/components/widgets/LoadAdvisorBanner.tsx
+src/features/home/components/widgets/ProgramProgressCard.tsx
+src/features/home/components/widgets/RacePredictionCard.tsx
+src/features/home/components/widgets/StepsSummaryCard.tsx
+src/features/home/components/widgets/StepsSummaryCardView.tsx
+src/features/home/components/widgets/run-week-v2/HomeRunCarouselCard.tsx
+src/features/home/components/widgets/run-week-v2/RunWeekCardV2.tsx
