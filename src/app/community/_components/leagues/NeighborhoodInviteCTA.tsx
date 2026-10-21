@@ -4,6 +4,8 @@ import React from 'react';
 import { Users } from 'lucide-react';
 import Button from '@/components/ui/v2/Button';
 import type { LeaguesVM } from './leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // Neighborhood-axis-only invite CTA (mockup Screen 3, Frame A). Uses the
 // real neighborhood name from activeScopeEntry (already bubbled by
@@ -17,9 +19,10 @@ export function NeighborhoodInviteCTA({ vm }: { vm: LeaguesVM }) {
   const {
     activeScopeEntry,
   } = vm;
+  const t = useT(community);
   if (!activeScopeEntry) return null;
   const handleInviteNeighbors = () => {
-    const text = `בוא תצטרף אליי ב${activeScopeEntry.scopeName} על Out! 🔥`;
+    const text = t('communityPage.invite.shareText', { scope: activeScopeEntry.scopeName });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   };
@@ -35,12 +38,12 @@ export function NeighborhoodInviteCTA({ vm }: { vm: LeaguesVM }) {
           <Users className="w-5 h-5" strokeWidth={2.4} />
         </div>
         <div className="min-w-0">
-          <p className="text-[16px] font-black text-v2-ink">הזמן שכנים ל{activeScopeEntry.scopeName}</p>
-          <p className="text-[13.5px] text-v2-ink-2 leading-snug mt-0.5">יותר חברים = יותר פעילות = יותר סיכוי לנצח</p>
+          <p className="text-[16px] font-black text-v2-ink">{t('communityPage.invite.title', { scope: activeScopeEntry.scopeName })}</p>
+          <p className="text-[13.5px] text-v2-ink-2 leading-snug mt-0.5">{t('communityPage.invite.body')}</p>
         </div>
       </div>
       <Button variant="primary" size="md" block className="mt-3" onClick={handleInviteNeighbors}>
-        הזמנת שכנים
+        {t('communityPage.invite.cta')}
       </Button>
     </div>
   );

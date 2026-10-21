@@ -298,3 +298,21 @@ src/features/user/onboarding/components/persona-questions-drawer/HierarchySearch
 # wave 2 batch u (namespace community, prefix createGroup.*): the create-group wizard steps / chrome / hook.
 # CreateGroupWizard.tsx itself has no Hebrew (and is in open PR #268) — not listed.
 src/features/arena/components/create-group-wizard/
+# i18n wave 2 batch v (namespace community, communityPage.* + groupDrawer.*):
+# /community page surfaces + the group page drawer. Not listed: CompetitionToggle.tsx (renders only with
+# enable_home_v2 off), _lib/community-constants.ts + community-logic.ts (join verbs = text composed for
+# PostJoinSuccessDrawer, month names = wave 3).
+src/app/community/_components/CommunityTopTabs.tsx
+src/app/community/_components/CommunityDrawers.tsx
+src/app/community/_components/feed/
+src/app/community/_components/leagues/GroupAxisChooser.tsx
+src/app/community/_components/leagues/LeaguesTab.tsx
+src/app/community/_components/leagues/LeaguesTabV2.tsx
+src/app/community/_components/leagues/NeighborhoodInviteCTA.tsx
+src/app/community/_components/leagues/NeighborhoodSetupCTA.tsx
+src/app/community/_components/leagues/ScopeContributionCard.tsx
+src/app/community/_components/leagues/leagues-vm.ts
+src/app/community/_components/leagues/segments/
+src/app/community/_lib/league-cards.ts
+src/features/arena/components/GroupDetailsDrawer.tsx
+src/features/arena/components/group-details/utils/group-page-view.ts

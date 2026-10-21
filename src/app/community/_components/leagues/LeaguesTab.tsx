@@ -6,6 +6,8 @@ import { LeagueSelectorButton } from '@/features/arena/components/LeaguesTabChro
 import { buildLeagueCards } from '@/app/community/_lib/league-cards';
 import { LeagueCarousel } from '@/app/community/CommunityWidgets';
 import { leaderboardFilterLabel } from '@/app/community/_lib/community-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { GlobalSegment } from './segments/GlobalSegment';
 import { ReserveSegment } from './segments/ReserveSegment';
 import { CitySegment } from './segments/CitySegment';
@@ -29,7 +31,8 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
     leaderboardTimeWindow,
     activeMyEntry,
   } = vm;
-  const cards = buildLeagueCards({ access, authority, selectedLeague, activeMyEntry, socialGroups });
+  const t = useT(community);
+  const cards = buildLeagueCards({ access, authority, selectedLeague, activeMyEntry, socialGroups }, t);
   const activeCard = cards.find((c) => c.key === selectedLeague);
 
   // Design v2 (David, 15.10.2026): the page-level sticky "my rank" bar is
@@ -45,7 +48,7 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
       <LeagueSelectorButton
         isLoading={arenaLoading}
         activeCard={activeCard}
-        filterLabel={leaderboardFilterLabel(leaderboardCategory, leaderboardTimeWindow)}
+        filterLabel={leaderboardFilterLabel(leaderboardCategory, leaderboardTimeWindow, t)}
         rank={activeMyEntry?.rank}
         expanded={leagueSheetOpen}
         onOpen={() => setLeagueSheetOpen(true)}
@@ -79,7 +82,7 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
                 style={{ maxHeight: 'calc(85vh - 40px)' }}
               >
                 <h3 className="text-[22px] font-black text-v2-ink tracking-v2-tight mb-4 text-right">
-                  הליגות שלי
+                  {t('communityPage.leagues.sheetTitle')}
                 </h3>
                 <LeagueCarousel
                   mode="sheet"
@@ -89,7 +92,7 @@ export function LeaguesTab({ vm }: { vm: LeaguesVM }) {
                     setSelectedLeague(key);
                     setLeagueSheetOpen(false);
                   }}
-                  activeFilterLabel={leaderboardFilterLabel(leaderboardCategory, leaderboardTimeWindow)}
+                  activeFilterLabel={leaderboardFilterLabel(leaderboardCategory, leaderboardTimeWindow, t)}
                   isLoading={arenaLoading}
                   createHref="/community?openCreate=true"
                 />

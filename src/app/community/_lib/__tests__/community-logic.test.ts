@@ -12,6 +12,11 @@ import {
   timeWindowLabel,
   timeWindowPhrase,
 } from '../community-logic';
+import { makeT } from '@/lib/i18n/t';
+import { community } from '@/messages/ns/community';
+
+// The label helpers take the caller's translator; the Hebrew catalog must give the old text verbatim.
+const t = makeT('he', community);
 
 describe('resolveCommunityTopTab', () => {
   const base = { tabParam: null, isFeedTabAvailable: true, enableLeagues: true, leaguesFirst: false };
@@ -78,17 +83,17 @@ describe('feed posts', () => {
 
 describe('leaderboard labels', () => {
   it('window label / phrase', () => {
-    expect([timeWindowLabel('daily'), timeWindowLabel('weekly'), timeWindowLabel('monthly')]).toEqual(['יומי', 'שבועי', 'חודשי']);
-    expect([timeWindowPhrase('daily'), timeWindowPhrase('weekly'), timeWindowPhrase('monthly')]).toEqual(['היום', 'השבוע', 'החודש']);
+    expect([timeWindowLabel('daily', t), timeWindowLabel('weekly', t), timeWindowLabel('monthly', t)]).toEqual(['יומי', 'שבועי', 'חודשי']);
+    expect([timeWindowPhrase('daily', t), timeWindowPhrase('weekly', t), timeWindowPhrase('monthly', t)]).toEqual(['היום', 'השבוע', 'החודש']);
   });
   it('filter label', () => {
-    expect(leaderboardFilterLabel('overall', 'weekly')).toBe('כללי • שבועי');
-    expect(leaderboardFilterLabel('cardio', 'daily')).toBe('ריצה • יומי');
-    expect(leaderboardFilterLabel('strength', 'monthly')).toBe('כוח • חודשי');
+    expect(leaderboardFilterLabel('overall', 'weekly', t)).toBe('כללי • שבועי');
+    expect(leaderboardFilterLabel('cardio', 'daily', t)).toBe('ריצה • יומי');
+    expect(leaderboardFilterLabel('strength', 'monthly', t)).toBe('כוח • חודשי');
   });
   it('calendar chips: Saturday closes tonight, Friday in a day, Monday in 5 days', () => {
-    expect(leagueCalendarChips(new Date(2026, 9, 24))).toEqual({ month: 'אוקטובר', weekCloses: 'השבוע נסגר הלילה' });
-    expect(leagueCalendarChips(new Date(2026, 9, 23)).weekCloses).toBe('השבוע נסגר בעוד יום');
-    expect(leagueCalendarChips(new Date(2026, 0, 19))).toEqual({ month: 'ינואר', weekCloses: 'השבוע נסגר בעוד 5 ימים' });
+    expect(leagueCalendarChips(new Date(2026, 9, 24), t)).toEqual({ month: 'אוקטובר', weekCloses: 'השבוע נסגר הלילה' });
+    expect(leagueCalendarChips(new Date(2026, 9, 23), t).weekCloses).toBe('השבוע נסגר בעוד יום');
+    expect(leagueCalendarChips(new Date(2026, 0, 19), t)).toEqual({ month: 'ינואר', weekCloses: 'השבוע נסגר בעוד 5 ימים' });
   });
 });

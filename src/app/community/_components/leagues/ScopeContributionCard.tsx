@@ -3,9 +3,11 @@
 import React from 'react';
 import { formatKm } from '@/features/arena/components/league-board-logic';
 import { formatLeaderboardScore } from '@/features/arena/components/format-leaderboard-score';
-import { CATEGORY_UNIT_LABEL } from '@/features/arena/components/scope-category-unit-label';
+import { CATEGORY_UNIT_LABEL_KEYS } from '@/features/arena/components/scope-category-unit-label';
 import { timeWindowPhrase } from '@/app/community/_lib/community-logic';
 import type { LeaguesVM } from './leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // "התרומה שלך" dark contribution card (mockup, Screens 2/3). Left side =
 // your own real activity total, reusing activeMyEntry/activeMyMode
@@ -29,8 +31,9 @@ export function ScopeContributionCard({ vm, scopeTypeLabel }: { vm: LeaguesVM; s
     activeMyIsSegment,
     activeScopeEntry,
   } = vm;
+  const t = useT(community);
   if (!activeScopeEntry) return null;
-  const windowPhrase = timeWindowPhrase(leaderboardTimeWindow);
+  const windowPhrase = timeWindowPhrase(leaderboardTimeWindow, t);
   const myKm = myScopeKm && myScopeKm.key === myScopeKmKey && leaderboardTimeWindow !== 'daily' ? myScopeKm.km : 0;
   return (
     <div
@@ -45,16 +48,16 @@ export function ScopeContributionCard({ vm, scopeTypeLabel }: { vm: LeaguesVM; s
       <div className="relative z-10 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px]" style={{ color: '#64748b' }}>
-            התרומה שלך {windowPhrase} · {activeScopeEntry.scopeName}
+            {t('communityPage.contribution.title', { phrase: windowPhrase, scope: activeScopeEntry.scopeName })}
           </p>
           <p className="text-lg font-black mt-0.5 truncate text-v2-deep tabular-nums">
             {activeMyEntry
-              ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment)
-              : CATEGORY_UNIT_LABEL[leaderboardCategory]}
+              ? formatLeaderboardScore(activeMyEntry.totalCredit, activeMyMode, activeMyIsSegment, t)
+              : t(CATEGORY_UNIT_LABEL_KEYS[leaderboardCategory])}
           </p>
           {featureFlags.enableHomeV2 && myKm > 0 && (
             <p className="mt-0.5 truncate whitespace-nowrap text-[12.5px] font-bold text-v2-ink-2 tabular-nums">
-              תרמת {formatKm(myKm)} ק״מ {myScopeKmGranularity === 'neighborhood' ? 'לשכונה' : 'לעיר'} {windowPhrase}
+              {t('communityPage.contribution.km', { km: formatKm(myKm), granularity: myScopeKmGranularity, phrase: windowPhrase })}
             </p>
           )}
         </div>

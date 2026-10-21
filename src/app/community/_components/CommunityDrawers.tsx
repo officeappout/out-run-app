@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { BoardSheet, ScopePointsContent } from '@/features/arena/components/LeagueBoardSheets';
 import {
   GroupDetailsDrawer, SessionDrawer, PostJoinSuccessDrawer, CreateGroupWizard, PlannedActivityComposeSheet,
@@ -49,6 +51,7 @@ export function CommunityDrawers({
     editGroupId,
     setEditGroupId,
   } = overlays;
+  const t = useT(community);
   const { handleJoinGroup, handleLeaveGroup, handleJoinEvent, handlePlannerPref, handleGroupCreated } = actions;
 
   return (
@@ -95,7 +98,7 @@ export function CommunityDrawers({
 
       {enableHomeV2 && (
         <>
-          <BoardSheet isOpen={scopePointsOpen} onClose={() => setScopePointsOpen(false)} title="איך צוברים נקודות לליגה">
+          <BoardSheet isOpen={scopePointsOpen} onClose={() => setScopePointsOpen(false)} title={t('communityPage.scopePoints.title')}>
             <ScopePointsContent />
           </BoardSheet>
           <PlannedActivityComposeSheet
