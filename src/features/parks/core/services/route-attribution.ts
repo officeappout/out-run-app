@@ -18,6 +18,10 @@
  *   - qualitySignals.source 'osm_overpass_v1' (attributes derived from OSM ways)
  * Routes with none of these (manually drawn, user-generated) render exactly
  * as before. Copernicus credit is still provenance-only.
+ *
+ * Open-dataset credit (NATIONWIDE-PLAN.md W1.5): provenance.dataset — e.g.
+ * "משרד התחבורה והבטיחות בדרכים — data.gov.il (CC BY)" — linked to the
+ * dataset page. Provenance-only, like Copernicus.
  */
 import type { Route } from '../types/route.types';
 
@@ -26,7 +30,7 @@ export const OSM_CREDIT = '© OpenStreetMap contributors';
 export const COPERNICUS_CREDIT = 'Elevation: Copernicus WorldDEM-30 © DLR/Airbus';
 
 export interface RouteCredit {
-  key: 'osm' | 'copernicus';
+  key: 'osm' | 'copernicus' | 'dataset';
   text: string;
   href?: string;
 }
@@ -68,5 +72,9 @@ export function routeDataCredits(route: RouteCreditInput | null | undefined): Ro
   const p = route.provenance;
   if (isOsmDerivedRoute(route)) out.push({ key: 'osm', text: OSM_CREDIT, href: OSM_COPYRIGHT_URL });
   if (p?.elevation?.provider === 'copernicus-glo30') out.push({ key: 'copernicus', text: COPERNICUS_CREDIT });
+  const ds = p?.dataset;
+  if (ds && typeof ds.attribution === 'string' && ds.attribution) {
+    out.push({ key: 'dataset', text: ds.attribution, ...(typeof ds.url === 'string' && ds.url ? { href: ds.url } : {}) });
+  }
   return out;
 }
