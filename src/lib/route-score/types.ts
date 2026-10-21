@@ -1,0 +1,93 @@
+/**
+ * route-score — one 0-100 score per route (NATIONWIDE-PLAN.md §3.3), plus the
+ * per-authority top-N selection (§3.7). Pure, I/O-free. Reuses the existing
+ * measurements only (qualitySignals, route-quality v1, decide-accuracy, the
+ * trails star prior) — no new signal is invented here.
+ */
+import type { LngLat } from '../route-quality/types';
+import type { SurfaceClass, SurfaceShares } from './surface-class';
+
+export type { LngLat };
+
+/** How a route closes. `linear_corridor` = a named promenade/corridor (not penalised on compactness). */
+export type ScoreShape = 'loop' | 'linear_corridor' | 'out_and_back' | 'point_to_point' | 'unclassified';
+
+/**
+ * Source / "officialness" tier (§3.3 row "מקור/רשמיות"):
+ * official   — municipal/government dataset or an officially marked trail (ITC/KKL/INPA operator)
+ * osm_named  — a named OSM route relation, or a route an admin drew/curated by hand
+ * named_place— a named park perimeter / promenade
+ * stitched   — stitched OSM ways
+ * generated  — generated loop
+ * unknown    — no provenance at all
+ */
+export type SourceTier = 'official' | 'osm_named' | 'named_place' | 'stitched' | 'generated' | 'unknown';
+
+export type CertificateVerdict = 'approve' | 'edit' | 'drop';
+
+export interface ParkRef {
+  source: string;
+  id: string;
+  name: string;
+}
+
+/** Normalised, plain input. Build it from a Firestore doc with `routeScoreInputFromDoc`. */
+export interface RouteScoreInput {
+  id: string;
+  name: string;
+  authorityId: string | null;
+  city: string | null;
+  activityType: string | null;
+  distanceKm: number | null;
+  path: LngLat[];
+  shape: ScoreShape | null;
+  composition: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number } | null;
+  /** True when `composition` is a proxy (trails pipeline: trail share of the length), not the real classifier. */
+  compositionIsProxy: boolean;
+  /** Only when lighting was really computed (status 'computed'). */
+  litCoveragePct: number | null;
+  /** Only when the amenity join ran with coverage (status 'computed'). */
+  amenitiesHas: Partial<Record<'bench' | 'drinking_water' | 'court' | 'dog_park' | 'fitness_station', boolean>> | null;
+  /** From route-quality v1 with an OSM road layer; null when not measured. */
+  osmSafety: { majorRoadPct: number; unmarkedPerKm: number } | null;
+  /** Geometry facts (computed from `path` by the adapter, or supplied). */
+  geometry: { retracedPct: number; uTurnCount: number; spurCount: number; compactness: number } | null;
+  sourceTier: SourceTier;
+  /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
+  greenShare: number | null;
+  parkRef: ParkRef | null;
+  hasFitnessStop: boolean;
+  certificate: CertificateVerdict | null;
+  /** Paved / unpaved share of the length and where it came from (surface-class.ts). */
+  surface: SurfaceShares;
+  /** Filter class for the app: bike_road / bike_offroad / walk_run_paved / hike_offroad / unknown. */
+  surfaceClass: SurfaceClass;
+  /**
+   * Share (0..1) of the length under tree canopy — NOT computed yet (RC2).
+   * Owner-approved threshold for later: "shaded" = ≥40% canopy cover. When
+   * present, comfort consumes it (components.ts); null = not measured.
+   */
+  shadeShare: number | null;
+}
+
+export interface ComponentScore {
+  /** Points awarded, 0..max. Unmeasured parts are filled at half their max (neutral, not zero). */
+  points: number;
+  max: number;
+  /** 0..1 — how much of this component was really measured (proxy counts as 0.5). */
+  coverage: number;
+  notes: string[];
+}
+
+export type ScoreComponentKey = 'surface' | 'geometry' | 'safety' | 'source' | 'comfort' | 'experience';
+
+export type ScoreBand = 'green' | 'yellow' | 'red';
+
+export interface RouteScore {
+  score: number;
+  /** 0..1 — weighted share of the score that was really measured. */
+  confidence: number;
+  band: ScoreBand;
+  components: Record<ScoreComponentKey, ComponentScore>;
+  version: string;
+}
