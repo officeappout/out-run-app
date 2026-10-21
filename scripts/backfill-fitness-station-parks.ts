@@ -1,6 +1,6 @@
 /**
  * scripts/backfill-fitness-station-parks.ts — amenities-approval-to-data
- * roadmap, item 2 backfill (docs/amenities-approval-to-data-roadmap.md).
+ * roadmap, item 2 backfill (docs/product/amenities-approval-to-data-roadmap.md).
  *
  * `functions/src/onOsmAmenityWrite.ts` only reacts to a status TRANSITION
  * into 'published' — every fitness_station already published before that

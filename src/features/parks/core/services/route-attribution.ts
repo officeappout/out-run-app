@@ -1,7 +1,7 @@
 /**
  * route-attribution.ts — PURE: which data-source credits a route needs.
  *
- * Licences (docs/TRAILS-PILOT-SHAAR-HANEGEV.md §5):
+ * Licences (docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md §5):
  *   - OpenStreetMap (ODbL 1.0): "© OpenStreetMap contributors", linked to
  *     https://www.openstreetmap.org/copyright, on every screen showing
  *     OSM-derived routes.

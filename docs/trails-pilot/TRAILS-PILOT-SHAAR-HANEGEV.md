@@ -149,7 +149,7 @@ npx tsx scripts/trails/import-named-routes.ts     # → named-routes.json, gener
 - **2 `needsName`** (מסלול איבים #1, מסלול רוחמה #1) — לעריכה ידנית בפאנל, לא בניחוש.
 - **"סובב …" של קק"ל** יצאו `linear` ולא `loop` כי ה-relations ב-OSM חתוכים/לא רציפים (`continuity` 0.55–0.83 בחלקם). שווה תיקון ב-OSM עצמו (תרומה לקהילה).
 - **איבים** — אין מסלול מחולל (הצומת הקרוב לא מחובר מספיק). שאר 11 היישובים קיבלו 1–3.
-- **ארכיטקטורה:** לפי `docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md`, יכולת מיפוי חדשה צריכה להיכנס כשלב ב-`/admin/city-mapping`, לא רק כ-CLI. שני הסקריפטים חושפים `runBuildSegmentGraph()` / `runImportNamedRoutes()` בדיוק כדי שהאורקסטרטור יקרא להם — החיווט הוא PR נפרד (אחרי אישור §6).
+- **ארכיטקטורה:** לפי `docs/architecture/CITY-MAPPING-PIPELINE-ARCHITECTURE.md`, יכולת מיפוי חדשה צריכה להיכנס כשלב ב-`/admin/city-mapping`, לא רק כ-CLI. שני הסקריפטים חושפים `runBuildSegmentGraph()` / `runImportNamedRoutes()` בדיוק כדי שהאורקסטרטור יקרא להם — החיווט הוא PR נפרד (אחרי אישור §6).
 - **מעבר הגובה השמור ל-Copernicus** בצינור הקיים (backfill של `elevationGain/maxGrade` ל-`official_routes` הקיימים + חימום מחדש של `dem-tiles/` ב-Storage מ-`copernicusToElevationGrid`) — PR נפרד עם dry-run משלו.
 - **הרחבה ארצית:** `--relation=<admin relation>` לכל רשות, או ריצה אחת על כל ה-PBF (osmium מטפל בזה בקלות; אריחי ה-DEM לכל הארץ כבר מוגדרים ב-`ISRAEL_COPERNICUS_TILES`).
 
