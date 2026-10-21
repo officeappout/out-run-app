@@ -11,6 +11,7 @@
 import type { SelectionDecision } from './select';
 import type { SurfaceClass, SurfaceSource } from './surface-class';
 import type { CertificateVerdict, RouteScore, RouteScoreInput, ScoreBand, ScoreComponentKey, SourceTier } from './types';
+import type { RouteShadeStatus } from '../shade/route-shade';
 
 export const ROUTE_SCORES_COLLECTION = 'route_scores';
 
@@ -29,6 +30,12 @@ export interface RouteScoreDoc {
   /** Filter class for the app + the shares it came from (owner addition 21.10). */
   surfaceClass: SurfaceClass;
   surface: { pavedShare: number; unpavedShare: number; knownShare: number; source: SurfaceSource };
+  /**
+   * Shade (RC6): Technion summer SI. shadeShare/shadedPct are null unless
+   * status is 'measured' (layer covers ≥ 50% of the route). Null = the city
+   * has no shade layer / shade was not attempted.
+   */
+  shade: { status: RouteShadeStatus; shadeShare: number | null; shadedPct: number | null; coverage: number; source: string } | null;
   /** Null when the route was scored without a selection pass. */
   selection: SelectionDecision | null;
   selectionReason: string | null;
@@ -60,6 +67,9 @@ export function buildRouteScoreDoc(
     sourceTier: input.sourceTier,
     surfaceClass: input.surfaceClass,
     surface: { ...input.surface },
+    shade: input.shade
+      ? { status: input.shade.status, shadeShare: input.shade.shadeShare, shadedPct: input.shade.shadedPct, coverage: input.shade.coverage, source: input.shade.source }
+      : null,
     selection: selection?.decision ?? null,
     selectionReason: selection?.reason ?? null,
     scoreVersion: score.version,
@@ -73,6 +83,13 @@ export function toDateLike(v: unknown): Date | null {
   if (v && typeof (v as { toDate?: unknown }).toDate === 'function') return (v as { toDate(): Date }).toDate();
   if (typeof v === 'number' && Number.isFinite(v)) return new Date(v);
   return null;
+}
+
+function shadeFromStored(v: any): RouteScoreDoc['shade'] {
+  if (!v || typeof v !== 'object') return null;
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+  const status: RouteShadeStatus = v.status === 'measured' || v.status === 'low_coverage' ? v.status : 'no_data';
+  return { status, shadeShare: n(v.shadeShare), shadedPct: n(v.shadedPct), coverage: n(v.coverage) ?? 0, source: String(v.source ?? '') };
 }
 
 /** Read-side normaliser — field-guarded; computedAt comes back as a real Date. */
@@ -96,6 +113,7 @@ export function routeScoreDocFromStored(raw: Record<string, any>): RouteScoreDoc
       knownShare: Number(raw?.surface?.knownShare ?? 0),
       source: raw?.surface?.source ?? 'none',
     },
+    shade: shadeFromStored(raw?.shade),
     selection: raw?.selection ?? null,
     selectionReason: raw?.selectionReason ?? null,
     scoreVersion: String(raw?.scoreVersion ?? ''),

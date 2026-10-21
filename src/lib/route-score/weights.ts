@@ -1,7 +1,8 @@
 /** Weights (sum 100) and thresholds for routeScore v1 — NATIONWIDE-PLAN.md §3.3. */
 import type { ScoreComponentKey, SourceTier } from './types';
 
-export const ROUTE_SCORE_VERSION = 'v1';
+/** v1.1 (RC6, 21.10.2026): shade (Technion SI) joins comfort on the recalibrated 0.10→0.35 scale. */
+export const ROUTE_SCORE_VERSION = 'v1.1';
 
 export const SCORE_WEIGHTS: Record<ScoreComponentKey, number> = {
   surface: 25,
@@ -40,10 +41,13 @@ export const NAMED_PLACE_PATTERN = /טיילת|פארק|גן |^גן|גינת|ר�
 export const CORRIDOR_NAME_PATTERN = /טיילת|רצועה ירוקה|רצועת חוף|שביל טבע|ואדי|נחל/;
 
 /**
- * Owner-approved thresholds (21.10.2026) for the comfort signals that RC2 will
- * compute later. Nothing computes shade yet; these are the agreed bars.
- *   shaded — ≥40% tree-canopy cover along the route.
- *   lit    — a stretch within 20-30 m of a lamp post.
+ * Shade comfort scale (owner recalibration 21.10.2026, RC6). The value is the
+ * Technion daily summer Shade Index (SI, 0..1) averaged over the measured
+ * length — NOT canopy cover, so the earlier 0.4 canopy bar no longer applies
+ * (city SI means are 0.08–0.28). Linear: SI < 0.10 → 0 points, SI ≥ 0.35 →
+ * full shade points.
  */
-export const SHADE_CANOPY_MIN_SHARE = 0.4;
+export const SHADE_SI_ZERO = 0.1;
+export const SHADE_SI_FULL = 0.35;
+/** Lit — a stretch within 20-30 m of a lamp post (owner-approved 21.10.2026). */
 export const LIT_LAMP_RADIUS_M = { min: 20, max: 30 } as const;

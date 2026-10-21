@@ -60,7 +60,24 @@ describe('route_scores round trip (axioms §31)', () => {
     expect(await readRouteScoreDoc(db, 'nope')).toBeNull();
     await db.collection(ROUTE_SCORES_COLLECTION).doc('sparse').set({});
     const back = await readRouteScoreDoc(db, 'sparse');
-    expect(back).toMatchObject({ band: 'yellow', selection: null, sourceTier: 'unknown' });
+    expect(back).toMatchObject({ band: 'yellow', selection: null, sourceTier: 'unknown', shade: null });
     expect(back!.computedAt).toBeInstanceOf(Date);
+  });
+
+  it('shade fields (RC6) survive the round trip, measured and not measured', async () => {
+    const db = fakeDb();
+    const now = new Date('2026-10-21T10:00:00Z');
+    const measured = { status: 'measured' as const, shadeShare: 0.31, shadedPct: 62.5, coverage: 0.93, source: 'technion_v1', indexType: 'SI_daily' as const };
+    const inA = routeScoreInputFromDoc('A', parkHaMesilaDoc(), { shade: measured });
+    const inB = routeScoreInputFromDoc('B', parkHaMesilaDoc(), { shade: { ...measured, status: 'low_coverage', shadeShare: null, shadedPct: null, coverage: 0.2 } });
+    expect(inA.shadeShare).toBe(0.31);
+    expect(inB.shadeShare).toBeNull(); // not measured → no shade points, no penalty
+    await writeRouteScoreDocs(db, [inA, inB].map((i) => buildRouteScoreDoc(i, routeScore(i), null, { now })));
+    const a = await readRouteScoreDoc(db, 'A');
+    const b = await readRouteScoreDoc(db, 'B');
+    expect(a!.shade).toEqual({ status: 'measured', shadeShare: 0.31, shadedPct: 62.5, coverage: 0.93, source: 'technion_v1' });
+    expect(b!.shade).toEqual({ status: 'low_coverage', shadeShare: null, shadedPct: null, coverage: 0.2, source: 'technion_v1' });
+    expect(a!.scoreVersion).toBe('v1.1');
+    expect(a!.components.comfort.max).toBe(15);
   });
 });

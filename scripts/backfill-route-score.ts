@@ -17,15 +17,23 @@
  * over-quota city (Haifa, Herzliya — owner decision Q14) is a dry-run
  * proposal until the owner applies it. Prints TARGET first and asks for a
  * typed YES (guards reused from scripts/trails/lib/trails-apply.node.ts).
+ *
+ * Shade (RC6): for cities with a Technion layer, each route's shade is measured
+ * from gs://<project>.firebasestorage.app/shade/technion/v1/<city>.geojson.gz
+ * (Admin SDK read, cached in memory for the run) and fed to the comfort
+ * component. The dry-run prints per-city shade stats and how many routes
+ * changed band versus the same scoring WITHOUT shade. --no-shade skips it.
  */
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildSegmentIndex, parsePath, scoreAuthorityRoutes, surfaceMixFromSegments, writeRouteScoreDocs, type AuthorityScoreRun, type RouteScoreDoc, type SurfaceSegment } from '../src/lib/route-score';
+import { buildSegmentIndex, parsePath, scoreAuthorityRoutes, surfaceMixFromSegments, writeRouteScoreDocs, type AuthorityScoreRun, type FromDocOptions, type RouteScoreDoc, type SurfaceSegment } from '../src/lib/route-score';
 import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, openTarget } from './trails/lib/trails-apply.node';
 import { readAllOfficialRoutes, readStreetSegmentSurfaces } from './lib/route-collections-read.node';
+import { createShadeLoader, measureRouteShade, type RouteShade, type ShadeLoader } from '../src/lib/shade';
+import { bucketShadeFetcher } from '../src/lib/shade/bucket-fetcher.node';
 
 type Doc = Record<string, any>;
 interface RouteRow { id: string; data: Doc }
@@ -39,6 +47,23 @@ const FROM_JSON = flagValue(argv, 'from-json');
 const OUT_DIR = flagValue(argv, 'out') ?? path.join('scripts', 'output', `route-score-${new Date().toISOString().replace(/[:.]/g, '-')}`);
 const PAGE = 300;
 const NO_SURFACE_JOIN = argv.includes('--no-surface-join');
+const NO_SHADE = argv.includes('--no-shade');
+
+interface ShadeCityStats { city: string; routes: number; measured: number; lowCoverage: number; noData: number; meanShadeShare: number | null; meanShadedPct: number | null; bandChanged: number; scoreDeltaMean: number }
+
+function shadeStats(city: string, shades: RouteShade[], bandChanged: number, deltas: number[]): ShadeCityStats {
+  const m = shades.filter((x) => x.status === 'measured');
+  const mean = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 1000) / 1000 : null);
+  return {
+    city, routes: shades.length, measured: m.length,
+    lowCoverage: shades.filter((x) => x.status === 'low_coverage').length,
+    noData: shades.filter((x) => x.status === 'no_data').length,
+    meanShadeShare: mean(m.map((x) => x.shadeShare as number)),
+    meanShadedPct: mean(m.map((x) => x.shadedPct as number)),
+    bandChanged,
+    scoreDeltaMean: mean(deltas) ?? 0,
+  };
+}
 
 async function loadFromFirestore(db: FirebaseFirestore.Firestore): Promise<{ routes: RouteRow[]; authorities: Map<string, AuthorityMeta> }> {
   const routes: RouteRow[] = await readAllOfficialRoutes(db as any, { authorityId: ONLY_AUTHORITY, pageSize: PAGE });
@@ -113,6 +138,14 @@ async function main() {
   }
   console.log(`Loaded ${data.routes.length} route(s); scoring ${live.length} non-archived in ${groups.size} authority/city group(s).`);
 
+  let shadeLoader: ShadeLoader | null = null;
+  if (target && !NO_SHADE) {
+    const { getStorage } = await import('firebase-admin/storage');
+    const bucket = getStorage(target.app).bucket(`${target.projectId}.firebasestorage.app`);
+    shadeLoader = createShadeLoader(bucketShadeFetcher(bucket as any), (s) => console.log(`  ${s}`));
+  }
+  const shadeReport: ShadeCityStats[] = [];
+
   const now = new Date();
   const allDocs: RouteScoreDoc[] = [];
   const summary: Doc[] = [];
@@ -132,22 +165,52 @@ async function main() {
       }
       console.log(`\n  (${label0(rows, meta, key)}: ${segs.length} street_segments, ${surf.length} with a known surface)`);
     }
-    const run = scoreAuthorityRoutes({ id: authId, type: meta?.type ?? null, population: meta?.population ?? null }, withSurface, now);
     const label = label0(rows, meta, key);
+    const authorityArg = { id: authId, type: meta?.type ?? null, population: meta?.population ?? null };
+    // Shade: only for cities with a Technion layer; everything else stays "not measured" (no penalty).
+    const shadeCity = shadeLoader ? await shadeLoader.indexForName(meta?.name ?? rows[0]?.data?.city ?? null) : null;
+    let scoredRows: Array<RouteRow & { opts?: FromDocOptions }> = withSurface;
+    let shades: RouteShade[] = [];
+    if (shadeCity) {
+      shades = withSurface.map((r) => measureRouteShade(parsePath(r.data?.path), shadeCity.index));
+      scoredRows = withSurface.map((r, k) => ({ ...r, opts: { ...(r.opts ?? {}), shade: shades[k] } }));
+    }
+    const run = scoreAuthorityRoutes(authorityArg, scoredRows, now);
+    if (shadeCity) {
+      const before = scoreAuthorityRoutes(authorityArg, withSurface, now);
+      const prev = new Map(before.scored.map((s) => [s.input.id, s.score]));
+      let changed = 0;
+      const deltas: number[] = [];
+      for (const s of run.scored) {
+        const p = prev.get(s.input.id);
+        if (!p) continue;
+        if (p.band !== s.score.band) changed++;
+        deltas.push(s.score.score - p.score);
+      }
+      const st = shadeStats(shadeCity.city, shades, changed, deltas);
+      shadeReport.push(st);
+      console.log(`\n  (shade ${label} → ${st.city}: measured ${st.measured}/${st.routes}, low coverage ${st.lowCoverage}, no data ${st.noData}; mean SI ${st.meanShadeShare ?? '—'}, mean shaded ${st.meanShadedPct ?? '—'}%; band changed ${st.bandChanged}, mean score Δ ${st.scoreDeltaMean})`);
+    }
     printRun(`${label}${authId ? ` [${authId}]` : ' [NO authorityId]'}`, run, rows.length);
     allDocs.push(...run.docs);
     summary.push({
       key, authorityId: authId, name: label, routes: rows.length, quota: run.quota, bands: run.bands, selection: run.selection.counts,
       surface: { all: run.bySurface, selected: run.selection.selectedBySurface },
-      routesDetail: run.docs.map((d) => ({ id: d.routeId, name: d.name, score: d.score, confidence: d.confidence, band: d.band, sourceTier: d.sourceTier, surfaceClass: d.surfaceClass, pavedShare: d.surface.pavedShare, unpavedShare: d.surface.unpavedShare, surfaceSource: d.surface.source, certificate: d.certificate, selection: d.selection, reason: d.selectionReason })),
+      routesDetail: run.docs.map((d) => ({ id: d.routeId, name: d.name, score: d.score, shade: d.shade, confidence: d.confidence, band: d.band, sourceTier: d.sourceTier, surfaceClass: d.surfaceClass, pavedShare: d.surface.pavedShare, unpavedShare: d.surface.unpavedShare, surfaceSource: d.surface.source, certificate: d.certificate, selection: d.selection, reason: d.selectionReason })),
     });
   }
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const file = path.join(OUT_DIR, 'summary.json');
-  fs.writeFileSync(file, JSON.stringify({ generatedAt: now.toISOString(), apply: APPLY, groups: summary }, null, 2));
+  fs.writeFileSync(file, JSON.stringify({ generatedAt: now.toISOString(), apply: APPLY, shade: shadeReport, groups: summary }, null, 2));
   const tot = allDocs.reduce((acc, d) => { acc[d.band]++; if (d.selection) acc[d.selection]++; return acc; }, { green: 0, yellow: 0, red: 0, selected: 0, candidate: 0, manual_review: 0, rejected: 0 } as Record<string, number>);
   console.log(`\nTOTAL ${allDocs.length}: 🟢 ${tot.green} 🟡 ${tot.yellow} 🔴 ${tot.red} · selected ${tot.selected} · candidate ${tot.candidate} · manual review ${tot.manual_review} · rejected ${tot.rejected}`);
+  if (shadeReport.length) {
+    console.log('\nSHADE (Technion SI; measured = layer covers ≥ 50% of the route):');
+    console.log('  city                  routes measured lowCov noData  meanSI  shaded%  bandΔ  scoreΔ');
+    for (const s of shadeReport) console.log(`  ${s.city.padEnd(20)} ${String(s.routes).padStart(7)} ${String(s.measured).padStart(8)} ${String(s.lowCoverage).padStart(6)} ${String(s.noData).padStart(6)} ${String(s.meanShadeShare ?? '—').padStart(7)} ${String(s.meanShadedPct ?? '—').padStart(8)} ${String(s.bandChanged).padStart(6)} ${String(s.scoreDeltaMean).padStart(7)}`);
+    console.log(`  total band changes vs no-shade scoring: ${shadeReport.reduce((a, s) => a + s.bandChanged, 0)}`);
+  }
   console.log(`Summary: ${file}`);
 
   if (!APPLY) { console.log('\nDry run only — no Firestore writes. (--apply --project <id> writes route_scores; owner only.)'); return; }

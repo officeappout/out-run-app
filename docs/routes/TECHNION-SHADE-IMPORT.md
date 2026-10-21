@@ -101,15 +101,9 @@ npx tsx scripts/shade/fetch-technion-shade.ts --out <dir> --from-raw   # נרמ�
 
 החיווט עצמו הוא שורה אחת ב-`from-route-doc` או ב-backfill של `route_scores`: לטעון את `shade/technion/v1/<city>.geojson.gz` דרך Admin, לבנות אינדקס, ולהריץ `shadeShareForLine` לכל מסלול בעיר. **זה לא נעשה ב-PR הזה.** הוא תלוי ב-#627 ובשתי ההחלטות למעלה.
 
-## 7. בהמשך: GraphHopper `preferShade`
+**עדכון RC6 (21.10.2026), מחובר.** דוד החליט:
+- **סקאלה:** ב-SI < 0.10 הצל מקבל 0 נקודות. ב-SI ≥ 0.35 הוא מקבל את כל 4 נקודות הצל. בין שני הערכים הניקוד ליניארי (`SHADE_SI_ZERO`/`SHADE_SI_FULL` ב-`src/lib/route-score/weights.ts`).
+- **כיסוי:** הצל נמדד רק כשהשכבה מכסה לפחות 50% מאורך המסלול. אחרת הסטטוס הוא "לא נמדד", בלי קנס.
+- **`shadedPct`:** אחוז האורך הנמדד שעובר על מקטעים עם SI ≥ 0.25 (`SHADED_MIN_SI`).
 
-GraphHopper custom model תומך ב-`areas` (GeoJSON) וב-`priority`/`speed` עם `multiply_by` לפי `in_<area>`. הכיוון המוצע:
-- **שלב א' (פשוט):** לייצא את המקטעים עם `shadeIndex ≥ 0.4` כפוליגוני buffer ממוזגים (לפי עיר) לשטח `shaded`, ולהגדיר `preferShade` כ-`{ if: "in_shaded", multiply_by: 1.0 }, { else: "", multiply_by: 0.7 }` על priority. המגבלה: areas גדולים מאטים את ה-routing. צריך לפשט, ולשלוח רק את העיר הרלוונטית לכל בקשה.
-- **שלב ב' (נכון):** map-matching של המקטעים ל-OSM ways בזמן import, ואז encoded value מותאם (`shade_index`) על כל edge. ה-custom model יהיה אז `{ if: "shade_index < 0.2", multiply_by: 0.6 }` בלי areas בכלל. זה דורש שינוי ב-import של GraphHopper (route engine vision, phase 1).
-
-## 8. קבצים ב-PR
-
-- `src/lib/shade/`: `types.ts`, `geometry.ts`, `normalize.ts`, `match.ts`, `technion-layers.ts` (רישום 13 השכבות + ייחוס/הרשאה), `index.ts`, וטסטים ב-`__tests__/shade.test.ts` (fixtures זעירים).
-- `scripts/shade/fetch-technion-shade.ts`: פאצ'ר שאפשר להריץ שוב. כותב לתיקייה מקומית בלבד.
-- `scripts/shade/upload-technion-shade.ts`: העלאה ל-Storage, dry-run כברירת מחדל.
-- המסמך הזה.
+המדידה נעשית ב-`src/lib/shade/route-shade.ts`, והטעינה מ-Storage עם cache בזיכרון ב-`src/lib/shade/loader.ts` + `bucket-fetcher.node.ts`. `route_scores` מקבל שדה `shade`. ה-backfill (`scripts/backfill-route-score.ts`) מדפיס סטטיסטיקת צל לפי עיר, ואת מספר המסלולים שהחליפו band לעומת ניקוד בלי צל.

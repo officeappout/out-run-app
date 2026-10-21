@@ -6,3 +6,7 @@ export { buildShadeIndex, shadeShareForLine } from './match';
 export type { ShadeSpatialIndex, ShadeShareOptions, ShadeShareResult } from './match';
 export { TECHNION_SHADE_LAYERS, TECHNION_ATTRIBUTION, TECHNION_PERMISSION, TECHNION_SOURCE } from './technion-layers';
 export type { TechnionLayer } from './technion-layers';
+export { measureRouteShade, SHADE_MIN_COVERAGE, SHADED_MIN_SI, ROUTE_SHADE_SOURCE } from './route-shade';
+export type { RouteShade, RouteShadeStatus } from './route-shade';
+export { createShadeLoader, technionCityForName, shadeObjectPath, SHADE_STORAGE_PREFIX } from './loader';
+export type { ShadeLoader, ShadeObjectFetcher } from './loader';
