@@ -41,6 +41,7 @@ interface SweepFields {
   device: string;
   kind?: 'journey' | 'design-sweep';
   devices?: string[];
+  androidBack?: boolean;
   uidPerDevice?: boolean;
   checkpoints?: Checkpoint[];
 }
@@ -50,10 +51,24 @@ export function uidFor(m: SweepFields, deviceId: string): string {
   return m.uidPerDevice ? `${m.uid}_${DEVICE_TAG[deviceId] ?? 'x'}` : m.uid;
 }
 
+/** The Android phone of the back-button check (OWN-007). */
+export const ANDROID_DEVICE = 'android-small';
+
+/** A sweep may also run on the Android phone (only when asked for with --device android-small). */
+export function allowsAndroidBack(m: SweepFields): boolean {
+  return m.kind === 'design-sweep' && m.androidBack !== false;
+}
+
+/** Every phone a mission can run on: its own, plus the Android phone for back-checking sweeps. */
+export function missionDevices(m: SweepFields): string[] {
+  const own = m.devices?.length ? m.devices : [m.device];
+  return allowsAndroidBack(m) && !own.includes(ANDROID_DEVICE) ? [...own, ANDROID_DEVICE] : own;
+}
+
 /** Every uid a mission can sign in as (for the roster). */
 export function missionUids(m: SweepFields): string[] {
   if (!m.uidPerDevice) return [m.uid];
-  return Array.from(new Set((m.devices?.length ? m.devices : [m.device]).map((d) => uidFor(m, d))));
+  return Array.from(new Set(missionDevices(m).map((d) => uidFor(m, d))));
 }
 
 export function isSweep(m: { kind?: string }): boolean {

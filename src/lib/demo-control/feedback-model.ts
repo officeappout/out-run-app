@@ -13,6 +13,7 @@
  */
 import { QA_SEVERITIES, type QaDesignDimension, type QaSeverity } from './qa-summary';
 import { decodeDesignScores } from './qa-design';
+import { findingScreenKey } from './owner-rules-model';
 
 export type FeedbackSource = 'life' | 'testers';
 export const FEEDBACK_SOURCES: readonly FeedbackSource[] = ['life', 'testers'];
@@ -44,6 +45,10 @@ export interface FeedbackItem {
   createdAtMs: number;
   status: TriageStatus;
   statusAtMs: number | null;
+  /** "למה לא רלוונטי" — the owner's optional reason when marked irrelevant. */
+  triageReason: string | null;
+  /** Testers: the finding's screen id (repro marker), else its route. */
+  screen: string | null;
   /** Life park feedback. */
   parkName: string | null;
   /** Life: 'llm' | 'bank'. */
@@ -73,10 +78,11 @@ export function millisOf(v: unknown): number | null {
 const s = (v: unknown, max: number): string => (typeof v === 'string' ? v.slice(0, max) : '');
 const sOrNull = (v: unknown, max: number): string | null => (typeof v === 'string' && v ? v.slice(0, max) : null);
 
-export function parseTriage(raw: unknown): { status: TriageStatus; atMs: number | null } {
+export function parseTriage(raw: unknown): { status: TriageStatus; atMs: number | null; reason: string | null } {
   const t = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const status = TRIAGE_STATUSES.includes(t.status as TriageStatus) ? (t.status as TriageStatus) : 'open';
-  return { status, atMs: millisOf(t.at) };
+  const reason = status === 'irrelevant' && typeof t.reason === 'string' && t.reason.trim() ? t.reason.trim().slice(0, 300) : null;
+  return { status, atMs: millisOf(t.at), reason };
 }
 
 /** One repro step ({ name: 'tap', target: '…' } / { world: 'offline', seconds: 5 }) → one line. */
@@ -111,6 +117,8 @@ export function mapLifeFeedback(id: string, raw: Record<string, unknown> | undef
     createdAtMs: millisOf(d.createdAt) ?? 0,
     status: triage.status,
     statusAtMs: triage.atMs,
+    triageReason: triage.reason,
+    screen: null,
     parkName,
     generatedBy: sOrNull(d.generatedBy, 20),
     route: null,
@@ -145,6 +153,8 @@ export function mapQaFinding(id: string, raw: Record<string, unknown> | undefine
     createdAtMs: millisOf(d.createdAt) ?? millisOf(d.createdAtMs) ?? 0,
     status: triage.status,
     statusAtMs: triage.atMs,
+    triageReason: triage.reason,
+    screen: findingScreenKey(d),
     parkName: null,
     generatedBy: null,
     route: sOrNull(d.route, 120),
@@ -194,6 +204,7 @@ export function buildTaskMarkdown(item: FeedbackItem): string {
     lines.push(`- מקור: בודקי AI (ריצה ${item.runId ?? '—'}, משימה ${item.mission ?? '—'}, פרסונה ${item.personaName || '—'}, מכשיר ${item.device ?? '—'})`);
     lines.push(`- סוג: ${TYPE_LABEL[item.type]}${item.rule ? ` · חוק ${item.rule}` : ''}`);
     if (item.route) lines.push(`- מסך: \`${item.route}\``);
+    if (item.screen && item.screen !== item.route) lines.push(`- מזהה מסך: \`${item.screen}\``);
     if (item.count > 1) lines.push(`- נצפה ${item.count} פעמים`);
     lines.push(`- מזהה ממצא: \`qa_findings/${item.id}\``);
     if (item.expected) lines.push('', '**מה ציפינו:**', item.expected);

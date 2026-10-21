@@ -79,19 +79,19 @@ export function useDemoFeedback(enabled: boolean, filters: FeedbackFilterState) 
   const reload = useCallback(() => void fetchPage(null, false), [fetchPage]);
 
   /** Optimistic; returns an error text or null. */
-  const setStatus = useCallback(async (item: FeedbackItem, status: TriageStatus): Promise<string | null> => {
-    const patch = (st: TriageStatus) =>
-      setItems((prev) => prev.map((x) => (x.source === item.source && x.id === item.id ? { ...x, status: st } : x)));
-    patch(status);
+  const setStatus = useCallback(async (item: FeedbackItem, status: TriageStatus, reason?: string): Promise<string | null> => {
+    const patch = (st: TriageStatus, why: string | null) =>
+      setItems((prev) => prev.map((x) => (x.source === item.source && x.id === item.id ? { ...x, status: st, triageReason: why } : x)));
+    patch(status, status === 'irrelevant' ? (reason ?? null) : null);
     try {
       const res = await demoFetch('/api/admin/demo/feedback/status', {
         method: 'POST',
-        body: JSON.stringify({ source: item.source, id: item.id, status }),
+        body: JSON.stringify({ source: item.source, id: item.id, status, ...(reason ? { reason } : {}) }),
       });
       if (!res.ok) throw new Error(await readError(res));
       return null;
     } catch (err) {
-      patch(item.status);
+      patch(item.status, item.triageReason);
       return err instanceof Error ? err.message : 'השמירה נכשלה';
     }
   }, []);

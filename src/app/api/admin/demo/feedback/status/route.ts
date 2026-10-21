@@ -1,7 +1,8 @@
 /**
  * POST /api/admin/demo/feedback/status — mark one feedback item "טופל" / "לא רלוונטי" (or reopen).
- * Super admin only. Body: { source: 'life' | 'testers', id, status: 'open' | 'handled' | 'irrelevant' }.
- * Writes { triage: { status, by, at } } on the item's own demo-scoped doc (Admin SDK).
+ * Super admin only. Body: { source: 'life' | 'testers', id, status: 'open' | 'handled' | 'irrelevant', reason? }.
+ * Writes { triage: { status, by, at, reason? } } on the item's own demo-scoped doc (Admin SDK); a
+ * tester finding marked irrelevant also becomes a dismissal row in demo_registry/owner_rules.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminApi, resolveAdminUid } from '@/lib/api-auth';
@@ -19,8 +20,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   try {
     const uid = (await resolveAdminUid(request)) ?? 'agent';
-    const { source, id, status } = parsed.value;
-    const found = await setFeedbackStatus(getAdminDb(), uid, source, id, status);
+    const { source, id, status, reason } = parsed.value;
+    const found = await setFeedbackStatus(getAdminDb(), uid, source, id, status, reason);
     return found ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'not_found' }, { status: 404 });
   } catch (err) {
     console.error('[/api/admin/demo/feedback/status] failed', err instanceof Error ? err.message : err);

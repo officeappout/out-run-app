@@ -6,6 +6,8 @@
 import { buildDesignChecklist } from './design/checklist-builder';
 import { checkpointsFrom, isSweep, viewportLabel } from './design/checkpoints';
 import type { Mission, Persona } from './missions';
+import { ruleAppliesTo, type OwnerRule } from './owner/owner-rules';
+import type { Learning } from './owner/learning';
 
 const LEVEL: Record<Persona['techLiteracy'], string> = { low: 'נמוכה', medium: 'בינונית', high: 'גבוהה' };
 
@@ -14,6 +16,20 @@ export interface PromptContext {
   deviceId?: string;
   /** Design sweep resumed from this checkpoint. */
   resumeFrom?: string | null;
+  /** Owner rules (file + panel notes) and what was learned from the owner's triage. */
+  owner?: { rules: readonly OwnerRule[]; learning: Learning };
+}
+
+/** The Android back check, after every checkpoint of a design sweep on the Android phone. */
+export const ANDROID_BACK_DEVICE = 'android-small';
+
+function androidBackSection(): string[] {
+  return [
+    '## Android back check (this phone is Android)',
+    'Right after you score each checkpoint, call back_button once. Expected: an open sheet closes first; otherwise the previous step or screen; never a blank page; never leaving the app in the middle of onboarding or a workout (on the home screen, leaving the app is fine).',
+    'The tool tells you what happened and the runner records wrong outcomes by itself (rule OWN-007) — do not report them again. Then get back to where you were with the app\'s own buttons and continue with the next checkpoint.',
+    'Limit: this is a browser, not the native app shell — the app\'s native back handler does not run here. "sheet_stayed" or "no_change" may be false alarms; add your own finding only if the screen you see is clearly wrong.',
+  ];
 }
 
 function sweepSection(mission: Mission, resumeFrom: string | null): string[] {
@@ -34,6 +50,9 @@ export function buildSystemPrompt(persona: Persona, mission: Mission, ctx: Promp
   const sweep = isSweep(mission);
   const vp = ctx.deviceId ? viewportLabel(ctx.deviceId) : undefined;
   const focus = mission.focusRules.length ? mission.focusRules.join(', ') : '(none)';
+  const ownerRules = ctx.owner?.rules ?? [];
+  const ownerInScope = new Set([...ownerRules.filter((r) => ruleAppliesTo(r, mission)).map((r) => r.id), ...mission.focusRules.filter((r) => r.startsWith('OWN-'))]);
+  const backCheck = sweep && ctx.deviceId === ANDROID_BACK_DEVICE && mission.androidBack !== false;
   return [
     'You are an AI usability tester for OUT, a Hebrew (RTL) fitness app, running inside a phone-sized browser.',
     sweep
@@ -53,8 +72,9 @@ export function buildSystemPrompt(persona: Persona, mission: Mission, ctx: Promp
     mission.gps ? 'This mission has a simulated GPS route. Use the gps tool (action "start") when the workout starts moving.' : '',
     `Pay special attention to these rules: ${focus}.`,
     ...(sweep ? ['', ...sweepSection(mission, ctx.resumeFrom ?? null)] : []),
+    ...(backCheck ? ['', ...androidBackSection()] : []),
     '',
-    buildDesignChecklist({ focus: mission.focusRules, viewportLabel: vp }),
+    buildDesignChecklist({ focus: mission.focusRules, viewportLabel: vp, ownerRules, ownerInScope, learning: ctx.owner?.learning }),
     '',
     '## How to work',
     '- Every action returns a new screenshot plus the list of tappable elements with refs (e1, e2, …). Prefer acting by ref.',
@@ -63,6 +83,7 @@ export function buildSystemPrompt(persona: Persona, mission: Mission, ctx: Promp
     '- Always pass the screen id in report_finding, so findings are grouped by screen.',
     '- Text / number fields: tap the field, call keyboard (state "open") to simulate the phone keyboard, check that the field and its button are still visible, then keyboard "closed".',
     '- The machine-checked linter results are recorded automatically — do not re-report them; add only what they cannot see (clarity, flow, wrong behaviour, visual rules).',
+    ownerRules.length ? '- Owner rules (OWN-*) come first: when a screen breaks one, cite its OWN id, even if a generic rule also fits.' : '',
     '- Severity: P0 = cannot finish the mission / crash / wrong data saved; P1 = works but hurts (stuck > 3 steps, unclear text, hidden button); P2 = design-rule break; P3 = polish.',
     '- Write titles, expected, actual and score notes in Hebrew.',
     '- When the mission is done, or you are blocked, or you would give up as this person, call end_mission with a short first-person summary in Hebrew: how it felt, where you got confused, which screens looked off.',

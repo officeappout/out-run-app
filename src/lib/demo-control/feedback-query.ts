@@ -21,6 +21,7 @@ import {
   type TriageStatus,
 } from './feedback-model';
 import { DESIGN_FILTER, isDesignQaFinding } from './qa-design';
+import { parseReason } from './owner-rules-model';
 
 export { DESIGN_FILTER };
 export type FeedbackTypeFilter = FeedbackType | typeof DESIGN_FILTER;
@@ -185,13 +186,17 @@ export function buildFeedbackPage(scans: SourceScan[], f: FeedbackFilters, curso
 
 const DOC_ID_RE = /^[A-Za-z0-9_.:-]{1,300}$/;
 
-/** POST /api/admin/demo/feedback/status body. */
-export function parseStatusInput(body: unknown): { ok: true; value: { source: FeedbackSource; id: string; status: TriageStatus } } | { ok: false; error: string } {
+/** POST /api/admin/demo/feedback/status body. `reason` ("למה לא רלוונטי") only with status irrelevant. */
+export function parseStatusInput(
+  body: unknown,
+): { ok: true; value: { source: FeedbackSource; id: string; status: TriageStatus; reason: string | null } } | { ok: false; error: string } {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   if (b.source !== 'life' && b.source !== 'testers') return { ok: false, error: 'bad_request' };
   if (typeof b.id !== 'string' || !DOC_ID_RE.test(b.id) || b.id.includes('..')) return { ok: false, error: 'bad_request' };
   if (!TRIAGE_STATUSES.includes(b.status as TriageStatus)) return { ok: false, error: 'bad_request' };
-  return { ok: true, value: { source: b.source, id: b.id, status: b.status as TriageStatus } };
+  if (b.reason !== undefined && b.reason !== null && typeof b.reason !== 'string') return { ok: false, error: 'bad_request' };
+  const reason = b.status === 'irrelevant' ? parseReason(b.reason) : null;
+  return { ok: true, value: { source: b.source, id: b.id, status: b.status as TriageStatus, reason } };
 }
 
 export function isFeedbackDocId(v: unknown): v is string {
