@@ -192,8 +192,8 @@ export function ScopeCompetitionLeaderboardView({
           // the full unit lives on the rows + the note; the pedestal keeps just the number
           sub:
             v2 && !km && (e.totalKm ?? 0) > 0
-              ? t('leagues.scopes.podium.subKm', { count: String(e.activeMemberCount), km: formatKm(e.totalKm) })
-              : t('leagues.scopes.podium.sub', { count: String(e.activeMemberCount) }),
+              ? t('leagues.scopes.podium.subKm', { n: e.activeMemberCount, count: String(e.activeMemberCount), km: formatKm(e.totalKm) })
+              : t('leagues.scopes.podium.sub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
         })) as [PodiumEntry, PodiumEntry, PodiumEntry])
       : null;
 

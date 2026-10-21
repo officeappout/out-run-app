@@ -451,15 +451,19 @@ export function NeighborhoodLeaderboardView({
 
   function handleHeroShare() {
     if (!myEntry) return;
-    const name = scopeLabel ?? t('leagues.individual.leagueFallback');
-    const text = t('leagues.individual.share.rank', { rank: String(myEntry.rank), name, window: heroWindowPhrase });
+    // No scope label → "בליגה" (was "בהליגה", gender batch 3).
+    const text = t('leagues.individual.share.rank', {
+      rank: String(myEntry.rank),
+      hasName: scopeLabel ? 'yes' : 'no',
+      name: scopeLabel ?? '',
+      window: heroWindowPhrase,
+    });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }
 
   function handleHeroInvite() {
-    const name = scopeLabel ?? t('leagues.individual.leagueFallback');
-    const text = t('leagues.individual.share.invite', { name });
+    const text = t('leagues.individual.share.invite', { hasName: scopeLabel ? 'yes' : 'no', name: scopeLabel ?? '' });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }

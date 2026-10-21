@@ -131,7 +131,7 @@ export function GroupLeaderboardView({
                 key: e.groupId,
                 name: e.groupName,
                 value: e.avgScore.toLocaleString('he-IL'),
-                sub: t('leagues.groupBoard.podiumSub', { count: String(e.activeMemberCount) }),
+                sub: t('leagues.groupBoard.podiumSub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
               })) as [PodiumEntry, PodiumEntry, PodiumEntry]
             }
           />
