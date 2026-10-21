@@ -52,7 +52,7 @@ describe('onboarding — remaining screens (batch t)', () => {
   it('plain strings', () => {
     const cases: Array<[OnboardingKey, string]> = [
       // BlurryBridgeOverlay
-      ['bridge.title', 'בוא נכניס הכל ללו״ז'],
+      ['bridge.title', 'בואו נכניס הכל ללו״ז'],
       ['bridge.subtitle', 'נבנה לך תוכנית אישית שמתאימה בדיוק לשגרה שלך'],
       ['bridge.badge.personal', 'מותאם אישית'],
       ['bridge.badge.minutes', '3 דקות'],
@@ -61,7 +61,7 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['bridge.note', 'תמיד אפשר לדלג ולמלא אחר כך'],
       // WelcomeDrawer
       ['welcome.title', 'מה הדבר הראשון שבא לך לעשות?'],
-      ['welcome.skipToMap', 'דלג למפה'],
+      ['welcome.skipToMap', 'דילוג למפה'],
       ['welcome.strength.title', 'אימון כוח מותאם'],
       ['welcome.strength.subtitle', 'תוכנית בנויה בשבילך, לפי הרמה שלך'],
       ['welcome.secondary.gardens.title', 'אימון היברידי בגינת כושר קרובה'],
@@ -91,7 +91,7 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['jit.desc.fallback', 'צריך להשלים כמה דברים לפני האימון'],
       ['jit.required', '(חובה)'],
       ['jit.cta.equipment', 'בואו נעדכן ציוד'],
-      ['jit.skip', 'דלג בינתיים'],
+      ['jit.skip', 'דילוג בינתיים'],
       // HealthDeclarationStep (+ the title / description its hosts pass)
       ['health.title', 'הצהרת בריאות'],
       ['health.description', 'חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך.'],
@@ -121,8 +121,8 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['identity.intro.program', 'אני קלי. כדי לשמור את התוכנית שבנינו אני צריך רק 3 דברים קטנים.'],
       ['identity.intro.profileOnly', 'היי, אני קלי — המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'],
       ['identity.intro.default', 'אני קלי, המאמן האישי שלך. כדי שאבנה לך תוכנית שבאמת מתאימה — אני צריך רק 3 דברים קטנים.'],
-      ['identity.alert.noUser', 'לא נמצא משתמש מחובר. נסה לרענן את הדף.'],
-      ['identity.alert.authError', 'שגיאה באימות המשתמש. נסה לרענן את הדף.'],
+      ['identity.alert.noUser', 'לא נמצא משתמש מחובר. נסו לרענן את הדף.'],
+      ['identity.alert.authError', 'שגיאה באימות המשתמש. נסו לרענן את הדף.'],
       ['identity.alert.saveError', 'שגיאה בשמירת הפרופיל'],
       ['identity.verifying', 'מאמת זהות...'],
       ['identity.back', 'חזרה'],
@@ -176,8 +176,8 @@ describe('onboarding — remaining screens (batch t)', () => {
         'מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.',
       ],
       ['personaDrawer.privacy', 'הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.'],
-      ['personaDrawer.staleUnit', 'היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש'],
-      ['personaDrawer.skip', 'דלג'],
+      ['personaDrawer.staleUnit', 'היחידה שנבחרה בעבר כבר לא קיימת — צריך לבחור מחדש'],
+      ['personaDrawer.skip', 'דילוג'],
       // HierarchySearchStep
       ['hierarchy.searchPlaceholder', 'חיפוש לפי שם או מספר...'],
       ['hierarchy.loading', 'טוען...'],
@@ -189,11 +189,11 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['hierarchy.add.cancel', 'ביטול'],
       ['hierarchy.add.matchYes', 'כן, זו היחידה שלי'],
       ['hierarchy.add.matchNo', 'לא, זו לא'],
-      ['hierarchy.add.submitted', 'ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.'],
+      ['hierarchy.add.submitted', 'ההצעה שלך נשלחה וממתינה לאישור. השיוך שלך אליה כבר נשמר.'],
       ['hierarchy.saving', 'שומר...'],
       ['hierarchy.finish', 'סיום'],
       // SignaturePad
-      ['signaturePad.hint', 'חתום כאן עם האצבע'],
+      ['signaturePad.hint', 'חתימה כאן עם האצבע'],
       ['signaturePad.clear', 'נקה חתימה'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);

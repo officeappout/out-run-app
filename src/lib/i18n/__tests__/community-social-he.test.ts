@@ -45,7 +45,7 @@ describe('community (he) social.* — byte-identical to the pre-extraction liter
       ['social.post.confirm.title', 'למחוק את הפוסט?'],
       ['social.post.confirm.body', 'הפעולה הזו אינה ניתנת לביטול.'],
       ['social.post.confirm.cancel', 'ביטול'],
-      ['social.post.confirm.delete', 'מחק'],
+      ['social.post.confirm.delete', 'מחיקה'],
       // FeedPostCardV2
       ['social.post.paceBars.title', 'קצב לפי הקפה'],
       ['social.post.cheered', 'עודדת'],

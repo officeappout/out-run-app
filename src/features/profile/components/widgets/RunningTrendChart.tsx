@@ -99,9 +99,9 @@ export default function RunningTrendChart() {
       {/* Latest value hero */}
       <div className="flex items-baseline gap-1 mb-3">
         <span className="text-2xl font-black text-gray-900 tabular-nums">{latestDist}</span>
-        <span className="text-xs font-bold text-gray-400">ק"מ</span>
+        <span className="text-xs font-bold text-gray-400">ק״מ</span>
         <span className="text-[10px] font-bold text-gray-300 ms-auto">
-          סה"כ {totalDist.toFixed(1)} ק"מ
+          סה"כ {totalDist.toFixed(1)} ק״מ
         </span>
       </div>
 
@@ -148,7 +148,7 @@ export default function RunningTrendChart() {
                 color: '#fff',
                 padding: '6px 10px',
               }}
-              formatter={(value: number) => [`${value} ק"מ`, '']}
+              formatter={(value: number) => [`${value} ק״מ`, '']}
               labelFormatter={() => ''}
               cursor={{ stroke: '#10B981', strokeWidth: 1, strokeDasharray: '4 4' }}
             />
@@ -169,7 +169,7 @@ export default function RunningTrendChart() {
       <div className="flex items-center justify-center gap-4 mt-2">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-          <span className="text-[10px] font-bold text-gray-500">מרחק (ק"מ)</span>
+          <span className="text-[10px] font-bold text-gray-500">מרחק (ק״מ)</span>
         </div>
       </div>
     </div>

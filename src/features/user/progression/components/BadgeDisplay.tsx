@@ -23,7 +23,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { ACHIEVEMENT_DEFINITIONS } from '../config/achievement-definitions';
+import { ACHIEVEMENT_DEFINITIONS, achievementName } from '../config/achievement-definitions';
+import { useUiGender } from '@/hooks/useUiGender';
 import {
   TIER_COLORS,
   TIER_EMOJI,
@@ -54,18 +55,18 @@ interface EarnedBadge {
   category?: AchievementCategory;
 }
 
-function buildEarnedBadges(unlocked: UnlockedAchievementsMap): EarnedBadge[] {
+function buildEarnedBadges(unlocked: UnlockedAchievementsMap, gender: unknown): EarnedBadge[] {
   const result: EarnedBadge[] = [];
 
   for (const def of ACHIEVEMENT_DEFINITIONS) {
     if (def.type === 'one_time') {
       if (isOneTimeUnlocked(def.id, unlocked)) {
-        result.push({ id: def.id, emoji: def.emoji, name_he: def.name_he, category: def.category });
+        result.push({ id: def.id, emoji: def.emoji, name_he: achievementName(def, gender), category: def.category });
       }
     } else {
       const tier = getHighestUnlockedTier(def.id, unlocked);
       if (tier) {
-        result.push({ id: def.id, emoji: def.emoji, name_he: def.name_he, tier, category: def.category });
+        result.push({ id: def.id, emoji: def.emoji, name_he: achievementName(def, gender), tier, category: def.category });
       }
     }
   }
@@ -117,12 +118,12 @@ function v2Style(category: AchievementCategory | undefined) {
 }
 
 /** Definitions the user hasn't earned any tier of yet — shown muted with a lock. */
-function buildLockedBadges(unlocked: UnlockedAchievementsMap): EarnedBadge[] {
+function buildLockedBadges(unlocked: UnlockedAchievementsMap, gender: unknown): EarnedBadge[] {
   return ACHIEVEMENT_DEFINITIONS.filter((def) =>
     def.type === 'one_time'
       ? !isOneTimeUnlocked(def.id, unlocked)
       : !getHighestUnlockedTier(def.id, unlocked),
-  ).map((def) => ({ id: def.id, emoji: def.emoji, name_he: def.name_he, category: def.category }));
+  ).map((def) => ({ id: def.id, emoji: def.emoji, name_he: achievementName(def, gender), category: def.category }));
 }
 
 function BadgeCardV2({ badge, locked, onClick }: { badge: EarnedBadge; locked: boolean; onClick: () => void }) {
@@ -153,10 +154,11 @@ function BadgeCardV2({ badge, locked, onClick }: { badge: EarnedBadge; locked: b
 }
 
 function BadgeGridV2({ unlockedAchievements, onViewAll, maxVisible }: Required<Omit<BadgeDisplayProps, 'v2'>>) {
-  const earned = buildEarnedBadges(unlockedAchievements);
+  const gender = useUiGender();
+  const earned = buildEarnedBadges(unlockedAchievements, gender);
   const visibleEarned = earned.slice(0, maxVisible);
   const remaining = earned.length - visibleEarned.length;
-  const locked = buildLockedBadges(unlockedAchievements).slice(0, Math.max(0, maxVisible - visibleEarned.length));
+  const locked = buildLockedBadges(unlockedAchievements, gender).slice(0, Math.max(0, maxVisible - visibleEarned.length));
 
   return (
     <div dir="rtl">
@@ -190,10 +192,11 @@ export function BadgeDisplay({
   maxVisible = 6,
   v2 = false,
 }: BadgeDisplayProps) {
+  const gender = useUiGender();
   if (v2) {
     return <BadgeGridV2 unlockedAchievements={unlockedAchievements} onViewAll={onViewAll} maxVisible={maxVisible} />;
   }
-  const earned = buildEarnedBadges(unlockedAchievements);
+  const earned = buildEarnedBadges(unlockedAchievements, gender);
   const visible = earned.slice(0, maxVisible);
   const remaining = earned.length - visible.length;
 

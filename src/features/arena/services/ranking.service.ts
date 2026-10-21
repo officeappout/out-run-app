@@ -194,7 +194,7 @@ export async function getLeaderboard(params: {
       myEntry = {
         rank: totalParticipants + 1,
         uid: currentUid,
-        name: currentName ?? 'את/ה',
+        name: currentName ?? 'אני',
         totalCredit: 0,
         workoutCount: 0,
         isCurrentUser: true,
@@ -298,7 +298,7 @@ export async function getDistanceLeaderboard(params: {
       myEntry = {
         rank: totalParticipants + 1,
         uid: currentUid,
-        name: currentName ?? 'את/ה',
+        name: currentName ?? 'אני',
         totalCredit: 0,
         workoutCount: 0,
         isCurrentUser: true,
@@ -406,7 +406,7 @@ export async function getSegmentLeaderboard(params: {
       const [, { name, bestPace }] = allSorted[myIdx];
       myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: bestPace, workoutCount: bestPace, isCurrentUser: true };
     } else {
-      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
     }
   }
 
@@ -529,7 +529,7 @@ export async function getStreakLeaderboard(params: {
       const { name, streak } = rows[myIdx];
       myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: streak, workoutCount: streak, isCurrentUser: true };
     } else {
-      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
     }
   }
 
@@ -661,7 +661,7 @@ export async function getStepsLeaderboard(params: {
       const { name, weeklyAvg } = allSorted[myIdx];
       myEntry = { rank: myIdx + 1, uid: currentUid, name, totalCredit: weeklyAvg, workoutCount: weeklyAvg, isCurrentUser: true };
     } else {
-      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
     }
   }
 
@@ -748,7 +748,7 @@ export async function getLeagueLeaderboard(params: {
       myEntry = {
         rank: totalParticipants + 1,
         uid: currentUid,
-        name: currentName ?? 'את/ה',
+        name: currentName ?? 'אני',
         totalCredit: 0,
         workoutCount: 0,
         isCurrentUser: true,
@@ -877,7 +877,7 @@ export async function getTenantLeaderboard(params: {
     .map(([uid, { activeDays, workouts }], idx) => ({
       rank: idx + 1,
       uid,
-      name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'את/ה' : nameMap.get(uid) ?? 'משתמש',
+      name: uid === currentUid ? currentName ?? nameMap.get(uid) ?? 'אני' : nameMap.get(uid) ?? 'משתמש',
       totalCredit: activeDays, // score = active days this month
       workoutCount: workouts,
       isCurrentUser: uid === currentUid,
@@ -888,9 +888,9 @@ export async function getTenantLeaderboard(params: {
     const myIdx = allSorted.findIndex(([uid]) => uid === currentUid);
     if (myIdx >= 0) {
       const [, { activeDays, workouts }] = allSorted[myIdx];
-      myEntry = { rank: myIdx + 1, uid: currentUid, name: currentName ?? nameMap.get(currentUid) ?? 'את/ה', totalCredit: activeDays, workoutCount: workouts, isCurrentUser: true };
+      myEntry = { rank: myIdx + 1, uid: currentUid, name: currentName ?? nameMap.get(currentUid) ?? 'אני', totalCredit: activeDays, workoutCount: workouts, isCurrentUser: true };
     } else {
-      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+      myEntry = { rank: totalParticipants + 1, uid: currentUid, name: currentName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
     }
   }
 

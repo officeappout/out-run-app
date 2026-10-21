@@ -34,20 +34,20 @@ describe('community (he) arena components — byte-identical to the pre-extracti
   it('plain strings', () => {
     const cases: Array<[Key, string]> = [
       ['mapCard.alt', 'מפה'],
-      ['circles.createOrJoin', 'צור / הצטרף'],
+      ['circles.createOrJoin', 'יצירה / הצטרפות'],
       ['groupCard.community', 'קהילתי'],
       ['groupCard.live.compact.active', 'לייב'],
       ['groupCard.live.compact.soon', 'בקרוב'],
       ['groupCard.live.active', '🟢 לייב'],
       ['groupCard.live.soon', '🟠 בקרוב'],
-      ['groupCard.updateLocation', 'עדכן מיקום למיקומי הנוכחי'],
+      ['groupCard.updateLocation', 'עדכון למיקום הנוכחי שלי'],
       ['groupCard.code.label', 'קוד הצטרפות'],
       ['groupCard.code.submit', 'אישור'],
       ['groupCard.code.cancel', 'ביטול הזנת קוד'],
-      ['groupCard.code.wrong', 'קוד שגוי, אנא נסה שנית'],
+      ['groupCard.code.wrong', 'קוד שגוי, אנא נסו שנית'],
       ['groupCard.chat', "כנס לצ'אט"],
-      ['groupCard.enterCode', 'הזן קוד'],
-      ['groupCard.join', 'הצטרף'],
+      ['groupCard.enterCode', 'הזנת קוד'],
+      ['groupCard.join', 'הצטרפות'],
       ['eventCard.official', 'רשמי'],
       ['eventCard.registered', 'רשום/ה'],
       ['eventCard.register', 'הרשמה'],
@@ -72,10 +72,10 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['report.reason.other', 'אחר'],
       ['report.sent', 'הדיווח נשלח'],
       ['report.thanks', 'תודה על שמירת הקהילה. נבדוק את הדיווח בהקדם.'],
-      ['report.done', 'סגור'],
-      ['report.submit', 'שלח דיווח'],
+      ['report.done', 'סגירה'],
+      ['report.submit', 'שליחת דיווח'],
       ['report.close', 'סגירה'],
-      ['postJoin.addToPlanner', 'הוסף מפגשים ללוז אימונים'],
+      ['postJoin.addToPlanner', 'הוספת המפגשים ללוז האימונים'],
       ['postJoin.calendarSync', 'סנכרון ליומן הטלפון'],
       ['postJoin.invite', 'הזמן שותף/ה'],
       ['postJoin.chat', "כנס לצ'אט הקהילה"],
@@ -87,7 +87,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['banner.late.ack', 'הבנו, נחכה לך ❤️'],
       ['banner.skip', 'לא הפעם'],
       ['banner.booked', 'אושר!'],
-      ['banner.confirmArrival', 'אשר הגעה'],
+      ['banner.confirmArrival', 'אישור הגעה'],
       ['banner.fallback', 'מפגש קהילתי בקרוב'],
       ['banner.onMyWay.cta', '✋ אני בדרך'],
       ['banner.started', 'המפגש החל!'],
@@ -97,7 +97,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['creator.title', 'ניהול קהילה'],
       ['creator.close', 'סגירה'],
       ['creator.quickActions', 'פעולות מהירות'],
-      ['creator.edit.title', 'ערוך פרטי קהילה'],
+      ['creator.edit.title', 'עריכת פרטי הקהילה'],
       ['creator.edit.subtitle', 'שם, תיאור, מיקום, לוח זמנים'],
       ['creator.stats.title', 'צפה בסטטיסטיקות'],
       ['creator.stats.subtitle', 'בקרוב — נתוני פעילות ונוכחות'],
@@ -111,7 +111,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['creator.members.remove', 'הסר מהקבוצה'],
       ['creator.remove.title', 'הסרת חבר/ה'],
       ['creator.remove.note', 'המשתמש יוסר מהקבוצה, מהצ׳אט ומהלוז האישי שלו'],
-      ['creator.remove.confirm', 'הסר'],
+      ['creator.remove.confirm', 'הסרה'],
       ['creator.remove.cancel', 'ביטול'],
       ['inviteBonus.cta', 'הזמנת חבר'],
       ['pressure.defaultContact', 'מחלקת הספורט'],
@@ -202,7 +202,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
   it('PostJoinSuccessDrawer', () => {
     const name = 'רצי הירקון';
     const url = 'https://app.example';
-    expect(t('postJoin.shareText', { name, url })).toBe(`היי, הצטרפתי ל-${name} ב-OutRun! בוא/י להתאמן איתי: ${url}`);
+    expect(t('postJoin.shareText', { name, url })).toBe(`היי, הצטרפתי ל-${name} ב-OutRun! בואו להתאמן איתי: ${url}`); // gender batch 2: בוא/י → בואו (decision 7)
     expect(t('postJoin.title', { name })).toBe(`איזה כיף! הצטרפת ל-${name}`);
     expect(t('postJoin.subtitle', { verb: 'ירוץ' })).toBe(`הזמן שותף ש${'ירוץ'} איתך!`);
     expect(t('postJoin.aria', { name })).toBe(`הצטרפת ל-${name}`);
@@ -237,11 +237,14 @@ describe('community (he) arena components — byte-identical to the pre-extracti
 
   it('CommunitySessionBanner — gendered copy (g(f, m) on isFeminine) and goal chip', () => {
     for (const gender of GENDERS) {
-      expect(t('banner.late.toggle', { gender })).toBe(g(gender, 'מאחרת?', 'מאחר?'));
-      expect(t('banner.register', { gender })).toBe(g(gender, 'הירשמי', 'הירשם'));
-      expect(t('banner.onMyWay.done', { gender })).toBe(g(gender, 'בדרך! 🏃‍♀️', 'בדרך! 🏃'));
-      expect(t('banner.joinWorkout', { gender })).toBe(g(gender, 'הצטרפי לאימון', 'הצטרף לאימון'));
-      expect(t('banner.ended', { gender })).toBe(g(gender, 'סיימתן! 💪', 'סיימתם! 💪'));
+      // Gender batch 2 (21.10.2026): male keeps the old masculine text, other is neutral.
+      const g3 = (f: string, m: string, n: string) => (gender === 'female' ? f : gender === 'male' ? m : n);
+      expect(t('banner.late.toggle', { gender })).toBe(g3('מאחרת?', 'מאחר?', 'מאחרים?'));
+      expect(t('banner.register', { gender })).toBe(g3('הירשמי', 'הירשם', 'הרשמה'));
+      expect(t('banner.confirmArrival', { gender })).toBe(g3('אשרי הגעה', 'אשר הגעה', 'אישור הגעה'));
+      expect(t('banner.onMyWay.done', { gender })).toBe(g3('בדרך! 🏃‍♀️', 'בדרך! 🏃', 'בדרך! 🏃'));
+      expect(t('banner.joinWorkout', { gender })).toBe(g3('הצטרפי לאימון', 'הצטרף לאימון', 'מצטרפים לאימון'));
+      expect(t('banner.ended', { gender })).toBe(g3('סיימתן! 💪', 'סיימתם! 💪', 'סיימתם! 💪'));
     }
     for (const m of [2, 5, 10, 15]) expect(t('banner.late.option', { m: String(m) })).toBe(`+${m} דק׳`);
     for (const goal of [{ type: 'distance', value: 5 }, { type: 'distance', value: 12.34 }, { type: 'time', value: 2700 }, { type: 'time', value: 90 }]) {
@@ -265,10 +268,10 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     const SLOTS = 5;
     const link = 'https://onelink.to/appout?ref=u1';
     for (const scopeName of ['נווה צדק', null, undefined, '']) {
-      const old = `בוא/י להתאמן איתי${scopeName ? ` ב${scopeName}` : ''} ב-OUT 💪 ${link}`;
+      const old = `בואו להתאמן איתי${scopeName ? ` ב${scopeName}` : ''} ב-OUT 💪 ${link}`;
       const now = scopeName ? t('inviteBonus.shareText.scoped', { scope: scopeName, link }) : t('inviteBonus.shareText.plain', { link });
       expect(now).toBe(old);
-      const oldBody = `הנקודות נכנסות לליגת ${scopeName ? `${scopeName} ול` : 'השכונה ו'}עיר שלך, עד ${SLOTS} חברים בשבוע.`;
+      const oldBody = `הנקודות נכנסות לליגת ${scopeName ? `${scopeName} ול` : 'השכונה וה'}עיר שלך, עד ${SLOTS} חברים בשבוע.`;
       const nowBody = scopeName
         ? t('inviteBonus.body.scoped', { scope: scopeName, slots: String(SLOTS) })
         : t('inviteBonus.body.neighborhood', { slots: String(SLOTS) });
@@ -299,16 +302,18 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     const DEFAULT_FEMALE =
       'היי ${contactPerson}, אני אווטירית ב-Out ומתאמנת בנבחרת של ${cityName}. אנחנו רוצים שתפתחו לנו את הליגה הרשמית והפרסים! 🔥';
     const vars = { contactPerson: '${contactPerson}', cityName: '${cityName}' };
-    // Old: gender = profile.core.gender ?? 'male'; gender === 'female' ? DEFAULT_FEMALE : DEFAULT_MALE.
-    for (const gender of ['female', 'male', 'other', undefined, 'unexpected']) {
-      const old = gender === 'female' ? DEFAULT_FEMALE : DEFAULT_MALE;
-      const copyGender = gender === 'female' ? 'female' : 'other';
-      expect(t('pressure.message', { ...vars, gender: copyGender })).toBe(old);
+    // Gender batch 2 (21.10.2026): male / female keep the old texts; unknown / other is neutral
+    // (was: the masculine text). The caller passes male / female / other (MunicipalPressureCard).
+    const DEFAULT_NEUTRAL =
+      'היי ${contactPerson}, אני מהנבחרת של ${cityName} ב-Out. אנחנו רוצים שתפתחו לנו את הליגה הרשמית והפרסים! 🔥';
+    for (const gender of ['female', 'male', 'other'] as const) {
+      const g3 = (f: string, m: string, n: string) => (gender === 'female' ? f : gender === 'male' ? m : n);
+      expect(t('pressure.message', { ...vars, gender })).toBe(g3(DEFAULT_FEMALE, DEFAULT_MALE, DEFAULT_NEUTRAL));
       const contact = 'יוסי';
-      expect(t('pressure.body', { contact, gender: copyGender })).toBe(
-        `${gender === 'female' ? 'בואי נזיז אותם!' : 'בוא נזיז אותם!'}${' '}${gender === 'female' ? 'שלחי' : 'שלח'} הודעה ל${contact} כדי שיפתחו את הליגה, הדירוגים והפרסים.`,
+      expect(t('pressure.body', { contact, gender })).toBe(
+        `${g3('בואי נזיז אותם! שלחי', 'בוא נזיז אותם! שלח', 'בואו נזיז אותם! שלחו')} הודעה ל${contact} כדי שיפתחו את הליגה, הדירוגים והפרסים.`,
       );
-      expect(t('pressure.cta', { gender: copyGender })).toBe(`📢 ${gender === 'female' ? 'שלחי' : 'שלח'} הודעה לעירייה`);
+      expect(t('pressure.cta', { gender })).toBe(`📢 ${g3('שלחי הודעה', 'שלח הודעה', 'שליחת הודעה')} לעירייה`);
     }
     const city = 'הרצליה';
     expect(t('pressure.mailSubject', { city })).toBe(`פתחו את הליגה ב-${city}!`);
@@ -322,8 +327,9 @@ describe('community (he) arena components — byte-identical to the pre-extracti
         defaultMale: 'היי, אני תלמיד ב-${orgName} ומתאמן עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
         defaultFemale: 'היי, אני תלמידה ב-${orgName} ומתאמנת עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
         title: (orgName: string) => `רוצה להביא את Out ל${orgName}?`,
-        subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם המנהל/ת! ${g === 'female' ? 'שלחי' : 'שלח'} הודעה בוואטסאפ והמורה ישמע על Out.`,
-        buttonIdle: (g: G) => `🏫 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה למנהל/ת`,
+        // Gender batch 2: no slash forms — "המנהל/ת" → "הנהלת בית הספר", "המורה ישמע" → "כל הצוות ישמע".
+        subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם הנהלת בית הספר! ${g === 'female' ? 'שלחי' : 'שלח'} הודעה בוואטסאפ וכל הצוות ישמע על Out.`,
+        buttonIdle: (g: G) => `🏫 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה להנהלת בית הספר`,
       },
       company: {
         defaultMale: 'היי, אני עובד ב-${orgName} ומתאמן עם Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪',
@@ -336,8 +342,8 @@ describe('community (he) arena components — byte-identical to the pre-extracti
         defaultMale: 'היי, אני חניך ב-${orgName} ומתאמן עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
         defaultFemale: 'היי, אני חניכה ב-${orgName} ומתאמנת עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
         title: (orgName: string) => `רוצה את Out ב${orgName}?`,
-        subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם הרכז/ת ושתפו את החניכים בוואטסאפ.`,
-        buttonIdle: (g: G) => `⛺ ${g === 'female' ? 'שלחי' : 'שלח'} הודעה לרכז/ת`,
+        subtitle: (g: G) => `${g === 'female' ? 'דברי' : 'דבר'} עם צוות התנועה ושתפו את החניכים בוואטסאפ.`,
+        buttonIdle: (g: G) => `⛺ ${g === 'female' ? 'שלחי' : 'שלח'} הודעה לצוות התנועה`,
       },
     } as const;
     for (const org of ['school', 'company', 'youth'] as const) {
@@ -348,6 +354,18 @@ describe('community (he) arena components — byte-identical to the pre-extracti
         expect(t(`outreach.${org}.cta`, { gender })).toBe(old.buttonIdle(gender));
       }
       expect(t(`outreach.${org}.title`, { orgName: 'תיכון הרצוג' })).toBe(old.title('תיכון הרצוג'));
+    }
+    // Unknown / other gender: neutral (was the masculine text).
+    const NEUTRAL = {
+      school: ['היי, אני מ-${orgName} ואני באפליקציית Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥', 'דברו עם הנהלת בית הספר! שלחו הודעה בוואטסאפ וכל הצוות ישמע על Out.', '🏫 שליחת הודעה להנהלת בית הספר'],
+      company: ['היי, אני מ-${orgName} ואני באפליקציית Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪', 'דברו עם מחלקת הרווחה / HR ושתפו את הצוות בוואטסאפ.', '🏢 שליחת הודעה ל-HR'],
+      youth: ['היי, אני מ-${orgName} ואני באפליקציית Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥', 'דברו עם צוות התנועה ושתפו את החניכים בוואטסאפ.', '⛺ שליחת הודעה לצוות התנועה'],
+    } as const;
+    for (const org of ['school', 'company', 'youth'] as const) {
+      const [message, subtitle, cta] = NEUTRAL[org];
+      expect(t(`outreach.${org}.message`, { orgName: '${orgName}', gender: 'other' })).toBe(message);
+      expect(t(`outreach.${org}.subtitle`, { gender: 'other' })).toBe(subtitle);
+      expect(t(`outreach.${org}.cta`, { gender: 'other' })).toBe(cta);
     }
   });
 

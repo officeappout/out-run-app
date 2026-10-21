@@ -14,6 +14,9 @@ import SummaryOrchestrator, {
 } from './components/SummaryOrchestrator';
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
 import AerobicSummary from './pages/AerobicSummary';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+import { SUMMARY_COPY } from './summary-gender-copy';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
@@ -21,11 +24,13 @@ interface WorkoutSummaryPageProps {
   workoutType?: WorkoutType;
 }
 
+
 export default function WorkoutSummaryPage({
   onFinish,
   workoutType = 'FREE_RUN',
 }: WorkoutSummaryPageProps) {
   const router = useRouter();
+  const uiGender = useUiGender();
   const { totalDistance, totalDuration } = useSessionStore();
   const { currentPace, routeCoords, activityType, laps, clearRunningData, elevationGain, savedWorkoutSnapshot } =
     useRunningPlayer();
@@ -248,7 +253,7 @@ export default function WorkoutSummaryPage({
     laps: snap?.laps ?? laps.filter((lap) => !lap.isActive || lap.distanceMeters > 0),
     date: snap?.date ?? new Date(),
     title: 'האימון הושלם!',
-    motivationalMessage: 'כל הכבוד! המשך כך!',
+    motivationalMessage: pickGendered(uiGender, SUMMARY_COPY.keepGoing),
   };
 
   return (
@@ -274,13 +279,13 @@ export default function WorkoutSummaryPage({
               onClick={handleFinish}
               className="flex-1 py-4 rounded-xl font-bold text-gray-500 hover:bg-white transition-colors border border-gray-200 bg-white"
             >
-              וותר
+              לא עכשיו
             </button>
             <button
               onClick={handleClaim}
               className="flex-[2] py-4 rounded-xl font-black text-lg bg-[#00E5FF] text-black hover:bg-[#00D4EE] transition-all shadow-lg"
             >
-              השלם פרופיל וקבל בונוס
+              {pickGendered(uiGender, SUMMARY_COPY.claimBonus)}
             </button>
           </div>
         ) : (
