@@ -22,6 +22,8 @@ import { useRunPreviewModel } from '../preview-v2/useRunPreviewModel';
 import { useTodayPlannedRun, type TodayPlannedRun } from './useTodayPlannedRun';
 import TodayWorkoutFitCard from './TodayWorkoutFitCard';
 import RunWorkoutOverview from './RunWorkoutOverview';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RouteOverviewWithTodayRunProps extends Omit<RouteOverviewOverlayProps, 'renderTopCard' | 'renderWorkoutView'> {
   /** Start today's planned run (the runner's edits applied) on this route. */
@@ -29,6 +31,7 @@ export interface RouteOverviewWithTodayRunProps extends Omit<RouteOverviewOverla
 }
 
 export default function RouteOverviewWithTodayRun({ onStartWorkoutOnRoute, ...overlay }: RouteOverviewWithTodayRunProps) {
+  const t = useT(player);
   const today = useTodayPlannedRun(true);
   const pace = useRunPaceContext();
   const [edits, setEdits] = useState<RunEdits>(NO_RUN_EDITS);
@@ -55,7 +58,7 @@ export default function RouteOverviewWithTodayRun({ onStartWorkoutOnRoute, ...ov
     <RouteOverviewOverlay
       {...overlay}
       renderTopCard={fits ? (open) => (
-        <TodayWorkoutFitCard model={model!} fitLabel={verdict!.label ?? 'מתאים'} onOpen={open} />
+        <TodayWorkoutFitCard model={model!} fitLabel={verdict!.label ?? t('run.overview.fitFallback')} onOpen={open} />
       ) : undefined}
       renderWorkoutView={fits ? (back) => (
         <RouteWorkoutView

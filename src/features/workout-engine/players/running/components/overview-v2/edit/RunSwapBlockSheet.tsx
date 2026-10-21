@@ -12,8 +12,14 @@ import { useEffect, useState } from 'react';
 import { Repeat2 } from 'lucide-react';
 import { Button, LevelCompareIcon, Sheet, SheetHeader, SHEET_Z } from '@/components/ui/v2';
 import { swapDeltaText, type SwapAlternative, type SwapGroup, type SwapLevel } from '../../../utils/run-overview/run-swap-alternatives';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
-const LEVEL_TITLE: Record<SwapLevel, string> = { lower: 'קל יותר', same: 'דומה', higher: 'קשה יותר' };
+const LEVEL_TITLE_KEY = {
+  lower: 'run.overview.swap.level.lower',
+  same: 'run.overview.swap.level.same',
+  higher: 'run.overview.swap.level.higher',
+} as const satisfies Record<SwapLevel, PlayerKey>;
 const WORK = '#e5484d';
 const REST = '#dfe7ed';
 
@@ -38,6 +44,7 @@ export interface RunSwapBlockSheetProps {
 }
 
 export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose }: RunSwapBlockSheetProps) {
+  const t = useT(player);
   const all = groups.flatMap((g) => g.items);
   const current = all.find((a) => a.current) ?? null;
   const [picked, setPicked] = useState<string | null>(null);
@@ -50,7 +57,7 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
       onClose={onClose}
       zIndex={SHEET_Z.freeRunGoalPanel}
       backdropZIndex={SHEET_Z.freeRunGoal}
-      ariaLabel="החלף מקטע"
+      ariaLabel={t('run.overview.swap.title')}
       closeOnEscape
       className="max-h-[86vh]"
       header={(
@@ -59,8 +66,8 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
           className="flex items-start justify-between gap-2.5 px-5 pb-1"
           title={(
             <>
-              החלף מקטע
-              <span className="block truncate whitespace-nowrap text-[13px] font-bold !tracking-normal text-v2-muted">העיקר כולו — חזרות והתאוששות יחד · הקצב נשאר שלך</span>
+              {t('run.overview.swap.title')}
+              <span className="block truncate whitespace-nowrap text-[13px] font-bold !tracking-normal text-v2-muted">{t('run.overview.swap.subtitle')}</span>
             </>
           )}
         />
@@ -70,16 +77,16 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
         <div className="px-5 pt-3.5">
           <Button variant="cta" block disabled={!choice || choice.current} onClick={() => choice && onSwap(choice.key)}>
             <Repeat2 size={17} strokeWidth={2.4} aria-hidden />
-            {choice && !choice.current ? `החלף ל-${choice.title}` : 'החלף'}
+            {choice && !choice.current ? t('run.overview.swap.confirmTo', { title: choice.title }) : t('run.overview.swap.confirm')}
           </Button>
         </div>
       )}
     >
       <div dir="rtl" className="pb-1">
         {groups.map((g) => (
-          <section key={g.level} aria-label={LEVEL_TITLE[g.level]}>
+          <section key={g.level} aria-label={t(LEVEL_TITLE_KEY[g.level])}>
             <div className="mt-4 flex items-center gap-2">
-              <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{LEVEL_TITLE[g.level]}</span>
+              <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t(LEVEL_TITLE_KEY[g.level])}</span>
               <LevelCompareIcon level={g.level} size={16} />
             </div>
             {g.items.map((a) => {
@@ -94,7 +101,7 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
                     <span className="flex items-center gap-1.5">
                       <span className="truncate whitespace-nowrap text-[14px] font-black text-v2-ink">{a.title}</span>
                       {a.current && (
-                        <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-surface px-2 py-0.5 text-[11px] font-extrabold text-v2-muted ring-1 ring-inset ring-v2-accent/35">נוכחי</span>
+                        <span className="shrink-0 whitespace-nowrap rounded-full bg-v2-surface px-2 py-0.5 text-[11px] font-extrabold text-v2-muted ring-1 ring-inset ring-v2-accent/35">{t('run.overview.swap.current')}</span>
                       )}
                     </span>
                     <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{a.sub}</span>
@@ -106,7 +113,7 @@ export default function RunSwapBlockSheet({ open, groups, color, onSwap, onClose
           </section>
         ))}
         {current == null && all.length === 0 && (
-          <p className="mt-4 text-[13px] font-bold text-v2-muted">אין חלופות לאימון הזה</p>
+          <p className="mt-4 text-[13px] font-bold text-v2-muted">{t('run.overview.swap.empty')}</p>
         )}
       </div>
     </Sheet>

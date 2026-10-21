@@ -2,6 +2,8 @@
 
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const NUM_COLOR     = 'var(--metrics-num-color, #000000)';
 const LABEL_COLOR   = 'var(--metrics-label-color, rgba(0, 0, 0, 0.65))';
@@ -24,6 +26,7 @@ function fmtDuration(seconds: number): string {
  * automatically when triggerLap() pushes a new active lap.
  */
 export default function LapMetrics() {
+  const t = useT(player);
   const laps = useRunningPlayer((s) => s.laps);
 
   const activeLap = laps.find((l) => l.isActive) ?? laps[laps.length - 1] ?? null;
@@ -41,7 +44,7 @@ export default function LapMetrics() {
       <div className="flex items-center justify-center gap-3 mb-2">
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
         <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: HEADER_COLOR }}>
-          הקפה {lapNumber}
+          {t('run.stats.lap.header', { n: String(lapNumber) })}
         </span>
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
       </div>
@@ -55,7 +58,7 @@ export default function LapMetrics() {
           {distKm.toFixed(2)}
         </div>
         <div className="text-xs font-bold mt-0.5 tracking-widest uppercase" style={{ color: LABEL_COLOR }}>
-          קילומטר
+          {t('run.stats.lap.km')}
         </div>
       </div>
 
@@ -73,7 +76,7 @@ export default function LapMetrics() {
             {formatPace(pace)}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            קצב
+            {t('run.stats.lap.pace')}
           </div>
         </div>
 
@@ -86,7 +89,7 @@ export default function LapMetrics() {
             {fmtDuration(durationSec)}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            זמן
+            {t('run.stats.lap.time')}
           </div>
         </div>
 
@@ -96,7 +99,7 @@ export default function LapMetrics() {
             {lapNumber}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            הקפה
+            {t('run.stats.lap.number')}
           </div>
         </div>
       </div>

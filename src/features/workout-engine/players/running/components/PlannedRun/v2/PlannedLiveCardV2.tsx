@@ -37,6 +37,8 @@ import {
   type PaceClass,
   type PlannedBlockRecord,
 } from '../../../lib/planned-rep-results';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface PlannedLiveCardV2Props {
   engine: PlannedRunEngine;
@@ -139,6 +141,7 @@ export default function PlannedLiveCardV2({
   onEnd,
   onLap,
 }: PlannedLiveCardV2Props) {
+  const t = useT(player);
   const [page, setPage] = useState(0);
   const [lapToast, setLapToast] = useState<string | null>(null);
   const lapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -163,10 +166,10 @@ export default function PlannedLiveCardV2({
 
   const handleLap = useCallback(() => {
     onLap();
-    setLapToast('הקפה נרשמה');
+    setLapToast(t('run.planned.lapLogged'));
     if (lapTimer.current) clearTimeout(lapTimer.current);
     lapTimer.current = setTimeout(() => setLapToast(null), 1600);
-  }, [onLap]);
+  }, [onLap, t]);
 
   const onDragEnd = (_: unknown, info: PanInfo) => {
     // Page 2 sits to the LEFT (RTL): dragging the card rightwards reveals it.
@@ -190,7 +193,7 @@ export default function PlannedLiveCardV2({
       : block.distanceMeters && block.distanceMeters > 0
         ? fmtDistance(blockDistanceRemaining)
         : fmtClock(blockElapsedSeconds);
-  const where = isRep ? 'בחזרה' : 'בבלוק';
+  const where = isRep ? 'rep' : 'block';
   const avgPaceSec = totals.distanceKm > 0.05 ? totals.durationSec / totals.distanceKm : 0;
   const nowPace = currentPaceSeconds > 0 ? fmtPace(currentPaceSeconds) : '--:--';
 
@@ -204,7 +207,9 @@ export default function PlannedLiveCardV2({
       )}
       <span className="truncate">
         {isRep
-          ? `חזרה ${rep} מתוך ${reps.total}${plannedMeta(block) ? ` · ${plannedMeta(block)}` : ''}`
+          ? plannedMeta(block)
+            ? t('run.planned.repOfMeta', { rep: String(rep), total: String(reps.total), meta: plannedMeta(block) })
+            : t('run.planned.repOf', { rep: String(rep), total: String(reps.total) })
           : blockDisplayLabel(block)}
       </span>
     </Pill>
@@ -212,9 +217,9 @@ export default function PlannedLiveCardV2({
 
   let sideChip: React.ReactNode = null;
   if (mode === 'pace' && live) {
-    const t = PACE_BAND_COLORS[live.band];
+    const tone = PACE_BAND_COLORS[live.band];
     sideChip = (
-      <Pill bg={t.bg} color={t.text}>
+      <Pill bg={tone.bg} color={tone.text}>
         <BandIcon c={live} size={13} />
         {paceClassText(live)}
       </Pill>
@@ -223,16 +228,16 @@ export default function PlannedLiveCardV2({
     sideChip = (
       <Pill bg="#fff7ed" color="#c2410c">
         <Flame size={13} strokeWidth={ICON_STROKE} aria-hidden />
-        {effortLabel || 'מאמץ'}
+        {effortLabel || t('run.planned.effort')}
       </Pill>
     );
   } else if (mode === 'recovery' && lastRep) {
     const c = recordClass(lastRep);
-    const t = c ? PACE_BAND_COLORS[c.band] : null;
+    const tone = c ? PACE_BAND_COLORS[c.band] : null;
     sideChip = (
-      <Pill bg={t ? t.bg : '#eef8fc'} color={t ? t.text : '#0284c7'}>
+      <Pill bg={tone ? tone.bg : '#eef8fc'} color={tone ? tone.text : '#0284c7'}>
         {c ? <BandIcon c={c} size={13} /> : <Timer size={13} strokeWidth={ICON_STROKE} aria-hidden />}
-        {`אחרי חזרה ${lastRep.rep} · ${lastRep.avgPaceSec ? fmtPace(lastRep.avgPaceSec) : fmtClock(lastRep.durationSeconds)}`}
+        {t('run.planned.afterRep', { rep: String(lastRep.rep), value: lastRep.avgPaceSec ? fmtPace(lastRep.avgPaceSec) : fmtClock(lastRep.durationSeconds) })}
       </Pill>
     );
   }
@@ -240,36 +245,36 @@ export default function PlannedLiveCardV2({
   // ── Page 1 body by mode ────────────────────────────────────────────────
   const next = blocks[currentBlockIndex + 1] ?? null;
   const nextRep = next ? reps.byIndex.get(currentBlockIndex + 1) ?? 0 : 0;
-  const nextName = next ? (isWorkBlock(next) && reps.total > 1 ? `חזרה ${nextRep}` : blockDisplayLabel(next)) : '';
+  const nextName = next ? (isWorkBlock(next) && reps.total > 1 ? t('run.planned.repN', { rep: String(nextRep) }) : blockDisplayLabel(next)) : '';
 
   let body: React.ReactNode = null;
   if (mode === 'pace' || mode === 'pace_free') {
     const color = live ? PACE_BAND_COLORS[live.band].fg : undefined;
     body = (
       <>
-        <Hero value={nowPace} color={color} label="קצב עכשיו · דק׳ לק״מ" />
+        <Hero value={nowPace} color={color} label={t('run.planned.paceNowUnit')} />
         {mode === 'pace' && (
           <PaceRangeScale
             minSec={targetMinPace}
             maxSec={targetMaxPace}
             currentSec={currentPaceSeconds}
             markerColor={color ?? '#a9b7c2'}
-            targetLabel={showNumbers ? `יעד ${fmtBand(targetMinPace, targetMaxPace)}` : `יעד · ${targetZoneLabel}`}
+            targetLabel={showNumbers ? t('run.planned.target', { band: fmtBand(targetMinPace, targetMaxPace) }) : t('run.planned.targetZone', { zone: targetZoneLabel })}
           />
         )}
         <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
-          <Stat value={remaining} label={`נותרו ${where}`} />
-          <Stat value={fmtClock(blockElapsedSeconds)} label={`זמן ${where}`} />
+          <Stat value={remaining} label={t('run.planned.remaining', { where })} />
+          <Stat value={fmtClock(blockElapsedSeconds)} label={t('run.planned.elapsed', { where })} />
         </div>
       </>
     );
   } else if (mode === 'short' || mode === 'effort') {
     body = (
       <>
-        <Hero value={remaining} label={`נותרו ${where}`} />
+        <Hero value={remaining} label={t('run.planned.remaining', { where })} />
         <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
-          <Stat value={fmtClock(blockElapsedSeconds)} label={`זמן ${where}`} />
-          <Stat value={totals.distanceKm.toFixed(2)} label="ק״מ סה״כ" />
+          <Stat value={fmtClock(blockElapsedSeconds)} label={t('run.planned.elapsed', { where })} />
+          <Stat value={totals.distanceKm.toFixed(2)} label={t('run.planned.totalKm')} />
         </div>
       </>
     );
@@ -281,7 +286,9 @@ export default function PlannedLiveCardV2({
       <>
         <Hero
           value={remaining}
-          label={next ? `עד ${nextName}${block?.durationSeconds ? ' · מתחילה לבד' : ''}` : 'עד סוף האימון'}
+          label={next
+            ? block?.durationSeconds ? t('run.planned.untilNextAuto', { name: nextName }) : t('run.planned.untilNext', { name: nextName })
+            : t('run.planned.untilEnd')}
         />
         {next && (
           <div
@@ -292,9 +299,9 @@ export default function PlannedLiveCardV2({
               <Zap size={18} strokeWidth={ICON_STROKE} color={nextColor} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12.5px] font-extrabold text-v2-ink-2">{`הבא · ${nextName}`}</span>
+              <span className="block truncate text-[12.5px] font-extrabold text-v2-ink-2">{t('run.planned.next', { name: nextName })}</span>
               <span className="block truncate text-[16px] font-black text-v2-ink">
-                {[plannedMeta(next), nextBand && `ב-${nextBand}`].filter(Boolean).join(' ')}
+                {[plannedMeta(next), nextBand && t('run.planned.atBand', { band: nextBand })].filter(Boolean).join(' ')}
               </span>
             </span>
             {canSkip && (
@@ -303,15 +310,15 @@ export default function PlannedLiveCardV2({
                 onClick={onSkip}
                 className="h-11 shrink-0 whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
               >
-                דלג
+                {t('run.planned.skip')}
               </button>
             )}
           </div>
         )}
         <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
-          <Stat value={nowPace} label="קצב עכשיו" />
-          <Stat value={totals.distanceKm.toFixed(1)} label="ק״מ סה״כ" />
-          <Stat value={fmtClock(totals.durationSec)} label="זמן" />
+          <Stat value={nowPace} label={t('run.planned.paceNow')} />
+          <Stat value={totals.distanceKm.toFixed(1)} label={t('run.planned.totalKm')} />
+          <Stat value={fmtClock(totals.durationSec)} label={t('run.planned.recoveryTime')} />
         </div>
       </>
     );
@@ -319,12 +326,12 @@ export default function PlannedLiveCardV2({
 
   const general = (
     <>
-      <div className="text-center text-[13px] font-extrabold text-v2-muted">נתונים כלליים</div>
-      <Hero value={totals.distanceKm.toFixed(2)} label="קילומטר" />
+      <div className="text-center text-[13px] font-extrabold text-v2-muted">{t('run.planned.general.title')}</div>
+      <Hero value={totals.distanceKm.toFixed(2)} label={t('run.planned.general.km')} />
       <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
-        <Stat value={avgPaceSec > 0 ? fmtPace(avgPaceSec) : '--:--'} label="קצב ממוצע" />
-        <Stat value={fmtClock(totals.durationSec)} label="זמן" />
-        <Stat value={String(Math.round(totals.calories || 0))} label="קק״ל" />
+        <Stat value={avgPaceSec > 0 ? fmtPace(avgPaceSec) : '--:--'} label={t('run.planned.general.avgPace')} />
+        <Stat value={fmtClock(totals.durationSec)} label={t('run.planned.general.time')} />
+        <Stat value={String(Math.round(totals.calories || 0))} label={t('run.planned.general.kcal')} />
       </div>
     </>
   );
@@ -334,7 +341,7 @@ export default function PlannedLiveCardV2({
     page === 1 && block && (mode === 'pace' || mode === 'recovery') ? (
       <div className="mx-auto mb-2 inline-flex h-9 max-w-full items-center gap-2 whitespace-nowrap rounded-full bg-white px-3.5 text-[13px] font-extrabold text-v2-ink shadow-v2-card">
         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: blockColor }} aria-hidden />
-        <span className="truncate">{isRep ? `חזרה ${rep} מתוך ${reps.total}` : blockDisplayLabel(block)}</span>
+        <span className="truncate">{isRep ? t('run.planned.repOf', { rep: String(rep), total: String(reps.total) }) : blockDisplayLabel(block)}</span>
         {mode === 'pace' && (
           <>
             <span dir="ltr" className="tabular-nums">{nowPace}</span>
@@ -399,14 +406,14 @@ export default function PlannedLiveCardV2({
         </motion.div>
 
         {/* Page dots (page 1 on the right, RTL) — tappable too. */}
-        <div className="mt-2.5 flex justify-center gap-1.5" role="tablist" aria-label={`עמוד ${page + 1} מתוך 2 · החליקו לצד`}>
+        <div className="mt-2.5 flex justify-center gap-1.5" role="tablist" aria-label={t('run.planned.pagesAria', { page: String(page + 1) })}>
           {[0, 1].map((i) => (
             <button
               key={i}
               type="button"
               role="tab"
               aria-selected={page === i}
-              aria-label={i === 0 ? 'הבלוק הנוכחי' : 'נתונים כלליים'}
+              aria-label={i === 0 ? t('run.planned.tab.block') : t('run.planned.tab.general')}
               onClick={() => setPage(i)}
               className="grid h-6 place-items-center px-0.5"
             >
@@ -420,11 +427,11 @@ export default function PlannedLiveCardV2({
 
         {/* Controls: flag (right) · pause / hold to end · stopwatch (left). */}
         <div className="mt-1.5 flex items-center justify-center gap-7">
-          <RoundControl label="סיום הבלוק · מעבר לבא" onClick={onSkip} disabled={!canSkip}>
+          <RoundControl label={t('run.planned.control.finishBlock')} onClick={onSkip} disabled={!canSkip}>
             <Flag size={21} strokeWidth={2.2} color="#0e1419" aria-hidden />
           </RoundControl>
           <HoldToEndPauseButton onTap={onPause} onHoldComplete={onEnd} />
-          <RoundControl label="הקפה" onClick={handleLap}>
+          <RoundControl label={t('run.planned.control.lap')} onClick={handleLap}>
             <Timer size={22} strokeWidth={2.2} color="#0e1419" aria-hidden />
           </RoundControl>
         </div>

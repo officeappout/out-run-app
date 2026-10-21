@@ -29,6 +29,8 @@ import { useZoneTracking } from '../../../hooks/useZoneTracking';
 import { blockDisplayLabel, fmtClock, fmtDistance, isShortLeg, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
 import { blockGoal, continuousMainIndex, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
 import PlannedSessionListV2 from '../../PlannedRun/v2/PlannedSessionListV2';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 import ContinuousRunCardV2 from './ContinuousRunCardV2';
 
 interface Props {
@@ -59,6 +61,7 @@ export default function ContinuousRunLiveV2({
   onEnd,
   onJumpToBlock,
 }: Props) {
+  const t = useT(player);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const gpsAccuracy = useRunningPlayer((s) => s.gpsAccuracy);
@@ -142,7 +145,7 @@ export default function ContinuousRunLiveV2({
         <MiniPlayer
           color={color}
           title={block ? `${label} · ${remaining}` : title}
-          subtitle={`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(1)} ק״מ`}
+          subtitle={t('run.continuous.mini.subtitle', { time: fmtClock(totals.durationSec), km: totals.distanceKm.toFixed(1) })}
           isPaused={isPaused}
           onTogglePause={isPaused ? onResume : onPause}
           onExpand={() => setListOpen(false)}
@@ -189,7 +192,7 @@ export default function ContinuousRunLiveV2({
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0, opacity: 0 }}
                 onClick={() => setMapFollowEnabled(true)}
-                aria-label="מרכז את המפה"
+                aria-label={t('run.continuous.recenter')}
                 className="pointer-events-auto absolute left-4 top-[calc(env(safe-area-inset-top,0px)+150px)] grid h-11 w-11 place-items-center rounded-full bg-white shadow-v2-ring"
               >
                 <LocateFixed size={20} className="text-v2-deep" aria-hidden />

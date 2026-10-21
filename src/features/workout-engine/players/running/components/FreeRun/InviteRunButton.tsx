@@ -23,6 +23,8 @@ import { UserPlus, Loader2 } from 'lucide-react';
 import { createRunInvite } from '@/lib/workoutInvite';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface InviteRunButtonProps {
   activityType?: 'running' | 'walking';
@@ -31,6 +33,7 @@ interface InviteRunButtonProps {
 }
 
 export default function InviteRunButton({ activityType = 'running', inline = false }: InviteRunButtonProps) {
+  const t = useT(player);
   const [busy, setBusy] = useState(false);
 
   const handleInvite = async () => {
@@ -47,7 +50,7 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
       if (isNewGroup) {
         const user   = auth.currentUser;
         const uid    = user?.uid ?? '';
-        const name   = user?.displayName ?? 'אני';
+        const name   = user?.displayName ?? t('run.invite.selfName');
         const profiles = uid ? { [uid]: { name } } : {};
         useSharedSession
           .getState()
@@ -57,8 +60,8 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
       // Share — native sheet first, WhatsApp fallback
       const text =
         activityType === 'walking'
-          ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
-          : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+          ? t('run.invite.shareWalk', { url: shareUrl })
+          : t('run.invite.shareRun', { url: shareUrl });
 
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ text }).catch(() => {
@@ -79,7 +82,7 @@ export default function InviteRunButton({ activityType = 'running', inline = fal
       type="button"
       onClick={handleInvite}
       disabled={busy}
-      aria-label="הזמן חבר לאימון"
+      aria-label={t('run.invite.aria')}
       className={`pointer-events-auto ${inline ? 'relative' : 'absolute'} flex items-center justify-center rounded-full active:scale-90 transition-transform disabled:opacity-60`}
       style={{
         ...(inline ? {} : {

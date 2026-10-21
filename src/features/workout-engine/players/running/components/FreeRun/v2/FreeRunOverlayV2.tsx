@@ -31,6 +31,8 @@ import SideRail from '../SideRail';
 import WorkoutSettingsDrawer from '../WorkoutSettingsDrawer';
 import InviteRunButton from '../InviteRunButton';
 import { useFreeRunLive } from './useFreeRunLive';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 interface Props {
   dragControls: ReturnType<typeof useDragControls>;
@@ -62,6 +64,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     if (s.groupId && s.phase !== 'active') s.clearGroupSession();
   }, []);
 
+  const t = useT(player);
   const live = useFreeRunLive();
   const tracking = useZoneTracking(null, 0);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
@@ -81,26 +84,26 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
     if (done && !prevDone.current) {
       prevDone.current = true;
       setGoalToast(true);
-      const t = setTimeout(() => setGoalToast(false), 3000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setGoalToast(false), 3000);
+      return () => clearTimeout(timer);
     }
     if (!done) prevDone.current = false;
   }, [gv?.done]);
 
   // ── GPS status ───────────────────────────────────────────────────────
-  const [gpsToast, setGpsToast] = useState<string | null>(null);
+  const [gpsToast, setGpsToast] = useState<PlayerKey | null>(null);
   const prevGps = useRef(gpsStatus);
   useEffect(() => {
     if (gpsStatus === prevGps.current) return;
     prevGps.current = gpsStatus;
-    if (gpsStatus === 'searching') setGpsToast('מחפש GPS…');
-    else if (gpsStatus === 'poor') setGpsToast('GPS חלש · ממשיך לחפש');
-    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('GPS תקין');
+    if (gpsStatus === 'searching') setGpsToast('run.free.v2.gps.searching');
+    else if (gpsStatus === 'poor') setGpsToast('run.free.v2.gps.poor');
+    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('run.free.v2.gps.good');
   }, [gpsStatus]);
   useEffect(() => {
     if (!gpsToast) return;
-    const t = setTimeout(() => setGpsToast(null), 4000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setGpsToast(null), 4000);
+    return () => clearTimeout(timer);
   }, [gpsToast]);
 
   // ── Header height → map camera padding, turn card, recenter pill ─────
@@ -135,10 +138,10 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
               if ((e.target as HTMLElement).closest('button')) return;
               dragControls.start(e);
             }}
-            leading={<CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={`רשימת ההקפות · ${cartItems.filter((i) => i.done).length} הושלמו`} />}
+            leading={<CartProgressIcon items={cartItems} onClick={onMinimize} size={48} ariaLabel={t('run.free.v2.lapsListAria', { done: String(cartItems.filter((i) => i.done).length) })} />}
             eyebrow={gv ? `${live.title} · ${gv.targetText}` : live.title}
             eyebrowColor="#4d7c0f"
-            title={gv ? gv.remainingText : `הקפה ${lapNo} · ${fmtClock(live.totals.durationSec)}`}
+            title={gv ? gv.remainingText : t('run.free.v2.lapTitle', { n: String(lapNo), time: fmtClock(live.totals.durationSec) })}
             trailing={
               gv ? <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span> : null
             }
@@ -155,7 +158,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          aria-label="הגדרות אימון"
+          aria-label={t('run.free.v2.settings')}
           className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
         >
           <Settings2 size={18} strokeWidth={2.3} className="text-v2-ink" aria-hidden />
@@ -166,11 +169,11 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
         </div>
       </div>
 
-      {gpsToast && <Toast>{gpsToast}</Toast>}
+      {gpsToast && <Toast>{t(gpsToast)}</Toast>}
       {goalToast && (
         <Toast tone="good">
           <Check size={15} strokeWidth={2.8} aria-hidden />
-          הגעת ליעד
+          {t('run.free.v2.goalReached')}
         </Toast>
       )}
 
