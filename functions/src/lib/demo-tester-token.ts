@@ -148,3 +148,13 @@ export function decideMint(req: MintRequest, ctx: MintContext): MintDecision<{ c
 export function testerClaims(runId: string): Record<string, unknown> {
   return { demo: true, qa: true, run: runId };
 }
+
+/** The last `days` Israel day keys, newest first (usage day docs are keyed by these). */
+export function usageWindowDayKeys(now: Date, days: number): string[] {
+  const keys: string[] = [];
+  for (let i = 0; keys.length < days && i < days + 2; i++) {
+    const k = israelDayKey(new Date(now.getTime() - i * 86_400_000));
+    if (!keys.includes(k)) keys.push(k);
+  }
+  return keys;
+}

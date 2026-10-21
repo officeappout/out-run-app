@@ -103,3 +103,15 @@ describe('registry + quota', () => {
     expect(israelDayKey(new Date('2026-10-20T20:30:00Z'))).toBe('2026-10-20');
   });
 });
+
+import { usageWindowDayKeys } from '../demo-tester-token';
+
+describe('usageWindowDayKeys', () => {
+  it('returns distinct Israel day keys, newest first', () => {
+    const keys = usageWindowDayKeys(new Date('2026-10-21T03:30:00Z'), 31);
+    expect(keys).toHaveLength(31);
+    expect(new Set(keys).size).toBe(31);
+    expect(keys[0]).toBe('2026-10-21');
+    expect(keys[30]).toBe('2026-09-21');
+  });
+});
