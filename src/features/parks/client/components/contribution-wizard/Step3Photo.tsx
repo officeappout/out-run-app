@@ -10,6 +10,8 @@ import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
 import { getGymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.service';
 import type { WizardData } from './index';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface Props {
   data: WizardData;
@@ -193,7 +195,7 @@ export default function Step3Photo({ data, updateData, onBack, onSubmit, submitt
       const msg = String(err?.message || err || '');
       if (/cancel/i.test(msg)) return; // Capacitor cancellation — silent, same as ProfilePhotoUploader
       console.error('[Step3Photo] Camera capture failed:', err);
-      showToast('error', 'שגיאה בהעלאת התמונה. נסה שוב.');
+      showToast('error', pickGendered(currentUiGender(), { male: 'שגיאה בהעלאת התמונה. נסה שוב.', female: 'שגיאה בהעלאת התמונה. נסי שוב.', other: 'שגיאה בהעלאת התמונה. נסו שוב.' }));
       setPreview(data.photoUrl);
       updateData({ photoUrl: null, photoStoragePath: null });
     } finally {

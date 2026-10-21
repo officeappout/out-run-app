@@ -90,8 +90,8 @@ export async function shareRunInviteNow(activityType: 'running' | 'walking'): Pr
   }
 
   const text = activityType === 'walking'
-    ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
-    : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+    ? `בואו ללכת איתי עכשיו 🚶 ${shareUrl}`
+    : `בואו לרוץ איתי עכשיו 🏃 ${shareUrl}`;
 
   if (typeof navigator !== 'undefined' && navigator.share) {
     await navigator.share({ text }).catch(() => {
@@ -310,11 +310,11 @@ export default function RunShareBar({
 
       const text = timing === 'later'
         ? activityType === 'walking'
-          ? `קבעתי הליכה ב-${formattedDate} בשעה ${schedTime} 🚶 בוא/י להצטרף! ${shareUrl}`
-          : `קבעתי ריצה ב-${formattedDate} בשעה ${schedTime} 🏃 בוא/י להצטרף! ${shareUrl}`
+          ? `קבעתי הליכה ב-${formattedDate} בשעה ${schedTime} 🚶 בואו להצטרף! ${shareUrl}`
+          : `קבעתי ריצה ב-${formattedDate} בשעה ${schedTime} 🏃 בואו להצטרף! ${shareUrl}`
         : activityType === 'walking'
-        ? `בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`
-        : `בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`;
+        ? `בואו ללכת איתי עכשיו 🚶 ${shareUrl}`
+        : `בואו לרוץ איתי עכשיו 🏃 ${shareUrl}`;
 
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ text }).catch(() => {

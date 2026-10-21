@@ -12,6 +12,8 @@ import { normalizeOrgName } from '@/lib/org-name';
 import { submitPendingUnit } from '@/features/user/onboarding/services/pending-unit.service';
 import { declareUnit } from '@/features/user/onboarding/services/unit-declaration.service';
 import type { UnitLevel as PendingUnitLevel } from '@/lib/unit-id';
+import { currentUiGender, useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 interface DirectoryEntry {
   directoryId: string;
@@ -125,6 +127,7 @@ async function fetchLevel(parentId: string | null): Promise<DirectoryEntry[]> {
  * and points at the same finish button, instead of a dead-end "no results."
  */
 export default function HierarchySearchStep({ config, softFilterValue, value, onChange, onDone, onNeedsExpandedHeight, v2 = false }: HierarchySearchStepProps) {
+  const uiGender = useUiGender();
   // breadcrumb[0] = top level (brigades); each entry is the directoryId
   // drilled into to reach the NEXT level's entries.
   const [breadcrumb, setBreadcrumb] = useState<DirectoryEntry[]>([]);
@@ -216,7 +219,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       // Never silent, never advances — the outer drawer must not treat
       // this as "done" when it isn't (David, explicit).
       setDeclareState('error');
-      setDeclareErrorMessage(result.error ?? 'שמירת ההצהרה נכשלה. נסה שוב.');
+      setDeclareErrorMessage(result.error ?? pickGendered(currentUiGender(), { male: 'שמירת ההצהרה נכשלה. נסה שוב.', female: 'שמירת ההצהרה נכשלה. נסי שוב.', other: 'שמירת ההצהרה נכשלה. נסו שוב.' }));
       return;
     }
     setDeclareState('idle');
@@ -294,7 +297,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
       setAddMode('submitted');
     } catch (err) {
       console.error('[HierarchySearchStep] submitPendingUnit failed:', err);
-      setAddError('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.');
+      setAddError(pickGendered(currentUiGender(), { male: 'השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.', female: 'השמירה נכשלה. בדקי חיבור לאינטרנט ונסי שוב.', other: 'השמירה נכשלה. בדקו חיבור לאינטרנט ונסו שוב.' }));
     } finally {
       setAddBusy(false);
     }
@@ -476,7 +479,7 @@ export default function HierarchySearchStep({ config, softFilterValue, value, on
             disabled={declareState === 'saving'}
             className={v2 ? 'flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-none disabled:bg-v2-hairline disabled:text-v2-muted disabled:shadow-none' : 'w-full py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm disabled:opacity-50'}
           >
-            {declareState === 'saving' ? 'שומר...' : declareState === 'error' ? 'נסה שוב' : 'סיום'}
+            {declareState === 'saving' ? 'שומר...' : declareState === 'error' ? pickGendered(uiGender, GENDERED_COPY.retry) : 'סיום'}
           </button>
         </div>
       )}

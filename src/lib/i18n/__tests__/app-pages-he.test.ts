@@ -86,8 +86,9 @@ describe('player · /session/[token] (he)', () => {
     ['sessionInvite.subtitle.walk', 'הוזמנת ללכת ביחד'],
     ['sessionInvite.subtitle.run', 'הוזמנת לרוץ ביחד'],
     ['sessionInvite.subtitle.session', 'הוזמנת להצטרף לאימון'],
-    ['sessionInvite.cta.run', 'בוא/י לרוץ ביחד'],
-    ['sessionInvite.cta.session', 'הצטרפ/י לאימון'],
+    // gender batch 1 (owner decision 7): invite text, recipient unknown → plural
+    ['sessionInvite.cta.run', 'בואו לרוץ ביחד'],
+    ['sessionInvite.cta.session', 'מצטרפים לאימון'],
   ];
   it('every sessionInvite.* key is covered', () => {
     expect(cases.map(([k]) => k).sort()).toEqual(keysWith(playerHe, 'sessionInvite.').sort());
@@ -103,10 +104,11 @@ describe('map · map error boundary (he)', () => {
   const cases: Array<[Key, string]> = [
     ['mapError.title', 'המפה נתקלה בבעיה'],
     ['mapError.body', 'לרוב זה נפתר לאחר טעינה מחדש. הנתונים שלך נשמרו.'],
-    ['mapError.retry', 'נסה שוב'],
+    // gender batch 1: mapError.retry is a gender select — pinned in the test below
   ];
   it('every mapError.* key is covered', () => {
-    expect(cases.map(([k]) => k).sort()).toEqual(keysWith(mapHe, 'mapError.').sort());
+    // mapError.retry is a gender select since gender batch 1 — pinned in its own describe below.
+    expect([...cases.map(([k]) => k), 'mapError.retry'].sort()).toEqual(keysWith(mapHe, 'mapError.').sort());
   });
   it('plain strings', () => {
     for (const [key, old] of cases) expect(t(key)).toBe(old);
@@ -149,5 +151,16 @@ describe('pages · /settings/refine-levels (he)', () => {
   });
   it('plain strings', () => {
     for (const [key, old] of cases) expect(t(key)).toBe(old);
+  });
+});
+
+describe('gender batch 1 (21.10.2026) — map error retry follows the gender', () => {
+  it('male / female / unknown', async () => {
+    const { makeT } = await import('../t');
+    const { map } = await import('@/messages/ns/map');
+    const tm = makeT('he', map);
+    expect(tm('mapError.retry', { gender: 'male' })).toBe('נסה שוב');
+    expect(tm('mapError.retry', { gender: 'female' })).toBe('נסי שוב');
+    expect(tm('mapError.retry', { gender: 'other' })).toBe('נסו שוב');
   });
 });

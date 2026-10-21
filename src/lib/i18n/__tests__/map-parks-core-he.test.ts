@@ -63,7 +63,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
       ['carousel.back.loop', 'חזור להגדרות'],
       ['carousel.close', 'סגור ניווט'],
       ['carousel.card.nameFallback', 'סיבוב מעגלי'],
-      ['carousel.card.start', 'התחל אימון'],
+      // gender batch 1: carousel.card.start is a gender select — pinned below
       ['mapSearch.placeholder', 'כתובת, רחוב, פארק או מסלול'],
       ['mapSearch.clear', 'נקה חיפוש'],
       ['mapSearch.cancel', 'ביטול'],
@@ -228,5 +228,16 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
     expect(count('overview.shell.')).toBe(1);
     expect(count('overview.axis.')).toBe(7);
     expect(count('overview.roundTrip.')).toBe(2);
+  });
+});
+
+describe('gender batch 1 (21.10.2026) — route card start follows the gender', () => {
+  it('male / female / unknown', async () => {
+    const { makeT } = await import('../t');
+    const { map: mapNs } = await import('@/messages/ns/map');
+    const tm = makeT('he', mapNs);
+    expect(tm('carousel.card.start', { gender: 'male' })).toBe('התחל אימון');
+    expect(tm('carousel.card.start', { gender: 'female' })).toBe('התחילי אימון');
+    expect(tm('carousel.card.start', { gender: 'other' })).toBe('יוצאים לאימון');
   });
 });

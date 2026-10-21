@@ -17,6 +17,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import Button from '@/components/ui/v2/Button';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 // Known calisthenics skill program IDs → Hebrew labels
 const SKILL_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -150,7 +152,7 @@ export default function UserWorkoutAdjuster({
       onClose();
     } catch (err: any) {
       console.error('[UserWorkoutAdjuster] Generation failed:', err);
-      setError('לא הצלחנו ליצור אימון. נסה שוב.');
+      setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו ליצור אימון. נסה שוב.', female: 'לא הצלחנו ליצור אימון. נסי שוב.', other: 'לא הצלחנו ליצור אימון. נסו שוב.' }));
     } finally {
       setIsLoading(false);
     }

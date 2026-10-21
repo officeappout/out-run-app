@@ -5,6 +5,8 @@ import { motion, AnimatePresence, type AnimationControls } from 'framer-motion';
 import { Zap } from 'lucide-react';
 
 import type { XpStatus } from '../hooks/useXpAward';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * XpStatusRow — Dopamine Chain Step 2 render: elastic XP pulse + shimmer flare.
@@ -36,6 +38,7 @@ export default function XpStatusRow({
   xpControls,
   onRetry,
 }: XpStatusRowProps) {
+  const uiGender = useUiGender();
   return (
     <motion.div
       animate={xpControls}
@@ -79,7 +82,7 @@ export default function XpStatusRow({
           onClick={onRetry}
           className="text-xs font-bold text-red-500 underline underline-offset-2 active:opacity-60 transition-opacity"
         >
-          נסה שוב
+          {pickGendered(uiGender, GENDERED_COPY.retry)}
         </button>
       )}
 

@@ -13,6 +13,8 @@ import {
 } from '@/features/arena/services/group-invitation.service';
 import { setSessionPhase } from '@/features/arena/services/session-phase.service';
 import { createRunInvite } from '@/lib/workoutInvite';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 interface SessionLobbyOverlayProps {
   onStartFreeRun: () => void;
@@ -32,6 +34,7 @@ function parseAttendanceId(id: string): { date: string; time: string } {
 }
 
 export default function SessionLobbyOverlay({ onStartFreeRun, ephemeralActivityType }: SessionLobbyOverlayProps) {
+  const gender = useUiGender();
   const profile = useUserStore((s) => s.profile);
   const uid = (profile as any)?.id as string | undefined;
 
@@ -210,7 +213,7 @@ export default function SessionLobbyOverlay({ onStartFreeRun, ephemeralActivityT
               className="w-full rounded-2xl py-4 text-black font-black text-lg disabled:opacity-50"
               style={{ background: '#FFFFFF' }}
             >
-              {starting ? '...' : 'התחל אימון'}
+              {starting ? '...' : pickGendered(gender, GENDERED_COPY.startWorkout)}
             </button>
           </>
         ) : (

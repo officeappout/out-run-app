@@ -19,6 +19,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useUiGender } from '@/hooks/useUiGender';
 import { 
   messageService, 
   type SmartMessage, 
@@ -193,11 +194,14 @@ export function useSmartGreeting(explicitContext?: Partial<GreetingContext>): Sm
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   
-  // Merge URL params with explicit context
+  // Merge URL params with explicit context. Gender defaults to the app's (profile, or the
+  // onboarding pick); unknown → 'other' → neutral rows only (decision 21.10.2026).
+  const uiGender = useUiGender();
   const context = useMemo((): GreetingContext => {
     const fromUrl = searchParams ? parseSearchParams(searchParams) : {};
-    return { ...fromUrl, ...explicitContext };
-  }, [searchParams, explicitContext]);
+    const merged = { ...fromUrl, ...explicitContext };
+    return { ...merged, gender: merged.gender ?? uiGender };
+  }, [searchParams, explicitContext, uiGender]);
   
   // Determine the message type
   const messageType = useMemo(() => determineMessageType(context), [context]);
@@ -269,19 +273,20 @@ export function useSmartGreeting(explicitContext?: Partial<GreetingContext>): Sm
  */
 export function useSmartMessage(type: MessageType, persona?: string): SmartMessage {
   const [message, setMessage] = useState<SmartMessage>(DEFAULT_MESSAGES[type]?.[0] || DEFAULT_MESSAGES.default[0]);
+  const gender = useUiGender();
   
   useEffect(() => {
-    const msg = messageService.getLocalBestMessage({ type, persona });
+    const msg = messageService.getLocalBestMessage({ type, persona, gender });
     setMessage(msg);
     
     // Subscribe to changes
     const unsubscribe = messageService.subscribeToLocalMessages(() => {
-      const updated = messageService.getLocalBestMessage({ type, persona });
+      const updated = messageService.getLocalBestMessage({ type, persona, gender });
       setMessage(updated);
     });
     
     return unsubscribe;
-  }, [type, persona]);
+  }, [type, persona, gender]);
   
   return message;
 }

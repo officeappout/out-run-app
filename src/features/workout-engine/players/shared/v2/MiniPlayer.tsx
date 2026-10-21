@@ -8,6 +8,8 @@
 
 import React from 'react';
 import { ChevronUp, Pause, Play } from 'lucide-react';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 export interface MiniPlayerProps {
   /** Colour of the current block (the tile). */
@@ -41,6 +43,7 @@ export default function MiniPlayer({
   safeBottom = 0,
   rounded = true,
 }: MiniPlayerProps) {
+  const gender = useUiGender();
   return (
     <div
       dir="rtl"
@@ -66,7 +69,7 @@ export default function MiniPlayer({
       </span>
       <button
         type="button"
-        aria-label={isPaused ? 'המשך אימון' : 'השהה אימון'}
+        aria-label={pickGendered(gender, isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.pauseWorkout)}
         onClick={(e) => {
           e.stopPropagation();
           onTogglePause();

@@ -372,7 +372,7 @@ export async function signInWithApple(): Promise<{ user: User | null; error: str
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
       if (!result.credential.nonce) {
-        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסה שוב.' };
+        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסו שוב.' };
       }
 
       // ── DEBUG: diagnose raw-vs-hash nonce mismatch ────────────────────
@@ -654,7 +654,7 @@ export async function linkWithAppleAccount(): Promise<{ user: User | null; error
         return { user: null, error: 'לא התקבל פרטי זיהוי מ-Apple Sign In.' };
       }
       if (!result.credential.nonce) {
-        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסה שוב.' };
+        return { user: null, error: 'Apple Sign In לא החזיר nonce. נסו שוב.' };
       }
 
       const appleProvider = new OAuthProvider('apple.com');
@@ -1110,7 +1110,7 @@ export async function sendMagicLinkRateLimited(
   }
   const result = await sendMagicLink(email, continueUrl, options);
   if (result.error) {
-    return { error: 'שגיאה בשליחת הקישור. נסה שוב.' };
+    return { error: 'שגיאה בשליחת הקישור. נסו שוב.' };
   }
   return result;
 }

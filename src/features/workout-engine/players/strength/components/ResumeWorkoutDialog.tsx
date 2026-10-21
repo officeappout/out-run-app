@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { History } from 'lucide-react';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * ResumeWorkoutDialog — crash-recovery resume-offer dialog.
@@ -38,6 +40,7 @@ export interface ResumeWorkoutDialogProps {
 }
 
 export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver }: ResumeWorkoutDialogProps) {
+  const gender = useUiGender();
   const minutes = Math.max(1, Math.round(elapsedTime / 60));
 
   return (
@@ -74,7 +77,7 @@ export default function ResumeWorkoutDialog({ elapsedTime, onResume, onStartOver
           className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
-          המשך אימון
+          {pickGendered(gender, GENDERED_COPY.resumeWorkout)}
         </button>
 
         <button

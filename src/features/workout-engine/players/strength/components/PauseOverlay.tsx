@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * PauseOverlay — unified full-screen pause veil.
@@ -32,6 +34,7 @@ export interface PauseOverlayProps {
 }
 
 export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'סיום אימון' }: PauseOverlayProps) {
+  const gender = useUiGender();
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
   const handleResume = () => {
@@ -69,7 +72,7 @@ export default function PauseOverlay({ onResume, onOpenExitModal, endLabel = 'ס
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           <Play size={22} fill={v2 ? 'currentColor' : 'white'} />
-          המשך אימון
+          {pickGendered(gender, GENDERED_COPY.resumeWorkout)}
         </button>
         <button
           onClick={handleOpenExitModal}

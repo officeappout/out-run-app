@@ -8,6 +8,8 @@ import { useOnboardingStore } from '../store/useOnboardingStore';
 import OnboardingStoryBar from './OnboardingStoryBar';
 import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '../constants/onboarding-phases';
 import { SKILL_ICON_PATHS } from '../constants/program-path.constants';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // ── Real progression data (Progression Manager — מנהל התקדמות) ──────
 // Source of truth: src/features/user/core/types/progression.types.ts
@@ -346,6 +348,7 @@ export default function ProgramResult({
   onSkip,
   v2 = false,
 }: ProgramResultProps) {
+  const uiGender = useUiGender();
   void getOnboardingLocale(language); // keep import used
 
   const [revealPhase,   setRevealPhase]   = useState<RevealPhase>('calculating');
@@ -747,7 +750,7 @@ export default function ProgramResult({
                   className="w-full h-12 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap transition-transform duration-150 ease-v2 active:scale-[0.97]"
                   dir="rtl"
                 >
-                  {saveError ? (gender === 'female' ? 'נסי שוב' : 'נסה שוב') : continueLabel}
+                  {saveError ? pickGendered(uiGender, GENDERED_COPY.retry) : continueLabel}
                 </button>
               ) : (
               <button
@@ -757,7 +760,7 @@ export default function ProgramResult({
                 style={{ background: BRAND_GRADIENT, boxShadow: '0 8px 24px rgba(0,186,247,0.35)' }}
                 dir="rtl"
               >
-                {saveError ? 'נסה שוב' : continueLabel}
+                {saveError ? pickGendered(uiGender, GENDERED_COPY.retry) : continueLabel}
               </button>
               )}
 

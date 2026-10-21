@@ -59,7 +59,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DENIED_MESSAGE = 'אין לך הרשאה להסיר את המשתמש הזה.';
-const SAVE_FAILED_MESSAGE = 'ההסרה נכשלה. נסה שוב.';
+const SAVE_FAILED_MESSAGE = 'ההסרה נכשלה. נסו שוב.';
 
 export type RemoveMemberResult =
   | { status: 200; body: { removed: true } }
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     const rateLimited = await isRateLimited(db, `unit-member-remove:${callerUid}`, RATE_LIMITS.unitMemberRemove.uidHourly());
     if (rateLimited) {
-      return NextResponse.json({ error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' }, { status: 429 });
+      return NextResponse.json({ error: 'יותר מדי בקשות. נסו שוב מאוחר יותר.' }, { status: 429 });
     }
 
     const body = await request.json().catch(() => ({}));

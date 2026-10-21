@@ -122,7 +122,7 @@ export function useFavoritesActions({
 
     if (!generatedWorkout) {
       const title = workout?.title || 'אימון כוח';
-      const text = `💪 ${title}\nבוא/י לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
+      const text = `💪 ${title}\nבואו לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
       if (typeof navigator !== 'undefined' && navigator.share) {
         try {
           await navigator.share({ title, text });
@@ -140,7 +140,7 @@ export function useFavoritesActions({
       await shareWorkout(generatedWorkout, workoutLocation);
     } catch (err) {
       console.error('[useFavoritesActions] Share failed:', err);
-      const text = `💪 ${generatedWorkout.title}\nבוא/י לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
+      const text = `💪 ${generatedWorkout.title}\nבואו לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     } finally {
       setIsSharing(false);

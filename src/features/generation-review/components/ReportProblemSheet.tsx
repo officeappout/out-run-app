@@ -10,8 +10,11 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
 import { REPORT_NOTE_MAX, REPORT_REASONS, REPORT_REASON_LABEL_HE, type GenerationType, type ReportReason } from '@/lib/generation-review/types';
 import { postGenerationReview } from '../capture/api';
 import { latest } from '../capture/memory';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 export default function ReportProblemSheet({ open, onClose, types }: { open: boolean; onClose: () => void; types: GenerationType[] }) {
+  const uiGender = useUiGender();
   const [reasons, setReasons] = useState<ReportReason[]>([]);
   const [note, setNote] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error' | 'none'>('idle');
@@ -66,8 +69,8 @@ export default function ReportProblemSheet({ open, onClose, types }: { open: boo
           placeholder="רוצה להוסיף משהו? (לא חובה)"
           className="w-full rounded-xl border border-slate-200 p-3 text-base"
         />
-        {state === 'none' && <p className="text-sm text-amber-700">לא מצאנו את האימון הזה. נסה לפתוח אותו שוב.</p>}
-        {state === 'error' && <p className="text-sm text-red-600">השליחה נכשלה. נסה שוב.</p>}
+        {state === 'none' && <p className="text-sm text-amber-700">{pickGendered(uiGender, { male: 'לא מצאנו את האימון הזה. נסה לפתוח אותו שוב.', female: 'לא מצאנו את האימון הזה. נסי לפתוח אותו שוב.', other: 'לא מצאנו את האימון הזה. אפשר לנסות לפתוח אותו שוב.' })}</p>}
+        {state === 'error' && <p className="text-sm text-red-600">{pickGendered(uiGender, { male: 'השליחה נכשלה. נסה שוב.', female: 'השליחה נכשלה. נסי שוב.', other: 'השליחה נכשלה. נסו שוב.' })}</p>}
         {state === 'sent' && <p className="text-sm text-emerald-700">תודה! הדיווח נשלח.</p>}
         <button
           type="button"

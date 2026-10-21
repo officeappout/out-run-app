@@ -21,6 +21,8 @@ import {
   type GroupCompetitionResult,
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 
 interface GroupLeaderboardProps {
@@ -90,6 +92,7 @@ export function GroupLeaderboardView({
   entries,
   onRefresh: fetch,
 }: GroupLeaderboardViewProps) {
+  const uiGender = useUiGender();
   const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
   return (
     <BoardCard
@@ -109,7 +112,7 @@ export function GroupLeaderboardView({
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={fetch}>
-              נסה שוב
+              {pickGendered(uiGender, GENDERED_COPY.retry)}
             </Button>
           }
         />

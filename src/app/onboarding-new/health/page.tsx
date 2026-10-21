@@ -18,7 +18,10 @@ import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure
 
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 export default function HealthDeclarationPage() {
+  const uiGender = useUiGender();
   const router = useRouter();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const { data: onboardingData } = useOnboardingStore();
@@ -308,7 +311,7 @@ export default function HealthDeclarationPage() {
             onClick={runAutoSkip}
             className="h-12 px-8 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
           >
-            נסה שוב
+            {pickGendered(uiGender, GENDERED_COPY.retry)}
           </button>
         ) : (
           <BrandCtaButton
@@ -316,7 +319,7 @@ export default function HealthDeclarationPage() {
             onClick={runAutoSkip}
             className="px-5 py-2 text-sm"
           >
-            נסה שוב
+            {pickGendered(uiGender, GENDERED_COPY.retry)}
           </BrandCtaButton>
         )}
       </div>

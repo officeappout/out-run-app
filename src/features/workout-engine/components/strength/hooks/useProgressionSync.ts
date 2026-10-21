@@ -11,6 +11,8 @@ import { getProgramLevelSetting } from '@/features/content/programs/core/program
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
 
 import type { CompletedExercise } from '../utils/summary.utils';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * useProgressionSync — domain + active-program level progression dispatcher.
@@ -276,7 +278,7 @@ export function useProgressionSync({
           }
         } else {
           console.warn('[Progression] processWorkoutCompletion returned failure');
-          showToast('error', 'שגיאה בחישוב ההתקדמות. נסה שוב.');
+          showToast('error', pickGendered(currentUiGender(), { male: 'שגיאה בחישוב ההתקדמות. נסה שוב.', female: 'שגיאה בחישוב ההתקדמות. נסי שוב.', other: 'שגיאה בחישוב ההתקדמות. נסו שוב.' }));
         }
       } catch (e) {
         console.error('[Progression] Failed to process domain progression:', e);

@@ -2,6 +2,8 @@
 
 import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -120,7 +122,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
             >
               <RefreshCw size={16} />
-              נסה שוב
+              {pickGendered(currentUiGender(), GENDERED_COPY.retry)}
             </button>
           </div>
         </div>

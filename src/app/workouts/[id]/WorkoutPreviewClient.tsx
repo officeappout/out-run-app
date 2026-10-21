@@ -13,6 +13,8 @@ import { getAllExercisesCached, Exercise as FirestoreExercise, getLocalizedText 
 import { resolvePreviewForLang } from '@/features/content/exercises/core/exercise.types';
 import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // ============================================================================
 // Types
@@ -413,6 +415,7 @@ export default function WorkoutPreviewClient({
   serverDifficulty,
   serverDuration,
 }: WorkoutPreviewClientProps) {
+  const uiGender = useUiGender();
   const router = useRouter();
 
   // ── Smart App Banner state ───────────────────────────────────────────────
@@ -560,7 +563,7 @@ export default function WorkoutPreviewClient({
             <span className="text-3xl">:(</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">לא הצלחנו לטעון את האימון</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{error || 'נסה שוב מאוחר יותר'}</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
           <button
             onClick={() => router.push('/home')}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-xl transition-all"

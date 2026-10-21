@@ -19,8 +19,18 @@ import type { LevelGoal } from '@/types/workout';
  * Cards navigate to ExerciseAnalyticsPage on tap.
  */
 import { Target } from 'lucide-react';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+
+/** No workouts yet (gender copy, decisions 1 + 21.10.2026). */
+const EMPTY_GOALS_HINT = {
+  male: 'התחל אימון כדי לראות יעדים כאן.',
+  female: 'התחילי אימון כדי לראות יעדים כאן.',
+  other: 'אחרי האימון הראשון, היעדים יופיעו כאן.',
+};
 
 export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
+  const gender = useUiGender();
   const { goals: programGoals, loading: goalsLoading } = useActiveProgramGoals();
 
   // ── Reliable userId from persisted store, not auth singleton ─────────────
@@ -101,7 +111,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
             <p className="text-[14px] font-bold leading-snug text-v2-ink-2">
               עדיין לא התאמנת.
               <br />
-              התחל אימון כדי לראות יעדים כאן.
+              {pickGendered(gender, EMPTY_GOALS_HINT)}
             </p>
           </div>
         ) : (
@@ -142,7 +152,7 @@ export default function GoalCarousel({ v2 = false }: { v2?: boolean } = {}) {
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
             עדיין לא התאמנת.
             <br />
-            התחל אימון כדי לראות יעדים כאן.
+            {pickGendered(gender, EMPTY_GOALS_HINT)}
           </p>
         </div>
       ) : (

@@ -31,6 +31,8 @@ import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useToast } from '@/components/ui/Toast';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface ProfilePhotoUploaderProps {
   /** Current photo URL (falls back to placeholder when missing). */
@@ -135,7 +137,7 @@ export default function ProfilePhotoUploader({
       const msg = String(err?.message || err || '');
       if (/cancel/i.test(msg)) return;
       console.error('[ProfilePhotoUploader] upload failed:', err);
-      showToast('error', 'שגיאה בהעלאת התמונה. נסה שוב.');
+      showToast('error', pickGendered(currentUiGender(), { male: 'שגיאה בהעלאת התמונה. נסה שוב.', female: 'שגיאה בהעלאת התמונה. נסי שוב.', other: 'שגיאה בהעלאת התמונה. נסו שוב.' }));
     } finally {
       setUploading(false);
     }

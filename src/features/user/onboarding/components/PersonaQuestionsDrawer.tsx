@@ -12,6 +12,8 @@ import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useRes
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import ChoiceStep from './persona-questions-drawer/ChoiceStep';
 import HierarchySearchStep, { type HierarchySearchValue } from './persona-questions-drawer/HierarchySearchStep';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // 08.09.2026 — real incident: a full military-persona declaration (status +
 // brigade/battalion/company, several screens) silently failed to save.
@@ -72,6 +74,7 @@ const slideVariants = {
  * render (not config-driven), and no skip mechanism to reuse.
  */
 export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, v2 = false }: PersonaQuestionsDrawerProps) {
+  const uiGender = useUiGender();
   const questions = useMemo(() => PERSONA_QUESTIONS[personaId] ?? [], [personaId]);
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
@@ -306,7 +309,7 @@ export default function PersonaQuestionsDrawer({ personaId, isOpen, onComplete, 
                 ? 'flex h-12 w-full max-w-xs items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]'
                 : 'w-full max-w-xs text-on-brand font-black text-base py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 shadow-lg active:scale-[0.97] transition-transform'}
             >
-              נסה שוב
+              {pickGendered(uiGender, GENDERED_COPY.retry)}
             </button>
           </div>
         ) : (

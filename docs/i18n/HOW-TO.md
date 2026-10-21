@@ -209,13 +209,21 @@ One key with an ICU `select` on `gender`. **useT() injects the signed-in user's 
 // before
 {isFemale ? 'מוכנה להתחיל?' : 'מוכן להתחיל?'}
 // after — he
-"start.ready": "{gender, select, female {מוכנה להתחיל?} other {מוכן להתחיל?}}"
+"start.ready": "{gender, select, female {מוכנה להתחיל?} male {מוכן להתחיל?} other {מוכן להתחיל?}}"
 t('start.ready')
 ```
 
-- Keep exactly the branches the code had. A two-way ternary → `female {…} other {…}` (the `else` branch becomes
-  `other`, because that is what an unknown / 'other' gender saw before). A three-way → `female {…} male {…} other {…}`.
+- Keep exactly the output the code had. A two-way ternary → `female {F} male {M} other {M}`: the `else` branch is
+  written twice, as `male` and as `other`, because that is what a man and an unknown / 'other' gender saw before
+  (byte-identical today). A three-way → `female {…} male {…} other {…}`.
   A helper like `g(gender, male, female)` is a two-way pick → same shape.
+- **Why `male` is always explicit (owner decision 21.10.2026):** `other` means unknown / "other" gender and is
+  NEUTRAL, never the masculine form. A later copy PR then only rewrites `other` (to "בואו…", "נסו שוב", …) without
+  touching men's text. `src/lib/i18n/__tests__/gender-select-rule.test.ts` fails on a gender select without a `male`
+  branch (92 older keys are recorded there as a backlog that only shrinks). Code that is not extracted yet uses
+  `pickGendered(useUiGender(), { male, female, other })` from `src/lib/i18n/gender-copy.ts`.
+- The injected gender is the profile's, or during onboarding the gender picked on the identity screen
+  (`sessionStorage('onboarding_personal_gender')`, read by LocaleSync) — onboarding keys need no explicit `{ gender }`.
 - `other` is required by ICU — always the branch the old code's default path produced.
 - Gender of **someone else** (a partner, a group member, a kudos sender): pass it explicitly —
   `t('kudos.from', { name, gender: sender.gender ?? 'other' })` — it overrides the injected one.
