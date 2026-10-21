@@ -16,7 +16,7 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { audiencesFrom, isQaRunnerRequest } from './lib/qa-runner-auth';
+import { QA_RUNNER_INVOKERS, audiencesFrom, isQaRunnerRequest } from './lib/qa-runner-auth';
 import { israelDayKey, testerSwitchesOn } from './lib/demo-tester-token';
 import {
   CONTROL_DOC,
@@ -170,7 +170,7 @@ async function handle(op: string, args: Record<string, unknown>): Promise<Result
 }
 
 export const qaRunnerReport = onRequest(
-  { region: 'us-central1', invoker: 'private', maxInstances: 2, timeoutSeconds: 30, memory: '256MiB' },
+  { region: 'us-central1', invoker: QA_RUNNER_INVOKERS, maxInstances: 2, timeoutSeconds: 30, memory: '256MiB' },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'method_not_allowed' });

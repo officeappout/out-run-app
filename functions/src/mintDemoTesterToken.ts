@@ -35,7 +35,7 @@ import {
   parseMintRequest,
   registeredUids,
 } from './lib/demo-tester-token';
-import { audiencesFrom, expectedRunnerEmail, isQaRunnerRequest } from './lib/qa-runner-auth';
+import { QA_RUNNER_INVOKERS, audiencesFrom, expectedRunnerEmail, isQaRunnerRequest } from './lib/qa-runner-auth';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -47,7 +47,7 @@ const QUOTA_DOC = 'tester_token_quota';
 export const mintDemoTesterToken = onRequest(
   {
     region: 'us-central1',
-    invoker: 'private',
+    invoker: QA_RUNNER_INVOKERS,
     maxInstances: 1,
     concurrency: 1,
     timeoutSeconds: 30,
