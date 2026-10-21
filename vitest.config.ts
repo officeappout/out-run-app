@@ -105,6 +105,8 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
+      // city_inventory/** server-only lockdown (RC4 I2 map-health card) — emulator :8089.
+      'tests/firestore-city-inventory.rules.test.ts',
       // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
       'tests/firestore-demo-registry.rules.test.ts',
       // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
