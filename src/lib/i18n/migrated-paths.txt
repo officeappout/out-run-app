@@ -23,3 +23,8 @@ src/app/activity/
 src/features/partners/
 src/features/heatmap/hooks/
 src/features/heatmap/services/
+
+# wave 2 batch (namespace onboarding, keys quiz.*) — the strength level quiz.
+# BlurredHowStep.tsx in this folder is dead (no importer) and was skipped; its old
+# Hebrew stays, but new Hebrew lines are blocked here like everywhere else.
+src/features/user/onboarding/components/visual-assessment/

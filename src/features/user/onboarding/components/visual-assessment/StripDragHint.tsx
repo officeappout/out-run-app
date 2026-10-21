@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { coachCopy, FINGER_RIDE_MS, NUDGE_PX, type CoachPill } from './strip-hint';
 
 /**
@@ -33,6 +35,7 @@ export default function StripDragHint({
   reducedMotion = false,
   fingerNode,
 }: StripDragHintProps) {
+  const t = useT(onboarding);
   return (
     <>
       <CoachPillBubble pill={pill} isFemale={isFemale} pulse={!reducedMotion} />
@@ -50,8 +53,8 @@ export default function StripDragHint({
             transition={{ duration: 0.3 }}
             aria-hidden
           >
-            <span>קל</span>
-            <span>קשה</span>
+            <span>{t('quiz.hint.easy')}</span>
+            <span>{t('quiz.hint.hard')}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -91,6 +94,8 @@ const AFTER_RING = '0 0 0 2px rgba(0,186,247,0.35)';
 
 /** The coach line, centred just above the strip with a small arrow down. Dark (intro) → light (after). */
 function CoachPillBubble({ pill, isFemale, pulse }: { pill: CoachPill; isFemale: boolean; pulse: boolean }) {
+  const t = useT(onboarding);
+  const gender = isFemale ? 'female' : 'other';
   return (
     <AnimatePresence mode="wait">
       {pill && (
@@ -113,8 +118,8 @@ function CoachPillBubble({ pill, isFemale, pulse }: { pill: CoachPill; isFemale:
             animate={pulse && pill === 'intro' ? { boxShadow: [PULSE_SHADOW[0], PULSE_SHADOW[1], PULSE_SHADOW[0]] } : undefined}
             transition={pulse ? { duration: 2.2, delay: 0.6, repeat: Infinity, ease: 'easeInOut' } : undefined}
           >
-            <span className="text-[15px] font-extrabold leading-tight">{coachCopy(pill, isFemale).title}</span>
-            <span className="text-[12.5px] font-bold leading-tight opacity-75">{coachCopy(pill, isFemale).sub}</span>
+            <span className="text-[15px] font-extrabold leading-tight">{t(coachCopy(pill).title, { gender })}</span>
+            <span className="text-[12.5px] font-bold leading-tight opacity-75">{t(coachCopy(pill).sub, { gender })}</span>
             <span
               className={clsx(
                 'absolute -bottom-[7px] left-1/2 -ml-2 h-4 w-4 rotate-45 rounded-[3px]',
