@@ -246,6 +246,15 @@ interface MapStore {
   storyBarHeight: number;
   setStoryBarHeight: (h: number) => void;
   /**
+   * enable_home_v2 live players only: px the player's floating chrome covers
+   * from the top edge (header card) and from the bottom edge (live card),
+   * safe areas included. Written by usePublishedPlayerChrome, null when no v2
+   * player is mounted. useCameraController follows the user INSIDE the window
+   * between them (player-follow-padding.ts); null keeps the legacy padding.
+   */
+  playerChrome: { top: number; bottom: number } | null;
+  setPlayerChrome: (c: { top: number; bottom: number } | null) => void;
+  /**
    * Index of the currently-selected turn card in TurnCarousel. Written by
    * TurnCarousel whenever the user swipes (or GPS auto-advances) to a new
    * card. Read by AppMap to render the ground arrow icon ONLY at the
@@ -506,6 +515,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   setNavCarouselMinimized: (v) => set({ navCarouselMinimized: v }),
   storyBarHeight: 0,
   setStoryBarHeight: (h) => set({ storyBarHeight: h }),
+  playerChrome: null,
+  setPlayerChrome: (c) => set({ playerChrome: c }),
   activeTurnIdx: -1,
   setActiveTurnIdx: (i) => set({ activeTurnIdx: i }),
   freeRunCarouselRoutes: null,

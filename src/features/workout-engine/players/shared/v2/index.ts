@@ -16,3 +16,5 @@ export { default as PlayerControls } from './PlayerControls';
 export type { PlayerControlsProps } from './PlayerControls';
 export { useHoldToConfirm } from './useHoldToConfirm';
 export { usePublishedHeaderHeight } from './usePublishedHeaderHeight';
+export { usePublishedPlayerChrome, readSafeAreaInsets } from './usePublishedPlayerChrome';
+export type { PlayerChromeOffsets } from './usePublishedPlayerChrome';
