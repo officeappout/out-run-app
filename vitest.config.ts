@@ -135,6 +135,10 @@ export default defineConfig({
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).
       'scripts/qa/__tests__/**/*.test.ts',
+      // City inventory script helpers (RC4 I2) — temp work-dir cleanup, real fs in os.tmpdir().
+      'scripts/city-inventory/__tests__/**/*.test.ts',
+      // City inventory "map health" admin card (RC4 I2) — render tests (jsdom), fetch mocked.
+      'src/features/admin/components/city-inventory/__tests__/**/*.test.tsx',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain
