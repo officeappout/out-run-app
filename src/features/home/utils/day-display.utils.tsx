@@ -1160,8 +1160,9 @@ function DayIconCellV2({ props, sizePx }: { props: DayDisplayProps; sizePx: numb
       aria-label="מנוחה"
       style={{ width: sizePx, height: sizePx, borderRadius: 14, boxShadow: isToday ? '0 0 0 2px #e6edf2' : undefined }}
     >
-      <span className="font-black italic leading-none select-none" style={{ fontSize: 14, color: '#c3ccd4' }}>
-        Z<sup style={{ fontSize: 9, verticalAlign: 'super' }}>z</sup>
+      <span className="font-black italic leading-none select-none" style={{ fontSize: 15, color: '#c3ccd4' }}>
+        {/* v2 type floor: nothing under 11px (V2-FONT-11). */}
+        Z<sup style={{ fontSize: 11, verticalAlign: 'super' }}>z</sup>
       </span>
     </div>
   );

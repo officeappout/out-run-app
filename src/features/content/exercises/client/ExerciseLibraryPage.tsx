@@ -44,6 +44,8 @@ import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/ut
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getAllGearDefinitions } from '@/features/content/equipment/gear/core/gear-definition.service';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 /** Mobile-shell column width applied across the page (450px per spec). */
 const COLUMN = 'max-w-[450px] mx-auto';
@@ -77,6 +79,7 @@ function ExerciseLibraryBody({
   showFilterPills = true,
   topPadding = 'pt-3',
 }: ExerciseLibraryBodyProps) {
+  const t = useT(library);
   const openDetail = useExerciseLibraryStore((s) => s.openDetail);
   const resetFilters = useExerciseLibraryStore((s) => s.resetFilters);
   const setAllPrograms = useExerciseLibraryStore((s) => s.setAllPrograms);
@@ -157,17 +160,18 @@ function ExerciseLibraryBody({
       <div className={`${COLUMN} px-4 ${topPadding} pb-1`}>
         <p className="text-[12px] font-semibold text-gray-500" dir="rtl">
           {isLoading ? (
-            'טוען תרגילים...'
+            t('exercises.count.loading')
           ) : loadError ? (
-            <span className="text-red-600">שגיאה בטעינה</span>
+            <span className="text-red-600">{t('exercises.count.error')}</span>
           ) : (
-            <>
-              נמצאו{' '}
-              <span className="text-gray-900 font-bold tabular-nums">
-                {visibleCount}
-              </span>{' '}
-              תרגילים
-            </>
+            t.rich('exercises.count.found', {
+              count: String(visibleCount),
+              b: (chunks: React.ReactNode) => (
+                <span className="text-gray-900 font-bold tabular-nums">
+                  {chunks}
+                </span>
+              ),
+            })
           )}
         </p>
       </div>
@@ -177,11 +181,11 @@ function ExerciseLibraryBody({
         {loadError ? (
           <div className="mt-12 text-center">
             <p className="text-sm text-red-600 font-semibold">
-              שגיאה בטעינת התרגילים
+              {t('exercises.error.title')}
             </p>
             <p className="text-xs text-gray-500 mt-1 break-all">{loadError}</p>
             <p className="text-[11px] text-gray-400 mt-3">
-              בדוק חיבור לאינטרנט והרשאות Firestore. הפרטים המלאים מודפסים ב-Console.
+              {t('exercises.error.hint')}
             </p>
           </div>
         ) : isLoading ? (
@@ -193,16 +197,16 @@ function ExerciseLibraryBody({
         ) : totalCount === 0 ? (
           <div className="mt-16 text-center">
             <p className="text-sm font-semibold text-gray-700">
-              לא נטענו תרגילים מהשרת
+              {t('exercises.emptyCorpus.title')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              ייתכן שאין חיבור ל-Firestore או שהאוסף ריק. בדוק את ה-Console.
+              {t('exercises.emptyCorpus.hint')}
             </p>
           </div>
         ) : paginated.length === 0 ? (
           <div className="mt-16 text-center">
-            <p className="text-sm font-semibold text-gray-700">לא נמצאו תרגילים</p>
-            <p className="text-xs text-gray-500 mt-1">נסה להסיר חלק מהמסננים</p>
+            <p className="text-sm font-semibold text-gray-700">{t('exercises.noResults.title')}</p>
+            <p className="text-xs text-gray-500 mt-1">{t('exercises.noResults.hint')}</p>
           </div>
         ) : (
           <>

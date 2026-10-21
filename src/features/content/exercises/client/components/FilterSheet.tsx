@@ -16,6 +16,8 @@ import { ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface FilterSheetProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ export default function FilterSheet({
   children,
   footer,
 }: FilterSheetProps) {
+  const t = useT(library);
   // Guard: only portal to document.body after client mount to avoid SSR mismatch.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -81,7 +84,7 @@ export default function FilterSheet({
                 type="button"
                 onClick={onClose}
                 className="p-2 -me-2 text-gray-400 hover:text-gray-600 rounded-full"
-                aria-label="סגור"
+                aria-label={t('exercises.filterSheet.close')}
               >
                 <X size={18} />
               </button>
@@ -100,7 +103,7 @@ export default function FilterSheet({
                       onClick={onClear}
                       className="flex-1 py-2.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
                     >
-                      נקה
+                      {t('exercises.filterSheet.clear')}
                     </button>
                   )}
                   {onApply && (
@@ -109,7 +112,7 @@ export default function FilterSheet({
                       onClick={onApply}
                       className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white bg-primary hover:opacity-90 transition-opacity"
                     >
-                      החל
+                      {t('exercises.filterSheet.apply')}
                     </button>
                   )}
                 </div>

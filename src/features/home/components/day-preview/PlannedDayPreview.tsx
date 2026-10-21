@@ -61,6 +61,7 @@ export default function PlannedDayPreview({ dateISO, plan }: PlannedDayPreviewPr
                 icon={tileOf(item)}
                 title={item.title}
                 subtitle={item.subtitle}
+                wrapSubtitle
                 tag={item.completed ? { label: 'בוצע', tone: 'new' } : null}
               />
             ))
@@ -69,6 +70,7 @@ export default function PlannedDayPreview({ dateISO, plan }: PlannedDayPreviewPr
               icon={<IconTile icon={Moon} tone="neutral" size="md" />}
               title={plan.isRestDay ? 'יום מנוחה' : 'אין אימון מתוכנן'}
               subtitle={plan.isRestDay ? 'התאוששות ומוביליטי — הגוף בונה את עצמו' : 'אפשר להוסיף אימון מהלו״ז'}
+              wrapSubtitle
             />
           )}
         </div>

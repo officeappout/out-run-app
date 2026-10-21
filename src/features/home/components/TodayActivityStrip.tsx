@@ -46,6 +46,7 @@
 
 import React from 'react';
 import { SuggestionCarousel } from '@/features/workout-engine/core/components/SuggestionCarousel';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import TodayActivityCard, { TODAY_ACTIVITY_CARD_HEIGHT, type TodayActivityCardData } from './TodayActivityCard';
 
 export interface TodayActivityStripProps {
@@ -81,6 +82,8 @@ export interface TodayActivityStripProps {
 }
 
 export default function TodayActivityStrip({ cards, onCardTap, title = 'הפעילות שלי היום' }: TodayActivityStripProps) {
+  // v2: pager dots are a passive indicator (no 6px tap targets).
+  const v2 = useHomeV2();
   if (cards.length === 0) return null;
 
   return (
@@ -93,6 +96,7 @@ export default function TodayActivityStrip({ cards, onCardTap, title = 'הפעי
         cardHeight={TODAY_ACTIVITY_CARD_HEIGHT}
         maxCardWidthPx={320}
         maxCardWidthVw={85}
+        passiveDots={v2}
         renderCard={(c, isActive) =>
           onCardTap ? (
             <button

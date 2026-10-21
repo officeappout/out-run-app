@@ -6,8 +6,16 @@ import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/sto
 import { WORKOUT_DELETE_EXPANDED_ENABLED } from '@/config/feature-flags';
 import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal';
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 type FilterType = 'all' | 'running' | 'strength';
+
+const FILTERS = [
+  { key: 'all', labelKey: 'profile.history.filter.all' },
+  { key: 'running', labelKey: 'profile.history.filter.running' },
+  { key: 'strength', labelKey: 'profile.history.filter.strength' },
+] as const satisfies ReadonlyArray<{ key: FilterType; labelKey: string }>;
 
 interface HistoryTabProps {
   onWorkoutClick: (workout: WorkoutHistoryEntry) => void;
@@ -28,23 +36,25 @@ interface HistoryTabProps {
 
 // Short activity label for the shared delete-confirm modal's copy — same
 // simple per-workoutType mapping style AerobicSummaryShell uses for its own
-// delete confirmations.
+// delete confirmations. Not extracted here: the label is a noun that
+// DeleteWorkoutConfirmModal (src/components/ui) composes into its own sentence —
+// it moves together with that modal's copy.
 function activityLabelFor(workoutType: WorkoutHistoryEntry['workoutType']): string {
   switch (workoutType) {
     case 'running':
-      return 'ריצה';
+      return 'ריצה'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     case 'walking':
-      return 'הליכה';
+      return 'הליכה'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     case 'cycling':
-      return 'רכיבה';
+      return 'רכיבה'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     case 'strength':
-      return 'אימון כוח';
+      return 'אימון כוח'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     case 'hybrid':
-      return 'אימון משולב';
+      return 'אימון משולב'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     case 'recovery':
-      return 'אימון התאוששות';
+      return 'אימון התאוששות'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
     default:
-      return 'אימון';
+      return 'אימון'; // i18n-allow-hebrew: noun composed by DeleteWorkoutConfirmModal (outside this folder)
   }
 }
 
@@ -60,6 +70,7 @@ function formatDateLabel(date: Date): string {
 }
 
 export default function HistoryTab({ onWorkoutClick, workouts, isLoading, removeWorkout }: HistoryTabProps) {
+  const t = useT(profileNs);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   // Workout pending delete-confirmation; null when the modal is hidden.
   const [pendingDelete, setPendingDelete] = useState<WorkoutHistoryEntry | null>(null);
@@ -107,17 +118,11 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
     });
   }, [workouts, activeFilter]);
 
-  const filters: { key: FilterType; label: string }[] = [
-    { key: 'all', label: 'הכל' },
-    { key: 'running', label: 'ריצה' },
-    { key: 'strength', label: 'כוח' },
-  ];
-
   return (
     <div className="space-y-4">
       {/* Filter Bar */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" dir="rtl">
-        {filters.map((filter) => (
+        {FILTERS.map((filter) => (
           <button
             key={filter.key}
             onClick={() => setActiveFilter(filter.key)}
@@ -127,7 +132,7 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             }`}
           >
-            {filter.label}
+            {t(filter.labelKey)}
           </button>
         ))}
       </div>
@@ -135,11 +140,11 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
       {/* Workout Cards */}
       {isLoading ? (
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-          <p className="text-gray-500">טוען אימונים...</p>
+          <p className="text-gray-500">{t('profile.history.loading')}</p>
         </div>
       ) : filteredWorkouts.length === 0 ? (
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-          <p className="text-gray-500 text-sm font-simpler">אין אימונים רשומים</p>
+          <p className="text-gray-500 text-sm font-simpler">{t('profile.history.empty')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -167,7 +172,7 @@ export default function HistoryTab({ onWorkoutClick, workouts, isLoading, remove
                   key={workout?.id || `error-${Math.random()}`}
                   className="w-full bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center"
                 >
-                  <p className="text-sm text-gray-500">שגיאה בטעינת האימון</p>
+                  <p className="text-sm text-gray-500">{t('profile.history.cardError')}</p>
                 </div>
               );
             }
