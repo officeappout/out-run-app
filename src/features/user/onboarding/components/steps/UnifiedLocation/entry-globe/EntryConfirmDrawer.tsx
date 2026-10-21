@@ -6,7 +6,8 @@ import { resolveParkImage } from '@/lib/park-image';
 import type { NearbyFacility, SportContext, TrainingContext } from '../location-types';
 import { buildPioneerFallback } from '../location-utils';
 import { EntryDrawer, EntryCta, EntryLink } from './EntryDrawer';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { confirmPlaceName, nearestParkMetaParts, pickNearestPark } from './entry-confirm';
 
 // Same emoji strip as ConfirmationCard's v2 branch (pioneer copy comes from the shared matrix).
@@ -41,6 +42,7 @@ export function EntryConfirmDrawer({
   onConfirm,
   onSearchOther,
 }: EntryConfirmDrawerProps) {
+  const t = useT(onboarding);
   const place = confirmPlaceName(detectedNeighborhood, detectedCity, displayName);
   const park = pickNearestPark(nearbyFacilities);
   // Explorer rule (same as ConfirmationCard): the pioneer box only when the area has zero parks.
@@ -52,11 +54,11 @@ export function EntryConfirmDrawer({
 
   return (
     <EntryDrawer>
-      <span className="text-[13px] font-bold text-v2-deep">{ENTRY_COPY.confirmEyebrow}</span>
+      <span className="text-[13px] font-bold text-v2-deep">{t('location.entry.confirm.eyebrow')}</span>
       <h2 className="-mt-1 text-[22px] font-black leading-7 !tracking-[-0.02em] text-v2-ink">
-        {place ? ENTRY_COPY.confirmTitle(place) : ' '}
+        {place ? t('location.entry.confirm.title', { place }) : ' '}
       </h2>
-      <p className="text-[14px] leading-5 text-v2-ink-2">{ENTRY_COPY.confirmBody}</p>
+      <p className="text-[14px] leading-5 text-v2-ink-2">{t('location.entry.confirm.body')}</p>
 
       {isLoadingParks && (
         <div className="flex items-center gap-2.5 rounded-[18px] bg-[#f8fafc] p-2.5 shadow-v2-ring" aria-busy>
@@ -79,9 +81,9 @@ export function EntryConfirmDrawer({
             </span>
           )}
           <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-right">
-            <span className="text-[11px] font-bold text-v2-deep">{ENTRY_COPY.nearestParkLabel}</span>
+            <span className="text-[11px] font-bold text-v2-deep">{t('location.entry.confirm.nearestPark')}</span>
             <span className="truncate text-[14.5px] font-bold text-v2-ink">{park.name}</span>
-            <span className="truncate text-[12px] text-v2-muted">{nearestParkMetaParts(park).join(' · ')}</span>
+            <span className="truncate text-[12px] text-v2-muted">{nearestParkMetaParts(park, t).join(' · ')}</span>
           </span>
         </div>
       )}
@@ -98,20 +100,18 @@ export function EntryConfirmDrawer({
               </p>
             )}
             <p className="mt-1 text-[12.5px] font-bold leading-relaxed text-v2-muted">
-              {gender === 'female'
-                ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!'
-                : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!'}
+              {t('location.entry.confirm.pioneerLine', { gender })}
             </p>
           </div>
         </div>
       )}
 
-      <span className="text-center text-[12.5px] text-v2-muted">{ENTRY_COPY.confirmDragLine}</span>
+      <span className="text-center text-[12.5px] text-v2-muted">{t('location.entry.confirm.dragLine')}</span>
       <EntryCta onClick={onConfirm} disabled={isLoadingParks}>
-        {ENTRY_COPY.confirmCta}
+        {t('location.entry.confirm.cta')}
       </EntryCta>
       <EntryLink onClick={onSearchOther} tone="deep">
-        {ENTRY_COPY.confirmNotHome}
+        {t('location.entry.confirm.notHome')}
       </EntryLink>
     </EntryDrawer>
   );

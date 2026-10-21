@@ -80,3 +80,27 @@ src/features/content/exercises/client/components/SecondaryFiltersTrigger.tsx
 src/features/content/exercises/client/hooks/
 src/features/content/exercises/client/store/
 src/features/content/exercises/client/utils/
+# wave 2 (namespace onboarding, keys steps.* / location.*) — onboarding + lifestyle-wizard steps and the
+# location step's sheets. Listed per file: steps/ and entry-globe/ also hold files the owner's design
+# agents are editing (AccessCodeStep, UnifiedLocationStep, EntryGlobeHeadline/Layer, EntryLogoSlot,
+# location-types) — not migrated. Also not migrated: entry-copy.ts (the globe headline's copy, read by
+# EntryGlobeHeadline), location-utils.ts (identity hook / badges / pioneer copy, read outside this
+# folder), location-constants.ts (data), HistoryStep / SummaryStep / UnifiedLocation/index.ts (dead).
+src/features/user/onboarding/components/steps/AccountSecureStep.tsx
+src/features/user/onboarding/components/steps/EquipmentStep.tsx
+src/features/user/onboarding/components/steps/PersonaStep.tsx
+src/features/user/onboarding/components/steps/PersonalStatsStep.tsx
+src/features/user/onboarding/components/steps/PlanLengthStep.tsx
+src/features/user/onboarding/components/steps/ProcessingStep.tsx
+src/features/user/onboarding/components/steps/RunningPlanSummary.tsx
+src/features/user/onboarding/components/steps/RunningScheduleStep.tsx
+src/features/user/onboarding/components/steps/ScheduleStep.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/sub-components/
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/DivePill.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/DragHintChip.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryConfirmDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryInitialDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntrySearchOverlay.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-confirm.ts
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-search.ts

@@ -3,7 +3,8 @@
 import React from 'react';
 import { Search } from 'lucide-react';
 import { EntryDrawer, EntryCta, EntryLink } from './EntryDrawer';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 /** INITIAL — over the live Earth: ask for location (GPS on tap only) or search. */
 export function EntryInitialDrawer({
@@ -15,12 +16,13 @@ export function EntryInitialDrawer({
   onFindLocation: () => void;
   onSearchManually: () => void;
 }) {
+  const t = useT(onboarding);
   return (
     <EntryDrawer delay={locationError ? 0 : 1.1}>
       <h2 className="text-center text-[22px] font-black !tracking-[-0.02em] text-v2-ink">
-        {ENTRY_COPY.initialTitle}
+        {t('location.entry.initial.title')}
       </h2>
-      <p className="text-center text-[14.5px] leading-[21px] text-v2-ink-2">{ENTRY_COPY.initialBody}</p>
+      <p className="text-center text-[14.5px] leading-[21px] text-v2-ink-2">{t('location.entry.initial.body')}</p>
 
       {locationError && (
         <div className="rounded-2xl bg-[#b4232a]/[0.06] px-3.5 py-2.5" role="alert">
@@ -30,9 +32,9 @@ export function EntryInitialDrawer({
 
       <EntryCta onClick={onFindLocation}>
         <Search size={19} strokeWidth={2.6} className="flex-shrink-0" aria-hidden />
-        <span className="truncate">{ENTRY_COPY.initialCta}</span>
+        <span className="truncate">{t('location.entry.initial.cta')}</span>
       </EntryCta>
-      <EntryLink onClick={onSearchManually}>{ENTRY_COPY.initialManual}</EntryLink>
+      <EntryLink onClick={onSearchManually}>{t('location.entry.initial.manual')}</EntryLink>
     </EntryDrawer>
   );
 }

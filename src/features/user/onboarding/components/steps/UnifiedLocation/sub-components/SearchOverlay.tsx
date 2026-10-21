@@ -4,6 +4,8 @@ import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, X, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { SearchOverlayProps } from '../location-types';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 export function SearchOverlay({
   searchQuery,
@@ -13,6 +15,7 @@ export function SearchOverlay({
   onBack,
   v2 = false,
 }: SearchOverlayProps) {
+  const t = useT(onboarding);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,7 +40,7 @@ export function SearchOverlay({
             <button
               type="button"
               onClick={onBack}
-              aria-label="חזרה"
+              aria-label={t('location.search.back')}
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
             >
               <ChevronRight size={20} className="text-v2-ink" />
@@ -53,7 +56,7 @@ export function SearchOverlay({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="חפשו עיר או שכונה"
+                placeholder={t('location.search.placeholder')}
                 className="w-full h-[52px] rounded-2xl bg-white border-0 pr-11 pl-11 text-[16px] font-semibold text-v2-ink shadow-v2-ring focus:ring-2 focus:ring-inset focus:ring-v2-accent/60 outline-none placeholder:text-v2-muted text-right"
                 dir="rtl"
               />
@@ -62,7 +65,7 @@ export function SearchOverlay({
                   onClick={() => onSearchChange('')}
                   className="absolute left-3 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline z-10"
                   type="button"
-                  aria-label="נקה חיפוש"
+                  aria-label={t('location.search.clear')}
                 >
                   <X size={14} className="text-v2-ink-2" />
                 </button>
@@ -107,10 +110,10 @@ export function SearchOverlay({
                 <Search size={24} className="text-v2-muted" />
               </div>
               <p className="text-[15px] font-extrabold text-v2-ink">
-                לא נמצאו תוצאות עבור &quot;{searchQuery}&quot;
+                {t('location.search.noResults', { query: searchQuery })}
               </p>
               <p className="text-[12.5px] font-bold text-v2-muted mt-1">
-                נסו לחפש עיר או שכונה אחרת
+                {t('location.search.noResultsHint')}
               </p>
             </div>
           ) : null}
@@ -148,7 +151,7 @@ export function SearchOverlay({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="חפשו עיר או שכונה"
+                placeholder="חפשו עיר או שכונה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 className="w-full bg-gray-100 rounded-xl px-4 py-3 pr-11 text-gray-900 placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5BC2F2] focus:border-transparent focus:bg-white transition-all"
                 style={{ 
                   fontFamily: 'var(--font-simpler)',
@@ -162,7 +165,7 @@ export function SearchOverlay({
                   onClick={() => onSearchChange('')}
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 hover:bg-gray-200 rounded-full p-1 transition-colors z-10"
                   type="button"
-                  aria-label="נקה חיפוש"
+                  aria-label="נקה חיפוש" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 >
                   <X size={16} className="text-gray-500" />
                 </button>
@@ -212,10 +215,10 @@ export function SearchOverlay({
                 <Search size={32} className="mx-auto" />
               </div>
               <p className="text-gray-600 font-medium" style={{ fontFamily: 'var(--font-simpler)' }}>
-                לא נמצאו תוצאות עבור &quot;{searchQuery}&quot;
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}לא נמצאו תוצאות עבור &quot;{searchQuery}&quot;
               </p>
               <p className="text-gray-400 text-sm mt-1" style={{ fontFamily: 'var(--font-simpler)' }}>
-                נסו לחפש עיר או שכונה אחרת
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נסו לחפש עיר או שכונה אחרת
               </p>
             </div>
           ) : null}

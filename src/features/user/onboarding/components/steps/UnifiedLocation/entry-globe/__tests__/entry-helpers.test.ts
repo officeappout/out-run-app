@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import type { CityData, NearbyFacility } from '../../location-types';
 import { groupSearchResults, highlightSegments, placeTypeLabel, visibleSections } from '../entry-search';
 import { confirmPlaceName, nearestParkMetaParts, pickNearestPark } from '../entry-confirm';
-import { ENTRY_COPY } from '../entry-copy';
+import { makeT } from '@/lib/i18n/t';
+import { onboarding } from '@/messages/ns/onboarding';
+
+const t = makeT('he', onboarding);
 
 const city = (over: Partial<CityData>): CityData => ({
   id: 'x', name: 'x', displayName: 'x', type: 'city', lat: 32, lng: 34.8,
@@ -29,11 +32,11 @@ describe('groupSearchResults', () => {
     expect(visibleSections('cities')).toEqual({ neighborhoods: false, cities: true });
   });
   it('place type labels', () => {
-    expect(placeTypeLabel('city')).toBe('עיר');
-    expect(placeTypeLabel('regional_council')).toBe('מועצה אזורית');
-    expect(placeTypeLabel('local_council')).toBe('מועצה מקומית');
-    expect(placeTypeLabel('settlement')).toBe('יישוב');
-    expect(placeTypeLabel(undefined)).toBe('יישוב');
+    expect(placeTypeLabel('city', t)).toBe('עיר');
+    expect(placeTypeLabel('regional_council', t)).toBe('מועצה אזורית');
+    expect(placeTypeLabel('local_council', t)).toBe('מועצה מקומית');
+    expect(placeTypeLabel('settlement', t)).toBe('יישוב');
+    expect(placeTypeLabel(undefined, t)).toBe('יישוב');
   });
 });
 
@@ -55,8 +58,8 @@ describe('highlightSegments', () => {
     expect(highlightSegments('', 'א')).toEqual([]);
   });
   it('segments always re-join to the original text', () => {
-    const t = 'נווה צדק, תל אביב';
-    expect(highlightSegments(t, 'צדק אב').map((s) => s.text).join('')).toBe(t);
+    const text = 'נווה צדק, תל אביב';
+    expect(highlightSegments(text, 'צדק אב').map((s) => s.text).join('')).toBe(text);
   });
 });
 
@@ -69,7 +72,7 @@ describe('confirm drawer helpers', () => {
     expect(confirmPlaceName(null, 'חיפה', 'x')).toBe('חיפה');
     expect(confirmPlaceName('  ', '', 'רחוב הרצל')).toBe('רחוב הרצל');
     expect(confirmPlaceName(null, null, null)).toBe('');
-    expect(ENTRY_COPY.confirmTitle('הצפון הישן')).toBe('גרים בהצפון הישן?');
+    expect(t('location.entry.confirm.title', { place: 'הצפון הישן' })).toBe('גרים בהצפון הישן?');
   });
   it('nearest park ignores routes and picks the smallest distance', () => {
     const route = { kind: 'route', id: 'r', distanceMeters: 10 } as unknown as NearbyFacility;
@@ -78,9 +81,10 @@ describe('confirm drawer helpers', () => {
     expect(pickNearestPark(undefined)).toBeNull();
   });
   it('meta: distance · rating · equipment — only what exists', () => {
-    expect(nearestParkMetaParts({ formattedDistance: '400 מ׳', rating: 4.7, gymEquipment: new Array(6).fill({}) }))
+    expect(nearestParkMetaParts({ formattedDistance: '400 מ׳', rating: 4.7, gymEquipment: new Array(6).fill({}) }, t))
       .toEqual(['400 מ׳', '⭐ 4.7', '6 מתקנים']);
-    expect(nearestParkMetaParts({ formattedDistance: '1.2 ק״מ', rating: 0 })).toEqual(['1.2 ק״מ']);
-    expect(nearestParkMetaParts({ formattedDistance: '', rating: null, gymEquipment: [{}] })).toEqual(['מתקן אחד']);
+    expect(nearestParkMetaParts({ formattedDistance: '1.2 ק״מ', rating: 0 }, t)).toEqual(['1.2 ק״מ']);
+    expect(nearestParkMetaParts({ formattedDistance: '', rating: null, gymEquipment: [{}] }, t)).toEqual(['מתקן אחד']);
+    expect(nearestParkMetaParts({ gymEquipment: new Array(1234).fill({}) }, t)).toEqual(['1234 מתקנים']);
   });
 });

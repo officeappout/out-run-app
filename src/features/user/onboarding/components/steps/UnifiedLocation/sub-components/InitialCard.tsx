@@ -4,28 +4,30 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
 import type { InitialCardProps } from '../location-types';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
-export function InitialCard({ gender, t, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose, v2 = false }: InitialCardProps) {
+export function InitialCard({ gender, locationError, onFindLocation, onSearchManually, mode = 'onboarding', detectedNeighborhood, detectedCity, purpose, v2 = false }: InitialCardProps) {
+  const t = useT(onboarding);
   const isExplorer = mode === 'explorer';
   const isRunning = purpose === 'running';
   const userName = typeof window !== 'undefined' 
     ? sessionStorage.getItem('onboarding_personal_name') || ''
     : '';
-  const isFemale = gender === 'female';
 
   const locationAnchor = detectedNeighborhood || detectedCity || null;
 
   const headline = isRunning
-    ? <>{isFemale ? 'בואי' : 'בוא'} נאשר מיקום כדי שנטען את אימון הריצה שלך</>
+    ? <>{t('location.initial.headline.running', { gender })}</>
     : isExplorer
       ? (locationAnchor
-          ? <>הגינה הכי קרובה ל{locationAnchor}</>
-          : <>להכיר את השכונה, מקרוב</>)
-      : <>להכיר את השכונה, מקרוב</>;
+          ? <>{t('location.initial.headline.nearest', { place: locationAnchor })}</>
+          : <>{t('location.initial.headline.default')}</>)
+      : <>{t('location.initial.headline.default')}</>;
 
   const subtitle = isRunning
-    ? <>נמצא לך מסלול ריצה וגם גינות כושר בדרך</>
-    : <>כדי שנוכל להציג את מסלולי ההליכה, גינות הכושר והמקומות הכי בטוחים וקרובים אליכם, יש לאשר גישה למיקום.</>;
+    ? <>{t('location.initial.subtitle.running')}</>
+    : <>{t('location.initial.subtitle.default')}</>;
 
   if (v2) {
     // v2 — a bottom sheet over the full-bleed map. The step is `fixed inset-0`
@@ -69,7 +71,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             className="w-full h-[52px] rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 flex items-center justify-center gap-2 px-5 whitespace-nowrap"
           >
             <MapPin size={19} className="flex-shrink-0" />
-            <span className="truncate">מציאת מיקום אוטומטית (GPS)</span>
+            <span className="truncate">{t('location.initial.gps')}</span>
           </button>
 
           <button
@@ -77,7 +79,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             onClick={onSearchManually}
             className="w-full mt-2 h-11 text-[14px] font-extrabold text-v2-deep whitespace-nowrap truncate active:scale-[0.97] transition-transform duration-150 ease-v2"
           >
-            בחירת עיר ושכונה באופן ידני
+            {t('location.initial.manual')}
           </button>
         </div>
       </motion.div>
@@ -126,7 +128,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
             <MapPin size={20} />
-            <span>מציאת מיקום אוטומטית (GPS)</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מציאת מיקום אוטומטית (GPS)</span>
           </button>
 
           <button
@@ -134,7 +136,7 @@ export function InitialCard({ gender, t, locationError, onFindLocation, onSearch
             className="w-full mt-4 text-[#007EA8] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-medium"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            בחירת עיר ושכונה באופן ידני
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחירת עיר ושכונה באופן ידני
           </button>
         </div>
       </div>
