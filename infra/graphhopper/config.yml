@@ -15,6 +15,18 @@ graphhopper:
     # OUT's quiet-streets + safe-crossings defaults baked in (A->B without a request model).
     - name: out_run
       custom_model_files: [foot.json, foot_elevation.json, out_run.json]
+    # foot + turn costs (edge-based): every turn > 30° costs a few seconds of
+    # weight (models/out_turns.json), so of two near-equal paths the one with
+    # fewer turns wins — no more side-street staircases / sidewalk hopping.
+    # The app opts in per environment (GRAPHHOPPER_FOOT_PROFILE=foot_turns);
+    # `foot` stays exactly as before. Turn penalties can also be sent per
+    # request (allow_turn_penalty_in_request) to retune without a rebuild.
+    - name: foot_turns
+      turn_costs:
+        vehicle_types: [foot]
+        u_turn_costs: 60
+        allow_turn_penalty_in_request: true
+      custom_model_files: [foot.json, foot_elevation.json, out_turns.json]
     - name: bike
       custom_model_files: [bike.json, bike_elevation.json]
     - name: out_bike

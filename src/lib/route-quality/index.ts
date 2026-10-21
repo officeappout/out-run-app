@@ -1,6 +1,6 @@
 /**
  * route-quality — pure, I/O-free measurement of a generated route line
- * (U-turns/spurs, retrace, self-crossings, compactness, distance error,
+ * (U-turns/spurs, retrace, self-crossings, compactness, turns/zigzag, distance error,
  * major-road share and crossings) + the v1 loop acceptance bars and the
  * spur trimmer. The only I/O helper is fetchOsmRoadLayer (Overpass), kept
  * separate in osm-layer.ts / osm-layer-cache.ts.
@@ -11,6 +11,7 @@ export { detectUTurns, SPUR_MIN_M } from './uturns';
 export { retracedFraction } from './retrace';
 export { compactness, countSelfIntersections } from './shape';
 export { majorRoadCrossings, majorRoadShare } from './major-roads';
+export { countTurns, zigzagIndex, turnMetrics, simplifyIndices, TURN_MIN_DEG, TURN_SIMPLIFY_M, ZIGZAG_SIMPLIFY_M, type TurnMetrics } from './turns';
 export { computeRouteQualityMetrics, type MetricsOptions } from './metrics';
 export { evaluateLoopQuality, LOOP_QUALITY_THRESHOLDS, type QualityVerdict, type QualityRejectReason } from './acceptance';
 export { trimSpurs } from './trim-spurs';

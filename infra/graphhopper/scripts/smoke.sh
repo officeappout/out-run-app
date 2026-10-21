@@ -15,3 +15,9 @@ curl -fsS -H "$H" -H 'Content-Type: application/json' "$URL/route" -d '{
 curl -fsS -H "$H" -H 'Content-Type: application/json' "$URL/route" -d '{
   "profile":"out_run","points":[[34.774,32.0779],[34.7687,32.0571]],"points_encoded":false,"instructions":false}' \
   | python3 -c 'import json,sys;p=json.load(sys.stdin)["paths"][0];print("A->B km",round(p["distance"]/1000,2))'
+# foot_turns (turn costs, 21.10.2026): same round trip on the edge-based profile.
+curl -fsS -H "$H" -H 'Content-Type: application/json' "$URL/route" -d '{
+  "profile":"foot_turns","points":[[34.774,32.0779]],"algorithm":"round_trip",
+  "round_trip.distance":5000,"round_trip.seed":1,"points_encoded":false,
+  "instructions":false,"elevation":true,"ch.disable":true}' \
+  | python3 -c 'import json,sys;p=json.load(sys.stdin)["paths"][0];print("foot_turns round_trip km",round(p["distance"]/1000,2))'
