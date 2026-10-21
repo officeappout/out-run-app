@@ -26,6 +26,15 @@ export interface WalkWbContext {
   otherRuns?: readonly ExistingRunDay[];
 }
 
+/**
+ * Walk weeks: a walk may share a day with the user's (locked) strength / run session, never
+ * with another walk (one session per track a day, the layout rule).
+ */
+export const walkRules = (ctx: WalkWbContext): WbRules => ({
+  maxPerDay: (ctx.otherStrength?.length ?? 0) + (ctx.otherRuns?.length ?? 0) > 0 ? 2 : 1,
+  runLevel: null,
+});
+
 export function walkWeekToWb(walks: WalkWeek, ctx: WalkWbContext, rules: WbRules): WbWeek {
   const week = emptyWeek(Array.from(new Set([...ctx.openDays, ...walks.walks.map((w) => w.dow)])), ctx.windows, DEFAULT_RUN_WINDOW);
   for (const r of ctx.otherRuns ?? []) {

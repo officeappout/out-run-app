@@ -7,7 +7,7 @@
  * no home = חדש), which is exactly what the add-track save reads (planAddTrackSave: a moved
  * strength session takes its stored ids along). Pure.
  */
-import type { TimeWindow } from '../../engine-v2/types';
+import type { ScheduleEngineInput, TimeWindow } from '../../engine-v2/types';
 import { windowOfTime } from '../../utils/runWeekRecommendation';
 import type { AddTrackDayView, AddTrackSessionView, AddTrackWeekView } from '../../add-track/addTrackWeek';
 import { explainWeek } from '../explain';
@@ -22,6 +22,15 @@ export interface AddTrackWbContext {
   /** Days the combined week may use (addTrackOpenDays). */
   openDays: readonly number[];
   times: { run: string; strength: string };
+}
+
+/** The caps the combined week is validated by — the very ones the engine built it with. */
+export function addTrackRules(input: ScheduleEngineInput): WbRules {
+  return {
+    maxPerDay: input.availability.maxSessionsPerDay,
+    maxTrainingDays: input.availability.maxTrainingDays,
+    runLevel: input.levels.running,
+  };
 }
 
 const homeOf = (s: AddTrackSessionView, dow: number): number | null =>
@@ -50,6 +59,7 @@ export function addTrackWeekToWb(view: AddTrackWeekView, ctx: AddTrackWbContext,
         detailHe: detailLineHe(minutes, s.kind === 'run' ? runWindow : strengthWindow),
         minutes,
         homeDow: homeOf(s, day.dow),
+        isNew: s.status === 'new',
         data: { kind: s.kind },
       };
       week.days[day.dow].sessions.push(session);

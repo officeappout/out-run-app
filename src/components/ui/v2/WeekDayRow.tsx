@@ -41,9 +41,11 @@ export interface WeekSessionPieceProps {
   note?: { text: string; tone?: WeekSessionNoteTone } | null;
   /** Let a long subtitle take up to two lines instead of truncating to one. Default false. */
   wrapSubtitle?: boolean;
+  /** At the row's end, after the tag (the week builder's drag handle). */
+  trailing?: ReactNode;
 }
 
-export function WeekSessionPiece({ icon, title, subtitle, tag, note, wrapSubtitle = false }: WeekSessionPieceProps) {
+export function WeekSessionPiece({ icon, title, subtitle, tag, note, wrapSubtitle = false, trailing }: WeekSessionPieceProps) {
   const tone = note?.tone ?? 'info';
   const NoteIcon = NOTE_ICON[tone];
   return (
@@ -59,6 +61,7 @@ export function WeekSessionPiece({ icon, title, subtitle, tag, note, wrapSubtitl
         {tag && (
           <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ${TAG_CLASS[tag.tone]}`}>{tag.label}</span>
         )}
+        {trailing}
       </div>
       {note?.text && (
         <p className={`flex items-center gap-1.5 whitespace-nowrap text-[12px] font-bold ${NOTE_CLASS[tone]}`}>
@@ -81,17 +84,33 @@ export interface WeekDayRowProps {
   emptyLabel?: string;
   /** Hairline above (every row but the first). */
   divider?: boolean;
+  /** Makes the date column a button (the week builder: tap the date to edit the day). */
+  onDateTap?: () => void;
+  /** aria-label of that button. */
+  dateAriaLabel?: string;
   children?: ReactNode;
 }
 
-export default function WeekDayRow({ letter, date, muted = false, emptyLabel, divider = false, children }: WeekDayRowProps) {
+export default function WeekDayRow({ letter, date, muted = false, emptyLabel, divider = false, onDateTap, dateAriaLabel, children }: WeekDayRowProps) {
   const hasContent = Array.isArray(children) ? children.some(Boolean) : !!children;
   return (
     <div className={`flex gap-3 px-3 py-2.5 ${divider ? 'border-t border-v2-hairline' : ''}`}>
-      <div className="w-10 shrink-0 pt-1 text-center">
-        <span className="block text-[12px] font-extrabold text-v2-muted">{letter}׳</span>
-        <span className={`mx-auto mt-0.5 block text-[16px] font-black tabular-nums ${muted ? 'text-v2-muted' : 'text-v2-ink'}`}>{date}</span>
-      </div>
+      {onDateTap ? (
+        <button
+          type="button"
+          onClick={onDateTap}
+          aria-label={dateAriaLabel}
+          className="w-10 shrink-0 rounded-[12px] pt-1 text-center transition-transform duration-150 ease-v2 active:scale-[0.97]"
+        >
+          <span className="block text-[12px] font-extrabold text-v2-muted">{letter}׳</span>
+          <span className={`mx-auto mt-0.5 block text-[16px] font-black tabular-nums underline decoration-v2-hairline decoration-2 underline-offset-4 ${muted ? 'text-v2-muted' : 'text-v2-ink'}`}>{date}</span>
+        </button>
+      ) : (
+        <div className="w-10 shrink-0 pt-1 text-center">
+          <span className="block text-[12px] font-extrabold text-v2-muted">{letter}׳</span>
+          <span className={`mx-auto mt-0.5 block text-[16px] font-black tabular-nums ${muted ? 'text-v2-muted' : 'text-v2-ink'}`}>{date}</span>
+        </div>
+      )}
       <span aria-hidden className="w-px shrink-0 self-stretch bg-v2-hairline" />
       {hasContent ? (
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</div>

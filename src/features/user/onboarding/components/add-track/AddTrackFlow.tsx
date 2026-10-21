@@ -25,10 +25,13 @@ import {
 } from '@/features/schedule/services/reminderOptIn.service';
 import type { AddedTrack } from '@/features/schedule/add-track/addTrackProfile';
 import {
+  addTrackEngineInput,
+  addTrackOpenDays,
   buildAddTrackWeek,
   presetPriority,
   priorityFromShare,
   shareOfPriority,
+  type AddTrackDayView,
 } from '@/features/schedule/add-track/addTrackWeek';
 import { comingDayOfMonthByDow } from '@/features/schedule/utils/comingWeekDates';
 import type { AddTrackSavePlan } from '@/features/schedule/add-track/addTrackSave';
@@ -36,6 +39,9 @@ import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useAddTrackContext } from '../../hooks/useAddTrackContext';
 import { saveAddTrackCalendarSync, saveAddTrackWeek } from '../../services/add-track-save.service';
 import AddTrackWeekStep from './AddTrackWeekStep';
+import AddTrackWeekBuilderStep from './AddTrackWeekBuilderStep';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import { addTrackRules } from '@/features/schedule/week-builder/adapters/addTrack';
 
 export const ADD_TRACK_SUBSTEPS = 2;
 
@@ -48,6 +54,8 @@ export interface AddTrackFlowProps {
 
 export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlowProps) {
   const t = useT(onboarding);
+  // enable_week_builder_v1: two tracks are always a complex week → the week builder.
+  const weekBuilderOn = useWeekBuilderV1();
   const ctx = useAddTrackContext(added);
   const profile = useUserStore((s) => s.profile);
   const updateData = useOnboardingStore((s) => s.updateData);
@@ -98,7 +106,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
     return <div className="flex-1 bg-v2-surface" aria-busy="true" />;
   }
 
-  const confirm = async () => {
+  const confirm = async (days: AddTrackDayView[] = week.days) => {
     const uid = auth.currentUser?.uid;
     setError(null);
     if (!uid) {
@@ -109,13 +117,13 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
       uid,
       {
         added,
-        days: week.days,
+        days,
         existingStrengthIds: ctx.existingStrengthIds,
         newStrengthIds: ctx.newStrengthIds,
         isStrengthId: ctx.isStrengthId,
         times: ctx.times,
       },
-      { longRunDow: week.days.find((d) => d.sessions.some((s) => s.slot === 'long_run'))?.dow ?? null },
+      { longRunDow: days.find((d) => d.sessions.some((s) => s.slot === 'long_run'))?.dow ?? null },
     );
     if (!outcome.ok || !outcome.plan) {
       setError('signup.addTrack.error.save');
@@ -126,6 +134,25 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
     setSub(1);
   };
 
+  if ((sub === 0 || !saved) && weekBuilderOn) {
+    const keep = keepOnly && !!keepWeek;
+    return (
+      <AddTrackWeekBuilderStep
+        added={added}
+        week={week}
+        openDays={addTrackOpenDays(ctx.input)}
+        times={ctx.times}
+        rules={addTrackRules(addTrackEngineInput(ctx.input, priority, keep))}
+        dates={dates}
+        priority={priority}
+        onPriority={(p) => setShare(shareOfPriority(p))}
+        keepOnly={keep}
+        onToggleKeepOnly={keepWeek ? () => setKeepOnly((v) => !v) : null}
+        error={error ? t(error) : null}
+        onConfirm={confirm}
+      />
+    );
+  }
   if (sub === 0 || !saved) {
     return (
       <AddTrackWeekStep
@@ -139,7 +166,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
         keepOnly={keepOnly && !!keepWeek}
         onToggleKeepOnly={keepWeek ? () => setKeepOnly((v) => !v) : null}
         error={error ? t(error) : null}
-        onConfirm={confirm}
+        onConfirm={() => confirm()}
       />
     );
   }

@@ -60,6 +60,9 @@ export function applyStrengthFocus(week: WbWeek<StrengthWbData>, split: SessionT
   return { ...week, days };
 }
 
+/** The caps a strength-only week is validated by: one session a day, the chosen count of days. */
+export const strengthRules = (frequency: number): WbRules => ({ maxPerDay: 1, maxTrainingDays: frequency, runLevel: null });
+
 export interface StrengthToWbInput {
   week: StrengthWeekRecommendation;
   /** Days a session may go to (the user's free days). */

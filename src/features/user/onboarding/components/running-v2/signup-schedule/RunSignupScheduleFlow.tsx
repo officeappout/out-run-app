@@ -22,7 +22,7 @@ import { useOnboardingStore } from '../../../store/useOnboardingStore';
 import { resolveDefaultRunningSchedule, strengthDayIndicesFromProfile } from '@/lib/running-schedule-defaults';
 import { pickRunDaysAvoidingStrength } from '@/lib/running-schedule-smart-defaults';
 import { clampRunningFrequency } from '@/lib/running-frequency-bounds';
-import { SATURDAY_DOW, saturdayMarked } from '@/features/schedule/engine-v2';
+import { SATURDAY_DOW, defaultTrainingDays, saturdayMarked } from '@/features/schedule/engine-v2';
 import { addOnsLineHe, buildPolicySignals, resolveRecommendation } from '@/features/schedule/recommendation-policy';
 import { readPolicyInputs, type PolicyProfileSlice, type PolicyStoreSlice } from '../../../utils/policy-inputs';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
@@ -51,6 +51,10 @@ import RunCountStep from './RunCountStep';
 import RunDaysStep from './RunDaysStep';
 import RunWeekStep from './RunWeekStep';
 import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import { needsWeekBuilder, shapeOfWeek } from '@/features/schedule/week-builder';
+import { runRules, runWeekToWb, type RunWbContext } from '@/features/schedule/week-builder/adapters/run';
+import { MAX_RUNNING_FREQUENCY, MIN_RUNNING_FREQUENCY } from '@/lib/running-frequency-bounds';
+import RunWeekBuilderStep from './RunWeekBuilderStep';
 
 export const RUN_SIGNUP_SUBSTEPS = 4;
 
@@ -169,6 +173,16 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
     trainingReminder: settings?.notificationPrefs?.training_reminder,
   });
 
+  // enable_week_builder_v1: runs that differ (quality / easy / long) → the week builder.
+  const builderCtx = useMemo<RunWbContext>(
+    () => ({ openDays: defaultTrainingDays(saturdayMarked(days)), windows, level, targetDistance, slots }),
+    [days, windows, level, targetDistance, slots],
+  );
+  const complexWeek = useMemo(
+    () => weekBuilderOn && needsWeekBuilder(shapeOfWeek(runWeekToWb(week, builderCtx, runRules(frequency, level), longRunDay))),
+    [weekBuilderOn, week, builderCtx, frequency, level, longRunDay],
+  );
+
   const handleFrequency = (n: number) => {
     setFrequency(n);
     setDays((cur) => daysForFrequency(cur, n, strengthDays, avoidDays));
@@ -236,6 +250,27 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
         onToggleDay={handleToggleDay}
         onWindow={(dow, w) => setWindows((cur) => ({ ...cur, [dow]: w }))}
         onNext={() => setSub(2)}
+      />
+    );
+  }
+  if (sub === 2 && complexWeek) {
+    return (
+      <RunWeekBuilderStep
+        subtitle={t('signup.run.week.subtitle', { plan: planName(t, answers) })}
+        planLabel={planName(t, answers)}
+        week={week}
+        ctx={builderCtx}
+        chosenLongRunDay={longRunDay}
+        frequency={frequency}
+        frequencyOptions={Array.from({ length: MAX_RUNNING_FREQUENCY - MIN_RUNNING_FREQUENCY + 1 }, (_, i) => MIN_RUNNING_FREQUENCY + i)}
+        onFrequency={handleFrequency}
+        onDays={(next, chosen) => {
+          setDays(next);
+          setLongRunDay(chosen);
+        }}
+        onWindow={(dow, w) => setWindows((cur) => ({ ...cur, [dow]: w }))}
+        dates={dates}
+        onConfirm={confirmWeek}
       />
     );
   }

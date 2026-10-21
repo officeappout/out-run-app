@@ -141,6 +141,8 @@ export default defineConfig({
       'scripts/city-inventory/__tests__/**/*.test.ts',
       // City inventory "map health" admin card (RC4 I2) — render tests (jsdom), fetch mocked.
       'src/features/admin/components/city-inventory/__tests__/**/*.test.tsx',
+      // Week builder (enable_week_builder_v1) — static-markup render test (node env).
+      'src/features/schedule/week-builder/__tests__/**/*.test.tsx',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain

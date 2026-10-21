@@ -51,6 +51,14 @@ import RunDaysStep from '../running-v2/signup-schedule/RunDaysStep';
 import WalkGoalStep from './WalkGoalStep';
 import WalkWeekStep from './WalkWeekStep';
 import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import { needsWeekBuilder, shapeOfWeek } from '@/features/schedule/week-builder';
+import { walkRules, walkWeekToWb, type WalkWbContext } from '@/features/schedule/week-builder/adapters/walk';
+import { defaultTrainingDays, saturdayMarked } from '@/features/schedule/engine-v2';
+import { existingRunDays, existingStrengthDays } from '@/features/schedule/add-track/addTrackProfile';
+import type { WeaverInputProfile } from '@/features/schedule/engine/weaverInput';
+import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
+import NotAloneCard from '@/features/schedule/walking/components/NotAloneCard';
+import WalkWeekBuilderStep from './WalkWeekBuilderStep';
 
 export const WALK_SIGNUP_SUBSTEPS = 4;
 
@@ -105,6 +113,23 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
   const policyAddOn = useMemo(() => (goal ? walkAddOn(goal, inputs.personaIds, inputs.age) : null), [goal, inputs]);
   const addOn = policyAddOn && addOnOn ? policyAddOn : null;
   const notAlone = useNearbyWalkingGroup(sub === 2);
+
+  // enable_week_builder_v1: 5+ walks, or walks next to the user's strength / run week → the
+  // week builder (the other track shown locked, read from the saved profile only).
+  const builderCtx = useMemo<WalkWbContext | null>(() => {
+    if (!weekBuilderOn) return null;
+    const p = profile as unknown as WeaverInputProfile | null;
+    return {
+      openDays: defaultTrainingDays(saturdayMarked(days)),
+      windows,
+      otherStrength: hasStrengthTrack(profile) ? existingStrengthDays(p, resolveToSlug) : [],
+      otherRuns: hasRunningTrack(profile) ? existingRunDays(p, new Date()) : [],
+    };
+  }, [weekBuilderOn, profile, days, windows]);
+  const complexWeek = useMemo(
+    () => !!builderCtx && !!plan.weeks[0] && needsWeekBuilder(shapeOfWeek(walkWeekToWb(plan.weeks[0], builderCtx, walkRules(builderCtx)))),
+    [builderCtx, plan],
+  );
 
   // Changing the goal / comfort re-recommends the days.
   const onGoal = (g: WalkGoal) => { setGoal(g); setPickedDays(null); };
@@ -185,6 +210,21 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
         onToggleDay={(dow) => setPickedDays(toggleRunDay(days, dow, recommended.frequency))}
         onWindow={(dow, w) => setWindows((cur) => ({ ...cur, [dow]: w }))}
         onNext={() => setSub(2)}
+      />
+    );
+  }
+  if (sub === 2 && complexWeek && builderCtx) {
+    return (
+      <WalkWeekBuilderStep
+        plan={plan}
+        addOn={addOn}
+        ctx={builderCtx}
+        dates={dates}
+        onDays={setPickedDays}
+        onWindow={(dow, w) => setWindows((cur) => ({ ...cur, [dow]: w }))}
+        extra={<NotAloneCard className="mt-3" suggestion={notAlone} onOpenGroup={(id) => router.push(walkingGroupHref(id))} />}
+        error={error ? t(error) : null}
+        onConfirm={confirmWeek}
       />
     );
   }

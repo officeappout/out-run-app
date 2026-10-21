@@ -70,7 +70,7 @@ describe('run ⇄ builder', () => {
   it('moving the long run makes it the chosen long-run day and re-places the week by the engine', () => {
     const wb = runWeekToWb(rec, ctx, rules);
     const long = wb.days[rec.longRunDow!].sessions[0];
-    const r = moveSession(wb, { sessionId: long.id, toDow: 5 }, rules, runMoveOptions(ctx, rules));
+    const r = moveSession(wb, { sessionId: long.id, toDow: 5 }, rules, runMoveOptions(ctx, rules, { chosen: null, current: rec.longRunDow }));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(runDaysOf(r.week).longRunDow).toBe(5);
