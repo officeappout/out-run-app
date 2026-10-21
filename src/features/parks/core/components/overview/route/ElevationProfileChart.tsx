@@ -10,21 +10,24 @@
 import { useId } from 'react';
 import type { ElevationSamples } from '@/features/workout-engine/players/running/lib/route-elevation-ahead';
 import { HYBRID_AER as AER } from '../../hybrid/hybrid-colors';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { elevationPaths, elevationSummary } from './route-overview';
 
 const W = 270, H = 56, BASE = 50;
 
 export default function ElevationProfileChart({ samples }: { samples: ElevationSamples }) {
+  const t = useT(map);
   const gid = `elev-${useId().replace(/:/g, '')}`;
   const sum = elevationSummary(samples);
   const { line, area, highlight } = elevationPaths(samples, W, BASE);
   const caption = sum.climb
-    ? `שיא ${Math.round(sum.maxM)} מ׳ · ק״מ ${sum.climb.fromKm.toFixed(1)}–${sum.climb.toKm.toFixed(1)}`
-    : `שיא ${Math.round(sum.maxM)} מ׳`;
+    ? t('overview.route.elevation.peakClimb', { max: String(Math.round(sum.maxM)), from: sum.climb.fromKm.toFixed(1), to: sum.climb.toKm.toFixed(1) })
+    : t('overview.route.elevation.peak', { max: String(Math.round(sum.maxM)) });
   return (
     <div>
       <div className="flex justify-between gap-2 whitespace-nowrap text-[12px] font-extrabold text-v2-muted">
-        <span className="font-black text-v2-ink">פרופיל גובה</span>
+        <span className="font-black text-v2-ink">{t('overview.route.elevation.title')}</span>
         <span className="truncate">{caption}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" aria-hidden className="mt-1.5 block overflow-visible">

@@ -70,6 +70,9 @@ import type { Program } from '@/features/content/programs/core/program.types';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import EquipmentDetailSheetV2 from './EquipmentDetailSheetV2';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
 // ── Visual tokens — copied from ExerciseDetailSheet so the two
 //    drawers feel like the same product surface. Keep these in sync
@@ -115,74 +118,31 @@ function resolveName(raw: unknown): string {
  * targeted area. Last step of resolveEquipmentDrawerCues
  * (gym-equipment-text.utils) — keeps the section non-empty either way.
  */
-const AUTO_CUES_BY_MUSCLE: Record<string, string[]> = {
-  chest: [
-    'שמור על שכמות סגורות לאורך כל התנועה',
-    'הורד את הגוף בקצב מבוקר ועלה במלוא הטווח',
-  ],
-  back: [
-    'התחל את המשיכה משכמות, לא ממרפקים',
-    'שמור על ליבה אסופה — אל תקשת את הגב התחתון',
-  ],
-  shoulders: [
-    'ייצב את שרירי הליבה לפני כל חזרה',
-    'אל תיכנס לטווח כואב — עצור איפה שזה מרגיש בשליטה',
-  ],
-  biceps: [
-    'הצמד את המרפקים לגוף — אל תפתח אותם החוצה',
-    'נשוף בעת המשיכה, שאף בירידה',
-  ],
-  triceps: [
-    'שמור על המרפקים קרוב לגוף לאורך כל התנועה',
-    'נצל את מלוא הטווח — יישור מלא בקצה החזרה',
-  ],
-  abs: [
-    'שמור על נשימה רציפה — אל תעצור את האוויר',
-    'רכז את הכיווץ בבטן, לא בכתפיים',
-  ],
-  core: [
-    'שמור על נשימה רציפה — אל תעצור את האוויר',
-    'רכז את הכיווץ בבטן, לא בכתפיים',
-  ],
-  obliques: [
-    'התנועה מגיעה מהמותן, לא מהזרועות',
-    'שמור על אגן יציב — תוריד את הקצב לטובת איכות',
-  ],
-  quads: [
-    'הברכיים בקו אחד עם האצבעות — לא נכנסות פנימה',
-    'הורד עד 90° לפחות, שמור על משקל באמצע כף הרגל',
-  ],
-  hamstrings: [
-    'תהליך אקצנטרי איטי — 3 שניות בירידה',
-    'שמור על גב ניטרלי, אגן נעול',
-  ],
-  glutes: [
-    'דחוף דרך העקבים, לא דרך אצבעות',
-    'נעל את האגן בנקודת השיא — סחיטה מלאה',
-  ],
-  calves: [
-    'עלייה איטית, מתיחה מלאה למטה',
-    'אל תקפיץ — תאים בכל חזרה',
-  ],
-  full_body: [
-    'התחל בקצב מבוקר עד שאתה מרגיש את הטכניקה',
-    'נשוף במאמץ, שאף בשלב הקל',
-  ],
-  legs: [
-    'שמור על משקל באמצע כף הרגל לאורך כל החזרה',
-    'אל תקרוס פנימה בברכיים — דחוף החוצה במכוון',
-  ],
-};
+type MapKey = NamespaceKey<typeof map>;
 
-function deriveAutoCues(equipment: GymEquipment): string[] {
+/** Two cue keys per muscle group (`equipment.autoCue.<group>.1/.2` in the `map` catalog). */
+const AUTO_CUE_KEYS: Record<string, readonly [MapKey, MapKey]> = {
+  chest: ['equipment.autoCue.chest.1', 'equipment.autoCue.chest.2'],
+  back: ['equipment.autoCue.back.1', 'equipment.autoCue.back.2'],
+  shoulders: ['equipment.autoCue.shoulders.1', 'equipment.autoCue.shoulders.2'],
+  biceps: ['equipment.autoCue.biceps.1', 'equipment.autoCue.biceps.2'],
+  triceps: ['equipment.autoCue.triceps.1', 'equipment.autoCue.triceps.2'],
+  abs: ['equipment.autoCue.abs.1', 'equipment.autoCue.abs.2'],
+  core: ['equipment.autoCue.core.1', 'equipment.autoCue.core.2'],
+  obliques: ['equipment.autoCue.obliques.1', 'equipment.autoCue.obliques.2'],
+  quads: ['equipment.autoCue.quads.1', 'equipment.autoCue.quads.2'],
+  hamstrings: ['equipment.autoCue.hamstrings.1', 'equipment.autoCue.hamstrings.2'],
+  glutes: ['equipment.autoCue.glutes.1', 'equipment.autoCue.glutes.2'],
+  calves: ['equipment.autoCue.calves.1', 'equipment.autoCue.calves.2'],
+  full_body: ['equipment.autoCue.fullBody.1', 'equipment.autoCue.fullBody.2'],
+  legs: ['equipment.autoCue.legs.1', 'equipment.autoCue.legs.2'],
+};
+const GENERIC_CUE_KEYS: readonly [MapKey, MapKey] = ['equipment.autoCue.generic.1', 'equipment.autoCue.generic.2'];
+
+function deriveAutoCues(equipment: GymEquipment, t: (key: MapKey) => string): string[] {
   const primary = equipment.primaryMuscle ?? equipment.muscleGroups?.[0];
-  if (primary && AUTO_CUES_BY_MUSCLE[primary]) {
-    return AUTO_CUES_BY_MUSCLE[primary];
-  }
-  return [
-    'שמור על תנועה מבוקרת — אין צורך להאיץ',
-    'רכז כל חזרה בשריר היעד, לא בתאוצה',
-  ];
+  const keys = (primary && AUTO_CUE_KEYS[primary]) || GENERIC_CUE_KEYS;
+  return keys.map((k) => t(k));
 }
 
 // ── Props ─────────────────────────────────────────────────────────
@@ -222,6 +182,7 @@ export default function EquipmentDetailDrawer({
   brandName,
   pinnedToPark = false,
 }: EquipmentDetailDrawerProps) {
+  const t = useT(map);
   // Portal mount guard so the drawer never renders during SSR.
   const [mounted, setMounted] = useState(false);
   // enable_home_v2: the shared <Sheet> (EquipmentDetailSheetV2); flag off keeps the markup below untouched.
@@ -289,11 +250,11 @@ export default function EquipmentDetailDrawer({
       // around would briefly render the wrong content if the user
       // re-opens the drawer for a different id before the network
       // response lands.
-      const t = setTimeout(() => {
+      const timer = setTimeout(() => {
         setEquipment(null);
         setError(null);
       }, 300); // wait out the slide-down animation
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     return;
   }, [isOpen]);
@@ -358,9 +319,9 @@ export default function EquipmentDetailDrawer({
   const { cues, source: cuesSource } = useMemo(
     () =>
       equipment
-        ? resolveEquipmentDrawerCues(equipment, () => deriveAutoCues(equipment))
+        ? resolveEquipmentDrawerCues(equipment, () => deriveAutoCues(equipment, t))
         : { cues: [] as string[], source: 'none' as const },
-    [equipment],
+    [equipment, t],
   );
   const tips = useMemo(() => resolveEquipmentTips(equipment), [equipment]);
 
@@ -375,8 +336,8 @@ export default function EquipmentDetailDrawer({
           <AlertTriangle size={32} className="text-amber-500" />
           <p className="text-sm font-bold text-gray-700 dark:text-gray-200 text-center">
             {error === 'not-found'
-              ? 'המתקן לא נמצא'
-              : 'אירעה שגיאה בטעינת המתקן'}
+              ? t('equipment.error.notFound')
+              : t('equipment.error.loadFailed')}
           </p>
         </div>
       ) : (
@@ -407,7 +368,7 @@ export default function EquipmentDetailDrawer({
                 className="absolute inset-0 w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                title={`${equipmentName} demo video`}
+                title={t('equipment.videoTitle', { name: equipmentName })}
               />
             ) : effectiveImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -455,10 +416,12 @@ export default function EquipmentDetailDrawer({
                   className="mt-1 text-sm text-gray-500 dark:text-gray-400"
                   style={SECTION_FONT}
                 >
-                  מותג:{' '}
-                  <span className="font-bold text-gray-700 dark:text-gray-200">
-                    {activeBrand.brandName}
-                  </span>
+                  {t.rich('equipment.brandLine', {
+                    name: activeBrand.brandName,
+                    brand: (chunks: React.ReactNode) => (
+                      <span className="font-bold text-gray-700 dark:text-gray-200">{chunks}</span>
+                    ),
+                  })}
                 </p>
               )}
             </div>
@@ -473,7 +436,7 @@ export default function EquipmentDetailDrawer({
                       '1px solid rgba(16, 185, 129, 0.2)',
                   }}
                 >
-                  ציוד פונקציונלי
+                  {t('equipment.functional')}
                 </span>
               )}
             </div>
@@ -485,7 +448,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  שריר ראשי
+                  {t('equipment.section.primaryMuscle')}
                 </h3>
                 <div className="flex items-center gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -518,7 +481,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  שרירים משניים
+                  {t('equipment.section.secondaryMuscles')}
                 </h3>
                 <div className="flex flex-wrap gap-x-6 gap-y-3">
                   {secondaryMuscles.map((m) => (
@@ -558,7 +521,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  תוכניות מוקצות
+                  {t('equipment.section.programs')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {equipment.targetPrograms.map((tp) => {
@@ -571,7 +534,7 @@ export default function EquipmentDetailDrawer({
                         style={{ border: '1px solid rgba(99, 102, 241, 0.2)' }}
                       >
                         <Target size={12} />
-                        {label} · Level {tp.level}
+                        {t('equipment.programChip', { label, level: String(tp.level) })}
                       </span>
                     );
                   })}
@@ -588,7 +551,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  דגשים
+                  {t('equipment.section.cues')}
                 </h3>
                 <ol className="space-y-2.5">
                   {cues.map((cue, i) => (
@@ -618,7 +581,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  טיפים
+                  {t('equipment.section.tips')}
                 </h3>
                 <ul className="space-y-2.5">
                   {tips.map((tip, i) => (
@@ -649,7 +612,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  תיאור
+                  {t('equipment.section.description')}
                 </h3>
                 <div
                   className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4"
@@ -678,7 +641,7 @@ export default function EquipmentDetailDrawer({
                   className="text-right text-[16px] font-semibold mb-3"
                   style={SECTION_FONT}
                 >
-                  מותגים זמינים
+                  {t('equipment.section.brands')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {equipment.brands.map((b, i) => {
@@ -706,7 +669,7 @@ export default function EquipmentDetailDrawer({
                           />
                         )}
                         <span className="text-xs font-bold">
-                          {b.brandName || `מותג ${i + 1}`}
+                          {b.brandName || t('equipment.brandFallback', { n: String(i + 1) })}
                         </span>
                       </button>
                     );
@@ -722,7 +685,7 @@ export default function EquipmentDetailDrawer({
 
   if (v2) {
     return (
-      <EquipmentDetailSheetV2 isOpen={isOpen} onClose={onClose} ariaLabel={equipmentName || 'פרטי מתקן'}>
+      <EquipmentDetailSheetV2 isOpen={isOpen} onClose={onClose} ariaLabel={equipmentName || t('equipment.sheet.label')}>
         {body}
       </EquipmentDetailSheetV2>
     );
@@ -770,7 +733,7 @@ export default function EquipmentDetailDrawer({
             <button
               type="button"
               onClick={onClose}
-              aria-label="סגור"
+              aria-label="סגור" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
               className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm z-30 shadow-sm"
             >
               <X size={18} />

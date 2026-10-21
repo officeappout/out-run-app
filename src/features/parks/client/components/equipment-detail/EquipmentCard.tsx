@@ -34,6 +34,8 @@ import { ChevronLeft, Dumbbell, Check } from 'lucide-react';
 import { bunnyImg } from '@/lib/bunny-image';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
 import type { GymEquipment } from '@/features/content/equipment/gym/core/gym-equipment.types';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface EquipmentCardProps {
   equipment: GymEquipment;
@@ -71,6 +73,7 @@ export default function EquipmentCard({
   crossBrandFallback = true,
   onClick,
 }: EquipmentCardProps) {
+  const t = useT(map);
   // Resolution: brand's image → (crossBrandFallback ? first brand's image : none).
   const brandImage = brandName
     ? eq.brands?.find((b) => b.brandName === brandName)?.imageUrl
@@ -212,7 +215,7 @@ export default function EquipmentCard({
         )}
         {hasVideo && (
           <span className="inline-block mt-1 text-[9px] font-bold text-cyan-600">
-            סרטון זמין
+            {t('equipment.videoAvailable')}
           </span>
         )}
       </div>
