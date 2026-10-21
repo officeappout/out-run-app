@@ -103,3 +103,7 @@ scripts/_investigate-*
 
 # AI tester runner output (scripts/qa) — uploaded as a workflow artifact, never committed
 qa-out/
+
+# generator QA v2 matrix: CI-subset output and generation-review fixtures are regenerated on demand
+scripts/audit/out/v2-matrix-ci.*
+scripts/audit/out/v2-review-fixtures/
