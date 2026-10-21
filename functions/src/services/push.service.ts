@@ -382,6 +382,15 @@ export interface SendPushOpts {
    */
   countTowardDailyCap?: boolean;
   /**
+   * 21.10.2026 (streak rescue, owner: "counts in the cap but has priority") — this send is
+   * COUNTED in the daily engagement cap (the counter increments as usual) but is not BLOCKED
+   * by it: an earlier nudge that filled the cap can't silence the 19:30 streak rescue. Every
+   * other guard (prefs, quiet hours, Shabbat, kill switches, rate cap) still applies. With
+   * push policy v2 on it also passes the v2 daily cap and 3h spacing (not the weekly cap).
+   * Only meaningful together with a capped send. Absent = no change for every existing caller.
+   */
+  dailyCapPriority?: boolean;
+  /**
    * Push policy v2 (flag pushPolicyV2, default OFF — see lib/push-policy-v2.ts).
    * 'proactive' (default): the app decided to nudge. 'requested': a reminder
    * the user asked for (reminder slots, scheduled-workout reminders) — exempt
@@ -604,7 +613,10 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
           dailyCap: policyDailyCap(settings),
           signupMs: toMillis(userData?.createdAt),
         });
-        if (reason) {
+        // dailyCapPriority (the 19:30 streak rescue): counted, but the daily cap and the 3h
+        // spacing don't hold it back (the weekly cap and the first-week rule still do).
+        const priorityPass = opts.dailyCapPriority === true && (reason === 'daily_cap' || reason === 'spacing');
+        if (reason && !priorityPass) {
           result.skippedPolicy = (result.skippedPolicy ?? 0) + 1;
           logger.info(`[push.service] uid=${uid} held by push policy v2 (${reason}, channel=${channel}, kind=${policyKind})`);
           continue;
@@ -615,7 +627,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
         const rateData = rateByUid.get(uid);
         const storedDate = rateData?.dailyEngagementDate;
         const storedCount = typeof rateData?.dailyEngagementCount === 'number' ? rateData.dailyEngagementCount : 0;
-        if (storedDate === todayKey && storedCount >= dailyCap) {
+        if (storedDate === todayKey && storedCount >= dailyCap && opts.dailyCapPriority !== true) {
           result.skippedDailyCap++;
           logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount}, cap=${dailyCap})`);
           continue;
