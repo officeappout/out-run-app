@@ -50,6 +50,8 @@ import { Pause, Play, Square, RotateCcw } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import LongPressCircleButton from '../shared/LongPressCircleButton';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const LAP_TOAST_MS = 1800;
 
@@ -64,6 +66,7 @@ const STOP_COLOR = '#EF4444';  // destructive red
 const STOP_HOLD_SECONDS = 0.7;
 
 export default function WorkoutControlCluster() {
+  const t = useT(player);
   const status = useSessionStore((s) => s.status);
   const pauseSession = useSessionStore((s) => s.pauseSession);
   const resumeSession = useSessionStore((s) => s.resumeSession);
@@ -167,7 +170,7 @@ export default function WorkoutControlCluster() {
               color={PAUSE_COLOR}
               onClick={handleResume}
               size={62}
-              ariaLabel="המשך אימון"
+              ariaLabel={t('run.controls.resume')}
             />
 
             {/* Stop — LEFT (שמאל). Long-press 700 ms; destructive red.
@@ -178,7 +181,7 @@ export default function WorkoutControlCluster() {
               onConfirm={handleStopConfirm}
               holdDuration={STOP_HOLD_SECONDS}
               size={62}
-              ariaLabel="סיים אימון"
+              ariaLabel={t('run.controls.finish')}
             />
           </>
         ) : (
@@ -189,7 +192,7 @@ export default function WorkoutControlCluster() {
               color={PAUSE_COLOR}
               onClick={handlePause}
               size={62}
-              ariaLabel="השהה אימון"
+              ariaLabel={t('run.controls.pause')}
             />
 
             {/* Lap — LEFT (שמאל). Single tap; cyan disc. */}
@@ -198,7 +201,7 @@ export default function WorkoutControlCluster() {
               color={LAP_COLOR}
               onClick={handleLap}
               size={62}
-              ariaLabel="הקפה חדשה"
+              ariaLabel={t('run.controls.newLap')}
             />
           </>
         )}

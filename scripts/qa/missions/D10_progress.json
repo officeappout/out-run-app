@@ -2,7 +2,8 @@
   "id": "D10_progress",
   "kind": "design-sweep",
   "persona": "noa_designer",
-  "uid": "demo_qa_ds_strength",
+  "uid": "demo_qa_ds_str_done",
+  "precondition": "strength_after_workout",
   "device": "iphone-13",
   "devices": [
     "iphone-se",

@@ -14,6 +14,7 @@ import type { Mission, WorldEvent } from './missions';
 import type { OpenBrowser } from './browser';
 import type { ReproStep } from './findings';
 import type { ToolCall } from './tool-input';
+import type { RuntimeErrors } from './lint/rules';
 
 export interface StepView {
   png: Buffer;
@@ -65,19 +66,57 @@ export class SessionDriver {
       const state = await this.b.page.evaluate<string | null>(`document.querySelector('[data-qa-signin]')?.getAttribute('data-qa-signin') ?? null`).catch(() => null);
       if (state && state.startsWith('refused')) return state;
       const uid = await this.signedInUid();
-      if (uid && isTesterUid(uid)) return null;
+      if (uid && isTesterUid(uid)) {
+        await this.waitForAppSettled();
+        return null;
+      }
       await sleep(1000);
     }
     return 'refused:timeout';
+  }
+
+  /**
+   * After sign-in the app routes itself (/qa/signin → / → /gateway or /home) while Firebase
+   * restores auth, opens its Firestore listeners and prefetches /home. A page.goto in the middle
+   * of that aborts those requests ("Failed to fetch RSC payload for /home", Listen channel
+   * errors — the 21.10.2026 first run): wait until the address has been stable for a while and
+   * the network is quiet before anything else navigates.
+   */
+  async waitForAppSettled(maxMs = 20_000): Promise<void> {
+    const t0 = Date.now();
+    let last = this.b.page.url();
+    let stableSince = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      await sleep(250);
+      const now = this.b.page.url();
+      if (now !== last) {
+        last = now;
+        stableSince = Date.now();
+        continue;
+      }
+      if (!isSigninPath(now) && Date.now() - stableSince >= SETTLE_STABLE_MS) break;
+    }
+    await this.b.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
   }
 
   async signedInUid(): Promise<string | null> {
     return this.b.page.evaluate<string | null>(SIGNED_IN_UID_JS).catch(() => null);
   }
 
-  async openStart(): Promise<void> {
-    await this.gotoFollowingRedirects(this.startUrl);
-    await this.settle();
+  /**
+   * Opens the mission start. Right after sign-in the app has already routed from `/` by itself,
+   * so a start of `/` (or the page we're on) needs no reload — reloading would only interrupt
+   * the app's own redirect. Errors collected while signing in / settling are not the mission's:
+   * they are returned (for the run log) and cleared before the first step is linted.
+   */
+  async openStart(opts: { afterSignIn?: boolean } = {}): Promise<RuntimeErrors | null> {
+    if (needsStartNavigation(this.b.page.url(), this.mission.start, !!opts.afterSignIn)) {
+      await this.gotoFollowingRedirects(this.startUrl);
+      await this.settle();
+    }
+    if (!opts.afterSignIn) return null;
+    await this.waitForAppSettled(10_000);
+    return this.b.drainErrors();
   }
 
   /**
@@ -255,4 +294,31 @@ export class SessionDriver {
 export function isInterruptedNavigation(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   return /interrupted by another navigation/i.test(msg);
+}
+
+/** The URL must be stable this long (and off /qa/signin) before the app counts as settled. */
+export const SETTLE_STABLE_MS = 1500;
+
+const pathOf = (url: string) => {
+  try {
+    return new URL(url).pathname.replace(/\/+$/, '') || '/';
+  } catch {
+    return '';
+  }
+};
+
+export function isSigninPath(url: string): boolean {
+  return pathOf(url) === '/qa/signin';
+}
+
+/**
+ * Whether openStart must navigate. After sign-in, a start of `/` is where the app itself just
+ * went (and redirected on from) — no reload. Otherwise only when we're not already there.
+ */
+export function needsStartNavigation(currentUrl: string, start: string, afterSignIn: boolean): boolean {
+  const here = pathOf(currentUrl);
+  if (!here || isSigninPath(currentUrl)) return true;
+  const target = (start.split(/[?#]/)[0] || '/').replace(/\/+$/, '') || '/';
+  if (afterSignIn && target === '/') return false;
+  return here !== target || /[?#]/.test(start);
 }

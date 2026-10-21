@@ -490,11 +490,18 @@ export default function IdentityProfileScreen({
               else router.push('/gateway');
             }}
             className={v2
-              ? 'flex-shrink-0 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation'
+              // 44×44 hit area around the same 40×40 circle; -m-0.5 keeps the header layout.
+              ? 'group -m-0.5 flex-shrink-0 grid h-11 w-11 place-items-center rounded-full touch-manipulation'
               : 'flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-slate-100/80 active:bg-slate-200 transition-colors touch-manipulation'}
             aria-label="חזרה"
           >
-            <ChevronRight size={v2 ? 20 : 22} className={v2 ? 'text-v2-ink' : 'text-slate-600'} />
+            {v2 ? (
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 group-active:scale-[0.97]">
+                <ChevronRight size={20} className="text-v2-ink" />
+              </span>
+            ) : (
+              <ChevronRight size={22} className="text-slate-600" />
+            )}
           </button>
 
           <div className="flex-1 min-h-[36px] flex flex-col justify-center">

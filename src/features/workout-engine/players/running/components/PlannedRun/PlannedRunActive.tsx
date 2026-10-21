@@ -28,6 +28,8 @@ import { useUserStore } from '@/features/user';
 import PlannedRunLiveV2 from './v2/PlannedRunLiveV2';
 import ContinuousRunLiveV2 from '../Continuous/v2/ContinuousRunLiveV2';
 import { isContinuousPlan } from '../../lib/continuous-run';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const PACE_HINT_COOLDOWN_MS = 30_000;
 const PACE_HINT_THRESHOLD_S = 10;
@@ -59,6 +61,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
     setMapFollowEnabled,
   } = useRunningPlayer();
   const engine = usePlannedRunEngine();
+  const t = useT(player);
 
   // Home v2 (enable_home_v2): the approved F-1c…F-1e live layout. Off ⇒ today's UI.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -147,7 +150,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
     if (restCueFiredRef.current) return;
     if (blockTimeRemaining > 3 || blockTimeRemaining <= 0) return;
     restCueFiredRef.current = true;
-    audioService.speak('תתכוננו');
+    audioService.speak('תתכוננו'); // i18n-allow-hebrew: speech cue (audio guidance — out of scope for this wave)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([100, 50, 100]);
     }
@@ -253,7 +256,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
         <LiveV2
           engine={engine}
           blocks={blocks}
-          title={currentWorkout?.title ?? 'אימון מתוכנן'}
+          title={currentWorkout?.title ?? t('run.plannedActive.fallbackTitle')}
           isPaused={isPaused}
           onPause={() => { hapticLight(); pauseSession(); }}
           onResume={() => { hapticLight(); resumeSession(); }}
@@ -270,7 +273,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
           <div className="pointer-events-auto">
             <FloatingMetricBubble
               elapsedTime={elapsedFormatted}
-              distanceKm={`${totalDistance.toFixed(1)} ק״מ`}
+              distanceKm={`${totalDistance.toFixed(1)} ק״מ`} // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
               onExpand={() => setPlayerState('full')}
             />
           </div>
@@ -351,10 +354,10 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">
-                {currentBlock?.label ?? 'אימון מתוכנן'}
+                {currentBlock?.label ?? 'אימון מתוכנן' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
               </p>
               <p className="text-xs text-slate-500 tabular-nums" dir="ltr">
-                {elapsedFormatted} · {engine.currentPaceFormatted} /ק״מ
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{elapsedFormatted} · {engine.currentPaceFormatted} /ק״מ
               </p>
             </div>
             <button
@@ -443,7 +446,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
             >
               <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-cyan-50 relative min-h-[44px]">
                 <div className="absolute top-0 w-full h-[2px] bg-[#00ADEF]" />
-                <span className="text-[#00ADEF] font-medium text-sm">אימון</span>
+                <span className="text-[#00ADEF] font-medium text-sm">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אימון</span>
               </div>
             </nav>
           </div>
@@ -469,7 +472,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
               className="text-4xl font-black text-white mb-12"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              הפסקה
+              {t('run.plannedActive.pause.title')}
             </h1>
 
             {/* Elapsed stats */}
@@ -481,7 +484,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 >
                   {elapsedFormatted}
                 </p>
-                <p className="text-xs text-white/50 mt-1">זמן</p>
+                <p className="text-xs text-white/50 mt-1">{t('run.plannedActive.pause.time')}</p>
               </div>
               <div className="text-center">
                 <p
@@ -490,7 +493,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 >
                   {totalDistance.toFixed(1)}
                 </p>
-                <p className="text-xs text-white/50 mt-1">ק״מ</p>
+                <p className="text-xs text-white/50 mt-1">{t('run.plannedActive.pause.km')}</p>
               </div>
             </div>
 
@@ -503,7 +506,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
                 <Play size={22} fill={v2 ? 'currentColor' : 'white'} />
-                התחילו שוב
+                {t('run.plannedActive.pause.resume')}
               </button>
               <button
                 onClick={() => { hapticMedium(); setShowExitConfirm(true); }}
@@ -512,7 +515,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                   : 'w-full h-16 bg-white rounded-2xl font-bold text-slate-800 text-lg active:scale-[0.98] transition-transform shadow-lg'}
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                סיום אימון
+                {t('run.plannedActive.pause.finish')}
               </button>
             </div>
           </motion.div>
@@ -550,13 +553,13 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 className="text-xl font-black text-slate-900 mb-2"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                בטוחים שאתם רוצים לסיים?
+                {t('run.plannedActive.exit.title')}
               </h2>
               <p
                 className="text-sm text-slate-500 mb-7"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                האימון יישמר עם הנתונים שנאספו עד כה
+                {t('run.plannedActive.exit.body')}
               </p>
 
               <button
@@ -567,7 +570,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 className="w-full h-14 rounded-2xl font-bold text-white text-base mb-4 bg-gradient-to-l from-[#00C9F2] to-[#00AEEF] shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                יאללה להמשיך
+                {t('run.plannedActive.exit.continue')}
               </button>
 
               <button
@@ -575,7 +578,7 @@ export default function PlannedRunActive({ onBack }: PlannedRunActiveProps) {
                 className="text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700 transition-colors"
                 style={{ fontFamily: 'var(--font-simpler)' }}
               >
-                אני רוצה לסיים את האימון
+                {t('run.plannedActive.exit.finish')}
               </button>
             </motion.div>
           </motion.div>

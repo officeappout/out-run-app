@@ -6,6 +6,8 @@ import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useSessionGoalProgress } from '../../../hooks/useSessionGoalProgress';
 import type { ContinuousGoal } from '../../../lib/continuous-run';
 import { aerobicLabel, rateMetricFor } from '../../../lib/aerobic-activity';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * Live free-run values + actions for the v2 free-run pieces (overlay, mini
@@ -13,6 +15,7 @@ import { aerobicLabel, rateMetricFor } from '../../../lib/aerobic-activity';
  * pause / resume via the session store, lap + finish via the running player.
  */
 export function useFreeRunLive() {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const status = useSessionStore((s) => s.status);
@@ -60,7 +63,7 @@ export function useFreeRunLive() {
     /** 'speed' for a ride (enable_home_v2 cycling), else 'pace'. */
     metric: rateMetricFor(activityType),
     /** "ריצה חופשית" / "רכיבה חופשית" — today's free-run title for walks and runs. */
-    title: activityType === 'cycling' ? `${aerobicLabel(activityType)} חופשית` : 'ריצה חופשית',
+    title: activityType === 'cycling' ? t('run.free.title.ride', { activity: aerobicLabel(activityType) }) : t('run.free.title.run'),
     laps,
     goal,
     pause,

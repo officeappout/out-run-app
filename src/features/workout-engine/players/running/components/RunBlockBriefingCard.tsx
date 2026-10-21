@@ -13,9 +13,9 @@ interface RunBlockBriefingCardProps {
 }
 
 const EFFORT_LABELS: Record<string, string> = {
-  moderate: 'מאמץ בינוני',
-  hard: 'מאמץ גבוה',
-  max: 'מאמץ מקסימלי',
+  moderate: 'מאמץ בינוני', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  hard: 'מאמץ גבוה', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  max: 'מאמץ מקסימלי', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 };
 
 export default function RunBlockBriefingCard({
@@ -49,7 +49,7 @@ export default function RunBlockBriefingCard({
             <span className="text-xs text-slate-500">{metaLabel}</span>
           )}
           {isDrillBlock && block.drillRef?.repsCount && (
-            <span className="text-xs text-slate-500">{block.drillRef.repsCount} חזרות</span>
+            <span className="text-xs text-slate-500">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{block.drillRef.repsCount} חזרות</span>
           )}
           {isEffortBlock && block.effortConfig && (
             <span className="text-[11px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
@@ -58,7 +58,7 @@ export default function RunBlockBriefingCard({
           )}
           {!isDrillBlock && !isEffortBlock && paceLabel && (
             <span className="text-xs text-slate-500 font-medium" dir="ltr">
-              {paceLabel} /ק&quot;מ
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{paceLabel} /ק&quot;מ
             </span>
           )}
         </div>
@@ -66,7 +66,7 @@ export default function RunBlockBriefingCard({
         {isDrillBlock && (
           <div className="flex items-center gap-1 mt-1.5">
             <Play size={10} className="text-[#00BAF7]" fill="#00BAF7" />
-            <span className="text-[11px] font-bold text-[#00BAF7]">צפה בסרטון</span>
+            <span className="text-[11px] font-bold text-[#00BAF7]">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}צפה בסרטון</span>
           </div>
         )}
       </div>

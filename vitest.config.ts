@@ -39,6 +39,8 @@ export default defineConfig({
       'src/features/parks/core/components/overview/__tests__/**/*.test.tsx',
       // Run workout overview on the same drawer (enable_home_v2) — same static-markup approach.
       'src/features/workout-engine/players/running/components/overview-v2/__tests__/**/*.test.tsx',
+      // i18n wave 2 (player namespace, run.*) — Hebrew markup parity of the running players, static markup.
+      'src/features/workout-engine/players/running/components/**/__tests__/**/*.test.tsx',
       // Unified search (enable_unified_search) — flag-off parity + card render tests, static markup.
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
@@ -48,9 +50,13 @@ export default defineConfig({
       'src/features/progression-map/components/__tests__/**/*.test.tsx',
       // i18n wave 2 — Partner Finder Hebrew markup parity (static markup, node env).
       'src/features/partners/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 (onboarding namespace) — strength quiz Hebrew markup parity.
+      'src/features/user/onboarding/components/visual-assessment/__tests__/**/*.test.tsx',
       // i18n wave 2 (map namespace) — route preview + equipment sheets, Hebrew markup parity (jsdom).
       'src/features/parks/client/components/route-preview/__tests__/**/*.test.tsx',
       'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
+      // i18n wave 2 (community namespace) — group page Hebrew markup parity (static markup + jsdom taps).
+      'src/features/arena/components/group-details/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace) — strength assessment page parity (jsdom, services mocked).
       'src/app/onboarding-new/assessment-visual/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',

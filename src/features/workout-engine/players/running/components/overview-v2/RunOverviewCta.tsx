@@ -12,6 +12,8 @@
 import { Loader2, Map as MapIcon, Route as RouteIcon } from 'lucide-react';
 import OverviewStartButton from '@/features/parks/core/components/overview/OverviewStartButton';
 import OverviewSecondaryButton from '@/features/parks/core/components/overview/OverviewSecondaryButton';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export type RunCtaMode = 'free' | 'searching' | 'none' | 'route';
 
@@ -35,22 +37,23 @@ function Notice({ children, spin = false }: { children: string; spin?: boolean }
 }
 
 export default function RunOverviewCta({ mode, onStart, onStartOnRoute, onSuggest, onClearRoute, onPickOnMap }: RunOverviewCtaProps) {
+  const t = useT(player);
   const routeMode = mode === 'route' && !!onStartOnRoute;
   const primary = routeMode
-    ? <OverviewStartButton v2 label="התחל אימון במסלול" ariaLabel="התחל אימון במסלול" onClick={onStartOnRoute!} />
-    : <OverviewStartButton v2 label="התחל אימון" ariaLabel="התחל אימון" onClick={onStart} />;
+    ? <OverviewStartButton v2 label={t('run.overview.cta.startOnRoute')} ariaLabel={t('run.overview.cta.startOnRoute')} onClick={onStartOnRoute!} />
+    : <OverviewStartButton v2 label={t('run.overview.cta.start')} ariaLabel={t('run.overview.cta.start')} onClick={onStart} />;
 
   let secondary: JSX.Element | null = null;
-  if (routeMode && onClearRoute) secondary = <OverviewSecondaryButton label="בלי מסלול" onClick={onClearRoute} />;
-  else if (mode === 'none' && onPickOnMap) secondary = <OverviewSecondaryButton label="בחר במפה" icon={<MapIcon size={16} aria-hidden />} onClick={onPickOnMap} />;
+  if (routeMode && onClearRoute) secondary = <OverviewSecondaryButton label={t('run.overview.cta.clearRoute')} onClick={onClearRoute} />;
+  else if (mode === 'none' && onPickOnMap) secondary = <OverviewSecondaryButton label={t('run.overview.cta.pickOnMap')} icon={<MapIcon size={16} aria-hidden />} onClick={onPickOnMap} />;
   else if ((mode === 'free' || mode === 'searching') && onSuggest) {
-    secondary = <OverviewSecondaryButton label="הצע לי מסלול" icon={<RouteIcon size={16} aria-hidden />} onClick={onSuggest} />;
+    secondary = <OverviewSecondaryButton label={t('run.overview.cta.suggest')} icon={<RouteIcon size={16} aria-hidden />} onClick={onSuggest} />;
   }
 
   return (
     <div>
-      {mode === 'searching' && <Notice spin>מחפש מסלולים מכאן…</Notice>}
-      {mode === 'none' && <Notice>לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן</Notice>}
+      {mode === 'searching' && <Notice spin>{t('run.overview.cta.searching')}</Notice>}
+      {mode === 'none' && <Notice>{t('run.overview.cta.noneNear')}</Notice>}
       <div className="flex gap-2">
         <div className="min-w-0" style={{ flex: 1.5 }}>{primary}</div>
         {secondary && <div className="min-w-0" style={{ flex: 1 }}>{secondary}</div>}

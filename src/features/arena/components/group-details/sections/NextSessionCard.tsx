@@ -3,6 +3,8 @@
 import { Loader2, UserPlus, Calendar, ChevronDown } from 'lucide-react';
 import type { ScheduleSlot } from '@/types/community.types';
 import { formatSessionDate } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface NextSessionCardProps {
   v2: boolean;
@@ -40,6 +42,7 @@ export default function NextSessionCard({
   scheduleOpen,
   onToggleSchedule,
 }: NextSessionCardProps) {
+  const t = useT(community);
   return (
     <div
       className={
@@ -50,12 +53,12 @@ export default function NextSessionCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <p className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-600 uppercase tracking-widest'}>המפגש הבא</p>
+          <p className={v2 ? 'text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-cyan-600 uppercase tracking-widest'}>{t('group.next.title')}</p>
           <p className={v2 ? 'text-[17px] font-black leading-snug text-v2-ink' : 'text-sm font-black text-gray-900 dark:text-white leading-snug'}>
-            {nextSlot?.label || categoryLabel} · {formatSessionDate(nextSessionData.date, nextSessionData.time)}
+            {nextSlot?.label || categoryLabel} · {formatSessionDate(nextSessionData.date, nextSessionData.time, t)}
             {spotsLeft != null && (
               <span className={`mr-1.5 text-xs font-black ${isFull ? 'text-red-500' : 'text-cyan-600'}`}>
-                {isFull ? ' · המפגש מלא' : ` · ${spotsLeft} מקומות נותרו`}
+                {isFull ? t('group.next.full') : t('group.next.spotsLeft', { count: String(spotsLeft) })}
               </span>
             )}
           </p>
@@ -69,9 +72,12 @@ export default function NextSessionCard({
 
       {nextSlot?.workoutGoal && (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-cyan-200 text-[11px] font-bold text-cyan-700">
-          🎯 יעד אישי · {nextSlot.workoutGoal.type === 'distance'
-            ? `${nextSlot.workoutGoal.value.toFixed(1)} ק״מ`
-            : `${Math.round(nextSlot.workoutGoal.value / 60)} דק׳`}
+          {t('group.next.goal', {
+            type: nextSlot.workoutGoal.type ?? '',
+            value: nextSlot.workoutGoal.type === 'distance'
+              ? nextSlot.workoutGoal.value.toFixed(1)
+              : String(Math.round(nextSlot.workoutGoal.value / 60)),
+          })}
         </span>
       )}
 
@@ -95,15 +101,15 @@ export default function NextSessionCard({
           {bookingLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : isBooked ? (
-            <>✓ רשום/ה (בטל?)</>
+            <>{t('group.next.booked')}</>
           ) : isWaitlisted ? (
-            <>⏳ ברשימת המתנה (בטל?)</>
+            <>{t('group.next.waitlisted')}</>
           ) : isFull ? (
-            <>הצטרף לרשימת המתנה</>
+            <>{t('group.next.joinWaitlist')}</>
           ) : (
             <>
               <UserPlus className="w-4 h-4" />
-              הירשם למפגש
+              {t('group.next.book')}
             </>
           )}
         </button>
@@ -117,7 +123,7 @@ export default function NextSessionCard({
           className="flex items-center gap-1 text-xs text-cyan-600 font-bold hover:text-cyan-700 transition-colors mx-auto"
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span>{scheduleOpen ? 'הסתר מערכת שעות' : 'לכל מערכת השעות'}</span>
+          <span>{scheduleOpen ? t('group.next.hideSchedule') : t('group.next.showSchedule')}</span>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform ${scheduleOpen ? 'rotate-180' : ''}`} />
         </button>
       )}

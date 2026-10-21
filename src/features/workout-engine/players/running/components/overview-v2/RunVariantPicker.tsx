@@ -15,9 +15,14 @@ import { SegmentedPicker } from '@/components/ui/v2';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { estimateRunTotals, type RunPaceContext } from '../../utils/run-preview/run-estimates';
 import type { RunVariant, RunVariantKey } from '../../utils/run-overview/run-variants';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
-export const LEVEL_NAMES: Record<RunVariantKey, string> = { lighter: 'קליל', planned: 'מאוזן', harder: 'עוצמתי' };
-export const MANUAL_NOTE = 'העיקר הוחלף ידנית — בחירה ברמה תחזיר מבנה מהתוכנית';
+export const LEVEL_NAME_KEYS = {
+  lighter: 'run.overview.level.lighter',
+  planned: 'run.overview.level.planned',
+  harder: 'run.overview.level.harder',
+} as const satisfies Record<RunVariantKey, PlayerKey>;
 
 export interface RunVariantPickerProps {
   variants: readonly RunVariant[];
@@ -30,25 +35,27 @@ export interface RunVariantPickerProps {
 }
 
 /** "קליל · 34׳" (the level's whole-workout minutes). */
-export function variantOptionLabel(v: RunVariant, ctx: RunPaceContext): string {
+export function variantOptionLabel(v: RunVariant, ctx: RunPaceContext, t: ReactTFunction<PlayerKey>): string {
   const sec = estimateRunTotals(v.blocks, ctx).seconds;
-  return sec ? `${LEVEL_NAMES[v.key]} · ${Math.max(1, Math.round(sec / 60))}׳` : LEVEL_NAMES[v.key];
+  const name = t(LEVEL_NAME_KEYS[v.key]);
+  return sec ? t('run.overview.level.withMinutes', { name, min: String(Math.max(1, Math.round(sec / 60))) }) : name;
 }
 
 export default function RunVariantPicker({ variants, value, onChange, ctx, manual = false, className }: RunVariantPickerProps) {
+  const t = useT(player);
   return (
     <div className={className}>
       <SegmentedPicker<RunVariantKey | 'manual'>
-        ariaLabel="בחירת עומס"
+        ariaLabel={t('run.overview.level.aria')}
         value={manual ? 'manual' : value}
         onChange={(k) => { if (k !== 'manual') onChange(k); }}
         options={variants.map((v) => ({
           key: v.key,
-          label: variantOptionLabel(v, ctx),
+          label: variantOptionLabel(v, ctx, t),
           icon: <DifficultyBolts difficulty={v.level} size="sm" showLabel={false} />,
         }))}
       />
-      {manual && <p className="mt-1.5 truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{MANUAL_NOTE}</p>}
+      {manual && <p className="mt-1.5 truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('run.overview.level.manualNote')}</p>}
     </div>
   );
 }

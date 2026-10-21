@@ -51,6 +51,8 @@ import { useRunOverviewEditor } from './edit/useRunOverviewEditor';
 import type { RunDrillSheetProps } from './RunDrillSheet';
 import type { AxisDecorations } from '@/features/parks/core/components/overview/axis/axis-decor';
 import type { RunBlock } from '../../types/run-block.type';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RunOverviewRoute {
   route: Route;
@@ -93,6 +95,7 @@ const RunDrillSheet = lazyOverlay(
 );
 
 export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
+  const t = useT(player);
   const { workout, templateCategory, week, edits, onEditsChange, chosen = null, origin = null, ctaMode } = props;
   const [detailOpen, setDetailOpen] = useState(false);
   const weightKg = useUserStore((s) => (s.profile?.core as { weight?: number } | undefined)?.weight);
@@ -127,7 +130,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
   const { model, legs, variants, pace } = om;
   const walkMin = view?.walk ? view.walk.thereMin + view.walk.backMin : 0;
   const minutes = model.minutes ?? 0;
-  const finishText = minutes > 0 ? `מסיים ~${finishClock(Date.now(), minutes + walkMin)}` : null;
+  const finishText = minutes > 0 ? t('run.overview.finishAt', { clock: finishClock(Date.now(), minutes + walkMin) }) : null;
   const calories = calculateCalories('running', minutes, weightKg || undefined);
 
   const graphs = [<IntensityPage key="intensity" model={model} swipeHint={!!elevation} />];
@@ -160,7 +163,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
           <div className="mt-3 flex items-center justify-between gap-2">
             <button type="button" onClick={() => setDetailOpen((o) => !o)} aria-expanded={detailOpen}
               className="flex items-center gap-1 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]">
-              <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> פירוט
+              <ChevronDown size={15} style={{ transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} /> {t('run.overview.detail')}
             </button>
           </div>
           {detailOpen && (
@@ -177,7 +180,7 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
           onChange={(k) => onEditsChange(withVariant(edits, k))} ctx={pace.ctx} />
       )}
 
-      <div className="mb-2.5 mt-5 whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">מהלך האימון</div>
+      <div className="mb-2.5 mt-5 whitespace-nowrap text-[17px] font-black !tracking-[-0.02em] text-v2-ink">{t('run.overview.axisTitle')}</div>
       <OverviewLegAxis
         v2
         legs={legs}
@@ -191,9 +194,9 @@ export default function RunWorkoutOverview(props: RunWorkoutOverviewProps) {
             onClear={props.onClearRoute}
           />
         ) : undefined}
-        originNote={chosen ? undefined : 'יוצאים מכאן · ה-GPS מודד את הדרך'}
-        startLabel={chosen ? (view?.walk ? 'תחילת המסלול' : 'תחילת המסלול · כאן') : 'תחילת האימון'}
-        endLabel="סיום האימון"
+        originNote={chosen ? undefined : t('run.overview.axis.fromHere')}
+        startLabel={chosen ? (view?.walk ? t('run.overview.axis.routeStart') : t('run.overview.axis.routeStartHere')) : t('run.overview.axis.workoutStart')}
+        endLabel={t('run.overview.axis.workoutEnd')}
         beforeEnd={view ? (
           <div className="mb-1 whitespace-nowrap pr-14 text-[12px] font-extrabold text-v2-deep">{view.onRouteNote}</div>
         ) : undefined}

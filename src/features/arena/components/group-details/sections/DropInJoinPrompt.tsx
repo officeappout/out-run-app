@@ -2,9 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /** Drop-in recruitment prompt — shown after a non-member joins a live session. */
 export default function DropInJoinPrompt({ joining, onJoin, onDismiss }: { joining: boolean; onJoin: () => void; onDismiss: () => void }) {
+  const t = useT(community);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -15,8 +18,8 @@ export default function DropInJoinPrompt({ joining, onJoin, onDismiss }: { joini
       <div className="flex items-center gap-3">
         <span className="text-2xl">🏃</span>
         <div>
-          <p className="text-sm font-black text-gray-900 dark:text-gray-100">כל הכבוד, הצטרפת לאימון!</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">רוצה לקבל תזכורות למפגשים הבאים?</p>
+          <p className="text-sm font-black text-gray-900 dark:text-gray-100">{t('group.dropIn.title')}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('group.dropIn.subtitle')}</p>
         </div>
       </div>
       <div className="flex gap-2">
@@ -27,13 +30,13 @@ export default function DropInJoinPrompt({ joining, onJoin, onDismiss }: { joini
         >
           {joining
             ? <Loader2 className="w-4 h-4 animate-spin" />
-            : 'כן, הצטרפי לקבוצה'}
+            : t('group.dropIn.join')}
         </button>
         <button
           onClick={onDismiss}
           className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm font-bold transition-all active:scale-[0.97]"
         >
-          אולי אחר כך
+          {t('group.dropIn.later')}
         </button>
       </div>
     </motion.div>

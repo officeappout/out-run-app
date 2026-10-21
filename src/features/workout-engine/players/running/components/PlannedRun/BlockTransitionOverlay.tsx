@@ -111,7 +111,7 @@ export default function BlockTransitionOverlay({
                     exit={{ opacity: 0 }}
                     className="text-amber-400 text-lg font-bold"
                   >
-                    תתכוננו!
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תתכוננו!
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -126,7 +126,7 @@ export default function BlockTransitionOverlay({
               className="flex flex-col items-center gap-3"
             >
               <span className="text-white/70 text-sm font-bold tracking-widest uppercase">
-                בלוק הבא
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בלוק הבא
               </span>
               <span
                 className="text-white text-4xl font-black text-center px-8 leading-tight"
@@ -141,8 +141,8 @@ export default function BlockTransitionOverlay({
               ) : displayBlock.distanceMeters ? (
                 <span className="text-white/80 text-lg font-bold mt-1" dir="ltr">
                   {displayBlock.distanceMeters >= 1000
-                    ? `${(displayBlock.distanceMeters / 1000).toFixed(1)} ק"מ`
-                    : `${displayBlock.distanceMeters} מ'`}
+                    ? `${(displayBlock.distanceMeters / 1000).toFixed(1)} ק"מ` // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                    : `${displayBlock.distanceMeters} מ'` /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                 </span>
               ) : null}
             </motion.div>
@@ -154,7 +154,7 @@ export default function BlockTransitionOverlay({
 }
 
 function formatBlockTime(s: number): string {
-  if (s < 60) return `${s} שנ'`;
+  if (s < 60) return `${s} שנ'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return sec > 0

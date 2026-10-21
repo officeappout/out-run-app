@@ -15,6 +15,8 @@ import type { Route } from '@/features/parks/core/types/route.types';
 import { ACCENT, Rail } from '@/features/parks/core/components/overview/axis/AxisParts';
 import RouteLegDetail from '@/features/parks/core/components/overview/route/RouteLegDetail';
 import type { RouteChoiceView } from '../../utils/run-overview/run-route-choice';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RunChosenRouteRowProps {
   route: Route;
@@ -27,6 +29,7 @@ export interface RunChosenRouteRowProps {
 }
 
 export default function RunChosenRouteRow({ route, view, calories, nextColor, onShowOnMap, onClear }: RunChosenRouteRowProps) {
+  const t = useT(player);
   const [open, setOpen] = useState(false);
   return (
     <div className="flex items-stretch gap-3">
@@ -42,7 +45,7 @@ export default function RunChosenRouteRow({ route, view, calories, nextColor, on
           className="flex w-full items-center gap-2.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.98]">
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1.5">
-              <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-deep">המסלול שבחרת</span>
+              <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-deep">{t('run.overview.chosen.title')}</span>
               {view.accessText && (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-extrabold text-v2-muted">
                   {view.accessText}<MapPin size={12} aria-hidden />
@@ -64,13 +67,13 @@ export default function RunChosenRouteRow({ route, view, calories, nextColor, on
           {onShowOnMap && (
             <button type="button" onClick={onShowOnMap}
               className="flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]">
-              <MapIcon size={15} aria-hidden />הצג במפה
+              <MapIcon size={15} aria-hidden />{t('run.overview.chosen.showOnMap')}
             </button>
           )}
           {onClear && (
             <button type="button" onClick={onClear}
               className="h-9 whitespace-nowrap rounded-full px-3.5 text-[13px] font-extrabold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]">
-              בלי מסלול
+              {t('run.overview.chosen.clear')}
             </button>
           )}
         </div>

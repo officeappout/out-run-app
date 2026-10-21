@@ -34,6 +34,8 @@ import { useRouteSuggestions } from './useRouteSuggestions';
 import RunWorkoutOverview from './RunWorkoutOverview';
 import RunRouteSuggestCarousel from './RunRouteSuggestCarousel';
 import type { RunCtaMode } from './RunOverviewCta';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RunOverviewMapLogic {
   currentUserPos: { lat: number; lng: number } | null;
@@ -60,6 +62,7 @@ export interface RunOverviewMapHostProps {
 export default function RunOverviewMapHost({
   logic, workout, templateCategory, week, initialSuggest = false, initialEdits = null, onExit, onPickOnMap,
 }: RunOverviewMapHostProps) {
+  const t = useT(player);
   // The materialized workout we started from — the store's workout becomes the
   // edited one we write before start, which must never become the new base.
   const baseRef = useRef(workout);
@@ -168,7 +171,7 @@ export default function RunOverviewMapHost({
           selectedId={chosen?.route.id ?? null}
           onSelect={(s) => choose(s)}
           onBack={clearRoute}
-          workoutLabel={typeof mainLabel === 'string' ? mainLabel.replace(/\s*מ׳$/, '') : ''}
+          workoutLabel={typeof mainLabel === 'string' ? mainLabel.replace(/\s*מ׳$/, '') : ''} // i18n-allow-hebrew: regex that strips the unit from the service's label
           minutes={minutes}
           journey={journey}
         />
@@ -176,7 +179,8 @@ export default function RunOverviewMapHost({
       {chosen && onMap && (
         <motion.div className="pointer-events-none absolute inset-x-0 top-0 z-[70]"
           initial={{ y: -160, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.25, ease: 'easeInOut' }}>
-          <OverviewTitleBar eyebrow="מבט על אימון" title={`${typeLabel} על ${chosen.route.name?.trim() || 'המסלול'}`}
+          <OverviewTitleBar eyebrow={t('run.overview.map.eyebrow')}
+            title={t('run.overview.map.title', { type: typeLabel, route: chosen.route.name?.trim() || t('run.overview.map.routeFallback') })}
             onBack={() => setOnMap(false)} />
         </motion.div>
       )}

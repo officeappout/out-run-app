@@ -171,7 +171,7 @@ describe('plan + args', () => {
     if (!v.ok) expect(v.errors.join()).toMatch(/uid.*focusRules/);
   });
   it('skips unregistered testers and respects the session cap', () => {
-    const roster = new Set(['demo_qa_walker58', 'demo_qa_home_beginner']);
+    const roster = new Set(['demo_qa_walker58', 'demo_qa_home_plan']);
     const p = planRun(missions, { missions: null, device: null, maxSessions: 1 }, roster);
     expect(p.sessions.map((s) => s.mission.id)).toEqual(['M01_walker58']);
     expect(p.skipped).toEqual([

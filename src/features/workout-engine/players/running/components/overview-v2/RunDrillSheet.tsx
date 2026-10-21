@@ -20,6 +20,8 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import ExerciseDetailContent from '@/features/workout-engine/players/strength/components/ExerciseDetailContent';
 import type { RunBlock } from '../../types/run-block.type';
 import { cleanBlockLabel } from '../../utils/run-preview/run-title';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /** Over the overview drawer (z-[100]) and its edit sheets — the z-[104]/z-[105] row. */
 const LAYER = { zIndex: SHEET_Z.freeRunExtrasPanel, backdropZIndex: SHEET_Z.freeRunExtras } as const;
@@ -34,6 +36,7 @@ export interface RunDrillSheetProps {
 }
 
 export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
+  const t = useT(player);
   const exerciseId = block?.drillRef?.exerciseId ?? null;
   const [resolved, setResolved] = useState<Resolved | null>(null);
 
@@ -72,7 +75,7 @@ export default function RunDrillSheet({ block, onClose }: RunDrillSheetProps) {
         dir="rtl"
         header={(
           <div className="flex items-center justify-between px-5 pb-2">
-            <IconButton aria-label="חזרה" tone="surface" size={36} onClick={onClose}>
+            <IconButton aria-label={t('run.overview.drill.back')} tone="surface" size={36} onClick={onClose}>
               <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2.4} />
             </IconButton>
             <h2 className="flex-1 truncate whitespace-nowrap px-4 text-center text-[17px] font-black text-v2-ink">{title}</h2>

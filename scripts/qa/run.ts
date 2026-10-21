@@ -153,7 +153,11 @@ async function runAll(
           results.push({ mission: s.mission.id, device: s.device, outcome: 'error', reason: refused, summary: '', steps: 0, newFindings: 0 });
           continue;
         }
-        await driver.openStart();
+        const bootErrors = await driver.openStart({ afterSignIn: true });
+        if (bootErrors && (bootErrors.console.length || bootErrors.failedRequests.length)) {
+          // Not linted as the mission's (sign-in + the app's own first redirect); kept in the log.
+          log(`sign-in/boot errors (not reported): ${[...bootErrors.failedRequests, ...bootErrors.console].slice(0, 6).join(' | ')}`);
+        }
         const r = await runSession(
           {
             anthropic,
