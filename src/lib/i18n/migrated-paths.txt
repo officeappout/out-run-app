@@ -16,3 +16,10 @@ src/features/progression-map/components/
 src/app/progression-map/
 src/features/activity/components/
 src/app/activity/
+
+# wave 2 batch 1 (namespace map, partners.* keys) — Partner Finder.
+# PartnerBubbles.tsx is dead (imported by DiscoverLayer, never rendered): left as is.
+# heatmap: only hooks/ + services/ (no copy); heatmap/components is admin-only (Hebrew only, PLAN decision 1).
+src/features/partners/
+src/features/heatmap/hooks/
+src/features/heatmap/services/

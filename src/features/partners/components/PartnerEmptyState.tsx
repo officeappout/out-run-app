@@ -5,17 +5,17 @@
  * has zero results. Tab-aware copy nudges the user toward the right
  * recovery action (broaden, schedule, or share).
  *
- * Hebrew copy is gender-aware (`profile.core.gender`):
- *   - male:   "היה הראשון — סמן את עצמך פנוי…"
- *   - female: "היי הראשונה — סמני את עצמך פנויה…"
- *   - other:  falls back to male form (codebase convention).
+ * Hebrew copy is gender-aware: the `map` catalog's `partners.empty.*.sub`
+ * keys select on the signed-in user's gender (useT injects it) — female
+ * gets the feminine form, male / other / unset the masculine one (the
+ * codebase convention the old `g()` call followed).
  */
 
 import React from 'react';
 import { Users, SlidersHorizontal } from 'lucide-react';
 import LemurAvatar from '@/features/user/progression/components/LemurAvatar';
-import { useUserStore } from '@/features/user';
-import { g } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 
 interface PartnerEmptyStateProps {
@@ -28,21 +28,10 @@ interface PartnerEmptyStateProps {
 }
 
 export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: PartnerEmptyStateProps) {
-  const gender = useUserStore((s) => s.profile?.core?.gender) ?? 'male';
+  const t = useT(map);
 
-  const title =
-    tab === 'live'
-      ? 'אין מתאמנים פעילים קרוב אליך עכשיו'
-      : 'אין אימונים מתוכננים באזור';
-
-  const sub =
-    tab === 'live'
-      ? `${g(gender, 'היה הראשון', 'היי הראשונה')} — ${g(
-          gender,
-          'סמן את עצמך פנוי',
-          'סמני את עצמך פנויה',
-        )} לפני האימון`
-      : `${g(gender, 'הוסף אימון ללוז', 'הוסיפי אימון ללוז')} ושתף אותו עם הקהילה`;
+  const title = tab === 'live' ? t('partners.empty.live.title') : t('partners.empty.scheduled.title');
+  const sub = tab === 'live' ? t('partners.empty.live.sub') : t('partners.empty.scheduled.sub');
 
   if (v2) {
     return (
@@ -69,7 +58,7 @@ export function PartnerEmptyState({ tab, v2 = false, onAction, actionLabel }: Pa
             className="mt-5 flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <SlidersHorizontal size={15} className="text-v2-deep" aria-hidden />
-            {actionLabel ?? 'שינוי סינון'}
+            {actionLabel ?? t('partners.empty.changeFilter')}
           </button>
         )}
       </div>

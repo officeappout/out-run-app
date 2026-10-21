@@ -34,6 +34,8 @@
 
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 /**
  * Radar tempo presets. The same animation runs in two contexts with
@@ -90,10 +92,10 @@ const ACCENT = '#00ADEF';
 // only the TEMPO changes per mode.
 const RING_MAX_SCALE = 5;
 
-const COPY: Record<'live' | 'scheduled', string> = {
-  live: 'מחפש מתאמנים קרוב אליך...',
-  scheduled: 'מחפש אימונים מתוכננים...',
-};
+const COPY = {
+  live: 'partners.radar.live',
+  scheduled: 'partners.radar.scheduled',
+} as const;
 
 export function RadarAnimation({
   tab,
@@ -106,14 +108,15 @@ export function RadarAnimation({
   // intentionally don't memoise because re-deriving on each render is
   // safer than risking a stale value when `mode` changes mid-flight.
   const timings = TIMINGS[mode];
+  const t = useT(map);
 
   useEffect(() => {
     // Cold-start window comes from the mode preset (see TIMINGS table).
     // Cached path always wins at 800 ms regardless of mode — instant
     // feedback for warm caches is the same UX in both contexts.
     const timeoutMs = isCached ? 800 : timings.coldTimeoutMs;
-    const t = setTimeout(onComplete, timeoutMs);
-    return () => clearTimeout(t);
+    const timer = setTimeout(onComplete, timeoutMs);
+    return () => clearTimeout(timer);
   }, [isCached, onComplete, timings.coldTimeoutMs]);
 
   return (
@@ -235,7 +238,7 @@ export function RadarAnimation({
         style={{ fontSize: 14, marginTop: 24 }}
         dir="rtl"
       >
-        {text ?? COPY[tab]}
+        {text ?? t(COPY[tab])}
       </p>
     </motion.div>
   );
