@@ -81,7 +81,7 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
   const t = useT(onboarding);
   const { data, updateData } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
-  const { gender } = useWizardIdentity();
+  const { copyGender: gender } = useWizardIdentity();
 
   // The same seed ScheduleStep builds (sessionStorage reads kept here, the
   // resolver stays pure).

@@ -29,15 +29,15 @@ describe('map (he) — byte-identical to the pre-extraction literals', () => {
       ['partners.activity.cycling', 'רכיבה'],
       ['partners.card.live', 'לייב'],
       ['partners.card.ownArrival', 'הגעה שלי'],
-      ['partners.card.join', 'הצטרף'],
+      ['partners.card.join', 'הצטרפות'],
       ['partners.card.connecting', 'מתחבר...'],
-      ['partners.card.openChat', "פתח צ'אט"],
+      ['partners.card.openChat', "פתיחת צ'אט"],
       ['partners.empty.live.title', 'אין מתאמנים פעילים קרוב אליך עכשיו'],
       ['partners.empty.scheduled.title', 'אין אימונים מתוכננים באזור'],
       ['partners.empty.changeFilter', 'שינוי סינון'],
       ['partners.radar.live', 'מחפש מתאמנים קרוב אליך...'],
       ['partners.radar.scheduled', 'מחפש אימונים מתוכננים...'],
-      ['partners.overlay.back', 'חזור'],
+      ['partners.overlay.back', 'חזרה'],
       ['partners.overlay.tab.live', 'מי בחוץ'],
       ['partners.overlay.tab.scheduled', 'מי מתכנן'],
       ['partners.overlay.live.title', 'מי מתאמן עכשיו?'],
@@ -78,7 +78,7 @@ describe('map (he) — byte-identical to the pre-extraction literals', () => {
       ['partners.filter.pace.fast', 'מהיר'],
       ['partners.sheet.title', 'סינון'],
       ['partners.sheet.reset', 'איפוס'],
-      ['partners.sheet.close', 'סגור'],
+      ['partners.sheet.close', 'סגירה'],
       ['partners.sheet.apply', 'החל'],
       ['partners.sheet.distance', 'מרחק'],
       ['partners.sheet.distanceLabel', 'מרחק חיפוש בקילומטרים'],
@@ -123,12 +123,17 @@ describe('map (he) — byte-identical to the pre-extraction literals', () => {
 
   it('gendered empty-state copy (old g() helper: female, else masculine)', () => {
     for (const gender of ['male', 'female', 'other'] as const) {
+      // Gender batch 2 (21.10.2026): other = neutral (was the masculine text).
       expect(t('partners.empty.live.sub', { gender })).toBe(
-        `${g(gender, 'היה הראשון', 'היי הראשונה')} — ${g(gender, 'סמן את עצמך פנוי', 'סמני את עצמך פנויה')} לפני האימון`,
+        gender === 'other'
+          ? 'היו הראשונים — סמנו שאתם פנויים לפני האימון'
+          : `${g(gender, 'היה הראשון', 'היי הראשונה')} — ${g(gender, 'סמן את עצמך פנוי', 'סמני את עצמך פנויה')} לפני האימון`,
       );
       expect(t('partners.empty.scheduled.sub', { gender })).toBe(
         // Owner copy fix (21.10.2026): the female form had a masculine second verb ("ושתף").
-        g(gender, 'הוסף אימון ללוז ושתף אותו עם הקהילה', 'הוסיפי אימון ללוז ושתפי אותו עם הקהילה'),
+        gender === 'other'
+          ? 'הוסיפו אימון ללוז ושתפו אותו עם הקהילה'
+          : g(gender, 'הוסף אימון ללוז ושתף אותו עם הקהילה', 'הוסיפי אימון ללוז ושתפי אותו עם הקהילה'),
       );
     }
   });
@@ -162,7 +167,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['overview.route.along.court', 'מגרש ספורט'],
       ['overview.route.along.dogPark', 'גינת כלבים'],
       ['overview.route.card.nameFallback', 'סיבוב מעגלי'],
-      ['overview.route.card.choose', 'בחר את המסלול הזה'],
+      ['overview.route.card.choose', 'בוחרים את המסלול הזה'],
       ['overview.route.navigate.label', 'ניווט למסלול'],
       ['overview.route.details.toggle', 'פירוט'],
       ['overview.route.details.all', 'כל פרטי המסלול'],
@@ -185,7 +190,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['routePreview.community.userFallback', 'משתמש'],
       ['routePreview.session.group', 'קבוצתי'],
       ['routePreview.session.joined', 'נרשמת'],
-      ['routePreview.session.join', 'הצטרף'],
+      ['routePreview.session.join', 'הצטרפות'],
       ['routePreview.walk.title', 'הליכה למסלול'],
       ['routePreview.walk.arrived', 'הגעת למסלול'],
       ['routePreview.walk.calculating', 'מחשב הוראות...'],
@@ -197,7 +202,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['routePreview.dev.title', 'Dev: סימולציה'],
       ['routePreview.dev.stop', 'עצור'],
       ['routePreview.dev.simulateWalk', 'דמה הליכה'],
-      ['routePreview.cta.start', 'התחל אימון'],
+      ['routePreview.cta.start', 'יוצאים לאימון'],
       ['routePreview.navigate.title', 'ניווט'],
       ['equipment.videoAvailable', 'סרטון זמין'],
       ['equipment.error.notFound', 'המתקן לא נמצא'],
@@ -211,7 +216,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['equipment.section.description', 'תיאור'],
       ['equipment.section.brands', 'מותגים זמינים'],
       ['equipment.sheet.label', 'פרטי מתקן'],
-      ['equipment.sheet.close', 'סגור'],
+      ['equipment.sheet.close', 'סגירה'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
   });
@@ -261,7 +266,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     expect(t('overview.route.elevation.peakClimb', { max: String(m), from: '0.1', to: '0.3' })).toBe(`שיא ${m} מ׳ · ק״מ ${'0.1'}–${'0.3'}`);
     expect(t('overview.route.elevation.peak', { max: String(m) })).toBe(`שיא ${m} מ׳`);
 
-    expect(t('routePreview.distance.km', { km })).toBe(`${km} ק"מ`);
+    expect(t('routePreview.distance.km', { km })).toBe(`${km} ק״מ`);
     expect(t('routePreview.distance.m', { m: String(600) })).toBe(`${600} מ'`);
     expect(t('routePreview.distance.mCompact', { m: String(999) })).toBe(`${999}מ'`);
     expect(t('routePreview.duration.hoursMinutes', { h: String(h), m: String(15) })).toBe(`${h} שעה ${15} דק'`);
@@ -299,8 +304,9 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       generic: ['שמור על תנועה מבוקרת — אין צורך להאיץ', 'רכז כל חזרה בשריר היעד, לא בתאוצה'],
     };
     for (const [group, [a, b]] of Object.entries(AUTO_CUES_BY_MUSCLE)) {
-      expect(t(`equipment.autoCue.${group}.1` as Key)).toBe(a);
-      expect(t(`equipment.autoCue.${group}.2` as Key)).toBe(b);
+      // male keeps the old cue; female / unknown since gender batch 3 (gender-batch3-catalogs.test.ts)
+      expect(t(`equipment.autoCue.${group}.1` as Key, { gender: 'male' })).toBe(a);
+      expect(t(`equipment.autoCue.${group}.2` as Key, { gender: 'male' })).toBe(b);
     }
   });
 

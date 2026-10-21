@@ -105,6 +105,8 @@ export default defineConfig({
       'tests/firestore-fix-agents-lockdown.rules.test.ts',
       // admin_costs / admin_cost_items server-only lockdown (/admin/costs) — emulator :8089.
       'tests/firestore-admin-costs.rules.test.ts',
+      // city_inventory/** server-only lockdown (RC4 I2 map-health card) — emulator :8089.
+      'tests/firestore-city-inventory.rules.test.ts',
       // demo_registry server-only lockdown + users.core.demo stamp lock (demo world PR 1) — emulator :8089.
       'tests/firestore-demo-registry.rules.test.ts',
       // demo actor sandbox (B1: uid demo_* / claim demo writes only to demo targets) — emulator :8089.
@@ -135,6 +137,10 @@ export default defineConfig({
       'scripts/demo/__tests__/**/*.test.ts',
       // AI tester runner + overseer (scripts/qa) — pure units only (no browser, no network).
       'scripts/qa/__tests__/**/*.test.ts',
+      // City inventory script helpers (RC4 I2) — temp work-dir cleanup, real fs in os.tmpdir().
+      'scripts/city-inventory/__tests__/**/*.test.ts',
+      // City inventory "map health" admin card (RC4 I2) — render tests (jsdom), fetch mocked.
+      'src/features/admin/components/city-inventory/__tests__/**/*.test.tsx',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain

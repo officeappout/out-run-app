@@ -324,3 +324,25 @@ src/app/ai-coach/
 src/features/ai-coach/services/workout-card-view.pure.ts
 src/features/ai-coach/services/aerobic-card-view.pure.ts
 src/features/ai-coach/services/memory-copy.ts
+
+# wave 2 batch x (namespace community, leagues.{individual,sheets,scopes,battle,national,groupBoard}.*): the league
+# boards #615 left. Left out: services/ranking.service.ts (busy in another worktree; its Hebrew is a separate batch).
+src/features/arena/components/NeighborhoodLeaderboard.tsx
+src/features/arena/components/LeagueBoardSheets.tsx
+src/features/arena/components/ScopeCompetitionLeaderboard.tsx
+src/features/arena/components/ScopeBattleCard.tsx
+src/features/arena/components/NationalLeagueBoard.tsx
+src/features/arena/components/GroupLeaderboard.tsx
+src/features/arena/components/league-gender-copy.ts
+
+# wave 2 batch y (namespace home, keys builder.* / agendaCard.* / rollingAgenda.* / dayPreview.* / nearbySpots.*):
+# the workout builder sheet (+ the anchor location chip that reads its LOCATION_OPTIONS keys), the planner's agenda
+# day card + rolling agenda, the future-day preview and the nearby parks / routes carousel. Marked / left Hebrew:
+# weekday / month names (wave 3), the city coordinate table (data), the builder's fallback workout title (handed to
+# the preview drawer, can be saved), its v1 (enable_home_v2 off) CTA labels, AgendaDayCard's two unused constants.
+src/features/home/components/WorkoutBuilderSheet.tsx
+src/features/home/components/AnchorLocationChip.tsx
+src/features/home/components/WorkoutLocationSuggestions.tsx
+src/features/home/components/agenda/AgendaDayCard.tsx
+src/features/home/components/agenda/RollingAgenda.tsx
+src/features/home/components/day-preview/

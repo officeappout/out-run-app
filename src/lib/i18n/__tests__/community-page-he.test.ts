@@ -36,8 +36,8 @@ describe('community page (communityPage.*)', () => {
       ['communityPage.tabs.feed', 'פיד'],
       ['communityPage.scopePoints.title', 'איך צוברים נקודות לליגה'],
       ['communityPage.feed.empty.title', 'הפיד שלך ריק'],
-      ['communityPage.feed.empty.body', 'סיים אימון כדי לפרסם את הפוסט הראשון שלך, או חפש שותפים ועקוב אחריהם'],
-      ['communityPage.feed.empty.findPartners', 'מצא שותפים'],
+      // communityPage.feed.empty.body: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
+      ['communityPage.feed.empty.findPartners', 'חיפוש שותפים'], // gender batch 3 (was: מצא שותפים)
       ['communityPage.feed.filterBar.label', 'סינון הפיד'],
       ['communityPage.feed.filterBar.privacy', 'מי רואה את הפוסטים שלי'],
       ['communityPage.feed.filterBar.partners', 'שותפים'],
@@ -46,7 +46,7 @@ describe('community page (communityPage.*)', () => {
       ['communityPage.feed.filter.neighborhood', 'השכונה'],
       ['communityPage.feed.filter.groups', 'קבוצות'],
       ['communityPage.feed.loading', 'טוען פיד...'],
-      ['communityPage.feed.refresh', 'רענן'],
+      ['communityPage.feed.refresh', 'רענון'],
       ['communityPage.feed.emptyFiltered', 'אין כאן עדיין פוסטים'],
       ['communityPage.leagues.sheetTitle', 'הליגות שלי'],
       ['communityPage.leagues.v2.tab.people', 'אישי'],
@@ -60,12 +60,12 @@ describe('community page (communityPage.*)', () => {
       ['communityPage.leagues.v2.whereNational', 'בכל הארץ'],
       ['communityPage.scopeType.neighborhood', 'השכונה שלך'],
       ['communityPage.scopeType.city', 'העיר שלך'],
-      ['communityPage.setup.title', 'בחר שכונה כדי להצטרף לליגת השכונה'],
+      // communityPage.setup.title: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['communityPage.setup.body', 'עדיין לא הגדרת שכונה בפרופיל שלך'],
-      ['communityPage.setup.cta', 'בחר שכונה בפרופיל'],
+      ['communityPage.setup.cta', 'בחירת שכונה בפרופיל'], // gender batch 3 (was: בחר שכונה בפרופיל)
       ['communityPage.invite.body', 'יותר חברים = יותר פעילות = יותר סיכוי לנצח'],
       ['communityPage.invite.cta', 'הזמנת שכנים'],
-      ['communityPage.axis.hint', 'לחץ להחלפת ציר'],
+      ['communityPage.axis.hint', 'הקשה להחלפת ציר'], // gender batch 3 (was: לחץ להחלפת ציר)
       ['communityPage.axis.filters', 'פילטרים'],
       ['communityPage.reserve.scopeLabel', 'ליגת המילואים'],
       ['communityPage.city.loading', 'טוען נתוני עיר...'],
@@ -91,10 +91,11 @@ describe('community page (communityPage.*)', () => {
       expect(t('communityPage.cards.members', { count: String(n) })).toBe(`${n} חברים`);
     }
     const scope = 'נווה שאנן';
-    expect(t('communityPage.invite.shareText', { scope })).toBe(`בוא תצטרף אליי ב${scope} על Out! 🔥`);
-    expect(t('communityPage.invite.title', { scope })).toBe(`הזמן שכנים ל${scope}`);
+    // gender batch 3: share text → plural (decision 7), title → noun
+    expect(t('communityPage.invite.shareText', { scope })).toBe(`בואו להצטרף אליי ב${scope} על Out! 🔥`);
+    expect(t('communityPage.invite.title', { scope })).toBe(`הזמנת שכנים ל${scope}`);
     expect(t('communityPage.leagues.v2.whereCity', { city: 'חיפה' })).toBe(`ב${'חיפה'}`);
-    expect(t('communityPage.axis.hintInCity', { city: 'חיפה' })).toBe(`ב${'חיפה'} · ` + 'לחץ להחלפת ציר');
+    expect(t('communityPage.axis.hintInCity', { city: 'חיפה' })).toBe(`ב${'חיפה'} · ` + 'הקשה להחלפת ציר'); // gender batch 3: noun
     expect(t('communityPage.leagues.v2.month', { month: 'אוקטובר' })).toBe(`ליגת ${'אוקטובר'}`);
     expect(t('groupDrawer.calendarDetails', { category: 'ריצה', groupName: 'רצי הירקון' })).toBe(`קבוצת ${'ריצה'} — ${'רצי הירקון'}`);
   });

@@ -10,6 +10,22 @@
 
 import type { AchievementDefinition } from '../types/achievement.types';
 
+/**
+ * The badge name for this user (owner decision 9, 21.10.2026): gendered and personal —
+ * a woman sees "מלכת המתח", a man "מלך המתח". Badges are titles, not instructions, so an
+ * unknown / "other" gender sees the base name (no neutral rewrite of a title).
+ */
+export function achievementName(
+  def: Pick<AchievementDefinition, 'id' | 'name_he' | 'name_he_female'>,
+  gender: unknown,
+): string {
+  if (gender !== 'female') return def.name_he;
+  // A definition read from Firestore (seeded before name_he_female existed) falls back to
+  // the bundled feminine name for the same id.
+  const female = def.name_he_female ?? ACHIEVEMENT_MAP[def.id]?.name_he_female;
+  return female ?? def.name_he;
+}
+
 export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
 
   // ── RUNNING — ריצה ─────────────────────────────────────────────────────
@@ -50,7 +66,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'distance_runner',
     name_he: 'רץ מרחקים',
-    description_he: 'צבור קילומטרי ריצה מצטברים',
+    name_he_female: 'רצת מרחקים',
+    description_he: 'קילומטרי ריצה מצטברים',
     category: 'running',
     type: 'tiered',
     emoji: '📏',
@@ -92,6 +109,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'pull_up_king',
     name_he: 'מלך המתח',
+    name_he_female: 'מלכת המתח',
     description_he: 'מספר עליות מתח מירבי בסט אחד',
     category: 'strength',
     type: 'tiered',
@@ -120,6 +138,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'squat_champion',
     name_he: 'אלוף הסקוואט',
+    name_he_female: 'אלופת הסקוואט',
     description_he: 'מספר סקוואטים מירבי בסט אחד',
     category: 'strength',
     type: 'tiered',
@@ -170,6 +189,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'gym_addict',
     name_he: 'מכור לחדר הכושר',
+    name_he_female: 'מכורה לחדר הכושר',
     description_he: '50 אימונים בחוץ',
     category: 'strength',
     type: 'one_time',
@@ -184,6 +204,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'park_starter',
     name_he: 'מתחיל בפארק',
+    name_he_female: 'מתחילה בפארק',
     description_he: '10 אימונים בחוץ',
     category: 'consistency',
     type: 'one_time',
@@ -194,7 +215,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'workout_count',
-    name_he: 'לוחם אימונים',
+    name_he: 'אלוף האימונים',
+    name_he_female: 'אלופת האימונים',
     description_he: 'סה״כ אימונים שהשלמת',
     category: 'consistency',
     type: 'tiered',
@@ -248,6 +270,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'workout_partner',
     name_he: 'שותף אימון',
+    name_he_female: 'שותפת אימון',
     description_he: 'אימונים עם שותפים',
     category: 'social',
     type: 'tiered',
@@ -262,7 +285,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'active_follower',
     name_he: 'עוקב פעיל',
-    description_he: 'מספר משתמשים שאתה עוקב אחריהם',
+    name_he_female: 'עוקבת פעילה',
+    description_he: 'מספר המשתמשים שבמעקב שלך',
     category: 'social',
     type: 'tiered',
     emoji: '👥',
@@ -276,6 +300,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'popular',
     name_he: 'פופולרי',
+    name_he_female: 'פופולרית',
     description_he: 'מספר עוקבים שיש לך',
     category: 'social',
     type: 'tiered',
@@ -290,6 +315,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'group_member',
     name_he: 'חבר קבוצה',
+    name_he_female: 'חברת קבוצה',
     description_he: 'הצטרפות לקבוצות אימון',
     category: 'social',
     type: 'tiered',
@@ -332,6 +358,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'weekly_winner',
     name_he: 'מנצח שבועי',
+    name_he_female: 'מנצחת שבועית',
     description_he: 'ניצחונות שבועיים בליגה',
     category: 'leagues',
     type: 'tiered',
@@ -349,6 +376,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'park_explorer',
     name_he: 'חוקר פארקים',
+    name_he_female: 'חוקרת פארקים',
     description_he: 'פארקים שביקרת בהם',
     category: 'map',
     type: 'tiered',
@@ -390,7 +418,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'friday_warrior',
-    name_he: 'לוחם שישי',
+    name_he: 'גיבור שישי',
+    name_he_female: 'גיבורת שישי',
     description_he: 'אימון ביום שישי',
     category: 'special',
     type: 'one_time',
@@ -401,7 +430,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   },
   {
     id: 'rain_warrior',
-    name_he: 'לוחם הגשם',
+    name_he: 'מלך הגשם',
+    name_he_female: 'מלכת הגשם',
     description_he: 'אימון בחוץ בגשם',
     category: 'special',
     type: 'one_time',

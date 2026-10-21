@@ -11,7 +11,7 @@
  * Server-only (needs the GraphHopper client); no Firestore.
  */
 import { buildOurRoutesIndex, type OsmRoadLayer, type OurRouteLine } from '@/lib/route-quality';
-import { DEFAULT_TAGS, profileForActivity, type GraphHopperClient, type OutActivity, type RouteTags } from './graphhopper';
+import { DEFAULT_TAGS, profileForActivity, readFootProfile, type GhFootProfile, type GraphHopperClient, type OutActivity, type RouteTags } from './graphhopper';
 import { buildOurRoutesArea, ourRoutesRadiusKm } from './our-routes';
 import { roundTripCandidate, viaLoopCandidate, type CandidateParams, type LoopCandidate } from './loops/candidates';
 import { spreadHeadings, type LatLng } from './loops/geo';
@@ -37,6 +37,8 @@ export interface LoopRequest {
    * of each loop on them improves its score. Absent = exactly the plain recipe.
    */
   ourRoutes?: OurRouteLine[];
+  /** Running/walking profile; default GRAPHHOPPER_FOOT_PROFILE (foot | foot_turns). */
+  footProfile?: GhFootProfile;
 }
 
 /** Tags + scoring index for our routes; the plain tags when there are none nearby. */
@@ -72,7 +74,7 @@ export async function generateLoops(
     client,
     start: req.start,
     targetKm: req.targetKm,
-    profile: profileForActivity(req.activity),
+    profile: profileForActivity(req.activity, { foot: req.footProfile ?? readFootProfile() }),
     tags: our.tags,
     signal: ctrl.signal,
   };

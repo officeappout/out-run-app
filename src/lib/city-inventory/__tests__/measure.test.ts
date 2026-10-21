@@ -40,6 +40,8 @@ describe('measureOsm', () => {
       way(13, { highway: 'primary', lit: 'no' }, [[50, 0], [50, 1000]]), // major road
       way(14, { highway: 'footway', footway: 'sidewalk' }, [[0, 900], [200, 900]]), // walkable but not a trail
       way(15, { highway: 'service' }, [[0, 800], [200, 800]]), // ignored
+      way(16, { highway: 'path', bicycle: 'designated' }, [[700, 100], [900, 100]]), // bike, no surface ⇒ unknown, 200 m
+      way(17, { highway: 'track', bicycle: 'designated', surface: 'gravel' }, [[700, 300], [800, 300]]), // bike off-road, known, 100 m
     ],
     areas: [
       area('way/20', { leisure: 'pitch' }, square(700, 700, 30)),
@@ -61,12 +63,20 @@ describe('measureOsm', () => {
     expect(t.linear.bike_paved.knownSurfaceM).toBeCloseTo(300, -1);
   });
 
+  it('bike ways with no surface tag go to bike_unknown, not bike_offroad (I1 review)', () => {
+    expect(t.linear.bike_unknown.count).toBe(1);
+    expect(t.linear.bike_unknown.lengthM).toBeCloseTo(200, -1);
+    expect(t.linear.bike_offroad.count).toBe(1);
+    expect(t.linear.bike_offroad.lengthM).toBeCloseTo(100, -1);
+    expect(t.linear.bike_offroad.knownSurfaceM).toBeCloseTo(100, -1);
+  });
+
   it('streets, walkable length and lit tagging', () => {
     expect(t.streetM).toBeCloseTo(2000, -1); // residential + primary
-    expect(t.lighting.walkableM).toBeCloseTo(1000 + 500 + 300 + 1000 + 200, -1);
+    expect(t.lighting.walkableM).toBeCloseTo(1000 + 500 + 300 + 1000 + 200 + 200 + 100, -1);
     expect(t.lighting.taggedM).toBeCloseTo(2000, -1); // lit=yes + lit=no
     expect(t.lighting.litM).toBeCloseTo(1000, -1);
-    expect(t.walkableLines.length).toBe(5);
+    expect(t.walkableLines.length).toBe(7);
   });
 
   it('parks via measure-parks, only those inside', () => {

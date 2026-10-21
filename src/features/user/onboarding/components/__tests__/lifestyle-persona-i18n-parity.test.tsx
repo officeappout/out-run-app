@@ -57,7 +57,11 @@ vi.mock('@/features/user/onboarding/hooks/useOnboardingV2', () => ({
   useOnboardingV2State: () => ({ v2: S.v2, ready: true, quizHintV2: false }),
 }));
 vi.mock('@/features/user/onboarding/hooks/useWizardIdentity', () => ({
-  useWizardIdentity: () => ({ gender: S.gender, firstName: '' }),
+  useWizardIdentity: () => ({
+    gender: S.gender,
+    copyGender: S.gender === 'male' || S.gender === 'female' ? S.gender : 'other',
+    firstName: '',
+  }),
 }));
 vi.mock('@/features/user/identity/store/useUserStore', () => {
   const state = () => ({ profile: S.profile, refreshProfile: async () => {}, _hasHydrated: true });
@@ -264,7 +268,7 @@ describe('PersonaQuestionsDrawer + HierarchySearchStep', () => {
         };
         let r = await render(<PersonaQuestionsDrawer personaId={'military' as never} isOpen onComplete={noop} v2={v2} />);
         out.push(`<!-- ${gender} choice -->`, html(r));
-        await r.click(byText('דלג'));
+        await r.click(byText('דילוג'));
         out.push(`<!-- ${gender} loading -->`, html(r));
         resolveRoot();
         await flush();
@@ -312,7 +316,7 @@ describe('PersonaQuestionsDrawer + HierarchySearchStep', () => {
         S.pendingRoot = null;
         S.dir = { root: [] };
         r = await render(<PersonaQuestionsDrawer personaId={'military' as never} isOpen onComplete={noop} v2={v2} />);
-        await r.click(byText('דלג'));
+        await r.click(byText('דילוג'));
         await flush();
         out.push(`<!-- ${gender} empty root -->`, html(r));
         await r.click(byText('היחידה שלי לא ברשימה'));
@@ -329,9 +333,9 @@ describe('PersonaQuestionsDrawer + HierarchySearchStep', () => {
         S.saveFails = true;
         S.dir = { root: [] };
         r = await render(<PersonaQuestionsDrawer personaId={'military' as never} isOpen onComplete={noop} v2={v2} />);
-        await r.click(byText('דלג'));
+        await r.click(byText('דילוג'));
         await flush();
-        await r.click(byText('דלג'));
+        await r.click(byText('דילוג'));
         await flush();
         await r.advance(1000); // the drawer retries once after 1 s
         await flush();

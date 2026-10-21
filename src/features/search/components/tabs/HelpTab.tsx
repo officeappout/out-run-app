@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * "עזרה" (Help board): the short tour, the "איך משתמשים" chapters (same as the help hub),
+ * "עזרה" (Help board): the short tour, the "איך משתמשים" chapters (same as the help hub), every
+ * app tour (ai_coach_round4),
  * the FAQ ("אותן שאלות כמו באתר") and the help answers; the query filters both.
  */
 import { useMemo } from 'react';
@@ -10,6 +11,7 @@ import { PlayCircle } from 'lucide-react';
 import { BrandCard, BRAND_GRADIENT } from '@/components/ui/v2';
 import { HELP_CHAPTERS, type HelpChapter } from '@/lib/app-help/chapters';
 import { requestTourReplay } from '@/features/user/onboarding/services/tour-replay';
+import TourList from '@/features/help/components/TourList';
 import QaRow from '../cards/QaRow';
 import SectionHead from '../SectionHead';
 import { RowSkeleton } from '../Skeletons';
@@ -19,7 +21,12 @@ import { library } from '@/messages/ns/library';
 
 const CHAPTER_DOT = ['#ccfbf1', '#e0f2fe', '#fef9c3', '#c7f3ee', '#f1f5f9', '#ede9fe'];
 
-export default function HelpTab({ query, corpus }: { query: string; corpus: ContentCorpus | null }) {
+export default function HelpTab({ query, corpus, toursOn = false }: {
+  query: string;
+  corpus: ContentCorpus | null;
+  /** ai_coach_round4: list every app tour (TourList). Off → today's tab, unchanged. */
+  toursOn?: boolean;
+}) {
   const t = useT(library);
   const router = useRouter();
   const show = (c: HelpChapter) => {
@@ -54,6 +61,7 @@ export default function HelpTab({ query, corpus }: { query: string; corpus: Cont
               ))}
             </div>
           </section>
+          {toursOn && <TourList title={t('search.help.tours')} headingId="help-tours" />}
         </>
       )}
       {faq.length > 0 && (

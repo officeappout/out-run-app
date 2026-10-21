@@ -12,8 +12,11 @@
 
 export const CITY_INVENTORY_COLLECTION = 'city_inventory';
 export const CITY_INVENTORY_RUNS_SUBCOLLECTION = 'runs';
-/** Bump when the stored shape changes incompatibly. */
-export const CITY_INVENTORY_SCHEMA_VERSION = 1;
+/**
+ * Bump when the stored shape changes. v2 (I2): + `bike_unknown` layer. A v1
+ * doc read by the v2 reader shows that layer as "not measured".
+ */
+export const CITY_INVENTORY_SCHEMA_VERSION = 2;
 
 /** Every inventory layer. Order = display order in the panel card. */
 export const INVENTORY_LAYER_KEYS = [
@@ -30,6 +33,8 @@ export const INVENTORY_LAYER_KEYS = [
   'crossings',
   'bike_paved',
   'bike_offroad',
+  /** Bike ways with no surface evidence — never folded into off-road (I1 review). */
+  'bike_unknown',
   'trails_paved',
   'trails_offroad',
   'promenades',
@@ -56,6 +61,7 @@ export const OSM_LAYER_KEYS = [
   'crossings',
   'bike_paved',
   'bike_offroad',
+  'bike_unknown',
   'trails_paved',
   'trails_offroad',
   'promenades',

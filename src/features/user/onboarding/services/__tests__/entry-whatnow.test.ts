@@ -168,9 +168,10 @@ describe('first-route tutorial + player tip (extends first-run-tour, no fork)', 
       }
     }
   });
-  it('the first-launch tours use the v2 entry bubble; in-workout / community keep their chrome', () => {
-    for (const t of ['route', 'route-player', 'plan', 'home', 'map'] as const) expect(firstRunTourChrome(t)?.variant).toBe('entry');
-    for (const t of ['community', 'player'] as const) expect(firstRunTourChrome(t)).toBeUndefined();
+  it('one bubble style: every tour uses the v2 entry bubble (owner 21.10)', () => {
+    for (const t of ['route', 'route-player', 'plan', 'home', 'map', 'community', 'player'] as const) {
+      expect(firstRunTourChrome(t).variant).toBe('entry');
+    }
   });
   it('every "what now" answer has its guidance', () => {
     expect(mapTourAfterWhatNow('browse')).toBe(true);

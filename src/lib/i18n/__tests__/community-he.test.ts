@@ -26,8 +26,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.next.full", " · המפגש מלא"],
       ["group.next.booked", "✓ רשום/ה (בטל?)"],
       ["group.next.waitlisted", "⏳ ברשימת המתנה (בטל?)"],
-      ["group.next.joinWaitlist", "הצטרף לרשימת המתנה"],
-      ["group.next.book", "הירשם למפגש"],
+      ["group.next.joinWaitlist", "הצטרפות לרשימת המתנה"],
+      ["group.next.book", "הרשמה למפגש"],
       ["group.next.hideSchedule", "הסתר מערכת שעות"],
       ["group.next.showSchedule", "לכל מערכת השעות"],
       ["group.schedule.title", "מערכת שעות מלאה"],
@@ -49,20 +49,20 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.members.remove", "הסר מהקבוצה"],
       ["group.removeMember.title", "הסרת חבר/ה"],
       ["group.removeMember.note", "המשתמש יוסר מהקבוצה ומהצ׳אט"],
-      ["group.removeMember.confirm", "הסר"],
+      ["group.removeMember.confirm", "הסרה"],
       ["group.removeMember.cancel", "ביטול"],
       ["group.live.cityOnlyNoAddress", "מפגש פעיל · לתושבי העיר בלבד"],
       ["group.live.membersOnly", "מפגש פעיל · לחברים בלבד"],
-      ["group.location.openMapNoAddress", "פתח מפה ל-מיקום הקבוצה"],
+      ["group.location.openMapNoAddress", "פתיחת מפה למיקום הקבוצה"],
       ["group.location.mapAlt", "מפה"],
       ["group.location.military", "הפרטים מיועדים למילואימניקים."],
-      ["group.join.enterCode", "הזן קוד הצטרפות"],
+      ["group.join.enterCode", "קוד הצטרפות"],
       ["group.join.privateHint", "זו קהילה פרטית — הזינו את קוד ההצטרפות:"],
       ["group.join.codeLabel", "קוד הצטרפות לקהילה"],
       ["group.join.submit", "אישור"],
-      ["group.join.wrongCode", "קוד שגוי, אנא נסה שנית"],
+      ["group.join.wrongCode", "קוד שגוי, אנא נסו שנית"],
       ["group.join.cancel", "ביטול"],
-      ["group.join.join", "הצטרף לקבוצה"],
+      ["group.join.join", "הצטרפות לקבוצה"],
       ["group.join.register", "הרשמה"],
       ["group.join.toast.wrongTenant", "הקוד אינו שייך לקבוצה הזו."],
       ["group.dropIn.title", "כל הכבוד, הצטרפת לאימון!"],
@@ -72,25 +72,25 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.invite.title", "קוד הזמנה"],
       ["group.invite.copied", "הקוד הועתק"],
       ["group.invite.copy", "העתק קוד הזמנה"],
-      ["group.invite.whatsapp", "הזמן חברים בוואטסאפ"],
-      ["group.share.label", "שתף קבוצה"],
-      ["group.share.share", "שתף"],
+      ["group.invite.whatsapp", "הזמנת חברים בוואטסאפ"], // gender batch 3 (was: הזמן חברים בוואטסאפ)
+      ["group.share.label", "שיתוף הקבוצה"],
+      ["group.share.share", "שיתוף"],
       ["group.share.calendar", "ליומן"],
       ["group.membership.chat", "כנס לצ'אט הקהילה"],
       ["group.membership.leave", "עזוב קבוצה"],
       ["group.membership.leaveConfirm", "בטוח/ה? המפגשים יוסרו מלוז האימונים ומהיומן"],
       ["group.membership.leaveYes", "כן, עזוב"],
       ["group.membership.cancel", "ביטול"],
-      ["group.organizer.edit", "ערוך קהילה"],
+      ["group.organizer.edit", "עריכת הקהילה"],
       ["group.organizer.manageSchedule", "ניהול מפגשים"],
       ["group.scheduleManager.title", "ניהול מפגשים"],
       ["group.scheduleManager.active", "פעיל"],
       ["group.scheduleManager.editLocked", "מפגש פעיל כרגע — לא ניתן לערוך"],
-      ["group.scheduleManager.edit", "ערוך"],
+      ["group.scheduleManager.edit", "עריכה"],
       ["group.scheduleManager.removeOnly", "להפסיק מפגשים לגמרי — בקרוב"],
       ["group.scheduleManager.removeLocked", "מפגש פעיל כרגע"],
       ["group.scheduleManager.remove", "הסר מפגש"],
-      ["group.scheduleManager.add", "הוסף מפגש"],
+      ["group.scheduleManager.add", "הוספת מפגש"],
       ["group.scheduleManager.toast.removed", "מפגש הוסר"],
       ["group.scheduleManager.toast.saveError", "שגיאה בשמירה"],
       ["group.slotEditor.titleEdit", "עריכת מפגש"],
@@ -99,8 +99,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.slotEditor.time", "שעה"],
       ["group.slotEditor.location", "מיקום"],
       ["group.slotEditor.saving", "שומר..."],
-      ["group.slotEditor.save", "שמור שינויים"],
-      ["group.slotEditor.add", "הוסף מפגש"],
+      ["group.slotEditor.save", "שמירת שינויים"],
+      ["group.slotEditor.add", "הוספת מפגש"],
       ["group.slotEditor.toast.badTime", "שעה לא תקינה"],
       ["group.slotEditor.toast.updated", "המפגש עודכן"],
       ["group.slotEditor.toast.added", "מפגש נוסף"],
@@ -150,9 +150,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
     expect(t('group.live.cityOnlyNoAddress')).toBe(live(true, undefined));
     expect(t('group.live.membersOnly')).toBe(live(false, 'x'));
     // GroupLocationCard — old aria: `פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`
-    expect(t('group.location.openMap', { address: 'נמל תל אביב' })).toBe(`פתח מפה ל-${'נמל תל אביב'}`);
-    const noAddress = undefined as string | undefined;
-    expect(t('group.location.openMapNoAddress')).toBe(`פתח מפה ל-${noAddress || 'מיקום הקבוצה'}`);
+    expect(t('group.location.openMap', { address: 'נמל תל אביב' })).toBe(`פתיחת מפה ל-${'נמל תל אביב'}`);
+    expect(t('group.location.openMapNoAddress')).toBe('פתיחת מפה למיקום הקבוצה');
     // StartScheduledRunButton — old: activity === 'walking' ? 'צא להליכה' : 'צא לריצה'
     for (const activity of ['walking', 'running', ''] as const) {
       expect(t('group.run.start', { activity })).toBe(activity === 'walking' ? 'צא להליכה' : 'צא לריצה');
@@ -164,7 +163,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
     }
     const code = 'ABC123';
     const link = `https://example.com/join/${code}`;
-    expect(t('group.invite.shareText', { groupName, code, link })).toBe(`הוזמנת להצטרף לקהילה "${groupName}"! השתמש בקוד: ${code}\nאו לחץ על הקישור: ${link}`);
+    // gender batch 3: a text sent to friends → plural (decision 7)
+    expect(t('group.invite.shareText', { groupName, code, link })).toBe(`הוזמנתם להצטרף לקהילה "${groupName}"! השתמשו בקוד: ${code}\nאו בקישור: ${link}`);
     // useGroupJoinActions toast
     expect(t('group.join.toast.welcome', { name })).toBe(`ברוכים הבאים ל${name}!`);
   });
@@ -174,6 +174,6 @@ describe('owner copy fixes (21.10.2026)', () => {
   it('drop-in join follows the gender', () => {
     expect(t('group.dropIn.join', { gender: 'female' })).toBe('כן, הצטרפי לקבוצה');
     expect(t('group.dropIn.join', { gender: 'male' })).toBe('כן, הצטרף לקבוצה');
-    expect(t('group.dropIn.join', { gender: 'other' })).toBe('כן, הצטרף לקבוצה');
+    expect(t('group.dropIn.join', { gender: 'other' })).toBe('כן, מצטרפים לקבוצה'); // gender batch 2: other = neutral
   });
 });

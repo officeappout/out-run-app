@@ -42,7 +42,10 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
 
   const t = useT(community);
   const gender = profile?.core?.gender ?? 'male';
-  const copyGender = gender === 'female' ? 'female' : 'other';
+  // Catalog copy: male / female / neutral (`other`) — gender batch 2 (21.10.2026). The Firestore
+  // templates (pickTemplate below) only have male / female texts, so they keep the male fallback.
+  const profileGender = profile?.core?.gender;
+  const copyGender = profileGender === 'female' || profileGender === 'male' ? profileGender : 'other';
   const defaultTemplate = t('pressure.message', { ...TEMPLATE_VARS, gender: copyGender });
 
   // Prefer the authority's real name over the prop (which may be a fallback)

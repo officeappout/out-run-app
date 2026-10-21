@@ -31,16 +31,18 @@ const OUTSIDE_PARKS: CustomModelStatement = { if: `!in_${PARKS_AREA_ID}`, multip
 /** Our mapped routes (enable_loops_prefer_official): everything off them is de-prioritised. */
 const OUTSIDE_OUR_ROUTES: CustomModelStatement = { if: `!in_${OUR_ROUTES_AREA_ID}`, multiply_by: OUTSIDE_OUR_ROUTES_PRIORITY };
 
-export const isFootProfile = (p: GhProfile) => p === 'foot' || p === 'out_run';
+export const isFootProfile = (p: GhProfile) => p === 'foot' || p === 'foot_turns' || p === 'out_run';
+/** Plain foot profiles: OUT's quiet-streets / safe-crossings layers are sent per request (out_run bakes them in). */
+const isPlainFoot = (p: GhProfile) => p === 'foot' || p === 'foot_turns';
 
 /** null when no tag adds anything (send no custom_model at all). */
 export function buildCustomModel(profile: GhProfile, tags: RouteTags): CustomModel | null {
   const foot = isFootProfile(profile);
   const priority: CustomModelStatement[] = [];
   // out_run / out_bike already carry these in the server profile.
-  if (tags.quietStreets && profile === 'foot') priority.push(...QUIET_FOOT);
+  if (tags.quietStreets && isPlainFoot(profile)) priority.push(...QUIET_FOOT);
   if (tags.quietStreets && profile === 'bike') priority.push(...QUIET_BIKE);
-  if (tags.avoidUnmarkedCrossings && profile === 'foot') priority.push(...SAFE_CROSSINGS);
+  if (tags.avoidUnmarkedCrossings && isPlainFoot(profile)) priority.push(...SAFE_CROSSINGS);
   const parks = tags.preferParks?.filter(f => f?.geometry) ?? [];
   if (parks.length > 0 && (foot || profile === 'bike')) priority.push(OUTSIDE_PARKS);
   const ourRoutes = tags.preferOurRoutes?.geometry ? tags.preferOurRoutes : null;

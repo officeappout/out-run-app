@@ -27,12 +27,12 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
       ["search.category.help", "עזרה"],
       ["search.chips.label", "סוג תוצאה"],
       ["search.placeholder.all", "תרגיל, גינה, חבר, מאמר או שאלה"],
-      ["search.placeholder.exercises", "חפש תרגיל..."],
+      ["search.placeholder.exercises", "חיפוש תרגיל..."], // gender batch 3 (was: חפש תרגיל...)
       ["search.placeholder.parks", "שם גינה או עיר"],
       ["search.placeholder.routes", "שם מסלול או עיר"],
       ["search.placeholder.social", "שם, קבוצה או שכונה"],
       ["search.placeholder.events", "מרוץ, סדנה או מפגש"],
-      ["search.placeholder.articles", "חפש מאמר"],
+      ["search.placeholder.articles", "חיפוש מאמר"], // gender batch 3 (was: חפש מאמר)
       ["search.placeholder.help", "איך עושים...?"],
       ["search.title", "חיפוש"],
       ["search.live.searching", "מחפש…"],
@@ -87,6 +87,7 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
       ["search.help.tour.title", "סיור קצר באפליקציה"],
       ["search.help.tour.sub", "2 דקות, אפשר לעצור בכל שלב"],
       ["search.help.chapters", "איך משתמשים"],
+      ["search.help.tours", "סיורים באפליקציה"],
       ["search.help.faq.title", "שאלות נפוצות"],
       ["search.help.faq.sub", "אותן שאלות כמו באתר"],
       ["search.help.answers", "תשובות על האפליקציה"],
@@ -136,29 +137,29 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
       ["search.legacy.eventFilter.walking", "הליכה"],
       ["search.legacy.eventFilter.strength", "כוח"],
       ["search.legacy.eventFilter.near", "קרוב אלי"],
-      ["search.legacy.placeholder.exercises", "חפש תרגיל..."],
-      ["search.legacy.placeholder.events", "חפש אירוע..."],
-      ["search.legacy.placeholder.groups", "חפש קבוצה..."],
-      ["search.legacy.placeholder.people", "חפש לפי שם..."],
+      ["search.legacy.placeholder.exercises", "חיפוש תרגיל..."], // gender batch 3 (was: חפש תרגיל...)
+      ["search.legacy.placeholder.events", "חיפוש אירוע..."], // gender batch 3 (was: חפש אירוע...)
+      ["search.legacy.placeholder.groups", "חיפוש קבוצה..."], // gender batch 3 (was: חפש קבוצה...)
+      ["search.legacy.placeholder.people", "חיפוש לפי שם..."], // gender batch 3 (was: חפש לפי שם...)
       ["search.legacy.placeholder.default", "חיפוש..."],
       ["search.legacy.field.label", "חיפוש"],
       ["search.legacy.field.clear", "נקה חיפוש"],
       ["search.legacy.tabs.label", "חיפוש"],
       ["search.legacy.mode.label", "מצב תצוגה"],
-      ["search.legacy.mode.discover", "גלה"],
+      ["search.legacy.mode.discover", "גילוי"],
       ["search.legacy.mode.my", "שלי"],
-      ["search.legacy.invite", "הזמן חברים"],
+      ["search.legacy.invite", "הזמנת חברים"], // gender batch 3 (was: הזמן חברים)
       ["search.legacy.filterGroups", "סנן קבוצות"],
       ["search.legacy.myGroupsEmpty", "עוד לא הצטרפת לקבוצות — עבור ל\"גלה\" כדי למצוא קבוצות"],
       ["search.legacy.partners.loading", "טוען..."],
       ["search.legacy.partners.empty.title", "עדיין אין לך שותפים"],
-      ["search.legacy.partners.empty.body", "עקוב אחרי משתמשים בלשונית \"גלה אנשים\" או הזמן חברים שעדיין לא באפליקציה"],
-      ["search.legacy.partners.empty.invite", "הזמן חברים"],
+      // search.legacy.partners.empty.body: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
+      ["search.legacy.partners.empty.invite", "הזמנת חברים"], // gender batch 3 (was: הזמן חברים)
       ["search.legacy.people.searching", "מחפש..."],
       ["search.legacy.people.minChars", "הקלד לפחות 2 תווים לחיפוש"],
       ["search.legacy.people.nationwide", "חיפוש משתמשים מכל הארץ — לא מוגבל לעיר שלך"],
       ["search.legacy.people.none.title", "לא נמצאו תוצאות"],
-      ["search.legacy.people.none.body", "נסה שם אחר"],
+      // search.legacy.people.none.body: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ["search.legacy.groups.none.title", "לא נמצאו קבוצות"],
       ["search.legacy.groups.none.access", "קבוצות חדשות יופיעו כאן ברגע שיתווספו לעיר שלך"],
       ["search.legacy.groups.none.noAccess", "חבר GPS כדי לגלות קבוצות באזורך"],
@@ -229,7 +230,7 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new key needs a case above.
     // Counted per prefix: other batches add keys to the same namespace file.
-    expect(Object.keys(he).filter((k) => k.startsWith('search.')).length).toBe(182);
+    expect(Object.keys(he).filter((k) => k.startsWith('search.')).length).toBe(183);
   });
 });
 
@@ -249,7 +250,7 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.emptyCorpus.title', 'לא נטענו תרגילים מהשרת'],
       ['exercises.emptyCorpus.hint', 'ייתכן שאין חיבור ל-Firestore או שהאוסף ריק. בדוק את ה-Console.'],
       ['exercises.noResults.title', 'לא נמצאו תרגילים'],
-      ['exercises.noResults.hint', 'נסה להסיר חלק מהמסננים'],
+      // exercises.noResults.hint: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['exercises.chips.trackFallback', 'מסלול'],
       ['exercises.chips.bodyweight', 'משקל גוף'],
       ['exercises.chips.clearAll', 'נקה הכל'],
@@ -269,11 +270,11 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.filters.gearPark', 'ציוד פארק'],
       ['exercises.filters.gearImprovised', 'ציוד מאולתר / ביתי'],
       ['exercises.filters.gearPersonal', 'ציוד אישי'],
-      ['exercises.filterSheet.close', 'סגור'],
-      ['exercises.filterSheet.clear', 'נקה'],
+      ['exercises.filterSheet.close', 'סגירה'],
+      ['exercises.filterSheet.clear', 'ניקוי'],
       ['exercises.filterSheet.apply', 'החל'],
       ['exercises.detail.label', 'פרטי תרגיל'],
-      ['exercises.detail.close', 'סגור'],
+      ['exercises.detail.close', 'סגירה'],
       ['exercises.detail.facts.muscle', 'שריר'],
       ['exercises.detail.facts.gear', 'ציוד'],
       ['exercises.detail.facts.level', 'רמה'],
@@ -293,9 +294,9 @@ describe('library (he) — exercises.* byte-identical to the pre-extraction lite
       ['exercises.detail.description', 'תיאור'],
       ['exercises.detail.goals', 'מטרות'],
       ['exercises.detail.tips', 'טיפים'],
-      ['exercises.programSwitcher.close', 'סגור'],
+      ['exercises.programSwitcher.close', 'סגירה'],
       ['exercises.locationSwitcher.bodyweight', 'משקל גוף'],
-      ['exercises.locationSwitcher.close', 'סגור'],
+      ['exercises.locationSwitcher.close', 'סגירה'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
   });

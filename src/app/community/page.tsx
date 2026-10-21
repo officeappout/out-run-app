@@ -45,6 +45,7 @@ import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-
 import AppHeader from '@/components/ui/AppHeader';
 // Overlays are code-split + mounted on first open (see CommunityOverlays).
 import { FirstRunTour, useCommunityOverlayPreload } from './CommunityOverlays';
+import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import type { FeedFilter } from './_lib/community-constants';
 import { usePendingShare } from './_hooks/usePendingShare';
 import { useCommunityTopTab } from './_hooks/useCommunityTopTab';
@@ -134,12 +135,13 @@ export default function CommunityPage() {
   if (!featureFlags.enableCommunityFeed && !featureFlags.enableLeagues) return null;
 
   // First-run community tour (slice 2) — leagues tab (v2), loaded, nothing else open.
-  const communityTourActive =
-    !flagsLoading && firstRunToursEnabled(featureFlags) && featureFlags.enableLeagues &&
-    topTab === 'leagues' && !arenaLoading &&
+  // The same calm-screen check gates a tour replay (ai_coach_round4 writes the request).
+  const communityCalm =
+    !!featureFlags.enableLeagues && topTab === 'leagues' && !arenaLoading &&
     !overlays.selectedGroup && !overlays.selectedEvent && !overlays.successData && !overlays.wizardOpen &&
     !view.scopePointsOpen && !view.groupWalkOpen && !league.leagueSheetOpen && !view.leagueFilterSheetOpen &&
     !view.axisMenuOpen && !share.shareOpen && !share.privacyOpen;
+  const communityTourActive = !flagsLoading && firstRunToursEnabled(featureFlags) && communityCalm;
 
   const vm: LeaguesVM = {
     featureFlags, access, authority, isLeagueActive, arenaLoading, groups, myDeclaration, router, socialGroups,
@@ -149,6 +151,7 @@ export default function CommunityPage() {
   return (
     <div className="min-h-[100dvh] bg-[#F8FAFC]">
       <FirstRunTour tour="community" active={communityTourActive} uid={userId} gender={profile?.core?.gender} />
+      <TourReplayHost tour="community" ready={communityCalm} gender={profile?.core?.gender} />
       {/* ── Shared App Header ───────────────────────────────────────────────
             Top-level tabs (פיד / ליגות) live INSIDE the AppHeader's children
             slot so they collapse together as one sticky unit. No sub-bar —

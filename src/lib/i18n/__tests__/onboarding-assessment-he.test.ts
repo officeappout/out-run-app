@@ -78,18 +78,20 @@ describe('onboarding · tier pill (he) — exhaustive against the old resolvers'
     ]);
   });
 
-  it('resolveTierLabel — every bucket × isFemale', () => {
+  it('resolveTierLabel — every bucket × male / female', () => {
     for (const p of proportions) {
+      // male / female keep the old labels; unknown gender is neutral since gender batch 3
+      // (pinned in onboarding-gender-batch3.test.ts).
       for (const isFemale of [true, false]) {
-        expect(resolveTierLabel(p, isFemale, t)).toBe(resolveTierLabelOld(p, isFemale));
+        expect(resolveTierLabel(p, isFemale ? 'female' : 'male', t)).toBe(resolveTierLabelOld(p, isFemale));
       }
     }
   });
 
   it('resolveTierLabel ignores the injected profile gender — the quiz answer decides', () => {
     const tFemaleProfile = makeT('he', onboarding, { gender: 'female' });
-    expect(resolveTierLabel(0, false, tFemaleProfile)).toBe(resolveTierLabelOld(0, false));
-    expect(resolveTierLabel(1, false, tFemaleProfile)).toBe(resolveTierLabelOld(1, false));
+    expect(resolveTierLabel(0, 'male', tFemaleProfile)).toBe(resolveTierLabelOld(0, false));
+    expect(resolveTierLabel(1, 'male', tFemaleProfile)).toBe(resolveTierLabelOld(1, false));
   });
 
   it('resolveSkillTierLabel — every bucket', () => {

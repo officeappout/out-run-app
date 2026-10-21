@@ -16,7 +16,7 @@ export interface HelpChapter {
   /** One line under the title. */
   blurb: string;
   /** Replay this first-run tour (from `step`, 0-based). Absent = no tour, Q&A only. */
-  tour?: { id: Extract<FirstRunTourId, 'home' | 'map'>; step: number };
+  tour?: { id: FirstRunTourId; step: number };
   /** Or open this screen ("show me" without a tour). */
   href?: string;
   /** Help entry ids under this chapter (app-help entries). */

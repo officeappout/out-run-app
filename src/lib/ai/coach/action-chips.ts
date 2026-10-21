@@ -20,6 +20,7 @@
  */
 import { PROGRAM_NAME_HE } from '@/features/workout-engine/services/coach-note';
 import type { UserContextSheet } from './context-sheet';
+import type { ReplayableTour } from '@/features/user/onboarding/services/tour-replay';
 import { inferProgressQuestion, inferScheduleQuestion } from './intent';
 import { ASSESSABLE_SLUGS, ASSESS_CATEGORY_SLUGS, gapForWorkout, isAssessableSlug, type AssessableSlug } from './assessment-gaps';
 
@@ -34,6 +35,12 @@ export type Round4ActionId =
   | 'tour_map'
   | 'tour_workouts'
   | 'tour_schedule'
+  | 'tour_plan'
+  | 'tour_route'
+  | 'tour_route_player'
+  | 'tour_player'
+  | 'tour_station'
+  | 'tour_community'
   | 'open_help'
   | 'show_how'
   | 'find_parks';
@@ -53,6 +60,12 @@ export const ROUND4_ACTION_IDS: readonly Round4ActionId[] = [
   'tour_map',
   'tour_workouts',
   'tour_schedule',
+  'tour_plan',
+  'tour_route',
+  'tour_route_player',
+  'tour_player',
+  'tour_station',
+  'tour_community',
   'open_help',
   'show_how',
   'find_parks',
@@ -105,7 +118,7 @@ export interface CoachActionSpec {
   /** Or (phase 3): answer "איך היה?" — stored server-side (workout_feedback), no AI turn. */
   rating?: WorkoutRating;
   /** Or (round 4): replay a first-run tour from a step (the device opens that tour's screen). */
-  tour?: { id: 'home' | 'map'; step: number };
+  tour?: { id: ReplayableTour; step: number };
   /** Or (round 4): open the map's free run / walk drawer ("pick a route on the map"). */
   aerobicMap?: 'running' | 'walking';
   /** Or (round 4): start an onboarding questionnaire (seeded on the device, then navigated). */
@@ -158,6 +171,13 @@ export const COACH_ACTIONS: Record<CoachActionId, CoachActionSpec> = {
   tour_map: { label: 'תראה לי במפה', tour: { id: 'map', step: 0 } },
   tour_workouts: { label: 'תראה לי במסך הבית', tour: { id: 'home', step: 0 } },
   tour_schedule: { label: 'תראה לי את הלו״ז', tour: { id: 'home', step: 2 } },
+  // Every other app tour (tour-catalog.ts) — in-workout ones replay as a preview, never a workout.
+  tour_plan: { label: 'תראה לי איך בוחרים תוכנית', tour: { id: 'plan', step: 0 } },
+  tour_route: { label: 'תראה לי מסלול עם עצירות', tour: { id: 'route', step: 0 } },
+  tour_route_player: { label: 'תראה לי איך מסיימים מסלול', tour: { id: 'route-player', step: 0 } },
+  tour_player: { label: 'תראה לי את נגן האימון', tour: { id: 'player', step: 0 } },
+  tour_station: { label: 'תראה לי תחנת כוח', tour: { id: 'station', step: 0 } },
+  tour_community: { label: 'תראה לי את הליגה', tour: { id: 'community', step: 0 } },
   open_help: { label: 'איך משתמשים ושאלות נפוצות', href: HELP_HUB_PATH },
   show_how: { label: 'תראה לי איך משתמשים', message: 'תראה לי איך משתמשים' },
   find_parks: { label: 'גינות כושר קרובות', message: 'איפה יש גינת כושר קרובה?' },

@@ -56,7 +56,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       ['createGroup.basics.category', 'קטגוריה'],
       ['createGroup.basics.categoryOptional', 'קטגוריה (אופציונלי)'],
       ['createGroup.basics.descriptionLabel', 'תיאור קצר'],
-      ['createGroup.basics.descriptionPlaceholder', 'ספר על הקבוצה שלך — מה עושים, מי מוזמן, מה האווירה...'],
+      // createGroup.basics.descriptionPlaceholder: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['createGroup.mode.question', 'איך הקהילה שלך מתאמנת ביחד?'],
       ['createGroup.mode.together.label', 'אימון משותף'],
       ['createGroup.mode.together.sub', 'מפגשים קבועים בזמן ומקום — הקבוצה מתאמנת ביחד'],
@@ -80,22 +80,22 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       ['createGroup.privacy.joinNo.sub', 'הצטרפות בקוד הזמנה בלבד'],
       ['createGroup.privacy.rulesLabel', 'כללי הקהילה (אופציונלי)'],
       ['createGroup.privacy.rulesPlaceholder', 'לדוגמה:\n• נא להגיע עם מים\n• כבוד הדדי\n• מוזמן לשתף חברים'],
-      ['createGroup.whenWhere.searchLabel', 'חפש כתובת, פארק או מקום'],
-      ['createGroup.whenWhere.parksLabel', 'בחר מפארקים עירוניים'],
+      ['createGroup.whenWhere.searchLabel', 'חיפוש כתובת, פארק או מקום'], // gender batch 3 (was: חפש כתובת, פארק או מקום)
+      ['createGroup.whenWhere.parksLabel', 'בחירה מפארקים עירוניים'], // gender batch 3 (was: בחר מפארקים עירוניים)
       ['createGroup.whenWhere.noParks', 'לא נמצאו פארקים עירוניים'],
       ['createGroup.whenWhere.noAuthority', 'הרשאת עיר לא מוגדרת'],
       ['createGroup.whenWhere.pinFineTune', 'כיוון עדין על המפה'],
-      ['createGroup.whenWhere.pinPrompt', 'או לחץ על המפה לסימון מיקום'],
-      ['createGroup.whenWhere.pinHint', 'לחץ על המפה כדי לדייק את הפין'],
+      // createGroup.whenWhere.pinPrompt: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
+      // createGroup.whenWhere.pinHint: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['createGroup.slots.dayLabel', 'יום בשבוע'],
       ['createGroup.slots.timeLabel', 'שעה'],
-      ['createGroup.slots.add', 'הוסף'],
+      ['createGroup.slots.add', 'הוספה'], // gender batch 3 (was: הוסף)
       ['createGroup.slots.chosenLabel', 'מועדים שנבחרו'],
       ['createGroup.slots.remove', 'הסרת המועד'],
       ['createGroup.slots.empty', 'ניתן להמשיך ללא לוח זמנים ולעדכן מאוחר יותר'],
       ['createGroup.finalize.imageLabel', 'תמונת כותרת (אופציונלי)'],
       ['createGroup.finalize.imageAlt', 'תצוגה מקדימה'],
-      ['createGroup.finalize.imageCta', 'לחץ להוספת תמונה'],
+      ['createGroup.finalize.imageCta', 'הוספת תמונה'], // gender batch 3 (was: לחץ להוספת תמונה)
       ['createGroup.finalize.summaryTitle', 'סיכום'],
       ['createGroup.finalize.summary.name', 'שם'],
       ['createGroup.finalize.summary.category', 'קטגוריה'],
@@ -113,15 +113,15 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       ['createGroup.footer.next', 'המשך'],
       ['createGroup.footer.nextOutreach', 'המשך ליצירה'],
       ['createGroup.footer.locationHint', 'יש לבחור מיקום כדי להמשיך'],
-      ['createGroup.success.privateMessage', 'שתף את קוד ההצטרפות הסודי עם המתאמנים שלך:'],
+      // createGroup.success.privateMessage: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
       ['createGroup.success.publicMessage', 'הקהילה שלך פתוחה וממתינה לחברים הראשונים!'],
       ['createGroup.success.codeLabel', 'קוד הצטרפות'],
       ['createGroup.success.copied', 'הועתק!'],
       ['createGroup.success.copy', 'העתק קוד'],
-      ['createGroup.success.whatsapp', 'שתף בוואטסאפ'],
+      ['createGroup.success.whatsapp', 'שיתוף בוואטסאפ'], // gender batch 3 (was: שתף בוואטסאפ)
       ['createGroup.success.enter', 'כניסה לקהילה'],
-      ['createGroup.error.save', 'שמירת השינויים נכשלה. נסה שוב.'],
-      ['createGroup.error.create', 'יצירת הקבוצה נכשלה. נסה שוב.'],
+      // createGroup.error.save: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
+      // createGroup.error.create: gendered since gender batch 3 — gender-batch3-catalogs.test.ts
     ];
     for (const [key, old] of cases) expect([key, t(key)]).toEqual([key, old]);
   });
@@ -151,7 +151,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
       );
       expect(t('createGroup.outreach.howStep1', { org })).toBe(`שלחו את ההודעה ל${recipient}`);
       expect(t('createGroup.outreach.howStep3', { org })).toBe(`הליגה הרשמית של ${orgLabel} נפתחת!`);
-      expect(t('createGroup.outreach.send', { org })).toBe(`שלח הודעה ל${recipient}`);
+      expect(t('createGroup.outreach.send', { org })).toBe(`שליחת הודעה ל${recipient}`); // gender batch 3: noun button
     }
   });
 
@@ -174,7 +174,7 @@ describe('community (he) create-group wizard — byte-identical to the pre-extra
     const inviteCode = 'AB12';
     const link = 'https://app.example/join/AB12';
     expect(t('createGroup.success.shareText', { name, inviteCode, link })).toBe(
-      `היי! הקמתי קהילה חדשה "${name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${inviteCode}\n${link}`,
+      `היי! הקמתי קהילה חדשה "${name}" — בואו להצטרף! 🏃\nקוד הצטרפות: ${inviteCode}\n${link}`, // gender batch 3: בואו (decision 7)
     );
   });
 });

@@ -14,30 +14,8 @@
 import { useEffect, useState } from 'react';
 import FirstRunTour from '../FirstRunTour';
 import { FIRST_RUN_COACH } from '../../services/first-run-tour';
+import { useCoachTargetPresent as useTargetPresent } from '../../hooks/useCoachTargetPresent';
 import type { AppGender } from '@/lib/utils/gendered-text';
-
-const POLL_MS = 400;
-
-function targetVisible(target: string): boolean {
-  if (typeof document === 'undefined') return false;
-  const el = document.querySelector<HTMLElement>(`[data-coach="${target}"]`);
-  if (!el) return false;
-  const r = el.getBoundingClientRect();
-  return r.width > 0 && r.height > 0;
-}
-
-/** True while `armed` and the target element is on screen (polled; stops when disarmed). */
-function useTargetPresent(target: string, armed: boolean): boolean {
-  const [present, setPresent] = useState(false);
-  useEffect(() => {
-    if (!armed) { setPresent(false); return; }
-    const tick = () => setPresent(targetVisible(target));
-    tick();
-    const id = setInterval(tick, POLL_MS);
-    return () => clearInterval(id);
-  }, [target, armed]);
-  return present;
-}
 
 interface TourHostProps {
   /** Flag on + the screen this tour belongs to is up (the caller's own guard list). */

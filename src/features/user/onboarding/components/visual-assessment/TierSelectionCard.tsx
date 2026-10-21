@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Dumbbell, Flame, Sprout } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import type { Gender } from '@/lib/i18n/core/i18n-core';
 
 // ── Tier definitions ───────────────────────────────────────────────
 
@@ -59,7 +60,8 @@ interface TierSelectionCardProps {
   clampTierLevel?: (level: number) => number;
   /** enable_home_v2 — v2 cards (icons instead of emoji, gendered copy). */
   v2?: boolean;
-  isFemale?: boolean;
+  /** The quiz's gender (v2 copy): male / female / other — unknown gets the neutral copy. */
+  gender?: Gender;
 }
 
 // v2 copy — same three tiers, gendered instead of "מתאמן/ת". `experience` (owner
@@ -78,12 +80,11 @@ export default function TierSelectionCard({
   onSelect,
   clampTierLevel = (l) => l,
   v2 = false,
-  isFemale = false,
+  gender = 'other',
 }: TierSelectionCardProps) {
   const t = useT(onboarding);
   if (v2) {
     // The quiz's gender comes from the onboarding answers (a prop), not the profile.
-    const gender = isFemale ? 'female' : 'other';
     return (
       <div className="flex h-full min-h-0 flex-col bg-v2-surface text-v2-ink" dir="rtl">
         <div className="px-5 pb-1 pt-6">

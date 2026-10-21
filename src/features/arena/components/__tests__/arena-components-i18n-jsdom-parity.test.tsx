@@ -202,7 +202,7 @@ describe('GroupCard', () => {
   it('private group: code entry, then a wrong code', async () => {
     const group = { id: 'g1', name: 'רצי הירקון', category: 'running', isPublic: false, currentParticipants: 3 } as unknown as CommunityGroup;
     await mount(<GroupCard group={group} onJoin={noop} />);
-    await click(btn('הזן קוד'));
+    await click(btn('הזנת קוד')); // gender batch 2: unknown gender → neutral
     const out = [body()];
     svc.joinFails = true;
     await typeInto(document.body.querySelector('input') as HTMLInputElement, 'ab12cd');
@@ -214,7 +214,7 @@ describe('GroupCard', () => {
     userState.profile = { id: 'u1', core: {} };
     const group = { id: 'g1', name: 'רצי הירקון', category: 'running', isPublic: false, currentParticipants: 3 } as unknown as CommunityGroup;
     await mount(<GroupCard group={group} onJoin={(id) => record('onJoin', id)} />);
-    await click(btn('הזן קוד'));
+    await click(btn('הזנת קוד')); // gender batch 2: unknown gender → neutral
     await typeInto(document.body.querySelector('input') as HTMLInputElement, 'ZZ99');
     await click(btn('אישור'));
     await expect(`${body()}\n\n${log.join('\n')}`).toMatchFileSnapshot(snap('group-card-code-ok'));
@@ -234,11 +234,14 @@ const session = (over: Partial<UpcomingSession> = {}): UpcomingSession => ({
 describe.each([
   ['unset', undefined],
   ['female', 'female'],
+  ['male', 'male'],
 ] as const)('CommunitySessionBanner taps (%s)', (name, gender) => {
+  // Gender batch 2 (21.10.2026): male keeps the masculine text, unset reads neutral.
+  const g3 = (f: string, m: string, n: string) => (gender === 'female' ? f : gender === 'male' ? m : n);
   it('late picker, then +5 → "we will wait"', async () => {
     setUser(gender);
     await mount(<CommunitySessionBanner session={session()} onDismiss={noop} />);
-    await click(btn(gender === 'female' ? 'מאחרת?' : 'מאחר?'));
+    await click(btn(g3('מאחרת?', 'מאחר?', 'מאחרים?')));
     const out = [body()];
     await click(btn('+5'));
     out.push(body());
@@ -251,11 +254,11 @@ describe.each([
     const out = [body()];
     await unmount();
     await mount(<CommunitySessionBanner session={session({ phase: 'far', isToday: false, minutesUntil: 150 })} onDismiss={noop} />);
-    await click(btn(gender === 'female' ? 'הירשמי' : 'הירשם'));
+    await click(btn(g3('הירשמי', 'הירשם', 'הרשמה')));
     out.push(body());
     await unmount();
     await mount(<CommunitySessionBanner session={session({ phase: 'lobby', minutesUntil: 3 })} onDismiss={noop} />);
-    await click(btn(gender === 'female' ? 'הצטרפי לאימון' : 'הצטרף לאימון'));
+    await click(btn(g3('הצטרפי לאימון', 'הצטרף לאימון', 'מצטרפים לאימון')));
     out.push(body());
     await expect(out.join('\n\n')).toMatchFileSnapshot(snap(`banner-taps-${name}`));
   });
@@ -269,7 +272,7 @@ describe.each([false, true])('ReportContentSheet sent, enable_home_v2=%s', (v2) 
     await mount(<ReportContentSheet isOpen onClose={noop} targetId="p1" targetType="post" targetName="פוסט" reporterId="u1" />);
     await click(btn('מידע מטעה'));
     const out = [body()];
-    await click(btn('שלח דיווח'));
+    await click(btn('שליחת דיווח'));
     out.push(body(), log.join('\n'));
     await expect(out.join('\n\n')).toMatchFileSnapshot(snap(`report-sent-${v2 ? 'v2' : 'v1'}`));
   });
@@ -280,7 +283,7 @@ describe.each([false, true])('ReportContentSheet sent, enable_home_v2=%s', (v2) 
 describe('share / message texts', () => {
   it('PostJoinSuccessDrawer invite', async () => {
     await mount(<PostJoinSuccessDrawer isOpen onClose={noop} name="רצי הירקון" verb="ירוץ" />);
-    await click(btn('הזמן שותף/ה'));
+    await click(btn('הזמנת שותפים')); // gender batch 3: was 'הזמן שותף/ה'
     await expect(log.join('\n')).toMatchFileSnapshot(snap('post-join-share.txt'));
   });
 
@@ -322,7 +325,7 @@ describe('share / message texts', () => {
   it.each([undefined, 'male', 'female'] as const)('SchoolOutreachCard, gender=%s: every org + sent', async (gender) => {
     setUser(gender);
     const out: string[] = [];
-    for (const [orgType, label] of [['school', 'למנהל/ת'], ['company', 'ל-HR'], ['youth_movement', 'לרכז/ת']] as const) {
+    for (const [orgType, label] of [['school', 'להנהלת בית הספר'], ['company', 'ל-HR'], ['youth_movement', 'לצוות התנועה']] as const) {
       await mount(<SchoolOutreachCard schoolName="תיכון הרצוג" orgType={orgType} />);
       await click(btn(label));
       out.push(body());
@@ -330,7 +333,7 @@ describe('share / message texts', () => {
     }
     svc.template = 'היי מ-{{schoolName}} / ${orgName}';
     await mount(<SchoolOutreachCard schoolName="תיכון הרצוג" />);
-    await click(btn('למנהל/ת'));
+    await click(btn('להנהלת בית הספר'));
     out.push(log.join('\n'));
     await expect(out.join('\n\n')).toMatchFileSnapshot(snap(`school-outreach-${gender ?? 'unset'}`));
   });

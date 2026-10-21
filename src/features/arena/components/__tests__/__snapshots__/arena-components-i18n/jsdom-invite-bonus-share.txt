@@ -1,2 +1,2 @@
-navigator.share([{"text":"בוא/י להתאמן איתי בנווה צדק ב-OUT 💪 https://onelink.to/appout?ref=u1"}])
-navigator.share([{"text":"בוא/י להתאמן איתי ב-OUT 💪 https://onelink.to/appout?ref=u1"}])
+navigator.share([{"text":"בואו להתאמן איתי בנווה צדק ב-OUT 💪 https://onelink.to/appout?ref=u1"}])
+navigator.share([{"text":"בואו להתאמן איתי ב-OUT 💪 https://onelink.to/appout?ref=u1"}])

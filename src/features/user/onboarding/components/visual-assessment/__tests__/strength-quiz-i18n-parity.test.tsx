@@ -47,18 +47,21 @@ describe('TierSelectionCard', () => {
     await expect(html(<TierSelectionCard onSelect={noop} />)).toMatchFileSnapshot(snap('tier-v1'));
   });
   it('v1, female (v1 copy is not gendered)', async () => {
-    await expect(html(<TierSelectionCard onSelect={noop} isFemale />)).toMatchFileSnapshot(snap('tier-v1-female'));
+    await expect(html(<TierSelectionCard onSelect={noop} gender="female" />)).toMatchFileSnapshot(snap('tier-v1-female'));
   });
   it('v2, male', async () => {
-    await expect(html(<TierSelectionCard onSelect={noop} v2 />)).toMatchFileSnapshot(snap('tier-v2-male'));
+    await expect(html(<TierSelectionCard onSelect={noop} v2 gender="male" />)).toMatchFileSnapshot(snap('tier-v2-male'));
   });
   it('v2, female', async () => {
-    await expect(html(<TierSelectionCard onSelect={noop} v2 isFemale />)).toMatchFileSnapshot(snap('tier-v2-female'));
+    await expect(html(<TierSelectionCard onSelect={noop} v2 gender="female" />)).toMatchFileSnapshot(snap('tier-v2-female'));
   });
   it('v2, clamped levels', async () => {
-    await expect(html(<TierSelectionCard onSelect={noop} v2 clampTierLevel={(l) => Math.min(l, 12)} />)).toMatchFileSnapshot(
-      snap('tier-v2-clamped'),
-    );
+    await expect(
+      html(<TierSelectionCard onSelect={noop} v2 gender="male" clampTierLevel={(l) => Math.min(l, 12)} />),
+    ).toMatchFileSnapshot(snap('tier-v2-clamped'));
+  });
+  it('v2, unknown gender — neutral copy (gender batch 3)', async () => {
+    await expect(html(<TierSelectionCard onSelect={noop} v2 />)).toMatchFileSnapshot(snap('tier-v2-other'));
   });
 });
 
@@ -131,14 +134,14 @@ describe('BlurredWhyStep', () => {
     await expect(out.join('\n')).toMatchFileSnapshot(snap('why-counts-v2'));
   });
 
-  it("a gender value other than 'male' / 'female' at runtime (sessionStorage) — v2", async () => {
+  it("gender 'other' / unknown — neutral copy (gender batch 3), v2", async () => {
     const out: string[] = [];
     for (const goal of ['skills', 'health'] as const) {
       out.push(`<!-- other · ${goal} -->`);
       out.push(
         html(
           <BlurredWhyStep
-            gender={'other' as unknown as 'male'}
+            gender="other"
             ageGroup="21-26"
             goal={goal}
             targetArea="pull_up"
@@ -155,13 +158,13 @@ describe('BlurredWhyStep', () => {
 
 describe('StripDragHint', () => {
   for (const pill of ['intro', 'after', null] as const)
-    for (const isFemale of [false, true]) {
-      it(`pill ${pill}, ${isFemale ? 'female' : 'male'}`, async () => {
+    for (const gender of ['male', 'female', 'other'] as const) {
+      it(`pill ${pill}, ${gender}`, async () => {
         await expect(
           html(
             <StripDragHint
               pill={pill}
-              isFemale={isFemale}
+              gender={gender}
               showEndLabels={pill !== null}
               showDemoFinger={false}
               showStaticFinger={false}
@@ -169,7 +172,7 @@ describe('StripDragHint', () => {
               fingerNode={<span>finger</span>}
             />,
           ),
-        ).toMatchFileSnapshot(snap(`hint-${pill}-${isFemale ? 'female' : 'male'}`));
+        ).toMatchFileSnapshot(snap(`hint-${pill}-${gender}`));
       });
     }
 });

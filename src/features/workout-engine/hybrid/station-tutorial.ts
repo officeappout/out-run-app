@@ -66,3 +66,34 @@ export function stationTutorialSteps(gender: AppGender | null | undefined): Stat
     },
   ];
 }
+
+/** A step in the one shared tour bubble (title + one line — the 'entry' CoachMarks variant). */
+export interface StationTutorialEntryStep {
+  target: string;
+  title: string;
+  text: string;
+  finger?: boolean;
+}
+
+/**
+ * The same three steps in the one tour bubble style (owner 21.10: every tour looks the same —
+ * title + one line, no legend rows). Used when the first-run tours are on
+ * (enable_onboarding_tutorial_v1 + enable_home_v2) and by the station tour replay; flags off →
+ * stationTutorialSteps above, unchanged.
+ */
+export function stationTutorialEntrySteps(gender: AppGender | null | undefined): StationTutorialEntryStep[] {
+  return [
+    { target: COACH_TARGET_START, title: 'מתחילים', text: 'כשמוכנים, לוחצים כאן', finger: true },
+    {
+      target: COACH_TARGET_CHIPS,
+      title: 'זמן או חזרות',
+      text: g(
+        gender,
+        'בזמן אנחנו סופרים. בחזרות אתה סופר ולוחץ סיימתי',
+        'בזמן אנחנו סופרים. בחזרות את סופרת ולוחצת סיימתי',
+        'בזמן אנחנו סופרים. בחזרות סופרים ולוחצים סיימתי',
+      ),
+    },
+    { target: COACH_TARGET_SKIP, title: 'עצירה ודילוג', text: 'בכל רגע אפשר לעצור או לדלג על תרגיל או על כל התחנה' },
+  ];
+}

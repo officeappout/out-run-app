@@ -150,12 +150,13 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
   // Gender from the profile (the signup's sessionStorage answer is only the
   // fallback before a profile exists) — see utils/wizard-identity.ts.
-  const { gender } = useWizardIdentity();
+  const { gender, copyGender } = useWizardIdentity();
   
   // Gender-aware pick (legacy v1 copy) + the catalog translator.
   const g = (male: string, female: string) => gender === 'female' ? female : male;
   const t = useT(onboarding);
-  const genderArg = gender === 'female' ? 'female' : 'other';
+  // ICU `gender` for catalog copy: male / female / other (neutral for unknown).
+  const genderArg = copyGender;
 
   // ── Deep History (merged from HistoryStep) ──────────────────────
   const [historyFreq, setHistoryFreq] = useState<string>(data.historyFrequency || '');

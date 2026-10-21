@@ -23,6 +23,8 @@ import { useMapPerfMonitor } from '../hooks/useMapPerfMonitor';
 import { useAdaptiveShed } from '../hooks/useAdaptiveShed';
 import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { Popup } from 'react-map-gl';
+import ParkCoachAnchor from './coach/ParkCoachAnchor';
+import { useParkCoachAnchorWanted } from './coach/park-coach-anchor';
 import LemurMarker from '@/features/parks/core/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
@@ -436,6 +438,7 @@ export default function AppMap({
   activityType,
 }: AppMapProps) {
   const mapRef = useRef<MapRef>(null);
+  const parkCoachAnchorWanted = useParkCoachAnchorWanted();
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   // Entry camera plan — latched for the life of this mount (see entry-camera.ts).
   const [entryPlan] = useState(() => decideEntryCamera({
@@ -2107,6 +2110,10 @@ export default function AppMap({
           <Layer id="park-minor-pins" type="symbol" filter={parkMinorPinsFilter} minzoom={PARK_MINOR_PINS.minzoom} layout={PARK_MINOR_PINS.layout as any} />
           <Layer id="park-cluster-count" type="symbol" filter={PARK_CLUSTER_COUNT.filter} layout={PARK_CLUSTER_COUNT.layout as any} paint={PARK_CLUSTER_COUNT.paint as any} />
         </Source>
+
+        {/* Map tour "פארקים" step: one invisible DOM anchor on the nearest park pin, only while a
+            (flag-gated) map tour asks for it — park-coach-anchor.ts. */}
+        {parkCoachAnchorWanted && <ParkCoachAnchor />}
 
         {/* ── Destination-highlight photo marker (single, selected park) ──
             One <Marker> at a time = constant DOM/WebGL cost regardless

@@ -49,6 +49,7 @@ import { getLocalizedText } from '@/features/content/shared/localized-text.types
 import { useUserStore } from '@/features/user';
 import type { Park } from '@/features/parks/core/types/park.types';
 import StationWelcomeScreen from './StationWelcomeScreen';
+import { firstRunToursEnabled } from '@/features/user/onboarding/services/first-run-tour';
 import { COACH_TARGET_SKIP } from './station-tutorial';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
@@ -241,6 +242,7 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             onStart={() => setWelcomeDoneFor(stationContext.stationNumber)}
             guided={guided}
             uid={profile?.id}
+            oneBubbleStyle={firstRunToursEnabled(flags)}
           />
         ) : (
         <StrengthRunner

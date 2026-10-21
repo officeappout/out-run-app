@@ -16,6 +16,9 @@ const t = makeT('he', onboarding);
 const GENDERS = ['male', 'female', 'other'] as const;
 /** The old two-way helpers: anything but 'female' read the masculine form. */
 const mf = (gender: string, male: string, female: string) => (gender === 'female' ? female : male);
+/** Gender batch 3: male keeps the old masculine form, unknown / 'other' gets the neutral one. */
+const mfn = (gender: string, male: string, female: string, neutral: string) =>
+  gender === 'female' ? female : gender === 'male' ? male : neutral;
 /** t.rich() with every tag rendered as `[tag:chunks]`, joined to one string. */
 const rich = (key: OnboardingKey, values: Record<string, unknown> = {}, tags: string[] = []) => {
   const fns: Record<string, unknown> = {};
@@ -52,7 +55,7 @@ describe('onboarding — remaining screens (batch t)', () => {
   it('plain strings', () => {
     const cases: Array<[OnboardingKey, string]> = [
       // BlurryBridgeOverlay
-      ['bridge.title', 'בוא נכניס הכל ללו״ז'],
+      ['bridge.title', 'בואו נכניס הכל ללו״ז'],
       ['bridge.subtitle', 'נבנה לך תוכנית אישית שמתאימה בדיוק לשגרה שלך'],
       ['bridge.badge.personal', 'מותאם אישית'],
       ['bridge.badge.minutes', '3 דקות'],
@@ -61,7 +64,7 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['bridge.note', 'תמיד אפשר לדלג ולמלא אחר כך'],
       // WelcomeDrawer
       ['welcome.title', 'מה הדבר הראשון שבא לך לעשות?'],
-      ['welcome.skipToMap', 'דלג למפה'],
+      ['welcome.skipToMap', 'דילוג למפה'],
       ['welcome.strength.title', 'אימון כוח מותאם'],
       ['welcome.strength.subtitle', 'תוכנית בנויה בשבילך, לפי הרמה שלך'],
       ['welcome.secondary.gardens.title', 'אימון היברידי בגינת כושר קרובה'],
@@ -91,7 +94,7 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['jit.desc.fallback', 'צריך להשלים כמה דברים לפני האימון'],
       ['jit.required', '(חובה)'],
       ['jit.cta.equipment', 'בואו נעדכן ציוד'],
-      ['jit.skip', 'דלג בינתיים'],
+      ['jit.skip', 'דילוג בינתיים'],
       // HealthDeclarationStep (+ the title / description its hosts pass)
       ['health.title', 'הצהרת בריאות'],
       ['health.description', 'חשוב לנו לשמור על הבריאות שלך. אנא אשר/י את ההצהרה הבאה כדי להמשיך.'],
@@ -121,8 +124,8 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['identity.intro.program', 'אני קלי. כדי לשמור את התוכנית שבנינו אני צריך רק 3 דברים קטנים.'],
       ['identity.intro.profileOnly', 'היי, אני קלי — המאמן האישי שלך! נשאר רק להגדיר כמה פרטים בפרופיל וזהו.'],
       ['identity.intro.default', 'אני קלי, המאמן האישי שלך. כדי שאבנה לך תוכנית שבאמת מתאימה — אני צריך רק 3 דברים קטנים.'],
-      ['identity.alert.noUser', 'לא נמצא משתמש מחובר. נסה לרענן את הדף.'],
-      ['identity.alert.authError', 'שגיאה באימות המשתמש. נסה לרענן את הדף.'],
+      ['identity.alert.noUser', 'לא נמצא משתמש מחובר. נסו לרענן את הדף.'],
+      ['identity.alert.authError', 'שגיאה באימות המשתמש. נסו לרענן את הדף.'],
       ['identity.alert.saveError', 'שגיאה בשמירת הפרופיל'],
       ['identity.verifying', 'מאמת זהות...'],
       ['identity.back', 'חזרה'],
@@ -176,8 +179,8 @@ describe('onboarding — remaining screens (batch t)', () => {
         'מה שכבר מילאת נשמר אצלך — אפשר לנסות שוב, או לסגור ולנסות מאוחר יותר; שום דבר לא הולך לאיבוד.',
       ],
       ['personaDrawer.privacy', 'הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.'],
-      ['personaDrawer.staleUnit', 'היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש'],
-      ['personaDrawer.skip', 'דלג'],
+      ['personaDrawer.staleUnit', 'היחידה שנבחרה בעבר כבר לא קיימת — צריך לבחור מחדש'],
+      ['personaDrawer.skip', 'דילוג'],
       // HierarchySearchStep
       ['hierarchy.searchPlaceholder', 'חיפוש לפי שם או מספר...'],
       ['hierarchy.loading', 'טוען...'],
@@ -189,11 +192,11 @@ describe('onboarding — remaining screens (batch t)', () => {
       ['hierarchy.add.cancel', 'ביטול'],
       ['hierarchy.add.matchYes', 'כן, זו היחידה שלי'],
       ['hierarchy.add.matchNo', 'לא, זו לא'],
-      ['hierarchy.add.submitted', 'ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.'],
+      ['hierarchy.add.submitted', 'ההצעה שלך נשלחה וממתינה לאישור. השיוך שלך אליה כבר נשמר.'],
       ['hierarchy.saving', 'שומר...'],
       ['hierarchy.finish', 'סיום'],
       // SignaturePad
-      ['signaturePad.hint', 'חתום כאן עם האצבע'],
+      ['signaturePad.hint', 'חתימה כאן עם האצבע'],
       ['signaturePad.clear', 'נקה חתימה'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
@@ -234,15 +237,25 @@ describe('onboarding — remaining screens (batch t)', () => {
       expect(t('welcome.greeting', { gender })).toBe(
         gender === 'female' ? 'ברוכה הבאה ל-OUT' : gender === 'other' ? 'ברוכים הבאים ל-OUT' : 'ברוך הבא ל-OUT',
       );
-      expect(t('healthConnect.cta', { gender })).toBe(mf(gender, 'חבר את הצעדים שלי', 'חברי את הצעדים שלי'));
+      expect(t('healthConnect.cta', { gender })).toBe(mfn(gender, 'חבר את הצעדים שלי', 'חברי את הצעדים שלי', 'חיבור הצעדים שלי'));
       // JITSetupModal's requirementDescriptionV2 / CTA
       expect(t('jit.desc.account', { gender })).toBe(
-        mf(gender, 'גבה את החשבון שלך כדי לא לאבד את ההתקדמות', 'גבי את החשבון שלך כדי לא לאבד את ההתקדמות'),
+        mfn(
+          gender,
+          'גבה את החשבון שלך כדי לא לאבד את ההתקדמות',
+          'גבי את החשבון שלך כדי לא לאבד את ההתקדמות',
+          'כדאי לגבות את החשבון כדי לא לאבד את ההתקדמות',
+        ),
       );
       expect(t('jit.desc.equipment', { gender })).toBe(
-        mf(gender, 'ספר לנו על הציוד שלך כדי שנתאים אימון מדויק', 'ספרי לנו על הציוד שלך כדי שנתאים אימון מדויק'),
+        mfn(
+          gender,
+          'ספר לנו על הציוד שלך כדי שנתאים אימון מדויק',
+          'ספרי לנו על הציוד שלך כדי שנתאים אימון מדויק',
+          'כמה מילים על הציוד שלך, כדי שנתאים אימון מדויק',
+        ),
       );
-      expect(t('jit.cta.complete', { gender })).toBe(mf(gender, 'השלם עכשיו', 'השלימי עכשיו'));
+      expect(t('jit.cta.complete', { gender })).toBe(mfn(gender, 'השלם עכשיו', 'השלימי עכשיו', 'השלמה עכשיו'));
       // HealthDeclarationStep
       expect(t('health.intro.sentence', { gender })).toBe(
         mf(
@@ -281,15 +294,15 @@ describe('onboarding — remaining screens (batch t)', () => {
       // IdentityProfileScreen
       expect(t('identity.cta.continue', { gender })).toBe(mf(gender, 'המשך', 'המשיכי'));
       // LifestyleWizard's t(male, female)
-      expect(t('lifestyle.skip', { gender })).toBe(mf(gender, 'דלג בשלב זה', 'דלגי בשלב זה'));
+      expect(t('lifestyle.skip', { gender })).toBe(mfn(gender, 'דלג בשלב זה', 'דלגי בשלב זה', 'דילוג בשלב זה'));
       expect(rich('lifestyle.ios.step1', { gender }, ['icon'])).toBe(
-        `${mf(gender, 'פתח', 'פתחי')} את ספארי ${mf(gender, 'ולחץ', 'ולחצי')} על סמל השיתוף${' '}[icon:]${' '}בסרגל התחתון`,
+        `${mfn(gender, 'פתח', 'פתחי', 'פותחים')} את ספארי ${mfn(gender, 'ולחץ', 'ולחצי', 'ולוחצים')} על סמל השיתוף${' '}[icon:]${' '}בסרגל התחתון`,
       );
       expect(rich('lifestyle.ios.step2', { gender }, ['b'])).toBe(
-        `${mf(gender, 'גלול מטה ובחר', 'גללי מטה ובחרי')}${' '}[b:"הוסף למסך הבית"]`,
+        `${mfn(gender, 'גלול מטה ובחר', 'גללי מטה ובחרי', 'גוללים מטה ובוחרים')}${' '}[b:"הוסף למסך הבית"]`,
       );
       expect(rich('lifestyle.ios.step3', { gender }, ['b'])).toBe(
-        `${mf(gender, 'פתח', 'פתחי')} את${' '}[b:Out]${' '}מהסמל החדש על מסך הבית ${mf(gender, 'ואשר', 'ואשרי')} את ההתראות`,
+        `${mfn(gender, 'פתח', 'פתחי', 'פותחים')} את${' '}[b:Out]${' '}מהסמל החדש על מסך הבית ${mfn(gender, 'ואשר', 'ואשרי', 'ומאשרים')} את ההתראות`,
       );
       // ProgramResult
       for (const [nextLevel, sessions] of [[5, 13], [1000, 1234]]) {
@@ -299,15 +312,23 @@ describe('onboarding — remaining screens (batch t)', () => {
             : `כ-1,280 משתמשים התחילו ב-1% בדיוק כמוך — רובם הגיעו לרמה ${nextLevel} תוך כ-${sessions} אימונים.`,
         );
       }
-      expect(t('result.continue', { gender })).toBe(mf(gender, 'בוא נמשיך', 'בואי נמשיך'));
+      expect(t('result.continue', { gender })).toBe(mfn(gender, 'בוא נמשיך', 'בואי נמשיך', 'בואו נמשיך'));
       expect(t('result.journey', { gender })).toBe(
-        gender === 'female'
-          ? `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה.`
-          : `המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה.`,
+        mfn(
+          gender,
+          'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיע לרמה הבאה.',
+          'המסע שלך מתחיל עכשיו! כל אימון בתוכנית יעלה אותך באחוזים, עד שתגיעי לרמה הבאה.',
+          'המסע שלך מתחיל עכשיו! כל אימון בתוכנית מקדם אותך באחוזים, עד לרמה הבאה.',
+        ),
       );
       // DynamicQuestionRenderer's PaceTimeInput (isFemale)
       expect(t('dynamic.pace.hint', { gender })).toBe(
-        mf(gender, 'הכוונה לתוצאה שאתה יכול לבצע היום, לא לשיא היסטורי!', 'הכוונה לתוצאה שאת יכולה לבצע היום, לא לשיא היסטורי!'),
+        mfn(
+          gender,
+          'הכוונה לתוצאה שאתה יכול לבצע היום, לא לשיא היסטורי!',
+          'הכוונה לתוצאה שאת יכולה לבצע היום, לא לשיא היסטורי!',
+          'הכוונה לתוצאה שאפשר לבצע היום, לא לשיא היסטורי!',
+        ),
       );
     }
     // HierarchySearchStep's pickGendered(currentUiGender(), { male, female, other })

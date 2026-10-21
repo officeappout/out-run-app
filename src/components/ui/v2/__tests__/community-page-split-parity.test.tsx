@@ -296,7 +296,7 @@ for (const v2 of [false, true]) {
         await callProp('FeedShareSheet', 'onSkip');
         steps.push(snapshot());
       }
-      await clickSelector('[aria-label="רענן"]');
+      await clickSelector('[aria-label="רענון"]');
       steps.push(snapshot());
       expect(steps).toMatchSnapshot();
     });
@@ -307,7 +307,7 @@ for (const v2 of [false, true]) {
       await page();
       const steps = [snapshot()];
       if (v2) {
-        await clickButton(/מצא שותפים/);
+        await clickButton(/חיפוש שותפים/); // gender batch 3: was "מצא שותפים"
         steps.push(snapshot());
       }
       expect(steps).toMatchSnapshot();

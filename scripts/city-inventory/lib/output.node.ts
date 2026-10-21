@@ -8,6 +8,24 @@ import * as path from 'path';
 import type { CityInventoryInput, InventoryExtras, PeerRow } from '../../../src/lib/city-inventory';
 
 export const OUTPUT_ROOT = path.join('scripts', 'output', 'city-inventory');
+/** Per-authority osmium scratch (city.osm.pbf + filtered cuts), removed after each run. */
+export const WORK_ROOT = path.join(OUTPUT_ROOT, 'work');
+
+/**
+ * Deletes one authority's temp work dir (I1 review: the bbox extracts are
+ * tens of MB per city and were left behind). Refuses anything that is not a
+ * strict child of `root`, so a bad id can never remove more than its own dir.
+ * Returns whether something was removed.
+ */
+export function removeWorkDir(dir: string, root = WORK_ROOT): boolean {
+  const abs = path.resolve(dir);
+  const base = path.resolve(root);
+  const rel = path.relative(base, abs);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) throw new Error(`refusing to remove ${abs}: not inside ${base}`);
+  if (!fs.existsSync(abs)) return false;
+  fs.rmSync(abs, { recursive: true, force: true });
+  return true;
+}
 
 export interface InventorySummaryFile {
   kind: 'city-inventory-dry-run';

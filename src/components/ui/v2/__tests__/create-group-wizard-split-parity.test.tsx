@@ -167,10 +167,10 @@ for (const v2 of [false, true]) {
       steps.push(snapshot());
       await clickButton('ג׳');
       await typeInto('input[type="time"]', '18:30');
-      await clickButton(/הוסף/);
+      await clickButton(/הוספה/); // gender batch 3: was "הוסף"
       await clickButton('ה׳');
       await typeInto('input[type="time"]', '07:15');
-      await clickButton(/הוסף/);
+      await clickButton(/הוספה/); // gender batch 3: was "הוסף"
       steps.push(snapshot());
       await clickSelector('[aria-label="הסרת המועד"]');
       steps.push(snapshot());
@@ -185,7 +185,7 @@ for (const v2 of [false, true]) {
       steps.push(snapshot()); // success
       await clickButton(/העתק קוד/);
       steps.push(snapshot());
-      await clickButton(/שתף בוואטסאפ/);
+      await clickButton(/שתף בוואטסאפ|שיתוף בוואטסאפ/); // gender batch 3: v2 → noun "שיתוף בוואטסאפ"
       await clickButton(/כניסה לקהילה/);
       steps.push(snapshot());
       expect(steps).toMatchSnapshot();
@@ -241,7 +241,7 @@ for (const v2 of [false, true]) {
         steps.push(snapshot());
         await next();
         steps.push(snapshot()); // outreach
-        await clickButton(/שלח הודעה/);
+        await clickButton(/שלח הודעה|שליחת הודעה/); // gender batch 3: v2 button is the noun "שליחת הודעה", v1 keeps its own text
         steps.push(snapshot());
         await clickButton(/המשך ליצירת הקבוצה/);
         steps.push(snapshot()); // basics

@@ -12,6 +12,8 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TIER_LABELS_HE, TIER_EMOJI } from '../types/achievement.types';
 import type { NewlyUnlockedItem } from '../types/achievement.types';
+import { achievementName } from '../config/achievement-definitions';
+import { useUiGender } from '@/hooks/useUiGender';
 
 interface AchievementUnlockToastProps {
   item: NewlyUnlockedItem | null;
@@ -21,6 +23,7 @@ interface AchievementUnlockToastProps {
 const AUTO_DISMISS_MS = 4000;
 
 export function AchievementUnlockToast({ item, onDismiss }: AchievementUnlockToastProps) {
+  const gender = useUiGender();
   useEffect(() => {
     if (!item) return;
     const timer = setTimeout(onDismiss, AUTO_DISMISS_MS);
@@ -53,7 +56,7 @@ export function AchievementUnlockToast({ item, onDismiss }: AchievementUnlockToa
                 🏆 הישג חדש נפתח!
               </p>
               <p className="text-sm font-bold text-gray-900 font-hebrew leading-snug">
-                {item.achievement.name_he}
+                {achievementName(item.achievement, gender)}
                 {item.tier && (
                   <span className="ms-1.5 text-xs font-normal text-gray-500">
                     {TIER_EMOJI[item.tier]} {TIER_LABELS_HE[item.tier]}

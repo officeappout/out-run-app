@@ -12,6 +12,8 @@
  *   options: --pbf=<path> (default: $TRAILS_OSM_CACHE_DIR or .cache/osm, downloaded once)
  *            --no-shade   (skip the Technion layer)
  *            --no-lighting | --lighting-file=<lighting/v1 .json.gz>  (default: read lighting/v1/<city>.json.gz from Storage if present)
+ *            --keep-work  (keep scripts/output/city-inventory/work/<authorityId>/ — the
+ *                          osmium cuts; deleted after the extract by default)
  *            --env=<file> (default .env.local; needs FIREBASE_SERVICE_ACCOUNT_KEY)
  *
  * Writing (David only): add `--apply --project appout-1 --authority=<id>`; the
@@ -35,7 +37,7 @@ import { assertOsmium, ensureIsraelPbf, pbfTimestamp } from '../lib/osm-pbf.node
 import { PRODUCTION_PROJECT, describeTarget, flagValue, openTarget, parseApplyFlags } from '../trails/lib/trails-apply.node';
 import { applyFlagErrors, applyInventory } from './lib/apply.node';
 import { extractInventoryFeatures } from './lib/osm-extract.node';
-import { readPeerRows, writeSummary, OUTPUT_ROOT } from './lib/output.node';
+import { readPeerRows, removeWorkDir, writeSummary, WORK_ROOT } from './lib/output.node';
 import { countApprovedRoutes, loadTechnionShade, readAuthority } from './lib/prod-read.node';
 import { loadLightingFromFile, loadLightingFromStorage } from './lib/lighting-read.node';
 
@@ -45,6 +47,7 @@ const PBF = flagValue(argv, 'pbf');
 const NO_SHADE = argv.includes('--no-shade');
 const NO_LIGHTING = argv.includes('--no-lighting');
 const LIGHTING_FILE = flagValue(argv, 'lighting-file');
+const KEEP_WORK = argv.includes('--keep-work');
 const FLAGS = parseApplyFlags(argv);
 
 async function timed<T>(timings: Record<string, number>, key: string, fn: () => Promise<T> | T): Promise<T> {
@@ -77,8 +80,16 @@ async function main() {
     if (errs.length) throw new Error(`--apply refused:\n  - ${errs.join('\n  - ')}`);
   }
 
-  const work = path.join(OUTPUT_ROOT, 'work', authority.id);
-  const features = await timed(timings, 'osmExtract', () => extractInventoryFeatures(pbf, boundary, work));
+  const work = path.join(WORK_ROOT, authority.id);
+  let features: Awaited<ReturnType<typeof extractInventoryFeatures>>;
+  try {
+    features = await timed(timings, 'osmExtract', () => extractInventoryFeatures(pbf, boundary, work));
+  } finally {
+    // The cuts are only needed by the extract itself; everything after works
+    // from the parsed features. Removed on failure too, unless --keep-work.
+    if (KEEP_WORK) console.log(`work dir kept: ${work}`);
+    else if (removeWorkDir(work)) console.log(`work dir removed: ${work}`);
+  }
   console.log(`OSM: ${features.ways.length} ways · ${features.nodes.length} tagged nodes · ${features.areas.length} polygons (bbox extract)`);
 
   const routes = await timed(timings, 'approvedRoutes', () => countApprovedRoutes(prod.db, authority));

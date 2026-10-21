@@ -1,7 +1,8 @@
 /**
  * Trim spurs, measure with src/lib/route-quality, rank. Score (lower = better)
  * = 10 if it fails the v1 bars + the v1 penalty + 2·|distance error| — the
- * exact ranking the experiment validated (77.8% pass vs 58.3% Mapbox v1).
+ * ranking the experiment validated (77.8% pass vs 58.3% Mapbox v1) — + a mild
+ * turn/zigzag term (turnScorePenalty, 21.10.2026).
  */
 import { computeRouteQualityMetrics, evaluateLoopQuality, ourRoutesShare, trimSpurs, type LngLat, type OsmRoadLayer, type OurRoutesIndex, type QualityVerdict, type RouteQualityMetrics } from '@/lib/route-quality';
 import type { LoopCandidate, LoopSource } from './candidates';
@@ -25,6 +26,26 @@ export interface ScoredLoop {
   crossingsAll: RoutedPath['crossings'];
   /** 0..1 on our mapped routes — only when our routes were passed (enable_loops_prefer_official). */
   ourRoutesShare?: number;
+}
+
+/**
+ * Turn-aware ranking (owner feedback 21.10.2026: GraphHopper loops zigzag
+ * through side streets). Ranking only — never a reject bar, and deliberately
+ * mild: it breaks near-ties between the 6 candidates toward the calmer loop
+ * without trading away main-road share or distance (a stronger weight bought
+ * only ~2% fewer turns for +3 pp main-road length on the 21.10 sweep). The
+ * real fix for the zigzag is GraphHopper turn costs (profile foot_turns).
+ * Free allowance TURNS_FREE_PER_KM (live GH loops: 4–12 turns/km, v1 ≈ 6.7),
+ * then TURNS_SCORE_WEIGHT per extra turn/km, plus ZIGZAG_SCORE_WEIGHT per
+ * 0.1 of zigzag index over 1.05 (block staircase ≈ 1.41).
+ */
+export const TURNS_FREE_PER_KM = 5;
+export const TURNS_SCORE_WEIGHT = 0.05;
+export const ZIGZAG_SCORE_WEIGHT = 0.2;
+
+export function turnScorePenalty(m: Pick<RouteQualityMetrics, 'turnsPerKm' | 'zigzagIndex'>): number {
+  return TURNS_SCORE_WEIGHT * Math.max(0, (m.turnsPerKm ?? 0) - TURNS_FREE_PER_KM)
+    + ZIGZAG_SCORE_WEIGHT * 10 * Math.max(0, (m.zigzagIndex ?? 1) - 1.05);
 }
 
 /** Loops further off the target than this are only used when nothing else exists. */
@@ -55,7 +76,7 @@ export function scoreLoop(c: LoopCandidate, targetKm: number, osm: OsmRoadLayer 
     trimmedM: t.trimmedM,
     metrics,
     verdict,
-    score: (verdict.pass ? 0 : 10) + verdict.penalty + 2 * err + unmarkedTiebreak,
+    score: (verdict.pass ? 0 : 10) + verdict.penalty + 2 * err + unmarkedTiebreak + turnScorePenalty(metrics),
     roadClassShare: r.roadClassShare,
     crossingsAll: r.crossings,
   };

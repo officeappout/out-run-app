@@ -12,6 +12,7 @@
  */
 import type { CoachActionId } from '../action-chips';
 import type { Round4TurnState } from './types';
+import type { ReplayableTour } from '@/features/user/onboarding/services/tour-replay';
 
 /** "תבנה לי מחדש את השבוע", "לו״ז חדש", "תסדר מחדש את התוכנית". */
 const REBUILD_WEEK = /(?:מחדש[^.?!\n]{0,25}(?:לו["״׳']?ז|שבוע|תוכנית|תכנית)|(?:לו["״׳']?ז|שבוע|תוכנית|תכנית)[^.?!\n]{0,25}מחדש|(?:לו["״׳']?ז|שבוע)\s+חדש)/;
@@ -20,7 +21,22 @@ export function isRebuildWeekRequest(text: string): boolean {
   return REBUILD_WEEK.test((text ?? '').normalize('NFC'));
 }
 
-const TOUR_CHIP: Record<string, CoachActionId> = { map: 'tour_map', workouts: 'tour_workouts', schedule: 'tour_schedule' };
+/** Help chapter (start_tutorial topic) → its tour chip. Running → the route tour (a preview). */
+const TOUR_CHIP: Record<string, CoachActionId> = {
+  map: 'tour_map', workouts: 'tour_workouts', schedule: 'tour_schedule', running: 'tour_route',
+};
+
+/** Every tour chip, by tour (each replayable tour has one — unit-tested). */
+export const TOUR_CHIP_BY_TOUR: Record<ReplayableTour, CoachActionId> = {
+  home: 'tour_workouts',
+  plan: 'tour_plan',
+  map: 'tour_map',
+  route: 'tour_route',
+  'route-player': 'tour_route_player',
+  player: 'tour_player',
+  station: 'tour_station',
+  community: 'tour_community',
+};
 const MAX_CHIPS = 4;
 
 export interface Round4TurnInput {

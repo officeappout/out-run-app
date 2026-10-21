@@ -12,6 +12,7 @@ import {
   toCreationMs,
   FIRST_RUN_NEW_USER_DAYS,
   presentSteps,
+  shouldArmHomeTour,
   shouldArmPlayerTour,
   shouldShowFirstRunTour,
   tourAfterWelcomeChoice,
@@ -102,11 +103,68 @@ describe('tour selection', () => {
     expect(new Set([m, f, o]).size).toBe(3);
     for (const t of TOURS) for (const s of firstRunTourSteps(t, 'other')) expect(s.text).not.toMatch(/\/ה|את\/ה/);
   });
-  it('drops steps whose target is missing, except centered ones', () => {
+  it('drops steps whose target is missing — the map "פארקים" step no longer floats centered', () => {
     const steps = firstRunTourSteps('map', 'male');
     const kept = presentSteps(steps, (t) => t === FIRST_RUN_COACH.mapSearch);
-    expect(kept.map((s) => s.target)).toEqual([FIRST_RUN_COACH.mapSearch, FIRST_RUN_COACH.mapPark]);
+    expect(kept.map((s) => s.target)).toEqual([FIRST_RUN_COACH.mapSearch]);
+    expect(steps.every((s) => !s.allowCentered)).toBe(true);
+    // With the park anchor on the map, the step points at it.
+    const withPark = presentSteps(steps, (t) => t === FIRST_RUN_COACH.mapSearch || t === FIRST_RUN_COACH.mapPark);
+    expect(withPark.map((s) => s.target)).toEqual([FIRST_RUN_COACH.mapSearch, FIRST_RUN_COACH.mapPark]);
     expect(presentSteps(firstRunTourSteps('home', 'male'), () => false)).toEqual([]);
+  });
+  it('no step of any tour is centered over nothing (every step names a real target)', () => {
+    const all: FirstRunTourId[] = ['home', 'map', 'community', 'player', 'route', 'route-player', 'plan'];
+    for (const t of all) for (const s of firstRunTourSteps(t, 'male')) {
+      expect(s.allowCentered).toBeFalsy();
+      expect(s.title, `${t} → ${s.target} has a title`).toBeTruthy();
+    }
+  });
+  it('home: no week strip (no program) → step 3 points at the map in the nav bar', () => {
+    const steps = firstRunTourSteps('home', 'female');
+    const noWeek = presentSteps(steps, (t) => t !== FIRST_RUN_COACH.homeWeek);
+    expect(noWeek.map((s) => s.target)).toEqual([FIRST_RUN_COACH.homeWorkout, FIRST_RUN_COACH.homePlus, FIRST_RUN_COACH.homeNavMap]);
+    expect(noWeek[2].title).toBe('המפה');
+    expect(noWeek[2]).not.toHaveProperty('alt');
+    // Week strip present → the real step, untouched.
+    expect(presentSteps(steps, () => true)[2].target).toBe(FIRST_RUN_COACH.homeWeek);
+    // Neither → dropped.
+    const none = presentSteps(steps, (t) => t !== FIRST_RUN_COACH.homeWeek && t !== FIRST_RUN_COACH.homeNavMap);
+    expect(none).toHaveLength(2);
+    expect(src('../../../../navigation/BottomNavbar.tsx')).toContain('data-coach="nav-map"');
+  });
+  it('player "איך מבצעים" has exactly one target element', () => {
+    const view = src('../../../../workout-engine/players/strength/components/ActiveExerciseView.tsx');
+    const video = src('../../../../workout-engine/players/strength/components/ExerciseVideoPlayer.tsx');
+    expect(view.match(/data-coach="player-how-to"/g)).toHaveLength(1);
+    expect(video).not.toContain('player-how-to');
+  });
+});
+
+describe('home tour — starts on a new user\'s first calm home visit (owner 21.10)', () => {
+  const calm = {
+    toursOn: true, requestedByWelcome: false, entryKind: 'inactive' as const, planArrival: false,
+    todayCardPresent: true, surfaceOpen: false,
+  };
+  it('arms by itself on a calm home with the today card up', () => {
+    expect(shouldArmHomeTour(calm)).toBe(true);
+  });
+  it('still arms from "סתם להסתכל"', () => {
+    expect(shouldArmHomeTour({ ...calm, entryKind: 'loading', requestedByWelcome: true })).toBe(true);
+  });
+  it('never with flags off, over the WelcomeDrawer, while loading, on the plan arrival, before the card, or over a sheet', () => {
+    expect(shouldArmHomeTour({ ...calm, toursOn: false })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, entryKind: 'new' })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, entryKind: 'new', requestedByWelcome: true })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, entryKind: 'loading' })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, planArrival: true })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, todayCardPresent: false })).toBe(false);
+    expect(shouldArmHomeTour({ ...calm, surfaceOpen: true })).toBe(false);
+  });
+  it('the home page wires it (once per user stays in FirstRunTour)', () => {
+    const page = src('../../../../../app/home/page.tsx');
+    expect(page).toContain('active={shouldArmHomeTour({');
+    expect(page).toContain('useCoachTargetPresent(FIRST_RUN_COACH.homeWorkout');
   });
 });
 

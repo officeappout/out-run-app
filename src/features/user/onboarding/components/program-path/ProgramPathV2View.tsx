@@ -26,12 +26,13 @@ import type { ResolvedGoalImage } from '../../constants/program-path-goal-images
 import MediaHeroFade, { MediaHeroLayer } from '@/components/ui/v2/MediaHeroFade';
 import { useT } from '@/hooks/useT';
 import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
-import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { Gender, MessageValues } from '@/lib/i18n/core/i18n-core';
 
 type OnboardingT = (key: OnboardingKey, values?: MessageValues) => string;
 
 export interface ProgramPathV2ViewProps {
-  isFemale: boolean;
+  /** Copy gender: male / female / other (neutral for unknown). */
+  gender: Gender;
   /** The single chosen goal (cardOrder[0]), null until the user picks one. */
   selectedGoal: ProgramCardId | null;
   onSelectGoal: (id: ProgramCardId) => void;
@@ -73,8 +74,7 @@ const EXPAND = {
 const SAFE_TOP = 'env(safe-area-inset-top, 0px)';
 const SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
 
-function goalCopy(t: OnboardingT, id: ProgramCardId, isFemale: boolean) {
-  const gender = isFemale ? 'female' : 'other';
+function goalCopy(t: OnboardingT, id: ProgramCardId, gender: Gender) {
   switch (id) {
     case 'health':
       return {
@@ -233,17 +233,17 @@ function CoachNote({ text }: { text: string }) {
 }
 
 function GoalCard({
-  id, isFemale, selected, image, onSelect, children,
+  id, gender, selected, image, onSelect, children,
 }: {
   id: ProgramCardId;
-  isFemale: boolean;
+  gender: Gender;
   selected: boolean;
   image: ResolvedGoalImage;
   onSelect: () => void;
   children?: React.ReactNode;
 }) {
   const t = useT(onboarding);
-  const c = goalCopy(t, id, isFemale);
+  const c = goalCopy(t, id, gender);
   return (
     <div
       className={`overflow-hidden rounded-[22px] bg-white transition-shadow duration-200 ease-v2 ${
@@ -383,9 +383,8 @@ function GoalNoteField({
 // ── View ───────────────────────────────────────────────────────────
 
 export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
-  const { isFemale, selectedGoal } = p;
+  const { gender, selectedGoal } = p;
   const t = useT(onboarding);
-  const gender = isFemale ? 'female' : 'other';
   const activeGoal: ProgramCardId = selectedGoal ?? 'health';
 
   return (
@@ -425,7 +424,7 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
             {/* ── Health ── */}
             <GoalCard
               id="health"
-              isFemale={isFemale}
+              gender={gender}
               selected={selectedGoal === 'health'}
               image={p.images.health}
               onSelect={() => p.onSelectGoal('health')}
@@ -434,7 +433,7 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
             {/* ── Body focus → area tiles ── */}
             <GoalCard
               id="body_focus"
-              isFemale={isFemale}
+              gender={gender}
               selected={selectedGoal === 'body_focus'}
               image={p.images.body_focus}
               onSelect={() => p.onSelectGoal('body_focus')}
@@ -474,7 +473,7 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
             {/* ── Skills → its own step (ProgramPathSkillsStepV2) after Continue ── */}
             <GoalCard
               id="skills"
-              isFemale={isFemale}
+              gender={gender}
               selected={selectedGoal === 'skills'}
               image={p.images.skills}
               onSelect={() => p.onSelectGoal('skills')}

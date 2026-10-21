@@ -17,7 +17,7 @@ import { ChevronDown, RefreshCw, SlidersHorizontal, Trophy, TrendingUp } from 'l
 import Button from '@/components/ui/v2/Button';
 import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardPodium, BoardToggle, type PodiumEntry } from './LeagueBoard';
 import { formatKm, perMember, rankByKm, rankByMeasure } from './league-board-logic';
-import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
+import { CATEGORY_UNIT_LABEL_KEYS } from './scope-category-unit-label';
 import {
   getLeagueBoard,
   type LeagueBoardEntry,
@@ -26,23 +26,24 @@ import {
   type LeaderboardGenderFilter,
   type LeaderboardTimeWindow,
 } from '@/features/arena/services/ranking.service';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { CommunityKey } from './league-t';
 
 type Measure = 'avg' | 'total' | 'improved';
 type SettlementType = 'all' | 'city' | 'council' | 'settlement';
 type Metric = 'points' | 'km';
 
-const METRIC_CHIPS: { id: Metric; label: string }[] = [
-  { id: 'points', label: 'נקודות' },
-  { id: 'km', label: 'ק״מ' },
+const METRIC_CHIPS: { id: Metric; labelKey: CommunityKey }[] = [
+  { id: 'points', labelKey: 'leagues.national.metric.points' },
+  { id: 'km', labelKey: 'leagues.national.metric.km' },
 ];
 
-const TYPE_CHIPS: { id: SettlementType; label: string }[] = [
-  { id: 'all', label: 'כל היישובים' },
-  { id: 'city', label: 'ערים' },
-  { id: 'council', label: 'מועצות' },
-  { id: 'settlement', label: 'קיבוצים ומושבים' },
+const TYPE_CHIPS: { id: SettlementType; labelKey: CommunityKey }[] = [
+  { id: 'all', labelKey: 'leagues.national.type.all' },
+  { id: 'city', labelKey: 'leagues.national.type.city' },
+  { id: 'council', labelKey: 'leagues.national.type.council' },
+  { id: 'settlement', labelKey: 'leagues.national.type.settlement' },
 ];
 
 function Chips<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
@@ -83,7 +84,7 @@ export default function NationalLeagueBoard({
   /** The viewer's own city / neighborhood ids — their rows get "שלך". */
   myScopeIds?: (string | null | undefined)[];
 }) {
-  const uiGender = useUiGender();
+  const t = useT(community);
   const [type, setType] = useState<SettlementType>('all');
   const [region, setRegion] = useState<string | null>(null);
   const [measure, setMeasure] = useState<Measure>('avg');
@@ -92,7 +93,7 @@ export default function NationalLeagueBoard({
   const [regions, setRegions] = useState<{ id: string; name: string }[]>([]);
   const [unavailable, setUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   // Filters fold into one "סינון" button (owner: too many rows of buttons).
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -100,7 +101,7 @@ export default function NationalLeagueBoard({
 
   const load = async () => {
     setLoading(true);
-    setError(null);
+    setFailed(false);
     try {
       const km = metric === 'km';
       const r = await getLeagueBoard({
@@ -118,7 +119,7 @@ export default function NationalLeagueBoard({
       if (r.regions) setRegions(r.regions);
     } catch (err) {
       console.error('[NationalLeagueBoard]', err);
-      setError('שגיאה בטעינת הדירוג');
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -137,7 +138,7 @@ export default function NationalLeagueBoard({
     if (metric === 'km' && measure === 'improved') setMeasure('avg');
   }, [metric, measure]);
 
-  const unit = CATEGORY_UNIT_LABEL[category];
+  const unit = t(CATEGORY_UNIT_LABEL_KEYS[category]);
   const mine = new Set(myScopeIds.filter(Boolean) as string[]);
   const km = metric === 'km';
   const ranked = km
@@ -154,29 +155,31 @@ export default function NationalLeagueBoard({
   const sub = (e: LeagueBoardEntry) =>
     [
       e.parentName,
-      `${e.activeMemberCount} פעיל${e.activeMemberCount !== 1 ? 'ים' : ''}`,
+      t('leagues.national.active', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
       // km next to the points (points boards only — the km board shows them as the value).
-      !km && (e.totalKm ?? 0) > 0 ? `${formatKm(e.totalKm)} ק״מ` : null,
+      !km && (e.totalKm ?? 0) > 0 ? t('leagues.national.km', { km: formatKm(e.totalKm) }) : null,
     ]
       .filter(Boolean)
       .join(' · ');
   const top3 = ranked.slice(0, 3);
   const podium: [PodiumEntry, PodiumEntry, PodiumEntry] | null =
     top3.length === 3
-      ? (top3.map((e) => ({ key: e.scopeId, name: e.scopeName, value: value(e), sub: e.parentName ?? `${e.activeMemberCount} פעילים` })) as [
+      ? (top3.map((e) => ({ key: e.scopeId, name: e.scopeName, value: value(e), sub: e.parentName ?? t('leagues.national.podiumSub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }) })) as [
           PodiumEntry,
           PodiumEntry,
           PodiumEntry,
         ])
       : null;
-  const windowLabel = timeWindow === 'weekly' ? 'השבוע' : timeWindow === 'monthly' ? 'החודש' : 'היום';
-  const title = mode === 'neighborhoods' ? 'השכונות בכל הארץ' : 'ליגת היישובים';
+  const windowLabel = t('leagues.national.window', { window: timeWindow });
+  const title = t('leagues.national.title', { mode });
+  const error = failed ? t('leagues.national.loadError') : null;
+  const typeChip = TYPE_CHIPS.find((c) => c.id === type);
 
   return (
     <BoardCard
       title={title}
       subtitle={windowLabel}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={() => void load()} spinning={loading} />}
+      actions={<BoardIconButton icon={RefreshCw} label={t('leagues.national.refresh')} onClick={() => void load()} spinning={loading} />}
     >
       <div className="mb-2.5">
         <button
@@ -190,25 +193,27 @@ export default function NationalLeagueBoard({
           <SlidersHorizontal size={14} strokeWidth={2.6} className="shrink-0" aria-hidden />
           <span className="truncate">
             {[
-              type !== 'all' ? TYPE_CHIPS.find((c) => c.id === type)?.label : null,
+              type !== 'all' && typeChip ? t(typeChip.labelKey) : null,
               region ? regions.find((r) => r.id === region)?.name ?? '' : null,
-              km ? 'ק״מ' : null,
+              km ? t('leagues.national.filtersKm') : null,
             ]
               .filter(Boolean)
-              .join(' · ') || 'סינון'}
+              .join(' · ') || t('leagues.national.filters')}
           </span>
           <ChevronDown size={14} strokeWidth={2.6} className={`shrink-0 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden />
         </button>
         {filtersOpen && (
           <div className="mt-2 rounded-[18px] bg-v2-surface p-2.5 ring-1 ring-inset ring-v2-hairline">
-            <Chips value={metric} options={METRIC_CHIPS} onChange={setMetric} label="מדד" />
-            {mode === 'settlements' && <Chips value={type} options={TYPE_CHIPS} onChange={setType} label="סוג יישוב" />}
+            <Chips value={metric} options={METRIC_CHIPS.map((c) => ({ id: c.id, label: t(c.labelKey) }))} onChange={setMetric} label={t('leagues.national.metricLabel')} />
+            {mode === 'settlements' && (
+              <Chips value={type} options={TYPE_CHIPS.map((c) => ({ id: c.id, label: t(c.labelKey) }))} onChange={setType} label={t('leagues.national.typeLabel')} />
+            )}
             {mode === 'settlements' && board === 'settlement' && regions.length > 1 && (
               <Chips
                 value={region ?? 'all'}
-                options={[{ id: 'all', label: 'כל האזורים' }, ...regions.map((r) => ({ id: r.id, label: r.name }))]}
+                options={[{ id: 'all', label: t('leagues.national.allRegions') }, ...regions.map((r) => ({ id: r.id, label: r.name }))]}
                 onChange={(v) => setRegion(v === 'all' ? null : v)}
-                label="אזור"
+                label={t('leagues.national.regionLabel')}
               />
             )}
           </div>
@@ -216,13 +221,13 @@ export default function NationalLeagueBoard({
       </div>
       <div className="mb-2">
         <BoardToggle
-          label="שיטת דירוג"
+          label={t('leagues.national.measureLabel')}
           value={measure}
           onChange={setMeasure}
           options={[
-            { id: 'avg', label: 'ממוצע' },
-            { id: 'total', label: 'סה״כ' },
-            ...(km ? [] : [{ id: 'improved' as const, label: 'הכי משתפרים' }]),
+            { id: 'avg', label: t('leagues.national.measure.avg') },
+            { id: 'total', label: t('leagues.national.measure.total') },
+            ...(km ? [] : [{ id: 'improved' as const, label: t('leagues.national.measure.improved') }]),
           ]}
         />
       </div>
@@ -234,22 +239,28 @@ export default function NationalLeagueBoard({
           ))}
         </div>
       ) : unavailable ? (
-        <BoardMessage icon={Trophy} title="הדירוג הזה נפתח בקרוב" body="הוא נבנה מהאימונים עצמם — עוד רגע הוא כאן." />
+        <BoardMessage icon={Trophy} title={t('leagues.national.unavailable.title')} body={t('leagues.national.unavailable.body')} />
       ) : error ? (
         <BoardMessage
           icon={RefreshCw}
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={() => void load()}>
-              {pickGendered(uiGender, GENDERED_COPY.retry)}
+              {t('leagues.national.retry')}
             </Button>
           }
         />
       ) : ranked.length === 0 ? (
         <BoardMessage
           icon={measure === 'improved' && !km ? TrendingUp : Trophy}
-          title={km ? 'עוד אין ק״מ בתקופה הזו' : measure === 'improved' ? 'עוד אין שיפור לעומת התקופה הקודמת' : 'עוד אין פעילות בתקופה הזו'}
-          body={km ? 'הצעדים וההליכות מתעדכנים פעם בשעה.' : 'כל אימון שנרשם מכניס את היישוב שלך לטבלה.'}
+          title={
+            km
+              ? t('leagues.national.empty.kmTitle')
+              : measure === 'improved'
+                ? t('leagues.national.empty.improvedTitle')
+                : t('leagues.national.empty.title')
+          }
+          body={km ? t('leagues.national.empty.kmBody') : t('leagues.national.empty.body')}
         />
       ) : (
         <>
@@ -260,19 +271,19 @@ export default function NationalLeagueBoard({
                 key={e.scopeId}
                 rank={e.rank}
                 name={e.scopeName}
-                nameTag={mine.has(e.scopeId) ? 'שלך' : undefined}
+                nameTag={mine.has(e.scopeId) ? t('leagues.national.mine') : undefined}
                 isMe={mine.has(e.scopeId)}
                 sub={sub(e)}
                 value={value(e)}
                 unit={
                   km
                     ? measure === 'total'
-                      ? 'ק״מ'
-                      : 'ק״מ למשתתף'
+                      ? t('leagues.national.unit.km')
+                      : t('leagues.national.unit.kmPerMember')
                     : measure === 'avg'
-                      ? `${unit} למשתתף`
+                      ? t('leagues.national.unit.perMember', { unit })
                       : measure === 'improved'
-                        ? `${unit} מול ${timeWindow === 'monthly' ? 'החודש הקודם' : 'שבוע שעבר'}`
+                        ? t('leagues.national.unit.improved', { unit, window: timeWindow })
                         : unit
                 }
               />
@@ -280,12 +291,12 @@ export default function NationalLeagueBoard({
           </div>
           <p className="mt-3 text-[12px] font-bold leading-snug text-v2-muted">
             {km
-              ? 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות או את הדירוג הרשמי.'
+              ? t('leagues.national.note.km')
               : measure === 'avg'
-              ? 'בממוצע למשתתף פעיל הגודל לא קובע — גם יישוב קטן יכול לנצח.'
+              ? t('leagues.national.note.avg')
               : measure === 'improved'
-                ? 'מי הוסיף הכי הרבה לעומת התקופה הקודמת.'
-                : 'בסה״כ הגדולים מובילים. הדירוג הרשמי הוא לפי ממוצע למשתתף.'}
+                ? t('leagues.national.note.improved')
+                : t('leagues.national.note.total')}
           </p>
         </>
       )}
