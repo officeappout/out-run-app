@@ -7,6 +7,7 @@
 import { APP_HOSTS, HARD_CAPS } from './config';
 import { BACK_SNAPSHOT_JS, classifyBack, planBack, type BackOutcome, type BackSnapshot } from './android-back';
 import { checkPage, isTesterUid, SIGNED_IN_UID_JS } from './demo-guard';
+import { signedOutGuardReason } from './first-launch';
 import { GpsSim } from './gps';
 import { COLLECT_JS, type Observation } from './lint/collect';
 import { lintFacts, type LintIssue } from './lint/rules';
@@ -51,6 +52,8 @@ export class SessionDriver {
   private gpsTimer: NodeJS.Timeout | null = null;
   private readonly firedEvents = new Set<number>();
   private lastActionAt = 0;
+  /** First-launch missions start 'signed_out' (no account on the page) until the handoff. */
+  private phase: 'signed_out' | 'signed_in' = 'signed_in';
 
   constructor(
     private readonly b: OpenBrowser,
@@ -61,6 +64,42 @@ export class SessionDriver {
 
   get startUrl(): string {
     return new URL(this.mission.start, this.baseUrl).toString();
+  }
+
+  get signedOut(): boolean {
+    return this.phase === 'signed_out';
+  }
+
+  /**
+   * First launch, phase 1: a fresh browser with nobody signed in, the auth fence on (no request
+   * may create an account), the mission start opened like a just-installed app.
+   */
+  async openSignedOut(): Promise<RuntimeErrors> {
+    this.phase = 'signed_out';
+    this.b.setAuthFence?.(true);
+    this.repro.push({ runner: 'signed_out_start', path: this.mission.start });
+    await this.gotoFollowingRedirects(this.startUrl);
+    await this.settle();
+    await this.waitForAppSettled(10_000);
+    return this.b.drainErrors();
+  }
+
+  /**
+   * First launch, phase 2 (the tester reached the point where the real flow creates the
+   * account): fence off, sign in with the tester token, open `continueAt` (where the quick
+   * signup goes). Returns the refusal reason, or null when signed in as the tester.
+   */
+  async handoff(customToken: string, continueAt: string): Promise<string | null> {
+    this.b.setAuthFence?.(false);
+    const refused = await this.signIn(customToken);
+    if (refused) return refused;
+    this.phase = 'signed_in';
+    this.repro.push({ runner: 'handoff', continueAt });
+    await this.gotoFollowingRedirects(new URL(continueAt, this.baseUrl).toString());
+    await this.settle();
+    await this.waitForAppSettled(10_000);
+    this.b.drainErrors();
+    return null;
   }
 
   get gpsDistanceM(): number {
@@ -161,10 +200,11 @@ export class SessionDriver {
   async guard(): Promise<string | null> {
     const page = checkPage(this.b.page.url(), this.mission.forbidden);
     const uid = await this.signedInUid();
-    const reason = !page.ok ? page.reason : !isTesterUid(uid) ? 'not_signed_in_as_tester' : null;
+    const account = this.phase === 'signed_out' ? signedOutGuardReason(uid) : !isTesterUid(uid) ? 'not_signed_in_as_tester' : null;
+    const reason = !page.ok ? page.reason : account;
     if (reason) {
       this.repro.push({ runner: 'guard_back', reason });
-      if (reason !== 'not_signed_in_as_tester') await this.openStart().catch(() => {});
+      if (!page.ok) await this.openStart().catch(() => {});
     }
     return reason;
   }
@@ -207,8 +247,9 @@ export class SessionDriver {
   async act(call: ToolCall): Promise<void> {
     this.assertAlive();
     const p = this.b.page;
-    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission' && call.name !== 'back_button') this.repro.push({ ...call });
+    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission' && call.name !== 'back_button' && call.name !== 'continue_signed_in') this.repro.push({ ...call });
     switch (call.name) {
+      case 'continue_signed_in': // handled by the session (needs a minted token)
       case 'observe':
       case 'report_finding':
       case 'score_screen':

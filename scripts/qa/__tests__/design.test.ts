@@ -148,8 +148,8 @@ describe('sweep missions', () => {
     const roster = new Set(missions.flatMap(missionUids));
     expect(planRun(missions, { missions: null, device: 'iphone-13', maxSessions: 8 }, roster).sessions.every((s) => s.mission.kind !== 'design-sweep')).toBe(true);
     const sweep = planRun(missions, { missions: ['sweep'], device: 'iphone-se', maxSessions: 3 }, roster);
-    expect(sweep.sessions.map((s) => s.mission.id)).toEqual(['D01_onboard_strength', 'D02_onboard_run', 'D03_onboard_walk']);
-    expect(sweep.sessions[0].uid).toBe('demo_qa_ds_strength_se');
+    expect(sweep.sessions.map((s) => s.mission.id)).toEqual(['D00_first_launch', 'D00r_first_launch_run', 'D00w_first_launch_walk']);
+    expect(sweep.sessions[0].uid).toBe('demo_qa_fl_strength_se');
     expect(sweep.skipped.every((s) => s.reason === 'over_session_cap')).toBe(true);
     const all3 = planRun(missions, { missions: ['D09_map_routes'], device: null, maxSessions: 8 }, roster);
     expect(all3.sessions.map((s) => s.device)).toEqual(['iphone-se', 'iphone-13', 'iphone-15-pro-max']);

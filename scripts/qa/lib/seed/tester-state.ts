@@ -23,7 +23,8 @@ import { buildHistory, type DocWrite, type PersonaContext } from '../../../demo/
 import { PERSONAS, type Persona } from '../../../demo/lib/personas';
 import { weekFor, type DemoWeek } from '../../../demo/lib/schedule';
 import { homeOf, userDoc } from '../../../demo/lib/world';
-import { SEED_SPECS, type Precondition, type SeedSpec } from './preconditions';
+import { buildExploreMapProfileWrite } from '@/features/user/onboarding/services/gateway-explore-map.service';
+import { SEED_SPECS, type OnboardedPrecondition, type Precondition, type SeedSpec } from './preconditions';
 import { runningProfileFor, type RunAssets, type RunPlanInput } from './run-plan';
 
 export interface TesterIdentity {
@@ -93,6 +94,11 @@ export function buildTesterState(
 ): DocWrite[] {
   if (!isTesterUid(uid)) throw new Error(`not a tester uid: ${uid}`);
   if (precondition === 'fresh') return [];
+  if (precondition === 'map_only') {
+    const docs: DocWrite[] = [{ path: `users/${uid}`, data: mapOnlyUser(uid, now) }];
+    assertDemoDocs(docs);
+    return docs;
+  }
   const spec = SEED_SPECS[precondition];
   const persona = testerPersona(uid, spec, who);
   const week = rotateWeekToToday(weekFor(persona), now.getDay(), spec.todayKind);
@@ -129,9 +135,35 @@ export function buildTesterState(
   return docs;
 }
 
+/**
+ * map_only: EXACTLY the doc the landing's quick signup writes for a new user
+ * (runExploreMapFlow → buildExploreMapProfileWrite, + createdAt / updatedAt), so landing-decision
+ * routes the tester like a real new user (MAP_ONLY → /explorer), never to /gateway. On top, only
+ * the demo-world fences every tester doc carries (assertDemoDocs): core.demo marker,
+ * isMockData / discoverable:false, and the demo tenant (else the leaderboard shard is _global).
+ * No name, no location, no program — the app asks for them, like for a real new user.
+ */
+export function mapOnlyUser(uid: string, now: Date): Record<string, unknown> {
+  const scaffold = buildExploreMapProfileWrite(uid, undefined);
+  if (!scaffold) throw new Error('explore-map scaffold missing');
+  return {
+    ...scaffold,
+    isMockData: true,
+    core: {
+      ...scaffold.core,
+      isMockData: true,
+      discoverable: false,
+      tenantId: TESTER_TENANT.tenantId,
+      demo: { tester: true, precondition: 'map_only', qaSeed: TESTER_SEED_VERSION },
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 interface OnboardArgs {
   uid: string;
-  precondition: Precondition;
+  precondition: OnboardedPrecondition;
   spec: SeedSpec;
   week: DemoWeek;
   now: Date;

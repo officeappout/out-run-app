@@ -22,6 +22,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // Brand palette (screens mockup, 16.08.2026). Two distinct accents, matching
 // the mockup exactly: the pinned "mine" card is emerald-toned, while a
@@ -58,6 +60,7 @@ export function OpponentPickerSheet({
   onSelect,
 }: OpponentPickerSheetProps) {
   const dragControls = useDragControls();
+  const t = useT(community);
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -89,11 +92,11 @@ export function OpponentPickerSheet({
           className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0"
           style={{ backgroundColor: MINE_ACCENT, color: '#fff' }}
         >
-          📌 קבוע
+          {t('leagues.opponent.fixed')}
         </span>
       </div>
 
-      <div className="text-center text-[11px] text-gray-400 font-bold py-0.5">נגד:</div>
+      <div className="text-center text-[11px] text-gray-400 font-bold py-0.5">{t('leagues.opponent.versus')}</div>
 
       {candidates.map((c) => {
         const selected = selectedOpponentId === c.scopeId;
@@ -118,7 +121,7 @@ export function OpponentPickerSheet({
             <div className="flex-1 min-w-0 text-right">
               <p className="text-sm font-bold text-gray-900 truncate">{c.scopeName}</p>
               <p className="text-[11px] text-gray-500 tabular-nums">
-                {c.rank === 1 ? 'המקום הראשון' : `מקום #${c.rank}`} · {c.totalScore.toLocaleString('he-IL')}
+                {c.rank === 1 ? t('leagues.opponent.firstPlace') : t('leagues.opponent.place', { rank: String(c.rank) })} · {c.totalScore.toLocaleString('he-IL')}
               </p>
             </div>
             <span
@@ -152,16 +155,16 @@ export function OpponentPickerSheet({
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
         grabberClassName="flex justify-center pt-3 pb-2"
-        ariaLabel="בחר יריבה לקרב"
+        ariaLabel={t('leagues.opponent.title')}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-3">
             <div className="min-w-0">
-              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">בחר יריבה לקרב</h2>
+              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('leagues.opponent.title')}</h2>
               <p className="truncate text-[12.5px] font-bold text-v2-muted">
-                אתה נשאר {myEntry.scopeName} — רק היריבה מתחלפת
+                {t('leagues.opponent.subtitle', { name: myEntry.scopeName })}
               </p>
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('leagues.opponent.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X size={16} className="text-v2-ink-2" />
             </IconButton>
           </div>
@@ -211,18 +214,18 @@ export function OpponentPickerSheet({
 
             <div className="flex items-center justify-between px-5 pb-3">
               <div style={{ width: 32 }} />
-              <h2 className="text-base font-black text-gray-900">בחר יריבה לקרב</h2>
+              <h2 className="text-base font-black text-gray-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחר יריבה לקרב</h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
-                aria-label="סגור"
+                aria-label="סגור" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
               >
                 <X size={14} className="text-gray-600" />
               </button>
             </div>
             <p className="text-center text-[12px] text-gray-500 -mt-1 pb-3 px-5">
-              אתה נשאר {myEntry.scopeName} — רק היריבה מתחלפת
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אתה נשאר {myEntry.scopeName} — רק היריבה מתחלפת
             </p>
 
             {list}

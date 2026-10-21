@@ -14,6 +14,8 @@ import type { MintResult } from './mint';
 import type { Mission, Persona } from './missions';
 import type { PlannedSession } from './plan';
 import { runSession, type SessionDeps, type SessionResult } from './session';
+import { resumeStart, startsSignedOut } from './first-launch';
+import type { RuntimeErrors } from './lint/rules';
 
 export interface MissionRunDeps {
   session: SessionDeps;
@@ -31,10 +33,20 @@ export interface MissionRunResult extends SessionResult {
   attempts: number;
 }
 
-/** The mission as it starts from `checkpoint` (its path, when it has one). */
+/**
+ * The mission as it starts from `checkpoint` (its path, when it has one; a first-launch mission
+ * resumed after its handoff starts at the handoff target).
+ */
 export function missionFrom(planned: Mission, checkpoint: string | null): Mission {
-  const cp = checkpoint ? planned.checkpoints?.find((c) => c.id === checkpoint) : undefined;
-  return cp?.path ? { ...planned, start: cp.path } : planned;
+  const start = resumeStart(planned, checkpoint);
+  return start === planned.start ? planned : { ...planned, start };
+}
+
+function logBootErrors(log: (m: string) => void, bootErrors: RuntimeErrors | null, what: string): void {
+  if (bootErrors && (bootErrors.console.length || bootErrors.failedRequests.length)) {
+    // Not linted as the mission's (sign-in / first load + the app's own first redirect); kept in the log.
+    log(`${what} errors (not reported): ${[...bootErrors.failedRequests, ...bootErrors.console].slice(0, 6).join(' | ')}`);
+  }
 }
 
 export async function runPlannedSession(deps: MissionRunDeps, s: PlannedSession, persona: Persona): Promise<MissionRunResult> {
@@ -42,34 +54,48 @@ export async function runPlannedSession(deps: MissionRunDeps, s: PlannedSession,
   const scored = new Set<string>();
   const startedAt = Date.now();
   let resumeFrom = s.resumeFrom;
-  let mission = s.mission;
+  let mission = missionFrom(s.mission, resumeFrom);
   let stepOffset = 0;
   let newFindings = 0;
 
   for (let attempt = 1; ; attempt++) {
-    const minted = await deps.mint(s.uid);
-    if (!minted.ok) {
-      log(`mint refused: ${minted.error}`);
-      return { outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
+    // First launch (lib/first-launch.ts): from the start or a signed-out checkpoint, the browser
+    // opens with NO account; the token is minted only at the handoff (continue_signed_in).
+    const signedOut = startsSignedOut(s.mission, resumeFrom);
+    let token: string | null = null;
+    if (!signedOut) {
+      const minted = await deps.mint(s.uid);
+      if (!minted.ok) {
+        log(`mint refused: ${minted.error}`);
+        return { outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
+      }
+      token = minted.token;
     }
     const start = mission.gps?.route[0] ?? [32.0853, 34.7818];
     const browser = await deps.open(DEVICES[s.device], { latitude: start[0], longitude: start[1] });
-    log(`browser ${attempt} open (${s.device}) · ${memoryLine()}`);
+    log(`browser ${attempt} open (${s.device})${signedOut ? ' signed out (first launch)' : ''} · ${memoryLine()}`);
     const driver = deps.driver ? deps.driver(browser, mission) : new SessionDriver(browser, mission, deps.baseUrl, deps.seed);
     let r: SessionResult;
     try {
-      const refused = await driver.signIn(minted.token);
-      if (refused && !browser.crashed) {
-        log(`sign-in refused: ${refused}`);
-        return { outcome: 'error', reason: refused, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
+      let handoff: (() => Promise<string | null>) | undefined;
+      if (token === null) {
+        logBootErrors(log, await driver.openSignedOut(), 'first-launch load');
+        const continueAt = s.mission.firstLaunch!.continueAt;
+        handoff = async () => {
+          const minted = await deps.mint(s.uid);
+          if (!minted.ok) return `mint_${minted.error}`;
+          return driver.handoff(minted.token, continueAt);
+        };
+      } else {
+        const refused = await driver.signIn(token);
+        if (refused && !browser.crashed) {
+          log(`sign-in refused: ${refused}`);
+          return { outcome: 'error', reason: refused, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
+        }
+        if (refused) throw new Error('Target crashed during sign-in');
+        logBootErrors(log, await driver.openStart({ afterSignIn: true }), 'sign-in/boot');
       }
-      if (refused) throw new Error('Target crashed during sign-in');
-      const bootErrors = await driver.openStart({ afterSignIn: true });
-      if (bootErrors && (bootErrors.console.length || bootErrors.failedRequests.length)) {
-        // Not linted as the mission's (sign-in + the app's own first redirect); kept in the log.
-        log(`sign-in/boot errors (not reported): ${[...bootErrors.failedRequests, ...bootErrors.console].slice(0, 6).join(' | ')}`);
-      }
-      r = await runSession(deps.session, persona, mission, s.device, driver, { resumeFrom, stepOffset, startedAt, scored });
+      r = await runSession(deps.session, persona, mission, s.device, driver, { resumeFrom, stepOffset, startedAt, scored, signedOut, handoff });
     } catch (e) {
       if (!isBrowserCrash(e)) throw e;
       log(`browser crashed before the tester loop (${e instanceof Error ? e.message.split('\n')[0].slice(0, 160) : 'unknown'}) · ${memoryLine()}`);

@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ArrowRight, Share2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 const RunMapBlock = dynamic(
   () => import('@/features/workout-engine/summary/components/running/RunMapBlock'),
@@ -16,7 +18,7 @@ const BOLT_FILTER_DARK =
   'brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(750%) hue-rotate(176deg) brightness(95%) contrast(90%)';
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
-const DIFFICULTY_LABELS: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
+const DIFFICULTY_KEYS: Record<number, PlayerKey> = { 1: 'preview.difficulty.easy', 2: 'preview.difficulty.medium', 3: 'preview.difficulty.hard' };
 
 function BoltIcon({ filled }: { filled: boolean }) {
   return (
@@ -87,6 +89,7 @@ export default function WorkoutPreviewHeader({
   estimatedDuration,
 }: WorkoutPreviewHeaderProps) {
   const router = useRouter();
+  const t = useT(player);
   const isHybrid = !!routePath && routePath.length > 0;
   const [scrollY, setScrollY] = useState(0);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -121,7 +124,8 @@ export default function WorkoutPreviewHeader({
   // Resolve the actual image to show: heroMediaUrl (from Home) > coverImage > fallback
   const resolvedImage = heroMediaUrl || coverImage || '';
 
-  const diffLabel = difficulty ? DIFFICULTY_LABELS[difficulty] || '' : '';
+  const diffKey = difficulty ? DIFFICULTY_KEYS[difficulty] : undefined;
+  const diffLabel = diffKey ? t(diffKey) : '';
   const showPills = !!(difficulty || estimatedDuration);
 
   return (
@@ -169,13 +173,13 @@ export default function WorkoutPreviewHeader({
           <button
             onClick={() => router.back()}
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
-            aria-label="חזור"
+            aria-label={t('preview.back')}
           >
             <ArrowRight size={20} />
           </button>
           <button
             className="w-10 h-10 bg-white/20 dark:bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg text-white active:scale-90 transition-transform"
-            aria-label="שתף"
+            aria-label={t('preview.share')}
           >
             <Share2 size={20} />
           </button>
@@ -217,7 +221,7 @@ export default function WorkoutPreviewHeader({
                 style={{ border: PILL_BORDER }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 flex-shrink-0"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{estimatedDuration} דק&apos;</span>
+                <span className="text-sm font-normal text-gray-800 dark:text-gray-100">{t('preview.minutes', { minutes: String(estimatedDuration) })}</span>
               </div>
             )}
           </div>

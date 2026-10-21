@@ -4,10 +4,13 @@
  *   - locale he-IL, Asia/Jerusalem, geolocation granted (fed by the GPS simulator), no notifications
  *   - App Check debug token injected before the app boots (only this browser — never the app's env)
  *   - analytics / payment hosts aborted; console errors + failed requests collected for the linters
+ *   - the signed-out fence of first-launch missions (setAuthFence, ./first-launch.ts): while on,
+ *     no request may create / restore an account or write through the app's /api
  *   - Chromium launched without /dev/shm and GPU (CI runners); a renderer crash / lost browser is
  *     flagged (`crashed`) so the runner can resume the mission in a fresh browser (./crash.ts)
  */
-import { BLOCKED_REQUEST_HOSTS, type DeviceProfile } from './config';
+import { APP_HOSTS, BLOCKED_REQUEST_HOSTS, type DeviceProfile } from './config';
+import { AUTH_FENCE_PATTERN, isAuthFencedRequest } from './first-launch';
 import { isBlockedRequestHost, redactSecrets } from './demo-guard';
 import { launchArgs } from './crash';
 import type { RuntimeErrors } from './lint/rules';
@@ -23,6 +26,8 @@ export interface OpenBrowser {
   drainErrors(): RuntimeErrors;
   /** Set once the page crashed or the browser process went away. */
   readonly crashed: boolean;
+  /** First-launch signed-out phase: abort every auth / account-creating request while on. */
+  setAuthFence?(on: boolean): void;
   close(): Promise<void>;
 }
 
@@ -73,6 +78,16 @@ export async function openBrowser(
     else await route.continue();
   });
 
+  // Off by default; a first-launch mission turns it on before opening the signed-out start.
+  let authFence = false;
+  await context.route(AUTH_FENCE_PATTERN, async (route) => {
+    const req = route.request();
+    if (authFence && isAuthFencedRequest(req.url(), req.method(), APP_HOSTS)) {
+      opts.log?.(`signed-out fence: aborted ${req.method()} ${redactSecrets(req.url()).slice(0, 120)}`);
+      await route.abort();
+    } else await route.continue();
+  });
+
   const page = await context.newPage();
   let consoleErrors: string[] = [];
   let failed: string[] = [];
@@ -107,6 +122,9 @@ export async function openBrowser(
     viewport: { ...device.viewport },
     get crashed() {
       return crashed;
+    },
+    setAuthFence(on: boolean) {
+      authFence = on;
     },
     drainErrors() {
       const out = { console: consoleErrors, failedRequests: failed };

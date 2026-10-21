@@ -16,6 +16,8 @@ import { resolveDescription, TagResolverContext } from '@/features/content/brand
 import { UserFullProfile } from '@/features/user';
 import { useIsMounted } from '@/hooks/useIsMounted';
 import { resolveEquipmentLabel, resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface StrengthOverviewCardProps {
   workoutPlan: WorkoutPlan;
@@ -24,32 +26,26 @@ interface StrengthOverviewCardProps {
   onStartWorkout: () => void;
 }
 
-// Muscle group labels with Lucide icons
-const MUSCLE_GROUP_LABELS: Record<string, { label: string; Icon: LucideIcon }> = {
-  chest: { label: 'חזה', Icon: Square },
-  back: { label: 'גב', Icon: Square },
-  shoulders: { label: 'כתפיים', Icon: Circle },
-  abs: { label: 'בטן', Icon: Square },
-  obliques: { label: 'אלכסונים', Icon: Square },
-  forearms: { label: 'אמות', Icon: Activity },
-  biceps: { label: 'דו-ראשי', Icon: Activity },
-  triceps: { label: 'שלושה ראשים', Icon: Activity },
-  quads: { label: 'ארבע ראשי', Icon: Activity },
-  hamstrings: { label: 'המסטרינג', Icon: Activity },
-  glutes: { label: 'ישבן', Icon: Activity },
-  calves: { label: 'שוקיים', Icon: Activity },
-  traps: { label: 'טרפז', Icon: Square },
-  cardio: { label: 'קרדיו', Icon: Activity },
-  full_body: { label: 'כל הגוף', Icon: Activity },
-  core: { label: 'ליבה', Icon: Square },
-  legs: { label: 'רגליים', Icon: Activity },
-};
-
-// Difficulty labels
-const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: 'קל',
-  medium: 'בינוני',
-  hard: 'קשה',
+// Muscle group icons (Lucide). i18n: the labels are one select, `strengthOverview.muscle`
+// (namespace `player`) — an unknown id falls through to `other` and shows the raw id, as before.
+const MUSCLE_GROUP_ICONS: Record<string, LucideIcon> = {
+  chest: Square,
+  back: Square,
+  shoulders: Circle,
+  abs: Square,
+  obliques: Square,
+  forearms: Activity,
+  biceps: Activity,
+  triceps: Activity,
+  quads: Activity,
+  hamstrings: Activity,
+  glutes: Activity,
+  calves: Activity,
+  traps: Square,
+  cardio: Activity,
+  full_body: Activity,
+  core: Square,
+  legs: Activity,
 };
 
 export default function StrengthOverviewCard({
@@ -59,6 +55,7 @@ export default function StrengthOverviewCard({
   onStartWorkout,
 }: StrengthOverviewCardProps) {
   const mounted = useIsMounted();
+  const t = useT(player);
 
   // Calculate total duration and extract equipment
   const totalDuration = workoutPlan.totalDuration || 0;
@@ -109,12 +106,12 @@ export default function StrengthOverviewCard({
       persona: userProfile?.personas?.[0]?.id || 'parent',
       location: 'park', // Could be dynamic based on workout location
       userProfile: userProfile,
-      userName: userProfile?.core?.name?.split(' ')[0] || 'משתמש',
+      userName: userProfile?.core?.name?.split(' ')[0] || 'משתמש', // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
       userGoal: userProfile?.core?.mainGoal ? 
-        (userProfile.core.mainGoal === 'healthy_lifestyle' ? 'אורח חיים בריא' :
-         userProfile.core.mainGoal === 'performance_boost' ? 'שיפור ביצועים' :
-         userProfile.core.mainGoal === 'weight_loss' ? 'ירידה במשקל' :
-         userProfile.core.mainGoal === 'skill_mastery' ? 'שליטה במיומנויות' : 'אימון') : 'אימון',
+        (userProfile.core.mainGoal === 'healthy_lifestyle' ? 'אורח חיים בריא' : // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
+         userProfile.core.mainGoal === 'performance_boost' ? 'שיפור ביצועים' : // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
+         userProfile.core.mainGoal === 'weight_loss' ? 'ירידה במשקל' : // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
+         userProfile.core.mainGoal === 'skill_mastery' ? 'שליטה במיומנויות' : 'אימון') : 'אימון', // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
       userGender: userProfile?.core?.gender || 'other',
       muscles: primaryMuscles,
       equipment: Array.from(equipmentSet),
@@ -122,7 +119,7 @@ export default function StrengthOverviewCard({
     };
 
     // Default description template
-    const defaultDescription = `אימון כוח מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר ומתאים ל-@מטרה שלך. @בוא/י נתחיל!`;
+    const defaultDescription = `אימון כוח מושלם ל-@שם ב-@מיקום. מתמקד ב-@שריר ומתאים ל-@מטרה שלך. @בוא/י נתחיל!`; // i18n-allow-hebrew: CMS template input (resolveDescription @-tags) — content, PLAN §2.7
     
     return resolveDescription(defaultDescription, context);
   };
@@ -133,11 +130,13 @@ export default function StrengthOverviewCard({
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) {
-      return `${minutes} דק'`;
+      return t('strengthOverview.duration.minutes', { minutes: String(minutes) });
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}ש ${remainingMinutes}דק'` : `${hours}ש`;
+    return remainingMinutes > 0
+      ? t('strengthOverview.duration.hoursMinutes', { hours: String(hours), minutes: String(remainingMinutes) })
+      : t('strengthOverview.duration.hours', { hours: String(hours) });
   };
 
   return (
@@ -153,7 +152,7 @@ export default function StrengthOverviewCard({
         {/* Difficulty Pill */}
         <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm">
           <Zap size={16} className="text-blue-500 flex-shrink-0" />
-          <span className="text-sm font-bold text-gray-900 dark:text-white">{DIFFICULTY_LABELS[difficulty] || difficulty}</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-white">{t('strengthOverview.difficulty', { difficulty: String(difficulty) })}</span>
         </div>
         
         {/* Muscles Pill - Removed, will show separately below */}
@@ -162,18 +161,17 @@ export default function StrengthOverviewCard({
       {/* Involved Muscles - Premium Chips with Icons */}
       {primaryMuscles.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">שרירים</h3>
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{t('strengthOverview.muscles')}</h3>
           <div className="flex flex-wrap gap-2">
             {primaryMuscles.map((muscle, index) => {
-              const muscleInfo = MUSCLE_GROUP_LABELS[muscle] || { label: muscle, Icon: Activity };
-              const IconComponent = muscleInfo.Icon;
+              const IconComponent = MUSCLE_GROUP_ICONS[muscle] || Activity;
               return (
                 <div
                   key={index}
                   className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-xs font-bold text-slate-600"
                 >
                   <IconComponent size={12} className="text-slate-500 flex-shrink-0" />
-                  <span>{muscleInfo.label}</span>
+                  <span>{t('strengthOverview.muscle', { muscle })}</span>
                 </div>
               );
             })}
@@ -184,7 +182,7 @@ export default function StrengthOverviewCard({
       {/* Equipment Needed - Premium Pills */}
       {equipmentSet.size > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">ציוד</h3>
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{t('strengthOverview.equipment')}</h3>
           <div className="flex flex-wrap gap-2">
             {Array.from(equipmentSet).map((eqId) => {
               const svgPaths = resolveEquipmentSvgPathList(eqId, workoutPlan.workoutLocation);
@@ -231,7 +229,7 @@ export default function StrengthOverviewCard({
       {/* Exercise List Preview - Premium Cards with Images */}
       {allExercises.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">תרגילים באימון</h3>
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">{t('strengthOverview.exercises')}</h3>
           <div className="space-y-0">
             {allExercises.map((exercise, index) => (
               <div

@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export type GpsStatus = 'searching' | 'poor' | 'good' | 'perfect' | 'simulated';
 
@@ -15,6 +17,7 @@ interface GpsIndicatorProps {
  * Displays GPS signal strength with color-coded status and glassmorphism design
  */
 export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
+  const t = useT(player);
   // Determine color and text based on status
   const getStatusConfig = () => {
     switch (status) {
@@ -24,7 +27,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
           textColor: 'text-[#00E5FF]',
           bgColor: 'bg-[#00E5FF]/10',
           borderColor: 'border-[#00E5FF]/30',
-          text: 'מצב סימולציה',
+          text: t('gps.simulated'),
           pulse: false,
         };
       case 'perfect':
@@ -33,7 +36,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
           textColor: 'text-green-400',
           bgColor: 'bg-green-500/15',
           borderColor: 'border-green-500/30',
-          text: 'קליטה מעולה',
+          text: t('gps.perfect'),
           pulse: true,
         };
       case 'good':
@@ -42,7 +45,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
           textColor: 'text-yellow-300',
           bgColor: 'bg-yellow-400/15',
           borderColor: 'border-yellow-400/30',
-          text: 'קליטה טובה',
+          text: t('gps.good'),
           pulse: true,
         };
       case 'poor':
@@ -51,7 +54,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
           textColor: 'text-red-400',
           bgColor: 'bg-red-500/15',
           borderColor: 'border-red-500/30',
-          text: 'קליטה חלשה',
+          text: t('gps.poor'),
           pulse: true,
         };
       case 'searching':
@@ -61,7 +64,7 @@ export default function GpsIndicator({ accuracy, status }: GpsIndicatorProps) {
           textColor: 'text-red-400',
           bgColor: 'bg-red-500/15',
           borderColor: 'border-red-500/30',
-          text: 'מחפש GPS...',
+          text: t('gps.searching'),
           pulse: true,
         };
     }

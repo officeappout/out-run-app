@@ -23,13 +23,13 @@ describe('mission preconditions', () => {
     expect(preconditionConflicts(testerStates(missions))).toEqual([]);
   });
 
-  it('onboarding missions start fresh; home / player / progress missions start seeded', () => {
+  it('onboarding missions start like a real new user (map_only); home / player / progress missions start seeded', () => {
     const { missions } = loadPersonasAndMissions();
     const pre = Object.fromEntries(missions.map((m) => [m.id, m.precondition]));
-    expect(pre.D01_onboard_strength).toBe('fresh');
-    expect(pre.D02_onboard_run).toBe('fresh');
-    expect(pre.D03_onboard_walk).toBe('fresh');
-    expect(pre.M01_walker58).toBe('fresh');
+    expect(pre.D01_onboard_strength).toBe('map_only');
+    expect(pre.D02_onboard_run).toBe('map_only');
+    expect(pre.D03_onboard_walk).toBe('map_only');
+    expect(pre.M01_walker58).toBe('map_only');
     for (const id of ['D04_home_states', 'D05_strength_player', 'D06_run_player', 'D07_walk_player', 'D08_schedule_agenda', 'D09_map_routes', 'D10_progress', 'D11_profile_settings', 'D12_community', 'M02_runner_intervals', 'M03_home_beginner']) {
       expect(pre[id], id).not.toBe('fresh');
     }
@@ -61,7 +61,7 @@ describe('buildTesterState', () => {
     expect(() => buildTesterState('realUser123456789012', 'strength_plan', WHO, NOW, null)).toThrow();
   });
 
-  const seeded = PRECONDITIONS.filter((p): p is Exclude<Precondition, 'fresh'> => p !== 'fresh');
+  const seeded = PRECONDITIONS.filter((p): p is Exclude<Precondition, 'fresh' | 'map_only'> => p !== 'fresh' && p !== 'map_only');
   for (const pre of seeded) {
     it(`${pre}: an onboarded demo profile with only the tester's own docs`, () => {
       const uid = `demo_qa_t_${pre}`.slice(0, 48);

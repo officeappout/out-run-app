@@ -8,6 +8,7 @@ import { GPS_PROFILES, type GpsProfileId } from './gps';
 import { RULE_IDS } from './checklist';
 import { validateSweepFields, type Checkpoint } from './design/checkpoints';
 import { isPrecondition, PRECONDITIONS, type Precondition } from './seed/preconditions';
+import { validateFirstLaunch, type FirstLaunch } from './first-launch';
 
 export interface Persona {
   id: string;
@@ -67,6 +68,12 @@ export interface Mission {
    * check after every checkpoint (OWN-007). Default true for sweeps; false opts a sweep out.
    */
   androidBack?: boolean;
+  /**
+   * "From the moment I download the app" (lib/first-launch.ts): `start` is opened SIGNED OUT in a
+   * fresh browser; the tester calls continue_signed_in where the real flow creates the account,
+   * then the runner signs in and opens `continueAt`. Needs precondition map_only.
+   */
+  firstLaunch?: FirstLaunch;
 }
 
 const ID = /^[A-Za-z0-9_-]{2,40}$/;
@@ -132,5 +139,6 @@ export function validateMission(raw: unknown, personas: ReadonlySet<string>, own
   if (m.androidBack !== undefined && typeof m.androidBack !== 'boolean') e.push('mission.androidBack');
   if (m.precondition !== undefined && !isPrecondition(m.precondition)) e.push(`mission.precondition (one of ${PRECONDITIONS.join(' | ')})`);
   validateSweepFields(m, e);
+  validateFirstLaunch(m, e);
   return e.length ? { ok: false, errors: e } : { ok: true, value: m as unknown as Mission };
 }
