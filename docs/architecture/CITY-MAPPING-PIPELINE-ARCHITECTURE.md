@@ -28,7 +28,7 @@
 | # | שלב | קובץ מקור | כותב ל-collection |
 |---|---|---|---|
 | 1 | זיהוי רשות מקומית | `findAuthorityByCityName` | קריאה בלבד |
-| 2 | שער מסלולים (ידני בכוונה — גילוי מסלולים נשאר CLI, [LOCKED DECISION מהמסמך האבוד, עדיין בתוקף]) | קריאה בלבד | — |
+| 2 | שער מסלולים — בדיקת ספירה (קריאה בלבד). אם אין מסלולים, הכפתור בפאנל מפעיל גילוי דרך `triggerRouteDiscovery` ⇒ מסמך `city_mapping_discovery_runs` ⇒ ה-poller (`functions/src/geoDiscoveryWorker.ts`). **עודכן 21.10.2026:** הגילוי כבר לא "נשאר CLI" — הוא מחווט לפאנל דרך ה-poller | `city_mapping_discovery_runs` (טריגר) | `official_routes` (דרך ה-worker) |
 | 3 | ייבוא קטעי רחוב | `osm-segment-importer.ts`'s `runOsmImport` | `street_segments` |
 | 4 | תאורת מסלולים | `route-lighting-street-segments.node.ts` (chunked) | `official_routes.qualitySignals.lighting` |
 | 5 | ייבוא מתקנים | `extract-osm-amenities-tlv.ts`'s `runExtractOsmAmenities` | `osm_amenities` |
@@ -92,7 +92,7 @@
 מ-`.claude/knowledge/route-enrichment-pipeline-scoping.md` §3 — עדיין נכונים נכון להיום, לא קשורים ישירות להכנסת composition/גובה כשלבים, אבל שווה שיהיו רשומים במקום אחד:
 
 1. **גובה נכתב, אף פעם לא נקרא בחזרה.** `geo-discovery-routes.ts`/`populate-route-elevation-tlv.ts` כותבים `elevationGain`/`maxGrade`, אבל שום קוד חי ב-`route-generator.service.ts`/`inventory.service.ts` לא קורא אותם בחזרה — לא משפיע על ניקוד מסלול, לא על difficulty בפועל. (הערה: `enrich-route.ts` שבנינו ל"מסלול הכלניות בדיקה" כותב לאותם שדות בדיוק — לא סוגר את הפער הזה, רק ממלא את השדות.)
-2. **`'moderate'` מול `'medium'` — אי-התאמת טיפוסים.** ה-heuristic היחיד לחישוב difficulty (`geo-discovery-routes.ts:388-389`) מפיק `'easy'|'moderate'|'hard'`, אבל `Route.difficulty` בטיפוס המרכזי הוא `'easy'|'medium'|'hard'`. כל מסלול שיובא דרך הסקריפט הזה עשוי לשאת ערך ש-`'medium'` בשאר האפליקציה לא מצפה לו.
+2. **✅ סגור (21.10.2026) — `'moderate'` מול `'medium'` — אי-התאמת טיפוסים.** נחסם בזמן הכתיבה ע"י `buildValidatedDoc`: ה-enum ב-`src/lib/route-collections/schemas.ts` לא כולל `'moderate'`, כך שהערך נדחה גם כשה-TS נעקף ב-cast. הטקסט המקורי נשאר לתיעוד: ה-heuristic היחיד לחישוב difficulty (`geo-discovery-routes.ts:388-389`) מפיק `'easy'|'moderate'|'hard'`, אבל `Route.difficulty` בטיפוס המרכזי הוא `'easy'|'medium'|'hard'`. כל מסלול שיובא דרך הסקריפט הזה עשוי לשאת ערך ש-`'medium'` בשאר האפליקציה לא מצפה לו.
 
 ---
 
