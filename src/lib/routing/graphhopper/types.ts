@@ -5,7 +5,14 @@
 import type { LngLat } from '@/lib/route-quality';
 
 /** Server profiles — infra/graphhopper/config.yml. */
-export type GhProfile = 'foot' | 'out_run' | 'bike' | 'out_bike' | 'mtb';
+export type GhProfile = 'foot' | 'foot_turns' | 'out_run' | 'bike' | 'out_bike' | 'mtb';
+
+/**
+ * Foot profiles the app may route running/walking on: `foot` (node-based, no
+ * turn costs) or `foot_turns` (same model + turn costs — fewer zigzags; needs
+ * the config.yml rebuild of 21.10.2026). Chosen by GRAPHHOPPER_FOOT_PROFILE.
+ */
+export type GhFootProfile = 'foot' | 'foot_turns';
 
 /**
  * Route "tags" a caller can ask for; each one adds custom-model statements
