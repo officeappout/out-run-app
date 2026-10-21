@@ -125,7 +125,8 @@ describe('map (he) — byte-identical to the pre-extraction literals', () => {
         `${g(gender, 'היה הראשון', 'היי הראשונה')} — ${g(gender, 'סמן את עצמך פנוי', 'סמני את עצמך פנויה')} לפני האימון`,
       );
       expect(t('partners.empty.scheduled.sub', { gender })).toBe(
-        `${g(gender, 'הוסף אימון ללוז', 'הוסיפי אימון ללוז')} ושתף אותו עם הקהילה`,
+        // Owner copy fix (21.10.2026): the female form had a masculine second verb ("ושתף").
+        g(gender, 'הוסף אימון ללוז ושתף אותו עם הקהילה', 'הוסיפי אימון ללוז ושתפי אותו עם הקהילה'),
       );
     }
   });
