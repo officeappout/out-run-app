@@ -6,6 +6,8 @@
  * user can move (enable_home_v2; boards jr/J2-08, sch/S-5f). One CTA.
  */
 import { Footprints, Info, Zap } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { IconTile } from '@/components/ui/v2';
 import type { RunSlot } from '@/features/schedule/engine-v2/types';
@@ -30,17 +32,18 @@ export interface RunWeekStepProps {
 }
 
 export default function RunWeekStep(p: RunWeekStepProps) {
+  const t = useT(onboarding);
   const byDow = new Map(p.week.days.map((d) => [d.dow, d]));
   const sortedDays = [...p.days].sort((a, b) => a - b);
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">השבוע שלך</h1>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.run.week.title')}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle}</p>
 
         {p.week.longRunDow != null && sortedDays.length > 1 && (
-          <div className="mt-3.5 flex items-center gap-2" role="radiogroup" aria-label="יום הריצה הארוכה">
-            <span className="shrink-0 whitespace-nowrap text-[13px] font-extrabold text-v2-muted">הריצה הארוכה ביום</span>
+          <div className="mt-3.5 flex items-center gap-2" role="radiogroup" aria-label={t('signup.run.week.longRunAria')}>
+            <span className="shrink-0 whitespace-nowrap text-[13px] font-extrabold text-v2-muted">{t('signup.run.week.longRunLabel')}</span>
             <div className="flex min-w-0 gap-1.5 overflow-x-auto">
               {sortedDays.map((dow) => {
                 const on = dow === p.week.longRunDow;
@@ -55,7 +58,7 @@ export default function RunWeekStep(p: RunWeekStepProps) {
                       on ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
                     }`}
                   >
-                    {DAY_LETTERS_HE[dow]}׳
+                    {/* i18n-allow-hebrew: weekday letter (wave 3) */}{DAY_LETTERS_HE[dow]}׳
                   </button>
                 );
               })}
@@ -69,7 +72,7 @@ export default function RunWeekStep(p: RunWeekStepProps) {
             return (
               <div key={dow} className={`flex gap-3 px-3 py-2.5 ${dow > 0 ? 'border-t border-v2-hairline' : ''}`}>
                 <div className="w-10 shrink-0 pt-1 text-center">
-                  <span className="block text-[12px] font-extrabold text-v2-muted">{letter}׳</span>
+                  <span className="block text-[12px] font-extrabold text-v2-muted">{/* i18n-allow-hebrew: weekday letter (wave 3) */}{letter}׳</span>
                   <span className={`mx-auto mt-0.5 block text-[16px] font-black tabular-nums ${run ? 'text-v2-ink' : 'text-v2-muted'}`}>{p.dates[dow]}</span>
                 </div>
                 <span aria-hidden className="w-px shrink-0 self-stretch bg-v2-hairline" />
@@ -93,7 +96,7 @@ export default function RunWeekStep(p: RunWeekStepProps) {
                   </div>
                 ) : (
                   <div className="flex h-11 flex-1 items-center">
-                    <span className="whitespace-nowrap text-[14px] font-bold text-v2-muted">{p.days.includes(dow) ? 'מנוחה' : 'לא פנוי'}</span>
+                    <span className="whitespace-nowrap text-[14px] font-bold text-v2-muted">{p.days.includes(dow) ? t('signup.run.week.rest') : t('signup.run.week.notFree')}</span>
                   </div>
                 )}
               </div>
@@ -110,7 +113,7 @@ export default function RunWeekStep(p: RunWeekStepProps) {
       </div>
 
       <div className="flex-grow" />
-      <StickyActionButton variant="v2" label="אישור השבוע" onPress={p.onConfirm} />
+      <StickyActionButton variant="v2" label={t('signup.run.week.confirm')} onPress={p.onConfirm} />
     </div>
   );
 }

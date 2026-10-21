@@ -29,6 +29,8 @@ import {
   runningGoalSubtitle,
   type RunningGoalVisual,
 } from '../../constants/running-goal-visuals';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { MediaHeroImage } from '@/components/ui/v2/MediaHeroFade';
 import { GOAL_HERO_HEIGHT } from '../../utils/fit-screen';
 
@@ -95,6 +97,7 @@ function Radio({ on }: { on: boolean }) {
 }
 
 function ContinueBar({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+  const t = useT(onboarding);
   return (
     <div
       className="sticky bottom-0 z-30 -mx-4 mt-auto px-4 pb-1 pt-3"
@@ -111,7 +114,7 @@ function ContinueBar({ disabled, onPress }: { disabled: boolean; onPress: () => 
             : 'bg-v2-cta text-v2-on-cta shadow-v2-cta active:scale-[0.97]'
         }`}
       >
-        המשך
+        {t('signup.runChoice.continue')}
       </button>
     </div>
   );
@@ -168,6 +171,7 @@ function PhotoLayer({ v, mode }: { v: RunningGoalVisual; mode: 'hero' | 'thumb' 
 export function RunningGoalPickerV2({
   question, title, description, selectedAnswerId, onAnswer, answerText, isFemale, walking,
 }: BaseProps & { walking?: WalkingChoice }) {
+  const t = useT(onboarding);
   const { picked, setPicked, submit } = usePick(selectedAnswerId, (id) => {
     if (id === WALKING_ID) walking?.onChoose();
     else onAnswer(id);
@@ -179,7 +183,7 @@ export function RunningGoalPickerV2({
       return { id: a.id, label: answerText(a), visual, sub: runningGoalSubtitle(visual.goalPath, isFemale) };
     }),
     ...(walking
-      ? [{ id: WALKING_ID, label: 'הליכה', visual: WALKING_VISUAL, sub: 'בלי ריצה — הליכה מהירה, ירידה במשקל, תנועה יומית' }]
+      ? [{ id: WALKING_ID, label: t('signup.runChoice.walking.label'), visual: WALKING_VISUAL, sub: t('signup.runChoice.walking.sub') }]
       : []),
   ];
   const visuals = answers.map((a) => a.visual);
@@ -273,10 +277,11 @@ export function RunningAbilityPickerV2({
   question, selectedAnswerId, onAnswer, answerText, isFemale,
 }: BaseProps) {
   const { picked, setPicked, submit } = usePick(selectedAnswerId, onAnswer);
-  const title = 'כמה זמן אפשר לרוץ ברצף?';
+  const t = useT(onboarding);
+  const title = t('signup.runChoice.ability.title');
   return (
     <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink" dir="rtl">
-      <Header title={title} description="בלי לעצור, בקצב נוח — לא שיא" />
+      <Header title={title} description={t('signup.runChoice.ability.description')} />
 
       <div role="radiogroup" aria-label={title} className="flex flex-col gap-2.5">
         {question.answers.map((a) => {
@@ -316,7 +321,7 @@ export function RunningAbilityPickerV2({
         <div className="mt-1 flex items-center gap-2.5 rounded-[18px] bg-v2-tint px-3.5 py-3">
           <Info size={17} strokeWidth={2.3} className="shrink-0 text-v2-deep" aria-hidden />
           <p className="text-[13px] font-bold leading-snug text-v2-ink-2">
-            התשובה קובעת את השבוע הראשון בלבד — התוכנית מתעדכנת לפי הריצות שלך
+            {t('signup.runChoice.ability.info')}
           </p>
         </div>
       </div>

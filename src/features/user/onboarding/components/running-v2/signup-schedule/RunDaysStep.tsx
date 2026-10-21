@@ -5,6 +5,8 @@
  * a time-of-day chip (enable_home_v2; boards jr/J2-07, sch/S-5e). One CTA.
  */
 import { Check, Plus, Sparkles, Sun, Sunrise, Sunset } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
 import { DAY_LETTERS_HE, RUN_TIME_PRESETS, TIME_WINDOWS, DEFAULT_RUN_WINDOW } from '@/features/schedule/utils/runWeekRecommendation';
@@ -26,20 +28,21 @@ export interface RunDaysStepProps {
 }
 
 export default function RunDaysStep(p: RunDaysStepProps) {
+  const t = useT(onboarding);
   const done = p.days.length === p.frequency;
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{p.title ?? 'באילו ימים?'}</h1>
-        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle ?? 'ומתי ביום'}</p>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{p.title ?? t('signup.days.title')}</h1>
+        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle ?? t('signup.days.subtitle')}</p>
 
         <div className="mb-2.5 mt-3.5 flex items-center justify-between gap-2">
           <span className="inline-flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
             <Sparkles size={14} strokeWidth={2.2} aria-hidden />
-            סימנו לפי ההמלצה · אפשר לשנות
+            {t('signup.days.prefilled')}
           </span>
           <span className="inline-flex h-[26px] shrink-0 items-center whitespace-nowrap rounded-full bg-v2-tint px-2.5 text-[12.5px] font-extrabold tabular-nums text-v2-deep">
-            {p.days.length} מתוך {p.frequency}
+            {t('signup.days.progress', { done: String(p.days.length), total: String(p.frequency) })}
           </span>
         </div>
 
@@ -53,7 +56,7 @@ export default function RunDaysStep(p: RunDaysStepProps) {
                 className={`flex min-h-[56px] items-center gap-3 px-3 py-2 ${dow > 0 ? 'border-t border-v2-hairline' : ''} ${on ? 'min-h-[64px] bg-v2-tint/70' : ''}`}
               >
                 <div className="w-10 shrink-0 text-center">
-                  <span className="block text-[12px] font-extrabold text-v2-muted">{letter}׳</span>
+                  <span className="block text-[12px] font-extrabold text-v2-muted">{/* i18n-allow-hebrew: weekday letter (wave 3) */}{letter}׳</span>
                   <span className={`mx-auto mt-0.5 grid h-8 w-8 place-items-center text-[16px] font-black tabular-nums ${on ? 'text-v2-ink' : 'text-v2-muted'}`}>
                     {p.dates[dow]}
                   </span>
@@ -61,7 +64,7 @@ export default function RunDaysStep(p: RunDaysStepProps) {
                 <span aria-hidden className="h-9 w-px shrink-0 bg-v2-hairline" />
                 {on ? (
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <div className="flex min-w-0 gap-1.5 overflow-x-auto" role="radiogroup" aria-label={`שעה ביום ${letter}׳`}>
+                    <div className="flex min-w-0 gap-1.5 overflow-x-auto" role="radiogroup" aria-label={t('signup.days.windowAria', { letter })}>
                       {TIME_WINDOWS.map((tw) => {
                         const sel = tw === w;
                         const Icon = WINDOW_ICON[tw];
@@ -86,7 +89,7 @@ export default function RunDaysStep(p: RunDaysStepProps) {
                     <button
                       type="button"
                       onClick={() => p.onToggleDay(dow)}
-                      aria-label={`הסרת יום ${letter}׳`}
+                      aria-label={t('signup.days.removeAria', { letter })}
                       className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-v2-accent text-white transition-transform duration-150 ease-v2 active:scale-[0.97]"
                     >
                       <Check size={15} strokeWidth={3} aria-hidden />
@@ -96,10 +99,10 @@ export default function RunDaysStep(p: RunDaysStepProps) {
                   <button
                     type="button"
                     onClick={() => p.onToggleDay(dow)}
-                    aria-label={`הוספת יום ${letter}׳`}
+                    aria-label={t('signup.days.addAria', { letter })}
                     className="flex min-w-0 flex-1 items-center justify-between gap-2 text-start"
                   >
-                    <span className="whitespace-nowrap text-[13.5px] font-bold text-v2-muted">לא פנוי</span>
+                    <span className="whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{t('signup.days.notFree')}</span>
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-v2-deep ring-1 ring-inset ring-v2-pill-border">
                       <Plus size={16} strokeWidth={2.4} aria-hidden />
                     </span>
@@ -111,13 +114,13 @@ export default function RunDaysStep(p: RunDaysStepProps) {
         </div>
         {p.days.length < p.frequency && (
           <p className="mt-2 px-1 text-[12.5px] font-bold text-v2-muted">
-            {p.frequency - p.days.length === 1 ? 'עוד יום אחד לסמן' : `עוד ${p.frequency - p.days.length} ימים לסמן`}
+            {t('signup.days.remaining', { n: p.frequency - p.days.length })}
           </p>
         )}
       </div>
 
       <div className="flex-grow" />
-      <StickyActionButton variant="v2" label="המשך" disabled={!done} onPress={p.onNext} />
+      <StickyActionButton variant="v2" label={t('signup.days.next')} disabled={!done} onPress={p.onNext} />
     </div>
   );
 }

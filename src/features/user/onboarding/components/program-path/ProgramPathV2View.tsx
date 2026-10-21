@@ -24,6 +24,11 @@ import { AREA_TILES, type AreaTileId } from '../../utils/muscle-selection';
 import { GOAL_NOTE_MAX_LENGTH, goalNotePlaceholder } from '../../utils/goal-note';
 import type { ResolvedGoalImage } from '../../constants/program-path-goal-images';
 import MediaHeroFade, { MediaHeroLayer } from '@/components/ui/v2/MediaHeroFade';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+
+type OnboardingT = (key: OnboardingKey, values?: MessageValues) => string;
 
 export interface ProgramPathV2ViewProps {
   isFemale: boolean;
@@ -52,10 +57,10 @@ export interface ProgramPathV2ViewProps {
 
 const GOAL_ORDER: ProgramCardId[] = ['health', 'body_focus', 'skills'];
 
-const TEST_LINE: Record<ProgramCardId, string> = {
-  health: 'מבחן קצר: 4 תרגילים לכל הגוף',
-  body_focus: 'המבחן: רק האזורים שבחרת',
-  skills: 'המבחן: סולם לכל אלמנט + ליבה',
+const TEST_LINE: Record<ProgramCardId, OnboardingKey> = {
+  health: 'programPath.testLine.health',
+  body_focus: 'programPath.testLine.bodyFocus',
+  skills: 'programPath.testLine.skills',
 };
 
 const EXPAND = {
@@ -68,34 +73,28 @@ const EXPAND = {
 const SAFE_TOP = 'env(safe-area-inset-top, 0px)';
 const SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
 
-function goalCopy(id: ProgramCardId, isFemale: boolean) {
-  const g = (m: string, f: string) => (isFemale ? f : m);
+function goalCopy(t: OnboardingT, id: ProgramCardId, isFemale: boolean) {
+  const gender = isFemale ? 'female' : 'other';
   switch (id) {
     case 'health':
       return {
-        title: g('להרגיש טוב וחזק', 'להרגיש טובה וחזקה'),
-        sub: g(
-          'למי שמתחיל, חוזר אחרי הפסקה או רוצה בסיס בריא לכל הגוף',
-          'למי שמתחילה, חוזרת אחרי הפסקה או רוצה בסיס בריא לכל הגוף',
-        ),
-        level: g('מתחילים', 'מתחילות'),
+        title: t('programPath.goal.health.title', { gender }),
+        sub: t('programPath.goal.health.sub', { gender }),
+        level: t('programPath.goal.health.level', { gender }),
         bars: 1,
       };
     case 'body_focus':
       return {
-        title: 'לחטב ולבנות שריר',
-        sub: g(
-          'למי שכבר מתאמן ורוצה לעלות רמה, לחזור לכושר או למקד אזורים',
-          'למי שכבר מתאמנת ורוצה לעלות רמה, לחזור לכושר או למקד אזורים',
-        ),
-        level: 'לכל רמה',
+        title: t('programPath.goal.bodyFocus.title'),
+        sub: t('programPath.goal.bodyFocus.sub', { gender }),
+        level: t('programPath.goal.bodyFocus.level'),
         bars: 2,
       };
     case 'skills':
       return {
-        title: 'קליסטניקס: לפתוח אלמנטים',
-        sub: 'למי שעושה כבר כמה מתח ומקבילים ורוצה לפתוח עליית כוח, עמידת ידיים ופלאנץ׳',
-        level: g('מתקדמים', 'מתקדמות'),
+        title: t('programPath.goal.skills.title'),
+        sub: t('programPath.goal.skills.sub'),
+        level: t('programPath.goal.skills.level', { gender }),
         bars: 3,
       };
   }
@@ -161,6 +160,7 @@ function HeroOverlay({
   currentSegment: number;
   onBack: () => void;
 }) {
+  const t = useT(onboarding);
   return (
     <>
       {/* Back + story bar */}
@@ -171,7 +171,7 @@ function HeroOverlay({
         <button
           type="button"
           onClick={onBack}
-          aria-label="חזרה"
+          aria-label={t('programPath.back')}
           className="pointer-events-auto grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/70 shadow-v2-ring backdrop-blur-[14px] transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
@@ -194,7 +194,7 @@ function HeroOverlay({
       >
         <Activity size={16} strokeWidth={2.2} className="shrink-0 text-v2-deep" aria-hidden />
         <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-ink">
-          {selectedGoal ? TEST_LINE[selectedGoal] : ''}
+          {selectedGoal ? t(TEST_LINE[selectedGoal]) : ''}
         </span>
       </div>
     </>
@@ -242,7 +242,8 @@ function GoalCard({
   onSelect: () => void;
   children?: React.ReactNode;
 }) {
-  const c = goalCopy(id, isFemale);
+  const t = useT(onboarding);
+  const c = goalCopy(t, id, isFemale);
   return (
     <div
       className={`overflow-hidden rounded-[22px] bg-white transition-shadow duration-200 ease-v2 ${
@@ -319,6 +320,7 @@ function GoalNoteField({
   onChange: (v: string) => void;
   examples: string[];
 }) {
+  const t = useT(onboarding);
   const [idx, setIdx] = useState(0);
   const [shown, setShown] = useState(true);
   const [focused, setFocused] = useState(false);
@@ -329,7 +331,7 @@ function GoalNoteField({
     if (focused || examples.length < 2) return;
     const reduce =
       typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       if (reduce) { setIdx((i) => (i + 1) % examples.length); return; }
       setShown(false);
       swapTimer.current = setTimeout(() => {
@@ -338,7 +340,7 @@ function GoalNoteField({
       }, 260);
     }, 3500);
     return () => {
-      clearInterval(t);
+      clearInterval(timer);
       if (swapTimer.current) clearTimeout(swapTimer.current);
       setShown(true);
     };
@@ -349,8 +351,8 @@ function GoalNoteField({
   return (
     <label className="mt-3 block [@media(max-height:720px)]:mt-2.5">
       <span className="mb-1.5 flex items-baseline gap-1.5">
-        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">יש עוד משהו שחשוב לך?</span>
-        <span className="whitespace-nowrap text-[11.5px] font-semibold text-v2-muted">לא חובה</span>
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('programPath.note.label')}</span>
+        <span className="whitespace-nowrap text-[11.5px] font-semibold text-v2-muted">{t('programPath.note.optional')}</span>
       </span>
       <span className="relative block">
         <textarea
@@ -382,7 +384,8 @@ function GoalNoteField({
 
 export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
   const { isFemale, selectedGoal } = p;
-  const g = (m: string, f: string) => (isFemale ? f : m);
+  const t = useT(onboarding);
+  const gender = isFemale ? 'female' : 'other';
   const activeGoal: ProgramCardId = selectedGoal ?? 'health';
 
   return (
@@ -412,13 +415,13 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
 
         <div className="relative -mt-2.5 flex shrink-0 flex-col px-4 pb-1">
           <h1 className="text-[26px] font-black leading-[1.15] !tracking-[-0.02em] [@media(max-height:720px)]:text-[23px]">
-            מה הכי חשוב לך?
+            {t('programPath.title')}
           </h1>
           <p className="mb-3 mt-1 text-[14px] font-medium text-v2-ink-2 [@media(max-height:720px)]:mb-2.5">
-            {g('בחר מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.', 'בחרי מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.')}
+            {t('programPath.subtitle', { gender })}
           </p>
 
-          <div role="radiogroup" aria-label="מה הכי חשוב לך?" className="flex flex-col gap-2.5 [@media(max-height:720px)]:gap-2">
+          <div role="radiogroup" aria-label={t('programPath.title')} className="flex flex-col gap-2.5 [@media(max-height:720px)]:gap-2">
             {/* ── Health ── */}
             <GoalCard
               id="health"
@@ -436,30 +439,30 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
               image={p.images.body_focus}
               onSelect={() => p.onSelectGoal('body_focus')}
             >
-              <p className="mb-[7px] text-[12.5px] font-extrabold text-v2-deep">על מה נתמקד?</p>
+              <p className="mb-[7px] text-[12.5px] font-extrabold text-v2-deep">{t('programPath.areas.title')}</p>
               <AnimatePresence>
                 {p.showMuscleRecommendation && p.muscleBalanceCase && (
                   <CoachNote key="muscle-note" text={MUSCLE_BALANCE_MESSAGES_HE[p.muscleBalanceCase]} />
                 )}
               </AnimatePresence>
               <div className="grid grid-cols-2 gap-[7px]">
-                {AREA_TILES.map((t) => {
-                  const on = p.areaTiles.includes(t.id);
-                  const rec = p.showMuscleRecommendation && !on && p.recommendedTiles.has(t.id);
+                {AREA_TILES.map((tile) => {
+                  const on = p.areaTiles.includes(tile.id);
+                  const rec = p.showMuscleRecommendation && !on && p.recommendedTiles.has(tile.id);
                   return (
                     <button
-                      key={t.id}
+                      key={tile.id}
                       type="button"
                       aria-pressed={on}
-                      onClick={() => p.onPickAreaTile(t.id)}
+                      onClick={() => p.onPickAreaTile(tile.id)}
                       className={`flex h-10 items-center justify-center gap-1.5 rounded-[14px] text-[13.5px] font-extrabold transition-transform duration-150 ease-v2 active:scale-[0.97] ${
                         on ? TINT_ON : rec ? TINT_REC : TINT_OFF
                       }`}
                     >
-                      <span className="whitespace-nowrap">{t.label}</span>
-                      {t.recommended && (
+                      <span className="whitespace-nowrap">{tile.label}</span>
+                      {tile.recommended && (
                         <span className="whitespace-nowrap rounded-full bg-white px-1.5 py-px text-[11px] font-extrabold text-v2-deep">
-                          מומלץ
+                          {t('programPath.areas.recommended')}
                         </span>
                       )}
                     </button>

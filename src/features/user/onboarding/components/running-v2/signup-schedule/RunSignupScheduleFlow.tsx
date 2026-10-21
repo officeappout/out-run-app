@@ -13,6 +13,9 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { useOnboardingStore } from '../../../store/useOnboardingStore';
@@ -50,11 +53,11 @@ import RunWeekStep from './RunWeekStep';
 
 export const RUN_SIGNUP_SUBSTEPS = 4;
 
-const DIST_LABEL: Record<string, string> = { '2k': '2 ק״מ', '3k': '3 ק״מ', '5k': '5 ק״מ', '10k': '10 ק״מ' };
+type OnboardingT = (key: OnboardingKey, values?: MessageValues) => string;
 
-function planName(answers: Record<string, unknown>): string {
-  const d = String(answers.targetDistance ?? '5k');
-  return d === 'maintenance' ? 'תוכנית לשמירה על כושר' : `תוכנית ${DIST_LABEL[d] ?? DIST_LABEL['5k']}`;
+/** "תוכנית 10 ק״מ" / "תוכנית לשמירה על כושר" — unknown distances read as 5k. */
+function planName(t: OnboardingT, answers: Record<string, unknown>): string {
+  return t('signup.run.plan.name', { distance: String(answers.targetDistance ?? '5k') });
 }
 
 /** Day-of-month for Sunday..Saturday of the current week (display only). */
@@ -75,6 +78,7 @@ export interface RunSignupScheduleFlowProps {
 }
 
 export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignupScheduleFlowProps) {
+  const t = useT(onboarding);
   const { data, updateData } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
 
@@ -203,7 +207,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
     onDone();
   };
 
-  const planLine = [planName(answers), weeks ? `${weeks} שבועות` : null].filter(Boolean).join(' · ');
+  const planLine = [planName(t, answers), weeks ? t('signup.run.plan.weeks', { weeks: String(weeks) }) : null].filter(Boolean).join(' · ');
 
   if (sub === 0) {
     return (
@@ -234,7 +238,7 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
   if (sub === 2) {
     return (
       <RunWeekStep
-        subtitle={`ריצה · ${planName(answers)} · מוכן לאישור`}
+        subtitle={t('signup.run.week.subtitle', { plan: planName(t, answers) })}
         week={week}
         days={days}
         dates={dates}
@@ -246,8 +250,8 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
   const first = week.days[0];
   return (
     <ReminderOptInStep
-      subtitle={`${days.length} ריצות בשבוע · ${dayLettersLine(days)}`}
-      sampleWorkoutName={first ? runSlotNameHe(first.slot) : 'ריצה'}
+      subtitle={t('signup.run.reminder.subtitle', { count: String(days.length), days: dayLettersLine(days) })}
+      sampleWorkoutName={first ? runSlotNameHe(first.slot) : t('signup.run.reminder.sampleFallback')}
       sampleTime={first ? RUN_TIME_PRESETS[first.window].time : RUN_TIME_PRESETS.morning.time}
       alreadyActive={alreadyActive}
       initialCalendarSync={(data as { calendarSyncEnabled?: boolean }).calendarSyncEnabled === true}

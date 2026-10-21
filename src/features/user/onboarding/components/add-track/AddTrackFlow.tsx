@@ -11,6 +11,8 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import ReminderOptInStep from '@/features/schedule/components/ReminderOptInStep';
@@ -45,6 +47,7 @@ export interface AddTrackFlowProps {
 }
 
 export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlowProps) {
+  const t = useT(onboarding);
   const ctx = useAddTrackContext(added);
   const profile = useUserStore((s) => s.profile);
   const updateData = useOnboardingStore((s) => s.updateData);
@@ -52,7 +55,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
 
   const [share, setShare] = useState(() => shareOfPriority(presetPriority(added)));
   const [keepOnly, setKeepOnly] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OnboardingKey | null>(null);
   const [saved, setSaved] = useState<AddTrackSavePlan | null>(null);
   const priority = priorityFromShare(share);
 
@@ -99,7 +102,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
     const uid = auth.currentUser?.uid;
     setError(null);
     if (!uid) {
-      setError('החשבון שלך לא מזוהה כרגע. נסה שוב.');
+      setError('signup.addTrack.error.noAccount');
       throw new Error('no uid');
     }
     const outcome = await saveAddTrackWeek(
@@ -115,7 +118,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
       { longRunDow: week.days.find((d) => d.sessions.some((s) => s.slot === 'long_run'))?.dow ?? null },
     );
     if (!outcome.ok || !outcome.plan) {
-      setError('לא הצלחנו לשמור את השבוע. אפשר לנסות שוב.');
+      setError('signup.addTrack.error.save');
       throw new Error('save failed');
     }
     setSaved(outcome.plan);
@@ -135,7 +138,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
         onShare={setShare}
         keepOnly={keepOnly && !!keepWeek}
         onToggleKeepOnly={keepWeek ? () => setKeepOnly((v) => !v) : null}
-        error={error}
+        error={error ? t(error) : null}
         onConfirm={confirm}
       />
     );
@@ -156,8 +159,8 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
 
   return (
     <ReminderOptInStep
-      subtitle={`${sessions.length} אימונים בשבוע · ${added === 'running' ? 'כוח וריצה' : 'ריצה וכוח'}`}
-      sampleWorkoutName={first?.nameHe ?? 'אימון'}
+      subtitle={t('signup.addTrack.reminder.subtitle', { count: String(sessions.length), added })}
+      sampleWorkoutName={first?.nameHe ?? t('signup.addTrack.reminder.sampleFallback')}
       sampleTime={firstTime}
       alreadyActive={alreadyActive}
       initialCalendarSync={(useOnboardingStore.getState().data as { calendarSyncEnabled?: boolean }).calendarSyncEnabled === true}

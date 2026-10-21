@@ -7,6 +7,8 @@
  * One CTA. Presentational.
  */
 import { Dumbbell, Footprints, Info, TrendingUp } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { IconTile, RecommendationCard, WeekDayRow, WeekSessionPiece } from '@/components/ui/v2';
 import { DAY_LETTERS_HE, RUN_TIME_PRESETS, DEFAULT_RUN_WINDOW } from '@/features/schedule/utils/runWeekRecommendation';
@@ -34,12 +36,13 @@ export interface WalkWeekStepProps {
 }
 
 export default function WalkWeekStep(p: WalkWeekStepProps) {
+  const t = useT(onboarding);
   const rows = walkWeekDays(p.plan.weeks[0], p.addOn);
   const ramp = walkRampLine(p.plan);
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">השבוע שלך</h1>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.walk.week.title')}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{walkWeekSubtitle(p.plan, p.addOn)}</p>
 
         <RecommendationCard className="mt-3.5" title={walkRecommendationTitle(p.plan)} detail={p.plan.reasonsHe[0]} notes={p.plan.reasonsHe.slice(1)} />
@@ -60,7 +63,7 @@ export default function WalkWeekStep(p: WalkWeekStepProps) {
                 letter={DAY_LETTERS_HE[r.dow]}
                 date={p.dates[r.dow]}
                 muted={!r.walk}
-                emptyLabel="מנוחה"
+                emptyLabel={t('signup.walk.week.rest')}
                 divider={r.dow > 0}
               >
                 {r.walk && (
@@ -80,7 +83,7 @@ export default function WalkWeekStep(p: WalkWeekStepProps) {
 
         <div className="mt-3 flex items-start gap-2 rounded-[14px] bg-v2-tint px-3.5 py-2.5 text-[13px] font-bold leading-snug text-v2-ink">
           <Info size={16} strokeWidth={2.2} aria-hidden className="mt-0.5 shrink-0 text-v2-deep" />
-          <span className="min-w-0">הליכה מותרת גם ביום כוח וגם יומיים ברצף. כל הליכה נספרת ליעד הצעדים.</span>
+          <span className="min-w-0">{t('signup.walk.week.info')}</span>
         </div>
 
         <NotAloneCard className="mt-3" suggestion={p.notAlone} onOpenGroup={p.onOpenGroup} />
@@ -89,7 +92,7 @@ export default function WalkWeekStep(p: WalkWeekStepProps) {
       </div>
 
       <div className="flex-grow" />
-      <StickyActionButton variant="v2" label="אישור השבוע" onPress={p.onConfirm} />
+      <StickyActionButton variant="v2" label={t('signup.walk.week.confirm')} onPress={p.onConfirm} />
     </div>
   );
 }

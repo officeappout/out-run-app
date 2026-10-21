@@ -6,6 +6,8 @@
  * when the recommendation policy offers one). One CTA. Presentational.
  */
 import { Flame, Footprints, HeartPulse, Target, type LucideIcon } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { IconTile } from '@/components/ui/v2';
 import type { PolicyAddOn } from '@/features/schedule/recommendation-policy/types';
@@ -18,10 +20,10 @@ const GOALS: ReadonlyArray<{ goal: WalkGoal; icon: LucideIcon }> = [
   { goal: 'belly', icon: Target },
 ];
 
-const COMFORT: ReadonlyArray<{ value: WalkComfort; label: string }> = [
-  { value: 'short', label: 'עד 15 דק׳' },
-  { value: 'medium', label: '20–30 דק׳' },
-  { value: 'long', label: '45 דק׳ ומעלה' },
+const COMFORT: ReadonlyArray<{ value: WalkComfort; labelKey: OnboardingKey }> = [
+  { value: 'short', labelKey: 'signup.walk.goal.comfort.short' },
+  { value: 'medium', labelKey: 'signup.walk.goal.comfort.medium' },
+  { value: 'long', labelKey: 'signup.walk.goal.comfort.long' },
 ];
 
 const chipCls = (on: boolean) =>
@@ -43,17 +45,18 @@ export interface WalkGoalStepProps {
 }
 
 export default function WalkGoalStep(p: WalkGoalStepProps) {
+  const t = useT(onboarding);
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">מה המטרה בהליכה?</h1>
-        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">אפשר לבחור אחת · נבנה מזה את השבוע</p>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.walk.goal.title')}</h1>
+        <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{t('signup.walk.goal.subtitle')}</p>
 
-        <div role="radiogroup" aria-label="המטרה בהליכה" className="mt-3.5 flex flex-col gap-2.5">
+        <div role="radiogroup" aria-label={t('signup.walk.goal.aria')} className="mt-3.5 flex flex-col gap-2.5">
           {GOALS.map(({ goal, icon }) => {
             const on = p.goal === goal;
             const copy = WALK_GOAL_COPY[goal];
-            const sub = goal === 'steps' && p.stepGoal ? `היעד שלך היום: ${p.stepGoal.toLocaleString('he-IL')} צעדים` : copy.sub;
+            const sub = goal === 'steps' && p.stepGoal ? t('signup.walk.goal.stepsToday', { steps: p.stepGoal.toLocaleString('he-IL') }) : copy.sub;
             return (
               <button
                 key={goal}
@@ -75,11 +78,11 @@ export default function WalkGoalStep(p: WalkGoalStepProps) {
           })}
         </div>
 
-        <p className="mt-5 px-1 text-[15px] font-black">כמה זמן נוח לך ללכת?</p>
-        <div role="radiogroup" aria-label="כמה זמן נוח לך ללכת" className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+        <p className="mt-5 px-1 text-[15px] font-black">{t('signup.walk.goal.comfort.question')}</p>
+        <div role="radiogroup" aria-label={t('signup.walk.goal.comfort.aria')} className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
           {COMFORT.map((c) => (
             <button key={c.value} type="button" role="radio" aria-checked={p.comfort === c.value} onClick={() => p.onComfort(c.value)} className={chipCls(p.comfort === c.value)}>
-              {c.label}
+              {t(c.labelKey)}
             </button>
           ))}
         </div>
@@ -93,9 +96,9 @@ export default function WalkGoalStep(p: WalkGoalStepProps) {
             className="mt-4 flex w-full items-center gap-3 rounded-[20px] bg-white p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate whitespace-nowrap text-[15px] font-black">להוסיף חיזוק קל?</span>
+              <span className="block truncate whitespace-nowrap text-[15px] font-black">{t('signup.walk.goal.addOn.title')}</span>
               <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                {p.addOn.minutes} דק׳ ליבה וגב, {p.addOn.perWeek === 2 ? 'פעמיים' : `${p.addOn.perWeek} פעמים`} בשבוע, בבית
+                {t('signup.walk.goal.addOn.line', { minutes: String(p.addOn.minutes), perWeek: String(p.addOn.perWeek) })}
               </span>
             </span>
             <span aria-hidden className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-150 ${p.addOnOn ? 'bg-v2-accent' : 'bg-v2-pill-border'}`}>
@@ -106,7 +109,7 @@ export default function WalkGoalStep(p: WalkGoalStepProps) {
       </div>
 
       <div className="flex-grow" />
-      <StickyActionButton variant="v2" label="המשך" disabled={!p.goal} onPress={p.onNext} />
+      <StickyActionButton variant="v2" label={t('signup.walk.goal.next')} disabled={!p.goal} onPress={p.onNext} />
     </div>
   );
 }

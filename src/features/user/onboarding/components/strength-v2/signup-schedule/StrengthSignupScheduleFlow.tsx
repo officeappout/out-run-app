@@ -15,6 +15,8 @@
  */
 import { useMemo, useState } from 'react';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { Analytics } from '@/features/analytics/AnalyticsService';
 import { computeBaseLevel } from '@/features/home/utils/dailyStrengthTarget';
@@ -76,6 +78,7 @@ function readSessionJson<T>(key: string): T | undefined {
 const isHistory = (v: unknown): v is HistoryFrequency => v === 'none' || v === '1-2' || v === '3+';
 
 export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, onAddRun }: StrengthSignupScheduleFlowProps) {
+  const t = useT(onboarding);
   const { data, updateData } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
   const { gender } = useWizardIdentity();
@@ -171,7 +174,7 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
         onFrequency={handleFrequency}
         history={history}
         onHistory={setHistory}
-        question={gender === 'female' ? 'כמה ימים בשבוע את פנויה להתאמן?' : 'כמה ימים בשבוע אתה פנוי להתאמן?'}
+        question={t('signup.strength.count.question', { gender })}
         onNext={() => setSub(1)}
       />
     );
@@ -192,7 +195,7 @@ export default function StrengthSignupScheduleFlow({ sub, setSub, onConfirmed, o
   const counts = strengthItemCounts(week).map((c) => `${scheduleIdNameHe(c.id)} ×${c.count}`);
   return (
     <StrengthWeekStep
-      subtitle={['כוח', ...counts, 'מוכן לאישור'].join(' · ')}
+      subtitle={t('signup.strength.week.subtitle', { hasCounts: counts.length > 0 ? 'yes' : 'no', counts: counts.join(' · ') })}
       week={week}
       coming={coming}
       userId={auth.currentUser?.uid ?? profile?.id ?? 'preview'}
