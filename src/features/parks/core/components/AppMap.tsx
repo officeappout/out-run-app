@@ -23,7 +23,7 @@ import { useMapPerfMonitor } from '../hooks/useMapPerfMonitor';
 import { useAdaptiveShed } from '../hooks/useAdaptiveShed';
 import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { Popup } from 'react-map-gl';
-import LemurMarker from '@/components/LemurMarker';
+import LemurMarker from '@/features/parks/core/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
 import DestinationMarker from './DestinationMarker';
@@ -33,7 +33,7 @@ import { registerPinImage, registerArrowTipImage, registerArrowImage, drawPullUp
 import { hapticLight } from '@/lib/haptics';
 import { applyFitnessMapStyle, resetFitnessMapStyle, WALK_LEG_LINE_PAINT } from './mapStyleConfig';
 import { IS_PERF_BATCH1_ENABLED } from '@/config/feature-flags';
-import MapLoadingSkeleton from '@/components/MapLoadingSkeleton';
+import MapLoadingSkeleton from '@/features/parks/core/components/MapLoadingSkeleton';
 import { segmentPathByZone, bearingBetween, buildLaneOffsetPath, buildDirectionMarkers, isOutAndBackPath, pathLengthMeters, isSameCoord } from '../services/geoUtils';
 import type { RouteTurn } from '../services/geoUtils';
 import {

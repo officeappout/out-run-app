@@ -6,7 +6,7 @@ import { Route, ActivityType } from '../types/route.types';
 import { fetchRealParks } from '../services/parks.service';
 import type { Park } from '../types/park.types';
 import { getCachedOfficialRoutes, routePassesNearPoint, InventoryService } from '../services/inventory.service';
-import { withCancelPrevious } from '@/lib/requestGovernor';
+import { withCancelPrevious } from '@/features/parks/lib/request-governor';
 import type { GeoPlaceType } from '../services/geocode-place-type';
 
 /** Query length at which suggestions are fetched AND shown (NavigationHub reads it too). */

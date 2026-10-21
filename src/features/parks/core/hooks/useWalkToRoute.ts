@@ -3,7 +3,7 @@ import { MapboxService } from '../services/mapbox.service';
 import { haversineKm, haversineMeters, nearestPointOnPath, crossTrackDistanceMeters } from '../services/geoUtils';
 import { decideActiveApproach } from '../services/walk-approach';
 import { useMapStore } from '../store/useMapStore';
-import { withCancelPrevious } from '@/lib/requestGovernor';
+import { withCancelPrevious } from '@/features/parks/lib/request-governor';
 import type { Route } from '../types/route.types';
 
 /** One Hebrew turn-by-turn step exposed to the UI (timeline row). */

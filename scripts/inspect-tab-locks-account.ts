@@ -2,7 +2,7 @@
  * scripts/inspect-tab-locks-account.ts
  *
  * READ-ONLY. Prints exactly the fields resolveTabLocks(profile)
- * (src/lib/resolveTabLocks.ts → hasStrengthTrack/hasRunningTrack,
+ * (src/features/schedule/lib/resolve-tab-locks.ts → hasStrengthTrack/hasRunningTrack,
  * src/lib/track-ownership.ts) reads for one account, so the 07.09.2026
  * "lock didn't render" investigation can compare what the signal actually
  * was against what resolveTabLocks would have computed from it.
