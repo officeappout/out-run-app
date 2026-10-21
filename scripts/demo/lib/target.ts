@@ -25,7 +25,7 @@ export interface DemoArgs {
   values: Record<string, string>;
 }
 
-const VALUE_FLAGS = new Set(['--project', '--confirm', '--days', '--rate']);
+const VALUE_FLAGS = new Set(['--project', '--confirm', '--days', '--rate', '--only']);
 
 export function parseDemoArgs(argv: readonly string[]): DemoArgs {
   const flags = new Set<string>();

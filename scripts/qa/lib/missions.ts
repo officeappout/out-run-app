@@ -7,6 +7,7 @@ import { DEVICES, HARD_CAPS } from './config';
 import { GPS_PROFILES, type GpsProfileId } from './gps';
 import { RULE_IDS } from './checklist';
 import { validateSweepFields, type Checkpoint } from './design/checkpoints';
+import { isPrecondition, PRECONDITIONS, type Precondition } from './seed/preconditions';
 
 export interface Persona {
   id: string;
@@ -17,6 +18,8 @@ export interface Persona {
   techLiteracy: 'low' | 'medium' | 'high';
   patience: 'low' | 'medium' | 'high';
   traits: string[];
+  /** For the seeded profile of a precondition (default female). */
+  gender?: 'male' | 'female';
 }
 
 export type WorldEventKind = 'gps_lose_signal' | 'gps_poor_accuracy' | 'offline' | 'background_app';
@@ -54,6 +57,11 @@ export interface Mission {
   uidPerDevice?: boolean;
   /** Design sweeps: the screens to visit, in order (resumable from any of them). */
   checkpoints?: Checkpoint[];
+  /**
+   * The state the tester account starts in (seeded by register-testers.ts, lib/seed). Default
+   * 'fresh' = no profile (onboarding). Missions that share a uid must share the precondition.
+   */
+  precondition?: Precondition;
 }
 
 const ID = /^[A-Za-z0-9_-]{2,40}$/;
@@ -73,6 +81,7 @@ export function validatePersona(raw: unknown): Validation<Persona> {
   if (!isStr(p.summary, 20)) e.push('persona.summary');
   for (const k of ['techLiteracy', 'patience'] as const) if (!['low', 'medium', 'high'].includes(p[k] as string)) e.push(`persona.${k}`);
   if (!strArr(p.traits)) e.push('persona.traits');
+  if (p.gender !== undefined && p.gender !== 'male' && p.gender !== 'female') e.push('persona.gender');
   return e.length ? { ok: false, errors: e } : { ok: true, value: p as unknown as Persona };
 }
 
@@ -114,6 +123,7 @@ export function validateMission(raw: unknown, personas: ReadonlySet<string>): Va
       );
     if (!ok) e.push('mission.worldEvents');
   }
+  if (m.precondition !== undefined && !isPrecondition(m.precondition)) e.push(`mission.precondition (one of ${PRECONDITIONS.join(' | ')})`);
   validateSweepFields(m, e);
   return e.length ? { ok: false, errors: e } : { ok: true, value: m as unknown as Mission };
 }

@@ -106,7 +106,7 @@ export function lifeEntryOf(ctx: PersonaContext): Record<string, unknown> {
   };
 }
 
-function homeOf(p: Persona) {
+export function homeOf(p: Persona) {
   const t = tenantById(p.tenantId);
   const n = t.kind === 'city' ? (t as DemoCity).neighborhoods.find((x) => x.id === p.subId) : null;
   const c = n ? offset(t.center, n.offset[0], n.offset[1]) : t.center;
@@ -114,8 +114,8 @@ function homeOf(p: Persona) {
   return offset(c, (roll(`${p.key}|lat`) - 0.5) * 0.01, (roll(`${p.key}|lng`) - 0.5) * 0.01);
 }
 
-function userDoc(p: Persona, ctx: PersonaContext, h: ReturnType<typeof buildHistory>, now: Date): Record<string, unknown> {
-  const uid = personaUid(p);
+/** The users/{uid} doc of a persona (also the base of an AI tester's seeded state, scripts/qa/lib/seed). */
+export function userDoc(p: Persona, ctx: PersonaContext, h: ReturnType<typeof buildHistory>, now: Date): Record<string, unknown> {
   const t = tenantById(p.tenantId);
   const isUnit = t.kind === 'unit';
   const week = ctx.week;
