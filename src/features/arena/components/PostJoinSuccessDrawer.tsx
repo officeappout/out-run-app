@@ -13,6 +13,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { APP_ORIGIN } from '@/lib/config/domain';
 
 interface PostJoinSuccessDrawerProps {
@@ -40,6 +42,7 @@ export default function PostJoinSuccessDrawer({
   address,
   onPlannerPref,
 }: PostJoinSuccessDrawerProps) {
+  const t = useT(community);
   const [addToPlanner, setAddToPlanner] = useState(true);
   const [calendarSync, setCalendarSync] = useState(false);
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
@@ -48,7 +51,7 @@ export default function PostJoinSuccessDrawer({
 
   const handleShare = async () => {
     const url = typeof window !== 'undefined' ? window.location.origin : APP_ORIGIN;
-    const text = `היי, הצטרפתי ל-${name} ב-OutRun! בוא/י להתאמן איתי: ${url}`;
+    const text = t('postJoin.shareText', { name, url });
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title: 'OutRun', text });
@@ -84,10 +87,10 @@ export default function PostJoinSuccessDrawer({
       <div className="text-6xl mb-4">🎉</div>
 
       <h2 className="text-xl font-black text-gray-900 dark:text-white mb-2 leading-tight">
-        איזה כיף! הצטרפת ל-{name}
+        {t('postJoin.title', { name })}
       </h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-        הזמן שותף ש{verb} איתך!
+        {t('postJoin.subtitle', { verb })}
       </p>
 
       {/* ── Preference Toggles ──────────────────────────── */}
@@ -96,7 +99,7 @@ export default function PostJoinSuccessDrawer({
           <label className="flex items-center justify-between cursor-pointer">
             <span className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
               <CalendarCheck className="w-4 h-4 text-cyan-500" />
-              הוסף מפגשים ללוז אימונים
+              {t('postJoin.addToPlanner')}
             </span>
             <div
               role="switch"
@@ -117,7 +120,7 @@ export default function PostJoinSuccessDrawer({
           <label className="flex items-center justify-between cursor-pointer">
             <span className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
               <CalendarPlus className="w-4 h-4 text-emerald-500" />
-              סנכרון ליומן הטלפון
+              {t('postJoin.calendarSync')}
             </span>
             <div
               role="switch"
@@ -143,7 +146,7 @@ export default function PostJoinSuccessDrawer({
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-500/25 transition-all active:scale-[0.97] mb-3"
       >
         <Share2 className="w-4 h-4" />
-        הזמן שותף/ה
+        {t('postJoin.invite')}
       </button>
 
       {/* Chat CTA */}
@@ -152,14 +155,14 @@ export default function PostJoinSuccessDrawer({
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.97] mb-3"
       >
         <MessageCircle className="w-4 h-4" />
-        כנס לצ&apos;אט הקהילה
+        {t('postJoin.chat')}
       </button>
 
       <button
         onClick={handleClose}
         className="w-full py-3 rounded-2xl text-sm font-bold text-gray-400 dark:text-gray-500"
       >
-        אחר כך
+        {t('postJoin.later')}
       </button>
     </div>
   );
@@ -181,9 +184,9 @@ export default function PostJoinSuccessDrawer({
         safeArea={false}
         scroll="none"
         transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
-        ariaLabel={`הצטרפת ל-${name}`}
+        ariaLabel={t('postJoin.aria', { name })}
       >
-        <IconButton aria-label="סגירה" tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={handleClose}>
+        <IconButton aria-label={t('postJoin.close')} tone="surface" size={36} className="absolute left-4 top-4 z-10" onClick={handleClose}>
           <X className="h-4 w-4" />
         </IconButton>
         {body}

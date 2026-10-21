@@ -4,13 +4,16 @@ import React from 'react';
 import { Clock, MapPin, ShieldCheck, Loader2, CalendarCheck, Users } from 'lucide-react';
 import type { CommunityEvent, EventCategory, EventRegistration } from '@/types/community.types';
 import AttendeesPreview from './AttendeesPreview';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
-const CATEGORY_CONFIG: Record<EventCategory, { label: string; icon: string; gradient: string }> = {
-  race:             { label: 'מרוץ',         icon: '🏃', gradient: 'from-orange-500 to-red-500'     },
-  fitness_day:      { label: 'יום כושר',     icon: '💪', gradient: 'from-cyan-500 to-blue-600'      },
-  workshop:         { label: 'סדנה',         icon: '🎓', gradient: 'from-violet-500 to-purple-600'  },
-  community_meetup: { label: 'מפגש קהילתי', icon: '🤝', gradient: 'from-emerald-500 to-teal-600'   },
-  other:            { label: 'אחר',          icon: '⭐', gradient: 'from-gray-500 to-gray-700'      },
+// Labels: community.json `eventCard.category` (select on the category id).
+const CATEGORY_CONFIG: Record<EventCategory, { icon: string; gradient: string }> = {
+  race:             { icon: '🏃', gradient: 'from-orange-500 to-red-500'     },
+  fitness_day:      { icon: '💪', gradient: 'from-cyan-500 to-blue-600'      },
+  workshop:         { icon: '🎓', gradient: 'from-violet-500 to-purple-600'  },
+  community_meetup: { icon: '🤝', gradient: 'from-emerald-500 to-teal-600'   },
+  other:            { icon: '⭐', gradient: 'from-gray-500 to-gray-700'      },
 };
 
 function formatEventDate(date: Date | string): { day: string; month: string; weekday: string } {
@@ -43,6 +46,7 @@ export default function EventCard({
   authorityLogoUrl,
   onCardClick,
 }: EventCardProps) {
+  const t = useT(community);
   const { day, month, weekday } = formatEventDate(event.date);
   const logoUrl = authorityLogoUrl || event.authorityLogoUrl;
   const displayCount = registrationCount ?? event.currentRegistrations;
@@ -110,7 +114,7 @@ export default function EventCard({
         {/* Category chip — top right */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
           <span>{catConfig.icon}</span>
-          <span>{catConfig.label}</span>
+          <span>{t('eventCard.category', { category: event.category ?? '' })}</span>
         </div>
 
         {/* Official badge — top left */}
@@ -121,7 +125,7 @@ export default function EventCard({
               <img src={logoUrl} alt="" className="w-3.5 h-3.5 rounded object-contain bg-white p-0.5 flex-shrink-0" />
             )}
             <ShieldCheck className="w-3 h-3" />
-            <span>רשמי</span>
+            <span>{t('eventCard.official')}</span>
           </div>
         )}
       </div>
@@ -187,12 +191,12 @@ export default function EventCard({
               ) : isJoined ? (
                 <>
                   <CalendarCheck className="w-3.5 h-3.5" />
-                  רשום/ה
+                  {t('eventCard.registered')}
                 </>
               ) : (
                 <>
                   <Users className="w-3.5 h-3.5" />
-                  הרשמה
+                  {t('eventCard.register')}
                 </>
               )}
             </button>

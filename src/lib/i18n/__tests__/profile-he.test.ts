@@ -382,3 +382,144 @@ describe('profile (he) — exerciseAnalytics.* byte-identical to the pre-extract
     expect(Object.keys(he).filter((k) => k.startsWith('exerciseAnalytics.')).length).toBe(44);
   });
 });
+
+/**
+ * `profile.*` + `widgets.*` (i18n wave 2): the profile screen's own components — history sheet +
+ * cards, workout / public activity grids, header, partners row, progress link, neighborhood
+ * picker (src/features/profile/components) and ProgramsSection (widgets/). The `old` side is
+ * the original literal / template / switch, copied verbatim from the components. The jsdom parity
+ * snapshots cover them in context; this pins every key and branch, including what a render can't
+ * reach (the card-error fallback, the coins badge behind IS_COIN_SYSTEM_ENABLED=false, the master
+ * name fallback) and counts ≥ 1000.
+ */
+describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extraction literals', () => {
+  it('plain strings', () => {
+    const cases: Array<[keyof typeof he, string]> = [
+      ['profile.history.title', 'היסטוריית אימונים'],
+      ['profile.history.close', 'סגור'],
+      ['profile.history.filter.all', 'הכל'],
+      ['profile.history.filter.running', 'ריצה'],
+      ['profile.history.filter.strength', 'כוח'],
+      ['profile.history.loading', 'טוען אימונים...'],
+      ['profile.history.empty', 'אין אימונים רשומים'],
+      ['profile.history.cardError', 'שגיאה בטעינת האימון'],
+      ['profile.history.delete.label', 'מחק אימון'],
+      ['profile.history.delete.action', 'מחק'],
+      ['profile.history.card.running', 'ריצה חופשית'],
+      ['profile.history.card.strength', 'אימון כוח'],
+      ['profile.history.card.recovery', 'אימון התאוששות'],
+      ['profile.history.card.noGps', 'אין נתוני GPS'],
+      ['profile.grid.today', 'היום'],
+      ['profile.grid.yesterday', 'אתמול'],
+      ['profile.grid.empty.line1', 'עוד אין אימונים.'],
+      ['profile.grid.empty.line2', 'תתחיל לזוז!'],
+      ['profile.publicGrid.empty', 'אין פעילות אחרונה'],
+      ['profile.header.photoAlt', 'תמונת פרופיל'],
+      ['profile.partners.add', 'הוסף'],
+      ['profile.progressLink.title', 'ההתקדמות שלי'],
+      ['profile.progressLink.subtitle', 'סיכום שבוע וחודש, ריצה, הליכה, צעדים, כוח ותוכניות'],
+      ['profile.neighborhood.title', 'בחר שכונה'],
+      ['profile.neighborhood.close', 'סגור'],
+      ['profile.neighborhood.loading', 'טוען שכונות...'],
+      ['profile.neighborhood.error', 'שגיאה בטעינת רשימת השכונות'],
+      ['profile.neighborhood.empty.hint', 'נעדכן ברגע שיתווספו'],
+      ['widgets.programs.title', 'התוכניות שלי'],
+      ['widgets.programs.manage', 'ניהול'],
+      ['widgets.programs.active', 'תוכנית פעילה'],
+      ['widgets.programs.children', 'תוכניות בנות'],
+      ['widgets.programs.unassessed', 'עוד לא בדקת רמה'],
+      ['widgets.programs.additional', 'תוכניות נוספות'],
+      ['widgets.programs.notAssessedCta', 'עוד לא נבדקה רמה · בדקו רמה'],
+      ['widgets.programs.empty', 'עדיין לא בחרת תוכנית אימון.'],
+      ['widgets.programs.choose', 'בחר תוכנית'],
+      ['widgets.programs.fallbackName', 'תוכנית אימון'],
+    ];
+    for (const [key, old] of cases) expect(t(key)).toBe(old);
+  });
+
+  it('values (counts passed as strings: no thousands separator, like the old templates)', () => {
+    for (const n of [0, 1, 7, 1234]) {
+      expect(t('profile.history.card.calories', { calories: String(n) })).toBe(`${n} קלוריות`);
+      expect(t('profile.history.card.coins', { coins: String(n) })).toBe(`+${n} מטבעות`);
+      expect(t('profile.grid.minutes', { minutes: String(n) })).toBe(`${n} דק'`);
+      expect(t('profile.publicGrid.minutes', { minutes: String(n) })).toBe(`${n} דק'`);
+      expect(t('widgets.programs.level', { level: String(n), max: String(n + 1000) })).toBe(`שלב ${n}/${n + 1000}`);
+    }
+    for (const km of [0, 5.234, 1234.5]) {
+      expect(t('profile.history.card.distance', { km: km.toFixed(2) })).toBe(`${km.toFixed(2)} ק"מ`);
+      expect(t('profile.grid.km', { km: km.toFixed(1) })).toBe(`${km.toFixed(1)} ק״מ`);
+      expect(t('profile.publicGrid.km', { km: km.toFixed(1) })).toBe(`${km.toFixed(1)} ק״מ`);
+    }
+    expect(t('profile.grid.caption', { label: 'ריצה', when: 'אתמול' })).toBe(`${'ריצה'} · ${'אתמול'}`);
+    for (const city of ['חיפה', '']) {
+      expect(t('profile.neighborhood.inCity', { city })).toBe(`ב${city}`);
+      expect(t('profile.neighborhood.empty.city', { city })).toBe(`עדיין אין שכונות מוגדרות ל${city}`);
+    }
+    // The old `ל{cityName ?? 'העיר שלך'}` with no city (copy kept verbatim).
+    expect(t('profile.neighborhood.empty.noCity')).toBe(`עדיין אין שכונות מוגדרות ל${'העיר שלך'}`);
+  });
+
+  it('history card type label — the old ActivityHistoryCard switch', () => {
+    const old = (type: string | undefined): string => {
+      switch (type) {
+        case 'walking':
+          return 'הליכה';
+        case 'cycling':
+          return 'רכיבה';
+        case 'hybrid':
+          return 'אימון משולב';
+        default:
+          return 'פעילות';
+      }
+    };
+    for (const type of ['walking', 'cycling', 'hybrid', 'running', 'strength', 'recovery', 'other', '', undefined]) {
+      expect(t('profile.history.card.activityType', { type: type ?? '' })).toBe(old(type));
+    }
+  });
+
+  it('workout grid tile label — the old WorkoutGrid getActivityMeta switch', () => {
+    const old = (type: string): string => {
+      switch (type) {
+        case 'strength':
+          return 'אימון כוח';
+        case 'walking':
+          return 'הליכה';
+        case 'cycling':
+          return 'רכיבה';
+        case 'recovery':
+          return 'אימון התאוששות';
+        case 'hybrid':
+          return 'אימון משולב';
+        case 'running':
+        default:
+          return 'ריצה';
+      }
+    };
+    for (const type of ['strength', 'walking', 'cycling', 'recovery', 'hybrid', 'running', 'workout', 'other', '']) {
+      expect(t('profile.grid.type', { type })).toBe(old(type));
+    }
+  });
+
+  it('public grid tile label — the old PublicActivityGrid getActivityMeta switch', () => {
+    const old = (category: string | undefined): string => {
+      switch (category) {
+        case 'strength':
+          return 'אימון כוח';
+        case 'maintenance':
+          return 'תחזוקה';
+        case 'cardio':
+        default:
+          return 'קרדיו';
+      }
+    };
+    for (const category of ['strength', 'maintenance', 'cardio', 'other', '', undefined]) {
+      expect(t('profile.publicGrid.type', { category: category ?? '' })).toBe(old(category));
+    }
+  });
+
+  it('no profile.* / widgets.* key is left untested', () => {
+    // Counted per prefix: other batches add keys to profile.json.
+    expect(Object.keys(he).filter((k) => k.startsWith('profile.')).length).toBe(42);
+    expect(Object.keys(he).filter((k) => k.startsWith('widgets.')).length).toBe(11);
+  });
+});
