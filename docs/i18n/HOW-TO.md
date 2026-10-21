@@ -52,7 +52,8 @@ file — resolve that conflict by keeping both sides).
 | `workout-engine/summary` | `summary.json` | new |
 | `src/features/schedule` | `schedule.json` | new |
 | `src/features/notifications` (push library, client side) | `push.json` | new (wave 2A, server mirror) |
-| `src/features/{social,arena,challenge,messages}` | `social.json` | new |
+| `src/features/arena`, `app/{community,arena,league}` (community / arena / group screens) | `community.json` | exists (#583 `group.*`; arena components: `banner.*`, `groupCard.*`, `report.*`, …) |
+| `src/features/{social,challenge,messages}` | `social.json` | new |
 | `src/lib/ai`, `src/features/ai-coach`, `app/ai-coach` | `coach.json` | new |
 | `src/features/{legal,help}`, `app/{privacy,accessibility,delete-data}`, `src/lib/app-help` | `legal.json` | new |
 | `src/app/api/**` (not admin) — error codes | `errors.json` | new (wave 2A) |

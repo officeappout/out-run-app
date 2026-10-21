@@ -9,6 +9,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface NavigationSheetProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ interface NavigationSheetProps {
 }
 
 export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: NavigationSheetProps) {
+  const t = useT(community);
   const router = useRouter();
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
@@ -52,7 +55,7 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
       : []),
     {
       id: 'appmap',
-      label: 'מפה בתוך האפליקציה',
+      label: t('nav.inAppMap'),
       icon: '📍',
       color: 'bg-cyan-50 text-cyan-700',
       action: () => {
@@ -93,14 +96,14 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
         safeArea={false}
         scroll="none"
         transition={{ type: 'spring', stiffness: 340, damping: 36, mass: 0.7 }}
-        ariaLabel="ניווט למיקום"
+        ariaLabel={t('nav.title')}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-2">
             <div className="min-w-0">
-              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">ניווט למיקום</h2>
+              <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('nav.title')}</h2>
               {label && <p className="truncate text-[12.5px] font-bold text-v2-muted">{label}</p>}
             </div>
-            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('nav.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -136,7 +139,7 @@ export default function NavigationSheet({ isOpen, onClose, lat, lng, label }: Na
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-base font-black text-gray-900 dark:text-white">ניווט למיקום</h3>
+                  <h3 className="text-base font-black text-gray-900 dark:text-white">{t('nav.title')}</h3>
                   {label && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[240px]">
                       {label}

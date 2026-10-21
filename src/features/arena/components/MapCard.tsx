@@ -2,6 +2,8 @@
 
 import React, { useCallback } from 'react';
 import { MapPin, Navigation } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface MapCardProps {
   lat: number;
@@ -11,6 +13,7 @@ interface MapCardProps {
 }
 
 export default function MapCard({ lat, lng, label, className = '' }: MapCardProps) {
+  const t = useT(community);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
   const staticMapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+F97316(${lng},${lat})/${lng},${lat},15,0/400x180@2x?access_token=${token}&language=he`;
 
@@ -31,7 +34,7 @@ export default function MapCard({ lat, lng, label, className = '' }: MapCardProp
       {token ? (
         <img
           src={staticMapUrl}
-          alt={label || 'מפה'}
+          alt={label || t('mapCard.alt')}
           className="w-full h-[120px] object-cover"
           loading="lazy"
         />

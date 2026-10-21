@@ -100,3 +100,25 @@ src/features/profile/components/ProgressLinkRow.tsx
 src/features/profile/components/NeighborhoodPickerSheet.tsx
 src/features/profile/components/widgets/ProgramsSection.tsx
 src/features/profile/components/widgets/program-groups.utils.ts
+# wave 2 (namespace community, arena components: attendees / groupCard / eventCard / session / nav / report /
+# postJoin / banner / creator / circles / inviteBonus / cityChallenge / pressure / outreach / goalEditor / mapCard).
+# Listed per file: the rest of src/features/arena/components (create-group wizard, GroupDetailsDrawer,
+# LeagueBoardSheets, CommunityAddressSearch = other open work; the league boards + their helpers = next batch)
+# still carries Hebrew. Left in these files, marked: weekday / month names (wave 3), the fallback member
+# name written to Firestore, the dev-only phase panel. WorkoutGoalEditor's admin variant stays Hebrew (admin).
+src/features/arena/components/AttendeesPreview.tsx
+src/features/arena/components/CityChallengeCard.tsx
+src/features/arena/components/CommunityCircles.tsx
+src/features/arena/components/CommunitySessionBanner.tsx
+src/features/arena/components/CreatorManagementDrawer.tsx
+src/features/arena/components/EventCard.tsx
+src/features/arena/components/GroupCard.tsx
+src/features/arena/components/InviteBonusCard.tsx
+src/features/arena/components/MapCard.tsx
+src/features/arena/components/MunicipalPressureCard.tsx
+src/features/arena/components/NavigationSheet.tsx
+src/features/arena/components/PostJoinSuccessDrawer.tsx
+src/features/arena/components/ReportContentSheet.tsx
+src/features/arena/components/SchoolOutreachCard.tsx
+src/features/arena/components/SessionDrawer.tsx
+src/features/arena/components/WorkoutGoalEditor.tsx

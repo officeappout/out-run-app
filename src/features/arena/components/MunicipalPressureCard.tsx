@@ -6,13 +6,15 @@ import { useUserStore } from '@/features/user';
 import { logMunicipalPressure } from '@/features/arena/services/pressure.service';
 import { pickTemplate } from '@/features/arena/services/message-templates.service';
 import type { Authority } from '@/types/admin-types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 const APP_URL = 'https://appout.co.il/';
 
-const DEFAULT_MALE =
-  'היי ${contactPerson}, אני אווטיר ב-Out ומתאמן בנבחרת של ${cityName}. אנחנו רוצים שתפתחו לנו את הליגה הרשמית והפרסים! 🔥';
-const DEFAULT_FEMALE =
-  'היי ${contactPerson}, אני אווטירית ב-Out ומתאמנת בנבחרת של ${cityName}. אנחנו רוצים שתפתחו לנו את הליגה הרשמית והפרסים! 🔥';
+// The default message (when no remote template exists) is community.json `pressure.message`.
+// It is rendered with the template's own `${var}` placeholders as values, so it goes through
+// substituteVars exactly like a remote template does.
+const TEMPLATE_VARS = { contactPerson: '${contactPerson}', cityName: '${cityName}' };
 
 function substituteVars(
   template: string,
@@ -38,11 +40,14 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
   const [sent, setSent] = useState(false);
   const [messageText, setMessageText] = useState('');
 
+  const t = useT(community);
   const gender = profile?.core?.gender ?? 'male';
+  const copyGender = gender === 'female' ? 'female' : 'other';
+  const defaultTemplate = t('pressure.message', { ...TEMPLATE_VARS, gender: copyGender });
 
   // Prefer the authority's real name over the prop (which may be a fallback)
   const resolvedCityName = authority?.name || cityName;
-  const resolvedContact = authority?.contactPersonName || 'מחלקת הספורט';
+  const resolvedContact = authority?.contactPersonName || t('pressure.defaultContact');
   const contactType = authority?.contactType ?? 'whatsapp';
   const contactValue = authority?.contactValue;
 
@@ -62,7 +67,7 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
     (async () => {
       let raw = await pickTemplate('city_pressure', gender);
       if (!raw) {
-        raw = gender === 'female' ? DEFAULT_FEMALE : DEFAULT_MALE;
+        raw = defaultTemplate;
       }
       if (cancelled) return;
 
@@ -70,11 +75,10 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
       setMessageText(finalText + '\n' + APP_URL);
     })();
     return () => { cancelled = true; };
-  }, [gender, authority?.id, resolvedCityName, resolvedContact]);
+  }, [gender, authority?.id, resolvedCityName, resolvedContact, defaultTemplate]);
 
   function buildFallbackMessage(): string {
-    const raw = gender === 'female' ? DEFAULT_FEMALE : DEFAULT_MALE;
-    return substituteVars(raw, vars) + '\n' + APP_URL;
+    return substituteVars(defaultTemplate, vars) + '\n' + APP_URL;
   }
 
   async function handlePressure() {
@@ -91,7 +95,7 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
     } else if (contactType === 'email' && contactValue) {
       platform = 'email';
       window.open(
-        `mailto:${contactValue}?subject=${encodeURIComponent(`פתחו את הליגה ב-${resolvedCityName}!`)}&body=${encodeURIComponent(text)}`,
+        `mailto:${contactValue}?subject=${encodeURIComponent(t('pressure.mailSubject', { city: resolvedCityName }))}&body=${encodeURIComponent(text)}`,
       );
     } else if (contactType === 'link' && contactValue) {
       platform = 'link';
@@ -118,11 +122,10 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-black text-gray-900">
-            עיריית {resolvedCityName} עדיין לא פתחה את הליגה הרשמית
+            {t('pressure.title', { city: resolvedCityName })}
           </h3>
           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-            {gender === 'female' ? 'בואי נזיז אותם!' : 'בוא נזיז אותם!'}{' '}
-            {gender === 'female' ? 'שלחי' : 'שלח'} הודעה ל{resolvedContact} כדי שיפתחו את הליגה, הדירוגים והפרסים.
+            {t('pressure.body', { contact: resolvedContact, gender: copyGender })}
           </p>
         </div>
       </div>
@@ -138,10 +141,10 @@ export default function MunicipalPressureCard({ cityName, authority }: Municipal
       >
         {sent ? (
           <span className="flex items-center justify-center gap-2">
-            <Check className="w-4 h-4" /> נשלח! תודה שלחצת
+            <Check className="w-4 h-4" /> {t('pressure.sent')}
           </span>
         ) : (
-          `📢 ${gender === 'female' ? 'שלחי' : 'שלח'} הודעה לעירייה`
+          t('pressure.cta', { gender: copyGender })
         )}
       </button>
     </div>
