@@ -5,21 +5,34 @@ import {
   LEGAL_VERSION,
   toParagraphs,
 } from '@/features/legal/legal-content';
+import type { Metadata } from 'next';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { legal } from '@/messages/ns/legal';
 
-export const metadata = {
-  title: 'מדיניות פרטיות | OUT',
-  description:
-    'מדיניות הפרטיות של OUT — כיצד אנו אוספים, משתמשים ומגנים על המידע שלך, כולל נתוני Apple HealthKit ו-Google Health Connect.',
-};
+/**
+ * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
+ * (src/lib/i18n/locale-cookie.ts) — until then the page chrome renders from the Hebrew source catalog.
+ * The policy text itself is PRIVACY_POLICY_HE (src/features/legal/legal-content.ts) — not this page's copy.
+ */
+const pageT = () => makeT(SOURCE_LOCALE, legal);
+
+export function generateMetadata(): Metadata {
+  const t = pageT();
+  return {
+    title: t('privacy.meta.title'),
+    description: t('privacy.meta.description'),
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Section numbers that receive special enhanced styling */
-const HEALTH_SECTION_TITLE = '2. נתוני בריאות — Apple HealthKit ו-Google Health Connect';
-const CONTACT_SECTION_TITLE = '14. יצירת קשר';
+const HEALTH_SECTION_TITLE = '2. נתוני בריאות — Apple HealthKit ו-Google Health Connect'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE section titles
+const CONTACT_SECTION_TITLE = '14. יצירת קשר'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE section titles
 
 /** The four zero-sharing commitments (subsection 2.3) that get badge treatment */
-const ZERO_SHARING_SUBSECTION = '2.3 התחייבויות מוחלטות';
+const ZERO_SHARING_SUBSECTION = '2.3 התחייבויות מוחלטות'; // i18n-allow-hebrew: data — compared with PRIVACY_POLICY_HE subsection titles
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -45,11 +58,12 @@ function Paragraphs({
 
 /** Highlighted card used for zero-sharing commitments (subsection 2.3) */
 function CommitmentsCard({ body }: { body: string | string[] }) {
+  const t = pageT();
   const items = toParagraphs(body);
   return (
     <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-2.5">
       <p className="text-xs font-bold uppercase tracking-widest text-emerald-700 mb-3">
-        התחייבויות מוחלטות
+        {t('privacy.commitments.badge')}
       </p>
       {items.map((item, i) => (
         <div key={i} className="flex items-start gap-2.5">
@@ -112,6 +126,7 @@ function HealthSubsection({
 
 export default function PrivacyPage() {
   const doc = PRIVACY_POLICY_HE;
+  const t = pageT();
 
   return (
     <div
@@ -142,7 +157,7 @@ export default function PrivacyPage() {
               {doc.title}
             </h1>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              גרסה {LEGAL_VERSION} · עודכן: {LEGAL_LAST_UPDATED_HE}
+              {t('privacy.version', { version: LEGAL_VERSION, date: LEGAL_LAST_UPDATED_HE })}
             </p>
           </div>
         </div>
@@ -217,7 +232,7 @@ export default function PrivacyPage() {
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                       <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
-                    עומד בדרישות Google Play Health Connect ו-Apple HealthKit
+                    {t('privacy.health.badge')}
                   </div>
                 )}
 
@@ -284,10 +299,10 @@ export default function PrivacyPage() {
         {/* ── Footer ── */}
         <footer className="mt-10 text-center space-y-2">
           <p className="text-xs text-slate-600">
-            מדיניות זו נכנסה לתוקף ב-1 בינואר 2026 · עודכנה: {LEGAL_LAST_UPDATED_HE}
+            {t('privacy.footer.effective', { date: LEGAL_LAST_UPDATED_HE })}
           </p>
           <p className="text-xs text-slate-600">
-            © 2026 קליסטניקס בע"מ, ח.פ 516841806. כל הזכויות שמורות.
+            {t('footer.copyright')}
           </p>
           <a
             href="mailto:office@appout.co.il"

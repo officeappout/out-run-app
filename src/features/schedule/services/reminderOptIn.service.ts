@@ -23,6 +23,13 @@ import { setChannelEnabled, setPushEnabled } from '@/features/notifications/serv
 import { addReminderSlots } from '@/features/notifications/services/reminder-schedule.service';
 import type { ReminderSlot } from '@/features/user/core/types/user.types';
 import type { PushPermissionState } from '../utils/reminderOptIn';
+import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
+import {
+  PUSH_SOFTASK_DEFERRED_KEY,
+  parsePrefTimestamp,
+  pushReAskShownKey,
+  type PushReAskMoment,
+} from '../utils/pushReAsk';
 
 /** Current OS permission, without prompting. */
 export async function getPushPermissionState(): Promise<PushPermissionState> {
@@ -70,4 +77,45 @@ export async function saveReminderOptIn(uid: string, slots: ReminderSlot[]): Pro
   } catch (err) {
     console.warn('[reminder-opt-in] save failed (non-fatal):', err);
   }
+}
+
+/**
+ * "לא עכשיו" without the flag (LifestyleWizard's "דלג בשלב זה"): mute ONLY
+ * training reminders. The master switch and every other channel stay as they
+ * are, so re-engagement / achievement pushes still reach the user.
+ */
+export async function saveReminderSkip(uid: string): Promise<void> {
+  if (!uid) return;
+  try {
+    await setChannelEnabled(uid, 'training_reminder', false);
+  } catch (err) {
+    console.warn('[reminder-opt-in] skip save failed (non-fatal):', err);
+  }
+}
+
+// ── v2 soft-ask deferral / re-ask (device prefs; see utils/pushReAsk) ──────
+
+/** v2 "לא עכשיו": no OS prompt, no Firestore write — remember the deferral on this device. */
+export function recordReminderDeferral(now: number = Date.now()): void {
+  setOnboardingPref(PUSH_SOFTASK_DEFERRED_KEY, String(now));
+}
+
+export async function readReAskShownAt(moment: PushReAskMoment): Promise<number | null> {
+  return parsePrefTimestamp(await getOnboardingPrefAsync(pushReAskShownKey(moment)));
+}
+
+export function markReAskShown(moment: PushReAskMoment, now: number = Date.now()): void {
+  setOnboardingPref(pushReAskShownKey(moment), String(now));
+}
+
+/**
+ * Re-ask "כן, תזכירו לי" (settings / after a workout): the OS prompt FIRST
+ * (web user-gesture rule), then push + training reminders on — only when the
+ * OS actually allowed it. No lead-time slots here (no plan in context).
+ */
+export async function enableRemindersFromReAsk(uid: string): Promise<boolean> {
+  if (!uid) return false;
+  const granted = await requestReminderPermission(uid);
+  if (granted) await saveReminderOptIn(uid, []);
+  return granted;
 }

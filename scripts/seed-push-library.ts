@@ -31,6 +31,10 @@
  *                  that address one gender. Text NOT rewritten.
  *        archive → active:false, archived:true, archivedReason.
  *   5. Writes a CSV report of every classification to scripts/output/.
+ *   6. PATCHES conditions onto rows seeded before their default gained one
+ *      (21.10.2026: retention "the park" rows → track strength; drop-off
+ *      "נשאר רק עוד צעד" rows → stage near_end) — only rows still carrying
+ *      the default's exact text and no conditions (seedConditionPatches).
  *
  * The classification itself is pure and unit-tested:
  * src/features/notifications/push-library/push-library.seed-classify.ts.
@@ -52,6 +56,7 @@ import {
 import {
   classifyDormant,
   classifyLegacyInUse,
+  seedConditionPatches,
   seedInsertRows,
   type Classification,
 } from '../src/features/notifications/push-library/push-library.seed-classify';
@@ -105,6 +110,9 @@ async function main(): Promise<void> {
   const inserts = seedInsertRows().filter((r) => !byId.has(r.id));
   const insertSkipped = seedInsertRows().filter((r) => byId.has(r.id)).map((r) => r.id);
 
+  // 6. Condition patches on already-seeded default rows (admin-edited rows untouched)
+  const conditionPatches = seedConditionPatches(snap.docs.map((d) => ({ id: d.id, data: d.data() })));
+
   // 3 + 4. Classify the rows that predate the library
   const unclassified = snap.docs.filter((d) => {
     const data = d.data();
@@ -157,6 +165,8 @@ async function main(): Promise<void> {
   for (const [k, v] of Array.from(reasonCounts)) console.log(`      archive · ${k}: ${v}`);
   for (const [k, v] of Array.from(rewriteCounts)) console.log(`      keep · ${k}: ${v}`);
   if (otherUnclassified) console.log(`  other docs without pushType (untouched): ${otherUnclassified}`);
+  console.log(`  condition patches on seeded rows: ${conditionPatches.length}`);
+  for (const p of conditionPatches) console.log(`      ${p.id} → ${JSON.stringify(p.conditions)}`);
   console.log(`  report: ${path.relative(ROOT, reportPath)}`);
 
   if (!WRITE) {
@@ -215,6 +225,9 @@ async function main(): Promise<void> {
     } else {
       await applyUpdate(r.id, { active: false, archived: true, archivedReason: r.reasons.join('; '), archivedAt: now, archivedBy: ACTOR });
     }
+  }
+  for (const p of conditionPatches) {
+    await applyUpdate(p.id, { conditions: p.conditions });
   }
   console.log(`\nAPPLIED — created ${created}, updated ${updated}, skipped ${skipped}.\n`);
 }

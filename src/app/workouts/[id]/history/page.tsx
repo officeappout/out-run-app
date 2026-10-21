@@ -68,12 +68,17 @@ import DeleteWorkoutConfirmModal from '@/components/ui/DeleteWorkoutConfirmModal
 import { deleteWorkoutWithReversal } from '@/lib/workoutDeletion';
 import { WORKOUT_DELETE_EXPANDED_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 import { workoutActivityLabel, workoutDateLabel } from '@/features/workout-engine/core/utils/workoutLabels';
+import { useT } from '@/hooks/useT';
+import { common } from '@/messages/ns/common';
+import { library } from '@/messages/ns/library';
 
 type LoadStatus = 'loading' | 'ready' | 'not-found';
 
 export default function WorkoutHistoryPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useT(library);
+  const tCommon = useT(common);
   const workoutId = params.id as string;
   const [workout, setWorkout] = useState<WorkoutHistoryEntry | null>(null);
   const [status, setStatus] = useState<LoadStatus>('loading');
@@ -127,7 +132,7 @@ export default function WorkoutHistoryPage() {
   if (status === 'loading') {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-gray-400 text-sm">טוען...</p>
+        <p className="text-gray-400 text-sm">{tCommon('status.loading')}</p>
       </div>
     );
   }
@@ -135,9 +140,9 @@ export default function WorkoutHistoryPage() {
   if (status === 'not-found' || !workout) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]" dir="rtl">
-        <p className="text-gray-500 text-sm">האימון לא נמצא</p>
+        <p className="text-gray-500 text-sm">{t('workoutHistory.notFound')}</p>
         <button onClick={handleClose} className="text-[#00ADEF] text-sm font-bold">
-          חזרה
+          {tCommon('actions.back')}
         </button>
       </div>
     );

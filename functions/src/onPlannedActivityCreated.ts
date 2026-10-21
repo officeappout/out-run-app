@@ -50,6 +50,11 @@
  * session's start time (@שעה, Israel time). Original content-library rows
  * (triggerType 'Future_Partner_Plan') are still read, adapted.
  *
+ * MINORS (21.10.2026, hard guard — lib/age-guard.ts, fails closed): the
+ * radius axis reaches confirmed adults only, and a session created by anyone
+ * not confirmed adult never reaches strangers. Followers (partners axis) are
+ * people the user chose, so that axis is unchanged.
+ *
  * FLAG: app_config/feature_flags.socialActivityNearbyPushEnabled, same
  * doc/pattern as stepGoalNudgeScheduler.ts's socialActivityNearbyPushEnabled-
  * style master flag. Default false/absent — this function is a no-op until
@@ -71,6 +76,7 @@ import {
 } from './services/push-copy.service';
 import { israelHHMM, type PushCopyContext, type PushGender } from './shared/push-library.core';
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
+import { isConfirmedAdult } from './lib/age-guard';
 import { loadDemoViewerUids } from './lib/demo-world';
 
 if (!admin.apps.length) {
@@ -265,8 +271,19 @@ export const onPlannedActivityCreated = onDocumentCreated(
 
     // ── Radius axis — public sessions only. ───────────────────────────────
     let nearbyUids: string[] = [];
+    // Minors guard: a session by anyone not confirmed adult never reaches strangers.
+    let creatorIsAdult = false;
+    if (!creatorIsDemo && privacyMode === 'verified_global') {
+      try {
+        const creatorSnap = await db.collection('users').doc(creatorUid).get();
+        creatorIsAdult = isConfirmedAdult(creatorSnap.exists ? (creatorSnap.data() as Record<string, unknown>) : undefined);
+      } catch (err) {
+        logger.warn('[onPlannedActivityCreated] creator read failed — no radius axis (fail closed)', err);
+      }
+    }
     if (
       !creatorIsDemo &&
+      creatorIsAdult &&
       privacyMode === 'verified_global' &&
       typeof session.lat === 'number' &&
       typeof session.lng === 'number'
@@ -306,12 +323,19 @@ export const onPlannedActivityCreated = onDocumentCreated(
     let sent = 0;
     let noContent = 0;
     let failed = 0;
+    let blockedNotAdult = 0;
+    const partnerSet = new Set(partnerUids);
 
     for (const uid of Array.from(recipients)) {
       try {
         const userSnap = await db.collection('users').doc(uid).get();
         if (!userSnap.exists) continue;
         const userData = userSnap.data() as Record<string, unknown>;
+        // Minors guard: a stranger reached only by distance must be a confirmed adult.
+        if (!partnerSet.has(uid) && !isConfirmedAdult(userData)) {
+          blockedNotAdult++;
+          continue;
+        }
 
         const persona = resolveCanonicalPersona(userData as PersonaResolvableProfile);
         const copy = await resolvePushCopy('partner_plan', partnerPlanCopyContext(uid, userData, session, creatorGender));
@@ -352,7 +376,7 @@ export const onPlannedActivityCreated = onDocumentCreated(
 
     logger.info(
       `[onPlannedActivityCreated] session=${sessionId} creator=${creatorUid} done — ` +
-        `recipients=${recipients.size} sent=${sent} noContent=${noContent} failed=${failed}`,
+        `recipients=${recipients.size} sent=${sent} noContent=${noContent} failed=${failed} blockedNotAdult=${blockedNotAdult}`,
     );
   },
 );

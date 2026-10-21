@@ -16,6 +16,7 @@ import {
   isStandalonePWA,
 } from '@/lib/native/push';
 import { saveNotificationPrefs } from '@/features/notifications/services/notification-prefs.service';
+import { saveReminderSkip } from '@/features/schedule/services/reminderOptIn.service';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import PersonaStep from './steps/PersonaStep';
 import ScheduleStep from './steps/ScheduleStep';
@@ -244,8 +245,7 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   //          await to satisfy browser user-activation requirements), then
   //          `requestWebPush` obtains the FCM web token via firebase/messaging.
   //
-  // The `system` channel is force-true regardless of the user's choice;
-  // it carries operational/security messages the Cloud Function always delivers.
+  // Accept → all on (system always). Skip → ONLY training_reminder off (saveReminderSkip).
   const handleNotificationsNext = async (enabled: boolean) => {
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -281,15 +281,15 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
         }
       }
 
-      await saveNotificationPrefs(uid, {
-        pushEnabled: enabled,
-        channels: {
-          encouragement:    enabled,
-          health_milestone: enabled,
-          training_reminder: enabled,
-          system: true, // always on — operational/security messages
-        },
-      });
+      if (enabled) {
+        await saveNotificationPrefs(uid, {
+          pushEnabled: true,
+          channels: { encouragement: true, health_milestone: true, training_reminder: true, system: true },
+        });
+      } else {
+        // "דלג": mute training reminders ONLY — never the master switch or other channels.
+        await saveReminderSkip(uid);
+      }
     } catch (err) {
       // Never block onboarding completion on a push failure —
       // the user can re-enable from Settings at any time.

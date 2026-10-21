@@ -12,10 +12,13 @@ import {
 } from '@/features/arena/services/group-invitation.service';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import { onAuthStateChange } from '@/lib/auth.service';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export default function SessionTokenPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useT(player);
   const token = typeof params.token === 'string' ? params.token : '';
 
   const [invitation, setInvitation] = useState<GroupInvitationDoc | null>(null);
@@ -55,7 +58,7 @@ export default function SessionTokenPage() {
 
       try {
         const { groupId, attendanceId, source, activityType } = await consumeSessionInvitation(token, user.uid, {
-          name: user.displayName ?? 'משתמש',
+          name: user.displayName ?? 'משתמש', // i18n-allow-hebrew: data — fallback attendee name written to Firestore
           ...(user.photoURL ? { photoURL: user.photoURL } : {}),
         });
 
@@ -111,20 +114,20 @@ export default function SessionTokenPage() {
   if (error || !invitation) {
     const msg =
       error === 'expired' || error === 'max_uses_reached'
-        ? 'הקישור פג תוקף'
-        : 'הקישור אינו תקף';
+        ? t('sessionInvite.error.expired')
+        : t('sessionInvite.error.invalid');
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4 px-6" dir="rtl">
         <AlertCircle className="w-12 h-12 text-red-400" />
         <h1 className="text-white text-xl font-bold text-center">{msg}</h1>
         <p className="text-white/60 text-sm text-center">
-          בקש מהמארח לשלוח קישור חדש
+          {t('sessionInvite.error.askHost')}
         </p>
         <button
           onClick={() => router.push('/map')}
           className="mt-4 bg-white text-black font-semibold rounded-2xl px-8 py-3 text-sm"
         >
-          פתח את Out
+          {t('sessionInvite.error.openApp')}
         </button>
       </div>
     );
@@ -136,9 +139,9 @@ export default function SessionTokenPage() {
     ? (invitation.activityType === 'walking' ? '🚶' : '🏃')
     : '👥';
   const subtitle = isRunInvite
-    ? (invitation.activityType === 'walking' ? 'הוזמנת ללכת ביחד' : 'הוזמנת לרוץ ביחד')
-    : 'הוזמנת להצטרף לאימון';
-  const ctaLabel = isRunInvite ? 'בואו לרוץ ביחד' : 'מצטרפים לאימון'; // recipient's gender unknown → neutral (21.10.2026)
+    ? (invitation.activityType === 'walking' ? t('sessionInvite.subtitle.walk') : t('sessionInvite.subtitle.run'))
+    : t('sessionInvite.subtitle.session');
+  const ctaLabel = isRunInvite ? t('sessionInvite.cta.run') : t('sessionInvite.cta.session');
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col" dir="rtl">

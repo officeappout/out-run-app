@@ -20,6 +20,7 @@ import ReminderOptInStep, { type ReminderOptInResult } from '@/features/schedule
 import { isReminderAlreadyActive, reminderSlotsFor, type PushPermissionState } from '@/features/schedule/utils/reminderOptIn';
 import {
   getPushPermissionState,
+  recordReminderDeferral,
   requestReminderPermission,
   saveReminderOptIn,
 } from '@/features/schedule/services/reminderOptIn.service';
@@ -59,8 +60,8 @@ export default function WizardRemindersStepV2({ plan, initialCalendarSync, onFin
     }
     const uid = auth.currentUser?.uid;
     if (uid) {
-      await requestReminderPermission(uid);
-      await saveReminderOptIn(uid, reminderSlotsFor(plan.sessions, leadMinutes));
+      // Saved only when the OS allows it (an earlier answer never re-prompts).
+      if (await requestReminderPermission(uid)) await saveReminderOptIn(uid, reminderSlotsFor(plan.sessions, leadMinutes));
     }
     await onFinish(calendarSync);
   };
@@ -74,6 +75,8 @@ export default function WizardRemindersStepV2({ plan, initialCalendarSync, onFin
       initialCalendarSync={initialCalendarSync}
       onAccept={accept}
       onSkip={async ({ calendarSync }) => {
+        // "לא עכשיו": no OS prompt and no Firestore write — remember it on the device.
+        recordReminderDeferral();
         await onFinish(calendarSync);
       }}
     />

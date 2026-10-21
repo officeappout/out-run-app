@@ -106,6 +106,7 @@ import {
   daysAwayBetween,
   isQueryableTimestamp,
   lastActivityFromUserData,
+  latestWorkoutMs,
   nextRetentionMilestone,
   recordRetentionMilestone,
   resolveLastActivityMs,
@@ -114,6 +115,14 @@ import {
   type RetentionMilestone,
 } from './lib/user-activity';
 import { isDemoUid } from './lib/demo';
+import {
+  pushTrackFromUserData,
+  recordRetentionLegacySend,
+  retentionLegacyCapReached,
+  retentionLegacyLogFrom,
+  trackConditions,
+  type PushTrack,
+} from './lib/push-lifecycle';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -163,13 +172,16 @@ export function retentionCopyContext(
   c: RetentionCandidate,
   now: Date = new Date(),
   milestone: RetentionMilestone | null = null,
+  /** The user's track (21.10.2026): "the park" copy is strength-only; runners/walkers get their own rows. */
+  track: PushTrack | null = null,
 ): PushCopyContext {
+  const conditions = trackConditions(track, { milestone });
   return {
     uid: c.uid,
     now,
     audience: c.audience ?? {},
     vars: { '@שם': c.name.trim() },
-    ...(milestone ? { conditions: { milestone } } : {}),
+    ...(Object.keys(conditions).length > 0 ? { conditions } : {}),
   };
 }
 
@@ -372,9 +384,15 @@ export const retentionScheduler = onSchedule(
   async () => {
     // Flags — a read failure keeps the defaults (guard ON, cadence OFF).
     let flags = activityFlagsFrom(undefined);
+    // firstWorkoutPushEnabled (DEFAULT OFF, 21.10.2026): never-trained users get
+    // the first-workout copy instead of "מוכן לחזור?", and the legacy 48h
+    // cadence stops after RETENTION_LEGACY_MAX_SENDS per absence (lib/push-lifecycle.ts).
+    let lifecycle = false;
     try {
       const snap = await db.doc('app_config/feature_flags').get();
-      flags = activityFlagsFrom(snap.data() as Record<string, unknown> | undefined);
+      const raw = snap.data() as Record<string, unknown> | undefined;
+      flags = activityFlagsFrom(raw);
+      lifecycle = raw?.firstWorkoutPushEnabled === true;
     } catch (err: unknown) {
       logger.warn('[retention] feature_flags read failed, using defaults (guard on, cadence off)', err);
     }
@@ -382,7 +400,7 @@ export const retentionScheduler = onSchedule(
 
     logger.info(
       `[retention] Starting run — thresholdDays=${thresholdDays} guard=${flags.realActivityGuard} ` +
-        `cadence=${flags.milestoneCadence} batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
+        `cadence=${flags.milestoneCadence} lifecycle=${lifecycle} batchLimit=${BATCH_LIMIT} testMode=${TEST_MODE}`,
     );
 
     // Shabbat/yom tov: observers only — filtered per user below.
@@ -421,6 +439,7 @@ export const retentionScheduler = onSchedule(
     let lookupFailed = 0;
     let noMilestone = 0;
     let noSignal = 0;
+    let legacyCapped = 0;
 
     const sendOne = async ({ c: docCandidate, data }: { c: RetentionCandidate; data: Record<string, unknown> }): Promise<void> => {
       try {
@@ -455,15 +474,47 @@ export const retentionScheduler = onSchedule(
           }
         }
 
+        // 2b. Lifecycle flag: cap the legacy cadence; never-trained → first-workout copy.
+        let neverTrained = false;
+        if (lifecycle) {
+          if (!flags.milestoneCadence) {
+            if (!rateData) {
+              const rateSnap = await db.collection('push_rate').doc(c.uid).get();
+              rateData = rateSnap.exists ? (rateSnap.data() as Record<string, unknown>) : undefined;
+            }
+            if (retentionLegacyCapReached(retentionLegacyLogFrom(rateData), anchor)) {
+              legacyCapped++;
+              return;
+            }
+          }
+          const runLogged = !!(data?.running as { lastWorkoutDate?: unknown } | undefined)?.lastWorkoutDate;
+          if (!runLogged) {
+            try {
+              neverTrained = (await latestWorkoutMs(db, c.uid)) === null;
+            } catch {
+              neverTrained = false; // unknown → the regular copy
+            }
+          }
+        }
+
         if (TEST_MODE) {
           logger.warn(
             `[retention] TEST_MODE — would push uid=${c.uid} name="${c.name}" ` +
-              `daysAway=${c.daysSince} milestone=${milestone ?? '-'}`,
+              `daysAway=${c.daysSince} milestone=${milestone ?? '-'} neverTrained=${neverTrained}`,
           );
           return;
         }
 
-        const copy = await resolvePushCopy('retention_lapse', retentionCopyContext(c, new Date(nowMs), milestone));
+        const track = pushTrackFromUserData(data);
+        const copy = neverTrained
+          ? await resolvePushCopy('first_workout', {
+              uid: c.uid,
+              now: new Date(nowMs),
+              audience: c.audience ?? {},
+              vars: { '@שם': c.name.trim() },
+              conditions: trackConditions(track, { when: 'later' }),
+            })
+          : await resolvePushCopy('retention_lapse', retentionCopyContext(c, new Date(nowMs), milestone, track));
         if (!copy) return;
         const result = await sendPush({
           toUids: [c.uid],
@@ -475,6 +526,7 @@ export const retentionScheduler = onSchedule(
             triggerType: 'Inactivity',
             daysSince: String(c.daysSince),
             ...(milestone ? { milestone } : {}),
+            ...(neverTrained ? { neverTrained: 'true' } : {}),
             ...pushCopyData(copy),
           },
           // The cadence's sent log already stops repeats; the cap only spaces
@@ -495,6 +547,13 @@ export const retentionScheduler = onSchedule(
             { merge: true },
           );
         }
+        if (lifecycle && !flags.milestoneCadence && result.delivered > 0) {
+          const next = recordRetentionLegacySend(retentionLegacyLogFrom(rateData), anchor);
+          await db.collection('push_rate').doc(c.uid).set(
+            { retention_legacyAnchor: next.anchor, retention_legacyCount: next.count },
+            { merge: true },
+          );
+        }
       } catch (err: unknown) {
         logger.error(`[retention] sendPush failed for uid=${docCandidate.uid}`, err);
       }
@@ -506,7 +565,8 @@ export const retentionScheduler = onSchedule(
 
     logger.info(
       `[retention] Run complete — candidates=${candidates.length} activeAfterWorkoutCheck=${activeAfterCheck} ` +
-        `noActivitySignal=${noSignal} lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} delivered=${totalDelivered} skipped=${totalSkipped}`,
+        `noActivitySignal=${noSignal} lookupFailed=${lookupFailed} noMilestoneDue=${noMilestone} legacyCapped=${legacyCapped} ` +
+        `delivered=${totalDelivered} skipped=${totalSkipped}`,
     );
   },
 );

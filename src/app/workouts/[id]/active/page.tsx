@@ -70,6 +70,7 @@ import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/fea
 import { noteGenerationSwap } from '@/features/generation-review/capture/hooks';
 import { currentUiGender, useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 
 // ============================================================================
 // TYPES
@@ -2058,10 +2059,13 @@ export default function ActiveWorkoutPage() {
         </div>
       </div>
     ) : null;
+    // enable_home_v2 push re-ask (gates itself; waits for the survey).
+    const pushReAsk = <PushReAskAfterWorkout blocked={surveySessionNumber != null} />;
     if (STRENGTH_SUMMARY_V2_ENABLED) {
       return (
         <>
         {surveyOverlay}
+        {pushReAsk}
         <StrengthSummary
           duration={workoutStats.duration}
           totalReps={workoutStats.totalReps}
@@ -2088,6 +2092,7 @@ export default function ActiveWorkoutPage() {
     return (
       <>
       {surveyOverlay}
+      {pushReAsk}
       <StrengthSummaryPage
         duration={workoutStats.duration}
         totalReps={workoutStats.totalReps}

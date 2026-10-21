@@ -19,7 +19,7 @@ import {
   Plus, Trash2, Save, Loader2, Building2, Tag, ArrowRight,
   Search, ChevronDown, Dumbbell, ImageIcon, ImagePlus, X as XIcon, Lock, AlertTriangle,
 } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 
 // ── Circle polygon generator for authority safe-zone ──────────────────
 function createCirclePolygon(

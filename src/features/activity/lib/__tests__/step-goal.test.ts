@@ -15,7 +15,7 @@ import {
   stepGoalNeedsRecentDays,
   type StepDay,
 } from '../step-goal';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 const TODAY = '2026-10-18';
 
