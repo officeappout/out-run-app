@@ -3771,7 +3771,7 @@ export default function HomePage() {
                 );
                 // Calm return: the ONE quiet card on the first open after 7+ days away —
                 // above today's workout, never a modal. null whenever the flag is off.
-                const calmCard = calmReturn.surface.kind === 'fresh_week_card' && isViewingToday ? (
+                const calmReturnCard = calmReturn.surface.kind === 'fresh_week_card' && isViewingToday ? (
                   <div className="px-4 mb-3">
                     <CalmReturnCard
                       gender={profile?.core?.gender}
@@ -3790,8 +3790,10 @@ export default function HomePage() {
                 const streakCard = featureFlags.enableHomeV2 && isViewingToday ? (
                   <div className="px-4 mb-3"><StreakNoticeCard /></div>
                 ) : null;
-                const contentWithCalm = calmCard || streakCard || programStandalone
-                  ? <>{calmCard}{streakCard}{programStandalone}{content}</>
+                // The quiet cards above today's workout: calm return, then the streak card.
+                const calmCard = calmReturnCard || streakCard ? <>{calmReturnCard}{streakCard}</> : null;
+                const contentWithCalm = calmCard || programStandalone
+                  ? <>{calmCard}{programStandalone}{content}</>
                   : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (
