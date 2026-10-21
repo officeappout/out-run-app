@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Camera } from 'lucide-react';
 import { CATEGORIES } from './wizard-constants';
 import { FieldLabel } from './FieldLabel';
@@ -22,10 +24,12 @@ export function StepFinalize({
   submitError: string | null;
 }) {
   const v2 = React.useContext(WizardV2);
+  const t = useT(community);
+  const category = CATEGORIES.find((c) => c.value === form.category);
   return (
     <div className="space-y-5 pt-4">
       <div>
-        <FieldLabel>תמונת כותרת (אופציונלי)</FieldLabel>
+        <FieldLabel>{t('createGroup.finalize.imageLabel')}</FieldLabel>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -40,13 +44,13 @@ export function StepFinalize({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={form.imagePreviewUrl}
-              alt="תצוגה מקדימה"
+              alt={t('createGroup.finalize.imageAlt')}
               className="w-full h-full object-cover"
             />
           ) : (
             <div className={`flex flex-col items-center gap-2 ${v2 ? 'text-v2-deep' : 'text-gray-400'}`}>
               <Camera className="w-8 h-8" />
-              <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold' : 'text-xs font-bold'}>לחץ להוספת תמונה</span>
+              <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold' : 'text-xs font-bold'}>{t('createGroup.finalize.imageCta')}</span>
             </div>
           )}
         </button>
@@ -61,22 +65,25 @@ export function StepFinalize({
 
       {/* Summary */}
       <div className={v2 ? 'space-y-2.5 rounded-[20px] bg-white p-4 shadow-v2-ring' : 'bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100'}>
-        <p className={v2 ? 'mb-3 text-[15px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 mb-3'}>סיכום</p>
-        <SummaryRow label="שם" value={form.name || '—'} />
-        <SummaryRow label="קטגוריה" value={CATEGORIES.find((c) => c.value === form.category)?.label ?? '—'} />
+        <p className={v2 ? 'mb-3 text-[15px] font-black text-v2-ink' : 'text-xs font-bold text-gray-500 mb-3'}>{t('createGroup.finalize.summaryTitle')}</p>
+        <SummaryRow label={t('createGroup.finalize.summary.name')} value={form.name || '—'} />
+        <SummaryRow label={t('createGroup.finalize.summary.category')} value={category ? t(category.labelKey) : '—'} />
         <SummaryRow
-          label="מיקום"
-          value={summaryLocationLabel(form.address)}
+          label={t('createGroup.finalize.summary.location')}
+          value={summaryLocationLabel(t, form.address)}
         />
         <SummaryRow
-          label="מפגשים"
+          label={t('createGroup.finalize.summary.meetings')}
           value={
             form.scheduleSlots.length
-              ? `${form.scheduleSlots.length} מועדים`
-              : 'לא הוגדרו'
+              ? t('createGroup.finalize.summary.meetingsCount', { count: String(form.scheduleSlots.length) })
+              : t('createGroup.finalize.summary.meetingsNone')
           }
         />
-        <SummaryRow label="פרטיות" value={form.isPublic ? 'ציבורי' : 'פרטי'} />
+        <SummaryRow
+          label={t('createGroup.finalize.summary.privacy')}
+          value={form.isPublic ? t('createGroup.finalize.summary.public') : t('createGroup.finalize.summary.private')}
+        />
       </div>
 
       {submitError && (

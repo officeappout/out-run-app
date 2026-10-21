@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Users as UsersIcon } from 'lucide-react';
 import type { CommunityGroupType } from '@/types/community.types';
 import { DEFAULT_PRIVATE_TYPES, GROUP_TYPES, GROUP_TYPE_ICON } from './wizard-constants';
@@ -22,11 +24,12 @@ export function StepType({
     updateForm('isPublic', DEFAULT_PRIVATE_TYPES.has(value) ? false : true);
   };
   const v2 = React.useContext(WizardV2);
+  const t = useT(community);
 
   if (v2) {
     return (
       <div className="space-y-4 pt-4">
-        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">איזו קהילה פותחים?</p>
+        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">{t('createGroup.type.question')}</p>
         <div className="grid grid-cols-2 gap-2.5">
           {GROUP_TYPES.map((gt) => {
             const Icon = GROUP_TYPE_ICON[gt.value] ?? UsersIcon;
@@ -45,15 +48,15 @@ export function StepType({
                   <Icon size={20} strokeWidth={2.4} aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block whitespace-nowrap text-[15px] font-black text-v2-ink">{gt.label}</span>
-                  <span className="block text-[12px] font-bold leading-snug text-v2-muted">{gt.sub}</span>
+                  <span className="block whitespace-nowrap text-[15px] font-black text-v2-ink">{t(gt.labelKey)}</span>
+                  <span className="block text-[12px] font-bold leading-snug text-v2-muted">{t(gt.subKey)}</span>
                 </span>
               </button>
             );
           })}
         </div>
         {DEFAULT_PRIVATE_TYPES.has(form.groupType) && (
-          <p className="text-[12.5px] font-bold text-v2-deep">פרטית כברירת מחדל — אפשר לשנות בשלב הפרטיות</p>
+          <p className="text-[12.5px] font-bold text-v2-deep">{t('createGroup.type.privateDefault')}</p>
         )}
       </div>
     );
@@ -61,7 +64,7 @@ export function StepType({
 
   return (
     <div className="space-y-4 pt-4">
-      <p className="text-xs text-gray-500 leading-relaxed">בחר את סוג הקהילה שתרצה ליצור</p>
+      <p className="text-xs text-gray-500 leading-relaxed">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחר את סוג הקהילה שתרצה ליצור</p>
       <div className="grid grid-cols-2 gap-3">
         {GROUP_TYPES.map((gt) => (
           <button
@@ -75,14 +78,14 @@ export function StepType({
             }`}
           >
             <span className="text-2xl">{gt.emoji}</span>
-            <span className="text-xs font-black text-gray-800 text-center leading-tight">{gt.label}</span>
-            <span className="text-[9px] text-gray-400 text-center leading-tight">{gt.sub}</span>
+            <span className="text-xs font-black text-gray-800 text-center leading-tight">{t(gt.labelKey)}</span>
+            <span className="text-[9px] text-gray-400 text-center leading-tight">{t(gt.subKey)}</span>
           </button>
         ))}
       </div>
       {DEFAULT_PRIVATE_TYPES.has(form.groupType) && (
         <p className="text-[11px] text-cyan-600 font-semibold text-right flex items-center gap-1 justify-end">
-          🔒 ברירת-מחדל פרטי — ניתן לשנות בשלב הפרטיות
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}🔒 ברירת-מחדל פרטי — ניתן לשנות בשלב הפרטיות
         </p>
       )}
     </div>

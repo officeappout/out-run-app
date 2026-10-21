@@ -3,6 +3,8 @@
 import React, { useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2, MapPin, Trees } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { getParksByAuthority } from '@/features/admin/services/parks.service';
 import { reverseGeocode } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { Park } from '@/features/parks/core/types/park.types';
@@ -54,6 +56,7 @@ export function StepWhenWhere({
   const [selectedParkId, setSelectedParkId] = React.useState<string | null>(null);
   const [geocoding, setGeocoding] = React.useState(false);
   const v2 = React.useContext(WizardV2);
+  const t = useT(community);
 
   // Derive sorted list: by distance when anchor/pin is known; fallback to A-Z (raw DB order).
   const parks = React.useMemo(() => {
@@ -101,10 +104,10 @@ export function StepWhenWhere({
       setGeocoding(true);
       reverseGeocode(coords.lat, coords.lng)
         .then(({ displayName }) => {
-          updateForm('address', displayName || 'מיקום על המפה');
+          updateForm('address', displayName || 'מיקום על המפה'); // i18n-allow-hebrew: data — written to meetingLocation.address
         })
         .catch(() => {
-          if (!form.address.trim()) updateForm('address', 'מיקום על המפה');
+          if (!form.address.trim()) updateForm('address', 'מיקום על המפה'); // i18n-allow-hebrew: data — written to meetingLocation.address
         })
         .finally(() => setGeocoding(false));
     },
@@ -124,7 +127,7 @@ export function StepWhenWhere({
       {/* ── Address autocomplete ─────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <FieldLabel>חפש כתובת, פארק או מקום</FieldLabel>
+          <FieldLabel>{t('createGroup.whenWhere.searchLabel')}</FieldLabel>
           {geocoding && <Loader2 className={`w-3.5 h-3.5 animate-spin ${v2 ? 'text-v2-deep' : 'text-cyan-500'}`} />}
         </div>
         <CommunityAddressSearch
@@ -139,7 +142,7 @@ export function StepWhenWhere({
       <div>
         <div className="flex items-center gap-1.5 mb-2">
           <Trees className={`w-3.5 h-3.5 ${v2 ? 'mb-2 text-v2-deep' : 'text-emerald-500'}`} />
-          <FieldLabel>בחר מפארקים עירוניים</FieldLabel>
+          <FieldLabel>{t('createGroup.whenWhere.parksLabel')}</FieldLabel>
         </div>
 
         {parksLoading ? (
@@ -150,7 +153,7 @@ export function StepWhenWhere({
           </div>
         ) : parks.length === 0 ? (
           <p className={v2 ? `${V2C.hint} py-1` : 'text-[11px] text-gray-400 py-1'}>
-            {authorityId ? 'לא נמצאו פארקים עירוניים' : 'הרשאת עיר לא מוגדרת'}
+            {authorityId ? t('createGroup.whenWhere.noParks') : t('createGroup.whenWhere.noAuthority')}
           </p>
         ) : (
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1 snap-x">
@@ -184,7 +187,7 @@ export function StepWhenWhere({
       {/* ── Map pin fine-tuning ──────────────────────────── */}
       <div>
         <FieldLabel>
-          {form.locationSelected ? 'כיוון עדין על המפה' : 'או לחץ על המפה לסימון מיקום'}
+          {form.locationSelected ? t('createGroup.whenWhere.pinFineTune') : t('createGroup.whenWhere.pinPrompt')}
         </FieldLabel>
         <div className={v2 ? 'overflow-hidden rounded-[20px] shadow-v2-ring' : undefined}>
           <MiniLocationPicker
@@ -194,7 +197,7 @@ export function StepWhenWhere({
           />
         </div>
         <p className={v2 ? `${V2C.hint} mt-1.5` : 'text-[10px] text-gray-400 mt-1.5'}>
-          לחץ על המפה כדי לדייק את הפין
+          {t('createGroup.whenWhere.pinHint')}
         </p>
       </div>
 

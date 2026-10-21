@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Check, Trophy, Users as UsersIcon } from 'lucide-react';
 import { WizardV2, V2C } from './wizard-v2';
 import type { UpdateForm, WizardForm } from './wizard-types';
@@ -14,18 +16,19 @@ export function StepMode({
   form: WizardForm;
   updateForm: UpdateForm;
 }) {
+  const t = useT(community);
   const options: { value: boolean; emoji: string; label: string; sub: string }[] = [
     {
       value: true,
       emoji: '🏃',
-      label: 'אימון משותף',
-      sub: 'מפגשים קבועים בזמן ומקום — הקבוצה מתאמנת ביחד',
+      label: t('createGroup.mode.together.label'),
+      sub: t('createGroup.mode.together.sub'),
     },
     {
       value: false,
       emoji: '🏆',
-      label: 'כל אחד בקצב שלו',
-      sub: 'ליגה, אתגר או תחרות — כל אחד מתאמן ומדווח תוצאות',
+      label: t('createGroup.mode.ownPace.label'),
+      sub: t('createGroup.mode.ownPace.sub'),
     },
   ];
 
@@ -33,7 +36,7 @@ export function StepMode({
   if (v2) {
     return (
       <div className="space-y-4 pt-4">
-        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">איך הקהילה שלך מתאמנת ביחד?</p>
+        <p className="text-[14px] font-bold leading-relaxed text-v2-ink-2">{t('createGroup.mode.question')}</p>
         <div className="flex flex-col gap-2.5">
           {options.map((opt) => {
             const on = form.hasMeetups === opt.value;
@@ -65,7 +68,7 @@ export function StepMode({
   return (
     <div className="space-y-4 pt-4">
       <p className="text-xs text-gray-500 leading-relaxed">
-        איך הקהילה שלך מתאמנת ביחד?
+        {t('createGroup.mode.question')}
       </p>
       <div className="flex flex-col gap-3">
         {options.map((opt) => (

@@ -9,6 +9,7 @@ import {
   School,
 } from 'lucide-react';
 import type { CommunityGroupCategory, CommunityGroupType } from '@/types/community.types';
+import type { CommunityKey } from '@/messages/ns/community';
 import type { WizardForm } from './wizard-types';
 
 /** v2: the app's line icons instead of emoji for the community types. */
@@ -24,20 +25,27 @@ export const GROUP_TYPE_ICON: Record<string, React.ElementType> = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const CATEGORIES: { value: CommunityGroupCategory; label: string; emoji: string }[] = [
-  { value: 'running',      label: 'ריצה',       emoji: '🏃' },
-  { value: 'walking',      label: 'הליכה',      emoji: '🚶' },
-  { value: 'calisthenics', label: 'קליסתניקס', emoji: '💪' },
-  { value: 'yoga',         label: 'יוגה',       emoji: '🧘' },
-  { value: 'cycling',      label: 'רכיבה',      emoji: '🚴' },
-  { value: 'other',        label: 'אחר',        emoji: '⭐' },
+export const CATEGORIES: { value: CommunityGroupCategory; labelKey: CommunityKey; emoji: string }[] = [
+  { value: 'running',      labelKey: 'createGroup.category.running',      emoji: '🏃' },
+  { value: 'walking',      labelKey: 'createGroup.category.walking',      emoji: '🚶' },
+  { value: 'calisthenics', labelKey: 'createGroup.category.calisthenics', emoji: '💪' },
+  { value: 'yoga',         labelKey: 'createGroup.category.yoga',         emoji: '🧘' },
+  { value: 'cycling',      labelKey: 'createGroup.category.cycling',      emoji: '🚴' },
+  { value: 'other',        labelKey: 'createGroup.category.other',        emoji: '⭐' },
 ];
 
-export const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+export const DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: weekday names (wave 3, fmt)
 
-export const DAYS_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+export const DAYS_FULL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names (wave 3, fmt)
 
-export const STEPS = ['סוג קבוצה', 'בסיסים', 'סוג אימון', 'מתי ואיפה', 'פרטיות', 'סיום'];
+export const STEPS: readonly CommunityKey[] = [
+  'createGroup.step.type',
+  'createGroup.step.basics',
+  'createGroup.step.mode',
+  'createGroup.step.whenWhere',
+  'createGroup.step.privacy',
+  'createGroup.step.finalize',
+];
 
 // Types that default to private — toggle still shown, but isPublic initialises to false for these
 export const ALWAYS_PRIVATE_TYPES = new Set<CommunityGroupType>(['friends', 'family', 'work', 'school', 'university']);
@@ -59,14 +67,14 @@ export const DEFAULT_PRIVATE_TYPES = new Set<CommunityGroupType>([...Array.from(
 // User can still create a group by clicking "המשך ממילא".
 export const OUTREACH_TYPES = new Set<CommunityGroupType>(['work', 'university']);
 
-export const GROUP_TYPES: { value: CommunityGroupType; emoji: string; label: string; sub: string }[] = [
-  { value: 'neighborhood', emoji: '🏘️', label: 'שכונה',    sub: 'קבוצת אימון מקומית' },
-  { value: 'friends',      emoji: '👥', label: 'חברים',    sub: 'קבוצה פרטית לחברים' },
-  { value: 'family',       emoji: '👨‍👩‍👧', label: 'משפחה',    sub: 'אתגר משפחתי' },
-  { value: 'work',         emoji: '💼', label: 'עבודה',    sub: 'אתגר ספורט בעבודה' },
-  { value: 'university',   emoji: '🎓', label: 'קמפוס',   sub: 'קהילת סטודנטים' },
-  { value: 'park',         emoji: '🌳', label: 'פארק',     sub: 'קהילת פארק' },
-  { value: 'school',       emoji: '🏫', label: 'ביה״ס',   sub: 'קהילת בית ספר' },
+export const GROUP_TYPES: { value: CommunityGroupType; emoji: string; labelKey: CommunityKey; subKey: CommunityKey }[] = [
+  { value: 'neighborhood', emoji: '🏘️', labelKey: 'createGroup.groupType.neighborhood.label', subKey: 'createGroup.groupType.neighborhood.sub' },
+  { value: 'friends',      emoji: '👥', labelKey: 'createGroup.groupType.friends.label',      subKey: 'createGroup.groupType.friends.sub' },
+  { value: 'family',       emoji: '👨‍👩‍👧', labelKey: 'createGroup.groupType.family.label',       subKey: 'createGroup.groupType.family.sub' },
+  { value: 'work',         emoji: '💼', labelKey: 'createGroup.groupType.work.label',         subKey: 'createGroup.groupType.work.sub' },
+  { value: 'university',   emoji: '🎓', labelKey: 'createGroup.groupType.university.label',   subKey: 'createGroup.groupType.university.sub' },
+  { value: 'park',         emoji: '🌳', labelKey: 'createGroup.groupType.park.label',         subKey: 'createGroup.groupType.park.sub' },
+  { value: 'school',       emoji: '🏫', labelKey: 'createGroup.groupType.school.label',       subKey: 'createGroup.groupType.school.sub' },
 ];
 
 export const BLANK_FORM: WizardForm = {

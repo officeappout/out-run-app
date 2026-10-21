@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Plus, Trash2 } from 'lucide-react';
 import type { ScheduleSlot } from '@/types/community.types';
 import { DAYS, DAYS_FULL } from './wizard-constants';
@@ -26,10 +28,11 @@ export function ScheduleSlotsEditor({
   removeSlot: (i: number) => void;
 }) {
   const v2 = React.useContext(WizardV2);
+  const t = useT(community);
   return (
     <div className={`border-t pt-5 space-y-4 ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}>
       <div>
-        <FieldLabel>יום בשבוע</FieldLabel>
+        <FieldLabel>{t('createGroup.slots.dayLabel')}</FieldLabel>
         <div className="grid grid-cols-7 gap-1">
           {DAYS.map((d, i) => (
             <button
@@ -53,7 +56,7 @@ export function ScheduleSlotsEditor({
       </div>
 
       <div>
-        <FieldLabel>שעה</FieldLabel>
+        <FieldLabel>{t('createGroup.slots.timeLabel')}</FieldLabel>
         <div className="flex gap-2">
           <input
             type="time"
@@ -72,26 +75,26 @@ export function ScheduleSlotsEditor({
             }
           >
             <Plus className="w-4 h-4" />
-            הוסף
+            {t('createGroup.slots.add')}
           </button>
         </div>
       </div>
 
       {scheduleSlots.length > 0 && (
         <div className="space-y-2">
-          <FieldLabel>מועדים שנבחרו</FieldLabel>
+          <FieldLabel>{t('createGroup.slots.chosenLabel')}</FieldLabel>
           {scheduleSlots.map((slot, i) => (
             <div
               key={i}
               className={v2 ? 'flex h-12 items-center justify-between rounded-[16px] bg-white pe-1.5 ps-4 shadow-v2-ring' : 'flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100'}
             >
               <span className={v2 ? 'truncate whitespace-nowrap text-[14.5px] font-extrabold tabular-nums text-v2-ink' : 'text-sm font-bold text-gray-800'}>
-                יום {DAYS_FULL[slot.dayOfWeek]} · {slot.time}
+                {t('createGroup.slots.slot', { day: DAYS_FULL[slot.dayOfWeek] ?? '', time: slot.time })}
               </span>
               <button
                 type="button"
                 onClick={() => removeSlot(i)}
-                aria-label="הסרת המועד"
+                aria-label={t('createGroup.slots.remove')}
                 className={v2 ? `grid h-9 w-9 shrink-0 place-items-center rounded-full text-v2-down ${V2C.press}` : 'p-1.5 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors'}
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -103,7 +106,7 @@ export function ScheduleSlotsEditor({
 
       {scheduleSlots.length === 0 && (
         <p className={v2 ? `${V2C.hint} py-1 text-center` : 'text-xs text-gray-400 text-center py-1'}>
-          ניתן להמשיך ללא לוח זמנים ולעדכן מאוחר יותר
+          {t('createGroup.slots.empty')}
         </p>
       )}
     </div>

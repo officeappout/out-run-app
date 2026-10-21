@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { StepBasics } from './StepBasics';
 import { StepFinalize } from './StepFinalize';
 import { StepMode } from './StepMode';
@@ -33,6 +35,7 @@ export function WizardStepContent({ w }: { w: CreateGroupWizardState }) {
     handleImagePick,
     submitError,
   } = w;
+  const t = useT(community);
   return (
     <div className="flex-1 overflow-y-auto px-5 pb-4" dir="rtl">
       <AnimatePresence mode="wait">
@@ -74,7 +77,7 @@ export function WizardStepContent({ w }: { w: CreateGroupWizardState }) {
               form={form}
               fileInputRef={fileInputRef}
               onImagePick={handleImagePick}
-              submitError={submitError}
+              submitError={submitError ? t(submitError) : null}
             />
           )}
         </motion.div>
