@@ -26,7 +26,7 @@ import { loadPersonasAndMissions, testerStates } from './lib/files';
 import { isTesterUid } from './lib/demo-guard';
 import type { Persona } from './lib/missions';
 import type { Precondition } from './lib/seed/preconditions';
-import { SEED_SPECS } from './lib/seed/preconditions';
+import { isOnboardedPrecondition, SEED_SPECS } from './lib/seed/preconditions';
 import { executeTesterReset, planTesterReset } from './lib/seed/reset';
 import { buildTesterState, type TesterIdentity } from './lib/seed/tester-state';
 import type { RunAssets } from './lib/seed/run-plan';
@@ -92,7 +92,7 @@ async function main() {
     await t.db.collection(DEMO_REGISTRY).doc(DEMO_TESTERS_DOC).set({ uids: FieldValue.arrayUnion(...accounts.map((a) => a.uid)), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     console.log('נרשם ברשימת הבודקים.');
 
-    const needsRun = accounts.some((a) => a.precondition !== 'fresh' && SEED_SPECS[a.precondition].runPlan);
+    const needsRun = accounts.some((a) => isOnboardedPrecondition(a.precondition) && SEED_SPECS[a.precondition].runPlan);
     const runAssets = needsRun ? await loadRunAssets(t.db) : null;
     if (runAssets) console.log(`תבניות ריצה: ${runAssets.templates.length}`);
 

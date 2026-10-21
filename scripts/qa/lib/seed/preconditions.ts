@@ -7,7 +7,13 @@
  * it into that state with the SAME builders as the demo world (scripts/demo): the engine-v2 /
  * walking-plan week, the history, the users doc.
  *
- *   fresh                   — no Firestore docs at all (onboarding missions). Reset on every run.
+ *   fresh                   — no Firestore docs at all. Reset on every run. NOTE: a signed-in
+ *                             account without a users doc lands on the legacy /gateway — no real
+ *                             new user starts there any more; prefer map_only.
+ *   map_only                — what the landing's quick signup writes for a real new user
+ *                             (runExploreMapFlow → buildExploreMapProfileWrite: MAP_ONLY scaffold,
+ *                             no name, no program). "/" → /explorer → map → home → onboarding,
+ *                             exactly the real first-launch path (agent-briefs/first-launch-journey.md).
  *   strength_plan           — onboarded, strength program (full body ×3), today is a strength day.
  *   strength_after_workout  — the same, and today's workout is already done (summary / progress).
  *   run_plan                — onboarded runner (10k, improve time, 4 runs a week) with a generated
@@ -15,7 +21,7 @@
  *   walk_plan               — onboarded walker (walking plan); today is a walk day.
  *   all_tracks              — strength + running (hybrid week) + a walking goal; a session today.
  */
-export const PRECONDITIONS = ['fresh', 'strength_plan', 'strength_after_workout', 'run_plan', 'walk_plan', 'all_tracks'] as const;
+export const PRECONDITIONS = ['fresh', 'map_only', 'strength_plan', 'strength_after_workout', 'run_plan', 'walk_plan', 'all_tracks'] as const;
 export type Precondition = (typeof PRECONDITIONS)[number];
 
 export function isPrecondition(v: unknown): v is Precondition {
@@ -39,7 +45,15 @@ export interface SeedSpec {
   walkingGoal: boolean;
 }
 
-export const SEED_SPECS: Record<Exclude<Precondition, 'fresh'>, SeedSpec> = {
+/** Preconditions without an onboarded profile (no SeedSpec). */
+export type UnonboardedPrecondition = 'fresh' | 'map_only';
+export type OnboardedPrecondition = Exclude<Precondition, UnonboardedPrecondition>;
+
+export function isOnboardedPrecondition(p: Precondition): p is OnboardedPrecondition {
+  return p !== 'fresh' && p !== 'map_only';
+}
+
+export const SEED_SPECS: Record<OnboardedPrecondition, SeedSpec> = {
   strength_plan: { scenario: 'S03', journey: 'J1', todayKind: 'strength', completeToday: false, historyDays: 14, runPlan: false, walkingGoal: false },
   strength_after_workout: { scenario: 'S03', journey: 'J1', todayKind: 'strength', completeToday: true, historyDays: 28, runPlan: false, walkingGoal: false },
   run_plan: { scenario: 'S04', journey: 'J2', todayKind: 'run', completeToday: false, historyDays: 14, runPlan: true, walkingGoal: false },

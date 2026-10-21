@@ -17,6 +17,8 @@ export interface Checkpoint {
   path?: string;
   /** The checkpoint is about an input with the keyboard open. */
   keyboard?: boolean;
+  /** First-launch missions: a screen before the account exists (lib/first-launch.ts). */
+  signedOut?: boolean;
 }
 
 /** Hard ceiling for a sweep session (smaller than the 60-step session cap). */

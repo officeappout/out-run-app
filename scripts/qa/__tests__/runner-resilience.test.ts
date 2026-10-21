@@ -160,7 +160,7 @@ const VIEW: StepView = { png: Buffer.from('p'), jpeg: Buffer.from('j'), observat
 
 describe('runPlannedSession — crash → fresh browser → resume', () => {
   const { personas, missions } = loadPersonasAndMissions();
-  const sweep = missions.find((m) => m.kind === 'design-sweep' && (m.checkpoints?.length ?? 0) >= 3)!;
+  const sweep = missions.find((m) => m.kind === 'design-sweep' && !m.firstLaunch && (m.checkpoints?.length ?? 0) >= 3)!;
   const persona = personas.get(sweep.persona)!;
 
   function setup(crashPlan: Array<'crash_first_view' | 'crash_after_score' | 'ok'>) {

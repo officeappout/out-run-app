@@ -32,6 +32,21 @@ function androidBackSection(): string[] {
   ];
 }
 
+/** First-launch missions (lib/first-launch.ts): the signed-out part and the handoff. */
+export function firstLaunchSection(mission: Mission): string[] {
+  if (!mission.firstLaunch) return [];
+  const out = (mission.checkpoints ?? []).filter((c) => c.signedOut).map((c) => c.id);
+  return [
+    '## First launch — you start as someone who just installed the app',
+    'The session starts SIGNED OUT on the very first screen of a fresh install. Look at the opening screens like a brand-new user would.',
+    out.length ? `Screens before the account exists: ${out.join(', ')} — score them while signed out.` : 'Pass the opening screens quickly (no scores needed before the account exists).',
+    'You may open the login drawer ("התחברות") to look at it, but never tap Google / Apple / any sign-in inside it — close it again.',
+    'When you reach the point where the app would create your account — the quick-signup button ("הרשמה מהירה" or the main start button of the landing) — do NOT tap it: call continue_signed_in. The runner signs you in as a brand-new user and the app continues exactly where the real signup goes (the intro stories, then the location screen).',
+    'Account-creating requests are blocked while you are signed out; if a button "does nothing" or shows a connection error there, that is the block, not a bug — do not report it, call continue_signed_in.',
+    'After that, follow the app the way a new user would: location → map → home → the program questionnaire. The old "גלו את המפה / תוכנית כוח" choice screen (/gateway) is NOT part of the real flow — if you land there, the runner records it; go on from there as best you can.',
+  ];
+}
+
 function sweepSection(mission: Mission, resumeFrom: string | null): string[] {
   const cps = checkpointsFrom(mission.checkpoints ?? [], resumeFrom) ?? mission.checkpoints ?? [];
   return [
@@ -71,6 +86,7 @@ export function buildSystemPrompt(persona: Persona, mission: Mission, ctx: Promp
     `Success means: ${mission.success.join('; ')}.`,
     mission.gps ? 'This mission has a simulated GPS route. Use the gps tool (action "start") when the workout starts moving.' : '',
     `Pay special attention to these rules: ${focus}.`,
+    ...(mission.firstLaunch ? ['', ...firstLaunchSection(mission)] : []),
     ...(sweep ? ['', ...sweepSection(mission, ctx.resumeFrom ?? null)] : []),
     ...(backCheck ? ['', ...androidBackSection()] : []),
     '',
