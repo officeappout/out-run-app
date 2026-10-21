@@ -426,7 +426,8 @@ export default function PlannedLiveCardV2({
         </div>
 
         {/* Controls: flag (right) · pause / hold to end · stopwatch (left). */}
-        <div className="mt-1.5 flex items-center justify-center gap-7">
+        {/* data-coach (inert): the route-player tip's target (enable_entry_whatnow_v1). */}
+        <div className="mt-1.5 flex items-center justify-center gap-7" data-coach="route-player-controls">
           <RoundControl label={t('run.planned.control.finishBlock')} onClick={onSkip} disabled={!canSkip}>
             <Flag size={21} strokeWidth={2.2} color="#0e1419" aria-hidden />
           </RoundControl>

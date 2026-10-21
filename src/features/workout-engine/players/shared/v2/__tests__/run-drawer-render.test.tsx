@@ -48,6 +48,8 @@ describe('RunMetricsDrawer', () => {
     for (const v of ['24:07', '3.42', '5:41', 'זמן', 'ק״מ', 'קצב']) expect(html).toContain(v);
     expect(html).toContain('aria-label="סיום אימון · לחיצה ארוכה"');
     expect(html).toContain('aria-label="הצגת כל המדדים"');
+    // the entry flow's "end workout" tip points at the compact controls
+    expect(html).toContain('data-coach="route-player-controls"');
   });
 });
 

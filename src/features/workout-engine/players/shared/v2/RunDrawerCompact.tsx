@@ -83,6 +83,9 @@ export default function RunDrawerCompact({
   return (
     <div
       dir="rtl"
+      // data-coach (inert): the route-player tip's target — pause + hold-to-stop live here
+      // when the drawer is compact (enable_entry_whatnow_v1).
+      data-coach="route-player-controls"
       className="flex items-center gap-2 rounded-[22px] bg-v2-ink px-3 text-white shadow-v2-float"
       style={{ height: HEIGHT, fontFamily: 'var(--font-simpler)' }}
     >
