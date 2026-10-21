@@ -91,6 +91,8 @@ import { toISODate, getHebrewDayLetter, stepSelectedDate } from '@/features/user
 import { getWorkoutsForDate, type WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
+import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
@@ -392,7 +394,7 @@ export default function HomePage() {
   useFastStartGuard(router);
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as any)?.isSuperAdmin;
-  const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  const { flags: featureFlags, rawFlags: liveFlags, loading: flagsLoading, ready: flagsReady } = useFeatureFlags(isSuperAdmin);
   // enable_home_v2 day focus: the recommended split decides each strength day (upper / lower …)
   // for every generation home triggers. Set during render (idempotent) so it is in place
   // before any child effect generates; off → false → the generator runs as before.
@@ -2962,7 +2964,10 @@ export default function HomePage() {
   // Loading states. flagsLoading too: without it a user with home v2 on saw
   // the old home for a moment until the flags arrived (cached after the
   // first visit, so this is normally already false).
+  // Flags unknown (or v2): a neutral v2 skeleton — never the old loader / old home
+  // first and then v2 (owner bug 21.10.2026).
   if (!_hasHydrated || flagsLoading) {
+    if (loadingLook(flagsReady, featureFlags.enableHomeV2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-slate-600 animate-pulse text-sm">טוען...</p>
