@@ -45,6 +45,9 @@ export default defineConfig({
       'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
       // i18n wave 2 pilot (profile namespace) — Hebrew markup parity, static markup.
       'src/features/activity/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 (map namespace) — route preview + equipment sheets, Hebrew markup parity (jsdom).
+      'src/features/parks/client/components/route-preview/__tests__/**/*.test.tsx',
+      'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
       'src/features/progression-map/components/__tests__/**/*.test.tsx',
       // i18n wave 2 — Partner Finder Hebrew markup parity (static markup, node env).
       'src/features/partners/components/__tests__/**/*.test.tsx',
