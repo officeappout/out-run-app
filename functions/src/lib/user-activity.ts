@@ -177,7 +177,7 @@ export async function resolveLastActivityMs(
  * (rate cap, daily cap, Shabbat, a failed run) go out the next day; still
  * once per absence. Nothing ever goes out after day 35.
  */
-export type RetentionMilestone = 'd4' | 'd7' | 'd14' | 'd30';
+export type RetentionMilestone = 'd4' | 'd7' | 'd14' | 'd21' | 'd28' | 'd30';
 
 export const RETENTION_MILESTONES: ReadonlyArray<{ id: RetentionMilestone; from: number; to: number }> = [
   { id: 'd4', from: 4, to: 6 },
@@ -186,13 +186,30 @@ export const RETENTION_MILESTONES: ReadonlyArray<{ id: RetentionMilestone; from:
   { id: 'd30', from: 30, to: 35 },
 ];
 
+/**
+ * Ladder v2 (owner, 21.10.2026; flag retentionLadderV2, DEFAULT OFF): day 4,
+ * day 7, then weekly until day 27, one on day 28, then quiet.
+ */
+export const RETENTION_LADDER_V2: ReadonlyArray<{ id: RetentionMilestone; from: number; to: number }> = [
+  { id: 'd4', from: 4, to: 6 },
+  { id: 'd7', from: 7, to: 13 },
+  { id: 'd14', from: 14, to: 20 },
+  { id: 'd21', from: 21, to: 27 },
+  { id: 'd28', from: 28, to: 30 },
+];
+
+const ALL_MILESTONE_IDS = new Set<string>(['d4', 'd7', 'd14', 'd21', 'd28', 'd30']);
+
 /** First day any retention push can go out under the cadence. */
 export const RETENTION_FIRST_DAY = 4;
 /** After this many days away (suppression flag): no reminders/step nudges. Retention itself stops after day 35 (end of the d30 window). */
 export const RETENTION_LAST_DAY = 30;
 
-export function retentionMilestoneFor(daysAway: number): RetentionMilestone | null {
-  for (const m of RETENTION_MILESTONES) if (daysAway >= m.from && daysAway <= m.to) return m.id;
+export function retentionMilestoneFor(
+  daysAway: number,
+  ladder: ReadonlyArray<{ id: RetentionMilestone; from: number; to: number }> = RETENTION_MILESTONES,
+): RetentionMilestone | null {
+  for (const m of ladder) if (daysAway >= m.from && daysAway <= m.to) return m.id;
   return null;
 }
 
@@ -207,7 +224,7 @@ export function retentionSentLogFrom(rateData: Record<string, unknown> | undefin
   const anchor = typeof rateData?.retention_absenceAnchor === 'number' ? rateData.retention_absenceAnchor : null;
   const raw = rateData?.retention_milestonesSent;
   const sent = Array.isArray(raw)
-    ? (raw.filter((m) => RETENTION_MILESTONES.some((x) => x.id === m)) as RetentionMilestone[])
+    ? (raw.filter((m) => typeof m === 'string' && ALL_MILESTONE_IDS.has(m)) as RetentionMilestone[])
     : [];
   return { anchor, sent };
 }
@@ -221,8 +238,9 @@ export function nextRetentionMilestone(
   daysAway: number,
   anchorMs: number,
   log: RetentionSentLog,
+  ladder: ReadonlyArray<{ id: RetentionMilestone; from: number; to: number }> = RETENTION_MILESTONES,
 ): RetentionMilestone | null {
-  const m = retentionMilestoneFor(daysAway);
+  const m = retentionMilestoneFor(daysAway, ladder);
   if (!m) return null;
   if (log.anchor === anchorMs && log.sent.includes(m)) return null;
   return m;

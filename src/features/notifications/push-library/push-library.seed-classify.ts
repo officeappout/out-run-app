@@ -47,7 +47,7 @@ export function seedInsertRows(): SeedInsertRow[] {
           title: d.title,
           body: d.body,
           text: d.body,
-          deepLink: entry.deepLinks[0],
+          deepLink: d.deepLink && entry.deepLinks.includes(d.deepLink) ? d.deepLink : entry.deepLinks[0],
           audience: d.audience ?? null,
           conditions: d.conditions ?? null,
           timeWindow: null,
