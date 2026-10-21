@@ -3,7 +3,7 @@
  * against the rules in ../checklist.ts. Pure, free (no LLM), confidence 1. One issue per rule
  * per screen, with up to 5 examples, so a busy screen doesn't flood the report.
  */
-import type { PageFacts } from './collect';
+import type { ControlFact, ControlKind, PageFacts } from './collect';
 import type { Severity } from '../findings';
 
 export interface LintIssue {
@@ -23,6 +23,27 @@ const MIN_FONT_PX = 11;
 const MIN_TARGET_PX = 44;
 const DARK_LUMINANCE = 0.06;
 
+/** Controls whose label must stay on one line (cards, list rows and links are containers). */
+const NOWRAP_KINDS: ReadonlySet<ControlKind> = new Set<ControlKind>(['button', 'chip', 'tab', 'label']);
+/** A text node taller than this many line-heights really wraps (not an inline-span artefact). */
+const WRAP_HEIGHT_RATIO = 1.5;
+
+/**
+ * V2-NOWRAP for one control: 'wrap' | 'clip' | null. Judged only for a button / chip / tab /
+ * label with a SINGLE text node (or an explicit data-qa-nowrap) — a card with a title and a body
+ * (several text nodes) is not a label. "Wraps" = that text node has more than one line box AND
+ * its rendered height is ≥ 1.5 × its computed line-height (an icon or an inline span at another
+ * height is not a second line).
+ */
+export function nowrapVerdict(c: ControlFact): 'wrap' | 'clip' | null {
+  if (!c.label || c.inlineLink) return null;
+  if (!c.nowrapHint && (!NOWRAP_KINDS.has(c.kind) || c.textNodes !== 1)) return null;
+  if (c.textNodes < 1) return null;
+  if (c.textLines > 1 && c.lineHeight > 0 && c.textHeight >= c.lineHeight * WRAP_HEIGHT_RATIO) return 'wrap';
+  if (c.clippedNoEllipsis) return 'clip';
+  return null;
+}
+
 const take = (xs: string[]) => Array.from(new Set(xs.filter(Boolean))).slice(0, 5);
 
 export function lintFacts(f: PageFacts, errors: RuntimeErrors = { console: [], failedRequests: [] }): LintIssue[] {
@@ -32,9 +53,9 @@ export function lintFacts(f: PageFacts, errors: RuntimeErrors = { console: [], f
     out.push({ rule: 'V2-FONT-11', severity: 'P2', title: 'טקסט קטן מ-11px', examples: take(f.smallTexts.map((t) => `${t.px}px: ${t.text}`)) });
   }
 
-  const wrapped = f.controls.filter((c) => c.label && !c.inlineLink && (c.lines > 1 || c.clippedNoEllipsis));
-  if (wrapped.length) {
-    out.push({ rule: 'V2-NOWRAP', severity: 'P2', title: 'תווית כפתור נשברת או נחתכת בלי …', examples: take(wrapped.map((c) => (c.lines > 1 ? `${c.lines} שורות: ${c.label}` : `נחתך: ${c.label}`))) });
+  const nowrap = [...f.controls, ...(f.labels ?? [])].map((c) => ({ c, v: nowrapVerdict(c) })).filter((x) => x.v);
+  if (nowrap.length) {
+    out.push({ rule: 'V2-NOWRAP', severity: 'P2', title: 'תווית כפתור נשברת או נחתכת בלי …', examples: take(nowrap.map(({ c, v }) => (v === 'wrap' ? `${c.textLines} שורות: ${c.label}` : `נחתך: ${c.label}`))) });
   }
 
   const gradients = f.controls.filter((c) => c.gradient);

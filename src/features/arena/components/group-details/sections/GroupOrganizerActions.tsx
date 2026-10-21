@@ -3,6 +3,8 @@
 import { Pencil, Settings } from 'lucide-react';
 import type { CommunityGroup } from '@/types/community.types';
 import ScheduleManagerPanel from './ScheduleManagerPanel';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupOrganizerActionsProps {
   group: CommunityGroup;
@@ -30,6 +32,7 @@ export default function GroupOrganizerActions({
   onCloseScheduleMgr,
   showToast,
 }: GroupOrganizerActionsProps) {
+  const t = useT(community);
   return (
     <>
       {onEdit && (
@@ -38,7 +41,7 @@ export default function GroupOrganizerActions({
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
         >
           <Pencil className="w-4 h-4" />
-          ערוך קהילה
+          {t('group.organizer.edit')}
         </button>
       )}
 
@@ -48,7 +51,7 @@ export default function GroupOrganizerActions({
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
         >
           <Settings className="w-4 h-4" />
-          ניהול מפגשים
+          {t('group.organizer.manageSchedule')}
         </button>
       )}
 

@@ -41,7 +41,7 @@ const CATEGORY_ALIAS: Record<string, WorkoutCategory> = {
   'סטריידים': 'strides',
 };
 
-function normalizeCategory(raw: string | undefined): WorkoutCategory | undefined {
+export function normalizeCategory(raw: string | undefined): WorkoutCategory | undefined {
   if (!raw) return undefined;
   return (CATEGORY_ALIAS[raw] as WorkoutCategory) ?? (raw as WorkoutCategory);
 }

@@ -2,7 +2,8 @@
   "id": "D08_schedule_agenda",
   "kind": "design-sweep",
   "persona": "noa_designer",
-  "uid": "demo_qa_ds_strength",
+  "uid": "demo_qa_ds_str_plan",
+  "precondition": "strength_plan",
   "device": "iphone-13",
   "devices": [
     "iphone-se",

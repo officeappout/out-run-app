@@ -16,7 +16,7 @@ import VisualSlider from '@/features/user/onboarding/components/visual-assessmen
 import ProgramResult from '@/features/user/onboarding/components/ProgramResult';
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import OnboardingStoryBar from '@/features/user/onboarding/components/OnboardingStoryBar';
-import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABELS } from '@/features/user/onboarding/constants/onboarding-phases';
+import { TOTAL_PHASES, STRENGTH_PHASES, STRENGTH_LABEL_KEYS } from '@/features/user/onboarding/constants/onboarding-phases';
 import ResultLoading from '@/features/user/onboarding/components/ResultLoading';
 import { evaluateRules } from '@/features/user/onboarding/services/assessment-rule-engine.service';
 import {
@@ -71,6 +71,9 @@ import { demographicsFromSession } from '@/features/user/onboarding/utils/deferr
 import { backfillOnboardingIdentitySession } from '@/features/user/onboarding/utils/onboarding-entry';
 import { strengthResultNextRoute } from '@/features/user/onboarding/utils/add-track-routing';
 import { hasRunningTrack } from '@/lib/track-ownership';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import type { OnboardingT } from '@/features/user/onboarding/utils/assessment-tier-label';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -162,10 +165,25 @@ function runSkillEscapeCleanup(escapedId: string): 'push' | 'pull' | null {
   return foundationDomain;
 }
 
+// ── Save-failure message ───────────────────────────────────────────
+// Specific-enough message per failure class, never a bare "try again" —
+// David, 08.09.2026: "מה נכשל ומה לעשות", not a generic alert.
+function describeSaveError(err: any, t: OnboardingT): string {
+  const code: string = err?.code ?? '';
+  if (code === 'unavailable' || code === 'deadline-exceeded' || code.includes('network')) {
+    return t('assessment.saveError.network');
+  }
+  if (code === 'permission-denied' || code === 'unauthenticated') {
+    return t('assessment.saveError.auth');
+  }
+  return t('assessment.saveError.generic');
+}
+
 // ── Page component ─────────────────────────────────────────────────
 
 export default function VisualAssessmentPage() {
   const router = useRouter();
+  const t = useT(onboarding);
   // enable_home_v2 — see the root container below (one-viewport fit).
   const { v2, ready: flagsReady, quizHintV2 } = useOnboardingV2State();
   // enable_home_v2 (journey J1): a home start card opens the strength flow without the
@@ -674,7 +692,7 @@ export default function VisualAssessmentPage() {
           setFollowUpIndex(0);
           setFollowUpTitle(
             resolveText(rule.action.followUpTitle, 'he', demographics?.gender ?? 'male') ||
-              'הערכה מתקדמת',
+              t('assessment.followUp.titleFallback'),
           );
           setStep('follow-up');
         } else if (
@@ -782,7 +800,7 @@ export default function VisualAssessmentPage() {
         programId: 'full_body',
         levelMode: 'auto',
         levelId: '',
-        displayName: 'גוף מלא — ברירת מחדל',
+        displayName: t('assessment.fallbackProgramName'),
         levels: currentLevels,
         average: avg,
       });
@@ -814,19 +832,6 @@ export default function VisualAssessmentPage() {
   };
 
   // ── Accept & persist ─────────────────────────────────────────
-
-  // Specific-enough message per failure class, never a bare "try again" —
-  // David, 08.09.2026: "מה נכשל ומה לעשות", not a generic alert.
-  function describeSaveError(err: any): string {
-    const code: string = err?.code ?? '';
-    if (code === 'unavailable' || code === 'deadline-exceeded' || code.includes('network')) {
-      return 'החיבור לאינטרנט נראה לא יציב כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
-    }
-    if (code === 'permission-denied' || code === 'unauthenticated') {
-      return 'החשבון שלך לא מזוהה כרגע. נסה שוב, ואם זה חוזר — המשך בכל זאת, נשלים את השמירה בשלב הבא.';
-    }
-    return 'לא הצלחנו לשמור את התוצאות כרגע. אפשר לנסות שוב, או להמשיך — נשלים את השמירה בשלב הבא.';
-  }
 
   // Alternate path after a persistent save failure — NOT the same loop.
   // Safe to just navigate forward: handleAcceptResult already wrote
@@ -898,7 +903,7 @@ export default function VisualAssessmentPage() {
         }
       } catch (err) {
         console.error('[Assessment] Mini-domain save error:', err);
-        alert('שגיאה בשמירה — נסו שנית');
+        alert(t('assessment.alert.saveFailed'));
         setStep('result');
       }
       return;
@@ -907,7 +912,7 @@ export default function VisualAssessmentPage() {
     try {
       const uid = resolveUid(authUser);
       if (!uid) {
-        alert('לא נמצא משתמש מחובר — נסו לרענן.');
+        alert(t('assessment.alert.noUser'));
         setStep('result');
         return;
       }
@@ -1061,10 +1066,10 @@ export default function VisualAssessmentPage() {
       console.error('[Assessment] Save error:', err);
       reportSignupFailure('ASSESSMENT_SAVE', extractErrorCode(err));
       setSaveAttempts((prev) => prev + 1);
-      setSaveError(describeSaveError(err));
+      setSaveError(describeSaveError(err, t));
       setStep('result');
     }
-  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories, v2]);
+  }, [result, authUser, matchedRule, router, selectedTier, pathConfig, categories, v2, t]);
 
   // ── Slide animation variants ─────────────────────────────────
 
@@ -1094,7 +1099,7 @@ export default function VisualAssessmentPage() {
             size={36}
             className="text-[#5BC2F2] animate-spin mx-auto mb-4"
           />
-          <p className="text-slate-400 text-sm font-medium">טוען הערכה...</p>
+          <p className="text-slate-400 text-sm font-medium">{t('assessment.loading')}</p>
         </div>
         {identityOverlay}
       </div>
@@ -1222,7 +1227,7 @@ export default function VisualAssessmentPage() {
                 totalPhases={TOTAL_PHASES}
                 currentPhase={STRENGTH_PHASES.ASSESSMENT}
                 phaseFillPercent={100}
-                phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.ASSESSMENT]}
+                phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.ASSESSMENT])}
               />
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
@@ -1231,10 +1236,10 @@ export default function VisualAssessmentPage() {
                     className="text-[#5BC2F2] animate-spin mx-auto mb-4"
                   />
                   <h2 className="text-xl font-black text-slate-900 mb-2">
-                    מנתח תוצאות...
+                    {t('assessment.evaluating.title')}
                   </h2>
                   <p className="text-sm text-slate-500">
-                    בודק את הפרופיל שלך ומתאים תוכנית
+                    {t('assessment.evaluating.subtitle')}
                   </p>
                 </div>
               </div>
@@ -1257,7 +1262,7 @@ export default function VisualAssessmentPage() {
                 <span className={v2
                   ? 'inline-block whitespace-nowrap px-3 py-1 rounded-full bg-v2-tint text-v2-deep text-[12px] font-extrabold'
                   : 'inline-block px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold'}>
-                  הערכה מתקדמת
+                  {t('assessment.followUp.badge')}
                 </span>
                 {followUpTitle && (
                   <p className="text-sm text-slate-500 mt-1">{followUpTitle}</p>
@@ -1353,7 +1358,7 @@ export default function VisualAssessmentPage() {
               <OnboardingStoryBar
                 totalPhases={TOTAL_PHASES}
                 currentPhase={STRENGTH_PHASES.HEALTH}
-                phaseLabel={STRENGTH_LABELS[STRENGTH_PHASES.HEALTH]}
+                phaseLabel={t(STRENGTH_LABEL_KEYS[STRENGTH_PHASES.HEALTH])}
               />
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
@@ -1362,7 +1367,7 @@ export default function VisualAssessmentPage() {
                     className="text-[#5BC2F2] animate-spin mx-auto mb-4"
                   />
                   <h2 className="text-xl font-black text-slate-900 mb-2">
-                    שומר תוצאות...
+                    {t('assessment.saving')}
                   </h2>
                 </div>
               </div>

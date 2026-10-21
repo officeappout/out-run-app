@@ -8,6 +8,8 @@ import { WorkoutGoalEditor } from '../../WorkoutGoalEditor';
 import { updateGroup } from '@/features/arena/services/group.service';
 import type { CommunityGroup, ScheduleSlot, SessionGoalSpec } from '@/types/community.types';
 import { DAY_LABELS } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Slot Editor Sheet ─────────────────────────────────────────────────────────
 
@@ -20,6 +22,7 @@ interface SlotEditorSheetProps {
 }
 
 export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, showToast }: SlotEditorSheetProps) {
+  const t = useT(community);
   const slot    = slotIndex !== null ? group.scheduleSlots![slotIndex] : null;
   const initLoc = slot?.location
     ? { address: slot.location.address ?? '', lat: slot.location.lat ?? 31.7683, lng: slot.location.lng ?? 35.2137 }
@@ -41,7 +44,7 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
 
   const handleSave = async () => {
     if (!time.match(/^\d{1,2}:\d{2}$/)) {
-      showToast('error', 'שעה לא תקינה');
+      showToast('error', t('group.slotEditor.toast.badTime'));
       return;
     }
     const newSlotData: ScheduleSlot = {
@@ -57,10 +60,10 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
     setSaving(true);
     try {
       await updateGroup(group.id, { scheduleSlots: newSlots });
-      showToast('success', slotIndex !== null ? 'המפגש עודכן' : 'מפגש נוסף');
+      showToast('success', slotIndex !== null ? t('group.slotEditor.toast.updated') : t('group.slotEditor.toast.added'));
       onSaved();
     } catch {
-      showToast('error', 'שגיאה בשמירה');
+      showToast('error', t('group.slotEditor.toast.saveError'));
     } finally {
       setSaving(false);
     }
@@ -73,13 +76,13 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
         <button onClick={onBack} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm font-black text-gray-900 flex-1">{slotIndex !== null ? 'עריכת מפגש' : 'הוספת מפגש'}</span>
+        <span className="text-sm font-black text-gray-900 flex-1">{slotIndex !== null ? t('group.slotEditor.titleEdit') : t('group.slotEditor.titleAdd')}</span>
       </div>
 
       <div className="p-4 space-y-4">
         {/* Day picker */}
         <div>
-          <p className="text-xs font-bold text-gray-500 mb-2">יום בשבוע</p>
+          <p className="text-xs font-bold text-gray-500 mb-2">{t('group.slotEditor.day')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {DAY_LABELS.map((label, d) => (
               <button
@@ -100,7 +103,7 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
 
         {/* Time input */}
         <div>
-          <p className="text-xs font-bold text-gray-500 mb-2">שעה</p>
+          <p className="text-xs font-bold text-gray-500 mb-2">{t('group.slotEditor.time')}</p>
           <input
             type="time"
             value={time}
@@ -111,7 +114,7 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
 
         {/* Address search */}
         <div>
-          <p className="text-xs font-bold text-gray-500 mb-2">מיקום</p>
+          <p className="text-xs font-bold text-gray-500 mb-2">{t('group.slotEditor.location')}</p>
           <CommunityAddressSearch
             value={address}
             onChange={handleAddressSelect}
@@ -140,7 +143,7 @@ export default function SlotEditorSheet({ group, slotIndex, onBack, onSaved, sho
           disabled={saving}
           className="w-full py-3.5 rounded-2xl text-sm font-black text-white bg-cyan-500 active:scale-[0.97] transition-all disabled:opacity-50"
         >
-          {saving ? 'שומר...' : slotIndex !== null ? 'שמור שינויים' : 'הוסף מפגש'}
+          {saving ? t('group.slotEditor.saving') : slotIndex !== null ? t('group.slotEditor.save') : t('group.slotEditor.add')}
         </button>
       </div>
     </div>

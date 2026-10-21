@@ -2,7 +2,10 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, Loader2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { GroupMember } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface RemoveMemberModalProps {
   member: GroupMember | null;
@@ -13,6 +16,7 @@ interface RemoveMemberModalProps {
 
 /** "הסרת חבר/ה" confirmation (z 95, above the sheet). */
 export default function RemoveMemberModal({ member, removing, onCancel, onConfirm }: RemoveMemberModalProps) {
+  const t = useT(community);
   return (
     <AnimatePresence>
       {member && (
@@ -38,12 +42,15 @@ export default function RemoveMemberModal({ member, removing, onCancel, onConfir
                 <LogOut className="w-5 h-5 text-red-500" />
               </div>
               <h3 className="text-base font-black text-gray-900 dark:text-white">
-                הסרת חבר/ה
+                {t('group.removeMember.title')}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                האם להסיר את <span className="font-bold text-gray-800 dark:text-gray-200">{member.name}</span> מהקהילה?
+                {t.rich('group.removeMember.question', {
+                  name: member.name,
+                  b: (chunks: ReactNode) => <span className="font-bold text-gray-800 dark:text-gray-200">{chunks}</span>,
+                })}
               </p>
-              <p className="text-xs text-gray-400">המשתמש יוסר מהקבוצה ומהצ׳אט</p>
+              <p className="text-xs text-gray-400">{t('group.removeMember.note')}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -51,14 +58,14 @@ export default function RemoveMemberModal({ member, removing, onCancel, onConfir
                 onClick={onConfirm}
                 className="flex-1 py-3 rounded-2xl bg-red-500 text-white text-sm font-black disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
               >
-                {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'הסר'}
+                {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : t('group.removeMember.confirm')}
               </button>
               <button
                 disabled={removing}
                 onClick={onCancel}
                 className="flex-1 py-3 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-bold active:scale-95 transition-all"
               >
-                ביטול
+                {t('group.removeMember.cancel')}
               </button>
             </div>
           </motion.div>

@@ -4,6 +4,8 @@
 import { useEffect, useState } from 'react';
 import { Sheet, SheetHeader, SHEET_Z } from '@/components/ui/v2';
 import VerticalWheelPicker from '@/features/workout-engine/players/strength/playlist/VerticalWheelPicker';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 const GOAL_RANGE = Array.from({ length: 100 }, (_, i) => i + 1);
 
@@ -17,11 +19,12 @@ export interface ExerciseGoalSheetV2Props {
 }
 
 export default function ExerciseGoalSheetV2({ open, currentGoal, initialValue, saving, onClose, onSave }: ExerciseGoalSheetV2Props) {
+  const t = useT(profile);
   const [value, setValue] = useState(initialValue);
   useEffect(() => {
     if (open) setValue(initialValue);
   }, [open, initialValue]);
-  const title = currentGoal != null ? 'עדכון יעד' : 'הגדרת יעד אישי';
+  const title = currentGoal != null ? t('exerciseAnalytics.goalSheet.title.update') : t('exerciseAnalytics.goalSheet.title.set');
   return (
     <Sheet
       open={open}
@@ -32,10 +35,12 @@ export default function ExerciseGoalSheetV2({ open, currentGoal, initialValue, s
     >
       <div className="px-5 pb-[max(20px,env(safe-area-inset-bottom))]" dir="rtl">
         <p className="text-[13px] font-bold text-v2-muted">
-          {currentGoal != null ? `יעד נוכחי: ${currentGoal} חזרות` : 'כמה חזרות בסט תרצו להגיע?'}
+          {currentGoal != null
+            ? t('exerciseAnalytics.goalSheet.current', { goal: String(currentGoal) })
+            : t('exerciseAnalytics.goalSheet.prompt')}
         </p>
         <div className="flex justify-center py-5">
-          <VerticalWheelPicker values={GOAL_RANGE} selectedValue={value} onChange={setValue} label="חזרות" />
+          <VerticalWheelPicker values={GOAL_RANGE} selectedValue={value} onChange={setValue} label={t('exerciseAnalytics.goalSheet.pickerLabel')} />
         </div>
         <button
           type="button"
@@ -43,7 +48,7 @@ export default function ExerciseGoalSheetV2({ open, currentGoal, initialValue, s
           disabled={saving}
           className="h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
         >
-          {saving ? 'שומר…' : 'שמירה'}
+          {saving ? t('exerciseAnalytics.goalSheet.saving') : t('exerciseAnalytics.goalSheet.save')}
         </button>
       </div>
     </Sheet>

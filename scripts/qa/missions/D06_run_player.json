@@ -2,7 +2,8 @@
   "id": "D06_run_player",
   "kind": "design-sweep",
   "persona": "noa_designer",
-  "uid": "demo_qa_ds_run",
+  "uid": "demo_qa_ds_run_plan",
+  "precondition": "run_plan",
   "device": "iphone-13",
   "devices": [
     "iphone-se",

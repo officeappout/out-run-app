@@ -1,6 +1,8 @@
 'use client';
 
 import { MapPin } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupLocationCardProps {
   hasCoords: unknown;
@@ -20,16 +22,17 @@ interface GroupLocationCardProps {
  * military group with nothing visible gets a reason instead of silence.
  */
 export default function GroupLocationCard({ hasCoords, destLat, destLng, destAddress, staticMapUrl, isMilitaryGroup, onOpen }: GroupLocationCardProps) {
+  const t = useT(community);
   return hasCoords ? (
     <button
       type="button"
       onClick={() => onOpen(destLat, destLng)}
-      aria-label={`פתח מפה ל-${destAddress || 'מיקום הקבוצה'}`}
+      aria-label={destAddress ? t('group.location.openMap', { address: destAddress }) : t('group.location.openMapNoAddress')}
       className="group relative w-full rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 active:scale-[0.98] transition-transform"
     >
       {staticMapUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={staticMapUrl} alt={destAddress || 'מפה'} className="w-full h-[110px] object-cover" loading="lazy" />
+        <img src={staticMapUrl} alt={destAddress || t('group.location.mapAlt')} className="w-full h-[110px] object-cover" loading="lazy" />
       ) : (
         <div className="w-full h-[110px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
           <MapPin className="w-8 h-8 text-gray-400" />
@@ -50,7 +53,7 @@ export default function GroupLocationCard({ hasCoords, destLat, destLng, destAdd
   ) : isMilitaryGroup ? (
     <div className="flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
       <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-      <span className="font-medium">הפרטים מיועדים למילואימניקים.</span>
+      <span className="font-medium">{t('group.location.military')}</span>
     </div>
   ) : null;
 }
