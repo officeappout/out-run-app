@@ -17,3 +17,43 @@
 | `city-file.ts` | קובץ עיר בינארי: כותרת + לכל מקטע id, קו (1e-6°) ו-168 בתים. ה-gzip נעשה בסקריפט |
 
 **ביצועים (סינתטי):** עיר בגודל ת"א (45 אלף מבנים, 160 אלף חופות): בניית האינדקס 20ms, כ-3ms לק"מ רחוב (כל 168 התאים). כ-2,500 ק"מ רחוב ← פחות מדקה.
+
+## שלב 2: בניית עיר (`scripts/shade-hourly/build-city.ts`)
+
+```bash
+# dry-run (ברירת מחדל): כותב רק ל---out, מדפיס סטטיסטיקה + השוואה ל-SI של הטכניון
+TRAILS_OSM_CACHE_DIR=<dir with israel-and-palestine-latest.osm.pbf> \
+npx tsx scripts/shade-hourly/build-city.ts --city tel-aviv --out <dir> \
+  --file canopy:soi_canopy_otb:<canopy-tlv.geojsonl> \
+  --technion <tzel/normalized/tel-aviv.geojson>
+# העלאה (דוד בלבד): מוסיפים --apply --project appout-1, ומקלידים YES
+```
+
+- **קלט:** OSM מה-PBF המקומי (מבנים עם `height`/`building:levels`, `natural=tree`/`tree_row`, יערות, רחובות הליכה), וקבצים מקומיים דרך `--file kind:sourceId:path` (GeoJSON או GeoJSONSeq, ITM מזוהה ומומר).
+- **מקורות** (`src/lib/shade-hourly/sources.ts`): `live` = OSM, חופות מפ"י דרך Open Tree Base (ODbL), Overture (ODbL, לא נשאב ב-v1), Meta CHM (CC BY 4.0, raster, לא נשאב ב-v1). `pending_licence` = מבני ת"א (IView2/513, גובה `gova_simplex_2019`), חופות ת"א 2024 (IView2/574), מבני באר שבע. **`--apply` מסרב כשמקור pending שימש בבנייה.**
+- **חופות מפ"י לעיר:** `ogr2ogr -f GeoJSONSeq canopy-tlv.geojsonl canopies.gpkg -spat 34.735 32.025 34.855 32.150` מתוך `processed/canopies/canopies.gpkg` של Open Tree Base (1.23GB, הורדה חד-פעמית; ב-vsicurl זה איטי מדי).
+- **פלט:** `<city>.bin.gz` (פורמט `SHH1`, שלב 1) + `<city>.manifest.json` (מקורות, רישיונות, פילוח מקור הגובה, ההשוואה לטכניון). יעד ב-Storage: `shade/hourly/v1/<city>.bin.gz`.
+- **מקטעים:** כל way הליכה מפוצל לחתיכות של עד 100 מ'. id = wayId×1000 + חתיכה. מכשולים נקראים עד 300 מ' מחוץ ל-bbox של העיר.
+
+### מספרים, תל אביב (21.10.2026, PBF מ-20.10.2026, dry-run)
+
+| גרסה | מכשולים | זמן | קובץ | ממוצע צל קיץ | Pearson / Spearman מול SI טכניון (18,175 חתיכות) |
+|---|---:|---:|---:|---:|---|
+| OSM בלבד | 54k | 14 שנ' | 3.1MB | 0.134 | 0.30 / 0.40 |
+| **OSM + חופות מפ"י (live)** | 257k | 50 שנ' | 4.3MB | 0.294 | **0.59 / 0.60** |
+| אותו דבר + דגימה בשתי המדרכות (`--offsets -6,0,6`) | 257k | 134 שנ' | 5.6MB | 0.355 | 0.60 / 0.61 |
+
+- 41,205 חתיכות, 2,548 ק"מ רחוב, שיא זיכרון ~600MB.
+- **80% מבנייני OSM בת"א בלי גובה ובלי קומות** (גובה ברירת מחדל 10 מ'). רק 1% עם `height`, 10% עם `building:levels`.
+- 21 ביולי, ממוצע עירוני לפי שעה: 06h 0.80 · 08h 0.43 · 10h 0.25 · 12h 0.15 · 14h 0.20 · 16h 0.35 · 18h 0.62.
+- לפי חמישונים של ה-SI, הערך שלנו עולה במונוטוניות (0.14 → 0.22 → 0.29 → 0.37 → 0.51). הערך שלנו גבוה מה-SI בממוצע (0.31 מול 0.24), כי ה-SI כולל קרינה מפוזרת ואת כל רוחב הכביש.
+
+**דגימה של מקור pending (ת"א, לב העיר, ~650×550 מ', 354 חתיכות, בסקרצ'פד בלבד, לא נשמר בגיט, לא הועלה):**
+
+| מבנים | חופות | Pearson / Spearman |
+|---|---|---|
+| OSM (live) | מפ"י (live) | 0.36 / 0.49 |
+| **ת"א IView2/513 (pending)** | מפ"י (live) | **0.66 / 0.69** |
+| ת"א IView2/513 (pending) | ת"א 2024 (pending, דגימה חלקית) | 0.56 / 0.58 |
+
+כלומר: הגבהים העירוניים הם השיפור הגדול. ברגע שיגיע אישור בכתב מת"א, זה רק `--file buildings:tlv_buildings_iview2:<file>`.
