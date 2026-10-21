@@ -20,6 +20,8 @@ import { ErrorState, SegmentedPicker } from '@/components/ui/v2';
 import WidgetBoundary from '@/components/system/WidgetBoundary';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import { usePeriodData } from '../hooks/useProgressData';
 import { longestActiveRun, monthCells, summarizePeriod, type ProgressPeriod } from '../utils/progress-period';
 import { periodSpark, type SplitKind } from '../utils/period-spark';
@@ -34,8 +36,8 @@ import ActivityTabs, { type ActivityTabKey } from './ActivityTabs';
 import ProgramsBlock from './ProgramsBlock';
 
 const PERIODS = [
-  { key: 'week', label: 'השבוע' },
-  { key: 'month', label: 'החודש' },
+  { key: 'week', labelKey: 'hub.screen.period.week' },
+  { key: 'month', labelKey: 'hub.screen.period.month' },
 ] as const;
 
 function useStreaks() {
@@ -48,6 +50,7 @@ function useStreaks() {
 }
 
 function PeriodBlock({ period, onSelectKind }: { period: ProgressPeriod; onSelectKind: (k: SplitKind) => void }) {
+  const t = useT(profileNs);
   const { data, loading, error, ranges, now } = usePeriodData(period);
   const streaks = useStreaks();
   const consistencyRef = useRef<HTMLDivElement>(null);
@@ -66,7 +69,7 @@ function PeriodBlock({ period, onSelectKind }: { period: ProgressPeriod; onSelec
     return { current, previous, spark, days, month };
   }, [data, ranges, period, now]);
 
-  if (error) return <ErrorState variant="compact" title="לא הצלחנו לטעון את הסיכום" description="נסו שוב בעוד רגע." />;
+  if (error) return <ErrorState variant="compact" title={t('hub.screen.error.title')} description={t('hub.screen.error.description')} />;
   if (loading || !model) {
     return (
       <div className="space-y-3" aria-busy="true">
@@ -121,6 +124,8 @@ function PeriodBlock({ period, onSelectKind }: { period: ProgressPeriod; onSelec
 }
 
 export default function ProgressScreenV2() {
+  const t = useT(profileNs);
+  const periods = useMemo(() => PERIODS.map((p) => ({ key: p.key, label: t(p.labelKey) })), [t]);
   const [period, setPeriod] = useState<ProgressPeriod>('week');
   const [tab, setTab] = useState<ActivityTabKey>('run');
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -133,9 +138,9 @@ export default function ProgressScreenV2() {
       <AppHeader v2 />
       <div className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-4">
         <header>
-          <h1 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">התקדמות</h1>
-          <p className="text-[13px] font-bold text-v2-muted">מה עשית, איפה השתפרת, לאן ממשיכים</p>
-          <SegmentedPicker className="mt-3" options={PERIODS} value={period} onChange={setPeriod} ariaLabel="תקופה" />
+          <h1 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('hub.screen.title')}</h1>
+          <p className="text-[13px] font-bold text-v2-muted">{t('hub.screen.subtitle')}</p>
+          <SegmentedPicker className="mt-3" options={periods} value={period} onChange={setPeriod} ariaLabel={t('hub.screen.periodLabel')} />
         </header>
 
         <WidgetBoundary name="progress.period" resetKeys={[period]}>

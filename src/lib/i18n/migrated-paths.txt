@@ -37,3 +37,8 @@ src/features/parks/client/components/route-preview/
 src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
 src/features/workout-engine/players/running/components/
+
+# wave 2 batch 1 (namespace profile, hub.* keys) — progress tab v2 (enable_home_v2) components.
+# progression-hub/v2/utils still returns Hebrew display text (KIND_LABEL, REASON_LABEL, missedLine,
+# compare headline/rows, month/weekday names, plan titles) — not migrated, manual list in the PR.
+src/features/progression-hub/v2/components/

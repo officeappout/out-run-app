@@ -7,7 +7,7 @@
  * Data: the last 40 strength workouts + the 5 most recent exerciseHistory
  * docs (top-level only — no per-exercise sessions reads, no N+1).
  */
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { BarChart, Card } from '@/components/ui/v2';
@@ -17,8 +17,11 @@ import { domainBreakdown, weekCompare, weeklySeries } from '../../utils/progress
 import { formatHours, relativeDay } from '../../utils/progress-format';
 import KindIcon from '../KindIcon';
 import { ChartCard, TabEmpty, TabHeaderCard, TabSkeleton } from './TabParts';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export default function StrengthTab() {
+  const t = useT(profileNs);
   const router = useRouter();
   const { data, loading } = useRecentOfType('strength', true);
   const exercises = useRecentExercises(true);
@@ -29,27 +32,27 @@ export default function StrengthTab() {
   const domains = useMemo(() => domainBreakdown(ws, now), [ws, now]);
 
   if (loading && !data) return <TabSkeleton />;
-  if (ws.length === 0) return <TabEmpty kind="strength" text="עוד אין אימוני כוח שמורים. האימון הראשון יופיע כאן." />;
+  if (ws.length === 0) return <TabEmpty kind="strength" text={t('hub.strength.empty')} />;
 
   const maxDomain = Math.max(1, ...domains.map((d) => d.sets));
   return (
     <div className="space-y-3">
       <TabHeaderCard
         kind="strength"
-        title="כוח · השבוע"
-        subtitle="מול שבוע שעבר"
+        title={t('hub.strength.title')}
+        subtitle={t('hub.strength.subtitle')}
         current={cmp.current.sets}
         previous={cmp.previous.sets}
-        hero={{ key: 'sets', value: String(cmp.current.sets), unit: 'סטים', label: 'השבוע' }}
+        hero={{ key: 'sets', value: String(cmp.current.sets), unit: t('hub.strength.hero.unit'), label: t('hub.strength.hero.label') }}
         stats={[
-          { key: 'n', value: String(cmp.current.count), label: 'אימונים' },
-          { key: 'time', value: formatHours(cmp.current.minutes), unit: 'שע׳', label: 'זמן אימון' },
+          { key: 'n', value: String(cmp.current.count), label: t('hub.strength.stat.count') },
+          { key: 'time', value: formatHours(cmp.current.minutes), unit: t('hub.strength.stat.timeUnit'), label: t('hub.strength.stat.time') },
         ]}
       />
 
       {domains.length > 0 && (
         <Card padding="none" className="px-4 py-3.5">
-          <h3 className="mb-2 whitespace-nowrap text-[15px] font-black text-v2-ink">לפי קבוצת שרירים</h3>
+          <h3 className="mb-2 whitespace-nowrap text-[15px] font-black text-v2-ink">{t('hub.strength.domains.title')}</h3>
           <ul className="space-y-2">
             {domains.map((d) => (
               <li key={d.domain} className="flex items-center gap-2.5">
@@ -58,7 +61,10 @@ export default function StrengthTab() {
                   <span className="block h-full rounded-full" style={{ width: `${(d.sets / maxDomain) * 100}%`, background: PROGRESS_COLORS.strength }} />
                 </span>
                 <span className="whitespace-nowrap text-[13px] font-black tabular-nums text-v2-ink">
-                  {d.sets} <span className="text-[12px] font-bold text-v2-muted">סטים</span>
+                  {t.rich('hub.strength.domains.sets', {
+                    sets: String(d.sets),
+                    unit: (chunks: ReactNode) => <span className="text-[12px] font-bold text-v2-muted">{chunks}</span>,
+                  })}
                 </span>
               </li>
             ))}
@@ -66,13 +72,13 @@ export default function StrengthTab() {
         </Card>
       )}
 
-      <ChartCard title="סטים לשבוע" hint="8 שבועות">
-        <BarChart data={weekly} highlightKey="now" color={PROGRESS_COLORS.strength} height={170} ariaLabel="סטים לשבוע, 8 שבועות" />
+      <ChartCard title={t('hub.strength.chart.title')} hint={t('hub.strength.chart.hint')}>
+        <BarChart data={weekly} highlightKey="now" color={PROGRESS_COLORS.strength} height={170} ariaLabel={t('hub.strength.chart.aria')} />
       </ChartCard>
 
       {(exercises.data?.length ?? 0) > 0 && (
         <section>
-          <h3 className="mb-2 whitespace-nowrap text-[15px] font-black text-v2-ink">התרגילים שלך</h3>
+          <h3 className="mb-2 whitespace-nowrap text-[15px] font-black text-v2-ink">{t('hub.strength.exercises.title')}</h3>
           <div className="space-y-2">
             {exercises.data!.map((ex) => (
               <button
@@ -85,7 +91,7 @@ export default function StrengthTab() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate whitespace-nowrap text-[14.5px] font-extrabold text-v2-ink">{ex.name}</p>
                   <p className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
-                    {ex.lastBest > 0 ? `הסט הטוב באימון האחרון ${ex.lastBest}` : 'אימון אחרון'}
+                    {ex.lastBest > 0 ? t('hub.strength.exercises.lastBest', { best: String(ex.lastBest) }) : t('hub.strength.exercises.lastWorkout')}
                     {ex.updatedAt ? ` · ${relativeDay(ex.updatedAt, now)}` : ''}
                   </p>
                 </div>

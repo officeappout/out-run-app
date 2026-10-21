@@ -13,6 +13,8 @@ import { activitySplit } from '../utils/period-spark';
 import { compareHeadline, compareRows, type HeadlineTone } from '../utils/period-compare';
 import { monthName, weekRangeLabel } from '../utils/progress-format';
 import { KindGlyph } from './KindIcon';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface PeriodCompareSheetProps {
   open: boolean;
@@ -40,21 +42,25 @@ const HEADLINE: Record<HeadlineTone, { bg: string; fg: string }> = {
 };
 
 export default function PeriodCompareSheet({ open, onClose, period, ranges, current, previous, now }: PeriodCompareSheetProps) {
+  const t = useT(profileNs);
   const start = ranges.current.start;
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
-  const title = period === 'week' ? `השבוע שלך · ${weekRangeLabel(start, end)}` : `${monthName(start.getMonth())} ${start.getFullYear()} · עד היום`;
-  const nowLabel = period === 'week' ? 'השבוע' : 'החודש';
-  const beforeLabel = period === 'week' ? 'שבוע שעבר' : monthName(ranges.previous.start.getMonth());
+  const title =
+    period === 'week'
+      ? t('hub.compare.title.week', { range: weekRangeLabel(start, end) })
+      : t('hub.compare.title.month', { month: monthName(start.getMonth()), year: String(start.getFullYear()) });
+  const nowLabel = period === 'week' ? t('hub.compare.now.week') : t('hub.compare.now.month');
+  const beforeLabel = period === 'week' ? t('hub.compare.before.week') : monthName(ranges.previous.start.getMonth());
   const headline = compareHeadline(period, current, previous, ranges, now);
   const rows = compareRows(period, current, previous, ranges);
   const split = activitySplit(current);
   const tone = HEADLINE[headline.tone];
 
   return (
-    <Sheet open={open} onClose={onClose} title="השוואה" closeOnEscape respectReducedMotion dragToDismiss className="max-h-[88dvh]" bodyClassName="px-5 pb-2">
+    <Sheet open={open} onClose={onClose} title={t('hub.compare.sheetTitle')} closeOnEscape respectReducedMotion dragToDismiss className="max-h-[88dvh]" bodyClassName="px-5 pb-2">
       <div className="flex items-center justify-between gap-2">
         <span className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{title}</span>
-        <span className="whitespace-nowrap text-[12px] font-bold text-v2-muted">מול {beforeLabel} באותו שלב</span>
+        <span className="whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('hub.compare.vs', { before: beforeLabel })}</span>
       </div>
 
       <div className="mt-2.5 rounded-[18px] p-3" style={{ background: tone.bg }} data-compare-tone={headline.tone}>
@@ -64,9 +70,9 @@ export default function PeriodCompareSheet({ open, onClose, period, ranges, curr
 
       {split.length > 0 && (
         <div className="mt-3.5">
-          <div className="mb-1.5 text-[13px] font-extrabold text-v2-ink">{nowLabel} לפי פעילות</div>
+          <div className="mb-1.5 text-[13px] font-extrabold text-v2-ink">{t('hub.compare.splitTitle', { now: nowLabel })}</div>
           <SplitBar
-            ariaLabel={`${nowLabel} לפי פעילות`}
+            ariaLabel={t('hub.compare.splitTitle', { now: nowLabel })}
             segments={split.map((s) => ({
               key: s.kind,
               value: s.minutes,
@@ -113,7 +119,7 @@ export default function PeriodCompareSheet({ open, onClose, period, ranges, curr
           ))}
         </div>
       ) : (
-        <p className="mt-4 text-center text-[13px] font-bold text-v2-muted">עוד אין מה להשוות — אימון אחד ויש לנו נקודת התחלה.</p>
+        <p className="mt-4 text-center text-[13px] font-bold text-v2-muted">{t('hub.compare.empty')}</p>
       )}
     </Sheet>
   );
