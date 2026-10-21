@@ -71,6 +71,8 @@ export default defineConfig({
       'src/features/arena/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace, steps.* / location.*) — onboarding steps + location sheets parity (jsdom).
       'src/features/user/onboarding/components/steps/**/__tests__/**/*.test.tsx',
+      // i18n wave 2 (community namespace, social.*) — feed / share / activity components, Hebrew markup parity.
+      'src/features/social/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

@@ -2,16 +2,20 @@
 
 /** סטורי 9:16 / ריבוע 1:1 / סטיקר PNG — segmented control, selected = tint (SH-4, SH-5d). */
 import type { ShareFormat } from '../../share-v2/types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { CommunityKey } from '../social-t';
 
-const OPTIONS: { id: ShareFormat; label: string; ratio: string; icon: string }[] = [
-  { id: 'story', label: 'סטורי', ratio: '9:16', icon: 'h-4 w-2.5' },
-  { id: 'square', label: 'ריבוע', ratio: '1:1', icon: 'h-3.5 w-3.5' },
-  { id: 'sticker', label: 'סטיקר', ratio: 'PNG', icon: 'h-3.5 w-3.5 bg-[length:7px_7px] bg-[linear-gradient(45deg,currentColor_25%,transparent_25%,transparent_75%,currentColor_75%)] opacity-90' },
+const OPTIONS: { id: ShareFormat; labelKey: CommunityKey; ratio: string; icon: string }[] = [
+  { id: 'story', labelKey: 'social.share.format.story', ratio: '9:16', icon: 'h-4 w-2.5' },
+  { id: 'square', labelKey: 'social.share.format.square', ratio: '1:1', icon: 'h-3.5 w-3.5' },
+  { id: 'sticker', labelKey: 'social.share.format.sticker', ratio: 'PNG', icon: 'h-3.5 w-3.5 bg-[length:7px_7px] bg-[linear-gradient(45deg,currentColor_25%,transparent_25%,transparent_75%,currentColor_75%)] opacity-90' },
 ];
 
 export default function ShareFormatControl({ value, onChange, formats }: { value: ShareFormat; onChange: (f: ShareFormat) => void; formats?: ShareFormat[] }) {
+  const t = useT(community);
   return (
-    <div role="radiogroup" aria-label="גודל" className="flex gap-1 rounded-full bg-white p-1 shadow-v2-ring">
+    <div role="radiogroup" aria-label={t('social.share.format.label')} className="flex gap-1 rounded-full bg-white p-1 shadow-v2-ring">
       {OPTIONS.filter((o) => !formats || formats.includes(o.id)).map((o) => {
         const on = o.id === value;
         return (
@@ -26,7 +30,7 @@ export default function ShareFormatControl({ value, onChange, formats }: { value
             }`}
           >
             <span className={`${o.icon} rounded-[3px] shadow-[inset_0_0_0_2px_currentColor]`} aria-hidden />
-            {o.label}
+            {t(o.labelKey)}
             <span className="text-[12px] font-bold opacity-70" dir="ltr">
               {o.ratio}
             </span>
