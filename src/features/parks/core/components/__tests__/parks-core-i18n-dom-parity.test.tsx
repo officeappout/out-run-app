@@ -217,7 +217,7 @@ describe('SearchDestinationCard — "שמור מקום" open', () => {
     hoisted.saved.places = { home: { kind: 'home', label: 'בית', coords: [34.7, 32.1] } };
     mount(<SearchDestinationCard place={{ text: 'הרצל 14, תל אביב', coords: [34.81, 32.01], placeType: 'street' }}
       userPos={near} onClose={noop} onNavigate={noop} onStartActivity={noop} onOpenRoute={noop} />);
-    click(byText('שמור מקום'));
+    click(byText('שמירת מקום'));
     await expect(dump()).toMatchFileSnapshot(snap('pick-save-open'));
   });
 });

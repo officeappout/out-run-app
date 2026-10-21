@@ -53,6 +53,11 @@ export interface RouteQualityMetrics {
   selfIntersections: number;
   /** Isoperimetric quotient 4πA/P² of the closed path (circle = 1, out-and-back ≈ 0). */
   compactness: number;
+  /** Direction changes > 45° (on the path simplified at 8 m) — see turns.ts. */
+  turns: number;
+  turnsPerKm: number;
+  /** Path length / its 50 m-simplified length: ≈1.0 smooth, ≈1.41 a block staircase. */
+  zigzagIndex: number;
   /** (actual − target) / target; null when no target given. */
   distanceErrorPct: number | null;
   /** Share (0..1) of the length running ON a tertiary+ centerline; null without an OSM layer. */

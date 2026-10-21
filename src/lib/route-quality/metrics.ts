@@ -4,6 +4,7 @@ import { detectUTurns } from './uturns';
 import { retracedFraction } from './retrace';
 import { compactness, countSelfIntersections } from './shape';
 import { majorRoadCrossings, majorRoadShare } from './major-roads';
+import { turnMetrics } from './turns';
 
 export interface MetricsOptions {
   targetKm?: number;
@@ -40,6 +41,7 @@ export function computeRouteQualityMetrics(path: LngLat[], opts: MetricsOptions 
     retracedPct: retracedFraction(path),
     selfIntersections: countSelfIntersections(path),
     compactness: compactness(path),
+    ...turnMetrics(path),
     distanceErrorPct: opts.targetKm && opts.targetKm > 0 ? (km - opts.targetKm) / opts.targetKm : null,
     majorRoadPct,
     crossings,

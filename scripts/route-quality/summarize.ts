@@ -1,8 +1,11 @@
 /** Aggregation + markdown for scripts/route-quality/measure.ts (pure). */
 import type { RouteQualityMetrics } from '@/lib/route-quality';
 
-/** off = current, on = route quality v1, ours = v1 + loops prefer our routes. */
-export type MeasureVariant = 'off' | 'on' | 'ours';
+/**
+ * off = current, on = route quality v1, ours = v1 + loops prefer our routes;
+ * gh-turns.ts adds its own GraphHopper variant names (any string is summarised).
+ */
+export type MeasureVariant = 'off' | 'on' | 'ours' | (string & {});
 
 export interface RouteRow {
   start: string; targetKm: number; variant: MeasureVariant; run: number; rank: number;
@@ -26,6 +29,9 @@ export interface VariantSummary {
   meanRetracedPct: number;
   selfIntersectingPct: number;
   meanCompactness: number;
+  /** Turns > 45° per km (length-weighted) and mean zigzag index (route-quality turns.ts). */
+  turnsPerKm: number;
+  meanZigzag: number;
   withinWindowPct: number;
   meanAbsDistErrPct: number;
   majorRoadPct: number;
@@ -70,6 +76,8 @@ export function summarizeVariant(rows: RouteRow[], variant: string): VariantSumm
     meanRetracedPct: 100 * mean(m.map(x => x.retracedPct)),
     selfIntersectingPct: pct(m.map(x => x.selfIntersections > 0)),
     meanCompactness: mean(m.map(x => x.compactness)),
+    turnsPerKm: totalKm ? m.reduce((a, x) => a + (x.turns ?? 0), 0) / totalKm : 0,
+    meanZigzag: mean(m.map(x => x.zigzagIndex ?? 1)),
     withinWindowPct: pct(m.map(x => Math.abs(x.distanceErrorPct ?? 1) <= WINDOW_FRAC)),
     meanAbsDistErrPct: 100 * mean(m.map(x => Math.abs(x.distanceErrorPct ?? 0))),
     majorRoadPct: 100 * mean(m.map(x => x.majorRoadPct ?? 0)),
@@ -97,7 +105,7 @@ const f1 = (n: number) => n.toFixed(1);
 const f2 = (n: number) => n.toFixed(2);
 
 export function toMarkdown(s: ReturnType<typeof summarize>): string {
-  const label = (v: string) => (v === 'off' ? 'current (flags off)' : v === 'on' ? 'v1' : 'v1 + our routes');
+  const label = (v: string) => (v === 'off' ? 'current (flags off)' : v === 'on' ? 'v1' : v === 'ours' ? 'v1 + our routes' : v);
   const pctOrDash = (n: number | null) => (n == null ? '—' : `${f1(n)}%`);
   const lines = [
     '| metric (top route per generation) | ' + s.overall.map(o => label(o.variant)).join(' | ') + ' |',
@@ -110,6 +118,8 @@ export function toMarkdown(s: ReturnType<typeof summarize>): string {
   row('mean retraced length', o => `${f1(o.meanRetracedPct)}%`);
   row('routes with a self-crossing', o => `${f1(o.selfIntersectingPct)}%`);
   row('mean compactness (circle=1)', o => f2(o.meanCompactness));
+  row('turns > 45° / km', o => f2(o.turnsPerKm));
+  row('mean zigzag index (1.0 = smooth)', o => f2(o.meanZigzag));
   row('within ±15% of target', o => `${f1(o.withinWindowPct)}%`);
   row('mean |distance error|', o => `${f1(o.meanAbsDistErrPct)}%`);
   row('length on tertiary+ roads', o => `${f1(o.majorRoadPct)}%`);
@@ -120,9 +130,9 @@ export function toMarkdown(s: ReturnType<typeof summarize>): string {
   row('uses >= 1 of our routes (>= 100 m)', o => pctOrDash(o.usingOursPct));
   row('Firestore docs read / generation', o => f1(o.meanReads));
   row('wall time / generation', o => `${(o.meanMs / 1000).toFixed(1)} s`);
-  lines.push('', '| start | variant | gens/empty | U-turn/spur | retrace>8% | compact | in ±15% | unmarked/km | passes v1 | on our routes | reads |', '|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('', '| start | variant | gens/empty | U-turn/spur | retrace>8% | compact | turns/km | zigzag | in ±15% | unmarked/km | passes v1 | on our routes | reads |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const p of s.perStart) {
-    lines.push(`| ${p.start} | ${p.variant} | ${p.generations}/${p.emptyGenerations} | ${f1(p.uturnOrSpurPct)}% | ${f1(p.retraceOver8Pct)}% | ${f2(p.meanCompactness)} | ${f1(p.withinWindowPct)}% | ${f2(p.unmarkedPerKm)} | ${f1(p.passV1Pct)}% | ${pctOrDash(p.oursPct)} | ${f1(p.meanReads)} |`);
+    lines.push(`| ${p.start} | ${p.variant} | ${p.generations}/${p.emptyGenerations} | ${f1(p.uturnOrSpurPct)}% | ${f1(p.retraceOver8Pct)}% | ${f2(p.meanCompactness)} | ${f2(p.turnsPerKm)} | ${f2(p.meanZigzag)} | ${f1(p.withinWindowPct)}% | ${f2(p.unmarkedPerKm)} | ${f1(p.passV1Pct)}% | ${pctOrDash(p.oursPct)} | ${f1(p.meanReads)} |`);
   }
   return lines.join('\n');
 }

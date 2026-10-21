@@ -23,9 +23,11 @@ import {
 import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
 import OpponentPickerSheet from './OpponentPickerSheet';
 import { pickDefaultOpponent } from './pick-default-opponent';
-import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
+import { CATEGORY_UNIT_LABEL_KEYS } from './scope-category-unit-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // Battle-bar "opponent" side — none of the 5 brand tokens reads as a
 // neutral "vs" color without implying success/failure (emerald = good,
@@ -133,6 +135,7 @@ export interface ScopeBattleCardViewProps {
 
 /** Secondary white pill — "go walk together" for your scope (home v2). */
 function GroupWalkButton({ onClick }: { onClick: () => void }) {
+  const t = useT(community);
   return (
     <button
       type="button"
@@ -140,7 +143,7 @@ function GroupWalkButton({ onClick }: { onClick: () => void }) {
       className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-white px-4 text-[14px] font-extrabold text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
       <Footprints size={16} strokeWidth={2.6} className="shrink-0 text-[#f59e0b]" aria-hidden />
-      <span className="truncate">יוצאים להליכה קבוצתית</span>
+      <span className="truncate">{t('leagues.battle.groupWalk')}</span>
     </button>
   );
 }
@@ -150,13 +153,14 @@ const BATTLE_SURFACE = 'rounded-[22px] border border-v2-hairline-cool p-[18px]';
 const BATTLE_BG = { background: 'linear-gradient(135deg, #e8f9fe, #e9fdfb)' };
 
 function BattleHeader({ subtitle, action }: { subtitle?: string; action?: React.ReactNode }) {
+  const t = useT(community);
   return (
     <div className="flex items-center gap-3">
       <span className="w-[42px] h-[42px] rounded-[14px] bg-white flex items-center justify-center text-v2-deep shrink-0">
         <Swords size={20} strokeWidth={2.4} aria-hidden />
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[17px] font-black text-v2-ink tracking-v2-tight">קרב השבוע</div>
+        <div className="text-[17px] font-black text-v2-ink tracking-v2-tight">{t('leagues.battle.title')}</div>
         {subtitle && <div className="text-[12.5px] font-semibold text-v2-ink-2 tabular-nums truncate">{subtitle}</div>}
       </div>
       {action}
@@ -175,9 +179,10 @@ export function ScopeBattleCardView({
   onGroupWalk,
   showKm = false,
 }: ScopeBattleCardViewProps) {
+  const t = useT(community);
   const [pickerOpen, setPickerOpen] = useState(false);
   const now = new Date();
-  const timeLeft = timeWindow ? formatTimeLeft(getPeriodEnd(timeWindow, now), now) : undefined;
+  const timeLeft = timeWindow ? formatTimeLeft(getPeriodEnd(timeWindow, now), now, t) : undefined;
 
   // 16.08.2026 design review: friendly empty state instead of silently
   // rendering nothing — you exist in the ranking, but there's no second
@@ -185,16 +190,16 @@ export function ScopeBattleCardView({
   // user base is small).
   if (entries.length < 2) {
     const handleInvite = () => {
-      const text = `בואו להצטרף אליי ב${myEntry.scopeName} על Out! 🔥`;
+      const text = t('leagues.battle.inviteText', { name: myEntry.scopeName });
       if (navigator.share) navigator.share({ text }).catch(() => {});
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };
     return (
       <div className={`${BATTLE_SURFACE} mb-3`} style={BATTLE_BG} dir="rtl">
-        <BattleHeader subtitle={`עדיין אין יריב ל${myEntry.scopeName}`} />
+        <BattleHeader subtitle={t('leagues.battle.noOpponent', { name: myEntry.scopeName })} />
         <Button variant="primary" size="sm" className="mt-3.5" onClick={handleInvite}>
           <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-          הזמן חברים
+          {t('leagues.battle.invite')}
         </Button>
         {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}
       </div>
@@ -226,7 +231,7 @@ export function ScopeBattleCardView({
             className="h-8 px-3 rounded-full bg-white text-v2-ink text-[12px] font-bold flex items-center gap-1 shrink-0 active:scale-[0.97] transition-transform ease-v2"
           >
             <RefreshCw size={12} strokeWidth={2.6} aria-hidden />
-            החלף יריבה
+            {t('leagues.battle.switch')}
           </button>
         }
       />
@@ -239,17 +244,17 @@ export function ScopeBattleCardView({
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">
             {mine.toLocaleString('he-IL')}
           </div>
-          <div className="text-[12px] font-bold text-v2-muted">{myEntry.activeMemberCount} פעילים</div>
+          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { count: String(myEntry.activeMemberCount) })}</div>
         </div>
         <span className="mb-5 w-9 h-9 rounded-full bg-white flex items-center justify-center text-v2-amber shadow-v2-ring">
-          <Zap size={18} strokeWidth={2.4} fill="currentColor" aria-label="נגד" />
+          <Zap size={18} strokeWidth={2.4} fill="currentColor" aria-label={t('leagues.battle.versus')} />
         </span>
         <div className="min-w-0 text-left">
           <div className="text-[14px] font-extrabold text-v2-ink truncate">{opponent.scopeName}</div>
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink-2">
             {theirs.toLocaleString('he-IL')}
           </div>
-          <div className="text-[12px] font-bold text-v2-muted">{opponent.activeMemberCount} פעילים</div>
+          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { count: String(opponent.activeMemberCount) })}</div>
         </div>
       </div>
 
@@ -258,7 +263,7 @@ export function ScopeBattleCardView({
         <div className="h-full bg-v2-cta" style={{ width: `${split.minePct}%` }} />
         <div className="h-full" style={{ width: `${split.theirsPct}%`, background: OPPONENT_COLOR }} />
       </div>
-      <p className="mt-1.5 text-[11.5px] font-bold text-v2-muted text-center">{CATEGORY_UNIT_LABEL[category]} בממוצע למשתתף פעיל</p>
+      <p className="mt-1.5 text-[11.5px] font-bold text-v2-muted text-center">{t('leagues.battle.perMember', { unit: t(CATEGORY_UNIT_LABEL_KEYS[category]) })}</p>
 
       {/* Each side's total — the bigger, prouder number. */}
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -267,18 +272,18 @@ export function ScopeBattleCardView({
             <div className="truncate whitespace-nowrap text-[17px] font-black leading-tight tabular-nums text-v2-ink">
               {e.totalScore.toLocaleString('he-IL')}
               {showKm && (e.totalKm ?? 0) > 0 && (
-                <span className="text-[12.5px] font-extrabold text-v2-ink-2"> · {formatKm(e.totalKm)} ק״מ</span>
+                <span className="text-[12.5px] font-extrabold text-v2-ink-2">{t('leagues.battle.km', { km: formatKm(e.totalKm) })}</span>
               )}
             </div>
-            <div className="text-[11.5px] font-bold text-v2-muted truncate">סה״כ {CATEGORY_UNIT_LABEL[category]} · {e.scopeName}</div>
+            <div className="text-[11.5px] font-bold text-v2-muted truncate">{t('leagues.battle.total', { unit: t(CATEGORY_UNIT_LABEL_KEYS[category]), name: e.scopeName })}</div>
           </div>
         ))}
       </div>
 
       <p className="text-[12.5px] text-v2-ink-2 font-semibold mt-2.5 text-center">
         {iAmLeading
-          ? `מובילים ב־${gap.toLocaleString('he-IL')} למשתתף על ${opponent.scopeName}`
-          : `רק ${gap.toLocaleString('he-IL')} למשתתף מ${leader.scopeName}!`}
+          ? t('leagues.battle.leading', { gap: gap.toLocaleString('he-IL'), name: opponent.scopeName })
+          : t('leagues.battle.trailing', { gap: gap.toLocaleString('he-IL'), name: leader.scopeName })}
       </p>
 
       {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}

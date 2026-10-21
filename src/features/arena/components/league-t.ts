@@ -3,10 +3,9 @@
  * namespace `community`, `leagues.*` keys — docs/i18n/HOW-TO.md). Components get it from
  * `useT(community)` and pass it down.
  *
- * `leagueHeT()` is the default for callers that are not migrated yet (NeighborhoodLeaderboard,
- * ScopeCompetitionLeaderboard, ScopeBattleCard, NationalLeagueBoard, LeagueBoardSheets, CityArenaView,
- * app/community): it reads the HEBREW catalog — the same text as before, but Hebrew in every locale
- * until each caller passes its own `t`.
+ * `leagueHeT()` is the default for callers that don't pass a `t` (league-gender-copy's LEAGUE_COPY
+ * view, and any caller outside the migrated boards): it reads the HEBREW catalog — the same text as
+ * before, but Hebrew in every locale until the caller passes its own `t`.
  */
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';

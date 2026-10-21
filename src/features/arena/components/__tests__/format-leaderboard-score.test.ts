@@ -43,8 +43,8 @@ describe('formatLeaderboardScore — dynamic unit per metric, never a bare/gener
   });
 
   it('distance mode: real km unit, not a "נק\' X" points label', () => {
-    expect(formatLeaderboardScore(12.5, 'distance')).toBe('12.5 ק"מ');
-    expect(formatLeaderboardScore(0, 'distance')).toBe('0 ק"מ');
+    expect(formatLeaderboardScore(12.5, 'distance')).toBe('12.5 ק״מ');
+    expect(formatLeaderboardScore(0, 'distance')).toBe('0 ק״מ');
   });
 
   it('no mode ever produces the literal word "נקודות"', () => {

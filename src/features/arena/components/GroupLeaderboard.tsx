@@ -21,8 +21,8 @@ import {
   type GroupCompetitionResult,
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 
 interface GroupLeaderboardProps {
@@ -43,20 +43,21 @@ export default function GroupLeaderboard({
   timeWindow = 'weekly',
   genderFilter = 'all',
 }: GroupLeaderboardProps) {
+  const t = useT(community);
   const [result, setResult] = useState<GroupCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   const fetch = async () => {
     if (scope !== 'global' && !scopeId) return;
     setIsLoading(true);
-    setError(null);
+    setFailed(false);
     try {
       const data = await getGroupCompetitionLeaderboard({ scope, scopeId, timeWindow, genderFilter });
       setResult(data);
     } catch (err) {
       console.error('[GroupLeaderboard]', err);
-      setError('שגיאה בטעינת הדירוג');
+      setFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +69,7 @@ export default function GroupLeaderboard({
     <GroupLeaderboardView
       timeWindow={timeWindow}
       isLoading={isLoading}
-      error={error}
+      error={failed ? t('leagues.groupBoard.loadError') : null}
       entries={result?.entries ?? []}
       onRefresh={fetch}
     />
@@ -92,13 +93,12 @@ export function GroupLeaderboardView({
   entries,
   onRefresh: fetch,
 }: GroupLeaderboardViewProps) {
-  const uiGender = useUiGender();
-  const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
+  const t = useT(community);
   return (
     <BoardCard
-      title="דירוג הקבוצות"
-      subtitle={`קבוצות • ${windowLabel}`}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
+      title={t('leagues.groupBoard.title')}
+      subtitle={t('leagues.groupBoard.subtitle', { window: timeWindow })}
+      actions={<BoardIconButton icon={RefreshCw} label={t('leagues.groupBoard.refresh')} onClick={fetch} spinning={isLoading} />}
     >
       {isLoading ? (
         <div className="grid grid-cols-1 gap-2">
@@ -112,15 +112,15 @@ export function GroupLeaderboardView({
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={fetch}>
-              {pickGendered(uiGender, GENDERED_COPY.retry)}
+              {t('leagues.groupBoard.retry')}
             </Button>
           }
         />
       ) : entries.length === 0 ? (
         <BoardMessage
           icon={Users}
-          title="אין עדיין קבוצות בתחרות"
-          body="כשחברי קהילה יסיימו אימונים כחלק מקבוצה, היא תופיע כאן"
+          title={t('leagues.groupBoard.empty.title')}
+          body={t('leagues.groupBoard.empty.body')}
         />
       ) : (
         <>
@@ -131,7 +131,7 @@ export function GroupLeaderboardView({
                 key: e.groupId,
                 name: e.groupName,
                 value: e.avgScore.toLocaleString('he-IL'),
-                sub: `${e.activeMemberCount} פעילים`,
+                sub: t('leagues.groupBoard.podiumSub', { count: String(e.activeMemberCount) }),
               })) as [PodiumEntry, PodiumEntry, PodiumEntry]
             }
           />
@@ -142,9 +142,9 @@ export function GroupLeaderboardView({
               key={entry.groupId}
               rank={entry.rank}
               name={entry.groupName}
-              sub={`${entry.activeMemberCount} פעיל${entry.activeMemberCount !== 1 ? 'ים' : ''}`}
+              sub={t('leagues.groupBoard.active', { n: entry.activeMemberCount, count: String(entry.activeMemberCount) })}
               value={entry.avgScore.toLocaleString('he-IL')}
-              unit="ממוצע"
+              unit={t('leagues.groupBoard.unit')}
             />
           ))}
         </div>

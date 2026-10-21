@@ -8,7 +8,7 @@ flag `enable_graphhopper_routes` is on, and falls back to Mapbox on any error or
 | file | what |
 |---|---|
 | `Dockerfile` | 2 stages: download the jar (sha256-pinned) + Geofabrik `israel-and-palestine` (md5-checked), import the graph **at build time** (SRTM elevation fetched during the import), then a slim runtime image with the baked graph |
-| `config.yml` | profiles `foot`, `out_run`, `bike`, `out_bike`, `mtb`; flexible mode (per-request custom models); SRTM + smoothing; request logging off (it logged the whole custom model + caller IP per request) |
+| `config.yml` | profiles `foot`, `foot_turns` (turn costs), `out_run`, `bike`, `out_bike`, `mtb`; flexible mode (per-request custom models); SRTM + smoothing; request logging off (it logged the whole custom model + caller IP per request) |
 | `models/` | OUT layers on top of GraphHopper's built-in `foot.json` / `bike.json` / `mtb.json` |
 | `healthcheck.sh` | `/health` + a real short route (for `docker run`; Cloud Run uses the probes in `service.yaml`) |
 | `cloudbuild.yaml` | build → push → (optional) roll the service onto the new image |
@@ -116,6 +116,40 @@ trigger in `europe-west1` (`REGION=europe-west1` for `weekly.sh` only); the imag
 cd infra/graphhopper && docker build -t out-graphhopper . && docker run --rm -p 8989:8989 out-graphhopper
 # .env.local: GRAPHHOPPER_URL=http://localhost:8989   (localhost is called without an ID token)
 ```
+
+## Turn costs — `foot_turns` (21.10.2026)
+
+Owner feedback on /admin/routes/quality: GraphHopper loops zigzag (staircases through side
+streets, sidewalk-to-sidewalk hops). Measured with the new **turns/km** and **zigzag index**
+metrics: live GH loops run 4–12 turns > 45° per km (mean 7.5; v1 6.7). Cause: the `foot`
+profile is node-based — a turn costs nothing, so on a street grid every staircase between two
+points is as good as the L-shaped path, and the quiet-streets priorities actively prefer
+stepping through residential blocks over a straight tertiary road. Per-request tuning cannot fix
+that: softening the side-street priorities and `distance_influence` 150/300 moved turns/km by
+≤ 7% (`scripts/route-quality/gh-turns.ts --phase explore`). GraphHopper 11 only applies a
+`turn_penalty` on a profile with `turn_costs`, which is part of the graph import → **rebuild**.
+
+`config.yml` therefore adds a new profile `foot_turns` = `foot` + `turn_costs` (vehicle type
+`foot`, u-turn 60 s) + `models/out_turns.json` (3 s for a 30–60° turn, 8 s for a sharper one;
+`allow_turn_penalty_in_request: true`, so the values can be retuned per request without another
+rebuild). `foot` is unchanged. The app keeps using `foot` until the Vercel env var
+`GRAPHHOPPER_FOOT_PROFILE=foot_turns` is set — set it **only after** the new image is live
+(an unknown profile answers 400 → no GH loops → the app silently falls back to Mapbox).
+
+Owner commands (from the merged `main`, gcloud logged in as owner):
+
+```bash
+infra/graphhopper/scripts/build.sh
+INVOKER_SA=firebase-adminsdk-r84y7@appout-1.iam.gserviceaccount.com infra/graphhopper/scripts/deploy.sh
+infra/graphhopper/scripts/smoke.sh   # last line must print "foot_turns round_trip km ~5"
+# measure before switching (read-only, ≤ ~200 GraphHopper calls; no v1/Mapbox column with --no-v1):
+npx tsx --env-file=.env.local --tsconfig scripts/route-quality/hermetic/tsconfig.json \
+  scripts/route-quality/gh-turns.ts --url <GRAPHHOPPER_URL> --out /tmp/gh-turns --phase compare --profile foot_turns --no-v1
+# then Vercel → Environment Variables (Production + Preview): GRAPHHOPPER_FOOT_PROFILE=foot_turns → redeploy
+```
+
+The weekly rebuild (§7) would also pick the profile up from `main`; nothing uses it until the
+env var is set.
 
 ## Cost estimate (me-west1, list prices, verify in the pricing calculator)
 

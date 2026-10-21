@@ -26,7 +26,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.planned.paceNowUnit', "קצב עכשיו · דק׳ לק״מ"],
       ['run.planned.totalKm', "ק״מ סה״כ"],
       ['run.planned.untilEnd', "עד סוף האימון"],
-      ['run.planned.skip', "דלג"],
+      ['run.planned.skip', "דילוג"],
       ['run.planned.paceNow', "קצב עכשיו"],
       ['run.planned.recoveryTime', "זמן"],
       ['run.planned.general.title', "נתונים כלליים"],
@@ -72,7 +72,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.continuous.lapLogged', "הקפה נרשמה"],
       ['run.continuous.pagesAria', "עמודי הנגן · החליקו לצד"],
       ['run.continuous.next', "הבא"],
-      ['run.continuous.skipToNext', "דלג לבא"],
+      ['run.continuous.skipToNext', "דילוג לבא"],
       ['run.continuous.recenter', "מרכז את המפה"],
       ['run.free.title.run', "ריצה חופשית"],
       ['run.free.laps.empty.title', "אין הקפות עדיין"],
@@ -91,8 +91,8 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.lapsList.empty.title', "אין הקפות עדיין"],
       ['run.lapsList.empty.body', "ההקפות יופיעו כאן לאחר התחלת האימון"],
       ['run.lapsList.col.lap', "הקפה"],
-      ['run.lapsList.col.distance', "מרחק ק\"מ"],
-      ['run.lapsList.col.pace', "קצב דק' / ק\"מ"],
+      ['run.lapsList.col.distance', "מרחק ק״מ"],
+      ['run.lapsList.col.pace', "קצב דק' / ק״מ"],
       ['run.lapsList.col.time', "זמן דק'"],
       ['run.stats.lap.km', "קילומטר"],
       ['run.stats.lap.pace', "קצב"],
@@ -105,13 +105,13 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.stats.main.km', "ק״מ"],
       ['run.stats.main.time', "זמן"],
       ['run.stats.main.kcal', "קק״ל"],
-      ['run.vs.pickRival', "בחר רץ במפה להשוואה"],
+      ['run.vs.pickRival', "בחירת רץ במפה להשוואה"],
       ['run.vs.meInitials', "אני"],
       ['run.vs.me', "אני"],
-      ['run.vs.km', "ק\"מ"],
+      ['run.vs.km', "ק״מ"],
       ['run.vs.pace', "קצב"],
       ['run.vs.tied', "שווה בדיוק"],
-      ['run.controls.resume', "המשך אימון"],
+      ['run.controls.resume', "ממשיכים באימון"],
       ['run.controls.finish', "סיים אימון"],
       ['run.controls.pause', "השהה אימון"],
       ['run.controls.newLap', "הקפה חדשה"],
@@ -119,7 +119,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.invite.aria', "הזמן חבר לאימון"],
       ['run.lapSnapshot.time', "זמן"],
       ['run.lapSnapshot.pace', "קצב"],
-      ['run.lapSnapshot.km', "ק\"מ"],
+      ['run.lapSnapshot.km', "ק״מ"],
       ['run.gpsDebug.save', "⬆ שמור GPS trace"],
       ['run.gpsDebug.saving', "שומר…"],
       ['run.gpsDebug.saved', "✓ נשמר"],
@@ -138,7 +138,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.settings.autoPause.body', "עצירת טיימר כאשר התנועה נעצרת"],
       ['run.settings.countdown.title', "ספירה לאחור"],
       ['run.settings.countdown.body', "עיכוב של 5 שניות לפני התחלת האימון"],
-      ['run.settings.save', "שמור"],
+      ['run.settings.save', "שמירה"],
       ['run.free.classic.goal.distance', "מרחק"],
       ['run.free.classic.goal.time', "זמן"],
       ['run.free.classic.goal.calories', "קלוריות"],
@@ -150,7 +150,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.free.classic.aria.guided', "מסלול מודרך"],
       ['run.free.classic.aria.free', "אימון חופשי"],
       ['run.free.classic.goalReached', "🎯 הגעת ליעד!"],
-      ['run.free.dock.resume', "המשך אימון"],
+      ['run.free.dock.resume', "ממשיכים באימון"],
       ['run.free.dock.finish', "סיים אימון"],
       ['run.free.dock.lap', "הקפה"],
       ['run.free.dock.pause', "השהה אימון"],
@@ -170,8 +170,8 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.briefing.ladder.unit', "דק׳/ק״מ"],
       ['run.briefing.surfaces.title', "איפה כדאי לרוץ"],
       ['run.missed.body', "פספסת כמה אימונים? הכל בסדר. אימון האיכות שלך עדיין מחכה – רוצה לבצע אותו היום?"],
-      ['run.missed.doIt', "בוא נעשה את זה"],
-      ['run.missed.continue', "המשך כרגיל"],
+      ['run.missed.doIt', "בואו נעשה את זה"],
+      ['run.missed.continue', "ממשיכים כרגיל"],
       ['run.realign.title', "שמחים שחזרת!"],
       ['run.realign.body', "ראינו שלקחת הפסקה קצרה. איך היית רוצה להמשיך את התוכנית?"],
       ['run.realign.continue', "להמשיך כרגיל"],
@@ -185,7 +185,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.preview.difficulty.medium', "בינוני"],
       ['run.preview.difficulty.easy', "קל"],
       ['run.preview.quality', "אימון איכות"],
-      ['run.preview.start', "התחל אימון"],
+      ['run.preview.start', "יוצאים לאימון"],
       ['run.plannedActive.fallbackTitle', "אימון מתוכנן"],
       ['run.plannedActive.pause.title', "הפסקה"],
       ['run.plannedActive.pause.time', "זמן"],
@@ -206,10 +206,10 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.chosen.title', "המסלול שבחרת"],
       ['run.overview.chosen.showOnMap', "הצג במפה"],
       ['run.overview.chosen.clear', "בלי מסלול"],
-      ['run.overview.cta.startOnRoute', "התחל אימון במסלול"],
-      ['run.overview.cta.start', "התחל אימון"],
+      ['run.overview.cta.startOnRoute', "יוצאים לאימון במסלול"],
+      ['run.overview.cta.start', "יוצאים לאימון"],
       ['run.overview.cta.clearRoute', "בלי מסלול"],
-      ['run.overview.cta.pickOnMap', "בחר במפה"],
+      ['run.overview.cta.pickOnMap', "בחירה במפה"],
       ['run.overview.cta.suggest', "הצע לי מסלול"],
       ['run.overview.cta.searching', "מחפש מסלולים מכאן…"],
       ['run.overview.cta.noneNear', "לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן"],
@@ -219,7 +219,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.suggest.nameFallback', "לולאה"],
       ['run.overview.suggest.selected', "נבחר"],
       ['run.overview.suggest.selectedOfficial', "נבחר · מסלול רשמי"],
-      ['run.overview.suggest.select', "בחר"],
+      ['run.overview.suggest.select', "בחירה"],
       ['run.overview.level.lighter', "קליל"],
       ['run.overview.level.planned', "מאוזן"],
       ['run.overview.level.harder', "עוצמתי"],
@@ -237,11 +237,11 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.swap.level.higher', "קשה יותר"],
       ['run.overview.swap.title', "החלף מקטע"],
       ['run.overview.swap.subtitle', "העיקר כולו — חזרות והתאוששות יחד · הקצב נשאר שלך"],
-      ['run.overview.swap.confirm', "החלף"],
+      ['run.overview.swap.confirm', "החלפה"],
       ['run.overview.swap.current', "נוכחי"],
       ['run.overview.swap.empty', "אין חלופות לאימון הזה"],
       ['run.overview.pace.title', "התאם קצב"],
-      ['run.overview.pace.save', "שמור לאימון הזה"],
+      ['run.overview.pace.save', "שמירה לאימון הזה"],
       ['run.overview.pace.fasterAria', "מהר יותר ב-5 שניות"],
       ['run.overview.pace.slowerAria', "לאט יותר ב-5 שניות"],
       ['run.overview.pace.unit', "דק׳ לק״מ"],
@@ -252,8 +252,8 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
       ['run.overview.pace.warn.slow', "איטי מהטווח שלך — האימון יהיה קל מהמתוכנן. אפשר לשמור, אבל עדיף להישאר בטווח."],
       ['run.overview.edit.editedTag', "מותאם"],
       ['run.overview.edit.swapAria', "החלף מקטע"],
-      ['run.overview.edit.swap', "החלף"],
-      ['run.overview.edit.undo', "בטל"],
+      ['run.overview.edit.swap', "החלפה"],
+      ['run.overview.edit.undo', "ביטול"],
       ['run.overview.fitCard.open', "לאימון הזה כאן"],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
@@ -332,7 +332,7 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
   it('stats, VS, story bar, side rail, invite', () => {
     expect(t('run.stats.lap.header', { n: '4' })).toBe(`הקפה ${4}`);
     expect(t('run.stats.slideAria', { n: String(0 + 1) })).toBe(`עבור לשקופית ${0 + 1}`);
-    expect(t('run.vs.pacePerKm', { pace: '5:10' })).toBe(`${'5:10'} /ק"מ`);
+    expect(t('run.vs.pacePerKm', { pace: '5:10' })).toBe(`${'5:10'} /ק״מ`);
     for (const gap of [5, 1250]) {
       expect(t('run.vs.leadBy', { gap: String(gap) })).toBe(`מוביל ב-${gap} מ'`);
       expect(t('run.vs.behindBy', { gap: String(gap) })).toBe(`מפגר ב-${gap} מ'`);
@@ -342,15 +342,15 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
     expect(t('run.story.dotAria', { label: 'מרחק' })).toBe(`עבור לסטורי ${'מרחק'}`);
     expect(t('run.sideRail.selectAria', { name: 'דנה' })).toBe(`בחר ${'דנה'}`);
     const shareUrl = 'https://appout.co.il/join/abc';
-    expect(t('run.invite.shareWalk', { url: shareUrl })).toBe(`בוא/י ללכת איתי עכשיו 🚶 ${shareUrl}`);
-    expect(t('run.invite.shareRun', { url: shareUrl })).toBe(`בוא/י לרוץ איתי עכשיו 🏃 ${shareUrl}`);
+    expect(t('run.invite.shareWalk', { url: shareUrl })).toBe(`בואו ללכת איתי עכשיו 🚶 ${shareUrl}`); // gender batch 2: decision 7
+    expect(t('run.invite.shareRun', { url: shareUrl })).toBe(`בואו לרוץ איתי עכשיו 🏃 ${shareUrl}`);
   });
 
   it('settings drawer (portalled — not in the snapshots)', () => {
     const tag = (c: unknown[]) => `[${c.join('')}]`;
-    expect(t.rich('run.settings.autoLap.distanceValue', { value: (1).toFixed(1), unit: tag }).join('')).toBe(`${(1).toFixed(1)} [ק"מ]`);
+    expect(t.rich('run.settings.autoLap.distanceValue', { value: (1).toFixed(1), unit: tag }).join('')).toBe(`${(1).toFixed(1)} [ק״מ]`);
     expect(t.rich('run.settings.autoLap.timeValue', { value: (5).toFixed(1), unit: tag }).join('')).toBe(`${(5).toFixed(1)} [דק']`);
-    expect(t('run.settings.autoLap.rangeKm', { km: (0.1).toFixed(1) })).toBe(`${(0.1).toFixed(1)} ק"מ`);
+    expect(t('run.settings.autoLap.rangeKm', { km: (0.1).toFixed(1) })).toBe(`${(0.1).toFixed(1)} ק״מ`);
     expect(t('run.settings.autoLap.rangeMin', { min: '1' })).toBe(`1 דק'`);
     expect(t('run.settings.autoLap.rangeMin', { min: '10' })).toBe(`10 דק'`);
   });
@@ -363,16 +363,16 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
   });
 
   it('workout preview screen', () => {
-    expect(t('run.preview.pacePerKm', { pace: '4:30–4:45' })).toBe(`${'4:30–4:45'} /ק"מ`);
+    expect(t('run.preview.pacePerKm', { pace: '4:30–4:45' })).toBe(`${'4:30–4:45'} /ק״מ`);
     expect(t('run.preview.runnersNearby', { n: String(1234) })).toBe(`${1234} אנשים רצים קרוב אליך`);
     expect(t('run.preview.block.seconds', { s: '45' })).toBe(`${45} שנ'`);
     expect(t('run.preview.block.minutes', { m: `${3}:${(30).toString().padStart(2, '0')}` })).toBe(`${3}:${(30).toString().padStart(2, '0')} דק'`);
     expect(t('run.preview.block.minutes', { m: '5' })).toBe(`${5} דק'`);
-    expect(t('run.preview.block.km', { km: (1600 / 1000).toFixed(1) })).toBe(`${(1600 / 1000).toFixed(1)} ק"מ`);
+    expect(t('run.preview.block.km', { km: (1600 / 1000).toFixed(1) })).toBe(`${(1600 / 1000).toFixed(1)} ק״מ`);
     expect(t('run.preview.block.meters', { m: '400' })).toBe(`${400} מ'`);
     expect(t('run.preview.total.seconds', { s: '50' })).toBe(`${50} שניות`);
     expect(t('run.preview.total.minutes', { m: '42' })).toBe(`~${42} דק'`);
-    expect(t('run.preview.total.km', { km: (8400 / 1000).toFixed(1) })).toBe(`${(8400 / 1000).toFixed(1)} ק"מ`);
+    expect(t('run.preview.total.km', { km: (8400 / 1000).toFixed(1) })).toBe(`${(8400 / 1000).toFixed(1)} ק״מ`);
     expect(t('run.preview.total.meters', { m: '800' })).toBe(`${800} מ'`);
   });
 

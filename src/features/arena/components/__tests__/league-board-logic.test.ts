@@ -23,7 +23,7 @@ function row(rank: number, totalCredit: number, isCurrentUser = false, name = `p
 describe('splitScore', () => {
   it('splits number and unit', () => {
     expect(splitScore(6, 'general')).toEqual({ value: '6', unit: 'ימים' });
-    expect(splitScore(12.5, 'distance')).toEqual({ value: '12.5', unit: 'ק"מ' });
+    expect(splitScore(12.5, 'distance')).toEqual({ value: '12.5', unit: 'ק״מ' });
     expect(splitScore(40, 'strength')).toEqual({ value: '40', unit: "נק' כוח" });
   });
 });

@@ -17,6 +17,8 @@ export function RouteQualityAggregate({ routes, variants, generations, empty }: 
     ['חזרה על רחוב > 8%', a => pct(a.retraceOver8Pct)],
     ['חזרה ממוצעת', a => `${a.meanRetracePct.toFixed(1)}%`],
     ['קומפקטיות ממוצעת', a => a.meanCompactness.toFixed(2)],
+    ['פניות (>45°) לק״מ', a => a.turnsPerKm.toFixed(1)],
+    ['מדד זיגזג (1.0 = חלק)', a => a.meanZigzag.toFixed(2)],
     ['בטווח ±15% מהיעד', a => pct(a.withinWindowPct)],
     ['אורך על כבישים ראשיים', a => pct(a.majorRoadPct)],
     ['חציות כביש ראשי לק״מ', a => a.crossingsPerKm.toFixed(2)],
@@ -51,7 +53,7 @@ export function RouteQualityRows({ routes, selectedKey, onSelect }: {
     <table className="w-full text-xs">
       <thead>
         <tr className="text-gray-400">
-          {['גרסה', 'הרצה', 'ק״מ', 'שגיאת מרחק', 'פרסות', 'חזרה', 'קומפקטיות', 'חציות (לא מסומנות)', 'ראשיים', 'על שלנו (מסלולים)', 'תוצאה'].map(h => <th key={h} className="text-right font-bold py-2 px-1">{h}</th>)}
+          {['גרסה', 'הרצה', 'ק״מ', 'שגיאת מרחק', 'פרסות', 'חזרה', 'קומפקטיות', 'פניות/ק״מ', 'זיגזג', 'חציות (לא מסומנות)', 'ראשיים', 'על שלנו (מסלולים)', 'תוצאה'].map(h => <th key={h} className="text-right font-bold py-2 px-1">{h}</th>)}
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-50">
@@ -70,6 +72,8 @@ export function RouteQualityRows({ routes, selectedKey, onSelect }: {
               <td className="px-1 tabular-nums">{m.uTurnCount + m.spurCount}</td>
               <td className="px-1 tabular-nums">{(m.retracedPct * 100).toFixed(1)}%</td>
               <td className="px-1 tabular-nums">{m.compactness.toFixed(2)}</td>
+              <td className="px-1 tabular-nums">{(m.turnsPerKm ?? 0).toFixed(1)}</td>
+              <td className="px-1 tabular-nums">{(m.zigzagIndex ?? 1).toFixed(2)}</td>
               <td className="px-1 tabular-nums">{m.crossings ? `${m.crossings.total} (${m.crossings.unmarked})` : '—'}</td>
               <td className="px-1 tabular-nums">{m.majorRoadPct == null ? '—' : `${(m.majorRoadPct * 100).toFixed(0)}%`}</td>
               <td className="px-1 tabular-nums">{r.ours == null ? '—' : `${(r.ours.share * 100).toFixed(0)}% (${r.ours.routesUsed})`}</td>

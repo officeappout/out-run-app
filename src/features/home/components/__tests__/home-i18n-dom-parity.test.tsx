@@ -107,7 +107,7 @@ describe('MyPersonasSection', () => {
   it('add picker + remove confirmations', async () => {
     h.profile = { core: { gender: 'male' }, personas: [{ id: 'military' }, { id: 'parent' }] };
     m = await mount(<MyPersonasSection />);
-    await m.clickText('הוסף פרסונה');
+    await m.clickText('הוספת פרסונה');
     const picker = m.html();
     await m.click('.fixed.inset-0');
     await m.click('button[aria-label="הסר צה\\"ל"]');

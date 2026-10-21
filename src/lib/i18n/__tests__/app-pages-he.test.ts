@@ -82,7 +82,7 @@ describe('player · /session/[token] (he)', () => {
     ['sessionInvite.error.expired', 'הקישור פג תוקף'],
     ['sessionInvite.error.invalid', 'הקישור אינו תקף'],
     ['sessionInvite.error.askHost', 'בקש מהמארח לשלוח קישור חדש'],
-    ['sessionInvite.error.openApp', 'פתח את Out'],
+    ['sessionInvite.error.openApp', 'פתיחת Out'],
     ['sessionInvite.subtitle.walk', 'הוזמנת ללכת ביחד'],
     ['sessionInvite.subtitle.run', 'הוזמנת לרוץ ביחד'],
     ['sessionInvite.subtitle.session', 'הוזמנת להצטרף לאימון'],

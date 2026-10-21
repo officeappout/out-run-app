@@ -95,7 +95,7 @@ describe('ProgramStartSlide (owner 20.10.2026: one card per slide)', () => {
 describe('ProgramStartCarousel', () => {
   it('the two start cards, each its own slide, in the given order, with the header + hint', () => {
     const out = renderToStaticMarkup(h(ProgramStartCarousel, { order: ['running', 'strength'] as const, profile: null }));
-    expect(out).toContain('בוא נבנה לך תוכנית');
+    expect(out).toContain('בואו נבנה לך תוכנית'); // gender batch 2: unknown gender → neutral
     expect(out.indexOf('data-program-start="running"')).toBeLessThan(out.indexOf('data-program-start="strength"'));
     expect(out.match(/data-program-start-slide/g)?.length).toBe(2);
     expect(out).toContain(STRENGTH_IMG);
