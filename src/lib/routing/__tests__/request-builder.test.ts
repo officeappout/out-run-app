@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCustomModel, buildRoundTripRequest, buildViaRequest, DEFAULT_TAGS, PARKS_AREA_ID, profileForActivity, type GeoJsonPolygonFeature } from '../graphhopper';
+import { buildCustomModel, buildRoundTripRequest, buildViaRequest, DEFAULT_TAGS, PARKS_AREA_ID, profileForActivity, readFootProfile, type GeoJsonPolygonFeature } from '../graphhopper';
 
 const S = { lat: 32.0779, lng: 34.774 };
 const square = (x: number): GeoJsonPolygonFeature => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[x, 32], [x + 0.01, 32], [x + 0.01, 32.01], [x, 32]]] } });
@@ -59,5 +59,16 @@ describe('request bodies', () => {
     expect(profileForActivity('walking')).toBe('foot');
     expect(profileForActivity('cycling')).toBe('bike');
     expect(profileForActivity('cycling', { mtb: true })).toBe('mtb');
+  });
+  it('foot_turns: opt-in foot profile, same OUT layers as foot, cycling unaffected', () => {
+    expect(profileForActivity('running', { foot: 'foot_turns' })).toBe('foot_turns');
+    expect(profileForActivity('walking', { foot: 'foot_turns' })).toBe('foot_turns');
+    expect(profileForActivity('cycling', { foot: 'foot_turns' })).toBe('bike');
+    expect(buildCustomModel('foot_turns', DEFAULT_TAGS)).toEqual(buildCustomModel('foot', DEFAULT_TAGS));
+  });
+  it('GRAPHHOPPER_FOOT_PROFILE → foot unless exactly foot_turns', () => {
+    expect(readFootProfile({})).toBe('foot');
+    expect(readFootProfile({ GRAPHHOPPER_FOOT_PROFILE: ' foot_turns ' })).toBe('foot_turns');
+    expect(readFootProfile({ GRAPHHOPPER_FOOT_PROFILE: 'out_run' })).toBe('foot');
   });
 });

@@ -19,9 +19,8 @@ export const CATEGORY_UNIT_LABEL_KEYS = {
 
 /**
  * i18n (namespace `community`, keys `leagues.categoryUnit.*`): migrated callers render
- * `t(CATEGORY_UNIT_LABEL_KEYS[category])`. This map stays for the callers that are not migrated yet
- * (ScopeCompetitionLeaderboard, ScopeBattleCard, NationalLeagueBoard, app/community's
- * ScopeContributionCard): it reads the HEBREW catalog — same text as before, Hebrew in every locale.
+ * `t(CATEGORY_UNIT_LABEL_KEYS[category])` (the league boards since batch x). This map stays for any
+ * caller still reading it directly: it reads the HEBREW catalog — same text as before, Hebrew in every locale.
  */
 export const CATEGORY_UNIT_LABEL: Record<LeaderboardCategory, string> = {
   overall: he[CATEGORY_UNIT_LABEL_KEYS.overall],

@@ -1,0 +1,9 @@
+{
+  "turn_penalty": [
+    { "if": "change_angle > -30 && change_angle < 30", "add": "0" },
+    { "else_if": "change_angle >= 30 && change_angle < 60", "add": "3" },
+    { "else_if": "change_angle <= -30 && change_angle > -60", "add": "3" },
+    { "else_if": "change_angle >= 60 && change_angle <= 180", "add": "8" },
+    { "else_if": "change_angle <= -60 && change_angle >= -180", "add": "8" }
+  ]
+}

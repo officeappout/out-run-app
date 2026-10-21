@@ -4,15 +4,15 @@
  */
 import type { LngLat } from '@/lib/route-quality';
 import { buildCustomModel } from './custom-model';
-import type { GhProfile, GhRouteRequest, RouteTags } from './types';
+import type { GhFootProfile, GhProfile, GhRouteRequest, RouteTags } from './types';
 
 export const GH_DETAILS = ['road_class', 'crossing', 'surface'] as const;
 
 export type OutActivity = 'running' | 'walking' | 'cycling';
 
-export function profileForActivity(activity: OutActivity, opts: { mtb?: boolean } = {}): GhProfile {
+export function profileForActivity(activity: OutActivity, opts: { mtb?: boolean; foot?: GhFootProfile } = {}): GhProfile {
   if (activity === 'cycling') return opts.mtb ? 'mtb' : 'bike';
-  return 'foot';
+  return opts.foot ?? 'foot';
 }
 
 function base(profile: GhProfile, points: LngLat[], tags: RouteTags): GhRouteRequest {

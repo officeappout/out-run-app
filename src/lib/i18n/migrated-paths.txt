@@ -324,3 +324,13 @@ src/app/ai-coach/
 src/features/ai-coach/services/workout-card-view.pure.ts
 src/features/ai-coach/services/aerobic-card-view.pure.ts
 src/features/ai-coach/services/memory-copy.ts
+
+# wave 2 batch x (namespace community, leagues.{individual,sheets,scopes,battle,national,groupBoard}.*): the league
+# boards #615 left. Left out: services/ranking.service.ts (busy in another worktree; its Hebrew is a separate batch).
+src/features/arena/components/NeighborhoodLeaderboard.tsx
+src/features/arena/components/LeagueBoardSheets.tsx
+src/features/arena/components/ScopeCompetitionLeaderboard.tsx
+src/features/arena/components/ScopeBattleCard.tsx
+src/features/arena/components/NationalLeagueBoard.tsx
+src/features/arena/components/GroupLeaderboard.tsx
+src/features/arena/components/league-gender-copy.ts

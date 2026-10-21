@@ -56,7 +56,9 @@ function oldFormatTimeLeft(end: Date, now: Date): string {
 
 describe('community (he) leagues.* — byte-identical to the pre-extraction literals', () => {
   it('owns exactly the keys this test pins (count per prefix)', () => {
-    expect(Object.keys(he).filter((k) => k.startsWith('leagues.')).length).toBe(79);
+    // batch x's sub-prefixes are pinned by community-leagues-x-he.test.ts.
+    const batchX = /^leagues\.(individual|sheets|scopes|battle|national|groupBoard)\./;
+    expect(Object.keys(he).filter((k) => k.startsWith('leagues.') && !batchX.test(k)).length).toBe(79);
   });
 
   it('plain strings', () => {
