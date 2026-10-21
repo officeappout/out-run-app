@@ -6,11 +6,13 @@ import 'server-only';
  *   - page: per source ONE query (orderBy createdAt desc, limit SCAN_LIMIT) + ONE personas doc get
  *   - status: one update on the item's own doc (doc must exist)
  *   - screenshot: one doc get + a 10-minute signed READ url for its qa/… path
+ *     (a finding by id, or a "ציוני עיצוב" screen by its key in demo_registry/qa_summary.design)
  */
 import { getApps } from 'firebase-admin/app';
 import { FieldValue, Timestamp, type Firestore, type Query } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { DEMO_LIFE_DOC, DEMO_LIFE_FEEDBACK, DEMO_PERSONAS_DOC, DEMO_REGISTRY, QA_FINDINGS } from './paths';
+import { DEMO_LIFE_DOC, DEMO_LIFE_FEEDBACK, DEMO_PERSONAS_DOC, DEMO_QA_SUMMARY_DOC, DEMO_REGISTRY, QA_FINDINGS } from './paths';
+import { parseQaDesign } from './qa-summary';
 import { mapLifeFeedback, mapQaFinding, personaNames, type FeedbackSource, type TriageStatus } from './feedback-model';
 import {
   SCAN_LIMIT,
@@ -79,7 +81,18 @@ export type ScreenshotResult = { ok: true; url: string } | { ok: false; status: 
 export async function signFindingScreenshot(db: Firestore, findingId: string): Promise<ScreenshotResult> {
   const snap = await db.collection(QA_FINDINGS).doc(findingId).get();
   if (!snap.exists) return { ok: false, status: 404, error: 'not_found' };
-  const path = snap.data()?.screenshot;
+  return signQaPath(snap.data()?.screenshot);
+}
+
+/** The same for a screen of the last summary's design block (path read from the summary doc). */
+export async function signDesignScreenshot(db: Firestore, screen: string): Promise<ScreenshotResult> {
+  const snap = await db.collection(DEMO_REGISTRY).doc(DEMO_QA_SUMMARY_DOC).get();
+  const row = parseQaDesign(snap.data()?.design)?.screens.find((s) => s.screen === screen);
+  if (!row) return { ok: false, status: 404, error: 'not_found' };
+  return signQaPath(row.screenshot);
+}
+
+async function signQaPath(path: unknown): Promise<ScreenshotResult> {
   if (!isQaScreenshotPath(path)) return { ok: false, status: 404, error: 'no_screenshot' };
   const app = getApps()[0];
   if (!app) return { ok: false, status: 503, error: 'sign_failed' };

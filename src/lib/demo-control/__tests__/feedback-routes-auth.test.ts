@@ -32,6 +32,10 @@ vi.mock('@/lib/demo-control/feedback.server', () => ({
     st.calls.push(`sign:${id}`);
     return { ok: true, url: 'https://signed.example/x' };
   },
+  signDesignScreenshot: async (_db: unknown, screen: string) => {
+    st.calls.push(`sign-screen:${screen}`);
+    return { ok: true, url: 'https://signed.example/s' };
+  },
 }));
 
 import { GET as getFeedback } from '@/app/api/admin/demo/feedback/route';
@@ -60,8 +64,9 @@ describe('denied callers touch nothing', () => {
         getFeedback(req('/api/admin/demo/feedback?source=all')),
         postStatus(req('/api/admin/demo/feedback/status', { method: 'POST', body: { source: 'testers', id: 'r1__a', status: 'handled' } })),
         getScreenshot(req('/api/admin/demo/feedback/screenshot?id=r1__a')),
+        getScreenshot(req('/api/admin/demo/feedback/screenshot?screen=home_strength')),
       ]);
-      expect(responses.map((r) => r.status)).toEqual([gate, gate, gate]);
+      expect(responses.map((r) => r.status)).toEqual([gate, gate, gate, gate]);
       expect(st.calls).toEqual([]);
     });
   }
@@ -110,6 +115,18 @@ describe('GET /feedback/screenshot', () => {
   it('rejects a path-like id', async () => {
     expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot?id=../users'))).status).toBe(400);
     expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot'))).status).toBe(400);
+    expect(st.calls).toEqual([]);
+  });
+  it('signs a design screen by its summary key (the path comes from the summary doc)', async () => {
+    const res = await getScreenshot(req(`/api/admin/demo/feedback/screenshot?screen=${encodeURIComponent('/parks/[id]')}`));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: 'https://signed.example/s' });
+    expect(st.calls).toEqual(['sign-screen:/parks/[id]']);
+  });
+  it('rejects a bad screen key, or id + screen together', async () => {
+    expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot?screen=a%20b'))).status).toBe(400);
+    expect((await getScreenshot(req(`/api/admin/demo/feedback/screenshot?screen=${'x'.repeat(121)}`))).status).toBe(400);
+    expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot?id=bad/..&screen=home'))).status).toBe(400);
     expect(st.calls).toEqual([]);
   });
 });

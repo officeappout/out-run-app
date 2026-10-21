@@ -2,10 +2,10 @@
  * The overseer's Hebrew "design report" (design-report.md) and the `design` block of the
  * control-center summary doc (demo_registry/qa_summary). Pure; unit-tested.
  *
- * NOTE: qaRunnerReport's summary sanitiser (functions/src/lib/qa-runner-ops.ts parseSummary) and
- * the panel parser (src/lib/demo-control/qa-summary.ts) keep only the fields they know — the
- * `design` block is stored once both learn it (follow-up outside scripts/qa). Its shape is
- * DesignSummary below.
+ * NOTE: qaRunnerReport's summary sanitiser (functions/src/lib/qa-runner-ops.ts parseDesignBlock)
+ * and the panel parser (src/lib/demo-control/qa-summary.ts parseQaDesign) whitelist this shape —
+ * DesignSummary below. A new field here must be added to both (round-trip test:
+ * src/lib/demo-control/__tests__/qa-design.test.ts).
  */
 import type { QaSeverity } from '@/lib/demo-control/qa-summary';
 import { ruleText } from '../checklist';

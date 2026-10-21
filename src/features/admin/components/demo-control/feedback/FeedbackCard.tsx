@@ -5,6 +5,7 @@ import { Check, ClipboardCopy, Image as ImageIcon, RotateCcw, X } from 'lucide-r
 import { Button, Panel, StatusPill, type PillTone } from '@/features/admin/components/ui';
 import { STATUS_LABEL, TYPE_LABEL, buildTaskMarkdown, type FeedbackItem, type TriageStatus } from '@/lib/demo-control/feedback-model';
 import { fmtWhen } from '../demo-client';
+import DesignScoreChips from '../DesignScoreChips';
 
 const SEVERITY_TONE: Record<string, PillTone> = { P0: 'bad', P1: 'bad', P2: 'warn', P3: 'neutral' };
 const STATUS_TONE: Record<TriageStatus, PillTone> = { open: 'info', handled: 'good', irrelevant: 'neutral' };
@@ -50,6 +51,12 @@ export default function FeedbackCard({
         {item.count > 1 ? ` · ${item.count} פעמים` : ''}
         {!tester && item.generatedBy ? ` · ${item.generatedBy === 'llm' ? 'נכתב ב-AI' : 'משפט מוכן'}` : ''}
       </p>
+
+      {item.designScores && (
+        <div className="mt-2">
+          <DesignScoreChips scores={item.designScores} />
+        </div>
+      )}
 
       {tester ? (
         <div className="mt-2 space-y-1.5 text-[14px] text-slate-700">

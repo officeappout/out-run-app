@@ -99,11 +99,20 @@ export function useDemoFeedback(enabled: boolean, filters: FeedbackFilterState) 
   return { items, hasMore: cursor !== null, loading, loaded, error, loadMore, reload, setStatus };
 }
 
-export async function openScreenshot(findingId: string): Promise<string | null> {
+export function openScreenshot(findingId: string): Promise<string | null> {
+  return openSigned(`id=${encodeURIComponent(findingId)}`);
+}
+
+/** A "ציוני עיצוב" screen's screenshot (the server reads the path from the summary doc). */
+export function openDesignScreenshot(screen: string): Promise<string | null> {
+  return openSigned(`screen=${encodeURIComponent(screen)}`);
+}
+
+async function openSigned(query: string): Promise<string | null> {
   // Open the tab synchronously (popup blockers), then point it at the signed URL.
   const win = window.open('about:blank', '_blank');
   try {
-    const res = await demoFetch(`/api/admin/demo/feedback/screenshot?id=${encodeURIComponent(findingId)}`);
+    const res = await demoFetch(`/api/admin/demo/feedback/screenshot?${query}`);
     if (!res.ok) throw new Error(await readError(res));
     const { url } = (await res.json()) as { url: string };
     if (win) {

@@ -16,7 +16,7 @@
  *   findings      read   qa_findings where runId == x (limit 500)
  *   latest_run    read   newest qa_findings runId
  *   summary_get   read   demo_registry/qa_summary
- *   summary_put   set    demo_registry/qa_summary (sanitised)
+ *   summary_put   set    demo_registry/qa_summary (sanitised, incl. the overseer's `design` block)
  *
  * `finding` and `upload_url` additionally need enable_demo_users && enable_ai_testers. Usage and
  * heartbeat are always accepted (cost accounting must never be lost; "idle" after a switch-off).
@@ -237,6 +237,53 @@ export function parseRunIdArg(a: Record<string, unknown>): Op<{ runId: string }>
 const strArr = (v: unknown, max: number, len: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, max).map((x) => x.slice(0, len)) : []);
 const int = (v: unknown, max: number) => (nonNeg(v, max) ? Math.floor(v as number) : 0);
 
+// The overseer's `design` block (scripts/qa/lib/overseer/design-report.ts DesignSummary).
+export const DESIGN_MAX_SCREENS = 15;
+export const DESIGN_MAX_RESUME = 10;
+const RULE_RE = /^[A-Z0-9-]{2,30}$/;
+const RESUME_RE = /^[A-Za-z0-9_-]{1,40}(@[a-z0-9_]{2,40})?$/;
+// eslint-disable-next-line no-control-regex
+const CTRL_RE = /[\u0000-\u001f\u007f]/g;
+/** A 1–5 score (means carry one decimal), anything else → null. */
+const score = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 1 && v <= 5 ? Math.round(v * 10) / 10 : null);
+const text = (v: unknown, max: number): string => str(v, max).replace(CTRL_RE, ' ').trim();
+
+function parseDesignScreen(x: unknown): Record<string, unknown>[] {
+  if (!isObj(x)) return [];
+  const screen = text(x.screen, 120);
+  if (!screen) return [];
+  return [
+    {
+      screen,
+      label: text(x.label, 80) || null,
+      route: text(x.route, 120) || '/',
+      score: score(x.score),
+      clarity: score(x.clarity),
+      consistency: score(x.consistency),
+      density: score(x.density),
+      rtl: score(x.rtl),
+      devices: strArr(x.devices, 10, 40),
+      findings: int(x.findings, 100_000),
+      worst: SEVERITIES.includes(x.worst as string) ? x.worst : null,
+      topRule: typeof x.topRule === 'string' && RULE_RE.test(x.topRule) ? x.topRule : null,
+      screenshot: typeof x.screenshot === 'string' && UPLOAD_PATH_RE.test(x.screenshot) ? x.screenshot : null,
+    },
+  ];
+}
+
+/** Whitelisted + bounded; null when the summary has no design block (non-design runs). */
+export function parseDesignBlock(v: unknown): Record<string, unknown> | null {
+  if (!isObj(v)) return null;
+  return {
+    screensScored: int(v.screensScored, 10_000),
+    avgScore: score(v.avgScore),
+    lowScreens: int(v.lowScreens, 10_000),
+    findings: int(v.findings, 100_000),
+    screens: (Array.isArray(v.screens) ? v.screens : []).slice(0, DESIGN_MAX_SCREENS).flatMap(parseDesignScreen),
+    resume: Array.from(new Set(strArr(v.resume, DESIGN_MAX_RESUME * 3, 100).filter((r) => RESUME_RE.test(r)))).slice(0, DESIGN_MAX_RESUME),
+  };
+}
+
 /** Same shape as src/lib/demo-control/qa-summary.ts (the panel's parser). */
 export function parseSummary(a: Record<string, unknown>): Op<Record<string, unknown>> {
   const s = isObj(a.summary) ? a.summary : null;
@@ -271,6 +318,7 @@ export function parseSummary(a: Record<string, unknown>): Op<Record<string, unkn
       sessions: (Array.isArray(s.sessions) ? s.sessions : []).slice(0, 20).flatMap((x) =>
         isObj(x) && typeof x.mission === 'string' && typeof x.outcome === 'string' ? [{ mission: x.mission.slice(0, 40), outcome: x.outcome.slice(0, 20) }] : [],
       ),
+      design: parseDesignBlock(s.design),
     },
   };
 }

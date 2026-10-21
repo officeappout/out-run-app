@@ -2,6 +2,7 @@
 /** "משוב דמו" — the filter row: source, type, severity, status, persona, date range. */
 import { LIFE_FEEDBACK_TYPES, QA_CATEGORIES, STATUS_LABEL, TRIAGE_STATUSES, TYPE_LABEL, type FeedbackType } from '@/lib/demo-control/feedback-model';
 import { QA_SEVERITIES } from '@/lib/demo-control/qa-summary';
+import { DESIGN_FILTER } from '@/lib/demo-control/qa-design';
 import { Button, SegmentTabs } from '@/features/admin/components/ui';
 import { DEFAULT_FILTERS, type FeedbackFilterState } from './useDemoFeedback';
 
@@ -16,6 +17,11 @@ const SOURCE_TABS: { id: FeedbackFilterState['source']; label: string }[] = [
 
 function typesFor(source: FeedbackFilterState['source']): readonly FeedbackType[] {
   return source === 'life' ? LIFE_FEEDBACK_TYPES : source === 'testers' ? QA_CATEGORIES : [...LIFE_FEEDBACK_TYPES, ...QA_CATEGORIES];
+}
+
+/** Type values the select offers: the types + "עיצוב" (all tester design findings) unless only life is shown. */
+function typeValuesFor(source: FeedbackFilterState['source']): readonly string[] {
+  return source === 'life' ? typesFor(source) : [DESIGN_FILTER, ...typesFor(source)];
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -54,7 +60,7 @@ export default function FeedbackFilters({
             ...value,
             source,
             // keep only filters that still make sense for the new source
-            type: (typesFor(source) as readonly string[]).includes(value.type) ? value.type : '',
+            type: typeValuesFor(source).includes(value.type) ? value.type : '',
             severity: source === 'life' ? '' : value.severity,
           })
         }
@@ -63,6 +69,7 @@ export default function FeedbackFilters({
         <Field label="סוג">
           <select className={inputCls} value={value.type} onChange={(e) => set('type', e.target.value)}>
             <option value="">כל הסוגים</option>
+            {value.source !== 'life' && <option value={DESIGN_FILTER}>עיצוב (כל ממצאי העיצוב)</option>}
             {types.map((t) => (
               <option key={t} value={t}>
                 {TYPE_LABEL[t]}

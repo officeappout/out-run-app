@@ -30,7 +30,7 @@
  *     priced with the top-level model (see usage-cost.ts dayUsd).
  *
  *   demo_registry/qa_summary             the AI tester overseer's latest summary (scripts/qa/overseer.ts)
- *     { runId, generatedAt, findings, bySeverity, clusters[] } — parsed by ./qa-summary.ts
+ *     { runId, generatedAt, findings, bySeverity, clusters[], design? } — parsed by ./qa-summary.ts
  *   demo_registry/testers                the AI tester roster { uids } (scripts/qa/register-testers.ts);
  *                                        mintDemoTesterToken signs only uids listed here
  *
