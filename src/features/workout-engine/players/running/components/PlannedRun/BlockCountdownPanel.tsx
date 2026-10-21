@@ -7,14 +7,14 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { usePlannedRunEngine } from '../../hooks/usePlannedRunEngine';
 
 const LABEL_MAP: Record<string, string> = {
-  surge: 'ספרינט',
-  sprint: 'ספרינט',
-  recovery: 'שחזור',
-  warmup: 'חימום',
-  cooldown: 'שחרור',
-  run: 'ריצה',
-  walk: 'הליכה',
-  strides: 'מתגברות',
+  surge: 'ספרינט', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  sprint: 'ספרינט', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  recovery: 'שחזור', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  warmup: 'חימום', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  cooldown: 'שחרור', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  run: 'ריצה', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  walk: 'הליכה', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  strides: 'מתגברות', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 };
 
 function hebrewLabel(raw: string): string {
@@ -48,7 +48,7 @@ export default function BlockCountdownPanel() {
   const blockTitle = useMemo(() => {
     if (!currentBlock) return '';
     const name = hebrewLabel(currentBlock.label);
-    const dist = currentBlock.distanceMeters ? ` ${currentBlock.distanceMeters} מ׳` : '';
+    const dist = currentBlock.distanceMeters ? ` ${currentBlock.distanceMeters} מ׳` : ''; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 
     const sameType = blocks.filter(
       (b) => b.label === currentBlock.label && !b._isSynthesizedRest,
@@ -109,7 +109,7 @@ export default function BlockCountdownPanel() {
           className="text-slate-400 text-xs font-medium"
           style={{ marginTop: 8 }}
         >
-          קצב הקפה
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קצב הקפה
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function BlockCountdownPanel() {
           )}
         </div>
         <div className="text-slate-400 text-xs font-medium" style={{ marginTop: 4 }}>
-          קילומטר
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קילומטר
         </div>
       </div>
     </div>
@@ -293,9 +293,9 @@ const EFFORT_COLORS: Record<string, string> = {
 
 function EffortBadge({ effortLabel = '' }: { effortLabel?: string }) {
   const key =
-    effortLabel === 'מאמץ בינוני'
+    effortLabel === 'מאמץ בינוני' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
       ? 'moderate'
-      : effortLabel === 'מאמץ גבוה'
+      : effortLabel === 'מאמץ גבוה' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
         ? 'hard'
         : 'max';
   const color = EFFORT_COLORS[key] ?? '#F59E0B';
@@ -303,7 +303,7 @@ function EffortBadge({ effortLabel = '' }: { effortLabel?: string }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs font-bold text-slate-400 tracking-wider">
-        רמת מאמץ
+        {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רמת מאמץ
       </span>
       <motion.span
         key={effortLabel}
@@ -312,7 +312,7 @@ function EffortBadge({ effortLabel = '' }: { effortLabel?: string }) {
         className="text-lg font-black px-5 py-1.5 rounded-full"
         style={{ backgroundColor: `${color}1A`, color }}
       >
-        {effortLabel || 'מאמץ'}
+        {effortLabel || 'מאמץ' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
       </motion.span>
     </div>
   );

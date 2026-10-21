@@ -19,6 +19,8 @@ import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { computeStandings } from '@/features/workout-engine/players/running/lib/computeStandings';
 import { buildRunStories } from '@/features/workout-engine/players/running/lib/buildRunStories';
 import RouteStoryBar from './RouteStoryBar';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Track story — 2-dot race visual
@@ -35,6 +37,7 @@ interface TrackStoryProps {
 }
 
 function TrackStory({ meKm, rivalKm, goalKm, gapM, myColor, rivalColor, isPaused }: TrackStoryProps) {
+  const t = useT(player);
   const mePct = Math.min(100, (meKm / goalKm) * 100);
   const rivalPct = Math.min(100, (rivalKm / goalKm) * 100);
   const iLead = gapM >= 0;
@@ -47,7 +50,7 @@ function TrackStory({ meKm, rivalKm, goalKm, gapM, myColor, rivalColor, isPaused
           className="text-[10px] font-black tracking-[0.18em] uppercase opacity-80"
           style={{ color: iLead ? myColor : rivalColor }}
         >
-          מובילות
+          {t('run.story.track.title')}
         </span>
         <span
           className="text-[14px] font-black tabular-nums leading-none"
@@ -55,8 +58,8 @@ function TrackStory({ meKm, rivalKm, goalKm, gapM, myColor, rivalColor, isPaused
           style={{ color: 'rgba(15,23,42,0.92)', letterSpacing: '-0.01em' }}
         >
           {iLead
-            ? `מוביל ב-${Math.abs(gapM)} מ'`
-            : `מפגר ב-${Math.abs(gapM)} מ'`}
+            ? t('run.story.track.leadBy', { gap: String(Math.abs(gapM)) })
+            : t('run.story.track.behindBy', { gap: String(Math.abs(gapM)) })}
         </span>
       </div>
 
@@ -120,6 +123,7 @@ interface RunStoryBarProps {
 }
 
 export default function RunStoryBar({ isPaused = false }: RunStoryBarProps) {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const currentPace = useRunningPlayer((s) => s.currentPace);
@@ -196,7 +200,7 @@ export default function RunStoryBar({ isPaused = false }: RunStoryBarProps) {
                     ? '#00ADEF'
                     : 'rgba(15,23,42,0.20)',
               }}
-              aria-label={`עבור לסטורי ${s.label}`}
+              aria-label={t('run.story.dotAria', { label: s.label })}
             />
           ))}
         </div>

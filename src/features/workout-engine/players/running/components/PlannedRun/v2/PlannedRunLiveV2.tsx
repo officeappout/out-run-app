@@ -28,6 +28,8 @@ import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { blockDisplayLabel, fmtClock, fmtDistance, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
 import PlannedLiveCardV2 from './PlannedLiveCardV2';
 import PlannedSessionListV2 from './PlannedSessionListV2';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface Props {
   engine: PlannedRunEngine;
@@ -54,6 +56,7 @@ export default function PlannedRunLiveV2({
   onEnd,
   onJumpToBlock,
 }: Props) {
+  const t = useT(player);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const gpsAccuracy = useRunningPlayer((s) => s.gpsAccuracy);
@@ -117,8 +120,8 @@ export default function PlannedRunLiveV2({
       mini={({ startDrag, height, safeBottom }) => (
         <MiniPlayer
           color={currentBlock ? v2BlockColor(currentBlock) : '#a9b7c2'}
-          title={currentBlock ? `${blockDisplayLabel(currentBlock)} · ${currentRemaining}` : 'אימון מתוכנן'}
-          subtitle={`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(1)} ק״מ`}
+          title={currentBlock ? `${blockDisplayLabel(currentBlock)} · ${currentRemaining}` : t('run.planned.mini.fallbackTitle')}
+          subtitle={t('run.planned.mini.subtitle', { time: fmtClock(totals.durationSec), km: totals.distanceKm.toFixed(1) })}
           isPaused={isPaused}
           onTogglePause={isPaused ? onResume : onPause}
           onExpand={() => setListOpen(false)}
@@ -165,7 +168,7 @@ export default function PlannedRunLiveV2({
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
                   onClick={() => setMapFollowEnabled(true)}
-                  aria-label="מרכז את המפה"
+                  aria-label={t('run.planned.recenter')}
                   className="pointer-events-auto absolute right-4 top-[calc(env(safe-area-inset-top,0px)+110px)] grid h-11 w-11 place-items-center rounded-full bg-white shadow-v2-ring"
                 >
                   <LocateFixed size={20} className="text-v2-deep" aria-hidden />

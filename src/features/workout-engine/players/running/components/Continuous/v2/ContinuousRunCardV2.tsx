@@ -15,6 +15,9 @@ import { PlayerControls } from '../../../../shared/v2';
 import { clampPage, continuousPages, swipePage, type ContinuousPage } from '../../../lib/continuous-run';
 import { rateLabels } from '../../../lib/aerobic-activity';
 import { DistancePage, MainPage, PacePage, type ContinuousCardData } from './ContinuousPages';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
 export interface NextBlockInfo {
   /** "ריצה קלה". */
@@ -36,13 +39,18 @@ export interface ContinuousRunCardV2Props {
   onStop: () => void;
 }
 
-const PAGE_LABEL: Record<ContinuousPage, string> = { main: 'ראשי', pace: 'קצב', distance: 'מרחק' };
+const PAGE_LABEL_KEY = {
+  main: 'run.continuous.page.main',
+  pace: 'run.continuous.page.pace',
+  distance: 'run.continuous.page.distance',
+} as const satisfies Record<ContinuousPage, NamespaceKey<typeof player>>;
 
-function pageLabel(p: ContinuousPage, data: ContinuousCardData): string {
-  return p === 'pace' ? rateLabels(data.metric ?? 'pace').page : PAGE_LABEL[p];
+function pageLabel(p: ContinuousPage, data: ContinuousCardData, t: ReactTFunction<NamespaceKey<typeof player>>): string {
+  return p === 'pace' ? rateLabels(data.metric ?? 'pace').page : t(PAGE_LABEL_KEY[p]);
 }
 
 export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPaused, onPause, onResume, onLap, onStop }: ContinuousRunCardV2Props) {
+  const t = useT(player);
   const pages = continuousPages(data.showLivePace);
   const [rawPage, setPage] = useState(0);
   const page = clampPage(rawPage, pages.length);
@@ -74,14 +82,14 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
             role="status"
           >
             <Timer size={14} strokeWidth={2.5} aria-hidden />
-            הקפה נרשמה
+            {t('run.continuous.lapLogged')}
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="w-full rounded-[28px] bg-white px-[18px] pb-3 pt-3 shadow-v2-float">
         {/* Page tabs — the labels double as the page dots. */}
-        <div className="mb-1.5 flex justify-center gap-1" role="tablist" aria-label="עמודי הנגן · החליקו לצד">
+        <div className="mb-1.5 flex justify-center gap-1" role="tablist" aria-label={t('run.continuous.pagesAria')}>
           {pages.map((p, i) => (
             <button
               key={p}
@@ -93,7 +101,7 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
                 page === i ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'text-v2-muted'
               }`}
             >
-              {pageLabel(p, data)}
+              {pageLabel(p, data, t)}
             </button>
           ))}
         </div>
@@ -125,7 +133,7 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
           <div className="mt-3 flex items-center gap-2.5 rounded-[16px] bg-v2-surface px-3 py-2 ring-1 ring-inset ring-v2-hairline">
             <span className="h-8 w-8 shrink-0 rounded-[10px]" style={{ background: next.color }} aria-hidden />
             <span className="min-w-0 flex-1">
-              <span className="block whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">הבא</span>
+              <span className="block whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">{t('run.continuous.next')}</span>
               <span className="block truncate whitespace-nowrap text-[14.5px] font-black text-v2-ink">
                 {next.meta ? `${next.label} · ${next.meta}` : next.label}
               </span>
@@ -136,7 +144,7 @@ export default function ContinuousRunCardV2({ data, next, canSkip, onSkip, isPau
                 onClick={onSkip}
                 className="h-11 shrink-0 whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
               >
-                דלג לבא
+                {t('run.continuous.skipToNext')}
               </button>
             )}
           </div>

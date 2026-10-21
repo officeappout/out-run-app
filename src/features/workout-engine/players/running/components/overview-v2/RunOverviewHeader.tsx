@@ -10,6 +10,8 @@ import { MapPin } from 'lucide-react';
 import { WorkoutOverviewHeader } from '@/components/ui/v2';
 import type { RunPreviewModel } from '../../utils/run-preview/run-preview-model';
 import RunKindTile from '../preview-v2/RunKindIcon';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RunOverviewHeaderProps {
   model: RunPreviewModel;
@@ -22,6 +24,7 @@ export interface RunOverviewHeaderProps {
 }
 
 export default function RunOverviewHeader({ model, finishText, routeLine, customized = false }: RunOverviewHeaderProps) {
+  const t = useT(player);
   // Board M-6a: time · km · finish (the reps live in the title and the strip).
   const meta = model.meta.slice(0, 2).map((text, i) => ({ key: `m${i}`, text }));
   if (finishText) meta.push({ key: 'finish', text: finishText });
@@ -31,7 +34,7 @@ export default function RunOverviewHeader({ model, finishText, routeLine, custom
       <div className="min-w-0">
         <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full px-2.5 text-[12px] font-extrabold"
           style={{ background: model.tint, color: model.textColor }}>
-          {customized ? `${model.typeLabel} · מותאם` : model.typeLabel}
+          {customized ? t('run.overview.header.typeCustomized', { type: model.typeLabel }) : model.typeLabel}
         </span>
         <div className="mt-1">
           <WorkoutOverviewHeader v2 title={model.title} meta={meta} />

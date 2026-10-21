@@ -30,6 +30,8 @@ import {
   type PlannedBlockRecord,
   type TargetResolver,
 } from '../../../lib/planned-rep-results';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface Props {
   title: string;
@@ -62,6 +64,7 @@ export default function PlannedSessionListV2({
   onJumpToBlock,
   onClose,
 }: Props) {
+  const t = useT(player);
   const [jumpTarget, setJumpTarget] = useState<number | null>(null);
   const sections = planSections(blocks);
   const current = blocks[currentBlockIndex] ?? null;
@@ -92,13 +95,13 @@ export default function PlannedSessionListV2({
     const rec = records.get(i);
     const c = rec ? recordClass(rec) : null;
     const color = v2BlockColor(b);
-    const t = !isShortLeg(b) ? resolveTarget(b) : { min: 0, max: 0 };
-    const band = showNumbers && t.min > 0 ? fmtBand(t.min, t.max) : '';
+    const tgt = !isShortLeg(b) ? resolveTarget(b) : { min: 0, max: 0 };
+    const band = showNumbers && tgt.min > 0 ? fmtBand(tgt.min, tgt.max) : '';
     const planned = b.distanceMeters ? fmtDistance(b.distanceMeters) : b.durationSeconds ? fmtClock(b.durationSeconds) : '';
 
-    const name = isRep ? `חזרה ${rep}` : blockDisplayLabel(b);
+    const name = isRep ? t('run.session.repN', { rep: String(rep) }) : blockDisplayLabel(b);
     const titleText = done && rec ? `${name} · ${fmtClock(rec.durationSeconds)}` : isRep ? name : `${name}${planned ? ` · ${planned}` : ''}`;
-    const sub = band ? `יעד ${band}` : isRep ? planned : '';
+    const sub = band ? t('run.session.target', { band }) : isRep ? planned : '';
 
     let status = '';
     let statusColor = '#64748b';
@@ -106,7 +109,7 @@ export default function PlannedSessionListV2({
       status = paceClassText(c);
       statusColor = c.band === 'in' ? IN.text : OFF.text;
     } else if (isFocus) {
-      status = i === currentBlockIndex ? 'עכשיו' : 'בעוד';
+      status = i === currentBlockIndex ? t('run.session.status.now') : t('run.session.status.upNext');
       statusColor = '#c0392b';
     }
 
@@ -180,19 +183,19 @@ export default function PlannedSessionListV2({
   const inSection = (idx: number[]) => idx.includes(focusIndex);
   const mainRows = hasReps ? sections.main.filter((i) => !isRestBlock(blocks[i])) : sections.main;
   const mainColor = hasReps ? v2BlockColor(blocks[mainRows[0]]) : V2_BLOCK_COLORS.easy;
-  const blocksMeta = (n: number) => `· ${n} ${n === 1 ? 'בלוק' : 'בלוקים'}`;
+  const blocksMeta = (n: number) => t('run.session.blocksMeta', { n });
 
   return (
     <div className="h-full overflow-y-auto bg-v2-surface px-4 pb-32" dir="rtl" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">מהלך האימון</h2>
+          <h2 className="truncate text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('run.session.title')}</h2>
           <p className="truncate text-[13px] font-bold text-v2-muted">{title}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="חזרה לנגן"
+          aria-label={t('run.session.backToPlayer')}
           className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
         >
           <ChevronDown size={20} strokeWidth={2.4} className="rotate-180 text-v2-ink" aria-hidden />
@@ -201,7 +204,7 @@ export default function PlannedSessionListV2({
 
       {sections.warmup.length > 0 && (
         <>
-          {sectionHead('חימום', V2_BLOCK_COLORS.wrapper, blocksMeta(sections.warmup.length))}
+          {sectionHead(t('run.session.section.warmup'), V2_BLOCK_COLORS.wrapper, blocksMeta(sections.warmup.length))}
           {card(sections.warmup, inSection(sections.warmup))}
         </>
       )}
@@ -209,12 +212,14 @@ export default function PlannedSessionListV2({
       {mainRows.length > 0 && (
         <>
           {sectionHead(
-            hasReps ? 'העיקר' : 'האימון',
+            hasReps ? t('run.session.section.main') : t('run.session.section.workout'),
             mainColor,
             hasReps
-              ? `· ${reps.total} ${reps.total === 1 ? 'חזרה' : 'חזרות'}${sameRest ? ` · ${sameRest} שנ׳ בין` : ''}`
+              ? sameRest
+                ? t('run.session.repsMetaRest', { n: reps.total, rest: String(sameRest) })
+                : t('run.session.repsMeta', { n: reps.total })
               : blocksMeta(mainRows.length),
-            summary.scored > 0 ? `${summary.inRange} מתוך ${summary.scored} בטווח` : undefined,
+            summary.scored > 0 ? t('run.session.inRange', { inRange: String(summary.inRange), scored: String(summary.scored) }) : undefined,
           )}
           {card(mainRows, inSection(sections.main))}
         </>
@@ -222,15 +227,17 @@ export default function PlannedSessionListV2({
 
       {sections.cooldown.length > 0 && (
         <>
-          {sectionHead('שחרור', V2_BLOCK_COLORS.wrapper, blocksMeta(sections.cooldown.length))}
+          {sectionHead(t('run.session.section.cooldown'), V2_BLOCK_COLORS.wrapper, blocksMeta(sections.cooldown.length))}
           {card(sections.cooldown, inSection(sections.cooldown))}
         </>
       )}
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-[20px] bg-white px-4 py-3 shadow-v2-ring">
-        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">עד עכשיו</span>
+        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('run.session.soFar')}</span>
         <span dir="ltr" className="truncate whitespace-nowrap text-[13.5px] font-extrabold tabular-nums text-v2-ink-2">
-          {`${fmtClock(totals.durationSec)} · ${totals.distanceKm.toFixed(1)} ק״מ${avgPaceSec > 0 ? ` · ${fmtPace(avgPaceSec)} ממוצע` : ''}`}
+          {avgPaceSec > 0
+            ? t('run.session.totalsAvg', { time: fmtClock(totals.durationSec), km: totals.distanceKm.toFixed(1), pace: fmtPace(avgPaceSec) })
+            : t('run.session.totals', { time: fmtClock(totals.durationSec), km: totals.distanceKm.toFixed(1) })}
         </span>
       </div>
 
@@ -253,16 +260,20 @@ export default function PlannedSessionListV2({
               dir="rtl"
             >
               <p className="text-[17px] font-black text-v2-ink">
-                {`לדלג ל${(reps.byIndex.get(jumpTarget) ?? 0) > 0 && reps.total > 1 ? `חזרה ${reps.byIndex.get(jumpTarget)}` : blockDisplayLabel(blocks[jumpTarget])}?`}
+                {t('run.session.jump.title', {
+                  name: (reps.byIndex.get(jumpTarget) ?? 0) > 0 && reps.total > 1
+                    ? t('run.session.repN', { rep: String(reps.byIndex.get(jumpTarget)) })
+                    : blockDisplayLabel(blocks[jumpTarget]),
+                })}
               </p>
-              <p className="mt-1 text-[14px] font-semibold text-v2-ink-2">הבלוקים שביניהם ידולגו</p>
+              <p className="mt-1 text-[14px] font-semibold text-v2-ink-2">{t('run.session.jump.body')}</p>
               <div className="mt-4 flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => setJumpTarget(null)}
                   className="h-12 flex-1 rounded-full bg-white text-[15px] font-extrabold text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
                 >
-                  ביטול
+                  {t('run.session.jump.cancel')}
                 </button>
                 <button
                   type="button"
@@ -272,7 +283,7 @@ export default function PlannedSessionListV2({
                   }}
                   className="h-12 flex-1 rounded-full bg-v2-cta text-[15px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2"
                 >
-                  דלגו
+                  {t('run.session.jump.confirm')}
                 </button>
               </div>
             </motion.div>

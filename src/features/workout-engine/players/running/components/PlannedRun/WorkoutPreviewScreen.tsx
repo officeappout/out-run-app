@@ -12,6 +12,10 @@ import { usePartnerFilters } from '@/features/partners';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
+
+type PlayerT = ReactTFunction<PlayerKey>;
 
 interface WorkoutPreviewScreenProps {
   workout: RunWorkout;
@@ -24,6 +28,7 @@ export default function WorkoutPreviewScreen({
   onStart,
   onBack,
 }: WorkoutPreviewScreenProps) {
+  const t = useT(player);
   const { zones, basePace, showNumbers } = usePlannedRunEngine();
   const router = useRouter();
 
@@ -68,7 +73,7 @@ export default function WorkoutPreviewScreen({
         workout.blocks.length
       : 2;
   const difficultyLabel =
-    avgIntensity >= 4 ? 'קשה' : avgIntensity >= 2.5 ? 'בינוני' : 'קל';
+    avgIntensity >= 4 ? t('run.preview.difficulty.hard') : avgIntensity >= 2.5 ? t('run.preview.difficulty.medium') : t('run.preview.difficulty.easy');
   const difficultyColor =
     avgIntensity >= 4 ? '#EF4444' : avgIntensity >= 2.5 ? '#F59E0B' : '#10B981';
 
@@ -125,12 +130,12 @@ export default function WorkoutPreviewScreen({
         {totalDuration > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
             <Clock size={12} className="text-slate-400" />
-            {formatOverviewDuration(totalDuration)}
+            {formatOverviewDuration(totalDuration, t)}
           </span>
         )}
         {totalDistance > 0 && (
           <span className="text-xs text-slate-500 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
-            {formatOverviewDistance(totalDistance)}
+            {formatOverviewDistance(totalDistance, t)}
           </span>
         )}
         <span
@@ -146,7 +151,7 @@ export default function WorkoutPreviewScreen({
         </span>
         {workout.isQualityWorkout && (
           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            אימון איכות
+            {t('run.preview.quality')}
           </span>
         )}
       </div>
@@ -172,9 +177,9 @@ export default function WorkoutPreviewScreen({
             }
 
             const metaLabel = block.durationSeconds
-              ? formatBlockDuration(block.durationSeconds)
+              ? formatBlockDuration(block.durationSeconds, t)
               : block.distanceMeters
-                ? formatBlockDistance(block.distanceMeters)
+                ? formatBlockDistance(block.distanceMeters, t)
                 : '';
 
             return (
@@ -202,7 +207,7 @@ export default function WorkoutPreviewScreen({
                         className="text-[11px] text-slate-500 font-medium"
                         dir="ltr"
                       >
-                        {paceLabel} /ק"מ
+                        {t('run.preview.pacePerKm', { pace: paceLabel })}
                       </span>
                     )}
                   </div>
@@ -229,7 +234,7 @@ export default function WorkoutPreviewScreen({
             style={{ color: '#00ADEF', fontSize: '13px' }}
             dir="rtl"
           >
-            {`${similarCount} אנשים רצים קרוב אליך`}
+            {t('run.preview.runnersNearby', { n: String(similarCount) })}
           </button>
         )}
 
@@ -246,34 +251,34 @@ export default function WorkoutPreviewScreen({
           className="w-full h-14 rounded-2xl flex items-center justify-center gap-3 text-lg font-bold shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-transform text-white bg-gradient-to-l from-[#00C9F2] to-[#00AEEF]"
         >
           <Play size={24} fill="currentColor" />
-          <span>התחל אימון</span>
+          <span>{t('run.preview.start')}</span>
         </button>
       </div>
     </div>
   );
 }
 
-function formatBlockDuration(s: number): string {
-  if (s < 60) return `${s} שנ'`;
+function formatBlockDuration(s: number, t: PlayerT): string {
+  if (s < 60) return t('run.preview.block.seconds', { s: String(s) });
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return sec > 0
-    ? `${m}:${sec.toString().padStart(2, '0')} דק'`
-    : `${m} דק'`;
+    ? t('run.preview.block.minutes', { m: `${m}:${sec.toString().padStart(2, '0')}` })
+    : t('run.preview.block.minutes', { m: String(m) });
 }
 
-function formatBlockDistance(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`;
-  return `${m} מ'`;
+function formatBlockDistance(m: number, t: PlayerT): string {
+  if (m >= 1000) return t('run.preview.block.km', { km: (m / 1000).toFixed(1) });
+  return t('run.preview.block.meters', { m: String(m) });
 }
 
-function formatOverviewDuration(s: number): string {
-  if (s < 60) return `${s} שניות`;
+function formatOverviewDuration(s: number, t: PlayerT): string {
+  if (s < 60) return t('run.preview.total.seconds', { s: String(s) });
   const m = Math.floor(s / 60);
-  return `~${m} דק'`;
+  return t('run.preview.total.minutes', { m: String(m) });
 }
 
-function formatOverviewDistance(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`;
-  return `${m} מ'`;
+function formatOverviewDistance(m: number, t: PlayerT): string {
+  if (m >= 1000) return t('run.preview.total.km', { km: (m / 1000).toFixed(1) });
+  return t('run.preview.total.meters', { m: String(m) });
 }
