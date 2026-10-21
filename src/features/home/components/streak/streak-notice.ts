@@ -108,7 +108,7 @@ export function readSeenKeys(): Set<string> {
 export function addSeenKey(key: string): void {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return;
-    const next = [...readSeenKeys(), key].filter((k, i, a) => a.indexOf(k) === i).slice(-SEEN_MAX);
+    const next = [...Array.from(readSeenKeys()), key].filter((k, i, a) => a.indexOf(k) === i).slice(-SEEN_MAX);
     window.localStorage.setItem(STREAK_CARD_SEEN_KEY, JSON.stringify(next));
   } catch {
     /* storage unavailable — the card may show again, harmless */

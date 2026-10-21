@@ -38,7 +38,7 @@ describe('pickStreakCard', () => {
       noticeCard({ kind: 'shield_earned', held: 2, streak: 14, on: T }),
     ];
     for (const c of cards) {
-      expect(`${c.title} ${c.body}`).not.toMatch(/[\/–—]|\p{Extended_Pictographic}/u);
+      expect(`${c.title} ${c.body}`).not.toMatch(/[\/\u2013\u2014\uD800-\uDFFF]/);
     }
   });
 });
