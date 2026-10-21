@@ -148,9 +148,11 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') { hapticSuccess(); router.push('/profile'); }
         }}
-        className="relative active:scale-95 transition-transform cursor-pointer"
+        // -m-0.5 p-0.5: a 44px hit box around the 40px avatar, same look and spacing.
+        className="-m-0.5 p-0.5 active:scale-95 transition-transform cursor-pointer"
         aria-label={streak > 0 ? `פרופיל · ${streak} ימים ברצף` : 'פרופיל'}
       >
+        <div className="relative">
         <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
           {photoURL ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -183,6 +185,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
             <span className="text-[12px] font-black tabular-nums" style={{ color: '#0284c7' }}>{streak}</span>
           </span>
         )}
+        </div>
       </div>
       ) : (
       <div
@@ -243,7 +246,7 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
       {/* Center — community co-logo (if any) + OUT logotype ("community × OUT") */}
       <div className="flex items-center gap-2" dir="ltr">
         <CommunityCoLogo />
-        <Link href="/home" className="flex items-center" aria-label="OUT">
+        <Link href="/home" className={v2 ? 'flex items-center -my-2 py-2' : 'flex items-center'} aria-label="OUT">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/assets/logo/Kind=logotype.svg"
@@ -257,19 +260,45 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
           Bell removed per chrome polish: its unread badge now lives as a
           small dot on the avatar (right zone) instead, so the entry point
           isn't lost, just relocated next to the identity it's about. */}
-      <div className={`flex items-center ${v2 ? 'gap-1.5' : 'gap-0.5'}`}>
+      {v2 ? (
+        // 44px hit boxes (-m-0.5 keeps the old 40px + 6px rhythm), the 40px white circle inside.
+        <div className="flex items-center gap-0.5 -m-0.5">
+          <button
+            type="button"
+            onClick={openChat}
+            className="grid h-11 w-11 place-items-center rounded-full active:scale-95 transition-transform"
+            aria-label="הודעות"
+          >
+            <span className="relative grid h-10 w-10 place-items-center rounded-full bg-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
+              <MessageCircle className="w-5 h-5 text-gray-600" />
+              {chatUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-[#0e1419] text-white text-[11px] font-black flex items-center justify-center px-1 shadow-sm">
+                  {chatUnread > 99 ? '99+' : chatUnread}
+                </span>
+              )}
+            </span>
+          </button>
+          <Link
+            href="/search"
+            className="grid h-11 w-11 place-items-center rounded-full active:scale-95 transition-transform"
+            aria-label="חיפוש"
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-white" style={{ boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' }}>
+              <Search className="w-5 h-5 text-gray-600" />
+            </span>
+          </Link>
+        </div>
+      ) : (
+      <div className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={openChat}
-          className={v2
-            ? 'relative w-10 h-10 grid place-items-center rounded-full bg-white active:scale-95 transition-transform'
-            : 'relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all'}
-          style={v2 ? { boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : undefined}
+          className="relative p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
           aria-label="הודעות"
         >
           <MessageCircle className="w-5 h-5 text-gray-600" />
           {chatUnread > 0 && (
-            <span className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full ${v2 ? 'bg-[#0e1419] text-white' : 'bg-cyan-500 text-on-brand'} text-[9px] font-black flex items-center justify-center px-1 shadow-sm`}>
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-cyan-500 text-on-brand text-[9px] font-black flex items-center justify-center px-1 shadow-sm">
               {chatUnread > 99 ? '99+' : chatUnread}
             </span>
           )}
@@ -277,15 +306,13 @@ export default function AppHeader({ children, zIndex = 40, asOverlay = false, v2
 
         <Link
           href="/search"
-          className={v2
-            ? 'w-10 h-10 grid place-items-center rounded-full bg-white active:scale-95 transition-transform'
-            : 'p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all'}
-          style={v2 ? { boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : undefined}
+          className="p-2 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
           aria-label="חיפוש"
         >
           <Search className="w-5 h-5 text-gray-600" />
         </Link>
       </div>
+      )}
     </div>
   );
 

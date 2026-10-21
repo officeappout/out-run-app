@@ -31,6 +31,8 @@ export interface DrawerFooterProps {
   isAudioEnabled: boolean;
   /** Flip the audio enabled flag (handler from the orchestrator). */
   onToggleAudio: () => void;
+  /** Callback ref on the footer root — the drawer measures it to pad its scroll body. */
+  measureRef?: (el: HTMLDivElement | null) => void;
 }
 
 /**
@@ -59,12 +61,14 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
   onEditEntry,
   isAudioEnabled,
   onToggleAudio,
+  measureRef,
 }) => {
   const v2 = useHomeV2();
   const startDisabled = !isOnline && !isFavDownloaded;
 
   return (
     <div
+      ref={measureRef}
       className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 12px))' }}
     >
