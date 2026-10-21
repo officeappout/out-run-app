@@ -13,11 +13,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 import VisualSlider from '@/features/user/onboarding/components/visual-assessment/VisualSlider';
 import { clearContentCache } from '@/features/user/onboarding/services/visual-content-resolver.service';
 import type { UserDemographics, AssessmentLevels } from '@/features/user/onboarding/types/visual-assessment.types';
+import { useT } from '@/hooks/useT';
+import { pages } from '@/messages/ns/pages';
 
 const CATEGORIES = ['push', 'pull', 'legs', 'core'] as const;
 
 export default function RefineLevelsPage() {
   const router = useRouter();
+  const t = useT(pages);
 
   const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,7 +86,7 @@ export default function RefineLevelsPage() {
       setTimeout(() => router.back(), 1500);
     } catch (err) {
       console.error('[RefineLevels] Save failed:', err);
-      alert('שגיאה בשמירה — נסו שנית');
+      alert(t('refineLevels.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -104,13 +107,13 @@ export default function RefineLevelsPage() {
           {saved ? (
             <>
               <CheckCircle2 size={48} className="text-emerald-500 mx-auto mb-3" />
-              <h2 className="text-xl font-black text-slate-900">הרמות עודכנו בהצלחה</h2>
-              <p className="text-sm text-slate-500 mt-1">חוזרים להגדרות...</p>
+              <h2 className="text-xl font-black text-slate-900">{t('refineLevels.saved.title')}</h2>
+              <p className="text-sm text-slate-500 mt-1">{t('refineLevels.saved.subtitle')}</p>
             </>
           ) : (
             <>
               <Loader2 size={36} className="text-[#5BC2F2] animate-spin mx-auto mb-3" />
-              <h2 className="text-xl font-black text-slate-900">שומר שינויים...</h2>
+              <h2 className="text-xl font-black text-slate-900">{t('refineLevels.saving')}</h2>
             </>
           )}
         </div>
@@ -129,8 +132,8 @@ export default function RefineLevelsPage() {
           <ArrowRight size={22} className="text-slate-600" />
         </button>
         <div>
-          <h1 className="text-lg font-black text-slate-900">עדכון רמות</h1>
-          <p className="text-xs text-slate-500">כוונו את הרמה לכל קבוצת שרירים</p>
+          <h1 className="text-lg font-black text-slate-900">{t('refineLevels.title')}</h1>
+          <p className="text-xs text-slate-500">{t('refineLevels.subtitle')}</p>
         </div>
       </div>
 
