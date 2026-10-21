@@ -29,7 +29,7 @@ import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
 import { previewFitDelayMs, overviewFitBounds, overviewFitPadding } from './camera-fit';
-import { playerFollowPadding } from './player-follow-padding';
+import { drawerFollowPadding, playerFollowPadding } from './player-follow-padding';
 import { IS_PERF_BATCH2_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import {
@@ -267,6 +267,8 @@ const WAZE_CARD_BOTTOM_PX = 320;
  * map snaps back to follow before the runner needs the next maneuver.
  */
 const IDLE_RECENTER_MS = 15000;
+/** enable_run_player_drawer_v1: the run / walk drawer players re-follow sooner after a pan. */
+const DRAWER_IDLE_RECENTER_MS = 8000;
 
 /**
  * Compute the shortest signed angular delta between two compass bearings,
@@ -553,13 +555,15 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       idleRecenterTimerRef.current = null;
     }
     if (!isActiveWorkoutRef.current && !isNavigationModeRef.current) return;
+    // Read at schedule time (a ref-free store read keeps this callback stable).
+    const idleMs = useMapStore.getState().playerChrome?.drawer ? DRAWER_IDLE_RECENTER_MS : IDLE_RECENTER_MS;
 
     idleRecenterTimerRef.current = setTimeout(() => {
       // The user might have already tapped recenter (manually) before
       // the 15 s elapsed. If so, owner is already 'follow' — no-op.
       if (ownerRef.current !== 'user') return;
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`[Cam] Idle ${IDLE_RECENTER_MS / 1000}s — auto-recentering for runner safety.`);
+        console.log(`[Cam] Idle ${idleMs / 1000}s — auto-recentering for runner safety.`);
       }
       ownerRef.current = 'follow';
       // G2.6: tell the owner the camera follows again (its follow flag stayed false before,
@@ -568,7 +572,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
       // Force the camera effect to re-run so the easeTo dispatches even
       // when GPS isn't producing new samples (stationary runner).
       setRecenterTick((t) => t + 1);
-    }, IDLE_RECENTER_MS);
+    }, idleMs);
   }, []);
 
   const onUserPanDetectedRef = useRef(onUserPanDetected);
@@ -654,10 +658,13 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     // Keep the marker in the free window between the header and the bottom
     // card — the legacy top-half padding put it ~25 % from the bottom, right
     // under the v2 live card ("the run screen doesn't show me").
-    return playerFollowPadding(H, {
+    const chrome = {
       top: playerChrome.top + Math.max(0, navCardHeightPx),
       bottom: playerChrome.bottom,
-    });
+    };
+    // enable_run_player_drawer_v1: follow the drawer's CURRENT height and never
+    // fall back to the legacy framing (which hid the marker under the card).
+    return playerChrome.drawer ? drawerFollowPadding(H, chrome) : playerFollowPadding(H, chrome);
   }, [playerChrome, navCardHeightPx]);
   const wazePadding = v2FollowPadding ?? legacyWazePadding;
 

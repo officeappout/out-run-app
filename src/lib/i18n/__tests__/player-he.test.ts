@@ -402,9 +402,18 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
     expect(t('run.overview.fitCard.today', { title: '6 × 400 מ׳' })).toBe(`יש לך היום: ${'6 × 400 מ׳'}`);
   });
 
+  it('run / walk metrics drawer (enable_run_player_drawer_v1)', () => {
+    expect(t('run.drawer.expandAria')).toBe('הצגת כל המדדים');
+    expect(t('run.drawer.collapseAria')).toBe('הקטנת המדדים');
+    expect(t('run.drawer.handleAria')).toBe('מגירת המדדים');
+    expect(t('run.drawer.label.time')).toBe('זמן');
+    expect(t('run.drawer.label.distance')).toBe('ק״מ');
+    expect(t('run.drawer.stopAria')).toBe('סיום אימון · לחיצה ארוכה');
+  });
+
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new run.* key needs a case above. Counted per prefix
     // (other batches add keys to the same namespace file — e.g. sessionInvite.*, app-pages-he.test.ts).
-    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(320);
+    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(326);
   });
 });

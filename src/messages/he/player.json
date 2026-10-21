@@ -352,5 +352,11 @@
   "strengthOverview.duration.hours": "{hours}ש",
   "strengthOverview.muscles": "שרירים",
   "strengthOverview.equipment": "ציוד",
-  "strengthOverview.exercises": "תרגילים באימון"
+  "strengthOverview.exercises": "תרגילים באימון",
+  "run.drawer.expandAria": "הצגת כל המדדים",
+  "run.drawer.collapseAria": "הקטנת המדדים",
+  "run.drawer.handleAria": "מגירת המדדים",
+  "run.drawer.label.time": "זמן",
+  "run.drawer.label.distance": "ק״מ",
+  "run.drawer.stopAria": "סיום אימון · לחיצה ארוכה"
 }

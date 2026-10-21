@@ -108,6 +108,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   const homeV2 = adminAwareFlags.enableHomeV2;
   // Entry flow v2 (enable_entry_whatnow_v1): the one-time long-press tip on the player controls.
   const entryPlayerTipOn = !adminAwareFlagsLoading && adminAwareFlags.enableEntryWhatnowV1;
+  // Run / walk "map first" pass (enable_run_player_drawer_v1): metrics drawer + attached header.
+  const runDrawerV1 = homeV2 && !adminAwareFlagsLoading && adminAwareFlags.enableRunPlayerDrawerV1;
   const runnerUid = useUserStore((s) => s.profile?.id);
   // The runner's own avatar on the map (discover passes it; free run didn't → generic lemur).
   const runnerPersonaId = useUserStore((s) => s.profile?.personas?.[0]?.id);
@@ -394,6 +396,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
                     sideRailParticipants={sideRailParticipants}
                     onSelectParticipant={handleSelectParticipant}
                     activityType={logic.preferences.activity === 'walking' ? 'walking' : 'running'}
+                    drawerV1={runDrawerV1}
                   />
                   {sideRailParticipants.length > 0 && (
                     <div

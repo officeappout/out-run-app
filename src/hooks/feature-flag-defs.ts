@@ -351,6 +351,14 @@ export const FLAG_DEFS = [
   // Off = byte-identical routing.
   { key: 'enableLandingRealFallback', firestoreKey: 'enable_landing_real_fallback', defaultValue: false, superAdminValue: false },
   { key: 'enableStrengthQuizHintV2', firestoreKey: 'enable_strength_quiz_hint_v2', defaultValue: false, superAdminValue: true },
+  // Run / walk live players — map first (21.10.2026, owner — agent-briefs/run-player-drawer-brief.md).
+  // Inside the enable_home_v2 run / walk players (free, route, walk, planned intervals, continuous):
+  // the metrics card becomes a drawer (compact time · distance · pace ⇄ today's full card; further
+  // down still opens the session list), the follow camera keeps the runner's marker just above the
+  // drawer at every snap and re-follows ~8 s after a pan, the live trail is solid (zone-coloured on
+  // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
+  // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
+  { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

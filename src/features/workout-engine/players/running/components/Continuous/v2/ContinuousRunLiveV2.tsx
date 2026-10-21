@@ -20,13 +20,14 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell, usePublishedPlayerChrome } from '../../../../shared/v2';
+import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell, RunHeaderStrip, RunMetricsDrawer, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
 import { usePlannedLiveResults } from '../../../hooks/usePlannedLiveResults';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
-import { blockDisplayLabel, fmtClock, fmtDistance, isShortLeg, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { blockDisplayLabel, fmtClock, fmtDistance, fmtPace, isShortLeg, repNumbers, v2BlockColor } from '../../../lib/planned-rep-results';
+import { rateLabels } from '../../../lib/aerobic-activity';
 import { blockGoal, continuousMainIndex, continuousZone, goalView, heroKind, v2BlockTextColor, zoneLabel } from '../../../lib/continuous-run';
 import PlannedSessionListV2 from '../../PlannedRun/v2/PlannedSessionListV2';
 import { useT } from '@/hooks/useT';
@@ -44,6 +45,8 @@ interface Props {
   onSkip: () => void;
   onEnd: () => void;
   onJumpToBlock: (index: number) => void;
+  /** enable_run_player_drawer_v1: attached header + metrics drawer. Off = today's layout. */
+  drawerV1?: boolean;
 }
 
 const plannedMeta = (b: RunBlock) =>
@@ -60,6 +63,7 @@ export default function ContinuousRunLiveV2({
   onSkip,
   onEnd,
   onJumpToBlock,
+  drawerV1 = false,
 }: Props) {
   const t = useT(player);
   const totalDuration = useSessionStore((s) => s.totalDuration);
@@ -75,7 +79,9 @@ export default function ContinuousRunLiveV2({
   const { currentBlock: block, currentBlockIndex: idx, blockProgress, blockTimeRemaining, blockDistanceRemaining } = engine;
   const [listOpen, setListOpen] = useState(false);
   // Map camera keeps the runner's marker between the header and the card.
-  const chrome = usePublishedPlayerChrome({ topGapPx: 8, bottomGapPx: 12 });
+  const chrome = usePublishedPlayerChrome(
+    drawerV1 ? { bottomGapPx: 12, headerIncludesSafeTop: true, drawer: true } : { topGapPx: 8, bottomGapPx: 12 },
+  );
 
   const zone = useMemo(
     () => continuousZone(block, engine.basePace, engine.zones, engine.showNumbers),
@@ -122,6 +128,46 @@ export default function ContinuousRunLiveV2({
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(15);
   }, []);
 
+  const headerProps = {
+    leading: <CartProgressIcon items={cartItems} onClick={() => setListOpen(true)} size={48} />,
+    eyebrow: gv ? `${label} · ${gv.targetText}` : label,
+    eyebrowColor: block ? v2BlockTextColor(block) : undefined,
+    title: gv ? gv.remainingText : fmtClock(totals.durationSec),
+    trailing: gv ? (
+      <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span>
+    ) : null,
+    strip:
+      blocks.length > 1 ? (
+        <StoryBars segments={segments} currentIndex={idx} progress={blockProgress} />
+      ) : (
+        <HeaderProgressBar progress={blockProgress} color={color} />
+      ),
+  };
+  const card = (
+    <ContinuousRunCardV2
+      data={{
+        heroKind: kind,
+        heroSeconds: goal?.type === 'time' ? goal.current : totals.durationSec,
+        heroKm: goal?.type === 'distance' ? goal.current : totals.distanceKm,
+        zone,
+        tracking,
+        currentPaceSec: engine.currentPaceSeconds,
+        showLivePace,
+        totals,
+        plannedKm,
+        shortLegRemaining: showLivePace ? null : remaining,
+      }}
+      next={next}
+      canSkip={canSkip}
+      onSkip={onSkip}
+      isPaused={isPaused}
+      onPause={onPause}
+      onResume={onResume}
+      onLap={triggerLap}
+      onStop={onEnd}
+    />
+  );
+
   return (
     <PlayerShell
       open={listOpen}
@@ -157,32 +203,30 @@ export default function ContinuousRunLiveV2({
     >
       {({ startDrag }) => (
         <>
-          <div ref={chrome.headerRef} className="absolute inset-x-3" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
-            <PlayerHeaderCard
+          {drawerV1 ? (
+            <RunHeaderStrip
+              outerRef={chrome.headerRef}
               onPointerDown={startDrag}
-              leading={<CartProgressIcon items={cartItems} onClick={() => setListOpen(true)} size={48} />}
-              eyebrow={gv ? `${label} · ${gv.targetText}` : label}
-              eyebrowColor={block ? v2BlockTextColor(block) : undefined}
-              title={gv ? gv.remainingText : fmtClock(totals.durationSec)}
+              {...headerProps}
               trailing={
-                gv ? (
-                  <span dir="ltr" className="shrink-0 whitespace-nowrap text-[14px] font-black tabular-nums text-v2-deep">{`${gv.percent}%`}</span>
-                ) : null
-              }
-              strip={
-                blocks.length > 1 ? (
-                  <StoryBars segments={segments} currentIndex={idx} progress={blockProgress} />
-                ) : (
-                  <HeaderProgressBar progress={blockProgress} color={color} />
-                )
+                <div className="flex shrink-0 items-center gap-2">
+                  {headerProps.trailing}
+                  <div className="pointer-events-none">
+                    <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
+                  </div>
+                </div>
               }
             />
+          ) : (
+          <div ref={chrome.headerRef} className="absolute inset-x-3" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
+            <PlayerHeaderCard onPointerDown={startDrag} {...headerProps} />
             <div className="mt-2 flex justify-start">
               <div className="pointer-events-none">
                 <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
               </div>
             </div>
           </div>
+          )}
 
           <AnimatePresence>
             {!isMapFollowEnabled && (
@@ -200,30 +244,28 @@ export default function ContinuousRunLiveV2({
             )}
           </AnimatePresence>
 
-          <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
-            <ContinuousRunCardV2
-              data={{
-                heroKind: kind,
-                heroSeconds: goal?.type === 'time' ? goal.current : totals.durationSec,
-                heroKm: goal?.type === 'distance' ? goal.current : totals.distanceKm,
-                zone,
-                tracking,
-                currentPaceSec: engine.currentPaceSeconds,
-                showLivePace,
-                totals,
-                plannedKm,
-                shortLegRemaining: showLivePace ? null : remaining,
+          {drawerV1 ? (
+            <RunMetricsDrawer
+              cardRef={chrome.cardRef}
+              bottomGapPx={12}
+              onOpenList={() => setListOpen(true)}
+              full={card}
+              compact={{
+                time: fmtClock(totals.durationSec),
+                distanceKm: totals.distanceKm.toFixed(2),
+                rate: fmtPace(engine.currentPaceSeconds),
+                rateLabel: rateLabels('pace').page,
+                isPaused,
+                onPause,
+                onResume,
+                onStop: onEnd,
               }}
-              next={next}
-              canSkip={canSkip}
-              onSkip={onSkip}
-              isPaused={isPaused}
-              onPause={onPause}
-              onResume={onResume}
-              onLap={triggerLap}
-              onStop={onEnd}
             />
-          </div>
+          ) : (
+            <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+              {card}
+            </div>
+          )}
         </>
       )}
     </PlayerShell>

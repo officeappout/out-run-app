@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   cameraCentreY,
+  DRAWER_MARKER_CLEARANCE_PX,
+  drawerFollowPadding,
   MIN_FREE_WINDOW_PX,
   PLAYER_DOT_FRACTION,
   playerFollowPadding,
@@ -70,5 +72,53 @@ describe('sameChrome', () => {
     expect(sameChrome({ top: 1, bottom: 2 }, { top: 1, bottom: 2 })).toBe(true);
     expect(sameChrome({ top: 1, bottom: 2 }, { top: 1, bottom: 3 })).toBe(false);
     expect(sameChrome(null, { top: 0, bottom: 0 })).toBe(false);
+  });
+});
+
+describe('drawerFollowPadding (enable_run_player_drawer_v1)', () => {
+  it('no chrome / bad viewport → null', () => {
+    expect(drawerFollowPadding(H, null)).toBeNull();
+    expect(drawerFollowPadding(0, { top: 100, bottom: 100, drawer: true })).toBeNull();
+  });
+
+  it('a comfortable window frames exactly like playerFollowPadding', () => {
+    const chrome = { top: 140, bottom: 140, drawer: true };
+    expect(drawerFollowPadding(H, chrome)).toEqual(playerFollowPadding(H, chrome));
+  });
+
+  it('follows the drawer: compact snap → the marker sits lower than with the full card', () => {
+    const full = drawerFollowPadding(H, { top: 140, bottom: 400, drawer: true })!;
+    const compact = drawerFollowPadding(H, { top: 140, bottom: 120, drawer: true })!;
+    expect(cameraCentreY(H, compact)).toBeGreaterThan(cameraCentreY(H, full));
+    expect(cameraCentreY(H, full)).toBeLessThan(H - 400);
+  });
+
+  it('tiny gap: never the legacy fallback — the marker sits just above the drawer top', () => {
+    // iPhone SE-ish: tall header + tall full card leave < MIN_FREE_WINDOW_PX
+    const h = 667;
+    const chrome = { top: 210, bottom: 400, drawer: true };
+    expect(playerFollowPadding(h, chrome)).toBeNull();
+    const p = drawerFollowPadding(h, chrome)!;
+    expect(p).not.toBeNull();
+    const y = cameraCentreY(h, p);
+    expect(y).toBeCloseTo(h - chrome.bottom - DRAWER_MARKER_CLEARANCE_PX, 0);
+    expect(y).toBeLessThan(h - chrome.bottom);
+    expect(p.top + p.bottom).toBeLessThan(h);
+    expect(p.top).toBeGreaterThanOrEqual(0);
+    expect(p.bottom).toBeGreaterThanOrEqual(0);
+  });
+
+  it('drawer covering almost everything still yields a valid padding inside the viewport', () => {
+    const p = drawerFollowPadding(H, { top: 300, bottom: H - 10, drawer: true })!;
+    const y = cameraCentreY(H, p);
+    expect(y).toBeGreaterThan(0);
+    expect(y).toBeLessThan(H);
+    expect(p.top + p.bottom).toBeLessThan(H);
+  });
+
+  it('sameChrome tells a drawer claim apart from a plain one', () => {
+    expect(sameChrome({ top: 1, bottom: 2 }, { top: 1, bottom: 2, drawer: true })).toBe(false);
+    expect(sameChrome({ top: 1, bottom: 2, drawer: true }, { top: 1, bottom: 2, drawer: true })).toBe(true);
+    expect(sameChrome({ top: 1, bottom: 2 }, { top: 1, bottom: 2, drawer: false })).toBe(true);
   });
 });

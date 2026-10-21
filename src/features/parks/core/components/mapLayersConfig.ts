@@ -145,26 +145,29 @@ export const LIVE_PATH_OUTLINE = {
   },
 };
 
+/** zoneType → trail colour (segmentPathByZone features carry `zoneType`). */
+export const ZONE_TRAIL_COLORS: ReadonlyArray<readonly [string, string]> = [
+  ['sprint',         '#DC2626'],
+  ['interval_short', '#E11D48'],
+  ['interval_long',  '#0D9488'],
+  ['fartlek_fast',   '#0D9488'],
+  ['tempo',          '#0891B2'],
+  ['fartlek_medium', '#F59E0B'],
+  ['long_run',       '#10B981'],
+  ['easy',           '#34D399'],
+  ['jogging',        '#6EE7B7'],
+  ['recovery',       '#60A5FA'],
+  ['walk',           '#9CA3AF'],
+];
+
+/** Mapbox `match` on the feature's zoneType, `fallback` for anything else. */
+export function zoneTrailColorExpression(fallback: string): unknown[] {
+  return ['match', ['get', 'zoneType'], ...ZONE_TRAIL_COLORS.flat(), fallback];
+}
+
 export function getLivePathPaint(hasZones: boolean) {
   return {
-    'line-color': hasZones
-      ? [
-          'match',
-          ['get', 'zoneType'],
-          'sprint',         '#DC2626',
-          'interval_short', '#E11D48',
-          'interval_long',  '#0D9488',
-          'fartlek_fast',   '#0D9488',
-          'tempo',          '#0891B2',
-          'fartlek_medium', '#F59E0B',
-          'long_run',       '#10B981',
-          'easy',           '#34D399',
-          'jogging',        '#6EE7B7',
-          'recovery',       '#60A5FA',
-          'walk',           '#9CA3AF',
-          '#2563eb',
-        ]
-      : '#2563eb',
+    'line-color': hasZones ? zoneTrailColorExpression('#2563eb') : '#2563eb',
     'line-width': 6,
     'line-opacity': 1,
   };

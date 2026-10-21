@@ -23,6 +23,12 @@ export interface PlayerChrome {
   top: number;
   /** px covered from the bottom edge (safe area + live card + gap). */
   bottom: number;
+  /**
+   * enable_run_player_drawer_v1: the bottom chrome is the run / walk metrics
+   * drawer. The camera then uses drawerFollowPadding (never the legacy
+   * fallback) and re-follows sooner after a pan. Absent for every other player.
+   */
+  drawer?: boolean;
 }
 
 export interface CameraPadding {
@@ -71,5 +77,34 @@ export function cameraCentreY(viewportH: number, padding: Pick<CameraPadding, 't
 export function sameChrome(a: PlayerChrome | null, b: PlayerChrome | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return a.top === b.top && a.bottom === b.bottom;
+  return a.top === b.top && a.bottom === b.bottom && !!a.drawer === !!b.drawer;
+}
+
+/** Drawer players: the marker never sits closer than this to the drawer's top edge. */
+export const DRAWER_MARKER_CLEARANCE_PX = 44;
+/** …nor closer than this to the screen's top edge (status bar) in the tiny-gap case. */
+const DRAWER_MARKER_MIN_Y = 28;
+
+/**
+ * Follow padding for the run / walk metrics drawer (enable_run_player_drawer_v1).
+ * Same framing as playerFollowPadding while the free window is comfortable;
+ * when the header + drawer leave less than MIN_FREE_WINDOW_PX it does NOT give
+ * up (the legacy framing put the marker under the card) — the marker goes just
+ * above the drawer's top edge instead, even if that is behind the header's
+ * fade. Never null for a usable viewport, and the padding always fits it.
+ */
+export function drawerFollowPadding(
+  viewportH: number,
+  chrome: PlayerChrome | null | undefined,
+  dotFraction: number = PLAYER_DOT_FRACTION,
+): CameraPadding | null {
+  if (!chrome || !Number.isFinite(viewportH) || viewportH <= 0) return null;
+  const normal = playerFollowPadding(viewportH, chrome, dotFraction);
+  if (normal && normal.top + normal.bottom < viewportH) return normal;
+  const bottom = Math.max(0, Number.isFinite(chrome.bottom) ? chrome.bottom : 0);
+  const maxY = viewportH - DRAWER_MARKER_MIN_Y;
+  const dotY = Math.min(maxY, Math.max(DRAWER_MARKER_MIN_Y, viewportH - bottom - DRAWER_MARKER_CLEARANCE_PX));
+  // Centre y = (padTop + H - padBottom) / 2 = dotY, with only one side padded.
+  if (dotY >= viewportH / 2) return { top: Math.round(2 * dotY - viewportH), bottom: 0, left: 0, right: 0 };
+  return { top: 0, bottom: Math.round(viewportH - 2 * dotY), left: 0, right: 0 };
 }
