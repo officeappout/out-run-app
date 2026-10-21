@@ -22,6 +22,8 @@ import React from 'react';
 import { IS_XP_ENABLED } from '@/config/feature-flags';
 import { TRAINING_TAG_OPTIONS } from '@/features/profile/hooks/usePersonalInfoEditor';
 import { avatarBackground, firstGrapheme } from '@/features/profile/utils/avatar';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 /** Same asset DashboardTab used inline — single source now. */
 const LEMUR_IMG = '/assets/lemur/king-lemur.png';
@@ -68,9 +70,10 @@ export default function ProfileHeader({
   actions,
   v2 = false,
 }: ProfileHeaderProps) {
+  const t = useT(profileNs);
   const avatarInner = photoURL ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={photoURL} alt={name || 'תמונת פרופיל'} width={88} height={88} className="w-full h-full object-cover" />
+    <img src={photoURL} alt={name || t('profile.header.photoAlt')} width={88} height={88} className="w-full h-full object-cover" />
   ) : IS_XP_ENABLED ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={LEMUR_IMG} alt="Lemur" width={88} height={88} className="w-full h-full object-cover" />
@@ -101,7 +104,7 @@ export default function ProfileHeader({
           {tagIds.length > 0 && (
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {tagIds.map((tagId) => {
-                const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+                const tag = TRAINING_TAG_OPTIONS.find((opt) => opt.id === tagId);
                 return (
                   <span
                     key={tagId}
@@ -148,7 +151,7 @@ export default function ProfileHeader({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={photoURL}
-                  alt={name || 'תמונת פרופיל'}
+                  alt={name || t('profile.header.photoAlt')}
                   width={84}
                   height={84}
                   className="w-full h-full object-cover"
@@ -207,7 +210,7 @@ export default function ProfileHeader({
         {tagIds.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {tagIds.map((tagId) => {
-              const tag = TRAINING_TAG_OPTIONS.find((t) => t.id === tagId);
+              const tag = TRAINING_TAG_OPTIONS.find((opt) => opt.id === tagId);
               return (
                 <span
                   key={tagId}
