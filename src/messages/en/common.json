@@ -1,0 +1,11 @@
+{
+  "actions.continue": "Continue",
+  "actions.back": "Back",
+  "actions.cancel": "Cancel",
+  "actions.save": "Save",
+  "actions.close": "Close",
+  "status.loading": "Loading...",
+  "status.error": "Something went wrong, please try again",
+  "greeting.ready": "Ready?",
+  "count.minutes": "{count, plural, one {# minute} other {# minutes}}"
+}
