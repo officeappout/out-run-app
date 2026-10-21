@@ -3,6 +3,8 @@
 import type { DragControls } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { CategoryConfig } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupHeroProps {
   v2: boolean;
@@ -15,6 +17,7 @@ interface GroupHeroProps {
 
 /** Cover image (or category gradient) — also the sheet's drag target + bounding box. */
 export default function GroupHero({ v2, name, coverImage, catConfig, dragControls, onClose }: GroupHeroProps) {
+  const t = useT(community);
   return (
     <div
       className={`relative flex-shrink-0 ${v2 ? 'h-64' : 'h-56'} rounded-t-3xl overflow-hidden cursor-grab active:cursor-grabbing`}
@@ -47,7 +50,7 @@ export default function GroupHero({ v2, name, coverImage, catConfig, dragControl
       <button
         onClick={onClose}
         onPointerDown={(e) => e.stopPropagation()}
-        aria-label="סגור מגירה"
+        aria-label={t('group.hero.close')}
         className="absolute top-3 right-3 w-11 h-11 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center"
       >
         <X size={18} className="text-white" />

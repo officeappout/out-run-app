@@ -2,6 +2,8 @@
 
 import { Share2, CalendarPlus } from 'lucide-react';
 import { APP_ORIGIN_FALLBACK, groupShareLink } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupShareRowProps {
   groupId: string;
@@ -17,9 +19,10 @@ interface GroupShareRowProps {
  * is always visible; add-to-calendar only when a next session exists.
  */
 export default function GroupShareRow({ groupId, groupName, categoryLabel, inviteCode, calendarUrl }: GroupShareRowProps) {
+  const t = useT(community);
   const origin = typeof window !== 'undefined' ? window.location.origin : APP_ORIGIN_FALLBACK;
   const deepLink = groupShareLink(origin, groupId, inviteCode);
-  const shareText = `מצאתי קבוצת ${categoryLabel} מעולה: \'${groupName}\'! בואו להצטרף אלינו.`;
+  const shareText = t('group.share.text', { category: categoryLabel, groupName });
   const handleShare = () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: groupName, text: shareText, url: deepLink }).catch(() => {});
@@ -32,11 +35,11 @@ export default function GroupShareRow({ groupId, groupName, categoryLabel, invit
     <div className="flex gap-2">
       <button
         onClick={handleShare}
-        aria-label="שתף קבוצה"
+        aria-label={t('group.share.label')}
         className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
       >
         <Share2 className="w-4 h-4" />
-        שתף
+        {t('group.share.share')}
       </button>
 
       {calendarUrl && (
@@ -47,7 +50,7 @@ export default function GroupShareRow({ groupId, groupName, categoryLabel, invit
           className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-2xl text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all active:scale-[0.97]"
         >
           <CalendarPlus className="w-4 h-4" />
-          ליומן
+          {t('group.share.calendar')}
         </a>
       )}
     </div>

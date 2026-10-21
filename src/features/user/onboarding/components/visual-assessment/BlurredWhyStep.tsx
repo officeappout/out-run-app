@@ -5,6 +5,10 @@ import { motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import OnboardingStoryBar from '../OnboardingStoryBar';
 import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 
 // ── Age group buckets ──────────────────────────────────────────────
 
@@ -16,266 +20,42 @@ export function calcAgeGroup(age: number): string {
   return '50+';
 }
 
-// ── Target-area ID → clean Hebrew display name ────────────────────
+// ── Target-area IDs with a clean display name ─────────────────────
+// The names live in src/messages/he/onboarding.json (quiz.why.area, an ICU select on these ids).
 
-const TARGET_AREA_NAMES: Record<string, string> = {
-  push:             'דחיפה',
-  pull:             'משיכה',
-  legs:             'פלג גוף תחתון',
-  core:             'ליבה',
-  handstand:        'עמידת ידיים',
-  skills:           'מיומנויות',
-  muscle_up:        'עליית כוח',
-  muscleup:         'עליית כוח',
-  planche:          "פלאנץ'",
-  front_lever:      'פרונט לבר',
-  back_lever:       'בק לבר',
-  handstand_pushup: 'שכיבות סמיכה בעמידת ידיים',
-  hspu:             'שכיבות סמיכה בעמידת ידיים',
-  one_arm_pullup:   'מתח יד אחת',
-  oap:              'מתח יד אחת',
-  pull_up_pro:      'מתח יד אחת',
-  pull_up:          'מתח',
-  push_up:          'שכיבות סמיכה',
-  l_sit:            'L-סיט',
-  human_flag:       'דגל אנושי',
-  chest:            'חזה',
-  back:             'גב',
-  shoulders:        'כתפיים',
-  biceps:           'ביספס',
-  triceps:          'טרייספס',
-  full_body:        'גוף מלא',
-  abs:              'בטן',
-  glutes:           'ישבן',
-  arms:             'ידיים',
-};
+const TARGET_AREA_IDS = new Set([
+  'push', 'pull', 'legs', 'core', 'handstand', 'skills', 'muscle_up', 'muscleup', 'planche',
+  'front_lever', 'back_lever', 'handstand_pushup', 'hspu', 'one_arm_pullup', 'oap', 'pull_up_pro',
+  'pull_up', 'push_up', 'l_sit', 'human_flag', 'chest', 'back', 'shoulders', 'biceps', 'triceps',
+  'full_body', 'abs', 'glutes', 'arms',
+]);
 
 function sanitizeTargetArea(raw: string | null): string | null {
   if (!raw) return null;
-  return TARGET_AREA_NAMES[raw.toLowerCase().trim()] ?? null;
+  const id = raw.toLowerCase().trim();
+  return TARGET_AREA_IDS.has(id) ? id : null;
 }
 
-/** "5 תרגילים" for n>1, "תרגיל אחד" for n===1 — avoids the ungrammatical "1 תרגילים". */
-function exerciseCountPhrase(n: number): string {
-  return n === 1 ? 'תרגיל אחד' : `${n} תרגילים`;
-}
-
-// ── Copy matrix types ──────────────────────────────────────────────
-
-interface IntroContent {
-  body: (targetArea: string | null, exerciseCount: number) => string;
-  cta: string;
-}
+// ── Copy matrix ────────────────────────────────────────────────────
+// age group × goal → quiz.why.<age>.<goal>.body / .cta in src/messages/he/onboarding.json, each an
+// ICU `gender` select (female / other = the male copy). The body's {area} falls back to "the
+// element / the areas you picked" inside the message (`hasArea`), and {count} is "one exercise"
+// for 1 (`=1`), "<n> exercises" otherwise — same as the old exerciseCountPhrase.
 
 type GoalKey = 'health' | 'muscle' | 'skills';
 
-// ── Full copy matrix ───────────────────────────────────────────────
-
-const MATRIX: {
-  [ageGroup: string]: {
-    [goal in GoalKey]?: { male?: IntroContent; female?: IntroContent };
-  };
-} = {
-
-  '14-18': {
-    skills: {
-      male: {
-        body: (t, n) =>
-          `לשלוט בגוף ולהצליח לעשות ${t ?? 'האלמנט שבחרת'} — מטרה מעולה, ואפשר להגיע אליה חכם ובלי פציעות. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `לשלוט בגוף ולהצליח לעשות ${t ?? 'האלמנט שבחרת'} — מטרה מדהימה, ואפשר להגיע אליה חכם ובלי פציעות. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    muscle: {
-      male: {
-        body: (t, n) =>
-          `להרשים בים ולבנות בדיוק את ${t ?? 'האזורים שבחרת'} — מטרה שווה, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך תוכנית בול עליך.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `להרשים בים ולעצב בדיוק את ${t ?? 'האזורים שבחרת'} — מטרה שווה, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך תוכנית בול עלייך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    health: {
-      male: {
-        body: (_t, n) =>
-          `לשפר את הכושר ולהרגיש אנרגטי יותר כל יום — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך תוכנית בול עליך.`,
-        cta: 'בוא נתקדם!',
-      },
-      female: {
-        body: (_t, n) =>
-          `לשפר את הכושר ולהרגיש אנרגטית ובטוחה בעצמך כל יום — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך תוכנית בול עלייך.`,
-        cta: 'בואי נתקדם!',
-      },
-    },
-  },
-
-  '18-21': {
-    muscle: {
-      male: {
-        body: (t, n) =>
-          `לבנות בדיוק את ${t ?? 'האזורים שבחרת'} גם בתוך שגרת הבסיס — אפשר, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך אימונים קצרים שאפשר לתקתק בין המשימות.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `לעצב בדיוק את ${t ?? 'האזורים שבחרת'} גם בתוך שגרת הבסיס — אפשר, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך אימונים קצרים שאפשר לתקתק בין המשימות.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    skills: {
-      male: {
-        body: (t, n) =>
-          `לשלוט בגוף ולעשות ${t ?? 'האלמנט שבחרת'} גם בתוך הלו"ז הצבאי השוחק — מטרה מעולה, ואפשר בלי לשבור את הגוף. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `לשלוט בגוף ולעשות ${t ?? 'האלמנט שבחרת'} גם בתוך הלו"ז הצבאי השוחק — מטרה מדהימה, ואפשר בלי לשבור את הגוף. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    health: {
-      male: {
-        body: (_t, n) =>
-          `להישאר חזק ואנרגטי גם בתוך הלו"ז השוחק של הבסיס — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך אימונים שנכנסים בזמן הפנוי שלך.`,
-        cta: 'בוא נתקדם!',
-      },
-      female: {
-        body: (_t, n) =>
-          `להישאר חזקה ואנרגטית גם בתוך הלו"ז השוחק של הבסיס — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך אימונים שנכנסים בזמן הפנוי שלך.`,
-        cta: 'בואי נתקדם!',
-      },
-    },
-  },
-
-  '21-26': {
-    muscle: {
-      male: {
-        body: (t, n) =>
-          `להחזיר שגרת אימונים ולבנות את ${t ?? 'האזורים שבחרת'} — בלי לשלם הון על חדר כושר. זה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונבנה לך שגרה שטסה איתך לכל מקום.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `להחזיר שגרת אימונים ולעצב את ${t ?? 'האזורים שבחרת'} — בלי לשבור את החיסכון על סטודיו יקר. זה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונבנה לך שגרה שמתאימה ללייף-סטייל שלך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    skills: {
-      male: {
-        body: (t, n) =>
-          `לשלוט בגוף ולעשות ${t ?? 'האלמנט שבחרת'} בכל מקום שבו תהיה — מטרה מעולה, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `לשלוט בגוף ולעשות ${t ?? 'האלמנט שבחרת'} בכל מקום שבו תהיי — מטרה מדהימה, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונבנה את השלבים בקצב שלך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    health: {
-      male: {
-        body: (_t, n) =>
-          `לשמור על שגרה בריאה ולשפר את הכושר בין כל הבלגן — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונבנה לך שגרה יציבה.`,
-        cta: 'בוא נתקדם!',
-      },
-      female: {
-        body: (_t, n) =>
-          `לשמור על שגרה בריאה ולשפר את הכושר בין כל הבלגן — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונבנה לך שגרה יציבה.`,
-        cta: 'בואי נתקדם!',
-      },
-    },
-  },
-
-  '26-50': {
-    muscle: {
-      male: {
-        body: (t, n) =>
-          `בין הקריירה לבית, לחטב את ${t ?? 'האזורים שבחרת'} ולהחזיר אנרגיה — זה אפשרי, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתפור לך אימוני תכל'ס קצרים שנכנסים בלו"ז שלך בול.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `בין הקריירה לבית, לעצב את ${t ?? 'האזורים שבחרת'} ולהחזיר אנרגיה — זה אפשרי, וזה מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתפור לך תוכנית קצרה שנכנסת בלו"ז שלך בקלות.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    skills: {
-      male: {
-        body: (t, n) =>
-          `${t ?? 'האלמנט שבחרת'} גם כשהלו"ז צפוף — מטרה מעולה, ואפשר להגיע אליה בלי לפצוע את הגוף. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ומשם נבנה לך את הדרך בול בקצב שלך.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `${t ?? 'האלמנט שבחרת'} גם כשהלו"ז צפוף — מטרה מדהימה, ואפשר להגיע אליה בלי לפצוע את הגוף. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ומשם נבנה לך את הדרך בול בקצב שלך.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    health: {
-      male: {
-        body: (_t, n) =>
-          `להחזיר אנרגיה, למנוע כאבי גב ולהרגיש חזק יותר בתוך עומס החיים — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך אימוני תכל'ס קצרים שמגנים על הגוף.`,
-        cta: 'בוא נתקדם!',
-      },
-      female: {
-        body: (_t, n) =>
-          `להחזיר אנרגיה, להרגיש בריאה וחזקה יותר ולשפר את הכושר — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתפור לך תוכנית שנכנסת בלו"ז שלך בקלות.`,
-        cta: 'בואי נתקדם!',
-      },
-    },
-  },
-
-  '50+': {
-    muscle: {
-      male: {
-        body: (_t, n) =>
-          `לבנות שריר ולהישאר חזק — בשבילך ובשביל המשפחה — מטרה מצוינת בכל גיל, ואפשר בלי להעמיס על המפרקים. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך את ההתקדמות הבטוחה ביותר.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (_t, n) =>
-          `לבנות שריר ולהישאר חזקה — בשבילך ובשביל המשפחה — מטרה מצוינת בכל גיל, ואפשר בלי להעמיס על המפרקים. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך את ההתקדמות הבטוחה ביותר.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-    health: {
-      male: {
-        body: (_t, n) =>
-          `לשמור על החיוניות, להגן על המפרקים ולהישאר חזק בשביל המשפחה — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, והמערכת תדאג לכל השאר.`,
-        cta: 'בוא נתקדם!',
-      },
-      female: {
-        body: (_t, n) =>
-          `לשמור על החיוניות, להגן על המפרקים ולהישאר חזקה בשביל המשפחה — הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, והמערכת תדאג לכל השאר.`,
-        cta: 'בואי נתקדם!',
-      },
-    },
-    skills: {
-      male: {
-        body: (t, n) =>
-          `להציב מטרה כמו ${t ?? 'האלמנט שבחרת'} ולשלוט בגוף בגיל הזה — השראה אמיתית, ואפשר בלי להעמיס על המפרקים. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמן מה שאתה באמת מצליח, ונתאים לך את שלבי ההתקדמות הבטוחים ביותר.`,
-        cta: 'אני מוכן, בוא נמשיך!',
-      },
-      female: {
-        body: (t, n) =>
-          `להציב מטרה כמו ${t ?? 'האלמנט שבחרת'} ולשלוט בגוף בגיל הזה — השראה אמיתית, ואפשר בלי לפצוע את הגוף. הכל מתחיל מבסיס חזק. נתחיל במבדק קצר של ${exerciseCountPhrase(n)} — סמני מה שאת באמת מצליחה, ונתאים לך את שלבי ההתקדמות הבטוחים ביותר.`,
-        cta: 'אני מוכנה, בואי נמשיך!',
-      },
-    },
-  },
+const AGE_KEYS: Record<string, 'age14to18' | 'age18to21' | 'age21to26' | 'age26to50' | 'age50plus'> = {
+  '14-18': 'age14to18',
+  '18-21': 'age18to21',
+  '21-26': 'age21to26',
+  '26-50': 'age26to50',
+  '50+': 'age50plus',
 };
 
 // ── Matrix lookup with fallback chain ─────────────────────────────
 
 export function getOnboardingIntroText(
+  t: (key: NamespaceKey<typeof onboarding>, values?: MessageValues) => string,
   gender: 'male' | 'female',
   ageGroup: string,
   goal: string | null,
@@ -289,20 +69,24 @@ export function getOnboardingIntroText(
         ? 'skills'
         : 'health';
 
-  const ageEntry = MATRIX[ageGroup] ?? MATRIX['26-50']!;
-  const goalEntry = ageEntry[normalizedGoal] ?? ageEntry['health'];
-  const entry: IntroContent | undefined =
-    goalEntry?.[gender] ??
-    goalEntry?.[gender === 'female' ? 'male' : 'female'] ??
-    MATRIX['26-50']!.health![gender] ??
-    MATRIX['26-50']!.health!.male!;
+  // Unknown age group → 26-50. Every cell has both genders; the old lookup
+  // (`goalEntry[gender] ?? goalEntry[gender === 'female' ? 'male' : 'female']`) gave any value
+  // other than 'male' the female body — kept as is (the title stays female only for 'female').
+  const age = Object.prototype.hasOwnProperty.call(AGE_KEYS, ageGroup) ? AGE_KEYS[ageGroup] : 'age26to50';
+  const bodyGender = gender === 'male' ? 'male' : 'female';
 
-  const area = sanitizeTargetArea(targetArea);
+  const areaId = sanitizeTargetArea(targetArea);
+  const area = areaId ? t('quiz.why.area', { area: areaId }) : '';
 
   return {
-    title: gender === 'female' ? 'בואי נכיר קצת יותר.' : 'בוא נכיר קצת יותר.',
-    body: entry.body(area, exerciseCount),
-    cta: entry.cta,
+    title: t('quiz.why.title', { gender: gender === 'female' ? 'female' : 'other' }),
+    body: t(`quiz.why.${age}.${normalizedGoal}.body`, {
+      gender: bodyGender,
+      hasArea: areaId ? 'yes' : 'no',
+      area,
+      count: exerciseCount,
+    }),
+    cta: t(`quiz.why.${age}.${normalizedGoal}.cta`, { gender: bodyGender }),
   };
 }
 
@@ -346,7 +130,8 @@ export default function BlurredWhyStep({
   v2 = false,
 }: BlurredWhyStepProps) {
   const [imgFailed, setImgFailed] = useState(false);
-  const intro = getOnboardingIntroText(gender, ageGroup, goal, targetArea, exerciseCount);
+  const t = useT(onboarding);
+  const intro = getOnboardingIntroText(t, gender, ageGroup, goal, targetArea, exerciseCount);
   const sentences = splitSentences(intro.body);
 
   // ── v2 (enable_home_v2) ────────────────────────────────────────
@@ -362,7 +147,7 @@ export default function BlurredWhyStep({
               type="button"
               onClick={onBack}
               className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] touch-manipulation"
-              aria-label="חזרה"
+              aria-label={t('quiz.why.back')}
             >
               <ChevronRight size={20} className="text-v2-ink" />
             </button>
@@ -479,7 +264,7 @@ export default function BlurredWhyStep({
             <button
               onClick={onBack}
               className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-full bg-white/60 active:bg-white/80 transition-colors touch-manipulation backdrop-blur-sm"
-              aria-label="חזרה"
+              aria-label="חזרה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             >
               <ChevronRight size={22} className="text-slate-600" />
             </button>

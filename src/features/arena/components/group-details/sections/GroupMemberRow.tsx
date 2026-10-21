@@ -3,6 +3,8 @@
 import { X, Loader2, ChevronDown, Crown, Shield } from 'lucide-react';
 import type { GroupMember } from '@/types/community.types';
 import { memberInitials, type memberPermissions } from '../utils/group-details-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupMemberRowProps {
   member: GroupMember;
@@ -18,6 +20,7 @@ interface GroupMemberRowProps {
 /** One roster row; tapping it (when the viewer has actions) opens the inline action panel. */
 export default function GroupMemberRow({ member, permissions, isExpanded, onToggle, pending, onToggleAdmin, onRemove }: GroupMemberRowProps) {
   const { isGroupCreator, isGroupAdminMember, canPromote, canDemote, canRemove, hasActions } = permissions;
+  const t = useT(community);
   const initials = memberInitials(member.name);
   return (
     <div className="rounded-xl overflow-hidden">
@@ -38,13 +41,13 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
           {isGroupCreator && (
             <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
               <Crown className="w-3 h-3" />
-              בעלים
+              {t('group.members.owner')}
             </p>
           )}
           {isGroupAdminMember && (
             <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5">
               <Shield className="w-3 h-3" />
-              מנהל/ת
+              {t('group.members.admin')}
             </p>
           )}
         </div>
@@ -57,7 +60,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
       {isExpanded && (
         <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 py-2 space-y-1" dir="rtl">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
-            {member.name} · פעולות מנהל
+            {t('group.members.actions', { name: member.name })}
           </p>
           {canPromote && (
             <button
@@ -66,8 +69,8 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
-              הפוך למנהל
-              <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
+              {t('group.members.promote')}
+              <span className="text-xs text-gray-400 font-normal mr-auto">{t('group.members.promoteHint')}</span>
             </button>
           )}
           {canDemote && (
@@ -77,7 +80,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
-              הסר ניהול
+              {t('group.members.demote')}
             </button>
           )}
           {canRemove && (
@@ -86,7 +89,7 @@ export default function GroupMemberRow({ member, permissions, isExpanded, onTogg
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <X className="w-4 h-4" />
-              הסר מהקבוצה
+              {t('group.members.remove')}
             </button>
           )}
         </div>

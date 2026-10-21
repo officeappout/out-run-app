@@ -7,6 +7,8 @@ import type { CommunityGroup } from '@/types/community.types';
 import { DAY_LABELS } from '../utils/group-details-logic';
 import { getSlotStatus, type SlotStatus } from '../services/slot-status.service';
 import SlotEditorSheet from './SlotEditorSheet';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Schedule Manager Panel ────────────────────────────────────────────────────
 
@@ -20,6 +22,7 @@ interface ScheduleManagerPanelProps {
 }
 
 export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, onClose, onSaved, showToast }: ScheduleManagerPanelProps) {
+  const t = useT(community);
   const slots = group.scheduleSlots ?? [];
   const [statusMap, setStatusMap] = React.useState<Record<number, SlotStatus>>({});
   const [checking, setChecking] = React.useState(true);
@@ -46,10 +49,10 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
     setSaving(true);
     try {
       await updateGroup(group.id, { scheduleSlots: newSlots });
-      showToast('success', 'מפגש הוסר');
+      showToast('success', t('group.scheduleManager.toast.removed'));
       onSaved();
     } catch {
-      showToast('error', 'שגיאה בשמירה');
+      showToast('error', t('group.scheduleManager.toast.saveError'));
     } finally {
       setSaving(false);
     }
@@ -71,7 +74,7 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
     <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <span className="text-sm font-black text-gray-900">ניהול מפגשים</span>
+        <span className="text-sm font-black text-gray-900">{t('group.scheduleManager.title')}</span>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 active:scale-90 transition-all">
           <X className="w-4 h-4" />
         </button>
@@ -104,11 +107,11 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
                 <span className="text-[10px] text-gray-400 flex-shrink-0">...</span>
               ) : locked ? (
                 <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
-                  פעיל
+                  {t('group.scheduleManager.active')}
                 </span>
               ) : attendeeCount > 0 ? (
                 <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                  {attendeeCount} נרשמו
+                  {t('group.scheduleManager.registered', { count: String(attendeeCount) })}
                 </span>
               ) : null}
 
@@ -116,7 +119,7 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
               <button
                 onClick={() => !locked && !checking && onEdit(i)}
                 disabled={locked || checking || saving}
-                title={locked ? 'מפגש פעיל כרגע — לא ניתן לערוך' : 'ערוך'}
+                title={locked ? t('group.scheduleManager.editLocked') : t('group.scheduleManager.edit')}
                 className={`p-2 rounded-xl transition-all active:scale-90 ${
                   locked || checking ? 'text-gray-300 cursor-not-allowed' : 'text-cyan-600 hover:bg-cyan-50'
                 }`}
@@ -128,7 +131,7 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
               <button
                 onClick={() => !locked && !isOnly && !checking && handleRemoveSlot(i)}
                 disabled={locked || isOnly || checking || saving}
-                title={isOnly ? 'להפסיק מפגשים לגמרי — בקרוב' : locked ? 'מפגש פעיל כרגע' : 'הסר מפגש'}
+                title={isOnly ? t('group.scheduleManager.removeOnly') : locked ? t('group.scheduleManager.removeLocked') : t('group.scheduleManager.remove')}
                 className={`p-2 rounded-xl transition-all active:scale-90 ${
                   locked || isOnly || checking ? 'text-gray-300 cursor-not-allowed' : 'text-red-400 hover:bg-red-50'
                 }`}
@@ -148,7 +151,7 @@ export default function ScheduleManagerPanel({ group, editingSlotIndex, onEdit, 
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-black text-cyan-600 bg-cyan-50 hover:bg-cyan-100 active:scale-[0.97] transition-all disabled:opacity-50"
         >
           <Plus className="w-4 h-4" />
-          הוסף מפגש
+          {t('group.scheduleManager.add')}
         </button>
       </div>
     </div>

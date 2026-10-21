@@ -2,7 +2,8 @@
   "id": "D12_community",
   "kind": "design-sweep",
   "persona": "noa_designer",
-  "uid": "demo_qa_ds_walk",
+  "uid": "demo_qa_ds_all",
+  "precondition": "all_tracks",
   "device": "iphone-13",
   "devices": [
     "iphone-se",

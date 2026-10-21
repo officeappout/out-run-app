@@ -527,8 +527,9 @@ export default function GatewayPage() {
         </div>
 
         <nav aria-label="מידע משפטי ונגישות" className="flex items-center justify-center gap-4 text-xs" style={{ fontFamily: 'var(--font-simpler)' }}>
-          <a href="/accessibility" className="font-semibold text-[#007EA8] underline underline-offset-2">הצהרת נגישות</a>
-          <a href="/privacy" className="font-semibold text-[#007EA8] underline underline-offset-2">מדיניות פרטיות</a>
+          {/* 44px-tall hit area; the negative margin keeps the row's layout exactly as before. */}
+          <a href="/accessibility" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">הצהרת נגישות</a>
+          <a href="/privacy" className="-my-3.5 inline-flex min-h-[44px] items-center font-semibold text-[#007EA8] underline underline-offset-2">מדיניות פרטיות</a>
         </nav>
 
       </div>

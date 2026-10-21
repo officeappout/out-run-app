@@ -7,6 +7,8 @@ import { joinGroup } from '@/features/arena/services/group.service';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import type { CommunityGroup } from '@/types/community.types';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface UseGroupJoinActionsArgs {
   group: CommunityGroup | null;
@@ -26,6 +28,7 @@ interface UseGroupJoinActionsArgs {
  * leaving with confirmation. (No hooks besides state — no effects.)
  */
 export function useGroupJoinActions({ group, userId, userName, userPhoto, effectiveLiveSession, onJoin, onLeave, onClose, showToast }: UseGroupJoinActionsArgs) {
+  const t = useT(community);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [codeUnlocked, setCodeUnlocked] = useState(false);
@@ -118,11 +121,11 @@ export function useGroupJoinActions({ group, userId, userName, userPhoto, effect
     // PERMISSION_DENIED (fail-open when authorityId is absent — the server
     // rule still backstops that edge case).
     if (group.authorityId && result.tenantId !== group.authorityId) {
-      showToast('error', 'הקוד אינו שייך לקבוצה הזו.');
+      showToast('error', t('group.join.toast.wrongTenant'));
       return;
     }
     setCodeUnlocked(true);
-    showToast('success', `ברוכים הבאים ל${group.name}!`);
+    showToast('success', t('group.join.toast.welcome', { name: group.name }));
     onJoin(group.id);
   };
 

@@ -2,7 +2,8 @@
   "id": "D07_walk_player",
   "kind": "design-sweep",
   "persona": "noa_designer",
-  "uid": "demo_qa_ds_walk",
+  "uid": "demo_qa_ds_walk_plan",
+  "precondition": "walk_plan",
   "device": "iphone-13",
   "devices": [
     "iphone-se",
