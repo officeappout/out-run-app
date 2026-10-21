@@ -1,5 +1,5 @@
 /**
- * Big-park selection (owner decision Q7): ≥ 8 dunam (80,000 m²) OR perimeter
+ * Big-park selection (owner decision Q7): ≥ 80 dunam (80,000 m²; 1 dunam = 1,000 m²) OR perimeter
  * ≥ 1.2 km, named, leisure=park / nature_reserve / landuse=recreation_ground.
  * OSM often splits one park into several polygons with the same name (Park
  * HaYarkon) — same-name polygons within MERGE_GAP_M are merged first, then

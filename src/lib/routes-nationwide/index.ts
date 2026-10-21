@@ -4,3 +4,4 @@ export * from './checkpoint';
 export * from './stages';
 export * from './summary';
 export * from './admin-match';
+export * from './authority-backfill';
