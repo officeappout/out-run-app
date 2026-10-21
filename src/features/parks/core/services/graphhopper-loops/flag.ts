@@ -8,3 +8,8 @@ import { readLiveFlag } from '@/lib/feature-flag-live';
 export function resolveGraphhopperRoutes(override: boolean | undefined): boolean {
   return typeof override === 'boolean' ? override : readLiveFlag('enableGraphhopperRoutes');
 }
+
+/** Time-aware preference (panel flag enable_route_time_aware, default OFF) — the device's last-known live flag. */
+export function resolveRouteTimeAware(override?: boolean): boolean {
+  return typeof override === 'boolean' ? override : readLiveFlag('enableRouteTimeAware');
+}

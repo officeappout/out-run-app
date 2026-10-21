@@ -7,6 +7,7 @@
 import type { LngLat } from '../route-quality/types';
 import type { SurfaceClass, SurfaceShares } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
+import type { HourlyProfileSummary } from '../shade-hourly/route-hourly';
 
 export type { LngLat };
 
@@ -71,6 +72,12 @@ export interface RouteScoreInput {
   shadeShare: number | null;
   /** Full shade measurement (status, shadedPct, coverage) for the route_scores doc; null = not attempted. */
   shade: RouteShade | null;
+  /**
+   * Hour-aware shade (RC7, shade/hourly/v1): summer mean + 21-July by-hour curve.
+   * Informational only — exposed on the comfort component, never changes points.
+   * Absent/null = the city has no hourly file or it covers < 50% of the route.
+   */
+  hourlyShade?: HourlyProfileSummary | null;
 }
 
 export interface ComponentScore {
@@ -80,6 +87,8 @@ export interface ComponentScore {
   /** 0..1 — how much of this component was really measured (proxy counts as 0.5). */
   coverage: number;
   notes: string[];
+  /** Comfort only: the hour-aware shade summary, when measured (informational, no points). */
+  hourlyShade?: HourlyProfileSummary;
 }
 
 export type ScoreComponentKey = 'surface' | 'geometry' | 'safety' | 'source' | 'comfort' | 'experience';

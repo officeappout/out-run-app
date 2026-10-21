@@ -4,8 +4,9 @@
  */
 import { parseWireOurRoutes, type WireOurRoute } from './our-routes/wire';
 import type { ShadePrefMeta } from './shade-pref';
+import type { TimeAwareMeta } from './time-aware-pref';
 
-export type { ShadePrefMeta };
+export type { ShadePrefMeta, TimeAwareMeta };
 
 export type GenerateActivity = 'running' | 'walking' | 'cycling';
 
@@ -20,8 +21,15 @@ export interface GenerateLoopsRequest {
   ourRoutes?: WireOurRoute[];
   /** "Shadiest route" (enable_route_pref_shade): rank candidates by Technion shade where the city has a layer. */
   preferShade?: boolean;
-  /** The app's resolved city name — picks the shade layer. Only read with preferShade. */
+  /** The app's resolved city name — picks the shade / hourly-shade / lighting layer. Only read with preferShade or timeAware. */
   city?: string;
+  /**
+   * Time-aware preference (enable_route_time_aware): hot sunny hours → hourly shade at that
+   * hour, after dark → lit streets, otherwise neutral. Ignored when preferShade is set.
+   */
+  timeAware?: boolean;
+  /** ISO instant the run starts (timeAware only); default = server now. Must be within ±24 h. */
+  at?: string;
 }
 
 export interface GenerateAbRequest {
@@ -52,6 +60,10 @@ export interface GeneratedLoopDto {
   compactness: number;
   /** Mean Technion shade index (0..1) — only with preferShade, null when not measured. */
   shadeShare?: number | null;
+  /** Mean hourly shade (0..1) at the requested hour — only when timeAware ranked by shade, null when not measured. */
+  hourShade?: number | null;
+  /** Lit length ÷ route length (0..1) — only when timeAware ranked by lighting, null when no lighting data matched. */
+  litShare?: number | null;
 }
 
 export interface GenerateLoopsResponse {
@@ -62,6 +74,8 @@ export interface GenerateLoopsResponse {
   osmLayer: boolean;
   /** Only when the request asked for preferShade: whether shade ranking was applied, and why not. */
   shade?: ShadePrefMeta;
+  /** Only when the request asked for timeAware (and not preferShade): the mode and whether it applied. */
+  timeAware?: TimeAwareMeta;
 }
 
 export interface GenerateAbResponse {
@@ -77,6 +91,14 @@ function point(v: unknown): { lat: number; lng: number } | null {
   if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return null;
   if (!(p.lat >= ISRAEL.south && p.lat <= ISRAEL.north && p.lng >= ISRAEL.west && p.lng <= ISRAEL.east)) return null;
   return { lat: p.lat, lng: p.lng };
+}
+
+/** A run start instant within ±24 h of now (ISO), else undefined (server now is used). */
+function parseAt(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v.length > 40) return undefined;
+  const t = Date.parse(v);
+  if (!Number.isFinite(t) || Math.abs(t - Date.now()) > 24 * 3_600_000) return undefined;
+  return new Date(t).toISOString();
 }
 
 /** Parsed request, or a short error code. */
@@ -99,6 +121,9 @@ export function parseGenerateRequest(body: unknown): GenerateRequest | { error: 
       mode: 'loop', start, targetKm, activity, seed, maxResults,
       ...(ourRoutes ? { ourRoutes } : {}),
       ...(b.preferShade === true ? { preferShade: true, ...(city ? { city } : {}) } : {}),
+      ...(b.preferShade !== true && b.timeAware === true
+        ? { timeAware: true, ...(city ? { city } : {}), ...(parseAt(b.at) ? { at: parseAt(b.at)! } : {}) }
+        : {}),
     };
   }
   if (b.mode === 'ab') {

@@ -149,12 +149,8 @@ function matchStep(
   return (bestParallel ?? bestAny)?.s ?? null;
 }
 
-export function shadeShareForLine(
-  line: LonLat[],
-  segments: ShadeSpatialIndex | ShadeSegmentCollection | ShadeSegmentFeature[],
-  options: ShadeShareOptions = {},
-): ShadeShareResult {
-  const o: Required<ShadeShareOptions> = {
+function resolveOptions(options: ShadeShareOptions): Required<ShadeShareOptions> {
+  return {
     bufferM: options.bufferM ?? 15,
     widenByWidth: options.widenByWidth ?? true,
     maxWidenM: options.maxWidenM ?? 15,
@@ -162,11 +158,21 @@ export function shadeShareForLine(
     maxAngleDeg: options.maxAngleDeg ?? 45,
     shadedMinIndex: options.shadedMinIndex ?? 0.25,
   };
-  const idx = 'cells' in segments ? segments : buildShadeIndex(segments);
-  let total = 0;
-  let matched = 0;
-  let weighted = 0;
-  let shaded = 0;
+}
+
+/**
+ * Walk `line` in steps and report each step: its length and the matched
+ * segment's `shadeIndex` (null when unmatched). The single matching loop
+ * behind shadeShareForLine — exposed so a caller can store any per-segment
+ * key in `shadeIndex` (e.g. an ordinal into a richer per-segment table).
+ */
+export function walkLineMatches(
+  line: LonLat[],
+  idx: ShadeSpatialIndex,
+  options: ShadeShareOptions,
+  onStep: (stepLenM: number, matchedValue: number | null) => void,
+): void {
+  const o = resolveOptions(options);
   const pts = line.filter(isLonLat);
   for (let i = 1; i < pts.length; i++) {
     const segLen = haversineM(pts[i - 1], pts[i]);
@@ -181,15 +187,31 @@ export function shadeShareForLine(
     for (let k = 0; k < steps; k++) {
       const t = (k + 0.5) / steps;
       const p: [number, number] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-      total += stepLen;
       const s = idx.size ? matchStep(idx, p, dx, dy, o) : null;
-      if (s) {
-        matched += stepLen;
-        weighted += stepLen * s.shadeIndex;
-        if (s.shadeIndex >= o.shadedMinIndex) shaded += stepLen;
-      }
+      onStep(stepLen, s ? s.shadeIndex : null);
     }
   }
+}
+
+export function shadeShareForLine(
+  line: LonLat[],
+  segments: ShadeSpatialIndex | ShadeSegmentCollection | ShadeSegmentFeature[],
+  options: ShadeShareOptions = {},
+): ShadeShareResult {
+  const o = resolveOptions(options);
+  const idx = 'cells' in segments ? segments : buildShadeIndex(segments);
+  let total = 0;
+  let matched = 0;
+  let weighted = 0;
+  let shaded = 0;
+  walkLineMatches(line, idx, o, (stepLen, v) => {
+    total += stepLen;
+    if (v != null) {
+      matched += stepLen;
+      weighted += stepLen * v;
+      if (v >= o.shadedMinIndex) shaded += stepLen;
+    }
+  });
   return {
     shadeShare: matched > 0 ? weighted / matched : null,
     coverage: total > 0 ? matched / total : 0,

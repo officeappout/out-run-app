@@ -281,6 +281,13 @@ export const FLAG_DEFS = [
   // only while enable_graphhopper_routes is on (the Mapbox pipeline ignores it). Default OFF,
   // superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
   { key: 'enableRoutePrefShade', firestoreKey: 'enable_route_pref_shade', defaultValue: false, superAdminValue: false },
+  // Time-aware route preference (RC7, 21.10.2026, owner-approved) — GraphHopper loops only: in
+  // hot sunny hours (May–Oct, sun > 25°) the server ranks 6 candidates by the hourly shade at
+  // that hour (shade/hourly/v1), after dark by lit length (lighting/v1), otherwise the normal
+  // top 3. Cities without the layer get the normal top 3. Not a user choice — the app adds
+  // `timeAware` to the request while this is on ("shadiest route" wins when picked).
+  // Default OFF, superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
+  { key: 'enableRouteTimeAware', firestoreKey: 'enable_route_time_aware', defaultValue: false, superAdminValue: false },
   // Unified search (19.10.2026, owner-approved design canvas) — /search becomes one search over
   // exercises, parks, routes, people & groups, events, articles and help (site_content), with
   // chips + counts, grouped "הכל" results, recents, situation suggestions, "אולי חיפשת" and Ask

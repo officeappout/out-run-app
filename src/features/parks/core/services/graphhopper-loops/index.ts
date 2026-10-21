@@ -7,10 +7,11 @@
 import { fetchGraphhopperLoops, type ApiClientDeps } from './api-client';
 import { GH_MIN_TARGET_KM, isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 import { loopDtoToRoute } from './to-route';
+import { resolveRouteTimeAware } from './flag';
 import type { Route } from '../../types/route.types';
 import type { WireOurRoute } from '@/lib/routing/our-routes/wire';
 
-export { resolveGraphhopperRoutes } from './flag';
+export { resolveGraphhopperRoutes, resolveRouteTimeAware } from './flag';
 export { isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 export { fetchGraphhopperLoops, GH_CLIENT_TIMEOUT_MS } from './api-client';
 export { loopDtoToRoute } from './to-route';
@@ -30,6 +31,8 @@ export async function tryGraphhopperLoops(o: GhLoopOptions, deps?: ApiClientDeps
       ...(ourRoutes && ourRoutes.length > 0 ? { ourRoutes } : {}),
       // "Shadiest route" (enable_route_pref_shade): the server ranks by shade where it has data.
       ...(o.preferences.preferShade ? { preferShade: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
+      // Time-aware (enable_route_time_aware): shade at this hour by day, lit streets after dark. Off = absent.
+      ...(!o.preferences.preferShade && resolveRouteTimeAware(o.timeAware) ? { timeAware: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
     }, deps);
     if (res.loops.length === 0) return null;
     return res.loops.map((l, i) => loopDtoToRoute(l, i, o.activity, o.routeGenerationIndex));

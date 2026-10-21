@@ -13,8 +13,10 @@ export interface GhLoopOptions {
   activity: ActivityType;
   routeGenerationIndex: number;
   preferences: { includeStrength: boolean; maxRoutes?: number; preferShade?: boolean };
-  /** Resolved city — picks the shade layer when preferences.preferShade is on. */
+  /** Resolved city — picks the shade layer when preferences.preferShade is on (and the time-aware layers). */
   cityName?: string;
+  /** Explicit enable_route_time_aware override (tests / admin); absent = the device's live flag. */
+  timeAware?: boolean;
   destination?: unknown;
   followOfficialRouteId?: string;
   discoverCorridorChain?: boolean;
