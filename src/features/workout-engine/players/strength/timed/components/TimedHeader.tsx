@@ -12,6 +12,8 @@ import { Info, Play } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import type { CartRingItem } from '@/components/ui/v2';
 import type { SegmentBars } from '../logic/timed-header';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 export interface TimedHeaderProps {
   bars: SegmentBars;
@@ -29,6 +31,7 @@ export interface TimedHeaderProps {
 }
 
 export default function TimedHeader(p: TimedHeaderProps) {
+  const gender = useUiGender();
   return (
     <div
       dir="rtl"
@@ -73,7 +76,7 @@ export default function TimedHeader(p: TimedHeaderProps) {
             <button
               type="button"
               onClick={p.onTogglePause}
-              aria-label={p.isPaused ? 'המשך אימון' : 'הפסק אימון'}
+              aria-label={pickGendered(gender, p.isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.stopWorkout)}
               className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
               {p.isPaused ? (

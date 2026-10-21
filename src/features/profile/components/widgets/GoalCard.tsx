@@ -5,6 +5,12 @@ import { ChevronLeft } from 'lucide-react';
 import MiniSparkline from './MiniSparkline';
 import { getExerciseTrend } from '@/features/workout-engine/services/exercise-history.service';
 import type { LevelGoal } from '@/types/workout';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+
+/** Empty graph hint, two lines (gender copy, decisions 1 + 21.10.2026). */
+const GRAPH_HINT_LINE1 = { male: 'התחל אימון', female: 'התחילי אימון', other: 'אחרי האימון' };
+const GRAPH_HINT_LINE2 = { male: 'לראות גרף', female: 'לראות גרף', other: 'יופיע כאן גרף' };
 
 interface GoalCardProps {
   goal: LevelGoal;
@@ -22,6 +28,7 @@ interface GoalCardProps {
  * Tapping it navigates to the Exercise Analytics page.
  */
 export default function GoalCard({ goal, userId, isFallback = false, onClick, v2 = false }: GoalCardProps) {
+  const gender = useUiGender();
   const [maxRepsHistory, setMaxRepsHistory] = useState<number[]>([]);
   const [latestReps, setLatestReps] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,9 +97,9 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
         ) : (
           <div className="flex h-[60px] items-center justify-center">
             <span className="text-center text-[12px] font-bold leading-snug text-v2-muted">
-              התחל אימון
+              {pickGendered(gender, GRAPH_HINT_LINE1)}
               <br />
-              לראות גרף
+              {pickGendered(gender, GRAPH_HINT_LINE2)}
             </span>
           </div>
         )}
@@ -172,9 +179,9 @@ export default function GoalCard({ goal, userId, isFallback = false, onClick, v2
       ) : (
         <div className="h-[60px] flex items-center justify-center">
           <span className="text-[10px] text-gray-400 text-center leading-snug">
-            התחל אימון
+            {pickGendered(gender, GRAPH_HINT_LINE1)}
             <br />
-            לראות גרף
+            {pickGendered(gender, GRAPH_HINT_LINE2)}
           </span>
         </div>
       )}

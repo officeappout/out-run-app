@@ -116,6 +116,8 @@ import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -1099,6 +1101,7 @@ function RouteCard({
   coach?: boolean;
   footnote?: string | null;
 }) {
+  const gender = useUiGender();
   // `data-coach` ids of the first-route tour (FIRST_RUN_COACH.routeCard / routeStart in
   // user/onboarding/services/first-run-tour.ts) — literals, no cross-domain import.
   const coachId = coach ? 'route-card' : undefined;
@@ -1182,7 +1185,7 @@ function RouteCard({
         ctaContent={
           <>
             <Play size={14} fill="currentColor" />
-            {isTooFar ? tooFarLabels.cta : 'התחל אימון'}
+            {isTooFar ? tooFarLabels.cta : pickGendered(gender, GENDERED_COPY.startWorkout)}
             <ChevronLeft size={14} strokeWidth={3} />
           </>
         }
@@ -1273,7 +1276,7 @@ function RouteCard({
         style={{ backgroundColor: ACCENT }}
       >
         <Play size={14} fill="currentColor" />
-        התחל אימון
+        {pickGendered(gender, GENDERED_COPY.startWorkout)}
         <ChevronLeft size={14} strokeWidth={3} />
       </button>
     </div>

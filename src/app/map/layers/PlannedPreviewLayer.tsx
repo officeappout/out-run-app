@@ -19,6 +19,8 @@ import { applyRunEdits, isCustomized, readRunEditParams } from '@/features/worko
 import { useRunPreviewModel } from '@/features/workout-engine/players/running/components/preview-v2/useRunPreviewModel';
 import { parseRunWeekParams } from '@/features/workout-engine/players/running/utils/run-preview/run-week';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -27,6 +29,7 @@ interface PlannedPreviewLayerProps {
 }
 
 export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps) {
+  const gender = useUiGender();
   // Hide the global BottomNavbar while this layer is mounted — the bottom
   // CTA card below would otherwise be partially covered by the floating tab
   // bar. Auto-released on unmount.
@@ -252,7 +255,7 @@ export default function PlannedPreviewLayer({ logic }: PlannedPreviewLayerProps)
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00E5FF] to-[#00BAF7] text-white font-black text-lg shadow-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-3"
           >
             <Play size={22} fill="white" />
-            <span>התחל אימון</span>
+            <span>{pickGendered(gender, GENDERED_COPY.startWorkout)}</span>
           </button>
 
           <button

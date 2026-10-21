@@ -9,6 +9,8 @@ import {
   resolveEquipmentSvgPathList,
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * RunnerHeader — gradient overlay header for the live workout player.
@@ -121,6 +123,7 @@ export default function RunnerHeader({
   hideMinimize = false,
   onTogglePause,
 }: RunnerHeaderProps) {
+  const gender = useUiGender();
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
   return (
@@ -187,7 +190,7 @@ export default function RunnerHeader({
           <div className="w-[92px] flex justify-end">
             <button
               onClick={onTogglePause}
-              aria-label={isPaused ? 'המשך אימון' : 'הפסק אימון'}
+              aria-label={pickGendered(gender, isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.stopWorkout)}
               className={v2
                 ? 'h-10 px-3 flex items-center justify-center gap-1.5 rounded-full bg-white shadow-v2-ring whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'
                 : 'h-10 px-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}
