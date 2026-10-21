@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const rateLimited = await isRateLimited(db, `unit-member-approve:${callerUid}`, RATE_LIMITS.unitMemberApprove.uidHourly());
     if (rateLimited) {
-      return NextResponse.json({ error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' }, { status: 429 });
+      return NextResponse.json({ error: 'יותר מדי בקשות. נסו שוב מאוחר יותר.' }, { status: 429 });
     }
 
     const body = await request.json().catch(() => ({}));

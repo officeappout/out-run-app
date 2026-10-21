@@ -24,9 +24,9 @@ export interface DeclareUnitResult {
   error?: string;
 }
 
-const NOT_SIGNED_IN_MESSAGE = 'משתמש לא מחובר. רענן את הדף ונסה שוב.';
-const NETWORK_ERROR_MESSAGE = 'בעיית תקשורת. בדוק את החיבור לאינטרנט ונסה שוב.';
-const GENERIC_SERVER_ERROR_MESSAGE = 'שמירת ההצהרה נכשלה. נסה שוב.';
+const NOT_SIGNED_IN_MESSAGE = 'משתמש לא מחובר. רעננו את הדף ונסו שוב.';
+const NETWORK_ERROR_MESSAGE = 'בעיית תקשורת. בדקו את החיבור לאינטרנט ונסו שוב.';
+const GENERIC_SERVER_ERROR_MESSAGE = 'שמירת ההצהרה נכשלה. נסו שוב.';
 
 export async function declareUnit(orgId: string, unitId: string): Promise<DeclareUnitResult> {
   let token: string | undefined;

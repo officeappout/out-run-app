@@ -14,3 +14,8 @@ import type { Gender } from '@/lib/i18n/core/i18n-core';
 export function useUiGender(): Gender {
   return useLocaleStore((s) => s.gender);
 }
+
+/** The same gender outside render (event handlers, async callbacks, class components). */
+export function currentUiGender(): Gender {
+  return useLocaleStore.getState().gender;
+}

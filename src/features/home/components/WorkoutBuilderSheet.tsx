@@ -31,6 +31,8 @@ import {
   startMiniDomainAssessment,
   resolveBaseCategoryForProgramId,
 } from '@/features/user/onboarding/services/mini-domain-assessment';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -721,7 +723,7 @@ export default function WorkoutBuilderSheet({
       setShowPreview(true);
     } catch (err: unknown) {
       console.error('[WorkoutBuilder] Generation failed:', err);
-      setError('לא הצלחנו ליצור אימון. נסה שוב.');
+      setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו ליצור אימון. נסה שוב.', female: 'לא הצלחנו ליצור אימון. נסי שוב.', other: 'לא הצלחנו ליצור אימון. נסו שוב.' }));
     } finally {
       setIsLoading(false);
     }
@@ -747,7 +749,7 @@ export default function WorkoutBuilderSheet({
       onClose();
     } catch (err) {
       console.error('[WorkoutBuilder] Schedule save failed:', err);
-      setError('שמירה נכשלה. נסה שוב.');
+      setError(pickGendered(currentUiGender(), { male: 'שמירה נכשלה. נסה שוב.', female: 'שמירה נכשלה. נסי שוב.', other: 'שמירה נכשלה. נסו שוב.' }));
       setIsSaving(false);
     }
   }, [profile, scheduleDateParam, startTime, resolvedScheduledProgramIds, onClose, isSaving]);

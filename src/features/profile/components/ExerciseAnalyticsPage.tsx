@@ -31,6 +31,8 @@ import {
   type Metric,
 } from '../hooks/useExerciseAnalytics';
 import type { RichExerciseSession } from '@/features/workout-engine/services/exercise-history.service';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -724,11 +726,12 @@ function EmptyRangeState() {
 }
 
 function ErrorState() {
+  const uiGender = useUiGender();
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
       <TrendingUp className="w-10 h-10 text-gray-200" />
       <p className="text-sm font-black text-gray-500">שגיאה בטעינת הנתונים</p>
-      <p className="text-xs text-gray-400">נסה שוב מאוחר יותר</p>
+      <p className="text-xs text-gray-400">{pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
     </div>
   );
 }

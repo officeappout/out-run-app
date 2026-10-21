@@ -6,6 +6,8 @@ import WorkoutPreferencesModal from '@/features/parks/core/components/WorkoutPre
 import { useMapLogic } from '@/features/parks';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { Play, X } from 'lucide-react';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -14,6 +16,7 @@ interface BuilderLayerProps {
 }
 
 export default function BuilderLayer({ logic }: BuilderLayerProps) {
+  const uiGender = useUiGender();
   // Hide the global BottomNavbar — both the preferences modal and the
   // route-picker card own the full bottom of the map.
   useSuppressBottomNav();
@@ -91,7 +94,7 @@ export default function BuilderLayer({ logic }: BuilderLayerProps) {
                   onClick={() => logic.handleShuffle(logic.preferences.activity)}
                   className="mt-2 px-4 py-1.5 rounded-full border border-gray-200 text-gray-600 font-bold text-xs active:scale-[0.97] transition-transform"
                 >
-                  נסה שוב
+                  {pickGendered(uiGender, GENDERED_COPY.retry)}
                 </button>
               </div>
             ) : (

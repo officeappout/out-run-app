@@ -387,7 +387,7 @@ export async function computeCreateSoldier(
   ctx: ReadinessCtx,
 ): Promise<CreateSoldierResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -549,7 +549,7 @@ export async function computeBulkCreateSoldiers(
   ctx: ReadinessCtx,
 ): Promise<BulkCreateSoldiersResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -795,7 +795,7 @@ export async function computeBulkImportResults(
   ctx: ReadinessCtx,
 ): Promise<BulkResultsImportResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1062,7 +1062,7 @@ export async function computeBulkImportResultsWithCorrectionChoice(
   ctx: ReadinessCtx,
 ): Promise<BulkResultsImportWithChoiceResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1348,7 +1348,7 @@ export async function computeLinkSoldier(
   ctx: ReadinessCtx,
 ): Promise<LinkSoldierResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1469,7 +1469,7 @@ export async function computeRejectReadinessMatch(
   ctx: ReadinessCtx,
 ): Promise<RejectReadinessMatchResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1556,7 +1556,7 @@ export async function computeBulkApproveReadinessMatches(
   ctx: ReadinessCtx,
 ): Promise<BulkApproveMatchesResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1614,7 +1614,7 @@ export async function computeUnlinkSoldier(
   ctx: ReadinessCtx,
 ): Promise<UnlinkSoldierResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1783,7 +1783,7 @@ export async function computeGetThresholds(
   scope: UnitPermissionScope,
 ): Promise<GetThresholdsResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
   if (scope.kind !== 'root' && scope.kind !== 'tenantOwner' && scope.kind !== 'unitAdmin' && scope.kind !== 'vertical') {
     return { status: 403, body: { error: DENIED_MESSAGE } };
@@ -1891,7 +1891,7 @@ export async function computeRecordResult(
   ctx: ReadinessCtx,
 ): Promise<RecordResultResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
 
   const soldierId = requestBody.soldierId;
@@ -2100,7 +2100,7 @@ export async function computeRecordResultWithCorrectionChoice(
   ctx: ReadinessCtx,
 ): Promise<RecordResultWithChoiceResult> {
   if (scope.kind === 'unknown') {
-    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסה שוב בעוד רגע.' } };
+    return { status: 503, body: { error: 'לא הצלחנו לאמת את ההרשאה שלך כרגע. נסו שוב בעוד רגע.' } };
   }
 
   const soldierId = requestBody.soldierId;
@@ -2258,7 +2258,7 @@ export async function computeRecordResultWithCorrectionChoice(
         return { status: 404, body: { error: 'התוצאה שנבחרה לתיקון לא נמצאה.' } };
       }
       if (err.message === 'ALREADY_SUPERSEDED') {
-        return { status: 409, body: { error: 'התוצאה הזו כבר תוקנה על ידי רשומה אחרת. רענן ונסה שוב.' } };
+        return { status: 409, body: { error: 'התוצאה הזו כבר תוקנה על ידי רשומה אחרת. רעננו ונסו שוב.' } };
       }
       throw err;
     }

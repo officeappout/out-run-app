@@ -26,6 +26,8 @@ import {
   type LeaderboardGenderFilter,
   type LeaderboardTimeWindow,
 } from '@/features/arena/services/ranking.service';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 type Measure = 'avg' | 'total' | 'improved';
 type SettlementType = 'all' | 'city' | 'council' | 'settlement';
@@ -81,6 +83,7 @@ export default function NationalLeagueBoard({
   /** The viewer's own city / neighborhood ids — their rows get "שלך". */
   myScopeIds?: (string | null | undefined)[];
 }) {
+  const uiGender = useUiGender();
   const [type, setType] = useState<SettlementType>('all');
   const [region, setRegion] = useState<string | null>(null);
   const [measure, setMeasure] = useState<Measure>('avg');
@@ -238,7 +241,7 @@ export default function NationalLeagueBoard({
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={() => void load()}>
-              נסה שוב
+              {pickGendered(uiGender, GENDERED_COPY.retry)}
             </Button>
           }
         />

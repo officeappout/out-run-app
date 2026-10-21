@@ -30,6 +30,8 @@ import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilte
 import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 /** Home v2 (18.10.2026): what the board ranks by — points (official) or km (for fun). */
 export type ScopeBoardMetric = 'points' | 'km';
@@ -167,6 +169,7 @@ export function ScopeCompetitionLeaderboardView({
   metric,
   onMetricChange,
 }: ScopeCompetitionLeaderboardViewProps) {
+  const uiGender = useUiGender();
   const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
   const v2 = !!onMetricChange;
   const km = v2 && metric === 'km';
@@ -275,7 +278,7 @@ export function ScopeCompetitionLeaderboardView({
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={fetch}>
-              נסה שוב
+              {pickGendered(uiGender, GENDERED_COPY.retry)}
             </Button>
           }
         />

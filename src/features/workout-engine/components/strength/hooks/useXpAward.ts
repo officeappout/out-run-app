@@ -7,6 +7,8 @@ import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
 
 import type { CompletedExercise, Difficulty } from '../utils/summary.utils';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 /**
  * useXpAward — Cloud-Function-backed XP award with Dopamine Chain animation.
@@ -165,7 +167,7 @@ export function useXpAward({
       useProgressionStore.setState({ globalXP: xpBefore, globalLevel: levelBefore });
       console.error('[XP] Failed to award XP — rolled back optimistic update:', e);
       setXpStatus('failed');
-      showToast('error', 'לא הצלחנו לשמור את ה-XP. לחץ "נסה שוב" כדי לנסות שוב.');
+      showToast('error', pickGendered(currentUiGender(), { male: 'לא הצלחנו לשמור את ה-XP. לחץ "נסה שוב" כדי לנסות שוב.', female: 'לא הצלחנו לשמור את ה-XP. לחצי "נסי שוב" כדי לנסות שוב.', other: 'לא הצלחנו לשמור את ה-XP. לחצו "נסו שוב" כדי לנסות שוב.' }));
     }
   }, [difficultyBolts, difficulty, completedExercises, durationMinutes, totalReps, showToast, isRecovery, recoveryXp, isReadOnly, savedXpEarned]);
 

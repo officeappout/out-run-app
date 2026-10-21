@@ -132,8 +132,8 @@ describe('catalog gender selects: other = neutral', () => {
   const all = catalogGenderSelects();
 
   it('every gender select has male, female and other — except the recorded backlog', () => {
-    const missing = [...all]
-      .filter(([, selects]) => selects.some((branches) => !branches.includes('male') || !branches.includes('female')))
+    const missing = Array.from(all.entries())
+      .filter(([, selects]: [string, string[][]]) => selects.some((branches) => !branches.includes('male') || !branches.includes('female')))
       .map(([id]) => id)
       .filter((id) => !LEGACY_MASCULINE_OTHER.includes(id));
     expect(missing, 'add `male {…}` (and keep `other {…}` neutral) — see this file\'s header').toEqual([]);

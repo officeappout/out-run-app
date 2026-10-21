@@ -33,6 +33,8 @@ import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useAddTrackContext } from '../../hooks/useAddTrackContext';
 import { saveAddTrackCalendarSync, saveAddTrackWeek } from '../../services/add-track-save.service';
 import AddTrackWeekStep from './AddTrackWeekStep';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 export const ADD_TRACK_SUBSTEPS = 2;
 
@@ -98,7 +100,7 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
     const uid = auth.currentUser?.uid;
     setError(null);
     if (!uid) {
-      setError('החשבון שלך לא מזוהה כרגע. נסה שוב.');
+      setError(pickGendered(currentUiGender(), { male: 'החשבון שלך לא מזוהה כרגע. נסה שוב.', female: 'החשבון שלך לא מזוהה כרגע. נסי שוב.', other: 'החשבון שלך לא מזוהה כרגע. נסו שוב.' }));
       throw new Error('no uid');
     }
     const outcome = await saveAddTrackWeek(

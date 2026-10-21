@@ -68,6 +68,8 @@ import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/
 import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
 import PostWorkoutSurvey, { isSurveyOptedOut, type WorkoutFeedback } from '@/features/workout-engine/components/PostWorkoutSurvey';
 import { noteGenerationSwap } from '@/features/generation-review/capture/hooks';
+import { currentUiGender, useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 // ============================================================================
 // TYPES
@@ -584,6 +586,7 @@ let _summaryFinishInFlight = false;
 // ============================================================================
 
 export default function ActiveWorkoutPage() {
+  const uiGender = useUiGender();
   const params = useParams();
   const router = useRouter();
   // Warm the code-split mid-workout modals right after mount (network is there now).
@@ -912,7 +915,7 @@ export default function ActiveWorkoutPage() {
         }
         setWorkoutPlan(resolvedPlan);
       } else {
-        setError('לא הצלחנו לטעון את האימון. נסה שוב.');
+        setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו לטעון את האימון. נסה שוב.', female: 'לא הצלחנו לטעון את האימון. נסי שוב.', other: 'לא הצלחנו לטעון את האימון. נסו שוב.' }));
       }
       
       setIsLoading(false);
@@ -1839,7 +1842,7 @@ export default function ActiveWorkoutPage() {
               <CircleAlert className="h-8 w-8 text-v2-down" strokeWidth={2.25} aria-hidden />
             </div>
             <h2 className="text-[22px] font-black !tracking-[-0.02em] text-v2-ink mb-2">לא הצלחנו לטעון את האימון</h2>
-            <p className="text-[14px] font-bold text-v2-muted mb-6">{error || 'נסה שוב מאוחר יותר'}</p>
+            <p className="text-[14px] font-bold text-v2-muted mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
             <button
               onClick={() => router.push('/home')}
               className="h-12 px-8 rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
@@ -1857,7 +1860,7 @@ export default function ActiveWorkoutPage() {
             <span className="text-3xl">😕</span>
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">לא הצלחנו לטעון את האימון</h2>
-          <p className="text-gray-500 mb-6">{error || 'נסה שוב מאוחר יותר'}</p>
+          <p className="text-gray-500 mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
           <button
             onClick={() => router.push('/home')}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-xl transition-all"

@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
 
     const rateLimited = await isRateLimited(db, `unit-structure:${uid}`, RATE_LIMITS.unitStructure.uidHourly());
     if (rateLimited) {
-      return NextResponse.json({ error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' }, { status: 429 });
+      return NextResponse.json({ error: 'יותר מדי בקשות. נסו שוב מאוחר יותר.' }, { status: 429 });
     }
 
     const scope = await resolveUnitPermissionScope(uid);

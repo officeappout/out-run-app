@@ -25,6 +25,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link2, AlertTriangle } from 'lucide-react';
 import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface LinkAccountPromptProps {
   isOpen: boolean;
@@ -82,11 +84,11 @@ export default function LinkAccountPrompt({
           return;
         }
         if (linkError === `${provider}_account_exists`) {
-          setError(`חשבון ${provider === 'google' ? 'Google' : 'Apple'} זה כבר בשימוש. אנא נסה חשבון אחר.`);
+          setError(`חשבון ${provider === 'google' ? 'Google' : 'Apple'} זה כבר בשימוש. ${pickGendered(currentUiGender(), { male: 'אנא נסה חשבון אחר.', female: 'אנא נסי חשבון אחר.', other: 'אנא נסו חשבון אחר.' })}`);
         } else if (linkError === `${provider}_timeout`) {
-          setError('החלון לא נפתח. אנא נסה שוב.');
+          setError(pickGendered(currentUiGender(), { male: 'החלון לא נפתח. אנא נסה שוב.', female: 'החלון לא נפתח. אנא נסי שוב.', other: 'החלון לא נפתח. אנא נסו שוב.' }));
         } else {
-          setError('שגיאה בחיבור החשבון. אנא נסה שוב.');
+          setError(pickGendered(currentUiGender(), { male: 'שגיאה בחיבור החשבון. אנא נסה שוב.', female: 'שגיאה בחיבור החשבון. אנא נסי שוב.', other: 'שגיאה בחיבור החשבון. אנא נסו שוב.' }));
         }
         setLoading(null);
         return;
@@ -96,7 +98,7 @@ export default function LinkAccountPrompt({
         onLinked();
       }
     } catch {
-      setError('שגיאה בלתי צפויה. אנא נסה שוב.');
+      setError(pickGendered(currentUiGender(), { male: 'שגיאה בלתי צפויה. אנא נסה שוב.', female: 'שגיאה בלתי צפויה. אנא נסי שוב.', other: 'שגיאה בלתי צפויה. אנא נסו שוב.' }));
       setLoading(null);
     }
   }

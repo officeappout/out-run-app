@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import { RefreshCw, MapPin } from 'lucide-react';
+import { useUiGender } from '@/hooks/useUiGender';
+import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
 
 export default function MapError({
   error,
@@ -10,6 +12,7 @@ export default function MapError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const uiGender = useUiGender();
   useEffect(() => {
     console.error('[map-error]', error.message, '\nstack:', error.stack, '\ndigest:', error.digest);
   }, [error]);
@@ -31,7 +34,7 @@ export default function MapError({
         className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gray-900 text-white text-[14px] font-bold active:scale-95 transition-transform"
       >
         <RefreshCw className="w-4 h-4" />
-        נסה שוב
+        {pickGendered(uiGender, GENDERED_COPY.retry)}
       </button>
     </div>
   );
