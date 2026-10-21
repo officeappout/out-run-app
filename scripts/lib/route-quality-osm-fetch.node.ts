@@ -60,8 +60,9 @@ export interface CityWayGrid {
 }
 
 /** Fetches all highway ways in a bbox and builds the classifier's grids — one Overpass call per city, reused across every route in that city. */
-export async function fetchCityWayGrid(bboxStr: string): Promise<CityWayGrid> {
-  const wayData = await overpass(`[out:json][timeout:180];way["highway"~"^(${HIGHWAY_VOCAB.join('|')})$"](${bboxStr});out geom tags;`);
+export async function fetchCityWayGrid(bboxStr: string, query: (q: string) => Promise<any> = overpass): Promise<CityWayGrid> {
+  // `query` lets geo-discovery answer this from its local OSM (RC6 W1); default = the Overpass mirrors.
+  const wayData = await query(`[out:json][timeout:180];way["highway"~"^(${HIGHWAY_VOCAB.join('|')})$"](${bboxStr});out geom tags;`);
   const waysById = new Map<number, WayInfo>();
   const allWays: WayInfo[] = [];
   const roadWays: WayInfo[] = [];
