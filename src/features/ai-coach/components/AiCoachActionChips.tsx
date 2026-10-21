@@ -7,8 +7,8 @@ import { COACH_ACTIONS, isCheckLevelActionId, type CoachActionId, type CoachActi
 function iconFor(id: CoachActionId): typeof CalendarDays {
   if (id === 'open_schedule' || id === 'tour_schedule') return CalendarDays;
   if (isCheckLevelActionId(id)) return Gauge;
-  if (id === 'tour_map' || id === 'pick_route_run' || id === 'pick_route_walk' || id === 'find_parks') return MapPin;
-  if (id === 'open_help' || id === 'show_how' || id === 'tour_workouts') return HelpCircle;
+  if (id === 'tour_map' || id === 'tour_route' || id === 'tour_route_player' || id === 'pick_route_run' || id === 'pick_route_walk' || id === 'find_parks') return MapPin;
+  if (id === 'open_help' || id === 'show_how' || id === 'tour_workouts' || id === 'tour_plan' || id === 'tour_community') return HelpCircle;
   return Dumbbell;
 }
 

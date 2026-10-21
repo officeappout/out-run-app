@@ -40,12 +40,15 @@ import { useCommunityActions } from '../hooks/useCommunityActions';
 import { loadContentCorpus, type ContentCorpus } from '../providers/content';
 import { countParksWithin, loadParks } from '../providers/places';
 import { useT } from '@/hooks/useT';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { library } from '@/messages/ns/library';
 
 // The library (exercise corpus parser, filters, sheets) loads only when its chip opens.
 const ExercisesTab = nextDynamic(() => import('./tabs/ExercisesTab'), { ssr: false, loading: () => <ResultsSkeleton /> });
 
 export default function UnifiedSearchScreen() {
+  // ai_coach_round4: the Help tab also lists every app tour (TourList).
+  const aiCoachRound4 = useFeatureFlags().flags.aiCoachRound4 === true;
   const t = useT(library);
   const router = useRouter();
   const params = useSearchParams();
@@ -149,7 +152,7 @@ export default function UnifiedSearchScreen() {
   } else if (category === 'articles') {
     body = <ArticlesTab query={search.query} articles={corpus?.articles ?? []} loading={!corpus} onOpen={setArticle} />;
   } else if (category === 'help') {
-    body = <HelpTab query={search.query} corpus={corpus} />;
+    body = <HelpTab query={search.query} corpus={corpus} toursOn={aiCoachRound4} />;
   } else if (!typed) {
     body = (
       <EmptyState

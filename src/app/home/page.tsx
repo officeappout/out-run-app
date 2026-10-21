@@ -10,7 +10,8 @@ import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
-import { FIRST_RUN_COACH, firstRunToursEnabled, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import { FIRST_RUN_COACH, firstRunToursEnabled, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
@@ -414,13 +415,18 @@ export default function HomePage() {
   homeWeatherRef.current = homeWeather?.workoutWeather ?? null;
   const { classification: entryRouterClassification, dismiss: dismissWelcomeDrawer } = useEntryRouter();
   // First-run tours (slice 2, 17.10.2026) — enable_onboarding_tutorial_v1 AND enable_home_v2.
-  // The home tour only starts from the WelcomeDrawer's "סתם בא לי להסתכל באפליקציה" link.
+  // The home tour starts from the WelcomeDrawer's "סתם בא לי להסתכל באפליקציה" link, and (owner
+  // 21.10) by itself on a new user's first calm home visit — shouldArmHomeTour.
   const firstRunToursOn = !flagsLoading && firstRunToursEnabled(featureFlags);
   const [homeTourRequested, setHomeTourRequested] = useState(false);
   // enable_entry_whatnow_v1: arrived from "מה בא לך עכשיו?" → "תוכנית". The user already
   // answered "what first" on the map — no WelcomeDrawer on this visit; the 'plan' tour points
   // at the start cards instead (owner note 21.10 #6). One-shot sessionStorage hint.
   const [whatNowPlanArrival, setWhatNowPlanArrival] = useState(false);
+  // The home tour waits for the "today" card (never measures a loading skeleton); polling stops
+  // once the tour has closed for this visit (done / skip / seen / not a new user).
+  const [homeTourClosed, setHomeTourClosed] = useState(false);
+  const homeTodayCardPresent = useCoachTargetPresent(FIRST_RUN_COACH.homeWorkout, firstRunToursOn && !homeTourClosed);
   useEffect(() => {
     if (consumeWhatNowPlanArrival(window.sessionStorage)) setWhatNowPlanArrival(true);
   }, []);
@@ -4011,18 +4017,24 @@ export default function HomePage() {
           )}
       </AnimatePresence>
 
-      {/* First-run home tour (slice 2) — after "סתם להסתכל" only, never over another sheet:
-          the same guard list as the WelcomeDrawer / "+" FAB, plus the "+" drawer's own sheets. */}
+      {/* First-run home tour (slice 2) — after "סתם להסתכל", or on a new user's first calm home
+          visit (once; FirstRunTour checks new-user + seen). Never over another sheet: the same
+          guard list as the WelcomeDrawer / "+" FAB, plus the "+" drawer's own sheets. */}
       <FirstRunTour
         tour="home"
-        active={
-          firstRunToursOn && homeTourRequested && entryRouterClassification.kind !== 'new' &&
-          !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge &&
-          !plusDrawerOpen && !composeOpen && !wizardOpen && !reportOpen
-        }
+        active={shouldArmHomeTour({
+          toursOn: firstRunToursOn,
+          requestedByWelcome: homeTourRequested,
+          entryKind: entryRouterClassification.kind,
+          planArrival: whatNowPlanArrival,
+          todayCardPresent: homeTodayCardPresent,
+          surfaceOpen:
+            showPlanner || showLifestyleWizard || builderOpen || !!editEntry || !!selectedWorkout || shouldShowBridge ||
+            plusDrawerOpen || composeOpen || wizardOpen || reportOpen,
+        })}
         uid={profile?.id}
         gender={profile?.core?.gender}
-        onClose={() => setHomeTourRequested(false)}
+        onClose={() => { setHomeTourRequested(false); setHomeTourClosed(true); }}
       />
 
       {/* Entry flow v2: "תוכנית" from the map's "מה בא לך עכשיו?" → point at the start cards. */}
@@ -4040,6 +4052,7 @@ export default function HomePage() {
 
       {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}
       <TourReplayHost tour="home" ready={!flagsLoading && !showPlanner && !selectedWorkout} gender={profile?.core?.gender} />
+      <TourReplayHost tour="plan" ready={!flagsLoading && !showPlanner && !selectedWorkout} gender={profile?.core?.gender} delayMs={900} />
 
       {/* ── Unified "+" FAB — promoted home entry point, opens the SAME
           UnifiedPlusDrawer the map "+" opens (Phase 1 revision — one

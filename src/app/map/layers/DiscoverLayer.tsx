@@ -46,6 +46,7 @@ import { useSmartHybridSlots } from '@/features/workout-engine/hybrid/smart-card
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import FirstRunTour from '@/features/user/onboarding/components/FirstRunTour';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
+import { ParkCoachAnchorRequest } from '@/features/parks/core/components/coach/park-coach-anchor';
 import { FIRST_RUN_COACH, firstRunToursEnabled, isMapTourBlocked } from '@/features/user/onboarding/services/first-run-tour';
 import { stepsToTargetKm } from '@/features/parks/core/services/route-request.utils';
 import type { Route } from '@/features/parks/core/types/route.types';
@@ -994,6 +995,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // "רק להסתכל" / closing the drawer → the map's own first-run tour runs on this visit too
   // (owner note 21.10 #6 — the entry landing is a deep link, which otherwise keeps it off).
   const [whatNowBrowsed, setWhatNowBrowsed] = useState(false);
+  // A map tour replay (Kelly round 4) is pending / running — keeps the park anchor up.
+  const [mapReplayPending, setMapReplayPending] = useState(false);
+  const [mapTourClosed, setMapTourClosed] = useState(false);
   // The route card's numbers come from the map's own suggestion (first walk/run + strength slot).
   const entryRouteSuggestion = useMemo(
     () => (entryWhatNowOn && entryV2Landing ? routeSuggestionFromSlots(carouselSlots, slotActivity) : null),
@@ -2654,7 +2658,10 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     <>
       {renderScreen()}
 
-      <FirstRunTour tour="map" active={mapTourActive} uid={profile?.id} gender={profile?.core?.gender} delayMs={900} />
+      {/* The tour's "פארקים" step anchors to the nearest park pin (ParkCoachAnchor in AppMap) —
+          asked for only while a first-run map tour or a map replay may run. */}
+      <ParkCoachAnchorRequest on={(mapTourActive && !mapTourClosed) || mapReplayPending} />
+      <FirstRunTour tour="map" active={mapTourActive} uid={profile?.id} gender={profile?.core?.gender} delayMs={900} onClose={() => setMapTourClosed(true)} />
 
       {/* Entry flow v2, step 2 (enable_entry_whatnow_v1): the one-time "מה בא לך עכשיו?" drawer
           after the location step's landing, and the first-route finger tutorial. Flag off → none. */}
@@ -2687,7 +2694,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
         gender={profile?.core?.gender}
       />
       {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}
-      <TourReplayHost tour="map" ready={isMapVisuallyReady} gender={profile?.core?.gender} delayMs={900} />
+      <TourReplayHost tour="map" ready={isMapVisuallyReady} gender={profile?.core?.gender} delayMs={900} onPending={setMapReplayPending} />
 
       {/* ═══ Global overlays — always available, never conflict ═══ */}
       {logic.isGenerating && <RouteGenerationLoader />}

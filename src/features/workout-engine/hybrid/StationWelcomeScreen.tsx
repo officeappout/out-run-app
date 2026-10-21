@@ -26,7 +26,7 @@ import type { StationContext } from './station-flow';
 import { WELCOME_GREETING, welcomeCta, exerciseTypeChip } from './guided-station';
 import {
   COACH_TARGET_CHIPS, COACH_TARGET_START,
-  shouldShowStationTutorial, stationTutorialSeenKey, stationTutorialSteps,
+  shouldShowStationTutorial, stationTutorialEntrySteps, stationTutorialSeenKey, stationTutorialSteps,
   type StationTutorialIcon, type StationTutorialStep,
 } from './station-tutorial';
 import type { AppGender } from '@/lib/utils/gendered-text';
@@ -54,9 +54,12 @@ interface Props {
   guided: boolean;
   /** PR-B4: whose seen-once tutorial flag to read/write. */
   uid: string | null | undefined;
+  /** First-run tours on (enable_onboarding_tutorial_v1 + enable_home_v2): the tutorial uses the
+   *  one shared tour bubble (title + one line). Off → today's bubble with the icon legend. */
+  oneBubbleStyle?: boolean;
 }
 
-export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid }: Props) {
+export default function StationWelcomeScreen({ plan, context, gender, onStart, guided, uid, oneBubbleStyle = false }: Props) {
   // PR-B4: first-time tutorial — resolved async (native cold start may have evicted localStorage).
   const [showTutorial, setShowTutorial] = useState(false);
   useEffect(() => {
@@ -132,7 +135,9 @@ export default function StationWelcomeScreen({ plan, context, gender, onStart, g
         </div>
       </div>
 
-      {showTutorial && <CoachMarks steps={stationTutorialSteps(gender).map(toCoachMarkStep)} onFinish={finishTutorial} />}
+      {showTutorial && (oneBubbleStyle
+        ? <CoachMarks steps={stationTutorialEntrySteps(gender)} onFinish={finishTutorial} variant="entry" />
+        : <CoachMarks steps={stationTutorialSteps(gender).map(toCoachMarkStep)} onFinish={finishTutorial} />)}
     </motion.div>
   );
 }

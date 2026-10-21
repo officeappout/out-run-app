@@ -396,7 +396,9 @@ export default function ActiveExerciseView({
               </div>
             )}
 
-            {/* ── Below the fold — unified ExerciseDetailContent ────────── */}
+            {/* ── Below the fold — unified ExerciseDetailContent ──────────
+                The player tour's ONE "איך מבצעים" target (always rendered, unlike the
+                video's conditional "צפה בהסבר המלא" button). */}
             <div className="-mx-5 mt-4" data-coach="player-how-to">
               <ExerciseDetailContent
                 exerciseName={exerciseName}

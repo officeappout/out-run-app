@@ -17,6 +17,7 @@ import type { HelpQA } from '@/lib/app-help/types';
 import { requestTourReplay } from '@/features/user/onboarding/services/tour-replay';
 import HelpChapterCard from './HelpChapterCard';
 import HelpQAItem from './HelpQAItem';
+import TourList from './TourList';
 
 export default function HelpHub({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -79,6 +80,9 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
                   onShow={c.tour || c.href ? () => show(c) : undefined}
                 />
               ))}
+            </div>
+            <div className="mt-5">
+              <TourList title="סיורים באפליקציה" />
             </div>
           </>
         )}

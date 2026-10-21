@@ -87,6 +87,7 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
       ["search.help.tour.title", "סיור קצר באפליקציה"],
       ["search.help.tour.sub", "2 דקות, אפשר לעצור בכל שלב"],
       ["search.help.chapters", "איך משתמשים"],
+      ["search.help.tours", "סיורים באפליקציה"],
       ["search.help.faq.title", "שאלות נפוצות"],
       ["search.help.faq.sub", "אותן שאלות כמו באתר"],
       ["search.help.answers", "תשובות על האפליקציה"],
@@ -229,7 +230,7 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new key needs a case above.
     // Counted per prefix: other batches add keys to the same namespace file.
-    expect(Object.keys(he).filter((k) => k.startsWith('search.')).length).toBe(182);
+    expect(Object.keys(he).filter((k) => k.startsWith('search.')).length).toBe(183);
   });
 });
 
