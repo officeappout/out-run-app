@@ -194,7 +194,7 @@ export function ScopeBattleCardView({
         <BattleHeader subtitle={`עדיין אין יריב ל${myEntry.scopeName}`} />
         <Button variant="primary" size="sm" className="mt-3.5" onClick={handleInvite}>
           <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-          הזמן חברים
+          הזמנת חברים
         </Button>
         {onGroupWalk && <GroupWalkButton onClick={onGroupWalk} />}
       </div>

@@ -6,7 +6,7 @@
  * branch is then free to be neutral. A message that has only `female {…} other {…}` shows
  * its masculine `other` text to everyone whose gender is unknown.
  *
- * LEGACY_MASCULINE_OTHER is the backlog recorded on 21.10.2026 (batch 1): selects whose
+ * LEGACY_MASCULINE_OTHER is the backlog recorded on 21.10.2026 (batch 1; batch 2 fixed the community + map keys): selects whose
  * `other` is still the masculine form, in catalogs other PRs were editing at the time.
  * The list only shrinks: fix a key (add `male {old text}`, make `other` neutral), then
  * delete it here — the test fails on a fixed key that is still listed.
@@ -22,27 +22,6 @@ import { parse, TYPE, type MessageFormatElement } from '@formatjs/icu-messagefor
 import { GENDERED_COPY, pickGendered, resolveUiGender } from '../gender-copy';
 
 const LEGACY_MASCULINE_OTHER: readonly string[] = [
-  'community:group.dropIn.join',
-  'community:banner.late.toggle',
-  'community:banner.register',
-  'community:banner.onMyWay.done',
-  'community:banner.joinWorkout',
-  'community:banner.participants',
-  'community:banner.ended',
-  'community:pressure.message',
-  'community:pressure.body',
-  'community:pressure.cta',
-  'community:outreach.school.message',
-  'community:outreach.school.subtitle',
-  'community:outreach.school.cta',
-  'community:outreach.company.message',
-  'community:outreach.company.subtitle',
-  'community:outreach.company.cta',
-  'community:outreach.youth.message',
-  'community:outreach.youth.subtitle',
-  'community:outreach.youth.cta',
-  'map:partners.empty.live.sub',
-  'map:partners.empty.scheduled.sub',
   'onboarding:quiz.tier.subtitle',
   'onboarding:quiz.tier.beginner.label',
   'onboarding:quiz.tier.beginner.description',

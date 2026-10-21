@@ -38,15 +38,15 @@ exports[`GroupDetailsDrawer — flag off > creator + member, private group: init
 
 exports[`GroupDetailsDrawer — flag off > creator + member, private group: initial render + data access > initial 1`] = `
 {
-  "length": 21609,
-  "sha256": "77f10b8fdd446e3e6999f25e2cac53c10b3ec559953cec8579ff1c3809dfcc56",
+  "length": 21618,
+  "sha256": "5536c8e79b110ee9a07d51185d44ba0594a477efa5a61962fbaf5617d38dd38c",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > add editor 1`] = `
 {
-  "length": 24143,
-  "sha256": "536d6f5926dfec721df818ef11dc989af76c15a2f9da8978d84898c6452d9c1f",
+  "length": 24153,
+  "sha256": "31228afd86352f1e1a306173fc4fc9f37fe7414a1b42c3921e24db9f8c49df07",
 }
 `;
 
@@ -68,29 +68,29 @@ exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot edit
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > editor 1`] = `
 {
-  "length": 24208,
-  "sha256": "f72174df6f33e0b782bcdde6aff46064b334dbf791f10f30ad3c7fdb551fc890",
+  "length": 24218,
+  "sha256": "4c10894827a2108feafe0cf03d0ee16367198c5f821fdd6c2ed1fad21615aea1",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > manager 1`] = `
 {
-  "length": 25622,
-  "sha256": "d38a81479ada4980b95f0b7a5f7913252b9c8e202cca6631fc7295114f76d571",
+  "length": 25634,
+  "sha256": "a2931f5a538e65627aa6d205457656d85d28a7aac80cb068d22ed454e143abb0",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule manager + slot editor > saved 1`] = `
 {
-  "length": 21609,
-  "sha256": "77f10b8fdd446e3e6999f25e2cac53c10b3ec559953cec8579ff1c3809dfcc56",
+  "length": 21618,
+  "sha256": "5536c8e79b110ee9a07d51185d44ba0594a477efa5a61962fbaf5617d38dd38c",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > booked 1`] = `
 {
-  "length": 24187,
-  "sha256": "bfada6867ac9cd7b8b27ab523ab8eae509df932cb5889707ab1dd81c7e916382",
+  "length": 24196,
+  "sha256": "d692fbdf79e821d303865d5cb09e99decebd1427efb908873fef41b05b42a38a",
 }
 `;
 
@@ -117,57 +117,57 @@ exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member a
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > leave confirm 1`] = `
 {
-  "length": 24614,
-  "sha256": "db30102db6a5e8ff63839d5f5da7033bdb75f0a8fd45d2a3a380a36e836c8884",
+  "length": 24623,
+  "sha256": "6a1bef4bfa7c35a60ab7918e941d7c89cbccebf3e2d7ff2a8ffe7162546426b8",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > member actions 1`] = `
 {
-  "length": 26470,
-  "sha256": "64fa69c27391e0e2f2f1b7ebb68ae782d92d11c859e06b3d3dfbf6426ec2259c",
+  "length": 26479,
+  "sha256": "3e19d53c3baa090ef662dd0616908f5542fd24d4d3eff3f2e2a00299a426ba41",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > promoted 1`] = `
 {
-  "length": 25545,
-  "sha256": "e2eb48c6c4ff3e2f6c149c430066216059f92d1af0653ca7092c3bdc447241f0",
+  "length": 25554,
+  "sha256": "81c5cd5c4c9999536f5840cb9a52107eda347cd889ec38be025593a58eefde15",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > remove modal 1`] = `
 {
-  "length": 27057,
-  "sha256": "da8f696d57c1f5cfadf70d2bb9edaee3c4544563ce3ed273279fb2d509502029",
+  "length": 27067,
+  "sha256": "788dd2cd20d59d0385c47af91532bb2b9f50f3ba0cc5d8de02ba3bc04c515c2d",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > removed 1`] = `
 {
-  "length": 24157,
-  "sha256": "0e53b23f0f80b45d99d89b172d3a9f6a912032266ed5030b7b3652a3318d3f49",
+  "length": 24166,
+  "sha256": "9825ecb153e4acfa7c3b5e24520c950aef1bb6e6a04c4d7a070d78d3b335020e",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > report open 1`] = `
 {
-  "length": 24186,
-  "sha256": "9ed0375bcd78d76ed495edfa5c64990ae24e2446e2573aa62f665b2defbde87d",
+  "length": 24195,
+  "sha256": "0a3e1111aa799bd24e9961599b6f5cbe7648cf2f40b1d698e5c47555b8a59c72",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > schedule open 1`] = `
 {
-  "length": 24731,
-  "sha256": "41a8f2d738a69ad41f7cc604c13a7fbb86e6311ca665ed40b9777e2bdd92e881",
+  "length": 24740,
+  "sha256": "b855f4f157a1b8b1b391369d9f5c1f7cb25e84f133276415a53efe8eb263e76f",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > creator: schedule, week tab, member actions, leave confirm, remove modal > week tab 1`] = `
 {
-  "length": 25024,
-  "sha256": "e737ec9a9a918f122fff3c0b2aa1952e6dcf6c7cc617dec89918889130078cfe",
+  "length": 25033,
+  "sha256": "504c18b61b95709c8e0ddff68fc5c9392af7a847ce2727914ab59ec2e669123f",
 }
 `;
 
@@ -184,8 +184,8 @@ exports[`GroupDetailsDrawer — flag off > ephemeral scheduled run (joined), fal
 
 exports[`GroupDetailsDrawer — flag off > ephemeral scheduled run (joined), fallback live session, military no-location > initial 1`] = `
 {
-  "length": 11762,
-  "sha256": "b27d5bedc00be5cd355e64d6b4efe16d45303c2c104bb8e21f73e7d206c714a7",
+  "length": 11767,
+  "sha256": "a77a31db1d1e11417550e7cc88c5e6830c8827c8afe3bacdb5043be59885bf87",
 }
 `;
 
@@ -204,15 +204,15 @@ exports[`GroupDetailsDrawer — flag off > locked group: access-code gate > call
 
 exports[`GroupDetailsDrawer — flag off > locked group: access-code gate > gate 1`] = `
 {
-  "length": 4007,
-  "sha256": "df76cfd9d5a95f3826791363de2c2a5fe73692c20c4ffba30bdf1de1cb807158",
+  "length": 4012,
+  "sha256": "3af8b1ef897c4274b6222c0119d8f65f72db3d8740873a7b9a799d5e2fe51876",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > locked group: access-code gate > unlocked 1`] = `
 {
-  "length": 4391,
-  "sha256": "ad5023140c235bdcc73fec41016daa31bfd6e9eb71be7f5427433a2159a4890a",
+  "length": 4392,
+  "sha256": "6ee1aec180b245d2c2f4bff42a2aeefd0ebd022358e06c0644622b2e9798a55d",
 }
 `;
 
@@ -232,29 +232,29 @@ exports[`GroupDetailsDrawer — flag off > private group: invite-code entry > ca
 
 exports[`GroupDetailsDrawer — flag off > private group: invite-code entry > closed entry 1`] = `
 {
-  "length": 3792,
-  "sha256": "d763996cf76fbf8046a09081565e301e87183f7dba6baaac39c9a52a5552da62",
+  "length": 3793,
+  "sha256": "03e4fc8478d8c3c0a0175a9f6a5b25f486f605535ec52b97fa47b3267938fcf0",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > private group: invite-code entry > submitted 1`] = `
 {
-  "length": 3792,
-  "sha256": "d763996cf76fbf8046a09081565e301e87183f7dba6baaac39c9a52a5552da62",
+  "length": 3793,
+  "sha256": "03e4fc8478d8c3c0a0175a9f6a5b25f486f605535ec52b97fa47b3267938fcf0",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > private group: invite-code entry > typed 1`] = `
 {
-  "length": 3981,
-  "sha256": "43471b4c5acb49971db595a137df3a0a0911d5d6be521b75d169eb3bf2c2f002",
+  "length": 3986,
+  "sha256": "39595bbb3d7834057003a0c2aaaf883bb14b83833659fb032a5985823df4063e",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > visitor, live session, no drop-in (city-only other city) + joining spinner > locked banner 1`] = `
 {
-  "length": 7610,
-  "sha256": "436f12db6fe60585f886714321b1e8f71cb3a16e950dd345a875ab1436e38f38",
+  "length": 7615,
+  "sha256": "380de37dddbe8165199f1d1199205a281de32076931eb2a2999a404b6350eeb8",
 }
 `;
 
@@ -276,22 +276,22 @@ exports[`GroupDetailsDrawer — flag off > visitor, public city-precision group,
 
 exports[`GroupDetailsDrawer — flag off > visitor, public city-precision group, live session: drop-in + join prompt > initial 1`] = `
 {
-  "length": 7568,
-  "sha256": "d3c5680f669c98b37488266e85e805802511b37949c96765c613b8ca495afa06",
+  "length": 7575,
+  "sha256": "08c92fe12ae2b8c4661f87d3ac6c38720cd8da3308c78d8013971467510fcb57",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > visitor, public city-precision group, live session: drop-in + join prompt > join prompt 1`] = `
 {
-  "length": 8477,
-  "sha256": "2e484886a22cc69f4cd8d8d5b00c261160a480039fd070d3ca5b8b6e392ecb58",
+  "length": 8486,
+  "sha256": "5e1dbf2c2cfe0f0ffc64f5b1c129566929b937d543378685017ea1e47d763038",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag off > visitor, public city-precision group, live session: drop-in + join prompt > joined 1`] = `
 {
-  "length": 7568,
-  "sha256": "d3c5680f669c98b37488266e85e805802511b37949c96765c613b8ca495afa06",
+  "length": 7575,
+  "sha256": "08c92fe12ae2b8c4661f87d3ac6c38720cd8da3308c78d8013971467510fcb57",
 }
 `;
 
@@ -333,15 +333,15 @@ exports[`GroupDetailsDrawer — flag on > creator + member, private group: initi
 
 exports[`GroupDetailsDrawer — flag on > creator + member, private group: initial render + data access > initial 1`] = `
 {
-  "length": 21640,
-  "sha256": "a07f1699c2f5ab0344aa67168f2f79ab01c8acd506fbf24469650d0e4e867826",
+  "length": 21649,
+  "sha256": "4c146eaba7f457ad2dabab9a3f446ae62d0b35668460e125a5a057e326e859e7",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > add editor 1`] = `
 {
-  "length": 24174,
-  "sha256": "aeabc8f3902f718d003dc6f4af3aa9412834ca1a9253f0854a67b34d53f825be",
+  "length": 24184,
+  "sha256": "7dd585addddac31508fe4bd1f97b1bfd07d8bb76c0f1586525efe16079ff5de7",
 }
 `;
 
@@ -363,29 +363,29 @@ exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot edito
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > editor 1`] = `
 {
-  "length": 24239,
-  "sha256": "a648049e1f1975a153abafa2f397fb57291c3c729503c6802cb54d6a67e4b831",
+  "length": 24249,
+  "sha256": "794431b23d59628f69a55423d51a3a2e27af70e4828ca14f01499e77d5293fa8",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > manager 1`] = `
 {
-  "length": 25653,
-  "sha256": "011682a5bd9f2cf92518de3c9e47a5b418bf114a7bcd9f67e70e625e92add99c",
+  "length": 25665,
+  "sha256": "cefe7f338cccaf0dedd3b1d28751522faf9c7986eccdfbdec040f4bb3b8050ae",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule manager + slot editor > saved 1`] = `
 {
-  "length": 21640,
-  "sha256": "a07f1699c2f5ab0344aa67168f2f79ab01c8acd506fbf24469650d0e4e867826",
+  "length": 21649,
+  "sha256": "4c146eaba7f457ad2dabab9a3f446ae62d0b35668460e125a5a057e326e859e7",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > booked 1`] = `
 {
-  "length": 24238,
-  "sha256": "1937abeba057cadfb48335bdf7aee40f008aeda4fe0bed291ebf060ee6549ed0",
+  "length": 24247,
+  "sha256": "6e1edebed262ee44a58b227abd725bcb76ec3e32930f35c25f5b65d4a828de86",
 }
 `;
 
@@ -412,57 +412,57 @@ exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member ac
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > leave confirm 1`] = `
 {
-  "length": 24686,
-  "sha256": "a47c3a54d4e3379b19a02d1d537dfe1ea9a49fed5d025138b6b22308bbe7c680",
+  "length": 24695,
+  "sha256": "25a17f1cf1b37e69d5386f622da6c2dc04a76230f647f8184b16372ed66a8d77",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > member actions 1`] = `
 {
-  "length": 26542,
-  "sha256": "ea5ac29e6d256ca0b0d849ea0843e5f9af3a1eaae2b5e8eedb2caacda9d0df29",
+  "length": 26551,
+  "sha256": "82e54c0501ea42c0031b969e173cfefd2e2fca95ad797860c74dc65271296934",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > promoted 1`] = `
 {
-  "length": 25617,
-  "sha256": "709eb3e653d41f4c3f369246f8ff49cb8dfde37b68556184b508d7b52a865628",
+  "length": 25626,
+  "sha256": "227537a3ea8c31f7f32ce8e2a6d3e8679f09c8d6467ee8aeb0bfd6dbf78a26e4",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > remove modal 1`] = `
 {
-  "length": 27129,
-  "sha256": "bd2b3a7c3ec374abcc35d0a02eccd7c0012611ff9441db37e166a042f90b8596",
+  "length": 27139,
+  "sha256": "adc8db7263fa362dabf441f0888157d93d3ecb72cf868b41f96bedc5adbcf796",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > removed 1`] = `
 {
-  "length": 24229,
-  "sha256": "670076a6c343f03f426de01ddfcf3bedf113a200f96a4b7942b8723b8431465e",
+  "length": 24238,
+  "sha256": "cc7f92a732df908b01982614711dfa784f03c9e065810f678ea9d3f3b7cd4639",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > report open 1`] = `
 {
-  "length": 24237,
-  "sha256": "c43258800870301cd78d9506c90d7d34482ab464de7b78bb26f8d7fcd91edfeb",
+  "length": 24246,
+  "sha256": "7b5066282dffa5b2e619b02d9c57ab9dd97acf0ca72883edf5cd03a372c0d08f",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > schedule open 1`] = `
 {
-  "length": 24711,
-  "sha256": "8dae9c5b5cbbeb1fbfd7cb5513c9cdc4c38d2a6c7ae87baaca12a626920abbbd",
+  "length": 24720,
+  "sha256": "14058c694fd630673cf78e2731d78b5f1057d065d35eaa089bc5dd84fa9d01e9",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > creator: schedule, week tab, member actions, leave confirm, remove modal > week tab 1`] = `
 {
-  "length": 25096,
-  "sha256": "b590d9cbe04ed414f3415920937f036a36d4e90838de7d940bce0e21e19e1e9d",
+  "length": 25105,
+  "sha256": "2d5f8632c2771318d7c3f7287fefb0c2d913ceb7ea41a88af38ec6e7eefa4c93",
 }
 `;
 
@@ -481,8 +481,8 @@ exports[`GroupDetailsDrawer — flag on > ephemeral scheduled run (joined), fall
 
 exports[`GroupDetailsDrawer — flag on > ephemeral scheduled run (joined), fallback live session, military no-location > initial 1`] = `
 {
-  "length": 12470,
-  "sha256": "bb8aef5b9c70bd70d8366490be089f48178d99b862e8b7c1d416fe7dd1237acc",
+  "length": 12475,
+  "sha256": "17fe8e04830017f2436b83eb3746bbfa9e0f122027850e6e25847caa3a16e10d",
 }
 `;
 
@@ -501,15 +501,15 @@ exports[`GroupDetailsDrawer — flag on > locked group: access-code gate > calls
 
 exports[`GroupDetailsDrawer — flag on > locked group: access-code gate > gate 1`] = `
 {
-  "length": 4275,
-  "sha256": "64aa5124f81e075e5aca257af2858616527f0c3fe53dcfa4a22d5d6702b7ee42",
+  "length": 4280,
+  "sha256": "4ad55418c28154412d56f22603068bc2d71aaec4405cfd91ce77dbc32068b0bc",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > locked group: access-code gate > unlocked 1`] = `
 {
-  "length": 4659,
-  "sha256": "6913341ff324521f42d015ccb5735615ac1d9a149bf6adf338c33e606e2d0ac9",
+  "length": 4660,
+  "sha256": "14ab1232dd25b6a2436ea7f6cc8f928e3979c9fbcd4c67d809618694a87f4e8a",
 }
 `;
 
@@ -529,29 +529,29 @@ exports[`GroupDetailsDrawer — flag on > private group: invite-code entry > cal
 
 exports[`GroupDetailsDrawer — flag on > private group: invite-code entry > closed entry 1`] = `
 {
-  "length": 4055,
-  "sha256": "8a25c0b37cc0abf79fb95938b7649f74d56dbc051f39e7dd24233f42d105e7c9",
+  "length": 4056,
+  "sha256": "e61c08bd8f0ca7ff51c1f5f93313a8e875792d52d8e966ee2105d6b16bfbfd4a",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > private group: invite-code entry > submitted 1`] = `
 {
-  "length": 4055,
-  "sha256": "8a25c0b37cc0abf79fb95938b7649f74d56dbc051f39e7dd24233f42d105e7c9",
+  "length": 4056,
+  "sha256": "e61c08bd8f0ca7ff51c1f5f93313a8e875792d52d8e966ee2105d6b16bfbfd4a",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > private group: invite-code entry > typed 1`] = `
 {
-  "length": 4244,
-  "sha256": "8aa742797d0ae33d6ec7803c13c5c6f5b6764bebbd7836df39e0d3ed64638301",
+  "length": 4249,
+  "sha256": "d5195bec3e7e82cae4827617c08d9f6d0948351acfc462cec3df07300f91f43c",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > visitor, live session, no drop-in (city-only other city) + joining spinner > locked banner 1`] = `
 {
-  "length": 7770,
-  "sha256": "1a3d5aa12335b076ec825a3402f109343e25fb2aed6bee2319859766b55830c7",
+  "length": 7775,
+  "sha256": "2c9071c6e841dfabc6641ff4afd4decd692f36856094b2ad01e039d66b56b0af",
 }
 `;
 
@@ -573,21 +573,21 @@ exports[`GroupDetailsDrawer — flag on > visitor, public city-precision group, 
 
 exports[`GroupDetailsDrawer — flag on > visitor, public city-precision group, live session: drop-in + join prompt > initial 1`] = `
 {
-  "length": 7728,
-  "sha256": "9e9a3a1b9f5082eb9868771ba56093aeb77079ae4bf723900af1abe033331457",
+  "length": 7735,
+  "sha256": "1ce6c47aac2072cc3bfb3b08ca3ff888244b948eda4f45ae40076e6f47bb126f",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > visitor, public city-precision group, live session: drop-in + join prompt > join prompt 1`] = `
 {
-  "length": 8637,
-  "sha256": "ca77a9d04f30ed196db67ba9f2b635abe39185d02683327a7fd3988c1d68c57c",
+  "length": 8646,
+  "sha256": "9e6848271dd91bc9b442f2380b28b71fb522f5173b5a01c8199662d458795a17",
 }
 `;
 
 exports[`GroupDetailsDrawer — flag on > visitor, public city-precision group, live session: drop-in + join prompt > joined 1`] = `
 {
-  "length": 7728,
-  "sha256": "9e9a3a1b9f5082eb9868771ba56093aeb77079ae4bf723900af1abe033331457",
+  "length": 7735,
+  "sha256": "1ce6c47aac2072cc3bfb3b08ca3ff888244b948eda4f45ae40076e6f47bb126f",
 }
 `;

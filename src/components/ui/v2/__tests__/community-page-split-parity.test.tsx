@@ -296,7 +296,7 @@ for (const v2 of [false, true]) {
         await callProp('FeedShareSheet', 'onSkip');
         steps.push(snapshot());
       }
-      await clickSelector('[aria-label="רענן"]');
+      await clickSelector('[aria-label="רענון"]');
       steps.push(snapshot());
       expect(steps).toMatchSnapshot();
     });

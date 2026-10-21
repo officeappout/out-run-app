@@ -89,7 +89,7 @@ describe('free run from here (M-6a)', () => {
     expect(html).toMatch(/מאוזן · \d+׳/);
     expect(html).toMatch(/עוצמתי · \d+׳/);
     expect(count(html, 'bg-v2-cta')).toBe(1);
-    expect(html).toContain('התחל אימון');
+    expect(html).toContain('יוצאים לאימון');
     expect(html).toContain('הצע לי מסלול');
   });
   it('intensity page only (no route → no elevation page)', () => {
@@ -142,7 +142,7 @@ describe('on a chosen route (M-6f / 6i)', () => {
     expect(html).toContain('גובה לאורך האימון');
     expect(html).toContain('החלק לגובה המסלול');
     expect(html).toContain('סיבוב 2');
-    expect(html).toContain('התחל אימון במסלול');
+    expect(html).toContain('יוצאים לאימון במסלול'); // gender batch 2: unknown gender → neutral
     expect(html).toContain('בלי מסלול');
     expect(count(html, 'bg-v2-cta')).toBe(1);
   });
@@ -152,13 +152,13 @@ describe('CTA states + reverse card', () => {
   it('no route near (M-6c): notice + "בחר במפה"', () => {
     const html = renderToStaticMarkup(<RunOverviewCta mode="none" onStart={noop} onPickOnMap={noop} onSuggest={noop} />);
     expect(html).toContain('לא מצאנו מסלול מתאים קרוב — אפשר לרוץ מכאן');
-    expect(html).toContain('בחר במפה');
+    expect(html).toContain('בחירה במפה');
     expect(html).not.toContain('הצע לי מסלול');
   });
   it('searching: a spinner line, still "התחל אימון"', () => {
     const html = renderToStaticMarkup(<RunOverviewCta mode="searching" onStart={noop} onSuggest={noop} />);
     expect(html).toContain('מחפש מסלולים');
-    expect(html).toContain('התחל אימון');
+    expect(html).toContain('יוצאים לאימון');
   });
   it('M-6j card: today + fit + "לאימון הזה כאן"', () => {
     const html = renderToStaticMarkup(
@@ -187,7 +187,7 @@ describe('overview edits (M-7a / 7b / 7c)', () => {
     );
     expect(html).toContain('4 × 600 מ׳');
     expect(html).toContain('הוחלף · היה 6 × 400 מ׳');
-    expect(html).toContain('בטל');
+    expect(html).toContain('ביטול');
     expect(html).toContain('העיקר הוחלף ידנית');
     expect(html).toContain('אינטרוולים קצרים · מותאם');
     expect(html).toContain('2 דק׳ ריצת התאוששות');

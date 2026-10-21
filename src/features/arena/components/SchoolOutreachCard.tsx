@@ -95,11 +95,15 @@ export default function SchoolOutreachCard({
   const [messageText, setMessageText] = useState('');
 
   const gender: Gender = profile?.core?.gender === 'female' ? 'female' : 'male';
+  // Catalog copy: male / female / neutral (`other`) — gender batch 2 (21.10.2026). The Firestore
+  // templates (pickTemplate) only have male / female texts, so `gender` keeps the male fallback for them.
+  const rawGender = profile?.core?.gender;
+  const copyGender = rawGender === 'female' || rawGender === 'male' ? rawGender : 'other';
   const copy = ORG_COPY[orgType];
   const Icon = copy.icon;
   // Rendered with the template's own `${orgName}` placeholder as the value, so the default goes
   // through the same placeholder substitution as a remote template.
-  const defaultTemplate = t(copy.messageKey, { orgName: '${orgName}', gender });
+  const defaultTemplate = t(copy.messageKey, { orgName: '${orgName}', gender: copyGender });
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +152,7 @@ export default function SchoolOutreachCard({
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-black text-gray-900">{t(copy.titleKey, { orgName: schoolName })}</h3>
-          <p className="text-xs text-gray-600 mt-1 leading-relaxed">{t(copy.subtitleKey, { gender })}</p>
+          <p className="text-xs text-gray-600 mt-1 leading-relaxed">{t(copy.subtitleKey, { gender: copyGender })}</p>
         </div>
       </div>
 
@@ -164,7 +168,7 @@ export default function SchoolOutreachCard({
             <Check className="w-4 h-4" /> {t(copy.sentKey)}
           </span>
         ) : (
-          t(copy.ctaKey, { gender })
+          t(copy.ctaKey, { gender: copyGender })
         )}
       </button>
     </div>

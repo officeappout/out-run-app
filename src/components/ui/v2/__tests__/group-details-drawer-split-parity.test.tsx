@@ -320,11 +320,11 @@ for (const v2 of [false, true]) {
       await click(byText('אורי לוי'));
       await click(byText('הסר מהקבוצה'));
       expect(markup('remove modal')).toMatchSnapshot('remove modal');
-      await click(byText('הסר', 'button'));
+      await click(byText('הסרה', 'button'));
       expect(markup('removed')).toMatchSnapshot('removed');
       await click(byText('עזוב קבוצה'));
       expect(markup('leave confirm')).toMatchSnapshot('leave confirm');
-      await click(byText('הירשם למפגש'));
+      await click(byText('הרשמה למפגש'));
       expect(markup('booked')).toMatchSnapshot('booked');
       await click(byText('דיווח על תוכן'));
       expect(markup('report open')).toMatchSnapshot('report open');
@@ -338,13 +338,13 @@ for (const v2 of [false, true]) {
       calls.length = 0;
       await click(byText('ניהול מפגשים'));
       expect(markup('manager')).toMatchSnapshot('manager');
-      await click(document.body.querySelector('button[title="ערוך"]'));
+      await click(document.body.querySelector('button[title="עריכה"]'));
       expect(markup('editor')).toMatchSnapshot('editor');
       await click(byText('ש׳'));
-      await click(byText('שמור שינויים'));
+      await click(byText('שמירת שינויים'));
       expect(markup('saved')).toMatchSnapshot('saved');
       await click(byText('ניהול מפגשים'));
-      await click(byText('הוסף מפגש'));
+      await click(byText('הוספת מפגש'));
       expect(markup('add editor')).toMatchSnapshot('add editor');
       expect(calls).toMatchSnapshot('calls');
     });
@@ -356,7 +356,7 @@ for (const v2 of [false, true]) {
       expect(markup('initial')).toMatchSnapshot('initial');
       await click(byText('drop-in'));
       expect(markup('join prompt')).toMatchSnapshot('join prompt');
-      await click(byText('כן, הצטרף לקבוצה'));
+      await click(byText('כן, מצטרפים לקבוצה'));
       expect(markup('joined')).toMatchSnapshot('joined');
       expect(calls).toMatchSnapshot('calls');
     });
@@ -382,7 +382,7 @@ for (const v2 of [false, true]) {
     it('private group: invite-code entry', async () => {
       await mount(<GroupDetailsDrawer isOpen onClose={noop} group={PRIVATE_GROUP as never} onJoin={noop} />);
       expect(markup('closed entry')).toMatchSnapshot('closed entry');
-      await click(byText('הזן קוד הצטרפות'));
+      await click(byText('קוד הצטרפות'));
       await type(document.body.querySelector('input[aria-label="קוד הצטרפות לקהילה"]')!, 'xyz789');
       expect(markup('typed')).toMatchSnapshot('typed');
       await click(byText('אישור'));

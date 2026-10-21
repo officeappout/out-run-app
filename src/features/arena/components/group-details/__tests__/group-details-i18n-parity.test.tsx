@@ -419,7 +419,7 @@ describe('after an effect / a tap', () => {
         <InviteCodePanel code="ABC123" groupName="רצי הירקון" inviteCopied={false} setInviteCopied={noop} />
       </>,
     );
-    for (const b of Array.from(document.body.querySelectorAll('button[aria-label="שתף קבוצה"]'))) await click(b);
+    for (const b of Array.from(document.body.querySelectorAll('button[aria-label="שיתוף הקבוצה"]'))) await click(b);
     await click(buttons().find((b) => b.textContent?.includes('וואטסאפ')));
     await expect(JSON.stringify(shares, null, 2)).toMatchFileSnapshot(snap('share-texts.json'));
   });
