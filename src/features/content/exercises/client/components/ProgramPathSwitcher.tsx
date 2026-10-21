@@ -31,6 +31,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { getProgramIcon } from '@/features/content/programs';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
@@ -66,6 +68,7 @@ export default function ProgramPathSwitcher({
   onClose,
   onSelect,
 }: ProgramPathSwitcherProps) {
+  const t = useT(library);
   const anchorRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -113,7 +116,7 @@ export default function ProgramPathSwitcher({
           {getProgramIcon(activeOption.iconKey, 'w-3.5 h-3.5')}
         </span>
         <span className="text-xs font-semibold text-slate-700 whitespace-nowrap" style={SECTION_FONT}>
-          {activeOption.label} · רמה {activeOption.level}
+          {t('exercises.programSwitcher.option', { label: activeOption.label, level: String(activeOption.level) })}
         </span>
         {canSwitch && (
           <ChevronDown
@@ -128,7 +131,7 @@ export default function ProgramPathSwitcher({
           {/* Click-away */}
           <button
             type="button"
-            aria-label="סגור"
+            aria-label={t('exercises.programSwitcher.close')}
             onPointerDown={onClose}
             className="absolute inset-0 cursor-default"
           />
@@ -159,7 +162,7 @@ export default function ProgramPathSwitcher({
                   {getProgramIcon(opt.iconKey, 'w-4 h-4')}
                 </span>
                 <span className={`flex-1 text-start text-xs font-semibold ${opt.isActive ? 'text-cyan-700' : 'text-slate-800'}`}>
-                  {opt.label} · רמה {opt.level}
+                  {t('exercises.programSwitcher.option', { label: opt.label, level: String(opt.level) })}
                 </span>
                 {opt.isActive && <Check size={14} className="flex-shrink-0 text-cyan-600" />}
               </button>

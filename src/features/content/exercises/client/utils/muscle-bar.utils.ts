@@ -30,42 +30,44 @@
 import type { MuscleGroup } from '../../core/exercise.types';
 import { ALL_MUSCLE_GROUPS } from '../../core/exercise.types';
 import { MUSCLE_ICON_PATHS, MUSCLE_FALLBACK_ICON } from '@/lib/muscle-icons.const';
+import type { LibraryKey } from '@/messages/ns/library';
 
 export interface MuscleBarChip {
   key: string;
-  label: string;
+  labelKey: LibraryKey;
   icon: string;
   groups: MuscleGroup[];
 }
 
-const MUSCLE_LABELS_HE: Record<MuscleGroup, string> = {
-  chest: 'חזה',
-  back: 'גב',
-  middle_back: 'אמצע גב',
-  shoulders: 'כתפיים',
-  rear_delt: 'כתף אחורית',
-  abs: 'בטן',
-  obliques: 'אלכסונים',
-  forearms: 'אמות',
-  biceps: 'דו-ראשי',
-  triceps: 'תלת-ראשי',
-  quads: 'ארבע-ראשי',
-  hamstrings: 'המסטרינג',
-  glutes: 'ישבן',
-  calves: 'שוקיים',
-  traps: 'טרפז',
-  cardio: 'קרדיו',
-  full_body: 'כל הגוף',
-  core: 'ליבה',
-  legs: 'רגליים',
-  serratus: 'המסור',
-  adductors: 'מקרבי הירך',
-  hip_flexors: 'כופפי הירך',
+/** Chip label = a `library` key (exercises.muscle.<group>); the component translates it. */
+const MUSCLE_LABEL_KEYS: Record<MuscleGroup, LibraryKey> = {
+  chest: 'exercises.muscle.chest',
+  back: 'exercises.muscle.back',
+  middle_back: 'exercises.muscle.middle_back',
+  shoulders: 'exercises.muscle.shoulders',
+  rear_delt: 'exercises.muscle.rear_delt',
+  abs: 'exercises.muscle.abs',
+  obliques: 'exercises.muscle.obliques',
+  forearms: 'exercises.muscle.forearms',
+  biceps: 'exercises.muscle.biceps',
+  triceps: 'exercises.muscle.triceps',
+  quads: 'exercises.muscle.quads',
+  hamstrings: 'exercises.muscle.hamstrings',
+  glutes: 'exercises.muscle.glutes',
+  calves: 'exercises.muscle.calves',
+  traps: 'exercises.muscle.traps',
+  cardio: 'exercises.muscle.cardio',
+  full_body: 'exercises.muscle.full_body',
+  core: 'exercises.muscle.core',
+  legs: 'exercises.muscle.legs',
+  serratus: 'exercises.muscle.serratus',
+  adductors: 'exercises.muscle.adductors',
+  hip_flexors: 'exercises.muscle.hip_flexors',
 };
 
 export const MUSCLE_BAR_CHIPS: MuscleBarChip[] = ALL_MUSCLE_GROUPS.map((m) => ({
   key: m,
-  label: MUSCLE_LABELS_HE[m],
+  labelKey: MUSCLE_LABEL_KEYS[m],
   icon: MUSCLE_ICON_PATHS[m] ?? MUSCLE_FALLBACK_ICON,
   groups: [m],
 }));

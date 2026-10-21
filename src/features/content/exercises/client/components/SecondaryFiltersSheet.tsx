@@ -88,6 +88,8 @@ import type { Program } from '@/features/content/programs/core/program.types';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
 import type { MuscleGroup } from '../../core/exercise.types';
 import { resolveEquipmentSvgPathList } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const DEFAULT_MAX_LEVELS = 20;
 const GRID_COLS = 5;
@@ -100,7 +102,7 @@ const GRID_COLS = 5;
  * happens to contain the same substring — must stay, so this can't be a
  * `.includes()` check.
  */
-const EXCLUDED_TRACK_NAMES = new Set(['דגל אנושי', 'עמידת ידיים']);
+const EXCLUDED_TRACK_NAMES = new Set(['דגל אנושי', 'עמידת ידיים']); // i18n-allow-hebrew: data — matched against Firestore program names
 
 // Same physical-type → location-relevant bucketing EquipmentFilterSheet uses.
 // Duplicated (not imported) on purpose — EquipmentFilterSheet is shared by
@@ -125,11 +127,11 @@ function isImprovisedGear(g: GearDefinition): boolean {
  * fallback candidates below, not the primary source.
  */
 const HEBREW_DOMAIN_NAME_TO_SLUG: Record<string, string> = {
-  'משיכה': 'pull',
-  'דחיפה': 'push',
-  'רגליים': 'legs',
-  'פלג גוף תחתון': 'legs',
-  'ליבה': 'core',
+  'משיכה': 'pull', // i18n-allow-hebrew: data — matched against Firestore program names
+  'דחיפה': 'push', // i18n-allow-hebrew: data — matched against Firestore program names
+  'רגליים': 'legs', // i18n-allow-hebrew: data — matched against Firestore program names
+  'פלג גוף תחתון': 'legs', // i18n-allow-hebrew: data — matched against Firestore program names
+  'ליבה': 'core', // i18n-allow-hebrew: data — matched against Firestore program names
 };
 
 /**
@@ -167,6 +169,7 @@ const V2_OFF = 'bg-white text-v2-ink-2 shadow-v2-ring';
 const V2_CHIP = 'flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full ps-3 pe-3.5 text-[13px] font-extrabold transition-colors';
 
 export default function SecondaryFiltersSheet({ gear }: Props) {
+  const t = useT(library);
   const filtersSuperAdmin = useUserStoreForFlags((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(filtersSuperAdmin).flags.enableHomeV2;
   const isOpen = useExerciseLibraryStore((s) => s.isSecondaryFiltersOpen);
@@ -342,22 +345,22 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
         className={v2 ? 'h-12 w-full rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform active:scale-[0.98]' : 'w-full py-3.5 rounded-2xl text-white font-extrabold text-sm'}
         style={v2 ? undefined : { background: 'linear-gradient(90deg,#2CE0C0,#20C6D6 55%,#2AA3E8)' }}
       >
-        הצג {previewCount} תרגילים
+        {t('exercises.filters.show', { count: String(previewCount) })}
       </button>
     </div>
   );
 
   return (
-    <FilterSheet isOpen={isOpen} title="פילטרים" onClose={() => setOpen(false)} footer={footer}>
+    <FilterSheet isOpen={isOpen} title={t('exercises.filters.title')} onClose={() => setOpen(false)} footer={footer}>
       <FiltersV2.Provider value={v2}>
       <div className="space-y-5">
         {/* ── שרירים — synced with the top bar (same store field, no draft),
              plus a secondary "associated with the selected track" hint ── */}
         <section>
-          <h3 className={v2 ? "mb-1.5 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-1"}>שרירים</h3>
+          <h3 className={v2 ? "mb-1.5 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-1"}>{t('exercises.filters.muscles')}</h3>
           {associatedMuscles.size > 0 && (
             <p className="text-[11px] text-amber-600 font-semibold mb-2">
-              מסומן בכתום — שרירים שקשורים למסלול שנבחר (מידע בלבד, לא משפיע על התוצאות)
+              {t('exercises.filters.associatedHint')}
             </p>
           )}
           <div className="flex flex-wrap gap-2">
@@ -390,7 +393,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                       (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
                     }}
                   />
-                  <span>{chip.label}</span>
+                  <span>{t(chip.labelKey)}</span>
                 </button>
               );
             })}
@@ -400,9 +403,9 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
         {/* ── מסלול — collapsible master → children hierarchy, per-track רמה
              nested inline (round 5, #3, #6, #8) ── */}
         <section>
-          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>מסלול</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>{t('exercises.filters.tracks')}</h3>
           {programs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">טוען מסלולים...</p>
+            <p className="text-sm text-gray-400 text-center py-4">{t('exercises.filters.tracksLoading')}</p>
           ) : (
             <div className="space-y-2.5">
               {masters.map((master) => {
@@ -422,7 +425,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                         <button
                           type="button"
                           onClick={() => toggleExpand(master.id)}
-                          aria-label={isExpanded ? 'הסתר תת-מסלולים' : 'הצג תת-מסלולים'}
+                          aria-label={isExpanded ? t('exercises.filters.subTracksHide') : t('exercises.filters.subTracksShow')}
                           aria-expanded={isExpanded}
                           className="p-1.5 text-gray-400 hover:text-gray-600"
                         >
@@ -432,7 +435,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                     </div>
                     {isSelected && kids.length > 0 && (
                       <p className="mt-1 mb-1.5 text-[11px] text-gray-400">
-                        כולל את כל הרמות של כל תת-המסלולים
+                        {t('exercises.filters.masterIncludesAll')}
                       </p>
                     )}
                     {isExpanded && kids.length > 0 && (
@@ -482,7 +485,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
         {/* ── מיקום ── */}
         <section>
-          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>מיקום</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>{t('exercises.filters.location')}</h3>
           <div className="flex gap-2">
             {(['park', 'home'] as const).map((loc) => (
               <button
@@ -499,7 +502,7 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
                       }`
                 }
               >
-                {loc === 'park' ? 'פארק' : 'בית'}
+                {t('exercises.filters.locationOption', { location: loc })}
               </button>
             ))}
           </div>
@@ -507,22 +510,22 @@ export default function SecondaryFiltersSheet({ gear }: Props) {
 
         {/* ── ציוד ── */}
         <section>
-          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>ציוד</h3>
+          <h3 className={v2 ? "mb-2 text-[15px] font-black text-v2-ink" : "text-[13px] font-bold text-gray-700 mb-2"}>{t('exercises.filters.gear')}</h3>
           <div className="flex flex-wrap gap-1.5 mb-3">
             <EquipmentChip
               active={draftEquipment.has(BODYWEIGHT_SENTINEL)}
               onClick={() => toggleEquipment(BODYWEIGHT_SENTINEL)}
               iconNode={<PersonStanding size={14} className="text-cyan-600" />}
-              label="משקל גוף"
+              label={t('exercises.filters.bodyweight')}
             />
           </div>
           {gear.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">טוען ציוד...</p>
+            <p className="text-sm text-gray-400 text-center py-4">{t('exercises.filters.gearLoading')}</p>
           ) : (
             <div className="space-y-3">
-              <GearSection title="ציוד פארק" items={gearSections.park} draft={draftEquipment} onToggle={toggleEquipment} />
-              <GearSection title="ציוד מאולתר / ביתי" items={gearSections.improvised} draft={draftEquipment} onToggle={toggleEquipment} />
-              <GearSection title="ציוד אישי" items={gearSections.personal} draft={draftEquipment} onToggle={toggleEquipment} />
+              <GearSection title={t('exercises.filters.gearPark')} items={gearSections.park} draft={draftEquipment} onToggle={toggleEquipment} />
+              <GearSection title={t('exercises.filters.gearImprovised')} items={gearSections.improvised} draft={draftEquipment} onToggle={toggleEquipment} />
+              <GearSection title={t('exercises.filters.gearPersonal')} items={gearSections.personal} draft={draftEquipment} onToggle={toggleEquipment} />
             </div>
           )}
         </section>
