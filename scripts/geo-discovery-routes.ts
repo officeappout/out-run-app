@@ -68,7 +68,18 @@
  *     trail relation still gets the existing generic fallback name rather than
  *     being dropped.
  *
- * Enrichment: elevationGain + maxGrade via Mapbox Terrain-RGB DEM, routeShape ('loop' when geometrically closed, omitted otherwise).
+ * Enrichment: elevationGain + maxGrade via Copernicus GLO-30 (was Mapbox Terrain-RGB, whose terms
+ * forbid storing derived values — RC6 W1), routeShape ('loop' when geometrically closed, omitted otherwise).
+ *
+ * OSM source (RC6 step 4 / NATIONWIDE-PLAN.md W1, owner-approved 21.10.2026): --osm-source=
+ *   pbf       (CLI default) the local Geofabrik PBF via scripts/lib/osm-pbf.node.ts (osmium);
+ *   snapshot  (Cloud Function default) a pre-extracted region snapshot in Storage,
+ *             osm/regions/v1/<region>.json.gz (scripts/routes-nationwide/build-osm-region-snapshot.ts);
+ *             missing snapshot → falls back to Overpass, logged;
+ *   overpass  the public Overpass mirrors (the old behaviour).
+ * pbf/snapshot answer the SAME Overpass QL strings below through src/lib/osm-local's local
+ * interpreter, so every discovery stage is unchanged. Every route doc now carries
+ * `provenance` + `attribution` (OSM ODbL + Copernicus), like the trails pipeline.
  * Idempotent: keyed on source.externalId — re-runs UPDATE, never duplicate. Relation-based ids
  * (trail relations and relation-sourced park boundaries) are suffixed `@<REGION.key>` (see the
  * externalId-collision note below) — way-based and stitched ids are per-city by construction
@@ -105,13 +116,17 @@
  * the whole point of this step: nothing here is hardcoded to a single city.
  */
 import * as dotenv from 'dotenv'; dotenv.config({ path: '.env.local' }); dotenv.config();
-import * as zlib from 'zlib'; import * as https from 'https'; import * as admin from 'firebase-admin';
+import * as zlib from 'zlib'; import * as https from 'https'; import * as path from 'path'; import * as admin from 'firebase-admin';
 import { mapOsmSurfaceToType } from '../src/lib/route-collections/surface-type';
 import { classifyRouteGenerator } from '../src/lib/route-collections/route-generator';
 import { fetchCityWayGrid, type CityWayGrid } from './lib/route-quality-osm-fetch.node';
 import { computeRouteComposition, type WayCategory } from './lib/route-composition-classify';
 import { computeRouteLighting } from './lib/route-lighting-street-segments.node';
 import { validateCityRegistration } from '../src/lib/city-registrations';
+import { createLocalOsmStore, fromOsmSnapshot, osmSnapshotPath, runLocalOverpass, type LocalOsmStore } from '../src/lib/osm-local';
+import { loadCopernicusProvider } from '../src/lib/dem-tile-cache/copernicus-glo30-cache.node';
+import { COPERNICUS_DEM_ATTRIBUTION_SHORT } from '../src/lib/dem-tile-cache/copernicus-glo30';
+import type { ElevationProvider } from '../src/lib/dem-tile-cache/elevation-provider';
 
 // ─────────────────────────────── CLI + region config ───────────────────────────────
 // Options carried by runGeoDiscovery — the CLI entry block at the bottom of this
@@ -132,7 +147,11 @@ export interface GeoDiscoveryOptions {
    *  spawned a fully concurrent duplicate run against the same city). No-op
    *  when absent — never required, never touched by the CLI path. */
   runId?: string;
+  /** Where OSM data comes from (RC6 W1) — see the header. Default 'pbf' (CLI); the worker passes 'snapshot'. */
+  osmSource?: OsmSource;
 }
+
+export type OsmSource = 'pbf' | 'snapshot' | 'overpass';
 
 interface Region {
   key: string;
@@ -306,7 +325,7 @@ let REGION: Region;
 // branch is structurally unreachable for them. Only a regionArg that ISN'T
 // an in-file key ever reaches the city_registrations lookup (Stage A, city-
 // orchestrator plan, 02.09.2026).
-async function resolveRegion(regionArg: string, db: admin.firestore.Firestore): Promise<Region> {
+export async function resolveRegion(regionArg: string, db: admin.firestore.Firestore): Promise<Region> {
   const found = REGIONS[regionArg];
   if (found) return found;
   const doc = await db.collection('city_registrations').doc(regionArg).get();
@@ -508,7 +527,13 @@ async function maybeWriteHeartbeat(): Promise<void> {
   }
 }
 
+// Local OSM (RC6 W1): when set, overpass() answers from it instead of the mirrors.
+let LOCAL_OSM: LocalOsmStore | null = null;
+/** What the route docs cite as their OSM source for this run. */
+let OSM_PROVENANCE: { source: OsmSource; snapshot: string | null } = { source: 'overpass', snapshot: null };
+
 async function overpass(q: string): Promise<any> {
+  if (LOCAL_OSM) { await maybeWriteHeartbeat(); return runLocalOverpass(q, LOCAL_OSM); }
   for (let a = 0; a < 6; a++) for (const m of MIRRORS) {
     await maybeWriteHeartbeat();
     try {
@@ -521,6 +546,54 @@ async function overpass(q: string): Promise<any> {
   }
   throw new Error('overpass failed (all mirrors)');
 }
+/** Region bbox ∪ extraBboxes, padded — what the local extract / snapshot must cover. */
+export function osmExtractBbox(region: Pick<Region, 'bbox' | 'extraBboxes'>, padDeg = 0.02): Region['bbox'] {
+  const all = [region.bbox, ...(region.extraBboxes ?? [])];
+  return {
+    latMin: Math.min(...all.map((b) => b.latMin)) - padDeg, lonMin: Math.min(...all.map((b) => b.lonMin)) - padDeg,
+    latMax: Math.max(...all.map((b) => b.latMax)) + padDeg, lonMax: Math.max(...all.map((b) => b.lonMax)) + padDeg,
+  };
+}
+
+/**
+ * Sets LOCAL_OSM for this run (RC6 W1). 'pbf' cuts the region out of the local
+ * Geofabrik PBF (osmium); 'snapshot' reads osm/regions/v1/<key>.json.gz from the
+ * default Storage bucket and falls back to Overpass when it is missing;
+ * 'overpass' leaves the mirrors in charge.
+ */
+async function loadOsmSource(source: OsmSource, db: admin.firestore.Firestore): Promise<void> {
+  LOCAL_OSM = null;
+  OSM_PROVENANCE = { source: 'overpass', snapshot: null };
+  if (source === 'overpass') { console.log('OSM source: Overpass mirrors'); return; }
+  if (source === 'pbf') {
+    const { assertOsmium, ensureIsraelPbf, extractGeoDiscoveryOsm, pbfTimestamp } = await import('./lib/osm-pbf.node');
+    assertOsmium();
+    const pbf = await ensureIsraelPbf();
+    const workDir = path.resolve(process.cwd(), '.cache/osm/geo-discovery', REGION.key);
+    console.log(`OSM source: local PBF ${pbf} → cutting region ${REGION.key} …`);
+    const data = await extractGeoDiscoveryOsm(pbf, osmExtractBbox(REGION), workDir);
+    LOCAL_OSM = createLocalOsmStore(data);
+    OSM_PROVENANCE = { source: 'pbf', snapshot: pbfTimestamp(pbf) };
+    console.log(`  ${data.ways.size} ways, ${data.relations.size} relations (OSM data ${OSM_PROVENANCE.snapshot ?? 'date unknown'})`);
+    return;
+  }
+  const app = admin.app();
+  const projectId = app.options.projectId ?? (db as unknown as { projectId?: string }).projectId ?? process.env.GCLOUD_PROJECT;
+  const bucketName = app.options.storageBucket ?? (projectId ? `${projectId}.firebasestorage.app` : undefined);
+  const file = admin.storage().bucket(bucketName).file(osmSnapshotPath(REGION.key));
+  const [exists] = await file.exists();
+  if (!exists) {
+    console.warn(`⚠ OSM snapshot gs://${bucketName}/${osmSnapshotPath(REGION.key)} not found — falling back to Overpass for this run`);
+    return;
+  }
+  const [buf] = await file.download();
+  const raw = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b ? zlib.gunzipSync(buf) : buf;
+  const snap = fromOsmSnapshot(JSON.parse(raw.toString('utf8')));
+  LOCAL_OSM = createLocalOsmStore(snap.data);
+  OSM_PROVENANCE = { source: 'snapshot', snapshot: snap.meta.osmTimestamp };
+  console.log(`OSM source: snapshot ${osmSnapshotPath(REGION.key)} (${snap.data.ways.size} ways, OSM data ${snap.meta.osmTimestamp ?? 'date unknown'})`);
+}
+
 // Region selector: an area (from wikidata) written to .rgn, PLUS any extra bboxes.
 // Returns { areaDecl, forEach(bodyFn) } so each query targets the whole region.
 function regionSelectors(): { decl: string; scopes: string[] } {
@@ -549,37 +622,29 @@ function regionSelectors(): { decl: string; scopes: string[] } {
   return { decl, scopes };
 }
 
-// ─────────────────────────────── Mapbox Terrain-RGB DEM ───────────────────────────────
-const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
-const Z = 14, nTiles = 2 ** Z;
-const lon2gx = (lo: number) => (lo + 180) / 360 * 256 * nTiles;
-const lat2gy = (la: number) => { const r = la * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256 * nTiles; };
-function decodePNG(buf: Buffer) {
-  let p = 8, W = 0, H = 0, ct = 0; const idat: Buffer[] = [];
-  while (p < buf.length) { const len = buf.readUInt32BE(p), type = buf.toString('ascii', p + 4, p + 8), data = buf.subarray(p + 8, p + 8 + len); if (type === 'IHDR') { W = data.readUInt32BE(0); H = data.readUInt32BE(4); ct = data[9]; } else if (type === 'IDAT') idat.push(data); else if (type === 'IEND') break; p += 12 + len; }
-  const raw = zlib.inflateSync(Buffer.concat(idat)); const ch = ct === 6 ? 4 : ct === 2 ? 3 : ct === 0 ? 1 : 4; const stride = W * ch; const out = Buffer.alloc(H * stride); let pos = 0;
-  for (let y = 0; y < H; y++) { const ft = raw[pos++]; for (let x = 0; x < stride; x++) { const rv = raw[pos++]; const a = x >= ch ? out[y * stride + x - ch] : 0, b = y > 0 ? out[(y - 1) * stride + x] : 0, c = (x >= ch && y > 0) ? out[(y - 1) * stride + x - ch] : 0; let v = rv; if (ft === 1) v = rv + a; else if (ft === 2) v = rv + b; else if (ft === 3) v = rv + ((a + b) >> 1); else if (ft === 4) { const pa = Math.abs(b - c), pb = Math.abs(a - c), pc = Math.abs(a + b - 2 * c); v = rv + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c); } out[y * stride + x] = v & 0xff; } }
-  return { width: W, height: H, ch, data: out };
-}
-const fetchBuf = (url: string): Promise<Buffer> => new Promise((res, rej) => { const req = https.get(url, r => { if (r.statusCode !== 200) { r.resume(); return rej(new Error('HTTP ' + r.statusCode)); } const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => res(Buffer.concat(b))); }); req.on('error', rej); req.setTimeout(30000, () => req.destroy(new Error('socket timeout'))); });
-const tiles = new Map<string, ReturnType<typeof decodePNG>>();
+// ─────────────────────────────── Copernicus GLO-30 DEM ───────────────────────────────
+// RC6 W1: Copernicus (storable, credited) replaces Mapbox Terrain-RGB (its terms forbid
+// storing derived values). Tiles are cached on disk (COPERNICUS_DEM_CACHE_DIR; the worker
+// points it at the function's /tmp) and downloaded once per 1° tile.
+let DEM: ElevationProvider | null = null;
 async function loadTiles() {
-  if (!TOKEN) { console.warn('  ⚠ no NEXT_PUBLIC_MAPBOX_TOKEN — DEM enrichment skipped (elevationGain=0)'); return; }
   const b = REGION.bbox;
-  const txMin = Math.floor(lon2gx(b.lonMin) / 256), txMax = Math.floor(lon2gx(b.lonMax) / 256), tyMin = Math.floor(lat2gy(b.latMax) / 256), tyMax = Math.floor(lat2gy(b.latMin) / 256);
-  // Scales with bbox area (tile count), not city complexity, and calls
-  // Mapbox's tile API — never Overpass — so maybeWriteHeartbeat's own
-  // call sites inside overpass() never cover this loop. Currently inert in
-  // the deployed worker (no NEXT_PUBLIC_MAPBOX_TOKEN there — see the guard
-  // two lines up), but that's a deploy-config fact, not a structural one;
-  // found via the audit for PR #144's heartbeat-candidate-loop follow-up.
-  for (let tx = txMin; tx <= txMax; tx++) for (let ty = tyMin; ty <= tyMax; ty++) { await maybeWriteHeartbeat(); try { tiles.set(`${tx}_${ty}`, decodePNG(await fetchBuf(`https://api.mapbox.com/v4/mapbox.terrain-rgb/${Z}/${tx}/${ty}.pngraw?access_token=${TOKEN}`))); } catch {} }
+  try {
+    const prov = await loadCopernicusProvider({ latMin: b.latMin - 0.01, lonMin: b.lonMin - 0.01, latMax: b.latMax + 0.01, lonMax: b.lonMax + 0.01 });
+    DEM = prov.tiles.size ? prov : null;
+    if (!DEM) console.warn('  ⚠ no Copernicus tile covers this region — DEM enrichment skipped (elevationGain=0)');
+  } catch (e) {
+    DEM = null;
+    console.warn(`  ⚠ Copernicus DEM unavailable (${(e as Error).message}) — DEM enrichment skipped (elevationGain=0)`);
+  }
 }
-function pxElev(ix: number, iy: number): number | null { const tx = Math.floor(ix / 256), ty = Math.floor(iy / 256), t = tiles.get(`${tx}_${ty}`); if (!t) return null; const idx = ((iy - ty * 256) * t.width + (ix - tx * 256)) * t.ch; return -10000 + (t.data[idx] * 65536 + t.data[idx + 1] * 256 + t.data[idx + 2]) * 0.1; }
-function elevAt(lon: number, lat: number): number | null { const gx = lon2gx(lon), gy = lat2gy(lat), x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0; const e00 = pxElev(x0, y0), e10 = pxElev(x0 + 1, y0), e01 = pxElev(x0, y0 + 1), e11 = pxElev(x0 + 1, y0 + 1); if (e00 == null || e10 == null || e01 == null || e11 == null) return e00; return e00 * (1 - fx) * (1 - fy) + e10 * fx * (1 - fy) + e01 * (1 - fx) * fy + e11 * fx * fy; }
+const elevAt = (lon: number, lat: number): number | null => (DEM ? DEM.sample(lat, lon) : null);
+// Mapbox Directions (--roundtrips only) — unchanged by RC6 W1.
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+const fetchBuf = (url: string): Promise<Buffer> => new Promise((res, rej) => { const req = https.get(url, r => { if (r.statusCode !== 200) { r.resume(); return rej(new Error('HTTP ' + r.statusCode)); } const b: Buffer[] = []; r.on('data', d => b.push(d)); r.on('end', () => res(Buffer.concat(b))); }); req.on('error', rej); req.setTimeout(30000, () => req.destroy(new Error('socket timeout'))); });
 // DEM elevation profile → total ascent + max local grade over a polyline.
 function demProfile(pts: number[][]): { gainM: number; maxGrade: number } | null {
-  if (!tiles.size) return null;
+  if (!DEM) return null;
   const STEP = 15; const rs: number[][] = [pts[0]]; let acc = 0;
   for (let i = 1; i < pts.length; i++) { let from = pts[i - 1], segLen = hav(from, pts[i]); while (acc + segLen >= STEP) { const t = (STEP - acc) / segLen; const np = [from[0] + (pts[i][0] - from[0]) * t, from[1] + (pts[i][1] - from[1]) * t]; rs.push(np); from = np; segLen = hav(from, pts[i]); acc = 0; } acc += segLen; }
   const el = rs.map(p => elevAt(p[1], p[0])); if (el.some(e => e == null)) return null;
@@ -1827,6 +1892,13 @@ function buildRouteDoc(
     origin: 'osm_import',
     status: 'pending',
     published: false,
+    // RC6 W1 — where the geometry/elevation came from + the credit lines (same shape as the trails pipeline).
+    provenance: {
+      pipeline: 'geo_discovery_v2',
+      osm: { license: 'ODbL-1.0', source: OSM_PROVENANCE.source, ...(OSM_PROVENANCE.snapshot ? { snapshot: OSM_PROVENANCE.snapshot } : {}), ...(OSM_PROVENANCE.source !== 'overpass' ? { extract: 'geofabrik:israel-and-palestine' } : {}) },
+      ...(dem ? { elevation: { provider: 'copernicus-glo30' } } : {}),
+    },
+    attribution: { osm: '© OpenStreetMap contributors', ...(dem ? { elevation: COPERNICUS_DEM_ATTRIBUTION_SHORT } : {}) },
   };
 }
 
@@ -2044,7 +2116,8 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     }
     console.log(`resolved authority: ${REGION.label} → ${resolvedAuthorityId}`);
 
-    console.log('loading Terrain-RGB DEM tiles …'); await loadTiles(); console.log(`  decoded ${tiles.size} tiles`);
+    await loadOsmSource(opts.osmSource ?? 'pbf', db);
+    console.log('loading Copernicus GLO-30 DEM tiles …'); await loadTiles(); console.log(`  DEM ${DEM ? 'ready' : 'unavailable'}`);
     let boundaryPoly: number[][] | null = null;
     // Prefer boundaryClipWikidata (hand-curated in-file regions); fall back to
     // adminRelationId (05.09.2026, cross-city-bleed fix) for a city_registrations-
@@ -2100,7 +2173,7 @@ export async function runGeoDiscovery(opts: GeoDiscoveryOptions, db: admin.fires
     let cityGrid: CityWayGrid | null = null;
     if (!SKIP_OSM) {
       console.log('\nFetching city-wide way grid for quality-certificate composition …');
-      cityGrid = await fetchCityWayGrid(`${REGION.bbox.latMin},${REGION.bbox.lonMin},${REGION.bbox.latMax},${REGION.bbox.lonMax}`);
+      cityGrid = await fetchCityWayGrid(`${REGION.bbox.latMin},${REGION.bbox.lonMin},${REGION.bbox.latMax},${REGION.bbox.lonMax}`, overpass);
       console.log(`  ${cityGrid.wayCount} ways fetched (${cityGrid.roadWayCount} road-category).`);
     }
     const wayCategoryCache = new Map<number, WayCategory>();
@@ -2247,6 +2320,8 @@ if (require.main === module) {
     delete: process.argv.includes('--delete'),
     roundtrips: process.argv.includes('--roundtrips'),
     skipOsm: process.argv.includes('--skip-osm'),
+    osmSource: ((process.argv.find(a => a.startsWith('--osm-source=')) || '--osm-source=pbf').split('=')[1]) as OsmSource,
   };
+  if (!['pbf', 'snapshot', 'overpass'].includes(opts.osmSource!)) throw new Error(`--osm-source must be pbf | snapshot | overpass`);
   runGeoDiscovery(opts, initFb()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
 }

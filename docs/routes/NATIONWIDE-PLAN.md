@@ -212,6 +212,13 @@
 | **W6** | **לולאה סביב פארק — חי**: `mode:'park_loop'` ב-`/api/routes/generate` (פארק נבחר ⇒ קודם לולאות מאושרות שלו, ואם אין, via בתוך הפוליגון). **לא** משנה את `eligible.ts`/`includeStrength` של פארקי הכושר | `api-contract.ts`, `loop-service.ts`, מסך פארק — מאחורי דגל חדש | M | W5, GH דלוק |
 | W7 (אופציונלי) | חיווט B כשלב בפאנל (`runBuildSegmentGraph`/`runImportNamedRoutes` כבר מיוצאים) ו-composition/גובה כשלבים, לפי `CITY-MAPPING-PIPELINE-ARCHITECTURE.md:42-62` | orchestrator | L | — |
 
+**סטטוס W1 (RC6 שלב 4, 21.10.2026):** בוצע.
+- **מקור ה-OSM:** geo-discovery קורא עכשיו את ה-PBF המקומי (`--osm-source=pbf`, ברירת המחדל ב-CLI) דרך `scripts/lib/osm-pbf.node.ts`. זה קורא משותף שחולץ מ-`pilot-osm.node.ts`.
+- **אותן שאילתות:** אותן שאילתות QL נענות מקומית על ידי `src/lib/osm-local` (מפרש Overpass מקומי), בלי שינוי בשלבי הגילוי.
+- **הפונקציה בענן:** קוראת snapshot אזורי מוכן מראש מ-Storage (`osm/regions/v1/<region>.json.gz`, נבנה ב-`scripts/routes-nationwide/build-osm-region-snapshot.ts`). כשאין snapshot היא חוזרת ל-Overpass.
+- **גובה:** Copernicus GLO-30 במקום Mapbox Terrain-RGB.
+- **מסמכי המסלול:** כל מסמך נושא `provenance` ו-`attribution`.
+
 ### 3.3 מדד ציון (`routeScore`, 0-100) — שימוש חוזר במדדים קיימים בלבד
 
 | רכיב | משקל | מקור קיים | חישוב |
