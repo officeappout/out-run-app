@@ -206,5 +206,5 @@
   "equipment.autoCue.generic.2": "רכז כל חזרה בשריר היעד, לא בתאוצה",
   "mapError.title": "המפה נתקלה בבעיה",
   "mapError.body": "לרוב זה נפתר לאחר טעינה מחדש. הנתונים שלך נשמרו.",
-  "mapError.retry": "נסה שוב"
+  "mapError.retry": "{gender, select, female {נסי שוב} male {נסה שוב} other {נסו שוב}}"
 }
