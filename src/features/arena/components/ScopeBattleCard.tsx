@@ -185,7 +185,7 @@ export function ScopeBattleCardView({
   // user base is small).
   if (entries.length < 2) {
     const handleInvite = () => {
-      const text = `בוא תצטרף אליי ב${myEntry.scopeName} על Out! 🔥`;
+      const text = `בואו להצטרף אליי ב${myEntry.scopeName} על Out! 🔥`;
       if (navigator.share) navigator.share({ text }).catch(() => {});
       else if (navigator.clipboard) navigator.clipboard.writeText(text);
     };

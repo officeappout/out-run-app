@@ -9,6 +9,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface ViralUnlockSheetProps {
   isOpen: boolean;
@@ -31,8 +32,14 @@ function resolveLocationName(profile: ReturnType<typeof useUserStore>['profile']
   return 'השכונה שלך';
 }
 
-function generateInviteMessage(location: string, inviteLink: string): string {
-  return `שומע? אני מתאמן ב${location} עם Out — תצטרף אליי ונפתח ביחד את מפת השותפים ודירוגי הליגה! 🤘 ${inviteLink}`;
+/** Recipient's gender is unknown → plural "בואו" (decision 7); the sender speaks in their own gender. */
+function generateInviteMessage(location: string, inviteLink: string, senderGender: unknown): string {
+  const me = pickGendered(senderGender, {
+    male: `אני מתאמן ב${location} עם Out`,
+    female: `אני מתאמנת ב${location} עם Out`,
+    other: `אני ב-Out ב${location}`,
+  });
+  return `היי! ${me} — בואו להצטרף אליי ונפתח ביחד את מפת השותפים ודירוגי הליגה! 🤘 ${inviteLink}`;
 }
 
 export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetProps) {
@@ -49,16 +56,17 @@ export default function ViralUnlockSheet({ isOpen, onClose }: ViralUnlockSheetPr
   const inviteLink = useMemo(() => generateInviteLink(userId), [userId]);
   const location = useMemo(() => resolveLocationName(profile), [profile]);
 
+  const senderGender = profile?.core?.gender;
   const message = useMemo(
-    () => generateInviteMessage(location, inviteLink),
-    [location, inviteLink],
+    () => generateInviteMessage(location, inviteLink, senderGender),
+    [location, inviteLink, senderGender],
   );
 
   const handleShareWhatsApp = useCallback(async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Out — בוא להתאמן איתי!',
+          title: 'Out — בואו להתאמן איתי!',
           text: message,
           url: inviteLink,
         });

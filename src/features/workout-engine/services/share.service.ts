@@ -251,7 +251,7 @@ export async function shareWorkout(
     const { docId, url } = await persistSharedWorkout(workout, workoutLocation);
 
     const diffLabel = DIFFICULTY_LABELS[workout.difficulty] || '';
-    const shareText = `💪 ${workout.title} — ${diffLabel} | ${workout.estimatedDuration} דק׳ | ${workout.exercises.length} תרגילים\nבוא/י לנסות את האימון שלי ב-Out!`;
+    const shareText = `💪 ${workout.title} — ${diffLabel} | ${workout.estimatedDuration} דק׳ | ${workout.exercises.length} תרגילים\nבואו לנסות את האימון שלי ב-Out!`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {

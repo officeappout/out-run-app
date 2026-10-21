@@ -138,7 +138,7 @@ export default function SessionTokenPage() {
   const subtitle = isRunInvite
     ? (invitation.activityType === 'walking' ? 'הוזמנת ללכת ביחד' : 'הוזמנת לרוץ ביחד')
     : 'הוזמנת להצטרף לאימון';
-  const ctaLabel = isRunInvite ? 'בוא/י לרוץ ביחד' : 'הצטרפ/י לאימון';
+  const ctaLabel = isRunInvite ? 'בואו לרוץ ביחד' : 'מצטרפים לאימון'; // recipient's gender unknown → neutral (21.10.2026)
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col" dir="rtl">

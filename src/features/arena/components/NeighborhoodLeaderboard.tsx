@@ -453,7 +453,7 @@ export function NeighborhoodLeaderboardView({
 
   function handleHeroInvite() {
     const name = scopeLabel ?? 'הליגה';
-    const text = `בוא תצטרף אליי ב${name} על Out! 🔥`;
+    const text = `בואו להצטרף אליי ב${name} על Out! 🔥`;
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }
