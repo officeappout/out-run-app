@@ -180,7 +180,8 @@ export type PushVarKey =
   | '@ימים'
   | '@אימון'
   | '@כמות'
-  | '@עוד';
+  | '@עוד'
+  | '@שיא';
 
 export interface PushVariableDef {
   key: PushVarKey;
@@ -206,6 +207,7 @@ export const PUSH_VARIABLES: ReadonlyArray<PushVariableDef> = [
   { key: '@אימון', label: 'סוג האימון המתוכנן', sample: 'אימון כוח' },
   { key: '@כמות', label: 'כמה כיפים התקבלו', sample: '4' },
   { key: '@עוד', label: 'כמה אנשים נוספים שלחו', sample: '3' },
+  { key: '@שיא', label: 'השיא האישי ברצף (ימים)', sample: '23' },
 ];
 
 const VARIABLE_BY_KEY: Record<string, PushVariableDef> = Object.fromEntries(
@@ -783,6 +785,89 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
         audience: { persona: ['parent'] },
         conditions: { bucket: ['start'] },
       },
+    ],
+  },
+  // ── Streak (owner decisions 21.10.2026; sender streakRescueScheduler, flag
+  // enable_streak_pushes). Tones: cute / personal / curious + the Israeli-friendly
+  // pairs (adults 18 to 59 only, never 60+ or minors).
+  {
+    pushType: 'streak_rescue',
+    label: 'הצלת רצף',
+    lever: 'streak',
+    channel: 'progression',
+    sender: 'streakRescueScheduler',
+    description: 'יש רצף פעיל והיום עוד לא נסגר (10 דקות פעילות או יעד הצעדים). הדרך הכי קצרה לשמור עליו.',
+    whenSent:
+      'ב-19:30 לרצף של 2 ימים ומעלה, וב-21:15 רק לרצף של 7 ומעלה ורק אם הראשון לא נפתח. לא כשהיום כבר נסגר, לא בשבת כשהשבת לא שוברת רצף, ולא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית (הראשון קודם לאחרים). רק כשהדגל enable_streak_pushes דולק.',
+    vars: ['@שם', '@רצף', '@צעדים_שנותרו', '@דקות'],
+    conditions: [
+      {
+        key: 'when',
+        label: 'מתי',
+        options: [
+          { value: 'first', label: '19:30' },
+          { value: 'late', label: '21:15 (רצף 7 ומעלה)' },
+        ],
+      },
+    ],
+    deepLinks: ['home', 'map_walk'],
+    defaults: [
+      { title: 'הרצף שלך שואל אם הכול בסדר', body: 'יום @רצף. עוד 10 דקות והוא נרגע.', conditions: { when: ['first'] } },
+      { title: '@רצף ימים. אל תוותרו עליהם', body: 'עוד @צעדים_שנותרו צעדים או 10 דקות וזה סגור.', conditions: { when: ['first'] } },
+      { title: 'יום @רצף ברצף', body: 'עוד @דקות דקות של תנועה והיום נסגר. הליכה קצרה מספיקה.', conditions: { when: ['first'] } },
+      { title: 'אחי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { when: ['first'] }, pair: 'rescue_il' },
+      { title: 'אחותי, הרצף על הקו', body: 'יום @רצף. 10 דקות ומצילים אותו.', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { when: ['first'] }, pair: 'rescue_il' },
+      { title: 'נשארה שעה. מספיק?', body: '10 דקות בסלון ושמרת על @רצף ימים.', conditions: { when: ['late'] } },
+      { title: 'עוד רגע נגמר היום', body: '10 דקות בסלון ושמרת על @רצף ימים ברצף.', conditions: { when: ['late'] } },
+    ],
+  },
+  {
+    pushType: 'streak_broken',
+    label: 'הרצף נעצר',
+    lever: 'streak',
+    channel: 'progression',
+    sender: 'streakRescueScheduler',
+    description: 'אתמול הרצף נעצר. בלי אשמה: השיא נשאר, ומתחילים מחדש. כולם רואים כרטיס בבית, פוש רק למי שהרצף שלו היה 7 ימים ומעלה.',
+    whenSent:
+      'למחרת ב-10:00, פעם אחת לכל רצף שנעצר, רק לרצף של 7 ימים ומעלה. לא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_streak_pushes דולק.',
+    vars: ['@שם', '@שיא'],
+    deepLinks: ['home'],
+    defaults: [
+      { title: 'הרצף נעצר. השיא נשאר', body: '@שיא ימים זה שלך לתמיד. מתחילים רצף חדש היום?' },
+      { title: 'גם רצפים צריכים חופש', body: 'השיא שלך, @שיא ימים, מחכה שתשברו אותו.' },
+      { title: 'קורה לטובים ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, pair: 'broken_il' },
+      { title: 'קורה לטובות ביותר', body: 'השיא @שיא נשאר שלך. מתחילים מחדש?', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, pair: 'broken_il' },
+    ],
+  },
+  {
+    pushType: 'streak_milestone',
+    label: 'אבן דרך ברצף',
+    lever: 'streak',
+    channel: 'progression',
+    sender: 'streakRescueScheduler',
+    description: 'הרצף הגיע היום ל-3, 7, 14, 30, 50, 100 או 365 ימים. החגיגה היא בתוך האפליקציה. הפוש רק למי שלא ראה אותה.',
+    whenSent:
+      'ב-20:00, רק אם החגיגה באפליקציה לא נראתה היום. פעם אחת לכל אבן דרך. לא כשקלי כבר שלחה הודעה יזומה היום. נספר בתקרה היומית. רק כשהדגל enable_streak_pushes דולק.',
+    vars: ['@שם', '@רצף'],
+    conditions: [
+      {
+        key: 'milestone',
+        label: 'אבן דרך',
+        options: ['3', '7', '14', '30', '50', '100', '365'].map((v) => ({ value: v, label: `${v} ימים` })),
+      },
+    ],
+    deepLinks: ['progression', 'home'],
+    defaults: [
+      { title: '@רצף ימים ברצף', body: 'כל יום נספר. ממשיכים בקצב שלך.' },
+      { title: '3 ימים ברצף', body: 'ההתחלה הכי קשה כבר מאחור. ממשיכים מחר?', conditions: { milestone: ['3'] } },
+      { title: 'שבוע שלם', body: '7 ימים ברצף. ככה נראה הרגל שנולד.', conditions: { milestone: ['7'] } },
+      { title: 'שבועיים ברצף', body: '14 ימים. הגוף כבר מחכה לזה.', conditions: { milestone: ['14'] } },
+      { title: 'חודש. וואו', body: '30 ימים ברצף. זה כבר לא ניסיון, זה מי שאתם.', conditions: { milestone: ['30'] } },
+      { title: '30 יום. מי אתה בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'male', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { milestone: ['30'] }, pair: 'm30_il' },
+      { title: '30 יום. מי את בכלל?', body: 'חודש ברצף. ריספקט.', gender: 'female', audience: { ageBand: ['18_29', '30_44', '45_59'] }, conditions: { milestone: ['30'] }, pair: 'm30_il' },
+      { title: '50 ימים ברצף', body: 'חצי הדרך למאה. ממשיכים בקצב שלך.', conditions: { milestone: ['50'] } },
+      { title: '100. מישהו פה רציני', body: '100 ימים ברצף. השכנים מדברים.', conditions: { milestone: ['100'] } },
+      { title: 'שנה שלמה ברצף', body: '365 ימים. אין מילים, רק כבוד.', conditions: { milestone: ['365'] } },
     ],
   },
   {

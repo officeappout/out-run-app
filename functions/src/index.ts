@@ -134,3 +134,7 @@ export { qaRunnerReport } from './qaRunnerReport';
 // default off; text moments also need demo_life_llm). New function: needs its own deploy, and the
 // ANTHROPIC_DEMO_KEY secret must exist first — see demoSimulatorTick.ts.
 export { demoSimulatorTick } from './demoSimulatorTick';
+// Streak pushes (owner decisions 21.10.2026): 19:30 / 21:15 rescue, 10:00 "the streak
+// stopped", 20:00 milestone. Flag system_config/feature_flags.enable_streak_pushes, default
+// off. New function: needs its own deploy.
+export { streakRescueScheduler } from './streakRescueScheduler';

@@ -251,7 +251,8 @@ if (missingPackages.size > 0) {
 // src/features/notifications/push-library/__tests__/push-library.core.test.ts,
 // src/lib/i18n/__tests__/i18n-core.test.ts,
 // src/lib/i18n/__tests__/functions-i18n-mirror.test.ts,
-// src/features/user/scheduling/utils/__tests__/recurring-day.core.test.ts), so drift can't merge.
+// src/features/user/scheduling/utils/__tests__/recurring-day.core.test.ts,
+// src/features/activity/lib/__tests__/streak-day.core.test.ts), so drift can't merge.
 const COMMITTED_MIRRORS = {
   // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.
   'src/features/activity/lib/step-goal.ts': 'functions/src/shared/step-goal.ts',
@@ -264,6 +265,8 @@ const COMMITTED_MIRRORS = {
   'src/lib/i18n/locales.ts': 'functions/src/shared/locales.ts',
   // The recurring-template day rules — client hydrate + trainingReminderScheduler.
   'src/features/user/scheduling/utils/recurring-day.core.ts': 'functions/src/shared/recurring-day.core.ts',
+  // The streak-day policy — closed day, Saturday / shields, slots. Client streak + streakRescueScheduler.
+  'src/features/activity/lib/streak-day.core.ts': 'functions/src/shared/streak-day.core.ts',
 };
 for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');

@@ -124,7 +124,7 @@ import {
   StatsOverview, PreWorkoutCardRenderer, PostWorkoutCardRenderer, TodayActivityStrip, SmartWeeklySchedule,
   ProgramProgressRow, ConsistencyWidget, AddStrengthProgramCard, DoneTodayCard, StepsSummaryCard,
   RacePredictionCard, WeatherChip, AiCoachHomeEntry, AnchorLocationChip, WorkoutLocationSuggestions,
-  CalmReturnCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
+  CalmReturnCard, StreakNoticeCard, NearbyGroupsRow, CommunitySessionBanner, HomeRunCarouselCard, NextRunWorkoutCard,
   HomeProgramSlide,
 } from './HomeWidgets';
 import { useHomeRunSlot } from '@/features/home/hooks/useHomeRunSlot';
@@ -3786,8 +3786,12 @@ export default function HomePage() {
                     />
                   </div>
                 ) : null;
-                const contentWithCalm = calmCard || programStandalone
-                  ? <>{calmCard}{programStandalone}{content}</>
+                // Home v2: the one streak message of the day (renders nothing when there is none).
+                const streakCard = featureFlags.enableHomeV2 && isViewingToday ? (
+                  <div className="px-4 mb-3"><StreakNoticeCard /></div>
+                ) : null;
+                const contentWithCalm = calmCard || streakCard || programStandalone
+                  ? <>{calmCard}{streakCard}{programStandalone}{content}</>
                   : content;
                 return HOME_ANCHOR_V2_ENABLED
                   ? (

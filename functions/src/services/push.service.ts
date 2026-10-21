@@ -369,6 +369,14 @@ export interface SendPushOpts {
    * isPersonalInteraction is true. Absent = no change for every existing caller.
    */
   countTowardDailyCap?: boolean;
+  /**
+   * 21.10.2026 (streak rescue, owner: "counts in the cap but has priority") — this send is
+   * COUNTED in the daily engagement cap (the counter increments as usual) but is not BLOCKED
+   * by it: an earlier nudge that filled the cap can't silence the 19:30 streak rescue. Every
+   * other guard (prefs, quiet hours, Shabbat, kill switches, rate cap) still applies. Only
+   * meaningful together with a capped send. Absent = no change for every existing caller.
+   */
+  dailyCapPriority?: boolean;
 }
 
 export interface SendPushResult {
@@ -569,7 +577,7 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
         const rateData = rateByUid.get(uid);
         const storedDate = rateData?.dailyEngagementDate;
         const storedCount = typeof rateData?.dailyEngagementCount === 'number' ? rateData.dailyEngagementCount : 0;
-        if (storedDate === todayKey && storedCount >= dailyCap) {
+        if (storedDate === todayKey && storedCount >= dailyCap && opts.dailyCapPriority !== true) {
           result.skippedDailyCap++;
           logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount}, cap=${dailyCap})`);
           continue;

@@ -103,6 +103,8 @@ export default defineConfig({
       'tests/firestore-ai-coach-threads.rules.test.ts',
       // Pace self-correction write path (users.running.paceProfile) — emulator :8089.
       'tests/pace-profile-self-correction.rules.test.ts',
+      // Streak kept-gap bridge (Saturday rule / shields) under the existing streaks rule — emulator :8089.
+      'tests/streak-bridge.rules.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in
       // this root's node_modules) — only files with zero external
       // imports (pure logic, like accessCodeRateLimit.ts) can run here.
