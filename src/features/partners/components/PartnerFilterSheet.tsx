@@ -34,6 +34,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface PartnerFilterSheetProps {
   isOpen: boolean;
@@ -75,13 +77,16 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
   const setAgeRange = usePartnerFilters((s) => s.setAgeRange);
   const reset = usePartnerFilters((s) => s.reset);
 
+  const t = useT(map);
+
   const GENDER_PILLS: { value: GenderFilter; label: string }[] = [
-    { value: 'all', label: 'הכל' },
-    { value: 'male', label: 'גברים' },
-    { value: 'female', label: 'נשים' },
+    { value: 'all', label: t('partners.sheet.gender.all') },
+    { value: 'male', label: t('partners.sheet.gender.male') },
+    { value: 'female', label: t('partners.sheet.gender.female') },
   ];
 
-  const formatDistance = (v: number) => (v < 1 ? `${Math.round(v * 1000)} מ׳` : `${v} ק״מ`);
+  const formatDistance = (v: number) =>
+    v < 1 ? t('partners.distance.meters', { m: Math.round(v * 1000) }) : t('partners.distance.km', { km: v });
 
   if (v2) {
     return (
@@ -102,19 +107,19 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
         grabberClassName="flex justify-center pt-3 pb-2"
-        ariaLabel="סינון"
+        ariaLabel={t('partners.sheet.title')}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-3">
-            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">סינון</h2>
+            <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('partners.sheet.title')}</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={reset}
                 className="h-9 whitespace-nowrap rounded-full px-3 text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
-                איפוס
+                {t('partners.sheet.reset')}
               </button>
-              <IconButton aria-label="סגור" tone="surface" size={36} onClick={onClose}>
+              <IconButton aria-label={t('partners.sheet.close')} tone="surface" size={36} onClick={onClose}>
                 <X size={16} className="text-v2-ink-2" />
               </IconButton>
             </div>
@@ -131,7 +136,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               }}
               className="h-12 w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
-              החל
+              {t('partners.sheet.apply')}
             </button>
           </div>
         }
@@ -141,9 +146,9 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
 
           <section>
             <div className="mb-2.5 flex items-center justify-between gap-2">
-              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מרחק</span>
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('partners.sheet.distance')}</span>
               <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-                עד {formatDistance(distanceKm)}
+                {t('partners.sheet.distanceUpTo', { distance: formatDistance(distanceKm) })}
               </span>
             </div>
             <div className="relative w-full" style={{ height: 16 }}>
@@ -166,14 +171,14 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                 onChange={(e) => setDistanceKm(Number(e.target.value))}
                 className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
                 style={{ accentColor: V2_ACCENT }}
-                aria-label="מרחק חיפוש בקילומטרים"
+                aria-label={t('partners.sheet.distanceLabel')}
               />
             </div>
           </section>
 
           <section>
             <div className="mb-2.5">
-              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">מגדר</span>
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('partners.sheet.gender')}</span>
             </div>
             <div className="flex gap-2">
               {GENDER_PILLS.map((p) => {
@@ -199,7 +204,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
 
           <section>
             <div className="mb-2.5">
-              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">טווח גילאים</span>
+              <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('partners.sheet.age')}</span>
             </div>
             <DualRangeSlider
               min={18}
@@ -207,12 +212,12 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               step={1}
               values={ageRange}
               onChange={setAgeRange}
-              ariaLabelMin="גיל מינימום"
-              ariaLabelMax="גיל מקסימום"
+              ariaLabelMin={t('partners.sheet.ageMin')}
+              ariaLabelMax={t('partners.sheet.ageMax')}
             />
             <div className="mt-0.5 flex justify-between text-[11px] font-bold text-v2-muted">
-              <span>צעיר</span>
-              <span>מבוגר</span>
+              <span>{t('partners.sheet.age.young')}</span>
+              <span>{t('partners.sheet.age.old')}</span>
             </div>
           </section>
         </div>
@@ -272,14 +277,14 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                 onClick={reset}
                 className="text-[13px] font-bold text-gray-500 active:text-gray-700 pointer-events-auto"
               >
-                אפס
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אפס
               </button>
-              <h2 className="text-base font-black text-gray-900">פילטרים</h2>
+              <h2 className="text-base font-black text-gray-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פילטרים</h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
-                aria-label="סגור"
+                aria-label="סגור" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
               >
                 <X size={14} className="text-gray-600" />
               </button>
@@ -289,9 +294,9 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               {/* Section 1 — Distance */}
               <section>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[13px] font-black text-gray-800">מרחק</span>
+                  <span className="text-[13px] font-black text-gray-800">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מרחק</span>
                   <span className="text-[13px] font-black" style={{ color: ACCENT }}>
-                    עד {formatDistance(distanceKm)}
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עד {formatDistance(distanceKm)}
                   </span>
                 </div>
                 {/* Wrapped track: gray rail + accent fill from the right edge
@@ -318,7 +323,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                     onChange={(e) => setDistanceKm(Number(e.target.value))}
                     className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
                     style={{ accentColor: ACCENT }}
-                    aria-label="מרחק חיפוש בקילומטרים"
+                    aria-label="מרחק חיפוש בקילומטרים" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                   />
                 </div>
               </section>
@@ -326,7 +331,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               {/* Section 2 — Gender (pills, single-select with 'all' fallback) */}
               <section>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[13px] font-black text-gray-800">מגדר</span>
+                  <span className="text-[13px] font-black text-gray-800">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מגדר</span>
                 </div>
                 <div className="flex gap-2">
                   {GENDER_PILLS.map((p) => {
@@ -354,7 +359,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
               {/* Section 3 — Age range (single dual-handle slider) */}
               <section>
                 <div className="mb-2">
-                  <span className="text-[13px] font-black text-gray-800">טווח גילאים</span>
+                  <span className="text-[13px] font-black text-gray-800">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טווח גילאים</span>
                 </div>
                 <DualRangeSlider
                   min={18}
@@ -362,15 +367,15 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                   step={1}
                   values={ageRange}
                   onChange={setAgeRange}
-                  ariaLabelMin="גיל מינימום"
-                  ariaLabelMax="גיל מקסימום"
+                  ariaLabelMin="גיל מינימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                  ariaLabelMax="גיל מקסימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 />
                 {/* Edge labels — under RTL `flex justify-between`, the first
                     child sits on the right (younger end) and the second on
                     the left (older end). */}
                 <div className="flex justify-between" style={{ fontSize: 10, color: '#9CA3AF' }}>
-                  <span>צעיר</span>
-                  <span>מבוגר</span>
+                  <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}צעיר</span>
+                  <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מבוגר</span>
                 </div>
               </section>
             </div>
@@ -386,7 +391,7 @@ export function PartnerFilterSheet({ isOpen, onClose, onApply, tab }: PartnerFil
                 className="w-full py-3 text-white text-sm font-black active:scale-[0.98] transition-transform shadow-sm pointer-events-auto"
                 style={{ backgroundColor: ACCENT, borderRadius: 12 }}
               >
-                החל
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}החל
               </button>
             </div>
           </motion.div>

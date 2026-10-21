@@ -57,6 +57,8 @@ import { resolveIconKey, getProgramIcon } from '@/features/content/programs';
 import type { Program } from '@/features/content/programs/core/program.types';
 import { PROGRAM_NAME_HE } from '@/lib/utils/program-names';
 import { DualRangeSlider } from './DualRangeSlider';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -80,29 +82,25 @@ interface PartnerFilterBarProps {
 
 // ── Pill catalogues ──────────────────────────────────────────────────────────
 
-interface PillDef<V extends string> {
-  value: V;
-  label: string;
-}
+// Labels are catalog keys (namespace `map`), translated in render.
+const ACTIVITY_PILLS = [
+  { value: 'all', labelKey: 'partners.filter.activity.all' },
+  { value: 'strength', labelKey: 'partners.filter.activity.strength' },
+  { value: 'running', labelKey: 'partners.filter.activity.running' },
+  { value: 'walking', labelKey: 'partners.filter.activity.walking' },
+] as const satisfies ReadonlyArray<{ value: LiveActivityFilter; labelKey: string }>;
 
-const ACTIVITY_PILLS: PillDef<LiveActivityFilter>[] = [
-  { value: 'all', label: 'הכל' },
-  { value: 'strength', label: 'כוח' },
-  { value: 'running', label: 'ריצה' },
-  { value: 'walking', label: 'הליכה' },
-];
+const SOLO_GROUP_PILLS = [
+  { value: 'all', labelKey: 'partners.filter.soloGroup.all' },
+  { value: 'solo', labelKey: 'partners.filter.soloGroup.solo' },
+  { value: 'groups', labelKey: 'partners.filter.soloGroup.groups' },
+] as const satisfies ReadonlyArray<{ value: SoloGroupFilter; labelKey: string }>;
 
-const SOLO_GROUP_PILLS: PillDef<SoloGroupFilter>[] = [
-  { value: 'all', label: 'הכל' },
-  { value: 'solo', label: 'יחידים' },
-  { value: 'groups', label: 'קבוצות' },
-];
-
-const PLANNED_TIME_PILLS: PillDef<PlannedTimeFilter>[] = [
-  { value: 'all', label: 'הכל' },
-  { value: 'today', label: 'היום' },
-  { value: 'tomorrow', label: 'מחר' },
-];
+const PLANNED_TIME_PILLS = [
+  { value: 'all', labelKey: 'partners.filter.time.all' },
+  { value: 'today', labelKey: 'partners.filter.time.today' },
+  { value: 'tomorrow', labelKey: 'partners.filter.time.tomorrow' },
+] as const satisfies ReadonlyArray<{ value: PlannedTimeFilter; labelKey: string }>;
 
 const ACCENT = '#00ADEF';
 
@@ -392,6 +390,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
   const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
 
   const { programPills, levelMaxBound } = usePartnerFilterModel(liveActivity, selectedProgram);
+  const t = useT(map);
 
   const showStrength = liveActivity === 'strength';
   const showRunning = liveActivity === 'running';
@@ -401,7 +400,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
   return (
     <>
       <section>
-        <SectionTitleV2>סוג</SectionTitleV2>
+        <SectionTitleV2>{t('partners.filter.type')}</SectionTitleV2>
         <div className="flex flex-wrap gap-2">
           {SOLO_GROUP_PILLS.map((p) => (
             <PillV2
@@ -409,7 +408,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
               active={soloGroupFilter === p.value}
               onClick={() => setSoloGroupFilter(p.value)}
             >
-              {p.label}
+              {t(p.labelKey)}
             </PillV2>
           ))}
         </div>
@@ -417,7 +416,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
 
       {showDay && (
         <section>
-          <SectionTitleV2>מתי</SectionTitleV2>
+          <SectionTitleV2>{t('partners.filter.when')}</SectionTitleV2>
           <div className="flex flex-wrap gap-2">
             {PLANNED_TIME_PILLS.map((p) => (
               <PillV2
@@ -425,7 +424,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
                 active={plannedTime === p.value}
                 onClick={() => setPlannedTime(p.value)}
               >
-                {p.label}
+                {t(p.labelKey)}
               </PillV2>
             ))}
           </div>
@@ -438,7 +437,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
                   </span>
                 }
               >
-                <span className="text-[13px] font-extrabold text-v2-ink-2">טווח שעות</span>
+                <span className="text-[13px] font-extrabold text-v2-ink-2">{t('partners.filter.timeRange')}</span>
               </SectionTitleV2>
               <DualRangeSlider
                 min={6 * 60}
@@ -446,8 +445,8 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
                 step={15}
                 values={scheduledTimeRange}
                 onChange={setScheduledTimeRange}
-                ariaLabelMin="שעת התחלה"
-                ariaLabelMax="שעת סיום"
+                ariaLabelMin={t('partners.filter.timeStart')}
+                ariaLabelMax={t('partners.filter.timeEnd')}
               />
             </div>
           )}
@@ -456,10 +455,10 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
 
       {showStrength && programPills.length > 0 && (
         <section>
-          <SectionTitleV2>תוכנית</SectionTitleV2>
+          <SectionTitleV2>{t('partners.filter.program')}</SectionTitleV2>
           <div className="flex flex-wrap gap-2">
             <PillV2 active={selectedProgram === null} onClick={() => setSelectedProgram(null)}>
-              הכל
+              {t('partners.filter.program.all')}
             </PillV2>
             {programPills.map((p) => (
               <PillV2
@@ -481,23 +480,23 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
 
       {showStrength && (
         <section>
-          <SectionTitleV2 value={`${levelRange[0]}–${levelRange[1]}`}>רמה</SectionTitleV2>
+          <SectionTitleV2 value={`${levelRange[0]}–${levelRange[1]}`}>{t('partners.filter.level')}</SectionTitleV2>
           <DualRangeSlider
             min={1}
             max={levelMaxBound}
             step={1}
             values={levelRange}
             onChange={setLevelRange}
-            ariaLabelMin="רמה מינימום"
-            ariaLabelMax="רמה מקסימום"
+            ariaLabelMin={t('partners.filter.levelMin')}
+            ariaLabelMax={t('partners.filter.levelMax')}
           />
-          <EdgeLabelsV2 start="מתחיל" end="מתקדם" />
+          <EdgeLabelsV2 start={t('partners.filter.level.beginner')} end={t('partners.filter.level.advanced')} />
         </section>
       )}
 
       {showRunning && (
         <section>
-          <SectionTitleV2 value={`${runDistance} ק״מ`}>מרחק יעד</SectionTitleV2>
+          <SectionTitleV2 value={t('partners.distance.km', { km: runDistance })}>{t('partners.filter.runDistance')}</SectionTitleV2>
           <div className="relative w-full" style={{ height: 16 }}>
             <div className="absolute top-1/2 left-0 right-0 h-1.5 -translate-y-1/2 rounded-full bg-v2-hairline" />
             <div
@@ -518,7 +517,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
               onChange={(e) => setRunDistance(Number(e.target.value))}
               className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
               style={{ accentColor: V2_ACCENT }}
-              aria-label="מרחק יעד בקילומטרים"
+              aria-label={t('partners.filter.runDistanceLabel')}
             />
           </div>
         </section>
@@ -526,7 +525,7 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
 
       {showRunning && (
         <section>
-          <SectionTitleV2>קצב (דקות לק״מ)</SectionTitleV2>
+          <SectionTitleV2>{t('partners.filter.pace')}</SectionTitleV2>
           <DualRangeSlider
             min={180}
             max={540}
@@ -534,10 +533,10 @@ export function PartnerFilterRowsV2({ tab }: { tab: 'live' | 'scheduled' }) {
             values={paceRange}
             onChange={setPaceRange}
             formatLabel={formatPace}
-            ariaLabelMin="קצב מינימום"
-            ariaLabelMax="קצב מקסימום"
+            ariaLabelMin={t('partners.filter.paceMin')}
+            ariaLabelMax={t('partners.filter.paceMax')}
           />
-          <EdgeLabelsV2 start="איטי" end="מהיר" />
+          <EdgeLabelsV2 start={t('partners.filter.pace.slow')} end={t('partners.filter.pace.fast')} />
         </section>
       )}
     </>
@@ -566,6 +565,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
   const setScheduledTimeRange = usePartnerFilters((s) => s.setScheduledTimeRange);
 
   const { programPills, levelMaxBound } = usePartnerFilterModel(liveActivity, selectedProgram);
+  const t = useT(map);
 
   // ── Reset levelRange to [1, max] on a USER-DRIVEN program change ──────────
   // When the user taps a different program pill, the previous range is
@@ -644,7 +644,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             active={liveActivity === p.value}
             onClick={() => setLiveActivity(p.value)}
           >
-            {p.label}
+            {t(p.labelKey)}
           </PillV2>
         ))}
         <button
@@ -655,10 +655,10 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
               : 'bg-white text-v2-ink-2 shadow-v2-ring'
           }`}
-          aria-label={extraCount > 0 ? `סינון — ${extraCount} פעילים` : 'סינון'}
+          aria-label={extraCount > 0 ? t('partners.filter.openActive', { count: extraCount }) : t('partners.filter.open')}
         >
           <SlidersHorizontal size={15} aria-hidden />
-          סינון
+          {t('partners.filter.open')}
           {extraCount > 0 && (
             <span className="grid h-5 min-w-5 place-items-center rounded-full bg-v2-deep px-1.5 text-[11px] font-black text-white">
               {extraCount}
@@ -688,7 +688,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             active={liveActivity === p.value}
             onClick={() => setLiveActivity(p.value)}
           >
-            {p.label}
+            {t(p.labelKey)}
           </Pill>
         ))}
         <button
@@ -700,10 +700,10 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             backgroundColor: '#FFFFFF',
             border: '0.5px solid rgba(0,0,0,0.12)',
           }}
-          aria-label="פתח פילטרים נוספים"
+          aria-label="פתח פילטרים נוספים" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
         >
           <SlidersHorizontal size={13} aria-hidden />
-          עוד פילטרים
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עוד פילטרים
         </button>
       </div>
 
@@ -722,7 +722,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               active={soloGroupFilter === p.value}
               onClick={() => handleSoloGroupTap(p.value)}
             >
-              {p.label}
+              {t(p.labelKey)}
             </Pill>
           ))}
         </div>
@@ -735,7 +735,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
           style={{ scrollbarWidth: 'none' }}
         >
           <Pill active={selectedProgram === null} onClick={() => setSelectedProgram(null)}>
-            הכל
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הכל
           </Pill>
           {programPills.map((p) => (
             <Pill
@@ -758,9 +758,9 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
       {showRow3Running && (
         <div className="px-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-bold text-gray-600">מרחק יעד</span>
+            <span className="text-[12px] font-bold text-gray-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מרחק יעד</span>
             <span className="text-[12px] font-black" style={{ color: ACCENT }}>
-              {runDistance} ק״מ
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{runDistance} ק״מ
             </span>
           </div>
           {/* Wrapped track: gray rail + accent fill from right edge (0 km)
@@ -786,7 +786,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               onChange={(e) => setRunDistance(Number(e.target.value))}
               className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer"
               style={{ accentColor: ACCENT }}
-              aria-label="מרחק יעד בקילומטרים"
+              aria-label="מרחק יעד בקילומטרים" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             />
           </div>
         </div>
@@ -801,7 +801,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
       {showRow4Level && (
         <div className="px-4">
           <div className="mb-1">
-            <span className="text-[12px] font-bold text-gray-600">רמה</span>
+            <span className="text-[12px] font-bold text-gray-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רמה</span>
           </div>
           <DualRangeSlider
             min={1}
@@ -809,14 +809,14 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             step={1}
             values={levelRange}
             onChange={setLevelRange}
-            ariaLabelMin="רמה מינימום"
-            ariaLabelMax="רמה מקסימום"
+            ariaLabelMin="רמה מינימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+            ariaLabelMax="רמה מקסימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           />
           {/* Edge labels: under RTL, first child sits on the right (low side),
               second on the left (high side). */}
           <div className="flex justify-between" style={{ fontSize: 10, color: '#9CA3AF' }}>
-            <span>מתחיל</span>
-            <span>מתקדם</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מתחיל</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מתקדם</span>
           </div>
         </div>
       )}
@@ -825,7 +825,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
       {showRow4Running && (
         <div className="px-4">
           <div className="mb-1">
-            <span className="text-[12px] font-bold text-gray-600">קצב (דקות לק״מ)</span>
+            <span className="text-[12px] font-bold text-gray-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קצב (דקות לק״מ)</span>
           </div>
           <DualRangeSlider
             min={180}
@@ -834,14 +834,14 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             values={paceRange}
             onChange={setPaceRange}
             formatLabel={formatPace}
-            ariaLabelMin="קצב מינימום"
-            ariaLabelMax="קצב מקסימום"
+            ariaLabelMin="קצב מינימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+            ariaLabelMax="קצב מקסימום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           />
           {/* Edge labels: under RTL, first child sits on the right (slow =
               higher seconds-per-km), second on the left (fast = lower). */}
           <div className="flex justify-between" style={{ fontSize: 10, color: '#9CA3AF' }}>
-            <span>איטי</span>
-            <span>מהיר</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}איטי</span>
+            <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מהיר</span>
           </div>
         </div>
       )}
@@ -858,7 +858,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
               active={plannedTime === p.value}
               onClick={() => setPlannedTime(p.value)}
             >
-              {p.label}
+              {t(p.labelKey)}
             </Pill>
           ))}
         </div>
@@ -867,7 +867,7 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
       {showTimeSlider && (
         <div className="px-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-bold text-gray-600">טווח שעות</span>
+            <span className="text-[12px] font-bold text-gray-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טווח שעות</span>
             <span className="text-[12px] font-black" dir="ltr" style={{ color: ACCENT }}>
               {formatTimeOfDay(scheduledTimeRange[0])} – {formatTimeOfDay(scheduledTimeRange[1])}
             </span>
@@ -878,8 +878,8 @@ export function PartnerFilterBar({ tab, onOpenSheet, onSwitchToScheduled, v2 = f
             step={15}
             values={scheduledTimeRange}
             onChange={setScheduledTimeRange}
-            ariaLabelMin="שעת התחלה"
-            ariaLabelMax="שעת סיום"
+            ariaLabelMin="שעת התחלה" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+            ariaLabelMax="שעת סיום" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           />
         </div>
       )}
