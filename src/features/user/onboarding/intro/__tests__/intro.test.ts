@@ -7,7 +7,8 @@ import {
   markIntroArrival, resolveQuickSignupHref, withIntroRedirect,
 } from '../intro-route';
 import { arcPath, labelCenter, segmentPath } from '../ring-geometry';
-import { trackProps, phoneTrack, happyTrack, THINK } from '../story-timeline';
+import { trackProps } from '../story-timeline';
+import { storyTracks } from '../story-schedule';
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -161,27 +162,28 @@ describe('ring geometry (matches the canvas mockups)', () => {
 });
 
 describe('story timeline', () => {
+  const tracks = storyTracks(BARRIER_STORIES[0]);
   it('reduced motion = the last frame, no animation', () => {
-    const p = trackProps(phoneTrack('left'), 18, { reduce: true });
+    const p = trackProps(tracks.phone, tracks.total, { reduce: true });
     expect(p.initial).toBe(false);
     expect(p.animate).toEqual({ opacity: 1, x: 0, y: 0, scale: 1 });
     expect(p.transition).toBeUndefined();
   });
   it('plays once from the first keyframe, after the hand-off delay', () => {
-    const p = trackProps(THINK, 18, { reduce: false, delay: 2.4 });
-    expect(p.initial).toEqual({ opacity: 0, scale: 0.85 });
+    const p = trackProps(tracks.think, tracks.total, { reduce: false, delay: 2.4 });
+    expect(p.initial).toEqual({ opacity: 0, scale: 0.94 });
     expect((p.transition as { delay: number }).delay).toBe(2.4);
     expect((p.transition as { repeat?: number }).repeat).toBeUndefined();
   });
-  it('right-side stories mirror the phone / happy start', () => {
-    expect(phoneTrack('right').values.x[0]).toBe(-105);
-    expect(happyTrack('right').values.x[0]).toBe(-100);
-    expect(happyTrack('left').values.x[0]).toBe(70);
+  it('right-side stories mirror the small phone', () => {
+    expect(storyTracks(BARRIER_STORIES[1]).phone.values.x[0]).toBe(-105);
+    expect(storyTracks(BARRIER_STORIES[0]).phone.values.x[0]).toBe(105);
   });
   it('every track ends where it holds (times end at 1, values match)', () => {
-    for (const t of [THINK, phoneTrack('left'), happyTrack('right')]) {
+    for (const t of [tracks.think, tracks.phone, tracks.happy, tracks.push, tracks.tap, tracks.lock, tracks.sad]) {
       expect(t.times[0]).toBe(0);
       expect(t.times[t.times.length - 1]).toBe(1);
+      for (let i = 1; i < t.times.length; i++) expect(t.times[i]).toBeGreaterThanOrEqual(t.times[i - 1]);
       for (const v of Object.values(t.values)) expect(v).toHaveLength(t.times.length);
     }
   });

@@ -1,11 +1,11 @@
 /**
- * The story screens' choreography (enable_entry_intro_v1), transcribed from the
- * owner's canvas keyframes (intro-S2…S6 / SB / G1 CSS). Percentages are the
- * mockup's own; the app plays each track ONCE and holds the last frame (every
- * track's final keyframe already is the story's end state).
+ * The intro's motion primitives (enable_entry_intro_v1): eases, the ring
+ * hand-off / badge tracks (from the owner's canvas keyframes), and the helpers
+ * that turn a track into framer-motion props — or into the final frame when
+ * motion is reduced. Each track plays ONCE and holds its last frame.
+ * The story beats themselves are sequenced in story-schedule.ts.
  *
- * Pure data + one helper that turns a track into framer-motion props, or into the
- * final frame when motion is reduced.
+ * Pure data, no React.
  */
 
 import type { MotionProps } from 'framer-motion';
@@ -21,14 +21,10 @@ export const EASE_CSS: Ease = [0.25, 0.1, 0.25, 1];
 export const EASE_BACK: Ease = [0.34, 1.56, 0.64, 1];
 export const EASE_STD: Ease = [0.4, 0, 0.2, 1];
 
-/** One story's timeline — the mockup's 18 s loop, played once. */
-export const STORY_S = 18;
 /** The ring hand-off before each story. */
 export const HANDOFF_S = 2.4;
 /** The badge lands slightly after the hand-off. */
 export const BADGE_S = 2.6;
-/** The ring closing into the logo over the globe. */
-export const RING_CLOSE_S = 5;
 
 export interface Track {
   /** 0..1, ascending, first 0 and last 1. */
@@ -38,76 +34,6 @@ export interface Track {
 }
 
 const pct = (...p: number[]) => p.map((n) => n / 100);
-
-/** The thought bubble: in, hold, out. */
-export const THINK: Track = {
-  times: pct(0, 3, 7, 19, 23, 100),
-  values: { opacity: [0, 0, 1, 1, 0, 0], scale: [0.85, 0.85, 1, 1, 0.95, 0.95] },
-  ease: EASE_OUT,
-};
-
-/** The sad character + its name tag fade out as the happy one arrives. */
-export const SAD: Track = {
-  times: pct(0, 30, 36, 100),
-  values: { opacity: [1, 1, 0, 0] },
-  ease: EASE_CSS,
-};
-
-/** The happy character: crossfades in at the sad one's place, then shrinks into the corner. */
-export function happyTrack(side: 'left' | 'right'): Track {
-  const x = side === 'left' ? 70 : -100;
-  return {
-    times: pct(0, 30, 36, 40, 54, 100),
-    values: {
-      opacity: [0, 0, 1, 1, 1, 1],
-      x: [x, x, x, x, 0, 0],
-      y: [-164, -164, -164, -164, 0, 0],
-      scale: [2.15, 2.15, 2.15, 2.15, 1, 1],
-    },
-    ease: EASE_IN_OUT,
-  };
-}
-
-/** The phone: appears small next to the character, then grows into its place. */
-export function phoneTrack(side: 'left' | 'right'): Track {
-  const x = side === 'left' ? 105 : -105;
-  return {
-    times: pct(0, 20, 25, 38, 52, 100),
-    values: {
-      opacity: [0, 0, 1, 1, 1, 1],
-      x: [x, x, x, x, 0, 0],
-      y: [150, 150, 150, 150, 0, 0],
-      scale: [0.42, 0.42, 0.42, 0.42, 1, 1],
-    },
-    ease: EASE_IN_OUT,
-  };
-}
-
-/** The push notification drops onto the lock screen. */
-export const PUSH: Track = {
-  times: pct(0, 22, 27, 100),
-  values: { opacity: [0, 0, 1, 1], y: [-12, -12, 0, 0] },
-  ease: EASE_OUT,
-};
-
-/** The lock screen fades to the app screen after the tap. */
-export const LOCK: Track = {
-  times: pct(0, 52, 58, 100),
-  values: { opacity: [1, 1, 0, 0] },
-  ease: EASE_CSS,
-};
-
-/** The finger tapping the push. */
-export const TAP: Track = {
-  times: pct(0, 50, 53, 55, 57, 60, 100),
-  values: {
-    opacity: [0, 0, 1, 1, 1, 0, 0],
-    x: [30, 30, 0, 0, 0, 0, 0],
-    y: [60, 60, 0, 0, 0, 0, 0],
-    scale: [1, 1, 1, 0.8, 1, 1, 1],
-  },
-  ease: EASE_STD,
-};
 
 /** Hand-off: the other segments fade while this one stays lit. */
 export const HANDOFF_GREY: Track = {

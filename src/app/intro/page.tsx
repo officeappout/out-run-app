@@ -36,6 +36,14 @@ export default function IntroPage() {
     if (preview === false && !loading && !flagOn) router.replace(EXPLORER_ROUTE);
   }, [preview, loading, flagOn, router]);
 
+  // Warm the next hop while the stories play: the /explorer route and the
+  // ring-close overlay's chunk, so the hand-off doesn't wait on the network.
+  useEffect(() => {
+    if (!enabled) return;
+    router.prefetch(EXPLORER_ROUTE);
+    void import('@/features/user/onboarding/intro/components/RingCloseOverlay').catch(() => {});
+  }, [enabled, router]);
+
   const done = useCallback(() => {
     if (leaving.current) return;
     leaving.current = true;

@@ -5,41 +5,46 @@ import { motion } from 'framer-motion';
 import { V2_COLORS } from '@/components/ui/v2/tokens';
 import { BARRIER_LABELS, INTRO_IMG, RING_TONES } from '../intro-copy';
 import { LOGO_SLOT_ATTR } from '../intro-route';
-import { EASE_BACK, EASE_CSS, EASE_IN_OUT, RING_CLOSE_S, tween } from '../story-timeline';
+import { EASE_BACK, EASE_CSS, EASE_IN_OUT, EASE_OUT, tween } from '../story-timeline';
+import {
+  RING_CLOSE_BEATS as B, SLOT_POLL_MS, SLOT_WAIT_S, ringClosePlan, ringCloseScale, type RingClosePlan,
+} from '../ring-close-timeline';
 import { BarrierRing } from './BarrierRing';
-
 
 const RING = 300;
 const LOGO_W = 296;
 const LOGO_H = 110;
 /** Mockup: ring/logo centred at y = 400 of 844. */
 const CENTER_Y = 400 / 844;
-const S = RING_CLOSE_S;
-const at = (pct: number) => (pct / 100) * S;
 
 type Rest = { dx: number; dy: number; scale: number; found: boolean };
 
-function measureRest(cx: number, cy: number): Rest {
+/** The headline's logo slot, if it is on screen and laid out. */
+function measureSlot(cx: number, cy: number): Rest | null {
   const slot = document.querySelector(`[${LOGO_SLOT_ATTR}]`);
   const r = slot?.getBoundingClientRect();
-  if (r && r.width > 0) {
-    return { dx: r.left + r.width / 2 - cx, dy: r.top + r.height / 2 - cy, scale: r.width / LOGO_W, found: true };
-  }
-  // No slot on screen (e.g. the globe presentation is off): rise to the top and fade with the overlay.
+  if (!r || r.width <= 0 || r.height <= 0) return null;
+  return { dx: r.left + r.width / 2 - cx, dy: r.top + r.height / 2 - cy, scale: r.width / LOGO_W, found: true };
+}
+
+/** No slot after the wait (e.g. the globe presentation is off): rise to the top and fade with the veil. */
+function noSlot(cy: number): Rest {
   return { dx: 0, dy: -(cy - 90), scale: 0.32, found: false };
 }
 
 /**
- * The ring closes into the globe (enable_entry_intro_v1, mockup intro-G1, ~5 s):
- * the five coloured segments pop in, the ring closes, it crossfades into the OUT
+ * The ring closes into the globe (enable_entry_intro_v1, mockup intro-G1): the
+ * five coloured segments pop in, the ring closes, it crossfades into the OUT
  * logotype (its own proportions — the ring is not scaled into the "O"), the logo
- * rises into the globe headline's logo slot, the overlay fades and the location
- * step underneath carries on. Played only on the hop from /intro.
+ * rises into the globe headline's logo slot — waiting for that slot to exist, see
+ * ring-close-timeline.ts — and only then the veil lifts over the location step.
+ * Played only on the hop from /intro.
  * z-[100]: the full-screen overlay tier (.cursorrules Z-Index Budget).
  */
 export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [rest, setRest] = useState<Rest | null>(null);
+  const [plan, setPlan] = useState<RingClosePlan | null>(null);
   // The caller's callback may change identity every render — never restart the timeline for it.
   const done = useRef(onDone);
   done.current = onDone;
@@ -50,19 +55,35 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     if (!box) return;
+    const t0 = performance.now();
+    const elapsed = () => (performance.now() - t0) / 1000;
     const cx = box.w / 2;
     const cy = box.h * CENTER_Y;
-    const rise = window.setTimeout(() => setRest(measureRest(cx, cy)), at(62) * 1000);
-    const end = window.setTimeout(() => done.current(), S * 1000);
+    let timer = 0;
+    let end = 0;
+
+    const start = (r: Rest) => {
+      const p = ringClosePlan(r.found ? elapsed() : null);
+      setRest(r);
+      setPlan(p);
+      end = window.setTimeout(() => done.current(), Math.max(0, p.doneAt - elapsed()) * 1000);
+    };
+    const look = () => {
+      const r = measureSlot(cx, cy);
+      if (r) return start(r);
+      if (elapsed() >= B.riseAt + SLOT_WAIT_S) return start(noSlot(cy));
+      timer = window.setTimeout(look, SLOT_POLL_MS);
+    };
+    timer = window.setTimeout(look, B.riseAt * 1000);
     return () => {
-      window.clearTimeout(rise);
+      window.clearTimeout(timer);
       window.clearTimeout(end);
     };
   }, [box]);
 
   if (!box) return <div className="fixed inset-0 z-[100] bg-[#f8fafc]" />;
 
-  const k = Math.min(1, box.w / 390);
+  const k = ringCloseScale(box.w);
   const cy = box.h * CENTER_Y;
   const pop = (i: number) =>
     tween(
@@ -74,19 +95,20 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[100]">
+      {/* The veil: lifts only once the logo has landed in its slot. */}
       <motion.div
         className="absolute inset-0 bg-[#f8fafc]"
         initial={{ opacity: 1 }}
-        animate={{ opacity: [1, 1, 0, 0] }}
-        transition={{ duration: S, times: [0, 0.74, 0.94, 1], ease: EASE_CSS }}
+        animate={{ opacity: plan ? 0 : 1 }}
+        transition={plan ? { duration: B.veilS, delay: plan.veilStart - plan.riseStart, ease: EASE_OUT } : { duration: 0 }}
       />
 
       <motion.div
         className="absolute"
         style={{ left: box.w / 2 - RING / 2, top: cy - RING / 2, scale: k }}
         initial={{ opacity: 1 }}
-        animate={{ opacity: [1, 1, 0, 0], scale: [k, k, 0.6 * k, 0.6 * k] }}
-        transition={{ duration: S, times: [0, 0.4, 0.5, 1], ease: EASE_IN_OUT }}
+        animate={{ opacity: [1, 1, 0], scale: [k, k, 0.6 * k] }}
+        transition={{ duration: B.crossfadeEnd, times: [0, B.crossfadeAt / B.crossfadeEnd, 1], ease: EASE_IN_OUT }}
       >
         <BarrierRing
           size={RING}
@@ -109,8 +131,8 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
             viewBox={`0 0 ${RING} ${RING}`}
             className="absolute inset-0"
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0, 1, 1] }}
-            transition={{ duration: S, times: [0, 0.3, 0.38, 1], ease: EASE_CSS }}
+            animate={{ opacity: [0, 0, 1] }}
+            transition={{ duration: B.closeAt + 0.4, times: [0, B.closeAt / (B.closeAt + 0.4), 1], ease: EASE_CSS }}
           >
             <defs>
               <linearGradient id="introRingClose" x1="0" y1="0" x2="1" y2="1">
@@ -133,12 +155,12 @@ export function RingCloseOverlay({ onDone }: { onDone: () => void }) {
         animate={
           rest
             ? { opacity: rest.found ? 1 : 0, x: rest.dx, y: rest.dy, scale: rest.scale }
-            : { opacity: [0, 0, 1, 1], scale: [0.7, 0.7, 1, 1] }
+            : { opacity: [0, 0, 1], scale: [0.7, 0.7, 1] }
         }
         transition={
           rest
-            ? { duration: at(84 - 62), ease: EASE_IN_OUT, opacity: { duration: at(94 - 62) } }
-            : { duration: at(62), times: [0, 0.4 / 0.62, 0.5 / 0.62, 1], ease: EASE_IN_OUT }
+            ? { duration: B.riseS, ease: EASE_IN_OUT }
+            : { duration: B.crossfadeEnd, times: [0, B.crossfadeAt / B.crossfadeEnd, 1], ease: EASE_IN_OUT }
         }
       />
     </div>

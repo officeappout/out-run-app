@@ -99,6 +99,15 @@ interface GPSStore {
    * `denied` — only a real refusal does.
    */
   requestFix: (options: GPSFixOptions) => Promise<GPSFixResult>;
+
+  /**
+   * Permission ONLY — no fix. Native: the OS dialog (Capacitor requestPermissions),
+   * resolving with the user's answer. Web: the Permissions API's current state when
+   * it already is granted / denied; otherwise 'unknown' (on the web the prompt only
+   * comes with the fix request itself). Lets a caller wait for the user's answer
+   * before starting an animation (onboarding entry globe: ask → answer → dive).
+   */
+  requestLocationPermission: () => Promise<'granted' | 'denied' | 'unknown'>;
 }
 
 export const useGPSStore = create<GPSStore>((set, get) => ({
@@ -118,6 +127,36 @@ export const useGPSStore = create<GPSStore>((set, get) => ({
     if (permissionState === 'denied') return null;
     // 'unknown' / 'prompt' → courtesy prompt.
     return requestPermissionNow();
+  },
+
+  requestLocationPermission: async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const perm = await Geolocation.requestPermissions({ permissions: ['location'] });
+        if (perm.location === 'granted') {
+          set({ permissionState: 'granted' });
+          return 'granted';
+        }
+        // Android "approximate only": answered, but the fix path owns that verdict.
+        if (perm.coarseLocation === 'granted') return 'unknown';
+        set({ permissionState: 'denied', locationError: 'Location permission denied' });
+        return 'denied';
+      } catch {
+        // Location services off / plugin error — let the fix request report it.
+        return 'unknown';
+      }
+    }
+    try {
+      const status = await navigator.permissions?.query({ name: 'geolocation' as PermissionName });
+      if (status?.state === 'granted') return 'granted';
+      if (status?.state === 'denied') {
+        set({ permissionState: 'denied' });
+        return 'denied';
+      }
+    } catch {
+      /* no Permissions API (older WebViews) */
+    }
+    return 'unknown';
   },
 
   requestFix: async ({ enableHighAccuracy, timeout, maximumAge }) => {

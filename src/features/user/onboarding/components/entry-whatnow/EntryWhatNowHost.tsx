@@ -13,7 +13,7 @@
 import { useRouter } from 'next/navigation';
 import { useEntryWhatNow } from '../../hooks/useEntryWhatNow';
 import {
-  WHATNOW_KELLY_URL, whatNowMiniMapUrl,
+  WHATNOW_KELLY_URL, markWhatNowPlanArrival, whatNowMiniMapUrl,
   type WhatNowAnswer, type WhatNowRouteSuggestion,
 } from '../../services/entry-whatnow';
 import WhatNowDrawer from './WhatNowDrawer';
@@ -28,6 +28,8 @@ export interface EntryWhatNowHostProps {
   /** Kelly is reachable for this user (AI access, or the unified team chat). */
   kellyAvailable: boolean;
   onRoute: () => void;
+  /** Reports the answer (after it is recorded) — the map starts its own tour after browse / dismiss. */
+  onAnswered?: (answer: WhatNowAnswer) => void;
 }
 
 export default function EntryWhatNowHost(props: EntryWhatNowHostProps) {
@@ -35,15 +37,18 @@ export default function EntryWhatNowHost(props: EntryWhatNowHostProps) {
   return <EntryWhatNowInner {...props} />;
 }
 
-function EntryWhatNowInner({ enabled, landing, uid, position, route, blocked, kellyAvailable, onRoute }: EntryWhatNowHostProps) {
+function EntryWhatNowInner({ enabled, landing, uid, position, route, blocked, kellyAvailable, onRoute, onAnswered }: EntryWhatNowHostProps) {
   const router = useRouter();
   const state = useEntryWhatNow({ enabled, landing, uid, position, route, blocked });
 
   const onAnswer = (a: WhatNowAnswer) => {
     state.answer(a);
+    onAnswered?.(a);
     if (a === 'route') onRoute();
-    else if (a === 'plan') router.push('/home');
-    else if (a === 'kelly') router.push(WHATNOW_KELLY_URL);
+    else if (a === 'plan') {
+      markWhatNowPlanArrival(typeof window !== 'undefined' ? window.sessionStorage : null);
+      router.push('/home');
+    } else if (a === 'kelly') router.push(WHATNOW_KELLY_URL);
   };
 
   return (

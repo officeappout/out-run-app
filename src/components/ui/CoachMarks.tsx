@@ -15,10 +15,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Pointer, type LucideIcon } from 'lucide-react';
 import { IconTile, type IconTileTone } from '@/components/ui/v2';
+import EntryCoachBubble from './coach-marks/EntryCoachBubble';
+import { placeCoachBubble } from './coach-marks/coach-placement';
 
 export interface CoachMarkStep {
   /** `data-coach` value of the element to point at. Missing → the bubble is centered. */
   target: string;
+  /** Short bold title above the text (the 'entry' bubble; ignored by the others). */
+  title?: string;
   text: string;
   /** true = the tapping finger; 'swipe' = a finger sweeping sideways (a "swipe me" hint). */
   finger?: boolean | 'swipe';
@@ -35,10 +39,12 @@ interface Props {
   nextLabel?: string;
   doneLabel?: string;
   /**
-   * 'dark' — the entry-flow bubble (designs R1–R6): dark bubble, light text, a text action.
+   * 'entry' — the first-launch bubble (owner note 21.10 #6): a v2 card with a title + one
+   * line, progress dots, a caret pointing at the target, a short read-first dwell, and a
+   * spotlight that follows a target still settling into place.
    * Omitted → today's white bubble, byte-identical.
    */
-  variant?: 'light' | 'dark';
+  variant?: 'light' | 'entry';
   /** Counter text (e.g. "1 מתוך 3", "טיפ אחד"). Omitted → today's "1/3". */
   counterLabel?: (index: number, total: number) => string;
 }
@@ -50,7 +56,7 @@ const PAD = 6;
 export default function CoachMarks({
   steps, onFinish, skipLabel = 'דלג', nextLabel = 'הבא', doneLabel = 'הבנתי', variant = 'light', counterLabel,
 }: Props) {
-  const dark = variant === 'dark';
+  const entry = variant === 'entry';
   const rootRef = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
@@ -75,8 +81,17 @@ export default function CoachMarks({
     window.addEventListener('resize', measure);
     // The host may still be animating in — re-measure once it settles.
     const t = setTimeout(measure, 300);
-    return () => { window.removeEventListener('resize', measure); clearTimeout(t); };
-  }, [measure]);
+    // Entry tours point at cards that are still sliding in (carousels, sheets): follow the
+    // target for the first moments of each step so the spotlight never sits on empty map.
+    const follow = entry ? setInterval(measure, 120) : undefined;
+    const stop = entry ? setTimeout(() => clearInterval(follow), 1600) : undefined;
+    return () => {
+      window.removeEventListener('resize', measure);
+      clearTimeout(t);
+      if (follow) clearInterval(follow);
+      if (stop) clearTimeout(stop);
+    };
+  }, [measure, entry]);
 
   if (!step) return null;
   const isLast = idx === steps.length - 1;
@@ -90,13 +105,16 @@ export default function CoachMarks({
         @keyframes coachRipple { 0% { transform: translate(-50%, -50%) scale(0.4); opacity: .7; } 100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }
         @keyframes coachSwipe { 0% { transform: translate(30px, -50%); opacity: 0; } 15% { opacity: 1; } 60% { transform: translate(-70px, -50%); opacity: 1; } 75%,100% { transform: translate(-70px, -50%); opacity: 0; } }
         @keyframes coachRing { 0% { box-shadow: 0 0 0 0 rgba(91,194,242,.7); } 100% { box-shadow: 0 0 0 22px rgba(91,194,242,0); } }
+        @keyframes coachIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { [data-coach-anim] { animation: none !important; } }
       `}</style>
 
       {/* Dim + spotlight: the hole's own shadow dims everything around it. */}
       {box ? (
         <div
-          className="absolute rounded-2xl pointer-events-none transition-all duration-200"
+          className={entry
+            ? 'absolute rounded-2xl pointer-events-none transition-all duration-[240ms] ease-v2'
+            : 'absolute rounded-2xl pointer-events-none transition-all duration-200'}
           style={{ ...box, boxShadow: '0 0 0 9999px rgba(15,23,42,0.6)' }}
         />
       ) : (
@@ -145,10 +163,23 @@ export default function CoachMarks({
         </div>
       )}
 
+      {entry ? (
+        <EntryCoachBubble
+          key={idx}
+          stepKey={idx}
+          title={step.title}
+          text={step.text}
+          index={idx}
+          total={steps.length}
+          placement={placeCoachBubble({ box, rootW: rootRef.current?.clientWidth ?? 0, rootH, finger: step.finger })}
+          isLast={isLast}
+          nextLabel={nextLabel}
+          doneLabel={doneLabel}
+          onNext={() => (isLast ? onFinish('done') : setIdx(idx + 1))}
+        />
+      ) : (
       <div
-        className={dark
-          ? 'absolute left-5 right-5 rounded-2xl bg-[#0e1419] px-3.5 py-3 text-white shadow-v2-float'
-          : 'absolute left-5 right-5 rounded-v2-card bg-white p-4 shadow-v2-float'}
+        className="absolute left-5 right-5 rounded-v2-card bg-white p-4 shadow-v2-float"
         style={
           !box
             ? { top: '40%' }
@@ -157,7 +188,7 @@ export default function CoachMarks({
               : { bottom: rootH - box.top + 12 }
         }
       >
-        <p className={dark ? 'text-[14px] font-semibold leading-5 text-white' : 'text-[15px] font-bold text-v2-ink leading-snug'}>{step.text}</p>
+        <p className="text-[15px] font-bold text-v2-ink leading-snug">{step.text}</p>
         {step.legend && step.legend.length > 0 && (
           <ul className="mt-3 space-y-2">
             {step.legend.map((row) => (
@@ -168,21 +199,20 @@ export default function CoachMarks({
             ))}
           </ul>
         )}
-        <div className={dark ? 'mt-2 flex items-center justify-between' : 'mt-3 flex items-center justify-between'}>
-          <span className={dark ? 'text-[11.5px] text-white/60 tabular-nums' : 'text-[12px] font-bold text-v2-muted tabular-nums'}>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[12px] font-bold text-v2-muted tabular-nums">
             {counterLabel ? counterLabel(idx, steps.length) : `${idx + 1}/${steps.length}`}
           </span>
           <button
             type="button"
             onClick={() => (isLast ? onFinish('done') : setIdx(idx + 1))}
-            className={dark
-              ? 'px-1 py-1 text-[13px] font-bold text-[#5BC2F2] active:scale-95 transition-transform'
-              : 'rounded-full bg-[#00ADEF] px-5 py-2 text-[14px] font-bold text-white active:scale-95 transition-transform'}
+            className="rounded-full bg-[#00ADEF] px-5 py-2 text-[14px] font-bold text-white active:scale-95 transition-transform"
           >
             {isLast ? doneLabel : nextLabel}
           </button>
         </div>
       </div>
+      )}
 
       {/* "דלג" — always visible, every step. Top-right (RTL start), clear of the station's
           own "דלג על התחנה" pill at top-left. */}

@@ -11,6 +11,7 @@ import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
 import { FIRST_RUN_COACH, firstRunToursEnabled, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
 import { useEntryRouter, type EntryRouterGeoBranch } from '@/features/user/onboarding/hooks/useEntryRouter';
 import { calculateProfileCompletion, type CompletionItem } from '@/features/user/identity/services/profile-completion.service';
@@ -416,6 +417,13 @@ export default function HomePage() {
   // The home tour only starts from the WelcomeDrawer's "סתם בא לי להסתכל באפליקציה" link.
   const firstRunToursOn = !flagsLoading && firstRunToursEnabled(featureFlags);
   const [homeTourRequested, setHomeTourRequested] = useState(false);
+  // enable_entry_whatnow_v1: arrived from "מה בא לך עכשיו?" → "תוכנית". The user already
+  // answered "what first" on the map — no WelcomeDrawer on this visit; the 'plan' tour points
+  // at the start cards instead (owner note 21.10 #6). One-shot sessionStorage hint.
+  const [whatNowPlanArrival, setWhatNowPlanArrival] = useState(false);
+  useEffect(() => {
+    if (consumeWhatNowPlanArrival(window.sessionStorage)) setWhatNowPlanArrival(true);
+  }, []);
   const resolvedDashboardMode = useDashboardMode(profile, featureFlags.enableRunningPrograms);
   // (useSmartSchedule removed — mock-driven, see the Alerts note below.)
   const { interceptWorkoutStart, jitState, dismissJIT, cancelJIT } = useRequiredSetup();
@@ -3974,7 +3982,7 @@ export default function HomePage() {
           same guard list as the FAB below, so this never stacks on top of
           the lifestyle wizard, planner, builder, or an open workout. */}
       <AnimatePresence>
-        {entryRouterClassification.kind === 'new' &&
+        {entryRouterClassification.kind === 'new' && !whatNowPlanArrival &&
           !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge && (
             <WelcomeDrawer
               geoBranch={entryRouterClassification.geoBranch}
@@ -4015,6 +4023,19 @@ export default function HomePage() {
         uid={profile?.id}
         gender={profile?.core?.gender}
         onClose={() => setHomeTourRequested(false)}
+      />
+
+      {/* Entry flow v2: "תוכנית" from the map's "מה בא לך עכשיו?" → point at the start cards. */}
+      <FirstRunTour
+        tour="plan"
+        active={
+          firstRunToursOn && whatNowPlanArrival &&
+          !showPlanner && !showLifestyleWizard && !builderOpen && !editEntry && !selectedWorkout && !shouldShowBridge &&
+          !plusDrawerOpen && !composeOpen && !wizardOpen && !reportOpen
+        }
+        uid={profile?.id}
+        gender={profile?.core?.gender}
+        delayMs={900}
       />
 
       {/* Tour replay (Kelly round 4): only when "תראה לי" asked for it — inert otherwise. */}

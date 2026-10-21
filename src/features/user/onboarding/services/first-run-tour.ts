@@ -10,7 +10,7 @@
  */
 import { g, type AppGender } from '@/lib/utils/gendered-text';
 
-export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player';
+export type FirstRunTourId = 'home' | 'map' | 'community' | 'player' | 'route' | 'route-player' | 'plan';
 
 /** The WelcomeDrawer's choices (v2 adds the quiet "סתם בא לי להסתכל באפליקציה" link). */
 export type WelcomeChoice = 'strength' | 'nearby' | 'browse' | 'skip-to-map';
@@ -41,6 +41,8 @@ export const FIRST_RUN_COACH = {
 
 export interface FirstRunTourStep {
   target: string;
+  /** Short title (entry-flow tours: one idea per step — a title + one line). */
+  title?: string;
   text: string;
   /** true = the tapping finger; 'swipe' = a sideways swipe finger (CoachMarks). */
   finger?: boolean | 'swipe';
@@ -111,15 +113,16 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
   switch (tour) {
     case 'home':
       return [
-        { target: FIRST_RUN_COACH.homeWorkout, text: 'כאן האימון של היום — לחיצה ומתחילים', finger: true },
-        { target: FIRST_RUN_COACH.homePlus, text: 'ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר' },
-        { target: FIRST_RUN_COACH.homeWeek, text: 'כאן הלו״ז השבועי שלך' },
+        { target: FIRST_RUN_COACH.homeWorkout, title: 'האימון של היום', text: 'כאן האימון של היום — לחיצה ומתחילים', finger: true },
+        { target: FIRST_RUN_COACH.homePlus, title: 'הכפתור +', text: 'ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר' },
+        { target: FIRST_RUN_COACH.homeWeek, title: 'השבוע שלך', text: 'כאן הלו״ז השבועי שלך' },
       ];
     case 'map':
       return [
-        { target: FIRST_RUN_COACH.mapSearch, text: 'חיפוש פארק או כתובת' },
+        { target: FIRST_RUN_COACH.mapSearch, title: 'חיפוש', text: 'חיפוש פארק או כתובת' },
         {
           target: FIRST_RUN_COACH.mapLayers,
+          title: 'מה רואים במפה',
           text: g(
             gender,
             'כאן אתה בוחר מה רואים במפה: מתקני כושר, ברזיות ושירותים',
@@ -127,7 +130,7 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
             'כאן בוחרים מה רואים במפה: מתקני כושר, ברזיות ושירותים',
           ),
         },
-        { target: FIRST_RUN_COACH.mapPark, text: 'לחיצה על פארק מראה מתקנים ומי מתאמן שם', allowCentered: true },
+        { target: FIRST_RUN_COACH.mapPark, title: 'פארקים', text: 'לחיצה על פארק מראה מתקנים ומי מתאמן שם', allowCentered: true },
       ];
     case 'community':
       return [
@@ -151,38 +154,67 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
         { target: FIRST_RUN_COACH.playerDone, text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
       ];
     // enable_entry_whatnow_v1 (entry flow v2, designs R1–R3): the first floating route card.
+    // Owner note 21.10 #6: one idea per step (title + one line), every step anchored to the
+    // real element — the strength-stop step is dropped when no stop marker is on the map
+    // instead of floating a centred bubble over a dimmed map.
     case 'route':
       return [
-        { target: FIRST_RUN_COACH.routeCard, text: 'זה המסלול שלך. מחליקים הצידה כדי לראות עוד מסלולים באזור.', finger: 'swipe' },
+        { target: FIRST_RUN_COACH.routeCard, title: 'המסלול שלך', text: 'מחליקים הצידה כדי לראות עוד מסלולים באזור.', finger: 'swipe' },
         {
           target: FIRST_RUN_COACH.routeStop,
-          text: 'בעצירות האלה עוצרים לכמה דקות כוח על המתקנים בגינה. הנגן יגיד לך מתי.',
+          title: 'עצירות כוח',
+          text: 'בכל עצירה כמה דקות כוח על המתקנים. הנגן יגיד לך מתי.',
           finger: true,
-          allowCentered: true,
         },
-        { target: FIRST_RUN_COACH.routeStart, text: 'מוכנים? לוחצים כאן ויוצאים. באימון הראשון נבקש 3 פרטים והצהרת בריאות קצרה.', ring: true },
+        {
+          target: FIRST_RUN_COACH.routeStart,
+          title: 'יוצאים לדרך',
+          text: 'לחיצה כאן מתחילה. בפעם הראשונה נבקש 3 פרטים והצהרת בריאות קצרה.',
+          ring: true,
+        },
       ];
     // enable_entry_whatnow_v1 (design R6): one tip the first time the route player runs.
     case 'route-player':
       return [
-        { target: FIRST_RUN_COACH.routePlayerControls, text: 'לסיום האימון לוחצים לחיצה ארוכה, כדי שלא ייגמר בטעות בכיס.' },
+        {
+          target: FIRST_RUN_COACH.routePlayerControls,
+          title: 'סיום האימון',
+          text: 'לחיצה ארוכה מסיימת, כדי שלא ייגמר בטעות בכיס.',
+        },
+      ];
+    // enable_entry_whatnow_v1: "תוכנית" in "מה בא לך עכשיו?" → home, pointing at the start cards
+    // (instead of a second "what first?" drawer).
+    case 'plan':
+      return [
+        {
+          target: FIRST_RUN_COACH.homeWorkout,
+          title: 'בוחרים תוכנית',
+          text: g(
+            gender,
+            'כוח או ריצה: לוחץ על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.',
+            'כוח או ריצה: לוחצת על כרטיס, עונה על כמה שאלות קצרות, והתוכנית מוכנה.',
+            'כוח או ריצה: לוחצים על כרטיס, עונים על כמה שאלות קצרות, והתוכנית מוכנה.',
+          ),
+          finger: true,
+        },
       ];
     default:
       return [];
   }
 }
 
-/** Bubble chrome per tour. The entry-flow tours use the dark bubble (designs R1–R6); the
- *  original tours keep CoachMarks' defaults (undefined → byte-identical). */
+/** Bubble chrome per tour. The first-launch tours (route / route-player / plan, and the home /
+ *  map tours a new user meets right after the entry flow) use the v2 'entry' bubble — title +
+ *  line, progress dots, caret, read-first dwell (owner note 21.10 #6). The in-workout / community
+ *  tours keep CoachMarks' defaults (undefined → byte-identical). */
 export interface FirstRunTourChrome {
-  variant: 'dark';
-  counterLabel: (index: number, total: number) => string;
+  variant: 'entry';
 }
 
+const ENTRY_CHROME_TOURS: readonly FirstRunTourId[] = ['route', 'route-player', 'plan', 'home', 'map'];
+
 export function firstRunTourChrome(tour: FirstRunTourId): FirstRunTourChrome | undefined {
-  if (tour === 'route') return { variant: 'dark', counterLabel: (i, n) => `${i + 1} מתוך ${n}` };
-  if (tour === 'route-player') return { variant: 'dark', counterLabel: () => 'טיפ אחד' };
-  return undefined;
+  return ENTRY_CHROME_TOURS.includes(tour) ? { variant: 'entry' } : undefined;
 }
 
 /**

@@ -102,7 +102,7 @@ import { consumeWalkAutoRoute } from '@/features/schedule/walking/walkHandoff';
 import { logHybridShown } from '@/features/generation-review/capture/hooks';
 import EntryWhatNowMount from './EntryWhatNowMount';
 import { RouteFirstTour } from '@/features/user/onboarding/components/entry-whatnow/EntryRouteTours';
-import { firstWorkoutNote, routeSuggestionFromSlots } from '@/features/user/onboarding/services/entry-whatnow';
+import { firstWorkoutNote, mapTourAfterWhatNow, routeSuggestionFromSlots } from '@/features/user/onboarding/services/entry-whatnow';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
@@ -989,6 +989,9 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // Flag off → entryWhatNowOn is false: the host renders nothing, the carousels get no
   // tutorial props and no footnote (byte-identical).
   const entryWhatNowOn = !mapFlagsLoading && mapFeatureFlags.enableEntryWhatnowV1;
+  // "רק להסתכל" / closing the drawer → the map's own first-run tour runs on this visit too
+  // (owner note 21.10 #6 — the entry landing is a deep link, which otherwise keeps it off).
+  const [whatNowBrowsed, setWhatNowBrowsed] = useState(false);
   // The route card's numbers come from the map's own suggestion (first walk/run + strength slot).
   const entryRouteSuggestion = useMemo(
     () => (entryWhatNowOn && entryV2Landing ? routeSuggestionFromSlots(carouselSlots, slotActivity) : null),
@@ -2631,12 +2634,13 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
 
   // First-run map tour (slice 2) — idle discovery screen only: never during a workout/run,
   // never on a deep-linked arrival, never over a sheet / drawer / non-idle map mode.
+  const mapTourEligible = firstRunTourEligible || whatNowBrowsed;
   const mapTourActive =
-    firstRunTourEligible && !mapFlagsLoading && firstRunToursEnabled(mapFeatureFlags) &&
+    mapTourEligible && !mapFlagsLoading && firstRunToursEnabled(mapFeatureFlags) &&
     isMapVisuallyReady &&
     !isMapTourBlocked({
       workoutActive: logic.isWorkoutActive,
-      openedByDeepLink: !firstRunTourEligible,
+      openedByDeepLink: !mapTourEligible,
       surfaceOpen:
         screen !== 'DISCOVERY' || mapMode !== 'idle' || partnerTab !== null || topChromeFolded ||
         plusDrawerOpen || wizardOpen || reportOpen || composeOpen || setPlaceSheetKind !== null ||
@@ -2662,6 +2666,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
             !isMapVisuallyReady || logic.isWorkoutActive || mapMode !== 'idle' || logic.isGenerating || !!mapGlobalSheet
           }
           kellyUnified={mapFeatureFlags.kellyUnifiedV1 === true}
+          onAnswered={(a) => { if (mapTourAfterWhatNow(a)) setWhatNowBrowsed(true); }}
           onRoute={() => {
             // The map's existing "מה עושים היום?" carousel — same entry as its own button /
             // the openHybridSlots deep-link; the settle-preview draws the route + stops.

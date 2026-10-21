@@ -17,7 +17,10 @@ const dis = (p: Partial<Dismissal> = {}): Dismissal => ({ findingId: 'qa-1__a', 
 
 describe('owner-rules.json (seed)', () => {
   it('is valid, has the seed notes, and every id is documented in owner-rules.md', () => {
-    expect(fileRules.map((r) => r.id)).toEqual(['OWN-001', 'OWN-002', 'OWN-003', 'OWN-004', 'OWN-005', 'OWN-006', 'OWN-007', 'OWN-008', 'OWN-009', 'OWN-010', 'OWN-011']);
+    expect(fileRules.map((r) => r.id)).toEqual(['OWN-001', 'OWN-002', 'OWN-003', 'OWN-004', 'OWN-005', 'OWN-006', 'OWN-007', 'OWN-008', 'OWN-009', 'OWN-010', 'OWN-011',
+      // first-launch screens (owner notes 21.10, PR #636)
+      'OWN-012', 'OWN-013', 'OWN-014', 'OWN-015',
+    ]);
     const md = readFileSync(join(QA_DIR, 'owner-rules.md'), 'utf8');
     for (const r of fileRules) {
       expect(md).toContain(`### ${r.id} · ${r.severity}`);
@@ -55,7 +58,7 @@ describe('merge + scope', () => {
       { id: 'OWN-101', text: 'א', screen: 'map', severity: 'P1', createdAtMs: 1 },
       { id: 'OWN-001', text: 'מתנגש', screen: null, severity: 'P3', createdAtMs: 3 },
     ]);
-    expect(merged.map((r) => r.id).slice(-3)).toEqual(['OWN-011', 'OWN-101', 'OWN-102']);
+    expect(merged.map((r) => r.id).slice(-3)).toEqual([fileRules[fileRules.length - 1].id, 'OWN-101', 'OWN-102']);
     expect(merged.find((r) => r.id === 'OWN-101')).toMatchObject({ origin: 'panel', scope: { screens: ['map'], flows: [] } });
     expect(merged.find((r) => r.id === 'OWN-001')!.origin).toBe('file');
   });

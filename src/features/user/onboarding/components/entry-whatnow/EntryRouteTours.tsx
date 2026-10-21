@@ -46,10 +46,26 @@ interface TourHostProps {
   gender: AppGender | null | undefined;
 }
 
+/**
+ * Once the route tour is under way it stays mounted until the user finishes or skips it: the
+ * map's `armed` guard list flips during the carousel's own settle (step / compose changes), and
+ * unmounting there cut the tour off mid-step with no seen flag (owner note 21.10 #6).
+ */
 export function RouteFirstTour({ armed, uid, gender }: TourHostProps) {
   const ready = useTargetPresent(FIRST_RUN_COACH.routeCard, armed);
-  if (!armed) return null;
-  return <FirstRunTour tour="route" active={armed && ready} uid={uid} gender={gender} delayMs={900} />;
+  const [latched, setLatched] = useState(false);
+  useEffect(() => { if (armed && ready) setLatched(true); }, [armed, ready]);
+  if (!armed && !latched) return null;
+  return (
+    <FirstRunTour
+      tour="route"
+      active={armed && ready}
+      uid={uid}
+      gender={gender}
+      delayMs={900}
+      onClose={() => setLatched(false)}
+    />
+  );
 }
 
 export function RoutePlayerTip({ armed, uid, gender }: TourHostProps) {
