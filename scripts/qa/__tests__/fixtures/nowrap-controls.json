@@ -1,0 +1,15 @@
+{
+  "_about": "V2-NOWRAP facts as collect.ts measures them (21.10.2026 first run, iPhone 13). falsePositives were flagged by the old whole-element range measurement; truePositives must stay flagged.",
+  "falsePositives": [
+    { "why": "/gateway card — title + body + badge (old: '5 lines')", "label": "גלו את המפה כניסה מהירה מצאו פארקים ומסלולים", "w": 358, "h": 132, "kind": "button", "nowrapHint": false, "textNodes": 3, "textLines": 1, "textHeight": 28, "lineHeight": 28, "clippedNoEllipsis": false, "gradient": false, "selected": false, "bgLuminance": 1, "inlineLink": false },
+    { "why": "/gateway card — title + body (old: '4 lines')", "label": "תוכנית כוח אימון מותאם אישית למטרות שלך", "w": 358, "h": 118, "kind": "button", "nowrapHint": false, "textNodes": 2, "textLines": 1, "textHeight": 28, "lineHeight": 28, "clippedNoEllipsis": false, "gradient": false, "selected": false, "bgLuminance": 1, "inlineLink": false },
+    { "why": "/onboarding-new/profile gender chip — emoji + label stacked by design (old: '2 lines')", "label": "🙋‍♂️ גבר", "w": 104, "h": 92, "kind": "chip", "nowrapHint": false, "textNodes": 2, "textLines": 1, "textHeight": 22, "lineHeight": 22, "clippedNoEllipsis": false, "gradient": false, "selected": true, "bgLuminance": 0.9, "inlineLink": false },
+    { "why": "/onboarding-new/profile gender chip, single text node in an inline span taller than its line box", "label": "אחר", "w": 104, "h": 92, "kind": "chip", "nowrapHint": false, "textNodes": 1, "textLines": 2, "textHeight": 24, "lineHeight": 21, "clippedNoEllipsis": false, "gradient": false, "selected": false, "bgLuminance": 1, "inlineLink": false },
+    { "why": "/onboarding-new/profile CTA 'המשך' + chevron icon at another height (old: '2 lines')", "label": "המשך", "w": 350, "h": 52, "kind": "button", "nowrapHint": false, "textNodes": 1, "textLines": 1, "textHeight": 25, "lineHeight": 24.8, "clippedNoEllipsis": false, "gradient": true, "selected": false, "bgLuminance": null, "inlineLink": false }
+  ],
+  "truePositives": [
+    { "why": "a button whose single label really wraps", "label": "התחלת אימון עכשיו", "w": 120, "h": 64, "kind": "button", "nowrapHint": false, "textNodes": 1, "textLines": 2, "textHeight": 44, "lineHeight": 22, "clippedNoEllipsis": false, "gradient": false, "selected": false, "bgLuminance": 1, "inlineLink": false },
+    { "why": "a tab clipped without an ellipsis", "label": "התקדמות שבועית", "w": 80, "h": 44, "kind": "tab", "nowrapHint": false, "textNodes": 1, "textLines": 1, "textHeight": 20, "lineHeight": 20, "clippedNoEllipsis": true, "gradient": false, "selected": false, "bgLuminance": 1, "inlineLink": false },
+    { "why": "an explicit data-qa-nowrap label (two text nodes, e.g. '3' + ' סטים') that wraps", "label": "3 סטים", "w": 40, "h": 40, "kind": "label", "nowrapHint": true, "textNodes": 2, "textLines": 2, "textHeight": 36, "lineHeight": 18, "clippedNoEllipsis": false, "gradient": false, "selected": false, "bgLuminance": null, "inlineLink": false }
+  ]
+}
