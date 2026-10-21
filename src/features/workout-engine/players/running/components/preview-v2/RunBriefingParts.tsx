@@ -8,14 +8,17 @@ import { CircleDashed, Lightbulb, Route, TreePine, type LucideProps } from 'luci
 import type { ComponentType } from 'react';
 import type { ZoneLadderItem } from '../../utils/run-preview/run-zone-ladder';
 import type { SurfaceIcon, SurfaceTile } from '../../utils/run-preview/run-surfaces';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export function RunZoneLadder({ items }: { items: readonly ZoneLadderItem[] }) {
+  const t = useT(player);
   if (!items.length) return null;
   return (
     <section>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[15px] font-black text-v2-ink">איפה הקצב הזה אצלך</h3>
-        <span className="text-[11.5px] font-extrabold text-v2-muted">דק׳/ק״מ</span>
+        <h3 className="text-[15px] font-black text-v2-ink">{t('run.briefing.ladder.title')}</h3>
+        <span className="text-[11.5px] font-extrabold text-v2-muted">{t('run.briefing.ladder.unit')}</span>
       </div>
       <ol className="mt-3 flex items-start gap-1.5">
         {items.map((z) => (
@@ -59,19 +62,20 @@ const SURFACE_ICONS: Record<SurfaceIcon, ComponentType<LucideProps>> = {
 };
 
 export function RunSurfaceTiles({ tiles }: { tiles: readonly SurfaceTile[] }) {
+  const t = useT(player);
   return (
     <section>
-      <h3 className="text-[15px] font-black text-v2-ink">איפה כדאי לרוץ</h3>
+      <h3 className="text-[15px] font-black text-v2-ink">{t('run.briefing.surfaces.title')}</h3>
       <div className="mt-2.5 flex gap-2">
-        {tiles.map((t) => {
-          const Icon = SURFACE_ICONS[t.icon];
+        {tiles.map((tile) => {
+          const Icon = SURFACE_ICONS[tile.icon];
           return (
-            <div key={t.id} className="min-w-0 flex-1 rounded-[18px] bg-white p-2.5 shadow-v2-ring">
+            <div key={tile.id} className="min-w-0 flex-1 rounded-[18px] bg-white p-2.5 shadow-v2-ring">
               <span className="grid h-[30px] w-[30px] place-items-center rounded-[10px] bg-v2-tint text-v2-deep" aria-hidden>
                 <Icon size={16} strokeWidth={2.4} />
               </span>
-              <div className="mt-1.5 truncate whitespace-nowrap text-[12.5px] font-black text-v2-ink">{t.label}</div>
-              <div className="truncate whitespace-nowrap text-[11px] font-bold text-v2-muted">{t.tip}</div>
+              <div className="mt-1.5 truncate whitespace-nowrap text-[12.5px] font-black text-v2-ink">{tile.label}</div>
+              <div className="truncate whitespace-nowrap text-[11px] font-bold text-v2-muted">{tile.tip}</div>
             </div>
           );
         })}

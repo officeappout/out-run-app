@@ -16,6 +16,8 @@ import React, { useMemo } from 'react';
 import {
   buildElevationStrip, climbLabel, nextClimbAhead, profileLengthM, type ElevationSamples,
 } from '../../../lib/route-elevation-ahead';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const W = 350;
 const H = 40;
@@ -33,6 +35,7 @@ export interface RouteElevationAheadProps {
 }
 
 export default function RouteElevationAhead({ samples, alongM, totalM, className = '' }: RouteElevationAheadProps) {
+  const t = useT(player);
   const geo = useMemo(
     () => (samples ? buildElevationStrip(samples, alongM, totalM, { width: W, height: H }) : null),
     [samples, alongM, totalM],
@@ -49,10 +52,10 @@ export default function RouteElevationAhead({ samples, alongM, totalM, className
   const label = climbLabel(climb);
 
   return (
-    <div dir="rtl" className={className} aria-label="פרופיל גובה לאורך המסלול">
+    <div dir="rtl" className={className} aria-label={t('run.elevationAhead.aria')}>
       <div className="mb-1 flex items-center justify-between gap-3 text-[12px] font-extrabold text-v2-muted">
         <span className="whitespace-nowrap tabular-nums">
-          ק״מ {doneKm.toFixed(1)} מתוך {(totalM / 1000).toFixed(1)}
+          {t('run.elevationAhead.progress', { done: doneKm.toFixed(1), total: (totalM / 1000).toFixed(1) })}
         </span>
         {label && <span className="min-w-0 truncate">{label}</span>}
       </div>

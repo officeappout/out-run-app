@@ -17,6 +17,8 @@ import type RunWorkout from '../../types/run-workout.type';
 import type { RunWeekContext } from '../../utils/run-preview/run-week';
 import { NO_RUN_EDITS, type RunEdits } from '../../utils/run-overview/run-edits';
 import RunWorkoutOverview from './RunWorkoutOverview';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface RunOverviewHomeSheetProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export interface RunOverviewHomeSheetProps {
 export default function RunOverviewHomeSheet({
   isOpen, onClose, workout, isLoading, templateCategory, week, onGo, onSuggestRoute,
 }: RunOverviewHomeSheetProps) {
+  const t = useT(player);
   const [edits, setEdits] = useState<RunEdits>(NO_RUN_EDITS);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -43,7 +46,7 @@ export default function RunOverviewHomeSheet({
 
   return createPortal(
     <div className="fixed inset-0" style={{ zIndex: SHEET_Z.overlay }} dir="rtl">
-      <button type="button" aria-label="סגירה" onClick={onClose} className="absolute inset-0 bg-[rgba(14,20,25,0.32)]" />
+      <button type="button" aria-label={t('run.overview.homeSheet.close')} onClick={onClose} className="absolute inset-0 bg-[rgba(14,20,25,0.32)]" />
       {ready ? (
         <RunWorkoutOverview
           workout={workout!}
@@ -60,7 +63,7 @@ export default function RunOverviewHomeSheet({
       ) : (
         <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-3 rounded-t-[28px] bg-v2-surface py-24 shadow-v2-sheet">
           <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-v2-accent border-t-transparent" aria-hidden />
-          <span className="text-[14px] font-bold text-v2-muted">טוען אימון...</span>
+          <span className="text-[14px] font-bold text-v2-muted">{t('run.overview.homeSheet.loading')}</span>
         </div>
       )}
     </div>,

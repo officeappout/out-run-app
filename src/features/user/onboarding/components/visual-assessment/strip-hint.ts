@@ -212,23 +212,23 @@ export function stripHintView(state: StripHintState): StripHintView {
 }
 
 // ── Copy (male / female, same pattern as VisualSlider's isFemale) ──
+// The text lives in src/messages/he/onboarding.json (quiz.hint.*); StripDragHint renders these
+// keys with its isFemale as the ICU `gender`.
+
+export type CoachCopyKey =
+  | 'quiz.hint.intro.title'
+  | 'quiz.hint.intro.sub'
+  | 'quiz.hint.after.title'
+  | 'quiz.hint.after.sub';
 
 export interface CoachCopy {
-  title: string;
-  sub: string;
+  title: CoachCopyKey;
+  sub: CoachCopyKey;
 }
 
-export function coachCopy(pill: Exclude<CoachPill, null>, isFemale: boolean): CoachCopy {
+export function coachCopy(pill: Exclude<CoachPill, null>): CoachCopy {
   if (pill === 'intro') {
-    return {
-      title: isFemale ? 'גררי את התמונות לצדדים' : 'גרור את התמונות לצדדים',
-      sub: 'הסרטון מתחלף לתרגיל שבחרת',
-    };
+    return { title: 'quiz.hint.intro.title', sub: 'quiz.hint.intro.sub' };
   }
-  return {
-    title: isFemale
-      ? 'יפה. עכשיו עצרי על הכי קשה שאת בטוחה שתבצעי'
-      : 'יפה. עכשיו עצור על הכי קשה שאתה בטוח שתבצע',
-    sub: isFemale ? 'ולחצי למטה' : 'ולחץ למטה',
-  };
+  return { title: 'quiz.hint.after.title', sub: 'quiz.hint.after.sub' };
 }

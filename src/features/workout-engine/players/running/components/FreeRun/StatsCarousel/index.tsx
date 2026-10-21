@@ -5,6 +5,8 @@ import { motion, PanInfo } from 'framer-motion';
 import MainMetrics from './MainMetrics';
 import LapMetrics from './LapMetrics';
 import type { DrawerSlide } from '@/features/workout-engine/players/running/types/story-spec';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // Re-export so existing callers that import DrawerSlide from StatsCarousel continue to work.
 export type { DrawerSlide };
@@ -41,6 +43,7 @@ interface StatsCarouselProps {
 }
 
 export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps) {
+  const t = useT(player);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const slides = slidesProp ?? DEFAULT_SLIDES;
@@ -149,7 +152,7 @@ export default function StatsCarousel({ slides: slidesProp }: StatsCarouselProps
                   ? 'var(--metrics-accent-color, #00ADEF)'
                   : 'rgba(0, 0, 0, 0.18)',
             }}
-            aria-label={`עבור לשקופית ${index + 1}`}
+            aria-label={t('run.stats.slideAria', { n: String(index + 1) })}
           />
         ))}
       </div>

@@ -8,6 +8,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface Props {
   onTap: () => void;
@@ -21,6 +23,7 @@ interface Props {
 const TAP_MAX_MS = 450;
 
 export default function HoldToEndPauseButton({ onTap, onHoldComplete, holdSeconds = 1.2, size = 72 }: Props) {
+  const t = useT(player);
   const [progress, setProgress] = useState(0);
   const startRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -68,7 +71,7 @@ export default function HoldToEndPauseButton({ onTap, onHoldComplete, holdSecond
   return (
     <button
       type="button"
-      aria-label="השהה · לחיצה ארוכה מסיימת"
+      aria-label={t('run.planned.control.pauseHoldToEnd')}
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={stop}

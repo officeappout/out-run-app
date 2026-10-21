@@ -108,7 +108,12 @@ const dayKeyOffset = (today: Date, offset: number) => {
   return { d, date: isoDate(d) };
 };
 
-export function buildHistory(ctx: PersonaContext, today: Date, historyDays: number, aheadDays: number): PersonaHistory {
+export interface HistoryOptions {
+  /** Today's sessions count as done (AI tester state "after a workout", scripts/qa/lib/seed). Default false. */
+  completeToday?: boolean;
+}
+
+export function buildHistory(ctx: PersonaContext, today: Date, historyDays: number, aheadDays: number, opts: HistoryOptions = {}): PersonaHistory {
   const { persona: p, uid } = ctx;
   const docs: DocWrite[] = [];
   const workoutIds: string[] = [];
@@ -134,11 +139,15 @@ export function buildHistory(ctx: PersonaContext, today: Date, historyDays: numb
     let dayCalories = 0;
 
     sessions.forEach((s, i) => {
-      if (off >= 0) return status.push({ completed: false });
+      const doneToday = off === 0 && opts.completeToday === true;
+      if (off >= 0 && !doneToday) return status.push({ completed: false });
       const weekend = dow === 5 || dow === 6 ? 0.9 : 1;
-      const chance = inGap ? 0 : p.adherence * weekend * (weakWeek ? 0.35 : 1);
+      const chance = doneToday ? 1 : inGap ? 0 : p.adherence * weekend * (weakWeek ? 0.35 : 1);
       if (roll(`${uid}|${date}|${i}|do`) >= chance) return status.push({ completed: false });
-      const at = sessionDate(d, s, i, r);
+      const planned = sessionDate(d, s, i, r);
+      // A session "done today" never ends in the future.
+      const latest = new Date(today.getTime() - (s.minutes + 10 + i * 90) * 60_000);
+      const at = doneToday && planned > latest ? latest : planned;
       const done = doneSession(ctx, s, at, date, i, Math.floor(daysAgo / 7), r);
       docs.push(...done.docs);
       if (done.workoutId) {

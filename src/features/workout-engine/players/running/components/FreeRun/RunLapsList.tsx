@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const formatTime = (seconds: number): string => {
   if (!seconds || seconds < 0 || !isFinite(seconds)) return '00:00';
@@ -26,6 +28,7 @@ interface RunLapsListProps {
 }
 
 export default function RunLapsList({ laps: lapsProp }: RunLapsListProps = {}) {
+  const t = useT(player);
   const storeLaps = useRunningPlayer((s) => s.laps);
   const laps = lapsProp ?? storeLaps;
   const isStatic = lapsProp !== undefined;
@@ -49,8 +52,8 @@ export default function RunLapsList({ laps: lapsProp }: RunLapsListProps = {}) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-white" style={{ fontFamily: 'var(--font-simpler)' }}>
         <div className="text-center text-gray-400">
-          <p className="text-lg font-medium mb-2">אין הקפות עדיין</p>
-          <p className="text-sm">ההקפות יופיעו כאן לאחר התחלת האימון</p>
+          <p className="text-lg font-medium mb-2">{t('run.lapsList.empty.title')}</p>
+          <p className="text-sm">{t('run.lapsList.empty.body')}</p>
         </div>
       </div>
     );
@@ -61,10 +64,10 @@ export default function RunLapsList({ laps: lapsProp }: RunLapsListProps = {}) {
       {/* Table Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-10 px-6 py-4">
         <div className="flex items-center text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
-          <div className="flex-1 text-center">הקפה</div>
-          <div className="flex-1 text-center">מרחק ק"מ</div>
-          <div className="flex-1 text-center">קצב דק' / ק"מ</div>
-          <div className="flex-1 text-center">זמן דק'</div>
+          <div className="flex-1 text-center">{t('run.lapsList.col.lap')}</div>
+          <div className="flex-1 text-center">{t('run.lapsList.col.distance')}</div>
+          <div className="flex-1 text-center">{t('run.lapsList.col.pace')}</div>
+          <div className="flex-1 text-center">{t('run.lapsList.col.time')}</div>
         </div>
       </div>
 

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRunningPlayer } from '../../store/useRunningPlayer';
 import { useSessionStore } from '../../../../core/store/useSessionStore';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * Debug HUD — visible only when URL contains ?debug=gps.
@@ -10,6 +12,7 @@ import { useSessionStore } from '../../../../core/store/useSessionStore';
  * Mount inside FreeRunLayer (inside the workout overlay, inside the map).
  */
 export default function GpsDebugHud() {
+  const t = useT(player);
   const accuracy       = useRunningPlayer((s) => s.gpsAccuracy);
   const gpsStatus      = useRunningPlayer((s) => s.gpsStatus);
   const hasHadGoodFix  = useRunningPlayer((s) => s.hasHadGoodFix);
@@ -110,9 +113,9 @@ export default function GpsDebugHud() {
           fontWeight: 700,
         }}
       >
-        {traceState === 'idle' ? '⬆ שמור GPS trace' :
-         traceState === 'saving' ? 'שומר…' :
-         traceState === 'saved' ? '✓ נשמר' : '✗ שגיאה'}
+        {traceState === 'idle' ? t('run.gpsDebug.save') :
+         traceState === 'saving' ? t('run.gpsDebug.saving') :
+         traceState === 'saved' ? t('run.gpsDebug.saved') : t('run.gpsDebug.error')}
       </button>
     </div>
   );

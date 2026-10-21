@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface MissedWorkoutBannerProps {
   onDoIt: () => void;
@@ -13,6 +15,7 @@ export default function MissedWorkoutBanner({
   onDoIt,
   onContinue,
 }: MissedWorkoutBannerProps) {
+  const t = useT(player);
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -31,7 +34,7 @@ export default function MissedWorkoutBanner({
             <Zap size={20} className="text-white" />
           </div>
           <p className="text-[14px] leading-relaxed text-white/95 font-medium">
-            פספסת כמה אימונים? הכל בסדר. אימון האיכות שלך עדיין מחכה – רוצה לבצע אותו היום?
+            {t('run.missed.body')}
           </p>
         </div>
 
@@ -40,13 +43,13 @@ export default function MissedWorkoutBanner({
             onClick={onDoIt}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-white text-[#00BAF7] active:scale-[0.97] transition-transform"
           >
-            בוא נעשה את זה
+            {t('run.missed.doIt')}
           </button>
           <button
             onClick={onContinue}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-white/15 text-white border border-white/25 active:scale-[0.97] transition-transform"
           >
-            המשך כרגיל
+            {t('run.missed.continue')}
           </button>
         </div>
       </div>

@@ -11,6 +11,8 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { paceScaleGeometry } from '../../../lib/planned-rep-results';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface Props {
   minSec: number;
@@ -23,6 +25,7 @@ interface Props {
 }
 
 export default function PaceRangeScale({ minSec, maxSec, currentSec, markerColor, targetLabel }: Props) {
+  const t = useT(player);
   const g = paceScaleGeometry(minSec, maxSec, currentSec);
 
   const lastRef = useRef(0);
@@ -64,9 +67,9 @@ export default function PaceRangeScale({ minSec, maxSec, currentSec, markerColor
         )}
       </div>
       <div className="mt-3 flex justify-between whitespace-nowrap text-[12px] font-extrabold text-v2-muted">
-        <span>איטי</span>
+        <span>{t('run.paceScale.slow')}</span>
         <span className="text-v2-ink-2">{targetLabel}</span>
-        <span>מהיר</span>
+        <span>{t('run.paceScale.fast')}</span>
       </div>
     </div>
   );

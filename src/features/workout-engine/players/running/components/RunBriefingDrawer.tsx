@@ -20,7 +20,7 @@ const PILL_BORDER = '0.5px solid #E0E9FF';
 const HERO_FALLBACK = '/images/park-placeholder.svg';
 const BOLT_FILTER_CYAN = 'brightness(0) saturate(100%) invert(68%) sepia(65%) saturate(2000%) hue-rotate(160deg) brightness(102%) contrast(101%)';
 const BOLT_FILTER_DARK = 'brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(750%) hue-rotate(176deg) brightness(95%) contrast(90%)';
-const DIFF_LABELS: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' };
+const DIFF_LABELS: Record<number, string> = { 1: 'קל', 2: 'בינוני', 3: 'קשה' }; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 
 // ── Intensity rank mapping ──
 
@@ -51,9 +51,9 @@ function getDifficultyLevel(blocks: RunBlock[]): number {
 // ── Surface cards ──
 
 const SURFACE_CARDS = [
-  { id: 'track', label: 'מסלול ריצה', icon: '🏟️', tip: 'מדויק לפי קילומטר, מושלם לאינטרוולים', color: '#00BAF7' },
-  { id: 'trail', label: 'שביל טבע',  icon: '🌲', tip: 'עדין על המפרקים, אידיאלי לריצות שחרור',  color: '#10B981' },
-  { id: 'road',  label: 'סטוריית ת"א', icon: '🛣️', tip: 'מהיר וזורם, מצוין לריצות ארוכות', color: '#F59E0B' },
+  { id: 'track', label: 'מסלול ריצה', icon: '🏟️', tip: 'מדויק לפי קילומטר, מושלם לאינטרוולים', color: '#00BAF7' }, // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  { id: 'trail', label: 'שביל טבע',  icon: '🌲', tip: 'עדין על המפרקים, אידיאלי לריצות שחרור',  color: '#10B981' }, // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  { id: 'road',  label: 'סטוריית ת"א', icon: '🛣️', tip: 'מהיר וזורם, מצוין לריצות ארוכות', color: '#F59E0B' }, // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 ] as const;
 
 // ── Bolt icon (matches Strength drawer) ──
@@ -209,7 +209,7 @@ export default function RunBriefingDrawer({
                 {isLoading || !workout ? (
                   <div className="flex flex-col items-center justify-center py-32 gap-3">
                     <div className="w-8 h-8 border-[3px] border-[#00BAF7] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm font-bold text-gray-400">טוען אימון...</span>
+                    <span className="text-sm font-bold text-gray-400">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טוען אימון...</span>
                   </div>
                 ) : (
                   <>
@@ -273,7 +273,7 @@ export default function RunBriefingDrawer({
                           <div className="flex-shrink-0 flex items-center gap-2 bg-emerald-50 shadow-sm rounded-lg px-4 py-2"
                             style={{ border: PILL_BORDER }}
                           >
-                            <span className="text-sm font-bold text-emerald-600">אימון איכות</span>
+                            <span className="text-sm font-bold text-emerald-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אימון איכות</span>
                           </div>
                         )}
                       </div>
@@ -289,7 +289,7 @@ export default function RunBriefingDrawer({
 
                       {/* ── Intensity graph ── */}
                       <div className="mb-6">
-                        <h3 className="text-[16px] font-semibold mb-3" style={{ fontFamily: 'var(--font-simpler)' }}>תקציר קצבים</h3>
+                        <h3 className="text-[16px] font-semibold mb-3" style={{ fontFamily: 'var(--font-simpler)' }}>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תקציר קצבים</h3>
                         <div className="flex items-end gap-[3px] h-12 bg-transparent">
                           {workout.blocks.map((block, i) => {
                             const rank = getBlockIntensityRank(block);
@@ -313,7 +313,7 @@ export default function RunBriefingDrawer({
                               <span className="text-sm font-bold text-slate-900">{section.title}</span>
                               {section.laps != null && section.laps > 0 && (
                                 <span className="text-xs font-bold text-slate-500 bg-white px-2.5 py-1 rounded-full" style={{ border: PILL_BORDER }}>
-                                  🔄 {section.laps} הקפות
+                                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}🔄 {section.laps} הקפות
                                 </span>
                               )}
                             </div>
@@ -335,7 +335,7 @@ export default function RunBriefingDrawer({
 
                       {/* ── Where to Run ── */}
                       <section className="mt-8 mb-2">
-                        <h3 className="text-right font-bold text-lg mb-3">איפה כדאי לי לרוץ?</h3>
+                        <h3 className="text-right font-bold text-lg mb-3">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}איפה כדאי לי לרוץ?</h3>
                         <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
                           {SURFACE_CARDS.map((card) => (
                             <div key={card.id} className="flex-shrink-0 w-[150px] rounded-2xl overflow-hidden bg-white shadow-sm" style={{ border: PILL_BORDER }}>
@@ -352,7 +352,7 @@ export default function RunBriefingDrawer({
 
                         {nearbyParks.length > 0 && (
                           <div className="mt-5">
-                            <p className="text-xs font-bold text-gray-400 mb-2">פארקים ומגרשים בקרבת מקום</p>
+                            <p className="text-xs font-bold text-gray-400 mb-2">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פארקים ומגרשים בקרבת מקום</p>
                             <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
                               {nearbyParks.map((park, idx) => (
                                 <motion.div key={park.id}
@@ -366,7 +366,7 @@ export default function RunBriefingDrawer({
                                     <div className="flex items-center gap-1 mt-1.5 text-slate-500">
                                       <MapPin size={13} className="shrink-0" />
                                       <span className="text-xs font-medium">
-                                        {park.walkingMinutes <= 1 ? 'דקה הליכה ממך' : `${park.walkingMinutes} דקות הליכה ממך`}
+                                        {park.walkingMinutes <= 1 ? 'דקה הליכה ממך' : `${park.walkingMinutes} דקות הליכה ממך` /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                                       </span>
                                     </div>
                                   </div>
@@ -391,7 +391,7 @@ export default function RunBriefingDrawer({
                     style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)' }}
                   >
                     <Play size={20} fill="currentColor" />
-                    <span>התחל אימון</span>
+                    <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}התחל אימון</span>
                   </button>
                 </div>
               )}
@@ -456,19 +456,19 @@ function ParkCardImage({ src, fallback, alt, eager }: { src?: string; fallback: 
 // ── Format helpers ──
 
 function fmtBlockDur(s: number): string {
-  if (s < 60) return `${s} שנ'`;
+  if (s < 60) return `${s} שנ'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
   const m = Math.floor(s / 60);
   const sec = s % 60;
-  return sec > 0 ? `${m}:${sec.toString().padStart(2, '0')} דק'` : `${m} דק'`;
+  return sec > 0 ? `${m}:${sec.toString().padStart(2, '0')} דק'` : `${m} דק'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 }
 
 function fmtBlockDist(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`;
-  return `${m} מ'`;
+  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  return `${m} מ'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 }
 
 function fmtDuration(s: number): string {
-  if (s < 60) return `${s} שניות`;
+  if (s < 60) return `${s} שניות`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
   const m = Math.floor(s / 60);
-  return `${m} דק'`;
+  return `${m} דק'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 }

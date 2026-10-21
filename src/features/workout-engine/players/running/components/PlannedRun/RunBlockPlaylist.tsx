@@ -17,15 +17,15 @@ interface RunBlockPlaylistProps {
 }
 
 function fmtBlockDur(s: number): string {
-  if (s < 60) return `${s} שנ'`;
+  if (s < 60) return `${s} שנ'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
   const m = Math.floor(s / 60);
   const sec = s % 60;
-  return sec > 0 ? `${m}:${sec.toString().padStart(2, '0')} דק'` : `${m} דק'`;
+  return sec > 0 ? `${m}:${sec.toString().padStart(2, '0')} דק'` : `${m} דק'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 }
 
 function fmtBlockDist(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`;
-  return `${m} מ'`;
+  if (m >= 1000) return `${(m / 1000).toFixed(1)} ק"מ`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  return `${m} מ'`; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 }
 
 export default function RunBlockPlaylist({
@@ -96,7 +96,7 @@ export default function RunBlockPlaylist({
       dir="rtl"
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
-      <h3 className="text-sm font-bold text-slate-700 px-4 mb-2">רשימת בלוקים</h3>
+      <h3 className="text-sm font-bold text-slate-700 px-4 mb-2">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רשימת בלוקים</h3>
 
       <div className="divide-y divide-slate-100">
         {blocks.map((block, index) => {
@@ -156,23 +156,23 @@ export default function RunBlockPlaylist({
               dir="rtl"
             >
               <p className="text-base font-bold text-slate-900 mb-1">
-                דלגו ל{blocks[jumpTarget]?.label}?
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דלגו ל{blocks[jumpTarget]?.label}?
               </p>
               <p className="text-sm text-slate-500 mb-5">
-                הבלוקים שביניהם ידולגו
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הבלוקים שביניהם ידולגו
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setJumpTarget(null)}
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700"
                 >
-                  ביטול
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ביטול
                 </button>
                 <button
                   onClick={confirmJump}
                   className="flex-1 py-2.5 rounded-xl bg-[#00ADEF] text-sm font-bold text-white"
                 >
-                  דלגו
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דלגו
                 </button>
               </div>
             </motion.div>

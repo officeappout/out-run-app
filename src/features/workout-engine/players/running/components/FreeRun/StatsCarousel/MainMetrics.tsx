@@ -3,6 +3,8 @@
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const NUM_COLOR     = 'var(--metrics-num-color, #000000)';
 const LABEL_COLOR   = 'var(--metrics-label-color, rgba(0, 0, 0, 0.65))';
@@ -10,6 +12,7 @@ const HEADER_COLOR  = 'var(--metrics-header-color, rgba(0, 0, 0, 0.45))';
 const DIVIDER_COLOR = 'var(--metrics-divider-color, rgba(0, 0, 0, 0.08))';
 
 export default function MainMetrics() {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const currentPace = useRunningPlayer((s) => s.currentPace);
@@ -45,7 +48,7 @@ export default function MainMetrics() {
       <div className="flex items-center justify-center gap-3 mb-2">
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
         <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: HEADER_COLOR }}>
-          נתונים כלליים
+          {t('run.stats.main.header')}
         </span>
         <div className="h-px flex-grow max-w-[4rem]" style={{ background: DIVIDER_COLOR }} />
       </div>
@@ -59,7 +62,7 @@ export default function MainMetrics() {
           {heroIsTime ? formatDuration(safeDuration) : safeDistance.toFixed(2)}
         </div>
         <div className="text-xs font-bold mt-0.5 tracking-widest uppercase" style={{ color: LABEL_COLOR }}>
-          {heroIsTime ? 'זמן' : 'קילומטר'}
+          {heroIsTime ? t('run.stats.main.heroTime') : t('run.stats.main.heroKm')}
         </div>
       </div>
 
@@ -77,7 +80,7 @@ export default function MainMetrics() {
             {formatPace(safePace)}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            קצב ממוצע
+            {t('run.stats.main.avgPace')}
           </div>
         </div>
 
@@ -90,7 +93,7 @@ export default function MainMetrics() {
             {heroIsTime ? safeDistance.toFixed(2) : formatDuration(safeDuration)}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            {heroIsTime ? 'ק״מ' : 'זמן'}
+            {heroIsTime ? t('run.stats.main.km') : t('run.stats.main.time')}
           </div>
         </div>
 
@@ -100,7 +103,7 @@ export default function MainMetrics() {
             {safeCalories}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            קק״ל
+            {t('run.stats.main.kcal')}
           </div>
         </div>
       </div>
