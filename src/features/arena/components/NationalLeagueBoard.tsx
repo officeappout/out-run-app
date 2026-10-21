@@ -164,7 +164,7 @@ export default function NationalLeagueBoard({
   const top3 = ranked.slice(0, 3);
   const podium: [PodiumEntry, PodiumEntry, PodiumEntry] | null =
     top3.length === 3
-      ? (top3.map((e) => ({ key: e.scopeId, name: e.scopeName, value: value(e), sub: e.parentName ?? t('leagues.national.podiumSub', { count: String(e.activeMemberCount) }) })) as [
+      ? (top3.map((e) => ({ key: e.scopeId, name: e.scopeName, value: value(e), sub: e.parentName ?? t('leagues.national.podiumSub', { n: e.activeMemberCount, count: String(e.activeMemberCount) }) })) as [
           PodiumEntry,
           PodiumEntry,
           PodiumEntry,

@@ -21,6 +21,8 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 const S = vi.hoisted(() => ({
   profile: null as Record<string, unknown> | null,
   gender: 'male' as 'male' | 'female',
+  /** useWizardIdentity().copyGender — defaults to `gender`; 'other' = unknown (neutral copy). */
+  copyGender: null as 'male' | 'female' | 'other' | null,
   uid: 'u1' as string | null,
   stepGoal: null as number | null,
   walkSaveFails: false,
@@ -69,7 +71,7 @@ vi.mock('@/features/schedule/services/reminderOptIn.service', () => ({
   saveReminderOptIn: async () => {},
 }));
 vi.mock('@/features/user/onboarding/hooks/useWizardIdentity', () => ({
-  useWizardIdentity: () => ({ gender: S.gender, firstName: '' }),
+  useWizardIdentity: () => ({ gender: S.gender, copyGender: S.copyGender ?? S.gender, firstName: '' }),
 }));
 vi.mock('@/features/schedule/walking/useNearbyWalkingGroup', () => ({ useNearbyWalkingGroup: () => null }));
 vi.mock('@/features/schedule/walking/walkSave.service', () => ({
@@ -173,6 +175,7 @@ afterAll(() => {
 beforeEach(() => {
   S.profile = null;
   S.gender = 'male';
+  S.copyGender = null;
   S.uid = 'u1';
   S.stepGoal = null;
   S.walkSaveFails = false;
@@ -483,6 +486,16 @@ describe('Strength signup', () => {
     }
     await expect(out.join('\n')).toMatchFileSnapshot(snap('strength-flow'));
   });
+
+  it('flow: unknown gender — neutral copy (gender batch 3)', async () => {
+    S.copyGender = 'other';
+    const out: string[] = [];
+    for (const sub of [0, 1, 2]) {
+      out.push(`<!-- other sub ${sub} -->`);
+      out.push((await render(<StrengthSignupScheduleFlow sub={sub} setSub={noop} onConfirmed={noop} onAddRun={noop} />)).html());
+    }
+    await expect(out.join('\n')).toMatchFileSnapshot(snap('strength-flow-other'));
+  });
 });
 
 // ── walking-v2 ─────────────────────────────────────────────────────────
@@ -683,7 +696,7 @@ describe('Program path v2', () => {
           (
             await render(
               <ProgramPathV2View
-                isFemale={isFemale}
+                gender={isFemale ? 'female' : 'male'}
                 selectedGoal={selectedGoal}
                 onSelectGoal={noop}
                 images={images(isFemale ? 'female' : 'male')}
@@ -718,7 +731,7 @@ describe('Program path v2', () => {
           (
             await render(
               <ProgramPathSkillsStepV2
-                isFemale={isFemale}
+                gender={isFemale ? 'female' : 'male'}
                 selectedSkills={missing ? ['front_lever'] : ['calisthenics_upper']}
                 toggleSkill={noop}
                 readySkillIds={missing === 'pull' ? new Set<string>() : null}
@@ -737,5 +750,58 @@ describe('Program path v2', () => {
       }
     }
     await expect(out.join('\n')).toMatchFileSnapshot(snap('program-path-skills'));
+  });
+
+  it('unknown gender — neutral copy (gender batch 3): goal picker + skills step', async () => {
+    const out: string[] = [];
+    for (const selectedGoal of [null, 'health', 'body_focus'] as const) {
+      out.push(
+        (
+          await render(
+            <ProgramPathV2View
+              gender="other"
+              selectedGoal={selectedGoal}
+              onSelectGoal={noop}
+              images={images('male')}
+              areaTiles={['upper']}
+              onPickAreaTile={noop}
+              showMuscleRecommendation={false}
+              muscleBalanceCase={null}
+              recommendedTiles={new Set(['legs'] as const)}
+              goalNote=""
+              onGoalNoteChange={noop}
+              noteExamples={['דוגמה']}
+              totalSegments={4}
+              currentSegment={2}
+              onBack={noop}
+              onContinue={noop}
+              canContinue={selectedGoal !== null}
+              continueLabel="המשך"
+            />,
+          )
+        ).html(),
+      );
+    }
+    out.push(
+      (
+        await render(
+          <ProgramPathSkillsStepV2
+            gender="other"
+            selectedSkills={['calisthenics_upper']}
+            toggleSkill={noop}
+            readySkillIds={null}
+            showRecommendation={false}
+            missingCategory={null}
+            totalSegments={4}
+            currentSegment={3}
+            onBack={noop}
+            onContinue={noop}
+            canContinue
+            continueLabel="המשך"
+          />,
+        )
+      ).html(),
+    );
+    await expect(out.join('\n')).toMatchFileSnapshot(snap('program-path-other'));
   });
 });

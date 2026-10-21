@@ -8,7 +8,7 @@ import { STRENGTH_PHASES } from '../../constants/onboarding-phases';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
-import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { genderArg, type Gender, type MessageValues } from '@/lib/i18n/core/i18n-core';
 
 // ── Age group buckets ──────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ function sanitizeTargetArea(raw: string | null): string | null {
 
 // ── Copy matrix ────────────────────────────────────────────────────
 // age group × goal → quiz.why.<age>.<goal>.body / .cta in src/messages/he/onboarding.json, each an
-// ICU `gender` select (female / other = the male copy). The body's {area} falls back to "the
+// ICU `gender` select (female / male / other = neutral, plural). The body's {area} falls back to "the
 // element / the areas you picked" inside the message (`hasArea`), and {count} is "one exercise"
 // for 1 (`=1`), "<n> exercises" otherwise — same as the old exerciseCountPhrase.
 
@@ -56,7 +56,7 @@ const AGE_KEYS: Record<string, 'age14to18' | 'age18to21' | 'age21to26' | 'age26t
 
 export function getOnboardingIntroText(
   t: (key: NamespaceKey<typeof onboarding>, values?: MessageValues) => string,
-  gender: 'male' | 'female',
+  gender: Gender | null | undefined,
   ageGroup: string,
   goal: string | null,
   targetArea: string | null,
@@ -69,32 +69,31 @@ export function getOnboardingIntroText(
         ? 'skills'
         : 'health';
 
-  // Unknown age group → 26-50. Every cell has both genders; the old lookup
-  // (`goalEntry[gender] ?? goalEntry[gender === 'female' ? 'male' : 'female']`) gave any value
-  // other than 'male' the female body. Owner copy fix (21.10.2026): an unknown gender now gets the male
-  // body too, matching the title (female only for 'female').
+  // Unknown age group → 26-50. Gender: male / female / other — unknown or "other" gets the
+  // neutral (plural) title, body and CTA (owner decisions 21.10.2026, gender batch 3).
   const age = Object.prototype.hasOwnProperty.call(AGE_KEYS, ageGroup) ? AGE_KEYS[ageGroup] : 'age26to50';
-  const bodyGender = gender === 'female' ? 'female' : 'male'; // owner copy fix 21.10.2026: unknown gender → male body, same as the title
+  const copyGender = genderArg(gender);
 
   const areaId = sanitizeTargetArea(targetArea);
   const area = areaId ? t('quiz.why.area', { area: areaId }) : '';
 
   return {
-    title: t('quiz.why.title', { gender: gender === 'female' ? 'female' : 'other' }),
+    title: t('quiz.why.title', { gender: copyGender }),
     body: t(`quiz.why.${age}.${normalizedGoal}.body`, {
-      gender: bodyGender,
+      gender: copyGender,
       hasArea: areaId ? 'yes' : 'no',
       area,
       count: exerciseCount,
     }),
-    cta: t(`quiz.why.${age}.${normalizedGoal}.cta`, { gender: bodyGender }),
+    cta: t(`quiz.why.${age}.${normalizedGoal}.cta`, { gender: copyGender }),
   };
 }
 
 // ── Props ──────────────────────────────────────────────────────────
 
 interface BlurredWhyStepProps {
-  gender: 'male' | 'female';
+  /** The quiz's gender: male / female / other (neutral copy). */
+  gender: Gender;
   ageGroup: string;
   goal: string | null;
   targetArea: string | null;

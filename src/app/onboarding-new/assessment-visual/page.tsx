@@ -74,6 +74,7 @@ import { hasRunningTrack } from '@/lib/track-ownership';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { OnboardingT } from '@/features/user/onboarding/utils/assessment-tier-label';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -492,7 +493,8 @@ export default function VisualAssessmentPage() {
 
   const exerciseCount = categories.length;
   const ageGroup = demographics ? calcAgeGroup(demographics.age) : '26-50';
-  const introGender = (demographics?.gender ?? 'male') as 'male' | 'female';
+  // The quiz's copy gender: male / female / other — neutral until the identity screen recorded one.
+  const introGender = genderArg(demographics?.gender);
   const targetArea: string | null =
     pathConfig?.path === 'skills'
       ? (skillFocus[0] ?? null)
@@ -1174,7 +1176,7 @@ export default function VisualAssessmentPage() {
                 onSelect={handleTierSelect}
                 clampTierLevel={pathConfig.clampTierLevel}
                 v2={v2}
-                isFemale={introGender === 'female'}
+                gender={introGender}
               />
             </motion.div>
           )}

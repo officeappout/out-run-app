@@ -23,6 +23,7 @@ import { resolveTierLabel, resolveSkillTierLabel, stepProportion, levelProportio
 import { hapticSelection } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 // ── Category display metadata ──────────────────────────────────────
 // The displayed name goes through quiz.slider.category (src/messages/he/onboarding.json), a
@@ -410,7 +411,8 @@ export default function VisualSlider({
 
   const isFemale = demographics.gender === 'female';
   // The quiz's gender comes from the onboarding answers (a prop), not the profile.
-  const gender = isFemale ? 'female' : 'other';
+  // male / female / other — unknown or "other" gets the neutral copy (owner decision 21.10.2026).
+  const gender = genderArg(demographics.gender);
 
   // Tier pill: skill-keyed categories (planche, muscle_up, handstand, etc.) get
   // the 4-step קליסטניקס ladder; push/pull/legs/core keep the plain 3-tier label.
@@ -427,7 +429,7 @@ export default function VisualSlider({
     : levelProportion(level, minLevel, maxLevel);
   const tierLabel = isSkillCategory
     ? resolveSkillTierLabel(tierProportion, t)
-    : resolveTierLabel(tierProportion, isFemale, t);
+    : resolveTierLabel(tierProportion, gender, t);
 
   // Resolves CMS slash patterns like "דוחף/ת" → "דוחפת" (female) or "דוחף" (male).
   // Pattern: base/suffix — suffix appended for female, stripped for male.
@@ -680,7 +682,7 @@ export default function VisualSlider({
                 </motion.div>
                 <StripDragHint
                   pill={stripHint.pill}
-                  isFemale={isFemale}
+                  gender={gender}
                   showEndLabels={stripHint.showEndLabels}
                   showDemoFinger={stripHint.showDemoFinger}
                   showStaticFinger={stripHint.showStaticFinger}

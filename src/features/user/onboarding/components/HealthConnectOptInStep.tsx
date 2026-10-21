@@ -78,7 +78,7 @@ export default function HealthConnectOptInStep({ onContinue }: HealthConnectOptI
   // CTA block is in-flow at the bottom of the (flex) scroll area: <main>
   // already pads the bottom inset, so it only adds pb-3 (no second inset).
   if (v2) {
-    // The identity screen's pick (sessionStorage) — anything but 'female' read the masculine CTA.
+    // The identity screen's pick (sessionStorage): male / female / other (neutral CTA).
     const ctaGender = genderArg(typeof window !== 'undefined'
       ? sessionStorage.getItem('onboarding_personal_gender')
       : null);

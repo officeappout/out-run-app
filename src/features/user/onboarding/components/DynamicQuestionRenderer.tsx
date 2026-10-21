@@ -148,7 +148,7 @@ export default function DynamicQuestionRenderer({
         language={language}
         onSubmit={(totalSeconds) => onAnswer(String(totalSeconds))}
         v2={v2}
-        isFemale={gender === 'female'}
+        copyGender={gender === 'neutral' ? 'other' : gender}
       />
     );
   }
@@ -636,7 +636,7 @@ function PaceTimeInput({
   language,
   onSubmit,
   v2 = false,
-  isFemale = false,
+  copyGender = 'other',
 }: {
   title: string;
   description?: string;
@@ -644,7 +644,8 @@ function PaceTimeInput({
   onSubmit: (totalSeconds: number) => void;
   /** enable_home_v2 — v2 look (same wheels, same submit). */
   v2?: boolean;
-  isFemale?: boolean;
+  /** Copy gender: male / female / other (neutral for unknown). */
+  copyGender?: 'male' | 'female' | 'other';
 }) {
   const t = useT(onboarding);
   const distance = useRef(getInitialDist()).current;
@@ -678,7 +679,7 @@ function PaceTimeInput({
             {t('dynamic.pace.title', { dist: distLabel })}
           </h2>
           <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
-            {t('dynamic.pace.hint', { gender: isFemale ? 'female' : 'male' })}
+            {t('dynamic.pace.hint', { gender: copyGender })}
           </p>
         </div>
 

@@ -188,7 +188,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   
   // Gender + first name: the profile first (returning users on /home have no
   // sessionStorage), the signup's sessionStorage answers as the fallback.
-  const { gender: userGender, firstName: userName } = useWizardIdentity();
+  const { gender: userGender, copyGender, firstName: userName } = useWizardIdentity();
 
   // Org access-code popup — runtime flag, the panel toggle is the one switch
   // (no super-admin override: useFeatureFlags() without isSuperAdmin).
@@ -263,7 +263,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   // Get label based on gender
   const getPersonaLabel = (option: LifestyleOption): string => {
     if (!isHebrew) return option.labelEn;
-    return t('steps.persona.label', { persona: option.id, gender: userGender ?? '' });
+    return t('steps.persona.label', { persona: option.id, gender: copyGender });
   };
   
   // Get emoji based on gender
@@ -405,10 +405,9 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   };
 
   const personaHint = (() => {
-    const female = userGender === 'female';
     if (!isHebrew) return askGoals ? 'Select at least one persona and one goal' : 'Select at least one persona';
-    if (!askGoals) return t('steps.persona.hint.persona', { gender: female ? 'female' : 'other' });
-    return t('steps.persona.hint.personaGoal', { gender: female ? 'female' : 'other' });
+    if (!askGoals) return t('steps.persona.hint.persona', { gender: copyGender });
+    return t('steps.persona.hint.personaGoal', { gender: copyGender });
   })();
 
   // Handle continue
@@ -451,7 +450,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     }
     
     return isHebrew
-      ? t('steps.persona.madlib.many', { gender: userGender === 'female' ? 'female' : 'other' })
+      ? t('steps.persona.madlib.many', { gender: copyGender })
       : 'multi-faceted';
   };
 
@@ -475,7 +474,6 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
 
   // ── v2 (enable_home_v2) — same state, handlers and store writes; v2 look ──
   if (v2) {
-    const isFemale = userGender === 'female';
     const madlibPill = (filled: boolean) =>
       `inline-block rounded-lg px-2 py-0.5 text-[14px] font-extrabold transition-colors duration-150 ease-v2 ${
         filled
@@ -505,7 +503,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           {isHebrew && (
             <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
               {userName ? t('steps.persona.greeting', { name: userName }) : ''}
-              {t('steps.persona.intro', { gender: isFemale ? 'female' : 'other' })}
+              {t('steps.persona.intro', { gender: copyGender })}
             </p>
           )}
         </motion.div>
@@ -668,7 +666,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
             }`}
           >
-            {isHebrew ? t('steps.persona.continue', { gender: isFemale ? 'female' : 'other' }) : 'Continue'}
+            {isHebrew ? t('steps.persona.continue', { gender: copyGender }) : 'Continue'}
           </button>
         </div>
 
@@ -702,7 +700,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                       onClick={handleCodeSuccessContinue}
                       className="flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
                     >
-                      {t('steps.persona.code.continue', { gender: isFemale ? 'female' : 'other' })}
+                      {t('steps.persona.code.continue', { gender: copyGender })}
                     </button>
                   </div>
                 ) : (

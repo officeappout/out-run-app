@@ -244,7 +244,7 @@ export function ScopeBattleCardView({
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-deep">
             {mine.toLocaleString('he-IL')}
           </div>
-          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { count: String(myEntry.activeMemberCount) })}</div>
+          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { n: myEntry.activeMemberCount, count: String(myEntry.activeMemberCount) })}</div>
         </div>
         <span className="mb-5 w-9 h-9 rounded-full bg-white flex items-center justify-center text-v2-amber shadow-v2-ring">
           <Zap size={18} strokeWidth={2.4} fill="currentColor" aria-label={t('leagues.battle.versus')} />
@@ -254,7 +254,7 @@ export function ScopeBattleCardView({
           <div className="text-[32px] font-black leading-none tabular-nums tracking-v2-tighter text-v2-ink-2">
             {theirs.toLocaleString('he-IL')}
           </div>
-          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { count: String(opponent.activeMemberCount) })}</div>
+          <div className="text-[12px] font-bold text-v2-muted">{t('leagues.battle.active', { n: opponent.activeMemberCount, count: String(opponent.activeMemberCount) })}</div>
         </div>
       </div>
 

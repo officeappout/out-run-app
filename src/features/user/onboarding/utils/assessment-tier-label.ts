@@ -11,16 +11,17 @@
  */
 import type { onboarding } from '@/messages/ns/onboarding';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
-import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import { genderArg, type MessageValues } from '@/lib/i18n/core/i18n-core';
 
 /** The `onboarding` translator a caller passes in (`useT(onboarding)` / `makeT(locale, onboarding)`). */
 export type OnboardingT = (key: NamespaceKey<typeof onboarding>, values?: MessageValues) => string;
 
 /** Clamps to [0, 1] then buckets into the same thirds the old 3 static labels covered. */
-export function resolveTierLabel(proportion: number, isFemale: boolean, t: OnboardingT): string {
+export function resolveTierLabel(proportion: number, quizGender: unknown, t: OnboardingT): string {
   const p = Number.isFinite(proportion) ? Math.max(0, Math.min(1, proportion)) : 0;
   // The quiz's gender is the onboarding answer (a prop), not the profile — passed explicitly.
-  const gender = isFemale ? 'female' : 'other';
+  // male / female / other (anything else → neutral copy, owner decision 21.10.2026).
+  const gender = genderArg(quizGender);
   if (p < 1 / 3) return t('tier.beginner', { gender });
   if (p < 2 / 3) return t('tier.intermediate');
   return t('tier.advanced', { gender });

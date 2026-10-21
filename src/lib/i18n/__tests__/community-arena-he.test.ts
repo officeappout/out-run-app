@@ -77,7 +77,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
       ['report.close', 'סגירה'],
       ['postJoin.addToPlanner', 'הוספת המפגשים ללוז האימונים'],
       ['postJoin.calendarSync', 'סנכרון ליומן הטלפון'],
-      ['postJoin.invite', 'הזמן שותף/ה'],
+      ['postJoin.invite', 'הזמנת שותפים'], // gender batch 3 (was: הזמן שותף/ה)
       ['postJoin.chat', "כנס לצ'אט הקהילה"],
       ['postJoin.later', 'אחר כך'],
       ['postJoin.close', 'סגירה'],
@@ -204,7 +204,7 @@ describe('community (he) arena components — byte-identical to the pre-extracti
     const url = 'https://app.example';
     expect(t('postJoin.shareText', { name, url })).toBe(`היי, הצטרפתי ל-${name} ב-OutRun! בואו להתאמן איתי: ${url}`); // gender batch 2: בוא/י → בואו (decision 7)
     expect(t('postJoin.title', { name })).toBe(`איזה כיף! הצטרפת ל-${name}`);
-    expect(t('postJoin.subtitle', { verb: 'ירוץ' })).toBe(`הזמן שותף ש${'ירוץ'} איתך!`);
+    expect(t('postJoin.subtitle', { verb: 'ירוץ', gender: 'male' })).toBe(`הזמן שותף ש${'ירוץ'} איתך!`); // female / unknown: gender-batch3-catalogs.test.ts
     expect(t('postJoin.aria', { name })).toBe(`הצטרפת ל-${name}`);
   });
 

@@ -15,6 +15,9 @@ type Key = Parameters<typeof t>[0];
 const GENDERS = ['female', 'male', 'other', undefined, 'weird'] as const;
 /** The old two-way pick: female → f, anything else → m. */
 const g = (gender: string | undefined, m: string, f: string) => (gender === 'female' ? f : m);
+/** Gender batch 3: male keeps the old masculine copy; unknown / 'other' / junk reads the neutral one. */
+const gn = (gender: string | undefined, m: string, f: string, n: string) =>
+  gender === 'female' ? f : gender === 'male' ? m : n;
 /** A rich-text tag that keeps its chunks as they are (the test compares the joined text). */
 const keep = (chunks: unknown[]) => chunks;
 
@@ -161,10 +164,9 @@ describe('onboarding steps + location keys (he)', () => {
   });
 
   it('location: values and gender branches', () => {
-    for (const gender of ['male', 'female'] as const) {
-      const isFemale = gender === 'female';
+    for (const gender of ['male', 'female', 'other'] as const) {
       expect(t('location.initial.headline.running', { gender })).toBe(
-        `${isFemale ? 'בואי' : 'בוא'} נאשר מיקום כדי שנטען את אימון הריצה שלך`,
+        `${gn(gender, 'בוא', 'בואי', 'בואו')} נאשר מיקום כדי שנטען את אימון הריצה שלך`,
       );
     }
     const place = 'הצפון הישן';
@@ -178,11 +180,14 @@ describe('onboarding steps + location keys (he)', () => {
       'היי דנה, X',
     );
     for (const gender of ['male', 'female', 'other', 'weird']) {
-      const old = gender === 'female'
-        ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!'
-        : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!';
-      expect(t('location.confirm.pioneerLine', { gender })).toBe(old);
-      expect(t('location.entry.confirm.pioneerLine', { gender })).toBe(old);
+      const line = gn(
+        gender,
+        'אתה הולך להיות החלוץ הראשון שימפה את השכונה!',
+        'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!',
+        'הולכים להיות הראשונים שימפו את השכונה!',
+      );
+      expect(t('location.confirm.pioneerLine', { gender })).toBe(line);
+      expect(t('location.entry.confirm.pioneerLine', { gender })).toBe(line);
     }
     expect(t('location.entry.confirm.title', { place })).toBe(`גרים ב${place}?`);
     for (const n of [2, 6, 1234]) expect(t('location.entry.confirm.parkEquipment.many', { n: String(n) })).toBe(`${n} מתקנים`);
@@ -235,16 +240,24 @@ describe('onboarding steps + location keys (he)', () => {
       'הצהרת הבריאות החתומה שלך והיסטוריית האימונים שלך מאוחסנים כרגע רק במכשיר זה.',
     );
     for (const gender of GENDERS) {
-      const isFemale = gender === 'female';
       expect(t('steps.account.subtitle', { gender })).toBe(
-        isFemale ? 'בואי נבטיח שהיא לא תלך לאיבוד.' : 'בוא נבטיח שהיא לא תלך לאיבוד.',
+        gn(gender, 'בוא נבטיח שהיא לא תלך לאיבוד.', 'בואי נבטיח שהיא לא תלך לאיבוד.', 'בואו נבטיח שהיא לא תלך לאיבוד.'),
       );
       expect(join(t.rich('steps.account.warning.loss', { gender, b: keep }))).toBe(
-        (isFemale ? 'אם תמחקי את האפליקציה, תחליפי מכשיר, או תנקי נתונים — ' : 'אם תמחק את האפליקציה, תחליף מכשיר, או תנקה נתונים — ') +
-          (isFemale ? 'תאבדי את כל ההתקדמות שלך' : 'תאבד את כל ההתקדמות שלך') + '.',
+        gn(
+          gender,
+          'אם תמחק את האפליקציה, תחליף מכשיר, או תנקה נתונים — תאבד את כל ההתקדמות שלך.',
+          'אם תמחקי את האפליקציה, תחליפי מכשיר, או תנקי נתונים — תאבדי את כל ההתקדמות שלך.',
+          'אם מוחקים את האפליקציה, מחליפים מכשיר, או מנקים נתונים — כל ההתקדמות שלך הולכת לאיבוד.',
+        ),
       );
       expect(t('steps.account.warning.secureLater', { gender })).toBe(
-        isFemale ? 'תוכלי לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.' : 'תוכל לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.',
+        gn(
+          gender,
+          'תוכל לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.',
+          'תוכלי לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.',
+          'אפשר לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.',
+        ),
       );
     }
   });
@@ -257,17 +270,24 @@ describe('onboarding steps + location keys (he)', () => {
     };
     for (const gender of GENDERS) {
       for (const [persona, [m, f]] of Object.entries(LABELS))
-        expect(t('steps.persona.label', { persona, gender })).toBe(gender === 'female' ? f : m);
-      expect(t('steps.persona.madlib.many', { gender })).toBe(gender === 'female' ? 'פעילה במגוון תחומים' : 'פעיל במגוון תחומים');
-      expect(t('steps.persona.hint.persona', { gender })).toBe(g(gender, 'בחר לפחות פרסונה אחת', 'בחרי לפחות פרסונה אחת'));
+        // A persona is a title the user picks for themself: unknown gender keeps the masculine
+        // noun, except "parent" → "הורה" (gender batch 3).
+        expect(t('steps.persona.label', { persona, gender })).toBe(
+          gn(gender, m, f, persona === 'parent' ? 'הורה' : m),
+        );
+      expect(t('steps.persona.madlib.many', { gender })).toBe(gn(gender, 'פעיל במגוון תחומים', 'פעילה במגוון תחומים', 'קצת מהכל'));
+      expect(t('steps.persona.hint.persona', { gender })).toBe(
+        gn(gender, 'בחר לפחות פרסונה אחת', 'בחרי לפחות פרסונה אחת', 'צריך לבחור לפחות פרסונה אחת'),
+      );
       expect(t('steps.persona.hint.personaGoal', { gender })).toBe(
-        g(gender, 'בחר לפחות פרסונה אחת ומטרה אחת', 'בחרי לפחות פרסונה אחת ומטרה אחת'),
+        gn(gender, 'בחר לפחות פרסונה אחת ומטרה אחת', 'בחרי לפחות פרסונה אחת ומטרה אחת', 'צריך לבחור לפחות פרסונה אחת ומטרה אחת'),
       );
       expect(t('steps.persona.intro', { gender })).toBe(
-        g(
+        gn(
           gender,
           'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב.',
           'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב.',
+          'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בוחרים את התפקיד שמקשר ומאפיין אותך הכי טוב.',
         ),
       );
       expect(t('steps.persona.continue', { gender })).toBe(g(gender, 'המשך', 'המשיכי'));
@@ -327,13 +347,16 @@ describe('onboarding steps + location keys (he)', () => {
   it('schedule: counts, aria, popover, gendered copy', () => {
     for (const gender of GENDERS) {
       expect(t('steps.schedule.recommendation.atLeastTwo', { gender })).toBe(
-        g(
+        gn(
           gender,
           'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
           'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!',
+          'שימו לב, ראינו שיש לכם רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל דאגה, אנחנו נעזור לכם!',
         ),
       );
-      expect(t('steps.schedule.time.title', { gender })).toBe(g(gender, 'באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?'));
+      expect(t('steps.schedule.time.title', { gender })).toBe(
+        gn(gender, 'באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?', 'באיזו שעה נוח לך להתאמן?'),
+      );
       expect(t('steps.schedule.cta.continue', { gender })).toBe(g(gender, 'המשך', 'המשיכי'));
     }
     expect(t('steps.schedule.days.count', { selected: '3', total: '7' })).toBe(`נבחרו ${3} מתוך ${7} ימים`);

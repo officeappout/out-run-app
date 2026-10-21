@@ -18,15 +18,16 @@ import { getOnboardingIntroTextOld } from './fixtures/onboarding-why-matrix.old'
 
 type Key = keyof typeof he;
 const t = makeT('he', onboarding);
+// `other` (unknown gender) is neutral since gender batch 3 — pinned in onboarding-gender-batch3.test.ts.
 const GENDERS = [
   ['female', true],
-  ['other', false],
   ['male', false],
 ] as const;
 
 /**
- * Owner copy fixes (21.10.2026) on top of the verbatim old lookup: an unknown gender now gets the male
- * body (same as the title), and "פרונט לבר" is spelled "פרונט ליבר" like the rest of the app.
+ * Owner copy fixes (21.10.2026) on top of the verbatim old lookup: "פרונט לבר" is spelled "פרונט ליבר"
+ * like the rest of the app. Male / female only — an unknown gender gets the neutral (plural) copy
+ * since gender batch 3 (onboarding-gender-batch3.test.ts).
  */
 function expectedIntro(...args: Parameters<typeof getOnboardingIntroTextOld>) {
   const [gender, ...rest] = args;
@@ -57,7 +58,7 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
     for (const [key, old] of cases) expect(t(key)).toBe(old);
   });
 
-  it('gendered (isFemale ? female : male) — female, and every non-female value gets the male copy', () => {
+  it('gendered (isFemale ? female : male) — female and male keep the old copy', () => {
     const cases: Array<[Key, string, string]> = [
       ['quiz.tier.subtitle', 'בחר נקודת התחלה — נעדן את זה ביחד בשלב הבא', 'בחרי נקודת התחלה — נעדן את זה ביחד בשלב הבא'],
       ['quiz.tier.footer', 'אל דאגה — תוכל לכוונן כל קטגוריה בנפרד בשלב הבא', 'אל דאגה — תוכלי לכוונן כל קטגוריה בנפרד בשלב הבא'],
@@ -147,7 +148,8 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
   it('BlurredWhyStep intro: every age group × goal × gender × area × count equals the old matrix lookup', () => {
     const ages = ['14-18', '18-21', '21-26', '26-50', '50+', '99', ''];
     const goals = ['health', 'muscle', 'body_focus', 'skills', null, 'running'];
-    const genders = ['male', 'female', 'other'] as Array<'male' | 'female'>;
+    // male / female keep the old matrix; unknown gender is neutral (onboarding-gender-batch3.test.ts).
+    const genders = ['male', 'female'] as Array<'male' | 'female'>;
     const areas = [
       'push', 'pull', 'legs', 'core', 'handstand', 'skills', 'muscle_up', 'muscleup', 'planche', 'front_lever',
       'back_lever', 'handstand_pushup', 'hspu', 'one_arm_pullup', 'oap', 'pull_up_pro', 'pull_up', 'push_up',
@@ -165,7 +167,7 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
               );
               checked++;
             }
-    expect(checked).toBe(7 * 6 * 3 * 33 * 3);
+    expect(checked).toBe(7 * 6 * 2 * 33 * 3);
   });
 });
 
@@ -173,6 +175,6 @@ describe('owner copy fixes (21.10.2026)', () => {
   it('escape aria label follows the gender', () => {
     expect(t('quiz.slider.escapeAria', { gender: 'female' })).toBe('עדיין לא מצליחה את התרגיל?');
     expect(t('quiz.slider.escapeAria', { gender: 'male' })).toBe('עדיין לא מצליח את התרגיל?');
-    expect(t('quiz.slider.escapeAria', { gender: 'other' })).toBe('עדיין לא מצליח את התרגיל?');
+    expect(t('quiz.slider.escapeAria', { gender: 'other' })).toBe('עדיין לא מצליחים את התרגיל?');
   });
 });

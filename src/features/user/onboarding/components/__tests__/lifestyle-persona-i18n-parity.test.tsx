@@ -57,7 +57,11 @@ vi.mock('@/features/user/onboarding/hooks/useOnboardingV2', () => ({
   useOnboardingV2State: () => ({ v2: S.v2, ready: true, quizHintV2: false }),
 }));
 vi.mock('@/features/user/onboarding/hooks/useWizardIdentity', () => ({
-  useWizardIdentity: () => ({ gender: S.gender, firstName: '' }),
+  useWizardIdentity: () => ({
+    gender: S.gender,
+    copyGender: S.gender === 'male' || S.gender === 'female' ? S.gender : 'other',
+    firstName: '',
+  }),
 }));
 vi.mock('@/features/user/identity/store/useUserStore', () => {
   const state = () => ({ profile: S.profile, refreshProfile: async () => {}, _hasHydrated: true });

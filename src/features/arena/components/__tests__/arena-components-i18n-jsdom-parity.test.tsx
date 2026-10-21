@@ -283,7 +283,7 @@ describe.each([false, true])('ReportContentSheet sent, enable_home_v2=%s', (v2) 
 describe('share / message texts', () => {
   it('PostJoinSuccessDrawer invite', async () => {
     await mount(<PostJoinSuccessDrawer isOpen onClose={noop} name="רצי הירקון" verb="ירוץ" />);
-    await click(btn('הזמן שותף/ה'));
+    await click(btn('הזמנת שותפים')); // gender batch 3: was 'הזמן שותף/ה'
     await expect(log.join('\n')).toMatchFileSnapshot(snap('post-join-share.txt'));
   });
 

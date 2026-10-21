@@ -97,7 +97,7 @@ describe('invite + summary helpers (text through the community catalog)', () => 
     const link = inviteLink('https://app.example', 'AB12');
     expect(link).toBe('https://app.example/join/AB12');
     expect(inviteShareText(tr, 'רצים', 'AB12', link)).toBe(
-      'היי! הקמתי קהילה חדשה "רצים" — בוא להצטרף! 🏃\nקוד הצטרפות: AB12\nhttps://app.example/join/AB12',
+      'היי! הקמתי קהילה חדשה "רצים" — בואו להצטרף! 🏃\nקוד הצטרפות: AB12\nhttps://app.example/join/AB12', // gender batch 3: בוא → בואו (decision 7)
     );
   });
   it('summary location keeps the first two address parts', () => {

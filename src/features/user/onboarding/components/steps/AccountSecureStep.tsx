@@ -8,6 +8,7 @@ import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import { genderArg, type Gender } from '@/lib/i18n/core/i18n-core';
 
 interface AccountSecureStepProps {
   onNext: (secured: boolean, method?: string, email?: string) => void;
@@ -129,9 +130,11 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
   };
 
   const isLoading = loading !== null;
-  // v2 copy only: gendered forms when the profile step recorded a gender.
-  const isFemale =
-    v2 && typeof window !== 'undefined' && sessionStorage.getItem('onboarding_personal_gender') === 'female';
+  // v2 copy: the gender the profile step recorded — male / female / other (neutral for
+  // unknown, owner decision 21.10.2026). v1 keeps the masculine copy for everyone.
+  const copyGender: Gender = v2
+    ? genderArg(typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_gender') : null)
+    : 'male';
 
   return (
     <div className={v2 ? 'mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center bg-v2-surface px-5 py-8 font-simpler text-v2-ink' : 'flex flex-col items-center justify-center min-h-[70vh] px-6 py-8'} dir="rtl">
@@ -172,7 +175,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         transition={{ delay: 0.2 }}
         className={v2 ? 'mb-8 max-w-md text-center text-[15px] font-medium text-v2-ink-2' : 'text-slate-500 text-center mb-8 max-w-md'}
       >
-        {t('steps.account.subtitle', { gender: v2 && isFemale ? 'female' : 'other' })}
+        {t('steps.account.subtitle', { gender: copyGender })}
       </motion.p>
 
       {/* Primary CTA: Google Sign-In */}
@@ -293,12 +296,12 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
                 </p>
                 <p>
                   {t.rich('steps.account.warning.loss', {
-                    gender: isFemale ? 'female' : 'other',
+                    gender: copyGender,
                     b: (chunks: React.ReactNode) => <strong className={v2 ? 'font-extrabold text-v2-ink' : 'text-gray-300'}>{chunks}</strong>,
                   })}
                 </p>
                 <p className={v2 ? 'font-bold text-v2-deep' : 'text-[#00F0FF]/80'}>
-                  {t('steps.account.warning.secureLater', { gender: isFemale ? 'female' : 'other' })}
+                  {t('steps.account.warning.secureLater', { gender: copyGender })}
                 </p>
               </div>
 

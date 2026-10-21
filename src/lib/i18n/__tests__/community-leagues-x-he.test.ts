@@ -118,7 +118,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
       ['leagues.battle.groupWalk', 'יוצאים להליכה קבוצתית'],
       ['leagues.battle.title', 'קרב השבוע'],
       ['leagues.battle.invite', 'הזמנת חברים'],
-      ['leagues.battle.switch', 'החלף יריבה'],
+      ['leagues.battle.switch', 'החלפת יריבה'], // gender batch 3: noun (was 'החלף יריבה')
       ['leagues.battle.versus', 'נגד'],
       // national board
       ['leagues.national.metric.points', 'נקודות'],
@@ -175,11 +175,14 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     for (const w of WINDOWS) {
       expect(t('leagues.individual.windowPhrase', { window: w })).toBe(phrase(w));
       for (const name of ['תל אביב', 'הליגה']) {
-        expect(t('leagues.individual.share.rank', { rank: String(1234), name, window: phrase(w) })).toBe(`אני במקום #${1234} ב${name} ${phrase(w)} על Out! 🔥`);
+        expect(t('leagues.individual.share.rank', { rank: String(1234), hasName: 'yes', name, window: phrase(w) })).toBe(`אני במקום #${1234} ב${name} ${phrase(w)} על Out! 🔥`);
         expect(t('leagues.individual.hero.position', { window: phrase(w), name })).toBe(`המיקום שלך ${phrase(w)} · ${name}`);
       }
     }
-    expect(t('leagues.individual.share.invite', { name: 'הליגה' })).toBe(`בואו להצטרף אליי ב${'הליגה'} על Out! 🔥`);
+    // gender batch 3: no scope label → "בליגה" / "לליגה" (was "בהליגה")
+    expect(t('leagues.individual.share.invite', { hasName: 'yes', name: 'תל אביב' })).toBe(`בואו להצטרף אליי ב${'תל אביב'} על Out! 🔥`);
+    expect(t('leagues.individual.share.invite', { hasName: 'no', name: '' })).toBe('בואו להצטרף אליי לליגה על Out! 🔥');
+    expect(t('leagues.individual.share.rank', { rank: '3', hasName: 'no', name: '', window: 'היום' })).toBe('אני במקום #3 בליגה היום על Out! 🔥');
     expect(t('leagues.individual.workouts', { count: String(1500) })).toBe(`${1500} אימונים`);
     expect(t('leagues.individual.title', { global: 'yes' })).toBe('דירוג ארצי');
     expect(t('leagues.individual.title', { global: 'no' })).toBe('ליגת העיר');
@@ -254,10 +257,15 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     expect(t('leagues.national.unit.perMember', { unit })).toBe(`${unit} למשתתף`);
     expect(t('leagues.scopes.km', { km: '1,240.5' })).toBe(`${'1,240.5'} ק״מ`);
     expect(t('leagues.national.km', { km: '1,240.5' })).toBe(`${'1,240.5'} ק״מ`);
-    expect(t('leagues.scopes.podium.sub', { count: String(1234) })).toBe(`${1234} פעילים`);
-    expect(t('leagues.scopes.podium.subKm', { count: String(1234), km: '12.5' })).toBe(`${1234} פעילים · ${'12.5'} ק״מ`);
-    expect(t('leagues.national.podiumSub', { count: String(1234) })).toBe(`${1234} פעילים`);
-    expect(t('leagues.groupBoard.podiumSub', { count: String(1234) })).toBe(`${1234} פעילים`);
+    // gender batch 3: the podium follows the rows — "1 פעיל", "N פעילים"
+    for (const n of [1, 2, 1234]) {
+      const active = n === 1 ? `${n} פעיל` : `${n} פעילים`;
+      expect(t('leagues.scopes.podium.sub', { n, count: String(n) })).toBe(active);
+      expect(t('leagues.scopes.podium.subKm', { n, count: String(n), km: '12.5' })).toBe(`${active} · ${'12.5'} ק״מ`);
+      expect(t('leagues.national.podiumSub', { n, count: String(n) })).toBe(active);
+      expect(t('leagues.groupBoard.podiumSub', { n, count: String(n) })).toBe(active);
+      expect(t('leagues.battle.active', { n, count: String(n) })).toBe(active);
+    }
 
     for (const w of WINDOWS) {
       expect(t('leagues.national.window', { window: w })).toBe(w === 'weekly' ? 'השבוע' : w === 'monthly' ? 'החודש' : 'היום');
@@ -271,7 +279,7 @@ describe('community (he) leagues batch x — byte-identical to the pre-extractio
     const name = 'הצפון הישן';
     expect(t('leagues.battle.inviteText', { name })).toBe(`בואו להצטרף אליי ב${name} על Out! 🔥`);
     expect(t('leagues.battle.noOpponent', { name })).toBe(`עדיין אין יריב ל${name}`);
-    expect(t('leagues.battle.active', { count: String(1234) })).toBe(`${1234} פעילים`);
+    expect(t('leagues.battle.active', { n: 1234, count: String(1234) })).toBe(`${1234} פעילים`);
     expect(t('leagues.battle.perMember', { unit: "נק' כוח" })).toBe(`${"נק' כוח"} בממוצע למשתתף פעיל`);
     expect(t('leagues.battle.km', { km: '1,240.4' })).toBe(` · ${'1,240.4'} ק״מ`);
     expect(t('leagues.battle.total', { unit: "נק' ריצה", name })).toBe(`סה״כ ${"נק' ריצה"} · ${name}`);
