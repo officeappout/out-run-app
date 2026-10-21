@@ -19,6 +19,8 @@ import { useEffect, useState } from 'react';
 import { Footprints, MapPin, RefreshCw, Trophy, Zap } from 'lucide-react';
 import { BoardCard, BoardIconButton, BoardMessage, BoardRow, BoardRowSkeleton, BoardToggle } from './LeagueBoard';
 import { formatKm } from './league-board-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { getGroupLeagueBoard, type LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
 import type { GroupBoard, GroupBoardMember } from '@/features/arena/services/league-scope-keys';
 
@@ -67,7 +69,7 @@ export function GroupLeagueStatsBoardView({
 }) {
   const [metric, setMetric] = useState<Metric>('points');
   const [expanded, setExpanded] = useState(false);
-  const windowLabel = timeWindow === 'monthly' ? 'החודש' : 'השבוע';
+  const t = useT(community);
   const km = metric === 'km';
 
   const members: (GroupBoardMember & { rank: number })[] = (board?.members ?? [])
@@ -79,24 +81,27 @@ export function GroupLeagueStatsBoardView({
 
   const tiles = board
     ? [
-        { id: 'points', icon: Zap, color: 'text-v2-deep', value: board.totals.points.toLocaleString('he-IL'), label: 'נקודות' },
-        { id: 'steps', icon: Footprints, color: 'text-[#f59e0b]', value: board.totals.stepsPoints.toLocaleString('he-IL'), label: 'מהצעדים' },
-        { id: 'km', icon: MapPin, color: 'text-[#f59e0b]', value: formatKm(board.totals.km), label: 'ק״מ' },
+        { id: 'points', icon: Zap, color: 'text-v2-deep', value: board.totals.points.toLocaleString('he-IL'), label: t('leagues.group.tile.points') },
+        { id: 'steps', icon: Footprints, color: 'text-[#f59e0b]', value: board.totals.stepsPoints.toLocaleString('he-IL'), label: t('leagues.group.tile.steps') },
+        { id: 'km', icon: MapPin, color: 'text-[#f59e0b]', value: formatKm(board.totals.km), label: t('leagues.group.tile.km') },
       ]
     : [];
 
   const sub = (m: GroupBoardMember) =>
     km
-      ? `${m.points.toLocaleString('he-IL')} נקודות`
-      : [m.stepsPoints > 0 ? `${m.stepsPoints.toLocaleString('he-IL')} מהצעדים` : null, m.km > 0 ? `${formatKm(m.km)} ק״מ` : null]
+      ? t('leagues.group.sub.points', { points: m.points.toLocaleString('he-IL') })
+      : [
+          m.stepsPoints > 0 ? t('leagues.group.sub.steps', { points: m.stepsPoints.toLocaleString('he-IL') }) : null,
+          m.km > 0 ? t('leagues.group.sub.km', { km: formatKm(m.km) }) : null,
+        ]
           .filter(Boolean)
           .join(' · ') || undefined;
 
   return (
     <BoardCard
-      title={`הקבוצה ${windowLabel}`}
-      subtitle="נקודות, צעדים וק״מ"
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={onRefresh} spinning={loading} />}
+      title={t('leagues.group.title', { window: timeWindow })}
+      subtitle={t('leagues.group.subtitle')}
+      actions={<BoardIconButton icon={RefreshCw} label={t('leagues.group.refresh')} onClick={onRefresh} spinning={loading} />}
     >
       {loading && !board ? (
         <div className="grid grid-cols-1 gap-2">
@@ -105,31 +110,35 @@ export function GroupLeagueStatsBoardView({
           ))}
         </div>
       ) : !board || board.members.length === 0 ? (
-        <BoardMessage icon={Trophy} title={`עוד אין פעילות בקבוצה ${windowLabel}`} body="אימונים וצעדים של חברי הקבוצה נספרים כאן (הצעדים מתעדכנים פעם בשעה)." />
+        <BoardMessage
+          icon={Trophy}
+          title={t('leagues.group.empty.title', { window: timeWindow })}
+          body={t('leagues.group.empty.body')}
+        />
       ) : (
         <>
           <div className="mb-3 grid grid-cols-3 gap-2">
-            {tiles.map((t) => (
-              <div key={t.id} className="min-w-0 rounded-[16px] bg-v2-surface px-2.5 py-2 ring-1 ring-inset ring-v2-hairline">
-                <t.icon size={16} strokeWidth={2.6} className={t.color} aria-hidden />
-                <div className="mt-1 truncate text-[18px] font-black leading-tight tabular-nums text-v2-ink">{t.value}</div>
-                <div className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{t.label}</div>
+            {tiles.map((tile) => (
+              <div key={tile.id} className="min-w-0 rounded-[16px] bg-v2-surface px-2.5 py-2 ring-1 ring-inset ring-v2-hairline">
+                <tile.icon size={16} strokeWidth={2.6} className={tile.color} aria-hidden />
+                <div className="mt-1 truncate text-[18px] font-black leading-tight tabular-nums text-v2-ink">{tile.value}</div>
+                <div className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{tile.label}</div>
               </div>
             ))}
           </div>
           <div className="mb-2">
             <BoardToggle
-              label="דירוג לפי"
+              label={t('leagues.group.sortLabel')}
               value={metric}
               onChange={setMetric}
               options={[
-                { id: 'points', label: 'נקודות' },
-                { id: 'km', label: 'ק״מ' },
+                { id: 'points', label: t('leagues.group.sort.points') },
+                { id: 'km', label: t('leagues.group.sort.km') },
               ]}
             />
           </div>
           {members.length === 0 ? (
-            <BoardMessage icon={MapPin} title={`עוד אין ק״מ ${windowLabel}`} body="הצעדים וההליכות מתעדכנים פעם בשעה." />
+            <BoardMessage icon={MapPin} title={t('leagues.group.noKm.title', { window: timeWindow })} body={t('leagues.group.noKm.body')} />
           ) : (
             <div className="mt-1 grid grid-cols-1 gap-1">
               {shown.map((m) => (
@@ -137,11 +146,11 @@ export function GroupLeagueStatsBoardView({
                   key={m.uid}
                   rank={m.rank}
                   name={m.name}
-                  nameTag={m.isMe ? '(את/ה)' : undefined}
+                  nameTag={m.isMe ? t('leagues.group.me') : undefined}
                   isMe={m.isMe}
                   sub={sub(m)}
                   value={km ? formatKm(m.km) : m.points.toLocaleString('he-IL')}
-                  unit={km ? 'ק״מ' : 'נקודות'}
+                  unit={km ? t('leagues.group.unit.km') : t('leagues.group.unit.points')}
                 />
               ))}
             </div>
@@ -152,13 +161,13 @@ export function GroupLeagueStatsBoardView({
               onClick={() => setExpanded((v) => !v)}
               className="mt-2 flex h-10 w-full items-center justify-center whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
-              {expanded ? 'הצג פחות' : `הצג את כל ה-${members.length}`}
+              {expanded ? t('leagues.group.showLess') : t('leagues.group.showAll', { count: String(members.length) })}
             </button>
           )}
           <p className="mt-3 text-[12px] font-bold leading-snug text-v2-muted">
             {km
-              ? 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות.'
-              : '3 נקודות על כל 1,000 צעדים ביום, ועוד נקודות על כל דקת אימון.'}
+              ? t('leagues.group.note.km')
+              : t('leagues.group.note.points')}
           </p>
         </>
       )}

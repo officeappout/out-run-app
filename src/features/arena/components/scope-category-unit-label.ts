@@ -1,4 +1,6 @@
 import type { LeaderboardCategory } from '@/features/arena/services/ranking.service';
+import he from '@/messages/he/community.json';
+import type { CommunityKey } from './league-t';
 
 /**
  * Metric-qualified unit label for inter-scope competition totals — never a
@@ -9,8 +11,20 @@ import type { LeaderboardCategory } from '@/features/arena/services/ranking.serv
  * (Stage A / format-leaderboard-score.ts). Shared by ScopeCompetitionLeaderboard
  * and ScopeBattleCard so the two surfaces can never drift out of sync.
  */
+export const CATEGORY_UNIT_LABEL_KEYS = {
+  overall: 'leagues.categoryUnit.overall',
+  cardio: 'leagues.categoryUnit.cardio',
+  strength: 'leagues.categoryUnit.strength',
+} as const satisfies Record<LeaderboardCategory, CommunityKey>;
+
+/**
+ * i18n (namespace `community`, keys `leagues.categoryUnit.*`): migrated callers render
+ * `t(CATEGORY_UNIT_LABEL_KEYS[category])`. This map stays for the callers that are not migrated yet
+ * (ScopeCompetitionLeaderboard, ScopeBattleCard, NationalLeagueBoard, app/community's
+ * ScopeContributionCard): it reads the HEBREW catalog — same text as before, Hebrew in every locale.
+ */
 export const CATEGORY_UNIT_LABEL: Record<LeaderboardCategory, string> = {
-  overall: "נק' פעילות",
-  cardio: "נק' ריצה",
-  strength: "נק' כוח",
+  overall: he[CATEGORY_UNIT_LABEL_KEYS.overall],
+  cardio: he[CATEGORY_UNIT_LABEL_KEYS.cardio],
+  strength: he[CATEGORY_UNIT_LABEL_KEYS.strength],
 };

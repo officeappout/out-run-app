@@ -14,6 +14,8 @@
 import React, { type ReactNode } from 'react';
 import { Building2, Crown, type LucideIcon } from 'lucide-react';
 import Card from '@/components/ui/v2/Card';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Board card ───────────────────────────────────────────────────────────────
 
@@ -76,11 +78,12 @@ const PODIUM_TILE: Record<2 | 3, string> = {
 };
 
 export function RankTile({ rank }: { rank: number }) {
+  const t = useT(community);
   if (rank === 1) {
     return (
       <span
         className="w-[30px] h-[30px] rounded-full bg-v2-gold text-v2-on-gold flex items-center justify-center shrink-0"
-        aria-label="מקום 1"
+        aria-label={t('leagues.board.firstPlace')}
         role="img"
       >
         <Crown size={16} strokeWidth={2.4} fill="currentColor" aria-hidden />
@@ -226,9 +229,10 @@ const AVATAR_TINTS = ['#bae6fd', '#c7f9e9', '#fde68a', '#e9d5ff', '#fecdd3', '#d
  * Callers render rows from 4th place on below it. Needs exactly 3 entries.
  */
 export function BoardPodium({ entries }: { entries: [PodiumEntry, PodiumEntry, PodiumEntry] }) {
+  const t = useT(community);
   const order: (1 | 2 | 3)[] = [2, 1, 3];
   return (
-    <ol className="grid grid-cols-3 items-end gap-2 px-1 pt-3 pb-1 text-v2-ink" aria-label="שלושת הראשונים" dir="rtl">
+    <ol className="grid grid-cols-3 items-end gap-2 px-1 pt-3 pb-1 text-v2-ink" aria-label={t('leagues.board.podium')} dir="rtl">
       {order.map((rank) => {
         const e = entries[rank - 1];
         const size = rank === 1 ? 52 : 42;
@@ -264,7 +268,7 @@ export function BoardPodium({ entries }: { entries: [PodiumEntry, PodiumEntry, P
               </span>
               <span className="max-w-full truncate text-[13px] font-extrabold">{e.name}</span>
               {e.isMe ? (
-                <span className="mb-1 rounded-full bg-v2-ink px-2 py-0.5 text-[10px] font-extrabold text-white">שלך</span>
+                <span className="mb-1 rounded-full bg-v2-ink px-2 py-0.5 text-[10px] font-extrabold text-white">{t('leagues.board.mine')}</span>
               ) : (
                 <span className="mb-1 max-w-full truncate text-[11px] font-bold text-v2-muted">{e.sub ?? '\u00a0'}</span>
               )}

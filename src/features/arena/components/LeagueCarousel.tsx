@@ -20,6 +20,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Plus } from 'lucide-react';
 import { leagueIconFor } from './league-icons';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /** Design v2: lucide icon per league key instead of the card's emoji. */
 function LeagueIcon({ leagueKey, size }: { leagueKey: string; size: number }) {
@@ -146,6 +148,7 @@ function LeagueSheetList({
   createHref: string;
   isLoading: boolean;
 }) {
+  const t = useT(community);
   return (
     <div className="flex flex-col gap-2" dir="rtl">
       {isLoading ? (
@@ -207,7 +210,7 @@ function LeagueSheetList({
                   <span className="font-black tabular-nums text-[16px] text-v2-deep">
                     {league.rank != null ? `#${league.rank}` : '—'}
                   </span>
-                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">דירוג</span>
+                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">{t('leagues.picker.rank')}</span>
                 </div>
                 <div className="flex flex-col items-center leading-none">
                   <span className="font-black tabular-nums text-[16px] text-v2-ink">
@@ -215,7 +218,7 @@ function LeagueSheetList({
                       ? league.memberCount.toLocaleString('he-IL')
                       : '—'}
                   </span>
-                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">חברים</span>
+                  <span className="text-v2-muted font-bold mt-0.5 text-[11px]">{t('leagues.picker.members')}</span>
                 </div>
               </div>
             </button>
@@ -226,15 +229,15 @@ function LeagueSheetList({
       {/* Create / join a new league */}
       <Link
         href={createHref}
-        aria-label="פתיחת ליגה חדשה"
+        aria-label={t('leagues.picker.create.title')}
         className="flex items-center gap-3 w-full rounded-[20px] p-3 border-2 border-dashed border-v2-pill-border text-v2-ink-2 transition-transform ease-v2 active:scale-[0.98]"
       >
         <div className="w-11 h-11 rounded-full flex items-center justify-center border-2 border-dashed border-v2-pill-border flex-shrink-0">
           <Plus className="w-5 h-5" strokeWidth={2.4} />
         </div>
         <span className="min-w-0">
-          <span className="block font-black text-v2-ink text-[16px]">פתיחת ליגה חדשה</span>
-          <span className="block text-[12.5px] font-bold truncate">שכונה, חברים, משפחה, עבודה, או כניסה עם קוד</span>
+          <span className="block font-black text-v2-ink text-[16px]">{t('leagues.picker.create.title')}</span>
+          <span className="block text-[12.5px] font-bold truncate">{t('leagues.picker.create.sub')}</span>
         </span>
       </Link>
     </div>
@@ -340,7 +343,7 @@ export default function LeagueCarousel({
                       {league.rank != null ? `#${league.rank}` : '—'}
                     </span>
                     <span className="text-gray-500" style={{ fontSize: 8 }}>
-                      דירוג
+                      {/* i18n-allow-hebrew: unreachable (carousel mode — every caller passes mode="sheet") */}דירוג
                     </span>
                   </div>
                   <div className="flex items-baseline gap-0.5">
@@ -353,7 +356,7 @@ export default function LeagueCarousel({
                         : '—'}
                     </span>
                     <span className="text-gray-500" style={{ fontSize: 8 }}>
-                      חברים
+                      {/* i18n-allow-hebrew: unreachable (carousel mode — every caller passes mode="sheet") */}חברים
                     </span>
                   </div>
                 </div>
@@ -373,7 +376,7 @@ export default function LeagueCarousel({
         {/* Trailing "+" card — create / join a new league */}
         <Link
           href={createHref}
-          aria-label="הצטרף לליגה"
+          aria-label="הצטרף לליגה" // i18n-allow-hebrew: unreachable (carousel mode — every caller passes mode="sheet")
           className="snap-start flex-shrink-0 flex flex-col items-center justify-center text-gray-500 transition-transform active:scale-[0.97]"
           style={{
             width: 110,
@@ -388,7 +391,7 @@ export default function LeagueCarousel({
             <Plus className="w-4 h-4 text-gray-400" />
           </div>
           <span style={{ fontSize: 11 }} className="font-medium">
-            הצטרף לליגה
+            {/* i18n-allow-hebrew: unreachable (carousel mode — every caller passes mode="sheet") */}הצטרף לליגה
           </span>
         </Link>
       </div>
