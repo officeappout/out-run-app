@@ -39,6 +39,8 @@ import ParkRatingSection from './sections/ParkRatingSection';
 import ParkReviewsSection from './sections/ParkReviewsSection';
 import ParkActionBar from './sections/ParkActionBar';
 import ParkPhotoLightbox from './sections/ParkPhotoLightbox';
+import ParkShelterTag from './sections/ParkShelterTag';
+import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
 
 interface ParkDetailSheetProps {
   isOpen: boolean;
@@ -112,12 +114,16 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
 
   useParkScrollProgressSync(motion.scrollRef, isOpen, motion.scrollYMV);
 
+  // enable_map_polish_v1: navigate → the in-app destination flow; the shelter tag lives here.
+  const polish = useMapPolishV1();
+  const navigateTo = useNavigateTo();
   const handleNavigate = useCallback(() => {
     if (!park?.location) return;
+    if (polish && navigateTo(parkTarget(park))) { onClose(); return; }
     const { lat, lng } = park.location;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     window.open(url, '_blank');
-  }, [park?.location]);
+  }, [park, polish, navigateTo, onClose]);
 
   if (!park) return null;
 
@@ -158,6 +164,7 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
           {/* Content — the title block's own `-mt-14` bridges the hero gradient. */}
           <div className="bg-white dark:bg-slate-900 relative z-10 px-5 pt-2 pb-8">
             <ParkMetaRow park={park} v2={v2} avgRating={avgRating} ratedCount={ratedReviews.length} distText={distText} />
+            {polish && <ParkShelterTag park={park} />}
 
             <ParkPulseSection
               v2={v2}

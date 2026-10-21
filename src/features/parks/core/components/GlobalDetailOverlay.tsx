@@ -7,9 +7,15 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { useMapStore } from '../store/useMapStore';
 import { routeOpenTarget } from '../utils/route-open-target';
+import { routeStartTarget, useNavigateTo } from '../map-polish';
 
 const ParkDetailSheet = dynamic(
   () => import('@/features/parks/client/components/park-detail/ParkDetailSheet'),
+  { ssr: false },
+);
+
+const RouteOverviewSheet = dynamic(
+  () => import('./overview/route/RouteOverviewSheet'),
   { ssr: false },
 );
 
@@ -49,6 +55,8 @@ const RouteDetailSheet = dynamic(
  * route goes to the map (useMapStore.pendingRouteOverview → DiscoverLayer), which
  * selects it and opens the ONE route overview drawer (RouteOverviewOverlay).
  * Falls back to the legacy sheet when the map can't take it (route-open-target.ts).
+ * enable_map_polish_v1: that fallback is the v2 route overview as a standalone
+ * sheet (RouteOverviewSheet), never the legacy one.
  */
 export default function GlobalDetailOverlay() {
   const globalSheet = useMapStore((s) => s.globalSheet);
@@ -58,7 +66,10 @@ export default function GlobalDetailOverlay() {
   const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
   const router = useRouter();
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const { flags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  const v2 = flags.enableHomeV2;
+  const polish = !flagsLoading && v2 && flags.enableMapPolishV1;
+  const navigateTo = useNavigateTo();
   const hostMounted = useMapStore((s) => s.routeOverviewHostMounted);
   const setPendingRouteOverview = useMapStore((s) => s.setPendingRouteOverview);
 
@@ -69,6 +80,7 @@ export default function GlobalDetailOverlay() {
       route: sheetRoute,
       onMap: typeof window !== 'undefined' && window.location.pathname === '/map',
       hostMounted,
+      polish,
     })
     : null;
 
@@ -100,6 +112,22 @@ export default function GlobalDetailOverlay() {
 
   if (globalSheet.type === 'route') {
     if (routeTarget === 'map') return null;
+    if (routeTarget === 'sheet') {
+      return (
+        <RouteOverviewSheet
+          route={globalSheet.route}
+          onBack={closeGlobalSheet}
+          onStart={(r) => {
+            // Same hand-off as the legacy sheet's start (pendingRouteStart → Discover);
+            // the sheet sets the chosen activity first.
+            setPendingRouteStart(r);
+            closeGlobalSheet();
+            if (typeof window !== 'undefined' && window.location.pathname !== '/map') router.push('/map');
+          }}
+          onNavigate={(r) => { if (navigateTo(routeStartTarget(r))) closeGlobalSheet(); }}
+        />
+      );
+    }
     return (
       <RouteDetailSheet
         isOpen

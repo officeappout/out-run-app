@@ -39,6 +39,8 @@ const scenario: {
 } = { park: null, events: [], eventsLoading: false, reviews: [], equipment: {}, registered: [] };
 
 vi.mock('@/hooks/useFeatureFlags', () => ({ useFeatureFlags: () => ({ flags }) }));
+// enable_map_polish_v1 (off here): the sheet's navigate entry holds a router (useNavigateTo).
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }));
 vi.mock('@/features/user', () => ({
   useUserStore: Object.assign(
     (sel?: (s: { profile: typeof profile }) => unknown) => (sel ? sel({ profile }) : { profile }),

@@ -35,6 +35,7 @@ import OverviewStartButton from '../OverviewStartButton';
 import RoundTripPill from '../RoundTripPill';
 import { journeyItemsFromLegs } from '../overview-legs';
 import RouteLegDetail from './RouteLegDetail';
+import RouteCreditsLine from './RouteCreditsLine';
 import {
   ROUTE_ACTIVITIES, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity,
   isLoopRoute, routeDescription, routeWalkLegs, type RouteActivity,
@@ -58,10 +59,12 @@ export interface RouteOverviewDrawerProps {
   onOpenFullDetails?: () => void;
   /** Top of the body (board M-6j: "יש לך היום … · לאימון הזה כאן"). Omit → nothing. */
   topSlot?: ReactNode;
+  /** enable_map_polish_v1: the route's data credits under "פירוט" (no legacy full page). */
+  showCredits?: boolean;
 }
 
 export default function RouteOverviewDrawer({
-  route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails, topSlot,
+  route, initialActivity, userLocation, cityName, onBack, onStart, onNavigate, onOpenFullDetails, topSlot, showCredits = false,
 }: RouteOverviewDrawerProps) {
   const t = useT(map);
   const [activity, setActivity] = useState<RouteActivity>(() => initialRouteActivity(route, initialActivity));
@@ -163,6 +166,7 @@ export default function RouteOverviewDrawer({
               {t('overview.route.details.all')} <ChevronLeft size={15} />
             </button>
           )}
+          {showCredits && <RouteCreditsLine route={route} />}
         </div>
       )}
 

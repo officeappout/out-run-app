@@ -84,6 +84,8 @@ export default defineConfig({
       'src/features/ai-coach/__tests__/**/*.test.tsx',
       // i18n wave 2 (map namespace) — parks/core map UI (cards, search, banners), Hebrew markup parity (static + jsdom).
       'src/features/parks/core/components/__tests__/**/*.test.tsx',
+      // enable_map_polish_v1 — compact park card / live-user navigate / route credits, static markup.
+      'src/features/parks/core/map-polish/__tests__/**/*.test.tsx',
       // i18n wave 2 (player namespace, gps.* / shareLive.* / preview.* / coachNote.* / strengthOverview.*) —
       // shared workout components, Hebrew markup parity, static markup.
       'src/features/workout-engine/components/__tests__/**/*.test.tsx',

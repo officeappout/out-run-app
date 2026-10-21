@@ -78,6 +78,7 @@ interface FlagState {
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
   enable_week_builder_v1: boolean;
+  enable_map_polish_v1: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -551,6 +552,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'לו״ז: בונה השבוע',
     description: 'תוכנית פשוטה (אימון אחד שחוזר) נשארת עם בחירת ימים. תוכנית מורכבת (פיצול, שני מסלולים, הליכה לצד מסלול אחר או 5+ ימים) מקבלת את בונה השבוע: כרטיס לכל יום עם "למה", גרירה ליום אחר שהמנוע בודק, ואישור השבוע. גם בהוספת מסלול שני.',
+  },
+  // Map polish — one navigation, compact park card, v2 route details (21.10.2026).
+  {
+    key: 'enable_map_polish_v1',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
+    description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
   },
   // Retire /gateway as the fallback (21.10.2026).
   {

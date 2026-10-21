@@ -171,6 +171,7 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       ['overview.route.navigate.label', 'ניווט למסלול'],
       ['overview.route.details.toggle', 'פירוט'],
       ['overview.route.details.all', 'כל פרטי המסלול'],
+      ['overview.route.credits.label', 'קרדיט לנתונים'], // enable_map_polish_v1 (new copy)
       ['overview.route.activityPicker.label', 'בחירת פעילות'],
       ['overview.route.course.title', 'מהלך המסלול'],
       ['overview.route.titleBar.route', 'מבט על מסלול'],
@@ -310,8 +311,8 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
     }
   });
 
-  it('the three prefixes hold 125 keys (add a case above with every new one)', () => {
+  it('the three prefixes hold 126 keys (add a case above with every new one)', () => {
     const mine = Object.keys(he).filter((k) => /^(routePreview|overview\.route|equipment)\./.test(k));
-    expect(mine.length).toBe(125);
+    expect(mine.length).toBe(126);
   });
 });

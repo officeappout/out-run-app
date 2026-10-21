@@ -616,7 +616,11 @@ function MapShellInner({ spotFocus, initialOpenRun, targetSteps, isDemoMode = fa
           partnerActivityFilter={partnerActivityFilter}
           liveUsersVisible={isDemoMode ? true : liveUsersVisible}
           userPersonaId={profile?.personas?.[0]?.id}
-          onPartnerClick={(p) => setMapProfileUser({ uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage })}
+          onPartnerClick={(p) => setMapProfileUser({
+            uid: p.uid, name: p.name, personaId: undefined, lemurStage: p.lemurStage,
+            // enable_map_polish_v1 "ניווט לשם": the pin's live position (never the demo crowd).
+            ...(!isDemoMode && p.lat != null && p.lng != null ? { liveLocation: { lat: p.lat, lng: p.lng } } : {}),
+          })}
           mapMode={mode}
           activityType={contextActivity}
           navigationTurns={navigationTurns}

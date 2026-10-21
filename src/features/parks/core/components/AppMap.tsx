@@ -28,6 +28,7 @@ import { useParkCoachAnchorWanted } from './coach/park-coach-anchor';
 import LemurMarker from '@/features/parks/core/components/LemurMarker';
 import PartnerMarker from './PartnerMarker';
 import ParkPhotoMarker from './ParkPhotoMarker';
+import { isLayerOn, withLayerVisibility } from '../map-polish/layer-visibility';
 import DestinationMarker from './DestinationMarker';
 import { resolveParkImage } from '@/lib/park-image';
 
@@ -296,7 +297,7 @@ interface AppMapProps {
   /** Current user's persona ID — determines which lemur character image to show */
   userPersonaId?: string | null;
   /** Callback when a partner marker is tapped */
-  onPartnerClick?: (partner: { uid: string; name: string; personaImageUrl?: string; lemurStage?: number }) => void;
+  onPartnerClick?: (partner: { uid: string; name: string; personaImageUrl?: string; lemurStage?: number; lat?: number; lng?: number }) => void;
   /** Neighborhood-level anchor coordinates to use as initial map center (zoom 14). Falls back to Tel Aviv. */
   initialCenter?: { lat: number; lng: number } | null;
   /**
@@ -935,6 +936,9 @@ export default function AppMap({
   // points. Works for all activity types; walking just so happens to be
   // where users dwell long enough to enjoy the highlight.
   const showSelectedParkPhoto = currentZoom >= 13 && !!selectedPark;
+  // Layers panel (enable_map_polish_v1 adds the toggles; nothing removes these ids otherwise).
+  const parksOn = isLayerOn(visibleLayers, 'parks');
+  const routesOn = isLayerOn(visibleLayers, 'routes');
 
   // Cache the resolved selected park's photo URL & coordinates as a
   // single derived object. Validating coords here means the JSX render
@@ -2098,17 +2102,17 @@ export default function AppMap({
             takes over its slot — preventing a stacked vector-pin + photo
             silhouette at the same coordinate. */}
         <Source id="parks-clustered" type="geojson" data={parksGeoJSON} cluster={true} clusterMaxZoom={14} clusterRadius={50}>
-          <Layer id="park-clusters-glow" type="circle" filter={PARK_CLUSTERS_GLOW.filter} paint={PARK_CLUSTERS_GLOW.paint as any} />
-          <Layer id="park-clusters" type="circle" filter={PARK_CLUSTERS.filter} paint={PARK_CLUSTERS.paint as any} />
+          <Layer id="park-clusters-glow" type="circle" filter={PARK_CLUSTERS_GLOW.filter} paint={PARK_CLUSTERS_GLOW.paint as any} layout={withLayerVisibility(undefined, parksOn) as any} />
+          <Layer id="park-clusters" type="circle" filter={PARK_CLUSTERS.filter} paint={PARK_CLUSTERS.paint as any} layout={withLayerVisibility(undefined, parksOn) as any} />
           <Layer
             id="park-pins"
             type="symbol"
             filter={parkPinsFilter}
             minzoom={PARK_PINS.minzoom}
-            layout={PARK_PINS.layout as any}
+            layout={withLayerVisibility(PARK_PINS.layout as any, parksOn) as any}
           />
-          <Layer id="park-minor-pins" type="symbol" filter={parkMinorPinsFilter} minzoom={PARK_MINOR_PINS.minzoom} layout={PARK_MINOR_PINS.layout as any} />
-          <Layer id="park-cluster-count" type="symbol" filter={PARK_CLUSTER_COUNT.filter} layout={PARK_CLUSTER_COUNT.layout as any} paint={PARK_CLUSTER_COUNT.paint as any} />
+          <Layer id="park-minor-pins" type="symbol" filter={parkMinorPinsFilter} minzoom={PARK_MINOR_PINS.minzoom} layout={withLayerVisibility(PARK_MINOR_PINS.layout as any, parksOn) as any} />
+          <Layer id="park-cluster-count" type="symbol" filter={PARK_CLUSTER_COUNT.filter} layout={withLayerVisibility(PARK_CLUSTER_COUNT.layout as any, parksOn) as any} paint={PARK_CLUSTER_COUNT.paint as any} />
         </Source>
 
         {/* Map tour "פארקים" step: one invisible DOM anchor on the nearest park pin, only while a
@@ -2388,7 +2392,7 @@ export default function AppMap({
             ONE marker plays both roles. A genuinely point-to-point route
             (today: only commute — see the distinct-finish-marker block
             below) gets a second, separate marker at its actual end. ── */}
-        {!isActiveWorkout && visibleRoutes.map(route => {
+        {!isActiveWorkout && routesOn && visibleRoutes.map(route => {
           const startPoint = route.path?.[0];
           // Guard against malformed paths produced by upstream generators.
           // `startPoint` may be present-but-broken: `[null, null]`, NaN, or
@@ -2438,7 +2442,7 @@ export default function AppMap({
             block is future-proofing for any genuinely point-to-point,
             non-commute route (e.g. a curated point-to-point trail), not
             something that fires for today's generated routes. ── */}
-        {!isActiveWorkout && visibleRoutes.map(route => {
+        {!isActiveWorkout && routesOn && visibleRoutes.map(route => {
           if (route.variant !== undefined) return null; // commute — DestinationMarker already covers this
           const startPoint = route.path?.[0];
           const endPoint = route.path?.[route.path.length - 1];
@@ -2516,7 +2520,7 @@ export default function AppMap({
           .map((p) => (
             <Marker key={p.uid} longitude={p.lng} latitude={p.lat} anchor="center">
               <button
-                onClick={() => onPartnerClick?.({ uid: p.uid, name: p.name, personaImageUrl: p.personaImageUrl, lemurStage: p.lemurStage })}
+                onClick={() => onPartnerClick?.({ uid: p.uid, name: p.name, personaImageUrl: p.personaImageUrl, lemurStage: p.lemurStage, lat: p.lat, lng: p.lng })}
                 className="cursor-pointer"
               >
                 <PartnerMarker

@@ -3,13 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MessageCircle, Lock, UserCircle2 } from 'lucide-react';
+import { X, MessageCircle, Lock, UserCircle2, Navigation } from 'lucide-react';
 import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresence';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useChatStore } from '@/features/social/store/useChatStore';
 import { STAGE_TITLES } from '@/features/user/progression/config/stage-titles';
+import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { liveUserTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface ProfileUser {
   uid: string;
@@ -21,6 +25,12 @@ export interface ProfileUser {
   activity?: { status: string; workoutTitle?: string };
   /** Set lazily from users/{uid}.core.ageGroup — used by the DM gate. */
   ageGroup?: 'minor' | 'adult';
+  /**
+   * enable_map_polish_v1: the position of a live user's pin on the map (set only by the
+   * map's own partner-pin tap — the presence feed already applied their sharing mode).
+   * Present → "ניווט לשם"; absent (every other opener) → no button.
+   */
+  liveLocation?: { lat: number; lng: number };
 }
 
 interface UserProfileSheetProps {
@@ -40,6 +50,10 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
   const router = useRouter();
   const [enriched, setEnriched] = useState<ProfileUser | null>(null);
   const { profile: currentProfile } = useUserStore();
+  const polish = useMapPolishV1();
+  const navigateTo = useNavigateTo();
+  const liveUsersVisible = useMapStore((s) => s.liveUsersVisible);
+  const t = useT(map);
 
   useEffect(() => {
     if (!isOpen || !user) { setEnriched(null); return; }
@@ -99,6 +113,8 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
   const targetIsMinor = display.ageGroup === 'minor';
   const isSelf = currentProfile?.id === display.uid;
   const canDirectMessage = !currentIsMinor && !targetIsMinor && !isSelf;
+  // Live on the map + sharing a position (and live users shown) → navigate there.
+  const navTarget = polish ? liveUserTarget(user, { selfUid: currentProfile?.id, liveUsersVisible }) : null;
 
   return (
     <AnimatePresence>
@@ -230,6 +246,17 @@ export default function UserProfileSheet({ isOpen, onClose, user }: UserProfileS
                     </div>
                   ) : null}
                 </div>
+
+                {navTarget && (
+                  <button
+                    type="button"
+                    onClick={() => { if (navigateTo(navTarget)) onClose(); }}
+                    className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 bg-v2-accent rounded-xl text-white text-sm font-bold active:scale-[0.97] transition-all"
+                  >
+                    <Navigation size={15} fill="currentColor" />
+                    {t('liveUser.navigate')}
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
