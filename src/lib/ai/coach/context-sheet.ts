@@ -31,6 +31,13 @@ export interface RawScheduleEntry {
   scheduledCategories?: unknown;
   /** Planned run settings ({ goal: { type: 'time', value: minutes } … }). */
   plannedRun?: unknown;
+  /**
+   * Where a virtual entry came from (week-plan.ts, nothing written): 'template' = the recurring
+   * template, 'schedule_days' = home's strength-day fallback (lifestyle.scheduleDays, no
+   * template), 'running_plan' = running.activeProgram.schedule. Absent (or any other value, a
+   * day doc's own `source`) = a userSchedule day doc.
+   */
+  source?: unknown;
 }
 
 export interface SheetWorkout {
@@ -63,6 +70,8 @@ export interface SheetScheduleEntry {
   title: string | null;
   /** Set on a strength / training entry the coach can build right now. */
   buildNow?: SheetBuildNow | null;
+  /** Computed from the recurring plan (not a saved day): see RawScheduleEntry.source. Absent = a saved day. */
+  source?: 'template' | 'schedule_days' | 'running_plan';
 }
 
 export interface SheetPersona {
@@ -172,6 +181,16 @@ export interface UserContextSheet {
    * misses), whether today's session is already done, WHO weekly targets so far.
    */
   plan?: SheetPlan;
+  /**
+   * K0 F4: the week could not be read this turn (the day docs failed to load). Kelly must not
+   * say "nothing planned" then. Absent = read.
+   */
+  weekUnavailable?: true;
+  /**
+   * K0 F4: the user has a recurring plan (template days, training days or a running plan). With
+   * an empty week this means "nothing found", never a confident "nothing planned".
+   */
+  hasRecurringPlan?: boolean;
 }
 
 const str = (v: unknown, max = 40): string | null =>
@@ -255,6 +274,11 @@ function kindOf(e: RawScheduleEntry): string | null {
   return null;
 }
 
+const COMPUTED_SOURCES = ['template', 'schedule_days', 'running_plan'] as const;
+function isComputedSource(v: unknown): v is (typeof COMPUTED_SOURCES)[number] {
+  return typeof v === 'string' && (COMPUTED_SOURCES as readonly string[]).includes(v);
+}
+
 export function sheetScheduleEntry(e: RawScheduleEntry): SheetScheduleEntry {
   const ids = strList(e.programIds, 6, 60);
   const type = str(e.type) ?? 'training';
@@ -277,6 +301,7 @@ export function sheetScheduleEntry(e: RawScheduleEntry): SheetScheduleEntry {
     buildNow: buildable
       ? { durationMin: plannedMinutes !== null ? Math.min(90, Math.max(5, plannedMinutes)) : null, domains }
       : null,
+    ...(isComputedSource(e.source) ? { source: e.source } : {}),
   };
 }
 
@@ -301,6 +326,18 @@ export interface BuildSheetInput {
    * entries done here — no "build today's workout" after it was already trained.
    */
   doneToday?: { strength: boolean; run: boolean; walk?: boolean };
+  /** K0 F4: the week's day docs could not be read (weekSchedule is then empty, not "nothing"). */
+  weekUnavailable?: boolean;
+}
+
+/** Whether the user has any recurring plan at all: template days, training days or a running plan. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw Firestore document data, read through field guards
+export function hasRecurringPlanOf(profile: Record<string, any>): boolean {
+  const life = profile?.lifestyle ?? {};
+  const tpl = life.recurringTemplate;
+  const tplDays = !!tpl && typeof tpl === 'object' && Object.values(tpl as Record<string, unknown>).some((v) => Array.isArray(v) && v.length > 0);
+  const list = (v: unknown) => Array.isArray(v) && v.length > 0;
+  return tplDays || list(life.scheduleDays) || list(profile?.running?.scheduleDays) || list(profile?.running?.activeProgram?.schedule);
 }
 
 export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
@@ -372,6 +409,8 @@ export function buildUserContextSheet(i: BuildSheetInput): UserContextSheet {
     dailyStepGoal: num(prog.dailyStepGoal),
     assessmentGaps: deriveAssessmentGaps({ profile: p, resolveSlug: i.resolveSlug, subProgramsBySlug: i.subProgramsBySlug }),
     ...(i.plan ? { plan: i.plan } : {}),
+    ...(i.weekUnavailable ? { weekUnavailable: true as const } : {}),
+    hasRecurringPlan: hasRecurringPlanOf(p),
   };
 }
 

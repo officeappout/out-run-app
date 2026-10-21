@@ -3,6 +3,7 @@
 import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
+import type { DomainProgress } from '@/features/user/core/types/user.types';
 import { seedOnboardingTrackEntry } from '@/features/user/onboarding/utils/onboarding-entry';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
@@ -506,7 +507,7 @@ export default function StatsOverview({
   // Read level AND percent from tracks (source of truth), fallback to domains
   const { domainLevel, hasProgramData } = useMemo(() => {
     const tracks = profile?.progression?.tracks;
-    const domains = profile?.progression?.domains;
+    const domains: Partial<Record<string, DomainProgress>> | undefined = profile?.progression?.domains;
     const track = primaryDomainId ? tracks?.[primaryDomainId] : undefined;
     const domain = primaryDomainId ? domains?.[primaryDomainId] : undefined;
 

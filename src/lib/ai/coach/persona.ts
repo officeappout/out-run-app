@@ -240,13 +240,30 @@ export function aboutUserBlock(sheet: UserContextSheet): string {
   return lines.join('\n');
 }
 
+/**
+ * The week's headline line. K0 F4: "nothing planned" is said with confidence ONLY when the week
+ * was read and the user has no recurring plan at all. A failed read, or an empty week for a user
+ * who does have training days / a running plan, says what Kelly knows instead.
+ */
+export function weekHeadline(sheet: Pick<UserContextSheet, 'weekUnavailable' | 'hasRecurringPlan' | 'trainingDays'>, count: number): string {
+  if (count > 0) return `- This week (Sunday to Saturday): ${count} planned workouts:`;
+  if (sheet.weekUnavailable) {
+    return "- This week (Sunday to Saturday): the schedule could not be read this turn. Never say nothing is planned: call get_schedule, or say you can't check the schedule right now and suggest opening it (אפשר לפתוח את הלו״ז בכפתור למטה).";
+  }
+  if (sheet.hasRecurringPlan) {
+    const days = sheet.trainingDays?.length ? ` The user's training days: ${sheet.trainingDays.join(', ')}.` : '';
+    return `- This week (Sunday to Saturday): no planned sessions were found for this week, although the user has a recurring plan.${days} Do not say with confidence that nothing is planned: say what you know (their training days) and suggest opening the schedule.`;
+  }
+  return '- This week (Sunday to Saturday): 0 planned workouts, nothing planned (no recurring schedule and no running plan).';
+}
+
 export function renderSheet(sheet: UserContextSheet): string {
   const training = (sheet.thisWeek ?? []).filter((e) => e.type !== 'rest');
   const lines = [
     aboutUserBlock(sheet),
     '',
     'User sheet (read from the app at the start of this turn; the only source for facts about the user):',
-    `- This week (Sunday to Saturday): ${training.length} planned workouts${training.length ? ':' : ', nothing planned'}`,
+    weekHeadline(sheet, training.length),
     ...training.map((e) => `  ${scheduleLine(e)}`),
   ];
   const buildable = (sheet.today ?? []).find((e) => e.buildNow && !e.completed);
