@@ -65,6 +65,8 @@ export default defineConfig({
       'src/features/progression-hub/v2/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (library namespace, exercises.*) — exercise library Hebrew markup parity (jsdom).
       'src/features/content/exercises/client/__tests__/**/*.test.tsx',
+      // i18n wave 2 (community namespace, social.*) — feed / share / activity components, Hebrew markup parity.
+      'src/features/social/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
