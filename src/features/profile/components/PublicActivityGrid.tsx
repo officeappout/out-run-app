@@ -22,30 +22,37 @@
 import { Activity, Dumbbell, Moon } from 'lucide-react';
 import type { FeedPost } from '@/features/social/services/feed.service';
 import ActivityTileGrid, { type ActivityTile } from './ActivityTileGrid';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 
-function getActivityMeta(post: FeedPost): {
+type ProfileT = (key: NamespaceKey<typeof profileNs>, values?: MessageValues) => string;
+
+function getActivityMeta(post: FeedPost, t: ProfileT): {
   Icon: React.ElementType;
   label: string;
   tileGradient: string;
 } {
+  const label = t('profile.publicGrid.type', { category: post.activityCategory ?? '' });
   switch (post.activityCategory) {
     case 'strength':
-      return { Icon: Dumbbell, label: 'אימון כוח', tileGradient: 'from-purple-500 to-purple-400' };
+      return { Icon: Dumbbell, label, tileGradient: 'from-purple-500 to-purple-400' };
     case 'maintenance':
-      return { Icon: Moon, label: 'תחזוקה', tileGradient: 'from-slate-500 to-slate-400' };
+      return { Icon: Moon, label, tileGradient: 'from-slate-500 to-slate-400' };
     case 'cardio':
     default:
-      return { Icon: Activity, label: 'קרדיו', tileGradient: 'from-[#00ADEF] to-[#5BC2F2]' };
+      return { Icon: Activity, label, tileGradient: 'from-[#00ADEF] to-[#5BC2F2]' };
   }
 }
 
 /** Distance when the post has one (running/cycling), else duration —
  * same headline-stat convention WorkoutGrid uses for its own tiles. */
-function tileStat(post: FeedPost): string {
+function tileStat(post: FeedPost, t: ProfileT): string {
   if (post.distanceKm != null) {
-    return `${post.distanceKm.toFixed(1)} ק״מ`;
+    return t('profile.publicGrid.km', { km: post.distanceKm.toFixed(1) });
   }
-  return `${post.durationMinutes} דק'`;
+  return t('profile.publicGrid.minutes', { minutes: String(post.durationMinutes) });
 }
 
 /** v2 tile colours — the same as the home flames. */
@@ -65,16 +72,17 @@ export default function PublicActivityGrid({
   /** Home v2 look (enable_home_v2). */
   v2?: boolean;
 }) {
+  const t = useT(profileNs);
   const tiles: ActivityTile[] = posts.map((post) => {
-    const { Icon, label, tileGradient } = getActivityMeta(post);
+    const { Icon, label, tileGradient } = getActivityMeta(post, t);
     const tone = V2_TONE[post.activityCategory] ?? V2_TONE.cardio;
-    const [value, unit] = tileStat(post).split(' ');
+    const [value, unit] = tileStat(post, t).split(' ');
     return {
       v2: { ...tone, value, unit: unit ?? '', caption: post.title || label },
       id: post.id,
       Icon,
       label,
-      stat: tileStat(post),
+      stat: tileStat(post, t),
       tileGradient,
     };
   });
@@ -84,7 +92,7 @@ export default function PublicActivityGrid({
       tiles={tiles}
       isLoading={isLoading}
       v2={v2}
-      emptyMessage={<>אין פעילות אחרונה</>}
+      emptyMessage={<>{t('profile.publicGrid.empty')}</>}
     />
   );
 }

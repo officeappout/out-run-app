@@ -56,6 +56,8 @@ import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import CircularProgress from '@/components/CircularProgress';
 import { getProgramIcon } from '@/features/content/programs';
 import { ChevronLeft, Target } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 // ── Types ──────────────────────────────────────────────────────────
 
 interface ChildCardData {
@@ -114,6 +116,7 @@ function V2Ring({ percent, size, stroke, children }: { percent: number; size: nu
 }
 
 export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {}) {
+  const t = useT(profileNs);
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const progressData = useProgramProgress();
@@ -216,7 +219,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   const masterLevel = progressData?.currentLevel ?? 1;
   const masterPercent = Math.min(100, progressData?.progressPercent ?? 0);
   const masterMaxLevel = progressData?.maxLevel ?? MASTER_LEVEL_CAP;
-  const masterName = progressData?.programName ?? (masterTemplateId ? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : 'תוכנית אימון');
+  const masterName = progressData?.programName ?? (masterTemplateId ? PROGRAM_NAME_HE[masterTemplateId] ?? masterTemplateId : t('widgets.programs.fallbackName'));
   const masterIconKey = progressData?.iconKey;
 
   // ── Navigate to a program's detail page — shared with SkillMapCard's
@@ -310,7 +313,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
           <h3 className="text-[15px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 break-words leading-snug">
             {card.name}
           </h3>
-          <p className="text-xs font-bold text-[#00C9F2] mt-2">עוד לא נבדקה רמה · בדקו רמה</p>
+          <p className="text-xs font-bold text-[#00C9F2] mt-2">{t('widgets.programs.notAssessedCta')}</p>
         </div>
       </button>
     );
@@ -331,7 +334,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-extrabold text-v2-ink">{card.name}</p>
           <p className="mt-0.5 whitespace-nowrap text-[12.5px] font-bold text-v2-muted tabular-nums">
-            שלב {card.currentLevel}/{card.maxLevel}
+            {t('widgets.programs.level', { level: String(card.currentLevel), max: String(card.maxLevel) })}
           </p>
         </div>
         <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep tabular-nums">
@@ -351,7 +354,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-extrabold text-v2-ink-2">{card.name}</p>
-          <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">עוד לא נבדקה רמה · בדקו רמה</p>
+          <p className="mt-0.5 truncate text-[12.5px] font-bold text-v2-deep">{t('widgets.programs.notAssessedCta')}</p>
         </div>
         <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
       </button>
@@ -366,18 +369,18 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
   if (v2 && !hasAnyProgram) {
     return (
       <div dir="rtl">
-        <h3 className="mb-3 text-[15px] font-black text-v2-ink">התוכניות שלי</h3>
+        <h3 className="mb-3 text-[15px] font-black text-v2-ink">{t('widgets.programs.title')}</h3>
         <div className="flex flex-col items-center gap-3 rounded-v2-card bg-white px-5 py-7 text-center shadow-v2-card">
           <span className="grid h-12 w-12 place-items-center rounded-full bg-v2-tint text-v2-deep">
             <Target className="h-6 w-6" aria-hidden />
           </span>
-          <p className="text-[15px] font-extrabold text-v2-ink">עדיין לא בחרת תוכנית אימון.</p>
+          <p className="text-[15px] font-extrabold text-v2-ink">{t('widgets.programs.empty')}</p>
           <button
             type="button"
             onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
             className={`mt-1 h-12 rounded-full bg-v2-cta px-8 text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta ${V2_PRESS}`}
           >
-            בחר תוכנית
+            {t('widgets.programs.choose')}
           </button>
         </div>
       </div>
@@ -388,19 +391,19 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
     return (
       <div className="space-y-5" dir="rtl">
         <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-black text-v2-ink">התוכניות שלי</h3>
+          <h3 className="text-[15px] font-black text-v2-ink">{t('widgets.programs.title')}</h3>
           <button
             type="button"
             onClick={() => router.push('/home')}
             className="text-[13px] font-extrabold text-v2-deep active:opacity-70"
           >
-            ניהול
+            {t('widgets.programs.manage')}
           </button>
         </div>
 
         {masterTemplateId && progressData && (
           <div className="space-y-2">
-            <p className="text-[13px] font-extrabold text-v2-deep">תוכנית פעילה</p>
+            <p className="text-[13px] font-extrabold text-v2-deep">{t('widgets.programs.active')}</p>
             <button
               type="button"
               onClick={goToMasterProgram}
@@ -415,7 +418,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
                   <p className="truncate text-[17px] font-black text-v2-ink">{masterName}</p>
                 </div>
                 <p className="mt-1 whitespace-nowrap text-[13px] font-bold text-v2-muted tabular-nums">
-                  שלב {masterLevel}/{masterMaxLevel}
+                  {t('widgets.programs.level', { level: String(masterLevel), max: String(masterMaxLevel) })}
                 </p>
               </div>
               <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
@@ -425,7 +428,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
 
         {assessedChildCards.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[13px] font-extrabold text-v2-deep">תוכניות בנות</p>
+            <p className="text-[13px] font-extrabold text-v2-deep">{t('widgets.programs.children')}</p>
             <div className="flex flex-col gap-2">
               {assessedChildCards.map((card) => renderRowV2(card, domainTypeForSlug(card.slug)))}
             </div>
@@ -435,7 +438,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
         {unassessedChildCards.length > 0 && (
           <div className="space-y-2">
             <div>
-              <p className="text-[13px] font-extrabold text-v2-deep">עוד לא בדקת רמה</p>
+              <p className="text-[13px] font-extrabold text-v2-deep">{t('widgets.programs.unassessed')}</p>
               <p className="mt-0.5 text-[12.5px] font-bold text-v2-muted">{NEEDS_ASSESSMENT_EXPLAINER}</p>
             </div>
             <div className="flex flex-col gap-2">
@@ -446,7 +449,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
 
         {additionalCards.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[13px] font-extrabold text-v2-deep">תוכניות נוספות</p>
+            <p className="text-[13px] font-extrabold text-v2-deep">{t('widgets.programs.additional')}</p>
             <div className="flex flex-col gap-2">
               {additionalCards.map((card) => renderRowV2(card, domainTypeForSlug(card.slug)))}
             </div>
@@ -466,19 +469,19 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
     return (
       <div dir="rtl">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+          <h3 className="text-sm font-black text-gray-800">{t('widgets.programs.title')}</h3>
         </div>
         <div className="flex flex-col items-center justify-center py-6 gap-3">
           <span className="text-3xl">📋</span>
           <p className="text-sm font-bold text-gray-500 text-center leading-snug">
-            עדיין לא בחרת תוכנית אימון.
+            {t('widgets.programs.empty')}
           </p>
           <BrandCtaButton
             type="button"
             onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
             className="mt-1 px-5 py-2 text-sm"
           >
-            בחר תוכנית
+            {t('widgets.programs.choose')}
           </BrandCtaButton>
         </div>
       </div>
@@ -489,20 +492,20 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
     <div className="space-y-5" dir="rtl">
       {/* Section header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-gray-800">התוכניות שלי</h3>
+        <h3 className="text-sm font-black text-gray-800">{t('widgets.programs.title')}</h3>
         <button
           type="button"
           onClick={() => router.push('/home')}
           className="text-xs font-semibold text-[#00C9F2] active:opacity-70"
         >
-          ניהול
+          {t('widgets.programs.manage')}
         </button>
       </div>
 
       {/* Group 1 — Master program */}
       {masterTemplateId && progressData && (
         <div className="space-y-2">
-          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכנית פעילה</p>
+          <p className="text-xs font-bold text-gray-400 tracking-wide">{t('widgets.programs.active')}</p>
           <button
             type="button"
             className="w-full text-right active:opacity-80 transition-opacity"
@@ -523,7 +526,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
       {/* Group 2 — Assessed child programs of activePrograms[0] */}
       {assessedChildCards.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות בנות</p>
+          <p className="text-xs font-bold text-gray-400 tracking-wide">{t('widgets.programs.children')}</p>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {assessedChildCards.map((card) => renderCardTile(card, assessedChildCards.length, domainTypeForSlug(card.slug)))}
           </div>
@@ -534,7 +537,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
       {unassessedChildCards.length > 0 && (
         <div className="space-y-2">
           <div>
-            <p className="text-xs font-bold text-gray-400 tracking-wide">עוד לא בדקת רמה</p>
+            <p className="text-xs font-bold text-gray-400 tracking-wide">{t('widgets.programs.unassessed')}</p>
             <p className="mt-0.5 text-xs font-medium text-gray-500">{NEEDS_ASSESSMENT_EXPLAINER}</p>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
@@ -546,7 +549,7 @@ export default function ProgramsSection({ v2 = false }: ProgramsSectionProps = {
       {/* Group 3 — Additional independent active programs (activePrograms index 1+) */}
       {additionalCards.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-bold text-gray-400 tracking-wide">תוכניות נוספות</p>
+          <p className="text-xs font-bold text-gray-400 tracking-wide">{t('widgets.programs.additional')}</p>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {additionalCards.map((card) => renderCardTile(card, additionalCards.length, domainTypeForSlug(card.slug)))}
           </div>

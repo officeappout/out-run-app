@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Activity, Coins, Flame, Clock } from 'lucide-react';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface ActivityHistoryCardProps {
   workout: WorkoutHistoryEntry;
@@ -12,16 +14,17 @@ interface ActivityHistoryCardProps {
 }
 
 export default function ActivityHistoryCard({ workout, onClick }: ActivityHistoryCardProps) {
+  const t = useT(profileNs);
   // Format date in Hebrew - short format: "יום ה', 22 ינו' • 20:45"
   const formatDate = (date: Date): string => {
-    const dayLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const dayLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
     const dayLetter = dayLetters[date.getDay()];
     const day = date.getDate();
-    const monthAbbrs = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ'];
+    const monthAbbrs = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
     const monthAbbr = monthAbbrs[date.getMonth()];
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `יום ${dayLetter}', ${day} ${monthAbbr}' • ${hours}:${minutes}`;
+    return `יום ${dayLetter}', ${day} ${monthAbbr}' • ${hours}:${minutes}`; // i18n-allow-hebrew: wave 3 (fmt) — date format
   };
 
   // Format duration as MM:SS
@@ -33,18 +36,7 @@ export default function ActivityHistoryCard({ workout, onClick }: ActivityHistor
   };
 
   // Get workout type label
-  const getWorkoutTypeLabel = (): string => {
-    switch (workout.workoutType) {
-      case 'walking':
-        return 'הליכה';
-      case 'cycling':
-        return 'רכיבה';
-      case 'hybrid':
-        return 'אימון משולב';
-      default:
-        return 'פעילות';
-    }
-  };
+  const getWorkoutTypeLabel = (): string => t('profile.history.card.activityType', { type: workout.workoutType ?? '' });
 
   const workoutDate = workout.date instanceof Date ? workout.date : new Date(workout.date);
 
@@ -80,7 +72,7 @@ export default function ActivityHistoryCard({ workout, onClick }: ActivityHistor
               {workout.calories > 0 && (
                 <div className="flex items-center gap-1">
                   <Flame size={14} className="text-orange-500" />
-                  <span className="text-sm font-bold text-gray-900">{workout.calories} קלוריות</span>
+                  <span className="text-sm font-bold text-gray-900">{t('profile.history.card.calories', { calories: String(workout.calories) })}</span>
                 </div>
               )}
               {workout.duration > 0 && (
@@ -94,7 +86,7 @@ export default function ActivityHistoryCard({ workout, onClick }: ActivityHistor
             {IS_COIN_SYSTEM_ENABLED && workout.earnedCoins > 0 && (
               <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
                 <Coins size={14} className="text-yellow-600" />
-                <span className="text-xs font-bold text-yellow-700">+{workout.earnedCoins} מטבעות</span>
+                <span className="text-xs font-bold text-yellow-700">{t('profile.history.card.coins', { coins: String(workout.earnedCoins) })}</span>
               </div>
             )}
           </div>

@@ -60,3 +60,23 @@ src/features/profile/components/exercise-analytics-v2/
 # progression-hub/v2/utils still returns Hebrew display text (KIND_LABEL, REASON_LABEL, missedLine,
 # compare headline/rows, month/weekday names, plan titles) — not migrated, manual list in the PR.
 src/features/progression-hub/v2/components/
+# wave 2 (namespace profile, profile.* / widgets.* keys) — the profile screen's own components.
+# Listed per file: the rest of src/features/profile/components/ is either busy in other open work
+# (DashboardTab, EditProfileModal, FavoritesSheet, records/, widgets/ParentProgramSheet), v1-only
+# (rendered only when enable_home_v2 is off: ExerciseAnalyticsPage, widgets/GoalCarousel, GoalCard,
+# ExerciseWishlistStrip, DashboardModeWidgets, PrioritiesSection) or dead (dead-files.txt).
+# Marked i18n-allow-hebrew: weekday / month names + the history cards' date template (wave 3),
+# HistoryTab's activity nouns (composed by DeleteWorkoutConfirmModal, src/components/ui).
+src/features/profile/components/HistorySheet.tsx
+src/features/profile/components/HistoryTab.tsx
+src/features/profile/components/WorkoutHistoryCard.tsx
+src/features/profile/components/cards/
+src/features/profile/components/ActivityTileGrid.tsx
+src/features/profile/components/WorkoutGrid.tsx
+src/features/profile/components/PublicActivityGrid.tsx
+src/features/profile/components/ProfileHeader.tsx
+src/features/profile/components/PartnersHighlightsRow.tsx
+src/features/profile/components/ProgressLinkRow.tsx
+src/features/profile/components/NeighborhoodPickerSheet.tsx
+src/features/profile/components/widgets/ProgramsSection.tsx
+src/features/profile/components/widgets/program-groups.utils.ts

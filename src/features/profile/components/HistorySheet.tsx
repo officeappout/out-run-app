@@ -14,6 +14,8 @@ import { X } from 'lucide-react';
 import Sheet, { SheetHeader } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import HistoryTab from '@/features/profile/components/HistoryTab';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 
 interface HistorySheetProps {
@@ -42,6 +44,7 @@ export default function HistorySheet({
   removeWorkout,
   v2 = false,
 }: HistorySheetProps) {
+  const t = useT(profileNs);
   if (v2) {
     return (
       <Sheet
@@ -55,8 +58,8 @@ export default function HistorySheet({
         transition={{ type: 'spring', stiffness: 300, damping: 35 }}
         className="max-h-[92dvh]"
         grabberClassName="flex shrink-0 justify-center pb-1 pt-2.5"
-        ariaLabel="היסטוריית אימונים"
-        header={<SheetHeader title="היסטוריית אימונים" onClose={onClose} closeLabel="סגור" className="flex items-center justify-between px-5 pb-3 pt-2" />}
+        ariaLabel={t('profile.history.title')}
+        header={<SheetHeader title={t('profile.history.title')} onClose={onClose} closeLabel={t('profile.history.close')} className="flex items-center justify-between px-5 pb-3 pt-2" />}
         bodyClassName="bg-v2-surface px-4 py-4"
       >
         <HistoryTab
@@ -95,12 +98,12 @@ export default function HistorySheet({
             </div>
 
             <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-gray-100 bg-white">
-              <h2 className="text-lg font-bold text-gray-900">היסטוריית אימונים</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('profile.history.title')}</h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 active:scale-95 transition-transform"
-                aria-label="סגור"
+                aria-label={t('profile.history.close')}
               >
                 <X className="w-4 h-4" />
               </button>

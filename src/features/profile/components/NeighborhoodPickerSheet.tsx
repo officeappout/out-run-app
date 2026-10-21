@@ -29,6 +29,8 @@ import { useUserStore } from '@/features/user';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 const ACCENT = '#00ADEF';
 
@@ -49,6 +51,7 @@ export function NeighborhoodPickerSheet({
   currentNeighborhoodId,
   onSelect,
 }: NeighborhoodPickerSheetProps) {
+  const t = useT(profileNs);
   const dragControls = useDragControls();
   const [neighborhoods, setNeighborhoods] = useState<Authority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,17 +75,19 @@ export function NeighborhoodPickerSheet({
   const list = (
     <div className="px-5 pb-4 space-y-2 max-h-[55vh] overflow-y-auto">
       {isLoading && (
-        <div className="py-8 text-center text-sm text-gray-400">טוען שכונות...</div>
+        <div className="py-8 text-center text-sm text-gray-400">{t('profile.neighborhood.loading')}</div>
       )}
 
       {!isLoading && error && (
-        <div className="py-8 text-center text-sm text-gray-400">שגיאה בטעינת רשימת השכונות</div>
+        <div className="py-8 text-center text-sm text-gray-400">{t('profile.neighborhood.error')}</div>
       )}
 
       {!isLoading && !error && neighborhoods.length === 0 && (
         <div className="py-8 text-center">
-          <p className="text-sm font-bold text-gray-700">עדיין אין שכונות מוגדרות ל{cityName ?? 'העיר שלך'}</p>
-          <p className="text-xs text-gray-400 mt-1">נעדכן ברגע שיתווספו</p>
+          <p className="text-sm font-bold text-gray-700">
+            {cityName != null ? t('profile.neighborhood.empty.city', { city: cityName }) : t('profile.neighborhood.empty.noCity')}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">{t('profile.neighborhood.empty.hint')}</p>
         </div>
       )}
 
@@ -133,14 +138,14 @@ export function NeighborhoodPickerSheet({
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
         dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
         grabberClassName="flex justify-center pt-3 pb-2"
-        ariaLabel="בחר שכונה"
+        ariaLabel={t('profile.neighborhood.title')}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-3">
             <div className="min-w-0">
-              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">בחר שכונה</h2>
-              {cityName && <p className="truncate text-[12.5px] font-bold text-v2-muted">ב{cityName}</p>}
+              <h2 className="whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('profile.neighborhood.title')}</h2>
+              {cityName && <p className="truncate text-[12.5px] font-bold text-v2-muted">{t('profile.neighborhood.inCity', { city: cityName })}</p>}
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+            <IconButton aria-label={t('profile.neighborhood.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
               <X size={16} className="text-v2-ink-2" />
             </IconButton>
           </div>
@@ -198,18 +203,18 @@ export function NeighborhoodPickerSheet({
 
             <div className="flex items-center justify-between px-5 pb-3">
               <div style={{ width: 32 }} />
-              <h2 className="text-base font-black text-gray-900">בחר שכונה</h2>
+              <h2 className="text-base font-black text-gray-900">{t('profile.neighborhood.title')}</h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
-                aria-label="סגור"
+                aria-label={t('profile.neighborhood.close')}
               >
                 <X size={14} className="text-gray-600" />
               </button>
             </div>
             {cityName && (
-              <p className="text-center text-[12px] text-gray-500 -mt-1 pb-3 px-5">ב{cityName}</p>
+              <p className="text-center text-[12px] text-gray-500 -mt-1 pb-3 px-5">{t('profile.neighborhood.inCity', { city: cityName })}</p>
             )}
 
             {list}
