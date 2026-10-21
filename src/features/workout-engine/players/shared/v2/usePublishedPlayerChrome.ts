@@ -60,9 +60,15 @@ export interface PlayerChromeOffsets {
   bottomGapPx?: number;
   /** The header element pads the safe-area top itself (it's inside its measured height). */
   headerIncludesSafeTop?: boolean;
+  /**
+   * enable_run_player_drawer_v1: the card is the run / walk metrics drawer —
+   * the camera keeps the marker above it at every snap (drawerFollowPadding)
+   * and re-follows sooner after a pan. Omitted/false = unchanged claim.
+   */
+  drawer?: boolean;
 }
 
-export function usePublishedPlayerChrome({ topGapPx = 0, bottomGapPx = 0, headerIncludesSafeTop = false }: PlayerChromeOffsets = {}) {
+export function usePublishedPlayerChrome({ topGapPx = 0, bottomGapPx = 0, headerIncludesSafeTop = false, drawer = false }: PlayerChromeOffsets = {}) {
   const [headerRef, headerH] = useBlockSize();
   const [cardRef, cardH] = useBlockSize();
   const setPlayerChrome = useMapStore((s) => s.setPlayerChrome);
@@ -81,12 +87,13 @@ export function usePublishedPlayerChrome({ topGapPx = 0, bottomGapPx = 0, header
       if (useMapStore.getState().playerChrome !== null) setPlayerChrome(null);
       return;
     }
-    const next = {
+    const next: { top: number; bottom: number; drawer?: boolean } = {
       top: headerH > 0 ? Math.round((headerIncludesSafeTop ? 0 : safe.top) + topGapPx + headerH) : 0,
       bottom: cardH > 0 ? Math.round(safe.bottom + bottomGapPx + cardH) : 0,
     };
+    if (drawer) next.drawer = true;
     if (!sameChrome(useMapStore.getState().playerChrome, next)) setPlayerChrome(next);
-  }, [headerH, cardH, safe.top, safe.bottom, topGapPx, bottomGapPx, headerIncludesSafeTop, setPlayerChrome]);
+  }, [headerH, cardH, safe.top, safe.bottom, topGapPx, bottomGapPx, headerIncludesSafeTop, drawer, setPlayerChrome]);
 
   useEffect(() => () => setPlayerChrome(null), [setPlayerChrome]);
 

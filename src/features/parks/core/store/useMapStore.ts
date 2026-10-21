@@ -252,8 +252,8 @@ interface MapStore {
    * player is mounted. useCameraController follows the user INSIDE the window
    * between them (player-follow-padding.ts); null keeps the legacy padding.
    */
-  playerChrome: { top: number; bottom: number } | null;
-  setPlayerChrome: (c: { top: number; bottom: number } | null) => void;
+  playerChrome: { top: number; bottom: number; drawer?: boolean } | null;
+  setPlayerChrome: (c: { top: number; bottom: number; drawer?: boolean } | null) => void;
   /**
    * Index of the currently-selected turn card in TurnCarousel. Written by
    * TurnCarousel whenever the user swipes (or GPS auto-advances) to a new
