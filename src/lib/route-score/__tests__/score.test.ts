@@ -11,7 +11,7 @@ function base(over: Partial<RouteScoreInput> = {}): RouteScoreInput {
     path: rectLoop(34.8, 32.1, 800, 600), shape: 'loop', composition: null, compositionIsProxy: false, litCoveragePct: null,
     amenitiesHas: null, osmSafety: null, geometry: { retracedPct: 0, uTurnCount: 0, spurCount: 0, compactness: 0.7 },
     sourceTier: 'osm_named', greenShare: null, parkRef: null, hasFitnessStop: false, certificate: null,
-    surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' }, surfaceClass: 'walk_run_paved', shadeShare: null, ...over,
+    surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' }, surfaceClass: 'walk_run_paved', shadeShare: null, shade: null, ...over,
   };
 }
 
@@ -69,13 +69,16 @@ describe('components', () => {
     expect(scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true } })).points).toBe(14);
     expect(scoreComfort(base())).toMatchObject({ points: 7.5, coverage: 0 });
   });
-  it('comfort: shade (RC2) joins at the owner-approved 40% canopy bar', () => {
-    const full = scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true, court: true }, shadeShare: 0.4 }));
-    expect(full).toMatchObject({ points: 15, coverage: 1 });
-    const noShade = scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true, court: true }, shadeShare: 0 }));
-    expect(noShade.points).toBe(11);
-    // absent shade does not lower coverage
+  it('comfort: shade (Technion SI) is linear from 0.10 (0 pts) to 0.35 (full)', () => {
+    const all = { litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true, court: true } } as const;
+    expect(scoreComfort(base({ ...all, shadeShare: 0.35 }))).toMatchObject({ points: 15, coverage: 1 });
+    expect(scoreComfort(base({ ...all, shadeShare: 0.5 })).points).toBe(15);
+    expect(scoreComfort(base({ ...all, shadeShare: 0.1 })).points).toBe(11);
+    expect(scoreComfort(base({ ...all, shadeShare: 0.05 })).points).toBe(11);
+    expect(scoreComfort(base({ ...all, shadeShare: 0.225 })).points).toBe(13); // halfway → 2 of 4
+    // unmeasured shade: no penalty, coverage unchanged, old 8/7 split
     expect(scoreComfort(base({ litCoveragePct: 100, amenitiesHas: {} })).coverage).toBe(1);
+    expect(scoreComfort(base({ ...all })).points).toBe(15);
   });
   it('experience: fitness stop is a bonus of at most 2, total capped at 10', () => {
     const without = scoreExperience(base({ greenShare: 1 })).points;

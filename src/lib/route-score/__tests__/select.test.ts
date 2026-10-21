@@ -16,7 +16,7 @@ function route(o: { score: number; band?: ScoreBand; name?: string; km?: number;
     sourceTier: o.tier ?? 'osm_named', greenShare: null, parkRef: o.park ? { source: 'osm', id: o.park, name: o.park } : null,
     hasFitnessStop: false, certificate: 'approve',
     surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' },
-    surfaceClass: o.cls ?? (o.activity === 'cycling' ? 'bike_road' : 'walk_run_paved'), shadeShare: null,
+    surfaceClass: o.cls ?? (o.activity === 'cycling' ? 'bike_road' : 'walk_run_paved'), shadeShare: null, shade: null,
   };
   return { input, score: { score: o.score, confidence: 0.9, band: o.band ?? (o.score >= 75 ? 'green' : 'yellow'), components: {} as any, version: 'v1' } };
 }

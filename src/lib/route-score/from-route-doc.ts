@@ -11,6 +11,7 @@ import { haversineM } from '../route-quality/geo';
 import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier } from './types';
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
+import type { RouteShade } from '../shade/route-shade';
 
 type Doc = Record<string, any>;
 
@@ -93,8 +94,10 @@ export interface FromDocOptions {
   greenShare?: number | null;
   /** Surface metres/percent per SurfaceType from a street_segments join (surfaceMixFromSegments), when the caller has one. */
   surfaceMix?: Partial<Record<string, number>> | null;
-  /** Tree-canopy share (0..1) — RC2, not computed anywhere yet. */
+  /** Mean shade index (0..1) override. Prefer `shade`. */
   shadeShare?: number | null;
+  /** Technion shade measurement (measureRouteShade); shadeShare is taken from it only when status is 'measured'. */
+  shade?: RouteShade | null;
 }
 
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
@@ -149,7 +152,8 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
 
   const activityType = typeof d?.activityType === 'string' ? d.activityType : typeof d?.type === 'string' ? d.type : null;
   const surface = surfaceSharesFromDoc(d, opts.surfaceMix ?? null);
-  const shade = num(opts.shadeShare ?? d?.qualitySignals?.shade?.shadeShare);
+  const shadeMeasure = opts.shade ?? null;
+  const shade = num(opts.shadeShare ?? (shadeMeasure?.status === 'measured' ? shadeMeasure.shadeShare : null) ?? d?.qualitySignals?.shade?.shadeShare);
 
   return {
     id,
@@ -174,5 +178,6 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     surface,
     surfaceClass: classifySurface(activityType, surface),
     shadeShare: shade,
+    shade: shadeMeasure,
   };
 }
