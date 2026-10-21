@@ -3,6 +3,7 @@
  * one pure function (no React). (Split out of GroupDetailsDrawer.tsx.)
  */
 import type { CommunityGroup, ScheduleSlot } from '@/types/community.types';
+import type { LeagueT } from '@/features/arena/components/league-t';
 import {
   CATEGORY_CONFIG,
   buildGCalLink,
@@ -19,8 +20,10 @@ export function deriveGroupPageView(
   nextSessionData: { date: string; time: string } | null,
   attendanceCount: number | undefined,
   mapboxToken: string,
+  /** i18n (`groupDrawer.category` / `groupDrawer.calendarDetails`): the caller's `t` from `useT(community)`. */
+  t: LeagueT,
 ) {
-  const catConfig = CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other;
+  const catConfig = { ...(CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other), label: t('groupDrawer.category', { category: group.category ?? '' }) };
   const details = resolveSessionDetails(group, nextSlot);
   const destination = resolveGroupDestination(group, nextSlot);
   const spotsLeft = spotsLeftFor(nextSlot?.maxParticipants, attendanceCount);
@@ -44,7 +47,7 @@ export function deriveGroupPageView(
           nextSessionData.date,
           nextSessionData.time,
           destination.destAddress ?? '',
-          `קבוצת ${catConfig.label} — ${group.name}`,
+          t('groupDrawer.calendarDetails', { category: catConfig.label, groupName: group.name }),
         )
       : null,
     scheduledRunActivity: scheduledRunActivityOf(group),

@@ -5,6 +5,7 @@
 import type { FeedPost } from '@/features/social/services/feed.service';
 import type { LeaderboardCategory, LeaderboardTimeWindow } from '@/features/arena/services/ranking.service';
 import type { CommunityEvent, CommunityGroup, ScheduleSlot } from '@/types/community.types';
+import type { LeagueT } from '@/features/arena/components/league-t';
 import {
   EVENT_VERB,
   GROUP_VERB,
@@ -105,34 +106,29 @@ export function filterFeedPosts(
 
 // ── Leaderboard labels ──────────────────────────────────────────────────────
 
-/** "יומי" / "שבועי" / "חודשי". */
-export function timeWindowLabel(window: LeaderboardTimeWindow): string {
-  return window === 'daily' ? 'יומי' : window === 'weekly' ? 'שבועי' : 'חודשי';
+// The label helpers take the caller's `t` (`useT(community)`; tests: `makeT('he', community)`).
+
+/** The time-window chip: `communityPage.window.label` (daily / weekly / monthly). */
+export function timeWindowLabel(window: LeaderboardTimeWindow, t: LeagueT): string {
+  return t('communityPage.window.label', { window });
 }
 
-/** "היום" / "השבוע" / "החודש". */
-export function timeWindowPhrase(window: LeaderboardTimeWindow): string {
-  return window === 'daily' ? 'היום' : window === 'weekly' ? 'השבוע' : 'החודש';
+/** The time-window phrase in a sentence: `communityPage.window.phrase` (today / this week / this month). */
+export function timeWindowPhrase(window: LeaderboardTimeWindow, t: LeagueT): string {
+  return t('communityPage.window.phrase', { window });
 }
 
 /** The small "<category> • <window>" label on the active league card. */
-export function leaderboardFilterLabel(category: LeaderboardCategory, window: LeaderboardTimeWindow): string {
-  const categoryLabel =
-    category === 'overall'
-      ? 'כללי'
-      : category === 'cardio'
-        ? 'ריצה'
-        : 'כוח';
-  const windowLabel = timeWindowLabel(window);
-  return `${categoryLabel} • ${windowLabel}`;
+export function leaderboardFilterLabel(category: LeaderboardCategory, window: LeaderboardTimeWindow, t: LeagueT): string {
+  return t('communityPage.leagues.filterLabel', { category, window: timeWindowLabel(window, t) });
 }
 
 /** v2 leagues header: this month's league name and the week-closes chip. */
-export function leagueCalendarChips(now: Date): { month: string; weekCloses: string } {
+export function leagueCalendarChips(now: Date, t: LeagueT): { month: string; weekCloses: string } {
   const daysLeft = 6 - now.getDay(); // the Israeli week ends on Saturday
   const month = HEBREW_MONTHS[now.getMonth()];
   return {
     month,
-    weekCloses: daysLeft === 0 ? 'השבוע נסגר הלילה' : `השבוע נסגר בעוד ${daysLeft === 1 ? 'יום' : `${daysLeft} ימים`}`,
+    weekCloses: t('communityPage.leagues.v2.weekCloses', { days: daysLeft }),
   };
 }

@@ -8,6 +8,7 @@ import type { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import type { ArenaData } from '@/features/arena/hooks/useArenaData';
 import type { LeaderboardEntry } from '@/features/arena/services/ranking.service';
 import type { CommunityGroup } from '@/types/community.types';
+import type { LeagueT } from '@/features/arena/components/league-t';
 import { SHOW_PARK_LEAGUE } from './community-constants';
 
 type ArenaAccess = ReturnType<typeof useArenaAccess>;
@@ -23,14 +24,15 @@ export interface LeagueCardsInput {
   socialGroups: CommunityGroup[];
 }
 
-export function buildLeagueCards({ access, authority, selectedLeague, activeMyEntry, socialGroups }: LeagueCardsInput): LeagueCardData[] {
+/** `t`: the caller's translator (`useT(community)`), for the card names (`communityPage.cards.*`). */
+export function buildLeagueCards({ access, authority, selectedLeague, activeMyEntry, socialGroups }: LeagueCardsInput, t: LeagueT): LeagueCardData[] {
   const cards: LeagueCardData[] = [];
 
   // Order requested by spec: city → global → org → park.
   if (access.hasCityAccess) {
     cards.push({
       key: 'city',
-      name: 'ליגת העיר',
+      name: t('communityPage.cards.city'),
       subtitle: access.cityName ?? undefined,
       emoji: '🏙️',
       logoUrl: authority?.logoUrl,
@@ -43,8 +45,8 @@ export function buildLeagueCards({ access, authority, selectedLeague, activeMyEn
 
   cards.push({
     key: 'global',
-    name: 'ליגה ארצית',
-    subtitle: 'כל ישראל',
+    name: t('communityPage.cards.national'),
+    subtitle: t('communityPage.cards.nationalSubtitle'),
     emoji: '🌍',
     memberCount:
       selectedLeague === 'global' && activeMyEntry
@@ -64,14 +66,7 @@ export function buildLeagueCards({ access, authority, selectedLeague, activeMyEn
           : access.orgType === 'youth_movement'
             ? '⛺'
             : '🏫';
-    const orgName =
-      access.orgType === 'work'
-        ? 'ליגת העבודה'
-        : access.orgType === 'university'
-          ? 'ליגת הקמפוס'
-          : access.orgType === 'youth_movement'
-            ? 'ליגת התנועה'
-            : 'ליגת בית הספר';
+    const orgName = t('communityPage.cards.org', { orgType: access.orgType });
     cards.push({
       key: 'org',
       name: orgName,
@@ -88,7 +83,7 @@ export function buildLeagueCards({ access, authority, selectedLeague, activeMyEn
   if (SHOW_PARK_LEAGUE && access.preferredParkId) {
     cards.push({
       key: 'park',
-      name: 'ליגת הפארק',
+      name: t('communityPage.cards.park'),
       subtitle: access.preferredParkName ?? undefined,
       emoji: '🌳',
       memberCount: null,
@@ -120,7 +115,7 @@ export function buildLeagueCards({ access, authority, selectedLeague, activeMyEn
   if (access.hasReserveAccess) {
     cards.push({
       key: 'reserve',
-      name: 'ליגת המילואים',
+      name: t('communityPage.cards.reserve'),
       subtitle: undefined,
       emoji: '🎖️',
       memberCount: null,
@@ -140,7 +135,7 @@ export function buildLeagueCards({ access, authority, selectedLeague, activeMyEn
     cards.push({
       key: cardKey,
       name: g.name,
-      subtitle: g.memberCount ? `${g.memberCount} חברים` : undefined,
+      subtitle: g.memberCount ? t('communityPage.cards.members', { count: String(g.memberCount) }) : undefined,
       emoji,
       memberCount: g.memberCount ?? null,
       rank: selectedLeague === cardKey ? activeMyEntry?.rank ?? null : null,

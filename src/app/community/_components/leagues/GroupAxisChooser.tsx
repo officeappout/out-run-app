@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { AXIS_LABEL, GROUP_CATEGORY_LABEL, type GroupAxis } from '@/app/community/_lib/community-constants';
+import type { GroupAxis } from '@/app/community/_lib/community-constants';
 import { timeWindowLabel } from '@/app/community/_lib/community-logic';
 import type { LeaguesVM } from './leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Axis chooser for the Groups tab. Reused by both City (שכונות/קבוצות)
 // and Global (ערים/קבוצות) — each passes its own state + option set, since
@@ -20,6 +22,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
     setAxisMenuOpen,
     setLeagueFilterSheetOpen,
   } = vm;
+  const t = useT(community);
   return (
     <div className="flex items-center gap-2 mb-3" dir="rtl">
       <div className="relative flex-1">
@@ -33,11 +36,12 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
         >
           <div className="text-right">
             <span className="text-sm font-black text-gray-900">
-              בין {AXIS_LABEL[axis]}
+              {t('communityPage.axis.between', { axis })}
             </span>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              {axis === 'neighborhood' && access.cityName ? `ב${access.cityName} · ` : ''}
-              לחץ להחלפת ציר
+              {axis === 'neighborhood' && access.cityName
+                ? t('communityPage.axis.hintInCity', { city: access.cityName })
+                : t('communityPage.axis.hint')}
             </p>
           </div>
           <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform text-gray-500 ${axisMenuOpen ? 'rotate-180' : ''}`} />
@@ -59,7 +63,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
                   axis === opt ? 'text-v2-deep bg-v2-tint' : 'text-v2-ink hover:bg-v2-surface'
                 }`}
               >
-                {AXIS_LABEL[opt]}
+                {t('communityPage.axis.option', { axis: opt })}
               </button>
             ))}
           </div>
@@ -69,12 +73,12 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
       <span
         className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
       >
-        מדד: <b className="text-gray-900">{GROUP_CATEGORY_LABEL[leaderboardCategory]}</b>
+        {t.rich('communityPage.axis.metric', { category: leaderboardCategory, b: (chunks: React.ReactNode) => <b className="text-gray-900">{chunks}</b> })}
       </span>
       <span
         className="flex-shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-ink bg-v2-surface ring-1 ring-inset ring-v2-hairline"
       >
-        {timeWindowLabel(leaderboardTimeWindow)}
+        {timeWindowLabel(leaderboardTimeWindow, t)}
       </span>
 
       {/* פילטרים — same LeagueFilterSheet as the Individuals tab, driving
@@ -83,7 +87,7 @@ export function GroupAxisChooser({ vm, axis, setAxis, options }: { vm: LeaguesVM
       <button
         type="button"
         onClick={() => setLeagueFilterSheetOpen(true)}
-        aria-label="פילטרים"
+        aria-label={t('communityPage.axis.filters')}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ease-v2 ${
           leaderboardGender !== 'all' ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent' : 'bg-white text-v2-ink-2 ring-1 ring-inset ring-v2-pill-border'
         }`}

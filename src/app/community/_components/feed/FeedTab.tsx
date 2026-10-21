@@ -3,6 +3,8 @@
 import React from 'react';
 import { m } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import type { useRouter } from 'next/navigation';
 import type { FeatureFlags } from '@/hooks/useFeatureFlags';
 import type { FeedPost } from '@/features/social/services/feed.service';
@@ -62,6 +64,7 @@ export function FeedTab({
   refreshProfile,
   router,
 }: FeedTabProps) {
+  const t = useT(community);
   const { pendingShare } = share;
   const v2 = featureFlags.enableHomeV2;
   const shareable: ShareableWorkout | null = pendingShare
@@ -102,7 +105,7 @@ export function FeedTab({
       <div className="space-y-4 -mx-4">
         {circles}
         <div className="flex items-center justify-center py-16">
-          <p className="text-sm text-gray-500 animate-pulse">טוען פיד...</p>
+          <p className="text-sm text-gray-500 animate-pulse">{t('communityPage.feed.loading')}</p>
         </div>
       </div>
     );
@@ -125,12 +128,12 @@ export function FeedTab({
       <div className="px-4 space-y-3">
         <div className="flex items-center justify-between px-1 pt-2" dir="rtl">
           <span className="text-[11px] text-gray-500">
-            עוקב אחרי {following.length} שותפים
+            {t('communityPage.feed.following', { count: String(following.length) })}
           </span>
           <button
             onClick={fetchPosts}
             className="p-1.5 rounded-lg hover:bg-gray-100 active:scale-90 transition-all"
-            aria-label="רענן"
+            aria-label={t('communityPage.feed.refresh')}
           >
             <RefreshCw className={`w-3.5 h-3.5 text-gray-400 ${loadingPosts ? 'animate-spin' : ''}`} />
           </button>
@@ -160,7 +163,7 @@ export function FeedTab({
           </m.div>
         ))}
         {v2 && shown.length === 0 && (
-          <p className="py-10 text-center text-[14px] font-bold text-v2-muted" dir="rtl">אין כאן עדיין פוסטים</p>
+          <p className="py-10 text-center text-[14px] font-bold text-v2-muted" dir="rtl">{t('communityPage.feed.emptyFiltered')}</p>
         )}
       </div>
     </div>
