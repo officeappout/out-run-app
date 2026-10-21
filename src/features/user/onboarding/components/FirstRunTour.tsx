@@ -20,6 +20,7 @@ import CoachMarks, { type CoachMarkStep } from '@/components/ui/CoachMarks';
 import { getOnboardingPrefAsync, setOnboardingPref } from '@/lib/onboardingPrefs';
 import type { AppGender } from '@/lib/utils/gendered-text';
 import { useIsNewUserForTours } from '../hooks/useIsNewUserForTours';
+import { coachTargetVisible } from '../hooks/useCoachTargetPresent';
 import {
   firstRunTourChrome, firstRunTourSeenKey, firstRunTourSteps, presentSteps, shouldShowFirstRunTour,
   type FirstRunTourId,
@@ -38,13 +39,7 @@ interface Props {
   delayMs?: number;
 }
 
-function targetPresent(target: string): boolean {
-  if (typeof document === 'undefined') return false;
-  const el = document.querySelector<HTMLElement>(`[data-coach="${target}"]`);
-  if (!el) return false;
-  const r = el.getBoundingClientRect();
-  return r.width > 0 && r.height > 0;
-}
+const targetPresent = coachTargetVisible;
 
 export default function FirstRunTour({ tour, active, uid, gender, onClose, delayMs = 600 }: Props) {
   const [steps, setSteps] = useState<CoachMarkStep[] | null>(null);

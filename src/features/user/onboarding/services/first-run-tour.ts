@@ -20,9 +20,12 @@ export const FIRST_RUN_COACH = {
   homeWorkout: 'home-today-workout',
   homePlus: 'home-plus',
   homeWeek: 'home-week',
+  /** The v2 nav bar's raised map circle — the home tour's 3rd step when there is no week strip. */
+  homeNavMap: 'nav-map',
   mapSearch: 'map-search',
   mapLayers: 'map-layers',
-  /** Park pins are WebGL symbols (no DOM node) — this step's bubble is centered. */
+  /** Park pins are WebGL symbols — ParkCoachAnchor drops an invisible DOM marker on the park
+   *  pin nearest the screen centre while a map tour may run (no pin in view → step dropped). */
   mapPark: 'map-park',
   communityLeague: 'community-league',
   communityInvite: 'community-invite',
@@ -50,6 +53,8 @@ export interface FirstRunTourStep {
   ring?: boolean;
   /** Keep the step (bubble centered) even when its target isn't in the DOM. */
   allowCentered?: boolean;
+  /** When `target` isn't on screen, point at this instead (e.g. no week strip yet). */
+  alt?: { target: string; title?: string; text: string };
 }
 
 /** onboardingPrefs key for "this user has seen (or skipped) this tour". */
@@ -74,10 +79,32 @@ export function shouldShowFirstRunTour(input: {
 /**
  * Which tour starts right after the WelcomeDrawer choice. Only "סתם להסתכל" opens one on the
  * spot (home); the other choices route into existing flows whose own first-visit tours (map /
- * player) fire when the user gets there.
+ * player) fire when the user gets there. (Since 21.10 the home tour also starts by itself on a
+ * new user's first calm home visit — see shouldArmHomeTour.)
  */
 export function tourAfterWelcomeChoice(choice: WelcomeChoice): FirstRunTourId | null {
   return choice === 'browse' ? 'home' : null;
+}
+
+/**
+ * Home tour arming (owner 21.10): on a new user's first calm home visit, not only after
+ * "סתם בא לי להסתכל". Never while the WelcomeDrawer is up / the entry router is still deciding,
+ * never on the visit the 'plan' tour points at the start cards, and only once the "today"
+ * card is on screen (so the tour never measures a loading skeleton). New-user + seen-once
+ * checks stay in FirstRunTour.
+ */
+export function shouldArmHomeTour(input: {
+  toursOn: boolean;
+  requestedByWelcome: boolean;
+  entryKind: 'loading' | 'inactive' | 'new';
+  planArrival: boolean;
+  todayCardPresent: boolean;
+  surfaceOpen: boolean;
+}): boolean {
+  if (!input.toursOn || input.surfaceOpen || !input.todayCardPresent) return false;
+  if (input.entryKind === 'new') return false; // the WelcomeDrawer is up
+  if (input.requestedByWelcome) return true;
+  return input.entryKind === 'inactive' && !input.planArrival;
 }
 
 /** Map URL params that open a drawer / flow on arrival — the map tour waits for a plain visit. */
@@ -104,9 +131,20 @@ export function isMapTourBlocked(input: {
   return input.workoutActive || input.openedByDeepLink || input.surfaceOpen;
 }
 
-/** Drop steps whose target isn't on screen (unless they may center). Order is kept. */
+/**
+ * The steps to show, in order: a step whose target is on screen stays; otherwise its `alt`
+ * target is used when that one is on screen; otherwise it is dropped (unless it may center).
+ */
 export function presentSteps(steps: FirstRunTourStep[], isPresent: (target: string) => boolean): FirstRunTourStep[] {
-  return steps.filter((s) => s.allowCentered || isPresent(s.target));
+  const out: FirstRunTourStep[] = [];
+  for (const s of steps) {
+    if (isPresent(s.target)) out.push(s);
+    else if (s.alt && isPresent(s.alt.target)) {
+      const { alt, ...rest } = s;
+      out.push({ ...rest, target: alt.target, title: alt.title ?? rest.title, text: alt.text });
+    } else if (s.allowCentered) out.push(s);
+  }
+  return out;
 }
 
 export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null | undefined): FirstRunTourStep[] {
@@ -115,7 +153,13 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
       return [
         { target: FIRST_RUN_COACH.homeWorkout, title: 'האימון של היום', text: 'כאן האימון של היום — לחיצה ומתחילים', finger: true },
         { target: FIRST_RUN_COACH.homePlus, title: 'הכפתור +', text: 'ה־+ מוסיף אימון, יציאה לאימון או הזמנת חבר' },
-        { target: FIRST_RUN_COACH.homeWeek, title: 'השבוע שלך', text: 'כאן הלו״ז השבועי שלך' },
+        // No week strip yet (no program — most new users): point at the map instead of dropping.
+        {
+          target: FIRST_RUN_COACH.homeWeek,
+          title: 'השבוע שלך',
+          text: 'כאן הלו״ז השבועי שלך',
+          alt: { target: FIRST_RUN_COACH.homeNavMap, title: 'המפה', text: 'כאן מוצאים גינות כושר ומסלולים קרובים' },
+        },
       ];
     case 'map':
       return [
@@ -130,17 +174,19 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
             'כאן בוחרים מה רואים במפה: מתקני כושר, ברזיות ושירותים',
           ),
         },
-        { target: FIRST_RUN_COACH.mapPark, title: 'פארקים', text: 'לחיצה על פארק מראה מתקנים ומי מתאמן שם', allowCentered: true },
+        // Anchored to the nearest park pin (ParkCoachAnchor); no pin in view → the step drops.
+        { target: FIRST_RUN_COACH.mapPark, title: 'פארקים', text: 'לחיצה על פארק מראה מתקנים ומי מתאמן שם' },
       ];
     case 'community':
       return [
-        { target: FIRST_RUN_COACH.communityLeague, text: 'כאן הליגה של השכונה והעיר שלך' },
-        { target: FIRST_RUN_COACH.communityInvite, text: 'הזמנת חבר מוסיפה +50 לשכונה' },
+        { target: FIRST_RUN_COACH.communityLeague, title: 'הליגה של השכונה', text: 'כאן הליגה של השכונה והעיר שלך' },
+        { target: FIRST_RUN_COACH.communityInvite, title: 'הזמנת חבר', text: 'הזמנת חבר מוסיפה +50 לשכונה' },
       ];
     case 'player':
       return [
         {
           target: FIRST_RUN_COACH.playerProgress,
+          title: 'הפסים למעלה',
           text: g(
             gender,
             'הפסים למעלה מראים איפה אתה באימון ומה עוד נשאר',
@@ -150,8 +196,8 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
         },
         // how-to before done: the instructions sit below the fold of the reps card, so the
         // last step scrolls the "סיימתי" button back into view.
-        { target: FIRST_RUN_COACH.playerHowTo, text: 'כאן ההסבר איך מבצעים את התרגיל' },
-        { target: FIRST_RUN_COACH.playerDone, text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
+        { target: FIRST_RUN_COACH.playerHowTo, title: 'איך מבצעים', text: 'כאן ההסבר איך מבצעים את התרגיל' },
+        { target: FIRST_RUN_COACH.playerDone, title: 'סיימתי', text: 'סיימת סט? לחיצה על "סיימתי" ועוברים לתרגיל הבא', finger: true },
       ];
     // enable_entry_whatnow_v1 (entry flow v2, designs R1–R3): the first floating route card.
     // Owner note 21.10 #6: one idea per step (title + one line), every step anchored to the
@@ -203,18 +249,15 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
   }
 }
 
-/** Bubble chrome per tour. The first-launch tours (route / route-player / plan, and the home /
- *  map tours a new user meets right after the entry flow) use the v2 'entry' bubble — title +
- *  line, progress dots, caret, read-first dwell (owner note 21.10 #6). The in-workout / community
- *  tours keep CoachMarks' defaults (undefined → byte-identical). */
+/** Bubble chrome: ONE style for every tour (owner 21.10) — the v2 'entry' bubble (title + one
+ *  line, progress dots, caret, דלג, read-first dwell). The first-run tours only run under
+ *  enable_onboarding_tutorial_v1 + enable_home_v2, replays only under ai_coach_round4. */
 export interface FirstRunTourChrome {
   variant: 'entry';
 }
 
-const ENTRY_CHROME_TOURS: readonly FirstRunTourId[] = ['route', 'route-player', 'plan', 'home', 'map'];
-
-export function firstRunTourChrome(tour: FirstRunTourId): FirstRunTourChrome | undefined {
-  return ENTRY_CHROME_TOURS.includes(tour) ? { variant: 'entry' } : undefined;
+export function firstRunTourChrome(_tour?: string): FirstRunTourChrome {
+  return { variant: 'entry' };
 }
 
 /**

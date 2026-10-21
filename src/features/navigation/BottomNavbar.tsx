@@ -207,6 +207,8 @@ function BottomNavV2({
         tabIndex={isSuppressed ? -1 : 0}
         aria-label="מפה"
         aria-current={mapActive ? 'page' : undefined}
+        // Inert: the home tour's 3rd step when there is no week strip (FIRST_RUN_COACH.homeNavMap).
+        data-coach="nav-map"
         className={`relative -mt-9 grid h-16 w-16 shrink-0 place-items-center rounded-full bg-white shadow-v2-float ring-1 ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.96] ${
           mapActive ? 'text-v2-deep ring-2 ring-v2-accent' : 'text-v2-deep'
         }`}
