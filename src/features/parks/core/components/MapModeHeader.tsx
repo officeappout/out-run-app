@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { Map, Zap, Users } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 /**
  * Map UI top-level modes.
@@ -27,24 +29,26 @@ interface MapModeHeaderProps {
   partnerCount?: number;
 }
 
-const MODES: Array<{ id: MapMode; label: string; icon: React.ElementType; alwaysShow: boolean }> = [
-  { id: 'discover', label: 'גלה מסלולים', icon: Map, alwaysShow: false },
-  { id: 'freeRun', label: 'אירובי חופשי', icon: Zap, alwaysShow: true },
-  { id: 'partners', label: 'שותפים לאימון', icon: Users, alwaysShow: true },
-];
+const MODES = [
+  { id: 'discover', labelKey: 'modes.discover', icon: Map, alwaysShow: false },
+  { id: 'freeRun', labelKey: 'modes.freeRun', icon: Zap, alwaysShow: true },
+  { id: 'partners', labelKey: 'modes.partners', icon: Users, alwaysShow: true },
+] as const satisfies ReadonlyArray<{ id: MapMode; labelKey: string; icon: React.ElementType; alwaysShow: boolean }>;
 
 const BRAND_CYAN = '#00E5FF';
 
 export default function MapModeHeader({ activeMode, onModeChange, hasNearbyRoutes, partnerCount }: MapModeHeaderProps) {
+  const t = useT(map);
   const visibleModes = MODES.filter(m => m.alwaysShow || (m.id === 'discover' && hasNearbyRoutes));
 
   return (
     <div className="flex gap-2 overflow-x-auto scrollbar-hide" dir="rtl">
-      {visibleModes.map(({ id, label, icon: Icon }) => {
+      {visibleModes.map(({ id, labelKey, icon: Icon }) => {
+        const label = t(labelKey);
         const isActive = activeMode === id;
         const displayLabel =
           id === 'partners' && partnerCount != null && partnerCount > 0
-            ? `${label} · ${partnerCount}`
+            ? t('modes.withCount', { label, count: String(partnerCount) })
             : label;
         return (
           <button

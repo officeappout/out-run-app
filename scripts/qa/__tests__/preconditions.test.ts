@@ -86,6 +86,10 @@ describe('buildTesterState', () => {
       expect(todayEntries(docs, uid).length, 'session today').toBeGreaterThan(0);
       // some history
       expect(docs.some((d) => d.path.startsWith(`dailyActivity/${uid}_`))).toBe(true);
+      // a real streak doc always has a day key (a null date makes every client streak write fail the rule)
+      const streak = docs.find((d) => d.path === `streaks/${uid}`)!.data;
+      expect(String(streak.lastActivityDate)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(streak.longestStreak as number).toBeGreaterThanOrEqual(streak.currentStreak as number);
       // deterministic (idempotent re-seed)
       const again = buildTesterState(uid, pre, WHO, NOW, null);
       expect(again.map((d) => d.path)).toEqual(docs.map((d) => d.path));

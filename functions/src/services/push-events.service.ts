@@ -64,6 +64,9 @@ export interface PushEventMetadata {
   /** Push library: the pushType and the library row (or 'default:<pushType>:<n>') the copy came from. */
   pushType?: string;
   copyRowId?: string;
+  /** Copy tone ('cute' | 'personal' | 'curious' | 'friendly' | 'none') and the sender's lever — tone learning. */
+  tone?: string;
+  lever?: string;
 }
 
 export interface WritePushSentOpts extends PushEventMetadata {
@@ -128,6 +131,8 @@ export async function writePushSentEvent(opts: WritePushSentOpts): Promise<void>
       channel: opts.channel,
       ...(opts.pushType ? { pushType: opts.pushType } : {}),
       ...(opts.copyRowId ? { copyRowId: opts.copyRowId } : {}),
+      ...(opts.tone ? { tone: opts.tone } : {}),
+      ...(opts.lever ? { lever: opts.lever } : {}),
       delivered: opts.delivered,
       sentAt: now,
       outcomeWindowHours: windowHours,

@@ -3,6 +3,8 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { CompiledLegPlanRoute } from '../services/leg-plan.service';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const ACCENT = '#00ADEF';
 const AUTO_START_MS = 1600;
@@ -35,6 +37,7 @@ export default function LegPlanStartPreview({
   onConfirm: () => void;
 }) {
   const firedRef = useRef(false);
+  const t = useT(map);
 
   const confirmOnce = () => {
     if (firedRef.current) return;
@@ -43,8 +46,8 @@ export default function LegPlanStartPreview({
   };
 
   useEffect(() => {
-    const t = setTimeout(confirmOnce, AUTO_START_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(confirmOnce, AUTO_START_MS);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -63,7 +66,7 @@ export default function LegPlanStartPreview({
         onClick={confirmOnce}
         className="w-full bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto text-right active:scale-[0.98] transition-transform"
         dir="rtl"
-        aria-label="התחל ריצה עכשיו"
+        aria-label={t('legPlan.startNowLabel')}
       >
         {/* Auto-start progress bar */}
         <div className="h-1 bg-gray-100 overflow-hidden">
@@ -78,16 +81,16 @@ export default function LegPlanStartPreview({
 
         <div className="px-5 py-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[13px] font-black text-gray-900">🏁 המסלול מוכן — מתחילים...</p>
+            <p className="text-[13px] font-black text-gray-900">{t('legPlan.ready')}</p>
             <p className="text-[12px] text-gray-400 font-bold mt-0.5">
-              {legCount} עצירות · {compiled.route.distance.toFixed(1)} ק״מ · {compiled.route.duration} דק׳
+              {t('legPlan.summary', { legs: String(legCount), km: compiled.route.distance.toFixed(1), min: String(compiled.route.duration) })}
             </p>
           </div>
           <span
             className="shrink-0 text-[12px] font-black px-3 py-1.5 rounded-full text-white"
             style={{ backgroundColor: ACCENT }}
           >
-            התחל עכשיו
+            {t('legPlan.cta')}
           </span>
         </div>
       </button>

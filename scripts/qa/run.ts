@@ -14,28 +14,37 @@
  * Order: files valid → both switches on → no stop request → caps + prices set and not reached →
  * per mission (sequential, ONE browser at a time): session caps → mint → sign in → guarded loop →
  * close. Heartbeat on demo_registry/control.testers throughout; idle at the end.
+ * A browser crash restarts that session in a fresh browser from the first unscored screen
+ * (lib/mission-runner.ts); any other session error is recorded and the run goes on.
+ * Output (the workflow's artifact): qa-out/<runId>/run.json, findings.jsonl and shots/ — every
+ * screen the tester saw, in order, with shots/manifest.json (lib/shots.ts).
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { getIsraelDateKey } from '@/lib/israelTime';
 import { checkCaps, summarizeUsage } from '@/lib/demo-control/usage-cost';
-import { DEFAULT_TESTER_MODEL, DEVICES, HARD_CAPS } from './lib/config';
+import { DEFAULT_TESTER_MODEL, HARD_CAPS } from './lib/config';
 import { Budget, preflight } from './lib/budget';
 import { openBrowser } from './lib/browser';
 import { redactSecrets } from './lib/demo-guard';
-import { SessionDriver } from './lib/driver';
 import { loadPersonasAndMissions } from './lib/files';
 import { FindingsBook } from './lib/findings';
 import { DEFAULT_MINT_URL, ID_TOKEN_MIN_LEFT_SEC, idTokenSecondsLeft, mintTesterToken } from './lib/mint';
 import { makeRunId, parseRunArgs, planRun } from './lib/plan';
-import { runSession, type SessionResult } from './lib/session';
+import type { SessionResult } from './lib/session';
+import { runPlannedSession } from './lib/mission-runner';
+import { memoryLine } from './lib/crash';
+import { ShotLog } from './lib/shots';
 import { missionUids } from './lib/design/checkpoints';
 import { DEFAULT_REPORT_URL, openStore, sessionStartDelta, type Store } from './lib/store';
 import { mergeOwnerRules } from './lib/owner/owner-rules';
 import { buildLearning } from './lib/owner/learning';
 
 const log = (msg: string) => console.log(`[qa] ${redactSecrets(msg)}`);
+
+/** Mint refusals that would refuse every later session too. */
+const MINT_STOPS = new Set(['mint_switch_off', 'mint_caller_not_allowed', 'mint_quota_exhausted']);
 
 async function main(): Promise<number> {
   const args = parseRunArgs(process.argv.slice(2), process.env);
@@ -111,7 +120,10 @@ async function runAll(
   });
   const book = new FindingsBook();
   const anthropic = new Anthropic({ apiKey: ctx.apiKey, maxRetries: 2 });
-  const results: Array<{ mission: string; device: string } & SessionResult> = [];
+  const results: Array<{ mission: string; device: string; attempts?: number } & SessionResult> = [];
+  const out = join(process.cwd(), 'qa-out', runId);
+  const shots = new ShotLog(runId, join(out, 'shots'));
+  log(`start · ${memoryLine()}`);
   let lastSessionAt = Date.now();
   const beat = (state: 'running' | 'idle') =>
     store.heartbeat({ state, runId, lastSessionAtMs: lastSessionAt, findingsCount: book.size, spentUsd: Number(budget.spentUsd.toFixed(4)) }).catch(() => log('heartbeat failed'));
@@ -139,61 +151,47 @@ async function runAll(
       log(`session ${i + 1}/${plan.sessions.length}: ${s.mission.id}${s.resumeFrom ? `@${s.resumeFrom}` : ''} as ${persona.id} on ${s.device}`);
       await store.addUsage(getIsraelDateKey(new Date()), sessionStartDelta(model), true).catch(() => log('session count write failed'));
 
-      const minted = await mintTesterToken({ url: process.env.QA_MINT_URL?.trim() || DEFAULT_MINT_URL, idToken: ctx.idToken, uid: s.uid, runId });
-      if (!minted.ok) {
-        log(`mint refused: ${minted.error}`);
-        results.push({ mission: s.mission.id, device: s.device, outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: 0, newFindings: 0 });
-        if (['switch_off', 'caller_not_allowed', 'quota_exhausted'].includes(minted.error)) {
-          stopReason = `mint_${minted.error}`;
+      try {
+        const r = await runPlannedSession(
+          {
+            session: {
+              anthropic,
+              model,
+              store,
+              budget,
+              book,
+              runId,
+              cohort: s.mission.cohort,
+              dayKey: () => getIsraelDateKey(new Date()),
+              stopRequested: () => store.stopRequested().catch(() => false),
+              log,
+              shots,
+              owner,
+            },
+            baseUrl: args.baseUrl,
+            seed: i + 1,
+            mint: (uid) => mintTesterToken({ url: process.env.QA_MINT_URL?.trim() || DEFAULT_MINT_URL, idToken: ctx.idToken, uid, runId }),
+            open: (device, startAt) => openBrowser(device, { appCheckDebugToken: process.env.APPCHECK_DEBUG_TOKEN?.trim() || null, startAt, log }),
+          },
+          s,
+          persona,
+        );
+        log(`→ ${r.outcome}${r.reason ? ` (${r.reason})` : ''}, ${r.steps} steps, ${r.newFindings} new findings${r.attempts > 1 ? `, ${r.attempts} browsers` : ''} · ${memoryLine()}`);
+        results.push({ mission: s.mission.id, device: s.device, ...r });
+        if (MINT_STOPS.has(r.reason ?? '')) {
+          stopReason = r.reason;
           break;
         }
-        continue;
-      }
-
-      const start = s.mission.gps?.route[0] ?? [32.0853, 34.7818];
-      const browser = await openBrowser(DEVICES[s.device], { appCheckDebugToken: process.env.APPCHECK_DEBUG_TOKEN?.trim() || null, startAt: { latitude: start[0], longitude: start[1] } });
-      const driver = new SessionDriver(browser, s.mission, args.baseUrl, i + 1);
-      try {
-        const refused = await driver.signIn(minted.token);
-        if (refused) {
-          log(`sign-in refused: ${refused}`);
-          results.push({ mission: s.mission.id, device: s.device, outcome: 'error', reason: refused, summary: '', steps: 0, newFindings: 0 });
-          continue;
-        }
-        const bootErrors = await driver.openStart({ afterSignIn: true });
-        if (bootErrors && (bootErrors.console.length || bootErrors.failedRequests.length)) {
-          // Not linted as the mission's (sign-in + the app's own first redirect); kept in the log.
-          log(`sign-in/boot errors (not reported): ${[...bootErrors.failedRequests, ...bootErrors.console].slice(0, 6).join(' | ')}`);
-        }
-        const r = await runSession(
-          {
-            anthropic,
-            model,
-            store,
-            budget,
-            book,
-            runId,
-            cohort: s.mission.cohort,
-            dayKey: () => getIsraelDateKey(new Date()),
-            stopRequested: () => store.stopRequested().catch(() => false),
-            log,
-            owner,
-          },
-          persona,
-          s.mission,
-          s.device,
-          driver,
-          { resumeFrom: s.resumeFrom },
-        );
-        log(`→ ${r.outcome}${r.reason ? ` (${r.reason})` : ''}, ${r.steps} steps, ${r.newFindings} new findings`);
-        results.push({ mission: s.mission.id, device: s.device, ...r });
         if (r.outcome === 'stopped' || (r.outcome === 'capped' && /usd|sessions/.test(r.reason ?? ''))) {
           stopReason = r.reason;
           break;
         }
+      } catch (e) {
+        // One broken session never takes the run (and its report / screenshots) down with it.
+        const msg = redactSecrets(e instanceof Error ? e.message.split('\n')[0] : String(e)).slice(0, 200);
+        log(`session ${s.mission.id} failed: ${msg} · ${memoryLine()}`);
+        results.push({ mission: s.mission.id, device: s.device, outcome: 'error', reason: `exception: ${msg}`, summary: '', steps: 0, newFindings: 0 });
       } finally {
-        driver.stop();
-        await browser.close();
         lastSessionAt = Date.now();
         await beat('running');
       }
@@ -203,10 +201,11 @@ async function runAll(
     await beat('idle');
   }
 
-  const out = join(process.cwd(), 'qa-out', runId);
+  shots.flush();
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'run.json'), JSON.stringify({ runId, model, stopReason, spentUsd: budget.spentUsd, sessions: results }, null, 2));
   writeFileSync(join(out, 'findings.jsonl'), book.all().map((f) => JSON.stringify(f)).join('\n'));
+  log(`screenshots: ${shots.size} in qa-out/${runId}/shots (manifest.json)`);
   log(`run ${runId} done: ${results.length} sessions, ${book.size} findings, ~$${budget.spentUsd.toFixed(2)}${stopReason ? `, stopped: ${stopReason}` : ''}`);
   return 0;
 }

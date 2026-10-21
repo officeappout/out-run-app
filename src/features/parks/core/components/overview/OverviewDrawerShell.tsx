@@ -19,6 +19,8 @@ import { MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { useOverviewSheet } from './useOverviewSheet';
 import OverviewGraphPager from './OverviewGraphPager';
 import type { DetentId } from './overview-detents';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface OverviewDrawerShellProps {
   /** Home v2 look (enable_home_v2); false = the pre-v2 drawer, unchanged. */
@@ -50,6 +52,7 @@ export default function OverviewDrawerShell({
     dragControls, cardRef, currentAnchor, controls, dragConstraints,
     sheetY, cardHeight, springRef, onDragEndSnap, scrollBodyRef, snapTo,
   } = useOverviewSheet(initialDetent);
+  const t = useT(map);
   useEffect(() => {
     if (snapRequest) snapTo(snapRequest.to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,7 +95,7 @@ export default function OverviewDrawerShell({
             {v2
               ? <div className="mx-auto h-1.5 w-10 rounded-full bg-v2-pill-border" />
               : <div className="mx-auto rounded-full" style={{ width: 36, height: 5, background: '#E2E8F0' }} />}
-            <button type="button" onClick={onBack} aria-label="חזור"
+            <button type="button" onClick={onBack} aria-label={t('overview.shell.back')}
               onPointerDown={(e) => e.stopPropagation()}
               className={v2
                 ? 'absolute top-3 left-4 grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'

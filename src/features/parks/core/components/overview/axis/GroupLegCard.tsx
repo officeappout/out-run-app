@@ -16,6 +16,8 @@ import { Clock, Play, Repeat, Ruler } from 'lucide-react';
 import type { GroupLeg, GroupRowTone } from '../overview-legs';
 import { AER_TINT, AER_TEXT, CARD_PAD, CardGroup, Meta, useAxisCardStyles } from './AxisParts';
 import { useAxisDecor } from './axis-decor';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 /** Run-player zone colours: warm-up green, reps red, recovery grey (board M-5c). */
 export const GROUP_TONE_COLOR: Record<GroupRowTone, string> = {
@@ -66,6 +68,7 @@ export default function GroupLegCard({ leg }: { leg: GroupLeg }) {
 function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
   const { cardCls, cardStyle, titleCls, titleStyle } = useAxisCardStyles();
   const { renderPace, groupExtras, onDrillTap } = useAxisDecor();
+  const t = useT(map);
   const extras = groupExtras?.(leg) ?? null;
   const badge = leg.repeat != null && leg.repeat > 1 && (
     <span className="inline-flex shrink-0 items-center gap-1.5">
@@ -74,7 +77,7 @@ function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
         <Repeat size={13} strokeWidth={2.6} aria-hidden />
         <span dir="ltr">{`${leg.repeat} ×`}</span>
       </span>
-      <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">חזרות</span>
+      <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">{t('overview.axis.reps')}</span>
     </span>
   );
   return (
@@ -112,7 +115,7 @@ function RunGroupLegCard({ leg, color }: { leg: GroupLeg; color: string }) {
               <div key={row.key} className="flex items-center gap-2.5 px-0.5 py-[5px]">
                 {drillKey ? (
                   // The row's drill / exercise video (the old briefing's tap-to-watch).
-                  <button type="button" onClick={() => onDrillTap?.(drillKey)} aria-label={`צפה בסרטון: ${row.label}`}
+                  <button type="button" onClick={() => onDrillTap?.(drillKey)} aria-label={t('overview.axis.watchVideo', { name: row.label })}
                     className="flex min-w-0 flex-1 items-center gap-2.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97]">
                     {bar}
                     {label}

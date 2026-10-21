@@ -116,8 +116,8 @@ import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { pointToPointLabel } from '@/features/parks/core/services/route-shape';
 import { logGeneratedRoutes } from '@/features/generation-review/capture/hooks';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const ACCENT = '#00ADEF';
 const BRAND_CYAN = '#00E5FF';
@@ -139,9 +139,9 @@ const VARIANT_CHIP_META: Record<
   CommuteVariant,
   { label: string; bg: string; text: string; Icon: typeof Zap }
 > = {
-  fastest: { label: 'הכי מהיר', bg: 'bg-cyan-50', text: 'text-cyan-700', Icon: Zap },
-  alternative: { label: 'מסלול חלופי', bg: 'bg-slate-100', text: 'text-slate-700', Icon: Shuffle },
-  quiet: { label: 'שקט', bg: 'bg-indigo-50', text: 'text-indigo-700', Icon: VolumeX },
+  fastest: { label: 'הכי מהיר', bg: 'bg-cyan-50', text: 'text-cyan-700', Icon: Zap }, // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  alternative: { label: 'מסלול חלופי', bg: 'bg-slate-100', text: 'text-slate-700', Icon: Shuffle }, // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  quiet: { label: 'שקט', bg: 'bg-indigo-50', text: 'text-indigo-700', Icon: VolumeX }, // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
 };
 
 /**
@@ -286,6 +286,7 @@ export default function RouteCarousel({
   firstWorkoutNote = null,
 }: RouteCarouselProps) {
   const setFreeRunCarouselRoutes = useMapStore((s) => s.setFreeRunCarouselRoutes);
+  const t = useT(map);
 
   const [phase, setPhase] = useState<Phase>('searching');
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -310,13 +311,13 @@ export default function RouteCarousel({
 
   useEffect(() => {
     if (mode === 'commute') return; // no city gate in commute mode
-    const t = setTimeout(() => setCityTimedOut(true), CITY_RESOLUTION_TIMEOUT_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCityTimedOut(true), CITY_RESOLUTION_TIMEOUT_MS);
+    return () => clearTimeout(timer);
   }, [mode]);
 
   useEffect(() => {
-    const t = setTimeout(() => setSearchMinElapsed(true), MIN_SEARCH_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSearchMinElapsed(true), MIN_SEARCH_MS);
+    return () => clearTimeout(timer);
   }, []);
 
   // Reset generation gate AND staged routes whenever the user swaps
@@ -332,8 +333,8 @@ export default function RouteCarousel({
     setSearchMinElapsed(false);
     setRoutes([]);
     setGenerationError(null);
-    const t = setTimeout(() => setSearchMinElapsed(true), MIN_SEARCH_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSearchMinElapsed(true), MIN_SEARCH_MS);
+    return () => clearTimeout(timer);
   }, [activity, mode]);
 
   // Generator effect — gated on cityReady. The cancellation flag is the
@@ -403,7 +404,7 @@ export default function RouteCarousel({
         setRoutes(logGeneratedRoutes(result.slice(0, 3), { activity, targetKm: targetKm ?? 3, ab: mode === 'commute' }));
       } catch (err) {
         if (cancelled) return;
-        setGenerationError((err as Error).message ?? 'יצירת המסלולים נכשלה');
+        setGenerationError((err as Error).message ?? t('carousel.error.generateFailed'));
         setRoutes([]);
       } finally {
         if (!cancelled) setGenerationDone(true);
@@ -453,7 +454,7 @@ export default function RouteCarousel({
       className="fixed inset-0 z-[60] pointer-events-none"
       dir="rtl"
       role="dialog"
-      aria-label="בחירת מסלול"
+      aria-label={t('carousel.dialogLabel')}
     >
       <AnimatePresence mode="wait">
         {phase === 'searching' && (
@@ -522,20 +523,21 @@ interface CommuteActivityPickerProps {
   onActivityChange?: (activity: ActivityType) => void;
 }
 
-const COMMUTE_ACTIVITY_OPTIONS: Array<{
+const COMMUTE_ACTIVITY_OPTIONS = [
+  { id: 'walking', labelKey: 'carousel.activity.walking', Icon: Footprints },
+  { id: 'running', labelKey: 'carousel.activity.running', Icon: Activity },
+  { id: 'cycling', labelKey: 'carousel.activity.cycling', Icon: Bike },
+] as const satisfies ReadonlyArray<{
   id: Extract<ActivityType, 'walking' | 'running' | 'cycling'>;
-  label: string;
+  labelKey: string;
   Icon: typeof Footprints;
-}> = [
-  { id: 'walking', label: 'הליכה', Icon: Footprints },
-  { id: 'running', label: 'ריצה', Icon: Activity },
-  { id: 'cycling', label: 'רכיבה', Icon: Bike },
-];
+}>;
 
 function CommuteActivityPicker({
   activity,
   onActivityChange,
 }: CommuteActivityPickerProps) {
+  const t = useT(map);
   if (!onActivityChange) return null;
   return (
     <div className="flex justify-center pointer-events-none mb-2 px-4">
@@ -547,10 +549,11 @@ function CommuteActivityPicker({
           WebkitBackdropFilter: 'blur(14px) saturate(160%)',
         }}
         role="group"
-        aria-label="בחר אופן תנועה"
+        aria-label={t('carousel.activityPicker')}
       >
-        {COMMUTE_ACTIVITY_OPTIONS.map(({ id, label, Icon }) => {
+        {COMMUTE_ACTIVITY_OPTIONS.map(({ id, labelKey, Icon }) => {
           const isActive = activity === id;
+          const label = t(labelKey);
           return (
             <button
               key={id}
@@ -600,18 +603,19 @@ function SearchingState({
   // Mode-aware copy. Commute mode reads as a navigation prep flow
   // ("computing routes to {destination}"), loop mode keeps the
   // "scanning streets near you" framing the radar UX uses today.
+  const t = useT(map);
   const primaryCopy =
     mode === 'commute'
       ? destinationLabel
-        ? `מחשב מסלולים אל ${destinationLabel}…`
-        : 'מחשב מסלולים אל היעד…'
+        ? t('carousel.searching.commuteTo', { destination: destinationLabel })
+        : t('carousel.searching.commute')
       : cityName
-        ? `מחפש מסלולים ב${cityName}…`
-        : 'מחפש מסלולים קרובים…';
+        ? t('carousel.searching.loopIn', { city: cityName })
+        : t('carousel.searching.loop');
   const secondaryCopy =
     mode === 'commute'
-      ? 'בודק מהיר, חלופי ושקט'
-      : 'סורק את הרחובות הסמוכים אליך';
+      ? t('carousel.searching.commuteSub')
+      : t('carousel.searching.loopSub');
   return (
     <motion.div
       initial={{ y: 80, opacity: 0 }}
@@ -667,7 +671,7 @@ function SearchingState({
             type="button"
             onClick={onCancel}
             className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform shrink-0"
-            aria-label="ביטול"
+            aria-label={t('carousel.cancel')}
           >
             <X size={14} className="text-gray-600" />
           </button>
@@ -700,17 +704,18 @@ function EmptyState({
   // commute empty = "no route to {destination}". Both keep the same
   // "try again / change settings" CTA shape so the back-out gesture
   // is identical.
+  const t = useT(map);
   const primaryCopy =
     mode === 'commute'
       ? destinationLabel
-        ? `לא הצלחנו לחשב מסלול אל ${destinationLabel} כרגע`
-        : 'לא הצלחנו לחשב מסלול אל היעד כרגע'
-      : `לא הצלחנו ליצור מסלול ${(targetKm ?? 0).toFixed(1)} ק״מ קרוב אליך כרגע`;
+        ? t('carousel.empty.commuteTo', { destination: destinationLabel })
+        : t('carousel.empty.commute')
+      : t('carousel.empty.loop', { km: (targetKm ?? 0).toFixed(1) });
   const secondaryCopy =
     mode === 'commute'
-      ? 'נסה יעד אחר או החלף סוג פעילות.'
-      : 'נסה לשנות את המרחק או את סוג הפעילות.';
-  const ctaCopy = mode === 'commute' ? 'חזור לחיפוש' : 'חזור להגדרות';
+      ? t('carousel.empty.commuteHint')
+      : t('carousel.empty.loopHint');
+  const ctaCopy = mode === 'commute' ? t('carousel.back.commute') : t('carousel.back.loop');
   return (
     <motion.div
       initial={{ y: 80, opacity: 0 }}
@@ -798,6 +803,7 @@ function CardsState({
 }) {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const t = useT(map);
 
   // ── Bidirectional sync refs ──────────────────────────────────────────
   // See the file-header doc comment for the contract these enforce.
@@ -997,23 +1003,23 @@ function CardsState({
             onClick={onBack}
             className="w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform"
             style={{ backgroundColor: `${ACCENT}1A` }}
-            aria-label={mode === 'commute' ? 'חזור לחיפוש' : 'חזור להגדרות'}
+            aria-label={mode === 'commute' ? t('carousel.back.commute') : t('carousel.back.loop')}
           >
             <ChevronRight size={12} strokeWidth={3} style={{ color: ACCENT }} />
           </button>
           <span className="text-[12px] font-black text-gray-800 leading-tight px-1">
             {mode === 'commute'
               ? destinationLabel
-                ? `${routes.length} דרכים אל ${destinationLabel}`
-                : `${routes.length} דרכים אל היעד`
-              : `${routes.length} מסלולים מותאמים אישית`}
+                ? t('carousel.title.commuteTo', { count: String(routes.length), destination: destinationLabel })
+                : t('carousel.title.commute', { count: String(routes.length) })
+              : t('carousel.title.loop', { count: String(routes.length) })}
           </span>
           {mode === 'commute' && (
             <button
               type="button"
               onClick={onBack}
               className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform"
-              aria-label="סגור ניווט"
+              aria-label={t('carousel.close')}
             >
               <X size={11} strokeWidth={3} className="text-gray-600" />
             </button>
@@ -1101,16 +1107,16 @@ function RouteCard({
   coach?: boolean;
   footnote?: string | null;
 }) {
-  const gender = useUiGender();
   // `data-coach` ids of the first-route tour (FIRST_RUN_COACH.routeCard / routeStart in
   // user/onboarding/services/first-run-tour.ts) — literals, no cross-domain import.
   const coachId = coach ? 'route-card' : undefined;
   const ctaCoachId = coach ? 'route-start' : undefined;
   const stars = scoreToStars(route.score);
   const highlight = useMemo(() => routeHighlight(route), [route]);
-  const displayName = route.name?.trim() || 'סיבוב מעגלי';
-  const distanceText = `${route.distance.toFixed(1)} ק״מ`;
-  const durationText = `~${route.duration} דק׳`;
+  const t = useT(map);
+  const displayName = route.name?.trim() || t('carousel.card.nameFallback');
+  const distanceText = t('carousel.card.distance', { km: route.distance.toFixed(1) });
+  const durationText = t('carousel.card.duration', { min: String(route.duration) });
   // Start-experience state map (11.10.2026): FreeRun's generated routes
   // are anchored AT userPosition by construction (loop mode returns to
   // start, commute mode starts there), so this resolves to 'at_start' in
@@ -1185,7 +1191,7 @@ function RouteCard({
         ctaContent={
           <>
             <Play size={14} fill="currentColor" />
-            {isTooFar ? tooFarLabels.cta : pickGendered(gender, GENDERED_COPY.startWorkout)}
+            {isTooFar ? tooFarLabels.cta : t('carousel.card.start')}
             <ChevronLeft size={14} strokeWidth={3} />
           </>
         }
@@ -1276,7 +1282,7 @@ function RouteCard({
         style={{ backgroundColor: ACCENT }}
       >
         <Play size={14} fill="currentColor" />
-        {pickGendered(gender, GENDERED_COPY.startWorkout)}
+        {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}התחל אימון
         <ChevronLeft size={14} strokeWidth={3} />
       </button>
     </div>
@@ -1296,10 +1302,10 @@ function routeHighlight(route: Route): string {
   const oneWay = pointToPointLabel(route);
   if (oneWay) return oneWay;
   const f = route.features;
-  if (f?.hasGym) return 'עובר ליד גינת כושר';
-  if (f?.scenic) return 'מסלול ירוק ונופי';
-  if (f?.hasBenches) return 'יש ספסלים בדרך';
+  if (f?.hasGym) return 'עובר ליד גינת כושר'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  if (f?.scenic) return 'מסלול ירוק ונופי'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  if (f?.hasBenches) return 'יש ספסלים בדרך'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
   // Lighting only from computed qualitySignals — features.lit is a heuristic.
-  if (isRouteLitVerified(route)) return 'מואר היטב';
-  return 'מסלול מעגלי חוזר אליך';
+  if (isRouteLitVerified(route)) return 'מואר היטב'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  return 'מסלול מעגלי חוזר אליך'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
 }

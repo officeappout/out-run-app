@@ -31,7 +31,8 @@ import {
 import { firstNameOf } from './persona';
 import { markNeedsHuman, type StoredCard } from './thread-store.server';
 import type { ToolExecResult } from './turn-engine';
-import { recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './schedule-advisor.server';
+import { normalizeAdvisorProfile, recommendToday, recommendWeek, runAdvisor, sheetPlanFromTurn } from './schedule-advisor.server';
+import { plannedWeekEntries } from './week-plan';
 import { appHelpToolResult, type GetAppHelpInputT } from './app-help/retrieve';
 import { proposeScheduleChange } from './schedule-proposal/propose.server';
 import type { ProposeScheduleChangeInputT, StoredProposal } from './schedule-proposal/types';
@@ -86,30 +87,29 @@ async function readWorkouts(ctx: ServerToolContext, sinceMs: number | null, limi
   });
 }
 
+/**
+ * The planned entries of `dates`: the userSchedule day docs that exist, completed VIRTUALLY
+ * from the recurring template, home's training-day fallback and the running plan
+ * (week-plan.ts — K0 F1/F2/F3). Nothing is written; the only reads are the day docs (one
+ * getAll, as before) — the rest comes from the user doc the turn already holds.
+ */
 async function readSchedule(ctx: ServerToolContext, dates: string[]): Promise<RawScheduleEntry[]> {
   if (dates.length === 0) return [];
   const refs = dates.map((d) => ctx.db.collection('userSchedule').doc(`${ctx.uid}_${d}`));
   const snaps = await ctx.db.getAll(...refs);
-  const out: RawScheduleEntry[] = [];
+  const docs = new Map<string, Array<Record<string, unknown>>>();
   snaps.forEach((s, i) => {
     if (!s.exists) return;
-    const entries = (s.data()?.entries ?? []) as Array<Record<string, unknown>>;
-    if (!Array.isArray(entries)) return;
-    for (const e of entries) {
-      if (e?.override === true && e?.type === 'rest') continue;
-      out.push({
-        date: dates[i],
-        type: e.type,
-        programIds: e.programIds,
-        startTime: e.startTime,
-        completed: e.completed,
-        title: e.title,
-        scheduledCategories: e.scheduledCategories,
-        plannedRun: e.plannedRun,
-      });
-    }
+    const entries = s.data()?.entries;
+    if (Array.isArray(entries)) docs.set(dates[i], entries as Array<Record<string, unknown>>);
   });
-  return out;
+  return plannedWeekEntries({
+    dates,
+    docs,
+    profile: ctx.profile,
+    advisorProfile: normalizeAdvisorProfile(ctx.profile),
+    ...(ctx.runsByType ? { runsByType: true } : {}),
+  });
 }
 
 async function readAreaName(ctx: ServerToolContext): Promise<string | null> {
@@ -178,7 +178,11 @@ export async function loadUserContextSheet(ctx: ServerToolContext): Promise<User
   const week = weekKeys(todayKey, getIsraelDayOfWeek(ctx.now));
   const [workouts, weekSchedule, areaName, programIndex, advisor] = await Promise.all([
     readWorkouts(ctx, null, 5),
-    readSchedule(ctx, week),
+    // K0 F4: a failed day-doc read is "unknown", never "nothing planned".
+    readSchedule(ctx, week).catch((err) => {
+      console.warn('[ai-coach] week schedule unavailable this turn', err);
+      return null;
+    }),
     readAreaName(ctx),
     loadProgramIndex(ctx.db, ctx.now.getTime()),
     // Schedule advisor (flag): the plan section + the derived "done" for today. A failure
@@ -193,7 +197,8 @@ export async function loadUserContextSheet(ctx: ServerToolContext): Promise<User
   return buildUserContextSheet({
     profile: ctx.profile,
     workouts,
-    weekSchedule,
+    weekSchedule: weekSchedule ?? [],
+    ...(weekSchedule === null ? { weekUnavailable: true } : {}),
     todayKey,
     areaName,
     now: ctx.now,

@@ -23,27 +23,17 @@ import { ActivityGlyph } from './activity-icons';
 import { formatMinutes } from './hybrid-format';
 import { HYBRID_STR as STR } from './hybrid-colors';
 import { CARD_PAD, CardGroup, Meta, STR_TINT, STR_TEXT, useAxisCardStyles } from '../overview/axis/AxisParts';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
-// Station super-collapse (point 20): domainFocus → "main muscle group" label.
-const DOMAIN_LABEL: Record<string, string> = {
-  push: 'דחיפה', pull: 'משיכה', legs: 'רגליים', legs_core: 'רגליים וליבה', core: 'ליבה',
-};
-
-/** Station label by activity (route-stops Bug 3b): stretch/core stops show their own
- *  label; a strength/undefined station is byte-identical (domain → "משיכה"/… else "כוח"). */
-function stationNounLabel(seg: { activityType?: string; domainFocus?: string }): string {
+/** Station kind by activity (route-stops Bug 3b): stretch/mobility/yoga and core stops have their
+ *  own label (map.json `hybrid.station.noun` / `hybrid.station.meta`); a strength/undefined station
+ *  reads its domainFocus as the "main muscle group" (push → "דחיפה" …, else "כוח"). */
+function stationKind(seg: { activityType?: string }): 'stretch' | 'core' | 'strength' {
   const at = seg.activityType;
-  if (at === 'stretch' || at === 'mobility' || at === 'yoga') return 'מתיחות';
-  if (at === 'core') return 'ליבה';
-  return DOMAIN_LABEL[seg.domainFocus ?? ''] ?? 'כוח';
-}
-/** "action" phrasing for the expanded Meta row — "אימון כוח" for strength, else the
- *  stop's own action. Strength/undefined → unchanged. */
-function stationActionLabel(seg: { activityType?: string }): string {
-  const at = seg.activityType;
-  if (at === 'stretch' || at === 'mobility' || at === 'yoga') return 'מתיחות ושחרור';
-  if (at === 'core') return 'אימון ליבה';
-  return 'אימון כוח';
+  if (at === 'stretch' || at === 'mobility' || at === 'yoga') return 'stretch';
+  if (at === 'core') return 'core';
+  return 'strength';
 }
 
 /** Resolve the exercise's park image (offline-safe: empty string when none). */
@@ -81,6 +71,7 @@ export default function HybridStationCard({
   onExerciseTap, onSwapExercise,
 }: HybridStationCardProps) {
   const { v2, cardCls, cardStyle, titleCls, titleStyle } = useAxisCardStyles();
+  const t = useT(map);
   // Domain-assessment gate (David, 23-24.09.2026): unassessed station stays ON THE
   // AXIS with a neutral lock card (G2.1: the questionnaire line is shown ONCE, above).
   if (seg.content?.needsAssessment) {
@@ -90,11 +81,11 @@ export default function HybridStationCard({
           <div className="flex items-center gap-1.5">
             <Lock size={14} style={{ color: '#9CA3AF' }} />
             <span className={titleCls} style={titleStyle}>
-              {stationName ? `${stationName} — כוח` : `תחנה ${strIdx} — כוח`}
+              {stationName ? t('hybrid.station.titleNamed', { name: stationName }) : t('hybrid.station.titleOrdinal', { n: String(strIdx) })}
             </span>
           </div>
           <span className={v2 ? 'block mt-1.5 text-[13px] font-bold text-v2-muted' : 'block mt-1.5 text-[12px] font-bold'} style={v2 ? undefined : { color: '#6B7280' }}>
-            תחנה נעולה
+            {t('hybrid.station.locked')}
           </span>
         </div>
       </div>
@@ -118,24 +109,24 @@ export default function HybridStationCard({
               className={v2 ? 'flex min-w-0 items-center gap-1.5 text-start transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'flex items-center gap-1.5 active:scale-[0.98] transition-transform'}>
               <ChevronDown size={16} style={{ color: '#9CA3AF', transform: collapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .2s' }} />
               {/* A3: the title is the park name (already "גינת כושר …"). */}
-              <span className={titleCls} style={titleStyle}>{stationName} — כוח</span>
+              <span className={titleCls} style={titleStyle}>{t('hybrid.station.titleNamed', { name: stationName })}</span>
             </button>
           ) : (
-            <span className={titleCls} style={titleStyle}>תחנה {strIdx} — כוח</span>
+            <span className={titleCls} style={titleStyle}>{t('hybrid.station.titleOrdinal', { n: String(strIdx) })}</span>
           )}
-          <span className={`${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`} style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>עצור ואמן</span>
+          <span className={`${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`} style={{ padding: '3px 9px', background: STR_TINT, color: STR_TEXT }}>{t('hybrid.station.stopAndTrain')}</span>
         </div>
         {stationName ? (
           collapsed ? (
             /* point 20: collapsed — summary card (not an empty header) */
             <div className={v2 ? 'mt-2 flex items-center gap-1.5 flex-wrap text-[13px] text-v2-muted' : 'mt-2 flex items-center gap-1.5 flex-wrap text-[12.5px]'} style={v2 ? undefined : { color: '#4B5563' }}>
-              <span className="font-bold">{mainExCount} תרגילים</span>
+              <span className="font-bold">{t('hybrid.station.exercises', { count: String(mainExCount) })}</span>
               <span style={{ color: '#D1D5DB' }}>·</span>
               <span>~{formatMinutes(seg.content?.estimatedDurationSec)}</span>
               <span style={{ color: '#D1D5DB' }}>·</span>
-              <span className="font-semibold" style={{ color: STR_TEXT }}>{stationNounLabel(seg)}</span>
+              <span className="font-semibold" style={{ color: STR_TEXT }}>{t('hybrid.station.noun', { kind: stationKind(seg), domain: seg.domainFocus ?? '' })}</span>
               {sections.some((s) => s.id === 'warmup') && (isWarmupActive ?? true) && (
-                <span className={v2 ? 'text-[11px] font-bold rounded-full whitespace-nowrap' : 'text-[10.5px] font-bold rounded-full'} style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>כולל חימום</span>
+                <span className={v2 ? 'text-[11px] font-bold rounded-full whitespace-nowrap' : 'text-[10.5px] font-bold rounded-full'} style={{ padding: '2px 8px', background: STR_TINT, color: STR_TEXT }}>{t('hybrid.station.withWarmup')}</span>
               )}
             </div>
           ) : (
@@ -143,7 +134,7 @@ export default function HybridStationCard({
             {/* A1: strength glyph + "אימון כוח" mirrors the walking card's Meta row. */}
             <div className="flex items-center gap-2 flex-wrap mt-2">
               <Meta tint={STR} icon={<ActivityGlyph kind="strength" className="w-4 h-4" />}>
-                {stationActionLabel(seg)} · ~{formatMinutes(seg.content?.estimatedDurationSec)}
+                {t('hybrid.station.meta', { kind: stationKind(seg), time: formatMinutes(seg.content?.estimatedDurationSec) })}
               </Meta>
             </div>
             {sections.map((section) => {
@@ -174,7 +165,7 @@ export default function HybridStationCard({
                         // Tap opens the PARENT and swap swaps the parent.
                         if (Array.isArray(pyramidSeq) && pyramidSeq.length > 0) {
                           const isGoal = we.isGoalExercise === true;
-                          const uniLabel = we.exercise?.symmetry === 'unilateral' ? ' (לכל צד)' : '';
+                          const uniLabel = we.exercise?.symmetry === 'unilateral' ? t('hybrid.station.perSide') : '';
                           const parentName = typeof we.exercise?.name === 'string'
                             ? we.exercise.name : getLocalizedText(we.exercise?.name, 'he');
                           return pyramidSeq.map((step, stepIdx) => (
@@ -216,7 +207,7 @@ export default function HybridStationCard({
           <>
             <div className="flex items-center justify-between mt-2">
               {/* generic strength marker (MuscleIcon) — OUT is calisthenics: no dumbbell. */}
-              <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {mainExCount} תרגילים</span>
+              <span className="flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: STR_TEXT }}><ActivityGlyph kind="strength" className="w-[15px] h-[15px]" /> {t('hybrid.station.exercises', { count: String(mainExCount) })}</span>
               {/* Station time (meaningful), not a sets-sum. */}
               <span className={v2 ? 'flex items-center gap-1 whitespace-nowrap text-[13px] font-bold text-v2-muted' : 'flex items-center gap-1 text-[12px] font-semibold'} style={v2 ? undefined : { color: '#9CA3AF' }}>
                 <Clock size={13} /> ~{formatMinutes(seg.content?.estimatedDurationSec)}

@@ -25,7 +25,7 @@
  */
 
 import type { Program, MovementPattern, ProgramLevelSettings } from '@/features/content/programs/core/program.types';
-import type { UserFullProfile } from '@/features/user/core/types/user.types';
+import type { UserFullProfile, DomainProgress } from '@/features/user/core/types/user.types';
 import { getAllPrograms } from '@/features/content/programs/core/program.service';
 import { getProgramLevelSetting, isPlsCacheEnabled } from '@/features/content/programs/core/programLevelSettings.service';
 import { resolveToSlug, buildIdToSlugMapFromPrograms } from './program-hierarchy.utils';
@@ -256,7 +256,12 @@ export async function resolveGlobalMaxIntense(
 
   if (!resolved) {
     // No active programs with a pattern — use base user level defaults
-    const level = userProfile.progression?.domains?.overall?.currentLevel ?? 1;
+    // `overall` is not a TrainingDomainId and no writer ever sets
+    // `progression.domains.overall` (domains are keyed by program slug), so in
+    // practice this reads undefined → level 1 → 0 intense workouts. Kept as-is
+    // (type-only fix); `domains` is read as the string-keyed map it is at runtime.
+    const domainsByKey: Partial<Record<string, DomainProgress>> = userProfile.progression?.domains ?? {};
+    const level = domainsByKey.overall?.currentLevel ?? 1;
     return getDefaultMaxIntense(level);
   }
 

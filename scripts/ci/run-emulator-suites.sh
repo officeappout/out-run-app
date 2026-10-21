@@ -51,6 +51,7 @@ GROUP_8089=(
   tests/firestore-demo-actor-sandbox.rules.test.ts
   tests/firestore-site-content.rules.test.ts
   tests/pace-profile-self-correction.rules.test.ts
+  tests/streak-bridge.rules.test.ts
   tests/workouts-timed-blocks.rules.test.ts
   src/features/readiness/core/services/__tests__/military-panel-adversarial-audit.emulator.test.ts
   src/app/api/authority-manager/city-summary/__tests__/city-summary.emulator.test.ts

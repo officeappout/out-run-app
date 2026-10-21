@@ -13,6 +13,8 @@ import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../servi
 import { formatTooFarLabels } from '../services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
 import { clampedScrollTarget, registerCorrection, type CorrectionPair } from './carousel-scroll-sync.util';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 // How many cards on either side of the centered one get a real cover photo
 // mounted (SPEC-05 image-memory #2). This carousel is an unvirtualized
@@ -28,15 +30,15 @@ const COVER_PHOTO_WINDOW = 2;
 
 function formatSessionTime(isoString: string): string {
   const date = new Date(isoString);
-  if (isNaN(date.getTime())) return 'מועד קרוב';
+  if (isNaN(date.getTime())) return 'מועד קרוב'; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  if (isToday) return `היום ${time}`;
-  if (isTomorrow) return `מחר ${time}`;
+  if (isToday) return `היום ${time}`; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
+  if (isTomorrow) return `מחר ${time}`; // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
   return `${date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} ${time}`;
 }
 
@@ -112,6 +114,7 @@ export default function BottomJourneyContainer({
   const [activeRouteIndex, setActiveRouteIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+  const t = useT(map);
 
   // Walk-time from useWalkToRoute (synced via useMapStore — no prop drilling needed).
   // Real for the currently-focused route only — see estimateWalkMinutesFromKm's
@@ -365,7 +368,7 @@ export default function BottomJourneyContainer({
                 ? bunnyImg(rawCoverImage, 400)
                 : null;
             const activityType   = route.activityType || route.type;
-            const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי');
+            const sourceName     = route.source?.name || (isGenerated ? 'מותאם אישית' : 'מסלול רשמי'); // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
 
             const isFocused = focusedRouteId === route.id;
             // Start-experience state map (11.10.2026): real Mapbox-fetched
@@ -390,8 +393,8 @@ export default function BottomJourneyContainer({
                 <RouteCardUnified
                   key={route.id}
                   name={route.name}
-                  distanceText={`${totalDistKm.toFixed(1)} ק״מ`}
-                  durationText={`${durationMin} דק׳`}
+                  distanceText={t('journey.distance', { km: totalDistKm.toFixed(1) })}
+                  durationText={t('journey.duration', { min: String(durationMin) })}
                   variant="slim"
                   durationActivity={durationActivity}
                   difficulty={route.difficulty}
@@ -426,7 +429,7 @@ export default function BottomJourneyContainer({
                   ctaContent={
                     <>
                       <Play size={14} fill="currentColor" />
-                      {isTooFar ? tooFarLabels.cta : 'צא לדרך'}
+                      {isTooFar ? tooFarLabels.cta : t('journey.cta.go')}
                       <ChevronLeft size={14} />
                     </>
                   }
@@ -459,7 +462,7 @@ export default function BottomJourneyContainer({
                   {coverImage ? (
                     <Image
                       src={coverImage}
-                      alt={route.name || 'מסלול'}
+                      alt={route.name || 'מסלול'} // i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true)
                       fill
                       className="object-cover"
                       sizes="200px"
@@ -468,10 +471,10 @@ export default function BottomJourneyContainer({
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
                       <ActivityIcon type={activityType} size={30} />
                       <span className="text-[10px] font-bold text-cyan-400 text-center leading-tight px-1">
-                        {activityType === 'running' ? 'ריצה'
-                          : activityType === 'cycling' ? 'רכיבה'
-                          : activityType === 'workout' ? 'כושר'
-                          : 'הליכה'}
+                        {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{activityType === 'running' ? 'ריצה'
+                          : activityType === 'cycling' ? 'רכיבה' /* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */
+                          : activityType === 'workout' ? 'כושר' /* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */
+                          : 'הליכה' /* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}
                       </span>
                     </div>
                   )}
@@ -483,7 +486,7 @@ export default function BottomJourneyContainer({
                   {!isReachable && (
                     <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-gray-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
                       <Car size={8} />
-                      נסיעה
+                      {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}נסיעה
                     </div>
                   )}
                 </div>
@@ -505,7 +508,7 @@ export default function BottomJourneyContainer({
                         </span>
                         {route.linkedSessions.spotsLeft != null && (
                           <span className="text-[9px] font-bold text-emerald-500">
-                            · {route.linkedSessions.spotsLeft > 0 ? `${route.linkedSessions.spotsLeft} מקומות` : 'מלא'}
+                            {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}· {route.linkedSessions.spotsLeft > 0 ? `${route.linkedSessions.spotsLeft} מקומות` : 'מלא'}
                           </span>
                         )}
                       </div>
@@ -525,25 +528,25 @@ export default function BottomJourneyContainer({
                     <div className="flex items-center gap-1 shrink-0">
                       <MapPin size={11} className="text-[#00E5FF] shrink-0" />
                       <span className="text-xs font-bold text-gray-700">{totalDistKm.toFixed(1)}</span>
-                      <span className="text-[10px] text-gray-400">{"ק״מ"}</span>
+                      <span className="text-[10px] text-gray-400">{/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{"ק״מ"}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Timer size={11} className="text-[#00E5FF] shrink-0" />
                       <span className="text-xs font-bold text-gray-700">{durationMin}</span>
-                      <span className="text-[10px] text-gray-400">{"דק׳"}</span>
+                      <span className="text-[10px] text-gray-400">{/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{"דק׳"}</span>
                     </div>
                     {/* Walk-to-route — inline, shown only on the focused card */}
                     {isFocused && walkToRouteMinutes != null && (
                       <div className="flex items-center gap-1 min-w-0">
                         <span className="text-[10px] text-gray-400 shrink-0">🚶</span>
                         <span className="text-[10px] font-bold text-gray-500 truncate">
-                          {walkToRouteMinutes} דק׳ הליכה למסלול
+                          {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{walkToRouteMinutes} דק׳ הליכה למסלול
                         </span>
                       </div>
                     )}
                     {distFromUser > 0.1 && isReachable && (
                       <span className="text-[10px] text-gray-400 shrink-0 mr-auto">
-                        {distFromUser.toFixed(1)} ממך
+                        {/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}{distFromUser.toFixed(1)} ממך
                       </span>
                     )}
                   </div>
@@ -553,7 +556,7 @@ export default function BottomJourneyContainer({
                 <div className="px-3 pb-3 pt-0">
                   {isLoading ? (
                     <div className="w-full py-2.5 rounded-xl bg-gray-100 flex items-center justify-center">
-                      <span className="text-xs text-gray-400 font-bold animate-pulse">טוען...</span>
+                      <span className="text-xs text-gray-400 font-bold animate-pulse">{/* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}טוען...</span>
                     </div>
                   ) : (
                     <button
@@ -573,7 +576,7 @@ export default function BottomJourneyContainer({
                       style={{ background: 'linear-gradient(135deg, #00E5FF 0%, #0891b2 100%)' }}
                     >
                       <Play size={14} fill="currentColor" />
-                      {isReachable ? 'צא לדרך' : 'נווט להתחלה'}
+                      {isReachable ? 'צא לדרך' : 'נווט להתחלה' /* i18n-allow-hebrew: unreachable (UNIFIED_ROUTE_CARDS_ENABLED is true) */}
                       <ChevronLeft size={14} />
                     </button>
                   )}

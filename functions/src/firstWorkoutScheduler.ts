@@ -25,11 +25,20 @@
  * it), rate cap 20h, quiet hours / Shabbat / daily cap as every push. Runs
  * daily at 17:00 Israel. The window is recorded in
  * push_rate/{uid}.firstWorkout_sent only after a real delivery.
+ *
+ * FIRST-WEEK SEQUENCE (21.10.2026, flag firstWeekSequenceEnabled, DEFAULT OFF):
+ * the function now runs every hour 08:00–21:00. With the flag ON it runs the
+ * first-week sequence (days 1–7, one push a day, stops on the first workout)
+ * and, at 18:00, the second-workout push — see firstWeekSequence.ts — and the
+ * legacy day1/day2 pass above does NOT run (the sequence replaces it). With
+ * the flag OFF only the legacy pass runs, at 17:00 as before.
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
+import { readEngagementFlags } from './services/push-tone.service';
+import { SECOND_WORKOUT_HOUR, runFirstWeekPass, runSecondWorkoutPass } from './firstWeekSequence';
 import {
   resolvePushCopy,
   pushCopyData,
@@ -170,15 +179,38 @@ export async function runFirstWorkoutPass(db: admin.firestore.Firestore, nowMs: 
   return stats;
 }
 
+/** The legacy day1/day2 pass's hour (its old fixed cron). */
+export const LEGACY_FIRST_WORKOUT_HOUR = 17;
+
+function israelHourOf(ms: number): number {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hourCycle: 'h23' }).format(new Date(ms))) % 24;
+}
+
+/** One hourly tick (exported for tests): the sequence when its flag is on, else the legacy pass at 17:00. */
+export async function runFirstWorkoutTick(db: admin.firestore.Firestore, nowMs: number): Promise<'sequence' | 'legacy' | 'idle'> {
+  const flags = await readEngagementFlags(db, nowMs);
+  const hour = israelHourOf(nowMs);
+  if (flags.firstWeekSequence) {
+    await runFirstWeekPass(db, nowMs);
+    if (hour === SECOND_WORKOUT_HOUR) await runSecondWorkoutPass(db, nowMs);
+    return 'sequence';
+  }
+  if (hour === LEGACY_FIRST_WORKOUT_HOUR) {
+    await runFirstWorkoutPass(db, nowMs);
+    return 'legacy';
+  }
+  return 'idle';
+}
+
 export const firstWorkoutScheduler = onSchedule(
   {
-    schedule: '0 17 * * *',
+    schedule: '0 8-21 * * *',
     timeZone: 'Asia/Jerusalem',
     region: 'us-central1',
     timeoutSeconds: 300,
     memory: '256MiB',
   },
   async () => {
-    await runFirstWorkoutPass(admin.firestore(), Date.now());
+    await runFirstWorkoutTick(admin.firestore(), Date.now());
   },
 );

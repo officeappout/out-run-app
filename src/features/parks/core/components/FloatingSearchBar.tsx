@@ -22,6 +22,8 @@
 
 import React from 'react';
 import { Search } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface FloatingSearchBarProps {
   /** Current input value — proxied so the bar feels responsive while
@@ -43,8 +45,9 @@ export default function FloatingSearchBar({
   onSearchChange,
   onFocus,
   inputRef,
-  placeholder = 'לאן הולכים?',
+  placeholder,
 }: FloatingSearchBarProps) {
+  const t = useT(map);
   return (
     <div
       className="pointer-events-auto rounded-2xl ring-1 ring-black/5 flex items-center h-12 ps-4 pe-3 gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.10)]"
@@ -64,7 +67,7 @@ export default function FloatingSearchBar({
       <input
         ref={inputRef}
         type="text"
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('searchBar.placeholder')}
         value={searchQuery}
         onFocus={onFocus}
         onChange={(e) => onSearchChange(e.target.value)}

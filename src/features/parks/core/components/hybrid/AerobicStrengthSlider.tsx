@@ -15,6 +15,8 @@ import {
   RECOMMENDED_AEROBIC_SHARE,
   type HybridGoalType,
 } from '@/features/workout-engine/hybrid/build-hybrid-input';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface AerobicStrengthSliderProps {
   aerobicShare: number;
@@ -43,6 +45,7 @@ export default function AerobicStrengthSlider({
   helperText,
   recommendedShare = RECOMMENDED_AEROBIC_SHARE,
 }: AerobicStrengthSliderProps) {
+  const t = useT(map);
   const pctAerobic = Math.round(aerobicShare * 100);
   const pctStrength = 100 - pctAerobic;
   const isRecommended = Math.abs(aerobicShare - recommendedShare) < 0.03;
@@ -52,13 +55,13 @@ export default function AerobicStrengthSlider({
     return (
       <div className="px-5 mb-4" dir="rtl">
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">אירובי {pctAerobic}%</span>
+          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">{t('hybrid.split.aerobic', { pct: String(pctAerobic) })}</span>
           {isRecommended && (
             <span className="whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold text-v2-deep">
-              מומלץ
+              {t('hybrid.split.recommended')}
             </span>
           )}
-          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">כוח {pctStrength}%</span>
+          <span className="whitespace-nowrap text-[13px] font-extrabold tabular-nums text-v2-ink">{t('hybrid.split.strength', { pct: String(pctStrength) })}</span>
         </div>
         <input
           type="range"
@@ -69,7 +72,7 @@ export default function AerobicStrengthSlider({
           onChange={(e) => onChange(Number(e.target.value) / 100)}
           className="w-full"
           style={{ accentColor: '#00baf7' }}
-          aria-label="יחס אירובי לעומת כוח"
+          aria-label={t('hybrid.split.label')}
         />
         <p className="mt-1.5 text-[12.5px] font-bold leading-snug text-v2-muted">
           {helper}
@@ -81,13 +84,13 @@ export default function AerobicStrengthSlider({
   return (
     <div className="px-5 mb-3" dir="rtl">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[12px] font-black text-gray-700">אירובי {pctAerobic}%</span>
+        <span className="text-[12px] font-black text-gray-700">{t('hybrid.split.aerobic', { pct: String(pctAerobic) })}</span>
         {isRecommended && (
           <span className="text-[11px] font-black px-2 py-0.5 rounded-full" style={{ color: accent, backgroundColor: `${accent}14` }}>
-            מומלץ
+            {t('hybrid.split.recommended')}
           </span>
         )}
-        <span className="text-[12px] font-black text-gray-700">כוח {pctStrength}%</span>
+        <span className="text-[12px] font-black text-gray-700">{t('hybrid.split.strength', { pct: String(pctStrength) })}</span>
       </div>
 
       <input
@@ -99,7 +102,7 @@ export default function AerobicStrengthSlider({
         onChange={(e) => onChange(Number(e.target.value) / 100)}
         className="w-full"
         style={{ accentColor: accent }}
-        aria-label="יחס אירובי לעומת כוח"
+        aria-label={t('hybrid.split.label')}
       />
 
       <p className="mt-1.5 text-[11px] leading-snug text-gray-500 font-semibold">

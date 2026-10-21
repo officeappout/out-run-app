@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ParkWithDistance from '../../types/park-with-distance.type';
-import getDistanceStr from '@/lib/distanseStr';
+import getDistanceStr from '@/features/parks/lib/distance-str';
 import useCardPage from '@/@core/hooks/useCardPage';
 import { bunnyImg } from '@/lib/bunny-image';
 

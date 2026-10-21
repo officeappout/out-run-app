@@ -101,6 +101,8 @@ import type { PushAudience, PushCopyContext } from './shared/push-library.core';
 import {
   MS_PER_DAY,
   RETENTION_FIRST_DAY,
+  RETENTION_LADDER_V2,
+  RETENTION_MILESTONES,
   activityFlagsFrom,
   activityToMillis,
   daysAwayBetween,
@@ -115,6 +117,8 @@ import {
   type RetentionMilestone,
 } from './lib/user-activity';
 import { isDemoUid } from './lib/demo';
+import { readEngagementFlags, resolveTonedCopy, toneSegmentFrom, type EngagementFlags } from './services/push-tone.service';
+import { firstWeekDayIndex, toneOrder, type PushTone } from './shared/first-week.core';
 import {
   pushTrackFromUserData,
   recordRetentionLegacySend,
@@ -371,6 +375,16 @@ export async function collectRetentionCandidates(
   return { candidates, fetched, fetchedUntimed };
 }
 
+/** Every tone the return copy may use; the segment filter removes the casual one where needed. */
+const RETENTION_TONES: ReadonlyArray<PushTone> = ['cute', 'personal', 'curious', 'friendly'];
+
+/** With firstWeekSequenceEnabled, the first 7 days after signup belong to the first-week sequence. Pure (tests). */
+export function retentionYieldsToFirstWeek(eng: Pick<EngagementFlags, 'firstWeekSequence'>, data: Record<string, unknown>, nowMs: number): boolean {
+  if (!eng.firstWeekSequence) return false;
+  const day = firstWeekDayIndex(activityToMillis(data.createdAt), nowMs);
+  return day !== null && day <= 7;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const retentionScheduler = onSchedule(
@@ -396,6 +410,12 @@ export const retentionScheduler = onSchedule(
     } catch (err: unknown) {
       logger.warn('[retention] feature_flags read failed, using defaults (guard on, cadence off)', err);
     }
+    // 21.10.2026 (each DEFAULT OFF): retentionLadderV2 (d4, d7, d14, d21, d28,
+    // then quiet — implies the milestone cadence), firstWeekSequenceEnabled
+    // (the first 7 days belong to the first-week sequence), pushToneRotation.
+    const eng: EngagementFlags = await readEngagementFlags(db);
+    if (eng.retentionLadderV2) flags = { ...flags, milestoneCadence: true };
+    const ladder = eng.retentionLadderV2 ? RETENTION_LADDER_V2 : RETENTION_MILESTONES;
     const thresholdDays = retentionThresholdDays(flags);
 
     logger.info(
@@ -443,6 +463,7 @@ export const retentionScheduler = onSchedule(
 
     const sendOne = async ({ c: docCandidate, data }: { c: RetentionCandidate; data: Record<string, unknown> }): Promise<void> => {
       try {
+        if (retentionYieldsToFirstWeek(eng, data, nowMs)) return;
         // 1. Real activity (workouts collection) — skip when actually active.
         let c: RetentionCandidate | null = docCandidate;
         if (flags.realActivityGuard) {
@@ -467,7 +488,7 @@ export const retentionScheduler = onSchedule(
         if (flags.milestoneCadence) {
           const rateSnap = await db.collection('push_rate').doc(c.uid).get();
           rateData = rateSnap.exists ? (rateSnap.data() as Record<string, unknown>) : undefined;
-          milestone = nextRetentionMilestone(c.daysSince, anchor, retentionSentLogFrom(rateData));
+          milestone = nextRetentionMilestone(c.daysSince, anchor, retentionSentLogFrom(rateData), ladder);
           if (!milestone) {
             noMilestone++;
             return;
@@ -506,7 +527,7 @@ export const retentionScheduler = onSchedule(
         }
 
         const track = pushTrackFromUserData(data);
-        const copy = neverTrained
+        let copy = neverTrained
           ? await resolvePushCopy('first_workout', {
               uid: c.uid,
               now: new Date(nowMs),
@@ -514,7 +535,18 @@ export const retentionScheduler = onSchedule(
               vars: { '@שם': c.name.trim() },
               conditions: trackConditions(track, { when: 'later' }),
             })
-          : await resolvePushCopy('retention_lapse', retentionCopyContext(c, new Date(nowMs), milestone, track));
+          : null;
+        let tone: PushTone | 'none' | undefined;
+        if (!neverTrained) {
+          const ctx = retentionCopyContext(c, new Date(nowMs), milestone, track);
+          if (eng.toneRotation) {
+            const toned = await resolveTonedCopy('retention_lapse', ctx, toneOrder(RETENTION_TONES, toneSegmentFrom(c.audience)));
+            copy = toned?.copy ?? null;
+            tone = toned?.tone;
+          } else {
+            copy = await resolvePushCopy('retention_lapse', ctx);
+          }
+        }
         if (!copy) return;
         const result = await sendPush({
           toUids: [c.uid],
@@ -532,6 +564,20 @@ export const retentionScheduler = onSchedule(
           // The cadence's sent log already stops repeats; the cap only spaces
           // milestones a day apart. Without the cadence: the old 48h.
           rateCapHours: flags.milestoneCadence ? 24 : 48,
+          // Tone learning (pushToneRotation only — no push_events writes otherwise).
+          ...(tone
+            ? {
+                measurement: {
+                  variantId: copy.rowId,
+                  category: 'Inactivity',
+                  persona: c.audience?.persona ?? 'generic',
+                  pushType: copy.pushType,
+                  copyRowId: copy.rowId,
+                  tone,
+                  lever: milestone ?? 'return',
+                },
+              }
+            : {}),
         });
         totalDelivered += result.delivered;
         totalSkipped +=

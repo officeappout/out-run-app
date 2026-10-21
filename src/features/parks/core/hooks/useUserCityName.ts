@@ -57,7 +57,7 @@ import {
   findAuthorityIdByCity,
 } from '@/features/user/onboarding/components/steps/UnifiedLocation/location-utils';
 import type { AccessTier } from '@/features/user/core/types/user.types';
-import { withCoalesce } from '@/lib/requestGovernor';
+import { withCoalesce } from '@/features/parks/lib/request-governor';
 
 const DEBUG_RESOLUTION = false;
 const log = (...args: unknown[]) => {

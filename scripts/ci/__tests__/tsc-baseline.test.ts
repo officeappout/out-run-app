@@ -74,3 +74,32 @@ describe('tsc-baseline.sh compare — the gate itself', () => {
     expect(r.code).toBe(1);
   });
 });
+
+describe('normalizeLine — nested unions and truncated objects (21.10.2026)', () => {
+  it('sorts unions nested in generics', async () => {
+    const { normalizeLine } = await import('../tsc-normalize.mjs');
+    expect(normalizeLine(`a.ts: TS2802: Type 'Set<"push" | "pull" | "legs">' x`)).toBe(
+      normalizeLine(`a.ts: TS2802: Type 'Set<"legs" | "push" | "pull">' x`),
+    );
+  });
+  it('collapses an object type tsc truncated with "..."', async () => {
+    const { normalizeLine } = await import('../tsc-normalize.mjs');
+    expect(normalizeLine(`a.ts: TS7053: index type '{ core?: A | undefined; running?: B; ...'.`)).toBe(
+      normalizeLine(`a.ts: TS7053: index type '{ core?: A | undefined; flexibility?: C; ...'.`),
+    );
+  });
+  it('still tells genuinely different errors apart', async () => {
+    const { normalizeLine } = await import('../tsc-normalize.mjs');
+    expect(normalizeLine(`a.ts: TS2322: Type '"a" | "b"' x`)).not.toBe(normalizeLine(`a.ts: TS2322: Type '"a" | "c"' x`));
+  });
+});
+
+describe('normalizeLine — contractions in the message', () => {
+  it("handles \"can't\" before a truncated object type", async () => {
+    const { normalizeLine } = await import('../tsc-normalize.mjs');
+    const a = `a.ts: TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ core?: A | undefined; running?: B | undefin...'.`;
+    const b = `a.ts: TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ core?: A | undefined; flexibility?: C | undefin...'.`;
+    expect(normalizeLine(a)).toBe(normalizeLine(b));
+    expect(normalizeLine(a)).toContain("can't");
+  });
+});

@@ -16,6 +16,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useUserStore } from '@/features/user';
+import type { DomainProgress } from '@/features/user/core/types/user.types';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import { resolveIconKey } from '@/features/content/programs';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
@@ -128,7 +129,7 @@ export function useProgramProgress(): ProgramProgressData | null {
 
   const { currentLevel, progressPercent, maxLevel } = useMemo(() => {
     const tracks = profile?.progression?.tracks;
-    const domains = profile?.progression?.domains;
+    const domains: Partial<Record<string, DomainProgress>> | undefined = profile?.progression?.domains;
     // primaryDomainId is often a raw Firestore templateId (activeProgram.templateId),
     // but tracks/domains and MASTER_PROGRAM_CHILDREN are always keyed by slug —
     // resolve first or a real full_body enrollment silently falls through to

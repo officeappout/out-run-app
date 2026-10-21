@@ -25,6 +25,8 @@ import { AiCoachHomeEntry as AiCoachHomeEntryRaw } from '@/features/ai-coach/com
 import AnchorLocationChipRaw from '@/features/home/components/AnchorLocationChip';
 import WorkoutLocationSuggestionsRaw from '@/features/home/components/WorkoutLocationSuggestions';
 import CalmReturnCardRaw from '@/features/home/components/CalmReturnCard';
+import StreakNoticeCardRaw from '@/features/home/components/streak/StreakNoticeCard';
+import { FirstWeekHomeCard as FirstWeekHomeCardRaw } from '@/features/home/components/first-week/FirstWeekCard';
 import HomeRunCarouselCardRaw from '@/features/home/components/widgets/run-week-v2/HomeRunCarouselCard';
 import NextRunWorkoutCardRaw, { type NextRunWorkoutCardProps } from '@/features/home/components/widgets/NextRunWorkoutCard';
 import NearbyGroupsRowRaw from '@/features/home/components/NearbyGroupsRow';
@@ -57,5 +59,9 @@ export const AiCoachHomeEntry = withWidgetBoundary(AiCoachHomeEntryRaw, 'home.Ai
 export const AnchorLocationChip = withWidgetBoundary(AnchorLocationChipRaw, 'home.AnchorLocationChip');
 export const WorkoutLocationSuggestions = withWidgetBoundary(WorkoutLocationSuggestionsRaw, 'home.WorkoutLocationSuggestions');
 export const CalmReturnCard = withWidgetBoundary(CalmReturnCardRaw, 'home.CalmReturnCard');
+// enable_home_v2: the one streak message of the day (broken / shield / milestone).
+export const StreakNoticeCard = withWidgetBoundary(StreakNoticeCardRaw, 'home.StreakNoticeCard');
+// enable_home_v2: the first-week card (days 0–7, until the first workout).
+export const FirstWeekHomeCard = withWidgetBoundary(FirstWeekHomeCardRaw, 'home.FirstWeekHomeCard');
 export const NearbyGroupsRow = withWidgetBoundary(NearbyGroupsRowRaw, 'home.NearbyGroupsRow');
 export const CommunitySessionBanner = withWidgetBoundary(CommunitySessionBannerRaw, 'home.CommunitySessionBanner');
