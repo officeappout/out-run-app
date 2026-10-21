@@ -24,6 +24,8 @@ import { useUserStore } from '@/features/user';
 import type { LeaderboardEntry } from '@/features/arena/services/ranking.service';
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { splitScore } from './league-board-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Shell ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ interface BoardSheetProps {
 }
 
 export function BoardSheet({ isOpen, onClose, title, children }: BoardSheetProps) {
+  const t = useT(community);
   const reduce = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -69,7 +72,7 @@ export function BoardSheet({ isOpen, onClose, title, children }: BoardSheetProps
         header={
           <div className="flex items-center justify-between px-5 pt-1 pb-2">
             <span className="text-[17px] font-black text-v2-ink tracking-v2-tight">{title}</span>
-            <IconButton aria-label="סגור" tone="surface" size={36} onClick={onClose}>
+            <IconButton aria-label={t('leagues.sheets.close')} tone="surface" size={36} onClick={onClose}>
               <X size={18} strokeWidth={2.4} />
             </IconButton>
           </div>
@@ -118,7 +121,7 @@ export function BoardSheet({ isOpen, onClose, title, children }: BoardSheetProps
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגור"
+                aria-label={t('leagues.sheets.close')}
                 className="w-9 h-9 rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline flex items-center justify-center text-v2-ink-2 active:scale-[0.97] transition-transform ease-v2"
               >
                 <X size={18} strokeWidth={2.4} />
@@ -153,7 +156,8 @@ interface PeekProps {
 }
 
 export function ParticipantPeek({ entry, myEntry, totalParticipants, mode, isSegmentMode, myStreak, onInvite }: PeekProps) {
-  const score = splitScore(entry.totalCredit, mode, isSegmentMode);
+  const t = useT(community);
+  const score = splitScore(entry.totalCredit, mode, isSegmentMode, t);
   const isFirst = entry.rank === 1;
   const showWorkouts = mode !== 'general' && mode !== 'steps' && !isSegmentMode;
   const gap =
@@ -174,36 +178,36 @@ export function ParticipantPeek({ entry, myEntry, totalParticipants, mode, isSeg
         <div className="min-w-0 flex-1">
           <div className="text-[19px] font-black text-v2-ink truncate tracking-v2-tight">
             {entry.name}
-            {entry.isCurrentUser && <span className="text-[13px] font-bold text-v2-deep mr-1.5">(את/ה)</span>}
+            {entry.isCurrentUser && <span className="text-[13px] font-bold text-v2-deep mr-1.5">{t('leagues.sheets.peek.me')}</span>}
           </div>
           <div className="flex items-center gap-1.5 mt-1 text-[13px] font-bold text-v2-muted">
             {isFirst && <Crown size={14} strokeWidth={2.4} className="text-[#b37400]" fill="#ffc83d" aria-hidden />}
-            <span className="tabular-nums">מקום {entry.rank}</span>
-            {totalParticipants > 0 && <span className="tabular-nums">מתוך {totalParticipants}</span>}
+            <span className="tabular-nums">{t('leagues.sheets.peek.rank', { rank: String(entry.rank) })}</span>
+            {totalParticipants > 0 && <span className="tabular-nums">{t('leagues.sheets.peek.of', { count: String(totalParticipants) })}</span>}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 mt-4">
         <div className="rounded-v2-tile bg-v2-surface ring-1 ring-inset ring-v2-hairline p-3.5">
-          <StatNumber value={Number(entry.totalCredit) || 0} size="sm" format={() => score.value} unit={score.unit} label="ניקוד בטבלה" />
+          <StatNumber value={Number(entry.totalCredit) || 0} size="sm" format={() => score.value} unit={score.unit} label={t('leagues.sheets.peek.score')} />
         </div>
         {showWorkouts ? (
           <div className="rounded-v2-tile bg-v2-surface ring-1 ring-inset ring-v2-hairline p-3.5">
-            <StatNumber value={entry.workoutCount} size="sm" unit="אימונים" label="בתקופה" />
+            <StatNumber value={entry.workoutCount} size="sm" unit={t('leagues.sheets.peek.workoutsUnit')} label={t('leagues.sheets.peek.period')} />
           </div>
         ) : entry.isCurrentUser && !!myStreak ? (
           <div className="rounded-v2-tile bg-v2-surface ring-1 ring-inset ring-v2-hairline p-3.5">
-            <StatNumber value={myStreak} size="sm" unit="ימים" label="הרצף שלך" />
+            <StatNumber value={myStreak} size="sm" unit={t('leagues.sheets.peek.daysUnit')} label={t('leagues.sheets.peek.streak')} />
           </div>
         ) : gap !== null ? (
           <div className="rounded-v2-tile bg-v2-surface ring-1 ring-inset ring-v2-hairline p-3.5">
             <StatNumber
               value={Math.abs(gap)}
               size="sm"
-              format={() => splitScore(Math.abs(gap), mode).value}
-              unit={splitScore(Math.abs(gap), mode).unit}
-              label={gap > 0 ? 'לפניך' : gap < 0 ? 'אחריך' : 'שוויון'}
+              format={() => splitScore(Math.abs(gap), mode, false, t).value}
+              unit={splitScore(Math.abs(gap), mode, false, t).unit}
+              label={t('leagues.sheets.peek.gap', { dir: gap > 0 ? 'ahead' : gap < 0 ? 'behind' : 'tie' })}
             />
           </div>
         ) : null}
@@ -211,7 +215,7 @@ export function ParticipantPeek({ entry, myEntry, totalParticipants, mode, isSeg
 
       {!entry.isCurrentUser && (
         <Button variant="ghost" size="md" block className="mt-4" onClick={onInvite}>
-          הזמנת חברים לליגה
+          {t('leagues.sheets.peek.invite')}
         </Button>
       )}
     </div>
@@ -243,32 +247,32 @@ interface HowRow {
  * XP is NOT part of any league score.
  */
 export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
+  const t = useT(community);
+  const tenant = isTenant ? 'yes' : 'no';
   const rows: HowRow[] = [
     {
       icon: Flame,
       tone: 'gold',
-      title: isTenant ? 'כללי — ימים פעילים' : 'כללי — רצף ימי אימון',
-      body: isTenant
-        ? 'בליגת הארגון סופרים את מספר הימים שבהם התאמנת.'
-        : 'כל יום שבו צברת לפחות 10 דקות פעילות מוסיף יום לרצף. יום בלי פעילות מאפס את הרצף.',
+      title: t('leagues.sheets.how.general.title', { tenant }),
+      body: t('leagues.sheets.how.general.body', { tenant }),
     },
     {
       icon: Footprints,
       tone: 'steps',
-      title: 'צעדים',
-      body: 'ממוצע הצעדים היומי שלך ב-7 הימים האחרונים.',
+      title: t('leagues.sheets.how.steps.title'),
+      body: t('leagues.sheets.how.steps.body'),
     },
     {
       icon: MapPin,
       tone: 'run',
-      title: 'מרחק',
-      body: 'סך הקילומטרים מאימוני ריצה והליכה שתיעדת בתקופה שנבחרה (יומי, שבועי או חודשי).',
+      title: t('leagues.sheets.how.distance.title'),
+      body: t('leagues.sheets.how.distance.body'),
     },
     {
       icon: Swords,
       tone: 'accent',
-      title: 'קבוצות, שכונות וערים',
-      body: 'נקודות פעילות: כל דקת אימון כוח שווה 2 נקודות, וכל דקת אימון אירובי או תחזוקה שווה נקודה אחת. קבוצות מדורגות לפי ממוצע לחבר פעיל; שכונות וערים — לפי סכום הנקודות של כל החברים.',
+      title: t('leagues.sheets.how.scopes.title'),
+      body: t('leagues.sheets.how.scopes.body'),
     },
   ];
   return (
@@ -282,7 +286,7 @@ export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
           </div>
         </div>
       ))}
-      <p className="text-[12px] text-v2-muted px-1 pt-1">נקודות XP ורמות לא נספרות בדירוג הליגה.</p>
+      <p className="text-[12px] text-v2-muted px-1 pt-1">{t('leagues.sheets.xpNote')}</p>
     </div>
   );
 }
@@ -308,30 +312,31 @@ export function HowPointsContent({ isTenant }: { isTenant: boolean }) {
  *    distance, or steps ÷ 1,300), never added to totalCredit.
  */
 export function ScopePointsContent() {
+  const t = useT(community);
   const rows: HowRow[] = [
     {
       icon: Dumbbell,
       tone: 'accent',
-      title: 'אימונים',
-      body: 'כל דקת אימון כוח שווה 2 נקודות. כל דקת ריצה, הליכה, רכיבה או אימון תחזוקה שווה נקודה אחת.',
+      title: t('leagues.sheets.scope.workouts.title'),
+      body: t('leagues.sheets.scope.workouts.body'),
     },
     {
       icon: Footprints,
       tone: 'steps',
-      title: 'צעדים',
-      body: 'כל 1,000 צעדים מלאים ביום שווים 3 נקודות (למשל 7,800 צעדים = 21 נקודות). הצעדים מתעדכנים פעם בשעה.',
+      title: t('leagues.sheets.scope.steps.title'),
+      body: t('leagues.sheets.scope.steps.body'),
     },
     {
       icon: UserPlus,
       tone: 'gold',
-      title: 'חבר שמצטרף — 50+',
-      body: 'חבר שמצטרף דרך הקישור שלך מוסיף 50 נקודות לשכונה ולעיר שלך, עד 5 חברים בשבוע. הוא לא נספר כמשתתף פעיל עד שיתאמן.',
+      title: t('leagues.sheets.scope.invite.title'),
+      body: t('leagues.sheets.scope.invite.body'),
     },
     {
       icon: Scale,
       tone: 'run',
-      title: 'איך מדרגים',
-      body: 'הדירוג הרשמי הוא לפי ממוצע הנקודות למשתתף פעיל — כך גם שכונה או יישוב קטנים יכולים לנצח. השבוע מתחיל ביום ראשון, והחודש הוא החודש הקלנדרי.',
+      title: t('leagues.sheets.scope.order.title'),
+      body: t('leagues.sheets.scope.order.body'),
     },
   ];
   return (
@@ -345,8 +350,8 @@ export function ScopePointsContent() {
           </div>
         </div>
       ))}
-      <p className="text-[12px] text-v2-muted px-1 pt-1">נקודות XP ורמות לא נספרות בדירוג הליגה.</p>
-      <p className="text-[12px] text-v2-muted px-1">הק״מ שמוצגים ליד הנקודות הם בשביל הכיף — הם לא משפיעים על הנקודות או על הדירוג.</p>
+      <p className="text-[12px] text-v2-muted px-1 pt-1">{t('leagues.sheets.xpNote')}</p>
+      <p className="text-[12px] text-v2-muted px-1">{t('leagues.sheets.scope.kmNote')}</p>
     </div>
   );
 }
