@@ -26,10 +26,10 @@ function densify(ring: LngLat[], step = 10): LngLat[] {
 const area = (id: string, name: string, ring: LngLat[], tags: Record<string, string> = { leisure: 'park' }) =>
   ({ id, tags: { ...tags, name }, geometry: { type: 'Polygon' as const, coordinates: [ring] } });
 
-describe('big-park selection (owner Q7: ≥ 8 dunam or perimeter ≥ 1.2 km)', () => {
+describe('big-park selection (owner Q7: ≥ 80 dunam = 80,000 m² or perimeter ≥ 1.2 km)', () => {
   it('area and perimeter thresholds', () => {
     expect(ringAreaM2(rect(34.8, LAT, 300, 300))).toBeCloseTo(90_000, -3);
-    expect(isBigPark(toPark(area('w/1', 'גן', rect(34.8, LAT, 300, 300)))!)).toBe(true); // 9 dunam
+    expect(isBigPark(toPark(area('w/1', 'גן', rect(34.8, LAT, 300, 300)))!)).toBe(true); // 90 dunam (300×300 m)
     expect(isBigPark(toPark(area('w/2', 'גינה', rect(34.8, LAT, 100, 100)))!)).toBe(false);
     expect(isBigPark(toPark(area('w/3', 'רצועה', rect(34.8, LAT, 580, 30)))!)).toBe(true); // thin but 1.22 km around
   });
