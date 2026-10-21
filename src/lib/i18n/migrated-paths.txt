@@ -51,3 +51,8 @@ src/features/arena/components/group-details/GroupSheetFrame.tsx
 # (read from the he catalog) for the callers outside this PR — manual list in the PR.
 src/app/onboarding-new/assessment-visual/
 src/features/user/onboarding/utils/assessment-tier-label.ts
+# wave 2 (namespace profile, exerciseAnalytics.* keys) — exercise page v2 (/profile/exercise/[id], enable_home_v2).
+# Month / weekday names in exercise-analytics.utils.ts are marked (wave 3, fmt).
+# src/features/app/exercises/ is NOT migrated: its only file (ExerciseDetailView) is rendered only by
+# the admin exercise editor preview (Hebrew only, PLAN decision 1).
+src/features/profile/components/exercise-analytics-v2/

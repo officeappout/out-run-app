@@ -59,6 +59,8 @@ export default defineConfig({
       'src/features/arena/components/group-details/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace) — strength assessment page parity (jsdom, services mocked).
       'src/app/onboarding-new/assessment-visual/__tests__/**/*.test.tsx',
+      // i18n wave 2 (profile namespace) — exercise page v2, Hebrew markup parity (jsdom).
+      'src/features/profile/components/exercise-analytics-v2/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
