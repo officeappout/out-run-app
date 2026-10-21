@@ -74,6 +74,7 @@ interface FlagState {
   enable_entry_intro_v1: boolean;
   enable_strength_quiz_hint_v2: boolean;
   enable_landing_real_fallback: boolean;
+  enable_run_player_drawer_v1: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -511,6 +512,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'שאלון כוח: הדרכת גרירה חדשה',
     description: 'בלי טשטוש: השורה מדגימה את עצמה בקטגוריה הראשונה, תזכורת קצרה בשאר, וההדרכה נשארת עד הגרירה הראשונה.',
+  },
+  // Run / walk live players — map first, metrics drawer, attached story bars (21.10.2026).
+  {
+    key: 'enable_run_player_drawer_v1',
+    icon: Footprints,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'נגן ריצה/הליכה: המפה קודם',
+    description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
   },
   // Retire /gateway as the fallback (21.10.2026).
   {
