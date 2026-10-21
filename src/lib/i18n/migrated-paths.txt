@@ -160,3 +160,28 @@ src/features/social/components/ShareImageSheet.tsx
 src/features/social/components/SummaryFeedShare.tsx
 src/features/social/components/social-t.ts
 src/features/social/components/share-v2/
+# wave 2 (namespace map, keys journey.* / marker.* / searchBar.* / legPlan.* / layers.* / modes.* / navBanner.* /
+# routeCard.* / carousel.* / mapSearch.* / pick.* / session.* / hybrid.* / overview.{shell,axis,roundTrip}.*) — the map /
+# parks UI in src/features/parks/core/components. Listed per file: the rest of the folder is busy in other open work
+# (TurnCarousel, FreeRunDrawer, free-run/, HybridOverviewScreen, HybridSlotCarousel, PlannedRunSlotCard, AIChatOverlay;
+# AppMap / HybridJourneyAxis / hybrid-colors / mapStyleConfig in unmerged worktrees), v1-only (NavigationHub's own
+# search overlay), unreachable (WorkoutPreferencesModal + RouteGenerationLoader: map mode 'builder' is never set), dead
+# (dead-files.txt) or a helper with outside callers (hybrid-format.ts, route-questionnaire-line.ts) — manual list in the PR.
+# Marked i18n-allow-hebrew: the legacy cards behind UNIFIED_ROUTE_CARDS_ENABLED (= true, unreachable), StrengthStationsToggle's v1 line.
+src/features/parks/core/components/BottomJourneyContainer.tsx
+src/features/parks/core/components/DestinationMarker.tsx
+src/features/parks/core/components/FloatingSearchBar.tsx
+src/features/parks/core/components/LegPlanStartPreview.tsx
+src/features/parks/core/components/MapLayersControl.tsx
+src/features/parks/core/components/MapModeHeader.tsx
+src/features/parks/core/components/NavBannerV2.tsx
+src/features/parks/core/components/RouteCardUnified.tsx
+src/features/parks/core/components/RouteCarousel.tsx
+src/features/parks/core/components/SearchOverlayV2.tsx
+src/features/parks/core/components/SearchPickCards.tsx
+src/features/parks/core/components/SessionControlBar.tsx
+src/features/parks/core/components/hybrid/AerobicStrengthSlider.tsx
+src/features/parks/core/components/hybrid/HybridStationCard.tsx
+src/features/parks/core/components/hybrid/OverviewTitleBar.tsx
+src/features/parks/core/components/hybrid/StrengthStationsToggle.tsx
+src/features/parks/core/components/overview/

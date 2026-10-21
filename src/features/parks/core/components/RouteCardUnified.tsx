@@ -27,6 +27,8 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { ActivityGlyph } from './hybrid/activity-icons';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 // Aerobic-card accent — the single stat-icon colour shared by all three cards.
 const BRAND = '#00ADEF';
@@ -129,6 +131,7 @@ export default function RouteCardUnified({
   // 13px muted meta, tinted badge and the single v2 gradient CTA. Flag off = today's card.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const t = useT(map);
   const slim = variant === 'slim';
   const hasStats = !!distanceText && !!durationText;
   // G1.4 (Sderot pilot): the curated discover card (slim + stats — BottomJourneyContainer is the only
@@ -176,7 +179,7 @@ export default function RouteCardUnified({
             className={v2 ? 'shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'text-[11px] font-black rounded-full shrink-0'}
             style={v2 ? undefined : { color: BRAND, background: `${BRAND}18`, padding: '2px 8px' }}
           >
-            מומלץ
+            {t('routeCard.recommended')}
           </span>
         )}
       </div>
@@ -252,7 +255,7 @@ export default function RouteCardUnified({
       {/* CTA — home strength-card style (rounded-full + cyan→turquoise gradient) */}
       {ctaLoading ? (
         <div className={v2 ? `flex w-full items-center justify-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline ${slim ? 'h-10' : 'h-12'}` : 'w-full py-3 rounded-full bg-gray-100 flex items-center justify-center'}>
-          <span className={v2 ? 'animate-pulse text-[13px] font-bold text-v2-muted' : 'text-xs text-gray-400 font-bold animate-pulse'}>טוען...</span>
+          <span className={v2 ? 'animate-pulse text-[13px] font-bold text-v2-muted' : 'text-xs text-gray-400 font-bold animate-pulse'}>{t('routeCard.loading')}</span>
         </div>
       ) : (
         <button

@@ -7,6 +7,8 @@
  */
 
 import { Dumbbell } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface StrengthStationsToggleProps {
   enabled: boolean;
@@ -22,6 +24,7 @@ export default function StrengthStationsToggle({
   accent = '#00ADEF',
   v2 = false,
 }: StrengthStationsToggleProps) {
+  const t = useT(map);
   if (v2) {
     return (
       <div className="px-5 mb-3">
@@ -38,7 +41,7 @@ export default function StrengthStationsToggle({
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
               <Dumbbell size={18} strokeWidth={2.4} />
             </span>
-            <span className="truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">תחנות כוח בדרך</span>
+            <span className="truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('hybrid.stationsToggle.label')}</span>
           </span>
           <span className="relative inline-flex shrink-0" style={{ width: 42, height: 24 }}>
             <span className={`absolute inset-0 rounded-full transition-colors ${enabled ? 'bg-v2-accent' : 'bg-v2-pill-border'}`} />
@@ -65,7 +68,7 @@ export default function StrengthStationsToggle({
         }}
       >
         <span className="flex items-center gap-2 text-[13px] font-black text-gray-800">
-          <span aria-hidden>💪</span> תחנות כוח בדרך
+          <span aria-hidden>💪</span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */} תחנות כוח בדרך
         </span>
         <span className="relative inline-flex shrink-0" style={{ width: 42, height: 24 }}>
           <span

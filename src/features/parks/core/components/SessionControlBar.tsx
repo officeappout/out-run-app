@@ -4,11 +4,14 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const LONG_PRESS_MS = 800;
 const LAP_TOAST_MS = 1800;
 
 export default function SessionControlBar() {
+  const t = useT(map);
   const { status, pauseSession, resumeSession } = useSessionStore();
   const isPaused = status === 'paused';
   const isActive = status === 'active' || status === 'paused';
@@ -176,7 +179,7 @@ export default function SessionControlBar() {
               className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold whitespace-nowrap"
               style={{ color: '#000000' }}
             >
-              החזק לעצירה
+              {t('session.holdToStop')}
             </span>
           )}
         </div>

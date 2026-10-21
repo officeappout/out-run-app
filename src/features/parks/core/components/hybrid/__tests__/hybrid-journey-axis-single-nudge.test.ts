@@ -65,7 +65,8 @@ describe('HybridJourneyAxis wiring', () => {
   it('a locked station keeps its place on the axis with a neutral locked state, no per-stop questionnaire copy', () => {
     const lockedBranch = stationSrc.slice(stationSrc.indexOf('if (seg.content?.needsAssessment) {'), stationSrc.indexOf('const exs = seg.content?.exercises'));
     expect(lockedBranch.length).toBeGreaterThan(0);
-    expect(lockedBranch).toContain('תחנה נעולה');
+    // i18n wave 2: the locked label lives in src/messages/he/map.json ("תחנה נעולה").
+    expect(lockedBranch).toContain("t('hybrid.station.locked')");
     expect(lockedBranch).not.toContain('fallbackHint');
     expect(lockedBranch).not.toContain('onSegmentAssessmentLink');
     expect(axisSrc).not.toContain('seg.content?.assessmentNudge &&');

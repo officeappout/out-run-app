@@ -25,6 +25,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Flag } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface DestinationMarkerProps {
   /** Optional label rendered above the pin (e.g. "תל אביב, הרצל 14"). */
@@ -37,6 +39,7 @@ const ACCENT = '#00ADEF';
 const ACCENT_BRIGHT = '#00E5FF';
 
 export default function DestinationMarker({ label, onClick }: DestinationMarkerProps) {
+  const t = useT(map);
   // Truncate at 26 chars — keeps the chip visually compact and matches
   // the typical "city, street" geocoder result length.
   const display = label && label.length > 26 ? `${label.slice(0, 25)}…` : label;
@@ -45,7 +48,7 @@ export default function DestinationMarker({ label, onClick }: DestinationMarkerP
     <button
       type="button"
       onClick={onClick}
-      aria-label={label ? `יעד: ${label}` : 'יעד'}
+      aria-label={label ? t('marker.label', { label }) : t('marker.labelEmpty')}
       className="relative flex flex-col items-center pointer-events-auto"
       style={{ background: 'transparent', border: 'none', padding: 0 }}
     >
