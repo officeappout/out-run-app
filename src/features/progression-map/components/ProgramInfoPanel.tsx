@@ -53,6 +53,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 import { getProgramIcon } from '@/features/content/programs';
 import type { LevelGoalLike } from '../services/level-summary.service';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 /** The collapsed strip's rendered height — the tree area reserves exactly
  *  this much top padding so it's never hidden behind the collapsed panel. */
@@ -101,6 +103,7 @@ export function ProgramInfoPanel({
   onReassess,
   docked = false,
 }: ProgramInfoPanelProps) {
+  const t = useT(profile);
   const [expanded, setExpanded] = useState(false);
 
   const safeMaxLevel = Math.max(maxLevel, currentLevel, 1);
@@ -129,7 +132,7 @@ export function ProgramInfoPanel({
             </svg>
             <span className="relative text-center leading-none">
               <span className="block text-[18px] font-black text-v2-ink tabular-nums">{currentLevel}</span>
-              <span className="block text-[9.5px] font-extrabold text-v2-muted">רמה</span>
+              <span className="block text-[9.5px] font-extrabold text-v2-muted">{t('programPanel.levelBadge')}</span>
             </span>
           </span>
           <span className="min-w-0 flex-1">
@@ -138,7 +141,9 @@ export function ProgramInfoPanel({
               <span className="truncate text-[16px] font-black text-v2-ink">{programName}</span>
             </span>
             <span className="mt-0.5 block whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-              {currentLevel >= safeMaxLevel ? 'הגעת לרמה הגבוהה ביותר' : `עוד ${100 - pct}% לרמה ${nextLevel} · מתוך ${safeMaxLevel}`}
+              {currentLevel >= safeMaxLevel
+                ? t('programPanel.maxLevelReached')
+                : t('programPanel.toNextLevel', { remaining: 100 - pct, next: nextLevel, max: safeMaxLevel })}
             </span>
           </span>
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-ink-2 ring-1 ring-inset ring-v2-hairline">
@@ -167,7 +172,7 @@ export function ProgramInfoPanel({
                 )}
                 {levelDescription && (
                   <p className="rounded-[14px] bg-v2-surface px-3 py-2 text-[13px] font-semibold leading-relaxed text-v2-ink-2">
-                    <b className="text-v2-ink">הרמה שלך · {currentLevel}: </b>
+                    <b className="text-v2-ink">{t('programPanel.yourLevel', { level: currentLevel })}</b>
                     {levelDescription}
                   </p>
                 )}
@@ -175,18 +180,20 @@ export function ProgramInfoPanel({
                   <div className="flex items-center justify-between rounded-[14px] bg-v2-surface px-3 py-2.5">
                     <p className="truncate text-[13px] font-extrabold text-v2-ink">{currentLevelExerciseName}</p>
                     <p className="flex-shrink-0 text-[12px] font-bold text-v2-muted">
-                      יעד: {matchingGoal.targetValue} {matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
+                      {t('programPanel.goal', { value: matchingGoal.targetValue, unit: matchingGoal.unit })}
                     </p>
                   </div>
                 )}
                 {hasGoals && (
                   <div className="flex items-center justify-between px-1 text-[13px]">
-                    <span className="font-bold text-v2-muted">סטטוס</span>
-                    <span className={`font-extrabold ${goalsCompleted ? 'text-v2-deep' : 'text-v2-ink'}`}>{goalsCompleted ? 'הושלם' : 'בתהליך'}</span>
+                    <span className="font-bold text-v2-muted">{t('programPanel.status.label')}</span>
+                    <span className={`font-extrabold ${goalsCompleted ? 'text-v2-deep' : 'text-v2-ink'}`}>
+                      {goalsCompleted ? t('programPanel.status.done') : t('programPanel.status.inProgress')}
+                    </span>
                   </div>
                 )}
                 <button type="button" onClick={onReassess} className="h-10 w-full rounded-full bg-white text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring">
-                  עדכון הרמה שלי
+                  {t('programPanel.reassess')}
                 </button>
               </div>
             </motion.div>
@@ -225,7 +232,7 @@ export function ProgramInfoPanel({
           <span className="flex-1 min-w-0">
             <span className="block text-[13.5px] font-black text-gray-900 truncate">{programName}</span>
             <span className="block text-[10.5px] font-bold text-gray-400">
-              רמה {currentLevel} מתוך {safeMaxLevel}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רמה {currentLevel} מתוך {safeMaxLevel}
             </span>
           </span>
           <span className="w-[26px] h-[26px] rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0 text-gray-400">
@@ -245,8 +252,8 @@ export function ProgramInfoPanel({
               />
             </div>
             <div className="flex items-center justify-between mt-1 text-[9.5px] font-bold text-gray-400">
-              <span>{clampedPercent}% לרמה {nextLevel}</span>
-              <span>אתה כאן · רמה {currentLevel}</span>
+              <span>{clampedPercent}% לרמה {nextLevel}</span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
+              <span>אתה כאן · רמה {currentLevel}</span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
             </div>
           </div>
         )}
@@ -263,7 +270,7 @@ export function ProgramInfoPanel({
               <div className="px-4 pb-4 pt-1 space-y-2.5 max-h-[60vh] overflow-y-auto">
                 {programDescription && (
                   <p className="text-xs text-gray-600 bg-slate-50 rounded-xl px-3 py-2 leading-relaxed">
-                    <b className="text-gray-800">על התוכנית: </b>
+                    <b className="text-gray-800">על התוכנית: </b>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                     {programDescription}
                   </p>
                 )}
@@ -276,7 +283,7 @@ export function ProgramInfoPanel({
                     {currentLevel}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-gray-900">הרמה הנוכחית שלך · {currentLevel}</p>
+                    <p className="text-xs font-black text-gray-900">הרמה הנוכחית שלך · {currentLevel}</p>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                     {levelDescription && (
                       <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{levelDescription}</p>
                     )}
@@ -286,7 +293,7 @@ export function ProgramInfoPanel({
                     style={{ backgroundColor: '#2AA3E8' }}
                   >
                     <MapPin size={9} />
-                    אתה כאן
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אתה כאן
                   </span>
                 </div>
 
@@ -294,16 +301,16 @@ export function ProgramInfoPanel({
                   <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2.5">
                     <p className="text-xs font-bold text-gray-800 truncate">{currentLevelExerciseName}</p>
                     <p className="text-[11px] text-gray-400 flex-shrink-0">
-                      יעד: {matchingGoal.targetValue} {matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
+                      {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}יעד: {matchingGoal.targetValue} {matchingGoal.unit === 'seconds' ? 'שניות' : 'חזרות'}
                     </p>
                   </div>
                 )}
 
                 {hasGoals && (
                   <div className="flex items-center justify-between text-xs px-1">
-                    <span className="text-gray-500">סטטוס</span>
+                    <span className="text-gray-500">סטטוס</span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                     <span className={`font-bold ${goalsCompleted ? 'text-[#20C6D6]' : 'text-gray-700'}`}>
-                      {goalsCompleted ? 'הושלם' : 'בתהליך'}
+                      {goalsCompleted ? 'הושלם' : 'בתהליך' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                     </span>
                   </div>
                 )}
@@ -313,7 +320,7 @@ export function ProgramInfoPanel({
                   onClick={onReassess}
                   className="w-full text-center text-[11.5px] font-bold text-[#0a8ea0] pt-1"
                 >
-                  🔄 עדכן את הרמה שלי
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}🔄 עדכן את הרמה שלי
                 </button>
 
                 <button
@@ -321,7 +328,7 @@ export function ProgramInfoPanel({
                   onClick={() => setExpanded(false)}
                   className="w-full text-center text-[11px] font-bold text-gray-400 pt-0.5"
                 >
-                  ︿ סגור
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}︿ סגור
                 </button>
               </div>
             </motion.div>

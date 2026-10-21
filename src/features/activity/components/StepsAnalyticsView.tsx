@@ -58,17 +58,19 @@ import {
 } from '../lib/steps-analytics.logic';
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
 import { STEPS_COLOR } from '@/config/health-goals';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const TIME_RANGES: { key: StepsTimeRange; label: string }[] = [
-  { key: 'day', label: 'יום' },
-  { key: 'week', label: 'שבוע' },
-  { key: 'month', label: 'חודש' },
-  { key: 'year', label: 'שנה' },
-];
+const TIME_RANGES = [
+  { key: 'day', labelKey: 'steps.range.day' },
+  { key: 'week', labelKey: 'steps.range.week' },
+  { key: 'month', labelKey: 'steps.range.month' },
+  { key: 'year', labelKey: 'steps.range.year' },
+] as const satisfies readonly { key: StepsTimeRange; labelKey: string }[];
 
-const HEBREW_DAYS_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const;
+const HEBREW_DAYS_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] as const; // i18n-allow-hebrew: weekday letters, date formatting moves to fmt.weekdayName in wave 3
 
 /** Soft tinted backdrop the glass cards float over (steps green + v2 cyan). */
 const PAGE_BACKDROP =
@@ -170,6 +172,7 @@ function GoalProgressBar({ steps, goal }: { steps: number; goal: number }) {
   const ratio = goal > 0 ? Math.min(1, Math.max(0, steps / goal)) : 0;
   const pct = goal > 0 ? Math.round((steps / goal) * 100) : 0;
   const reached = goal > 0 && steps >= goal;
+  const t = useT(profile);
   return (
     <div className="space-y-2">
       <div
@@ -178,7 +181,7 @@ function GoalProgressBar({ steps, goal }: { steps: number; goal: number }) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.min(100, pct)}
-        aria-label="התקדמות ליעד היומי"
+        aria-label={t('steps.goal.progressLabel')}
       >
         <motion.div
           className="h-full w-full rounded-full origin-right"
@@ -193,16 +196,24 @@ function GoalProgressBar({ steps, goal }: { steps: number; goal: number }) {
           {reached ? (
             <>
               <Check className="w-3.5 h-3.5 text-activity-steps" strokeWidth={3} aria-hidden />
-              <span className="font-extrabold text-[#00865a]">היעד הושג</span>
+              <span className="font-extrabold text-[#00865a]">{t('steps.goal.reached')}</span>
             </>
           ) : (
             <span>
-              <span className="font-extrabold text-v2-ink tabular-nums" dir="ltr">{pct}%</span> מהיעד
+              {t.rich('steps.goal.percentOf', {
+                pct,
+                num: (chunks: React.ReactNode) => (
+                  <span className="font-extrabold text-v2-ink tabular-nums" dir="ltr">{chunks}</span>
+                ),
+              })}
             </span>
           )}
         </span>
         <span>
-          יעד <span className="tabular-nums" dir="ltr">{fmtNumber(goal)}</span>
+          {t.rich('steps.goal.target', {
+            goal: fmtNumber(goal),
+            num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
+          })}
         </span>
       </div>
     </div>
@@ -266,6 +277,7 @@ export default function StepsAnalyticsView({
   footer,
   lineChart = false,
 }: StepsAnalyticsViewProps) {
+  const t = useT(profile);
   // Day-tab: how many days back from today (0 = today, 6 = 6 days ago)
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
 
@@ -332,10 +344,11 @@ export default function StepsAnalyticsView({
   const selectedDaySnap = snapshots[snapshots.length - 1 - selectedDayOffset];
   const selectedDaySteps = selectedDaySnap?.steps ?? 0;
 
-  const dayRingLabel =
-    selectedDayOffset === 0 ? 'היום'
-    : selectedDayOffset === 1 ? 'אתמול'
-    : shortDate(selectedDaySnap?.date) ?? `לפני ${selectedDayOffset}`;
+  const dayLabel = (offset: number, date: string | undefined | null): string =>
+    offset === 0 ? t('steps.day.today')
+    : offset === 1 ? t('steps.day.yesterday')
+    : shortDate(date) ?? t('steps.day.daysAgo', { n: offset });
+  const dayRingLabel = dayLabel(selectedDayOffset, selectedDaySnap?.date);
 
   // 7-day chart data for the day tab — always the last 7 snapshots.
   const dayWeekData = useMemo(() => {
@@ -411,7 +424,7 @@ export default function StepsAnalyticsView({
       <div className="text-[18px] font-black tabular-nums tracking-[-0.02em] text-v2-ink leading-tight" dir="ltr">
         {fmtNumber(d.value)}
       </div>
-      <div className="text-[10px] font-bold text-v2-muted leading-tight">צעדים</div>
+      <div className="text-[10px] font-bold text-v2-muted leading-tight">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}צעדים</div>
       <div className="mt-0.5 text-[11px] font-semibold text-v2-ink-2 leading-tight">
         {bucketTooltipLabel(d.key)}
       </div>
@@ -421,7 +434,7 @@ export default function StepsAnalyticsView({
   // Stable per-mount mock series (3,000–9,000 steps × 7 days) for the blurred
   // teaser shown behind the connect CTA. useMemo([]) so it doesn't reshuffle.
   const mockBarData = useMemo<BarDatum[]>(() => {
-    const labels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const labels = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: weekday letters, date formatting moves to fmt.weekdayName in wave 3
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
@@ -433,7 +446,7 @@ export default function StepsAnalyticsView({
     });
   }, []);
 
-  const firstStatLabel = isDay ? dayRingLabel : isYear ? 'סה״כ' : 'ממוצע יומי';
+  const firstStatLabel = isDay ? dayRingLabel : isYear ? t('steps.stat.total') : t('steps.stat.dailyAverage');
   const firstStatValue = isDay ? selectedDaySteps : isYear ? stats.totalSteps : stats.averageDaily;
 
   return (
@@ -451,14 +464,14 @@ export default function StepsAnalyticsView({
           <button
             onClick={onBack}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-v2-ink shadow-v2-ring active:scale-[0.97] transition-transform duration-150 ease-v2"
-            aria-label="חזור"
+            aria-label={t('steps.header.back')}
           >
             <ChevronRight className="w-5 h-5" strokeWidth={2.4} />
           </button>
           <div className="flex-1 min-w-0 text-center">
-            <p className="text-[11px] font-extrabold text-[#00865a]">ניתוח פעילות</p>
+            <p className="text-[11px] font-extrabold text-[#00865a]">{t('steps.header.eyebrow')}</p>
             <h1 className="text-[17px] font-black text-v2-ink truncate leading-tight">
-              <span className="tracking-v2-tight">צעדים</span>
+              <span className="tracking-v2-tight">{t('steps.header.title')}</span>
             </h1>
           </div>
           <IconTile icon={Footprints} tone="steps" size="md" className="[&>svg]:-scale-x-100" />
@@ -474,10 +487,10 @@ export default function StepsAnalyticsView({
           {/* Time range selector — segmented pill */}
           <div
             role="tablist"
-            aria-label="טווח זמן"
+            aria-label={t('steps.range.label')}
             className="flex p-1 rounded-full bg-white/70 shadow-v2-ring"
           >
-            {TIME_RANGES.map(({ key, label }) => {
+            {TIME_RANGES.map(({ key, labelKey }) => {
               const active = timeRange === key;
               return (
                 <button
@@ -498,7 +511,7 @@ export default function StepsAnalyticsView({
                       transition={{ duration: 0.32, ease: EASE_V2 }}
                     />
                   )}
-                  <span className="relative">{label}</span>
+                  <span className="relative">{t(labelKey)}</span>
                 </button>
               );
             })}
@@ -551,7 +564,7 @@ export default function StepsAnalyticsView({
                       <StepsRing percentage={pct} size={RING_SIZE} strokeWidth={10} gradId="stepsGrad-left">
                         <div className="flex flex-col items-center leading-none pointer-events-none">
                           <span className="text-[11px] font-bold text-v2-muted">
-                            {offset === 1 ? 'אתמול' : shortDate(snap?.date) ?? `לפני ${offset}`}
+                            {dayLabel(offset, snap?.date)}
                           </span>
                           <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
                             {fmtNumber(steps)}
@@ -569,10 +582,7 @@ export default function StepsAnalyticsView({
                   const steps  = snap?.steps ?? 0;
                   const goal   = snap?.stepsGoal ?? stats.dailyGoal;
                   const pct    = goal > 0 ? (steps / goal) * 100 : 0;
-                  const label  =
-                    offset === 0 ? 'היום'
-                    : offset === 1 ? 'אתמול'
-                    : shortDate(snap?.date) ?? `לפני ${offset}`;
+                  const label  = dayLabel(offset, snap?.date);
                   return (
                     <motion.div
                       className="absolute"
@@ -596,7 +606,7 @@ export default function StepsAnalyticsView({
                             <span className="text-[12px] font-extrabold text-[#00865a] mb-1.5">{label}</span>
                             <StatNumber value={steps} size="lg" countUp align="center" />
                             <span className="text-[12px] font-semibold text-v2-muted mt-1.5">
-                              מתוך {fmtNumber(goal)} צעדים
+                              {t('steps.ring.ofGoal', { goal: fmtNumber(goal) })}
                             </span>
                           </motion.div>
                         </AnimatePresence>
@@ -627,7 +637,7 @@ export default function StepsAnalyticsView({
                         {inRange && (
                           <div className="flex flex-col items-center leading-none pointer-events-none">
                             <span className="text-[11px] font-bold text-v2-muted">
-                              {offset === 0 ? 'היום' : offset === 1 ? 'אתמול' : shortDate(snap?.date) ?? `לפני ${offset}`}
+                              {dayLabel(offset, snap?.date)}
                             </span>
                             <span className="text-[24px] font-black text-v2-ink-2 tabular-nums" dir="ltr">
                               {fmtNumber(steps)}
@@ -640,7 +650,7 @@ export default function StepsAnalyticsView({
                 })()}
               </div>
               <div className="flex justify-center pb-4 -mt-1 min-h-[24px]">
-                <DeltaBadge current={heroSteps} previous={lastWeekSameDay} suffix="מול שבוע שעבר" />
+                <DeltaBadge current={heroSteps} previous={lastWeekSameDay} suffix={t('steps.delta.vsLastWeek')} />
               </div>
             </Card>
           ) : (
@@ -649,11 +659,11 @@ export default function StepsAnalyticsView({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <IconTile icon={Footprints} tone="steps" size="md" className="[&>svg]:-scale-x-100" />
-                  <span className="text-[14px] font-extrabold text-[#00865a]">היום</span>
+                  <span className="text-[14px] font-extrabold text-[#00865a]">{t('steps.hero.today')}</span>
                 </div>
-                <DeltaBadge current={todaySteps} previous={lastWeekSameDay} suffix="מול שבוע שעבר" />
+                <DeltaBadge current={todaySteps} previous={lastWeekSameDay} suffix={t('steps.delta.vsLastWeek')} />
               </div>
-              <StatNumber value={todaySteps} unit="צעדים" size="hero" countUp />
+              <StatNumber value={todaySteps} unit={t('steps.unit.steps')} size="hero" countUp />
               <GoalProgressBar steps={todaySteps} goal={todayGoal} />
             </Card>
           )}
@@ -667,29 +677,29 @@ export default function StepsAnalyticsView({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              <StatTile icon={CalendarDays} label={firstStatLabel} value={firstStatValue} unit="צעדים" />
+              <StatTile icon={CalendarDays} label={firstStatLabel} value={firstStatValue} unit={t('steps.unit.steps')} />
               <StatTile
                 icon={Trophy}
-                label="שיא"
+                label={t('steps.stat.best')}
                 value={stats.bestDay}
-                unit={stats.bestDay > 0 ? 'צעדים' : undefined}
+                unit={stats.bestDay > 0 ? t('steps.unit.steps') : undefined}
                 format={stats.bestDay > 0 ? undefined : () => '—'}
               />
               <StatTile
                 icon={Target}
-                label="ימים ביעד"
+                label={t('steps.stat.daysAtGoal')}
                 value={stats.daysAtGoal}
                 format={(v) => `${Math.round(v)}/${stats.daysWithData}`}
               />
-              <StatTile icon={Flame} tone="neutral" label="רצף" value={stats.streak} unit="ימים" />
+              <StatTile icon={Flame} tone="neutral" label={t('steps.stat.streak')} value={stats.streak} unit={t('steps.unit.days')} />
               {/* ק"מ — real synced distance when available, steps-estimate fallback otherwise */}
               <StatTile
                 icon={Route}
                 tone="neutral"
-                label="מרחק"
+                label={t('steps.stat.distance')}
                 value={distanceKm}
                 decimals={1}
-                unit="ק״מ"
+                unit={t('steps.unit.km')}
                 className="col-span-2 !flex-row items-center justify-between"
               />
             </div>
@@ -731,7 +741,10 @@ export default function StepsAnalyticsView({
                   <div className="flex justify-end mb-2">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
                       <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
-                      יעד יומי <span className="tabular-nums" dir="ltr">{fmtNumber(stats.dailyGoal)}</span>
+                      {t.rich('steps.chart.dailyGoal', {
+                        goal: fmtNumber(stats.dailyGoal),
+                        num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
+                      })}
                     </span>
                   </div>
                 )}
@@ -744,7 +757,7 @@ export default function StepsAnalyticsView({
                     color={STEPS_COLOR}
                     dir="ltr"
                     height={170}
-                    ariaLabel="צעדים בשבעת הימים האחרונים"
+                    ariaLabel={t('steps.chart.last7Days')}
                   />
                 ) : (
                 <BarChart
@@ -756,7 +769,7 @@ export default function StepsAnalyticsView({
                   height={170}
                   datasetKey="day"
                   renderTooltip={renderTooltip}
-                  ariaLabel="צעדים בשבעת הימים האחרונים"
+                  ariaLabel="צעדים בשבעת הימים האחרונים" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 />
                 )}
               </>
@@ -775,11 +788,11 @@ export default function StepsAnalyticsView({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center px-4">
                   <IconTile icon={HeartPulse} tone="steps" size="lg" />
                   <p className="text-[15px] font-black text-v2-ink max-w-[250px] leading-snug">
-                    חבר/י את נתוני הבריאות כדי לראות את הצעדים האמיתיים שלך
+                    {t('steps.connect.prompt')}
                   </p>
                   <Button variant="primary" size="md" onClick={openDisclosure} className="gap-2">
                     <HeartPulse className="w-4 h-4" strokeWidth={2.4} aria-hidden />
-                    התחבר לאפליקציית הבריאות
+                    {t('steps.connect.cta')}
                   </Button>
                 </div>
               </div>
@@ -787,12 +800,15 @@ export default function StepsAnalyticsView({
               <>
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[14px] font-extrabold text-v2-ink">
-                    {isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                    {isYear ? t('steps.chart.byMonth') : t('steps.chart.byDay')}
                   </span>
                   {showGoalLine && (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-v2-muted">
                       <span className="w-4 border-t-[1.5px] border-dashed border-v2-ink/30" />
-                      יעד יומי <span className="tabular-nums" dir="ltr">{fmtNumber(stats.dailyGoal)}</span>
+                      {t.rich('steps.chart.dailyGoal', {
+                        goal: fmtNumber(stats.dailyGoal),
+                        num: (chunks: React.ReactNode) => <span className="tabular-nums" dir="ltr">{chunks}</span>,
+                      })}
                     </span>
                   )}
                 </div>
@@ -806,7 +822,7 @@ export default function StepsAnalyticsView({
                     dir="ltr"
                     height={220}
                     labelEvery={isYear ? 2 : isMonth ? 5 : undefined}
-                    ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                    ariaLabel={isYear ? t('steps.chart.byMonth') : t('steps.chart.byDay')}
                   />
                 ) : (
                 <BarChart
@@ -820,7 +836,7 @@ export default function StepsAnalyticsView({
                   className={isMonth ? '[&>div:nth-child(2)]:invisible' : ''}
                   datasetKey={timeRange}
                   renderTooltip={renderTooltip}
-                  ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'}
+                  ariaLabel={isYear ? 'צעדים לפי חודש' : 'צעדים לפי יום'} // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 />
                 )}
                 {!lineChart && isMonth && monthTicks.length > 0 && (
@@ -839,7 +855,7 @@ export default function StepsAnalyticsView({
                   </div>
                 )}
                 <p className="mt-3 text-[11px] font-semibold text-v2-muted text-center">
-                  הקש/י על עמודה לפרטים
+                  {t('steps.chart.tapHint')}
                 </p>
               </>
             )}
@@ -857,11 +873,12 @@ export default function StepsAnalyticsView({
 // ── Error state ─────────────────────────────────────────────────────────────
 
 function ErrorState() {
+  const t = useT(profile);
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
       <IconTile icon={TrendingUp} tone="neutral" size="lg" />
-      <p className="text-[15px] font-black text-v2-ink">שגיאה בטעינת הנתונים</p>
-      <p className="text-[13px] font-semibold text-v2-muted">נסה שוב מאוחר יותר</p>
+      <p className="text-[15px] font-black text-v2-ink">{t('steps.error.title')}</p>
+      <p className="text-[13px] font-semibold text-v2-muted">{t('steps.error.retry')}</p>
     </div>
   );
 }

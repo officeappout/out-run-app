@@ -8,4 +8,11 @@
 # the marker "i18n-allow-hebrew" (Hebrew that is data, not copy: regex patterns,
 # Firestore values, city names) — say why next to the marker.
 #
-# Empty on purpose until the first extraction PR lands.
+
+# wave 2 pilot (namespace profile) — skill tree + steps analytics.
+# Only the UI folders: progression-map/services and activity/lib still return
+# Hebrew display text to callers outside these folders (manual list in the PR).
+src/features/progression-map/components/
+src/app/progression-map/
+src/features/activity/components/
+src/app/activity/
