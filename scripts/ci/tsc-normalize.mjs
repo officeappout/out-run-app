@@ -109,7 +109,7 @@ function normalizeNested(text) {
       const inner = text.slice(i + 1, j);
       let norm;
       if (c === '{' && /\.\.\./.test(inner)) norm = '…';
-      else if (c === '{') norm = ' ' + splitTopLevel(inner.trim(), '; ').map((m) => normalizeMember(m.trim())).filter(Boolean).sort().join('; ') + ' ';
+      else if (c === '{') norm = ' ' + splitTopLevel(inner.trim().replace(/;$/, ''), '; ').map((m) => normalizeMember(m.trim())).filter(Boolean).sort().join('; ') + ' ';
       else norm = normalizeType(inner);
       out += c + norm + OPEN[c];
       i = j;
