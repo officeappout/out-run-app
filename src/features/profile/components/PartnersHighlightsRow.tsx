@@ -18,6 +18,8 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { avatarBackground, firstGrapheme } from '@/features/profile/utils/avatar';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface PartnerHighlight {
   uid: string;
@@ -37,9 +39,11 @@ export default function PartnersHighlightsRow({
   partners,
   isLoading = false,
   onPartnerClick,
-  addLabel = 'הוסף',
+  addLabel: addLabelProp,
   onAddClick,
 }: PartnersHighlightsRowProps) {
+  const t = useT(profileNs);
+  const addLabel = addLabelProp ?? t('profile.partners.add');
   if (!isLoading && partners.length === 0 && !onAddClick) return null;
 
   return (
