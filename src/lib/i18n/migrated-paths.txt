@@ -38,3 +38,24 @@ src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
 src/features/workout-engine/players/running/components/
 src/features/user/onboarding/components/visual-assessment/
+
+# wave 2 (namespace library, exercises.* keys) — the exercise library (/library → /search?tab=exercises
+# → ExerciseLibraryContent) and its detail sheet (MasterExerciseView). Not migrated:
+# EquipmentFilterSheet/EquipmentFilterShell (not rendered by the library — home builder, settings,
+# onboarding), ExerciseVideoPlayer (no copy; open PR #339), ExerciseLibraryCard (dead).
+# ExerciseLibraryPage's default export (dead: /library redirects) keeps its Hebrew — PR #268 edits it.
+src/features/content/exercises/client/ExerciseLibraryPage.tsx
+src/features/content/exercises/client/components/ActiveFilterChipsRow.tsx
+src/features/content/exercises/client/components/ExerciseDetailSheet.tsx
+src/features/content/exercises/client/components/ExerciseHeroV2.tsx
+src/features/content/exercises/client/components/ExerciseImageCard.tsx
+src/features/content/exercises/client/components/FilterSheet.tsx
+src/features/content/exercises/client/components/LocationVariantSwitcher.tsx
+src/features/content/exercises/client/components/MasterExerciseView.tsx
+src/features/content/exercises/client/components/MuscleFilterBar.tsx
+src/features/content/exercises/client/components/ProgramPathSwitcher.tsx
+src/features/content/exercises/client/components/SecondaryFiltersSheet.tsx
+src/features/content/exercises/client/components/SecondaryFiltersTrigger.tsx
+src/features/content/exercises/client/hooks/
+src/features/content/exercises/client/store/
+src/features/content/exercises/client/utils/

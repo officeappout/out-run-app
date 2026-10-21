@@ -25,6 +25,8 @@ import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z, type SheetZIndex } from '@/components/ui/v2/tokens';
 import type { Exercise } from '../../core/exercise.types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export interface ExerciseDetailSheetProps {
   /**
@@ -85,6 +87,7 @@ export interface ExerciseDetailSheetProps {
 
 export default function ExerciseDetailSheet({ locationOverride, defaultProgramId, controlled, layer }: ExerciseDetailSheetProps = {}) {
   const router = useRouter();
+  const t = useT(library);
   // Home v2 (enable_home_v2): sheet chrome styling only.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -186,7 +189,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
         grabber={false}
         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
         dragToDismiss={{ handleOnly: false, distance: 140, velocity: 0, elastic: 0.2 }}
-        ariaLabel="פרטי תרגיל"
+        ariaLabel={t('exercises.detail.label')}
         header={
           <>
             {/* Grabber floats over the full-bleed hero (which starts at the
@@ -194,7 +197,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
             <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center pt-2">
               <div className="h-1.5 w-10 rounded-full bg-white/80 shadow-v2-ring" />
             </div>
-            <IconButton aria-label="סגור" tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
+            <IconButton aria-label={t('exercises.detail.close')} tone="surface" size={36} className="absolute left-3 top-3 z-30" onClick={close}>
               <X size={17} strokeWidth={2.5} />
             </IconButton>
           </>
@@ -247,7 +250,7 @@ export default function ExerciseDetailSheet({ locationOverride, defaultProgramId
               type="button"
               onClick={close}
               className="absolute top-3 left-3 p-2 text-gray-500 hover:text-gray-700 rounded-full bg-white/80 backdrop-blur-sm z-30 shadow-sm"
-              aria-label="סגור"
+              aria-label={t('exercises.detail.close')}
             >
               <X size={18} strokeWidth={2} />
             </button>

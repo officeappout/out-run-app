@@ -21,12 +21,15 @@ import {
 } from '../store/useExerciseLibraryStore';
 import { findActiveMuscleChips, toggleMuscleChip } from '../utils/muscle-bar.utils';
 import type { GearDefinition } from '@/features/content/equipment/gear/core/gear-definition.types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface Props {
   gear: GearDefinition[];
 }
 
 export default function ActiveFilterChipsRow({ gear }: Props) {
+  const t = useT(library);
   const filters = useExerciseLibraryStore((s) => s.filters);
   const programs = useExerciseLibraryStore((s) => s.allPrograms);
   const setLevelsByProgram = useExerciseLibraryStore((s) => s.setLevelsByProgram);
@@ -39,13 +42,13 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
   for (const muscleChip of findActiveMuscleChips(filters.muscles)) {
     chips.push({
       id: `muscle-${muscleChip.key}`,
-      label: muscleChip.label,
+      label: t(muscleChip.labelKey),
       onRemove: () => setMuscles(toggleMuscleChip(filters.muscles, muscleChip)),
     });
   }
 
   for (const [programId, levels] of Object.entries(filters.levelsByProgram)) {
-    const programName = programs.find((p) => p.id === programId)?.name ?? 'מסלול';
+    const programName = programs.find((p) => p.id === programId)?.name ?? t('exercises.chips.trackFallback');
 
     chips.push({
       id: `track-${programId}`,
@@ -60,7 +63,7 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
     for (const level of levels) {
       chips.push({
         id: `track-${programId}-level-${level}`,
-        label: `${programName} · רמה ${level}`,
+        label: t('exercises.chips.trackLevel', { track: programName, level: String(level) }),
         onRemove: () => {
           setLevelsByProgram({
             ...filters.levelsByProgram,
@@ -74,14 +77,14 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
   if (filters.location === 'home' || filters.location === 'park') {
     chips.push({
       id: 'location',
-      label: filters.location === 'park' ? 'פארק' : 'בית',
+      label: t('exercises.chips.location', { location: filters.location }),
       onRemove: () => setFilterLocation(null),
     });
   }
 
   for (const id of filters.equipmentIds) {
     const label = id === BODYWEIGHT_SENTINEL
-      ? 'משקל גוף'
+      ? t('exercises.chips.bodyweight')
       : gear.find((g) => g.id === id)?.name?.he ?? gear.find((g) => g.id === id)?.name?.en ?? id;
     chips.push({
       id: `eq-${id}`,
@@ -111,7 +114,7 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
             <button
               type="button"
               onClick={chip.onRemove}
-              aria-label={`הסר ${chip.label}`}
+              aria-label={t('exercises.chips.remove', { label: chip.label })}
               className="text-cyan-500 hover:text-cyan-700"
             >
               <X size={12} />
@@ -123,7 +126,7 @@ export default function ActiveFilterChipsRow({ gear }: Props) {
           onClick={clearAll}
           className="flex-shrink-0 text-[11px] font-bold text-gray-500 px-1.5 py-1.5 whitespace-nowrap"
         >
-          נקה הכל
+          {t('exercises.chips.clearAll')}
         </button>
       </div>
     </div>

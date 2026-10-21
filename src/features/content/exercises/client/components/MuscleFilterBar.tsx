@@ -35,8 +35,11 @@ import { MUSCLE_BAR_CHIPS, chipIsActive, toggleMuscleChip } from '../utils/muscl
 import MuscleFilterChip from '@/components/ui/MuscleFilterChip';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export default function MuscleFilterBar() {
+  const t = useT(library);
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const selected = useExerciseLibraryStore((s) => s.filters.muscles);
@@ -58,7 +61,7 @@ export default function MuscleFilterBar() {
           <MuscleFilterChip
             key={chip.key}
             icon={chip.icon}
-            label={chip.label}
+            label={t(chip.labelKey)}
             selected={chip.isActive}
             onClick={() => setMuscles(toggleMuscleChip(selected, chip))}
             v2={v2}

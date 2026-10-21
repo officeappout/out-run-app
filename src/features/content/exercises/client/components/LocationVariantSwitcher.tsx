@@ -24,6 +24,8 @@ import {
   Shield,
   type LucideIcon,
 } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // Trivial style primitives (mirrors MasterExerciseView; duplicated by design so this
 // component is self-contained — the "source of truth" it owns is the SWITCHER visual
@@ -31,22 +33,24 @@ import {
 const PILL_BORDER = '0.5px solid #E0E9FF';
 const SECTION_FONT = { fontFamily: 'var(--font-simpler)' } as const;
 
-// ── Execution-location metadata (label + icon) — the single source of truth ─────
-export const LOCATION_META: Record<string, { label: string; Icon: LucideIcon }> = {
-  home:    { label: 'בית',          Icon: Home },
-  park:    { label: 'פארק',         Icon: Trees },
-  gym:     { label: 'חדר כושר',     Icon: Dumbbell },
-  street:  { label: 'רחוב',         Icon: MapPin },
-  office:  { label: 'משרד',         Icon: MapPin },
-  school:  { label: 'בית ספר',      Icon: MapPin },
-  airport: { label: 'שדה תעופה',    Icon: MapPin },
-  library: { label: 'ספרייה',       Icon: MapPin },
-  desk:    { label: 'שולחן',        Icon: MapPin },
-  service: { label: 'צבא/שירות',    Icon: Shield },
+// ── Execution-location metadata (icon) — the single source of truth ─────────────
+// The label is the `library` key exercises.locationSwitcher.location (an ICU select on the
+// location value; an unknown value falls through to `other` and renders the raw value, as before).
+export const LOCATION_META: Record<string, { Icon: LucideIcon }> = {
+  home:    { Icon: Home },
+  park:    { Icon: Trees },
+  gym:     { Icon: Dumbbell },
+  street:  { Icon: MapPin },
+  office:  { Icon: MapPin },
+  school:  { Icon: MapPin },
+  airport: { Icon: MapPin },
+  library: { Icon: MapPin },
+  desk:    { Icon: MapPin },
+  service: { Icon: Shield },
 };
 
-export function locationMeta(loc: string): { label: string; Icon: LucideIcon } {
-  return LOCATION_META[loc] ?? { label: loc, Icon: MapPin };
+export function locationMeta(loc: string): { Icon: LucideIcon } {
+  return LOCATION_META[loc] ?? { Icon: MapPin };
 }
 
 export interface LocationSwitcherGearChip {
@@ -86,6 +90,7 @@ export default function LocationVariantSwitcher({
   onClose,
   onSelect,
 }: LocationVariantSwitcherProps) {
+  const t = useT(library);
   const activeMeta = locationMeta(activeLocation);
   const ActiveIcon = activeMeta.Icon;
 
@@ -132,7 +137,7 @@ export default function LocationVariantSwitcher({
       >
         <ActiveIcon size={14} className="text-slate-500 flex-shrink-0" />
         <span className="text-xs font-semibold text-slate-700 whitespace-nowrap" style={SECTION_FONT}>
-          {activeMeta.label}
+          {t('exercises.locationSwitcher.location', { location: activeLocation })}
         </span>
         {canSwitch && (
           <ChevronDown
@@ -149,7 +154,7 @@ export default function LocationVariantSwitcher({
               dropdown no longer re-composites the hero <video>. */}
           <button
             type="button"
-            aria-label="סגור"
+            aria-label={t('exercises.locationSwitcher.close')}
             onPointerDown={onClose}
             className="absolute inset-0 cursor-default"
           />
@@ -194,7 +199,7 @@ export default function LocationVariantSwitcher({
                   <span className="flex-1 text-start">
                     {/* Location label */}
                     <span className={`block text-xs font-semibold ${isActive ? 'text-cyan-700' : 'text-slate-800'}`}>
-                      {optMeta.label}
+                      {t('exercises.locationSwitcher.location', { location: opt.location })}
                     </span>
 
                     {/* Gear sub-row: per-item icon + label chips */}
@@ -230,7 +235,7 @@ export default function LocationVariantSwitcher({
                       /* Bodyweight placeholder */
                       <span className="inline-flex items-center gap-0.5 mt-0.5">
                         <PersonStanding size={12} className="text-slate-400 flex-shrink-0" />
-                        <span className="text-[11px] font-normal text-slate-500">משקל גוף</span>
+                        <span className="text-[11px] font-normal text-slate-500">{t('exercises.locationSwitcher.bodyweight')}</span>
                       </span>
                     )}
                   </span>

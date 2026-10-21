@@ -54,6 +54,12 @@ import {
   type ProgressionChain,
 } from '../hooks/useExerciseMasterData';
 import { resolveTreeProgramId, resolveExerciseProgressionMapHref } from '@/lib/progression-map-config';
+import { useT } from '@/hooks/useT';
+import { library, type LibraryKey } from '@/messages/ns/library';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+
+/** The `library` translator, passed into this file's pure helpers. */
+type LibraryT = (key: LibraryKey, values?: MessageValues) => string;
 
 // ── Visual tokens (shared with ExerciseDetailSheet) ────────────────────────
 const PILL_BORDER = '0.5px solid #E0E9FF';
@@ -283,14 +289,14 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
-function relativeDayLabel(date: Date | null): string {
+function relativeDayLabel(date: Date | null, t: LibraryT): string {
   if (!date) return '';
   const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
-  if (days <= 0) return 'היום';
-  if (days === 1) return 'אתמול';
-  if (days < 7) return `לפני ${days} ימים`;
-  if (days < 30) return `לפני ${Math.floor(days / 7)} שבועות`;
-  return `לפני ${Math.floor(days / 30)} חודשים`;
+  if (days <= 0) return t('exercises.detail.perf.when.today');
+  if (days === 1) return t('exercises.detail.perf.when.yesterday');
+  if (days < 7) return t('exercises.detail.perf.when.days', { n: String(days) });
+  if (days < 30) return t('exercises.detail.perf.when.weeks', { n: String(Math.floor(days / 7)) });
+  return t('exercises.detail.perf.when.months', { n: String(Math.floor(days / 30)) });
 }
 
 // ── Progression chain node ───────────────────────────────────────────────
@@ -312,6 +318,7 @@ function ChainNode({
   /** Feature #5: show this node's level in the switcher's currently-selected path when it's tagged to it; falls back to the legacy targetPrograms[0] pick otherwise. */
   activeProgramId?: string | null;
 }) {
+  const t = useT(library);
   const v2 = useContext(MevV2);
   const cfg = LEVEL_ICONS[variant];
   const isCurrent = variant === 'same';
@@ -321,7 +328,6 @@ function ChainNode({
 
   if (v2) {
     const size = isCurrent ? 88 : 72;
-    const caption = variant === 'lower' ? 'קודם' : variant === 'same' ? 'עכשיו' : 'הבא';
     return (
       <div className="relative z-10 flex min-w-0 flex-1 flex-col items-center gap-1.5">
         <div className="grid h-[88px] place-items-center">
@@ -359,7 +365,7 @@ function ChainNode({
         </div>
         </div>
         <span className={`whitespace-nowrap text-[11.5px] font-extrabold ${isCurrent ? 'text-v2-deep' : 'text-v2-muted'}`}>
-          {caption} · רמה {level}
+          {t('exercises.detail.chain.node', { variant, level: String(level) })}
         </span>
         <span
           className={`w-full truncate whitespace-nowrap text-center text-[12.5px] font-extrabold ${locked ? 'text-v2-muted' : 'text-v2-ink'}`}
@@ -419,7 +425,7 @@ function ChainNode({
       <div className={`flex items-center gap-1 ${cfg.color}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cfg.src} alt="" width={14} height={14} className="object-contain" />
-        <span className="text-[11px] font-semibold">רמה {level}</span>
+        <span className="text-[11px] font-semibold">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רמה {level}</span>
       </div>
     </div>
   );
@@ -440,6 +446,7 @@ function ProgressionChainRow({
   /** Present only when the active path has a progression map — absent → no "מפה מלאה" link. */
   onOpenProgressionMap?: () => void;
 }) {
+  const t = useT(library);
   const v2 = useContext(MevV2);
   // SAFETY GATE: only render when there is a real progression lineage
   // (a prev OR a next variation). No fake/single-node chains.
@@ -455,7 +462,7 @@ function ProgressionChainRow({
       <section className="mb-6" dir="rtl">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="whitespace-nowrap text-right text-[17px] font-black text-v2-ink" style={SECTION_FONT}>
-            מסלול ההתקדמות
+            {t('exercises.detail.chain.title')}
           </h3>
           {onOpenProgressionMap && (
             <button
@@ -463,7 +470,7 @@ function ProgressionChainRow({
               onClick={onOpenProgressionMap}
               className="flex h-8 items-center gap-0.5 whitespace-nowrap rounded-full bg-white pe-2 ps-3 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
             >
-              מפה מלאה
+              {t('exercises.detail.chain.fullMap')}
               <ChevronLeft size={15} strokeWidth={2.5} />
             </button>
           )}
@@ -493,7 +500,7 @@ function ProgressionChainRow({
     <section className="mb-6" dir="rtl">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-right text-[16px] font-semibold text-slate-800" style={SECTION_FONT}>
-          מסלול ההתקדמות
+          {t('exercises.detail.chain.title')}
         </h3>
         {onOpenProgressionMap && (
           <button
@@ -501,7 +508,7 @@ function ProgressionChainRow({
             onClick={onOpenProgressionMap}
             className="text-[11px] font-bold text-[#00ADEF] active:opacity-70"
           >
-            מפה מלאה ←
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מפה מלאה ←
           </button>
         )}
       </div>
@@ -535,6 +542,7 @@ export default function MasterExerciseView({
   onMethodChange,
   notice,
 }: MasterExerciseViewProps) {
+  const t = useT(library);
   // Equipment caches power the gear/equipment labels + icons.
   useEffect(() => {
     void ensureEquipmentCachesLoaded();
@@ -591,7 +599,7 @@ export default function MasterExerciseView({
       const gear: MethodOption['gear'] = [];
       for (const id of uniqueGearIds) {
         const label = resolveEquipmentLabel(id);
-        if (!label || label === 'ציוד לא מזוהה') continue;
+        if (!label || label === 'ציוד לא מזוהה') continue; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's fallback
         gear.push({ id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null });
       }
 
@@ -805,7 +813,7 @@ export default function MasterExerciseView({
     const out: { id: string; label: string; icon: string | null }[] = [];
     for (const id of sheetData.equipmentIds) {
       const label = resolveEquipmentLabel(id);
-      if (!label || label === 'ציוד לא מזוהה') continue;
+      if (!label || label === 'ציוד לא מזוהה') continue; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's fallback
       out.push({ id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null });
     }
     return out;
@@ -814,15 +822,15 @@ export default function MasterExerciseView({
   // Sparkline data (ascending) + PB + last-session label for Section 4.
   const perf = useMemo(() => {
     if (!trend || trend.length === 0) return null;
-    const pb = Math.max(...trend.map((t) => t.maxReps));
+    const pb = Math.max(...trend.map((entry) => entry.maxReps));
     const last = trend[0]; // service returns newest-first
     const lastSets = Array.isArray(last?.reps) ? last.reps.length : 0;
-    const lastLabel = relativeDayLabel(toDate(last?.date));
+    const lastLabel = relativeDayLabel(toDate(last?.date), t);
     const chartData = [...trend]
       .reverse()
-      .map((t, i) => ({ session: i, maxReps: t.maxReps }));
+      .map((entry, i) => ({ session: i, maxReps: entry.maxReps }));
     return { pb, lastSets, lastLabel, chartData, count: trend.length };
-  }, [trend]);
+  }, [trend, t]);
 
   // ── Fix 2: Hero video resolved directly from the selected method index ───
   // We derive heroVideo / heroPoster from the exact method object so the
@@ -882,7 +890,7 @@ export default function MasterExerciseView({
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ),
-        label: 'שריר',
+        label: t('exercises.detail.facts.muscle'),
         value: getMuscleGroupLabel(primaryMuscle),
       });
     }
@@ -901,10 +909,10 @@ export default function MasterExerciseView({
       ) : (
         <PersonStanding size={16} strokeWidth={2.5} />
       ),
-      label: 'ציוד',
+      label: t('exercises.detail.facts.gear'),
       value:
         equipmentBadges.length === 0
-          ? 'משקל גוף'
+          ? t('exercises.detail.facts.bodyweight')
           : equipmentBadges.length === 1
             ? equipmentBadges[0].label
             : `${equipmentBadges[0].label} +${equipmentBadges.length - 1}`,
@@ -913,8 +921,8 @@ export default function MasterExerciseView({
       v2Facts.push({
         key: 'level',
         icon: <BarChart3 size={16} strokeWidth={2.5} />,
-        label: 'רמה',
-        value: `רמה ${activeProgramOption.level}`,
+        label: t('exercises.detail.facts.level'),
+        value: t('exercises.detail.facts.levelValue', { level: String(activeProgramOption.level) }),
       });
     }
   }
@@ -1028,7 +1036,7 @@ export default function MasterExerciseView({
               {programs.length > 0 && activeProgramOption && (
                 <section className={`min-w-0 ${!showEquipmentCol ? 'col-span-2' : ''}`}>
                   <h3 className={v2 ? `${v2H3} mb-2 leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 mb-2 leading-[30px]'} style={SECTION_FONT}>
-                    תוכניות
+                    {t('exercises.detail.programs')}
                   </h3>
                   <ProgramPathSwitcher
                     activeOption={activeProgramOption}
@@ -1051,7 +1059,7 @@ export default function MasterExerciseView({
                   {/* Header row: "ציוד" + (left) the location switcher badge */}
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <h3 className={v2 ? `${v2H3} leading-[30px]` : 'text-right text-[16px] font-semibold text-slate-800 leading-[30px]'} style={SECTION_FONT}>
-                      ציוד
+                      {t('exercises.detail.gear')}
                     </h3>
                     {hasSwitcher && selectedOption && (
                       <LocationVariantSwitcher
@@ -1114,7 +1122,7 @@ export default function MasterExerciseView({
                       style={v2 ? undefined : { border: PILL_BORDER, height: 30 }}
                     >
                       <PersonStanding size={16} className="text-slate-400 flex-shrink-0" />
-                      משקל גוף
+                      {t('exercises.detail.bodyweight')}
                     </span>
                   ) : null}
                 </section>
@@ -1146,20 +1154,20 @@ export default function MasterExerciseView({
               type="button"
               onClick={() => onNavigateToAnalytics?.(exercise.id, sheetData.name)}
               className={v2 ? 'w-full cursor-pointer rounded-v2-card bg-white p-4 text-right shadow-v2-card transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full text-right rounded-2xl bg-white border border-slate-100 p-4 shadow-subtle cursor-pointer active:scale-[0.98] transition-transform'}
-              aria-label="לצפייה בהתקדמות המלאה"
+              aria-label={t('exercises.detail.perf.open')}
             >
               <div className="flex items-baseline gap-1.5 mb-1">
                 <span className={v2 ? 'text-[28px] font-black tabular-nums text-v2-ink' : 'text-2xl font-black text-slate-900 tabular-nums'}>{perf.pb}</span>
-                <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-slate-400'}>שיא חזרות ברצף</span>
+                <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-xs font-bold text-slate-400'}>{t('exercises.detail.perf.best')}</span>
                 <span className={v2 ? 'ms-auto whitespace-nowrap text-[12px] font-bold text-v2-muted' : 'text-[10px] font-bold text-slate-400 ms-auto'}>
-                  {perf.count} אימונים
+                  {t('exercises.detail.perf.sessions', { count: String(perf.count) })}
                 </span>
               </div>
 
               <p className={v2 ? 'mb-2 text-[12.5px] font-bold text-v2-muted' : 'text-[11px] text-slate-500 mb-2'} style={SECTION_FONT}>
                 {perf.lastSets > 0
-                  ? `ביצעת ${perf.lastSets} סטים ${perf.lastLabel}`
-                  : `אימון אחרון ${perf.lastLabel}`}
+                  ? t('exercises.detail.perf.lastSets', { sets: String(perf.lastSets), when: perf.lastLabel })
+                  : t('exercises.detail.perf.last', { when: perf.lastLabel })}
               </p>
 
               {perf.count >= 2 ? (
@@ -1200,7 +1208,7 @@ export default function MasterExerciseView({
             {/* ── v2 Anatomy — primary (tint) + secondary tiles in one strip ── */}
             {(primaryMuscle || secondaryMuscles.length > 0) && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>שרירים</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.muscles')}</h3>
                 <div className="-mx-4 flex flex-row items-stretch gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
                   {[...(primaryMuscle ? [primaryMuscle] : []), ...secondaryMuscles].map((m, i) => {
                     const isPrimary = !!primaryMuscle && i === 0;
@@ -1227,7 +1235,7 @@ export default function MasterExerciseView({
                           {getMuscleGroupLabel(m)}
                         </span>
                         <span className="whitespace-nowrap text-[11px] font-bold text-v2-muted">
-                          {isPrimary ? 'ראשי' : 'משני'}
+                          {isPrimary ? t('exercises.detail.musclePrimary') : t('exercises.detail.muscleSecondary')}
                         </span>
                       </div>
                     );
@@ -1239,7 +1247,7 @@ export default function MasterExerciseView({
             {/* ── v2 Instructions — numbered steps ── */}
             {v2InstructionSteps.length > 0 && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>הוראות ביצוע</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.instructions')}</h3>
                 {v2InstructionSteps.length > 1 ? (
                   <ol className="space-y-3 rounded-v2-card bg-white p-4 shadow-v2-card">
                     {v2InstructionSteps.map((step, i) => (
@@ -1257,7 +1265,7 @@ export default function MasterExerciseView({
             {/* ── v2 Execution cues ── */}
             {sheetData.cues.length > 0 && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>דגשים</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.cues')}</h3>
                 <ol className="space-y-3 rounded-v2-card bg-white p-4 shadow-v2-card">
                   {sheetData.cues.map((cue, i) => (
                     <V2Step key={i} n={i + 1}>{cue}</V2Step>
@@ -1268,7 +1276,7 @@ export default function MasterExerciseView({
 
             {sheetData.description && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>תיאור</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.description')}</h3>
                 <p className="text-[14.5px] leading-relaxed text-v2-ink-2" style={SECTION_FONT}>
                   {sheetData.description}
                 </p>
@@ -1277,7 +1285,7 @@ export default function MasterExerciseView({
 
             {sheetData.goal && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>מטרות</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.goals')}</h3>
                 <div className="flex items-start gap-3 rounded-[20px] bg-white p-4 shadow-v2-ring">
                   <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-full bg-v2-tint text-v2-deep">
                     <Target size={16} strokeWidth={2.5} />
@@ -1291,7 +1299,7 @@ export default function MasterExerciseView({
 
             {sheetData.tips.length > 0 && (
               <section className="mb-6">
-                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>טיפים</h3>
+                <h3 className={`${v2H3} mb-3`} style={SECTION_FONT}>{t('exercises.detail.tips')}</h3>
                 <ul className="space-y-2.5">
                   {sheetData.tips.map((tip, i) => (
                     <li key={i} className="flex items-start gap-2.5">
@@ -1317,7 +1325,7 @@ export default function MasterExerciseView({
               {primaryMuscle && (
                 <div className="flex-shrink-0">
                   <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
-                    שריר ראשי
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}שריר ראשי
                   </h3>
                   <div className="flex flex-col items-center gap-1.5">
                     <div className="h-11 w-11 flex items-center justify-center flex-shrink-0">
@@ -1340,7 +1348,7 @@ export default function MasterExerciseView({
               {secondaryMuscles.length > 0 && (
                 <div className="flex-1 min-w-0">
                   <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-2 leading-6" style={SECTION_FONT}>
-                    שרירים משניים
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}שרירים משניים
                   </h3>
                   <div className="flex flex-row items-start gap-4 overflow-x-auto no-scrollbar pb-1">
                     {secondaryMuscles.map((m) => (
@@ -1370,7 +1378,7 @@ export default function MasterExerciseView({
         {sheetData.cues.length > 0 && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
-              דגשים
+              {t('exercises.detail.cues')}
             </h3>
             <ol className="space-y-2.5">
               {sheetData.cues.map((cue, i) => (
@@ -1391,7 +1399,7 @@ export default function MasterExerciseView({
         {sheetData.description && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
-              תיאור
+              {t('exercises.detail.description')}
             </h3>
             <p className="text-sm text-slate-700 leading-relaxed" style={SECTION_FONT}>
               {sheetData.description}
@@ -1402,7 +1410,7 @@ export default function MasterExerciseView({
         {sheetData.goal && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
-              מטרות
+              {t('exercises.detail.goals')}
             </h3>
             <div className="flex items-start gap-3 bg-slate-50 rounded-xl p-4" style={{ border: PILL_BORDER }}>
               <Target size={18} className="flex-shrink-0 mt-0.5 text-cyan-600" />
@@ -1416,7 +1424,7 @@ export default function MasterExerciseView({
         {sheetData.instructions && sheetData.instructions !== sheetData.description && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
-              הוראות ביצוע
+              {t('exercises.detail.instructions')}
             </h3>
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line" style={SECTION_FONT}>
               {sheetData.instructions}
@@ -1427,7 +1435,7 @@ export default function MasterExerciseView({
         {sheetData.tips.length > 0 && (
           <section className="mb-6">
             <h3 className="text-right text-[16px] font-semibold text-slate-800 mb-3" style={SECTION_FONT}>
-              טיפים
+              {t('exercises.detail.tips')}
             </h3>
             <ul className="space-y-2">
               {sheetData.tips.map((tip, i) => (

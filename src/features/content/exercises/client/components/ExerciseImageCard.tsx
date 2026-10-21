@@ -32,6 +32,8 @@ import { Gauge, Play } from 'lucide-react';
 import { Exercise, getLocalizedText } from '../../core/exercise.types';
 import { resolveCardLevel } from '../hooks/useExerciseLibraryFilters';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 import {
   pickPrimaryMuscle,
   pickThumbnailUrl,
@@ -55,6 +57,7 @@ function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCardProps) {
+  const t = useT(library);
   const filterLocation = useExerciseLibraryStore((s) => s.filters.location);
   const levelsByProgram = useExerciseLibraryStore((s) => s.filters.levelsByProgram);
   const allPrograms = useExerciseLibraryStore((s) => s.allPrograms);
@@ -139,7 +142,7 @@ export default function ExerciseImageCard({ exercise, onClick }: ExerciseImageCa
               label={muscle.he}
             />
           ) : <span />}
-          {level != null && <Pill icon={<Gauge size={10} />} label={`רמה ${level}`} />}
+          {level != null && <Pill icon={<Gauge size={10} />} label={t('exercises.card.level', { level: String(level) })} />}
         </div>
       )}
 
