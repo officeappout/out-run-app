@@ -1,1 +1,1 @@
-navigator.share([{"title":"OutRun","text":"היי, הצטרפתי ל-רצי הירקון ב-OutRun! בוא/י להתאמן איתי: http://localhost:3000"}])
+navigator.share([{"title":"OutRun","text":"היי, הצטרפתי ל-רצי הירקון ב-OutRun! בואו להתאמן איתי: http://localhost:3000"}])

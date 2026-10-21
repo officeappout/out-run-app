@@ -118,7 +118,7 @@ describe('RouteOverviewCompactCard (M-5e)', () => {
   });
   it('not focused: a white "choose" pill, no gradient', () => {
     const html = renderToStaticMarkup(<RouteOverviewCompactCard route={route} activity="running" isActive={false} onOpen={noop} onStart={noop} />);
-    expect(html).toContain('בחר את המסלול הזה');
+    expect(html).toContain('בוחרים את המסלול הזה'); // gender batch 2: unknown gender → neutral
     expect(html).not.toContain('bg-v2-cta');
   });
 });

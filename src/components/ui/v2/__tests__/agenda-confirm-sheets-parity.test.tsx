@@ -151,7 +151,7 @@ function OriginalDelete({ deleteEntryId }: { deleteEntryId: { entryId: string; g
               setDeleteEntryId(null);
             }}
           >
-            מחק
+            מחיקה{/* gender batch 2: one-word buttons → nouns (decision 2) */}
           </button>
           <button
             type="button"

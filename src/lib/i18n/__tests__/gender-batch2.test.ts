@@ -82,7 +82,9 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
 ];
 
 function tr(id: string, values?: Record<string, unknown>): string {
-  const [ns, key] = id.split(/:(.*)/s);
+  const i = id.indexOf(':');
+  const ns = id.slice(0, i);
+  const key = id.slice(i + 1);
   return T[ns](key, values);
 }
 

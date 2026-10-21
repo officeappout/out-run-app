@@ -299,7 +299,6 @@ export default function NeighborhoodLeaderboard({
   const getSocialUnlocked = useUserStore((s) => s.getSocialUnlocked);
   const socialUnlocked    = getSocialUnlocked();
   const profile           = useUserStore((s) => s.profile);
-  const uiGender          = useUiGender();
   // bypassSocialGate overrides both gates — used for soft_launch cities so
   // seeded demo data is fully visible without a real referral.
   const shouldBlur = !bypassSocialGate && (!isLeagueActive || !socialUnlocked);
@@ -415,6 +414,7 @@ export function NeighborhoodLeaderboardView({
   initialPeekUid,
   initialHowOpen = false,
 }: NeighborhoodLeaderboardViewProps) {
+  const uiGender = useUiGender();
   const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [showInvite, setShowInvite]             = useState(false);
   const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
