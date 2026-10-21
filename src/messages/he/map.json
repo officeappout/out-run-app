@@ -203,5 +203,8 @@
   "equipment.autoCue.legs.1": "שמור על משקל באמצע כף הרגל לאורך כל החזרה",
   "equipment.autoCue.legs.2": "אל תקרוס פנימה בברכיים — דחוף החוצה במכוון",
   "equipment.autoCue.generic.1": "שמור על תנועה מבוקרת — אין צורך להאיץ",
-  "equipment.autoCue.generic.2": "רכז כל חזרה בשריר היעד, לא בתאוצה"
+  "equipment.autoCue.generic.2": "רכז כל חזרה בשריר היעד, לא בתאוצה",
+  "mapError.title": "המפה נתקלה בבעיה",
+  "mapError.body": "לרוב זה נפתר לאחר טעינה מחדש. הנתונים שלך נשמרו.",
+  "mapError.retry": "נסה שוב"
 }

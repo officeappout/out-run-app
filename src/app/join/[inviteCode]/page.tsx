@@ -11,21 +11,25 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
 import type { CommunityGroup } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
-const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
-  walking:      { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
-  running:      { label: 'ריצה',       icon: '🏃', gradient: 'from-orange-500 to-red-500' },
-  yoga:         { label: 'יוגה',       icon: '🧘', gradient: 'from-violet-500 to-purple-600' },
-  calisthenics: { label: 'קליסתניקס', icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
-  cycling:      { label: 'רכיבה',      icon: '🚴', gradient: 'from-lime-500 to-green-600' },
-  other:        { label: 'אחר',        icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
+// The category label is the `join.category` select (onboarding namespace) — same keys, `other` = fallback.
+const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
+  walking:      { icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
+  running:      { icon: '🏃', gradient: 'from-orange-500 to-red-500' },
+  yoga:         { icon: '🧘', gradient: 'from-violet-500 to-purple-600' },
+  calisthenics: { icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
+  cycling:      { icon: '🚴', gradient: 'from-lime-500 to-green-600' },
+  other:        { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
-const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names — wave 3 (fmt)
 
 export default function JoinPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useT(onboarding);
   const inviteCode = typeof params.inviteCode === 'string' ? params.inviteCode : '';
 
   const { profile } = useUserStore();
@@ -133,29 +137,33 @@ export default function JoinPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] px-6 text-center" dir="rtl">
         <AlertCircle className="w-14 h-14 text-gray-300 mb-4" />
-        <h1 className="text-xl font-black text-gray-900 mb-2">הקישור אינו תקף</h1>
+        <h1 className="text-xl font-black text-gray-900 mb-2">{t('join.invalid.title')}</h1>
         <p className="text-sm text-gray-500 mb-6 max-w-xs">
-          ייתכן שהקבוצה הוסרה או שהקישור פג תוקפו.
+          {t('join.invalid.body')}
         </p>
         <button
           onClick={() => router.push('/community')}
           className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-black shadow-lg shadow-cyan-500/30"
         >
-          גלה קבוצות אחרות
+          {t('join.invalid.cta')}
         </button>
       </div>
     );
   }
 
   const cat = CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other;
+  const categoryLabel = t('join.category', { category: CATEGORY_CONFIG[group.category] ? group.category : '' });
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
       return group.scheduleSlots
-        .map((s) => `יום ${DAY_LABELS[s.dayOfWeek]} בשעה ${s.time}`)
+        .map((s) => t('join.schedule.slot', { day: String(DAY_LABELS[s.dayOfWeek]), time: String(s.time) }))
         .join(' · ');
     }
     if (group.schedule) {
-      return `יום ${DAY_LABELS[group.schedule.dayOfWeek]} בשעה ${group.schedule.time}`;
+      return t('join.schedule.slot', {
+        day: String(DAY_LABELS[group.schedule.dayOfWeek]),
+        time: String(group.schedule.time),
+      });
     }
     return null;
   })();
@@ -184,7 +192,7 @@ export default function JoinPage() {
         {/* Category chip */}
         <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full">
           <span>{cat.icon}</span>
-          <span>{cat.label}</span>
+          <span>{categoryLabel}</span>
         </div>
       </div>
 
@@ -193,7 +201,7 @@ export default function JoinPage() {
         {/* Invite tag */}
         <div className="flex items-center gap-1.5">
           <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-black">
-            הוזמנת להצטרף
+            {t('join.invited')}
           </span>
         </div>
 
@@ -218,13 +226,13 @@ export default function JoinPage() {
           )}
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Users className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-            <span className="font-medium">{group.currentParticipants} חברים כבר בפנים</span>
+            <span className="font-medium">{t('join.members', { count: String(group.currentParticipants ?? '') })}</span>
           </div>
         </div>
 
         {group.rules && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-            <p className="text-xs font-bold text-amber-700 mb-1">כללי הקבוצה</p>
+            <p className="text-xs font-bold text-amber-700 mb-1">{t('join.rules.title')}</p>
             <p className="text-xs text-amber-700 leading-relaxed whitespace-pre-line">{group.rules}</p>
           </div>
         )}
@@ -245,12 +253,12 @@ export default function JoinPage() {
           ) : (
             <>
               <Users className="w-5 h-5" />
-              הצטרף לקבוצה
+              {t('join.cta')}
             </>
           )}
         </button>
         <p className="text-center text-[11px] text-gray-400 mt-2.5">
-          תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות
+          {t('join.redirectNote')}
         </p>
       </div>
     </div>

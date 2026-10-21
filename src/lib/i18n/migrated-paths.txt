@@ -160,3 +160,20 @@ src/features/social/components/ShareImageSheet.tsx
 src/features/social/components/SummaryFeedShare.tsx
 src/features/social/components/social-t.ts
 src/features/social/components/share-v2/
+# wave 2 (app pages) — route pages with their own copy. Namespaces per HOW-TO §2: legal (accessibility.* /
+# privacy.* / deleteData.* / footer.*, new), onboarding (join.* / legacyRedirect.*), player (sessionInvite.*),
+# map (mapError.*), community (leagueLink.*), library (workoutHistory.* + common status/actions), pages
+# (refineLevels.*, new — app/settings has no owner). Marked, left Hebrew: privacy's section-title constants
+# (compared with PRIVACY_POLICY_HE), delete-data's mailto subject/body (office inbox), the accessibility
+# coordinator's name + date text (wave 3), join's weekday names (wave 3), session's fallback attendee name
+# (Firestore). The privacy policy body itself lives in src/features/legal (not migrated here).
+src/app/accessibility/
+src/app/privacy/
+src/app/delete-data/
+src/app/join/
+src/app/onboarding/page.tsx
+src/app/session/
+src/app/settings/refine-levels/
+src/app/map/error.tsx
+src/app/league/
+src/app/workouts/[id]/history/
