@@ -23,17 +23,24 @@ export const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳
 
 export const APP_ORIGIN_FALLBACK = APP_ORIGIN;
 
-export function formatSessionDate(dateISO: string, time: string): string {
+/** The caller's t (useT(community)) — the session-date keys this helper renders. */
+export type SessionDateT = (
+  key: 'group.session.today' | 'group.session.tomorrow' | 'group.session.weekday',
+  values: { time: string; day?: string },
+) => string;
+
+export function formatSessionDate(dateISO: string, time: string, t: SessionDateT): string {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   const d = new Date(dateISO + 'T00:00:00');
 
-  if (d.toDateString() === today.toDateString()) return `היום ב-${time}`;
-  if (d.toDateString() === tomorrow.toDateString()) return `מחר ב-${time}`;
+  if (d.toDateString() === today.toDateString()) return t('group.session.today', { time });
+  if (d.toDateString() === tomorrow.toDateString()) return t('group.session.tomorrow', { time });
 
+  // Weekday name stays 'he-IL' until wave 3 (fmt.weekdayName) — Intl output is not the same Hebrew everywhere.
   const dayName = d.toLocaleDateString('he-IL', { weekday: 'long' });
-  return `יום ${dayName} ב-${time}`;
+  return t('group.session.weekday', { day: dayName, time });
 }
 
 export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {

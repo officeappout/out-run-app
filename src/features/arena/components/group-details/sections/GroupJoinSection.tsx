@@ -4,6 +4,8 @@ import { Loader2, UserPlus, Lock } from 'lucide-react';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
 import type { AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
 import type { CommunityGroup } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupJoinSectionProps {
   v2: boolean;
@@ -43,6 +45,7 @@ export default function GroupJoinSection({
   joining,
   onJoin,
 }: GroupJoinSectionProps) {
+  const t = useT(community);
   return group.isLocked && !codeUnlocked ? (
     /* Case 1: tenant / unit access-code gate */
     <AccessCodeGate
@@ -63,12 +66,12 @@ export default function GroupJoinSection({
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black bg-gray-900 text-white shadow-lg transition-all active:scale-[0.97]"
         >
           <Lock className="w-4 h-4" />
-          הזן קוד הצטרפות
+          {t('group.join.enterCode')}
         </button>
       ) : (
         <div className="space-y-2.5">
           <p className="text-xs text-gray-500 text-center font-semibold">
-            זו קהילה פרטית — הזינו את קוד ההצטרפות:
+            {t('group.join.privateHint')}
           </p>
           <div className="flex gap-2">
             <input
@@ -82,7 +85,7 @@ export default function GroupJoinSection({
               maxLength={6}
               placeholder="XXXXXX"
               autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- appears right after the user taps "הזן קוד הצטרפות"
-              aria-label="קוד הצטרפות לקהילה"
+              aria-label={t('group.join.codeLabel')}
               className={`flex-1 text-center text-lg font-mono font-black tracking-widest border-2 rounded-2xl px-3 py-3 focus:outline-none transition-colors ${
                 inviteError
                   ? 'border-red-400 bg-red-50 text-red-600'
@@ -94,19 +97,19 @@ export default function GroupJoinSection({
               onClick={() => void onInviteSubmit()}
               className="px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-black disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"
             >
-              {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'אישור'}
+              {inviteSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('group.join.submit')}
             </button>
           </div>
           {inviteError && (
             <p role="alert" className="text-sm text-red-500 font-bold text-center">
-              קוד שגוי, אנא נסה שנית
+              {t('group.join.wrongCode')}
             </p>
           )}
           <button
             onClick={onInviteCancel}
             className="w-full text-xs text-gray-400 font-semibold py-1 hover:text-gray-600 transition-colors"
           >
-            ביטול
+            {t('group.join.cancel')}
           </button>
         </div>
       )}
@@ -129,7 +132,7 @@ export default function GroupJoinSection({
       ) : (
         <>
           <UserPlus className="w-4 h-4" />
-          הצטרף לקבוצה
+          {t('group.join.join')}
         </>
       )}
     </button>

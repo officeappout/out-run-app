@@ -1,6 +1,8 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /**
  * External registration — the actual enrollment action when the group has
@@ -10,6 +12,7 @@ import { ExternalLink } from 'lucide-react';
  * demoted to secondary (07.09.2026).
  */
 export default function RegistrationLinkButton({ href }: { href: string }) {
+  const t = useT(community);
   return (
     <a
       href={href}
@@ -18,7 +21,7 @@ export default function RegistrationLinkButton({ href }: { href: string }) {
       className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-black bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg transition-all active:scale-[0.97]"
     >
       <ExternalLink className="w-4 h-4" />
-      הרשמה
+      {t('group.join.register')}
     </a>
   );
 }
