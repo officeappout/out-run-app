@@ -148,7 +148,7 @@ src/features/parks/core/store/usePresenceStore.ts:64
 מהחקירה של 11.08, **סעיף שמעולם לא בוצע**:
 
 ```
-src/components/LemurMarker.tsx:18-49
+src/features/parks/core/components/LemurMarker.tsx:18-49
     framer-motion animate={{scale:[1,1.05,1]}} repeat: Infinity — בלי שום תנאי
 src/features/parks/core/components/AppMap.tsx:1790-1809
     animate-ping CSS halo, 2.8s, infinite — בענף שהקוד עצמו מסמן "Idle mode"

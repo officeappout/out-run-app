@@ -1,4 +1,4 @@
-import { hasStrengthTrack, hasRunningTrack } from './track-ownership';
+import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 
 export interface TabLocks {
   strength: boolean;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTabLocks } from '../resolveTabLocks';
+import { resolveTabLocks } from '../resolve-tab-locks';
 
 const strengthOnly = { progression: { domains: { upper_body: { currentLevel: 1 } } } };
 const runningOnly = { running: { isUnlocked: true } };

@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useFeatureFlags } from './useFeatureFlags';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { canUseAi, type AiEntitlementDoc } from '@/lib/ai/ai-entitlement';
 
 export function useAiEntitlement(

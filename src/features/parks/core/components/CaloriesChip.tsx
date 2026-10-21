@@ -16,7 +16,7 @@
  */
 
 import { Flame } from 'lucide-react';
-import { useWeightNudge } from './WeightInlineRow';
+import { useWeightNudge } from '@/components/ui/WeightInlineRow';
 
 export type CaloriesChipVariant = 'chip' | 'stat' | 'ring' | 'inline';
 
