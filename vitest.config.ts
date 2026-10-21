@@ -71,6 +71,8 @@ export default defineConfig({
       'src/features/arena/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace, steps.* / location.*) — onboarding steps + location sheets parity (jsdom).
       'src/features/user/onboarding/components/steps/**/__tests__/**/*.test.tsx',
+      // i18n wave 2 (onboarding namespace, signup.*) — v2 signup sub-flows / what-now / program-path parity (jsdom).
+      'src/features/user/onboarding/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (community namespace, social.*) — feed / share / activity components, Hebrew markup parity.
       'src/features/social/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (app pages: legal / join / session / settings / map error / league / workout history) —
