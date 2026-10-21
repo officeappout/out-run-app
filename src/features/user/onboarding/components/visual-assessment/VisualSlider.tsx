@@ -21,6 +21,8 @@ import {
 } from '../../services/visual-content-resolver.service';
 import { resolveTierLabel, resolveSkillTierLabel, stepProportion, levelProportion } from '../../utils/assessment-tier-label';
 import { hapticSelection } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ── Category display metadata ──────────────────────────────────────
 
@@ -120,6 +122,7 @@ export default function VisualSlider({
   quizHintV2 = false,
   quizHintReminderOnly = false,
 }: VisualSliderProps) {
+  const t = useT(onboarding);
   const [dynamicSteps, setDynamicSteps] = useState<number[] | null>(null);
   const [stepsLoading, setStepsLoading] = useState(mode === 'simple');
   const [level, setLevel] = useState(Math.max(minLevel, Math.min(maxLevel, initialLevel)));
@@ -237,8 +240,8 @@ export default function VisualSlider({
 
   // Auto-dismiss hint after the animation finishes (2 loops × 3s = ~6s)
   useEffect(() => {
-    const t = setTimeout(() => setShowHint(false), 6500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowHint(false), 6500);
+    return () => clearTimeout(timer);
   }, [category]);
 
   // Auto-dismiss the JIT tutorial overlay after a few seconds even with zero
@@ -247,8 +250,8 @@ export default function VisualSlider({
   // dismiss never runs), which otherwise left the mask stuck up indefinitely.
   useEffect(() => {
     if (stepIndex !== 0) return;
-    const t = setTimeout(() => setShowTutorial(false), 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowTutorial(false), 5000);
+    return () => clearTimeout(timer);
   }, [stepIndex]);
 
   const fetchContent = useCallback(
@@ -275,7 +278,7 @@ export default function VisualSlider({
           videoUrl:     content.videoUrl     ?? null,
           thumbnailUrl: content.thumbnailUrl ?? null,
         };
-        setMountedTiers(prev => prev.some(t => t.id === tierId) ? prev : [...prev, newTier]);
+        setMountedTiers(prev => prev.some(tier => tier.id === tierId) ? prev : [...prev, newTier]);
         setActiveTierId(tierId);
 
         // Secondary HTTP cache warm-up (still useful as a byte-level layer).
@@ -300,7 +303,7 @@ export default function VisualSlider({
                 videoUrl:     adj.videoUrl     ?? null,
                 thumbnailUrl: adj.thumbnailUrl ?? null,
               };
-              setMountedTiers(prev => prev.some(t => t.id === adjId) ? prev : [...prev, adjTier]);
+              setMountedTiers(prev => prev.some(tier => tier.id === adjId) ? prev : [...prev, adjTier]);
             })
             .catch(() => { /* preload-only — silent failure is acceptable */ });
         }
@@ -418,8 +421,8 @@ export default function VisualSlider({
     ? stepProportion(sliderVal, steps.length)
     : levelProportion(level, minLevel, maxLevel);
   const tierLabel = isSkillCategory
-    ? resolveSkillTierLabel(tierProportion)
-    : resolveTierLabel(tierProportion, isFemale);
+    ? resolveSkillTierLabel(tierProportion, t)
+    : resolveTierLabel(tierProportion, isFemale, t);
 
   // Resolves CMS slash patterns like "דוחף/ת" → "דוחפת" (female) or "דוחף" (male).
   // Pattern: base/suffix — suffix appended for female, stripped for male.

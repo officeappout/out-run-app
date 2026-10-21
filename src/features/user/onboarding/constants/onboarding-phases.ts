@@ -12,6 +12,10 @@
  *  5   הצהרת בריאות (Health)           הצהרת בריאות (Health)
  */
 
+import onboardingHe from '@/messages/he/onboarding.json';
+import type { onboarding } from '@/messages/ns/onboarding';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+
 export const TOTAL_PHASES = 5;
 
 export const PHASE = {
@@ -24,13 +28,23 @@ export const PHASE = {
 
 // ── Track-specific labels ──────────────────────────────────────────
 
-export const STRENGTH_LABELS: Record<number, string> = {
-  1: 'שלב 1: הכרות',
-  2: 'שלב 2: בחירת מסלול',
-  3: 'שלב 3: מבדק רמה',
-  4: 'שלב 4: סיכום התוכנית',
-  5: 'שלב 5: הצהרת בריאות',
-};
+// i18n (namespace `onboarding`, keys `phases.strength.*`): the strength labels live in
+// src/messages/he/onboarding.json. Migrated screens render `t(STRENGTH_LABEL_KEYS[phase])`.
+// STRENGTH_LABELS (and STRENGTH_PHASES.labels) stay for the screens that are not migrated yet
+// (program-path, dynamic, health, health-connect, ResultLoading, ProgramResult,
+// IdentityProfileScreen, the visual-assessment components): they read the HEBREW catalog
+// directly — same text as before, but Hebrew in every locale until each caller moves to the keys.
+export const STRENGTH_LABEL_KEYS = {
+  1: 'phases.strength.profile',
+  2: 'phases.strength.programPath',
+  3: 'phases.strength.assessment',
+  4: 'phases.strength.summary',
+  5: 'phases.strength.health',
+} as const satisfies Record<number, NamespaceKey<typeof onboarding>>;
+
+export const STRENGTH_LABELS: Record<number, string> = Object.fromEntries(
+  Object.entries(STRENGTH_LABEL_KEYS).map(([phase, key]) => [phase, onboardingHe[key]]),
+);
 
 export const RUNNING_LABELS: Record<number, string> = {
   1: 'שלב 1: הכרות',

@@ -36,3 +36,10 @@ src/features/heatmap/services/
 src/features/parks/client/components/route-preview/
 src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
+
+# wave 2 batch (namespace onboarding, keys assessment.* / tier.* / phases.*) — the strength
+# assessment page's own copy + the tier-pill resolver. constants/onboarding-phases.ts is NOT
+# listed: RUNNING_LABELS (not in this batch) is still Hebrew there, and STRENGTH_LABELS stays
+# (read from the he catalog) for the callers outside this PR — manual list in the PR.
+src/app/onboarding-new/assessment-visual/
+src/features/user/onboarding/utils/assessment-tier-label.ts
