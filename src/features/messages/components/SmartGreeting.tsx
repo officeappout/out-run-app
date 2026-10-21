@@ -25,7 +25,7 @@ import { useSmartGreeting, type GreetingContext } from '../hooks/useSmartGreetin
 import { useDailyActivity } from '@/features/activity';
 import { useUserStore } from '@/features/user';
 import type { MessageType } from '../services/MessageService';
-import { replaceMessageVariables } from '@/core/constants';
+import { replaceMessageVariables } from '@/lib/constants';
 
 // ============================================================================
 // TYPES

@@ -47,7 +47,7 @@ import {
     CATEGORY_LABELS,
 } from '@/features/admin/services/category-branding.service';
 import type { CategoryBrandingConfig, BrandingCategoryKey } from '@/features/admin/services/category-branding.service';
-import { getFacilityIcon } from '@/utils/facility-icon';
+import { getFacilityIcon } from '@/lib/utils/facility-icon';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
 

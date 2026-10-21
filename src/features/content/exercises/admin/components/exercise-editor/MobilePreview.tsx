@@ -15,7 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { MUSCLE_GROUP_LABELS } from './shared/constants';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 
 interface MobilePreviewProps {
   formData: ExerciseFormData;

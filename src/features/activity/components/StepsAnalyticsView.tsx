@@ -57,7 +57,7 @@ import {
   type StepsAnalyticsStats,
 } from '../lib/steps-analytics.logic';
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
-import { STEPS_COLOR } from '@/config/health-goals';
+import { STEPS_COLOR } from '@/features/activity/config/health-goals.config';
 import { useT } from '@/hooks/useT';
 import { profile } from '@/messages/ns/profile';
 

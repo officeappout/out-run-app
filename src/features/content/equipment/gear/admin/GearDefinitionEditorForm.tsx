@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 
 interface GearDefinitionEditorFormProps {
   onSubmit: (data: GearDefinitionFormData) => void;

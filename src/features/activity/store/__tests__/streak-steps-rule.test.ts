@@ -36,7 +36,7 @@ import {
   dayQualifiesForStreak,
   effectiveStepsGoal,
 } from '../../lib/streak-rules';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 const store = () => useActivityStore.getState();
 

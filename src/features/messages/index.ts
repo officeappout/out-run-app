@@ -51,4 +51,4 @@ export {
   MESSAGE_VARIABLES,
   replaceMessageVariables,
   type LifestyleId,
-} from '@/core/constants';
+} from '@/lib/constants';

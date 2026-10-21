@@ -11,7 +11,7 @@ import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/ser
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { Authority } from '@/types/admin-types';
 import { BarChart3, Building2, ChevronDown } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import AnalyticsDashboard from '@/features/admin/components/authority-manager/AnalyticsDashboard';
 
 const AUTHORITY_STORAGE_KEY = 'admin_selected_authority_id';

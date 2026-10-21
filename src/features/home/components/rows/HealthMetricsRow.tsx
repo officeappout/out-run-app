@@ -20,7 +20,7 @@ import { Heart, Footprints } from 'lucide-react';
 import { useWeeklyProgress } from '@/features/activity';
 import { useLiveDailyActivity } from '@/features/activity/hooks/useLiveDailyActivity';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import SideBySideRow from './SideBySideRow';
 import SectionHeader from './SectionHeader';
 import CompactMetricTile from '@/features/home/components/widgets/CompactMetricTile';
