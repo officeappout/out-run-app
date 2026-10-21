@@ -55,6 +55,8 @@ import { useUnifiedSearchFlag } from '@/features/search/hooks/useUnifiedSearchFl
 import { useMapQuickPlaces, MAP_QUICK_LABEL } from '@/features/search/hooks/useMapQuickPlaces';
 import MapQuickChips from '@/features/search/components/map/MapQuickChips';
 import MapSearchAllRow from '@/features/search/components/map/MapSearchAllRow';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 // ── Type icon + tone (shared with the search pick cards) ─────────────────────
 const PLACE_TYPE_ICON: Record<GeoPlaceType, typeof MapPin> = {
@@ -108,6 +110,7 @@ export default function SearchOverlayV2({
   onSetSavedPlace,
   userPos,
 }: SearchOverlayV2Props) {
+  const t = useT(map);
   const savedPlaces = useSavedPlacesStore((s) => s.places);
   const recents = useRecentSearchesStore((s) => s.recents);
   const removeRecent = useRecentSearchesStore((s) => s.removeRecent);
@@ -173,7 +176,7 @@ export default function SearchOverlayV2({
             <input
               ref={inputRef}
               type="text"
-              placeholder="כתובת, רחוב, פארק או מסלול"
+              placeholder={t('mapSearch.placeholder')}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="min-w-0 flex-1 border-none bg-transparent text-right text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted"
@@ -183,7 +186,7 @@ export default function SearchOverlayV2({
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                aria-label="נקה חיפוש"
+                aria-label={t('mapSearch.clear')}
                 className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline ${PRESS}`}
               >
                 <X size={12} strokeWidth={2.4} className="text-v2-muted" />
@@ -195,7 +198,7 @@ export default function SearchOverlayV2({
             onClick={onCancel}
             className={`shrink-0 whitespace-nowrap px-1 text-[14px] font-extrabold text-v2-deep ${PRESS}`}
           >
-            ביטול
+            {t('mapSearch.cancel')}
           </button>
         </div>
 
@@ -204,7 +207,7 @@ export default function SearchOverlayV2({
         {/* Filter chips — only the groups that have hits */}
         {typing && groups.length > 1 && (
           <div className="mt-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>הכל · {total}</FilterChip>
+            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>{t('mapSearch.filterAll', { count: String(total) })}</FilterChip>
             {groups.map((g) => {
               const { Icon } = suggestionIcon(g.items[0]);
               return (
@@ -229,7 +232,7 @@ export default function SearchOverlayV2({
                 const km = slot ? distanceKmTo(userPos, slot.coords) : null;
                 const sub = slot
                   ? [slot.address ?? slot.label, formatDistanceKm(km)].filter(Boolean).join(' · ')
-                  : 'הקש להגדרה';
+                  : t('mapSearch.saved.unset');
                 return (
                   <button
                     key={kind}
@@ -241,7 +244,7 @@ export default function SearchOverlayV2({
                       <Icon size={17} strokeWidth={2.3} />
                     </span>
                     <span className="min-w-0">
-                      <span className="block whitespace-nowrap text-[14px] font-black text-v2-ink">{kind === 'home' ? 'בית' : 'עבודה'}</span>
+                      <span className="block whitespace-nowrap text-[14px] font-black text-v2-ink">{t('mapSearch.saved.kind', { kind })}</span>
                       <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{sub}</span>
                     </span>
                   </button>
@@ -252,9 +255,9 @@ export default function SearchOverlayV2({
             {recents.length > 0 && (
               <div className={CARD}>
                 <div className="flex items-center justify-between px-1 py-0.5">
-                  <span className={SECTION_LABEL}>אחרונים</span>
+                  <span className={SECTION_LABEL}>{t('mapSearch.recents.title')}</span>
                   <button type="button" onClick={clearRecents} className={`whitespace-nowrap text-[12.5px] font-extrabold text-v2-deep ${PRESS}`}>
-                    נקה
+                    {t('mapSearch.recents.clear')}
                   </button>
                 </div>
                 {recents.map((entry) => {
@@ -277,7 +280,7 @@ export default function SearchOverlayV2({
 
             {(quick.active ? quick.items : nearby).length > 0 && (
               <div className={CARD}>
-                <div className="px-1 py-0.5"><span className={SECTION_LABEL}>{quick.active ? MAP_QUICK_LABEL[quick.active] : 'קרוב אליך'}</span></div>
+                <div className="px-1 py-0.5"><span className={SECTION_LABEL}>{quick.active ? MAP_QUICK_LABEL[quick.active] : t('mapSearch.nearby')}</span></div>
                 {(quick.active ? quick.items : nearby).map((item) => {
                   const lines = groupedRowLines(item);
                   return (
@@ -304,8 +307,8 @@ export default function SearchOverlayV2({
               <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-white text-v2-muted shadow-v2-ring">
                 <MapPin size={22} strokeWidth={2.3} />
               </span>
-              <p className="text-[15px] font-black text-v2-ink">לא נמצאו תוצאות</p>
-              <p className="mt-1 text-[12.5px] font-bold text-v2-muted">נסו כתובת, שם רחוב, פארק או מסלול</p>
+              <p className="text-[15px] font-black text-v2-ink">{t('mapSearch.none.title')}</p>
+              <p className="mt-1 text-[12.5px] font-bold text-v2-muted">{t('mapSearch.none.hint')}</p>
             </div>
           )
         ) : (
@@ -322,7 +325,7 @@ export default function SearchOverlayV2({
                         onClick={() => setExpanded((e) => ({ ...e, [g.id]: true }))}
                         className={`whitespace-nowrap text-[12.5px] font-extrabold text-v2-deep ${PRESS}`}
                       >
-                        עוד {hiddenCount}
+                        {t('mapSearch.more', { count: String(hiddenCount) })}
                       </button>
                     )}
                   </div>
@@ -383,6 +386,7 @@ function ResultRow({
   onRemove?: () => void;
 }) {
   const { Icon, tone } = suggestionIcon(item);
+  const t = useT(map);
   return (
     <div className="flex items-center gap-1">
       <button type="button" onClick={onClick} className={`flex min-w-0 flex-1 items-center gap-3 px-1 py-2.5 text-start ${PRESS}`}>
@@ -409,7 +413,7 @@ function ResultRow({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`הסר את ${primary} מההיסטוריה`}
+          aria-label={t('mapSearch.recents.remove', { name: primary })}
           className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-v2-muted ${PRESS}`}
         >
           <X size={13} strokeWidth={2.4} />

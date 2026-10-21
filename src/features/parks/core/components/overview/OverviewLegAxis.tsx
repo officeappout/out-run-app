@@ -19,6 +19,8 @@ import { ACCENT, AxisRow, AxisV2, Node, RouteDivider, TransportRow, YourLocation
 import AerobicLegCard from './axis/AerobicLegCard';
 import { AxisDecor, type AxisDecorations } from './axis/axis-decor';
 import GroupLegCard from './axis/GroupLegCard';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface OverviewLegAxisProps {
   legs: readonly OverviewLeg[];
@@ -49,9 +51,12 @@ const NO_DECOR: AxisDecorations = {};
 
 export default function OverviewLegAxis({
   legs, v2 = false, top, renderStation, renderLegDetail,
-  origin, originNote, startLabel = 'תחילת המסלול', endLabel = 'סיום המסלול', beforeEnd, showReturn = true,
+  origin, originNote, startLabel: startLabelProp, endLabel: endLabelProp, beforeEnd, showReturn = true,
   decorations = NO_DECOR,
 }: OverviewLegAxisProps) {
+  const t = useT(map);
+  const startLabel = startLabelProp ?? t('overview.axis.start');
+  const endLabel = endLabelProp ?? t('overview.axis.end');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((m) => ({ ...m, [key]: !m[key] }));
   const walkThere = transportMinutes(legs, 'there');

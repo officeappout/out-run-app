@@ -76,6 +76,8 @@ export default defineConfig({
       // i18n wave 2 (app pages: legal / join / session / settings / map error / league / workout history) —
       // Hebrew markup parity of the route pages' own copy (static markup + jsdom).
       'src/app/__tests__/app-pages-i18n/**/*.test.tsx',
+      // i18n wave 2 (map namespace) — parks/core map UI (cards, search, banners), Hebrew markup parity (static + jsdom).
+      'src/features/parks/core/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

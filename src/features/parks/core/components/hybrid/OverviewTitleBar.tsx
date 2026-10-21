@@ -14,6 +14,8 @@
  */
 
 import { ArrowRight } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 // Same accent as HybridOverviewScreen (ACCENT) / the running out-cyan token — no new hex.
 const OVERVIEW_BLUE = '#00ADEF';
@@ -28,7 +30,10 @@ interface Props {
   onBack: () => void;
 }
 
-export default function OverviewTitleBar({ title, onBack, eyebrow = 'מבט על אימון' }: Props) {
+export default function OverviewTitleBar({ title, onBack, eyebrow: eyebrowProp }: Props) {
+  const t = useT(map);
+  // undefined → the default eyebrow; null → no eyebrow (as before).
+  const eyebrow = eyebrowProp === undefined ? t('hybrid.titleBar.eyebrow') : eyebrowProp;
   return (
     <div
       className="absolute left-0 right-0 z-[70] pointer-events-auto"
@@ -44,7 +49,7 @@ export default function OverviewTitleBar({ title, onBack, eyebrow = 'מבט על
         <button
           type="button"
           onClick={onBack}
-          aria-label="חזרה"
+          aria-label={t('hybrid.titleBar.back')}
           className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full text-white active:scale-95 transition-transform"
         >
           <ArrowRight size={24} />

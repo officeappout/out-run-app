@@ -52,6 +52,8 @@ import {
   SAVED_PLACE_KIND_LABEL,
   type SavedPlaceKind,
 } from '@/features/user/places/store/useSavedPlacesStore';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const CLOSE =
   'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline active:scale-[0.97] transition-transform duration-150 ease-v2';
@@ -81,6 +83,7 @@ function RunIcon({ size = 18 }: { size?: number }) {
  * 300 px/s flick closes), whole surface scrolls.
  */
 function PickSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const t = useT(map);
   return (
     <Sheet
       open
@@ -95,7 +98,7 @@ function PickSheet({ onClose, children }: { onClose: () => void; children: React
       dragToDismiss={{ distance: 80, velocity: 300, elastic: 0.25 }}
       enterY={400}
       transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-      ariaLabel="תוצאת חיפוש"
+      ariaLabel={t('pick.sheetLabel')}
       keyboardAware={false}
     >
       {children}
@@ -155,12 +158,13 @@ export function SearchDestinationCard({
   onStartActivity: (mode: 'running' | 'walking') => void;
   onOpenRoute: (route: Route) => void;
 }) {
+  const t = useT(map);
   const { primary, rest } = splitGeoLabel(place.text);
   const city = stripCountry(rest);
   const km = distanceKmTo(userPos, place.coords);
   const { Icon } = suggestionIcon({ _source: 'mapbox', placeType: place.placeType });
-  const typeLabel = place.placeType ? PLACE_TYPE_LABEL[place.placeType] : 'מיקום';
-  const sub = [city, km != null ? `${formatDistanceKm(km)} ממך` : ''].filter(Boolean).join(' · ');
+  const typeLabel = place.placeType ? PLACE_TYPE_LABEL[place.placeType] : t('pick.place.typeFallback');
+  const sub = [city, km != null ? t('pick.place.fromYou', { distance: formatDistanceKm(km) }) : ''].filter(Boolean).join(' · ');
 
   // Official routes passing near the place (read-only, cached list).
   const [nearRoutes, setNearRoutes] = useState<Route[]>([]);
@@ -208,7 +212,7 @@ export function SearchDestinationCard({
           <div className="truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{primary}</div>
           {sub && <div className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{sub}</div>}
         </div>
-        <button type="button" onClick={onClose} aria-label="סגור" className={CLOSE}>
+        <button type="button" onClick={onClose} aria-label={t('pick.close')} className={CLOSE}>
           <X size={16} strokeWidth={2.4} className="text-v2-ink-2" />
         </button>
       </div>
@@ -216,21 +220,21 @@ export function SearchDestinationCard({
       {km != null && (
         <div className="mt-3 flex gap-2">
           <span className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] font-extrabold ${RUN_TONE}`}>
-            <RunIcon size={13} /> ריצה {formatEta(estimateMinutes(km, 'running'))}
+            <RunIcon size={13} />{' '}{t('pick.eta.run', { eta: formatEta(estimateMinutes(km, 'running')) })}
           </span>
           <span className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] font-extrabold ${WALK_TONE}`}>
-            <Footprints size={13} strokeWidth={2.5} /> הליכה {formatEta(estimateMinutes(km, 'walking'))}
+            <Footprints size={13} strokeWidth={2.5} />{' '}{t('pick.eta.walk', { eta: formatEta(estimateMinutes(km, 'walking')) })}
           </span>
         </div>
       )}
 
       <div className="mt-3.5 flex gap-2">
-        <ActionTile icon={<RunIcon />} tone={RUN_TONE} label="ריצה לכאן" onClick={() => onStartActivity('running')} />
-        <ActionTile icon={<Footprints size={18} strokeWidth={2.3} />} tone={WALK_TONE} label="הליכה לכאן" onClick={() => onStartActivity('walking')} />
+        <ActionTile icon={<RunIcon />} tone={RUN_TONE} label={t('pick.action.runHere')} onClick={() => onStartActivity('running')} />
+        <ActionTile icon={<Footprints size={18} strokeWidth={2.3} />} tone={WALK_TONE} label={t('pick.action.walkHere')} onClick={() => onStartActivity('walking')} />
         <ActionTile
           icon={alreadySaved ? <Check size={18} strokeWidth={2.6} /> : <Bookmark size={18} strokeWidth={2.3} />}
           tone="bg-v2-tint text-v2-deep"
-          label={alreadySaved ? `נשמר כ${SAVED_PLACE_KIND_LABEL[alreadySaved]}` : 'שמור מקום'}
+          label={alreadySaved ? t('pick.action.savedAs', { label: SAVED_PLACE_KIND_LABEL[alreadySaved] }) : t('pick.action.save')}
           active={saveOpen}
           onClick={() => setSaveOpen((o) => !o)}
         />
@@ -249,7 +253,7 @@ export function SearchDestinationCard({
                 className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-ink shadow-v2-ring ${PRESS}`}
               >
                 <KindIcon size={16} strokeWidth={2.4} className="text-v2-deep" />
-                {replacing ? `החלף ${SAVED_PLACE_KIND_LABEL[kind]}` : `שמור כ${SAVED_PLACE_KIND_LABEL[kind]}`}
+                {replacing ? t('pick.save.replace', { label: SAVED_PLACE_KIND_LABEL[kind] }) : t('pick.save.as', { label: SAVED_PLACE_KIND_LABEL[kind] })}
               </button>
             );
           })}
@@ -267,7 +271,7 @@ export function SearchDestinationCard({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block whitespace-nowrap text-[13.5px] font-black text-v2-ink">
-              {nearRoutes.length === 1 ? 'מסלול עובר ליד' : `${nearRoutes.length} מסלולים עוברים ליד`}
+              {t('pick.nearRoutes', { count: nearRoutes.length })}
             </span>
             <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
               {nearRoutes.map((r) => r.name).join(' · ')}
@@ -279,7 +283,7 @@ export function SearchDestinationCard({
 
       <div className="mt-3.5">
         <button type="button" onClick={onNavigate} className={CTA}>
-          <Navigation size={17} strokeWidth={2.6} /> נווט לכאן
+          <Navigation size={17} strokeWidth={2.6} />{' '}{t('pick.navigateHere')}
         </button>
       </div>
     </PickSheet>
@@ -288,11 +292,6 @@ export function SearchDestinationCard({
 
 // ── Official route ───────────────────────────────────────────────────────────
 
-const ACTIVITY_WORD: Record<string, { label: string; cta: string }> = {
-  walking: { label: 'הליכה', cta: 'התחל הליכה במסלול' },
-  cycling: { label: 'רכיבה', cta: 'התחל רכיבה במסלול' },
-  running: { label: 'ריצה', cta: 'התחל ריצה במסלול' },
-};
 
 export function SearchRouteCard({
   route,
@@ -312,14 +311,16 @@ export function SearchRouteCard({
   /** → the full RouteDetailSheet. */
   onDetails: () => void;
 }) {
-  const act = ACTIVITY_WORD[route.activityType ?? route.type] ?? ACTIVITY_WORD.running;
+  const t = useT(map);
+  // walking / cycling get their own words; anything else reads as running (the old ACTIVITY_WORD fallback).
+  const activity = route.activityType ?? route.type ?? '';
   const start = Array.isArray(route.path) && route.path.length > 0 ? (route.path[0] as [number, number]) : null;
   const startKm = start ? distanceKmTo(userPos, start) : null;
   const rating = typeof route.rating === 'number' && route.rating > 0 ? route.rating : null;
   const stats: Array<{ value: string; label: string }> = [];
-  if (route.distance > 0) stats.push({ value: `${(Math.round(route.distance * 10) / 10).toFixed(1)} ק״מ`, label: 'אורך' });
-  if (route.duration > 0) stats.push({ value: `~${Math.round(route.duration)} דק׳`, label: `ב${act.label}` });
-  if (typeof route.elevationGain === 'number' && route.elevationGain > 0) stats.push({ value: `+${Math.round(route.elevationGain)} מ׳`, label: 'עלייה' });
+  if (route.distance > 0) stats.push({ value: t('pick.route.stat.lengthValue', { km: (Math.round(route.distance * 10) / 10).toFixed(1) }), label: t('pick.route.stat.length') });
+  if (route.duration > 0) stats.push({ value: t('pick.route.stat.durationValue', { min: String(Math.round(route.duration)) }), label: t('pick.route.stat.duration', { activity }) });
+  if (typeof route.elevationGain === 'number' && route.elevationGain > 0) stats.push({ value: t('pick.route.stat.climbValue', { m: String(Math.round(route.elevationGain)) }), label: t('pick.route.stat.climb') });
 
   return (
     <PickSheet onClose={onClose}>
@@ -328,17 +329,17 @@ export function SearchRouteCard({
           <RouteIcon size={22} strokeWidth={2.3} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="whitespace-nowrap text-[12.5px] font-extrabold text-[#ea580c]">מסלול · {act.label}</div>
+          <div className="whitespace-nowrap text-[12.5px] font-extrabold text-[#ea580c]">{t('pick.route.eyebrow', { activity })}</div>
           <div className="truncate whitespace-nowrap text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{route.name}</div>
           {(rating != null || startKm != null) && (
             <div className="flex items-center gap-1 whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
               {rating != null && <><Star size={12} strokeWidth={2.2} className="text-v2-amber" /> {rating.toFixed(1)}</>}
               {rating != null && startKm != null && <span>·</span>}
-              {startKm != null && <span>ההתחלה {formatDistanceKm(startKm)} ממך</span>}
+              {startKm != null && <span>{t('pick.route.startFromYou', { distance: formatDistanceKm(startKm) })}</span>}
             </div>
           )}
         </div>
-        <button type="button" onClick={onClose} aria-label="סגור" className={CLOSE}>
+        <button type="button" onClick={onClose} aria-label={t('pick.close')} className={CLOSE}>
           <X size={16} strokeWidth={2.4} className="text-v2-ink-2" />
         </button>
       </div>
@@ -356,14 +357,14 @@ export function SearchRouteCard({
 
       <div className="mt-3.5 flex gap-2">
         {start && (
-          <ActionTile icon={<Navigation size={18} strokeWidth={2.3} />} tone="bg-v2-tint text-v2-deep" label="נווט להתחלה" onClick={onNavigateToStart} />
+          <ActionTile icon={<Navigation size={18} strokeWidth={2.3} />} tone="bg-v2-tint text-v2-deep" label={t('pick.route.navigateToStart')} onClick={onNavigateToStart} />
         )}
-        <ActionTile icon={<Info size={18} strokeWidth={2.3} />} tone="bg-v2-tint text-v2-deep" label="פרטי המסלול" onClick={onDetails} />
+        <ActionTile icon={<Info size={18} strokeWidth={2.3} />} tone="bg-v2-tint text-v2-deep" label={t('pick.route.details')} onClick={onDetails} />
       </div>
 
       <div className="mt-3.5">
         <button type="button" onClick={onStartRoute} className={CTA}>
-          <Play size={16} strokeWidth={2.6} fill="currentColor" /> {act.cta}
+          <Play size={16} strokeWidth={2.6} fill="currentColor" /> {t('pick.route.cta', { activity })}
         </button>
       </div>
     </PickSheet>

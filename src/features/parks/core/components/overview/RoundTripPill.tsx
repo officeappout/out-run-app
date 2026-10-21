@@ -9,6 +9,8 @@
 
 import { ActivityGlyph } from '../hybrid/activity-icons';
 import { HYBRID_WALK as WALK_LEG_COLOR } from '../hybrid/hybrid-colors';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const ACCENT = '#00ADEF';
 
@@ -21,9 +23,10 @@ export interface RoundTripPillProps {
 }
 
 export default function RoundTripPill({ v2, on, walkMin, onToggle }: RoundTripPillProps) {
+  const t = useT(map);
   const label = on
-    ? `הלוך וחזור · כולל ${walkMin} דק׳ הליכה אל המסלול וממנו`
-    : 'הוסף הליכה הלוך וחזור';
+    ? t('overview.roundTrip.on', { min: String(walkMin) })
+    : t('overview.roundTrip.off');
   return (
     <button
       type="button"
