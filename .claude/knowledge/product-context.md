@@ -74,7 +74,7 @@ metadata:
 
 ## Platform Stage
 
-**Source:** `docs/product/PRODUCT_TECHNICAL_REPORT.md` line 722 + `project-state.md`
+**Source:** `PRODUCT_TECHNICAL_REPORT.md` line 722 + `project-state.md`
 
 - B2G integration: partially live — access codes + admin UI working; export incomplete
 - Mobile: iOS + Android via Capacitor 6
