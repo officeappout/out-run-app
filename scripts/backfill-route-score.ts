@@ -24,7 +24,7 @@ dotenv.config();
 import * as fs from 'fs';
 import * as path from 'path';
 import { scoreAuthorityRoutes, writeRouteScoreDocs, type AuthorityScoreRun, type RouteScoreDoc } from '../src/lib/route-score';
-import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, openTarget } from './trails/lib/trails-apply.node';
+import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, listOfficialRoutesPage, openTarget } from './trails/lib/trails-apply.node';
 
 type Doc = Record<string, any>;
 interface RouteRow { id: string; data: Doc }
@@ -39,17 +39,14 @@ const OUT_DIR = flagValue(argv, 'out') ?? path.join('scripts', 'output', `route-
 const PAGE = 300;
 
 async function loadFromFirestore(db: FirebaseFirestore.Firestore): Promise<{ routes: RouteRow[]; authorities: Map<string, AuthorityMeta> }> {
-  const { FieldPath } = await import('firebase-admin/firestore');
   const routes: RouteRow[] = [];
   let after: string | null = null;
   for (;;) {
-    let q = db.collection('official_routes').orderBy(FieldPath.documentId()).limit(PAGE);
-    if (ONLY_AUTHORITY) q = q.where('authorityId', '==', ONLY_AUTHORITY);
-    if (after) q = q.startAfter(after);
-    const snap = await q.get();
-    for (const d of snap.docs) routes.push({ id: d.id, data: d.data() });
-    if (snap.size < PAGE) break;
-    after = snap.docs[snap.docs.length - 1].id;
+    // Read-only pager shared with the trails pipeline (the only official_routes reader this script uses).
+    const page = await listOfficialRoutesPage(db as any, { afterId: after, pageSize: PAGE, authorityId: ONLY_AUTHORITY, allFields: true });
+    for (const d of page) routes.push({ id: d.id, data: d.data as Doc });
+    if (page.length < PAGE) break;
+    after = page[page.length - 1].id;
   }
   const ids = Array.from(new Set(routes.map((r) => r.data?.authorityId).filter((x): x is string => typeof x === 'string' && !!x)));
   const authorities = new Map<string, AuthorityMeta>();
