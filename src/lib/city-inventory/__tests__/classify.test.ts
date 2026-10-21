@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyFeature, hasCrossingDetail, hasLitTag, isPromenade, isWalkableWay, surfaceBucket } from '../classify';
+import { classifyFeature, hasCrossingDetail, hasLitTag, isPromenade, isWalkableWay, surfaceBucket, bikeLayer } from '../classify';
 
 describe('classifyFeature — points', () => {
   it.each([
@@ -34,7 +34,16 @@ describe('classifyFeature — ways', () => {
   it('bike: cycleway or designated path, paved vs offroad', () => {
     expect(classifyFeature({ kind: 'way', tags: { highway: 'cycleway' } })).toEqual(['bike_paved']);
     expect(classifyFeature({ kind: 'way', tags: { highway: 'path', bicycle: 'designated', surface: 'dirt' } })).toEqual(['bike_offroad']);
-    expect(classifyFeature({ kind: 'way', tags: { highway: 'track', bicycle: 'designated' }, inBuiltUp: false })).toEqual(['bike_offroad']);
+    expect(classifyFeature({ kind: 'way', tags: { highway: 'track', bicycle: 'designated', tracktype: 'grade4' } })).toEqual(['bike_offroad']);
+    expect(classifyFeature({ kind: 'way', tags: { highway: 'path', bicycle: 'designated', surface: 'unpaved' } })).toEqual(['bike_offroad']);
+    expect(classifyFeature({ kind: 'way', tags: { highway: 'cycleway', surface: 'paving_stones' } })).toEqual(['bike_paved']);
+  });
+  it('bike with no surface evidence is unknown, never off-road (I1 review)', () => {
+    // Outside built-up areas resolveSurface defaults a track to dirt — still a guess.
+    expect(classifyFeature({ kind: 'way', tags: { highway: 'track', bicycle: 'designated' }, inBuiltUp: false })).toEqual(['bike_unknown']);
+    expect(classifyFeature({ kind: 'way', tags: { highway: 'path', bicycle: 'designated' } })).toEqual(['bike_unknown']);
+    expect(bikeLayer({ highway: 'path', bicycle: 'designated' })).toBe('bike_unknown');
+    expect(bikeLayer({ highway: 'cycleway' })).toBe('bike_paved');
   });
   it('trails: paved vs offroad by surface, falling back to highway class', () => {
     expect(classifyFeature({ kind: 'way', tags: { highway: 'footway' } })).toEqual(['trails_paved']);

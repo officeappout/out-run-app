@@ -3423,6 +3423,28 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // CITY INVENTORY (RC4 wave I2, 21.10.2026 — docs/routes/CITY-MAPPING-PLAN.md §3.2).
+    //   city_inventory/{authorityId}               per-authority map summary (layers,
+    //                                              coverage, sources, readiness)
+    //   city_inventory/{authorityId}/runs/{runId}  history row per refresh
+    // Server-only. Written ONLY by the Admin SDK (scripts/city-inventory/run.ts
+    // --apply, David). Read ONLY by the Admin SDK in
+    // /api/admin/city-mapping/inventory (requireSuperAdminApi) for the panel's
+    // "map health" card — no client query exists, so there is no list rule to
+    // reason about (axioms §25). No client — not even a super admin — may read
+    // or write. Each match body carries an explicit `allow ... if false`
+    // (a comment-only body does not compile — axioms §30). The ROOT ADMIN
+    // FALLBACK below still matches for the two root accounts (Firestore ORs rules).
+    // NOT YET DEPLOYED as of this commit — deploy from main after merge.
+    // ============================================================
+    match /city_inventory/{authorityId} {
+      allow read, write: if false;
+      match /runs/{runId} {
+        allow read, write: if false;
+      }
+    }
+
+    // ============================================================
     // DEMO REGISTRY (20.10.2026, owner-approved closed demo world —
     // agent-briefs/demo-users-design.md L5). The allow-list of demo uids,
     // demo groups/chats/authorities and the owner's viewer accounts

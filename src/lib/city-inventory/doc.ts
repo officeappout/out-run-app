@@ -8,7 +8,7 @@
  *   - every field is written explicitly; "not measured" is `null`, never an
  *     absent key (axioms §33: `== null` never matches a missing field) and
  *     never `undefined` (axioms §24);
- *   - all 17 layers are always written, so a reader can tell "unmeasured"
+ *   - all layers (18 in v2) are always written, so a reader can tell "unmeasured"
  *     from "this layer didn't exist when the doc was written" by version;
  *   - a create needs a non-empty authorityId and city (axioms §23 spirit —
  *     the caller resolves the authority doc before building).

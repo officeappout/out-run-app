@@ -185,7 +185,7 @@ type InventoryLayerKey =
   | 'parks' | 'big_parks' | 'courts' | 'fitness_stations'
   | 'benches' | 'drinking_water' | 'toilets'
   | 'major_roads' | 'crossings'
-  | 'bike_paved' | 'bike_offroad' | 'trails_paved' | 'trails_offroad' | 'promenades'
+  | 'bike_paved' | 'bike_offroad' | 'bike_unknown' | 'trails_paved' | 'trails_offroad' | 'promenades'
   | 'lighting' | 'shade';
 
 interface InventoryLayer {
