@@ -29,12 +29,13 @@ import { retentionCopyContext, toRetentionCandidate } from '../retentionSchedule
 import { selectPushCopy } from '../shared/push-library.core';
 
 /** The retention copy a user would get from the code defaults (empty library). */
-function buildRetentionMessage(c: { uid: string; name: string; daysSince: number }) {
-  const copy = selectPushCopy('retention_lapse', [], retentionCopyContext(c, new Date(NOW)));
+function buildRetentionMessage(c: { uid: string; name: string; daysSince: number }, track: 'strength' | 'run' | 'walk' | null = 'strength') {
+  // 21.10.2026: row 1 ("@שם, הגינה עדיין שם") is strength-track copy.
+  const copy = selectPushCopy('retention_lapse', [], retentionCopyContext(c, new Date(NOW), null, track));
   if (!copy) throw new Error('retention copy missing');
   return copy;
 }
-import { dropoffCapSkipReason, MAX_DROPOFF_NOTIFICATIONS } from '../onboardingDropoffDispatcher';
+import { dropoffCapSkipReason, dropoffPrefSkipReason, MAX_DROPOFF_NOTIFICATIONS } from '../onboardingDropoffDispatcher';
 import { isDirectPersonMessage } from '../chatMessageNotification';
 import { isMorningOnlyBucketAtThisHour } from '../stepGoalNudgeScheduler';
 
@@ -57,6 +58,17 @@ describe('retentionScheduler — per-user message (push library)', () => {
     ).filter((c) => c.rowId === 'default:retention_lapse:1');
     expect(named.length).toBeGreaterThan(0);
     for (const c of named) expect(c.title).toContain('מיכל');
+  });
+
+  it('runners and walkers never get "the park" copy; they get their own track rows (21.10.2026)', () => {
+    for (const track of ['run', 'walk', null] as const) {
+      for (let i = 0; i < 60; i++) {
+        const c = buildRetentionMessage({ uid: `t-${track}-${i}`, name: 'מיכל', daysSince: 8 }, track);
+        expect(`${c.title} ${c.body}`).not.toContain('הגינה');
+      }
+    }
+    const run = buildRetentionMessage({ uid: 'r1', name: 'מיכל', daysSince: 8 }, 'run');
+    expect(`${run.title} ${run.body}`).toMatch(/ריצ|לרוץ|הנעליים/);
   });
 
   it('a user with no name never gets the @שם copy, and nothing is left unfilled', () => {
@@ -149,5 +161,15 @@ describe('stepGoalNudgeScheduler — morning-only bucket', () => {
     expect(isMorningOnlyBucketAtThisHour('start', 8)).toBe(false);
     expect(isMorningOnlyBucketAtThisHour('mid', 18)).toBe(false);
     expect(isMorningOnlyBucketAtThisHour('close', 18)).toBe(false);
+  });
+});
+
+describe('onboardingDropoffDispatcher — channel opt-out (21.10.2026)', () => {
+  it('muting training reminders does NOT silence the signup nudge', () => {
+    expect(dropoffPrefSkipReason({ settings: { notificationPrefs: { training_reminder: false } } })).toBeNull();
+  });
+  it('its own channel opt-out does', () => {
+    expect(dropoffPrefSkipReason({ settings: { notificationPrefs: { onboarding_dropoff: false } } })).toBe('onboarding_dropoff opt-out');
+    expect(dropoffPrefSkipReason({})).toBeNull();
   });
 });

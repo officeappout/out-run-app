@@ -25,6 +25,7 @@ vi.hoisted(() => {
 const state = vi.hoisted(() => ({
   store: new Map<string, Record<string, any> | undefined>(),
   userSchedule: [] as Array<{ id: string; data: Record<string, any> }>,
+  workouts: [] as Array<{ id: string; data: Record<string, any> }>,
 }));
 
 function pathKey(collection: string, id: string): string {
@@ -62,27 +63,59 @@ function makeDocRef(collection: string, id: string) {
   };
 }
 
+function getPath(obj: Record<string, any> | undefined, dotted: string): unknown {
+  return dotted.split('.').reduce<any>((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+function rowsOf(name: string): Array<{ id: string; data: Record<string, any> }> {
+  if (name === 'userSchedule') return state.userSchedule;
+  if (name === 'workouts') return state.workouts;
+  const out: Array<{ id: string; data: Record<string, any> }> = [];
+  state.store.forEach((data, key) => {
+    const [col, id] = key.split('/');
+    if (col === name && data) out.push({ id, data });
+  });
+  return out;
+}
+
+type Filter = { field: string; op: string; value: unknown };
+
+function makeQuery(name: string, filters: Filter[], n = Number.POSITIVE_INFINITY, afterId: string | null = null, orderDesc: string | null = null): any {
+  return {
+    where: (field: string, op: string, value: unknown) => makeQuery(name, [...filters, { field, op, value }], n, afterId, orderDesc),
+    orderBy: (field: string, dir?: string) => makeQuery(name, filters, n, afterId, dir === 'desc' ? field : null),
+    select: () => makeQuery(name, filters, n, afterId, orderDesc),
+    limit: (m: number) => makeQuery(name, filters, m, afterId, orderDesc),
+    startAfter: (cursor: { id: string }) => makeQuery(name, filters, n, cursor.id, orderDesc),
+    get: async () => {
+      let all = rowsOf(name).filter((d) =>
+        filters.every((f) => {
+          const v = getPath(d.data, f.field) as any;
+          if (f.op === '==') return v === f.value;
+          if (v === undefined || v === null) return false;
+          if (f.op === '>=') return v >= (f.value as any);
+          if (f.op === '<=') return v <= (f.value as any);
+          return false;
+        }),
+      );
+      all = orderDesc
+        ? all.sort((a, b) => String(getPath(b.data, orderDesc)).localeCompare(String(getPath(a.data, orderDesc))))
+        : all.sort((a, b) => a.id.localeCompare(b.id));
+      const start = afterId === null ? 0 : all.findIndex((d) => d.id === afterId) + 1;
+      const matches = all.slice(start, start + n);
+      return { empty: matches.length === 0, docs: matches.map((d) => ({ id: d.id, data: () => d.data })) };
+    },
+  };
+}
+
 function makeFakeDb() {
   return {
     collection: (name: string) => ({
       doc: (id: string) => makeDocRef(name, id),
       // Paged like Firestore (19.10.2026): limit + startAfter(<last doc>), doc-id order.
-      where: (field: string, _op: string, value: unknown) => {
-        const page = (n: number, afterId: string | null): any => ({
-          limit: (m: number) => page(m, afterId),
-          startAfter: (cursor: { id: string }) => page(n, cursor.id),
-          get: async () => {
-            const all =
-              name === 'userSchedule'
-                ? state.userSchedule.filter((d) => d.data[field] === value).sort((a, b) => a.id.localeCompare(b.id))
-                : [];
-            const start = afterId === null ? 0 : all.findIndex((d) => d.id === afterId) + 1;
-            const matches = all.slice(start, start + n);
-            return { docs: matches.map((d) => ({ id: d.id, data: () => d.data })) };
-          },
-        });
-        return page(Number.POSITIVE_INFINITY, null);
-      },
+      // 21.10.2026: chained where (==, >=, <=) on dotted paths over userSchedule,
+      // users (the template pass) and workouts (orderBy date desc).
+      where: (field: string, op: string, value: unknown) => makeQuery(name, [{ field, op, value }]),
     }),
     doc: (path: string) => {
       const [collection, id] = path.split('/');
@@ -173,6 +206,7 @@ describe('trainingReminderScheduler — personalized hour targeting', () => {
   beforeEach(() => {
     state.store.clear();
     state.userSchedule = [];
+    state.workouts = [];
     fakeMessaging.sendEachForMulticast.mockClear();
     vi.useFakeTimers();
   });
@@ -310,6 +344,175 @@ describe('trainingReminderScheduler — personalized hour targeting', () => {
       expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(
         expect.objectContaining({ tokens: ['tok-user7'] }),
       );
+    });
+  });
+
+  // ── Push-lifecycle audit, gap 2 (21.10.2026) ──────────────────────────────
+  // Template-created entries (hydrateFromTemplate) carry startTime = the
+  // user's reminder time, or 07:00. The reminder runs at that same hour, so
+  // the old `startTime <= now` check skipped exactly these sessions. The
+  // older tests above never caught it: their entries had no startTime.
+  describe('template-created entries WITH startTime at the send hour (gap 2)', () => {
+    function seedTemplateEntry(uid: string, startTime: string) {
+      state.userSchedule.push({
+        id: `${uid}_${TODAY}`,
+        data: {
+          userId: uid,
+          date: TODAY,
+          entries: [{ type: 'training', source: 'recurring', completed: false, programIds: ['full_body'], startTime }],
+        },
+      });
+    }
+
+    it('strength at 07:00 (no reminder time set) is reminded at the 07:00 run, even 40s into it', async () => {
+      setIsraelTime(7);
+      vi.setSystemTime(new Date(Date.now() + 40_000));
+      seedTemplateEntry('s7', '07:00');
+      seedUser('s7');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({ tokens: ['tok-s7'] }));
+    });
+
+    it('evening run at 19:00 (runningTime 19:00) is reminded at the 19:00 run', async () => {
+      setIsraelTime(19, 2); // scheduler delay of 2 minutes
+      seedTemplateEntry('r19', '19:00');
+      seedUser('r19', '19:00');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({ tokens: ['tok-r19'] }));
+    });
+
+    it('a session that started before the run hour is still skipped', async () => {
+      setIsraelTime(7);
+      seedTemplateEntry('early', '06:30');
+      seedUser('early');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Gap 4: no day doc → today's sessions from the recurring template ───────
+  describe('server-side materialisation from the recurring template (gap 4)', () => {
+    // 2026-09-10 is a Thursday → day letter 'ה'.
+    function seedTemplateUser(uid: string, opts: { runningTime?: string; template?: Record<string, string[]>; runId?: string } = {}) {
+      setDoc('users', uid, {
+        onboardingStatus: 'COMPLETED',
+        fcmTokens: [`tok-${uid}`],
+        settings: { pushEnabled: true, notificationPrefs: { training_reminder: true } },
+        lifestyle: {
+          recurringTemplate: opts.template ?? { ה: ['full_body'] },
+          ...(opts.runningTime ? { reminders: { runningTime: opts.runningTime } } : {}),
+        },
+        ...(opts.runId ? { running: { activeProgram: { programId: opts.runId } } } : {}),
+      });
+    }
+
+    function sentTitles(): string[] {
+      return fakeMessaging.sendEachForMulticast.mock.calls.map((c: any[]) => c[0].notification?.title as string);
+    }
+
+    it('a user who never opened today gets the reminder at their hour, labelled by the session (a run)', async () => {
+      setIsraelTime(19);
+      seedTemplateUser('t1', { runningTime: '19:00', template: { ה: ['run_prog'] }, runId: 'run_prog' });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({ tokens: ['tok-t1'] }));
+      expect(sentTitles()[0]).toBe('ריצה היום');
+      // Nothing written to userSchedule (virtual), the once-per-day guard stamped.
+      expect(state.userSchedule).toHaveLength(0);
+      expect(state.store.get('push_rate/t1')?.trainingReminderSentDate).toBe(TODAY);
+    });
+
+    it('no reminder time set → the 07:00 run, labelled strength', async () => {
+      setIsraelTime(7);
+      seedTemplateUser('t2');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledWith(expect.objectContaining({ tokens: ['tok-t2'] }));
+      expect(sentTitles()[0]).toBe('אימון כוח היום');
+    });
+
+    it('not at another hour, not on a weekday the template does not plan, not on a template rest day', async () => {
+      setIsraelTime(18);
+      seedTemplateUser('t3', { runningTime: '19:00' });
+      seedTemplateUser('t4', { runningTime: '18:00', template: { א: ['full_body'] } });
+      seedTemplateUser('t5', { runningTime: '18:00', template: { ה: [] } });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it("the user's own edit of the day (rest override) blocks the template", async () => {
+      setIsraelTime(18);
+      seedTemplateUser('t6', { runningTime: '18:00' });
+      state.userSchedule.push({
+        id: `t6_${TODAY}`,
+        data: { userId: 't6', date: TODAY, entries: [{ type: 'rest', source: 'manual', override: true }] },
+      });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('a day doc already hydrated and completed → no second reminder from the template', async () => {
+      setIsraelTime(18);
+      seedTemplateUser('t7', { runningTime: '18:00' });
+      state.userSchedule.push({
+        id: `t7_${TODAY}`,
+        data: { userId: 't7', date: TODAY, entries: [{ type: 'training', source: 'recurring', completed: true, startTime: '18:00' }] },
+      });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('a user with a day doc AND a template is reminded once (from the day doc)', async () => {
+      setIsraelTime(18);
+      seedTemplateUser('t8', { runningTime: '18:00' });
+      seedSchedule('t8', TODAY, '18:00');
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).toHaveBeenCalledTimes(1);
+    });
+
+    it('already trained today → no reminder', async () => {
+      setIsraelTime(18);
+      seedTemplateUser('t9', { runningTime: '18:00' });
+      state.workouts.push({ id: 'w1', data: { userId: 't9', date: new Date(Date.now() - 3 * 3600_000) } });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('kill switch: trainingReminderFromTemplate === false → day docs only', async () => {
+      setIsraelTime(18);
+      setDoc('app_config', 'feature_flags', { trainingReminderFromTemplate: false });
+      seedTemplateUser('t10', { runningTime: '18:00' });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('demo users are never materialised', async () => {
+      setIsraelTime(18);
+      seedTemplateUser('demo_t', { runningTime: '18:00' });
+
+      await (trainingReminderScheduler as any)();
+
+      expect(fakeMessaging.sendEachForMulticast).not.toHaveBeenCalled();
     });
   });
 });

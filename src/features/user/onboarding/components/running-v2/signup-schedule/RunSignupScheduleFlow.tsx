@@ -38,6 +38,7 @@ import {
 import { isReminderAlreadyActive, reminderSlotsFor } from '@/features/schedule/utils/reminderOptIn';
 import {
   getPushPermissionState,
+  recordReminderDeferral,
   requestReminderPermission,
   saveReminderOptIn,
 } from '@/features/schedule/services/reminderOptIn.service';
@@ -188,13 +189,16 @@ export default function RunSignupScheduleFlow({ sub, setSub, onDone }: RunSignup
   const acceptReminders = async ({ leadMinutes, calendarSync }: { leadMinutes: 15 | 30 | 60; calendarSync: boolean }) => {
     const uid = auth.currentUser?.uid;
     // The OS prompt must be the first await (web user-gesture rule).
-    if (uid) await requestReminderPermission(uid);
-    if (uid) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
+    // Saved only when the OS allows it (an earlier answer never re-prompts).
+    if (uid && (await requestReminderPermission(uid))) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
     updateData({ runningNotificationsEnabled: true, calendarSyncEnabled: calendarSync } as never);
     onDone();
   };
 
+  // "לא עכשיו": no OS prompt. runningNotificationsEnabled stays an onboarding-store
+  // field only (never mapped to settings.pushEnabled) — the deferral is device-local.
   const skipReminders = ({ calendarSync }: { calendarSync: boolean }) => {
+    recordReminderDeferral();
     updateData({ runningNotificationsEnabled: false, calendarSyncEnabled: calendarSync } as never);
     onDone();
   };

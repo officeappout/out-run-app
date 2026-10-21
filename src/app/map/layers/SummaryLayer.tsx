@@ -12,6 +12,7 @@ import HybridSummary from '@/features/workout-engine/summary/pages/HybridSummary
 import { HYBRID_SUMMARY_ENABLED } from '@/config/feature-flags';
 import { useRouter } from 'next/navigation';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
+import PushReAskAfterWorkout from '@/features/schedule/components/push-reask/PushReAskAfterWorkout';
 
 type MapLogic = ReturnType<typeof useMapLogic>;
 
@@ -70,12 +71,15 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // notice a hybrid finish used to show (null runner snapshot → wasSaved=false).
   if (logic.showSummary && HYBRID_SUMMARY_ENABLED && finishedHybrid && lastResult) {
     return (
-      <HybridSummary
-        result={lastResult}
-        calories={lastCalories}
-        streakDays={currentStreak}
-        onFinish={handleHybridFinish}
-      />
+      <>
+        <HybridSummary
+          result={lastResult}
+          calories={lastCalories}
+          streakDays={currentStreak}
+          onFinish={handleHybridFinish}
+        />
+        <PushReAskAfterWorkout />
+      </>
     );
   }
 
@@ -94,10 +98,13 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
   // running award finishWorkout already made.
   if (logic.showSummary) {
     return (
-      <WorkoutSummaryPage
-        onFinish={handleFinish}
-        workoutType={runMode === 'plan' ? 'PLAN_RUN' : 'FREE_RUN'}
-      />
+      <>
+        <WorkoutSummaryPage
+          onFinish={handleFinish}
+          workoutType={runMode === 'plan' ? 'PLAN_RUN' : 'FREE_RUN'}
+        />
+        <PushReAskAfterWorkout />
+      </>
     );
   }
 

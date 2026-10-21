@@ -17,6 +17,7 @@ import ReminderOptInStep from '@/features/schedule/components/ReminderOptInStep'
 import { isReminderAlreadyActive, reminderSlotsFor } from '@/features/schedule/utils/reminderOptIn';
 import {
   getPushPermissionState,
+  recordReminderDeferral,
   requestReminderPermission,
   saveReminderOptIn,
 } from '@/features/schedule/services/reminderOptIn.service';
@@ -163,11 +164,14 @@ export default function AddTrackFlow({ added, sub, setSub, onDone }: AddTrackFlo
       onAccept={async ({ leadMinutes, calendarSync }) => {
         const uid = auth.currentUser?.uid;
         // The OS prompt must be the first await (web user-gesture rule).
-        if (uid) await requestReminderPermission(uid);
-        if (uid) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
+        // Saved only when the OS allows it (an earlier answer never re-prompts).
+        if (uid && (await requestReminderPermission(uid))) await saveReminderOptIn(uid, reminderSlotsFor(sessions, leadMinutes));
         await finish(calendarSync, true);
       }}
-      onSkip={({ calendarSync }) => finish(calendarSync, false)}
+      onSkip={({ calendarSync }) => {
+        recordReminderDeferral();
+        return finish(calendarSync, false);
+      }}
     />
   );
 }

@@ -34,6 +34,7 @@ import { readGuidedSettings, GUIDED_SETTING_KEY } from '@/features/workout-engin
 import { useOnboardingStore } from '@/features/user/onboarding/store/useOnboardingStore';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import PushReAskSettingsCard from '@/features/schedule/components/push-reask/PushReAskSettingsCard';
 import { usePrivacyStore, type PrivacyMode } from '@/features/safecity/store/usePrivacyStore';
 import { computeAgeGroup } from '@/lib/age';
 import { validateAccessCode, type AccessCodeResult } from '@/features/user/onboarding/services/access-code.service';
@@ -1593,6 +1594,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
               {screen === 'notifications' && (
                 <div className="px-5 py-5">
+                  {v2 && <PushReAskSettingsCard />}
                   {/* Master push switch — gates ALL push; triggers OS prompt on native.
                       When the native OS permission is missing (denied/prompt) the
                       toggle is forced OFF and a PermissionStatusBadge replaces it,
