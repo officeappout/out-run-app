@@ -30,13 +30,10 @@ src/features/partners/
 src/features/heatmap/hooks/
 src/features/heatmap/services/
 
-# wave 2 batch (namespace onboarding, keys quiz.*) — the strength level quiz.
-# BlurredHowStep.tsx in this folder is dead (no importer) and was skipped; its old
-# Hebrew stays, but new Hebrew lines are blocked here like everywhere else.
-src/features/user/onboarding/components/visual-assessment/
 # wave 2 batch 1 (namespace map) — route preview, route overview, equipment sheets.
 # Hebrew left in these folders is marked i18n-allow-hebrew (Firestore/presence
 # values, turn-text matching, an unused helper, the legacy v1 close label).
 src/features/parks/client/components/route-preview/
 src/features/parks/client/components/equipment-detail/
 src/features/parks/core/components/overview/route/
+src/features/user/onboarding/components/visual-assessment/

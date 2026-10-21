@@ -117,7 +117,9 @@ export default defineConfig({
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
       'src/features/workout-engine/hybrid/__tests__/hybrid-runtime.test.ts',
       'src/features/workout-engine/hybrid/__tests__/hybrid-orchestrator.test.ts',
+    ],
     environment: 'node',
     testTimeout: 60_000,
     hookTimeout: 60_000,
+  },
 });
