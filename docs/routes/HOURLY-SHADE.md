@@ -57,3 +57,21 @@ npx tsx scripts/shade-hourly/build-city.ts --city tel-aviv --out <dir> \
 | ת"א IView2/513 (pending) | ת"א 2024 (pending, דגימה חלקית) | 0.56 / 0.58 |
 
 כלומר: הגבהים העירוניים הם השיפור הגדול. ברגע שיגיע אישור בכתב מת"א, זה רק `--file buildings:tlv_buildings_iview2:<file>`.
+
+## שלב 3: תשתית תאורה (`src/lib/lighting/`, `scripts/lighting/build-city.ts`)
+
+- **כלל:** נקודה ברחוב מוארת כשיש עמוד תאורה עד **25 מ'** ממנה (`LIT_LAMP_RADIUS_M`, החלטת דוד: 20-30 מ'). חתיכת רחוב (עד 100 מ') מוארת כש-60% מנקודות הדגימה שלה מוארות (`LIT_PIECE_MIN_SHARE`, אותו 0.6 כמו ב-trails). מיזוג עם OSM: `lit=no` גובר, `lit=yes` או פנסים ← מואר, אחרת **לא ידוע** (לא "חשוך").
+- **מקורות פנסים** (`src/lib/lighting/registry.ts`): `osm_street_lamps` (live, ODbL). `beer_sheva_street_lights` (data.gov.il, GeoJSON/CSV/SHP, ITM או WGS84) ו-`tel_aviv_lamps` (ArcGIS IView2/997) הם `pending_licence`. עיר חדשה = רשומה ברג'יסטרי + `--lamps key:file` (GeoJSON / GeoJSONSeq / SHP zip) או `--arcgis key --raw dir`. ITM מזוהה ומומר (`dataset-import/itm.ts`).
+- **פלט:** `lighting/v1/<city>.json.gz` (JSON עם gzip): רק חתיכות עם תשובה (כן/לא) + סיכום (walkable / known / lit, לפי בסיס). dry-run כברירת מחדל. `--apply --project` + YES, ומסרב כשמקור pending שימש.
+- **מסלול:** `measureRouteLighting(line, buildLitIndex(file))` (אותה התאמה כמו `shadeShareForLine`): `litShare` (מתוך האורך הידוע), `litLengthShare` (אורך מואר ÷ כל המסלול; זה האות לדירוג, לא ידוע = לא מתוגמל ולא נענש), `coverage`.
+- **מלאי עיר:** כשקיים קובץ תאורה (מ-Storage, read-only, או `--lighting-file=`), שכבת `lighting` מחושבת בשיטה `lamp_proximity_merge`: כיסוי = ידוע ÷ walkable, אורך = מואר, כל המקורות מופיעים, ו-`license_pending` כשמקור pending שימש. בלי קובץ: כמו קודם (כיסוי תגי `lit` ב-OSM).
+
+### מספרים (21.10.2026, dry-run)
+
+| עיר | מקורות | walkable | ידוע | מואר | לפי בסיס |
+|---|---|---:|---:|---:|---|
+| תל אביב | OSM בלבד (181 פנסים) | 2,549 ק"מ | 291 ק"מ (11.4%) | 282 ק"מ (11.1%) | `lit=yes` 275 · פנסים 7 · `lit=no` 8 |
+| תל אביב | + דגימת IView2/997 (pending, 301 עמודים במרכז, סקרצ'פד) | 2,549 | 295 (11.6%) | 287 (11.3%) | פנסים 11 |
+| באר שבע | OSM + 1,500 מתוך 29,856 עמודים (pending, דגימה ב-ITM, סקרצ'פד) | 1,745 | 137 (7.8%) | 127 (7.3%) | פנסים 71 ק"מ מ-5% מהעמודים |
+
+מלאי עיר ת"א עם קובץ OSM בלבד (dry-run, read-only): שכבת התאורה `lamp_proximity_merge`, כיסוי 23.7% (ההתאמה ב-buffer של 15 מ' "מעבירה" תשובה גם למדרכה מקבילה), 303 ק"מ מוארים.

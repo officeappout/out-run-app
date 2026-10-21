@@ -11,9 +11,11 @@ import type { CityInventoryInput } from './doc';
 import { measureOsm, type InventoryFeatures } from './measure';
 import { peerMedians, type PeerRow } from './peers';
 import { computeReadiness } from './readiness';
+import { measureLightingCoverage } from './lighting-coverage';
 import { measureShadeCoverage } from './shade-coverage';
 import { TECHNION_SHADE_SOURCE_KEY, type ShadeSourceChoice } from './shade-source';
-import { POINT_LAYER_KEYS, type AuthorityType } from './types';
+import { POINT_LAYER_KEYS, type AuthorityType, type LayerSource } from './types';
+import type { LitIndex } from '@/lib/lighting/route-lighting';
 
 export interface RunAuthority {
   id: string;
@@ -29,6 +31,12 @@ export interface RunShade {
   segmentCount: number;
 }
 
+export interface RunLighting {
+  index: LitIndex;
+  /** OSM + lamp datasets that fed the lighting/v1 city file. */
+  sources: LayerSource[];
+}
+
 export interface BuildInventoryInput {
   authority: RunAuthority;
   boundary: BoundaryIndex;
@@ -37,6 +45,8 @@ export interface BuildInventoryInput {
   osmSnapshotDate: string;
   approvedRoutes: number;
   shade: RunShade | null;
+  /** lighting/v1 city file; absent/null keeps the OSM `lit` tag coverage. */
+  lighting?: RunLighting | null;
   peers: readonly PeerRow[];
   licensePendingKeys: ReadonlySet<string>;
   now: Date;
@@ -70,6 +80,7 @@ export function buildCityInventory(input: BuildInventoryInput): BuildInventoryRe
   }
   const peers = peerMedians(input.authority.id, input.authority.type, input.peers);
   const shadeCov = input.shade ? measureShadeCoverage(tallies.walkableLines, input.shade.index) : null;
+  const litCov = input.lighting ? measureLightingCoverage(tallies.walkableLines, input.lighting.index) : null;
   const layers = assembleLayers(tallies, {
     osmSnapshotDate: input.osmSnapshotDate,
     now: input.now,
@@ -78,6 +89,7 @@ export function buildCityInventory(input: BuildInventoryInput): BuildInventoryRe
     shade: input.shade && shadeCov
       ? { coverage: shadeCov, choice: input.shade.choice, snapshotDate: input.shade.snapshotDate, segmentCount: input.shade.segmentCount }
       : null,
+    lighting: input.lighting && litCov ? { coverage: litCov, sources: input.lighting.sources } : null,
   });
   const readiness = computeReadiness({
     hasBoundary: true,

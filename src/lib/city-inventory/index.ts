@@ -12,6 +12,7 @@ export * from './boundary';
 export * from './measure-parks';
 export * from './measure';
 export * from './shade-coverage';
+export * from './lighting-coverage';
 export * from './assemble';
 export * from './peers';
 export * from './run';

@@ -10,7 +10,7 @@ export const OSM_STALE_AFTER_DAYS = 62;
 export const DATASET_STALE_AFTER_DAYS = 400;
 
 const DAY_MS = 86_400_000;
-const TAG_COVERAGE_METHODS = new Set<LayerMethod>(['osm_tag_coverage']);
+const TAG_COVERAGE_METHODS = new Set<LayerMethod>(['osm_tag_coverage', 'lamp_proximity_merge']);
 
 export function staleAfterDays(sourceKey: string): number {
   return sourceKey === 'osm' ? OSM_STALE_AFTER_DAYS : DATASET_STALE_AFTER_DAYS;

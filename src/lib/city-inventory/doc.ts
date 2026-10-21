@@ -52,6 +52,7 @@ const METHODS: readonly LayerMethod[] = [
   'osm_density_vs_peers',
   'technion_si_daily',
   'canopy_estimate',
+  'lamp_proximity_merge',
 ];
 const LEVELS: readonly ReadinessLevel[] = ['red', 'yellow', 'green'];
 

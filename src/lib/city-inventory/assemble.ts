@@ -9,13 +9,16 @@
  *   - crossings, lighting, surface of bike/trail/promenade ways:
  *     `osm_tag_coverage` (tagged ÷ all); bike ways with no surface evidence
  *     (`bike_unknown`) are a plain `osm_count` + length;
- *   - shade: Technion SI where the city has a layer — matched ÷ walkable.
+ *   - shade: Technion SI where the city has a layer — matched ÷ walkable;
+ *   - lighting: with a lighting/v1 city file, `lamp_proximity_merge` (known ÷ walkable,
+ *     OSM lit + lamp posts); without one, the OSM `lit` tag coverage.
  * "Not measured" stays `null` (never 0) — e.g. parks coverage until a
  * municipal reference area exists, shade outside the Technion cities.
  */
 import { densityCoveragePct, densityPerKm, pct } from './coverage';
 import { emptyLayer } from './doc';
 import { qualityFlags } from './quality';
+import type { LightingCoverage } from './lighting-coverage';
 import type { ShadeCoverage } from './shade-coverage';
 import type { ShadeSourceChoice } from './shade-source';
 import type { OsmTallies } from './measure';
@@ -41,12 +44,20 @@ export interface ShadeInput {
   segmentCount: number;
 }
 
+export interface LightingInput {
+  coverage: LightingCoverage;
+  /** Every source that fed the city lighting file (OSM + lamp datasets). */
+  sources: LayerSource[];
+}
+
 export interface AssembleContext {
   /** ISO date (YYYY-MM-DD) of the PBF snapshot. */
   osmSnapshotDate: string;
   now: Date;
   peerMedians: Partial<Record<PointLayerKey, number | null>>;
   shade: ShadeInput | null;
+  /** City lighting file (lighting/v1); absent/null = the OSM `lit` tag coverage as before. */
+  lighting?: LightingInput | null;
   /** Source keys whose licence still waits for written approval. */
   licensePendingKeys: ReadonlySet<string>;
 }
@@ -139,7 +150,9 @@ export function assembleLayers(t: OsmTallies, ctx: AssembleContext): Record<Inve
     trails_paved: linear('trails_paved', 'osm_tag_coverage'),
     trails_offroad: linear('trails_offroad', 'osm_tag_coverage'),
     promenades: linear('promenades', 'osm_tag_coverage'),
-    lighting: osmLayer('osm_tag_coverage', { lengthKm: km(t.lighting.litM), coveragePct: pct(t.lighting.taggedM, t.lighting.walkableM) }, ctx),
+    lighting: ctx.lighting
+      ? layer('lamp_proximity_merge', ctx.lighting.sources, { lengthKm: km(ctx.lighting.coverage.litM), coveragePct: pct(ctx.lighting.coverage.knownM, ctx.lighting.coverage.walkableM) }, ctx)
+      : osmLayer('osm_tag_coverage', { lengthKm: km(t.lighting.litM), coveragePct: pct(t.lighting.taggedM, t.lighting.walkableM) }, ctx),
     shade: shadeLayer(ctx.shade, ctx),
   };
 }
