@@ -5,7 +5,7 @@ import { TargetProgramRef } from '../../../core/exercise.types';
 import { Program } from '../../../../programs/core/program.types';
 import { Link as LinkIcon, Plus, Trash2, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExerciseEditorSectionProps } from './shared/types';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 
 interface ContentSectionProps extends ExerciseEditorSectionProps {
   programs?: Program[];

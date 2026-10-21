@@ -365,6 +365,38 @@ export interface PushCatalogEntry {
 
 const LEVEL_OPTIONS = ['2', '3', '4', '5', '6', '7', '8', '9', '10'].map((v) => ({ value: v, label: `רמה ${v}` }));
 
+/**
+ * The user's track (push-lifecycle audit, 21.10.2026): copy for a runner or a
+ * walker must not talk about "the park". The sender passes conditions.track
+ * ('strength' | 'run' | 'walk'; a mixed or unknown track passes nothing, so
+ * only rows without a track condition fit).
+ */
+export const TRACK_CONDITION: PushCondition = {
+  key: 'track',
+  label: 'מסלול',
+  options: [
+    { value: 'strength', label: 'כוח' },
+    { value: 'run', label: 'ריצה' },
+    { value: 'walk', label: 'הליכה' },
+  ],
+};
+
+/**
+ * Where in signup the user stopped (onboarding_dropoff, from users.onboardingStep):
+ * early = profile and the first questions, mid = the level assessment,
+ * near_end = the health declaration (the last screen). "נשאר רק עוד צעד" is
+ * written for near_end only.
+ */
+export const DROPOFF_STAGE_CONDITION: PushCondition = {
+  key: 'stage',
+  label: 'איפה עצרו בהרשמה',
+  options: [
+    { value: 'early', label: 'בהתחלה (פרופיל ושאלות)' },
+    { value: 'mid', label: 'באמצע (הערכת רמה)' },
+    { value: 'near_end', label: 'ממש בסוף (הצהרת בריאות)' },
+  ],
+};
+
 export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
   {
     pushType: 'workout_reminder_day',
@@ -372,9 +404,9 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     lever: 'routine',
     channel: 'training_reminder',
     sender: 'trainingReminderScheduler',
-    description: 'יש אימון מתוכנן להיום שעוד לא בוצע (בלי שעת התחלה).',
+    description: 'יש אימון מתוכנן להיום שעוד לא בוצע: ביומן של היום, או לפי התבנית השבועית גם כשהמשתמש לא פתח את האפליקציה היום.',
     whenSent:
-      'בדיקה כל שעה עגולה. נשלח בשעה שהמשתמש בחר באונבורדינג (lifestyle.reminders.runningTime), ואם לא בחר ב-07:00. פעם אחת ביום לכל היותר, לא אחרי שעת האימון, לא בשעות השקט (22:00 עד 07:00).',
+      'בדיקה כל שעה עגולה. נשלח בשעה שהמשתמש בחר באונבורדינג (lifestyle.reminders.runningTime), ואם לא בחר ב-07:00. פעם אחת ביום לכל היותר, לא לאימון שהתחיל לפני השעה הזו, לא למי שכבר התאמן היום, לא בשעות השקט (22:00 עד 07:00).',
     vars: ['@שם', '@אימון'],
     deepLinks: ['home', 'map', 'progression'],
     defaults: [
@@ -437,17 +469,19 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
           { value: 'd30', label: 'חודש (האחרון)' },
         ],
       },
+      TRACK_CONDITION,
     ],
     deepLinks: ['home', 'map'],
     defaults: [
       // Index 0 rewritten in place (was "פספסת כמה ימים? זה בסדר") so ids keep their order.
       { title: 'רגע קטן בשבילך היום', body: 'מה שבונה הרגל זה לחזור. 15 דקות ליד הבית, בקצב שלך.' },
-      { title: '@שם, הגינה עדיין שם', body: 'אימון קצר של 10 דקות, בלי ציוד. חוזרים?' },
+      // "The park" is strength copy (21.10.2026: track condition, was sent to runners and walkers too).
+      { title: '@שם, הגינה עדיין שם', body: 'אימון קצר של 10 דקות, בלי ציוד. חוזרים?', conditions: { track: ['strength'] } },
       { title: 'חוזרים בקטנה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, בקצב שלך.' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, וההרגל חוזר.' },
       // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
-      { title: '@שם, מוכן לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'male', pair: 'ready_name' },
-      { title: '@שם, מוכנה לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'female', pair: 'ready_name' },
+      { title: '@שם, מוכן לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'male', pair: 'ready_name', conditions: { track: ['strength'] } },
+      { title: '@שם, מוכנה לחזור?', body: 'אימון קל של 15 דקות, בקצב שלך. הגינה מחכה.', gender: 'female', pair: 'ready_name', conditions: { track: ['strength'] } },
       { title: 'מוכן לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואתה שוב בשגרה.', gender: 'male', pair: 'back' },
       { title: 'מוכנה לחזור לשגרה?', body: 'בנינו לך אימון קל לחזרה. 15 דקות, ואת שוב בשגרה.', gender: 'female', pair: 'back' },
       { title: 'יום טוב להתחיל מחדש', body: 'אימון אחד קל, ואתה שוב בעניינים.', gender: 'male', pair: 'fresh' },
@@ -466,6 +500,15 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
       { title: 'הדלת תמיד פתוחה', body: 'כשיתאים, אימון קל של 15 דקות מחכה כאן. בלי לחץ.', conditions: { milestone: ['d30'] } },
       { title: 'הדלת תמיד פתוחה', body: 'כשתרצה לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'male', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
       { title: 'הדלת תמיד פתוחה', body: 'כשתרצי לחזור, אימון קל של 15 דקות מחכה לך כאן.', gender: 'female', conditions: { milestone: ['d30'] }, pair: 'm_d30' },
+      // Per track (21.10.2026). Appended, so the rows above keep their ids.
+      { title: 'הנעליים מחכות ליד הדלת', body: 'ריצה קלה של 15 דקות, בקצב שלך. חוזרים?', conditions: { track: ['run'] } },
+      { title: 'ריצה קצרה היום?', body: '15 דקות בקצב נוח, וחוזרים לשגרת הריצה.', conditions: { track: ['run'] } },
+      { title: '@שם, מוכן לרוץ שוב?', body: 'ריצה קלה של 15 דקות, בקצב שלך.', gender: 'male', pair: 'run_ready', conditions: { track: ['run'] } },
+      { title: '@שם, מוכנה לרוץ שוב?', body: 'ריצה קלה של 15 דקות, בקצב שלך.', gender: 'female', pair: 'run_ready', conditions: { track: ['run'] } },
+      { title: 'הליכה קצרה היום?', body: '20 דקות הליכה ליד הבית, וחוזרים לשגרה.', conditions: { track: ['walk'] } },
+      { title: 'יוצאים להליכה?', body: 'הליכה קלה בקצב שלך. כל צעד נחשב.', conditions: { track: ['walk'] } },
+      { title: '@שם, מוכן להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'male', pair: 'walk_ready', conditions: { track: ['walk'] } },
+      { title: '@שם, מוכנה להליכה קצרה?', body: '20 דקות ליד הבית, בקצב שלך. כל צעד נחשב.', gender: 'female', pair: 'walk_ready', conditions: { track: ['walk'] } },
     ],
   },
   {
@@ -478,18 +521,65 @@ export const PUSH_CATALOG: ReadonlyArray<PushCatalogEntry> = [
     whenSent:
       'בדיקה כל 30 דקות (:17 ו-:47). 24 שעות אחרי ההרשמה, ושוב אחרי 48 שעות נוספות. לכל היותר פעמיים בסך הכול. לא בשעות השקט ולא בשבת ובחג.',
     vars: ['@שם'],
+    // 21.10.2026: "עוד דקה" / "נשאר רק עוד צעד" only for who stopped at the
+    // end (stage near_end); per-stage and per-track rows below.
+    conditions: [DROPOFF_STAGE_CONDITION, TRACK_CONDITION],
     deepLinks: ['gateway'],
     defaults: [
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.' },
+      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה וההרשמה מוכנה, ואז מקבלים את האימון הראשון.', conditions: { stage: ['near_end'] } },
       { title: 'התוכנית שלך כמעט מוכנה', body: 'מסיימים את ההרשמה, ונבנה לך תוכנית לפי הרמה שלך.' },
       { title: 'נמשיך מאיפה שעצרת?', body: 'שמרנו את מה שמילאת. עוד כמה שאלות וזהו.' },
-      { title: 'האימון הראשון מחכה לך', body: 'לסיים את ההרשמה לוקח פחות מדקה.' },
+      { title: 'האימון הראשון מחכה לך', body: 'לסיים את ההרשמה לוקח פחות מדקה.', conditions: { stage: ['near_end'] } },
       { title: 'אנשים לידך כבר מתאמנים', body: 'מסיימים להירשם ורואים מי מתאמן בגינה הקרובה.' },
       // Gendered pairs (recipient). Appended, so the neutral rows keep their ids.
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואתה מקבל את האימון הראשון שלך.', gender: 'male', pair: 'step' },
-      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואת מקבלת את האימון הראשון שלך.', gender: 'female', pair: 'step' },
-      { title: 'מוכן לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'male', pair: 'ready' },
-      { title: 'מוכנה לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'female', pair: 'ready' },
+      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואתה מקבל את האימון הראשון שלך.', gender: 'male', pair: 'step', conditions: { stage: ['near_end'] } },
+      { title: '@שם, נשאר רק עוד צעד', body: 'עוד דקה ואת מקבלת את האימון הראשון שלך.', gender: 'female', pair: 'step', conditions: { stage: ['near_end'] } },
+      { title: 'מוכן לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'male', pair: 'ready', conditions: { stage: ['near_end'] } },
+      { title: 'מוכנה לאימון הראשון?', body: 'מסיימים את ההרשמה ומתחילים. לוקח פחות מדקה.', gender: 'female', pair: 'ready', conditions: { stage: ['near_end'] } },
+      // Per stage (21.10.2026). Appended, so the rows above keep their ids.
+      { title: 'נמשיך מאיפה שעצרת?', body: 'שמרנו את מה שמילאת. עוד כמה שאלות ונבנה לך תוכנית.', conditions: { stage: ['early'] } },
+      { title: '@שם, התוכנית שלך מחכה', body: 'כמה שאלות קצרות, ונבנה תוכנית שמתאימה בדיוק לך.', conditions: { stage: ['early'] } },
+      { title: 'עוד רגע יודעים מאיפה מתחילים', body: 'נשארה בדיקת רמה קצרה, ואז מקבלים תוכנית לפי הרמה שלך.', conditions: { stage: ['mid'] } },
+      { title: 'הבדיקה הקצרה מחכה לך', body: 'כמה תרגילים פשוטים, ונדע לבנות לך תוכנית בדיוק לרמה שלך.', conditions: { stage: ['mid'] } },
+      // Per track (any stage).
+      { title: 'תוכנית הריצה שלך כמעט מוכנה', body: 'מסיימים את ההרשמה ומקבלים ריצה ראשונה בקצב שלך.', conditions: { track: ['run'] } },
+      { title: 'תוכנית ההליכה שלך כמעט מוכנה', body: 'מסיימים את ההרשמה ומקבלים יעד הליכה שמתאים לך.', conditions: { track: ['walk'] } },
+    ],
+  },
+  {
+    pushType: 'first_workout',
+    label: 'האימון הראשון (עוד לא התחילו)',
+    lever: 'progress',
+    channel: 'retention',
+    sender: 'firstWorkoutScheduler, retentionScheduler',
+    description:
+      'סיימו הרשמה ועוד לא התאמנו אף פעם. במקום "לחזור" (הם עוד לא התחילו), הזמנה לאימון הראשון לפי המסלול.',
+    whenSent:
+      'firstWorkoutScheduler: כל יום ב-17:00, ביום הראשון והשני אחרי ההרשמה, רק למי שעוד אין לו אף אימון. לכל היותר פעמיים. retentionScheduler: למי שמעולם לא התאמן, במקום הנוסח של "חזרה לשגרה". רק כשהדגל firstWorkoutPushEnabled דולק.',
+    vars: ['@שם'],
+    conditions: [
+      {
+        key: 'when',
+        label: 'מתי',
+        options: [
+          { value: 'day1', label: 'יום אחרי ההרשמה' },
+          { value: 'day2', label: 'יומיים אחרי ההרשמה' },
+          { value: 'later', label: 'שבוע ומעלה (במקום "חזרה לשגרה")' },
+        ],
+      },
+      TRACK_CONDITION,
+    ],
+    deepLinks: ['home', 'map'],
+    defaults: [
+      { title: 'האימון הראשון שלך מוכן', body: '10 דקות זה כל מה שצריך כדי להתחיל. יוצאים?' },
+      { title: 'מתחילים בקטנה?', body: 'אימון ראשון קצר, בקצב שלך. הוא כבר מחכה לך.' },
+      { title: '@שם, האימון הראשון מחכה', body: 'בנינו לך אותו לפי הרמה שלך. 10 דקות ומתחילים.' },
+      { title: 'האימון הראשון שלך מוכן', body: 'אימון כוח קצר, בלי ציוד. מתחילים היום?', conditions: { track: ['strength'] } },
+      { title: 'הריצה הראשונה שלך מוכנה', body: 'ריצה קלה בקצב שלך. מתחילים היום?', conditions: { track: ['run'] } },
+      { title: 'ההליכה הראשונה שלך מוכנה', body: '15 דקות הליכה ליד הבית, וכבר התחלת.', conditions: { track: ['walk'] } },
+      { title: 'עוד לא התחלת? זה בסדר', body: 'אימון ראשון של 10 דקות מחכה לך, מתי שנוח.', conditions: { when: ['later'] } },
+      { title: 'עוד לא יצאת לריצה הראשונה?', body: 'ריצה קלה של 15 דקות, בקצב שלך. מתי שנוח.', conditions: { when: ['later'], track: ['run'] } },
+      { title: 'עוד לא יצאת להליכה הראשונה?', body: '15 דקות הליכה ליד הבית, מתי שנוח.', conditions: { when: ['later'], track: ['walk'] } },
     ],
   },
   {

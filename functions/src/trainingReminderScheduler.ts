@@ -89,6 +89,19 @@
  * OLD behavior) — unlike reminderSweepScheduler's own fail-closed flag
  * read, a transient error here must never silently stop an
  * already-relied-upon, already-live reminder from firing.
+ *
+ * PUSH-LIFECYCLE FIXES (21.10.2026, owner-approved) — lib/reminder-template.ts
+ * ──────────────────────────────────────────────────────────────────────────
+ *  - "Already passed" is measured from the START of this run's hour
+ *    (sessionNotYetStarted): template sessions start AT the reminder hour,
+ *    and the old `startTime <= now` skipped exactly them (07:00 strength,
+ *    07:00/19:00 runs).
+ *  - Pass 1b: users with no planned entry in a day doc get today's sessions
+ *    from lifestyle.recurringTemplate (shared/recurring-day.core.ts — the
+ *    client hydrate's rules), nothing written; one workouts read each so a
+ *    workout already logged today means no reminder. Kill switch:
+ *    feature_flags.trainingReminderFromTemplate === false (default ON).
+ *
  * `categoryLabel`/`resolveWorkoutReminderCopy`/`groupByCopy` are exported so
  * reminderSweepScheduler can reuse the same category-aware copy path for
  * workout-entry sends, rather than duplicating it.
@@ -108,6 +121,13 @@ import {
 import type { PushAudience } from './shared/push-library.core';
 import { envInt, forEachQueryPage, mapWithConcurrency } from './lib/paginate';
 import { isDemoUid } from './lib/demo';
+import {
+  collectTemplateCandidates,
+  parsePreferredHour,
+  sessionNotYetStarted,
+} from './lib/reminder-template';
+import { israelDateKey, latestWorkoutMs } from './lib/user-activity';
+import type { RecurringExistingEntry } from './shared/recurring-day.core';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -201,20 +221,6 @@ function currentHourIST(): number {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })).getHours();
 }
 
-/**
- * Parse the HOUR component out of a 'HH:MM' preference string. Returns null
- * for anything absent/malformed, so callers can fall back to DEFAULT_HOUR
- * without conflating "no preference" with "preference is hour 0".
- */
-function parsePreferredHour(runningTime: unknown): number | null {
-  if (typeof runningTime !== 'string') return null;
-  const match = runningTime.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hh = Number(match[1]);
-  if (!Number.isFinite(hh) || hh < 0 || hh > 23) return null;
-  return hh;
-}
-
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export const trainingReminderScheduler = onSchedule(
@@ -243,16 +249,21 @@ export const trainingReminderScheduler = onSchedule(
     // doesn't apply, which just means a candidate gets handled here instead
     // of waiting for the sweep — never a missed reminder.
     let gateWorkoutEntries = false;
+    // Server-side materialisation from the recurring template (lib/reminder-template.ts).
+    // DEFAULT ON — only an explicit false turns it off (kill switch).
+    let fromTemplate = true;
     try {
       const flagsSnap = await db.doc('app_config/feature_flags').get();
       gateWorkoutEntries = flagsSnap.exists && flagsSnap.data()?.reminderSweepWorkoutEntriesEnabled === true;
+      fromTemplate = !(flagsSnap.exists && flagsSnap.data()?.trainingReminderFromTemplate === false);
     } catch (err) {
       logger.warn('[training-reminder] feature_flags read failed, defaulting gate to false (old behavior)', err);
     }
 
     logger.info(
       `[training-reminder] Starting run for date=${dateStr} hour=${currentHour} ` +
-        `batchLimit=${BATCH_LIMIT} maxPages=${MAX_PAGES} testMode=${TEST_MODE} gateWorkoutEntries=${gateWorkoutEntries}`,
+        `batchLimit=${BATCH_LIMIT} maxPages=${MAX_PAGES} testMode=${TEST_MODE} gateWorkoutEntries=${gateWorkoutEntries} ` +
+        `fromTemplate=${fromTemplate}`,
     );
 
     // ── Pass 1: today's userSchedule docs, cursor-paginated (19.10.2026 —
@@ -263,9 +274,14 @@ export const trainingReminderScheduler = onSchedule(
       uid: string;
       workoutLabel: string;
       startTime?: string;
+      /** Planned by the recurring template, no day doc (gap 4) — the user doc is already read. */
+      fromTemplate?: boolean;
+      userData?: Record<string, unknown>;
     }
 
     const candidates: Candidate[] = [];
+    /** Every day doc's entries this run read — the template pass must respect the user's own edits. */
+    const dayEntriesByUid = new Map<string, ReadonlyArray<RecurringExistingEntry>>();
 
     const collectPage = (pageDocs: admin.firestore.QueryDocumentSnapshot[]) => {
       for (const doc of pageDocs) {
@@ -283,6 +299,7 @@ export const trainingReminderScheduler = onSchedule(
         if (!uid || isDemoUid(uid)) continue; // demo world guard
 
         const entries = Array.isArray(data.entries) ? data.entries : [];
+        dayEntriesByUid.set(uid, entries as ReadonlyArray<RecurringExistingEntry>);
         // Find first uncompleted training entry for today
         const trainEntry = entries.find(
           (e) => e.type === 'training' && e.completed !== true,
@@ -295,14 +312,12 @@ export const trainingReminderScheduler = onSchedule(
         // the same workout (see this file's header).
         if (gateWorkoutEntries && trainEntry.startTime) continue;
 
-        // Skip if the workout's startTime has already passed (no point reminding after the fact)
-        if (trainEntry.startTime) {
-          const [hh, mm] = trainEntry.startTime.split(':').map(Number);
-          if (Number.isFinite(hh) && Number.isFinite(mm)) {
-            const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
-            if (hh * 60 + mm <= nowIST.getHours() * 60 + nowIST.getMinutes()) continue;
-          }
-        }
+        // Skip if the workout started before this run's hour (no point
+        // reminding after the fact). 21.10.2026: measured from the start of
+        // the run's hour, not `<= now` — template sessions start AT the
+        // reminder hour (07:00 / 19:00), so the old check skipped exactly
+        // the sessions this reminder is for (push-lifecycle audit, gap 2).
+        if (!sessionNotYetStarted(trainEntry.startTime, currentHour)) continue;
 
         candidates.push({
           uid,
@@ -331,6 +346,34 @@ export const trainingReminderScheduler = onSchedule(
       logger.error('[training-reminder] Firestore query failed after some pages — continuing with those', err);
     }
 
+    // ── Pass 1b: users with NO planned entry in a day doc whose recurring
+    // template plans a session today (gap 4 — nothing written). ──
+    if (fromTemplate) {
+      try {
+        const { candidates: fromTpl, usersRead } = await collectTemplateCandidates(db, {
+          dateKey: dateStr,
+          runHour: currentHour,
+          defaultHour: DEFAULT_HOUR,
+          pageSize: BATCH_LIMIT,
+          maxPages: MAX_PAGES,
+          dayEntriesByUid,
+          skipUids: new Set(candidates.map((c) => c.uid)),
+        });
+        for (const t of fromTpl) {
+          candidates.push({
+            uid: t.uid,
+            workoutLabel: categoryLabel(t.categories),
+            startTime: t.startTime,
+            fromTemplate: true,
+            userData: t.userData,
+          });
+        }
+        logger.info(`[training-reminder] template pass: ${usersRead} user doc(s) read, ${fromTpl.length} candidate(s) without a day doc`);
+      } catch (err: unknown) {
+        logger.error('[training-reminder] template pass failed — continuing with day-doc candidates only', err);
+      }
+    }
+
     logger.info(`[training-reminder] ${candidates.length} candidate(s) with uncompleted training today`);
 
     if (candidates.length === 0) return;
@@ -338,8 +381,19 @@ export const trainingReminderScheduler = onSchedule(
     // ── Pass 2: resolve each candidate's preferred hour, keep only this run's hour ──
     const preferredHourByUid = new Map<string, number>();
     const recipientByUid = new Map<string, ReminderRecipient>();
-    for (let i = 0; i < candidates.length; i += USER_FETCH_BATCH) {
-      const slice = candidates.slice(i, i + USER_FETCH_BATCH);
+    const setRecipient = (uid: string, userData: Record<string, any> | undefined) => {
+      recipientByUid.set(uid, {
+        uid,
+        firstName: firstNameFromUserData(userData),
+        audience: audienceFromUserData(userData),
+      });
+      preferredHourByUid.set(uid, parsePreferredHour(userData?.lifestyle?.reminders?.runningTime) ?? DEFAULT_HOUR);
+    };
+    // Template candidates came from a users query — their doc is already in hand.
+    for (const c of candidates) if (c.userData) setRecipient(c.uid, c.userData as Record<string, any>);
+    const needUserDoc = candidates.filter((c) => !c.userData);
+    for (let i = 0; i < needUserDoc.length; i += USER_FETCH_BATCH) {
+      const slice = needUserDoc.slice(i, i + USER_FETCH_BATCH);
       const refs = slice.map((c) => db.collection('users').doc(c.uid));
       let userDocs: admin.firestore.DocumentSnapshot[];
       try {
@@ -350,16 +404,7 @@ export const trainingReminderScheduler = onSchedule(
         continue;
       }
       userDocs.forEach((snap, idx) => {
-        const uid = slice[idx].uid;
-        const userData = snap.exists ? (snap.data() as Record<string, any>) : undefined;
-        recipientByUid.set(uid, {
-          uid,
-          firstName: firstNameFromUserData(userData),
-          audience: audienceFromUserData(userData),
-        });
-        const runningTime = userData?.lifestyle?.reminders?.runningTime;
-        const parsed = parsePreferredHour(runningTime);
-        preferredHourByUid.set(uid, parsed ?? DEFAULT_HOUR);
+        setRecipient(slice[idx].uid, snap.exists ? (snap.data() as Record<string, any>) : undefined);
       });
     }
 
@@ -392,7 +437,26 @@ export const trainingReminderScheduler = onSchedule(
       });
     }
 
-    const targets = hourMatched.filter((c) => !alreadySentToday.has(c.uid));
+    const notYetHandled = hourMatched.filter((c) => !alreadySentToday.has(c.uid));
+
+    // Template candidates have no day doc that could say "done": one indexed
+    // workouts read each (only these few, after every cheaper filter) — a
+    // workout logged today means no reminder. Fails SAFE (lookup error → skip).
+    const trainedToday = new Set<string>();
+    await mapWithConcurrency(
+      notYetHandled.filter((c) => c.fromTemplate),
+      COPY_CONCURRENCY,
+      async (c) => {
+        try {
+          const ms = await latestWorkoutMs(db, c.uid);
+          if (ms !== null && israelDateKey(ms) === dateStr) trainedToday.add(c.uid);
+        } catch (err: unknown) {
+          trainedToday.add(c.uid);
+          logger.warn(`[training-reminder] workouts lookup failed for template candidate uid=${c.uid}, skipping`, err);
+        }
+      },
+    );
+    const targets = notYetHandled.filter((c) => !trainedToday.has(c.uid));
 
     logger.info(
       `[training-reminder] ${targets.length} target(s) after once-per-day guard ` +

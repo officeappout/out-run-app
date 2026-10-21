@@ -17,7 +17,7 @@ import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { remapParksToAuthorities } from '@/features/admin/services/remap-parks-to-authorities';
 import { Authority } from '@/types/admin-types';
 import { RefreshCw } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import { resolveParkImage } from '@/lib/park-image';
 
 export default function ParksListPage() {

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Zap, Flame, Lock } from 'lucide-react';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 // הגדרת ה-Props בצורה שתתאים ל-MOCK_STATS שלך
 interface StatsWidgetsProps {

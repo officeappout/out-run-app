@@ -10,9 +10,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { captureReferralParam } from '@/features/safecity/services/referral.service';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 export default function JoinPage() {
   const router = useRouter();
+  const t = useT(onboarding);
 
   useEffect(() => {
     captureReferralParam();
@@ -21,7 +24,7 @@ export default function JoinPage() {
 
   return (
     <div className="fixed inset-0 bg-[#F8FAFC] flex items-center justify-center">
-      <p className="text-sm text-gray-400 animate-pulse">מעביר אותך...</p>
+      <p className="text-sm text-gray-400 animate-pulse">{t('join.referral.redirecting')}</p>
     </div>
   );
 }

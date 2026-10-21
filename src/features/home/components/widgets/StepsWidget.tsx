@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Footprints, Flame, Target, Check } from 'lucide-react';
 import { SUCCESS_BASELINE } from '@/features/user/progression/services/smart-goals.service';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import { IconTile, StatNumber } from '@/components/ui/v2';
 
 interface StepsWidgetProps {

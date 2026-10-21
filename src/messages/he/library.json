@@ -275,5 +275,6 @@
   "exercises.programSwitcher.close": "סגור",
   "exercises.locationSwitcher.location": "{location, select, home {בית} park {פארק} gym {חדר כושר} street {רחוב} office {משרד} school {בית ספר} airport {שדה תעופה} library {ספרייה} desk {שולחן} service {צבא/שירות} other {{location}}}",
   "exercises.locationSwitcher.bodyweight": "משקל גוף",
-  "exercises.locationSwitcher.close": "סגור"
+  "exercises.locationSwitcher.close": "סגור",
+  "workoutHistory.notFound": "האימון לא נמצא"
 }

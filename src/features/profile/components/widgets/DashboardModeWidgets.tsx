@@ -17,7 +17,7 @@ import { Footprints, Gauge, Activity, Route, Medal } from 'lucide-react';
 import { useWeeklyVolumeStore } from '@/features/workout-engine/core/store/useWeeklyVolumeStore';
 import { useDailyActivity } from '@/features/activity';
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import CircularProgress from '@/components/CircularProgress';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 

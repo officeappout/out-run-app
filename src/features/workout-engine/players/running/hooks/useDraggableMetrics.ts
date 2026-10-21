@@ -32,7 +32,7 @@
  * What this hook is NOT:
  *   • A presentational component — it returns motion controls + state
  *     for the caller to apply to its own JSX.
- *   • A coordinate validator — that lives in `src/utils/geoValidation.ts`.
+ *   • A coordinate validator — that lives in `src/features/parks/lib/geo-validation.ts`.
  *   • An audio / haptics hook — drag end is silent by design (per UX
  *     spec for active workouts).
  */
