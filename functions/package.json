@@ -21,6 +21,7 @@
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^5.0.0",
     "geofire-common": "^6.0.0",
+    "intl-messageformat": "^11.2.15",
     "zod": "^4.4.3"
   },
   "devDependencies": {
