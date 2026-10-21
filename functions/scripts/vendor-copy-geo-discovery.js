@@ -249,7 +249,8 @@ if (missingPackages.size > 0) {
 // current app source; a root vitest asserts the committed copy is identical
 // (src/features/activity/lib/__tests__/step-goal.test.ts,
 // src/features/notifications/push-library/__tests__/push-library.core.test.ts,
-// src/lib/i18n/__tests__/i18n-core.test.ts), so drift can't merge.
+// src/lib/i18n/__tests__/i18n-core.test.ts,
+// src/lib/i18n/__tests__/functions-i18n-mirror.test.ts), so drift can't merge.
 const COMMITTED_MIRRORS = {
   // The ONE step-goal resolver — app + stepGoalNudgeScheduler / pushOutcomeSweeper.
   'src/features/activity/lib/step-goal.ts': 'functions/src/shared/step-goal.ts',
@@ -258,6 +259,8 @@ const COMMITTED_MIRRORS = {
   // The i18n core — fallback chain, locale resolution, pickText (docs/i18n/PLAN.md §3.2.4).
   // The ICU engine is injected, so the file stays import-free.
   'src/lib/i18n/core/i18n-core.ts': 'functions/src/shared/i18n-core.ts',
+  // The one Locale type + list — functions' getT / user-locale helper (PLAN §2.2).
+  'src/lib/i18n/locales.ts': 'functions/src/shared/locales.ts',
 };
 for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   const src = fs.readFileSync(path.join(REPO_ROOT, from), 'utf8');
@@ -270,6 +273,17 @@ for (const [from, to] of Object.entries(COMMITTED_MIRRORS)) {
   fs.mkdirSync(path.dirname(path.join(REPO_ROOT, to)), { recursive: true });
   fs.writeFileSync(path.join(REPO_ROOT, to), header + src);
   console.log(`[vendor-copy] mirrored ${from} -> ${to}`);
+}
+
+// The translation catalogs Cloud Functions use (src/messages/<locale>/<ns>.json →
+// functions/src/shared/i18n-catalogs.ts). Same committed-mirror contract, pinned by
+// src/lib/i18n/__tests__/functions-i18n-mirror.test.ts. See i18n-catalog-mirror.js.
+try {
+  const out = require('./i18n-catalog-mirror').writeCatalogMirror(REPO_ROOT);
+  console.log(`[vendor-copy] mirrored i18n catalogs -> ${out}`);
+} catch (err) {
+  console.error(String(err && err.message ? err.message : err));
+  hadError = true;
 }
 
 if (hadError) {

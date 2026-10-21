@@ -55,6 +55,8 @@ import { PartnerEmptyState } from './PartnerEmptyState';
 import { useUserStore } from '@/features/user';
 import { useSuppressBottomNav } from '@/features/parks/core/hooks/useSuppressBottomNav';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 interface PartnerOverlayProps {
   initialTab: 'live' | 'scheduled';
@@ -349,6 +351,7 @@ export function PartnerOverlay({
   onClose,
   onFiltersChange,
 }: PartnerOverlayProps) {
+  const t = useT(map);
   const [activeTab, setActiveTab] = useState<'live' | 'scheduled'>(initialTab);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
@@ -460,13 +463,13 @@ export function PartnerOverlay({
   // Auto-dismiss the Option C hint after 2.5s.
   useEffect(() => {
     if (!autoSwitchHint) return;
-    const t = window.setTimeout(() => setAutoSwitchHint(null), 2500);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setAutoSwitchHint(null), 2500);
+    return () => window.clearTimeout(timer);
   }, [autoSwitchHint]);
 
   const handleSwitchToScheduled = () => {
     setActiveTab('scheduled');
-    setAutoSwitchHint('מציג קבוצות מתוכננות');
+    setAutoSwitchHint(t('partners.overlay.autoSwitchHint'));
   };
 
   const filteredLive = useMemo<LivePartner[]>(() => {
@@ -652,7 +655,7 @@ export function PartnerOverlay({
       if (!profile?.id) return;
       void useChatStore.getState().openDM(
         profile.id,
-        profile.core?.name ?? 'אווטיר',
+        profile.core?.name ?? 'אווטיר', // i18n-allow-hebrew: sender name stored on the chat (data, not copy)
         partnerUid,
         partnerName,
       );
@@ -662,8 +665,8 @@ export function PartnerOverlay({
 
   // Title + subtitle copy keyed off the active tab.
   const headerCopy = activeTab === 'live'
-    ? { title: 'מי מתאמן עכשיו?', subtitle: 'מתאמנים פעילים קרוב אליך כרגע' }
-    : { title: 'מי מתכנן להתאמן?', subtitle: 'אימונים מתוכננים היום ומחר באזורך' };
+    ? { title: t('partners.overlay.live.title'), subtitle: t('partners.overlay.live.subtitle') }
+    : { title: t('partners.overlay.scheduled.title'), subtitle: t('partners.overlay.scheduled.subtitle') };
 
   return (
     <>
@@ -719,7 +722,7 @@ export function PartnerOverlay({
                 : 'absolute w-9 h-9 rounded-full bg-gray-200/80 flex items-center justify-center active:scale-90 transition-transform pointer-events-auto z-10'
             }
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', left: 16 }}
-            aria-label="חזור"
+            aria-label={t('partners.overlay.back')}
           >
             <ChevronLeft size={v2 ? 20 : 18} className={v2 ? 'text-v2-ink' : 'text-gray-700'} />
           </button>
@@ -740,35 +743,35 @@ export function PartnerOverlay({
               <div className="flex justify-center px-4 py-1.5">
                 <div className="flex gap-0.5 rounded-full bg-white p-1 shadow-v2-ring" role="tablist">
                   {([
-                    { key: 'live' as const, label: 'מי בחוץ', count: liveCount },
-                    { key: 'scheduled' as const, label: 'מי מתכנן', count: scheduledCount },
-                  ]).map((t) => {
-                    const active = activeTab === t.key;
+                    { key: 'live' as const, label: t('partners.overlay.tab.live'), count: liveCount },
+                    { key: 'scheduled' as const, label: t('partners.overlay.tab.scheduled'), count: scheduledCount },
+                  ]).map((tabDef) => {
+                    const active = activeTab === tabDef.key;
                     return (
                       <button
-                        key={t.key}
+                        key={tabDef.key}
                         type="button"
                         role="tab"
                         aria-selected={active}
-                        onClick={() => setActiveTab(t.key)}
+                        onClick={() => setActiveTab(tabDef.key)}
                         className={`flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-extrabold transition-colors duration-150 ease-v2 ${
                           active
                             ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40'
                             : 'text-v2-ink-2'
                         }`}
                       >
-                        {t.key === 'live' ? (
+                        {tabDef.key === 'live' ? (
                           <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-v2-up" />
                         ) : (
                           <CalendarDays size={14} aria-hidden />
                         )}
-                        <span>{t.label}</span>
+                        <span>{tabDef.label}</span>
                         <span
                           className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11.5px] font-black ${
                             active ? 'bg-white text-v2-deep' : 'bg-v2-surface text-v2-muted'
                           }`}
                         >
-                          {t.count}
+                          {tabDef.count}
                         </span>
                       </button>
                     );
@@ -790,7 +793,7 @@ export function PartnerOverlay({
                     borderBottom: activeTab === 'live' ? `2px solid ${ACCENT}` : 'none',
                   }}
                 >
-                  <span>מי בחוץ</span>
+                  <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מי בחוץ</span>
                   <span aria-hidden className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   <span className="text-xs opacity-70">{liveCount}</span>
                 </button>
@@ -808,7 +811,7 @@ export function PartnerOverlay({
                     borderBottom: activeTab === 'scheduled' ? `2px solid ${ACCENT}` : 'none',
                   }}
                 >
-                  <span>מי מתכנן</span>
+                  <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מי מתכנן</span>
                   <span aria-hidden>📅</span>
                   <span className="text-xs opacity-70">{scheduledCount}</span>
                 </button>
@@ -904,7 +907,7 @@ export function PartnerOverlay({
                   style={{ borderColor: v2 ? '#00baf7' : ACCENT, borderTopColor: 'transparent' }}
                 />
                 <p className={v2 ? 'text-[13px] font-bold text-v2-muted' : 'text-xs font-bold'} style={v2 ? undefined : { color: '#1a1a1a' }}>
-                  מחפש שותפים...
+                  {t('partners.overlay.loading')}
                 </p>
               </div>
             ) : activeTab === 'live' ? (
@@ -914,7 +917,7 @@ export function PartnerOverlay({
                   tab="live"
                   v2={v2}
                   onAction={v2 ? () => setFilterSheetOpen(true) : undefined}
-                  actionLabel="שינוי סינון"
+                  actionLabel={t('partners.empty.changeFilter')}
                 />
               </div>
               ) : (
@@ -954,7 +957,7 @@ export function PartnerOverlay({
                   tab="scheduled"
                   v2={v2}
                   onAction={v2 ? () => setFilterSheetOpen(true) : undefined}
-                  actionLabel="שינוי סינון"
+                  actionLabel={t('partners.empty.changeFilter')}
                 />
               </div>
             ) : (
@@ -1007,7 +1010,7 @@ export function PartnerOverlay({
                         // Keep overlay mounted — chat slides up at z-[101]
                         void useChatStore.getState().openGroup(
                           p.groupId ?? p.id,
-                          p.sessionLabel ?? 'קבוצה',
+                          p.sessionLabel ?? 'קבוצה', // i18n-allow-hebrew: group thread name passed to the chat store (data, not copy)
                         );
                       } : undefined}
                     />

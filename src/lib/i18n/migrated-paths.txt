@@ -23,3 +23,9 @@ src/app/activity/
 # + admin, read by home / workouts / arena / admin outside this PR) — manual list in the PR.
 src/features/search/
 src/app/search/
+# wave 2 batch 1 (namespace map, partners.* keys) — Partner Finder.
+# PartnerBubbles.tsx is dead (imported by DiscoverLayer, never rendered): left as is.
+# heatmap: only hooks/ + services/ (no copy); heatmap/components is admin-only (Hebrew only, PLAN decision 1).
+src/features/partners/
+src/features/heatmap/hooks/
+src/features/heatmap/services/
