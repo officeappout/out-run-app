@@ -10,6 +10,8 @@
 
 import { useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import OverviewTitleBar from '../../hybrid/OverviewTitleBar';
 import RouteOverviewDrawer, { type RouteOverviewDrawerProps } from './RouteOverviewDrawer';
 
@@ -23,6 +25,7 @@ export interface RouteOverviewOverlayProps extends Omit<RouteOverviewDrawerProps
 }
 
 export default function RouteOverviewOverlay({ renderFullDetails, renderTopCard, renderWorkoutView, ...drawer }: RouteOverviewOverlayProps) {
+  const t = useT(map);
   const [full, setFull] = useState(false);
   const [workoutView, setWorkoutView] = useState(false);
   if (full && renderFullDetails) return <>{renderFullDetails(() => setFull(false))}</>;
@@ -36,7 +39,7 @@ export default function RouteOverviewOverlay({ renderFullDetails, renderTopCard,
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
       >
-        <OverviewTitleBar title={drawer.route.name?.trim() || 'מסלול'} eyebrow={showWorkout ? 'מבט על אימון' : 'מבט על מסלול'}
+        <OverviewTitleBar title={drawer.route.name?.trim() || t('overview.route.nameFallback')} eyebrow={showWorkout ? t('overview.route.titleBar.workout') : t('overview.route.titleBar.route')}
           onBack={showWorkout ? () => setWorkoutView(false) : drawer.onBack} />
       </motion.div>
       {showWorkout

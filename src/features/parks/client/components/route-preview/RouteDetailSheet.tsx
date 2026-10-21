@@ -35,6 +35,13 @@ import { formatTooFarLabels } from '@/features/parks/core/services/start-experie
 import { useToast } from '@/components/ui/Toast';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
 import type { WorkoutActivityStatus } from '@/features/safecity/services/presence.service';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+
+/** The `map` namespace's t() — passed into the module-level formatters below. */
+type MapT = (key: NamespaceKey<typeof map>, values?: MessageValues) => string;
 
 const DRAWER_HEIGHT = '85vh';
 // Stable fallback for the zustand selector below. zustand v5 re-runs the selector on every
@@ -60,49 +67,27 @@ const PILL_BORDER = '0.5px solid #E0E9FF';
 const STAT_PILL_CLASS =
   'flex-shrink-0 inline-flex items-center gap-1.5 bg-white shadow-sm rounded-lg px-3 py-1.5';
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  running: 'ריצה', walking: 'הליכה', cycling: 'רכיבה', workout: 'אימון',
-};
+// Activity / surface / environment / day-filter labels live in the `map`
+// catalog as ICU selects (routePreview.activity / .surface / .environment /
+// .dayFilter). RouteFeatures.{surface,environment} are loose `string` in the
+// type — the writer (RouteEditor + GIS importers) emits a small set of known
+// values, so the select covers those and its `other` branch falls through to
+// the raw value for anything legacy/unknown.
 
-// Surface / Environment translation tables. Built as Record<string, string>
-// because RouteFeatures.{surface,environment} are loose `string` in the
-// type — the writer (RouteEditor + GIS importers) emits a small set of
-// known values, so we cover those and fall through to the raw value for
-// anything legacy/unknown.
-const SURFACE_LABELS: Record<string, string> = {
-  paved: 'סלול',
-  road: 'סלול',
-  asphalt: 'סלול',
-  trail: 'שבילים',
-  dirt: 'שבילים',
-  mixed: 'מעורב',
-};
-
-const ENVIRONMENT_LABELS: Record<string, string> = {
-  urban: 'עירוני',
-  nature: 'טבע',
-  park: 'פארק',
-  beach: 'חוף',
-};
-
-const DAY_FILTER_LABELS: Record<DayFilter, string> = {
-  today: 'היום',
-  tomorrow: 'מחר',
-  week: 'השבוע',
-};
-
-function formatDistance(km: number): string {
-  if (km >= 1) return `${km.toFixed(1)} ק"מ`;
-  return `${Math.round(km * 1000)} מ'`;
+function formatDistance(km: number, t: MapT): string {
+  if (km >= 1) return t('routePreview.distance.km', { km: km.toFixed(1) });
+  return t('routePreview.distance.m', { m: String(Math.round(km * 1000)) });
 }
 
-function formatDuration(minutes: number): string {
+function formatDuration(minutes: number, t: MapT): string {
   if (minutes >= 60) {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
-    return m > 0 ? `${h} שעה ${m} דק'` : `${h} שעה`;
+    return m > 0
+      ? t('routePreview.duration.hoursMinutes', { h: String(h), m: String(m) })
+      : t('routePreview.duration.hours', { h: String(h) });
   }
-  return `${Math.round(minutes)} דק'`;
+  return t('routePreview.duration.minutes', { min: String(Math.round(minutes)) });
 }
 
 // Route activity → presence activity adapter. The Route domain has a
@@ -116,15 +101,15 @@ function mapRouteActivityToPresence(act: ActivityType | undefined): WorkoutActiv
 
 function formatEventDate(raw: string): string {
   const d = new Date(raw);
-  if (isNaN(d.getTime())) return 'מועד קרוב';
+  if (isNaN(d.getTime())) return 'מועד קרוב'; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
   const now = new Date();
   const isToday = d.toDateString() === now.toDateString();
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = d.toDateString() === tomorrow.toDateString();
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  if (isToday) return `היום ב-${time}`;
-  if (isTomorrow) return `מחר ב-${time}`;
+  if (isToday) return `היום ב-${time}`; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
+  if (isTomorrow) return `מחר ב-${time}`; // i18n-allow-hebrew: unused helper (no caller) — kept, not extracted
   return d.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${time}`;
 }
 
@@ -151,6 +136,7 @@ export default function RouteDetailSheet({
   currentActivity,
   devSim,
 }: RouteDetailSheetProps) {
+  const t = useT(map);
   const y = useMotionValue(0);
   const rawOpacity = useTransform(y, [0, 300], [1, 0]);
   const opacity = useTransform(rawOpacity, (v) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1));
@@ -211,7 +197,7 @@ export default function RouteDetailSheet({
       const startPoint = route.path?.[0];
       await createPlannedSession({
         userId: user.uid,
-        displayName: user.displayName ?? 'משתמש',
+        displayName: user.displayName ?? 'משתמש', // i18n-allow-hebrew: written to Firestore (planned session)
         photoURL: user.photoURL,
         routeId: route.id,
         // Denormalised label so the partner card can render the
@@ -230,18 +216,18 @@ export default function RouteDetailSheet({
       setShowTimePicker(false);
       setJustPublished({
         time: `${minutesToLabel(startMinutes)} - ${minutesToLabel(endMinutes)}`,
-        name: user.displayName ?? 'משתמש',
+        name: user.displayName ?? t('routePreview.community.userFallback'),
         photoURL: user.photoURL ?? undefined,
       });
       // Inject an optimistic session immediately so it appears in filteredSessions
       // without waiting for the Firestore snapshot to propagate.
       const syntheticSession: SessionEnrichment = {
         eventId: `local-${user.uid}-${Date.now()}`,
-        eventLabel: user.displayName ?? 'אני',
+        eventLabel: user.displayName ?? t('routePreview.community.me'),
         nextStartTime: startTime.toISOString(),
         currentRegistrations: 1,
         plannedCount: 1,
-        avatars: [{ uid: user.uid, name: user.displayName ?? 'אני', photoURL: user.photoURL ?? undefined }],
+        avatars: [{ uid: user.uid, name: user.displayName ?? t('routePreview.community.me'), photoURL: user.photoURL ?? undefined }],
         isPersonalArrival: true,
         privacyMode: 'verified_global',
       };
@@ -251,7 +237,7 @@ export default function RouteDetailSheet({
     } finally {
       setPublishingSession(false);
     }
-  }, [timeRangeMinutes, route]);
+  }, [timeRangeMinutes, route, t]);
 
   const routeIds = useMemo(() => (route ? [route.id] : []), [route?.id]);
   const routeArr = useMemo(() => (route ? [route] : []), [route]);
@@ -323,10 +309,10 @@ export default function RouteDetailSheet({
           : '18:00';
         await materializeVirtualSession(
           ev.groupId, dateStr, time,
-          user.uid, user.displayName ?? 'משתמש', user.photoURL ?? undefined,
+          user.uid, user.displayName ?? 'משתמש', user.photoURL ?? undefined, // i18n-allow-hebrew: written to Firestore (session member name)
         );
       } else {
-        await joinEvent(ev.eventId, user.uid, user.displayName ?? 'משתמש', user.photoURL ?? undefined);
+        await joinEvent(ev.eventId, user.uid, user.displayName ?? 'משתמש', user.photoURL ?? undefined); // i18n-allow-hebrew: written to Firestore (event member name)
       }
     } catch (err) {
       console.error('[RouteDetailSheet] Join event failed:', err);
@@ -408,7 +394,7 @@ export default function RouteDetailSheet({
 
   if (!route) return null;
 
-  const activityLabel = ACTIVITY_LABELS[route.activityType || route.type] || '';
+  const activityLabel = t('routePreview.activity', { activity: route.activityType || route.type || '' });
   const oneWayLabel = pointToPointLabel(route);
   const dataCredits = routeDataCredits(route);
   // 800 matches bunny-image.ts's own documented "park detail hero" width.
@@ -471,7 +457,7 @@ export default function RouteDetailSheet({
                     <ChevronLeft size={20} className="text-gray-700" />
                   </button>
                   <h1 className="text-lg font-black text-gray-900 flex-1 text-center px-4 truncate">
-                    {route.name || 'מסלול'}
+                    {route.name || t('routePreview.nameFallback')}
                   </h1>
                   <div className="w-10" />
                 </div>
@@ -488,7 +474,7 @@ export default function RouteDetailSheet({
                 >
                   {coverImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={coverImage} alt={route.name || 'מסלול'} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={coverImage} alt={route.name || t('routePreview.nameFallback')} className="absolute inset-0 w-full h-full object-cover" />
                   ) : (
                     <div
                       className="absolute inset-0 flex items-center justify-center"
@@ -530,7 +516,7 @@ export default function RouteDetailSheet({
                     className="text-[20px] font-bold text-gray-900 leading-tight"
                     style={{ wordBreak: 'break-word', paddingInlineEnd: 40 }}
                   >
-                    {route.name || 'מסלול ללא שם'}
+                    {route.name || t('routePreview.title.unnamed')}
                   </h1>
                 </div>
 
@@ -550,7 +536,7 @@ export default function RouteDetailSheet({
                       )}
                       {distToStart && (
                         <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Navigation size={12} />{distToStart} עד תחילת המסלול
+                          <Navigation size={12} />{t('routePreview.distToStart', { distance: distToStart })}
                         </span>
                       )}
                     </div>
@@ -579,14 +565,14 @@ export default function RouteDetailSheet({
                     {route.duration > 0 && (
                       <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
                         <Clock size={14} className="text-slate-400 flex-shrink-0" />
-                        <span className="text-[13px] font-normal text-gray-800">{formatDuration(route.duration)}</span>
+                        <span className="text-[13px] font-normal text-gray-800">{formatDuration(route.duration, t)}</span>
                       </div>
                     )}
                     {route.distance > 0 && (
                       <div className={STAT_PILL_CLASS} style={{ border: PILL_BORDER }}>
                         <Ruler size={14} className="text-slate-400 flex-shrink-0" />
-                        <span className="text-[13px] font-normal text-gray-800">{formatDistance(route.distance)}</span>
-                        <span className="text-[10px] text-gray-400 font-bold">אורך מסלול</span>
+                        <span className="text-[13px] font-normal text-gray-800">{formatDistance(route.distance, t)}</span>
+                        <span className="text-[10px] text-gray-400 font-bold">{t('routePreview.stat.length')}</span>
                       </div>
                     )}
                   </div>
@@ -599,7 +585,7 @@ export default function RouteDetailSheet({
                       {route.calories > 0 && (
                         <span className="inline-flex items-center gap-1">
                           <Flame size={13} className="text-orange-500" />
-                          <span>{route.calories} קק&quot;ל</span>
+                          <span>{t('routePreview.stat.calories', { calories: String(route.calories) })}</span>
                         </span>
                       )}
                       {route.calories > 0 && (route.analytics?.usageCount ?? 0) > 0 && (
@@ -608,7 +594,7 @@ export default function RouteDetailSheet({
                       {(route.analytics?.usageCount ?? 0) > 0 && (
                         <span className="inline-flex items-center gap-1">
                           <Users size={13} className="text-emerald-500" />
-                          <span>{route.analytics?.usageCount} שימושים</span>
+                          <span>{t('routePreview.stat.usage', { count: String(route.analytics?.usageCount) })}</span>
                         </span>
                       )}
                     </div>
@@ -619,7 +605,7 @@ export default function RouteDetailSheet({
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-[15px] font-bold flex items-center gap-1.5">
                         <Calendar size={14} className="text-emerald-500" />
-                        <span>מתאמנים</span>
+                        <span>{t('routePreview.community.title')}</span>
                         {allSessions.length > 0 && (
                           <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
                             {allSessions.reduce((s, e) => s + (e.currentRegistrations ?? 0), 0)}
@@ -635,7 +621,7 @@ export default function RouteDetailSheet({
                               dayFilter === f ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500'
                             }`}
                           >
-                            {DAY_FILTER_LABELS[f]}
+                            {t('routePreview.dayFilter', { filter: f })}
                           </button>
                         ))}
                       </div>
@@ -645,18 +631,18 @@ export default function RouteDetailSheet({
                       <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden">
                         <div className="flex items-center gap-3 py-3 px-3">
                           <Users size={18} className="text-emerald-400 flex-shrink-0" />
-                          <p className="text-xs text-emerald-700 font-bold flex-1">אף אחד עוד לא פרסם שהוא מגיע...</p>
+                          <p className="text-xs text-emerald-700 font-bold flex-1">{t('routePreview.community.empty')}</p>
                           <button
                             onClick={() => setShowTimePicker(!showTimePicker)}
                             className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
                           >
-                            אני מגיע ב...
+                            {t('routePreview.community.arrive')}
                           </button>
                         </div>
                         {showTimePicker && (
                           <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-emerald-700">שעת הגעה</span>
+                              <span className="text-[11px] font-bold text-emerald-700">{t('routePreview.community.arrivalTime')}</span>
                               <span className="text-[11px] font-black text-emerald-600" dir="ltr">
                                 {minutesToLabel(timeRangeMinutes[0])} - {minutesToLabel(timeRangeMinutes[1])}
                               </span>
@@ -667,15 +653,15 @@ export default function RouteDetailSheet({
                               step={RANGE_STEP_MIN}
                               values={timeRangeMinutes}
                               onChange={setTimeRangeMinutes}
-                              ariaLabelMin="שעת הגעה מוקדמת"
-                              ariaLabelMax="שעת הגעה מאוחרת"
+                              ariaLabelMin={t('routePreview.community.arrivalEarliest')}
+                              ariaLabelMax={t('routePreview.community.arrivalLatest')}
                             />
                             <button
                               onClick={handlePublishArrival}
                               disabled={publishingSession}
                               className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-[11px] font-bold transition-colors"
                             >
-                              {publishingSession ? '...' : 'פרסם'}
+                              {publishingSession ? '...' : t('routePreview.community.publish')}
                             </button>
                           </div>
                         )}
@@ -691,7 +677,7 @@ export default function RouteDetailSheet({
                             const tmrw = new Date(now); tmrw.setDate(tmrw.getDate() + 1);
                             const isTomorrow = d.toDateString() === tmrw.toDateString();
                             const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                            timeLabel = isToday ? hhmm : isTomorrow ? `מחר ${hhmm}` : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
+                            timeLabel = isToday ? hhmm : isTomorrow ? t('routePreview.session.tomorrowAt', { time: hhmm }) : d.toLocaleDateString('he-IL', { weekday: 'short' }) + ` ${hhmm}`;
                           }
                           const isJoining = joiningEventId === ev.eventId;
                           const count = ev.currentRegistrations ?? 0;
@@ -701,7 +687,7 @@ export default function RouteDetailSheet({
                             <div key={`route_${ev.eventId}_${idx}`} className="flex items-center gap-2 py-1.5 px-2.5 bg-emerald-50/70 rounded-lg hover:bg-emerald-50 transition-colors">
                               <span className="text-[11px] font-black text-emerald-700 min-w-[40px] text-center" dir="ltr">{timeLabel}</span>
                               <span className="flex-1 text-xs font-bold text-emerald-800 truncate">
-                                {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
+                                {ev.isRecurring ? t('routePreview.session.group') : ev.eventLabel}
                               </span>
                               {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
                               <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">{count} <Users size={10} className="inline -mt-0.5" /></span>
@@ -715,7 +701,7 @@ export default function RouteDetailSheet({
                               {alreadyJoined ? (
                                 <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
                                   <Check size={10} />
-                                  נרשמת
+                                  {t('routePreview.session.joined')}
                                 </span>
                               ) : (
                                 <button
@@ -723,7 +709,7 @@ export default function RouteDetailSheet({
                                   disabled={isJoining || ev.spotsLeft === 0}
                                   className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
                                 >
-                                  {isJoining ? '...' : 'הצטרף'}
+                                  {isJoining ? '...' : t('routePreview.session.join')}
                                 </button>
                               )}
                             </div>
@@ -752,7 +738,7 @@ export default function RouteDetailSheet({
                             <span className="flex-1 text-xs font-bold text-emerald-800 truncate">{justPublished.name}</span>
                             <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
                               <Check size={10} />
-                              נרשמת
+                              {t('routePreview.session.joined')}
                             </span>
                           </div>
                         </motion.div>
@@ -776,18 +762,20 @@ export default function RouteDetailSheet({
                       : false;
                     const distanceKm = route.distance ?? 0;
                     const distanceLabelStr = distanceKm >= 1
-                      ? `${distanceKm.toFixed(1)} ק"מ`
-                      : `${Math.round(distanceKm * 1000)} מ'`;
+                      ? t('routePreview.distance.km', { km: distanceKm.toFixed(1) })
+                      : t('routePreview.distance.m', { m: String(Math.round(distanceKm * 1000)) });
                     const facilityStops = route.facilityStops ?? [];
 
                     // Tiny formatter — keeps the timeline rows compact.
                     const fmtMeters = (m: number) =>
-                      m >= 1000 ? `${(m / 1000).toFixed(1)} ק"מ` : `${Math.round(m)}מ'`;
+                      m >= 1000
+                        ? t('routePreview.distance.km', { km: (m / 1000).toFixed(1) })
+                        : t('routePreview.distance.mCompact', { m: String(Math.round(m)) });
 
                     // Map a Hebrew turn label → unicode arrow icon.
                     const turnIconFor = (instr: string): string => {
-                      if (instr.includes('שמאלה')) return '↰';
-                      if (instr.includes('ימינה')) return '↱';
+                      if (instr.includes('שמאלה')) return '↰'; // i18n-allow-hebrew: matches the turn text (data), not copy
+                      if (instr.includes('ימינה')) return '↱'; // i18n-allow-hebrew: matches the turn text (data), not copy
                       return '↑';
                     };
 
@@ -820,10 +808,10 @@ export default function RouteDetailSheet({
                             >
                               <span className="text-lg leading-none">🚶</span>
                               <span className="text-[13px] font-bold text-gray-700 flex-1 text-right">
-                                הליכה למסלול
+                                {t('routePreview.walk.title')}
                               </span>
                               <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
-                                {walkToRouteMinutes} דק&apos;
+                                {t('routePreview.duration.minutes', { min: String(walkToRouteMinutes) })}
                               </span>
                               <span
                                 className="text-gray-400 text-base transition-transform duration-200"
@@ -865,13 +853,13 @@ export default function RouteDetailSheet({
                                         <div className="flex items-center gap-2 pt-0.5">
                                           <span className="text-base leading-none w-5 text-center">📍</span>
                                           <span className="flex-1 text-[13px] text-emerald-600 font-bold">
-                                            הגעת למסלול
+                                            {t('routePreview.walk.arrived')}
                                           </span>
                                         </div>
                                       </>
                                     ) : (
                                       <div className="text-[12px] text-gray-400 italic">
-                                        מחשב הוראות...
+                                        {t('routePreview.walk.calculating')}
                                       </div>
                                     )}
                                   </div>
@@ -890,10 +878,10 @@ export default function RouteDetailSheet({
                           >
                             <span className="text-lg leading-none">🗺️</span>
                             <span className="text-[13px] font-bold text-gray-700 flex-1 text-right truncate">
-                              {route.name || 'המסלול'}
+                              {route.name || t('routePreview.accordion.routeFallback')}
                             </span>
                             <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
-                              {formatDuration(route.duration)} • {distanceLabelStr}
+                              {formatDuration(route.duration, t)} • {distanceLabelStr}
                             </span>
                             <span
                               className="text-gray-400 text-base transition-transform duration-200"
@@ -933,17 +921,17 @@ export default function RouteDetailSheet({
                                     <div className="flex flex-wrap gap-2">
                                       {route.features?.environment && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
-                                          {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
+                                          {t('routePreview.environment', { environment: route.features.environment })}
                                         </span>
                                       )}
                                       {route.features?.surface && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
-                                          {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
+                                          {t('routePreview.surface', { surface: route.features.surface })}
                                         </span>
                                       )}
                                       {isRouteLitVerified(route) && (
                                         <span className="px-3 py-1 bg-gray-100 rounded-full text-[11px] font-bold text-gray-600">
-                                          מואר
+                                          {t('routePreview.feature.lit')}
                                         </span>
                                       )}
                                     </div>
@@ -956,7 +944,7 @@ export default function RouteDetailSheet({
                                         <div key={`stop_${stop.id}_${i}`} className="flex items-center gap-2">
                                           <span className="text-base leading-none w-5 text-center">🏋️</span>
                                           <span className="flex-1 text-[13px] text-gray-700 truncate">
-                                            {stop.name || 'גינת כושר'}
+                                            {stop.name || t('routePreview.stop.fallback')}
                                           </span>
                                           <span className="text-[12px] text-gray-500 font-semibold whitespace-nowrap">
                                             {fmtMeters((stop as any).distanceFromStart ?? 0)}
@@ -991,7 +979,7 @@ export default function RouteDetailSheet({
                                     <div className="flex items-center gap-2">
                                       <span className="text-base leading-none w-5 text-center">🏁</span>
                                       <span className="flex-1 text-[13px] text-emerald-600 font-bold">
-                                        סיום המסלול
+                                        {t('routePreview.finish')}
                                       </span>
                                     </div>
                                   )}
@@ -1017,7 +1005,7 @@ export default function RouteDetailSheet({
                             }`}
                           >
                             {act === 'walking' ? <Footprints size={14} /> : act === 'running' ? <Activity size={14} /> : <Bike size={14} />}
-                            {act === 'walking' ? 'הליכה' : act === 'running' ? 'ריצה' : 'רכיבה'}
+                            {t('routePreview.navActivity', { activity: act })}
                           </button>
                         ))}
                       </div>
@@ -1054,16 +1042,16 @@ export default function RouteDetailSheet({
                     if (!hasFeatures && !hasTags && qualityBadges.length === 0) return null;
                     return (
                       <section className="mb-6">
-                        <h3 className="text-[16px] font-bold mb-3">תכונות ומתקנים</h3>
+                        <h3 className="text-[16px] font-bold mb-3">{t('routePreview.features.title')}</h3>
                         <div className="flex flex-wrap gap-2">
                           {route.features?.environment && (
                             <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                              {ENVIRONMENT_LABELS[route.features.environment] ?? route.features.environment}
+                              {t('routePreview.environment', { environment: route.features.environment })}
                             </span>
                           )}
                           {route.features?.surface && (
                             <span className="px-3 py-1.5 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                              {SURFACE_LABELS[route.features.surface] ?? route.features.surface}
+                              {t('routePreview.surface', { surface: route.features.surface })}
                             </span>
                           )}
                           {route.featureTags?.map((tag) => (
@@ -1109,7 +1097,7 @@ export default function RouteDetailSheet({
                     <section className="mb-6">
                       <h3 className="text-[13px] font-bold mb-2 text-orange-600 flex items-center gap-1.5">
                         <Crosshair size={14} />
-                        Dev: סימולציה
+                        {t('routePreview.dev.title')}
                       </h3>
                       {devSim.isSimulating ? (
                         <div className="flex items-center gap-2">
@@ -1126,7 +1114,7 @@ export default function RouteDetailSheet({
                             onClick={devSim.stopSimulation}
                             className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg text-[11px] font-bold transition-colors"
                           >
-                            עצור
+                            {t('routePreview.dev.stop')}
                           </button>
                         </div>
                       ) : (
@@ -1136,7 +1124,7 @@ export default function RouteDetailSheet({
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-xl text-[11px] font-bold transition-colors border border-orange-200"
                           >
                             <PersonStanding size={14} />
-                            דמה הליכה
+                            {t('routePreview.dev.simulateWalk')}
                           </button>
                           <button
                             onClick={() => devSim.startSimulation(route, 5)}
@@ -1168,11 +1156,11 @@ export default function RouteDetailSheet({
                     opening an empty route picker. */}
                 <ShareAsLiveToggle
                   activityType={mapRouteActivityToPresence(route.activityType ?? route.type)}
-                  workoutTitle={route.name || 'מסלול'}
+                  workoutTitle={route.name || 'מסלול'} // i18n-allow-hebrew: written to presence (activity.workoutTitle)
                   userLocation={userLocation ?? null}
                   contextRoute={{
                     id: route.id,
-                    name: route.name || 'מסלול',
+                    name: route.name || 'מסלול', // i18n-allow-hebrew: place name handed to the share/compose flow (stored with the post)
                     lat: route.path?.[0]?.[1] ?? null,
                     lng: route.path?.[0]?.[0] ?? null,
                   }}
@@ -1204,13 +1192,13 @@ export default function RouteDetailSheet({
                     }}
                   >
                     <Play size={18} fill="currentColor" />
-                    <span>{isTooFarToStart ? tooFarLabels.cta : 'התחל אימון'}</span>
+                    <span>{isTooFarToStart ? tooFarLabels.cta : t('routePreview.cta.start')}</span>
                   </button>
                   <button
                     onClick={() => onNavigate ? onNavigate(route) : handleNavigate()}
                     className="flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center bg-white shadow-sm active:scale-90 transition-transform"
                     style={{ border: '0.5px solid #E0E9FF' }}
-                    title="ניווט"
+                    title={t('routePreview.navigate.title')}
                   >
                     <Navigation size={18} className="text-emerald-500" />
                   </button>

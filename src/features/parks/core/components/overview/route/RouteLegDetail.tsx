@@ -14,6 +14,8 @@ import CaloriesChip from '@/components/ui/CaloriesChip';
 import WeightInlineRow from '@/components/ui/WeightInlineRow';
 import { ActivityGlyph } from '../../hybrid/activity-icons';
 import ElevationProfileChart from './ElevationProfileChart';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 import { alongRoutePoints, routeDetailChips, routeElevation, type AlongPointKind, type RouteDetailChip } from './route-overview';
 
 const CHIP_ICON: Record<RouteDetailChip['key'], typeof Lightbulb> = { lighting: Lightbulb, dedicated: RouteIcon, ascent: Mountain };
@@ -25,10 +27,11 @@ const POINT_ICON: Partial<Record<AlongPointKind, PointIcon | typeof Flag>> = {
 };
 
 export default function RouteLegDetail({ route, calories }: { route: Route; calories: number }) {
+  const t = useT(map);
   const [weightNudge, setWeightNudge] = useState(false);
   const samples = useMemo(() => routeElevation(route), [route]);
-  const chips = useMemo(() => routeDetailChips(route, samples), [route, samples]);
-  const points = useMemo(() => alongRoutePoints(route), [route]);
+  const chips = useMemo(() => routeDetailChips(route, samples, t), [route, samples, t]);
+  const points = useMemo(() => alongRoutePoints(route, t), [route, t]);
   return (
     <div>
       <div className="flex flex-wrap gap-1.5">
@@ -48,7 +51,7 @@ export default function RouteLegDetail({ route, calories }: { route: Route; calo
 
       {points.length > 0 && (
         <div className="mt-2.5">
-          <div className="mb-0.5 whitespace-nowrap text-[12px] font-black text-v2-ink">לאורך המסלול · ק״מ מההתחלה</div>
+          <div className="mb-0.5 whitespace-nowrap text-[12px] font-black text-v2-ink">{t('overview.route.along.title')}</div>
           {points.map((p) => {
             const Icon = POINT_ICON[p.kind] ?? MapPin;
             return (
