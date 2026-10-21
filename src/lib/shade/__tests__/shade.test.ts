@@ -150,7 +150,7 @@ describe('shadeShareForLine', () => {
   it('accepts a prebuilt index and handles empty input', () => {
     const idx = buildShadeIndex(segments);
     expect(shadeShareForLine([at(10, 0), at(40, 0)], idx).shadeShare).toBeCloseTo(0.8, 5);
-    expect(shadeShareForLine([], idx)).toEqual({ shadeShare: null, coverage: 0, matchedLengthM: 0, totalLengthM: 0 });
+    expect(shadeShareForLine([], idx)).toEqual({ shadeShare: null, coverage: 0, matchedLengthM: 0, totalLengthM: 0, shadedLengthM: 0 });
     expect(shadeShareForLine([at(0, 0), at(10, 0)], []).shadeShare).toBeNull();
   });
 });

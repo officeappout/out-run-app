@@ -6,6 +6,7 @@
  */
 import type { LngLat } from '../route-quality/types';
 import type { SurfaceClass, SurfaceShares } from './surface-class';
+import type { RouteShade } from '../shade/route-shade';
 
 export type { LngLat };
 
@@ -63,11 +64,13 @@ export interface RouteScoreInput {
   /** Filter class for the app: bike_road / bike_offroad / walk_run_paved / hike_offroad / unknown. */
   surfaceClass: SurfaceClass;
   /**
-   * Share (0..1) of the length under tree canopy — NOT computed yet (RC2).
-   * Owner-approved threshold for later: "shaded" = ≥40% canopy cover. When
-   * present, comfort consumes it (components.ts); null = not measured.
+   * Mean Technion summer Shade Index (0..1) over the measured length; null =
+   * not measured (no layer for the city, or layer coverage < 50%). Comfort
+   * consumes it on the 0.10 → 0.35 scale (components.ts).
    */
   shadeShare: number | null;
+  /** Full shade measurement (status, shadedPct, coverage) for the route_scores doc; null = not attempted. */
+  shade: RouteShade | null;
 }
 
 export interface ComponentScore {

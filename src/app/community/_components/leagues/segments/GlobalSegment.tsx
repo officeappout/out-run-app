@@ -6,6 +6,8 @@ import { CompetitionToggle } from '../CompetitionToggle';
 import { GroupAxisChooser } from '../GroupAxisChooser';
 import { ScopeContributionCard } from '../ScopeContributionCard';
 import type { LeaguesVM } from '../leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 export function GlobalSegment({ vm }: { vm: LeaguesVM }) {
   const {
@@ -24,6 +26,7 @@ export function GlobalSegment({ vm }: { vm: LeaguesVM }) {
     globalGroupAxis,
     setGlobalGroupAxis,
   } = vm;
+  const t = useT(community);
   return (
     <div className="space-y-4" dir="rtl">
       {/* יחידים | קבוצות toggle — mirrors city + org segments */}
@@ -33,7 +36,7 @@ export function GlobalSegment({ vm }: { vm: LeaguesVM }) {
         <NeighborhoodLeaderboard
           scope="global"
           scopeId={null}
-          scopeLabel="ארצי"
+          scopeLabel={t('communityPage.global.scopeLabel')}
           isLeagueActive={true}
           isGlobal={true}
           bypassSocialGate={true}
@@ -55,7 +58,7 @@ export function GlobalSegment({ vm }: { vm: LeaguesVM }) {
           <GroupAxisChooser vm={vm} axis={globalGroupAxis} setAxis={setGlobalGroupAxis} options={['city', 'group']} />
           {globalGroupAxis === 'city' && (
             <>
-              <ScopeContributionCard vm={vm} scopeTypeLabel="העיר שלך" />
+              <ScopeContributionCard vm={vm} scopeTypeLabel={t('communityPage.scopeType.city')} />
               <ScopeBattleCard
                 granularity="city"
                 timeWindow={leaderboardTimeWindow}

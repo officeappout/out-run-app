@@ -37,10 +37,11 @@ import { useKellySituation } from '../hooks/useKellySituation';
 import { useRotatingPlaceholder } from '../hooks/useRotatingPlaceholder';
 import KellyMemorySheet from './KellyMemorySheet';
 import { rateWorkout } from '../services/kelly-phase3-api';
-import { RATING_LABEL_HE } from '@/lib/ai/coach/proactive/feedback';
 import type { WorkoutRating } from '@/lib/ai/coach/action-chips';
 import Round4MessageExtras from './round4/Round4MessageExtras';
 import { openAerobicCard, parkHref, runRound4Chip } from '../services/round4-actions';
+import { useT } from '@/hooks/useT';
+import { coach } from '@/messages/ns/coach';
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(true);
@@ -98,6 +99,7 @@ export default function AiCoachChat({
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
+  const t = useT(coach);
   const gender = coachGenderOf(profile.core?.gender);
   const online = useOnline();
   // "שאל את קלי" from search arrives as /ai-coach?q=… → prefilled, never auto-sent.
@@ -137,7 +139,7 @@ export default function AiCoachChat({
   const situation = useKellySituation(profile, { enabled: phase2 && !teamMode, weatherOn });
   const openingChips = useMemo(() => (situation ? suggestChips(situation, { kind: 'opening' }) : null), [situation]);
   const hints = useMemo(() => (situation ? placeholderHints(situation) : []), [situation]);
-  const rotatingPlaceholder = useRotatingPlaceholder(hints, phase2 && !input, 'כתבו לקלי...');
+  const rotatingPlaceholder = useRotatingPlaceholder(hints, phase2 && !input, t('chat.input.placeholder'));
   const lastMessageId = state.messages[state.messages.length - 1]?.id ?? null;
   const newestCard = useMemo(() => {
     for (let i = state.messages.length - 1; i >= 0; i--) {
@@ -183,9 +185,9 @@ export default function AiCoachChat({
     building
       ? null
       : state.toolStatus
-        ? 'בודק...'
+        ? t('chat.status.checking')
         : state.phase === 'sending' && !teamMode
-          ? 'קלי כותב...'
+          ? t('chat.status.typing')
           : null;
 
   return (
@@ -201,7 +203,7 @@ export default function AiCoachChat({
           type="button"
           onClick={onClose}
           className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 active:bg-gray-200"
-          aria-label="חזור"
+          aria-label={t('chat.backAria')}
         >
           <ArrowRight className="h-5 w-5 text-gray-700" />
         </button>
@@ -211,20 +213,20 @@ export default function AiCoachChat({
         {unified ? (
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base font-black text-gray-900">קלי</h1>
-              {!teamMode && <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">AI + צוות</span>}
+              <h1 className="text-base font-black text-gray-900">{t('chat.unified.title')}</h1>
+              {!teamMode && <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">{t('chat.unified.badge')}</span>}
             </div>
             <p className="truncate text-[11.5px] font-semibold text-gray-400">
-              {teamMode ? 'הצוות של OUT עונה כאן' : 'רוב התשובות נכתבות על ידי AI. הודעות מהצוות מסומנות'}
+              {teamMode ? t('chat.unified.subtitleTeam') : t('chat.unified.subtitleAi')}
             </p>
           </div>
         ) : (
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base font-black text-gray-900">קלי AI</h1>
+              <h1 className="text-base font-black text-gray-900">{t('chat.classic.title')}</h1>
               <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">AI</span>
             </div>
-            <p className="truncate text-[11.5px] font-semibold text-gray-400">מאמן דיגיטלי. התשובות נכתבות על ידי בינה מלאכותית</p>
+            <p className="truncate text-[11.5px] font-semibold text-gray-400">{t('chat.classic.subtitle')}</p>
           </div>
         )}
         {memory && !teamMode && (
@@ -234,7 +236,7 @@ export default function AiCoachChat({
             className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3 text-[11.5px] font-black text-gray-700 active:bg-gray-200"
           >
             <Brain className="h-4 w-4" aria-hidden />
-            מה קלי זוכר
+            {t('chat.memoryButton')}
           </button>
         )}
       </div>
@@ -243,21 +245,21 @@ export default function AiCoachChat({
       {!online && (
         <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 text-[12.5px] font-bold text-amber-800">
           <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-          <span className="flex-1">אין חיבור. בונה האימונים עובד גם בלי אינטרנט.</span>
+          <span className="flex-1">{t('chat.offline.text')}</span>
           <button type="button" onClick={() => setBuilderOpen(true)} className="rounded-full bg-white px-3 py-1 text-amber-800 shadow-sm">
-            לבונה האימונים
+            {t('chat.offline.builder')}
           </button>
         </div>
       )}
 
       {/* Messages */}
       <div data-kb-stick-bottom className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-        {state.phase === 'loading' && <p className="py-10 text-center text-sm text-gray-400 animate-pulse">טוען את השיחה...</p>}
+        {state.phase === 'loading' && <p className="py-10 text-center text-sm text-gray-400 animate-pulse">{t('chat.loading')}</p>}
 
         {teamMode && state.phase !== 'loading' && (
           <div className="mx-auto flex max-w-[90%] items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1.5 text-[12px] font-bold text-emerald-800">
             <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>הצוות יענה כאן. אפשר לכתוב כל שאלה על האימונים או על האפליקציה.</span>
+            <span>{t('chat.teamNote')}</span>
           </div>
         )}
 
@@ -312,7 +314,7 @@ export default function AiCoachChat({
                   actions={m.id === lastAssistantId ? m.actions : m.actions.filter((a) => a !== 'build_today')}
                   onNavigate={(href) => router.push(href)}
                   onSend={(msg) => send(msg)}
-                  onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}
+                  onAssess={(target) => startMiniDomainAssessment(router, target.slug, target.returnTo, target.domainType)}
                   onRate={proactive ? (r) => handleRate(m.id, r) : undefined}
                   onDevice={round4 ? (spec) => void runRound4Chip(spec, profile, (href) => router.push(href)) : undefined}
                   disabled={busy}
@@ -320,7 +322,7 @@ export default function AiCoachChat({
               )}
               {!mine && (m.rated ?? localRated[m.id]) && (
                 <span className="mt-1 px-1 text-[11.5px] font-bold text-gray-400">
-                  {`ענית: ${RATING_LABEL_HE[(m.rated ?? localRated[m.id])!]}. תודה, רשמתי.`}
+                  {t('chat.rated', { rating: (m.rated ?? localRated[m.id])! })}
                 </span>
               )}
               {phase2 && !mine && m.proposal && (
@@ -371,7 +373,7 @@ export default function AiCoachChat({
 
         {missingCard && (
           <p className="rounded-xl bg-gray-100 px-3 py-2 text-center text-[12.5px] font-semibold text-gray-500">
-            האימון הזה כבר לא שמור במכשיר. אפשר לבקש מקלי לבנות אותו שוב.
+            {t('chat.missingCard')}
           </p>
         )}
 
@@ -382,17 +384,17 @@ export default function AiCoachChat({
             <div className="mt-3 flex justify-center gap-2">
               {uiError.retryable && (
                 <button type="button" onClick={retry} className="rounded-full bg-cyan-500 px-4 py-2 text-[13px] font-black text-white">
-                  לנסות שוב
+                  {t('chat.error.retry')}
                 </button>
               )}
               {uiError.offerBuilder && (
                 <button type="button" onClick={() => setBuilderOpen(true)} className="rounded-full bg-gray-100 px-4 py-2 text-[13px] font-black text-gray-700">
-                  לבונה האימונים
+                  {t('chat.error.builder')}
                 </button>
               )}
               {!uiError.retryable && !uiError.offerBuilder && (
                 <button type="button" onClick={dismissError} className="rounded-full bg-gray-100 px-4 py-2 text-[13px] font-black text-gray-700">
-                  סגירה
+                  {t('chat.error.close')}
                 </button>
               )}
             </div>
@@ -447,7 +449,7 @@ export default function AiCoachChat({
               submit();
             }
           }}
-          placeholder={teamMode ? 'כתבו לצוות...' : phase2 ? rotatingPlaceholder : 'כתבו לקלי...'}
+          placeholder={teamMode ? t('chat.input.placeholderTeam') : phase2 ? rotatingPlaceholder : t('chat.input.placeholder')}
           className="flex-1 rounded-full bg-gray-100 px-4 py-2.5 text-right text-sm text-gray-900 outline-none placeholder:text-gray-400"
           style={{ color: '#111827', WebkitTextFillColor: '#111827' }}
           enterKeyHint="send"
@@ -457,7 +459,7 @@ export default function AiCoachChat({
           onClick={submit}
           disabled={!input.trim() || busy}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-500 transition-opacity disabled:opacity-40"
-          aria-label="שליחה"
+          aria-label={t('chat.sendAria')}
         >
           <Send className="h-4 w-4 text-white" />
         </button>

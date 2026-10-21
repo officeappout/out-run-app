@@ -153,6 +153,12 @@ interface RouteGenerationOptions {
     includeStrength: boolean;
     surface?: 'road' | 'trail';
     /**
+     * "Shadiest route" (panel flag enable_route_pref_shade, RC6). Read ONLY by
+     * the GraphHopper loop path (graphhopper-loops), which asks the server to
+     * rank candidates by Technion shade; the Mapbox pipeline ignores it.
+     */
+    preferShade?: boolean;
+    /**
      * Additive, hybrid-only option (dormant): the hybrid session builder passes
      * `qualityRoute: true`. This generator applies its route-quality passes
      * (continue_straight + bearing-order + RDP-simplify) UNCONDITIONALLY, so the

@@ -9,6 +9,8 @@ import { ScopeContributionCard } from '../ScopeContributionCard';
 import { NeighborhoodInviteCTA } from '../NeighborhoodInviteCTA';
 import { NeighborhoodSetupCTA } from '../NeighborhoodSetupCTA';
 import type { LeaguesVM } from '../leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 export function CitySegment({ vm }: { vm: LeaguesVM }) {
   const {
@@ -31,10 +33,11 @@ export function CitySegment({ vm }: { vm: LeaguesVM }) {
     leagueFilterSheetOpen,
     setLeagueFilterSheetOpen,
   } = vm;
+  const t = useT(community);
   if (arenaLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-sm text-gray-500 animate-pulse">טוען נתוני עיר...</p>
+        <p className="text-sm text-gray-500 animate-pulse">{t('communityPage.city.loading')}</p>
       </div>
     );
   }
@@ -44,14 +47,14 @@ export function CitySegment({ vm }: { vm: LeaguesVM }) {
       {!isLeagueActive && (
         <>
           <MunicipalPressureCard
-            cityName={access.cityName ?? 'העיר שלך'}
+            cityName={access.cityName ?? t('communityPage.city.fallbackName')}
             authority={authority}
           />
 
           <NeighborhoodLeaderboard
             scope="city"
             scopeId={access.cityAuthorityId}
-            scopeLabel={access.cityName ?? 'עיר'}
+            scopeLabel={access.cityName ?? t('communityPage.city.scopeLabelFallback')}
             isLeagueActive={false}
             category={leaderboardCategory}
             setCategory={setLeaderboardCategory}
@@ -89,7 +92,7 @@ export function CitySegment({ vm }: { vm: LeaguesVM }) {
                 <>
                   {access.hasNeighborhoodAccess ? (
                     <>
-                      <ScopeContributionCard vm={vm} scopeTypeLabel="השכונה שלך" />
+                      <ScopeContributionCard vm={vm} scopeTypeLabel={t('communityPage.scopeType.neighborhood')} />
                       <ScopeBattleCard
                         granularity="neighborhood"
                         timeWindow={leaderboardTimeWindow}

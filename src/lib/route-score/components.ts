@@ -6,7 +6,7 @@
  */
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import type { ComponentScore, RouteScoreInput } from './types';
-import { SCORE_WEIGHTS, SHADE_CANOPY_MIN_SHARE, SOURCE_TIER_POINTS } from './weights';
+import { SCORE_WEIGHTS, SHADE_SI_FULL, SHADE_SI_ZERO, SOURCE_TIER_POINTS } from './weights';
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -90,9 +90,10 @@ export function scoreSource(i: RouteScoreInput): ComponentScore {
 
 /**
  * Comfort (15): lighting (8) + amenities (7: water 3, bench 3, other 1).
- * Once shade exists (RC2, `shadeShare`), the split becomes lighting 6 +
- * amenities 5 + shade 4, with full shade points at the owner-approved 40%
- * canopy bar. Until then shade is simply absent — it does not lower coverage.
+ * When shade was measured (`shadeShare` — Technion SI, only when the layer
+ * covers ≥ 50% of the route), the split becomes lighting 6 + amenities 5 +
+ * shade 4, linear from SI 0.10 (0 pts) to 0.35 (full). Unmeasured shade is
+ * simply absent — no penalty, and it does not lower coverage.
  */
 export function scoreComfort(i: RouteScoreInput): ComponentScore {
   const max = SCORE_WEIGHTS.comfort;
@@ -120,7 +121,7 @@ export function scoreComfort(i: RouteScoreInput): ComponentScore {
     notes.push('amenities not computed');
   }
   if (hasShade) {
-    pts += SHADE * clamp01((i.shadeShare as number) / SHADE_CANOPY_MIN_SHARE);
+    pts += SHADE * clamp01(((i.shadeShare as number) - SHADE_SI_ZERO) / (SHADE_SI_FULL - SHADE_SI_ZERO));
     measured += SHADE;
   }
   return { points: round1(pts), max, coverage: measured / max, notes };

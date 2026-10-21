@@ -64,6 +64,7 @@ interface FlagState {
   enable_route_quality_v1: boolean;
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
+  enable_route_pref_shade: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
@@ -431,6 +432,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-emerald-600',
     title: 'מסלולים מעגליים עוברים במסלולים שלנו',
     description: 'כשיש ליד המשתמש מסלולים רשמיים שמיפינו (שאנחנו יודעים את האיכות, הרמה והגובה שלהם), המסלול המעגלי מנסה לעבור עליהם: נקודות ביניים על המסלולים עצמם ועדיפות למסלול שעובר יותר עליהם — בלי לוותר על ספי האיכות ועל המרחק המבוקש. עובד יחד עם "איכות מסלולים מעגליים (v1)" ועם GraphHopper. השוואה: ניהול ← מסלולים ← איכות מסלולים. כבוי = כמו היום.',
+  },
+  // "Shadiest route" option (RC6, 21.10.2026).
+  {
+    key: 'enable_route_pref_shade',
+    icon: RouteIcon,
+    iconBg: 'bg-green-50',
+    iconColor: 'text-green-700',
+    title: 'אפשרות "המסלול המוצל ביותר"',
+    description: 'שורה חדשה בהגדרות הנוספות של ריצה חופשית: "המסלול המוצל ביותר". השרת מבקש מ-GraphHopper 6 מסלולים ומדרג אותם לפי מפות הצל של הטכניון, ב-13 הערים שיש להן שכבה. בשאר הערים חוזרים 3 המסלולים הרגילים. מוצג רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. כבוי = כמו היום.',
   },
   // Unified search (19.10.2026).
   {

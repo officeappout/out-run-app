@@ -93,6 +93,8 @@ export interface ShadeShareOptions {
   stepM?: number;
   /** Prefer segments within this angle of the route direction. Default 45. */
   maxAngleDeg?: number;
+  /** Matched steps on a segment with shadeIndex ≥ this count toward `shadedLengthM`. Default 0.25 (SHADED_MIN_SI). */
+  shadedMinIndex?: number;
 }
 
 export interface ShadeShareResult {
@@ -105,6 +107,8 @@ export interface ShadeShareResult {
   coverage: number;
   matchedLengthM: number;
   totalLengthM: number;
+  /** Matched length on segments with shadeIndex ≥ `shadedMinIndex`. */
+  shadedLengthM: number;
 }
 
 function candidates(idx: ShadeSpatialIndex, p: [number, number], r: number): IndexedSeg[] {
@@ -119,7 +123,7 @@ function candidates(idx: ShadeSpatialIndex, p: [number, number], r: number): Ind
       if (arr) for (const s of arr) out.add(s);
     }
   }
-  return [...out];
+  return Array.from(out);
 }
 
 /** Best segment for a step midpoint `p` heading (dx,dy unit), or null. */
@@ -156,11 +160,13 @@ export function shadeShareForLine(
     maxWidenM: options.maxWidenM ?? 15,
     stepM: options.stepM ?? 5,
     maxAngleDeg: options.maxAngleDeg ?? 45,
+    shadedMinIndex: options.shadedMinIndex ?? 0.25,
   };
   const idx = 'cells' in segments ? segments : buildShadeIndex(segments);
   let total = 0;
   let matched = 0;
   let weighted = 0;
+  let shaded = 0;
   const pts = line.filter(isLonLat);
   for (let i = 1; i < pts.length; i++) {
     const segLen = haversineM(pts[i - 1], pts[i]);
@@ -180,6 +186,7 @@ export function shadeShareForLine(
       if (s) {
         matched += stepLen;
         weighted += stepLen * s.shadeIndex;
+        if (s.shadeIndex >= o.shadedMinIndex) shaded += stepLen;
       }
     }
   }
@@ -188,5 +195,6 @@ export function shadeShareForLine(
     coverage: total > 0 ? matched / total : 0,
     matchedLengthM: matched,
     totalLengthM: total,
+    shadedLengthM: shaded,
   };
 }

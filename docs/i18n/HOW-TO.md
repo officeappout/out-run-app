@@ -54,7 +54,7 @@ file — resolve that conflict by keeping both sides).
 | `src/features/notifications` (push library, client side) | `push.json` | new (wave 2A, server mirror) |
 | `src/features/arena`, `app/{community,arena,league}` (community / arena / group screens) | `community.json` | exists (#583 `group.*`; arena components: `banner.*`, `groupCard.*`, `report.*`, …) |
 | `src/features/{social,challenge,messages}` | `social.json` | new |
-| `src/lib/ai`, `src/features/ai-coach`, `app/ai-coach` | `coach.json` | new |
+| `src/lib/ai`, `src/features/ai-coach`, `app/ai-coach` | `coach.json` | exists (batch w: `page.*`, `chat.*`, `entry.*`, `memory.*`, `proposal.*`, `card.*`, `aerobic.*`, `parks.*`) |
 | `src/features/{legal,help}`, `app/{privacy,accessibility,delete-data}`, `src/lib/app-help` | `legal.json` | exists (app pages batch: `accessibility.*`, `privacy.*`, `deleteData.*`, `footer.*`) |
 | `app/settings` (route pages with no other owner) | `pages.json` | exists (app pages batch: `refineLevels.*`) |
 | `src/app/api/**` (not admin) — error codes | `errors.json` | new (wave 2A) |

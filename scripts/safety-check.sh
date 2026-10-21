@@ -169,6 +169,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   # street_segments) for dry-run scripts. No write verb in the file; also on the
   # migrated list below so any future write there must use buildValidatedDoc.
   "scripts/lib/route-collections-read.node.ts"
+  # RC6 step 1 (21.10.2026): field-level {authorityId, city?} backfill on
+  # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
+  # update mode at the write site, updateTime precondition, never creates.
+  "scripts/routes-nationwide/lib/authority-apply.node.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -189,6 +193,10 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "scripts/trails/import-named-routes.ts"
   "scripts/trails/lib/trails-apply.node.ts"
   "scripts/lib/route-collections-read.node.ts"
+  # RC6 step 1 (21.10.2026): field-level {authorityId, city?} backfill on
+  # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
+  # update mode at the write site, updateTime precondition, never creates.
+  "scripts/routes-nationwide/lib/authority-apply.node.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

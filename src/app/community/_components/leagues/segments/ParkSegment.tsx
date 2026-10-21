@@ -5,6 +5,8 @@ import { Trees } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
 import { NeighborhoodLeaderboard } from '@/app/community/CommunityWidgets';
 import type { LeaguesVM } from '../leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 export function ParkSegment({ vm }: { vm: LeaguesVM }) {
   const {
@@ -18,15 +20,16 @@ export function ParkSegment({ vm }: { vm: LeaguesVM }) {
     setActiveMyEntry,
     handleMyModeChange,
   } = vm;
+  const t = useT(community);
   if (!access.preferredParkId) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center" dir="rtl">
         <IconTile icon={Trees} tone="accent" size="lg" className="mb-3" />
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-          עוד לא התאמנת בפארק
+          {t('communityPage.park.empty.title')}
         </p>
         <p className="text-xs text-gray-500 mt-1 max-w-[240px]">
-          כשתתאמנו ליד פארק, הדירוג שלו יופיע כאן אוטומטית
+          {t('communityPage.park.empty.body')}
         </p>
       </div>
     );
@@ -40,7 +43,7 @@ export function ParkSegment({ vm }: { vm: LeaguesVM }) {
       <NeighborhoodLeaderboard
         scope="park"
         scopeId={access.preferredParkId}
-        scopeLabel={access.preferredParkName ?? 'הפארק שלך'}
+        scopeLabel={access.preferredParkName ?? t('communityPage.park.scopeLabelFallback')}
         isLeagueActive={true}
         category={leaderboardCategory}
         setCategory={setLeaderboardCategory}

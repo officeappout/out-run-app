@@ -1,11 +1,18 @@
 /**
  * K0 F8 — the empty "מה קלי זוכר" screen says that memory updates overnight, from what the user
  * told Kelly, and that the plan itself is read from the app. Gender-free (no אתה / את forms).
+ * i18n wave 2 batch w: the text lives in the `coach` catalog; read through its keys.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { MEMORY_EMPTY_EXPLAINER, MEMORY_EMPTY_TITLE } from '../services/memory-copy';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+import { MEMORY_EMPTY_EXPLAINER_KEY, MEMORY_EMPTY_TITLE_KEY } from '../services/memory-copy';
+
+const t = makeT('he', coach);
+const MEMORY_EMPTY_TITLE = t(MEMORY_EMPTY_TITLE_KEY);
+const MEMORY_EMPTY_EXPLAINER = t(MEMORY_EMPTY_EXPLAINER_KEY);
 
 describe('KellyMemorySheet empty state', () => {
   it('explains the overnight update and what is (not) kept here', () => {
@@ -22,7 +29,7 @@ describe('KellyMemorySheet empty state', () => {
 
   it('the sheet renders both lines in the empty state', () => {
     const src = readFileSync(join(__dirname, '../components/KellyMemorySheet.tsx'), 'utf8');
-    expect(src).toContain('{MEMORY_EMPTY_TITLE}');
-    expect(src).toContain('{MEMORY_EMPTY_EXPLAINER}');
+    expect(src).toContain('{t(MEMORY_EMPTY_TITLE_KEY)}');
+    expect(src).toContain('{t(MEMORY_EMPTY_EXPLAINER_KEY)}');
   });
 });

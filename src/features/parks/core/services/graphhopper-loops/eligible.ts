@@ -12,7 +12,9 @@ export interface GhLoopOptions {
   targetDistance: number;
   activity: ActivityType;
   routeGenerationIndex: number;
-  preferences: { includeStrength: boolean; maxRoutes?: number };
+  preferences: { includeStrength: boolean; maxRoutes?: number; preferShade?: boolean };
+  /** Resolved city — picks the shade layer when preferences.preferShade is on. */
+  cityName?: string;
   destination?: unknown;
   followOfficialRouteId?: string;
   discoverCorridorChain?: boolean;

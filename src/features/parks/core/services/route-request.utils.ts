@@ -18,6 +18,8 @@ export interface DrawerExtras {
   benches: boolean;
   stairs: boolean;
   trail: boolean;
+  /** "Shadiest route" (enable_route_pref_shade) — only offered when the flag is on. */
+  shade?: boolean;
 }
 
 export interface DrawerGoal {
@@ -65,6 +67,8 @@ export interface RouteGenRequest {
   targetKm: number;
   includeStrength: boolean;
   surface: 'road' | 'trail';
+  /** Present (true) only when the user picked "shadiest route". */
+  preferShade?: true;
 }
 
 /**
@@ -82,5 +86,6 @@ export function buildRouteGenRequest(
     targetKm: computeTargetKm(goal, activity),
     includeStrength: extras.gymParks,
     surface: extras.trail ? 'trail' : 'road',
+    ...(extras.shade ? { preferShade: true as const } : {}),
   };
 }

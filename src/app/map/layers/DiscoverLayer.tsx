@@ -363,6 +363,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     targetKm: number;
     includeStrength: boolean;
     surface: 'road' | 'trail';
+    /** "Shadiest route" from the extras drawer (enable_route_pref_shade); absent = off. */
+    preferShade?: boolean;
     /** Opt-in short-target generation — see RouteCarousel's shortRouteMode
      *  prop. Only the step-goal deep-link effect below sets this; the manual
      *  FreeRunDrawer path leaves it undefined (byte-identical to before). */
@@ -2214,7 +2216,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 initialPlannedRun={mapFeatureFlags.enableHomeV2 ? scheduledPlannedRun : null}
                 autoRoute={mapFeatureFlags.enableHomeV2 && walkAutoRoute}
                 onAutoRouteHandled={() => setWalkAutoRoute(false)}
-                onRequestRouteGeneration={({ targetKm, includeStrength, surface }) => {
+                onRequestRouteGeneration={({ targetKm, includeStrength, surface, preferShade }) => {
                   // Phase "1.5" — manual free-run generator, David-only testing
                   // convenience toward Phase 2 (see IS_SHORT_ROUTE_MANUAL_TEST_EMAIL
                   // above). Lets short-route generation be exercised at any target
@@ -2225,7 +2227,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   const shortRouteMode =
                     IS_STEP_GOAL_SHORT_ROUTE_ENABLED &&
                     auth.currentUser?.email === IS_SHORT_ROUTE_MANUAL_TEST_EMAIL;
-                  setRouteCarouselConfig({ targetKm, includeStrength, surface, shortRouteMode });
+                  setRouteCarouselConfig({ targetKm, includeStrength, surface, shortRouteMode, ...(preferShade ? { preferShade: true } : {}) });
                   setFreeRunStep('route');
                 }}
                 onStartHybrid={mapFeatureFlags.enableHybridSlots ? (intent) => {
@@ -2534,6 +2536,7 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                   targetKm={routeCarouselConfig.targetKm}
                   includeStrength={routeCarouselConfig.includeStrength}
                   surface={routeCarouselConfig.surface}
+                  preferShade={routeCarouselConfig.preferShade}
                   shortRouteMode={routeCarouselConfig.shortRouteMode}
                   cityName={userCityName}
                   // Bidirectional sync: when the user taps a route line on

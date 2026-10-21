@@ -5,6 +5,8 @@ import { RESERVE_SCOPE_VALUE } from '@/lib/military-reserve-league';
 import { NeighborhoodLeaderboard, UnitLeagueTable } from '@/app/community/CommunityWidgets';
 import { CompetitionToggle } from '../CompetitionToggle';
 import type { LeaguesVM } from '../leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /**
  * Phase 6a — reservist league (individual, "יחידים" tab) + Phase 6b —
@@ -57,6 +59,7 @@ export function ReserveSegment({ vm }: { vm: LeaguesVM }) {
     handleMyModeChange,
     competitionMode,
   } = vm;
+  const t = useT(community);
   const showGroupTab = access.hasUnitLeagueAccess;
   return (
     <div className="space-y-4" dir="rtl">
@@ -65,7 +68,7 @@ export function ReserveSegment({ vm }: { vm: LeaguesVM }) {
         <NeighborhoodLeaderboard
           scope="reserve"
           scopeId={RESERVE_SCOPE_VALUE}
-          scopeLabel="ליגת המילואים"
+          scopeLabel={t('communityPage.reserve.scopeLabel')}
           isLeagueActive={true}
           isGlobal={true}
           bypassSocialGate={true}
@@ -101,7 +104,7 @@ export function ReserveSegment({ vm }: { vm: LeaguesVM }) {
             <span
               className="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-v2-muted bg-v2-surface ring-1 ring-inset ring-v2-hairline"
             >
-              מדד: <b className="text-gray-900">ממוצע צעדים יומי</b>
+              {t.rich('communityPage.reserve.metric', { b: (chunks: React.ReactNode) => <b className="text-gray-900">{chunks}</b> })}
             </span>
           </div>
           <UnitLeagueTable myOrgId={myDeclaration.orgId} myUnitPathIds={myDeclaration.unitPathIds} />

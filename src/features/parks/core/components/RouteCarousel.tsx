@@ -198,6 +198,8 @@ interface RouteCarouselProps {
   includeStrength?: boolean;
   /** Surface preference from the extras drawer — drives segment scoring and route features. Loop-only. */
   surface?: 'road' | 'trail';
+  /** "Shadiest route" from the extras drawer (enable_route_pref_shade). Loop-only; GraphHopper path only. */
+  preferShade?: boolean;
   /**
    * Opt-in short-target generation (loop-preferred, out-and-back fallback —
    * see route-generator.service.ts's RouteGenerationOptions.shortRouteMode).
@@ -272,6 +274,7 @@ export default function RouteCarousel({
   targetKm,
   includeStrength = false,
   surface = 'road',
+  preferShade = false,
   shortRouteMode = false,
   destination,
   destinationLabel,
@@ -380,7 +383,7 @@ export default function RouteCarousel({
                 // Shape-invariant (a geometric ratio, not a scale-dependent
                 // constant), so the same formula also applies correctly when
                 // shortRouteMode kicks in for small targets.
-                preferences: { includeStrength, surface, idealWaypointDistanceKm: (targetKm ?? 3) / 6 },
+                preferences: { includeStrength, surface, idealWaypointDistanceKm: (targetKm ?? 3) / 6, ...(preferShade ? { preferShade: true } : {}) },
                 parks,
                 cityName,
                 shortRouteMode,

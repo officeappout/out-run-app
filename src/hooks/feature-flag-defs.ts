@@ -274,6 +274,13 @@ export const FLAG_DEFS = [
   // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
+  // "Shadiest route" (RC6, 21.10.2026, owner-approved) — a "המסלול המוצל ביותר" row in the
+  // free-run extras sheet. The app sends preferShade to /api/routes/generate, which asks
+  // GraphHopper for 6 candidates and ranks them by Technion shade (src/lib/shade) in the 13 cities
+  // that have a layer; elsewhere the normal top 3 come back and the response says why. Offered
+  // only while enable_graphhopper_routes is on (the Mapbox pipeline ignores it). Default OFF,
+  // superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
+  { key: 'enableRoutePrefShade', firestoreKey: 'enable_route_pref_shade', defaultValue: false, superAdminValue: false },
   // Unified search (19.10.2026, owner-approved design canvas) — /search becomes one search over
   // exercises, parks, routes, people & groups, events, articles and help (site_content), with
   // chips + counts, grouped "הכל" results, recents, situation suggestions, "אולי חיפשת" and Ask
