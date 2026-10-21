@@ -1,0 +1,11 @@
+# i18n — folders whose user-facing text already lives in src/messages (docs/i18n/PLAN.md §3.2).
+#
+# scripts/safety-check.sh Check 5 blocks a commit that ADDS a line with Hebrew
+# letters (outside a comment) to a .ts/.tsx/.js file under any path below.
+# Each wave-2 extraction PR appends its own folders here, one path prefix per
+# line, relative to the repo root (e.g. "src/features/notifications/").
+# Exempt: src/messages/**, tests (__tests__/, *.test.*), and a line that carries
+# the marker "i18n-allow-hebrew" (Hebrew that is data, not copy: regex patterns,
+# Firestore values, city names) — say why next to the marker.
+#
+# Empty on purpose until the first extraction PR lands.
