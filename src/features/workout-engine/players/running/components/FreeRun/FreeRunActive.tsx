@@ -43,6 +43,8 @@ import InviteRunButton from './InviteRunButton';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -54,11 +56,11 @@ const STORY_BAR_FALLBACK_PX = 56;
 // Formatters
 // ─────────────────────────────────────────────────────────────────────────────
 
-function goalLabel(type: 'distance' | 'time' | 'calories'): string {
+function goalLabel(type: 'distance' | 'time' | 'calories', t: ReactTFunction<PlayerKey>): string {
   switch (type) {
-    case 'distance': return 'מרחק';
-    case 'time':     return 'זמן';
-    case 'calories': return 'קלוריות';
+    case 'distance': return t('run.free.classic.goal.distance');
+    case 'time':     return t('run.free.classic.goal.time');
+    case 'calories': return t('run.free.classic.goal.calories');
   }
 }
 
@@ -77,14 +79,14 @@ function formatGoalValue(p: {
   type: 'distance' | 'time' | 'calories';
   currentValue: number;
   targetValue: number;
-}): string {
+}, t: ReactTFunction<PlayerKey>): string {
   switch (p.type) {
     case 'distance':
-      return `${p.currentValue.toFixed(2)} / ${p.targetValue.toFixed(1)} ק״מ`;
+      return t('run.free.classic.goal.distanceValue', { current: p.currentValue.toFixed(2), target: p.targetValue.toFixed(1) });
     case 'time':
       return `${formatDuration(p.currentValue)} / ${formatDuration(p.targetValue)}`;
     case 'calories':
-      return `${Math.round(p.currentValue)} / ${Math.round(p.targetValue)} קק״ל`;
+      return t('run.free.classic.goal.caloriesValue', { current: String(Math.round(p.currentValue)), target: String(Math.round(p.targetValue)) });
   }
 }
 
@@ -93,6 +95,7 @@ function formatGoalValue(p: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   const goalProgress = useSessionGoalProgress();
@@ -144,7 +147,7 @@ function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
       {isLapsOpen && (
         <button
           type="button"
-          aria-label="סיים אימון"
+          aria-label={t('run.free.classic.finish')}
           onClick={(e) => { e.stopPropagation(); handleStop(); }}
           onPointerDown={(e) => e.stopPropagation()}
           className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
@@ -168,6 +171,7 @@ interface FreeRunActiveProps {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
+  const t = useT(player);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
@@ -217,27 +221,27 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     const isNowComplete = goalProgress?.isComplete ?? false;
     if (isNowComplete && !prevIsCompleteRef.current) {
       setShowGoalToast(true);
-      const t = setTimeout(() => setShowGoalToast(false), 3000);
+      const timer = setTimeout(() => setShowGoalToast(false), 3000);
       prevIsCompleteRef.current = true;
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     if (!isNowComplete) prevIsCompleteRef.current = false;
   }, [goalProgress?.isComplete]);
 
   // ── GPS status toast ─────────────────────────────────────────────────────
-  const [gpsToast, setGpsToast] = useState<string | null>(null);
+  const [gpsToast, setGpsToast] = useState<PlayerKey | null>(null);
   const prevGpsStatusRef = useRef(gpsStatus);
   useEffect(() => {
     if (gpsStatus === prevGpsStatusRef.current) return;
     prevGpsStatusRef.current = gpsStatus;
-    if (gpsStatus === 'searching')        setGpsToast('מחפש GPS…');
-    else if (gpsStatus === 'poor')        setGpsToast('GPS חלש — ממשיך לחפש');
-    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('GPS תקין ✓');
+    if (gpsStatus === 'searching')        setGpsToast('run.free.classic.gps.searching');
+    else if (gpsStatus === 'poor')        setGpsToast('run.free.classic.gps.poor');
+    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('run.free.classic.gps.good');
   }, [gpsStatus]);
   useEffect(() => {
     if (!gpsToast) return;
-    const t = setTimeout(() => setGpsToast(null), 4000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setGpsToast(null), 4000);
+    return () => clearTimeout(timer);
   }, [gpsToast]);
 
   // ── Story-bar height → map camera padding ────────────────────────────────
@@ -282,8 +286,8 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
   // 1 Hz tick for HUD timer elements.
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(t);
+    const interval = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // DEBUG — remove after routing confirmed
@@ -296,7 +300,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
     <div
       className="absolute inset-0 z-40 overflow-hidden pointer-events-none"
       style={{ fontFamily: 'var(--font-simpler)' }}
-      aria-label={isNavigationActive ? 'מסלול מודרך' : 'אימון חופשי'}
+      aria-label={isNavigationActive ? t('run.free.classic.aria.guided') : t('run.free.classic.aria.free')}
       role="region"
     >
       {/*
@@ -346,10 +350,10 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                   isPaused={isPaused}
                   label={
                     goalProgress?.isComplete
-                      ? 'מעבר ליעד'
-                      : goalProgress ? goalLabel(goalProgress.type) : 'מרחק'
+                      ? t('run.free.classic.goal.beyond')
+                      : goalProgress ? goalLabel(goalProgress.type, t) : t('run.free.classic.goal.distance')
                   }
-                  valueText={goalProgress ? formatGoalValue(goalProgress) : ''}
+                  valueText={goalProgress ? formatGoalValue(goalProgress, t) : ''}
                 />
               </div>
             </div>
@@ -366,7 +370,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                 style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
                 dir="rtl"
               >
-                {gpsToast}
+                {t(gpsToast)}
               </div>
             </div>
           )}
@@ -383,7 +387,7 @@ export default function FreeRunActive({ onBack: _onBack }: FreeRunActiveProps) {
                 style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
                 dir="rtl"
               >
-                🎯 הגעת ליעד!
+                {t('run.free.classic.goalReached')}
               </div>
             </div>
           )}

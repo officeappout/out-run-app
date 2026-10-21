@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface SideRailProps {
   participants: Participant[];
@@ -49,6 +51,7 @@ interface AvatarBadgeProps {
 }
 
 function AvatarBadge({ participant, dist, isSelected, onSelect }: AvatarBadgeProps) {
+  const t = useT(player);
   const [imgError, setImgError] = useState(false);
 
   const scale = Math.max(0.45, 1 - dist * 0.18);
@@ -74,7 +77,7 @@ function AvatarBadge({ participant, dist, isSelected, onSelect }: AvatarBadgePro
         cursor: 'pointer',
       }}
       onClick={() => onSelect?.(participant.uid)}
-      aria-label={`בחר ${participant.name}`}
+      aria-label={t('run.sideRail.selectAria', { name: participant.name })}
     >
       {/* Avatar circle with selection ring */}
       <div

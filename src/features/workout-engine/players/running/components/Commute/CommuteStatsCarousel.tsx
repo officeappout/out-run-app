@@ -29,25 +29,27 @@ import React from 'react';
 import { Flag, Clock, Navigation, MapPin } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { useCommuteEta } from './useCommuteEta';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 const ACCENT = '#00ADEF';
 const ACCENT_DARK = '#0284C7';
 
-function formatEta(seconds: number | null): { value: string; unit: string } {
-  if (seconds === null || !Number.isFinite(seconds)) return { value: '--', unit: 'מ׳' };
-  if (seconds <= 0) return { value: '0', unit: 'מ׳' };
-  if (seconds < 60) return { value: String(Math.max(1, Math.round(seconds))), unit: 'שנ׳' };
+function formatEta(seconds: number | null): { value: string; unit: PlayerKey } {
+  if (seconds === null || !Number.isFinite(seconds)) return { value: '--', unit: 'run.commute.unit.min' };
+  if (seconds <= 0) return { value: '0', unit: 'run.commute.unit.min' };
+  if (seconds < 60) return { value: String(Math.max(1, Math.round(seconds))), unit: 'run.commute.unit.sec' };
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return { value: String(minutes), unit: 'דק׳' };
+  if (minutes < 60) return { value: String(minutes), unit: 'run.commute.unit.minutes' };
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return { value: `${hours}:${mins.toString().padStart(2, '0')}`, unit: 'שעות' };
+  return { value: `${hours}:${mins.toString().padStart(2, '0')}`, unit: 'run.commute.unit.hours' };
 }
 
-function formatRemainingDistance(km: number | null): string {
+function formatRemainingDistance(km: number | null, t: ReactTFunction<PlayerKey>): string {
   if (km === null || !Number.isFinite(km)) return '--';
-  if (km < 1) return `${Math.round(km * 1000)} מ׳`;
-  return `${km.toFixed(km < 10 ? 2 : 1)} ק״מ`;
+  if (km < 1) return t('run.commute.remainingM', { m: String(Math.round(km * 1000)) });
+  return t('run.commute.remainingKm', { km: km.toFixed(km < 10 ? 2 : 1) });
 }
 
 function formatArrivalClock(date: Date | null): string {
@@ -58,16 +60,17 @@ function formatArrivalClock(date: Date | null): string {
 }
 
 export default function CommuteStatsCarousel() {
+  const t = useT(player);
   const commuteContext = useRunningPlayer((s) => s.commuteContext);
   const { distanceRemainingKm, etaSeconds, etaArrival, hasArrived } = useCommuteEta();
 
   const eta = formatEta(etaSeconds);
-  const remaining = formatRemainingDistance(distanceRemainingKm);
+  const remaining = formatRemainingDistance(distanceRemainingKm, t);
   const arrival = formatArrivalClock(etaArrival);
 
   // The destination chip caps at 24 chars to keep the row visually
   // balanced against the icon and the surrounding card padding.
-  const destinationLabel = commuteContext?.label ?? 'יעד';
+  const destinationLabel = commuteContext?.label ?? t('run.commute.destinationFallback');
   const trimmedLabel =
     destinationLabel.length > 24 ? `${destinationLabel.slice(0, 23)}…` : destinationLabel;
 
@@ -106,12 +109,12 @@ export default function CommuteStatsCarousel() {
               className="text-base font-black uppercase tracking-wide"
               style={{ color: ACCENT_DARK }}
             >
-              {eta.unit}
+              {t(eta.unit)}
             </span>
           )}
         </div>
         <p className="mt-1 text-xs font-bold text-gray-500">
-          {hasArrived ? 'הגעת ליעד' : 'זמן משוער עד ליעד'}
+          {hasArrived ? t('run.commute.arrived') : t('run.commute.etaLabel')}
         </p>
       </div>
 
@@ -122,13 +125,13 @@ export default function CommuteStatsCarousel() {
       >
         <SecondaryStat
           icon={<Navigation size={14} />}
-          label="נותר"
+          label={t('run.commute.remaining')}
           value={remaining}
         />
         <div className="border-r border-black/5">
           <SecondaryStat
             icon={<Clock size={14} />}
-            label="הגעה משוערת"
+            label={t('run.commute.arrival')}
             value={arrival}
           />
         </div>
@@ -138,7 +141,7 @@ export default function CommuteStatsCarousel() {
       {distanceRemainingKm === null && (
         <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-gray-400 font-medium">
           <MapPin size={11} />
-          <span>ממתין לאיתור GPS…</span>
+          <span>{t('run.commute.waitingGps')}</span>
         </div>
       )}
     </div>

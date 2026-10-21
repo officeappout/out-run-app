@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const formatTime = (seconds: number): string => {
   if (!seconds || seconds < 0 || !isFinite(seconds)) return '00:00';
@@ -13,6 +15,7 @@ const formatTime = (seconds: number): string => {
 };
 
 export default function LapSnapshotOverlay() {
+  const t = useT(player);
   const { isSnapshotVisible, lastCompletedLap, hideSnapshot } = useRunningPlayer();
 
   // Auto-hide after 3 seconds
@@ -72,19 +75,19 @@ export default function LapSnapshotOverlay() {
                 {/* Time */}
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900">{time}</div>
-                  <div className="text-xs text-gray-500 mt-1">זמן</div>
+                  <div className="text-xs text-gray-500 mt-1">{t('run.lapSnapshot.time')}</div>
                 </div>
 
                 {/* Pace */}
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900">{pace}</div>
-                  <div className="text-xs text-gray-500 mt-1">קצב</div>
+                  <div className="text-xs text-gray-500 mt-1">{t('run.lapSnapshot.pace')}</div>
                 </div>
 
                 {/* Distance */}
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900">{distanceKm}</div>
-                  <div className="text-xs text-gray-500 mt-1">ק"מ</div>
+                  <div className="text-xs text-gray-500 mt-1">{t('run.lapSnapshot.km')}</div>
                 </div>
               </div>
             </div>

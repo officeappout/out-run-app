@@ -29,3 +29,8 @@ src/app/search/
 src/features/partners/
 src/features/heatmap/hooks/
 src/features/heatmap/services/
+# wave 2 batch 1 (namespace player, run.*) — the running players + run overview.
+# Only components/: lib/ and utils/run-overview/ are pure services that still
+# return Hebrew display text (route-fit reasons, overview legs, zone / lap
+# labels) to callers in and outside these folders — manual list in the PR.
+src/features/workout-engine/players/running/components/

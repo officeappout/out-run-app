@@ -21,7 +21,7 @@ export default function PlannedGeneralMetrics() {
     >
       {/* Title */}
       <div className="text-center" style={{ marginBottom: 8 }}>
-        <span className="text-sm font-bold text-slate-500">סיכום כללי</span>
+        <span className="text-sm font-bold text-slate-500">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}סיכום כללי</span>
       </div>
 
       {/* Two big stats side-by-side: Distance | Time */}
@@ -34,7 +34,7 @@ export default function PlannedGeneralMetrics() {
             {safeDistance.toFixed(2)}
           </div>
           <div className="text-slate-400 text-xs font-medium" style={{ marginTop: 8 }}>
-            קילומטר
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קילומטר
           </div>
         </div>
         <div className="w-px h-12 bg-slate-200" />
@@ -46,7 +46,7 @@ export default function PlannedGeneralMetrics() {
             {formatDuration(safeDuration)}
           </div>
           <div className="text-slate-400 text-xs font-medium" style={{ marginTop: 8 }}>
-            זמן
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}זמן
           </div>
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function PlannedGeneralMetrics() {
         >
           {currentPaceFormatted || '--:--'}
         </span>
-        <span className="text-xs text-slate-400 font-medium">/ק״מ</span>
+        <span className="text-xs text-slate-400 font-medium">/{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ק״מ</span>
       </div>
     </div>
   );

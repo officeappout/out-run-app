@@ -25,12 +25,14 @@
  *   SSR (where `document` is undefined and the portal would throw).
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { autoLapDistanceRange } from '@/features/workout-engine/players/running/lib/aerobic-activity';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 interface WorkoutSettingsDrawerProps {
   isOpen: boolean;
@@ -38,6 +40,7 @@ interface WorkoutSettingsDrawerProps {
 }
 
 export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettingsDrawerProps) {
+  const t = useT(player);
   const { settings, updateSettings } = useRunningPlayer();
   // Distance-lap slider: today's 0.1–2.0 km on foot; a ride (enable_home_v2) gets 1–10 km, default 5.
   const activityType = useRunningPlayer((s) => s.activityType);
@@ -137,7 +140,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
           >
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-2xl font-black text-gray-900">הגדרות אימון</h2>
+              <h2 className="text-2xl font-black text-gray-900">{t('run.settings.title')}</h2>
               <button
                 onClick={onClose}
                 className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px]"
@@ -150,7 +153,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
             <div className="px-6 py-6 space-y-8">
               {/* Auto-Lap Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-gray-900">הקפה אוטומטית</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('run.settings.autoLap.title')}</h3>
                 
                 {/* Mode Selection */}
                 <div className="flex gap-2">
@@ -162,7 +165,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    כבוי
+                    {t('run.settings.autoLap.off')}
                   </button>
                   <button
                     onClick={() => handleAutoLapModeChange('distance')}
@@ -172,7 +175,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    מרחק
+                    {t('run.settings.autoLap.distance')}
                   </button>
                   <button
                     onClick={() => handleAutoLapModeChange('time')}
@@ -182,7 +185,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    זמן
+                    {t('run.settings.autoLap.time')}
                   </button>
                 </div>
 
@@ -195,9 +198,12 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     className="space-y-3"
                   >
                     <div className="flex justify-between items-end">
-                      <span className="text-sm text-gray-500 font-medium">מרחק הקפה</span>
+                      <span className="text-sm text-gray-500 font-medium">{t('run.settings.autoLap.distanceLabel')}</span>
                       <span className="text-2xl font-black text-[#00ADEF] tracking-tight">
-                        {localSettings.autoLapValue.toFixed(1)} <span className="text-base font-bold text-gray-400">ק"מ</span>
+                        {t.rich('run.settings.autoLap.distanceValue', {
+                          value: localSettings.autoLapValue.toFixed(1),
+                          unit: (chunks: ReactNode) => <span className="text-base font-bold text-gray-400">{chunks}</span>,
+                        })}
                       </span>
                     </div>
                     <input
@@ -213,8 +219,8 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                       }}
                     />
                     <div className="flex justify-between text-xs text-gray-400">
-                      <span>{lapRange.minKm.toFixed(1)} ק"מ</span>
-                      <span>{lapRange.maxKm.toFixed(1)} ק"מ</span>
+                      <span>{t('run.settings.autoLap.rangeKm', { km: lapRange.minKm.toFixed(1) })}</span>
+                      <span>{t('run.settings.autoLap.rangeKm', { km: lapRange.maxKm.toFixed(1) })}</span>
                     </div>
                   </motion.div>
                 )}
@@ -228,9 +234,12 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                     className="space-y-3"
                   >
                     <div className="flex justify-between items-end">
-                      <span className="text-sm text-gray-500 font-medium">זמן הקפה</span>
+                      <span className="text-sm text-gray-500 font-medium">{t('run.settings.autoLap.timeLabel')}</span>
                       <span className="text-2xl font-black text-[#00ADEF] tracking-tight">
-                        {localSettings.autoLapValue.toFixed(1)} <span className="text-base font-bold text-gray-400">דק'</span>
+                        {t.rich('run.settings.autoLap.timeValue', {
+                          value: localSettings.autoLapValue.toFixed(1),
+                          unit: (chunks: ReactNode) => <span className="text-base font-bold text-gray-400">{chunks}</span>,
+                        })}
                       </span>
                     </div>
                     <input
@@ -246,8 +255,8 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                       }}
                     />
                     <div className="flex justify-between text-xs text-gray-400">
-                      <span>1 דק'</span>
-                      <span>10 דק'</span>
+                      <span>{t('run.settings.autoLap.rangeMin', { min: '1' })}</span>
+                      <span>{t('run.settings.autoLap.rangeMin', { min: '10' })}</span>
                     </div>
                   </motion.div>
                 )}
@@ -255,13 +264,13 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
 
               {/* Toggles Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-gray-900">הגדרות נוספות</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('run.settings.more.title')}</h3>
                 
                 {/* Audio Cues Toggle */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex-1">
-                    <h4 className="text-base font-bold text-gray-900 mb-1">הכרזות קוליות</h4>
-                    <p className="text-sm text-gray-500">הכרזה על סטטיסטיקות הקפות</p>
+                    <h4 className="text-base font-bold text-gray-900 mb-1">{t('run.settings.audio.title')}</h4>
+                    <p className="text-sm text-gray-500">{t('run.settings.audio.body')}</p>
                   </div>
                   <button
                     onClick={() => handleToggle('enableAudio')}
@@ -280,8 +289,8 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                 {/* Auto-Pause Toggle */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex-1">
-                    <h4 className="text-base font-bold text-gray-900 mb-1">השהיה אוטומטית</h4>
-                    <p className="text-sm text-gray-500">עצירת טיימר כאשר התנועה נעצרת</p>
+                    <h4 className="text-base font-bold text-gray-900 mb-1">{t('run.settings.autoPause.title')}</h4>
+                    <p className="text-sm text-gray-500">{t('run.settings.autoPause.body')}</p>
                   </div>
                   <button
                     onClick={() => handleToggle('enableAutoPause')}
@@ -300,8 +309,8 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                 {/* Countdown Toggle */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex-1">
-                    <h4 className="text-base font-bold text-gray-900 mb-1">ספירה לאחור</h4>
-                    <p className="text-sm text-gray-500">עיכוב של 5 שניות לפני התחלת האימון</p>
+                    <h4 className="text-base font-bold text-gray-900 mb-1">{t('run.settings.countdown.title')}</h4>
+                    <p className="text-sm text-gray-500">{t('run.settings.countdown.body')}</p>
                   </div>
                   <button
                     onClick={() => handleToggle('enableCountdown')}
@@ -326,7 +335,7 @@ export default function WorkoutSettingsDrawer({ isOpen, onClose }: WorkoutSettin
                 whileTap={{ scale: 0.95 }}
                 className="w-full py-4 rounded-xl font-bold bg-[#00ADEF] text-white hover:bg-[#00D4EE] transition-all shadow-md hover:shadow-lg min-h-[44px]"
               >
-                שמור
+                {t('run.settings.save')}
               </motion.button>
             </div>
           </motion.div>

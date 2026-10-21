@@ -3,6 +3,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // ── Layer 3: Plan Realign (7-21 day gap) ─────────────────────────────
 
@@ -21,6 +23,7 @@ export function PlanRealignPopup({
   onReset,
   onClose,
 }: PlanRealignPopupProps) {
+  const t = useT(player);
   return (
     <AnimatePresence>
       {open && (
@@ -56,10 +59,10 @@ export function PlanRealignPopup({
                 <span className="text-4xl">💪</span>
               </div>
               <h2 className="text-xl font-black text-gray-900 text-center mb-2">
-                שמחים שחזרת!
+                {t('run.realign.title')}
               </h2>
               <p className="text-sm text-gray-500 text-center leading-relaxed mb-6">
-                ראינו שלקחת הפסקה קצרה. איך היית רוצה להמשיך את התוכנית?
+                {t('run.realign.body')}
               </p>
 
               <div className="space-y-3">
@@ -68,19 +71,19 @@ export function PlanRealignPopup({
                   className="w-full py-3.5 rounded-xl text-base font-bold text-white active:scale-[0.97] transition-transform"
                   style={{ background: '#00BAF7' }}
                 >
-                  להמשיך כרגיל
+                  {t('run.realign.continue')}
                 </button>
                 <button
                   onClick={onBackOneWeek}
                   className="w-full py-3.5 rounded-xl text-base font-bold text-[#00BAF7] bg-sky-50 active:scale-[0.97] transition-transform"
                 >
-                  לחזור שבוע אחורה
+                  {t('run.realign.backOneWeek')}
                 </button>
                 <button
                   onClick={onReset}
                   className="w-full py-3.5 rounded-xl text-base font-bold text-gray-500 bg-gray-100 active:scale-[0.97] transition-transform"
                 >
-                  אפס תוכנית
+                  {t('run.realign.reset')}
                 </button>
               </div>
             </div>
@@ -106,6 +109,7 @@ export function RebuildPopup({
   onContinue,
   onClose,
 }: RebuildPopupProps) {
+  const t = useT(player);
   return (
     <AnimatePresence>
       {open && (
@@ -141,10 +145,10 @@ export function RebuildPopup({
                 <span className="text-4xl">🏃</span>
               </div>
               <h2 className="text-xl font-black text-gray-900 text-center mb-2">
-                ברוכים השבים!
+                {t('run.rebuild.title')}
               </h2>
               <p className="text-sm text-gray-500 text-center leading-relaxed mb-6">
-                עבר קצת זמן מאז האימון האחרון. כדי למנוע פציעות, כדאי להתאים את התוכנית מחדש לכושר הנוכחי שלך.
+                {t('run.rebuild.body')}
               </p>
 
               <div className="space-y-3">
@@ -153,13 +157,13 @@ export function RebuildPopup({
                   className="w-full py-3.5 rounded-xl text-base font-bold text-white active:scale-[0.97] transition-transform"
                   style={{ background: '#00BAF7' }}
                 >
-                  בנה לי תוכנית מעודכנת
+                  {t('run.rebuild.rebuild')}
                 </button>
                 <button
                   onClick={onContinue}
                   className="w-full py-3.5 rounded-xl text-base font-bold text-gray-500 bg-gray-100 active:scale-[0.97] transition-transform"
                 >
-                  אני בסדר, פשוט תמשיך
+                  {t('run.rebuild.continue')}
                 </button>
               </div>
             </div>

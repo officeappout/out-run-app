@@ -12,16 +12,19 @@ import { useId } from 'react';
 import { ProfileStrip } from '@/components/ui/v2';
 import type { RunPreviewModel } from '../../utils/run-preview/run-preview-model';
 import { ELEV_W, type WorkoutElevationGeometry } from '../../utils/run-overview/run-elevation-bands';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const LINE = '#00baf7';
 
 export function IntensityPage({ model, swipeHint }: { model: RunPreviewModel; swipeHint: boolean }) {
+  const t = useT(player);
   return (
     <div>
       {swipeHint && (
         <div className="mb-2.5 flex items-baseline justify-between gap-2">
-          <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">עצימות</span>
-          <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-muted">החלק לגובה המסלול ›</span>
+          <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('run.overview.graphs.intensity')}</span>
+          <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-muted">{t('run.overview.graphs.swipeHint')}</span>
         </div>
       )}
       <ProfileStrip segments={model.strip} height={44} labels={model.stripLabels} />
@@ -30,11 +33,12 @@ export function IntensityPage({ model, swipeHint }: { model: RunPreviewModel; sw
 }
 
 export function ElevationPage({ geo }: { geo: WorkoutElevationGeometry }) {
+  const t = useT(player);
   const gid = `run-elev-${useId().replace(/:/g, '')}`;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">גובה לאורך האימון</span>
+        <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t('run.overview.graphs.elevation')}</span>
         <span className="truncate whitespace-nowrap text-[12px] font-extrabold text-v2-muted">{geo.caption}</span>
       </div>
       <svg viewBox={`0 0 ${ELEV_W} 102`} width="100%" height={102} preserveAspectRatio="none" aria-hidden className="mt-2.5 block overflow-visible">

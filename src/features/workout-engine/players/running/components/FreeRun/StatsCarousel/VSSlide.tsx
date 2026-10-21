@@ -6,6 +6,8 @@ import { useRunningPlayer } from '@/features/workout-engine/players/running/stor
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { computeStandings } from '@/features/workout-engine/players/running/lib/computeStandings';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,7 @@ function AvatarCircle({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function VSSlide() {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const currentPace = useRunningPlayer((s) => s.currentPace);
   const selectedParticipantUid = useMapStore((s) => s.selectedParticipantUid);
@@ -62,7 +65,7 @@ export default function VSSlide() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[220px] gap-3 px-6 text-gray-400">
         <span className="text-3xl">🏃</span>
-        <p className="text-sm font-semibold text-center">בחר רץ במפה להשוואה</p>
+        <p className="text-sm font-semibold text-center">{t('run.vs.pickRival')}</p>
       </div>
     );
   }
@@ -81,9 +84,9 @@ export default function VSSlide() {
       <div className="flex items-center gap-2">
         {/* Me column */}
         <div className="flex-1 flex flex-col items-center gap-1">
-          <AvatarCircle initials="אני" color={myColor} isLeader={iLead || tied} />
+          <AvatarCircle initials={t('run.vs.meInitials')} color={myColor} isLeader={iLead || tied} />
           <span className="text-[11px] font-bold" style={{ color: myColor }}>
-            אני
+            {t('run.vs.me')}
           </span>
         </div>
 
@@ -118,7 +121,7 @@ export default function VSSlide() {
           style={{ color: iLead || tied ? myColor : 'rgba(255,255,255,0.55)' }}
         >
           {totalDistance.toFixed(2)}
-          <span className="text-[11px] font-semibold ml-0.5">ק&quot;מ</span>
+          <span className="text-[11px] font-semibold ml-0.5">{t('run.vs.km')}</span>
         </span>
         <span className="text-gray-500 text-xs w-4 text-center">—</span>
         <span
@@ -126,7 +129,7 @@ export default function VSSlide() {
           style={{ color: !iLead || tied ? rival.color : 'rgba(255,255,255,0.55)' }}
         >
           {rival.distanceKm.toFixed(2)}
-          <span className="text-[11px] font-semibold ml-0.5">ק&quot;מ</span>
+          <span className="text-[11px] font-semibold ml-0.5">{t('run.vs.km')}</span>
         </span>
       </div>
 
@@ -134,11 +137,11 @@ export default function VSSlide() {
       {(myPaceStr || rivalPace) && (
         <div className="flex items-center gap-2">
           <span className="flex-1 text-center text-sm font-semibold tabular-nums text-gray-300">
-            {myPaceStr ? `${myPaceStr} /ק"מ` : '—'}
+            {myPaceStr ? t('run.vs.pacePerKm', { pace: myPaceStr }) : '—'}
           </span>
-          <span className="text-gray-600 text-xs w-4 text-center">קצב</span>
+          <span className="text-gray-600 text-xs w-4 text-center">{t('run.vs.pace')}</span>
           <span className="flex-1 text-center text-sm font-semibold tabular-nums text-gray-300">
-            {rivalPace ? `${rivalPace} /ק"מ` : '—'}
+            {rivalPace ? t('run.vs.pacePerKm', { pace: rivalPace }) : '—'}
           </span>
         </div>
       )}
@@ -146,14 +149,14 @@ export default function VSSlide() {
       {/* Gap label */}
       <div className="text-center">
         {tied ? (
-          <span className="text-sm font-bold text-gray-300">שווה בדיוק</span>
+          <span className="text-sm font-bold text-gray-300">{t('run.vs.tied')}</span>
         ) : (
           <span
             className="text-sm font-bold"
             style={{ color: iLead ? myColor : rival.color }}
           >
             {iLead ? '▲' : '▼'}{' '}
-            {iLead ? 'מוביל' : 'מפגר'} ב-{Math.abs(gapM)} מ&apos;
+            {iLead ? t('run.vs.leadBy', { gap: String(Math.abs(gapM)) }) : t('run.vs.behindBy', { gap: String(Math.abs(gapM)) })}
           </span>
         )}
       </div>

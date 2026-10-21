@@ -41,6 +41,8 @@ import WorkoutControlCluster from './WorkoutControlCluster';
 import { useSessionGoalProgress } from '../../hooks/useSessionGoalProgress';
 import { useGroupSessionGoal } from '../../hooks/useGroupSessionGoal';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -155,6 +157,7 @@ function MiniRouteMap({ coords, size = 40 }: { coords: number[][]; size?: number
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
+  const t = useT(player);
   const totalDistance = useSessionStore((s) => s.totalDistance);
   const totalDuration = useSessionStore((s) => s.totalDuration);
   // status is the single source of truth shared with WorkoutControlCluster.
@@ -240,7 +243,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
               {/* Resume — secondary */}
               <button
                 type="button"
-                aria-label="המשך אימון"
+                aria-label={t('run.free.dock.resume')}
                 onClick={(e) => { e.stopPropagation(); handleResume(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
@@ -250,7 +253,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
               {/* Stop — primary */}
               <button
                 type="button"
-                aria-label="סיים אימון"
+                aria-label={t('run.free.dock.finish')}
                 onClick={(e) => { e.stopPropagation(); handleStop(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
@@ -263,7 +266,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
               {/* Lap — secondary */}
               <button
                 type="button"
-                aria-label="הקפה"
+                aria-label={t('run.free.dock.lap')}
                 onClick={(e) => { e.stopPropagation(); handleLap(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
@@ -273,7 +276,7 @@ export function RunMiniDockContent({ isLapsOpen }: { isLapsOpen: boolean }) {
               {/* Pause — primary */}
               <button
                 type="button"
-                aria-label="השהה אימון"
+                aria-label={t('run.free.dock.pause')}
                 onClick={(e) => { e.stopPropagation(); handlePause(); }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
@@ -307,6 +310,7 @@ interface FreeRunOverlayProps {
 }
 
 export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, drawerSlides, sideRailParticipants, onSelectParticipant }: FreeRunOverlayProps) {
+  const t = useT(player);
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const isCommute = sessionMode === 'commute';
@@ -352,27 +356,27 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
     const isNowComplete = goalProgress?.isComplete ?? false;
     if (isNowComplete && !prevIsCompleteRef.current) {
       setShowGoalToast(true);
-      const t = setTimeout(() => setShowGoalToast(false), 3000);
+      const timer = setTimeout(() => setShowGoalToast(false), 3000);
       prevIsCompleteRef.current = true;
-      return () => clearTimeout(t);
+      return () => clearTimeout(timer);
     }
     if (!isNowComplete) prevIsCompleteRef.current = false;
   }, [goalProgress?.isComplete]);
 
   // ── GPS status toast ─────────────────────────────────────────────────────
-  const [gpsToast, setGpsToast] = useState<string | null>(null);
+  const [gpsToast, setGpsToast] = useState<PlayerKey | null>(null);
   const prevGpsStatusRef = useRef(gpsStatus);
   useEffect(() => {
     if (gpsStatus === prevGpsStatusRef.current) return;
     prevGpsStatusRef.current = gpsStatus;
-    if (gpsStatus === 'searching')        setGpsToast('מחפש GPS…');
-    else if (gpsStatus === 'poor')        setGpsToast('GPS חלש — ממשיך לחפש');
-    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('GPS תקין ✓');
+    if (gpsStatus === 'searching')        setGpsToast('run.free.classic.gps.searching');
+    else if (gpsStatus === 'poor')        setGpsToast('run.free.classic.gps.poor');
+    else if (gpsStatus === 'good' || gpsStatus === 'perfect') setGpsToast('run.free.classic.gps.good');
   }, [gpsStatus]);
   useEffect(() => {
     if (!gpsToast) return;
-    const t = setTimeout(() => setGpsToast(null), 4000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setGpsToast(null), 4000);
+    return () => clearTimeout(timer);
   }, [gpsToast]);
 
   // ── Story-bar height → map camera padding ────────────────────────────────
@@ -400,8 +404,8 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
   // 1 Hz tick for HUD timer elements
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(t);
+    const interval = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // DEBUG — remove after routing confirmed
@@ -453,7 +457,7 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
             style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
             dir="rtl"
           >
-            {gpsToast}
+            {t(gpsToast)}
           </div>
         </div>
       )}
@@ -471,7 +475,7 @@ export default function FreeRunOverlay({ dragControls, isMinimized, onExpand, dr
             style={{ background: '#10B981', boxShadow: '0 4px 16px rgba(16,185,129,0.45)' }}
             dir="rtl"
           >
-            🎯 הגעת ליעד!
+            {t('run.free.classic.goalReached')}
           </div>
         </div>
       )}

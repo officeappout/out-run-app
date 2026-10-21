@@ -22,6 +22,8 @@ import { PACE_BAND_COLORS, fmtBand, fmtClock, fmtPace } from '../../../lib/plann
 import { avgPaceSec, zoneStatusText, type ZoneStatus, type ZoneTarget } from '../../../lib/continuous-run';
 import type { ZoneTracking } from '../../../hooks/useZoneTracking';
 import { fmtSpeed, paceSecToKmh, rateLabels, type RateMetric } from '../../../lib/aerobic-activity';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface ContinuousCardData {
   heroKind: 'time' | 'distance';
@@ -53,14 +55,14 @@ function bandOf(status: ZoneStatus) {
 }
 
 export function ZoneChip({ zone, tracking }: { zone: ZoneTarget | null; tracking: ZoneTracking }) {
-  const t = bandOf(tracking.status);
+  const tone = bandOf(tracking.status);
   const text = zoneStatusText(tracking.status, tracking.rollingPaceSec, zone);
-  if (!t || !text) return null;
+  if (!tone || !text) return null;
   const Icon = tracking.status === 'in' ? Check : tracking.status === 'fast' ? ChevronsUp : ChevronsDown;
   return (
     <span
       className="inline-flex h-[28px] min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-extrabold"
-      style={{ background: t.bg, color: t.text }}
+      style={{ background: tone.bg, color: tone.text }}
       role="status"
     >
       <Icon size={13} strokeWidth={2.6} aria-hidden />
@@ -92,13 +94,16 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
 }
 
 function Scale({ zone, paceSec, color }: { zone: ZoneTarget; paceSec: number; color: string }) {
+  const t = useT(player);
   return (
     <PaceRangeScale
       minSec={zone.minSec}
       maxSec={zone.maxSec}
       currentSec={paceSec}
       markerColor={color}
-      targetLabel={zone.showNumbers ? `טווח ${zone.label} ${fmtBand(zone.minSec, zone.maxSec)}` : `טווח · ${zone.label}`}
+      targetLabel={zone.showNumbers
+        ? t('run.continuous.zoneRange', { zone: zone.label, band: fmtBand(zone.minSec, zone.maxSec) })
+        : t('run.continuous.zoneName', { zone: zone.label })}
     />
   );
 }
@@ -110,6 +115,7 @@ function shownPace(d: ContinuousCardData): number {
 }
 
 export function MainPage({ d }: { d: ContinuousCardData }) {
+  const t = useT(player);
   const band = bandOf(d.tracking.status);
   const pace = shownPace(d);
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
@@ -119,7 +125,7 @@ export function MainPage({ d }: { d: ContinuousCardData }) {
   return (
     <>
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{d.heroKind === 'time' ? 'זמן' : 'ק״מ'}</span>
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{d.heroKind === 'time' ? t('run.continuous.main.heroTime') : t('run.continuous.main.heroKm')}</span>
         <ZoneChip zone={d.zone} tracking={d.tracking} />
       </div>
       <div dir="ltr" className="whitespace-nowrap text-right text-[80px] font-black leading-[1.02] tracking-[-0.03em] tabular-nums text-v2-ink">
@@ -128,14 +134,14 @@ export function MainPage({ d }: { d: ContinuousCardData }) {
       {d.zone && d.showLivePace && <Scale zone={d.zone} paceSec={pace} color={band?.fg ?? '#a9b7c2'} />}
       <div className="mt-3 flex gap-2">
         {d.heroKind === 'time' ? (
-          <Tile value={d.totals.distanceKm.toFixed(2)} label="ק״מ" />
+          <Tile value={d.totals.distanceKm.toFixed(2)} label={t('run.continuous.main.km')} />
         ) : (
-          <Tile value={fmtClock(d.totals.durationSec)} label="זמן" />
+          <Tile value={fmtClock(d.totals.durationSec)} label={t('run.continuous.main.time')} />
         )}
         {d.showLivePace ? (
           <Tile value={rateText(metric, pace)} label={labels.current} color={band?.text} />
         ) : (
-          <Tile value={d.shortLegRemaining ?? '--'} label="נותרו בבלוק" />
+          <Tile value={d.shortLegRemaining ?? '--'} label={t('run.continuous.main.blockRemaining')} />
         )}
         <Tile value={rateText(metric, avg)} label={labels.average} />
       </div>
@@ -144,6 +150,7 @@ export function MainPage({ d }: { d: ContinuousCardData }) {
 }
 
 export function PacePage({ d }: { d: ContinuousCardData }) {
+  const t = useT(player);
   const band = bandOf(d.tracking.status);
   const pace = shownPace(d);
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
@@ -166,9 +173,9 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
       {d.zone && <Scale zone={d.zone} paceSec={pace} color={band?.fg ?? '#a9b7c2'} />}
       <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
         {d.zone ? (
-          <Stat value={d.tracking.inZonePct === null ? '--' : `${d.tracking.inZonePct}%`} label="זמן בטווח" />
+          <Stat value={d.tracking.inZonePct === null ? '--' : `${d.tracking.inZonePct}%`} label={t('run.continuous.pace.timeInZone')} />
         ) : (
-          <Stat value={fmtClock(d.totals.durationSec)} label="זמן" />
+          <Stat value={fmtClock(d.totals.durationSec)} label={t('run.continuous.pace.time')} />
         )}
         <Stat value={rateText(metric, avg)} label={labels.average} />
       </div>
@@ -177,22 +184,23 @@ export function PacePage({ d }: { d: ContinuousCardData }) {
 }
 
 export function DistancePage({ d }: { d: ContinuousCardData }) {
+  const t = useT(player);
   const avg = avgPaceSec(d.totals.durationSec, d.totals.distanceKm);
   const metric = d.metric ?? 'pace';
   return (
     <>
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">מרחק כולל</span>
-        {d.plannedKm ? <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-muted">{`מתוך ~${d.plannedKm.toFixed(1)}`}</span> : null}
+        <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('run.continuous.distance.title')}</span>
+        {d.plannedKm ? <span className="whitespace-nowrap text-[12.5px] font-extrabold text-v2-muted">{t('run.continuous.distance.ofPlanned', { km: d.plannedKm.toFixed(1) })}</span> : null}
       </div>
       <div dir="ltr" className="mt-1 whitespace-nowrap text-center font-black leading-[0.95] tracking-[-0.045em] tabular-nums text-v2-ink">
         <span className="text-[88px]">{d.totals.distanceKm.toFixed(2)}</span>
-        <span className="ms-1.5 text-[20px] font-extrabold text-v2-muted">ק״מ</span>
+        <span className="ms-1.5 text-[20px] font-extrabold text-v2-muted">{t('run.continuous.distance.unit')}</span>
       </div>
       <div className="mt-3 flex border-t border-v2-hairline pt-2.5">
         <Stat value={rateText(metric, avg)} label={rateLabels(metric).average} />
-        <Stat value={fmtClock(d.totals.durationSec)} label="זמן כולל" />
-        <Stat value={String(Math.round(d.totals.calories || 0))} label="קק״ל" />
+        <Stat value={fmtClock(d.totals.durationSec)} label={t('run.continuous.distance.totalTime')} />
+        <Stat value={String(Math.round(d.totals.calories || 0))} label={t('run.continuous.distance.kcal')} />
       </div>
     </>
   );
