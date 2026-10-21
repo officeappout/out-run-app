@@ -23,8 +23,9 @@ dotenv.config({ path: '.env.local' });
 dotenv.config();
 import * as fs from 'fs';
 import * as path from 'path';
-import { scoreAuthorityRoutes, writeRouteScoreDocs, type AuthorityScoreRun, type RouteScoreDoc } from '../src/lib/route-score';
-import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, listOfficialRoutesPage, openTarget } from './trails/lib/trails-apply.node';
+import { buildSegmentIndex, parsePath, scoreAuthorityRoutes, surfaceMixFromSegments, writeRouteScoreDocs, type AuthorityScoreRun, type RouteScoreDoc, type SurfaceSegment } from '../src/lib/route-score';
+import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, openTarget } from './trails/lib/trails-apply.node';
+import { readAllOfficialRoutes, readStreetSegmentSurfaces } from './lib/route-collections-read.node';
 
 type Doc = Record<string, any>;
 interface RouteRow { id: string; data: Doc }
@@ -37,17 +38,10 @@ const ONLY_CITY = flagValue(argv, 'city');
 const FROM_JSON = flagValue(argv, 'from-json');
 const OUT_DIR = flagValue(argv, 'out') ?? path.join('scripts', 'output', `route-score-${new Date().toISOString().replace(/[:.]/g, '-')}`);
 const PAGE = 300;
+const NO_SURFACE_JOIN = argv.includes('--no-surface-join');
 
 async function loadFromFirestore(db: FirebaseFirestore.Firestore): Promise<{ routes: RouteRow[]; authorities: Map<string, AuthorityMeta> }> {
-  const routes: RouteRow[] = [];
-  let after: string | null = null;
-  for (;;) {
-    // Read-only pager shared with the trails pipeline (the only official_routes reader this script uses).
-    const page = await listOfficialRoutesPage(db as any, { afterId: after, pageSize: PAGE, authorityId: ONLY_AUTHORITY, allFields: true });
-    for (const d of page) routes.push({ id: d.id, data: d.data as Doc });
-    if (page.length < PAGE) break;
-    after = page[page.length - 1].id;
-  }
+  const routes: RouteRow[] = await readAllOfficialRoutes(db as any, { authorityId: ONLY_AUTHORITY, pageSize: PAGE });
   const ids = Array.from(new Set(routes.map((r) => r.data?.authorityId).filter((x): x is string => typeof x === 'string' && !!x)));
   const authorities = new Map<string, AuthorityMeta>();
   for (let k = 0; k < ids.length; k += 100) {
@@ -70,6 +64,10 @@ function loadFromJson(file: string): { routes: RouteRow[]; authorities: Map<stri
   return { routes, authorities };
 }
 
+function label0(rows: RouteRow[], meta: AuthorityMeta | undefined, key: string): string {
+  return meta?.name ?? rows[0]?.data?.city ?? key;
+}
+
 function groupKey(r: RouteRow): string {
   return r.data?.authorityId ? `auth:${r.data.authorityId}` : `city:${r.data?.city ?? '(none)'}`;
 }
@@ -80,6 +78,9 @@ function printRun(label: string, run: AuthorityScoreRun, n: number) {
   console.log(`  bands: 🟢 ${run.bands.green}  🟡 ${run.bands.yellow}  🔴 ${run.bands.red}`);
   const c = run.selection.counts;
   console.log(`  selection: selected ${c.selected}/${q.total.max} (park loops ${c.parkLoops}, cycling ${c.cycling}) · candidate ${c.candidate} · manual review ${c.manual_review} · rejected ${c.rejected}`);
+  const sel = run.selection.selectedBySurface;
+  const all = run.bySurface;
+  console.log(`  surface (selected/all): walk-run paved ${sel.walk_run_paved}/${all.walk_run_paved ?? 0} · hike offroad ${sel.hike_offroad}/${all.hike_offroad ?? 0} · bike road ${sel.bike_road}/${all.bike_road ?? 0} · bike offroad ${sel.bike_offroad}/${all.bike_offroad ?? 0} · unknown ${sel.unknown}/${all.unknown ?? 0}`);
   const top = [...run.scored].sort((a, b) => b.score.score - a.score.score).slice(0, 5);
   for (const s of top) {
     const row = run.selection.rows.find((r) => r.id === s.input.id);
@@ -118,13 +119,27 @@ async function main() {
   for (const [key, rows] of Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length)) {
     const authId = key.startsWith('auth:') ? key.slice(5) : null;
     const meta = authId ? data.authorities.get(authId) : undefined;
-    const run = scoreAuthorityRoutes({ id: authId, type: meta?.type ?? null, population: meta?.population ?? null }, rows, now);
-    const label = meta?.name ?? rows[0]?.data?.city ?? key;
+    // Surface join (owner 21.10): paved/unpaved share per route from this authority's street_segments.
+    let withSurface: Array<RouteRow & { opts?: { surfaceMix: Partial<Record<string, number>> } }> = rows;
+    if (authId && target && !NO_SURFACE_JOIN) {
+      const segs = await readStreetSegmentSurfaces(target.db as any, authId);
+      const surf: SurfaceSegment[] = segs
+        .map((g) => ({ coords: parsePath(g.path ?? g.coordinates), surfaceType: typeof g.surfaceType === 'string' ? g.surfaceType : null }))
+        .filter((g) => g.coords.length >= 2 && g.surfaceType && g.surfaceType !== 'unknown');
+      if (surf.length) {
+        const idx = buildSegmentIndex(surf);
+        withSurface = rows.map((r) => ({ ...r, opts: { surfaceMix: surfaceMixFromSegments(parsePath(r.data?.path), idx) } }));
+      }
+      console.log(`\n  (${label0(rows, meta, key)}: ${segs.length} street_segments, ${surf.length} with a known surface)`);
+    }
+    const run = scoreAuthorityRoutes({ id: authId, type: meta?.type ?? null, population: meta?.population ?? null }, withSurface, now);
+    const label = label0(rows, meta, key);
     printRun(`${label}${authId ? ` [${authId}]` : ' [NO authorityId]'}`, run, rows.length);
     allDocs.push(...run.docs);
     summary.push({
       key, authorityId: authId, name: label, routes: rows.length, quota: run.quota, bands: run.bands, selection: run.selection.counts,
-      routesDetail: run.docs.map((d) => ({ id: d.routeId, name: d.name, score: d.score, confidence: d.confidence, band: d.band, sourceTier: d.sourceTier, certificate: d.certificate, selection: d.selection, reason: d.selectionReason })),
+      surface: { all: run.bySurface, selected: run.selection.selectedBySurface },
+      routesDetail: run.docs.map((d) => ({ id: d.routeId, name: d.name, score: d.score, confidence: d.confidence, band: d.band, sourceTier: d.sourceTier, surfaceClass: d.surfaceClass, pavedShare: d.surface.pavedShare, unpavedShare: d.surface.unpavedShare, surfaceSource: d.surface.source, certificate: d.certificate, selection: d.selection, reason: d.selectionReason })),
     });
   }
 

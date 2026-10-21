@@ -10,6 +10,7 @@ import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
 import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier } from './types';
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
+import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 
 type Doc = Record<string, any>;
 
@@ -90,6 +91,10 @@ export interface FromDocOptions {
   osmSafety?: { majorRoadPct: number; unmarkedPerKm: number } | null;
   /** Measured green share (trails PilotContext), when the caller has one. */
   greenShare?: number | null;
+  /** Surface metres/percent per SurfaceType from a street_segments join (surfaceMixFromSegments), when the caller has one. */
+  surfaceMix?: Partial<Record<string, number>> | null;
+  /** Tree-canopy share (0..1) — RC2, not computed anywhere yet. */
+  shadeShare?: number | null;
 }
 
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
@@ -129,12 +134,16 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     (Array.isArray(d?.facilityStops) && d.facilityStops.length > 0) ||
     (Array.isArray(d?.nearbyAmenities) && d.nearbyAmenities.some((a: Doc) => a?.category === 'fitness_station'));
 
+  const activityType = typeof d?.activityType === 'string' ? d.activityType : typeof d?.type === 'string' ? d.type : null;
+  const surface = surfaceSharesFromDoc(d, opts.surfaceMix ?? null);
+  const shade = num(opts.shadeShare ?? d?.qualitySignals?.shade?.shadeShare);
+
   return {
     id,
     name: String(d?.name ?? ''),
     authorityId: typeof d?.authorityId === 'string' && d.authorityId ? d.authorityId : null,
     city: typeof d?.city === 'string' && d.city ? d.city : null,
-    activityType: typeof d?.activityType === 'string' ? d.activityType : typeof d?.type === 'string' ? d.type : null,
+    activityType,
     distanceKm,
     path,
     shape: deriveShape(d, path),
@@ -148,5 +157,8 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     parkRef: parseParkRef(d?.parkRef),
     hasFitnessStop,
     certificate,
+    surface,
+    surfaceClass: classifySurface(activityType, surface),
+    shadeShare: shade,
   };
 }

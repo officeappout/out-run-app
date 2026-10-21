@@ -6,7 +6,7 @@
  */
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import type { ComponentScore, RouteScoreInput } from './types';
-import { SCORE_WEIGHTS, SOURCE_TIER_POINTS } from './weights';
+import { SCORE_WEIGHTS, SHADE_CANOPY_MIN_SHARE, SOURCE_TIER_POINTS } from './weights';
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -90,12 +90,16 @@ export function scoreSource(i: RouteScoreInput): ComponentScore {
 
 /**
  * Comfort (15): lighting (8) + amenities (7: water 3, bench 3, other 1).
- * Shade joins here once RC2 defines the field — not computed anywhere yet.
+ * Once shade exists (RC2, `shadeShare`), the split becomes lighting 6 +
+ * amenities 5 + shade 4, with full shade points at the owner-approved 40%
+ * canopy bar. Until then shade is simply absent — it does not lower coverage.
  */
 export function scoreComfort(i: RouteScoreInput): ComponentScore {
   const max = SCORE_WEIGHTS.comfort;
-  const LIGHT = 8;
-  const AMEN = 7;
+  const hasShade = i.shadeShare != null;
+  const LIGHT = hasShade ? 6 : 8;
+  const AMEN = hasShade ? 5 : 7;
+  const SHADE = hasShade ? 4 : 0;
   let pts = 0;
   let measured = 0;
   const notes: string[] = [];
@@ -108,11 +112,16 @@ export function scoreComfort(i: RouteScoreInput): ComponentScore {
   }
   const a = i.amenitiesHas;
   if (a) {
-    pts += (a.drinking_water ? 3 : 0) + (a.bench ? 3 : 0) + (a.court || a.dog_park ? 1 : 0);
+    const raw = (a.drinking_water ? 3 : 0) + (a.bench ? 3 : 0) + (a.court || a.dog_park ? 1 : 0);
+    pts += (raw / 7) * AMEN;
     measured += AMEN;
   } else {
     pts += AMEN / 2;
     notes.push('amenities not computed');
+  }
+  if (hasShade) {
+    pts += SHADE * clamp01((i.shadeShare as number) / SHADE_CANOPY_MIN_SHARE);
+    measured += SHADE;
   }
   return { points: round1(pts), max, coverage: measured / max, notes };
 }

@@ -38,3 +38,12 @@ export const MANUAL_REVIEW_MIN_SCORE = 55;
 export const NAMED_PLACE_PATTERN = /טיילת|פארק|גן |^גן|גינת|רצועה ירוקה|רצועת חוף|שביל טבע|ואדי|נחל|יער|חוף|אגם|הקפת/;
 /** Promenade/corridor names — a non-closed route with such a name is a legitimate linear corridor. */
 export const CORRIDOR_NAME_PATTERN = /טיילת|רצועה ירוקה|רצועת חוף|שביל טבע|ואדי|נחל/;
+
+/**
+ * Owner-approved thresholds (21.10.2026) for the comfort signals that RC2 will
+ * compute later. Nothing computes shade yet; these are the agreed bars.
+ *   shaded — ≥40% tree-canopy cover along the route.
+ *   lit    — a stretch within 20-30 m of a lamp post.
+ */
+export const SHADE_CANOPY_MIN_SHARE = 0.4;
+export const LIT_LAMP_RADIUS_M = { min: 20, max: 30 } as const;

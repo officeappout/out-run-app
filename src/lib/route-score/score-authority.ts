@@ -16,6 +16,8 @@ export interface AuthorityScoreRun {
   selection: SelectionResult;
   docs: RouteScoreDoc[];
   bands: { green: number; yellow: number; red: number };
+  /** All scored routes per surface class (selected counts are in selection.selectedBySurface). */
+  bySurface: Record<string, number>;
 }
 
 export function scoreAuthorityRoutes(
@@ -42,5 +44,7 @@ export function scoreAuthorityRoutes(
   });
   const bands = { green: 0, yellow: 0, red: 0 };
   for (const s of scored) bands[s.score.band]++;
-  return { authorityId: authority.id, quota, scored, selection, docs, bands };
+  const bySurface: Record<string, number> = {};
+  for (const s of scored) bySurface[s.input.surfaceClass] = (bySurface[s.input.surfaceClass] ?? 0) + 1;
+  return { authorityId: authority.id, quota, scored, selection, docs, bands, bySurface };
 }

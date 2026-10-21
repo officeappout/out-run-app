@@ -328,12 +328,10 @@ export interface RouteDocSnapshot {
 /** One bounded page of official_routes in document-id order (only the fields the backfill reads). */
 export async function listOfficialRoutesPage(
   db: Firestore,
-  opts: { afterId: string | null; pageSize: number; authorityId: string | null; allFields?: boolean },
+  opts: { afterId: string | null; pageSize: number; authorityId: string | null },
 ): Promise<RouteDocSnapshot[]> {
   const { FieldPath } = await import('firebase-admin/firestore');
-  // allFields (read-only callers like scripts/backfill-route-score.ts) reads the whole doc.
-  const base = db.collection('official_routes');
-  let q = (opts.allFields ? base : base.select('name', 'path', 'elevationProfile')).orderBy(FieldPath.documentId()).limit(opts.pageSize);
+  let q = db.collection('official_routes').select('name', 'path', 'elevationProfile').orderBy(FieldPath.documentId()).limit(opts.pageSize);
   if (opts.authorityId) q = q.where('authorityId', '==', opts.authorityId);
   if (opts.afterId) q = q.startAfter(opts.afterId);
   const snap = await q.get();

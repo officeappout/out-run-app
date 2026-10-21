@@ -5,6 +5,7 @@
  * trails star prior) — no new signal is invented here.
  */
 import type { LngLat } from '../route-quality/types';
+import type { SurfaceClass, SurfaceShares } from './surface-class';
 
 export type { LngLat };
 
@@ -55,6 +56,16 @@ export interface RouteScoreInput {
   parkRef: ParkRef | null;
   hasFitnessStop: boolean;
   certificate: CertificateVerdict | null;
+  /** Paved / unpaved share of the length and where it came from (surface-class.ts). */
+  surface: SurfaceShares;
+  /** Filter class for the app: bike_road / bike_offroad / walk_run_paved / hike_offroad / unknown. */
+  surfaceClass: SurfaceClass;
+  /**
+   * Share (0..1) of the length under tree canopy — NOT computed yet (RC2).
+   * Owner-approved threshold for later: "shaded" = ≥40% canopy cover. When
+   * present, comfort consumes it (components.ts); null = not measured.
+   */
+  shadeShare: number | null;
 }
 
 export interface ComponentScore {

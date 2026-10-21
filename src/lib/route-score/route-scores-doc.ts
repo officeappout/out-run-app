@@ -9,6 +9,7 @@
  * the Admin SDK, the emulator and the test fake.
  */
 import type { SelectionDecision } from './select';
+import type { SurfaceClass, SurfaceSource } from './surface-class';
 import type { CertificateVerdict, RouteScore, RouteScoreInput, ScoreBand, ScoreComponentKey, SourceTier } from './types';
 
 export const ROUTE_SCORES_COLLECTION = 'route_scores';
@@ -25,6 +26,9 @@ export interface RouteScoreDoc {
   components: Record<ScoreComponentKey, { points: number; max: number; coverage: number }>;
   certificate: CertificateVerdict | null;
   sourceTier: SourceTier;
+  /** Filter class for the app + the shares it came from (owner addition 21.10). */
+  surfaceClass: SurfaceClass;
+  surface: { pavedShare: number; unpavedShare: number; knownShare: number; source: SurfaceSource };
   /** Null when the route was scored without a selection pass. */
   selection: SelectionDecision | null;
   selectionReason: string | null;
@@ -54,6 +58,8 @@ export function buildRouteScoreDoc(
     components,
     certificate: input.certificate,
     sourceTier: input.sourceTier,
+    surfaceClass: input.surfaceClass,
+    surface: { ...input.surface },
     selection: selection?.decision ?? null,
     selectionReason: selection?.reason ?? null,
     scoreVersion: score.version,
@@ -83,6 +89,13 @@ export function routeScoreDocFromStored(raw: Record<string, any>): RouteScoreDoc
     components: raw?.components ?? {},
     certificate: raw?.certificate ?? null,
     sourceTier: raw?.sourceTier ?? 'unknown',
+    surfaceClass: raw?.surfaceClass ?? 'unknown',
+    surface: {
+      pavedShare: Number(raw?.surface?.pavedShare ?? 0),
+      unpavedShare: Number(raw?.surface?.unpavedShare ?? 0),
+      knownShare: Number(raw?.surface?.knownShare ?? 0),
+      source: raw?.surface?.source ?? 'none',
+    },
     selection: raw?.selection ?? null,
     selectionReason: raw?.selectionReason ?? null,
     scoreVersion: String(raw?.scoreVersion ?? ''),

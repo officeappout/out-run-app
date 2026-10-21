@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { anchorKey, lengthBucket, selectTopN, type ScoredRoute } from '../select';
 import { quotaForAuthority } from '../quota';
 import type { RouteScoreInput, ScoreBand, SourceTier } from '../types';
+import type { SurfaceClass } from '../surface-class';
 import { rectLoop } from './fixtures';
 
 let seq = 0;
 function route(o: { score: number; band?: ScoreBand; name?: string; km?: number; lng?: number; lat?: number;
-  activity?: string; tier?: SourceTier; park?: string }): ScoredRoute {
+  activity?: string; tier?: SourceTier; park?: string; cls?: SurfaceClass }): ScoredRoute {
   const id = `r${++seq}`;
   const input: RouteScoreInput = {
     id, name: o.name ?? `route ${id}`, authorityId: 'a', city: 'c', activityType: o.activity ?? 'running',
@@ -14,6 +15,8 @@ function route(o: { score: number; band?: ScoreBand; name?: string; km?: number;
     composition: null, litCoveragePct: null, amenitiesHas: null, osmSafety: null, geometry: null,
     sourceTier: o.tier ?? 'osm_named', greenShare: null, parkRef: o.park ? { source: 'osm', id: o.park, name: o.park } : null,
     hasFitnessStop: false, certificate: 'approve',
+    surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' },
+    surfaceClass: o.cls ?? (o.activity === 'cycling' ? 'bike_road' : 'walk_run_paved'), shadeShare: null,
   };
   return { input, score: { score: o.score, confidence: 0.9, band: o.band ?? (o.score >= 75 ? 'green' : 'yellow'), components: {} as any, version: 'v1' } };
 }
@@ -63,6 +66,16 @@ describe('selectTopN', () => {
   it('park loops capped by the quota', () => {
     const rs = Array.from({ length: 10 }, (_, k) => route({ score: 90, park: `p${k}`, km: [2, 5, 10][k % 3] }));
     expect(selectTopN(rs, small).counts.parkLoops).toBe(4);
+  });
+});
+
+describe('selectTopN — surface mix (owner 21.10)', () => {
+  it('reserves an offroad option when the city has one, even below the paved routes', () => {
+    const rs = [...Array.from({ length: 20 }, (_, k) => route({ score: 95, km: [2, 5, 10][k % 3] })), route({ score: 71, cls: 'hike_offroad' })];
+    const res = selectTopN(rs, small);
+    expect(res.rows[20]).toMatchObject({ decision: 'selected', reason: 'reserved: surface hike_offroad' });
+    expect(res.selectedBySurface.hike_offroad).toBe(1);
+    expect(res.selectedBySurface.walk_run_paved).toBe(14);
   });
 });
 

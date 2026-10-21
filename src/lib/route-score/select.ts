@@ -16,6 +16,7 @@
 import type { AuthorityQuota } from './quota';
 import type { RouteScore, RouteScoreInput } from './types';
 import { MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE } from './weights';
+import { SURFACE_CLASSES, type SurfaceClass } from './surface-class';
 
 export type SelectionDecision = 'selected' | 'candidate' | 'manual_review' | 'rejected';
 
@@ -35,6 +36,8 @@ export interface SelectionResult {
   rows: SelectionRow[];
   selectedIds: string[];
   counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number };
+  /** Selected routes per surface class. */
+  selectedBySurface: Record<SurfaceClass, number>;
 }
 
 export const MAX_PER_ANCHOR = 2;
@@ -126,6 +129,11 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota): Select
     if (cycling >= cyclingWant) break;
     if (!blocker(r)) take(r, 'reserved: cycling');
   }
+  for (const cls of SURFACE_CLASSES) {
+    if (picked.some((id) => eligible.find((e) => e.input.id === id)?.input.surfaceClass === cls)) continue;
+    const best = eligible.find((x) => x.input.surfaceClass === cls && !rows.has(x.input.id) && !blocker(x));
+    if (best) take(best, `reserved: surface ${cls}`);
+  }
   for (const r of eligible.filter((x) => isParkLoop(x.input))) {
     if (parkLoops >= quota.parkLoops.min) break;
     if (!rows.has(r.input.id) && !blocker(r)) take(r, 'reserved: park loop');
@@ -140,5 +148,8 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota): Select
   const out = routes.map((r) => rows.get(r.input.id)!);
   const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling };
   for (const row of out) counts[row.decision]++;
-  return { rows: out, selectedIds: picked, counts };
+  const selectedBySurface: Record<SurfaceClass, number> = { walk_run_paved: 0, hike_offroad: 0, bike_road: 0, bike_offroad: 0, unknown: 0 };
+  const byId = new Map(routes.map((r) => [r.input.id, r.input]));
+  for (const id of picked) selectedBySurface[byId.get(id)?.surfaceClass ?? 'unknown']++;
+  return { rows: out, selectedIds: picked, counts, selectedBySurface };
 }

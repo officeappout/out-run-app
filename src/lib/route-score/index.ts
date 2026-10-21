@@ -19,3 +19,8 @@ export {
   writeRouteScoreDocs, readRouteScoreDoc, type RouteScoreDoc, type ScoreStoreDb,
 } from './route-scores-doc';
 export { scoreAuthorityRoutes, type AuthorityScoreRun } from './score-authority';
+export {
+  SURFACE_CLASSES, PAVED_SURFACES, UNPAVED_SURFACES, sharesFromMix, surfaceSharesFromDoc, classifySurface,
+  buildSegmentIndex, surfaceMixFromSegments,
+  type SurfaceClass, type SurfaceShares, type SurfaceSource, type SurfaceSegment, type SegmentIndex,
+} from './surface-class';

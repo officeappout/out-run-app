@@ -165,6 +165,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   # emulator-only test fixture — reads/updates official_routes on the Firestore
   # emulator (project trails-apply-test), self-skips without FIRESTORE_EMULATOR_HOST.
   "tests/trails-apply.emulator.test.ts"
+  # Nationwide routes plan W2 (21.10.2026): READ-ONLY pagers (official_routes,
+  # street_segments) for dry-run scripts. No write verb in the file; also on the
+  # migrated list below so any future write there must use buildValidatedDoc.
+  "scripts/lib/route-collections-read.node.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -184,6 +188,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # National trails pipeline (18.10.2026) — chokepoint-migrated from birth.
   "scripts/trails/import-named-routes.ts"
   "scripts/trails/lib/trails-apply.node.ts"
+  "scripts/lib/route-collections-read.node.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

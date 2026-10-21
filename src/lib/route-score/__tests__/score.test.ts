@@ -10,7 +10,8 @@ function base(over: Partial<RouteScoreInput> = {}): RouteScoreInput {
     id: 'r', name: 'x', authorityId: 'a', city: 'c', activityType: 'running', distanceKm: 5,
     path: rectLoop(34.8, 32.1, 800, 600), shape: 'loop', composition: null, litCoveragePct: null,
     amenitiesHas: null, osmSafety: null, geometry: { retracedPct: 0, uTurnCount: 0, spurCount: 0, compactness: 0.7 },
-    sourceTier: 'osm_named', greenShare: null, parkRef: null, hasFitnessStop: false, certificate: null, ...over,
+    sourceTier: 'osm_named', greenShare: null, parkRef: null, hasFitnessStop: false, certificate: null,
+    surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' }, surfaceClass: 'walk_run_paved', shadeShare: null, ...over,
   };
 }
 
@@ -67,6 +68,14 @@ describe('components', () => {
   it('comfort: lit + water + bench = 14; nothing measured = half', () => {
     expect(scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true } })).points).toBe(14);
     expect(scoreComfort(base())).toMatchObject({ points: 7.5, coverage: 0 });
+  });
+  it('comfort: shade (RC2) joins at the owner-approved 40% canopy bar', () => {
+    const full = scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true, court: true }, shadeShare: 0.4 }));
+    expect(full).toMatchObject({ points: 15, coverage: 1 });
+    const noShade = scoreComfort(base({ litCoveragePct: 100, amenitiesHas: { drinking_water: true, bench: true, court: true }, shadeShare: 0 }));
+    expect(noShade.points).toBe(11);
+    // absent shade does not lower coverage
+    expect(scoreComfort(base({ litCoveragePct: 100, amenitiesHas: {} })).coverage).toBe(1);
   });
   it('experience: fitness stop is a bonus of at most 2, total capped at 10', () => {
     const without = scoreExperience(base({ greenShare: 1 })).points;
