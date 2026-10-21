@@ -20,8 +20,11 @@
 
 import { SlidersHorizontal } from 'lucide-react';
 import { useExerciseLibraryStore } from '../store/useExerciseLibraryStore';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export default function SecondaryFiltersTrigger() {
+  const t = useT(library);
   const setOpen = useExerciseLibraryStore((s) => s.setSecondaryFiltersOpen);
   const count = useExerciseLibraryStore((s) =>
     s.filters.muscles.length +
@@ -35,7 +38,7 @@ export default function SecondaryFiltersTrigger() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="סינון מתקדם"
+      aria-label={t('exercises.filters.open')}
       className={`relative w-11 h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
         count > 0 ? 'bg-[#00ADEF] text-white' : 'bg-gray-100 text-gray-600'
       }`}

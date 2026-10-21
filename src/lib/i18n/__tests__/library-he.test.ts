@@ -228,6 +228,144 @@ describe('library (he) — byte-identical to the pre-extraction literals', () =>
 
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new key needs a case above.
-    expect(Object.keys(he).length).toBe(182);
+    // Counted per prefix: other batches add keys to the same namespace file.
+    expect(Object.keys(he).filter((k) => k.startsWith('search.')).length).toBe(182);
+  });
+});
+
+/**
+ * `exercises.*` (i18n wave 2): the exercise library's UI frame copy
+ * (src/features/content/exercises/client/**). The `old` side is the original literal / template,
+ * copied verbatim. The jsdom parity snapshots (content/exercises/client/__tests__/library-i18n-parity)
+ * cover the keys in context; this pins every select / helper branch too.
+ */
+describe('library (he) — exercises.* byte-identical to the pre-extraction literals', () => {
+  it('plain strings', () => {
+    const cases: Array<[keyof typeof he, string]> = [
+      ['exercises.count.loading', 'טוען תרגילים...'],
+      ['exercises.count.error', 'שגיאה בטעינה'],
+      ['exercises.error.title', 'שגיאה בטעינת התרגילים'],
+      ['exercises.error.hint', 'בדוק חיבור לאינטרנט והרשאות Firestore. הפרטים המלאים מודפסים ב-Console.'],
+      ['exercises.emptyCorpus.title', 'לא נטענו תרגילים מהשרת'],
+      ['exercises.emptyCorpus.hint', 'ייתכן שאין חיבור ל-Firestore או שהאוסף ריק. בדוק את ה-Console.'],
+      ['exercises.noResults.title', 'לא נמצאו תרגילים'],
+      ['exercises.noResults.hint', 'נסה להסיר חלק מהמסננים'],
+      ['exercises.chips.trackFallback', 'מסלול'],
+      ['exercises.chips.bodyweight', 'משקל גוף'],
+      ['exercises.chips.clearAll', 'נקה הכל'],
+      ['exercises.filters.open', 'סינון מתקדם'],
+      ['exercises.filters.title', 'פילטרים'],
+      ['exercises.filters.muscles', 'שרירים'],
+      ['exercises.filters.associatedHint', 'מסומן בכתום — שרירים שקשורים למסלול שנבחר (מידע בלבד, לא משפיע על התוצאות)'],
+      ['exercises.filters.tracks', 'מסלול'],
+      ['exercises.filters.tracksLoading', 'טוען מסלולים...'],
+      ['exercises.filters.subTracksHide', 'הסתר תת-מסלולים'],
+      ['exercises.filters.subTracksShow', 'הצג תת-מסלולים'],
+      ['exercises.filters.masterIncludesAll', 'כולל את כל הרמות של כל תת-המסלולים'],
+      ['exercises.filters.location', 'מיקום'],
+      ['exercises.filters.gear', 'ציוד'],
+      ['exercises.filters.bodyweight', 'משקל גוף'],
+      ['exercises.filters.gearLoading', 'טוען ציוד...'],
+      ['exercises.filters.gearPark', 'ציוד פארק'],
+      ['exercises.filters.gearImprovised', 'ציוד מאולתר / ביתי'],
+      ['exercises.filters.gearPersonal', 'ציוד אישי'],
+      ['exercises.filterSheet.close', 'סגור'],
+      ['exercises.filterSheet.clear', 'נקה'],
+      ['exercises.filterSheet.apply', 'החל'],
+      ['exercises.detail.label', 'פרטי תרגיל'],
+      ['exercises.detail.close', 'סגור'],
+      ['exercises.detail.facts.muscle', 'שריר'],
+      ['exercises.detail.facts.gear', 'ציוד'],
+      ['exercises.detail.facts.level', 'רמה'],
+      ['exercises.detail.facts.bodyweight', 'משקל גוף'],
+      ['exercises.detail.programs', 'תוכניות'],
+      ['exercises.detail.gear', 'ציוד'],
+      ['exercises.detail.bodyweight', 'משקל גוף'],
+      ['exercises.detail.chain.title', 'מסלול ההתקדמות'],
+      ['exercises.detail.chain.fullMap', 'מפה מלאה'],
+      ['exercises.detail.perf.open', 'לצפייה בהתקדמות המלאה'],
+      ['exercises.detail.perf.best', 'שיא חזרות ברצף'],
+      ['exercises.detail.muscles', 'שרירים'],
+      ['exercises.detail.musclePrimary', 'ראשי'],
+      ['exercises.detail.muscleSecondary', 'משני'],
+      ['exercises.detail.instructions', 'הוראות ביצוע'],
+      ['exercises.detail.cues', 'דגשים'],
+      ['exercises.detail.description', 'תיאור'],
+      ['exercises.detail.goals', 'מטרות'],
+      ['exercises.detail.tips', 'טיפים'],
+      ['exercises.programSwitcher.close', 'סגור'],
+      ['exercises.locationSwitcher.bodyweight', 'משקל גוף'],
+      ['exercises.locationSwitcher.close', 'סגור'],
+    ];
+    for (const [key, old] of cases) expect(t(key), key).toBe(old);
+  });
+
+  it('muscle chips (muscle-bar.utils MUSCLE_LABELS_HE, verbatim)', () => {
+    const MUSCLE_LABELS_HE: Record<string, string> = {
+      chest: 'חזה', back: 'גב', middle_back: 'אמצע גב', shoulders: 'כתפיים', rear_delt: 'כתף אחורית',
+      abs: 'בטן', obliques: 'אלכסונים', forearms: 'אמות', biceps: 'דו-ראשי', triceps: 'תלת-ראשי',
+      quads: 'ארבע-ראשי', hamstrings: 'המסטרינג', glutes: 'ישבן', calves: 'שוקיים', traps: 'טרפז',
+      cardio: 'קרדיו', full_body: 'כל הגוף', core: 'ליבה', legs: 'רגליים', serratus: 'המסור',
+      adductors: 'מקרבי הירך', hip_flexors: 'כופפי הירך',
+    };
+    for (const [m, old] of Object.entries(MUSCLE_LABELS_HE)) expect(t(`exercises.muscle.${m}` as keyof typeof he), m).toBe(old);
+  });
+
+  it('values, selects and helper branches', () => {
+    // body counter: `נמצאו{' '}<span>{visibleCount}</span>{' '}תרגילים` (text content)
+    expect(t('exercises.count.found', { count: String(1234) }).replace(/<\/?b>/g, '')).toBe(`נמצאו ${1234} תרגילים`);
+    expect(t.rich('exercises.count.found', { count: String(1234), b: (c: unknown) => `[${c}]` }).join('')).toBe('נמצאו [1234] תרגילים');
+
+    const track = 'קליסטניקס עליון';
+    expect(t('exercises.chips.trackLevel', { track, level: String(3) })).toBe(`${track} · רמה ${3}`);
+    expect(t('exercises.chips.remove', { label: track })).toBe(`הסר ${track}`);
+    for (const location of ['park', 'home']) {
+      expect(t('exercises.chips.location', { location })).toBe(location === 'park' ? 'פארק' : 'בית');
+      expect(t('exercises.filters.locationOption', { location })).toBe(location === 'park' ? 'פארק' : 'בית');
+    }
+    expect(t('exercises.filters.show', { count: String(1200) })).toBe(`הצג ${1200} תרגילים`);
+    expect(t('exercises.card.level', { level: String(7) })).toBe(`רמה ${7}`);
+    expect(t('exercises.detail.facts.levelValue', { level: String(7) })).toBe(`רמה ${7}`);
+    expect(t('exercises.programSwitcher.option', { label: 'דחיפה', level: String(4) })).toBe(`${'דחיפה'} · רמה ${4}`);
+
+    // ChainNode v2: caption = lower ? 'קודם' : same ? 'עכשיו' : 'הבא'; `{caption} · רמה {level}`
+    for (const variant of ['lower', 'same', 'higher'] as const) {
+      const caption = variant === 'lower' ? 'קודם' : variant === 'same' ? 'עכשיו' : 'הבא';
+      expect(t('exercises.detail.chain.node', { variant, level: String(9) })).toBe(`${caption} · רמה ${9}`);
+    }
+
+    // performance card
+    expect(t('exercises.detail.perf.sessions', { count: String(1200) })).toBe(`${1200} אימונים`);
+    for (const days of [0, 1, 4, 15, 95, 4000]) {
+      const old = (d: number) => {
+        if (d <= 0) return 'היום';
+        if (d === 1) return 'אתמול';
+        if (d < 7) return `לפני ${d} ימים`;
+        if (d < 30) return `לפני ${Math.floor(d / 7)} שבועות`;
+        return `לפני ${Math.floor(d / 30)} חודשים`;
+      };
+      const now =
+        days <= 0 ? t('exercises.detail.perf.when.today')
+        : days === 1 ? t('exercises.detail.perf.when.yesterday')
+        : days < 7 ? t('exercises.detail.perf.when.days', { n: String(days) })
+        : days < 30 ? t('exercises.detail.perf.when.weeks', { n: String(Math.floor(days / 7)) })
+        : t('exercises.detail.perf.when.months', { n: String(Math.floor(days / 30)) });
+      expect(now, String(days)).toBe(old(days));
+      expect(t('exercises.detail.perf.lastSets', { sets: String(3), when: now })).toBe(`ביצעת ${3} סטים ${old(days)}`);
+      expect(t('exercises.detail.perf.last', { when: now })).toBe(`אימון אחרון ${old(days)}`);
+    }
+
+    // LocationVariantSwitcher: LOCATION_META[loc]?.label ?? loc (verbatim)
+    const LOCATION_META: Record<string, string> = {
+      home: 'בית', park: 'פארק', gym: 'חדר כושר', street: 'רחוב', office: 'משרד', school: 'בית ספר',
+      airport: 'שדה תעופה', library: 'ספרייה', desk: 'שולחן', service: 'צבא/שירות',
+    };
+    for (const location of [...Object.keys(LOCATION_META), 'beach', '']) {
+      expect(t('exercises.locationSwitcher.location', { location }), location).toBe(LOCATION_META[location] ?? location);
+    }
+  });
+
+  it('no exercises.* key is left untested', () => {
+    expect(Object.keys(he).filter((k) => k.startsWith('exercises.')).length).toBe(95);
   });
 });

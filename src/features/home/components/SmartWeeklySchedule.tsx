@@ -1749,7 +1749,8 @@ export default function SmartWeeklySchedule({
         )}
         <button
           onClick={onOpenPlanner ?? toggleCalendarMode}
-          className="inline-flex items-center gap-1 font-medium hover:underline"
+          // v2: -my-3 py-3 → a 44px tall hit box, same look and row height.
+          className={`inline-flex items-center gap-1 font-medium hover:underline${v2 ? ' -my-3 py-3' : ''}`}
           style={{ fontSize: 13, color: '#00C9F2' }}
         >
           <img src="/icons/schedule/edit-pen.svg" alt="" className="w-3.5 h-3.5" />
@@ -1858,16 +1859,20 @@ export default function SmartWeeklySchedule({
 
                     const dayColor = isToday
                       ? '#00C9F2'
-                      : isPast
-                        ? '#71717A'
-                        : '#374151';
+                      : v2 && isCellSelected
+                        ? '#0284c7' // v2 selected = brand tint, never black
+                        : isPast
+                          ? '#71717A'
+                          : '#374151';
+                    // v2: a selected day that isn't today gets the brand tint behind its cell.
+                    const v2SelectedTint = v2 && isCellSelected && !isToday;
                     
                     const planned = isTrainingDay(day.day);
 
                     return (
                       <div
                         key={index}
-                        className="flex flex-col items-center group"
+                        className={`flex flex-col items-center group${v2SelectedTint ? ' rounded-[16px] bg-v2-tint ring-1 ring-inset ring-v2-accent/40' : ''}`}
                         style={{ width: 44, flexShrink: 0, overflow: 'visible' }}
                       >
                         {/* Day label */}

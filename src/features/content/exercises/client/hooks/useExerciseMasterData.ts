@@ -82,25 +82,25 @@ export interface ExerciseMasterData {
  * supplies no `programLabels` map (e.g. the library sheet).
  */
 const PROGRAM_LABEL_FALLBACK: Record<string, string> = {
-  pull_progression: 'משיכה',
-  push_progression: 'דחיפה',
-  core_progression:  'ליבה',
-  legs_progression:  'רגליים',
-  pull: 'משיכה',   pulling: 'משיכה',
-  push: 'דחיפה',   pushing: 'דחיפה',
-  core: 'ליבה',    abs: 'ליבה',
-  legs: 'רגליים',  lower_body: 'רגליים',
-  full_body: 'כל הגוף', fullbody: 'כל הגוף',
-  upper_body: 'פלג גוף עליון',
+  pull_progression: 'משיכה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  push_progression: 'דחיפה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  core_progression:  'ליבה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  legs_progression:  'רגליים', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  pull: 'משיכה',   pulling: 'משיכה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  push: 'דחיפה',   pushing: 'דחיפה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  core: 'ליבה',    abs: 'ליבה', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  legs: 'רגליים',  lower_body: 'רגליים', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  full_body: 'כל הגוף', fullbody: 'כל הגוף', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  upper_body: 'פלג גוף עליון', // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
 };
 
 /** Last-resort heuristic from the programId tokens (e.g. "…_pull_…" → משיכה). */
 function heuristicProgramLabel(id: string): string | null {
   const s = id.toLowerCase();
-  if (s.includes('pull')) return 'משיכה';
-  if (s.includes('push') || s.includes('dip')) return 'דחיפה';
-  if (s.includes('core') || s.includes('abs')) return 'ליבה';
-  if (s.includes('leg') || s.includes('squat')) return 'רגליים';
+  if (s.includes('pull')) return 'משיכה'; // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  if (s.includes('push') || s.includes('dip')) return 'דחיפה'; // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  if (s.includes('core') || s.includes('abs')) return 'ליבה'; // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
+  if (s.includes('leg') || s.includes('squat')) return 'רגליים'; // i18n-allow-hebrew: content — program-name fallback (moves with pickText, PLAN §2.7)
   return null;
 }
 

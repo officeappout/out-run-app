@@ -7,6 +7,7 @@ import { useSessionStore } from '@/features/workout-engine';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
+import { V2_NAV_BOTTOM_CSS } from '@/components/ui/v2/bottom-chrome';
 
 export default function BottomNavigation() {
   const pathname = usePathname();
@@ -195,9 +196,10 @@ function BottomNavV2({
       initial={false}
       animate={{ y: isSuppressed ? '140%' : '0%' }}
       transition={{ type: 'tween', duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      style={{ pointerEvents: isSuppressed ? 'none' : 'auto', willChange: 'transform' }}
+      // bottom: the same rule bottom-chrome.ts uses for the FAB / scroll padding above it.
+      style={{ bottom: V2_NAV_BOTTOM_CSS, pointerEvents: isSuppressed ? 'none' : 'auto', willChange: 'transform' }}
       aria-hidden={isSuppressed}
-      className="v2-glass-bar fixed inset-x-4 bottom-[max(8px,calc(env(safe-area-inset-bottom,0px)-10px))] z-50 flex h-[58px] items-center rounded-full px-2 shadow-v2-float"
+      className="v2-glass-bar fixed inset-x-4 z-50 flex h-[58px] items-center rounded-full px-2 shadow-v2-float"
     >
       <div className="relative flex flex-1 justify-around">{left.map(tab)}</div>
       <Link

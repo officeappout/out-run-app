@@ -60,6 +60,12 @@ export interface SuggestionCarouselProps<T> {
   onSettle?: (item: T, index: number) => void;
   activeIndex?: number;
   onActiveIndexChange?: (index: number) => void;
+  /**
+   * Pager dots are a position indicator only (not 6px tap targets): rendered as
+   * aria-hidden spans. Cards stay swipeable and side cards stay tappable.
+   * Home v2 passes true (MOB-TARGET-44); omitted = the tappable dots as before.
+   */
+  passiveDots?: boolean;
 }
 
 export function SuggestionCarousel<T>({
@@ -72,6 +78,7 @@ export function SuggestionCarousel<T>({
   onSettle,
   activeIndex: controlledIndex,
   onActiveIndexChange,
+  passiveDots = false,
 }: SuggestionCarouselProps<T>) {
   const [internalIndex, setInternalIndex] = useState(0);
   const activeIndex = controlledIndex ?? internalIndex;
@@ -171,7 +178,18 @@ export function SuggestionCarousel<T>({
       </div>
 
       <div className="flex justify-center items-center gap-2 mt-2 mb-8">
-        {items.map((item, i) => (
+        {passiveDots ? items.map((item, i) => (
+          <span
+            key={keyExtractor(item, i)}
+            aria-hidden
+            className="block transition-all duration-300 rounded-full"
+            style={{
+              width: i === activeIndex ? 16 : 6,
+              height: 6,
+              background: i === activeIndex ? ACTIVE_DOT_COLOR : INACTIVE_DOT_COLOR,
+            }}
+          />
+        )) : items.map((item, i) => (
           <button
             key={keyExtractor(item, i)}
             aria-label={`הצעה ${i + 1}`}

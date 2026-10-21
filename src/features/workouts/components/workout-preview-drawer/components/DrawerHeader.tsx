@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, useTransform, type MotionValue } from 'framer-motion';
 import { ArrowRight, Pencil } from 'lucide-react';
+import IconButton from '@/components/ui/v2/IconButton';
 
 export interface DrawerHeaderProps {
   /**
@@ -21,6 +22,13 @@ export interface DrawerHeaderProps {
    * centred between the back button and the slot where the pencil would be.
    */
   onEditEntry?: () => void;
+  /**
+   * enable_home_v2: while the header is hidden (hero still showing its own close) it is
+   * taken out of the accessibility tree and the tab order, so the sheet has ONE close
+   * button at a time; its close is the v2 round surface button.
+   */
+  v2?: boolean;
+  inactive?: boolean;
 }
 
 /**
@@ -40,6 +48,8 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
   displayTitle,
   onClose,
   onEditEntry,
+  v2 = false,
+  inactive = false,
 }) => {
   const pointerEvents = useTransform(
     headerOpacity,
@@ -50,8 +60,14 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
     <motion.div
       className="absolute top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800"
       style={{ opacity: headerOpacity, pointerEvents }}
+      aria-hidden={v2 && inactive ? true : undefined}
     >
       <div className="flex items-center justify-between px-4 pt-10 pb-3">
+        {v2 ? (
+          <IconButton aria-label="סגור" tone="surface" size={40} onClick={onClose} tabIndex={inactive ? -1 : undefined}>
+            <ArrowRight size={20} />
+          </IconButton>
+        ) : (
         <button
           onClick={onClose}
           className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
@@ -59,12 +75,14 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
         >
           <ArrowRight size={20} />
         </button>
+        )}
         <h1 className="text-base font-bold text-gray-900 dark:text-white flex-1 text-center px-4 leading-tight line-clamp-2">
           {displayTitle}
         </h1>
         {onEditEntry ? (
           <button
             onClick={onEditEntry}
+            tabIndex={v2 && inactive ? -1 : undefined}
             className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 active:scale-90 transition-transform"
             aria-label="ערוך אימון"
           >

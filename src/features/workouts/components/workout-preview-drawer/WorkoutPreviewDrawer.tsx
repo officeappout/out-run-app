@@ -2,7 +2,9 @@
 
 import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
+import { motion, useMotionValue, useMotionValueEvent, useTransform, useDragControls, animate } from 'framer-motion';
+import { useElementHeight } from '@/hooks/useElementHeight';
+import { stickyFooterPaddingPx } from '@/components/ui/v2/bottom-chrome';
 import HeroSheetFrame from '@/components/ui/HeroSheetFrame';
 import IconButton from '@/components/ui/v2/IconButton';
 import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
@@ -118,6 +120,17 @@ export default function WorkoutPreviewDrawer({
 
   // Gate pointer-events on the hero close button using a compositor-thread
   // transform so it never blocks taps when faded out.
+  // enable_home_v2: ONE close button at a time — the hero's while the hero shows, the
+  // sticky header's once it has faded in (flips at half opacity; re-renders only on flip).
+  const [headerShown, setHeaderShown] = useState(false);
+  useMotionValueEvent(headerOpacity, 'change', (v) => {
+    const shown = v >= 0.5;
+    setHeaderShown((prev) => (prev === shown ? prev : shown));
+  });
+  // enable_home_v2: the scroll body ends above the sticky footer (share bar + CTA), so
+  // the last exercise is never covered — padding = the footer's measured height + a gap.
+  const [footerRef, footerHeight] = useElementHeight<HTMLDivElement>();
+
   const heroClosePointerEvents = useTransform(
     imageOpacity,
     (v) => (v < 0.1 ? 'none' : 'auto') as 'none' | 'auto',
@@ -457,12 +470,15 @@ export default function WorkoutPreviewDrawer({
           displayTitle={displayTitle}
           onClose={onClose}
           onEditEntry={onEditEntry}
+          v2={homeV2}
+          inactive={!headerShown}
         />
 
         {/* Unified scrollable container */}
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto overflow-x-hidden overscroll-contain pb-36"
+          className={`h-full overflow-y-auto overflow-x-hidden overscroll-contain${homeV2 ? '' : ' pb-36'}`}
+          style={homeV2 ? { paddingBottom: stickyFooterPaddingPx(footerHeight) } : undefined}
         >
           {/* Hero — overflow-hidden prevents image bleed on overscroll */}
           <motion.div
@@ -545,9 +561,11 @@ export default function WorkoutPreviewDrawer({
               }}
             >
               {homeV2 ? (
-                <IconButton aria-label="סגור" tone="glass" size={40} onClick={onClose}>
-                  <X size={20} strokeWidth={2.5} />
-                </IconButton>
+                !headerShown && (
+                  <IconButton aria-label="סגור" tone="glass" size={40} onClick={onClose}>
+                    <X size={20} strokeWidth={2.5} />
+                  </IconButton>
+                )
               ) : (
                 <button
                   onClick={onClose}
@@ -651,6 +669,9 @@ export default function WorkoutPreviewDrawer({
                 ) : (
                   <GeneratedWorkoutExerciseList
                     generatedWorkout={generatedWorkout}
+                    // v2: the intensity toggle above already shows "בינוני · 22׳" —
+                    // drop the repeated difficulty / duration pills.
+                    hideStatPills={homeV2 && !!intensityOptions && intensityOptions.length > 1}
                     exercisePool={exercisePool}
                     onSwap={handleOpenSwapModal}
                     onSwapPyramidStep={handleOpenPyramidStepSwap}
@@ -741,6 +762,7 @@ export default function WorkoutPreviewDrawer({
           onEditEntry={onEditEntry}
           isAudioEnabled={isAudioEnabled}
           onToggleAudio={toggleAudio}
+          measureRef={homeV2 ? footerRef : undefined}
         />
       </HeroSheetFrame>
 

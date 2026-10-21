@@ -39,9 +39,11 @@ export interface WeekSessionPieceProps {
   tag?: { label: string; tone: WeekSessionTagTone } | null;
   /** One line under the piece: the reason / "נשאר כמו שהיה" / "הוזז: … · כי …". */
   note?: { text: string; tone?: WeekSessionNoteTone } | null;
+  /** Let a long subtitle take up to two lines instead of truncating to one. Default false. */
+  wrapSubtitle?: boolean;
 }
 
-export function WeekSessionPiece({ icon, title, subtitle, tag, note }: WeekSessionPieceProps) {
+export function WeekSessionPiece({ icon, title, subtitle, tag, note, wrapSubtitle = false }: WeekSessionPieceProps) {
   const tone = note?.tone ?? 'info';
   const NoteIcon = NOTE_ICON[tone];
   return (
@@ -50,7 +52,9 @@ export function WeekSessionPiece({ icon, title, subtitle, tag, note }: WeekSessi
         {icon}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{title}</span>
-          {subtitle && <span className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{subtitle}</span>}
+          {subtitle && (
+            <span className={`${wrapSubtitle ? 'line-clamp-2 leading-snug' : 'truncate whitespace-nowrap'} text-[12px] font-bold text-v2-muted`}>{subtitle}</span>
+          )}
         </span>
         {tag && (
           <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ${TAG_CLASS[tag.tone]}`}>{tag.label}</span>
