@@ -30,6 +30,11 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
       ['layers.option.water', 'ברזיות מים'],
       ['layers.option.gym', 'מתקני כושר'],
       ['layers.option.toilet', 'שירותים ציבוריים'],
+      ['layers.option.parks', 'גינות כושר'], // enable_map_polish_v1 (new copy)
+      ['layers.option.routes', 'מסלולים'], // enable_map_polish_v1 (new copy)
+      ['parkCard.navigate', 'ניווט לגינה'],
+      ['parkCard.close', 'סגירה'],
+      ['liveUser.navigate', 'ניווט לשם'],
       ['layers.live.open', 'פתח פילטרים של משתמשים פעילים'],
       ['layers.live.title', 'משתמשים פעילים'],
       ['layers.live.off', 'אין סינון פעיל'],
@@ -216,7 +221,7 @@ describe('map (he) — parks/core map UI, byte-identical to the pre-extraction l
     expect(count('marker.')).toBe(2);
     expect(count('searchBar.')).toBe(1);
     expect(count('legPlan.')).toBe(4);
-    expect(count('layers.')).toBe(12);
+    expect(count('layers.')).toBe(14);
     expect(count('modes.')).toBe(4);
     expect(count('navBanner.')).toBe(8);
     expect(count('routeCard.')).toBe(2);

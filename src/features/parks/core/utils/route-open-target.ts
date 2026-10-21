@@ -8,11 +8,14 @@
  *              line to draw, or already on /map with Discover not mounted
  *              (a live workout, the planned-run preview …) — the map can't
  *              take it right now.
+ *   'sheet'  — enable_map_polish_v1 (on top of enable_home_v2): every case that
+ *              would be 'legacy' under v2 shows the v2 route overview as a
+ *              standalone sheet instead (no map line behind it).
  */
 
 import type { Route } from '../types/route.types';
 
-export type RouteOpenTarget = 'map' | 'legacy';
+export type RouteOpenTarget = 'map' | 'legacy' | 'sheet';
 
 export interface RouteOpenContext {
   v2: boolean;
@@ -21,12 +24,15 @@ export interface RouteOpenContext {
   onMap: boolean;
   /** Discover (the route overview's host) is mounted right now. */
   hostMounted: boolean;
+  /** enable_map_polish_v1 — the v2 fallback is the v2 sheet, never the legacy one. Omit → off. */
+  polish?: boolean;
 }
 
-export function routeOpenTarget({ v2, route, onMap, hostMounted }: RouteOpenContext): RouteOpenTarget {
+export function routeOpenTarget({ v2, route, onMap, hostMounted, polish = false }: RouteOpenContext): RouteOpenTarget {
   if (!v2) return 'legacy';
-  if (!Array.isArray(route.path) || route.path.length < 2) return 'legacy';
-  if (onMap && !hostMounted) return 'legacy';
+  const fallback: RouteOpenTarget = polish ? 'sheet' : 'legacy';
+  if (!Array.isArray(route.path) || route.path.length < 2) return fallback;
+  if (onMap && !hostMounted) return fallback;
   return 'map';
 }
 

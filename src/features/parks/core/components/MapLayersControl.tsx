@@ -7,12 +7,25 @@ import { useMapStore, LayerType } from '../store/useMapStore';
 import { PartnerFilterSheet, usePartnerFilters } from '@/features/partners';
 import { useT } from '@/hooks/useT';
 import { map } from '@/messages/ns/map';
+import { useMapPolishV1 } from '../map-polish';
 
 const LAYER_OPTIONS = [
     { id: 'water', labelKey: 'layers.option.water', icon: '💧' },
     { id: 'gym', labelKey: 'layers.option.gym', icon: '💪' },
     { id: 'toilet', labelKey: 'layers.option.toilet', icon: '🚽' },
 ] as const satisfies ReadonlyArray<{ id: LayerType; labelKey: string; icon: string }>;
+
+/** enable_map_polish_v1: fitness parks + routes can be hidden too (AppMap reads both). */
+const POLISH_LAYER_OPTIONS = [
+    { id: 'parks', labelKey: 'layers.option.parks', icon: '🌳' },
+    { id: 'routes', labelKey: 'layers.option.routes', icon: '🗺️' },
+    ...LAYER_OPTIONS,
+] as const satisfies ReadonlyArray<{ id: LayerType; labelKey: string; icon: string }>;
+
+/** The panel's toggle rows — enable_map_polish_v1 adds parks + routes on top. */
+export function layerOptionsFor(polish: boolean): ReadonlyArray<(typeof POLISH_LAYER_OPTIONS)[number]> {
+    return polish ? POLISH_LAYER_OPTIONS : LAYER_OPTIONS;
+}
 
 export function MapLayersButton({ onClick }: { onClick: () => void }) {
     return (
@@ -45,6 +58,8 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
     const distanceKm = usePartnerFilters((s) => s.distanceKm);
     const dragControls = useDragControls();
     const t = useT(map);
+    const polish = useMapPolishV1();
+    const layerOptions = layerOptionsFor(polish);
 
     // Compose the summary line shown beneath the row title:
     //   - liveUsersVisible=false  → 'אין סינון פעיל' (dimmed)
@@ -124,7 +139,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
 
                             {/* Toggle list — RTL via dir: label+icon on right, switch on left */}
                             <div className="px-5" dir="rtl">
-                                {LAYER_OPTIONS.map((layer) => {
+                                {layerOptions.map((layer) => {
                                     const isActive = visibleLayers.includes(layer.id);
                                     return (
                                         <button

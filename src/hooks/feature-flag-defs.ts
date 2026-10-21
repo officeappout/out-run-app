@@ -382,6 +382,13 @@ export const FLAG_DEFS = [
   // add-second-track (S-6b / S-6c). Writes only what those flows already write. Fail-closed; super
   // admins preview it. Off = byte-identical flows.
   { key: 'enableWeekBuilderV1', firestoreKey: 'enable_week_builder_v1', defaultValue: false, superAdminValue: true },
+  // Map polish (21.10.2026, owner — agent-briefs/map-polish-brief.md). Inside enable_home_v2's map:
+  // every "navigate there" button (park card, park page, route sheets, a live user's card) goes
+  // to the ONE in-app destination flow (commute carousel → player); "כל פרטי המסלול" and the
+  // global route fallback stay in the v2 route overview instead of the legacy RouteDetailSheet;
+  // a compact park card; layers panel toggles for parks and routes. Fail-closed; super admins
+  // preview it. Off = byte-identical map.
+  { key: 'enableMapPolishV1', firestoreKey: 'enable_map_polish_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

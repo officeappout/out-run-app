@@ -20,6 +20,17 @@ describe('routeOpenTarget (route opened outside the map)', () => {
     expect(routeOpenTarget({ v2: true, route: { path: [[34.78, 32.08]] }, onMap: false, hostMounted: false })).toBe('legacy');
     expect(routeOpenTarget({ v2: true, route: {} as never, onMap: false, hostMounted: false })).toBe('legacy');
   });
+  it('map polish: the v2 fallbacks become the v2 sheet, the map case is unchanged', () => {
+    expect(routeOpenTarget({ v2: true, polish: true, route: line, onMap: false, hostMounted: false })).toBe('map');
+    expect(routeOpenTarget({ v2: true, polish: true, route: line, onMap: true, hostMounted: true })).toBe('map');
+    expect(routeOpenTarget({ v2: true, polish: true, route: line, onMap: true, hostMounted: false })).toBe('sheet');
+    expect(routeOpenTarget({ v2: true, polish: true, route: { path: [] }, onMap: false, hostMounted: false })).toBe('sheet');
+    expect(routeOpenTarget({ v2: true, polish: true, route: { path: [[34.78, 32.08]] }, onMap: false, hostMounted: false })).toBe('sheet');
+  });
+  it('map polish needs v2 — without it, still the legacy sheet', () => {
+    expect(routeOpenTarget({ v2: false, polish: true, route: line, onMap: false, hostMounted: false })).toBe('legacy');
+    expect(routeOpenTarget({ v2: false, polish: true, route: { path: [] }, onMap: false, hostMounted: false })).toBe('legacy');
+  });
   it('a stale hand-off is dropped', () => {
     expect(isRouteOpenFresh(1000, 1000 + ROUTE_OPEN_TTL_MS)).toBe(true);
     expect(isRouteOpenFresh(1000, 1001 + ROUTE_OPEN_TTL_MS)).toBe(false);

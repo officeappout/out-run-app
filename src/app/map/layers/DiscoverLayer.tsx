@@ -805,6 +805,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
   // pre-existing compile-time behaviour of always being `true`.
   const isSuperAdmin = profile?.core?.isSuperAdmin === true;
   const { flags: mapFeatureFlags, rawFlags: mapRawFlags, loading: mapFlagsLoading } = useFeatureFlags(isSuperAdmin);
+  // enable_map_polish_v1 (inside v2): route details stay in the v2 overview (no legacy sheet).
+  const mapPolish = !mapFlagsLoading && mapFeatureFlags.enableHomeV2 && mapFeatureFlags.enableMapPolishV1;
 
   // v2: a route opened outside the map (GlobalDetailOverlay) arrives here → the ONE
   // route overview drawer (ROUTE_CARD), selected + focused like a tap on the map.
@@ -1864,7 +1866,8 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
           });
         }}
         onNavigate={navigateToRouteStart}
-        renderFullDetails={(back) => (
+        showCredits={mapPolish}
+        renderFullDetails={mapPolish ? undefined : (back) => (
           <RouteDetailSheet
             isOpen
             route={route}

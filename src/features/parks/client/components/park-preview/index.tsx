@@ -13,6 +13,10 @@ import IconChip from '../park-detail/IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from '../park-detail/amenity-icons';
 import type { Park, ParkFeatureTag } from '@/features/parks/core/types/park.types';
 import { getPark } from '@/features/parks/core/services/parks.service';
+import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import ParkCardCompact from './ParkCardCompact';
 
 interface ParkPreviewProps {
   userLocation: { lat: number; lng: number } | null;
@@ -24,6 +28,10 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   const setPendingParkWorkoutStart = useMapStore((s) => s.setPendingParkWorkoutStart);
   const [detailOpen, setDetailOpen] = useState(false);
   const router = useRouter();
+  // enable_map_polish_v1: the compact card; navigate through the ONE destination entry.
+  const polish = useMapPolishV1();
+  const navigateTo = useNavigateTo();
+  const t = useT(map);
 
   // SPEC-07 redesign (17.09.2026): this preview card owns its own data
   // completeness — same principle as ParkDetailSheet, same reason (a map
@@ -44,7 +52,8 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
 
   const park = fetchedPark ?? selectedPark;
 
-  const shelterDecision = useShelterProximity({ park: park as any });
+  // Polish: the shelter tag lives on the park page — skip the lookup here.
+  const shelterDecision = useShelterProximity({ park: (polish ? null : park) as any });
 
   const distText = useMemo(() => {
     if (!userLocation || !park?.location) return null;
@@ -62,7 +71,8 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
     });
   }, [park, setPendingCommute]);
 
-  // Derive chips from featureTags (new) + legacy flat fields; show at most 2.
+  // Derive chips from featureTags (new) + legacy flat fields; show at most 2
+  // (the compact card, enable_map_polish_v1, shows up to 3).
   // Uses the same AMENITY_ICON_MAP + AMENITY_DISPLAY_ORDER as ParkDetailSheet's
   // "פירוט על הפארק" section so the map popup and the park page agree visually.
   const amenityTags = useMemo(() => {
@@ -73,8 +83,8 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
     if (park.hasLights || park.amenities?.hasLighting) tags.add('night_lighting');
     if (park.amenities?.hasToilets) tags.add('has_toilets');
     if (park.hasDogPark) tags.add('dog_friendly');
-    return AMENITY_DISPLAY_ORDER.filter(t => tags.has(t)).slice(0, 2);
-  }, [park]);
+    return AMENITY_DISPLAY_ORDER.filter(t => tags.has(t)).slice(0, polish ? 3 : 2);
+  }, [park, polish]);
 
   if (!selectedPark || !park) return null;
 
@@ -98,10 +108,23 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
   if (distText) infoParts.push(distText);
   // Machine count — no fetch, park.gymEquipment is already on the loaded doc.
   const machineCount = park.gymEquipment?.length ?? 0;
-  if (machineCount > 0) infoParts.push(`${machineCount} מתקנים`);
+  if (machineCount > 0) infoParts.push(polish ? t('parkCard.machines', { count: String(machineCount) }) : `${machineCount} מתקנים`);
 
   return (
     <>
+      {polish ? (
+        <ParkCardCompact
+          name={park.name}
+          heroSrc={heroSrc}
+          objectPosition={objectPosition}
+          rating={hasRating ? { avg: park.ratingAvg as number, count: park.reviewCount ?? 0 } : null}
+          metaParts={infoParts}
+          amenityTags={amenityTags}
+          onOpen={() => setDetailOpen(true)}
+          onClose={() => setSelectedPark(null)}
+          onNavigate={() => navigateTo(parkTarget(park))}
+        />
+      ) : (
       <div
         className="absolute bottom-[100px] left-4 right-4 z-30 animate-in slide-in-from-bottom-10 fade-in duration-500 cursor-pointer"
         onClick={() => setDetailOpen(true)}
@@ -199,6 +222,7 @@ export const ParkPreview = ({ userLocation }: ParkPreviewProps) => {
 
         </div>
       </div>
+      )}
 
       <ParkDetailSheet
         isOpen={detailOpen}
