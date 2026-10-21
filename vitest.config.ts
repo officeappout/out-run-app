@@ -43,6 +43,9 @@ export default defineConfig({
       'src/features/search/__tests__/**/*.test.tsx',
       // Entry intro (enable_entry_intro_v1) — SSR smoke render of the landing / bridge / stories.
       'src/features/user/onboarding/intro/__tests__/**/*.test.tsx',
+      // i18n wave 2 pilot (profile namespace) — Hebrew markup parity, static markup.
+      'src/features/activity/components/__tests__/**/*.test.tsx',
+      'src/features/progression-map/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
