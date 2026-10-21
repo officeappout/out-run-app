@@ -4,7 +4,7 @@
 #   INVOKER_SA=firebase-adminsdk-xxxxx@appout-1.iam.gserviceaccount.com ./scripts/deploy.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."; source ./scripts/env.sh
-: "${INVOKER_SA:?set INVOKER_SA to the client_email of Vercel's FIREBASE_SERVICE_ACCOUNT_KEY}"
+: "${INVOKER_SA:?set INVOKER_SA to the client_email of the Vercel FIREBASE_SERVICE_ACCOUNT_KEY}"
 DIGEST=$(gcloud artifacts docker images describe "$IMAGE_BASE:latest" --format='value(image_summary.digest)')
 IMAGE="$IMAGE_BASE@$DIGEST"
 RENDERED=$(mktemp)

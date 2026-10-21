@@ -22,6 +22,10 @@ for role in roles/artifactregistry.writer roles/run.developer roles/logging.logW
   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$BUILDER_SA" \
     --role="$role" --condition=None >/dev/null
 done
+# gcloud builds submit uploads the source to gs://<project>_cloudbuild; a custom build
+# service account must be able to read it back (found on the first real build, 19.10.2026)
+gcloud storage buckets add-iam-policy-binding "gs://${PROJECT_ID}_cloudbuild" \
+  --member="serviceAccount:$BUILDER_SA" --role=roles/storage.objectViewer --project="$PROJECT_ID" >/dev/null || true
 # the builder deploys revisions that run as graphhopper-runtime
 gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" \
   --member="serviceAccount:$BUILDER_SA" --role=roles/iam.serviceAccountUser
