@@ -2,7 +2,7 @@
 # scripts/safety-check.sh
 # ── Static Pre-Commit Safety Check ─────────────────────────────────────────
 #
-# Catches 4 hard-block patterns on staged diffs (new lines only).
+# Catches 5 hard-block patterns on staged diffs (new lines only).
 # Runs via Claude Code PreToolUse hook on Bash(git commit*).
 #
 # ⚠️  SCOPE LIMITATION: PreToolUse only intercepts agent-issued git commits
@@ -10,7 +10,7 @@
 #     TODO: replicate as .githooks/pre-commit + `git config core.hooksPath .githooks`
 #     for full coverage.
 #
-# What this checks (4 patterns only — everything else is AI-layer):
+# What this checks (5 patterns only — everything else is AI-layer):
 #   1. 'social.groupIds': as Firestore field key outside authorized routes
 #   2. New get(/databases/.../documents/users/) in .rules files (1MiB read risk)
 #   3. New route-collection writes outside authorized files; and for the
@@ -18,6 +18,7 @@
 #      a new write-verb line without a matching buildValidatedDoc( call
 #   4. community_groups_{persona} writes outside the one atomic primitive
 #      (createGroup/updateGroup/deleteGroup in community.service.ts)
+#   5. New hard-coded Hebrew in folders listed in src/lib/i18n/migrated-paths.txt
 #
 # What this does NOT check (AI reviewer's job):
 #   - arrayRemove usage (legitimate uses exist)
@@ -308,6 +309,49 @@ ${MATCHED}
   done <<< "$STAGED_ALL_TS"
 fi
 
+# ── Check 5: no new hard-coded Hebrew in i18n-migrated folders ─────────────────
+# Source: docs/i18n/PLAN.md §3.2.1, src/lib/i18n/migrated-paths.txt (the manifest).
+# A folder listed in the manifest has had its copy moved to src/messages/*.json;
+# a NEW line with Hebrew letters there (outside a comment) is copy creeping back
+# into code. Put it in src/messages/he/<namespace>.json and use t() instead
+# (docs/i18n/HOW-TO.md). Hebrew that is data, not copy, carries the marker
+# "i18n-allow-hebrew" on the same line. Empty manifest = this check is a no-op.
+I18N_MANIFEST="src/lib/i18n/migrated-paths.txt"
+if [ -f "$I18N_MANIFEST" ]; then
+  I18N_PATHS=$(grep -vE '^\s*(#|$)' "$I18N_MANIFEST" | sed 's/[[:space:]]*$//' || true)
+  if [ -n "$I18N_PATHS" ]; then
+    STAGED_I18N=$(git diff --cached --name-only --diff-filter=AM 2>/dev/null | grep -E '\.(ts|tsx|js|jsx)$' || true)
+    while IFS= read -r file; do
+      [ -z "$file" ] && continue
+      case "$file" in src/messages/*|*/__tests__/*|*.test.ts|*.test.tsx) continue ;; esac
+      IN_SCOPE=""
+      while IFS= read -r prefix; do
+        [ -z "$prefix" ] && continue
+        case "$file" in "$prefix"*) IN_SCOPE=1 ;; esac
+      done <<< "$I18N_PATHS"
+      [ -z "$IN_SCOPE" ] && continue
+
+      HEBREW_LINES=$(git diff --cached -U0 -- "$file" 2>/dev/null \
+        | grep '^+[^+]' \
+        | grep -vE '^\+\s*(//|\*|/\*|\{/\*)' \
+        | grep -v 'i18n-allow-hebrew' \
+        | perl -CSD -ne 'print if /[\x{0590}-\x{05FF}]/' \
+        || true)
+      if [ -n "$HEBREW_LINES" ]; then
+        MATCHED=$(echo "$HEBREW_LINES" | head -3 | sed 's/^/   /')
+        VIOLATIONS="${VIOLATIONS}
+❌ BLOCKED — new hard-coded Hebrew in an i18n-migrated folder
+   file: $file
+${MATCHED}
+   Move the text to src/messages/he/<namespace>.json and render it with t()
+   (docs/i18n/HOW-TO.md). Hebrew that is data, not copy: add the marker
+   i18n-allow-hebrew on that line with a short reason. Do not remove the
+   folder from $I18N_MANIFEST to get around this."
+      fi
+    done <<< "$STAGED_I18N"
+  fi
+fi
+
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ -n "$VIOLATIONS" ]; then
   printf "\n🚫 safety-check FAILED — commit blocked%s\n" "$VIOLATIONS"
@@ -315,5 +359,5 @@ if [ -n "$VIOLATIONS" ]; then
   exit 1
 fi
 
-printf "✅ safety-check passed (4 static checks)\n"
+printf "✅ safety-check passed (5 static checks)\n"
 exit 0

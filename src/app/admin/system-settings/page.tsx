@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -74,6 +74,10 @@ interface FlagState {
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
   demo_kelly: boolean;
+  enable_i18n: boolean;
+  enable_locale_en: boolean;
+  enable_locale_ru: boolean;
+  enable_locale_de: boolean;
 }
 
 // ============================================================================
@@ -516,6 +520,42 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'דמו: קלי לדמו',
     description: 'קלי ירוץ גם על משתמשי הדמו (הודעות יזומות, זיכרון, סוקר אימונים) — נספר בתקציב הדמו. פועל רק כשמשתמשי הדמו דולקים.',
     parentKey: 'enable_demo_users',
+  },
+  // i18n wave 1 (21.10.2026) — translation layer + one switch per language.
+  {
+    key: 'enable_i18n',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'שפות (i18n)',
+    description: 'מתג ראשי לשפות: האפליקציה בוחרת שפה לפי ההגדרה של המשתמש, ואחריה שפת המכשיר, מבין השפות שדלוקות למטה. כבוי = עברית בלבד, בדיוק כמו היום.',
+  },
+  {
+    key: 'enable_locale_en',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'שפה: אנגלית',
+    description: 'משתמשים שבחרו אנגלית (או שהמכשיר שלהם באנגלית) יקבלו את האפליקציה באנגלית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'enable_locale_ru',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'שפה: רוסית',
+    description: 'משתמשים שבחרו רוסית (או שהמכשיר שלהם ברוסית) יקבלו את האפליקציה ברוסית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
+    parentKey: 'enable_i18n',
+  },
+  {
+    key: 'enable_locale_de',
+    icon: Languages,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'שפה: גרמנית',
+    description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
+    parentKey: 'enable_i18n',
   },
 ];
 

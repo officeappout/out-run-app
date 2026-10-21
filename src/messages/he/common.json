@@ -1,0 +1,11 @@
+{
+  "actions.continue": "המשך",
+  "actions.back": "חזרה",
+  "actions.cancel": "ביטול",
+  "actions.save": "שמירה",
+  "actions.close": "סגירה",
+  "status.loading": "טוען...",
+  "status.error": "משהו השתבש, נסו שוב",
+  "greeting.ready": "{gender, select, female {מוכנה?} male {מוכן?} other {מוכנים?}}",
+  "count.minutes": "{count, plural, one {דקה אחת} two {שתי דקות} other {# דקות}}"
+}

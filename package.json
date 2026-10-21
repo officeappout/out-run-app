@@ -94,6 +94,7 @@
     "health-bridge": "file:./plugins/health-bridge",
     "hls.js": "^1.6.16",
     "idb": "^8.0.3",
+    "intl-messageformat": "^11.2.15",
     "isbot": "^5.2.2",
     "jose": "^5.9.6",
     "jszip": "^3.10.1",

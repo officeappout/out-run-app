@@ -3,7 +3,10 @@
  * Used across all content domains for multi-language support
  */
 
-export type AppLanguage = 'he' | 'en' | 'es';
+import type { LegacyContentLanguage } from '@/lib/i18n/locales';
+
+// Subset of the one locale type (src/lib/i18n/locales.ts); 'es' is a legacy content-only slot.
+export type AppLanguage = LegacyContentLanguage;
 
 export interface LocalizedText {
   he: string;
