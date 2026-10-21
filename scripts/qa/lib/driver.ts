@@ -19,6 +19,8 @@ import type { RuntimeErrors } from './lint/rules';
 
 export interface StepView {
   png: Buffer;
+  /** The same screen as a small JPEG for the run's artifact folder (null if it couldn't be taken). */
+  jpeg: Buffer | null;
   observation: Observation;
   lint: LintIssue[];
   url: string;
@@ -35,6 +37,11 @@ const BACKGROUND_JS = (hidden: boolean) => `(() => {
   } catch (e) {}
   return true;
 })()`;
+
+/** Artifact screenshots (qa-out/<runId>/shots): small enough to download a whole sweep. */
+export const ARTIFACT_JPEG_QUALITY = 80;
+export const ARTIFACT_JPEG_FALLBACK_QUALITY = 60;
+export const ARTIFACT_SHOT_MAX_BYTES = 200 * 1024;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -145,6 +152,11 @@ export class SessionDriver {
     this.lastActionAt = Date.now();
   }
 
+  /** A crashed page answers nothing — fail fast with Playwright's own wording (crash.ts matches it). */
+  private assertAlive(): void {
+    if (this.b.crashed) throw new Error('Target crashed (the browser page is gone)');
+  }
+
   /** null = fine; else the refusal reason (and the browser is back at the mission start). */
   async guard(): Promise<string | null> {
     const page = checkPage(this.b.page.url(), this.mission.forbidden);
@@ -158,11 +170,24 @@ export class SessionDriver {
   }
 
   async view(): Promise<StepView> {
+    this.assertAlive();
     const blocked = await this.guard();
     const observation = await this.b.page.evaluate<Observation>(COLLECT_JS);
     const lint = blocked ? [] : lintFacts(observation.facts, this.b.drainErrors());
     const png = await this.b.page.screenshot({ type: 'png', scale: 'css' });
-    return { png, observation, lint, url: this.b.page.url(), blocked };
+    const jpeg = await this.artifactShot();
+    return { png, jpeg, observation, lint, url: this.b.page.url(), blocked };
+  }
+
+  /** JPEG 80 at CSS scale; retaken at 60 when over the artifact budget. A failure is not fatal. */
+  private async artifactShot(): Promise<Buffer | null> {
+    try {
+      let img = await this.b.page.screenshot({ type: 'jpeg', quality: ARTIFACT_JPEG_QUALITY, scale: 'css' });
+      if (img.length > ARTIFACT_SHOT_MAX_BYTES) img = await this.b.page.screenshot({ type: 'jpeg', quality: ARTIFACT_JPEG_FALLBACK_QUALITY, scale: 'css' });
+      return img;
+    } catch {
+      return null;
+    }
   }
 
   private loc(ref: string) {
@@ -180,6 +205,7 @@ export class SessionDriver {
 
   /** Runs one browser action. Throws a model-readable Error on failure. */
   async act(call: ToolCall): Promise<void> {
+    this.assertAlive();
     const p = this.b.page;
     if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission' && call.name !== 'back_button') this.repro.push({ ...call });
     switch (call.name) {

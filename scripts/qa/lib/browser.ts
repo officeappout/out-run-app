@@ -4,9 +4,12 @@
  *   - locale he-IL, Asia/Jerusalem, geolocation granted (fed by the GPS simulator), no notifications
  *   - App Check debug token injected before the app boots (only this browser — never the app's env)
  *   - analytics / payment hosts aborted; console errors + failed requests collected for the linters
+ *   - Chromium launched without /dev/shm and GPU (CI runners); a renderer crash / lost browser is
+ *     flagged (`crashed`) so the runner can resume the mission in a fresh browser (./crash.ts)
  */
 import { BLOCKED_REQUEST_HOSTS, type DeviceProfile } from './config';
 import { isBlockedRequestHost, redactSecrets } from './demo-guard';
+import { launchArgs } from './crash';
 import type { RuntimeErrors } from './lint/rules';
 import type { PwBrowser, PwContext, PwModule, PwPage } from './pw-types';
 
@@ -18,6 +21,8 @@ export interface OpenBrowser {
   viewport: { width: number; height: number };
   /** Errors since the last drain (the linters read and reset them each step). */
   drainErrors(): RuntimeErrors;
+  /** Set once the page crashed or the browser process went away. */
+  readonly crashed: boolean;
   close(): Promise<void>;
 }
 
@@ -31,9 +36,17 @@ async function loadPlaywright(): Promise<PwModule> {
   }
 }
 
-export async function openBrowser(device: DeviceProfile, opts: { appCheckDebugToken: string | null; startAt: { latitude: number; longitude: number } }): Promise<OpenBrowser> {
+export async function openBrowser(
+  device: DeviceProfile,
+  opts: { appCheckDebugToken: string | null; startAt: { latitude: number; longitude: number }; log?: (msg: string) => void },
+): Promise<OpenBrowser> {
   const pw = await loadPlaywright();
-  const browser = await (device.engine === 'webkit' ? pw.webkit : pw.chromium).launch({ headless: true });
+  const browser = await (device.engine === 'webkit' ? pw.webkit : pw.chromium).launch({ headless: true, args: launchArgs(device.engine) });
+  let crashed = false;
+  browser.on('disconnected', () => {
+    if (!crashed) opts.log?.('browser disconnected');
+    crashed = true;
+  });
   const context = await browser.newContext({
     viewport: device.viewport,
     deviceScaleFactor: device.deviceScaleFactor,
@@ -66,6 +79,10 @@ export async function openBrowser(device: DeviceProfile, opts: { appCheckDebugTo
   page.on('console', (m) => {
     if (m.type() === 'error' && consoleErrors.length < 50) consoleErrors.push(redactSecrets(m.text()).slice(0, 200));
   });
+  page.on('crash', () => {
+    crashed = true;
+    opts.log?.('page crashed (renderer gone)');
+  });
   page.on('pageerror', (e) => {
     if (consoleErrors.length < 50) consoleErrors.push(redactSecrets(`pageerror: ${e.message}`).slice(0, 200));
   });
@@ -88,6 +105,9 @@ export async function openBrowser(device: DeviceProfile, opts: { appCheckDebugTo
     context,
     page,
     viewport: { ...device.viewport },
+    get crashed() {
+      return crashed;
+    },
     drainErrors() {
       const out = { console: consoleErrors, failedRequests: failed };
       consoleErrors = [];
@@ -95,6 +115,7 @@ export async function openBrowser(device: DeviceProfile, opts: { appCheckDebugTo
       return out;
     },
     async close() {
+      crashed = true; // a closed browser counts as gone (no 'disconnected' noise in the log)
       await context.close().catch(() => {});
       await browser.close().catch(() => {});
     },
