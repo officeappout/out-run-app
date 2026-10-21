@@ -1,4 +1,5 @@
 /**
+ * SUPERSEDED by scripts/routes-nationwide/run.ts (nationwide routes plan, W3) — this script refuses to write.
  * scripts/import-osm-routes-tlv.ts
  *
  * PILOT — writes the pre-enriched Tel Aviv walking/running routes
@@ -46,7 +47,8 @@ function initFirebase() {
 // scripts/trails/* (both chokepoint-migrated, dry-run by default) instead.
 const RETIRED_MESSAGE =
   'scripts/import-osm-routes-tlv.ts is retired (writes by default, no chokepoint). ' +
-  'Use scripts/geo-discovery-routes.ts or scripts/trails/* instead.';
+  'Superseded by scripts/routes-nationwide/run.ts (dry-run by default); ' +
+  'per-city tools: scripts/geo-discovery-routes.ts or scripts/trails/*.';
 
 async function main() {
   if (RETIRED_MESSAGE) throw new Error(RETIRED_MESSAGE);
