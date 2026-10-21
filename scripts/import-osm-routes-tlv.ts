@@ -1,4 +1,5 @@
 /**
+ * SUPERSEDED by scripts/routes-nationwide/run.ts (nationwide routes plan, W3) — this script refuses to write.
  * scripts/import-osm-routes-tlv.ts
  *
  * PILOT — writes the pre-enriched Tel Aviv walking/running routes
@@ -10,7 +11,9 @@
  * - Does NOT broadcast to street_segments (pending routes must not enter the
  *   live generator before David approves them in the panel).
  *
- * Usage:
+ * ⛔ RETIRED 21.10.2026 — main() throws immediately. See RETIRED_MESSAGE below.
+ *
+ * Usage (historical):
  *   npx tsx scripts/import-osm-routes-tlv.ts --dry-run   # print, no write
  *   npx tsx scripts/import-osm-routes-tlv.ts             # write pending docs
  *   npx tsx scripts/import-osm-routes-tlv.ts --delete    # remove this batch
@@ -36,7 +39,19 @@ function initFirebase() {
   admin.initializeApp({ credential: admin.credential.cert(c), projectId: c.project_id });
 }
 
+// RETIRED (21.10.2026, NATIONWIDE-PLAN.md W0). This script wrote to
+// official_routes BY DEFAULT (no --apply gate) and bypassed the
+// buildValidatedDoc chokepoint (axioms §23). Its input (/tmp/tlv_routes_final.json)
+// no longer exists. It is locked rather than deleted so the history of the
+// TLV pilot stays readable. Use scripts/geo-discovery-routes.ts or
+// scripts/trails/* (both chokepoint-migrated, dry-run by default) instead.
+const RETIRED_MESSAGE =
+  'scripts/import-osm-routes-tlv.ts is retired (writes by default, no chokepoint). ' +
+  'Superseded by scripts/routes-nationwide/run.ts (dry-run by default); ' +
+  'per-city tools: scripts/geo-discovery-routes.ts or scripts/trails/*.';
+
 async function main() {
+  if (RETIRED_MESSAGE) throw new Error(RETIRED_MESSAGE);
   initFirebase();
   const db = admin.firestore();
   const col = db.collection('official_routes');
