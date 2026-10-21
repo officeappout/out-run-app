@@ -160,7 +160,7 @@ export function rankBoard(
     const idx = sorted.findIndex((r) => r.uid === myUid);
     myEntry = idx >= 0
       ? toEntry(sorted[idx], idx)
-      : { rank: sorted.length + 1, uid: myUid, name: myName ?? 'את/ה', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
+      : { rank: sorted.length + 1, uid: myUid, name: myName ?? 'אני', totalCredit: 0, workoutCount: 0, isCurrentUser: true };
   }
   return { entries, myEntry, totalParticipants: sorted.length };
 }

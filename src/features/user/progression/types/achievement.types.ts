@@ -104,7 +104,14 @@ export interface TierConfig {
 
 export interface AchievementDefinition {
   id: string;
+  /** Badge name in the masculine form (also shown when the gender is unknown). */
   name_he: string;
+  /**
+   * The feminine badge name ("מלכת המתח"). Owner decision 9 (21.10.2026): badges stay
+   * gendered and personal — a woman sees her own title. Omitted when the name has no
+   * gender ("שבוע ריצה"). Read through achievementName().
+   */
+  name_he_female?: string;
   description_he: string;
   category: AchievementCategory;
   type: AchievementType;

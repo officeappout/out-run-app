@@ -70,6 +70,9 @@ import {
   removeReminderSlot,
 } from '@/features/notifications/services/reminder-schedule.service';
 import { Analytics } from '@/features/analytics/AnalyticsService';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+import { currentUiGender } from '@/hooks/useUiGender';
+import { SETTINGS_COPY } from './settings/settings-gender-copy';
 import type { ReminderSlot, ReminderWeekday } from '@/features/user/core/types/user.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -838,13 +841,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } catch (err: unknown) {
       const msg = (err instanceof Error ? err.message : '') + String((err as Record<string, unknown>)?.code ?? '');
       if (msg.includes('not-found') || msg.includes('not found')) {
-        setCouponError('קוד לא נמצא. בדקי ונסי שוב.');
+        setCouponError(pickGendered(currentUiGender(), SETTINGS_COPY.couponNotFound));
       } else if (msg.includes('expired')) {
         setCouponError('הקוד פג תוקף.');
       } else if (msg.includes('resource-exhausted') || msg.includes('maximum')) {
         setCouponError('הקוד הגיע למכסה המקסימלית.');
       } else {
-        setCouponError('שגיאה בבדיקת הקוד. נסי שוב.');
+        setCouponError(pickGendered(currentUiGender(), SETTINGS_COPY.couponError));
       }
     } finally {
       setCouponLoading(false);
@@ -1282,7 +1285,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       // page reload (unlike window.location.replace which caused -999 on iOS).
       router.replace('/');
     } catch {
-      showToast('error', 'שגיאה בהתנתקות. נסה שוב.');
+      showToast('error', pickGendered(currentUiGender(), SETTINGS_COPY.signOutError));
     }
   }, [resetOnboarding, resetProfile, onClose, router, showToast]);
 
@@ -1326,10 +1329,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         // 'functions/unauthenticated'; plain 'unauthenticated' covers
         // the web-SDK httpsCallable path.
         code?.includes('unauthenticated')
-          ? 'תוקף החיבור פג. התחבר מחדש ונסה שוב.'
+          ? pickGendered(currentUiGender(), SETTINGS_COPY.deleteSessionExpired)
           : isNetwork
-          ? 'בעיית חיבור - נסה שוב'
-          : 'שגיאה במחיקת החשבון. הנתונים לא נמחקו. נסה שוב.',
+          ? pickGendered(currentUiGender(), SETTINGS_COPY.deleteNetwork)
+          : pickGendered(currentUiGender(), SETTINGS_COPY.deleteFailed),
       );
       setIsDeleting(false);
     }
@@ -2526,7 +2529,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       className="w-full flex items-center justify-between py-3.5 text-sm font-simpler text-right disabled:opacity-50"
                     >
                       <span className="text-cyan-600 font-semibold text-xs">
-                        {editNeighborhoodName ? 'ערוך' : 'בחר'}
+                        {editNeighborhoodName ? 'עריכה' : 'בחירה'}
                       </span>
                       <span className="flex items-center gap-2">
                         <span className="text-gray-900">

@@ -210,7 +210,7 @@ export function ScopeCompetitionLeaderboardView({
     <BoardCard
       title={`דירוג ה${GRANULARITY_LABEL[granularity]}`}
       subtitle={`${GRANULARITY_LABEL[granularity]} • ${windowLabel}`}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
+      actions={<BoardIconButton icon={RefreshCw} label="רענון" onClick={fetch} spinning={isLoading} />}
     >
       {v2 && (
         <div className="mb-2.5">
