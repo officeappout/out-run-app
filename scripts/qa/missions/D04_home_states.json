@@ -1,0 +1,67 @@
+{
+  "id": "D04_home_states",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_strength",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: מסך הבית של מתאמנת כוח במצבים שונים. עברי על היום, על יום עתידי ברצועת הימים, ועל חלון הוספת אימון. אל תתחילי אימון.",
+  "success": [
+    "כל מצבי הבית קיבלו ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 34,
+    "maxMinutes": 14
+  },
+  "focusRules": [
+    "PREV-HEADER",
+    "V2-SHEET",
+    "LAY-OVERLAP",
+    "V2-CARD",
+    "V2-CTA-1",
+    "V2-MIXED-GEN"
+  ],
+  "checkpoints": [
+    {
+      "id": "home_strength_today",
+      "screen": "בית — אימון כוח היום",
+      "how": "הבית עם כרטיס אימון הכוח של היום",
+      "path": "/home"
+    },
+    {
+      "id": "home_strength_scrolled",
+      "screen": "בית — גלילה למטה",
+      "how": "גללי פעם אחת לסוף הבית ובדקי את הכרטיסים התחתונים מול הניווט התחתון"
+    },
+    {
+      "id": "home_future_day",
+      "screen": "בית — יום עתידי",
+      "how": "הקישי על יום עתידי ברצועת הימים/השבוע"
+    },
+    {
+      "id": "home_rest_day",
+      "screen": "בית — יום מנוחה",
+      "how": "אם יש יום בלי אימון ברצועה, הקישי עליו"
+    },
+    {
+      "id": "home_add_workout",
+      "screen": "הוספת אימון",
+      "how": "פתחי את חלון 'הוסף אימון' מהבית (ואז סגרי)"
+    },
+    {
+      "id": "workout_preview_strength",
+      "screen": "תצוגה מקדימה של אימון כוח",
+      "how": "פתחי את אימון היום בלי להתחיל — בדקי כותרת, רצועת מסלול וגרף עצימות"
+    }
+  ]
+}

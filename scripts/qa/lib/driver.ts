@@ -9,6 +9,7 @@ import { checkPage, isTesterUid, SIGNED_IN_UID_JS } from './demo-guard';
 import { GpsSim } from './gps';
 import { COLLECT_JS, type Observation } from './lint/collect';
 import { lintFacts, type LintIssue } from './lint/rules';
+import { keyboardViewport } from './keyboard-sim';
 import type { Mission, WorldEvent } from './missions';
 import type { OpenBrowser } from './browser';
 import type { ReproStep } from './findings';
@@ -126,10 +127,11 @@ export class SessionDriver {
   /** Runs one browser action. Throws a model-readable Error on failure. */
   async act(call: ToolCall): Promise<void> {
     const p = this.b.page;
-    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'end_mission') this.repro.push({ ...call });
+    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission') this.repro.push({ ...call });
     switch (call.name) {
       case 'observe':
       case 'report_finding':
+      case 'score_screen':
       case 'end_mission':
         return;
       case 'tap':
@@ -182,6 +184,11 @@ export class SessionDriver {
       case 'wait':
         await p.waitForTimeout(call.seconds * 1000);
         break;
+      case 'keyboard': {
+        const full = this.b.viewport;
+        await p.setViewportSize(call.state === 'open' ? keyboardViewport(full) : full);
+        break;
+      }
     }
     await this.settle();
   }

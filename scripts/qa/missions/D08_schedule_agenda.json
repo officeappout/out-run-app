@@ -1,0 +1,55 @@
+{
+  "id": "D08_schedule_agenda",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_strength",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: הלו\"ז והאג'נדה. פתחי את מסך הלו\"ז/האג'נדה, גללי לשבוע הבא, פתחי יום, ופתחי את עריכת הלו\"ז בלי לשמור שינוי (סגרי בלי לשמור).",
+  "success": [
+    "האג'נדה, יום פתוח ועורך הלו\"ז קיבלו ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 30,
+    "maxMinutes": 14
+  },
+  "focusRules": [
+    "V2-SHEET",
+    "V2-SELECTED-TINT",
+    "LAY-SPACING",
+    "STATE-EMPTY",
+    "RTL-ALIGN"
+  ],
+  "checkpoints": [
+    {
+      "id": "agenda",
+      "screen": "אג'נדה / לו\"ז",
+      "how": "מסך הלו\"ז המתגלגל של השבוע"
+    },
+    {
+      "id": "agenda_next_week",
+      "screen": "אג'נדה — שבוע הבא",
+      "how": "גללי או עברי לשבוע הבא"
+    },
+    {
+      "id": "agenda_day_card",
+      "screen": "כרטיס יום",
+      "how": "הקישי על יום עם אימון"
+    },
+    {
+      "id": "schedule_builder",
+      "screen": "עריכת לו\"ז",
+      "how": "פתחי את עורך הלו\"ז (מגירה) — אל תשמרי"
+    }
+  ]
+}

@@ -6,6 +6,7 @@
 import { QA_SUMMARY_MAX_CLUSTERS, QA_SUMMARY_MAX_KEYS, type QaCluster, type QaSeverity } from '@/lib/demo-control/qa-summary';
 import { ruleText } from '../checklist';
 import type { Finding } from '../findings';
+import { SCREEN_STEP } from '../design/score-finding';
 import { countBySeverity, type Cluster } from './cluster';
 
 export interface SessionOutcome {
@@ -24,6 +25,7 @@ const esc = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
 function reproLine(f: Finding): string {
   return f.repro
+    .filter((r) => r.name !== SCREEN_STEP)
     .slice(-8)
     .map((r) => {
       const name = String(r.name ?? r.world ?? r.runner ?? '?');

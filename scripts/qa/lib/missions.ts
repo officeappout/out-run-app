@@ -6,6 +6,7 @@
 import { DEVICES, HARD_CAPS } from './config';
 import { GPS_PROFILES, type GpsProfileId } from './gps';
 import { RULE_IDS } from './checklist';
+import { validateSweepFields, type Checkpoint } from './design/checkpoints';
 
 export interface Persona {
   id: string;
@@ -45,6 +46,14 @@ export interface Mission {
   forbidden: string[];
   budget: { maxSteps: number; maxMinutes: number };
   focusRules: string[];
+  /** "journey" (default) = a persona's real task; "design-sweep" = a bounded walk over checkpoints. */
+  kind?: 'journey' | 'design-sweep';
+  /** Phone sizes this mission is meant for (a sweep runs once per size); default [device]. */
+  devices?: string[];
+  /** One tester account per phone size: uid + "_se" / "_i13" / "_pm" (each size starts fresh). */
+  uidPerDevice?: boolean;
+  /** Design sweeps: the screens to visit, in order (resumable from any of them). */
+  checkpoints?: Checkpoint[];
 }
 
 const ID = /^[A-Za-z0-9_-]{2,40}$/;
@@ -105,5 +114,6 @@ export function validateMission(raw: unknown, personas: ReadonlySet<string>): Va
       );
     if (!ok) e.push('mission.worldEvents');
   }
+  validateSweepFields(m, e);
   return e.length ? { ok: false, errors: e } : { ok: true, value: m as unknown as Mission };
 }

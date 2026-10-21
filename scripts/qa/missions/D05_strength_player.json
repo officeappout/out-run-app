@@ -1,0 +1,73 @@
+{
+  "id": "D05_strength_player",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_strength",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: נגן הכוח והסיכום. התחילי את אימון הכוח של היום, בצעי שני סטים, פתחי את רשימת התרגילים (שכבה מאחורי הנגן), גררי את הנגן למטה למיני-נגן וחזרי, וסיימי את האימון מוקדם כדי לראות את מסך הסיכום. בסוף חזרי לבית.",
+  "success": [
+    "נגן הכוח, המנוחה, הרשימה והסיכום קיבלו ציון",
+    "הבית אחרי אימון קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 40,
+    "maxMinutes": 20
+  },
+  "focusRules": [
+    "RUN-SETS-TABLE",
+    "RUN-CART-ICON",
+    "RUN-MINI-PLAYER",
+    "SUM-MAP-BEHIND",
+    "V2-CTA-1",
+    "LAY-OVERLAP"
+  ],
+  "checkpoints": [
+    {
+      "id": "strength_player",
+      "screen": "נגן כוח — תרגיל פעיל",
+      "how": "התחילי את האימון: כרטיס התרגיל וטבלת הסטים"
+    },
+    {
+      "id": "strength_rest",
+      "screen": "נגן כוח — מנוחה",
+      "how": "אחרי סימון סט: מסך/טיימר המנוחה"
+    },
+    {
+      "id": "strength_session_list",
+      "screen": "רשימת התרגילים מאחורי הנגן",
+      "how": "פתחי את אייקון העגלה/הרשימה"
+    },
+    {
+      "id": "strength_mini_player",
+      "screen": "מיני-נגן",
+      "how": "גררי את הנגן למטה עד מיני-נגן"
+    },
+    {
+      "id": "strength_finish_sheet",
+      "screen": "סיום אימון",
+      "how": "בקשת סיום/יציאה מהאימון"
+    },
+    {
+      "id": "strength_summary",
+      "screen": "סיכום אימון כוח",
+      "how": "מסך הסיכום (טאבים, טבעת תוכנית, רצף)"
+    },
+    {
+      "id": "home_after_workout",
+      "screen": "בית — אחרי אימון",
+      "how": "חזרי לבית ובדקי איך נראה יום שהושלם",
+      "path": "/home"
+    }
+  ]
+}

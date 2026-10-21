@@ -1,0 +1,57 @@
+{
+  "id": "D12_community",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_ds_walk",
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "סריקת עיצוב: הקהילה. פתחי את הקהילה, את רשימת הקבוצות, קבוצת דמו אחת ואת הצ'אט שלה — רק לקרוא, אף פעם לא לשלוח הודעה. אם אין קבוצות דמו, תני ציון למצב הריק.",
+  "success": [
+    "הקהילה, קבוצה והצ'אט קיבלו ציון בלי לשלוח כלום"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 28,
+    "maxMinutes": 12
+  },
+  "focusRules": [
+    "V2-SHEET",
+    "MOB-KEYBOARD",
+    "STATE-EMPTY",
+    "RTL-ALIGN",
+    "LAY-OVERLAP"
+  ],
+  "checkpoints": [
+    {
+      "id": "community",
+      "screen": "קהילה",
+      "how": "מסך הקהילה הראשי",
+      "path": "/community"
+    },
+    {
+      "id": "community_groups",
+      "screen": "רשימת קבוצות",
+      "how": "רשימת הקבוצות (או המצב הריק)"
+    },
+    {
+      "id": "group_details",
+      "screen": "פרטי קבוצה",
+      "how": "פתחי קבוצת דמו (מגירה/מסך)"
+    },
+    {
+      "id": "group_chat",
+      "screen": "צ'אט קבוצה",
+      "how": "פתחי את הצ'אט — בדקי שהשדה לא מוסתר במקלדת, בלי לשלוח",
+      "keyboard": true
+    }
+  ]
+}
