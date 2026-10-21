@@ -26,6 +26,8 @@ import { LEGAL_VERSION } from '@/features/legal/legal-content';
 import { getOnboardingPref } from '@/lib/onboardingPrefs';
 import { hasAcceptedHealthDeclaration } from '@/lib/health-declaration';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { useLandingRealFallback } from '../hooks/useLandingRealFallback';
+import { LEGACY_GATEWAY_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 
 /**
  * Phase 2 Onboarding Wizard - Lifestyle Adaptation
@@ -43,6 +45,7 @@ import { useOnboardingV2 } from '../hooks/useOnboardingV2';
  */
 export default function OnboardingWizard() {
   const router = useRouter();
+  const { enabled: realFallback } = useLandingRealFallback();
   const searchParams = useSearchParams();
   const { currentStep, setStep, addCoins, updateData, data, coins, majorRoadmapStep } = useOnboardingStore();
 
@@ -295,7 +298,8 @@ export default function OnboardingWizard() {
     if (hasHistory) {
       router.back();
     } else {
-      router.push('/gateway');
+      // enable_landing_real_fallback: /home with a loaded profile, else the welcome screen.
+      router.push(realFallback ? resolveBackFallback(!!useUserStore.getState().profile?.id) : LEGACY_GATEWAY_ROUTE);
     }
   };
 

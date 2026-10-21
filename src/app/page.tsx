@@ -33,6 +33,9 @@ import ExistingAccountModal from '@/components/ExistingAccountModal';
 import { useEntryIntroV1 } from '@/features/user/onboarding/hooks/useEntryIntroV1';
 import { IntroLanding } from '@/features/user/onboarding/intro/components/IntroLanding';
 import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, withIntroRedirect } from '@/features/user/onboarding/intro/intro-route';
+import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
+import { runNewAccountFlow } from '@/features/user/onboarding/services/run-new-account-flow';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -313,6 +316,17 @@ export default function LandingPage() {
   }, []);
   const introOn = introFlag || introPreview;
 
+  // enable_landing_real_fallback — no more /gateway from here: a doc-less signed-in user gets
+  // the quick-signup scaffold (runNewAccountFlow), an unknown status the real landing
+  // (decideLandingRoute's realFallback). Refs, because the auth listener below subscribes once;
+  // the sync cache read covers the first emission before the hook has a value.
+  const { enabled: realFallbackFlag } = useLandingRealFallback();
+  const realFallbackRef = useRef(false);
+  realFallbackRef.current = realFallbackFlag;
+  const introOnRef = useRef(false);
+  introOnRef.current = introOn;
+  const isRealFallbackOn = useCallback(() => realFallbackRef.current || isLandingRealFallbackOn(), []);
+
   // ── Unified carousel index — drives both background AND tagline ──
   // Owned here so a single timer keeps both in perfect sync.
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -445,9 +459,10 @@ export default function LandingPage() {
         if (userDocSnap.exists()) {
           // IN_PROGRESS steps → that onboarding screen; PENDING_LIFESTYLE / COMPLETED /
           // onboardingComplete → /home; MAP_ONLY → /explorer; anything else → /gateway
-          // (let them choose a track). The one copy of this decision lives in
+          // (let them choose a track; with enable_landing_real_fallback: /home with a program,
+          // else /explorer). The one copy of this decision lives in
           // decideLandingRoute — the fast path and home's re-check use it too.
-          router.push(decideLandingRoute(userDocSnap.data()));
+          router.push(decideLandingRoute(userDocSnap.data(), { realFallback: isRealFallbackOn() }));
         } else {
           // Auth user exists but no Firestore profile yet.
           //
@@ -480,6 +495,15 @@ export default function LandingPage() {
               { merge: true },
             ).catch((e) => console.error('[Landing] MAP_ONLY doc recovery failed:', e));
             router.push('/explorer');
+          } else if (isRealFallbackOn()) {
+            // enable_landing_real_fallback: the same scaffold + route as quick signup, no
+            // choice screen. Claims the quick-signup guard so later auth emissions don't race it.
+            quickSignupInFlightRef.current = true;
+            const proceeded = await runNewAccountFlow(router, { introOn: introOnRef.current });
+            if (!proceeded) {
+              quickSignupInFlightRef.current = false;
+              setAuthState('guest');
+            }
           } else {
             router.push('/gateway');
           }
@@ -509,7 +533,7 @@ export default function LandingPage() {
       }
     });
     return () => unsubscribe();
-  }, [router, fastPathTakenRef]);
+  }, [router, fastPathTakenRef, isRealFallbackOn]);
 
   // ── Primary: "הרשמה מהירה" → runs the same explore-map flow as gateway's
   // "גלו את המפה" card directly, skipping the gateway choice screen. ──
@@ -592,10 +616,20 @@ export default function LandingPage() {
     const userDocSnap = await getDoc(firestoreDoc(db, 'users', uid));
     if (userDocSnap.exists()) {
       router.push('/home');
+    } else if (isRealFallbackOn()) {
+      // enable_landing_real_fallback — a brand-new Google / Apple account: quick signup's
+      // scaffold + /intro / /explorer (shared single-flight with the auth listener above).
+      quickSignupInFlightRef.current = true;
+      const proceeded = await runNewAccountFlow(router, { introOn: introOnRef.current });
+      if (!proceeded) {
+        quickSignupInFlightRef.current = false;
+        setAuthState('guest');
+        showToast('error', 'החיבור לא הצליח. נסו שוב.');
+      }
     } else {
       router.push('/gateway');
     }
-  }, [router]);
+  }, [router, showToast, isRealFallbackOn]);
 
   // ── Google Login inside drawer ──
   //

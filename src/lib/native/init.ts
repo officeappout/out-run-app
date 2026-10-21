@@ -35,6 +35,8 @@ import { OutboxFlusher } from '@/lib/outbox/OutboxFlusher';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { WORKOUT_EXIT_HARD_BLOCK_ENABLED } from '@/config/feature-flags';
 import { BackStack } from './backStack';
+import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
+import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
 import { initPushNotifications, unregisterPushNotifications, installTapListener } from './push';
 
 let installed = false;
@@ -97,7 +99,11 @@ function handleNativeDeepLink(url: string): void {
     // ── /gateway?ref=<uid> — referral arriving on the gateway ───────────
     if (pathname === '/gateway' && refUid) {
       localStorage.setItem('referrer_uid', refUid);
-      window.location.href = `/gateway?ref=${encodeURIComponent(refUid)}`;
+      // enable_landing_real_fallback: straight to the welcome screen (ref kept in the URL and
+      // in referrer_uid, which quick signup consumes) instead of hopping through /gateway.
+      window.location.href = isLandingRealFallbackOn()
+        ? legacyGatewayRedirect(`?ref=${encodeURIComponent(refUid)}`)
+        : `/gateway?ref=${encodeURIComponent(refUid)}`;
       return;
     }
 

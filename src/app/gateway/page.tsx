@@ -21,6 +21,8 @@ import {
   consumePendingGroupInvite,
   consumePendingSessionInvite,
 } from '@/features/user/onboarding/services/run-explore-map-flow';
+import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { legacyGatewayRedirect } from '@/lib/landing-fallback/fallback-routes';
 
 // ============================================================================
 // LOADING OVERLAY — Clean, branded transition
@@ -152,6 +154,13 @@ export default function GatewayPage() {
   const [guestTransitionStatus, setGuestTransitionStatus] = useState<'loading' | 'error'>('loading');
   const { flags } = useFeatureFlags();
 
+  // enable_landing_real_fallback: this screen is retired — old links / pushes / bookmarks
+  // land on the welcome screen (`/`, which routes a signed-in user via decideLandingRoute),
+  // ?ref kept. The page stays for now (transition period); flag off = unchanged.
+  const { enabled: retired } = useLandingRealFallback();
+  const retiredRef = useRef(false);
+  retiredRef.current = retired;
+
   // Derived: is anything in progress?
   const isBusy = loading || showGuestTransition;
 
@@ -162,6 +171,12 @@ export default function GatewayPage() {
 
   // ── Capture referral param from URL (e.g. /gateway?ref=xyz) ──
   useEffect(() => { captureReferralParam(); }, []);
+
+  useEffect(() => {
+    if (!retired) return;
+    captureReferralParam();
+    router.replace(legacyGatewayRedirect(window.location.search));
+  }, [retired, router]);
 
   // ── Prefetch target pages so navigation is instant ──
   useEffect(() => {
@@ -174,10 +189,11 @@ export default function GatewayPage() {
   // handleExploreMap is already mid-flight, eliminating a wasted getDoc.
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
-      if (user && !isBusyRef.current) {
+      if (user && !isBusyRef.current && !retiredRef.current) {
         try {
           const { getDoc, doc: firestoreDoc } = await import('firebase/firestore');
           const userDocSnap = await getDoc(firestoreDoc(db, 'users', user.uid));
+          if (retiredRef.current) return; // the redirect to `/` owns navigation
 
           // If a pending invite code is waiting, always go through express
           // identity gate first — the join page stores this key when the user
@@ -348,6 +364,9 @@ export default function GatewayPage() {
       setLoading(false);
     }
   };
+
+  // Retired: a blank page for the one frame before the redirect (never the old picker).
+  if (retired) return <div className="min-h-[100dvh] bg-[#F8FAFC]" />;
 
   return (
     <div

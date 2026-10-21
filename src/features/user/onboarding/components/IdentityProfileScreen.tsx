@@ -16,6 +16,8 @@ import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { isMiniAssessmentActive } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { LEGACY_GATEWAY_ROUTE, WELCOME_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 import { contentEntryMotion, headerSafeTop, stepScrollOverscroll } from '@/features/user/onboarding/utils/fit-screen';
 
 /**
@@ -84,6 +86,8 @@ export default function IdentityProfileScreen({
   const isProgram = context === 'program';
   const isWorkout = context === 'workout' || isProgram;
   const { profile, updateProfile, refreshProfile } = useUserStore();
+  // enable_landing_real_fallback — the two /gateway exits below go to the real flow instead.
+  const { enabled: realFallback } = useLandingRealFallback();
   const direction = 'rtl';
   // enable_home_v2 — styling only. This route is top-padding exempt (the
   // header pads the notch itself) but <main> still pads the bottom inset,
@@ -436,11 +440,13 @@ export default function IdentityProfileScreen({
       const durablePath = await getOnboardingPrefAsync('onboarding_path');
       if (cancelled) return;
       if (durablePath === 'MAP_ONLY') { router.replace('/explorer'); return; }
-      console.warn('[Profile] Auth settled with no uid — redirecting to /gateway');
-      router.replace('/gateway');
+      // enable_landing_real_fallback: no uid at all → the welcome screen (quick signup).
+      const noUidTarget = realFallback ? WELCOME_ROUTE : LEGACY_GATEWAY_ROUTE;
+      console.warn(`[Profile] Auth settled with no uid — redirecting to ${noUidTarget}`);
+      router.replace(noUidTarget);
     })();
     return () => { cancelled = true; };
-  }, [authReady, isHydrated, authUser, isExpress, router, prefRecoveryTick]);
+  }, [authReady, isHydrated, authUser, isExpress, router, prefRecoveryTick, realFallback]);
 
   if (!resolvedUid) {
     return (
@@ -487,7 +493,7 @@ export default function IdentityProfileScreen({
               if (isWorkout && onWorkoutBack) { onWorkoutBack(); return; }
               const hasHistory = typeof window !== 'undefined' && window.history.length > 1;
               if (hasHistory) router.back();
-              else router.push('/gateway');
+              else router.push(realFallback ? resolveBackFallback(!!profile?.id) : LEGACY_GATEWAY_ROUTE);
             }}
             className={v2
               // 44×44 hit area around the same 40×40 circle; -m-0.5 keeps the header layout.

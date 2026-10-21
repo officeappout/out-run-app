@@ -80,6 +80,8 @@ import {
 
 import { db } from '@/lib/firebase';
 import { usePushToastStore } from '@/lib/native/usePushToastStore';
+import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
+import { mapLegacyPushPath } from '@/lib/landing-fallback/fallback-routes';
 
 let listenersInstalled = false;
 let tapListenerInstalled = false;
@@ -385,7 +387,11 @@ export async function installTapListener(): Promise<void> {
                     console.warn('[push] landing_screen write failed:', measurementErr);
                   });
                 }
-                window.location.href = target.href;
+                // enable_landing_real_fallback: old 'gateway' targets (seeded push docs, the
+                // drop-off function's '/gateway') are mapped client-side → `/` (resume / home).
+                window.location.href = isLandingRealFallbackOn()
+                  ? new URL(mapLegacyPushPath(target.pathname + target.search), window.location.origin).href
+                  : target.href;
               } else if (process.env.NODE_ENV !== 'production') {
                 console.warn(
                   '[push] dropping cross-origin deepLink:',

@@ -73,6 +73,7 @@ interface FlagState {
   enable_jit_identity_v1: boolean;
   enable_entry_intro_v1: boolean;
   enable_strength_quiz_hint_v2: boolean;
+  enable_landing_real_fallback: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -510,6 +511,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'שאלון כוח: הדרכת גרירה חדשה',
     description: 'בלי טשטוש: השורה מדגימה את עצמה בקטגוריה הראשונה, תזכורת קצרה בשאר, וההדרכה נשארת עד הגרירה הראשונה.',
+  },
+  // Retire /gateway as the fallback (21.10.2026).
+  {
+    key: 'enable_landing_real_fallback',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'כניסה: בלי מסך הבחירה הישן',
+    description: 'במקום מסך הבחירה הישן (/gateway): משתמש חדש עם Google/Apple, קישורי הזמנה, פוש "המשך הרשמה" וסטטוס לא מוכר עוברים למסלול האמיתי (פתיחה, מפה או בית).',
   },
   // Demo world (20.10.2026).
   {

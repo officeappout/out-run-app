@@ -341,6 +341,15 @@ export const FLAG_DEFS = [
   // CTA follow), a dark coach pill above it until the first real drag, then a light "now stop on
   // the hardest" line; later categories get one short nudge. Fail-closed; super admins preview it.
   // Off = today's tutorial (mask + bubble + finger), byte-identical.
+  // Retire /gateway as the fallback (21.10.2026, owner-approved — agent-briefs/gateway-retire-brief.md).
+  // Every place that used to send a user to the old track picker (/gateway) goes to the real flow
+  // instead: a signed-in user with no users doc gets the quick-signup scaffold → /intro / /explorer;
+  // an unknown / ONBOARDING / missing status → /home with a program, else /explorer; referral and
+  // invite links → / (welcome); back-without-history → / (or /home); /gateway itself redirects to /.
+  // Fail-closed. superAdminValue FALSE on purpose: it changes where an account lands on launch, so
+  // the panel toggle is the one switch (also keeps the sync cache reader — flag.ts — in agreement).
+  // Off = byte-identical routing.
+  { key: 'enableLandingRealFallback', firestoreKey: 'enable_landing_real_fallback', defaultValue: false, superAdminValue: false },
   { key: 'enableStrengthQuizHintV2', firestoreKey: 'enable_strength_quiz_hint_v2', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
