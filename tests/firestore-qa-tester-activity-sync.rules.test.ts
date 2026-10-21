@@ -28,6 +28,8 @@ import { streakWriteDate } from '../src/features/activity/utils/streak-sync';
 
 const PROJECT_ID = 'appout-1-audit-test';
 let env: RulesTestEnvironment;
+/** rules-unit-testing returns the compat Firestore type; the modular API takes it at runtime. */
+const fsOf = (ctx: { firestore(): unknown }) => ctx.firestore() as Firestore;
 
 function dayStr(offsetDays: number): string {
   const d = new Date();
@@ -42,7 +44,7 @@ const WHO = { name: 'נועה', age: 31, gender: 'female' as const };
 async function seedTester(uid: string, streakOverride?: Record<string, unknown>) {
   const docs = buildTesterState(uid, 'strength_plan', WHO, new Date(), null);
   await env.withSecurityRulesDisabled(async (ctx) => {
-    const db = ctx.firestore();
+    const db = fsOf(ctx);
     for (const d of docs) await setDoc(doc(db, d.path), d.data);
     if (streakOverride) await setDoc(doc(db, 'streaks', uid), { userId: uid, ...streakOverride });
   });
@@ -76,7 +78,7 @@ describe('AI tester boot sync (demo_qa_*, strength_plan seed)', () => {
 
   it('[REPRO] old payload (today\'s date, count unchanged) → streak write DENIED; dailyActivity allowed', async () => {
     await seedTester(TESTER, live);
-    const db = env.authenticatedContext(TESTER, { demo: true }).firestore();
+    const db = fsOf(env.authenticatedContext(TESTER, { demo: true }));
     const r = await bootSync(db, TESTER, { currentStreak: 3, longestStreak: 5, lastActivityDate: TODAY });
     expect(r.daily).toBe('ok');
     expect(r.streak).toMatch(/permission-denied/i);
@@ -84,9 +86,9 @@ describe('AI tester boot sync (demo_qa_*, strength_plan seed)', () => {
 
   it('[REPRO] the same write by a REAL user is denied too — not a demo sandbox / core.demo issue', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'streaks', 'realUserA'), { userId: 'realUserA', ...live });
+      await setDoc(doc(fsOf(ctx), 'streaks', 'realUserA'), { userId: 'realUserA', ...live });
     });
-    const db = env.authenticatedContext('realUserA').firestore();
+    const db = fsOf(env.authenticatedContext('realUserA'));
     const r = await bootSync(db, 'realUserA', { currentStreak: 3, longestStreak: 5, lastActivityDate: TODAY });
     expect(r.daily).toBe('ok');
     expect(r.streak).toMatch(/permission-denied/i);
@@ -97,8 +99,8 @@ describe('AI tester boot sync (demo_qa_*, strength_plan seed)', () => {
     const date = streakWriteDate({ currentStreak: 3, longestStreak: 5, todayDate: TODAY }, live);
     expect(date).toBe(dayStr(-1));
     for (const [uid, token] of [[TESTER, { demo: true }], ['realUserA', {}]] as const) {
-      await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), 'streaks', uid), { userId: uid, ...live }));
-      const r = await bootSync(env.authenticatedContext(uid, token).firestore(), uid, { currentStreak: 3, longestStreak: 5, lastActivityDate: date });
+      await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(fsOf(ctx), 'streaks', uid), { userId: uid, ...live }));
+      const r = await bootSync(fsOf(env.authenticatedContext(uid, token)), uid, { currentStreak: 3, longestStreak: 5, lastActivityDate: date });
       expect(r, uid).toEqual({ daily: 'ok', streak: 'ok' });
     }
   });
@@ -106,19 +108,19 @@ describe('AI tester boot sync (demo_qa_*, strength_plan seed)', () => {
   it('[FIX] a real streak event still sends today: +1 advance from yesterday → allowed', async () => {
     await seedTester(TESTER, live);
     const date = streakWriteDate({ currentStreak: 4, longestStreak: 5, todayDate: TODAY }, live);
-    const r = await bootSync(env.authenticatedContext(TESTER, { demo: true }).firestore(), TESTER, { currentStreak: 4, longestStreak: 5, lastActivityDate: date });
+    const r = await bootSync(fsOf(env.authenticatedContext(TESTER, { demo: true })), TESTER, { currentStreak: 4, longestStreak: 5, lastActivityDate: date });
     expect(r).toEqual({ daily: 'ok', streak: 'ok' });
   });
 
   it('the users-doc streak mirror (progression only) is allowed for the seeded tester — core.demo untouched', async () => {
     await seedTester(TESTER, live);
-    const db = env.authenticatedContext(TESTER, { demo: true }).firestore();
+    const db = fsOf(env.authenticatedContext(TESTER, { demo: true }));
     await assertSucceeds(updateDoc(doc(db, 'users', TESTER), { 'progression.currentStreak': 3, 'progression.longestStreak': 5 }));
   });
 
   it('[SEED] the old null lastActivityDate made every streak write fail; the seed now writes a day key', async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(ctx.firestore(), 'streaks', 'demo_qa_null'), { userId: 'demo_qa_null', currentStreak: 0, longestStreak: 2, lastActivityDate: null }));
-    const db = env.authenticatedContext('demo_qa_null', { demo: true }).firestore();
+    await env.withSecurityRulesDisabled(async (ctx) => setDoc(doc(fsOf(ctx), 'streaks', 'demo_qa_null'), { userId: 'demo_qa_null', currentStreak: 0, longestStreak: 2, lastActivityDate: null }));
+    const db = fsOf(env.authenticatedContext('demo_qa_null', { demo: true }));
     await assertFails(setDoc(doc(db, 'streaks', 'demo_qa_null'), { userId: 'demo_qa_null', currentStreak: 0, longestStreak: 2, lastActivityDate: TODAY }, { merge: true }));
 
     const docs = await seedTester(TESTER);
@@ -126,7 +128,7 @@ describe('AI tester boot sync (demo_qa_*, strength_plan seed)', () => {
     expect(seeded.lastActivityDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     // The boot sync with no streak event goes through on the fresh seed, whatever the seeded streak is.
     const date = streakWriteDate({ currentStreak: seeded.currentStreak, longestStreak: seeded.longestStreak, todayDate: TODAY }, seeded);
-    const r = await bootSync(env.authenticatedContext(TESTER, { demo: true }).firestore(), TESTER, { currentStreak: seeded.currentStreak, longestStreak: seeded.longestStreak, lastActivityDate: date });
+    const r = await bootSync(fsOf(env.authenticatedContext(TESTER, { demo: true })), TESTER, { currentStreak: seeded.currentStreak, longestStreak: seeded.longestStreak, lastActivityDate: date });
     expect(r).toEqual({ daily: 'ok', streak: 'ok' });
   });
 });

@@ -50,7 +50,7 @@ export async function runPlannedSession(deps: MissionRunDeps, s: PlannedSession,
     const minted = await deps.mint(s.uid);
     if (!minted.ok) {
       log(`mint refused: ${minted.error}`);
-      return { outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: stepOffset, newFindings, scored: [...scored], attempts: attempt };
+      return { outcome: 'error', reason: `mint_${minted.error}`, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
     }
     const start = mission.gps?.route[0] ?? [32.0853, 34.7818];
     const browser = await deps.open(DEVICES[s.device], { latitude: start[0], longitude: start[1] });
@@ -61,7 +61,7 @@ export async function runPlannedSession(deps: MissionRunDeps, s: PlannedSession,
       const refused = await driver.signIn(minted.token);
       if (refused && !browser.crashed) {
         log(`sign-in refused: ${refused}`);
-        return { outcome: 'error', reason: refused, summary: '', steps: stepOffset, newFindings, scored: [...scored], attempts: attempt };
+        return { outcome: 'error', reason: refused, summary: '', steps: stepOffset, newFindings, scored: Array.from(scored), attempts: attempt };
       }
       if (refused) throw new Error('Target crashed during sign-in');
       const bootErrors = await driver.openStart({ afterSignIn: true });
@@ -73,14 +73,14 @@ export async function runPlannedSession(deps: MissionRunDeps, s: PlannedSession,
     } catch (e) {
       if (!isBrowserCrash(e)) throw e;
       log(`browser crashed before the tester loop (${e instanceof Error ? e.message.split('\n')[0].slice(0, 160) : 'unknown'}) · ${memoryLine()}`);
-      r = { outcome: 'error', reason: 'browser_crashed', summary: '', steps: stepOffset, newFindings: 0, scored: [...scored] };
+      r = { outcome: 'error', reason: 'browser_crashed', summary: '', steps: stepOffset, newFindings: 0, scored: Array.from(scored) };
     } finally {
       driver.stop();
       await browser.close();
     }
 
     newFindings += r.newFindings;
-    const done: MissionRunResult = { ...r, newFindings, scored: [...scored], attempts: attempt };
+    const done: MissionRunResult = { ...r, newFindings, scored: Array.from(scored), attempts: attempt };
     if (r.reason !== 'browser_crashed') return done;
     if (attempt > MAX_CRASH_RESTARTS) {
       log(`browser crashed ${attempt} times — giving up on ${s.mission.id}`);

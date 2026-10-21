@@ -91,11 +91,11 @@ export async function runSession(
   const progress = { step: opts.stepOffset ?? 0, newFindings: 0 };
   try {
     const r = await runLoop(deps, persona, mission, deviceId, driver, opts, scored, progress);
-    return { ...r, scored: [...scored] };
+    return { ...r, scored: Array.from(scored) };
   } catch (e) {
     if (!isBrowserCrash(e)) throw e;
     deps.log(`browser crashed at step ${progress.step} (${e instanceof Error ? e.message.split('\n')[0].slice(0, 160) : 'unknown'}) · ${memoryLine()}`);
-    return { outcome: 'error', reason: 'browser_crashed', summary: '', steps: progress.step, newFindings: progress.newFindings, scored: [...scored] };
+    return { outcome: 'error', reason: 'browser_crashed', summary: '', steps: progress.step, newFindings: progress.newFindings, scored: Array.from(scored) };
   } finally {
     deps.shots?.flush();
   }
