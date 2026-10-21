@@ -72,6 +72,7 @@ export default function AiCoachChat({
   round4 = false,
   starterChips = null,
   runsByType = false,
+  initialInput = null,
 }: {
   profile: UserFullProfile;
   onClose: () => void;
@@ -96,6 +97,11 @@ export default function AiCoachChat({
   starterChips?: readonly string[] | null;
   /** enable_home_v2 for this user (runsByTypeFor): today's program run by slot type, like home. */
   runsByType?: boolean;
+  /**
+   * enable_week_builder_v1 ("סדר לי במילים"): text the composer opens with — never auto-sent.
+   * null → the ?q= prefill (search's "שאל את קלי"), unchanged.
+   */
+  initialInput?: string | null;
 }) {
   const { state, send, retry, dismissError, setProposalStatus, teamMode } = useAiCoachChat(profile, { unified, teamOnly });
   const router = useRouter();
@@ -104,7 +110,9 @@ export default function AiCoachChat({
   const online = useOnline();
   // "שאל את קלי" from search arrives as /ai-coach?q=… → prefilled, never auto-sent.
   const [input, setInput] = useState(() =>
-    typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('q') ?? '').slice(0, CHAT_MESSAGE_MAX_CHARS),
+    initialInput != null
+      ? initialInput.slice(0, CHAT_MESSAGE_MAX_CHARS)
+      : typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('q') ?? '').slice(0, CHAT_MESSAGE_MAX_CHARS),
   );
   const [builderOpen, setBuilderOpen] = useState(false);
   const [openCard, setOpenCard] = useState<WorkoutCard | null>(null);

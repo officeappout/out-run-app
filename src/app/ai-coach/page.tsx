@@ -11,11 +11,8 @@
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import AiCoachChat from '@/features/ai-coach/components/AiCoachChat';
-import { useAiCoachAccess } from '@/features/ai-coach/hooks/useAiCoachAccess';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { isWeatherOnFor } from '@/features/weather/core/weather-access';
+import { useKellyChatConfig } from '@/features/ai-coach/hooks/useKellyChatConfig';
 import { starterChipsFor } from '@/features/user/onboarding/services/entry-whatnow';
-import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
 import { useT } from '@/hooks/useT';
 import { coach } from '@/messages/ns/coach';
 
@@ -23,22 +20,9 @@ export default function AiCoachPage() {
   const router = useRouter();
   const t = useT(coach);
   const { profile } = useUserStore();
-  const { canUseAi, loading } = useAiCoachAccess();
-  // Real value (no super-admin override): the server reads the same.
-  const { flags, rawFlags, loading: flagsLoading } = useFeatureFlags();
-  const unified = flags.kellyUnifiedV1 === true;
-  // Kelly phase 2 (ai_coach_phase2, real value): quick replies, hints, schedule proposal cards.
-  const phase2 = flags.aiCoachPhase2 === true;
-  // Kelly phase 3 (real values): "איך היה?" answer chips, the "מה קלי זוכר" screen.
-  const proactive = flags.aiCoachProactive === true;
-  const memory = flags.aiCoachMemory === true;
-  // Kelly round 4 (real value): walk / run cards, nearby parks, tour + questionnaire chips.
-  const round4 = flags.aiCoachRound4 === true;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
-  const weatherOn = isWeatherOnFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
-  // enable_home_v2 the way home reads it (live value, or super admin): program run by slot type.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- core.isSuperAdmin is not on the profile type
-  const runsByType = runsByTypeFor(rawFlags, !!(profile?.core as any)?.isSuperAdmin);
+  // Flags (real values, no super-admin override — the server reads the same) + AI access:
+  // unified Kelly, phase 2 / 3 / round 4, weather, program run by slot type (useKellyChatConfig).
+  const { canUseAi, loading, unified, phase2, proactive, memory, round4, weatherOn, runsByType } = useKellyChatConfig();
 
   // Entry step 2 (enable_entry_whatnow_v1): /ai-coach?starter=entry opens with ready chips. Only
   // that flag's drawer links here with the param, so without it this is null (unchanged).
@@ -50,7 +34,7 @@ export default function AiCoachPage() {
     else router.replace('/home');
   };
 
-  if (!profile || loading || flagsLoading) {
+  if (!profile || loading) {
     return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">{t('page.loading')}</div>;
   }
 
