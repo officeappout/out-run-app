@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { X, Loader2, Trash2 } from 'lucide-react';
-import type { RoadmapItem, CommonStatus, RoadmapPriority } from '@/types/roadmap-unified.types';
-import { COMMON_STATUS_LABELS } from '@/types/roadmap-unified.types';
+import type { RoadmapItem, CommonStatus, RoadmapPriority } from '@/features/admin/types/roadmap-unified.types';
+import { COMMON_STATUS_LABELS } from '@/features/admin/types/roadmap-unified.types';
 import { updateGoal, deleteGoal } from '@/features/admin/services/roadmap-goals.service';
 import { updateRoadmapItem } from '@/features/admin/services/unified-roadmap.service';
-import { ROADMAP_LANES } from '@/config/roadmap-lanes.config';
+import { ROADMAP_LANES } from '@/features/admin/config/roadmap-lanes.config';
 import type { AdminUser } from '@/features/admin/services/admin-management.service';
 
 // ─── Field components ─────────────────────────────────────────────────────────

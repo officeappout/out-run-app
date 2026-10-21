@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAllMaintenanceReports } from './maintenance.service';
-import { MaintenanceReport } from '@/types/maintenance.types';
+import { MaintenanceReport } from '@/features/admin/types/maintenance.types';
 
 const EXERCISES_COLLECTION = 'exercises';
 

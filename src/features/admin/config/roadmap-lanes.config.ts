@@ -2,7 +2,7 @@
  * Roadmap lane definitions — data-driven, single source of truth.
  * To add a new lane (e.g. legal/financial): append one entry here. No other code changes needed.
  */
-import type { RoadmapDomain } from '@/types/roadmap-unified.types';
+import type { RoadmapDomain } from '@/features/admin/types/roadmap-unified.types';
 
 export interface LaneConfig {
   key: string;

@@ -6,7 +6,7 @@
  *
  *   - Only input: the reportId in the path (ID_PATTERN-checked).
  *   - Authorization is re-derived server-side by authorizeReportAccess
- *     (src/lib/reportScope.ts): the report is loaded and its TARGET's authority
+ *     (src/features/admin/lib/reportScope.ts): the report is loaded and its TARGET's authority
  *     compared with the caller's; the id having come from the scoped list is
  *     not trusted. Non-manager / out-of-scope / not-found / non-group-event /
  *     malformed: the same generic 403, with zero report reads for a
@@ -24,7 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { authorizeReportAccess, type ReportCaller } from '@/lib/reportScope';
+import { authorizeReportAccess, type ReportCaller } from '@/features/admin/lib/reportScope';
 import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';
 import { logRateLimitBlock } from '@/lib/rateLimitLog';

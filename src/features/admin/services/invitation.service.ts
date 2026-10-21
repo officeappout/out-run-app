@@ -23,7 +23,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { AdminInvitation, InvitationData } from '@/types/invitation.type';
+import { AdminInvitation, InvitationData } from '@/features/admin/types/invitation.type';
 import { logAction } from './audit.service';
 import { updateAuthority, getAuthority, getChildrenByParent } from './authority.service';
 import { isRootAdmin } from '@/config/feature-flags';

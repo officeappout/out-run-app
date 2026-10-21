@@ -10,7 +10,7 @@ import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } fr
 import { isRootAdmin } from '@/config/feature-flags';
 import { getAllInvitations } from '@/features/admin/services/invitation.service';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
-import type { AdminInvitation } from '@/types/invitation.type';
+import type { AdminInvitation } from '@/features/admin/types/invitation.type';
 import type { Authority } from '@/types/admin-types';
 import {
   Loader2, Search, Users, Shield, ShieldCheck, Building2,

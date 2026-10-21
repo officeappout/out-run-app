@@ -52,7 +52,7 @@ import {
   previewNotificationContent,
   type NotificationCandidate,
   type PreviewNotificationResult,
-} from '@/lib/previewNotificationContent';
+} from '@/features/admin/lib/previewNotificationContent';
 
 // ============================================================================
 // CONSTANTS

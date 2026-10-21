@@ -25,13 +25,13 @@ import { createGoal } from '@/features/admin/services/roadmap-goals.service';
 import { Plus } from 'lucide-react';
 import { getUnifiedRoadmap, updateRoadmapItemStatus } from '@/features/admin/services/unified-roadmap.service';
 import { getAllSuperAdmins, AdminUser } from '@/features/admin/services/admin-management.service';
-import type { RoadmapItem, RoadmapDomain, CommonStatus, RoadmapFilters } from '@/types/roadmap-unified.types';
+import type { RoadmapItem, RoadmapDomain, CommonStatus, RoadmapFilters } from '@/features/admin/types/roadmap-unified.types';
 import {
   COMMON_STATUS_LABELS,
   COMMON_STATUS_COLORS,
   DOMAIN_LABELS,
   DOMAIN_COLORS,
-} from '@/types/roadmap-unified.types';
+} from '@/features/admin/types/roadmap-unified.types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { adminFetch } from '@/lib/admin-fetch';
+import { adminFetch } from '@/features/admin/lib/admin-fetch';
 import { Bot, ChevronDown, ChevronUp, Loader2, RefreshCw, AlertTriangle, TrendingUp, FileText, Mail, Trophy, Skull, Clock, Zap } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';

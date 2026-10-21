@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { adminFetch } from '@/lib/admin-fetch';
+import { adminFetch } from '@/features/admin/lib/admin-fetch';
 
 interface ProcessedTranscript {
   fileId: string;

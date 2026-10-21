@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db, app } from '@/lib/firebase';
-import { AuditLog, AuditLogData } from '@/types/audit-log.type';
+import { AuditLog, AuditLogData } from '@/features/admin/types/audit-log.type';
 
 // Re-export for legacy import paths (e.g. admin/audit-logs/page.tsx).
 export type { AuditLog, AuditLogData };

@@ -31,7 +31,7 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_PRIORITY_COLORS,
   KANBAN_COLUMNS,
-} from '@/types/product-roadmap.types';
+} from '@/features/admin/types/product-roadmap.types';
 import {
   getAllTasks,
   getAllTags,

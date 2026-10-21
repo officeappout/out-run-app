@@ -20,7 +20,7 @@ import {
 } from '@/features/admin/services/questionnaire.service';
 import { OnboardingQuestion, OnboardingAnswer, QuestionWithAnswers, MultilingualText, AnswerResult, QuestionLogic, VisibilityCondition } from '@/types/onboarding-questionnaire';
 import { Plus, Edit2, Trash2, Save, X, ChevronRight, ChevronDown, Globe, Users, List, Workflow, MoreVertical, Activity, UserRoundDown, ArrowUp, Brain, ClipboardCheck, Target, Footprints, ArrowDownToLine, MoveUp, BrainCircuit, Upload, Eye, Tag } from 'lucide-react';
-import ProgramAutocomplete from '@/components/admin/ProgramAutocomplete';
+import ProgramAutocomplete from '@/features/admin/components/shared/ProgramAutocomplete';
 import ExerciseAutocomplete from '@/components/admin/ExerciseAutocomplete';
 import { getAllExercises } from '@/features/content/exercises/core/exercise.service';
 import type { Exercise } from '@/features/content/exercises/core/exercise.types';

@@ -22,7 +22,7 @@ import { getReportsByAuthority } from '@/features/admin/services/maintenance.ser
 import { getParksByNeighborhood } from '@/features/admin/services/parks.service';
 import type { Authority, KpiSettings, DEFAULT_KPI_SETTINGS as DefaultKpiType } from '@/types/admin-types';
 import { DEFAULT_KPI_SETTINGS } from '@/types/admin-types';
-import type { MaintenanceReport } from '@/types/maintenance.types';
+import type { MaintenanceReport } from '@/features/admin/types/maintenance.types';
 import type { Park } from '@/features/parks';
 import {
   Loader2,

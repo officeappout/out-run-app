@@ -13,7 +13,7 @@ import { db } from '@/lib/firebase';
 import { getAllTasks } from './product-roadmap.service';
 import { getAllAuthorities } from './authority.service';
 import { getAllGoals, type StoredGoal } from './roadmap-goals.service';
-import type { ProductTask } from '@/types/product-roadmap.types';
+import type { ProductTask } from '@/features/admin/types/product-roadmap.types';
 import type { Authority } from '@/types/admin-types';
 import type { AdminUser } from './admin-management.service';
 import {
@@ -25,7 +25,7 @@ import {
   SALES_TO_COMMON,
   COMMON_TO_DEV,
   COMMON_TO_SALES,
-} from '@/types/roadmap-unified.types';
+} from '@/features/admin/types/roadmap-unified.types';
 
 // ─── Normalise helpers ────────────────────────────────────────────────────────
 

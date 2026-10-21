@@ -13,7 +13,7 @@ import {
   Plus,
   Mail
 } from 'lucide-react';
-import { UserFeedback } from '@/types/product-roadmap.types';
+import { UserFeedback } from '@/features/admin/types/product-roadmap.types';
 import { createFeedback } from '@/features/admin/services/product-roadmap.service';
 
 interface FeedbackPanelProps {

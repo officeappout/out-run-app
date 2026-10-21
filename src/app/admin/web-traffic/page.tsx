@@ -8,7 +8,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDownRight, ArrowUpRight, Globe2, MousePointerClick, ScrollText, Smartphone, Users } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import { APP_DOMAIN } from '@/lib/config/domain';
 
 /**

@@ -1,7 +1,7 @@
 'use client';
 
-import { auth } from './firebase';
-import { mintAdminSessionCookie } from './auth.service';
+import { auth } from '@/lib/firebase';
+import { mintAdminSessionCookie } from '@/lib/auth.service';
 
 /**
  * Drop-in replacement for fetch() on admin API routes.

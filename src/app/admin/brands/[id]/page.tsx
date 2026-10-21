@@ -9,8 +9,8 @@ import { OutdoorBrand, OutdoorBrandFormData } from '@/features/content/equipment
 import { Save, X, Loader2, ArrowRight, Video, Image as ImageIcon, Dumbbell, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import { parseVideoUrl, isValidHexColor } from '@/utils/video-utils';
-import Alert from '@/components/admin/Alert';
+import { parseVideoUrl, isValidHexColor } from '@/features/admin/lib/video-utils';
+import Alert from '@/features/admin/components/shared/Alert';
 import { getAllExercises, Exercise, getLocalizedText } from '@/features/content/exercises';
 
 export default function EditBrandPage() {
