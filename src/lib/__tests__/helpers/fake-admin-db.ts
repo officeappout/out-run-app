@@ -3,7 +3,7 @@
  * Tiny in-memory Admin-SDK Firestore for route/service unit tests (demo
  * world PR 2). Paths are full slash paths ('users/u1'). Supports
  * doc().get(), collection().doc().collection(), where('==' | 'in' | '>=' |
- * '<=' | 'array-contains') on dotted fields (Timestamps compared by millis),
+ * '<=' | '<' | '>' | 'array-contains' | 'array-contains-any') on dotted fields (Timestamps compared by millis),
  * chained where, limit() / orderBy() (no-ops), get(), count().get(), getAll(). Counts every read so
  * tests can pin "no extra read for a real tenant".
  */
@@ -43,6 +43,9 @@ export function makeFakeAdminDb(seed: Record<string, Data> = {}) {
           const x = field(s.data(), f);
           if (op === 'in') return (v as unknown[]).includes(x);
           if (op === 'array-contains') return Array.isArray(x) && x.includes(v);
+          if (op === 'array-contains-any') return Array.isArray(x) && (v as unknown[]).some((y) => x.includes(y));
+          if (op === '<') return x !== undefined && cmp(x) < cmp(v);
+          if (op === '>') return x !== undefined && cmp(x) > cmp(v);
           if (op === '>=') return x !== undefined && cmp(x) >= cmp(v);
           if (op === '<=') return x !== undefined && cmp(x) <= cmp(v);
           return x === v;

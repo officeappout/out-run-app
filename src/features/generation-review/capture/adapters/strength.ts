@@ -3,6 +3,18 @@ import type { GeneratedWorkout } from '@/features/workout-engine/logic/workout-g
 import type { GenerationInput, GenerationOutput } from '@/lib/generation-review/types';
 import { summarizeExercises } from './workout';
 import { profileInput, userGear } from './profile';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { whyLineOfWorkout, type WhyProfileSlice } from '@/features/workout-engine/services/split-decision/why-this-workout';
+
+/** The overview's "why this workout" line for the log (never throws). */
+function whyOf(workout: GeneratedWorkout, location: string | null | undefined): string | null {
+  try {
+    const profile = useUserStore.getState().profile as unknown as WhyProfileSlice | null;
+    return whyLineOfWorkout({ workout, profile, location })?.slice(0, 160) ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export interface StrengthCtx {
   /** 'home' / 'park' / 'office' / 'street' / 'gym' (other spellings → null). */
@@ -29,12 +41,15 @@ export function strengthParts(workout: GeneratedWorkout, ctx: StrengthCtx = {}):
       location,
       equipment: gear,
       targetMinutes: ctx.targetMinutes ?? null,
-      focus: ctx.focus ?? null,
+      // The requested focus, else the split day the generator stamped ('full' is no
+      // focus — a full-body day must still be balanced, STRENGTH_SINGLE_PATTERN).
+      focus: ctx.focus ?? (workout.dayFocus && workout.dayFocus !== 'full' ? workout.dayFocus : null),
       ...(budgetLight ? { budget: { lightMode: true } } : {}),
     },
     output: {
       title: typeof workout.title === 'string' ? workout.title.slice(0, 120) : null,
       planActivity: 'strength',
+      whyHe: whyOf(workout, location),
       totalMinutes: typeof workout.estimatedDuration === 'number' ? Math.round(workout.estimatedDuration) : null,
       exercises: summarizeExercises(workout.exercises, gear),
       legs: [],

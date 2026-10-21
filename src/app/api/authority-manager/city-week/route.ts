@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getAdminDb();
-    const managerScope = await resolveAuthorityManagerScope(db, uid);
+    const managerScope = await resolveAuthorityManagerScope(db, uid, request.nextUrl.searchParams.get('authorityId'));
     let authorityId: string | null = managerScope?.authorityId ?? null;
     if (!authorityId) {
       // OUT staff viewing a city

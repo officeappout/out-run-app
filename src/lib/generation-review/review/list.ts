@@ -19,6 +19,8 @@ export interface FlaggedRow {
   llm: { verdict?: string; problems?: string[]; suggestion?: string; error?: string } | null;
   status: 'open' | 'fixed' | 'fixture';
   createdAtMs: number;
+  /** A demo-world user's session (the "דמו" filter, demo-rows.ts) — read-only, no review doc. */
+  isDemo?: boolean;
 }
 
 function msOf(v: unknown): number {

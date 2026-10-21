@@ -102,3 +102,24 @@ describe('getGroupCompetitionLeaderboard — ephemeral run/walk-invite sessions 
     expect(result.entries.map((e) => e.groupId)).toEqual(['grp-b', 'grp-a']);
   });
 });
+
+describe('getGroupCompetitionLeaderboard — demo world never on a real board (21.10.2026)', () => {
+  it('the national (global) board drops demo posts and demo groups', async () => {
+    state.POSTS = [
+      { id: 'p1', authorUid: 'u1', activityCredit: 10, groupIds: ['grp-real'] },
+      { id: 'demo_tlv01_post_2026-10-20_0', authorUid: 'demo_tlv01', activityCredit: 900, authorityId: 'demo-tlv', groupIds: ['demo-grp-tlv-run'] },
+      // a real author's post can never carry a demo group either
+      { id: 'p3', authorUid: 'u3', activityCredit: 900, groupIds: ['demo-grp-tlv-run', 'grp-real'] },
+    ];
+    state.GROUPS = { 'grp-real': { name: 'אמיתית', type: 'user' }, 'demo-grp-tlv-run': { name: 'דמו · רצים בצפון' } };
+    const result = await getGroupCompetitionLeaderboard({ scope: 'global', scopeId: null, timeWindow: 'weekly' });
+    expect(result.entries.map((e) => e.groupId)).toEqual(['grp-real']);
+  });
+
+  it("a demo city's own group board keeps the demo groups", async () => {
+    state.POSTS = [{ id: 'demo_tlv01_post_x', authorUid: 'demo_tlv01', activityCredit: 9, authorityId: 'demo-tlv', groupIds: ['demo-grp-tlv-run'] }];
+    state.GROUPS = { 'demo-grp-tlv-run': { name: 'דמו · רצים בצפון' } };
+    const result = await getGroupCompetitionLeaderboard({ scope: 'city', scopeId: 'demo-tlv', timeWindow: 'weekly' });
+    expect(result.entries.map((e) => e.groupId)).toEqual(['demo-grp-tlv-run']);
+  });
+});

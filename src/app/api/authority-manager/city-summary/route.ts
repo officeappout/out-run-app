@@ -58,11 +58,13 @@ export const dynamic = 'force-dynamic';
 export async function computeCitySummary(
   db: Firestore,
   uid: string,
+  /** The authority on screen (honoured only for its own managers — authorityManagerScope.ts). */
+  requestedAuthorityId?: string | null,
 ): Promise<
   | { status: 200; body: { authorityId: string; authorityName: string; totalUsers: number; approvedUsers: number } }
   | { status: 403; body: { error: string } }
 > {
-  const scope = await resolveAuthorityManagerScope(db, uid);
+  const scope = await resolveAuthorityManagerScope(db, uid, requestedAuthorityId);
   if (!scope) {
     return { status: 403, body: { error: 'Not an authority manager' } };
   }
@@ -118,7 +120,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getAdminDb();
-    const result = await computeCitySummary(db, uid);
+    const result = await computeCitySummary(db, uid, request.nextUrl.searchParams.get('authorityId'));
     return NextResponse.json(result.body, { status: result.status });
   } catch (err: any) {
     console.error('[/api/authority-manager/city-summary] error:', err?.message ?? err);

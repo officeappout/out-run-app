@@ -20,7 +20,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import type { GroupBoard } from './league-scope-keys';
 import { RESERVE_SCOPE_FIELD } from '@/lib/military-reserve-league';
-import { isDemoTenantId, isDemoUid } from '@/lib/demo';
+import { isDemoDoc, isDemoTenantId, isDemoUid } from '@/lib/demo';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -960,10 +960,15 @@ export async function getGroupCompetitionLeaderboard(params: {
 
   // groupId → { totalScore, active member UIDs, placeholder name }
   const groupMap = new Map<string, { totalScore: number; members: Set<string> }>();
+  // Demo world guard (21.10.2026): this client scan is unscoped on 'global', and demo
+  // posts ('partners', readable) carry demo groupIds — they ranked demo groups on the
+  // real national board. Only a demo scope's own board keeps them.
+  const keepDemo = scope !== 'global' && isDemoTenantId(scopeId);
 
   snap.forEach((d) => {
     const data = d.data();
-    const gids = data.groupIds as string[] | undefined;
+    if (!keepDemo && isDemoDoc(data, d.id)) return;
+    const gids = (data.groupIds as string[] | undefined)?.filter((g) => keepDemo || !isDemoTenantId(g));
     if (!Array.isArray(gids) || gids.length === 0) return;
 
     const credit = (data.activityCredit as number) || 0;
@@ -1291,9 +1296,13 @@ export async function getScopeCompetitionLeaderboard(params: {
 
   // scopeId → { totalScore, active member UIDs }
   const scopeMap = new Map<string, { totalScore: number; members: Set<string> }>();
+  // Demo world guard (21.10.2026): the national scan (no city) would rank demo cities /
+  // neighbourhoods among real ones. Only a demo city's own neighbourhood board keeps them.
+  const keepDemo = granularity === 'neighborhood' && isDemoTenantId(cityAuthorityId);
 
   snap.forEach((d) => {
     const data = d.data();
+    if (!keepDemo && isDemoDoc(data, d.id)) return;
     const scopeId = data[groupField] as string | undefined;
     if (!scopeId) return;
 

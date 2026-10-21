@@ -3,20 +3,27 @@
  * rule and per generator for the last N days + the flagged sessions in that window (newest
  * first, ≤ 300). Super admin only, read-only. No uid / name is returned — the log id is the
  * handle the actions route needs.
+ *
+ * ?world=demo (PR 5, owner 21.10.2026): the demo world's sessions instead — demo users'
+ * generation_log docs (never reviewed nightly), checked by the same rules on the fly
+ * (demo-rows.ts). One bounded read (≤ DEMO_READ_CAP), read-only. Demo is never mixed into
+ * the default view.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { requireSuperAdminApi } from '@/lib/api-auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getIsraelDateKey } from '@/lib/israelTime';
-import { GENERATION_REVIEWS, GENERATION_REVIEW_STATS } from '@/lib/generation-review/types';
+import { GENERATION_LOG, GENERATION_REVIEWS, GENERATION_REVIEW_STATS } from '@/lib/generation-review/types';
 import { sumDeltas, type GenStatsDelta } from '@/lib/generation-review/review/stats';
 import { toFlaggedRow } from '@/lib/generation-review/review/list';
+import { DEMO_UID_FROM, DEMO_UID_TO, demoRows } from '@/lib/generation-review/review/demo-rows';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DAY_MS = 86_400_000;
+const DEMO_READ_CAP = 600;
 
 export async function GET(request: NextRequest) {
   const denied = await requireSuperAdminApi(request);
@@ -26,6 +33,25 @@ export async function GET(request: NextRequest) {
     const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 14, 1), 60);
     const now = Date.now();
     const db = getAdminDb();
+    if (url.searchParams.get('world') === 'demo') {
+      const snap = await db.collection(GENERATION_LOG).where('uid', '>=', DEMO_UID_FROM).where('uid', '<', DEMO_UID_TO).limit(DEMO_READ_CAP).get();
+      const rows = demoRows(snap.docs.map((d) => ({ id: d.id, data: d.data() })), now - days * DAY_MS);
+      const byDay = new Map<string, { sessions: number; flagged: number }>();
+      for (const r of rows) {
+        const t = byDay.get(r.day) ?? { sessions: 0, flagged: 0 };
+        t.sessions++;
+        if (r.findings.length) t.flagged++;
+        byDay.set(r.day, t);
+      }
+      return NextResponse.json({
+        days,
+        world: 'demo',
+        summary: sumDeltas([]),
+        demoSummary: { sessions: rows.length, flagged: rows.filter((r) => r.findings.length).length },
+        trend: Array.from(byDay, ([day, t]) => ({ day, ...t, reports: 0 })).sort((a, b) => a.day.localeCompare(b.day)),
+        rows,
+      });
+    }
     const dayKeys = Array.from({ length: days }, (_, i) => getIsraelDateKey(new Date(now - i * DAY_MS)));
     const statSnaps = await db.getAll(...dayKeys.map((d) => db.collection(GENERATION_REVIEW_STATS).doc(d)));
     const dayDocs = statSnaps.filter((s) => s.exists).map((s) => ({ day: s.id, ...(s.data() as Partial<GenStatsDelta>) }));

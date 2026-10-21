@@ -149,6 +149,8 @@ export interface GenerationOutput {
   title?: string | null;
   /** The label the user sees for the plan kind (e.g. "ריצה + כוח"). */
   planLabel?: string | null;
+  /** The "why this workout" line the overview shows (strength: split / day focus), when any. */
+  whyHe?: string | null;
   /** Primary aerobic activity of the plan as shown. */
   planActivity?: Activity | null;
   totalMinutes: number | null;

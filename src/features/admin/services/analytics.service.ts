@@ -107,7 +107,7 @@ async function fetchDashboardSummaryFallback(authorityId: string): Promise<Dashb
       const { auth } = await import('@/lib/firebase');
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
-      const res = await fetch('/api/authority-manager/dashboard-summary', {
+      const res = await fetch(`/api/authority-manager/dashboard-summary?authorityId=${encodeURIComponent(authorityId)}`, {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (!res.ok) return null;
@@ -150,7 +150,7 @@ async function fetchCityAggregatesFallback(
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
       const res = await fetch(
-        `/api/authority-manager/city-aggregates?days=${days}&parksLimit=${parksLimit}`,
+        `/api/authority-manager/city-aggregates?days=${days}&parksLimit=${parksLimit}&authorityId=${encodeURIComponent(authorityId)}`,
         { headers: { Authorization: `Bearer ${idToken}` } },
       );
       if (!res.ok) return null;
@@ -189,7 +189,7 @@ async function fetchNeighborhoodBreakdownFallback(
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
       const res = await fetch(
-        `/api/authority-manager/neighborhood-breakdown?ageMin=${ageMin}&ageMax=${ageMax}`,
+        `/api/authority-manager/neighborhood-breakdown?ageMin=${ageMin}&ageMax=${ageMax}&authorityId=${encodeURIComponent(authorityId)}`,
         { headers: { Authorization: `Bearer ${idToken}` } },
       );
       if (!res.ok) return null;
@@ -240,6 +240,7 @@ async function fetchFilteredDashboardFallback(
         neighborhoodId: filters.neighborhoodId,
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
+        authorityId,
       });
       const res = await fetch(
         `/api/authority-manager/filtered-dashboard?${params.toString()}`,

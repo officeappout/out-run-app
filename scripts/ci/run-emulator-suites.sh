@@ -68,6 +68,7 @@ GROUP_8089=(
   functions/src/__tests__/onGroupMemberWrite.emulator.test.ts
   functions/src/__tests__/demoSimulatorTick.emulator.test.ts
   scripts/demo/__tests__/demo-world.emulator.test.ts
+  scripts/demo/__tests__/demo-viewer-sync.emulator.test.ts
 )
 
 RESULTS=$(mktemp)

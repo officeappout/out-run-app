@@ -63,7 +63,7 @@ async function fetchHealthSavingsSummaryFallback(
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
       const res = await fetch(
-        `/api/authority-manager/health-savings-summary?months=${months}`,
+        `/api/authority-manager/health-savings-summary?months=${months}&authorityId=${encodeURIComponent(authorityId)}`,
         { headers: { Authorization: `Bearer ${idToken}` } },
       );
       if (!res.ok) return null;
@@ -111,7 +111,7 @@ async function fetchWhoComplianceSummaryFallback(
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) return null;
       const res = await fetch(
-        `/api/authority-manager/who-compliance-summary?weeks=${weeks}`,
+        `/api/authority-manager/who-compliance-summary?weeks=${weeks}&authorityId=${encodeURIComponent(authorityId)}`,
         { headers: { Authorization: `Bearer ${idToken}` } },
       );
       if (!res.ok) return null;

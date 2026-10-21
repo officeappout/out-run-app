@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getAdminDb();
-    let authorityId: string | null = (await resolveAuthorityManagerScope(db, uid))?.authorityId ?? null;
+    let authorityId: string | null = (await resolveAuthorityManagerScope(db, uid, request.nextUrl.searchParams.get('authorityId')))?.authorityId ?? null;
     if (!authorityId) {
       const platform = await resolveAdminAnalyticsScope(uid);
       const requested = request.nextUrl.searchParams.get('authorityId');

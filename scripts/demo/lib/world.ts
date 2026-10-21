@@ -50,13 +50,13 @@ function tenantDocs(now: Date): DocWrite[] {
   const docs: DocWrite[] = [];
   const base = { isDemo: true, status: 'active', isActiveClient: false, pipelineStatus: 'demo', managerIds: [], contacts: [], activityLog: [], tasks: [], createdAt: now, updatedAt: now };
   for (const c of DEMO_CITIES) {
-    docs.push({ path: `authorities/${c.id}`, data: { ...base, name: c.name, type: 'city', location: c.center, userCount: PERSONAS.filter((p) => p.tenantId === c.id).length } });
+    docs.push({ path: `authorities/${c.id}`, data: { ...base, name: c.name, type: 'city', gatingMode: 'soft_launch', location: c.center, userCount: PERSONAS.filter((p) => p.tenantId === c.id).length } });
     for (const n of c.neighborhoods) {
       docs.push({ path: `authorities/${n.id}`, data: { ...base, name: n.name, type: 'neighborhood', parentAuthorityId: c.id, location: offset(c.center, n.offset[0], n.offset[1]), userCount: 0 } });
     }
   }
   for (const u of DEMO_UNITS) {
-    docs.push({ path: `authorities/${u.id}`, data: { ...base, name: u.name, type: 'military', tenantId: u.id, location: u.center, userCount: PERSONAS.filter((p) => p.tenantId === u.id).length } });
+    docs.push({ path: `authorities/${u.id}`, data: { ...base, name: u.name, type: 'military_unit', tenantType: 'military', tenantId: u.id, location: u.center, userCount: PERSONAS.filter((p) => p.tenantId === u.id).length } });
     docs.push({ path: `tenants/${u.id}`, data: { name: u.name, type: 'military', tenantType: 'military', isDemo: true, isReserve: u.reserve, createdAt: now, updatedAt: now } });
     for (const c of u.companies) {
       docs.push({ path: `tenants/${u.id}/units/${c.id}`, data: { name: c.name, memberCount: PERSONAS.filter((p) => p.subId === c.id).length, unitPath: [c.name], isDemo: true, createdAt: now } });
@@ -225,7 +225,7 @@ export function buildDemoWorld(opts: WorldOptions): DemoWorld {
     docs.push({ path: `users/${uid}`, data: userDoc(p, ctx, h, now) });
     docs.push({
       path: `streaks/${uid}`,
-      data: { userId: uid, currentStreak: h.streak.current, longestStreak: h.streak.longest, lastActivityDate: h.streak.lastActivityDate, authorityId: ctx.authorityId, ...(ctx.neighborhoodId ? { neighborhoodId: ctx.neighborhoodId } : {}), ageGroup: 'demo', isDemo: true, updatedAt: now },
+      data: { userId: uid, displayName: p.name, currentStreak: h.streak.current, longestStreak: h.streak.longest, lastActivityDate: h.streak.lastActivityDate, authorityId: ctx.authorityId, ...(ctx.neighborhoodId ? { neighborhoodId: ctx.neighborhoodId } : {}), ageGroup: 'demo', isDemo: true, updatedAt: now },
     });
     if (p.military && isUnit) {
       const u = t as DemoUnit;

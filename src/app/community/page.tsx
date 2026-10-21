@@ -34,6 +34,7 @@ import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { feedPrefsFrom, type FeedPrefs } from '@/features/social/services/feed-prefs';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
+import { useViewerArenaAccess } from '@/features/demo-viewer/useViewerArenaAccess';
 import { useMyMilitaryDeclaration } from '@/features/arena/hooks/useHasDeclaredReserveStatus';
 import { usePendingUnitSelfHeal } from '@/features/arena/hooks/usePendingUnitSelfHeal';
 import { useArenaData } from '@/features/arena/hooks/useArenaData';
@@ -76,7 +77,9 @@ export default function CommunityPage() {
   const feedPrefs: FeedPrefs = feedPrefsFrom((profile?.social as { feedPrefs?: unknown } | undefined)?.feedPrefs);
   const myDeclaration = useMyMilitaryDeclaration();
   usePendingUnitSelfHeal();
-  const access = useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId);
+  // Demo viewer (PR 5): this page only READS, so the owner's viewer account
+  // reads its demo home city / neighbourhood here. Everyone else: unchanged.
+  const access = useViewerArenaAccess(useArenaAccess(myDeclaration.isReserve, !!myDeclaration.orgId));
   const cityData = useArenaData(access.cityAuthorityId);
   const { events, groups, authority, isLeagueActive, isLoading: arenaLoading } = cityData;
   const searchParams = useSearchParams();

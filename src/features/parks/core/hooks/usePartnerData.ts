@@ -33,6 +33,8 @@ import type { ActivityType } from '../types/route.types';
 import { useIsForeground } from '@/lib/appForeground';
 import { IS_ADAPTIVE_SHED_ENABLED } from '@/config/feature-flags';
 import { subscribeToNearbyPresence, type RawPresenceDoc } from '@/lib/nearbyPresence.service';
+import { useDemoViewerPresence } from '@/features/demo-viewer/useDemoViewerPresence';
+import { keepLivePartner } from '@/features/demo-viewer/viewer-presence';
 import { useMapStore } from '../store/useMapStore';
 import { useUserStore } from '@/features/user';
 import { computeAgeGroup } from '@/lib/age';
@@ -265,6 +267,9 @@ export function usePartnerData(
   const [rawEventPartners, setRawEventPartners] = useState<any[]>([]);
   const [rawGroupPartners, setRawGroupPartners] = useState<any[]>([]);
   const [rawLive, setRawLive] = useState<any[]>([]);
+  // Demo viewer (PR 5): demo users out training right now (group-mode presence, which
+  // no real query returns). Empty — and never fetched — for everyone else.
+  const demoLive = useDemoViewerPresence();
   const [isLoading, setIsLoading] = useState(true);
   const myMode = usePrivacyStore((s) => s.mode);
   // SPEC-04 Wave A — required for the live-presence query below.
@@ -824,7 +829,7 @@ export function usePartnerData(
 
   // ── Filter + transform live ──
   const live = useMemo<LivePartner[]>(() => {
-    return rawLive
+    return (demoLive.length ? [...rawLive, ...demoLive] : rawLive)
       // INTENTIONALLY no `p.activity?.status` requirement here. The map
       // heartbeat in `usePresenceLayer.ts` writes presence WITHOUT an
       // `activity` block for users who just have the map open without a
@@ -885,9 +890,9 @@ export function usePartnerData(
               : undefined,
         } satisfies LivePartner;
       })
-      .filter((p) => !userPos || p.distanceKm <= radiusKm)
+      .filter((p) => keepLivePartner(p, radiusKm, !!userPos))
       .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [rawLive, userPos, radiusKm, currentUid]);
+  }, [rawLive, demoLive, userPos, radiusKm, currentUid]);
 
   return { scheduled, live, isLoading };
 }

@@ -5,6 +5,7 @@
  * Group ids carry the `demo-` prefix, so league scope stats count them as demo scopes.
  */
 import { tenantById, type DemoCity } from './config';
+import { offset } from './geo';
 import { PERSONAS, personaUid, type Persona } from './personas';
 import { intBetween, pick, rngFrom } from './rng';
 import type { DocWrite } from './history';
@@ -31,6 +32,35 @@ export const DEMO_GROUPS: DemoGroupDef[] = [
   { id: 'demo-grp-unit-b', name: 'דמו · כושר יחידה ב׳', description: 'אימוני הכושר של היחידה', category: 'other', groupType: 'military', tenantId: 'demo-unit-b', members: ['ub01', 'ub02', 'ub03'] },
   { id: 'demo-grp-reserve', name: 'דמו · מילואימניקים בכושר', description: 'שומרים על כושר בין הסבבים', category: 'running', groupType: 'military', tenantId: 'demo-reserve', members: ['rs01', 'rs02', 'rs03'] },
 ];
+
+/**
+ * Weekly meetups of the demo groups (PR 5, the viewer's "לא לבד" / partner finder need
+ * them — a group with no slot is never suggested). Military groups meet in the unit.
+ */
+export function demoGroupSlots(category: DemoGroupDef['category'], groupType: DemoGroupDef['groupType']) {
+  if (groupType === 'military') return [];
+  const at = (dayOfWeek: number, time: string, durationMinutes: number) => ({ dayOfWeek, time, frequency: 'weekly' as const, durationMinutes });
+  if (category === 'walking') return [at(0, '07:00', 45), at(2, '07:00', 45), at(4, '18:30', 45)];
+  if (category === 'running') return [at(1, '19:00', 60), at(3, '19:00', 60), at(5, '07:30', 75)];
+  return [at(0, '18:00', 50), at(3, '18:00', 50)];
+}
+
+/**
+ * Where a demo group meets: a city group at one of its demo neighbourhoods (an exact,
+ * fictional point near the real city — "לא לבד" / nearby groups only use exact points);
+ * a unit group stays city-precision (no distance is ever claimed from it).
+ */
+function meetingPointOf(g: DemoGroupDef, city: DemoCity | null, centre: { lat: number; lng: number }, tenantName: string) {
+  if (!city || !city.neighborhoods.length || g.groupType === 'military') return { address: tenantName, location: centre, precision: 'city' as const };
+  const n = city.neighborhoods[Math.abs(hashOf(g.id)) % city.neighborhoods.length];
+  return { address: n.name, location: offset(centre, n.offset[0], n.offset[1]), precision: 'exact' as const };
+}
+
+function hashOf(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
 
 export const DEMO_DMS: Array<[string, string]> = [
   ['tlv01', 'tlv06'],
@@ -106,14 +136,14 @@ export function buildSocial(now: Date): DocWrite[] {
         allowJoinRequests: false,
         ageRestriction: 'adult',
         schedule: null,
-        scheduleSlots: [],
-        meetingLocation: { address: tenant.kind === 'city' ? (tenant as DemoCity).name : tenant.name, location: centre, precision: 'city' },
+        scheduleSlots: demoGroupSlots(g.category, g.groupType),
+        meetingLocation: meetingPointOf(g, tenant.kind === 'city' ? (tenant as DemoCity) : null, centre, tenant.name),
         rules: null,
         images: [],
         source: 'user',
         isOfficial: false,
         isLocked: false,
-        hasMeetups: false,
+        hasMeetups: demoGroupSlots(g.category, g.groupType).length > 0,
         currentParticipants: members.length,
         memberCount: members.length,
         minimumMembers: 1,
