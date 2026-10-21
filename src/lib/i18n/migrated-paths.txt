@@ -241,7 +241,7 @@ src/features/workout-engine/components/StrengthOverviewCard.tsx
 # list in the PR. Marked i18n-allow-hebrew: month names (wave 3), city coordinates + the Firestore fallback member name,
 # TodayActivityCard's prefix regex, getGenderedCtaText's rotating gender bank (manual), the trio carousel behind
 # HOME_ANCHOR_V2_ENABLED = true (unreachable). program-start-copy.ts keeps its Hebrew constants (read from the catalog)
-# for home/page.tsx + AddTrackCard (busy).
+# for home/page.tsx + AddTrackCard (busy) + AddRunningProgramCard (dead, dead-files.txt — left untouched).
 src/features/home/components/AddStrengthProgramCard.tsx
 src/features/home/components/ConnectStepsCard.tsx
 src/features/home/components/DoneTodayCard.tsx
@@ -257,7 +257,6 @@ src/features/home/components/calendar/MonthlyCalendarGrid.tsx
 src/features/home/components/rows/ConsistencyWidget.tsx
 src/features/home/components/rows/ProgramProgressRow.tsx
 src/features/home/components/settings/MyPersonasSection.tsx
-src/features/home/components/start-cards/AddRunningProgramCard.tsx
 src/features/home/components/start-cards/ProgramStartCarousel.tsx
 src/features/home/components/start-cards/ProgramStartSlide.tsx
 src/features/home/components/start-cards/program-start-copy.ts
