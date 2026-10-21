@@ -3,7 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { INTRO_IMG, type BarrierStory } from '../intro-copy';
-import { SAD, STORY_S, THINK, happyTrack, trackProps } from '../story-timeline';
+import { trackProps, type Track } from '../story-timeline';
+import type { StoryTracks } from '../story-schedule';
 import { cy } from './IntroCanvas';
 
 const DEEP = '#007399';
@@ -11,25 +12,27 @@ const HAPPY = 124;
 
 export interface StoryCharacterProps {
   story: BarrierStory;
+  tracks: StoryTracks;
   reduce: boolean;
   delay: number;
 }
 
 /**
  * The story's person (enable_entry_intro_v1): the sad version, big, with the
- * name + age and a thought bubble → crossfades to the happy version, which then
- * shrinks into the bottom corner (their side). Canvas coordinates, per the mockup.
+ * name + age and a thought bubble (held long enough to read) → fades as the
+ * phone grows → the happy version settles into the bottom corner (their side)
+ * once the push was tapped. Canvas coordinates, per the mockup.
  */
-export function StoryCharacter({ story, reduce, delay }: StoryCharacterProps) {
+export function StoryCharacter({ story, tracks, reduce, delay }: StoryCharacterProps) {
   const left = story.side === 'left';
-  const t = (track: Parameters<typeof trackProps>[0]) => trackProps(track, STORY_S, { reduce, delay });
+  const t = (track: Track) => trackProps(track, tracks.total, { reduce, delay });
 
   return (
     <>
       <motion.div
         className="absolute z-10 flex h-[300px] w-[300px] justify-center"
         style={{ left: left ? -30 : 90, top: cy(388) }}
-        {...t(SAD)}
+        {...t(tracks.sad)}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -43,7 +46,7 @@ export function StoryCharacter({ story, reduce, delay }: StoryCharacterProps) {
       <motion.div
         className="absolute z-10 w-[140px] text-center text-[14px] font-bold"
         style={{ left: left ? 50 : 170, top: cy(692), color: DEEP }}
-        {...t(SAD)}
+        {...t(tracks.sad)}
       >
         {story.person}
       </motion.div>
@@ -56,7 +59,7 @@ export function StoryCharacter({ story, reduce, delay }: StoryCharacterProps) {
           boxShadow: '0 10px 26px rgba(9,20,50,0.14)',
           transformOrigin: left ? 'right bottom' : 'left bottom',
         }}
-        {...t(THINK)}
+        {...t(tracks.think)}
       >
         {story.thought}
         <span
@@ -80,7 +83,7 @@ export function StoryCharacter({ story, reduce, delay }: StoryCharacterProps) {
           width: HAPPY,
           height: HAPPY,
         }}
-        {...t(happyTrack(story.side))}
+        {...t(tracks.happy)}
       />
     </>
   );

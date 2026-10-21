@@ -17,6 +17,12 @@ export interface IntroLandingProps {
  * of the word; the existing quick-signup CTA and the underlined login link (both
  * handlers are the landing page's own). Light on purpose — first paint: one
  * image, no map, no globe.
+ *
+ * Owner note 21.10 #1 ("droopy, doesn't fit, must never scroll"): it used to sit
+ * `absolute` inside the landing's min-h-[100dvh] box, which itself sits inside
+ * <main>'s safe-area paddings — so the page was 100dvh + both insets tall and
+ * scrolled/sagged. It is now pinned to the visible viewport (fixed inset-0), owns
+ * its safe areas once, and its type / CTA scale with the phone's height.
  */
 export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
   const reduce = !!useReducedMotion();
@@ -24,7 +30,7 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
     tween({ opacity: 0, y: 12 }, { opacity: 1, y: 0 }, { duration: 0.7, ease: EASE_CSS, delay }, reduce);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white text-v2-ink" dir="rtl">
+    <div className="fixed inset-0 overflow-hidden overscroll-none bg-white text-v2-ink" dir="rtl">
       <motion.div
         className="absolute inset-0"
         initial={reduce ? false : { opacity: 0 }}
@@ -52,28 +58,28 @@ export function IntroLanding({ onQuickSignup, onLogin }: IntroLandingProps) {
 
       <motion.div
         className="relative flex flex-col items-center gap-2.5 px-[26px] text-center"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 18px)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + clamp(8px, 2.2dvh, 18px))' }}
         {...up(0.5)}
       >
-        <h1 className="m-0 flex flex-wrap items-center justify-center gap-1 text-[32px] font-bold leading-10 !tracking-[-0.02em]">
+        <h1 className="m-0 flex flex-wrap items-center justify-center gap-1 text-[clamp(26px,4.2dvh,32px)] font-bold leading-[1.25] !tracking-[-0.02em]">
           <span>{LANDING_COPY.titlePre}</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${INTRO_IMG}/logo-out.svg`} alt="OUT" className="mt-0.5 h-[34px] w-auto" />
+          <img src={`${INTRO_IMG}/logo-out.svg`} alt="OUT" className="mt-0.5 h-[clamp(28px,4.4dvh,34px)] w-auto" />
         </h1>
-        <p className="m-0 max-w-[16rem] text-[17px] font-semibold leading-[25px] text-slate-700">
+        <p className="m-0 max-w-[16rem] text-[clamp(15px,2.2dvh,17px)] font-semibold leading-[1.45] text-slate-700">
           {LANDING_COPY.sub}
         </p>
       </motion.div>
 
       <motion.div
-        className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-3.5 px-6"
-        style={{ paddingBottom: 'max(34px, env(safe-area-inset-bottom, 0px))' }}
+        className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-[clamp(6px,1.6dvh,14px)] px-6"
+        style={{ paddingBottom: 'max(clamp(16px, 4dvh, 34px), env(safe-area-inset-bottom, 0px))' }}
         {...up(1)}
       >
         <BrandCtaButton
           whileTap={{ scale: 0.97 }}
           onClick={onQuickSignup}
-          className="h-14 w-full max-w-md text-[17px] !font-bold text-v2-on-cta"
+          className="h-[clamp(48px,6.6dvh,56px)] w-full max-w-md text-[17px] !font-bold text-v2-on-cta"
           style={{ fontFamily: 'var(--font-simpler)' }}
         >
           {LANDING_COPY.cta}

@@ -72,6 +72,8 @@ import { RadarPulse } from './UnifiedLocation/sub-components/RadarPulse';
 // enable_entry_globe_v1 — the entry flow's new presentation (explorer quick-signup only)
 import { EntryGlobeLayer } from './UnifiedLocation/entry-globe/EntryGlobeLayer';
 import { DragHintChip } from './UnifiedLocation/entry-globe/DragHintChip';
+import { awaitLocationAnswer, diveStartFor } from './UnifiedLocation/entry-globe/dive-gate';
+import { markGlobeIntroSeen } from '@/features/parks/core/hooks/entry-camera';
 
 // ── Dynamic Mapbox Imports (avoid SSR) ───────────────────
 // MapboxMap uses a forwardRef wrapper so next/dynamic correctly passes ref={mapRef}
@@ -574,8 +576,8 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     }
   };
 
-  const handleFindLocationV2 = async () => {
-    const session = ++gpsSessionRef.current;
+  const handleFindLocationV2 = async (opts?: { session?: number; onFirstFix?: () => void }) => {
+    const session = opts?.session ?? ++gpsSessionRef.current;
     userTookOverRef.current = false;
     setStage(LocationStage.LOCATING);
     setLocationError(null);
@@ -603,6 +605,7 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
       ? useGPSStore.getState().requestFix(PRECISE_REFINE_OPTIONS)
       : null;
 
+    opts?.onFirstFix?.();
     setShowRadar(true);
     setTimeout(() => setShowRadar(false), 3000);
     setStage(LocationStage.CONFIRMING);
@@ -630,9 +633,34 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
     await runGpsLookupsV2(refined.coords!.lat, refined.coords!.lng);
   };
 
+  /**
+   * enable_entry_globe_v1 — ask, wait for the answer, THEN dive (owner note 21.10 #5:
+   * the dive used to start under the OS prompt and the user missed it). See dive-gate.ts.
+   */
+  const handleFindLocationEntryGlobe = async () => {
+    const session = ++gpsSessionRef.current;
+    userTookOverRef.current = false;
+    setStage(LocationStage.LOCATING);
+    setLocationError(null);
+    const answer = await awaitLocationAnswer(() => useGPSStore.getState().requestLocationPermission());
+    // "search manually" while the dialog was up — drop it.
+    if (gpsSessionRef.current !== session) return;
+    const start = diveStartFor(answer);
+    if (start === 'never') {
+      setLocationError('לא הצלחנו לאתר את המיקום שלך. נסה שוב או חפש ידנית.');
+      setStage(LocationStage.INITIAL);
+      return;
+    }
+    if (start === 'now') setGlobeDive('dive');
+    return handleFindLocationV2({
+      session,
+      onFirstFix: start === 'after-fix' ? () => setGlobeDive('dive') : undefined,
+    });
+  };
+
   const handleFindLocation = async () => {
     if (fastLocate) {
-      if (entryGlobe) setGlobeDive('dive');
+      if (entryGlobe) return handleFindLocationEntryGlobe();
       return handleFindLocationV2();
     }
 
@@ -1341,7 +1369,13 @@ function UnifiedLocationStep({ onNext, mode = 'onboarding', onExplorerDismiss, p
           globePhase={globeDive === 'dive' ? 'dive' : 'rest'}
           diving={entryDiving}
           diveTarget={entryDiving ? userLocation : null}
-          onDiveArrived={() => setGlobeDive('arrived')}
+          onDiveArrived={() => {
+            setGlobeDive('arrived');
+            // One owner of the camera at a time: this dive IS the first-entry flight, so
+            // the map's own globe→street intro (AppMap 'globe_intro', enable_home_v2)
+            // must not play a second dive on /map right after.
+            markGlobeIntroSeen();
+          }}
           locationError={locationError}
           onFindLocation={handleFindLocation}
           onSearchManually={handleSearchManually}

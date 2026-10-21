@@ -11,7 +11,7 @@
  * check) to prevent hydration errors from browser-only APIs.
  */
 
-import React, { Suspense, useState, useEffect, lazy } from 'react';
+import React, { Suspense, useState, useEffect, useLayoutEffect, lazy } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { syncLocationToFirestore, getUserFromFirestore } from '@/lib/firestore.service';
@@ -33,7 +33,13 @@ const UnifiedLocationStep = lazy(
   () => import('@/features/user/onboarding/components/steps/UnifiedLocationStep')
 );
 
-function LoadingPlaceholder() {
+// Runs before paint on the client (no SSR warning on the server render).
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+function LoadingPlaceholder({ plain = false }: { plain?: boolean }) {
+  // Arriving from /intro: the ring-close overlay owns the screen — a blank frame of
+  // the overlay's own colour, never the pulsing "OUT" text flashing in between.
+  if (plain) return <div className="fixed inset-0 bg-[#f8fafc]" />;
   return (
     <div className="fixed inset-0 bg-[#F8FAFC] flex items-center justify-center">
       <div className="text-4xl font-black text-[#5BC2F2] animate-pulse tracking-widest">
@@ -66,7 +72,9 @@ export default function ExplorerPage() {
   // Arrived from /intro (also its flag-independent ?preview=1): keep the logo slot
   // for this visit so the overlay's logo has somewhere to land.
   const [fromIntro, setFromIntro] = useState(false);
-  useEffect(() => {
+  // Layout effect: decided before the first paint, so the hop from /intro never
+  // shows a frame of the placeholder before the overlay (owner note 21.10 #4).
+  useIsoLayoutEffect(() => {
     const arriving = consumeIntroArrival(window.sessionStorage);
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (arriving) setFromIntro(true);
@@ -116,11 +124,11 @@ export default function ExplorerPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (!mounted) return <><LoadingPlaceholder />{ringCloseOverlay}</>;
+  if (!mounted) return <><LoadingPlaceholder plain={fromIntro} />{ringCloseOverlay}</>;
 
   return (
     <>
-    <Suspense fallback={<LoadingPlaceholder />}>
+    <Suspense fallback={<LoadingPlaceholder plain={fromIntro} />}>
       <UnifiedLocationStep
         mode="explorer"
         entryGlobe={entryGlobe}

@@ -4,6 +4,7 @@ import React from 'react';
 import BrandCtaButton from '@/components/ui/BrandCtaButton';
 import { INTRO_UI } from '../intro-copy';
 import { IntroCanvas } from './IntroCanvas';
+import { INTRO_BAR_CSS } from '../canvas-fit';
 
 export interface IntroShellProps {
   cta: string;
@@ -18,11 +19,18 @@ export interface IntroShellProps {
  * The frame every intro screen shares (enable_entry_intro_v1): white page, the
  * soft brand-gradient blob at the top, the scaled canvas, and the bottom bar with
  * the pill CTA over a white fade. The CTA is always live — the story can be
- * skipped ahead at any moment.
+ * skipped ahead at any moment. Pinned to the visible viewport (fixed inset-0,
+ * overflow hidden, safe areas on both ends); the bar shrinks on short phones
+ * (height-based clamp) and the canvas scales into the space above it, so no
+ * intro screen ever scrolls.
  */
 export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
   return (
-    <div className="fixed inset-0 isolate overflow-hidden bg-white text-v2-ink" dir="rtl">
+    <div
+      className="fixed inset-0 isolate overflow-hidden overscroll-none bg-white text-v2-ink"
+      dir="rtl"
+      style={{ ['--intro-bar' as string]: INTRO_BAR_CSS }}
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute -inset-x-[60px] -top-[140px] h-[440px] rounded-b-[50%] bg-v2-cta opacity-[0.13]"
@@ -43,15 +51,15 @@ export function IntroShell({ cta, onCta, onSkip, children }: IntroShellProps) {
       <div
         className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center justify-end px-6"
         style={{
-          height: 'calc(150px + env(safe-area-inset-bottom, 0px))',
-          paddingBottom: 'max(30px, env(safe-area-inset-bottom, 0px))',
+          height: 'var(--intro-bar)',
+          paddingBottom: 'max(clamp(14px, 3.6dvh, 30px), env(safe-area-inset-bottom, 0px))',
           background: 'linear-gradient(rgba(255,255,255,0), #ffffff 42%)',
         }}
       >
         <BrandCtaButton
           onClick={onCta}
           whileTap={{ scale: 0.97 }}
-          className="h-[54px] w-full max-w-md text-[17px] !font-bold text-v2-on-cta"
+          className="h-[clamp(48px,6.6dvh,54px)] w-full max-w-md text-[17px] !font-bold text-v2-on-cta"
         >
           {cta}
         </BrandCtaButton>

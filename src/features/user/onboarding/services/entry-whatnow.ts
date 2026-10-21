@@ -174,3 +174,40 @@ export function whatNowMiniMapUrl(
   const c = `${center.lng.toFixed(5)},${center.lat.toFixed(5)}`;
   return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${c},14.5,0/700x192@2x?access_token=${token}&language=he&attribution=false&logo=false`;
 }
+
+// ── After the answer: which tutorial covers each choice (owner note 21.10 #6) ──────────────
+//   route          → the route tour (RouteFirstTour) on the "מה עושים היום?" carousel
+//   browse/dismiss → the map's own first-run tour, right away (the entry landing is a
+//                    `fromExplorer` deep link, which otherwise keeps that tour off this visit)
+//   plan           → /home: the 'plan' tour points at the start cards, and the home's
+//                    WelcomeDrawer does NOT ask "what first?" a second time on this visit
+//   kelly          → the chat's own ready chips (WHATNOW_KELLY_CHIPS)
+
+/** The map's first-run tour should start once the drawer closes with this answer. */
+export function mapTourAfterWhatNow(answer: WhatNowAnswer | null | undefined): boolean {
+  return answer === 'browse' || answer === 'dismiss';
+}
+
+/** sessionStorage — "1" while the hop map → /home after "תוכנית" is in flight. */
+export const WHATNOW_PLAN_ARRIVAL_KEY = 'entry_whatnow_plan_arrival';
+
+type KeyValueStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export function markWhatNowPlanArrival(storage: KeyValueStorage | null | undefined): void {
+  try {
+    storage?.setItem(WHATNOW_PLAN_ARRIVAL_KEY, '1');
+  } catch {
+    /* private mode — the home simply behaves as on any visit */
+  }
+}
+
+/** True once for the /home visit that follows "תוכנית"; clears the hint. */
+export function consumeWhatNowPlanArrival(storage: KeyValueStorage | null | undefined): boolean {
+  try {
+    const v = storage?.getItem(WHATNOW_PLAN_ARRIVAL_KEY) === '1';
+    storage?.removeItem(WHATNOW_PLAN_ARRIVAL_KEY);
+    return v;
+  } catch {
+    return false;
+  }
+}

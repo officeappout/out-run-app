@@ -3,7 +3,10 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import {
   chooseWhatNowCards,
+  consumeWhatNowPlanArrival,
   firstWorkoutNote,
+  mapTourAfterWhatNow,
+  markWhatNowPlanArrival,
   FIRST_WORKOUT_NOTE,
   isNearParkOrRoute,
   routeSuggestionFromSlots,
@@ -147,18 +150,46 @@ describe('mini map', () => {
 });
 
 describe('first-route tutorial + player tip (extends first-run-tour, no fork)', () => {
-  it('route tour: 3 steps — swipe on the card, the strength stop (may centre), ring on start', () => {
+  it('route tour: 3 anchored steps — swipe on the card, the strength stop, ring on start', () => {
     const steps = firstRunTourSteps('route', null);
     expect(steps.map((s) => s.target)).toEqual([FIRST_RUN_COACH.routeCard, FIRST_RUN_COACH.routeStop, FIRST_RUN_COACH.routeStart]);
     expect(steps[0].finger).toBe('swipe');
-    expect(steps[1].allowCentered).toBe(true);
+    // owner note 21.10 #6: every step points at the real element — no centred bubble over the map
+    expect(steps.every((s) => !s.allowCentered)).toBe(true);
     expect(steps[2].ring).toBe(true);
   });
-  it('dark bubble, "{i} מתוך 3" / "טיפ אחד"; the original tours keep their chrome', () => {
-    expect(firstRunTourChrome('route')?.counterLabel(0, 3)).toBe('1 מתוך 3');
-    expect(firstRunTourChrome('route-player')?.counterLabel(0, 1)).toBe('טיפ אחד');
-    expect(firstRunTourChrome('route')?.variant).toBe('dark');
-    for (const t of ['home', 'map', 'community', 'player'] as const) expect(firstRunTourChrome(t)).toBeUndefined();
+  it('one idea per step: a short title + one line', () => {
+    for (const tour of ['route', 'route-player', 'plan'] as const) {
+      for (const st of firstRunTourSteps(tour, 'female')) {
+        expect(st.title && st.title.length).toBeGreaterThan(2);
+        expect(st.title!.length).toBeLessThanOrEqual(16);
+        expect(st.text.length).toBeLessThanOrEqual(80);
+        expect(st.text).not.toContain('\n');
+      }
+    }
+  });
+  it('the first-launch tours use the v2 entry bubble; in-workout / community keep their chrome', () => {
+    for (const t of ['route', 'route-player', 'plan', 'home', 'map'] as const) expect(firstRunTourChrome(t)?.variant).toBe('entry');
+    for (const t of ['community', 'player'] as const) expect(firstRunTourChrome(t)).toBeUndefined();
+  });
+  it('every "what now" answer has its guidance', () => {
+    expect(mapTourAfterWhatNow('browse')).toBe(true);
+    expect(mapTourAfterWhatNow('dismiss')).toBe(true);
+    for (const a of ['route', 'plan', 'kelly'] as const) expect(mapTourAfterWhatNow(a)).toBe(false);
+    expect(firstRunTourSteps('plan', 'male').map((s) => s.target)).toEqual([FIRST_RUN_COACH.homeWorkout]);
+    expect(starterChipsFor('entry')).toEqual(WHATNOW_KELLY_CHIPS);
+  });
+  it('"תוכנית" → /home: a one-shot hint that suppresses the second "what first?" drawer', () => {
+    const m = new Map<string, string>();
+    const kv = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); }, removeItem: (k: string) => { m.delete(k); } };
+    expect(consumeWhatNowPlanArrival(kv)).toBe(false);
+    markWhatNowPlanArrival(kv);
+    expect(consumeWhatNowPlanArrival(kv)).toBe(true);
+    expect(consumeWhatNowPlanArrival(kv)).toBe(false);
+    expect(consumeWhatNowPlanArrival(null)).toBe(false);
+    const home = src('../../../../../app/home/page.tsx');
+    expect(home).toContain("kind === 'new' && !whatNowPlanArrival");
+    expect(home).toContain('tour="plan"');
   });
   it('player tip: one step on the controls', () => {
     expect(firstRunTourSteps('route-player', null).map((s) => s.target)).toEqual([FIRST_RUN_COACH.routePlayerControls]);

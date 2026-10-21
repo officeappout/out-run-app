@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { fitCanvasScale } from '../canvas-fit';
 
 /**
  * The story screens are laid out on the owner's 390-wide canvas (the mockups'
  * own coordinates, minus the 44 px status-bar strip). This box sits under the
- * safe area and scales that canvas to fit the phone — so the ring, the phone and
- * the characters keep the approved composition on every screen size.
+ * safe area and ABOVE the CTA bar (IntroShell's --intro-bar), and scales the
+ * canvas so its content zone (everything above the mockup's CTA band) fits —
+ * the ring, the phone and the characters keep the approved composition on every
+ * phone, from a 640 px Android / iPhone SE to a Pro Max, and nothing ever
+ * scrolls (owner note 21.10 #1). The canvas' last 150 units run on under the
+ * bar's white fade, exactly as in the mockup.
  */
 export const CANVAS_W = 390;
 export const CANVAS_H = 800;
 /** Mockup y of the canvas top (the mockups start under a 44 px status bar). */
 export const CANVAS_Y0 = 44;
-const MAX_SCALE = 1.12;
 
 export function IntroCanvas({ children }: { children: React.ReactNode }) {
   const outer = useRef<HTMLDivElement>(null);
@@ -22,7 +26,7 @@ export function IntroCanvas({ children }: { children: React.ReactNode }) {
     const el = outer.current;
     if (!el) return;
     const fit = () => {
-      const s = Math.min(el.clientWidth / CANVAS_W, el.clientHeight / CANVAS_H, MAX_SCALE);
+      const s = fitCanvasScale(el.clientWidth, el.clientHeight);
       if (s > 0) setScale(s);
     };
     fit();
@@ -34,8 +38,8 @@ export function IntroCanvas({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={outer}
-      className="absolute inset-x-0 bottom-0"
-      style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      className="absolute inset-x-0"
+      style={{ top: 'env(safe-area-inset-top, 0px)', bottom: 'var(--intro-bar, 0px)' }}
     >
       <div
         data-intro-canvas=""

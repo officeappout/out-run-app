@@ -797,7 +797,9 @@ export default function LandingPage() {
         )}
       </AnimatePresence>
     
-    <div className="min-h-[100dvh] bg-white relative overflow-hidden flex flex-col">
+    {/* enable_entry_intro_v1: pinned to the visible viewport — never taller than the
+        phone, so the landing can't scroll inside <main>'s safe-area paddings. */}
+    <div className={introOn ? 'fixed inset-0 overflow-hidden overscroll-none bg-white' : 'min-h-[100dvh] bg-white relative overflow-hidden flex flex-col'}>
       {introOn ? (
         <IntroLanding onQuickSignup={handleQuickSignup} onLogin={handleLoginOpen} />
       ) : (

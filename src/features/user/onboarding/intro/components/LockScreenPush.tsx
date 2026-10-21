@@ -3,11 +3,13 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { INTRO_UI } from '../intro-copy';
-import { LOCK, PUSH, STORY_S, TAP, trackProps } from '../story-timeline';
+import { trackProps, type Track } from '../story-timeline';
+import type { StoryTracks } from '../story-schedule';
 
 export interface LockScreenPushProps {
   clock: string;
   push: string;
+  tracks: Pick<StoryTracks, 'total' | 'push' | 'tap' | 'lock'>;
   reduce: boolean;
   /** Seconds to wait before the story starts (the ring hand-off). */
   delay: number;
@@ -27,19 +29,19 @@ function lockDate(): string {
  * clock, the OUT push sliding in, a finger tapping it — then the whole lock
  * screen fades away to the app screen underneath.
  */
-export function LockScreenPush({ clock, push, reduce, delay }: LockScreenPushProps) {
+export function LockScreenPush({ clock, push, tracks, reduce, delay }: LockScreenPushProps) {
   const date = useMemo(lockDate, []);
-  const t = (track: Parameters<typeof trackProps>[0]) => trackProps(track, STORY_S, { reduce, delay });
+  const t = (track: Track) => trackProps(track, tracks.total, { reduce, delay });
 
   return (
     <motion.div
       className="absolute inset-0 z-20 flex flex-col items-center pt-11"
       style={{ background: 'linear-gradient(170deg, #1c4a5e 0%, #0f2c3a 55%, #0b1f2a 100%)' }}
-      {...t(LOCK)}
+      {...t(tracks.lock)}
     >
       <span className="text-[12px] text-white/80">{date}</span>
       <span className="text-[58px] font-semibold leading-[64px] text-white" dir="ltr">{clock}</span>
-      <motion.div className="mt-[22px] w-[216px]" {...t(PUSH)}>
+      <motion.div className="mt-[22px] w-[216px]" {...t(tracks.push)}>
         <div
           className="flex gap-2.5 rounded-[18px] border border-white/90 bg-white/[0.88] px-[13px] py-[11px] text-right backdrop-blur-[14px] backdrop-saturate-[1.8]"
           style={{ boxShadow: '0 16px 36px -14px rgba(9,20,50,0.4), 0 0 0 1px rgba(14,27,42,0.05)' }}
@@ -63,7 +65,7 @@ export function LockScreenPush({ clock, push, reduce, delay }: LockScreenPushPro
         aria-hidden
         className="absolute h-[34px] w-[34px] rounded-full bg-white/50"
         style={{ left: 110, top: 186, boxShadow: '0 0 0 7px rgba(255,255,255,0.18)' }}
-        {...t(TAP)}
+        {...t(tracks.tap)}
       />
     </motion.div>
   );
