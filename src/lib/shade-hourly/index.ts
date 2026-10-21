@@ -49,3 +49,7 @@ export type { ShadeSource, SourceKind, SourceLicenceStatus } from './sources';
 export { splitLine, pieceId, isWalkableHighway, WALKABLE_HIGHWAYS, MAX_PIECE_M } from './segments';
 export { crownRing, crownRadiusFromTags, pointsAlong, DEFAULT_CROWN_RADIUS_M, TREE_ROW_SPACING_M } from './crowns';
 export { pearson, spearman, ranks, quantile } from './stats';
+export { buildHourlyCity, hourShadeForLine, hourlyProfileSummary, HOURLY_MIN_COVERAGE, HOURLY_MATCH } from './route-hourly';
+export type { HourlyCity, HourShade, HourlyProfileSummary } from './route-hourly';
+export { createHourlyShadeLoader } from './loader';
+export type { HourlyShadeLoader, BytesFetcher } from './loader';

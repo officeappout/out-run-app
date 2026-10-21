@@ -12,6 +12,7 @@ import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, 
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
+import type { HourlyProfileSummary } from '../shade-hourly/route-hourly';
 
 type Doc = Record<string, any>;
 
@@ -98,6 +99,8 @@ export interface FromDocOptions {
   shadeShare?: number | null;
   /** Technion shade measurement (measureRouteShade); shadeShare is taken from it only when status is 'measured'. */
   shade?: RouteShade | null;
+  /** Hour-aware shade summary (hourlyProfileSummary), when the city has an hourly file. Informational. */
+  hourlyShade?: HourlyProfileSummary | null;
 }
 
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
@@ -179,5 +182,6 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     surfaceClass: classifySurface(activityType, surface),
     shadeShare: shade,
     shade: shadeMeasure,
+    ...(opts.hourlyShade ? { hourlyShade: opts.hourlyShade } : {}),
   };
 }

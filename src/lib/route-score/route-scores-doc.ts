@@ -12,6 +12,7 @@ import type { SelectionDecision } from './select';
 import type { SurfaceClass, SurfaceSource } from './surface-class';
 import type { CertificateVerdict, RouteScore, RouteScoreInput, ScoreBand, ScoreComponentKey, SourceTier } from './types';
 import type { RouteShadeStatus } from '../shade/route-shade';
+import type { HourlyProfileSummary } from '../shade-hourly/route-hourly';
 
 export const ROUTE_SCORES_COLLECTION = 'route_scores';
 
@@ -24,7 +25,8 @@ export interface RouteScoreDoc {
   score: number;
   confidence: number;
   band: ScoreBand;
-  components: Record<ScoreComponentKey, { points: number; max: number; coverage: number }>;
+  /** comfort may carry `hourlyShade` (RC7, informational; absent when not measured). */
+  components: Record<ScoreComponentKey, { points: number; max: number; coverage: number; hourlyShade?: HourlyProfileSummary }>;
   certificate: CertificateVerdict | null;
   sourceTier: SourceTier;
   /** Filter class for the app + the shares it came from (owner addition 21.10). */
@@ -51,7 +53,7 @@ export function buildRouteScoreDoc(
 ): RouteScoreDoc {
   const components = {} as RouteScoreDoc['components'];
   for (const [k, c] of Object.entries(score.components) as [ScoreComponentKey, RouteScore['components'][ScoreComponentKey]][]) {
-    components[k] = { points: c.points, max: c.max, coverage: Math.round(c.coverage * 100) / 100 };
+    components[k] = { points: c.points, max: c.max, coverage: Math.round(c.coverage * 100) / 100, ...(c.hourlyShade ? { hourlyShade: c.hourlyShade } : {}) };
   }
   return {
     routeId: input.id,

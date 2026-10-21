@@ -7,6 +7,9 @@
  *   loop + { preferShade: true, city }                 → "shadiest route" (enable_route_pref_shade):
  *     6 candidates re-ranked by Technion shade where the city has a layer;
  *     elsewhere the normal top-3, with `shade.reason` saying why.
+ *   loop + { timeAware: true, city, at? }              → time-aware preference (enable_route_time_aware):
+ *     hot sunny hour → 6 candidates ranked by the hourly shade at that hour; after dark → by lit
+ *     length share; otherwise (or without the city's layer) the normal top-3. `timeAware` says which.
  *
  * Auth: Firebase ID token in Authorization: Bearer <token> (any signed-in user).
  * Rate limit: RATE_LIMITS.routesGenerate per uid (fails open, like every limiter).
@@ -25,6 +28,11 @@ import { fetchOsmLayerForLoop } from '@/lib/routing/osm-layer-server';
 import { toLoopDto, toAbDto } from './dto';
 import { rankLoopsByShade, SHADE_PREF_POOL } from '@/lib/routing/shade-pref';
 import { getServerShadeLoader } from '@/lib/routing/shade-loader.server';
+import { rankLoopsByMeasure, timeAwareMode, TIME_AWARE_POOL, type TimeAwareDecision, type TimeAwareMeta } from '@/lib/routing/time-aware-pref';
+import { getServerHourlyShadeLoader, getServerLightingLoader } from '@/lib/routing/time-aware-loaders.server';
+import { hourShadeForLine, type HourlyCity } from '@/lib/shade-hourly/route-hourly';
+import { measureRouteLighting, type LitIndex } from '@/lib/lighting/route-lighting';
+import { technionCityForName } from '@/lib/shade/loader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +51,25 @@ function shadeIndexFor(city: string | undefined) {
     console.warn('[routes/generate] shade loader unavailable:', (e as Error)?.message);
     return Promise.resolve(null);
   }
+}
+
+type TimeAwareLayer = { kind: 'shade'; city: HourlyCity } | { kind: 'lit'; city: string; index: LitIndex };
+
+/** The layer the time-aware mode needs (cached per warm instance); null when the city has none. */
+async function timeAwareLayerFor(ta: TimeAwareDecision, city: string | undefined): Promise<TimeAwareLayer | null> {
+  try {
+    if (ta.mode === 'shade') {
+      const c = await getServerHourlyShadeLoader().cityForName(city ?? null);
+      return c ? { kind: 'shade', city: c } : null;
+    }
+    if (ta.mode === 'lit') {
+      const l = await getServerLightingLoader().indexForName(city ?? null);
+      return l ? { kind: 'lit', city: l.city, index: l.index } : null;
+    }
+  } catch (e) {
+    console.warn('[routes/generate] time-aware layer unavailable:', (e as Error)?.message);
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -77,9 +104,13 @@ export async function POST(req: NextRequest) {
     const osmP = fetchOsmLayerForLoop(req.nextUrl.origin, parsed.start, parsed.targetKm, OSM_WAIT_MS);
     // Shade layer loads while GraphHopper routes (cached per warm instance).
     const shadeP = parsed.preferShade ? shadeIndexFor(parsed.city) : null;
+    // Time-aware (enable_route_time_aware; the parser never sets it together with preferShade).
+    const ta = parsed.timeAware ? timeAwareMode(parsed.at ? new Date(parsed.at) : new Date(), parsed.start.lat, parsed.start.lng) : null;
+    const taRanks = !!ta && ta.mode !== 'neutral' && !!technionCityForName(parsed.city ?? null);
+    const taP = ta && taRanks ? timeAwareLayerFor(ta, parsed.city) : null;
     const out = await generateLoops(client, {
       start: parsed.start, targetKm: parsed.targetKm, activity: parsed.activity,
-      seed: parsed.seed ?? 0, maxResults: parsed.preferShade ? SHADE_PREF_POOL : parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
+      seed: parsed.seed ?? 0, maxResults: parsed.preferShade ? SHADE_PREF_POOL : taRanks ? TIME_AWARE_POOL : parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
       // Our mapped routes, sent by the app only with enable_loops_prefer_official on.
       ...(parsed.ourRoutes ? { ourRoutes: parsed.ourRoutes } : {}),
     }, osmP);
@@ -95,6 +126,28 @@ export async function POST(req: NextRequest) {
         loops: ranked.loops.map((l) => ({ ...toLoopDto(l), shadeShare: l.shadeShare })),
         calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm, shade: ranked.meta,
       };
+    } else if (ta) {
+      const n = parsed.maxResults ?? 3;
+      const meta = (applied: boolean, reason: TimeAwareMeta['reason'], city: string | null): TimeAwareMeta => ({
+        requested: true, mode: ta.mode, applied, reason, city, hour: ta.hour, sunElevationDeg: ta.sunElevationDeg,
+      });
+      const TIMEOUT = Symbol('timeout');
+      const layer = taP ? await Promise.race([taP, new Promise<typeof TIMEOUT>((r) => setTimeout(() => r(TIMEOUT), SHADE_WAIT_MS))]) : null;
+      const base = { backend: 'graphhopper' as const, calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm };
+      if (layer && layer !== TIMEOUT && layer.kind === 'shade' && ta.cell != null) {
+        const cell = ta.cell;
+        const r = rankLoopsByMeasure(out.loops, (l) => hourShadeForLine(layer.city, l.path, cell).shade, n);
+        body = { ...base, loops: r.loops.map((l) => ({ ...toLoopDto(l), hourShade: l.measure })), timeAware: meta(r.applied, r.applied ? 'applied' : 'not_measured', layer.city.city) };
+      } else if (layer && layer !== TIMEOUT && layer.kind === 'lit') {
+        const r = rankLoopsByMeasure(out.loops, (l) => {
+          const m = measureRouteLighting(l.path, layer.index);
+          return m.status === 'measured' ? m.litLengthShare : null;
+        }, n);
+        body = { ...base, loops: r.loops.map((l) => ({ ...toLoopDto(l), litShare: l.measure })), timeAware: meta(r.applied, r.applied ? 'applied' : 'not_measured', layer.city) };
+      } else {
+        const reason: TimeAwareMeta['reason'] = ta.mode === 'neutral' ? 'neutral' : layer === TIMEOUT ? 'timeout' : 'no_data';
+        body = { ...base, loops: out.loops.slice(0, n).map(toLoopDto), timeAware: meta(false, reason, null) };
+      }
     } else {
       body = { backend: 'graphhopper', loops: out.loops.map(toLoopDto), calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm };
     }

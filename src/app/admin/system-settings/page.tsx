@@ -65,6 +65,7 @@ interface FlagState {
   enable_graphhopper_routes: boolean;
   enable_loops_prefer_official: boolean;
   enable_route_pref_shade: boolean;
+  enable_route_time_aware: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
@@ -441,6 +442,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-green-700',
     title: 'אפשרות "המסלול המוצל ביותר"',
     description: 'שורה חדשה בהגדרות הנוספות של ריצה חופשית: "המסלול המוצל ביותר". השרת מבקש מ-GraphHopper 6 מסלולים ומדרג אותם לפי מפות הצל של הטכניון, ב-13 הערים שיש להן שכבה. בשאר הערים חוזרים 3 המסלולים הרגילים. מוצג רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. כבוי = כמו היום.',
+  },
+  // Time-aware route preference (RC7, 21.10.2026).
+  {
+    key: 'enable_route_time_aware',
+    icon: RouteIcon,
+    iconBg: 'bg-amber-50',
+    iconColor: 'text-amber-700',
+    title: 'מסלול לפי שעה: צל ביום, תאורה בלילה',
+    description: 'בשעות חמות ושמשיות (מאי עד אוקטובר, שמש גבוהה מ-25°) השרת מבקש 6 מסלולים ומדרג אותם לפי הצל בשעה הנוכחית. אחרי השקיעה הוא מדרג לפי רחובות מוארים. בשאר השעות, ובערים בלי שכבת צל לפי שעה או שכבת תאורה, חוזרים 3 המסלולים הרגילים. עובד רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. "המסלול המוצל ביותר", כשנבחר, גובר. כבוי = כמו היום.',
   },
   // Unified search (19.10.2026).
   {

@@ -34,6 +34,8 @@ import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, openTar
 import { readAllOfficialRoutes, readStreetSegmentSurfaces } from './lib/route-collections-read.node';
 import { createShadeLoader, measureRouteShade, type RouteShade, type ShadeLoader } from '../src/lib/shade';
 import { bucketShadeFetcher } from '../src/lib/shade/bucket-fetcher.node';
+import { createHourlyShadeLoader, hourlyProfileSummary, type HourlyShadeLoader } from '../src/lib/shade-hourly';
+import { bucketBytesFetcher } from '../src/lib/shade-hourly/bucket-fetcher.node';
 
 type Doc = Record<string, any>;
 interface RouteRow { id: string; data: Doc }
@@ -48,6 +50,8 @@ const OUT_DIR = flagValue(argv, 'out') ?? path.join('scripts', 'output', `route-
 const PAGE = 300;
 const NO_SURFACE_JOIN = argv.includes('--no-surface-join');
 const NO_SHADE = argv.includes('--no-shade');
+/** Hour-aware shade (RC7, shade/hourly/v1): informational field on the comfort component. */
+const NO_HOURLY_SHADE = argv.includes('--no-hourly-shade');
 
 interface ShadeCityStats { city: string; routes: number; measured: number; lowCoverage: number; noData: number; meanShadeShare: number | null; meanShadedPct: number | null; bandChanged: number; scoreDeltaMean: number }
 
@@ -139,10 +143,12 @@ async function main() {
   console.log(`Loaded ${data.routes.length} route(s); scoring ${live.length} non-archived in ${groups.size} authority/city group(s).`);
 
   let shadeLoader: ShadeLoader | null = null;
+  let hourlyLoader: HourlyShadeLoader | null = null;
   if (target && !NO_SHADE) {
     const { getStorage } = await import('firebase-admin/storage');
     const bucket = getStorage(target.app).bucket(`${target.projectId}.firebasestorage.app`);
     shadeLoader = createShadeLoader(bucketShadeFetcher(bucket as any), (s) => console.log(`  ${s}`));
+    if (!NO_HOURLY_SHADE) hourlyLoader = createHourlyShadeLoader(bucketBytesFetcher(bucket as any), (s) => console.log(`  ${s}`));
   }
   const shadeReport: ShadeCityStats[] = [];
 
@@ -174,6 +180,17 @@ async function main() {
     if (shadeCity) {
       shades = withSurface.map((r) => measureRouteShade(parsePath(r.data?.path), shadeCity.index));
       scoredRows = withSurface.map((r, k) => ({ ...r, opts: { ...(r.opts ?? {}), shade: shades[k] } }));
+    }
+    // Hour-aware shade: informational only (comfort.hourlyShade), so it never moves a score or band.
+    const hourlyCity = hourlyLoader ? await hourlyLoader.cityForName(meta?.name ?? rows[0]?.data?.city ?? null) : null;
+    if (hourlyCity) {
+      let n = 0;
+      scoredRows = scoredRows.map((r) => {
+        const h = hourlyProfileSummary(hourlyCity, parsePath(r.data?.path));
+        if (h) n++;
+        return h ? { ...r, opts: { ...(r.opts ?? {}), hourlyShade: h } } : r;
+      });
+      console.log(`  (hourly shade ${hourlyCity.city}: summary on ${n}/${scoredRows.length} routes)`);
     }
     const run = scoreAuthorityRoutes(authorityArg, scoredRows, now);
     if (shadeCity) {

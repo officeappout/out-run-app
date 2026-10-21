@@ -124,7 +124,7 @@ export function scoreComfort(i: RouteScoreInput): ComponentScore {
     pts += SHADE * clamp01(((i.shadeShare as number) - SHADE_SI_ZERO) / (SHADE_SI_FULL - SHADE_SI_ZERO));
     measured += SHADE;
   }
-  return { points: round1(pts), max, coverage: measured / max, notes };
+  return { points: round1(pts), max, coverage: measured / max, notes, ...(i.hourlyShade ? { hourlyShade: i.hourlyShade } : {}) };
 }
 
 /**

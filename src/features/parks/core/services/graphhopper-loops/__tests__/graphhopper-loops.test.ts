@@ -89,3 +89,25 @@ describe('tryGraphhopperLoops', () => {
     expect(loopDtoToRoute(dto({ ascendM: 400, distanceKm: 5 }), 0, 'cycling', 1).difficulty).toBe('hard');
   });
 });
+
+describe('timeAware (enable_route_time_aware)', () => {
+  const bodyOf = async (o: Partial<GhLoopOptions>) => {
+    const f = okFetch([dto()]);
+    await tryGraphhopperLoops(opts(o), deps(f));
+    return JSON.parse((f.mock.calls as unknown as Array<[string, RequestInit]>)[0][1].body as string);
+  };
+  it('on: the request carries timeAware + the city', async () => {
+    expect(await bodyOf({ timeAware: true, cityName: 'תל אביב-יפו' })).toMatchObject({ timeAware: true, city: 'תל אביב-יפו' });
+  });
+  it('off (live flag default false): no timeAware / city keys at all', async () => {
+    const b = await bodyOf({ cityName: 'תל אביב-יפו' });
+    expect(Object.prototype.hasOwnProperty.call(b, 'timeAware')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(b, 'city')).toBe(false);
+  });
+  it('"shadiest route" picked: preferShade only, never timeAware', async () => {
+    const b = await bodyOf({ timeAware: true, cityName: 'תל אביב-יפו', preferences: { includeStrength: false, maxRoutes: 3, preferShade: true } });
+    expect(b.preferShade).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(b, 'timeAware')).toBe(false);
+  });
+});
+

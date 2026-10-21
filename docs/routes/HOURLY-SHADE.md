@@ -75,3 +75,12 @@ npx tsx scripts/shade-hourly/build-city.ts --city tel-aviv --out <dir> \
 | באר שבע | OSM + 1,500 מתוך 29,856 עמודים (pending, דגימה ב-ITM, סקרצ'פד) | 1,745 | 137 (7.8%) | 127 (7.3%) | פנסים 71 ק"מ מ-5% מהעמודים |
 
 מלאי עיר ת"א עם קובץ OSM בלבד (dry-run, read-only): שכבת התאורה `lamp_proximity_merge`, כיסוי 23.7% (ההתאמה ב-buffer של 15 מ' "מעבירה" תשובה גם למדרכה מקבילה), 303 ק"מ מוארים.
+
+## שלב 4: העדפה לפי שעה (`enable_route_time_aware`, ברירת מחדל כבוי)
+
+- **הדגל:** `enable_route_time_aware` ב-`src/hooks/feature-flag-defs.ts` (default `false`, superAdminValue `false`) + כרטיס בהגדרות המערכת. **לא נכתב ל-Firestore.** כבוי = האפליקציה לא שולחת `timeAware`, והשרת מחזיר בדיוק את מה שהחזיר קודם (בדיקות: אין מפתחות `timeAware`/`city` בבקשה, אין `timeAware`/`hourShade`/`litShare` בתשובה, הטוענים לא נקראים).
+- **הכלל** (`src/lib/routing/time-aware-pref.ts`): מאי-אוקטובר והשמש מעל 25° ← `shade`: 6 מועמדים מדורגים לפי הצל **בשעה הנוכחית** (`shade/hourly/v1`). השמש מתחת לאופק ← `lit`: דירוג לפי `litLengthShare` (`lighting/v1`). אחרת `neutral`: 3 המסלולים הרגילים. מסלולים עוברים תמיד ראשונים, הפרש קטן מ-0.05 לא עוקף את סדר המחולל, ומסלול לא נמדד נשאר אחרי הנמדדים. "המסלול המוצל ביותר", כשנבחר, גובר.
+- **השרת:** `/api/routes/generate` מקבל `timeAware`, `city` ו-`at` אופציונלי (±24 שעות, ברירת מחדל: עכשיו). השכבה נטענת במקביל ל-GraphHopper, עם cache לכל instance חם (`src/lib/routing/time-aware-loaders.server.ts`). התשובה כוללת `timeAware: {mode, applied, reason, city, hour, sunElevationDeg}`, ולכל מסלול `hourShade` או `litShare`.
+- **route_scores:** `components.comfort.hourlyShade` אופציונלי (`{source, coverage, summerMean, julyByHour[14]}`), מידע בלבד, לא משנה נקודות, ציון או band. ה-backfill ממלא אותו כשקיים קובץ שעתי לעיר (`--no-hourly-shade` מדלג).
+- **טעינה קרה (ת"א):** gunzip + decode + אינדקס של 41,205 חתיכות לוקח 76ms, ותאורה 7ms. עם ההורדה מ-Storage הבקשה הראשונה עלולה לעבור את חלון ה-200ms ולחזור עם `reason: 'timeout'` (3 המסלולים הרגילים). מהבקשה הבאה ה-instance חם.
+- **דוגמה (ת"א, שדרות רוטשילד, 21 ביולי):** 08h 0.82 · 13h 0.21 · 17h 0.75. ב-21 בינואר ב-13h 0.86. ממוצע קיץ 0.48.
