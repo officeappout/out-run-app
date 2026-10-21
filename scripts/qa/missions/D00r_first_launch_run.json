@@ -1,0 +1,87 @@
+{
+  "id": "D00r_first_launch_run",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_fl_run",
+  "precondition": "map_only",
+  "firstLaunch": {
+    "continueAt": "/intro"
+  },
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "הדרך האמיתית מההתקנה עד תוכנית ריצה. מסך הפתיחה: בלי ציון, ובמקום 'הרשמה מהירה' — continue_signed_in. סיפורי הפתיחה: 'דלג'. מיקום: 'דמו · תל אביב'. מהמפה לבית, ובבית בחרי את כרטיס הריצה (לא כוח). שאלון ריצה: רמה בינונית, מטרה 5 ק\"מ, זמן או קצב בשדה עם מקלדת. הזרימה האמיתית של משתמשת חדשה: מסך הבחירה הישן ('גלו את המפה' / 'תוכנית כוח', /gateway) הוא לא חלק ממנה.",
+  "success": [
+    "נכנסתי לשאלון הריצה מהבית בלי לעבור ב-/gateway",
+    "כל מסכי הריצה שבצ'קליסט קיבלו ציון",
+    "הבית של רצה קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 40,
+    "maxMinutes": 20
+  },
+  "focusRules": [
+    "MOB-KEYBOARD",
+    "V2-SELECTED-TINT",
+    "V2-CTA-1",
+    "LAY-CUT-TEXT",
+    "RTL-ALIGN",
+    "HEALTH-ONCE"
+  ],
+  "checkpoints": [
+    {
+      "id": "fl_run_home_cards",
+      "path": "/home",
+      "screen": "כרטיסי ההתחלה בבית",
+      "how": "הבית של משתמשת חדשה: כרטיסי כוח + ריצה (או מגירת הפתיחה — סגרי אותה כדי לראות את הכרטיסים). ציון, ואז כרטיס הריצה."
+    },
+    {
+      "id": "fl_run_goal",
+      "screen": "מטרת ריצה",
+      "how": "השאלה הראשונה של שאלון הריצה (להתחיל לרוץ / לשפר זמן / לשמור כושר / הליכה)."
+    },
+    {
+      "id": "fl_run_pace_keyboard",
+      "keyboard": true,
+      "screen": "זמן או קצב עם מקלדת",
+      "how": "שדה זמן 5 ק\"מ או קצב — המקלדת פתוחה, השדה והכפתור גלויים."
+    },
+    {
+      "id": "fl_run_schedule",
+      "path": "/onboarding-new/running-schedule",
+      "screen": "ימי ריצה",
+      "how": "בחירת ימים ומספר ריצות בשבוע."
+    },
+    {
+      "id": "fl_run_identity_keyboard",
+      "keyboard": true,
+      "screen": "שם, מגדר ותאריך לידה",
+      "how": "נשאלים פעם אחת, לפני השמירה הראשונה. מקלדת פתוחה בשדה השם."
+    },
+    {
+      "id": "fl_run_health",
+      "screen": "הצהרת בריאות",
+      "how": "פעם אחת בלבד."
+    },
+    {
+      "id": "fl_run_summary",
+      "screen": "סיכום תוכנית הריצה",
+      "how": "המסך שמסכם את התוכנית לפני הבית."
+    },
+    {
+      "id": "fl_home_run",
+      "path": "/home",
+      "screen": "הבית של רצה חדשה",
+      "how": "הבית עם תוכנית ריצה, כרטיס הריצה של היום."
+    }
+  ]
+}

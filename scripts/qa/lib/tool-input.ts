@@ -16,6 +16,7 @@ export type ToolCall =
   | { name: 'drag'; from_x: number; from_y: number; to_x: number; to_y: number }
   | { name: 'back' }
   | { name: 'back_button' }
+  | { name: 'continue_signed_in' }
   | { name: 'background_app'; seconds: number }
   | { name: 'gps'; action: 'start' | 'lose_signal' | 'poor_accuracy'; seconds: number }
   | { name: 'network'; mode: 'online' | 'offline' }
@@ -57,6 +58,7 @@ export function parseToolCall(name: string, input: unknown, ruleIds: ReadonlySet
     case 'observe':
     case 'back':
     case 'back_button':
+    case 'continue_signed_in':
       return { ok: true, call: { name } };
     case 'tap': {
       const t = target(i);

@@ -1,0 +1,75 @@
+{
+  "id": "D00w_first_launch_walk",
+  "kind": "design-sweep",
+  "persona": "noa_designer",
+  "uid": "demo_qa_fl_walk",
+  "precondition": "map_only",
+  "firstLaunch": {
+    "continueAt": "/intro"
+  },
+  "device": "iphone-13",
+  "devices": [
+    "iphone-se",
+    "iphone-13",
+    "iphone-15-pro-max"
+  ],
+  "uidPerDevice": true,
+  "cohort": "v2",
+  "start": "/",
+  "goal": "הדרך האמיתית מההתקנה עד תוכנית הליכה. מסך הפתיחה: בלי ציון, ובמקום 'הרשמה מהירה' — continue_signed_in. סיפורי הפתיחה: 'דלג'. מיקום: 'דמו · תל אביב'. מהמפה לבית, בבית בחרי את כרטיס הריצה, ובשאלת המטרה בחרי 'הליכה' — משם שאלון ההליכה. מלאי כל שדה מספר עם מקלדת. הזרימה האמיתית של משתמשת חדשה: מסך הבחירה הישן ('גלו את המפה' / 'תוכנית כוח', /gateway) הוא לא חלק ממנה.",
+  "success": [
+    "הגעתי לשאלון ההליכה מהבית בלי לעבור ב-/gateway",
+    "כל מסכי ההליכה שבצ'קליסט קיבלו ציון",
+    "הבית של הולכת קיבל ציון"
+  ],
+  "forbidden": [
+    "/settings/privacy"
+  ],
+  "budget": {
+    "maxSteps": 32,
+    "maxMinutes": 16
+  },
+  "focusRules": [
+    "MOB-KEYBOARD",
+    "V2-SELECTED-TINT",
+    "V2-ACTIVITY-COLOR",
+    "V2-CTA-1",
+    "LAY-DENSITY"
+  ],
+  "checkpoints": [
+    {
+      "id": "fl_walk_home_cards",
+      "path": "/home",
+      "screen": "כרטיסי ההתחלה בבית",
+      "how": "הבית של משתמשת חדשה — אין כרטיס הליכה נפרד; ציון, ואז כרטיס הריצה."
+    },
+    {
+      "id": "fl_walk_choice",
+      "screen": "בחירת 'הליכה' בשאלת המטרה",
+      "how": "שאלת המטרה של שאלון הריצה — האפשרות 'הליכה'. האם ברור שהליכה נמצאת כאן?"
+    },
+    {
+      "id": "fl_walk_goal",
+      "path": "/onboarding-new/walking",
+      "screen": "מטרת הליכה",
+      "how": "שאלות המטרה (צעדים / זמן / בריאות)."
+    },
+    {
+      "id": "fl_walk_keyboard",
+      "keyboard": true,
+      "screen": "שדה מספר בהליכה",
+      "how": "שדה מספר (צעדים / דקות / גיל) עם מקלדת פתוחה."
+    },
+    {
+      "id": "fl_walk_days",
+      "screen": "ימי הליכה",
+      "how": "בחירת ימים ושעה."
+    },
+    {
+      "id": "fl_home_walk",
+      "path": "/home",
+      "screen": "הבית של הולכת חדשה",
+      "how": "הבית עם תוכנית הליכה וכרטיס הצעדים."
+    }
+  ]
+}

@@ -142,6 +142,12 @@ export const TOOLS: Tool[] = [
     },
   },
   {
+    name: 'continue_signed_in',
+    description:
+      'First-launch missions only, while you are signed out: you reached the point where the app would create your account (the quick-signup button, or it asks you to sign in). Do NOT tap that button — call this instead. The runner signs you in as a brand-new user and the app continues where the real signup goes.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
     name: 'end_mission',
     description: 'Finish: success, blocked (the app stopped you), or gave_up (too confusing). Summarise as the persona, in Hebrew.',
     input_schema: {

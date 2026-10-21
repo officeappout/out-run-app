@@ -27,6 +27,7 @@ import { RULE_IDS } from './checklist';
 import { EMPTY_LEARNING, isSuppressed, type Learning } from './owner/learning';
 import { ownerRuleIds, type OwnerRule } from './owner/owner-rules';
 import { backResultText, type BackOutcome } from './android-back';
+import { isLegacyGatewayHit } from './first-launch';
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
@@ -78,6 +79,25 @@ export interface SessionOptions {
   startedAt?: number;
   /** Shared across a crashed session's attempts. */
   scored?: Set<string>;
+  /** First-launch mission starting signed out (lib/first-launch.ts): the driver is already there. */
+  signedOut?: boolean;
+  /** The handoff (mint → sign in → continueAt). Returns a refusal reason, or null when signed in. */
+  handoff?: () => Promise<string | null>;
+}
+
+/** Account refusals that end the session (the guard read the wrong account on the page). */
+const ACCOUNT_BLOCKS = new Set(['not_signed_in_as_tester', 'signed_in_before_handoff']);
+
+/** The first message's note: where the tester is at the start of this attempt. */
+export function startNote(o: Pick<SessionOptions, 'stepOffset' | 'signedOut'>): string {
+  if (o.signedOut) {
+    return o.stepOffset
+      ? 'The browser was restarted after a crash: a fresh install again, you are NOT signed in. Continue from the first screen you have not scored yet; call continue_signed_in where the app would create your account.'
+      : 'Fresh install: the app was just opened for the first time and you are NOT signed in. Begin the mission; call continue_signed_in where the app would create your account.';
+  }
+  return o.stepOffset
+    ? 'The browser was restarted after a crash; you are signed in again. Continue the mission from the first screen you have not scored yet.'
+    : 'You are signed in and the app is open. Begin the mission.';
 }
 
 /** Log the process memory every this many steps (crash diagnosis on CI). */
@@ -134,16 +154,25 @@ async function runLoop(
   let lastStopPoll = 0;
   /** The screen id the tester last scored — findings without their own screen id go under it. */
   let currentScreen: string | null = null;
+  let signedOut = !!opts.signedOut;
+  let gatewayReported = false;
+  /** Once per session: a real-path mission landed on the legacy /gateway (P1, by the runner). */
+  const checkGateway = async (v: StepView) => {
+    if (gatewayReported || !isLegacyGatewayHit(mission, v.url)) return;
+    gatewayReported = true;
+    note(await recordGatewayFinding(deps, mission, persona, deviceId, v, step, driver));
+  };
   let view: StepView = await driver.view();
   captureShot(deps, mission, deviceId, view, step);
-  if (view.blocked === 'not_signed_in_as_tester') return { outcome: 'error', reason: 'not_signed_in_as_tester', summary: '', steps: step, newFindings: 0 };
+  if (view.blocked && ACCOUNT_BLOCKS.has(view.blocked)) return { outcome: 'error', reason: view.blocked, summary: '', steps: step, newFindings: 0 };
   note(await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen));
+  await checkGateway(view);
 
   const messages: MessageParam[] = [
     {
       role: 'user',
       content: [
-        { type: 'text', text: observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events: [], note: opts.stepOffset ? 'The browser was restarted after a crash; you are signed in again. Continue the mission from the first screen you have not scored yet.' : 'You are signed in and the app is open. Begin the mission.' }) },
+        { type: 'text', text: observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events: [], note: startNote({ stepOffset: opts.stepOffset, signedOut }) }) },
         imageBlock(view.png),
       ],
     },
@@ -209,6 +238,7 @@ async function runLoop(
     const results: ToolResult[] = [];
     let ended: { outcome: 'success' | 'blocked' | 'gave_up'; summary: string } | null = null;
     let needsView = false;
+    let handoffNote: string | null = null;
     const pendingBack: Array<{ outcome: BackOutcome; screen: string | null }> = [];
     for (const tu of toolUses) {
       const parsed = parseToolCall(tu.name, tu.input, ruleIds);
@@ -237,6 +267,23 @@ async function runLoop(
         const isNew = await recordModelFinding(deps, mission, persona, deviceId, view, step, driver, call, call.screen ?? currentScreen);
         if (isNew) note(1);
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: isNew ? 'recorded' : 'already recorded (counted)' });
+        continue;
+      }
+      if (call.name === 'continue_signed_in') {
+        if (!signedOut || !opts.handoff) {
+          results.push({ type: 'tool_result', tool_use_id: tu.id, is_error: true, content: 'You are already signed in — continue the mission.' });
+          continue;
+        }
+        const refused = await opts.handoff();
+        if (refused) {
+          deps.log(`handoff refused: ${refused}`);
+          return finish('error', `handoff_${refused}`);
+        }
+        signedOut = false;
+        deps.log('handoff: signed in as the tester, continuing the real flow');
+        handoffNote = 'You are now signed in as a brand-new user, exactly where the real quick signup continues. Go on with the mission.';
+        results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'signed in' });
+        needsView = true;
         continue;
       }
       if (call.name === 'back_button') {
@@ -269,12 +316,13 @@ async function runLoop(
     if (needsView || events.length) {
       view = await driver.view();
       captureShot(deps, mission, deviceId, view, step);
-      if (view.blocked === 'not_signed_in_as_tester') return finish('error', 'not_signed_in_as_tester');
+      if (view.blocked && ACCOUNT_BLOCKS.has(view.blocked)) return finish('error', view.blocked);
       note(await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen));
+      await checkGateway(view);
       for (const pb of pendingBack) if (await recordBackFinding(deps, mission, persona, deviceId, view, step, driver, pb.outcome, pb.screen, ruleIds)) note(1);
       // The fresh screen goes with the last tool result of this turn.
       const last = results[results.length - 1];
-      const text = observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events });
+      const text = observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events, ...(handoffNote ? { note: handoffNote } : {}) });
       last.content = [{ type: 'text', text: typeof last.content === 'string' ? `${last.content}\n${text}` : text }, imageBlock(view.png)];
     }
     messages.push({ role: 'user', content: results });
@@ -443,6 +491,27 @@ async function recordBackFinding(
   };
   f.id = findingDocId(deps.runId, f.fingerprint);
   return persist(deps, f, view, {}, screen);
+}
+
+/** A real-path mission (precondition map_only) landed on the legacy /gateway. */
+async function recordGatewayFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver): Promise<number> {
+  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, null);
+  const f: Finding = {
+    ...b,
+    id: '',
+    fingerprint: fingerprint(b.route, 'runner', 'legacy_gateway'),
+    category: 'ux',
+    severity: 'P1',
+    rule: null,
+    title: 'משתמש חדש הגיע למסך /gateway הישן',
+    expected: 'משתמש חדש עובר בזרימה האמיתית (פתיחה → מיקום → מפה → בית → שאלון) ולא במסך הבחירה הישן',
+    actual: `נחתתי ב-/gateway (צעד ${step})`,
+    screenshot: null,
+    confidence: 0.9,
+    source: 'runner',
+  };
+  f.id = findingDocId(deps.runId, f.fingerprint);
+  return (await persist(deps, f, view, {})) ? 1 : 0;
 }
 
 async function recordRunnerFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver, reason: RefuseReason): Promise<number> {
