@@ -27,6 +27,11 @@ describe('computeTargetKm', () => {
 });
 
 describe('buildRouteGenRequest — extras wiring contract', () => {
+  it('shade (enable_route_pref_shade) → preferShade only when on (absent key otherwise)', () => {
+    expect(buildRouteGenRequest(goal(), 'running', extras({ shade: true })).preferShade).toBe(true);
+    const off = buildRouteGenRequest(goal(), 'running', extras());
+    expect(Object.prototype.hasOwnProperty.call(off, 'preferShade')).toBe(false);
+  });
   it('gymParks → includeStrength (WORKING toggle)', () => {
     expect(buildRouteGenRequest(goal(), 'running', extras({ gymParks: true })).includeStrength).toBe(true);
     expect(buildRouteGenRequest(goal(), 'running', extras()).includeStrength).toBe(false);

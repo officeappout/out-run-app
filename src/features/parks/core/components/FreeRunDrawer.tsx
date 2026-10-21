@@ -83,6 +83,8 @@ interface ExtrasState {
   benches: boolean;
   stairs: boolean;
   trail: boolean;
+  /** "Shadiest route" — offered only with enable_route_pref_shade (+ GraphHopper routes) on. */
+  shade: boolean;
 }
 
 interface FreeRunDrawerProps {
@@ -101,6 +103,8 @@ interface FreeRunDrawerProps {
     targetKm: number;
     includeStrength: boolean;
     surface: 'road' | 'trail';
+    /** Only present (true) when the user picked "shadiest route". */
+    preferShade?: true;
   }) => void;
   /** Required for route generation; disables "עם מסלול" when absent. */
   userPosition?: { lat: number; lng: number } | null;
@@ -1211,12 +1215,14 @@ function LegPlanSheet({
 // ── ExtrasSheet ── route preferences (z-[104/105], above GoalSheet) ───────────
 
 function ExtrasSheet({
-  isOpen, onClose, extras, onToggle,
+  isOpen, onClose, extras, onToggle, showShade = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   extras: ExtrasState;
   onToggle: (key: keyof ExtrasState) => void;
+  /** enable_route_pref_shade (+ GraphHopper routes): offer the "shadiest route" row. */
+  showShade?: boolean;
 }) {
   const v2 = useContext(FreeRunV2);
 
@@ -1245,6 +1251,9 @@ function ExtrasSheet({
           {V2_LIVE_EXTRAS.includes('trail') && (
             <ToggleRow emoji="" label="שבילי עפר" value={extras.trail} onToggle={() => onToggle('trail')} />
           )}
+          {showShade && (
+            <ToggleRow emoji="" label="המסלול המוצל ביותר" value={extras.shade} onToggle={() => onToggle('shade')} />
+          )}
         </div>
       ) : (
       <div className="px-5">
@@ -1253,6 +1262,9 @@ function ExtrasSheet({
         <ToggleRow emoji="🪑" label="עבור דרך ספסלים"      value={extras.benches}  onToggle={() => onToggle('benches')}  />
         <ToggleRow emoji="📍" label="עבור דרך מדרגות"      value={extras.stairs}   onToggle={() => onToggle('stairs')}   />
         <ToggleRow emoji="🌿" label="שבילי עפר (Trail)"    value={extras.trail}    onToggle={() => onToggle('trail')}    />
+        {showShade && (
+          <ToggleRow emoji="🌳" label="המסלול המוצל ביותר" value={extras.shade} onToggle={() => onToggle('shade')} />
+        )}
       </div>
       )}
 
@@ -1296,7 +1308,10 @@ export default function FreeRunDrawer({
 }: FreeRunDrawerProps) {
   // Home v2 (enable_home_v2) — this drawer is a map layer, outside HomeV2Context.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
-  const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
+  const drawerFlags = useFeatureFlags(isSuperAdmin).flags;
+  const v2 = drawerFlags.enableHomeV2;
+  // "Shadiest route" ranks GraphHopper candidates server-side, so it is only offered when GH serves loops.
+  const showShadePref = drawerFlags.enableRoutePrefShade && drawerFlags.enableGraphhopperRoutes;
 
   // Normalise to a valid chip activity; 'workout' falls back to 'running'.
   const initialActivity: CarouselActivity =
@@ -1353,6 +1368,7 @@ export default function FreeRunDrawer({
     benches: false,
     stairs: false,
     trail: prefill?.extras.trail ?? false,
+    shade: false,
   });
 
   // ── Hybrid (aerobic + strength) state — additive, defaults OFF ─────────────
@@ -1487,7 +1503,7 @@ export default function FreeRunDrawer({
       onStartWorkout();
       return;
     }
-    onRequestRouteGeneration(buildRouteGenRequest(drawerGoal(), drawerActivity(), extras));
+    onRequestRouteGeneration(buildRouteGenRequest(drawerGoal(), drawerActivity(), { ...extras, shade: extras.shade && showShadePref }));
   };
 
   /**
@@ -1720,6 +1736,7 @@ export default function FreeRunDrawer({
         onClose={() => setExtrasOpen(false)}
         extras={extras}
         onToggle={toggleExtra}
+        showShade={showShadePref}
       />
 
       {/* Leg-plan sheet — z-[104/105] (shares ExtrasSheet's tier, mutually exclusive with it) */}
