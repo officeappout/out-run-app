@@ -103,3 +103,13 @@ describe('normalizeLine — contractions in the message', () => {
     expect(normalizeLine(a)).toContain("can't");
   });
 });
+
+describe('normalizeLine — object members with union types', () => {
+  it('sorts the union after the colon, not across members', async () => {
+    const { normalizeLine } = await import('../tsc-normalize.mjs');
+    const a = `w.ts: TS2802: Type 'Map<string, { count: number; broadPattern: "push" | "pull" | "legs" | "other"; }>' can only`;
+    const b = `w.ts: TS2802: Type 'Map<string, { broadPattern: "other" | "legs" | "push" | "pull"; count: number; }>' can only`;
+    expect(normalizeLine(a)).toBe(normalizeLine(b));
+    expect(normalizeLine(a)).toContain('broadPattern: "legs" | "other" | "pull" | "push"');
+  });
+});
