@@ -62,6 +62,7 @@ export interface PwPage {
   on(event: 'console', cb: (m: PwConsoleMessage) => void): void;
   on(event: 'response', cb: (r: PwResponse) => void): void;
   on(event: 'pageerror', cb: (e: Error) => void): void;
+  on(event: 'crash', cb: () => void): void;
   close(): Promise<void>;
 }
 
@@ -77,10 +78,11 @@ export interface PwContext {
 export interface PwBrowser {
   newContext(opts: Record<string, unknown>): Promise<PwContext>;
   close(): Promise<void>;
+  on(event: 'disconnected', cb: () => void): void;
 }
 
 export interface PwBrowserType {
-  launch(opts?: { headless?: boolean }): Promise<PwBrowser>;
+  launch(opts?: { headless?: boolean; args?: string[] }): Promise<PwBrowser>;
 }
 
 export interface PwModule {

@@ -31,6 +31,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { streakWriteDate } from '../utils/streak-sync';
 import { RESERVE_LEAGUE_GROUP_ID, RESERVE_SCOPE_FIELD, RESERVE_SCOPE_VALUE } from '@/lib/military-reserve-league';
 import {
   ActivityCategory,
@@ -974,11 +975,22 @@ export const useActivityStore = create<ActivityStore>()(
               console.warn('[ActivityStore] Grace-day bridge write skipped:', graceErr);
             }
           }
+          // Nothing counted since the server's copy → keep its date (see streakWriteDate).
+          let serverStreak: Record<string, unknown> | null = null;
+          try {
+            const s = await getDoc(streakRef);
+            serverStreak = s.exists() ? s.data() : null;
+          } catch {
+            /* no baseline — send today, as before */
+          }
           await setDoc(streakRef, {
             userId: state.today.userId,
             currentStreak: state.currentStreak,
             longestStreak: state.longestStreak,
-            lastActivityDate: state.today.date,
+            lastActivityDate: streakWriteDate(
+              { currentStreak: state.currentStreak, longestStreak: state.longestStreak, todayDate: state.today.date },
+              serverStreak,
+            ),
             ...(state.streakGraceWeekKey ? { graceWeekKey: state.streakGraceWeekKey } : {}),
             ...activityScopeExtra,
             updatedAt: serverTimestamp(),
