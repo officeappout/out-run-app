@@ -32,7 +32,7 @@ describe('community (he) social.* — byte-identical to the pre-extraction liter
       ['social.activity.time.now', 'עכשיו'],
       // PartnerCard / RouteLine
       ['social.partner.following', 'עוקב'],
-      ['social.partner.follow', 'עקוב'],
+      ['social.partner.follow', 'מעקב'], // gender batch 3 (was: עקוב)
       ['social.partner.self', 'אני'],
       ['social.routeLine.label', 'קו המסלול'],
       // FeedPostCard

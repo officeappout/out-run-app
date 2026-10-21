@@ -72,7 +72,7 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.invite.title", "קוד הזמנה"],
       ["group.invite.copied", "הקוד הועתק"],
       ["group.invite.copy", "העתק קוד הזמנה"],
-      ["group.invite.whatsapp", "הזמן חברים בוואטסאפ"],
+      ["group.invite.whatsapp", "הזמנת חברים בוואטסאפ"], // gender batch 3 (was: הזמן חברים בוואטסאפ)
       ["group.share.label", "שיתוף הקבוצה"],
       ["group.share.share", "שיתוף"],
       ["group.share.calendar", "ליומן"],
@@ -163,7 +163,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
     }
     const code = 'ABC123';
     const link = `https://example.com/join/${code}`;
-    expect(t('group.invite.shareText', { groupName, code, link })).toBe(`הוזמנת להצטרף לקהילה "${groupName}"! השתמש בקוד: ${code}\nאו לחץ על הקישור: ${link}`);
+    // gender batch 3: a text sent to friends → plural (decision 7)
+    expect(t('group.invite.shareText', { groupName, code, link })).toBe(`הוזמנתם להצטרף לקהילה "${groupName}"! השתמשו בקוד: ${code}\nאו בקישור: ${link}`);
     // useGroupJoinActions toast
     expect(t('group.join.toast.welcome', { name })).toBe(`ברוכים הבאים ל${name}!`);
   });

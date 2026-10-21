@@ -304,8 +304,9 @@ describe('map (he) — route preview / overview / equipment, byte-identical', ()
       generic: ['שמור על תנועה מבוקרת — אין צורך להאיץ', 'רכז כל חזרה בשריר היעד, לא בתאוצה'],
     };
     for (const [group, [a, b]] of Object.entries(AUTO_CUES_BY_MUSCLE)) {
-      expect(t(`equipment.autoCue.${group}.1` as Key)).toBe(a);
-      expect(t(`equipment.autoCue.${group}.2` as Key)).toBe(b);
+      // male keeps the old cue; female / unknown since gender batch 3 (gender-batch3-catalogs.test.ts)
+      expect(t(`equipment.autoCue.${group}.1` as Key, { gender: 'male' })).toBe(a);
+      expect(t(`equipment.autoCue.${group}.2` as Key, { gender: 'male' })).toBe(b);
     }
   });
 
