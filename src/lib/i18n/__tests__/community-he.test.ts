@@ -67,7 +67,6 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
       ["group.join.toast.wrongTenant", "הקוד אינו שייך לקבוצה הזו."],
       ["group.dropIn.title", "כל הכבוד, הצטרפת לאימון!"],
       ["group.dropIn.subtitle", "רוצה לקבל תזכורות למפגשים הבאים?"],
-      ["group.dropIn.join", "כן, הצטרפי לקבוצה"],
       ["group.dropIn.later", "אולי אחר כך"],
       ["group.rules.title", "כללי הקהילה"],
       ["group.invite.title", "קוד הזמנה"],
@@ -116,7 +115,8 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
     // formatSessionDate
     expect(t('group.session.today', { time })).toBe(`היום ב-${time}`);
     expect(t('group.session.tomorrow', { time })).toBe(`מחר ב-${time}`);
-    expect(t('group.session.weekday', { day: 'יום רביעי', time })).toBe(`יום ${'יום רביעי'} ב-${time}`);
+    // Owner copy fix (21.10.2026): the weekday name already starts with "יום" — no doubled "יום יום".
+    expect(t('group.session.weekday', { day: 'יום רביעי', time })).toBe(`יום רביעי ב-${time}`);
     // NextSessionCard
     for (const spotsLeft of [0, 2, 1234]) {
       expect(t('group.next.spotsLeft', { count: String(spotsLeft) })).toBe(` · ${spotsLeft} מקומות נותרו`);
@@ -167,5 +167,13 @@ describe('community (he) group.* — byte-identical to the pre-extraction litera
     expect(t('group.invite.shareText', { groupName, code, link })).toBe(`הוזמנת להצטרף לקהילה "${groupName}"! השתמש בקוד: ${code}\nאו לחץ על הקישור: ${link}`);
     // useGroupJoinActions toast
     expect(t('group.join.toast.welcome', { name })).toBe(`ברוכים הבאים ל${name}!`);
+  });
+});
+
+describe('owner copy fixes (21.10.2026)', () => {
+  it('drop-in join follows the gender', () => {
+    expect(t('group.dropIn.join', { gender: 'female' })).toBe('כן, הצטרפי לקבוצה');
+    expect(t('group.dropIn.join', { gender: 'male' })).toBe('כן, הצטרף לקבוצה');
+    expect(t('group.dropIn.join', { gender: 'other' })).toBe('כן, הצטרף לקבוצה');
   });
 });

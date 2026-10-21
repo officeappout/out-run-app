@@ -561,7 +561,7 @@ export default function VisualSlider({
             if (!isAtFloor) handleSliderChange(sliderVal - 1);
           }}
           disabled={isAtFloor && !isEscapeable}
-          aria-label={isEscapeable ? t('quiz.slider.escapeAria') : t('quiz.slider.easierAria')}
+          aria-label={isEscapeable ? t('quiz.slider.escapeAria', { gender }) : t('quiz.slider.easierAria')}
           className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-white px-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35"
         >
           <Minus size={16} strokeWidth={3} className="shrink-0 text-v2-deep" aria-hidden />
