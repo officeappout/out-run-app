@@ -141,7 +141,8 @@ export default function CommunitySessionBanner({
     (groupGender !== 'male' && userGender === 'female');
 
   // Passed explicitly to every gendered key: the group's audience overrides the user's own gender.
-  const gender = isFeminine ? 'female' : 'other';
+  // Gender batch 2 (21.10.2026): `other` is neutral now, so a men's group / a man gets 'male'.
+  const gender = isFeminine ? 'female' : groupGender === 'male' || userGender === 'male' ? 'male' : 'other';
 
   // ── booking (far) ──────────────────────────────────────────────────────────
   const [booking, setBooking] = useState(false);
@@ -382,7 +383,7 @@ export default function CommunitySessionBanner({
               >
                 {booking
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : session.isToday ? t('banner.confirmArrival') : t('banner.register', { gender })}
+                  : session.isToday ? t('banner.confirmArrival', { gender }) : t('banner.register', { gender })}
               </motion.button>
             )}
           </AnimatePresence>

@@ -33,7 +33,7 @@ const pace = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).
 function oldFormatLeaderboardScore(value: number, mode: LeaderboardMode, isSegmentMode?: boolean): string {
   if (mode === 'general') return `${value} ימים`;
   if (mode === 'steps')   return `${value.toLocaleString('he-IL')} צעדים`;
-  if (mode === 'distance') return `${value.toLocaleString('he-IL', { maximumFractionDigits: 1 })} ק"מ`;
+  if (mode === 'distance') return `${value.toLocaleString('he-IL', { maximumFractionDigits: 1 })} ק״מ`;
   if (mode === 'running' && isSegmentMode) {
     return value > 0 ? `${pace(value)} /ק״מ` : '—';
   }
@@ -73,18 +73,18 @@ describe('community (he) leagues.* — byte-identical to the pre-extraction lite
       ['leagues.picker.members', 'חברים'],
       ['leagues.picker.create.title', 'פתיחת ליגה חדשה'],
       ['leagues.picker.create.sub', 'שכונה, חברים, משפחה, עבודה, או כניסה עם קוד'],
-      ['leagues.selector.placeholder', 'בחר ליגה'],
+      ['leagues.selector.placeholder', 'בחירת ליגה'],
       ['leagues.selector.rank', 'דירוג'],
       ['leagues.filter.title', 'פילטרים'],
-      ['leagues.filter.reset', 'אפס'],
-      ['leagues.filter.close', 'סגור'],
+      ['leagues.filter.reset', 'איפוס'],
+      ['leagues.filter.close', 'סגירה'],
       ['leagues.filter.apply', 'החל'],
       ['leagues.filter.genderTitle', 'מגדר'],
       ['leagues.filter.genderPill.all', 'הכל'],
       ['leagues.filter.genderPill.male', 'גברים'],
       ['leagues.filter.genderPill.female', 'נשים'],
-      ['leagues.opponent.title', 'בחר יריבה לקרב'],
-      ['leagues.opponent.close', 'סגור'],
+      ['leagues.opponent.title', 'בחירת יריבה לקרב'],
+      ['leagues.opponent.close', 'סגירה'],
       ['leagues.opponent.fixed', '📌 קבוע'],
       ['leagues.opponent.versus', 'נגד:'],
       ['leagues.opponent.firstPlace', 'המקום הראשון'],
@@ -100,7 +100,7 @@ describe('community (he) leagues.* — byte-identical to the pre-extraction lite
       ['leagues.units.empty.title', 'אין עדיין נתונים בטווח הזה'],
       ['leagues.units.empty.body', 'ברגע שיהיו מספיק מתאמנים פעילים, הדירוג יופיע כאן'],
       ['leagues.group.subtitle', 'נקודות, צעדים וק״מ'],
-      ['leagues.group.refresh', 'רענן'],
+      ['leagues.group.refresh', 'רענון'],
       ['leagues.group.empty.body', 'אימונים וצעדים של חברי הקבוצה נספרים כאן (הצעדים מתעדכנים פעם בשעה).'],
       ['leagues.group.tile.points', 'נקודות'],
       ['leagues.group.tile.steps', 'מהצעדים'],
@@ -124,11 +124,14 @@ describe('community (he) leagues.* — byte-identical to the pre-extraction lite
       expect(t('leagues.opponent.place', { rank: String(n) })).toBe(`מקום #${n}`);
       expect(t('leagues.units.active', { count: String(n) })).toBe(`${n} פעילים`);
       expect(t('leagues.units.activeParticipants', { count: String(n) })).toBe(`${n} משתתפים פעילים`);
-      expect(t('leagues.units.belowFloor.body', { count: String(n) })).toBe(`${n} משתתפים פעילים כרגע — שלח לחברים שלך ליחידה!`);
+      expect(t('leagues.units.belowFloor.body', { count: String(n) })).toBe(`${n} משתתפים פעילים כרגע — שלחו לחברים ביחידה!`); // gender batch 2: other = neutral
       expect(t('leagues.units.belowFloor.title', { needed: String(n), name: 'פלוגה ג' })).toBe(`עוד ${n} מ${'פלוגה ג'} וייפתח הדירוג`);
       expect(t('leagues.group.showAll', { count: String(n) })).toBe(`הצג את כל ה-${n}`);
     }
-    expect(t('leagues.opponent.subtitle', { name: 'נווה {צדק}' })).toBe(`אתה נשאר ${'נווה {צדק}'} — רק היריבה מתחלפת`);
+    // Gender batch 2 (21.10.2026): male keeps the old text, other is neutral.
+    expect(t('leagues.opponent.subtitle', { name: 'נווה {צדק}', gender: 'male' })).toBe(`אתה נשאר ${'נווה {צדק}'} — רק היריבה מתחלפת`);
+    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'female' })).toBe('את נשארת נווה צדק — רק היריבה מתחלפת');
+    expect(t('leagues.opponent.subtitle', { name: 'נווה צדק', gender: 'other' })).toBe('נווה צדק לא משתנה — רק היריבה מתחלפת');
     expect(t('leagues.units.updated', { when: 'לפני 5 דקות' })).toBe(`עודכן ${'לפני 5 דקות'}`);
     expect(t('leagues.units.kmPerDay', { km: '5.4' })).toBe(`${'5.4'} ק״מ ליום`);
     expect(t('leagues.group.sub.points', { points: '1,234' })).toBe(`${'1,234'} נקודות`);

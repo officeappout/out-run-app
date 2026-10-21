@@ -21,10 +21,10 @@ describe('profile (he) — byte-identical to the pre-extraction literals', () =>
       ['skillTree.unavailable', 'המסלול הזה עדיין לא זמין כמפה — בקרוב.'],
       ['skillTree.back', 'חזרה'],
       ['skillTree.lockedNotice', '🔒 שים לב — זה עוד לא תרגיל ברמה שלך'],
-      ['skillTree.unassessed.banner', 'עדיין לא יודעים את הרמה שלך — בצע מבדק כדי לסמן איפה אתה'],
+      ['skillTree.unassessed.banner', 'עדיין לא יודעים את הרמה שלך — מבדק קצר יסמן איפה הרמה שלך'],
       ['skillTree.unassessed.cta', 'בצע מבדק'],
       ['skillTree.empty', 'לא נמצאו תרגילים למסלול הזה כרגע.'],
-      ['skillTree.node.youAreHere', 'אתה כאן'],
+      ['skillTree.node.youAreHere', 'הרמה שלך'],
       ['skillTree.swap.title', 'גם ברמה הזו'],
       ['skillTree.swap.empty', 'אין תרגילים נוספים ברמה הזו כרגע.'],
       ['skillTree.swap.confirm', 'החלף לתרגיל זה'],
@@ -34,7 +34,7 @@ describe('profile (he) — byte-identical to the pre-extraction literals', () =>
       ['programPanel.status.done', 'הושלם'],
       ['programPanel.status.inProgress', 'בתהליך'],
       ['programPanel.reassess', 'עדכון הרמה שלי'],
-      ['steps.header.back', 'חזור'],
+      ['steps.header.back', 'חזרה'],
       ['steps.header.eyebrow', 'ניתוח פעילות'],
       ['steps.header.title', 'צעדים'],
       ['steps.range.label', 'טווח זמן'],
@@ -62,9 +62,9 @@ describe('profile (he) — byte-identical to the pre-extraction literals', () =>
       ['steps.chart.byDay', 'צעדים לפי יום'],
       ['steps.chart.tapHint', 'הקש/י על עמודה לפרטים'],
       ['steps.connect.prompt', 'חבר/י את נתוני הבריאות כדי לראות את הצעדים האמיתיים שלך'],
-      ['steps.connect.cta', 'התחבר לאפליקציית הבריאות'],
+      ['steps.connect.cta', 'חיבור לאפליקציית הבריאות'],
       ['steps.error.title', 'שגיאה בטעינת הנתונים'],
-      ['steps.error.retry', 'נסה שוב מאוחר יותר'],
+      ['steps.error.retry', 'נסו שוב מאוחר יותר'],
     ];
     for (const [key, old] of cases) expect(t(key), key).toBe(old);
   });
@@ -396,7 +396,7 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
   it('plain strings', () => {
     const cases: Array<[keyof typeof he, string]> = [
       ['profile.history.title', 'היסטוריית אימונים'],
-      ['profile.history.close', 'סגור'],
+      ['profile.history.close', 'סגירה'],
       ['profile.history.filter.all', 'הכל'],
       ['profile.history.filter.running', 'ריצה'],
       ['profile.history.filter.strength', 'כוח'],
@@ -404,7 +404,7 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
       ['profile.history.empty', 'אין אימונים רשומים'],
       ['profile.history.cardError', 'שגיאה בטעינת האימון'],
       ['profile.history.delete.label', 'מחק אימון'],
-      ['profile.history.delete.action', 'מחק'],
+      ['profile.history.delete.action', 'מחיקה'],
       ['profile.history.card.running', 'ריצה חופשית'],
       ['profile.history.card.strength', 'אימון כוח'],
       ['profile.history.card.recovery', 'אימון התאוששות'],
@@ -412,14 +412,14 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
       ['profile.grid.today', 'היום'],
       ['profile.grid.yesterday', 'אתמול'],
       ['profile.grid.empty.line1', 'עוד אין אימונים.'],
-      ['profile.grid.empty.line2', 'תתחיל לזוז!'],
+      ['profile.grid.empty.line2', 'בואו נזוז!'],
       ['profile.publicGrid.empty', 'אין פעילות אחרונה'],
       ['profile.header.photoAlt', 'תמונת פרופיל'],
-      ['profile.partners.add', 'הוסף'],
+      ['profile.partners.add', 'הוספה'],
       ['profile.progressLink.title', 'ההתקדמות שלי'],
       ['profile.progressLink.subtitle', 'סיכום שבוע וחודש, ריצה, הליכה, צעדים, כוח ותוכניות'],
-      ['profile.neighborhood.title', 'בחר שכונה'],
-      ['profile.neighborhood.close', 'סגור'],
+      ['profile.neighborhood.title', 'בחירת שכונה'],
+      ['profile.neighborhood.close', 'סגירה'],
       ['profile.neighborhood.loading', 'טוען שכונות...'],
       ['profile.neighborhood.error', 'שגיאה בטעינת רשימת השכונות'],
       ['profile.neighborhood.empty.hint', 'נעדכן ברגע שיתווספו'],
@@ -431,7 +431,7 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
       ['widgets.programs.additional', 'תוכניות נוספות'],
       ['widgets.programs.notAssessedCta', 'עוד לא נבדקה רמה · בדקו רמה'],
       ['widgets.programs.empty', 'עדיין לא בחרת תוכנית אימון.'],
-      ['widgets.programs.choose', 'בחר תוכנית'],
+      ['widgets.programs.choose', 'בחירת תוכנית'],
       ['widgets.programs.fallbackName', 'תוכנית אימון'],
     ];
     for (const [key, old] of cases) expect(t(key)).toBe(old);
@@ -446,7 +446,7 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
       expect(t('widgets.programs.level', { level: String(n), max: String(n + 1000) })).toBe(`שלב ${n}/${n + 1000}`);
     }
     for (const km of [0, 5.234, 1234.5]) {
-      expect(t('profile.history.card.distance', { km: km.toFixed(2) })).toBe(`${km.toFixed(2)} ק"מ`);
+      expect(t('profile.history.card.distance', { km: km.toFixed(2) })).toBe(`${km.toFixed(2)} ק״מ`);
       expect(t('profile.grid.km', { km: km.toFixed(1) })).toBe(`${km.toFixed(1)} ק״מ`);
       expect(t('profile.publicGrid.km', { km: km.toFixed(1) })).toBe(`${km.toFixed(1)} ק״מ`);
     }
@@ -455,8 +455,8 @@ describe('profile (he) — profile.* / widgets.* byte-identical to the pre-extra
       expect(t('profile.neighborhood.inCity', { city })).toBe(`ב${city}`);
       expect(t('profile.neighborhood.empty.city', { city })).toBe(`עדיין אין שכונות מוגדרות ל${city}`);
     }
-    // The old `ל{cityName ?? 'העיר שלך'}` with no city (copy kept verbatim).
-    expect(t('profile.neighborhood.empty.noCity')).toBe(`עדיין אין שכונות מוגדרות ל${'העיר שלך'}`);
+    // Gender batch 2 (21.10.2026): the old "להעיר" typo → "לעיר".
+    expect(t('profile.neighborhood.empty.noCity')).toBe('עדיין אין שכונות מוגדרות לעיר שלך');
   });
 
   it('history card type label — the old ActivityHistoryCard switch', () => {

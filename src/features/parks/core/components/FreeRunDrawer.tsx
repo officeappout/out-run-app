@@ -10,7 +10,8 @@ import {
 import { RunIcon, WalkingIcon } from '@/features/content/programs/core/program-icon.util';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered, type GenderedText } from '@/lib/i18n/gender-copy';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+import { FREE_RUN_COPY } from './free-run/free-run-gender-copy';
 import { FreeRunMainFrame, FreeRunSubSheet } from './free-run/FreeRunSheetFrame';
 import { ActivityType } from '../types/route.types';
 import StrengthStationsToggle from './hybrid/StrengthStationsToggle';
@@ -45,38 +46,6 @@ import {
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const ACCENT = '#00ADEF';
 
-/** Gender batch 2 (21.10.2026): these were masculine for everyone. other = neutral. */
-export const FREE_RUN_COPY = {
-  startFree: { male: 'התחל חופשי', female: 'התחילי חופשי', other: 'בלי מסלול' },
-  startFreeAria: { male: 'התחל אימון חופשי', female: 'התחילי אימון חופשי', other: 'יוצאים לאימון חופשי' },
-  startRouteAria: {
-    male: 'התחל אימון עם מסלול מותאם',
-    female: 'התחילי אימון עם מסלול מותאם',
-    other: 'יוצאים לאימון עם מסלול מותאם',
-  },
-  skipWeight: {
-    male: 'אפשר לדלג — יישמר לפרופיל אם תבחר',
-    female: 'אפשר לדלג — יישמר לפרופיל אם תבחרי',
-    other: 'אפשר לדלג — מה שנבחר יישמר לפרופיל',
-  },
-  tapToChange: { male: 'הקש לשינוי היעד', female: 'הקישי לשינוי היעד', other: 'הקשה לשינוי היעד' },
-  routeToAddress: {
-    male: 'מסלול מכאן לכתובת שתבחר',
-    female: 'מסלול מכאן לכתובת שתבחרי',
-    other: 'מסלול מכאן לכתובת לבחירתך',
-  },
-  startToAddress: { male: 'התחל לכתובת הזו', female: 'התחילי לכתובת הזו', other: 'יוצאים לכתובת הזו' },
-  compileError: {
-    male: 'משהו השתבש בהרכבת המסלול. נסה שוב.',
-    female: 'משהו השתבש בהרכבת המסלול. נסי שוב.',
-    other: 'משהו השתבש בהרכבת המסלול. נסו שוב.',
-  },
-  noStops: {
-    male: 'עדיין לא הוספת עצירות. הוסף עצירה כדי להתחיל להרכיב את המסלול.',
-    female: 'עדיין לא הוספת עצירות. הוסיפי עצירה כדי להתחיל להרכיב את המסלול.',
-    other: 'עדיין אין עצירות. אפשר להוסיף עצירה כדי להתחיל להרכיב את המסלול.',
-  },
-} as const satisfies Record<string, GenderedText>;
 
 // ── Home v2 (enable_home_v2) ──────────────────────────────────────────────────
 // Read once in the main component and provided to every sheet/sub-component in

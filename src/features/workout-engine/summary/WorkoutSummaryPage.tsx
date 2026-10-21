@@ -15,7 +15,8 @@ import SummaryOrchestrator, {
 import AerobicSummaryShell from './components/aerobic/AerobicSummaryShell';
 import AerobicSummary from './pages/AerobicSummary';
 import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered, type GenderedText } from '@/lib/i18n/gender-copy';
+import { pickGendered } from '@/lib/i18n/gender-copy';
+import { SUMMARY_COPY } from './summary-gender-copy';
 import { IS_COIN_SYSTEM_ENABLED, AEROBIC_SOLO_ENABLED, AEROBIC_SUMMARY_V2_ENABLED } from '@/config/feature-flags';
 
 interface WorkoutSummaryPageProps {
@@ -23,15 +24,6 @@ interface WorkoutSummaryPageProps {
   workoutType?: WorkoutType;
 }
 
-/** Gender batch 2 (21.10.2026): was masculine for everyone. Neutral = unknown / "other". */
-export const SUMMARY_COPY = {
-  keepGoing: { male: 'כל הכבוד! המשך כך!', female: 'כל הכבוד! המשיכי כך!', other: 'כל הכבוד! ככה ממשיכים!' },
-  claimBonus: {
-    male: 'השלם פרופיל וקבל בונוס',
-    female: 'השלימי פרופיל וקבלי בונוס',
-    other: 'משלימים פרופיל ומקבלים בונוס',
-  },
-} as const satisfies Record<string, GenderedText>;
 
 export default function WorkoutSummaryPage({
   onFinish,
