@@ -4,7 +4,8 @@
  * "סדר לי במילים" (enable_week_builder_v1) — the week builder's Kelly chip. Shown ONLY when the
  * user has Kelly AI (useAiCoachAccess, the app's one entitlement check for Kelly AI). Opens the
  * Kelly chat over the builder (the builder keeps its state underneath) with the week the user
- * is looking at in the composer — the user's own words, never auto-sent. Any schedule change
+ * is looking at in the composer — the user's own words, never auto-sent — asking for ADVICE ONLY
+ * (the week is an unsaved draft; Kelly's confirm card would edit the saved schedule). Any change
  * still goes through Kelly's existing confirm card: nothing is saved without the user's tap.
  */
 import { useState } from 'react';
