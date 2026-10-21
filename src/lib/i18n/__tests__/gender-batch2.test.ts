@@ -9,6 +9,7 @@ import { map } from '@/messages/ns/map';
 import { player } from '@/messages/ns/player';
 import { profile } from '@/messages/ns/profile';
 import { home } from '@/messages/ns/home';
+import { onboarding } from '@/messages/ns/onboarding';
 import { makeT } from '../t';
 import { pickGendered, type GenderedText } from '../gender-copy';
 import { SETTINGS_COPY } from '@/features/home/components/settings/settings-gender-copy';
@@ -24,6 +25,7 @@ const T: Record<string, (key: string, values?: Record<string, unknown>) => strin
   player: makeT('he', player) as never,
   profile: makeT('he', profile) as never,
   home: makeT('he', home) as never,
+  onboarding: makeT('he', onboarding) as never,
 };
 
 /** [ns:key, male, female, other] */
@@ -79,6 +81,12 @@ const CATALOG_CASES: Array<[string, string, string, string]> = [
   ["community:leagues.selector.placeholder", "בחר ליגה", "בחרי ליגה", "בחירת ליגה"],
   ["community:leagues.opponent.title", "בחר יריבה לקרב", "בחרי יריבה לקרב", "בחירת יריבה לקרב"],
   ["profile:profile.grid.empty.line2", "תתחיל לזוז!", "תתחילי לזוז!", "בואו נזוז!"],
+  ["onboarding:bridge.title", "בוא נכניס הכל ללו״ז", "בואי נכניס הכל ללו״ז", "בואו נכניס הכל ללו״ז"],
+  ["onboarding:hierarchy.add.submitted", "ההצעה שלך נשלחה וממתינה לאישור. אתה כבר משויך אליה.", "ההצעה שלך נשלחה וממתינה לאישור. את כבר משויכת אליה.", "ההצעה שלך נשלחה וממתינה לאישור. השיוך שלך אליה כבר נשמר."],
+  ["onboarding:personaDrawer.staleUnit", "היחידה שבחרת בעבר כבר לא קיימת — בחר מחדש", "היחידה שבחרת בעבר כבר לא קיימת — בחרי מחדש", "היחידה שנבחרה בעבר כבר לא קיימת — צריך לבחור מחדש"],
+  ["onboarding:signaturePad.hint", "חתום כאן עם האצבע", "חתמי כאן עם האצבע", "חתימה כאן עם האצבע"],
+  ["onboarding:identity.alert.noUser", "לא נמצא משתמש מחובר. נסה לרענן את הדף.", "לא נמצא משתמש מחובר. נסי לרענן את הדף.", "לא נמצא משתמש מחובר. נסו לרענן את הדף."],
+  ["onboarding:identity.alert.authError", "שגיאה באימות המשתמש. נסה לרענן את הדף.", "שגיאה באימות המשתמש. נסי לרענן את הדף.", "שגיאה באימות המשתמש. נסו לרענן את הדף."],
 ];
 
 function tr(id: string, values?: Record<string, unknown>): string {
