@@ -8,6 +8,7 @@ const tallies = (): OsmTallies => ({
     major_roads: { count: 0, lengthM: 0, knownSurfaceM: 0 },
     bike_paved: { count: 0, lengthM: 0, knownSurfaceM: 0 },
     bike_offroad: { count: 0, lengthM: 0, knownSurfaceM: 0 },
+    bike_unknown: { count: 0, lengthM: 0, knownSurfaceM: 0 },
     trails_paved: { count: 0, lengthM: 0, knownSurfaceM: 0 },
     trails_offroad: { count: 0, lengthM: 0, knownSurfaceM: 0 },
     promenades: { count: 0, lengthM: 0, knownSurfaceM: 0 },
