@@ -4,6 +4,8 @@ import React from 'react';
 import { GroupCard, NeighborhoodLeaderboard, GroupLeaderboard, SchoolOutreachCard } from '@/app/community/CommunityWidgets';
 import { CompetitionToggle } from '../CompetitionToggle';
 import type { LeaguesVM } from '../leagues-vm';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 export function OrgSegment({ vm }: { vm: LeaguesVM }) {
   const {
@@ -19,6 +21,7 @@ export function OrgSegment({ vm }: { vm: LeaguesVM }) {
     handleMyModeChange,
     competitionMode,
   } = vm;
+  const t = useT(community);
   const orgGroups = groups.filter(
     (g) => g.category === 'calisthenics' || g.category === 'other',
   );
@@ -30,14 +33,7 @@ export function OrgSegment({ vm }: { vm: LeaguesVM }) {
 
       {access.orgType && (
         <SchoolOutreachCard
-          schoolName={
-            access.orgName ??
-            (access.orgType === 'work'
-              ? 'הארגון שלך'
-              : access.orgType === 'youth_movement'
-                ? 'התנועה שלך'
-                : 'בית הספר')
-          }
+          schoolName={access.orgName ?? t('communityPage.org.outreachName', { orgType: access.orgType })}
           orgType={
             access.orgType === 'work'
               ? 'company'
@@ -55,7 +51,7 @@ export function OrgSegment({ vm }: { vm: LeaguesVM }) {
         <NeighborhoodLeaderboard
           scope={access.orgType === 'work' ? 'tenant' : 'school'}
           scopeId={access.orgId}
-          scopeLabel={access.orgName ?? 'הארגון שלך'}
+          scopeLabel={access.orgName ?? t('communityPage.org.scopeLabelFallback')}
           isLeagueActive={true}
           category={leaderboardCategory}
           setCategory={setLeaderboardCategory}

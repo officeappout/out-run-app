@@ -37,6 +37,14 @@ export function collectFeatures(input: unknown): Feature[] {
   return Array.isArray(fc?.features) ? (fc.features as Feature[]) : [];
 }
 
+/** Shapefile field names vary in case between releases (Jerusalem 2019: `name`/`status`, registry: `NAME`/`STATUS`). */
+export function propCI(props: Record<string, unknown>, field: string): unknown {
+  if (field in props) return props[field];
+  const want = field.toLowerCase();
+  const hit = Object.keys(props).find((k) => k.toLowerCase() === want);
+  return hit === undefined ? undefined : props[hit];
+}
+
 export function normalizeFeatures(input: unknown, spec: DatasetSpec): { lines: DatasetLine[]; report: NormalizeReport } {
   const features = collectFeatures(input);
   const report: NormalizeReport = { features: features.length, lines: 0, skippedNotLine: 0, skippedStatus: {}, skippedBadCoords: 0, reprojectedFromItm: 0 };
@@ -45,14 +53,14 @@ export function normalizeFeatures(input: unknown, spec: DatasetSpec): { lines: D
     const props = f?.properties ?? {};
     const parts = linesOf(f?.geometry);
     if (!parts.length) { report.skippedNotLine++; return; }
-    const status = spec.statusField ? String(props[spec.statusField] ?? '').trim() || null : null;
+    const status = spec.statusField ? String(propCI(props, spec.statusField) ?? '').trim() || null : null;
     if (spec.statusField && !spec.existingStatuses.includes(status ?? '')) {
       const k = status ?? '(empty)';
       report.skippedStatus[k] = (report.skippedStatus[k] ?? 0) + 1;
       return;
     }
-    const baseId = spec.idField && props[spec.idField] != null && String(props[spec.idField]).trim() ? String(props[spec.idField]).trim() : `f${idx}`;
-    const name = String(props[spec.nameField] ?? '').trim();
+    const baseId = spec.idField && propCI(props, spec.idField) != null && String(propCI(props, spec.idField)).trim() ? String(propCI(props, spec.idField)).trim() : `f${idx}`;
+    const name = String(propCI(props, spec.nameField) ?? '').trim();
     parts.forEach((part, pi) => {
       const first = Array.isArray(part) ? (part[0] as number[] | undefined) : undefined;
       const itm = !!first && looksLikeItm(first);

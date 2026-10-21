@@ -5,7 +5,12 @@
 import type { Park } from '@/features/parks/core/types/park.types';
 import type { ScheduleSlot } from '@/types/community.types';
 import { ALWAYS_PRIVATE_TYPES } from './wizard-constants';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { CommunityKey } from '@/messages/ns/community';
 import type { WizardForm } from './wizard-types';
+
+/** The caller's `community` translator (from useT / makeT). */
+export type CommunityT = (key: CommunityKey, values?: MessageValues) => string;
 
 /** Gender-aware text helper. Returns the female form when gender === 'female', male form otherwise. */
 export function t(male: string, female: string, gender?: string | null): string {
@@ -58,7 +63,7 @@ export function resolveSubmitMeetingFields(form: WizardForm): SubmitMeetingField
     form.coords.lat !== DEFAULT_LAT || form.coords.lng !== DEFAULT_LNG;
   const addressStr =
     form.address.trim() ||
-    (hasCustomCoords ? 'מיקום ידני על המפה' : '');
+    (hasCustomCoords ? 'מיקום ידני על המפה' : ''); // i18n-allow-hebrew: data — written to meetingLocation.address
 
   const meetingLocation =
     addressStr || hasCustomCoords
@@ -84,13 +89,13 @@ export function inviteLink(origin: string, inviteCode: string): string {
 }
 
 /** The WhatsApp / native-share text for a freshly created community. */
-export function inviteShareText(name: string, inviteCode: string, link: string): string {
-  return `היי! הקמתי קהילה חדשה "${name}" — בוא להצטרף! 🏃\nקוד הצטרפות: ${inviteCode}\n${link}`;
+export function inviteShareText(t: CommunityT, name: string, inviteCode: string, link: string): string {
+  return t('createGroup.success.shareText', { name, inviteCode, link });
 }
 
 /** The finalize summary's "מיקום" value: the first two address parts. */
-export function summaryLocationLabel(address: string): string {
+export function summaryLocationLabel(t: CommunityT, address: string): string {
   return address.trim()
     ? address.split(',').slice(0, 2).join(',').trim()
-    : 'לא נבחר מיקום';
+    : t('createGroup.finalize.summary.noLocation');
 }

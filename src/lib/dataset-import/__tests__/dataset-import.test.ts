@@ -165,3 +165,20 @@ describe('arcgisQueryUrl', () => {
     expect(u.searchParams.get('resultOffset')).toBe('2000');
   });
 });
+
+describe('normalizeFeatures — field names in any case', () => {
+  it('reads lowercase name/status from a shapefile whose registry fields are uppercase', () => {
+    const spec = getDataset('bicycle_jer_2019');
+    const fc = {
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', properties: { OBJECTID: 1, name: 'בנבנישתי', status: 'קיים' }, geometry: { type: 'LineString', coordinates: [[35.2, 31.77], [35.21, 31.77]] } },
+        { type: 'Feature', properties: { OBJECTID: 2, name: 'טדי', status: 'שביל בבדיקת תכנון ראשוני' }, geometry: { type: 'LineString', coordinates: [[35.2, 31.76], [35.21, 31.76]] } },
+      ],
+    };
+    const { lines, report } = normalizeFeatures(fc, spec);
+    expect(lines).toHaveLength(1);
+    expect(lines[0].name).toBe('בנבנישתי');
+    expect(report.skippedStatus).toEqual({ 'שביל בבדיקת תכנון ראשוני': 1 });
+  });
+});

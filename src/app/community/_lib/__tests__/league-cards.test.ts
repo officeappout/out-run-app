@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { CommunityGroup } from '@/types/community.types';
 import type { LeaderboardEntry } from '@/features/arena/services/ranking.service';
-import { buildLeagueCards, type LeagueCardsInput } from '../league-cards';
+import { buildLeagueCards as buildWithT, type LeagueCardsInput } from '../league-cards';
+import { makeT } from '@/lib/i18n/t';
+import { community } from '@/messages/ns/community';
+
+// Card names come from the catalog via the caller's translator; the Hebrew one must give the old text verbatim.
+const buildLeagueCards = (i: LeagueCardsInput) => buildWithT(i, makeT('he', community));
 
 const access = (patch: Partial<LeagueCardsInput['access']> = {}): LeagueCardsInput['access'] =>
   ({

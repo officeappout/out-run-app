@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import type { CommunityTopTab } from '../_lib/community-constants';
 
 /**
@@ -22,6 +24,7 @@ export function CommunityTopTabs({
   isFeedTabAvailable: boolean;
   enableLeagues: boolean;
 }) {
+  const t = useT(community);
   const leaguesTabButton = (
     <button
       type="button"
@@ -34,7 +37,7 @@ export function CommunityTopTabs({
           : 'text-slate-600 dark:text-slate-500 border-transparent'
       }`}
     >
-      ליגות
+      {t('communityPage.tabs.leagues')}
     </button>
   );
 
@@ -43,7 +46,7 @@ export function CommunityTopTabs({
       <div
         className="flex border-b border-slate-100 dark:border-slate-800"
         role="tablist"
-        aria-label="קהילה"
+        aria-label={t('communityPage.tabs.label')}
       >
         {/* v2: ליגות first (the default tab), then פיד. */}
         {leaguesFirst && leaguesTabButton}
@@ -59,7 +62,7 @@ export function CommunityTopTabs({
                 : 'text-slate-600 dark:text-slate-500 border-transparent'
             }`}
           >
-            פיד
+            {t('communityPage.tabs.feed')}
           </button>
         )}
         {!leaguesFirst && enableLeagues && leaguesTabButton}

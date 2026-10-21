@@ -72,7 +72,7 @@ export const CITY_MAPPING_DISCOVERY_RUNS_COLLECTION = 'city_mapping_discovery_ru
 // time something looks stale in production, the logs say which build is
 // actually running, instead of costing another full diagnostic round like
 // this one did.
-export const DEPLOY_MARKER = '2026-09-27-turf-deps';
+export const DEPLOY_MARKER = '2026-10-21-rc6-w1-osm-snapshot-copernicus';
 
 // 30-min real function timeout (see cityMappingDiscoveryPoller's own options
 // below) + 5-min poller cadence as slack for clock skew / a claim that lands
@@ -227,7 +227,12 @@ export async function processDiscoveryRun(runId: string, db: admin.firestore.Fir
       roundtrips: !!data.roundtrips,
       skipOsm: false,
       runId, // drives the heartbeat write inside runGeoDiscovery — see reclaimStaleRuns below
+      // RC6 W1: OSM from the pre-extracted region snapshot in Storage (no osmium / PBF in the
+      // function); falls back to Overpass when osm/regions/v1/<regionKey>.json.gz is missing.
+      osmSource: 'snapshot',
     };
+    // Copernicus DEM tiles are cached on disk — the function can only write under /tmp.
+    process.env.COPERNICUS_DEM_CACHE_DIR = process.env.COPERNICUS_DEM_CACHE_DIR || '/tmp/copernicus-glo30';
     const result: GeoDiscoveryResult = await runGeoDiscovery(opts, db);
     // NOT VERIFIED (27.09.2026) — a real 19-min run against herzliya via
     // scripts/_test-stage2-worker.ts crashed on exactly this write:

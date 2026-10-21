@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Globe, Lock } from 'lucide-react';
 import { DEFAULT_PRIVATE_TYPES } from './wizard-constants';
 import { FieldLabel } from './FieldLabel';
@@ -23,23 +25,24 @@ export function StepPrivacy({
   // same set the type-picker step already uses for consistency.
   const isPrivateByDefault = DEFAULT_PRIVATE_TYPES.has(form.groupType);
   const v2 = React.useContext(WizardV2);
+  const t = useT(community);
 
   return (
     <div className="space-y-5 pt-4">
       {/* Public / Private toggle — shown for ALL types; private-by-default types start private */}
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <FieldLabel>פרטיות</FieldLabel>
+          <FieldLabel>{t('createGroup.privacy.label')}</FieldLabel>
           {isPrivateByDefault && (
             <span className={v2 ? 'mb-2 inline-flex h-6 items-center whitespace-nowrap rounded-full bg-v2-tint px-2 text-[11.5px] font-extrabold text-v2-deep' : 'text-[10px] text-cyan-600 font-semibold bg-cyan-50 px-1.5 py-0.5 rounded-md'}>
-              ברירת-מחדל פרטי
+              {t('createGroup.privacy.defaultBadge')}
             </span>
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { value: true,  icon: <Globe className="w-5 h-5" />, label: 'ציבורי', sub: 'כולם יכולים להצטרף' },
-            { value: false, icon: <Lock className="w-5 h-5" />,  label: 'פרטי',   sub: 'הצטרפות בקוד הזמנה' },
+            { value: true,  icon: <Globe className="w-5 h-5" />, label: t('createGroup.privacy.public.label'), sub: t('createGroup.privacy.public.sub') },
+            { value: false, icon: <Lock className="w-5 h-5" />,  label: t('createGroup.privacy.private.label'), sub: t('createGroup.privacy.private.sub') },
           ].map((opt) => (
             <button
               key={String(opt.value)}
@@ -77,11 +80,11 @@ export function StepPrivacy({
       {/* Join requests — available when group is private */}
       {!form.isPublic && (
         <div>
-          <FieldLabel>אפשר לבקש להצטרף?</FieldLabel>
+          <FieldLabel>{t('createGroup.privacy.joinRequestsLabel')}</FieldLabel>
           <div className="grid grid-cols-2 gap-3">
             {([
-              { value: true,  label: 'כן', sub: 'אנשים יכולים לשלוח בקשה' },
-              { value: false, label: 'לא', sub: 'הצטרפות בקוד הזמנה בלבד' },
+              { value: true,  label: t('createGroup.privacy.joinYes.label'), sub: t('createGroup.privacy.joinYes.sub') },
+              { value: false, label: t('createGroup.privacy.joinNo.label'), sub: t('createGroup.privacy.joinNo.sub') },
             ] as const).map((opt) => (
               <button
                 key={String(opt.value)}
@@ -107,11 +110,11 @@ export function StepPrivacy({
 
       {/* Rules */}
       <div>
-        <FieldLabel>כללי הקהילה (אופציונלי)</FieldLabel>
+        <FieldLabel>{t('createGroup.privacy.rulesLabel')}</FieldLabel>
         <textarea
           value={form.rules}
           onChange={(e) => updateForm('rules', e.target.value)}
-          placeholder={'לדוגמה:\n• נא להגיע עם מים\n• כבוד הדדי\n• מוזמן לשתף חברים'}
+          placeholder={t('createGroup.privacy.rulesPlaceholder')}
           rows={5}
           maxLength={500}
           className={v2 ? V2C.textarea : 'w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none leading-relaxed'}

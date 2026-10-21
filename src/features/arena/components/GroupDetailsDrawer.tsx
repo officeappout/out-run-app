@@ -20,6 +20,8 @@ import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySession
 import { useGroupLiveSession } from '@/features/arena/hooks/useGroupLiveSession';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import GroupLeagueStatsBoard from './GroupLeagueStatsBoard';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { computeNextSession as computeNextSessionBooking } from '@/features/arena/services/booking.service';
@@ -83,6 +85,7 @@ export default function GroupDetailsDrawer({
   // Sheet gesture state
   const { y, opacity, dragControls, scrollRef } = useGroupSheetMotion(isOpen, onClose);
   const { showToast } = useToast();
+  const t = useT(community);
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the design-lab group page.
@@ -149,7 +152,7 @@ export default function GroupDetailsDrawer({
   const userAuthorityId = (profile as any)?.core?.authorityId ?? null;
   const canDropIn = canDropInTo(group, userAuthorityId);
 
-  const view = deriveGroupPageView(group, nextSlot, nextSessionData, attendance?.currentCount, process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '');
+  const view = deriveGroupPageView(group, nextSlot, nextSessionData, attendance?.currentCount, process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '', t);
   const { catConfig, destLat, destLng, destAddress, scheduledRunActivity } = view;
 
   // v2 (enable_home_v2): a scheduled solo run gets a start action that opens
@@ -279,7 +282,7 @@ export default function GroupDetailsDrawer({
             <GroupChipList
               v2={v2}
               icon={<Target className="w-3.5 h-3.5 text-cyan-500" />}
-              title="קבוצות שרירים"
+              title={t('groupDrawer.chips.muscles')}
               items={view.effectiveMuscles}
               tone="cyan"
             />
@@ -290,7 +293,7 @@ export default function GroupDetailsDrawer({
             <GroupChipList
               v2={v2}
               icon={<Dumbbell className="w-3.5 h-3.5 text-emerald-500" />}
-              title="ציוד נדרש"
+              title={t('groupDrawer.chips.equipment')}
               items={view.effectiveEquipment}
               tone="emerald"
             />
@@ -374,7 +377,7 @@ export default function GroupDetailsDrawer({
             className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
           >
             <Flag className="w-3 h-3" />
-            דיווח על תוכן לא ראוי
+            {t('groupDrawer.reportLink')}
           </button>
         </div>
       </GroupSheetFrame>
