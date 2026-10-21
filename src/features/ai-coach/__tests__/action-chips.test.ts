@@ -119,7 +119,8 @@ describe('level-check chips → the mini assessment', () => {
 
   it('the chat screen wires the chip to startMiniDomainAssessment with the chip target', () => {
     const src = read('src/features/ai-coach/components/AiCoachChat.tsx');
-    expect(src).toContain('onAssess={(t) => startMiniDomainAssessment(router, t.slug, t.returnTo, t.domainType)}');
+    // i18n wave 2 batch w: the local was renamed `target` (`t` is the translator now).
+    expect(src).toContain('onAssess={(target) => startMiniDomainAssessment(router, target.slug, target.returnTo, target.domainType)}');
   });
 });
 

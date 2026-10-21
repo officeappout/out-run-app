@@ -16,9 +16,12 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { isWeatherOnFor } from '@/features/weather/core/weather-access';
 import { starterChipsFor } from '@/features/user/onboarding/services/entry-whatnow';
 import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
+import { useT } from '@/hooks/useT';
+import { coach } from '@/messages/ns/coach';
 
 export default function AiCoachPage() {
   const router = useRouter();
+  const t = useT(coach);
   const { profile } = useUserStore();
   const { canUseAi, loading } = useAiCoachAccess();
   // Real value (no super-admin override): the server reads the same.
@@ -48,7 +51,7 @@ export default function AiCoachPage() {
   };
 
   if (!profile || loading || flagsLoading) {
-    return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">טוען...</div>;
+    return <div className="fixed inset-0 z-[56] grid place-items-center bg-[#F8FAFC] text-sm text-gray-400" style={{ colorScheme: 'light' }} dir="rtl">{t('page.loading')}</div>;
   }
 
   if (unified) return <AiCoachChat profile={profile} onClose={close} unified teamOnly={!canUseAi} phase2={phase2} weatherOn={weatherOn} proactive={proactive} memory={memory} round4={round4} runsByType={runsByType} starterChips={starterChips} />;
@@ -56,10 +59,10 @@ export default function AiCoachPage() {
   if (!canUseAi) {
     return (
       <div className="fixed inset-0 z-[56] flex flex-col items-center justify-center gap-3 bg-[#F8FAFC] px-8 text-center text-gray-900" style={{ colorScheme: 'light' }} dir="rtl">
-        <p className="text-base font-black text-gray-900">קלי AI עוד לא פתוח כאן</p>
-        <p className="text-sm text-gray-500">כשקלי AI ייפתח לחשבון הזה, הוא יופיע בהודעות ובמסך הבית.</p>
+        <p className="text-base font-black text-gray-900">{t('page.noAccess.title')}</p>
+        <p className="text-sm text-gray-500">{t('page.noAccess.body')}</p>
         <button type="button" onClick={() => router.replace('/home')} className="mt-2 rounded-full bg-cyan-500 px-5 py-2.5 text-sm font-black text-white">
-          חזרה לבית
+          {t('page.noAccess.back')}
         </button>
       </div>
     );

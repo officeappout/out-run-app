@@ -4,6 +4,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { aerobicCardFace } from '../services/aerobic-card-view.pure';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
 import { freeAerobicHref, parkHref, plannedRunFromCard } from '../services/round4-actions';
 import { consumeTourReplay, requestTourReplay, TOUR_REPLAY_KEY } from '@/features/user/onboarding/services/tour-replay';
 import { getHelpEntries } from '@/lib/app-help/loader';
@@ -33,7 +35,7 @@ function memStore() {
 
 describe('aerobic card', () => {
   it('face: amount, by feel, route; Hebrew only', () => {
-    const f = aerobicCardFace(card);
+    const f = aerobicCardFace(card, makeT('he', coach));
     expect(f.chips.map((c) => c.label)).toEqual(['25 דק׳', 'לפי תחושה', 'מסלול במפה']);
     expect(f.cta).toBe('פתח ריצה במפה');
     expect(f.ariaLabel).not.toMatch(/[A-Za-z]/);

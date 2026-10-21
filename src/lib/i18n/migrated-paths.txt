@@ -316,3 +316,11 @@ src/app/community/_components/leagues/segments/
 src/app/community/_lib/league-cards.ts
 src/features/arena/components/GroupDetailsDrawer.tsx
 src/features/arena/components/group-details/utils/group-page-view.ts
+
+# wave 2 batch w (namespace coach): Kelly / "קלי AI" screens + the card-view helpers they render.
+# Left out: services/workout-tool.pure.ts + services/client-tools.ts (Hebrew there is data sent to the model / compared).
+src/features/ai-coach/components/
+src/app/ai-coach/
+src/features/ai-coach/services/workout-card-view.pure.ts
+src/features/ai-coach/services/aerobic-card-view.pure.ts
+src/features/ai-coach/services/memory-copy.ts

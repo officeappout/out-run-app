@@ -12,7 +12,13 @@ import AiCoachWorkoutCard, {
   AiCoachWorkoutCardFace,
   AiCoachWorkoutCardSkeleton,
 } from '../components/AiCoachWorkoutCard';
-import { workoutCardView } from '../services/workout-card-view.pure';
+import { workoutCardView as viewWith } from '../services/workout-card-view.pure';
+import { makeT } from '@/lib/i18n/t';
+import { coach } from '@/messages/ns/coach';
+
+// i18n wave 2 batch w: the view takes the caller's `coach` translator; the Hebrew is unchanged.
+const tHe = makeT('he', coach);
+const workoutCardView = (c: WorkoutCard, cached?: number | null) => viewWith(c, cached, tHe);
 
 const card: WorkoutCard = {
   type: 'workout',
