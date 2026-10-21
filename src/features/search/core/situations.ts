@@ -11,10 +11,13 @@ export type SituationAction =
   | { type: 'category'; category: ResultCategory }
   | { type: 'muscle'; muscle: MuscleGroup };
 
+export type SituationId = 'park' | 'run' | 'abs' | 'help' | 'events' | 'groups' | 'parks';
+
+/** Title / sub copy: `search.situation.<id>.title|sub` in src/messages/he/library.json (`{n}` = count). */
 export interface Situation {
-  id: string;
-  title: string;
-  sub: string;
+  id: SituationId;
+  /** The count the sub line shows (parks / events / groups). */
+  n?: number;
   icon: SituationIcon;
   action: SituationAction;
 }
@@ -29,22 +32,22 @@ export interface SituationInput {
 export function situationSuggestions(s: SituationInput): Situation[] {
   const out: Situation[] = [];
   if (s.parksWithin1Km && s.parksWithin1Km > 0) {
-    out.push({ id: 'park', title: 'גינה קרובה', sub: s.parksWithin1Km === 1 ? 'גינה אחת עד 1 ק״מ' : `${s.parksWithin1Km} גינות עד 1 ק״מ`, icon: 'park', action: { type: 'category', category: 'parks' } });
+    out.push({ id: 'park', n: s.parksWithin1Km, icon: 'park', action: { type: 'category', category: 'parks' } });
   }
   // evening → a run; the rest of the day → a short bodyweight block
   if (s.hour >= 17 && s.hour < 22) {
-    out.push({ id: 'run', title: 'ריצת ערב', sub: 'מסלולים לידך', icon: 'route', action: { type: 'category', category: 'routes' } });
+    out.push({ id: 'run', icon: 'route', action: { type: 'category', category: 'routes' } });
   } else {
-    out.push({ id: 'abs', title: 'תרגילי בטן', sub: 'בלי ציוד, מכל מקום', icon: 'strength', action: { type: 'muscle', muscle: 'abs' } });
+    out.push({ id: 'abs', icon: 'strength', action: { type: 'muscle', muscle: 'abs' } });
   }
-  out.push({ id: 'help', title: 'איך משתמשים', sub: 'סיור קצר ושאלות נפוצות', icon: 'help', action: { type: 'category', category: 'help' } });
+  out.push({ id: 'help', icon: 'help', action: { type: 'category', category: 'help' } });
   if (s.eventsThisWeek > 0) {
-    out.push({ id: 'events', title: 'אירועים השבוע', sub: s.eventsThisWeek === 1 ? 'אירוע אחד בעיר שלך' : `${s.eventsThisWeek} בעיר שלך`, icon: 'event', action: { type: 'category', category: 'events' } });
+    out.push({ id: 'events', n: s.eventsThisWeek, icon: 'event', action: { type: 'category', category: 'events' } });
   } else if (s.groupsNearby > 0) {
-    out.push({ id: 'groups', title: 'קבוצות לידך', sub: `${s.groupsNearby} קבוצות פעילות`, icon: 'group', action: { type: 'category', category: 'social' } });
+    out.push({ id: 'groups', n: s.groupsNearby, icon: 'group', action: { type: 'category', category: 'social' } });
   }
   if (out.length < 4 && !out.some((x) => x.id === 'park')) {
-    out.unshift({ id: 'parks', title: 'גינות כושר', sub: 'מצאו גינה לאימון', icon: 'park', action: { type: 'category', category: 'parks' } });
+    out.unshift({ id: 'parks', icon: 'park', action: { type: 'category', category: 'parks' } });
   }
   return out.slice(0, 4);
 }

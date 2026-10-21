@@ -3,6 +3,8 @@
 import { forwardRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { BRAND_BORDER_BG } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface Props {
   value: string;
@@ -15,6 +17,7 @@ interface Props {
 
 /** The one search input (real <input type="search">, 16px so iOS doesn't zoom). */
 const SearchField = forwardRef<HTMLInputElement, Props>(function SearchField({ value, onChange, onSubmit, placeholder, active }, ref) {
+  const t = useT(library);
   return (
     <form
       role="search"
@@ -34,7 +37,7 @@ const SearchField = forwardRef<HTMLInputElement, Props>(function SearchField({ v
         value={value}
         onChange={(e) => onChange(e.target.value.slice(0, 80))}
         placeholder={placeholder}
-        aria-label="חיפוש"
+        aria-label={t('search.field.label')}
         className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-[#171717] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
         style={{ fontWeight: value ? 700 : 400, WebkitTextFillColor: '#171717' }}
       />
@@ -42,7 +45,7 @@ const SearchField = forwardRef<HTMLInputElement, Props>(function SearchField({ v
         <button
           type="button"
           onClick={() => onChange('')}
-          aria-label="ניקוי החיפוש"
+          aria-label={t('search.field.clear')}
           className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#f1f5f9] active:scale-95"
         >
           <X size={12} strokeWidth={2.5} className="text-[#6b7280]" aria-hidden />

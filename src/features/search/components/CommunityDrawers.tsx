@@ -34,7 +34,7 @@ export default function CommunityDrawers({ actions }: { actions: CommunityAction
         isOpen={!!a.success}
         onClose={() => a.setSuccess(null)}
         name={a.success?.name ?? ''}
-        verb={a.success?.verb ?? 'יתאמן'}
+        verb={a.success?.verb ?? 'יתאמן'} // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
         scheduleSlots={a.success?.scheduleSlots}
         category={a.success?.category}
         address={a.success?.address}

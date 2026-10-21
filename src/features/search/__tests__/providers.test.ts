@@ -50,11 +50,12 @@ describe('places providers', () => {
     expect(nearestParks(parks, HOME, 2).map((h) => h.id)).toEqual(['near', 'other']);
     expect(countParksWithin(parks, HOME, 1)).toBe(1);
   });
-  it('routes: name / city match with length subtitle', () => {
+  it('routes: name / city match, city subtitle + length (PlaceRow joins them)', () => {
     const routes = [{ id: 'r1', name: 'טבעת הירקון', city: 'תל אביב', distance: 7.4, path: [[34.79, 32.09]] }, { id: 'r2', name: 'סיבוב פלורנטין', path: [] }] as never;
     const out = rankRoutes(routes, 'הירקון', HOME);
     expect(out).toHaveLength(1);
-    expect(out[0].subtitle).toBe('7.4 ק״מ · תל אביב');
+    expect(out[0].subtitle).toBe('תל אביב');
+    expect(out[0].lengthKm).toBe(7.4);
   });
 });
 

@@ -4,6 +4,8 @@ import { Clock } from 'lucide-react';
 import Highlight from '../Highlight';
 import ArticleCover from './ArticleCover';
 import { ARTICLE_CATEGORY_LABELS, type ArticleCategory, type ArticleItem } from '@/lib/content-items/types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 /** Same category colours as the website (Articles.module.css). */
 export const CATEGORY_PILL: Record<ArticleCategory, { bg: string; fg: string }> = {
@@ -14,6 +16,7 @@ export const CATEGORY_PILL: Record<ArticleCategory, { bg: string; fg: string }> 
 };
 
 export function ArticleMeta({ article }: { article: ArticleItem }) {
+  const t = useT(library);
   const pill = CATEGORY_PILL[article.category] ?? CATEGORY_PILL.strength;
   return (
     <span className="flex items-center gap-2">
@@ -21,7 +24,7 @@ export function ArticleMeta({ article }: { article: ArticleItem }) {
         {ARTICLE_CATEGORY_LABELS[article.category]}
       </span>
       <span className="flex items-center gap-1 text-[12px] font-bold text-[#64748b]">
-        <Clock size={12} strokeWidth={2.5} aria-hidden />{article.readMin} דק׳ קריאה
+        <Clock size={12} strokeWidth={2.5} aria-hidden />{t('search.article.readMin', { min: String(article.readMin) })}
       </span>
     </span>
   );

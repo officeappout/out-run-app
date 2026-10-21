@@ -47,7 +47,7 @@ function routeHit(r: Route, score: number, pos: LatLng | null): RouteHit {
   const len = typeof r.distance === 'number' ? r.distance : undefined;
   return {
     kind: 'route', key: `route:${r.id}`, id: r.id, title: r.name, score, distanceKm: km, lengthKm: len,
-    subtitle: [len ? `${len.toFixed(1)} ק״מ` : null, r.city || null].filter(Boolean).join(' · ') || undefined,
+    subtitle: r.city || undefined, // PlaceRow puts the length (lengthKm) in front of the city
   };
 }
 

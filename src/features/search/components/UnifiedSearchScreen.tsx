@@ -39,22 +39,14 @@ import { useNearMatches } from '../hooks/useNearMatches';
 import { useCommunityActions } from '../hooks/useCommunityActions';
 import { loadContentCorpus, type ContentCorpus } from '../providers/content';
 import { countParksWithin, loadParks } from '../providers/places';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // The library (exercise corpus parser, filters, sheets) loads only when its chip opens.
 const ExercisesTab = nextDynamic(() => import('./tabs/ExercisesTab'), { ssr: false, loading: () => <ResultsSkeleton /> });
 
-const PLACEHOLDER: Record<SearchCategory, string> = {
-  all: 'תרגיל, גינה, חבר, מאמר או שאלה',
-  exercises: 'חפש תרגיל...',
-  parks: 'שם גינה או עיר',
-  routes: 'שם מסלול או עיר',
-  social: 'שם, קבוצה או שכונה',
-  events: 'מרוץ, סדנה או מפגש',
-  articles: 'חפש מאמר',
-  help: 'איך עושים...?',
-};
-
 export default function UnifiedSearchScreen() {
+  const t = useT(library);
   const router = useRouter();
   const params = useSearchParams();
   const ctx = useSearchContext();
@@ -119,8 +111,8 @@ export default function UnifiedSearchScreen() {
   // A query that found something and stayed put for a moment becomes a recent search.
   useEffect(() => {
     if (!search.settled || !search.hits.length) return;
-    const t = setTimeout(() => addRecent(search.query), 1500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => addRecent(search.query), 1500);
+    return () => clearTimeout(timer);
   }, [search.settled, search.hits.length, search.query, addRecent]);
 
   const situations = useMemo(() => situationSuggestions({
@@ -189,7 +181,7 @@ export default function UnifiedSearchScreen() {
 
   return (
     <div className="min-h-[100dvh] bg-[#f8fafc] text-[#171717]" dir="rtl" style={{ paddingBottom: keyboardOpen ? 16 : '5rem', colorScheme: 'light' }}>
-      <h1 className="sr-only">חיפוש</h1>
+      <h1 className="sr-only">{t('search.title')}</h1>
       <AppHeader zIndex={30}>
         <div className="mx-auto flex max-w-md flex-col gap-2.5 px-4 pb-2.5" dir="rtl">
           <SearchField
@@ -197,7 +189,7 @@ export default function UnifiedSearchScreen() {
             value={query}
             onChange={setQuery}
             onSubmit={() => { if (typed) addRecent(query); inputRef.current?.blur(); }}
-            placeholder={PLACEHOLDER[category]}
+            placeholder={t(`search.placeholder.${category}`)}
             active={typed}
           />
           <CategoryChips value={category} onChange={setCategory} counts={typed && search.query ? search.counts : null} />
@@ -205,7 +197,7 @@ export default function UnifiedSearchScreen() {
       </AppHeader>
 
       <p className="sr-only" aria-live="polite">
-        {typed ? (search.loading ? 'מחפש…' : `${search.counts.all} תוצאות`) : ''}
+        {typed ? (search.loading ? t('search.live.searching') : t('search.live.results', { count: String(search.counts.all) })) : ''}
       </p>
 
       <div className={`mx-auto max-w-md ${category === 'exercises' ? '' : 'px-4 pt-3'}`}>

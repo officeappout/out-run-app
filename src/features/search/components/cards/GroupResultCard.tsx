@@ -4,8 +4,10 @@ import { Clock } from 'lucide-react';
 import { BrandCard, BRAND_GRADIENT } from '@/components/ui/v2';
 import Highlight from '../Highlight';
 import { formatKm } from './PlaceRow';
-import { GROUP_CATEGORY_LABEL, groupScheduleLabel } from '../../providers/community';
+import { groupScheduleLabel } from '../../providers/community';
 import type { CommunityGroup } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface Props {
   group: CommunityGroup;
@@ -19,34 +21,36 @@ interface Props {
   onJoin: () => void;
 }
 
-const initialsOf = (name: string) => name.replace(/[^A-Za-z\u0590-\u05FF\s]/g, '').trim().split(/\s+/).map((w) => w.slice(0, 1)).slice(0, 2).join('') || 'קב';
+const initialsOf = (name: string, fallback: string) => name.replace(/[^A-Za-z\u0590-\u05FF\s]/g, '').trim().split(/\s+/).map((w) => w.slice(0, 1)).slice(0, 2).join('') || fallback;
 
 /** Group card (Social board) — opens the existing details drawer; "הצטרפות" uses the same join flow. */
 export default function GroupResultCard({ group, distanceKm, query, joined, joining, variant = 'compact', onOpen, onJoin }: Props) {
+  const t = useT(library);
   const schedule = groupScheduleLabel(group);
-  const km = formatKm(distanceKm);
-  const members = typeof group.memberCount === 'number' ? `${group.memberCount} חברים` : null;
-  const cat = GROUP_CATEGORY_LABEL[group.category] ?? 'אימון';
+  const km = formatKm(t, distanceKm);
+  const members = typeof group.memberCount === 'number' ? t('search.group.members', { count: String(group.memberCount) }) : null;
+  const cat = t('search.group.category', { category: group.category ?? '' });
+  const initials = initialsOf(group.name, t('search.group.initialsFallback'));
   const joinBtn = (cls: string, style?: React.CSSProperties) => (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); if (!joined) onJoin(); else onOpen(); }}
       disabled={joining}
-      aria-label={joined ? `${group.name}: כבר בקבוצה` : `הצטרפות ל${group.name}`}
+      aria-label={joined ? t('search.group.joinedAria', { name: group.name }) : t('search.group.joinAria', { name: group.name })}
       className={`${cls} shrink-0 rounded-full text-[13px] font-bold disabled:opacity-60 active:scale-[0.97]`}
       style={style}
     >
-      {joining ? '…' : joined ? 'בקבוצה ✓' : 'הצטרפות'}
+      {joining ? '…' : joined ? t('search.group.joined') : t('search.group.join')}
     </button>
   );
 
   if (variant === 'feature') {
     return (
       <BrandCard as="article" radius={20} raised className="overflow-hidden">
-        <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }} aria-label={`פרטי הקבוצה ${group.name}`}>
+        <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }} aria-label={t('search.group.detailsAria', { name: group.name })}>
           <div className="relative h-[92px]" style={{ background: BRAND_GRADIENT }}>
-            {km && <span className="absolute start-2.5 top-2.5 flex h-6 items-center rounded-full bg-[rgba(4,34,43,0.75)] px-2.5 text-[11px] font-bold text-white">{km} ממך</span>}
-            <span className="absolute -bottom-[22px] start-3.5 grid h-[52px] w-[52px] place-items-center rounded-2xl bg-white text-[17px] font-bold text-[#007399] shadow-[0_4px_14px_rgba(0,0,0,0.12)]" aria-hidden>{initialsOf(group.name)}</span>
+            {km && <span className="absolute start-2.5 top-2.5 flex h-6 items-center rounded-full bg-[rgba(4,34,43,0.75)] px-2.5 text-[11px] font-bold text-white">{t('search.group.distanceFromYou', { km })}</span>}
+            <span className="absolute -bottom-[22px] start-3.5 grid h-[52px] w-[52px] place-items-center rounded-2xl bg-white text-[17px] font-bold text-[#007399] shadow-[0_4px_14px_rgba(0,0,0,0.12)]" aria-hidden>{initials}</span>
           </div>
           <div className="flex flex-col gap-2 px-3.5 pb-3.5 pt-[30px]">
             <div className="flex items-start justify-between gap-2">
@@ -72,8 +76,8 @@ export default function GroupResultCard({ group, distanceKm, query, joined, join
 
   return (
     <BrandCard as="article" className="flex items-center gap-3 p-3">
-      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-start" aria-label={`פרטי הקבוצה ${group.name}`}>
-        <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-[#ccfbf1] text-[16px] font-bold text-[#04222b]" aria-hidden>{initialsOf(group.name)}</span>
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-start" aria-label={t('search.group.detailsAria', { name: group.name })}>
+        <span className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl bg-[#ccfbf1] text-[16px] font-bold text-[#04222b]" aria-hidden>{initials}</span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-[15px] font-bold text-[#171717]"><Highlight text={group.name} query={query} /></span>
           <span className="truncate text-[12px] text-[#6b7280]">{[cat, schedule].filter(Boolean).join(' · ')}</span>

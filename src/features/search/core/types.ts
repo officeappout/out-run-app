@@ -7,21 +7,10 @@ import type { CommunityEvent, CommunityGroup } from '@/types/community.types';
 import type { UserSearchResult } from '@/features/social/services/user-search.service';
 import type { ArticleItem } from '@/lib/content-items/types';
 
-/** The chips, in visual (RTL) order. */
+/** The chips, in visual (RTL) order. Labels: `search.category.<chip>` (src/messages/he/library.json). */
 export const SEARCH_CATEGORIES = ['all', 'exercises', 'parks', 'routes', 'social', 'events', 'articles', 'help'] as const;
 export type SearchCategory = (typeof SEARCH_CATEGORIES)[number];
 export type ResultCategory = Exclude<SearchCategory, 'all'>;
-
-export const CATEGORY_LABEL: Record<SearchCategory, string> = {
-  all: 'הכל',
-  exercises: 'תרגילים',
-  parks: 'גינות',
-  routes: 'מסלולים',
-  social: 'אנשים וקבוצות',
-  events: 'אירועים',
-  articles: 'מאמרים',
-  help: 'עזרה',
-};
 
 interface Base {
   /** Unique across all results (kind + id). */

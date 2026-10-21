@@ -12,8 +12,8 @@ import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
 import type { CommunityEvent, CommunityGroup, ScheduleSlot } from '@/types/community.types';
 
-const GROUP_VERB: Record<string, string> = { walking: 'ילך', running: 'ירוץ', yoga: 'יתאמן', calisthenics: 'יתאמן', cycling: 'ירכב', other: 'יתאמן' };
-const EVENT_VERB: Record<string, string> = { race: 'ירוץ', fitness_day: 'יתאמן', workshop: 'ישתתף', community_meetup: 'ישתתף', other: 'יתאמן' };
+const GROUP_VERB: Record<string, string> = { walking: 'ילך', running: 'ירוץ', yoga: 'יתאמן', calisthenics: 'יתאמן', cycling: 'ירכב', other: 'יתאמן' }; // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
+const EVENT_VERB: Record<string, string> = { race: 'ירוץ', fitness_day: 'יתאמן', workshop: 'ישתתף', community_meetup: 'ישתתף', other: 'יתאמן' }; // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
 
 export interface JoinSuccess {
   name: string;
@@ -27,7 +27,7 @@ export interface JoinSuccess {
 export function useCommunityActions() {
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? null;
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? 'משתמש'; // i18n-allow-hebrew: fallback member name written to Firestore (joinGroup / joinEvent), data
   const photoURL = profile?.core?.photoURL;
 
   const [selectedGroup, setSelectedGroup] = useState<CommunityGroup | null>(null);
@@ -55,7 +55,7 @@ export function useCommunityActions() {
       setJoinedGroupIds((prev) => new Set(Array.from(prev).concat(group.id)));
       setSelectedGroup(null);
       const slots = group.scheduleSlots?.length ? group.scheduleSlots : group.schedule ? [group.schedule] : [];
-      setSuccess({ name: group.name, verb: GROUP_VERB[group.category] ?? 'יתאמן', groupId: group.id, scheduleSlots: slots, category: group.category, address: group.meetingLocation?.address });
+      setSuccess({ name: group.name, verb: GROUP_VERB[group.category] ?? 'יתאמן', groupId: group.id, scheduleSlots: slots, category: group.category, address: group.meetingLocation?.address }); // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
     } catch (err) {
       console.error('[unified-search] joinGroup failed:', err);
     } finally {
@@ -84,7 +84,7 @@ export function useCommunityActions() {
       await joinEvent(event.id, userId, userName, photoURL ?? undefined);
       setJoinedEventIds((prev) => new Set(Array.from(prev).concat(event.id)));
       setSelectedEvent(null);
-      setSuccess({ name: event.name, verb: EVENT_VERB[event.category] ?? 'יתאמן' });
+      setSuccess({ name: event.name, verb: EVENT_VERB[event.category] ?? 'יתאמן' }); // i18n-allow-hebrew: verb fragment composed by arena PostJoinSuccessDrawer (outside this folder), wave 2I
     } catch (err) {
       console.error('[unified-search] joinEvent failed:', err);
     } finally {

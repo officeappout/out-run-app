@@ -22,8 +22,8 @@ export function editDistance(a: string, b: string): number {
   return prev[b.length];
 }
 
-const PREFIXES = /^(?:ו|ה|ב|ל|מ|ש|כ){1,2}(?=[א-ת]{3,})/;
-const STOP = new Set(['עם', 'של', 'על', 'את', 'איך', 'מה', 'אני', 'בלי', 'לי', 'זה', 'גם']);
+const PREFIXES = /^(?:ו|ה|ב|ל|מ|ש|כ){1,2}(?=[א-ת]{3,})/; // i18n-allow-hebrew: Hebrew prefix letters for matching (regex, not copy)
+const STOP = new Set(['עם', 'של', 'על', 'את', 'איך', 'מה', 'אני', 'בלי', 'לי', 'זה', 'גם']); // i18n-allow-hebrew: Hebrew stop words for matching (data, not copy)
 const keyWords = (s: string) => norm(s).split(' ').map((w) => w.replace(PREFIXES, '')).filter((w) => w.length >= 3 && !STOP.has(w));
 
 export function nearMatches(query: string, candidates: readonly string[], max = 3): string[] {
