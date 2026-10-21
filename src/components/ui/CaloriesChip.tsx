@@ -1,0 +1,1 @@
+export * from '@/features/parks/core/components/CaloriesChip'; export { default } from '@/features/parks/core/components/CaloriesChip'; // MV-05 transition stub — remove once busy importers switch to the new path
