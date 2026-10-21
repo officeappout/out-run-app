@@ -10,7 +10,7 @@ import { useUserStore } from '@/features/user';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { MOCK_STATS } from '@/features/home/data/mock-schedule-data';
-import { FIRST_RUN_COACH, firstRunToursEnabled, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
+import { FIRST_RUN_COACH, firstRunToursEnabled, homeWeekCoachTarget, shouldArmHomeTour, tourAfterWelcomeChoice } from '@/features/user/onboarding/services/first-run-tour';
 import { useCoachTargetPresent } from '@/features/user/onboarding/hooks/useCoachTargetPresent';
 import { consumeWhatNowPlanArrival } from '@/features/user/onboarding/services/entry-whatnow';
 import TourReplayHost from '@/features/user/onboarding/components/TourReplayHost';
@@ -3206,7 +3206,7 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className="relative overflow-hidden rounded-3xl"
-            data-coach={FIRST_RUN_COACH.homeWeek}
+            data-coach={homeWeekCoachTarget({ pickProgramStrip })}
           >
             <SmartWeeklySchedule
               v2={featureFlags.enableHomeV2}

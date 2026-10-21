@@ -6,7 +6,7 @@
  * Each step points at an element marked `data-coach="<target>"` (looked up in the document, so
  * a target may live in a sibling component). The target is spotlit (the rest dims), the bubble
  * sits above or below it, and an optional CSS tapping finger sits on it. "דלג" is always
- * visible; the last step's button finishes. Rendered as `absolute inset-0` inside the host
+ * visible (entry variant: inside the bubble, not on its last step); the last step's button finishes. Rendered as `absolute inset-0` inside the host
  * screen (no z-index of its own — it paints over the host's content by DOM order).
  *
  * Deliberately not a tutorial engine: no persistence, no routing. The caller decides whether to
@@ -16,7 +16,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Pointer, type LucideIcon } from 'lucide-react';
 import { IconTile, type IconTileTone } from '@/components/ui/v2';
 import EntryCoachBubble from './coach-marks/EntryCoachBubble';
-import { placeCoachBubble } from './coach-marks/coach-placement';
+import { clipCoachBox, coachSkipVisible, placeCoachBubble } from './coach-marks/coach-placement';
+import { occluderBottomFor, scrollCoachTargetIntoView } from './coach-marks/coach-occluder';
 
 export interface CoachMarkStep {
   /** `data-coach` value of the element to point at. Missing → the bubble is centered. */
@@ -69,14 +70,22 @@ export default function CoachMarks({
     if (!el) { setBox(null); return; }
     const r = el.getBoundingClientRect();
     const o = root.getBoundingClientRect();
-    setBox({ top: r.top - o.top - PAD, left: r.left - o.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 });
-  }, [step]);
+    const padded = { top: r.top - o.top - PAD, left: r.left - o.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 };
+    if (!entry) { setBox(padded); return; }
+    // Entry tours: the hole hugs only the target — never reaches under a screen header.
+    const occ = occluderBottomFor(el);
+    setBox(clipCoachBox(padded, occ == null ? null : occ - o.top));
+  }, [step, entry]);
 
   useLayoutEffect(() => {
     const el = step ? document.querySelector<HTMLElement>(`[data-coach="${step.target}"]`) : null;
-    el?.scrollIntoView?.({ block: 'nearest' });
+    // Entry tours park the target in the clear area below an overlaying header (e.g. the
+    // player's "סיימתי" after the how-to step scrolled the page down); others: as before.
+    const restore = el && entry ? scrollCoachTargetIntoView(el) : undefined;
+    if (!entry) el?.scrollIntoView?.({ block: 'nearest' });
     measure();
-  }, [measure, step]);
+    return restore;
+  }, [measure, step, entry]);
   useEffect(() => {
     window.addEventListener('resize', measure);
     // The host may still be animating in — re-measure once it settles.
@@ -176,6 +185,8 @@ export default function CoachMarks({
           nextLabel={nextLabel}
           doneLabel={doneLabel}
           onNext={() => (isLast ? onFinish('done') : setIdx(idx + 1))}
+          skipLabel={skipLabel}
+          onSkip={coachSkipVisible(idx, steps.length) ? () => onFinish('skip') : undefined}
         />
       ) : (
       <div
@@ -214,8 +225,10 @@ export default function CoachMarks({
       </div>
       )}
 
-      {/* "דלג" — always visible, every step. Top-right (RTL start), clear of the station's
-          own "דלג על התחנה" pill at top-left. */}
+      {/* "דלג" (light variant) — always visible, every step. Top-right (RTL start), clear of the
+          station's own "דלג על התחנה" pill at top-left. The entry bubble carries its own
+          "דלג" beside "הבא" instead (one rule for every tour — never over the screen's UI). */}
+      {!entry && (
       <button
         type="button"
         onClick={() => onFinish('skip')}
@@ -224,6 +237,7 @@ export default function CoachMarks({
       >
         {skipLabel}
       </button>
+      )}
     </div>
   );
 }

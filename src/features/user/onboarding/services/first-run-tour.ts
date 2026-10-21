@@ -29,6 +29,8 @@ export const FIRST_RUN_COACH = {
   mapPark: 'map-park',
   communityLeague: 'community-league',
   communityInvite: 'community-invite',
+  /** The leagues "שכונות" tab — community step 2 on the default "אישי" tab (no invite card there). */
+  communityHoodsTab: 'community-hoods-tab',
   playerProgress: 'player-progress',
   playerDone: 'player-done',
   playerHowTo: 'player-how-to',
@@ -55,6 +57,20 @@ export interface FirstRunTourStep {
   allowCentered?: boolean;
   /** When `target` isn't on screen, point at this instead (e.g. no week strip yet). */
   alt?: { target: string; title?: string; text: string };
+}
+
+/**
+ * The week strip's coach target — only when a REAL week is shown. A user without a program
+ * gets the blurred "pick a program" strip in the same slot; no target there, so the home
+ * tour's 3rd step falls back to the map (its `alt`).
+ */
+export function homeWeekCoachTarget(input: { pickProgramStrip: boolean }): string | undefined {
+  return input.pickProgramStrip ? undefined : FIRST_RUN_COACH.homeWeek;
+}
+
+/** Leagues tab coach target: the "שכונות" tab carries community step 2's fallback target. */
+export function leagueTabCoachTarget(tabId: string): string | undefined {
+  return tabId === 'neighborhoods' ? FIRST_RUN_COACH.communityHoodsTab : undefined;
 }
 
 /** onboardingPrefs key for "this user has seen (or skipped) this tour". */
@@ -180,7 +196,14 @@ export function firstRunTourSteps(tour: FirstRunTourId, gender: AppGender | null
     case 'community':
       return [
         { target: FIRST_RUN_COACH.communityLeague, title: 'הליגה של השכונה', text: 'כאן הליגה של השכונה והעיר שלך' },
-        { target: FIRST_RUN_COACH.communityInvite, title: 'הזמנת חבר', text: 'הזמנת חבר מוסיפה +50 לשכונה' },
+        // The leagues open on "אישי"; the invite card exists only under "שכונות" (city scope).
+        // Invite card on screen → point at it; otherwise the "שכונות" tab (always there).
+        {
+          target: FIRST_RUN_COACH.communityInvite,
+          title: 'הזמנת חבר',
+          text: 'הזמנת חבר מוסיפה +50 לשכונה',
+          alt: { target: FIRST_RUN_COACH.communityHoodsTab, title: 'ליגת השכונות', text: 'כאן השכונה שלך מול השכונות בעיר. הזמנת חבר מוסיפה לה +50' },
+        },
       ];
     case 'player':
       return [

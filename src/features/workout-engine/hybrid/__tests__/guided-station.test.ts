@@ -118,9 +118,10 @@ describe('copy', () => {
     expect(guidanceLine('reps', undefined)).toBe('עשה חזרות בקצב שלך, ואז לחץ סיימתי');
     expect(guidanceLine('time', 'female')).toBe('ממשיכים עד שהטיימר נגמר');
   });
-  it('welcome CTA is gendered', () => {
-    expect(welcomeCta('male')).toBe('בוא נתחיל');
-    expect(welcomeCta('female')).toBe('בואי נתחיל');
+  it('welcome CTA is one neutral form for every gender', () => {
+    expect(welcomeCta('male')).toBe('מתחילים');
+    expect(welcomeCta('female')).toBe('מתחילים');
+    expect(welcomeCta(undefined)).toBe('מתחילים');
   });
   it('type chip: time (Timer) for timed and tabata, reps (Repeat) for reps', () => {
     expect(exerciseTypeChip({ exerciseType: 'time' }, false)).toBe('time');
