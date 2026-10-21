@@ -180,6 +180,7 @@ import { enforceStrictFocus, isOnStrictFocus } from '../logic/strict-focus.utils
 import { minMainExercisesFor } from '../logic/session-frame.utils';
 import { rescueEmptyMainBlock, topUpVarietyReserve } from '../logic/never-empty.utils';
 import { balanceFocusAreas, widenFocusForPullGap } from '../logic/pull-gap.utils';
+import { topUpFocusDayReserve } from '../logic/focus-floor.utils';
 
 // -- Re-exports consumed by the barrel (index.ts) and external callers --
 export { mapPersonaIdToLifestylePersona, calculateDaysInactive, extractInjuryShield } from './user-profile.utils';
@@ -1359,15 +1360,23 @@ async function generateHomeWorkoutTrioCore(
         difficulty: workout.difficulty,
         activeProgramId: pipeline.baseGeneratorContext.activeProgramId,
       };
-      // enable_home_v2 day focus: every focus area represented (an upper day is never
-      // push-only); no pull gear → workout.pullGap for the overview's "why" line. Off → skipped.
-      if (pipeline.focusAreas?.length) balanceFocusAreas(workout, neverEmptyOpts, pipeline.focusAreas);
       const rescueNote = rescueEmptyMainBlock(workout, neverEmptyOpts);
       if (rescueNote) console.warn(`[NeverEmpty] empty main block rescued — ${rescueNote}`);
+      // enable_home_v2 day focus: every focus area represented (an upper day is never
+      // push-only); no pull gear → workout.pullGap for the overview's "why" line. Off → skipped.
+      // AFTER the rescue, so an option whose main block was emptied (and refilled) is
+      // stamped like its siblings (generator QA V10).
+      if (pipeline.focusAreas?.length) balanceFocusAreas(workout, neverEmptyOpts, pipeline.focusAreas);
       // H3: below the duration's minimum with a thin reserve → top the reserve up
       // from the session pool so enforceVolumeCap's Phase V can reach the floor.
       const toppedUp = topUpVarietyReserve(workout, neverEmptyOpts);
       if (toppedUp) console.log(`[VarietyFloor] reserve topped up with ${toppedUp} pool candidate(s)`);
+      // enable_home_v2 day focus with a thin focus pool (gear-free pull / L20 push at
+      // home): gear-free progressions of the focus (+ core on a gear-free pull day).
+      if (pipeline.focusAreas?.length) {
+        const floorAdded = topUpFocusDayReserve(workout, neverEmptyOpts, pipeline.focusAreas);
+        if (floorAdded) console.log(`[FocusFloor] reserve topped up with ${floorAdded} focus candidate(s)`);
+      }
 
       enforceVolumeCap(workout, {
         // Trim against the EFFECTIVE time (user request honoured above), not
@@ -1556,7 +1565,10 @@ async function generateHomeWorkoutTrioCore(
     // Safety net: the late guarantees above may not add an off-focus exercise to a
     // strict request (removal only here — the variety add-back already ran).
     if (strictReq?.length && !orchResult.usedEmptyPoolFallback) {
-      const lateOffFocus = enforceStrictFocus(workout, strictReq, true);
+      // enable_home_v2: a pull day without pull gear (workout.pullGap, set only by
+      // balanceFocusAreas) may keep the core its focus floor added (H7 allows it).
+      const lateReq = workout.pullGap && !strictReq.includes('core') ? [...strictReq, 'core'] : strictReq;
+      const lateOffFocus = enforceStrictFocus(workout, lateReq, true);
       if (lateOffFocus.length) console.log(`[StrictFocus] late pass removed: ${lateOffFocus.join(', ')}`);
     }
 
