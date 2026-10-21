@@ -76,6 +76,8 @@ export default defineConfig({
       // i18n wave 2 (app pages: legal / join / session / settings / map error / league / workout history) —
       // Hebrew markup parity of the route pages' own copy (static markup + jsdom).
       'src/app/__tests__/app-pages-i18n/**/*.test.tsx',
+      // i18n wave 2 (map namespace) — parks/core map UI (cards, search, banners), Hebrew markup parity (static + jsdom).
+      'src/features/parks/core/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (player namespace, gps.* / shareLive.* / preview.* / coachNote.* / strengthOverview.*) —
       // shared workout components, Hebrew markup parity, static markup.
       'src/features/workout-engine/components/__tests__/**/*.test.tsx',
@@ -109,6 +111,8 @@ export default defineConfig({
       'tests/firestore-ai-coach-threads.rules.test.ts',
       // Pace self-correction write path (users.running.paceProfile) — emulator :8089.
       'tests/pace-profile-self-correction.rules.test.ts',
+      // Streak kept-gap bridge (Saturday rule / shields) under the existing streaks rule — emulator :8089.
+      'tests/streak-bridge.rules.test.ts',
       // AI testers' boot sync (streaks write shape) — emulator :8089.
       'tests/firestore-qa-tester-activity-sync.rules.test.ts',
       // functions/ is a separate package (own tsconfig, not installed in

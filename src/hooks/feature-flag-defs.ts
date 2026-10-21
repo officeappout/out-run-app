@@ -140,6 +140,16 @@ export const FLAG_DEFS = [
   // Fail-closed; superAdminValue false — the panel toggle is the one switch (the streak
   // store and the generator read the live value, which ignores the super-admin override).
   { key: 'enableCalmReturnV1', firestoreKey: 'enable_calm_return_v1', defaultValue: false, superAdminValue: false },
+  // Streak rules (owner decisions 21.10.2026) — src/features/activity/lib/streak-day.core.ts,
+  // read by BOTH the app's streak store (live value) and streakRescueScheduler (this same doc).
+  // enable_shabbat_free_streak: a missed Saturday never breaks the streak, for everyone (an
+  //   active Saturday still counts). enable_streak_shields: +1 shield per 7 streak days, max 2,
+  //   used automatically on a missed day. enable_streak_pushes: the server's streak pushes
+  //   (19:30 / 21:15 rescue, 10:00 broken, 20:00 milestone). All fail-closed; superAdminValue
+  //   false — the panel toggle is the one switch (the store and the server read the live value).
+  { key: 'enableShabbatFreeStreak', firestoreKey: 'enable_shabbat_free_streak', defaultValue: false, superAdminValue: false },
+  { key: 'enableStreakShields', firestoreKey: 'enable_streak_shields', defaultValue: false, superAdminValue: false },
+  { key: 'enableStreakPushes', firestoreKey: 'enable_streak_pushes', defaultValue: false, superAdminValue: false },
   // OUT AI Phase 0 (18.10.2026) — foundation only, no user-facing AI feature reads these yet.
   // The SERVER is the enforcer (src/lib/ai/*.server.ts reads this same document via the Admin
   // SDK, ignoring superAdminValue); the client copies below only drive UI.

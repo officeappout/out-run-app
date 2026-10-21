@@ -55,6 +55,18 @@ import {
   type StreakCounters,
 } from '../lib/streak-rules';
 import { readLiveFlag } from '@/lib/feature-flag-live';
+import {
+  advanceKeptGap,
+  bridgeWrites,
+  brokenNotice,
+  readStreakPolicy,
+  restoreOnLoad,
+  shieldDocFields,
+  shieldsOnAdvance,
+  shieldsOnReverse,
+  type PendingStreakBridge,
+  type StreakNotice,
+} from './streak-policy';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 
 // ============================================================================
@@ -145,6 +157,18 @@ interface ActivityState {
   /** Calm return: a grace day bridged today's advance; syncToServer writes the bridge first
    *  (two +1 writes — the only shape the streaks rule accepts). Cleared after the sync. */
   pendingStreakGrace?: { date: string; prevStreak: number; prevLongest: number } | null;
+  /** Streak shields (enable_streak_shields): held 0..2, and the streak value that last earned one. */
+  streakShields?: number;
+  streakShieldsEarnedAt?: number;
+  /** Days the shields covered most recently (shown once by the home card). */
+  streakShieldUsedOn?: string[];
+  /** Saturday rule / shields: a kept gap to write before today's +1 (see streak-policy.ts). */
+  pendingStreakBridge?: PendingStreakBridge | null;
+  /** What the home v2 streak card says after a load / an advance (null = nothing). Not persisted. */
+  streakNotice?: StreakNotice | null;
+  /** Mark the home streak card as seen (dismissed); a milestone is also stamped on streaks/{uid}. */
+  dismissStreakNotice: () => void;
+  markStreakMilestoneSeen: (milestone: number) => Promise<void>;
   
   // Dominant color for path visualization
   dominantActivityColor: string;
@@ -433,11 +457,62 @@ function calculateWeeklySummary(
 // ============================================================================
 
 /**
+ * advanceStreakTodayBase + the Saturday rule and shields (streak-policy.ts). Both flags off:
+ * exactly the base result. A kept gap (free Saturday / shield day) → +1 and a pending bridge
+ * for syncToServer; the calm-return grace day, when it applies, wins (it already bridged).
+ */
+function advanceStreakToday(
+  counters: StreakCounters,
+  todayStr: string,
+  state: Pick<ActivityStore, 'streakGraceWeekKey' | 'longestStreak' | 'streakShields' | 'streakShieldsEarnedAt'>,
+): StreakCounters & { advanced: boolean; extra: Partial<ActivityStore> } {
+  const base = advanceStreakTodayBase(counters, todayStr, state);
+  // Saturday rule / shields (flags off → policy inactive → `base` unchanged, no extra fields).
+  const policy = readStreakPolicy();
+  if (!policy.shabbatFree && !policy.shields) return base;
+  if (!base.advanced) return base;
+  if (!base.extra.pendingStreakGrace) {
+    const kept = advanceKeptGap(counters, todayStr, state, state.longestStreak, policy);
+    if (kept) {
+      return {
+        currentStreak: kept.currentStreak,
+        lastStreakDate: kept.lastStreakDate,
+        advanced: true,
+        extra: {
+          ...base.extra,
+          pendingStreakBridge: kept.bridge,
+          ...(kept.shields
+            ? { streakShields: kept.shields.streakShields, streakShieldsEarnedAt: kept.shields.streakShieldsEarnedAt }
+            : {}),
+          ...(kept.shieldDays.length ? { streakShieldUsedOn: kept.shieldDays } : {}),
+          ...(kept.shields?.earned
+            ? { streakNotice: { kind: 'shield_earned', held: kept.shields.streakShields, streak: kept.currentStreak, on: todayStr } as StreakNotice }
+            : {}),
+        },
+      };
+    }
+  }
+  const sh = shieldsOnAdvance(base.currentStreak, state, policy);
+  if (!sh) return base;
+  return {
+    ...base,
+    extra: {
+      ...base.extra,
+      streakShields: sh.streakShields,
+      streakShieldsEarnedAt: sh.streakShieldsEarnedAt,
+      ...(sh.earned
+        ? { streakNotice: { kind: 'shield_earned', held: sh.streakShields, streak: base.currentStreak, on: todayStr } as StreakNotice }
+        : {}),
+    },
+  };
+}
+
+/**
  * Count `todayStr` toward the streak. Flag off: exactly advanceStreakForDay (unchanged).
  * Calm return on: the weekly grace day may bridge a one-day gap — `extra` then carries the
  * store fields that record it (empty object otherwise, so set() calls stay identical).
  */
-function advanceStreakToday(
+function advanceStreakTodayBase(
   counters: StreakCounters,
   todayStr: string,
   state: Pick<ActivityStore, 'streakGraceWeekKey' | 'longestStreak'>,
@@ -770,10 +845,13 @@ export const useActivityStore = create<ActivityStore>()(
 
         const newStreak = Math.max(0, state.currentStreak - 1);
         const newLastStreakDate = newStreak > 0 ? getYesterdayString() : '';
+        // Shields on: give back a shield that exactly today's advance earned (null otherwise).
+        const shieldUndo = shieldsOnReverse(state.currentStreak, state, readStreakPolicy());
 
         set({
           currentStreak: newStreak,
           lastStreakDate: newLastStreakDate,
+          ...(shieldUndo ?? {}),
         });
 
         await get().syncToServer().catch(err =>
@@ -781,6 +859,20 @@ export const useActivityStore = create<ActivityStore>()(
         );
 
         return { reversed: true, newStreak };
+      },
+
+      dismissStreakNotice: () => set({ streakNotice: null }),
+
+      // The in-app milestone celebration was seen → the 20:00 milestone push skips it.
+      // A merge write of one extra field: the streaks rule's "unchanged" branch accepts it.
+      markStreakMilestoneSeen: async (milestone: number) => {
+        const uid = get().today?.userId;
+        if (!uid || !(milestone > 0)) return;
+        try {
+          await setDoc(doc(db, COLLECTION_STREAK, uid), { milestoneSeen: milestone }, { merge: true });
+        } catch (err) {
+          console.warn('[ActivityStore] milestoneSeen write skipped:', err);
+        }
       },
 
       countTodayIfStepGoalMet: () => {
@@ -975,6 +1067,24 @@ export const useActivityStore = create<ActivityStore>()(
               console.warn('[ActivityStore] Grace-day bridge write skipped:', graceErr);
             }
           }
+          // Saturday rule / shields: a kept gap is written as +1 then −1 per bridged day (both
+          // shapes the streaks rule accepts — streak-policy.ts), so today's write is a plain +1.
+          // Best-effort like the grace bridge: a rejected step stops the bridge, never today.
+          const pendingBridge = state.pendingStreakBridge;
+          if (pendingBridge && !pendingGrace && state.lastStreakDate === state.today.date) {
+            try {
+              for (const w of bridgeWrites(pendingBridge)) {
+                await setDoc(streakRef, {
+                  userId: state.today.userId,
+                  ...w,
+                  ...activityScopeExtra,
+                  updatedAt: serverTimestamp(),
+                }, { merge: true });
+              }
+            } catch (bridgeErr) {
+              console.warn('[ActivityStore] Streak bridge write skipped:', bridgeErr);
+            }
+          }
           // Nothing counted since the server's copy → keep its date (see streakWriteDate).
           let serverStreak: Record<string, unknown> | null = null;
           try {
@@ -992,10 +1102,12 @@ export const useActivityStore = create<ActivityStore>()(
               serverStreak,
             ),
             ...(state.streakGraceWeekKey ? { graceWeekKey: state.streakGraceWeekKey } : {}),
+            ...shieldDocFields(state, readStreakPolicy()),
             ...activityScopeExtra,
             updatedAt: serverTimestamp(),
           }, { merge: true });
           if (pendingGrace) set({ pendingStreakGrace: null });
+          if (pendingBridge) set({ pendingStreakBridge: null });
 
           // Mirror streak into users/{uid}.progression.currentStreak so that
           // useProgressionStore (which reads from the users doc) stays in sync.
@@ -1059,6 +1171,10 @@ export const useActivityStore = create<ActivityStore>()(
           let restoredLastStreakDate = '';
           // Calm return: the weekly grace day may keep a one-day gap alive.
           const calmStreakOn = readLiveFlag('enableCalmReturnV1');
+          // Saturday rule / shields + the home v2 streak card's notice (streak-policy.ts).
+          const streakPolicy = readStreakPolicy();
+          let loadNotice: StreakNotice | null = null;
+          let restoredShields: { streakShields: number; streakShieldsEarnedAt: number } | null = null;
           let restoredGraceWeekKey: string | undefined;
 
           if (streakSnap.exists()) {
@@ -1086,8 +1202,34 @@ export const useActivityStore = create<ActivityStore>()(
                   targetDate,
                 );
 
-              if (daysDiff > 1 && !keptByGrace) {
+              // Saturday rule / shields (flags off → never kept, no notice).
+              const restored = restoreOnLoad(
+                {
+                  currentStreak,
+                  longestStreak,
+                  lastStreakDate: restoredLastStreakDate,
+                  shields: Number(streakData.shields) || 0,
+                  shieldsEarnedAt: Number(streakData.shieldsEarnedAt) || 0,
+                },
+                targetDate,
+                streakPolicy,
+              );
+              if (streakPolicy.shields) {
+                restoredShields = {
+                  streakShields: Number(streakData.shields) || 0,
+                  streakShieldsEarnedAt: Number(streakData.shieldsEarnedAt) || 0,
+                };
+              }
+              if (!keptByGrace && restored.keptByPolicy) loadNotice = restored.notice;
+
+              if (daysDiff > 1 && !keptByGrace && !restored.keptByPolicy) {
                 // Streak broken — also clear the local date so logWorkout starts fresh
+                // Only the home v2 card reads it (the home mounts the card under enable_home_v2).
+                loadNotice = brokenNotice(
+                  { currentStreak, longestStreak, lastStreakDate: restoredLastStreakDate, shields: Number(streakData.shields) || 0 },
+                  targetDate,
+                  streakPolicy,
+                );
                 currentStreak = 0;
                 restoredLastStreakDate = '';
                 console.log('[ActivityStore] Streak broken - missed days');
@@ -1198,6 +1340,8 @@ export const useActivityStore = create<ActivityStore>()(
             longestStreak: Math.max(longestStreak, currentStreak),
             lastStreakDate: restoredLastStreakDate,
             ...(restoredGraceWeekKey ? { streakGraceWeekKey: restoredGraceWeekKey } : {}),
+            ...(restoredShields ?? {}),
+            ...(loadNotice ? { streakNotice: loadNotice } : {}),
             userProgram: state.userProgram,
           });
           
@@ -1378,6 +1522,10 @@ export const useActivityStore = create<ActivityStore>()(
         // Calm return only — absent (undefined) while the flag is off.
         ...(state.streakGraceWeekKey ? { streakGraceWeekKey: state.streakGraceWeekKey } : {}),
         ...(state.pendingStreakGrace ? { pendingStreakGrace: state.pendingStreakGrace } : {}),
+        // Saturday rule / shields only — absent while both flags are off.
+        ...(state.pendingStreakBridge ? { pendingStreakBridge: state.pendingStreakBridge } : {}),
+        ...(typeof state.streakShields === 'number' ? { streakShields: state.streakShields } : {}),
+        ...(typeof state.streakShieldsEarnedAt === 'number' ? { streakShieldsEarnedAt: state.streakShieldsEarnedAt } : {}),
         lastSyncTimestamp: state.lastSyncTimestamp,
         resolvedStepGoal: state.resolvedStepGoal,
       }),

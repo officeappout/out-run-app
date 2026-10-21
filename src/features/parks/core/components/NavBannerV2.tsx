@@ -34,6 +34,8 @@ import { useSessionStore } from '@/features/workout-engine/core/store/useSession
 import { isFiniteLatLng } from '@/utils/geoValidation';
 import { useRouteRunV2Store } from '@/features/workout-engine/players/running/store/useRouteRunV2Store';
 import RouteElevationAhead from '@/features/workout-engine/players/running/components/RouteRun/v2/RouteElevationAhead';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 const DEST_GREEN = '#16A34A';
 
@@ -66,6 +68,7 @@ export default function NavBannerV2({
   onExpand,
   onMinimize,
 }: NavBannerV2Props) {
+  const t = useT(map);
   const status = useSessionStore((s) => s.status);
   const sessionActive = status === 'active' || status === 'paused';
   const guidedRouteName = useRunningPlayer((s) => s.guidedRouteName);
@@ -105,8 +108,8 @@ export default function NavBannerV2({
 
   const TopIcon = approaching ? Footprints : IconComp;
   const topDistance = approaching ? crossTrackM : distanceM;
-  const topHeadline = approaching ? 'הליכה אל המסלול' : headline;
-  const topAction = approaching ? 'עד הנקודה הקרובה במסלול' : actionLine;
+  const topHeadline = approaching ? t('navBanner.approach.headline') : headline;
+  const topAction = approaching ? t('navBanner.approach.action') : actionLine;
   const tileColor = !approaching && isDestination ? DEST_GREEN : '#0284c7';
 
   return (
@@ -119,7 +122,7 @@ export default function NavBannerV2({
       <button
         type="button"
         onClick={onExpand}
-        aria-label="הצג את כל הפניות"
+        aria-label={t('navBanner.expand')}
         className="flex w-full items-center gap-3 pb-2.5 pl-12 pr-3 pt-3 text-right transition-transform duration-150 ease-v2 active:scale-[0.99]"
       >
         {/* dir="ltr": lucide arrows must never be mirrored by an RTL ancestor (see TurnCarousel). */}
@@ -150,7 +153,7 @@ export default function NavBannerV2({
       <button
         type="button"
         onClick={onMinimize}
-        aria-label="מזעור ניווט"
+        aria-label={t('navBanner.minimize')}
         className="absolute left-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/80 ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
         <Minimize2 size={14} className="text-v2-ink-2" />
@@ -160,18 +163,18 @@ export default function NavBannerV2({
         <div className="border-t border-v2-hairline px-3.5 pb-3 pt-2">
           <div className="mb-1.5 flex items-center justify-between gap-3">
             <span className="min-w-0 truncate text-[12px] font-extrabold text-v2-ink-2">
-              {guidedRouteName || 'התקדמות במסלול'}
+              {guidedRouteName || t('navBanner.progress.nameFallback')}
             </span>
             <span className="shrink-0 whitespace-nowrap text-[12px] font-extrabold tabular-nums text-v2-deep">
               {progress.joined
-                ? `${progress.pct}% · נותרו ${formatBannerDistance(progress.remainingM)}`
-                : `${formatBannerDistance(totalM)} במסלול`}
+                ? t('navBanner.progress.joined', { pct: String(progress.pct), remaining: formatBannerDistance(progress.remainingM) })
+                : t('navBanner.progress.total', { total: formatBannerDistance(totalM) })}
             </span>
           </div>
           <div
             className="relative h-1.5 overflow-hidden rounded-full bg-v2-hairline"
             role="progressbar"
-            aria-label="התקדמות במסלול"
+            aria-label={t('navBanner.progress.barLabel')}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress.pct}

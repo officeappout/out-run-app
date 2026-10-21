@@ -5,21 +5,14 @@ import { Layers, X, ChevronLeft } from 'lucide-react';
 import { motion, useDragControls } from 'framer-motion';
 import { useMapStore, LayerType } from '../store/useMapStore';
 import { PartnerFilterSheet, usePartnerFilters } from '@/features/partners';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
-const LAYER_OPTIONS: { id: LayerType; label: string; icon: string }[] = [
-    { id: 'water', label: 'ברזיות מים', icon: '💧' },
-    { id: 'gym', label: 'מתקני כושר', icon: '💪' },
-    { id: 'toilet', label: 'שירותים ציבוריים', icon: '🚽' },
-];
-
-// Hebrew labels for the partner-activity filter — used by the
-// "משתמשים פעילים" summary line.
-const ACTIVITY_LABELS: Record<string, string> = {
-    all: 'הכל',
-    strength: 'כוח',
-    running: 'ריצה',
-    walking: 'הליכה',
-};
+const LAYER_OPTIONS = [
+    { id: 'water', labelKey: 'layers.option.water', icon: '💧' },
+    { id: 'gym', labelKey: 'layers.option.gym', icon: '💪' },
+    { id: 'toilet', labelKey: 'layers.option.toilet', icon: '🚽' },
+] as const satisfies ReadonlyArray<{ id: LayerType; labelKey: string; icon: string }>;
 
 export function MapLayersButton({ onClick }: { onClick: () => void }) {
     return (
@@ -51,20 +44,20 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
     const liveActivity = usePartnerFilters((s) => s.liveActivity);
     const distanceKm = usePartnerFilters((s) => s.distanceKm);
     const dragControls = useDragControls();
+    const t = useT(map);
 
     // Compose the summary line shown beneath the row title:
     //   - liveUsersVisible=false  → 'אין סינון פעיל' (dimmed)
     //   - liveActivity='all'      → 'הכל'
     //   - else                    → '<activity> · עד <distance> ק״מ'
     const filterSummary = (() => {
-        if (!liveUsersVisible) return 'אין סינון פעיל';
-        if (liveActivity === 'all') return 'הכל';
-        const label = ACTIVITY_LABELS[liveActivity] ?? 'הכל';
+        if (!liveUsersVisible) return t('layers.live.off');
+        if (liveActivity === 'all') return t('layers.live.all');
         const distanceLabel =
             distanceKm < 1
-                ? `${Math.round(distanceKm * 1000)} מ׳`
-                : `${distanceKm} ק״מ`;
-        return `${label} · עד ${distanceLabel}`;
+                ? t('layers.live.metres', { m: String(Math.round(distanceKm * 1000)) })
+                : t('layers.live.km', { km: String(distanceKm) });
+        return t('layers.live.summary', { activity: liveActivity ?? '', distance: distanceLabel });
     })();
 
     // Badge shows 0 when visibility is off — even if there ARE live users
@@ -118,11 +111,11 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
 
                             {/* Header */}
                             <div className="flex items-center justify-between px-5 pb-4" dir="rtl">
-                                <h3 className="text-base font-black text-gray-900">שכבות במפה</h3>
+                                <h3 className="text-base font-black text-gray-900">{t('layers.title')}</h3>
                                 <button
                                     type="button"
                                     onClick={() => setIsOpen(false)}
-                                    aria-label="סגור"
+                                    aria-label={t('layers.close')}
                                     className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors pointer-events-auto"
                                 >
                                     <X size={18} className="text-gray-500" />
@@ -143,7 +136,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                                             <div className="flex items-center gap-3">
                                                 <span className="text-xl leading-none">{layer.icon}</span>
                                                 <span className={`text-[15px] font-semibold ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                    {layer.label}
+                                                    {t(layer.labelKey)}
                                                 </span>
                                             </div>
 
@@ -170,7 +163,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                                         setIsOpen(false);
                                         setFilterSheetOpen(true);
                                     }}
-                                    aria-label="פתח פילטרים של משתמשים פעילים"
+                                    aria-label={t('layers.live.open')}
                                     className="w-full flex items-center justify-between py-4 transition-all active:opacity-70 cursor-pointer"
                                 >
                                     {/* Label + summary on the right (RTL) */}
@@ -180,7 +173,7 @@ export const MapLayersControl: React.FC<MapLayersControlProps> = ({ liveCount = 
                                             <span
                                                 className={`text-[15px] font-semibold ${liveUsersVisible ? 'text-gray-900' : 'text-gray-400'}`}
                                             >
-                                                משתמשים פעילים
+                                                {t('layers.live.title')}
                                             </span>
                                             <span
                                                 className={`text-[11px] font-medium mt-0.5 truncate ${liveUsersVisible ? 'text-gray-500' : 'text-gray-300'}`}

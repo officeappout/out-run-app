@@ -19,6 +19,8 @@ import type { AerobicLeg, AerobicMetaIcon } from '../overview-legs';
 import { AER_TINT, AER_TEXT, CARD_PAD, Meta, fmtPace, useAxisCardStyles } from './AxisParts';
 import { useAxisDecor } from './axis-decor';
 import DrillChips from './DrillChips';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 function metaIcon(icon: AerobicMetaIcon, activity?: string): ReactNode {
   if (icon === 'distance') return <Ruler size={14} />;
@@ -37,6 +39,7 @@ export interface AerobicLegCardProps {
 export default function AerobicLegCard({ leg, expanded = false, onToggle, detail }: AerobicLegCardProps) {
   const { v2, cardCls, cardStyle, titleCls, titleStyle, pacePillStyle } = useAxisCardStyles();
   const { renderPace, onDrillTap } = useAxisDecor();
+  const t = useT(map);
   const drills = leg.drills && leg.drills.length > 0 && onDrillTap ? <DrillChips drills={leg.drills} onTap={onDrillTap} /> : null;
   const pace = leg.paceSecPerKm ?? 0;
   const paceText = leg.paceText ?? (pace > 0 ? fmtPace(pace) : '');
@@ -48,8 +51,8 @@ export default function AerobicLegCard({ leg, expanded = false, onToggle, detail
       {leg.paceKey && renderPace && paceText
         ? renderPace({ paceKey: leg.paceKey, text: paceText, edited: !!leg.paceEdited, tone: 'pill' })
         : leg.paceText
-        ? <span className="text-[11px] font-extrabold rounded-full whitespace-nowrap" style={pacePillStyle}>{leg.paceText} /ק״מ</span>
-        : pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{fmtPace(pace)} /ק״מ</span>}
+        ? <span className="text-[11px] font-extrabold rounded-full whitespace-nowrap" style={pacePillStyle}>{t('overview.axis.pace', { pace: leg.paceText })}</span>
+        : pace > 0 && <span className="text-[11px] font-extrabold rounded-full" style={pacePillStyle}>{t('overview.axis.pace', { pace: fmtPace(pace) })}</span>}
     </div>
   );
   const badgeCls = `${v2 ? 'text-[11px]' : 'text-[10.5px]'} font-extrabold rounded-full whitespace-nowrap`;
@@ -93,7 +96,7 @@ export default function AerobicLegCard({ leg, expanded = false, onToggle, detail
         )}
         {leg.loopNote && (
           <div className="flex items-center gap-1.5 mt-2 text-[11px] font-extrabold" style={{ color: AER_TEXT }}>
-            <Repeat size={15} style={{ color: AER }} /> מסלול מעגלי — חוזר לנקודת ההתחלה
+            <Repeat size={15} style={{ color: AER }} /> {t('overview.axis.loopNote')}
           </div>
         )}
       </div>

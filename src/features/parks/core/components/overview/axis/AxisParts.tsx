@@ -16,6 +16,8 @@ import { LocateFixed } from 'lucide-react';
 import { ActivityGlyph } from '../../hybrid/activity-icons';
 import { formatMinutes } from '../../hybrid/hybrid-format';
 import { HYBRID_AER as AER, HYBRID_STR as STR, HYBRID_WALK as WALK } from '../../hybrid/hybrid-colors';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export const ACCENT = '#00ADEF'; // "המיקום שלך" origin / return nodes
 export const AER_TINT = '#ECFDF5', AER_TEXT = '#047857';
@@ -86,6 +88,7 @@ export function YourLocationRow({ variant, railBelowDotted, railAboveDotted, fir
   firstColorBelow?: string;
 }) {
   const v2 = useAxisV2();
+  const t = useT(map);
   return (
     <div className="flex items-center gap-3" style={{ minHeight: 40 }}>
       <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: 44, alignSelf: 'stretch' }}>
@@ -101,7 +104,7 @@ export function YourLocationRow({ variant, railBelowDotted, railAboveDotted, fir
           <LocateFixed size={14} />
         </div>
       </div>
-      <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-[12.5px] font-black'} style={v2 ? undefined : { color: '#0369A1' }}>המיקום שלך</span>
+      <span className={v2 ? 'whitespace-nowrap text-[13px] font-extrabold text-v2-deep' : 'text-[12.5px] font-black'} style={v2 ? undefined : { color: '#0369A1' }}>{t('overview.axis.yourLocation')}</span>
     </div>
   );
 }

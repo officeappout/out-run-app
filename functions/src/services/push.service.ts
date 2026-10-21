@@ -86,6 +86,14 @@ import { writePushSentEvent } from './push-events.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './shabbat.service';
 import { withoutDemoUids } from '../lib/demo';
 import {
+  appendPolicyLog,
+  isPolicyQuietTime,
+  policyBlockReason,
+  policyDailyCap,
+  policyLogFrom,
+  type PushPolicyKind,
+} from '../lib/push-policy-v2';
+import {
   RETENTION_LAST_DAY,
   lapsedSuppressionReason,
   lastActivityFromUserData,
@@ -298,6 +306,10 @@ export interface SendPushMeasurement {
   /** Push library row the copy came from (push-copy.service.ts) — per-row analytics. */
   pushType?: string;
   copyRowId?: string;
+  /** Tone of the copy row ('cute' | 'personal' | 'curious' | 'friendly' | 'none') — tone learning. */
+  tone?: string;
+  /** The engagement lever the sender used (e.g. first-week 'low_bar', 'social'). */
+  lever?: string;
 }
 
 export interface SendPushOpts {
@@ -369,6 +381,23 @@ export interface SendPushOpts {
    * isPersonalInteraction is true. Absent = no change for every existing caller.
    */
   countTowardDailyCap?: boolean;
+  /**
+   * 21.10.2026 (streak rescue, owner: "counts in the cap but has priority") — this send is
+   * COUNTED in the daily engagement cap (the counter increments as usual) but is not BLOCKED
+   * by it: an earlier nudge that filled the cap can't silence the 19:30 streak rescue. Every
+   * other guard (prefs, quiet hours, Shabbat, kill switches, rate cap) still applies. With
+   * push policy v2 on it also passes the v2 daily cap and 3h spacing (not the weekly cap).
+   * Only meaningful together with a capped send. Absent = no change for every existing caller.
+   */
+  dailyCapPriority?: boolean;
+  /**
+   * Push policy v2 (flag pushPolicyV2, default OFF — see lib/push-policy-v2.ts).
+   * 'proactive' (default): the app decided to nudge. 'requested': a reminder
+   * the user asked for (reminder slots, scheduled-workout reminders) — exempt
+   * from the proactive caps and allowed from 06:00. 'streak_rescue': a streak
+   * rescue — exempt from the first-week 1-a-day rule. Ignored with the flag off.
+   */
+  policyKind?: PushPolicyKind;
 }
 
 export interface SendPushResult {
@@ -389,6 +418,8 @@ export interface SendPushResult {
   skippedDailyCap: number;
   /** Held back by suppressIfLapsed (flag lapsedPushSuppression). Absent when not applied. */
   skippedLapsed?: number;
+  /** Held back by push policy v2 caps (flag pushPolicyV2). Absent when the flag is off. */
+  skippedPolicy?: number;
   tokensPruned: number;
   /** Present only when opts.measurement was provided — the pushId used to
    *  correlate push_events records for this send. */
@@ -460,8 +491,22 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const isDirectChat = channel === 'chat' && opts.isDirectMessage === true;
   const inShabbatWindow = !isSystem && !isDirectChat && isShabbatOrYomTov();
 
+  // Subject to the daily engagement cap: on a capped channel AND not marked
+  // as a personal interaction for THIS specific send (see isPersonalInteraction's
+  // doc comment — a channel can carry a mix of personal and nudge events).
+  const isEngagementChannel =
+    !isSystem && (ENGAGEMENT_CHANNELS.has(channel) || opts.countTowardDailyCap === true) && !opts.isPersonalInteraction;
+
+  // ── Push policy v2 (flag pushPolicyV2, default off) — engagement sends only.
+  const policyKind: PushPolicyKind = opts.policyKind ?? 'proactive';
+  const policyV2 = isEngagementChannel && (await isPushPolicyV2Enabled());
+  if (policyV2) result.skippedPolicy = 0;
+  const sendNowMs = Date.now();
+
   // ── Check quiet hours once (single timezone for all Israel users) ─────────
-  if (!isSystem && !skipQuietHours && isQuietHours()) {
+  // v2: proactive 21:30–08:00, requested 22:00–06:00 (lib/push-policy-v2.ts).
+  const quiet = policyV2 ? isPolicyQuietTime(sendNowMs, policyKind) : isQuietHours();
+  if (!isSystem && !skipQuietHours && quiet) {
     result.skippedQuietHours = toUids.length;
     logger.info(`[push.service] ${channel} — quiet hours, skipping ${toUids.length} uid(s)`);
     return result;
@@ -472,11 +517,6 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const tokenOwners = new Map<string, string>(); // token → uid
 
   const db = getDb();
-  // Subject to the daily engagement cap: on a capped channel AND not marked
-  // as a personal interaction for THIS specific send (see isPersonalInteraction's
-  // doc comment — a channel can carry a mix of personal and nudge events).
-  const isEngagementChannel =
-    !isSystem && (ENGAGEMENT_CHANNELS.has(channel) || opts.countTowardDailyCap === true) && !opts.isPersonalInteraction;
   const todayKey = isEngagementChannel ? getJerusalemDateKey() : '';
 
   // Lapsed-user suppression (opt-in per call + flag, default off).
@@ -563,13 +603,31 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
       // per-channel rate cap above, ENGAGEMENT_CHANNELS only). Cap NUMBER is
       // per-user (Stage 3) via settings.notificationFrequency; which sends
       // are even subject to it (isEngagementChannel) is unchanged. ────────
-      if (isEngagementChannel) {
+      if (policyV2) {
+        // v2 replaces the legacy daily count check (the legacy counter is still written).
+        const settings = (userData?.settings ?? {}) as Record<string, unknown>;
+        const reason = policyBlockReason({
+          log: policyLogFrom(rateByUid.get(uid)),
+          kind: policyKind,
+          nowMs: sendNowMs,
+          dailyCap: policyDailyCap(settings),
+          signupMs: toMillis(userData?.createdAt),
+        });
+        // dailyCapPriority (the 19:30 streak rescue): counted, but the daily cap and the 3h
+        // spacing don't hold it back (the weekly cap and the first-week rule still do).
+        const priorityPass = opts.dailyCapPriority === true && (reason === 'daily_cap' || reason === 'spacing');
+        if (reason && !priorityPass) {
+          result.skippedPolicy = (result.skippedPolicy ?? 0) + 1;
+          logger.info(`[push.service] uid=${uid} held by push policy v2 (${reason}, channel=${channel}, kind=${policyKind})`);
+          continue;
+        }
+      } else if (isEngagementChannel) {
         const settings = (userData?.settings ?? {}) as Record<string, unknown>;
         const dailyCap = resolveDailyCap(settings);
         const rateData = rateByUid.get(uid);
         const storedDate = rateData?.dailyEngagementDate;
         const storedCount = typeof rateData?.dailyEngagementCount === 'number' ? rateData.dailyEngagementCount : 0;
-        if (storedDate === todayKey && storedCount >= dailyCap) {
+        if (storedDate === todayKey && storedCount >= dailyCap && opts.dailyCapPriority !== true) {
           result.skippedDailyCap++;
           logger.info(`[push.service] uid=${uid} daily engagement cap reached (channel=${channel}, count=${storedCount}, cap=${dailyCap})`);
           continue;
@@ -682,7 +740,9 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
   const engagedUids = isEngagementChannel ? Array.from(new Set(tokenOwners.values())) : [];
   await Promise.all([
     rateCapHours > 0 ? updateRateCap(toUids, channel) : Promise.resolve(),
-    isEngagementChannel && engagedUids.length > 0 ? updateDailyEngagementCount(engagedUids, todayKey) : Promise.resolve(),
+    isEngagementChannel && engagedUids.length > 0
+      ? updateDailyEngagementCount(engagedUids, todayKey, policyV2 ? { kind: policyKind, nowMs: sendNowMs } : undefined)
+      : Promise.resolve(),
     deadTokens.length > 0 ? pruneTokens(deadTokens, tokenOwners) : Promise.resolve(),
   ]);
 
@@ -705,6 +765,8 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
           outcomeWindowHours: measurement.outcomeWindowHours,
           pushType: measurement.pushType,
           copyRowId: measurement.copyRowId,
+          tone: measurement.tone,
+          lever: measurement.lever,
         }),
       ),
     );
@@ -722,6 +784,30 @@ export async function sendPush(opts: SendPushOpts): Promise<SendPushResult> {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// app_config/feature_flags.pushPolicyV2 — cached 60s. Default OFF; a read
+// error keeps the last known value (or off), so the policy never blocks by surprise.
+const POLICY_FLAG_TTL_MS = 60_000;
+let policyFlagCache: { at: number; on: boolean } | null = null;
+
+async function isPushPolicyV2Enabled(): Promise<boolean> {
+  const now = Date.now();
+  if (policyFlagCache && now - policyFlagCache.at < POLICY_FLAG_TTL_MS) return policyFlagCache.on;
+  let on = policyFlagCache?.on ?? false;
+  try {
+    const snap = await getDb().doc('app_config/feature_flags').get();
+    on = (snap.data() as Record<string, unknown> | undefined)?.pushPolicyV2 === true;
+  } catch (e: unknown) {
+    logger.warn('[push.service] feature_flags read failed (pushPolicyV2), keeping last value', e);
+  }
+  policyFlagCache = { at: now, on };
+  return on;
+}
+
+/** Tests only. */
+export function __resetPushPolicyFlagCache(): void {
+  policyFlagCache = null;
+}
 
 /**
  * Returns true when the time in Israel falls inside the quiet window (22:00–07:00).
@@ -752,7 +838,11 @@ function getJerusalemDateKey(): string {
  * whether to increment or reset to 1 — a plain FieldValue.increment can't
  * express that conditional. Only called for ENGAGEMENT_CHANNELS sends.
  */
-async function updateDailyEngagementCount(uids: string[], todayKey: string): Promise<void> {
+async function updateDailyEngagementCount(
+  uids: string[],
+  todayKey: string,
+  policy?: { kind: PushPolicyKind; nowMs: number },
+): Promise<void> {
   const db = getDb();
   for (let i = 0; i < uids.length; i += PRUNE_BATCH_SIZE) {
     const slice = uids.slice(i, i + PRUNE_BATCH_SIZE);
@@ -765,7 +855,16 @@ async function updateDailyEngagementCount(uids: string[], todayKey: string): Pro
           const isSameDay = data.dailyEngagementDate === todayKey;
           const currentCount = typeof data.dailyEngagementCount === 'number' ? data.dailyEngagementCount : 0;
           const nextCount = isSameDay ? currentCount + 1 : 1;
-          tx.set(ref, { dailyEngagementDate: todayKey, dailyEngagementCount: nextCount }, { merge: true });
+          tx.set(
+            ref,
+            {
+              dailyEngagementDate: todayKey,
+              dailyEngagementCount: nextCount,
+              // Push policy v2 (flag on only): the per-send log the v2 caps read.
+              ...(policy ? { policyLog: appendPolicyLog(policyLogFrom(data), policy.kind, policy.nowMs) } : {}),
+            },
+            { merge: true },
+          );
         });
       } catch (e: unknown) {
         logger.warn(`[push.service] daily engagement count update failed uid=${uid}`, e);
