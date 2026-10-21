@@ -46,6 +46,8 @@ export default defineConfig({
       // i18n wave 2 pilot (profile namespace) — Hebrew markup parity, static markup.
       'src/features/activity/components/__tests__/**/*.test.tsx',
       'src/features/progression-map/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 — Partner Finder Hebrew markup parity (static markup, node env).
+      'src/features/partners/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

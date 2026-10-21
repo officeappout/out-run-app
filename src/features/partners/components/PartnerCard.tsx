@@ -50,6 +50,11 @@ import { resolvePersonaImage } from '@/features/parks/core/hooks/useGroupPresenc
 import { getStageTitle } from '@/features/user/progression/config/stage-titles';
 import { useUserStore } from '@/features/user';
 import { useChatStore } from '@/features/social/store/useChatStore';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+
+type MapT = ReactTFunction<NamespaceKey<typeof map>>;
 
 export type PartnerCardActivity = 'strength' | 'running' | 'walking' | 'cycling';
 
@@ -117,9 +122,9 @@ function formatTime(d?: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} מ׳`;
-  return `${km.toFixed(km < 10 ? 1 : 0)} ק״מ`;
+function formatDistance(t: MapT, km: number): string {
+  if (km < 1) return t('partners.distance.meters', { m: Math.round(km * 1000) });
+  return t('partners.distance.km', { km: km.toFixed(km < 10 ? 1 : 0) });
 }
 
 interface ActivityLine {
@@ -140,28 +145,29 @@ interface ActivityLine {
  * the same as the one written into presence.
  */
 function resolveActivityLine(
+  t: MapT,
   activity: PartnerCardActivity | undefined,
   mockPace: string | undefined,
   lemurStage: number | undefined,
 ): ActivityLine {
   if (activity === 'strength') {
-    return { emoji: '💪', text: 'כוח' };
+    return { emoji: '💪', text: t('partners.activity.strength') };
   }
 
   if (activity === 'running') {
     return mockPace
-      ? { emoji: '🏃', text: `ריצה · ${mockPace} לק״מ` }
-      : { emoji: '🏃', text: 'ריצה' };
+      ? { emoji: '🏃', text: t('partners.activity.runningPace', { pace: mockPace }) }
+      : { emoji: '🏃', text: t('partners.activity.running') };
   }
 
   if (activity === 'walking') {
     return mockPace
-      ? { emoji: '🚶', text: `הליכה · ${mockPace} לק״מ` }
-      : { emoji: '🚶', text: 'הליכה' };
+      ? { emoji: '🚶', text: t('partners.activity.walkingPace', { pace: mockPace }) }
+      : { emoji: '🚶', text: t('partners.activity.walking') };
   }
 
   if (activity === 'cycling') {
-    return { emoji: '🚴', text: 'רכיבה' };
+    return { emoji: '🚴', text: t('partners.activity.cycling') };
   }
 
   return { emoji: '⭐', text: getStageTitle(lemurStage) };
@@ -194,8 +200,9 @@ export function PartnerCard({
   onAvatarTap,
   v2 = false,
 }: PartnerCardProps) {
+  const t = useT(map);
   const avatarSrc = photoURL || resolvePersonaImage(personaId);
-  const activity = resolveActivityLine(activityStatus, mockPace, lemurStage);
+  const activity = resolveActivityLine(t, activityStatus, mockPace, lemurStage);
 
   // Top-start chip — shows program + level when available; hidden otherwise.
   // We intentionally omit the generic lemur-stage title ("מתחיל", "שוחר")
@@ -203,7 +210,7 @@ export function PartnerCard({
   const topStartChip: string | null = (() => {
     const n = programName?.trim();
     if (!n) return null;
-    return programLevel != null ? `${n} · רמה ${programLevel}` : n;
+    return programLevel != null ? t('partners.card.programLevel', { program: n, level: programLevel }) : n;
   })();
 
   // Local loading gate — prevents double-taps and gives instant visual
@@ -240,7 +247,7 @@ export function PartnerCard({
     try {
       await useChatStore.getState().openDM(
         profile.id,
-        profile.core?.name ?? 'אווטיר',
+        profile.core?.name ?? 'אווטיר', // i18n-allow-hebrew: sender name stored on the chat (data, not copy)
         uid,
         name,
       );
@@ -264,7 +271,7 @@ export function PartnerCard({
       return (
         <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500 shadow-sm">
           <span className="block w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <span className="text-[11px] font-black text-white">לייב</span>
+          <span className="text-[11px] font-black text-white">{t('partners.card.live')}</span>
         </div>
       );
     }
@@ -293,7 +300,7 @@ export function PartnerCard({
       return (
         <div className="px-2.5 py-1 rounded-full bg-white/95 shadow-sm backdrop-blur-sm">
           <span className="text-[11px] font-black text-gray-800">
-            {memberCount} משתתפים
+            {t('partners.card.members', { count: memberCount })}
           </span>
         </div>
       );
@@ -324,7 +331,7 @@ export function PartnerCard({
             <button
               type="button"
               onClick={onAvatarTap}
-              aria-label={`פתח פרופיל של ${name}`}
+              aria-label={t('partners.card.openProfile', { name })}
               className="absolute inset-0 z-[6] cursor-pointer"
             />
           )}
@@ -332,7 +339,7 @@ export function PartnerCard({
             <div className="absolute top-2.5 start-2.5 z-20 flex max-w-[70%] flex-col items-start gap-1">
               {isSelf && (
                 <div className="whitespace-nowrap rounded-full bg-v2-up px-2.5 py-1 text-[11px] font-black text-white">
-                  הגעה שלי
+                  {t('partners.card.ownArrival')}
                 </div>
               )}
               {topStartChip && (
@@ -348,11 +355,11 @@ export function PartnerCard({
         {/* Content */}
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3">
           <div className="flex items-center justify-between gap-2 text-[12.5px] font-bold text-v2-muted">
-            <span className="whitespace-nowrap">{formatDistance(distanceKm)}</span>
+            <span className="whitespace-nowrap">{formatDistance(t, distanceKm)}</span>
             {currentStreak != null && currentStreak > 0 && (
               <span className="flex items-center gap-1 whitespace-nowrap text-v2-amber">
                 <Flame size={13} aria-hidden />
-                {currentStreak} ימים רצף
+                {t('partners.card.streak', { days: currentStreak })}
               </span>
             )}
           </div>
@@ -378,7 +385,7 @@ export function PartnerCard({
                 className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-v2-tint text-[14px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97]"
               >
                 <UserPlus size={15} aria-hidden />
-                הצטרף
+                {t('partners.card.join')}
               </button>
             ) : (
               <button
@@ -388,7 +395,7 @@ export function PartnerCard({
                 className="flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-v2-tint text-[14px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-accent/40 transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
               >
                 <MessageCircle size={15} aria-hidden />
-                {isConnecting ? 'מתחבר...' : "פתח צ'אט"}
+                {isConnecting ? t('partners.card.connecting') : t('partners.card.openChat')}
               </button>
             )}
           </div>
@@ -428,7 +435,7 @@ export function PartnerCard({
         <button
           type="button"
           onClick={onAvatarTap}
-          aria-label={`פתח פרופיל של ${name}`}
+          aria-label={`פתח פרופיל של ${name}`} // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           className="absolute top-0 inset-x-0 z-[6] cursor-pointer"
           style={{ height: '55%' }}
         />
@@ -444,7 +451,7 @@ export function PartnerCard({
         <div className="absolute top-2 start-2 z-20 flex flex-col items-start gap-1">
           {isSelf && (
             <div className="px-2.5 py-1 rounded-full bg-emerald-500 shadow-sm">
-              <span className="text-[11px] font-black text-white">הגעה שלי</span>
+              <span className="text-[11px] font-black text-white">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הגעה שלי</span>
             </div>
           )}
           {topStartChip && (
@@ -477,11 +484,11 @@ export function PartnerCard({
 
         {/* 5a. Metadata row — distance + streak */}
         <div className="w-full mb-1 flex items-center justify-between gap-2 text-[13px] font-normal" style={{ color: '#374151' }}>
-          <span className="font-bold">{formatDistance(distanceKm)}</span>
+          <span className="font-bold">{formatDistance(t, distanceKm)}</span>
           {currentStreak != null && currentStreak > 0 && (
             <span className="flex items-center gap-1 text-orange-600 font-bold">
               <span aria-hidden className="text-sm leading-none">🔥</span>
-              <span>{currentStreak} ימים רצף</span>
+              <span>{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{currentStreak} ימים רצף</span>
             </span>
           )}
         </div>
@@ -532,7 +539,7 @@ export function PartnerCard({
               backgroundColor: '#EF9F27',
             }}
           >
-            הצטרף
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הצטרף
           </button>
         ) : (
           // "פתח צ'אט" — opens the INTERNAL ChatInbox; never routes to
@@ -553,7 +560,7 @@ export function PartnerCard({
               opacity: isConnecting ? 0.8 : 1,
             }}
           >
-            {isConnecting ? 'מתחבר...' : "פתח צ'אט"}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isConnecting ? 'מתחבר...' : "פתח צ'אט"}
           </button>
         )}
       </div>
