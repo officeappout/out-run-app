@@ -57,6 +57,8 @@ export default defineConfig({
       'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
       // i18n wave 2 (community namespace) — group page Hebrew markup parity (static markup + jsdom taps).
       'src/features/arena/components/group-details/__tests__/**/*.test.tsx',
+      // i18n wave 2 (onboarding namespace) — strength assessment page parity (jsdom, services mocked).
+      'src/app/onboarding-new/assessment-visual/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',

@@ -426,8 +426,8 @@ export default function VisualSlider({
     ? stepProportion(sliderVal, steps.length)
     : levelProportion(level, minLevel, maxLevel);
   const tierLabel = isSkillCategory
-    ? resolveSkillTierLabel(tierProportion)
-    : resolveTierLabel(tierProportion, isFemale);
+    ? resolveSkillTierLabel(tierProportion, t)
+    : resolveTierLabel(tierProportion, isFemale, t);
 
   // Resolves CMS slash patterns like "דוחף/ת" → "דוחפת" (female) or "דוחף" (male).
   // Pattern: base/suffix — suffix appended for female, stripped for male.
