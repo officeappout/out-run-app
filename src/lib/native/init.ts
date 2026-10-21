@@ -446,7 +446,11 @@ async function attachPushAuthBridge(): Promise<void> {
       void (async () => {
         try {
           const { getOnboardingPrefAsync } = await import('@/lib/onboardingPrefs');
-          const gatewayUid = await getOnboardingPrefAsync('gateway_uid');
+          const { PUSH_SOFTASK_DEFERRED_KEY } = await import('@/features/schedule/utils/pushReAsk');
+          const [gatewayUid, softAskDeferred] = await Promise.all([
+            getOnboardingPrefAsync('gateway_uid'),
+            getOnboardingPrefAsync(PUSH_SOFTASK_DEFERRED_KEY),
+          ]);
           const onboardingDone = gatewayUid === user.uid;
 
           // Push: silent ONLY for anonymous users who haven't finished onboarding
@@ -454,7 +458,22 @@ async function attachPushAuthBridge(): Promise<void> {
           // Named accounts (non-anonymous) skip silent mode so the OS dialog fires
           // on first launch even when gateway_uid isn't set (admin users, cleared
           // Preferences after reinstall, accounts created outside onboarding flow).
-          const silentMode = user.isAnonymous && !onboardingDone;
+          // Also silent once the user answered the v2 soft-ask with "לא עכשיו"
+          // (enable_home_v2 — the pref is written only by the v2 screens): no cold
+          // OS dialog on the next launch; a token still refreshes if already granted.
+          // enable_home_v2 (cached flags): an anonymous signup is primed by the
+          // early soft-ask right after the track pick (EarlyPushSoftAskGate) —
+          // never a cold OS dialog at the pick itself (gateway_uid races this read).
+          let v2Primed = false;
+          if (user.isAnonymous) {
+            try {
+              const { readCachedFlags } = await import('@/hooks/useFeatureFlags');
+              v2Primed = readCachedFlags()?.enableHomeV2 === true;
+            } catch {
+              v2Primed = false;
+            }
+          }
+          const silentMode = (user.isAnonymous && (!onboardingDone || v2Primed)) || softAskDeferred !== null;
           void initPushNotifications(user.uid, silentMode ? { silent: true } : {})
             .catch((err) => {
               console.error('[native] initPushNotifications (sign-in) unhandled:', err);

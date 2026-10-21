@@ -67,11 +67,15 @@ export { trainingReminderScheduler } from './trainingReminderScheduler';
 export { weekStartScheduler } from './weekStartScheduler';
 // Reminder-sweep (workout-reminders build, Part B) — flag-gated
 // (app_config/feature_flags.enableReminderSweepPush, default false) — see
-// reminderSweepScheduler.ts header. NOT deployed yet; exported here so
-// it's ready to ship once deployed and verified against the emulator
-// test (reminderSweepScheduler.emulator.test.ts). David flips the flag
-// himself after deploy — nothing in this build does that automatically.
+// reminderSweepScheduler.ts header. Ready to deploy (21.10.2026, unit test
+// reminderSweepScheduler.test.ts + the emulator test); it is a no-op until
+// the flag is on. David flips the flag himself after deploy — nothing in
+// this build does that automatically.
 export { reminderSweepScheduler } from './reminderSweepScheduler';
+// First-workout push, day 1 and 2 after signup while there is no workout yet
+// (push-lifecycle audit, 21.10.2026). Flag-gated: firstWorkoutPushEnabled,
+// default off. New function: needs its own deploy.
+export { firstWorkoutScheduler } from './firstWorkoutScheduler';
 // ── Push Notification Triggers (Social Engagement Engine — phase 3: social) ───
 export { onGroupMemberJoin } from './onGroupMemberJoin';
 export { onKudosCreated } from './onKudosCreated';

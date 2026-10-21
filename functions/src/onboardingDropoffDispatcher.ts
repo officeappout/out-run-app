@@ -99,7 +99,8 @@
  *  `dropoffNotifiedAt`/`dropoffNotifyCount` are stamped identically on both
  *  paths — this migration only changes the delivery mechanism, not the
  *  cooldown/audit-trail logic.
- *  Known minor side effect: Step 2's own eligibility filter still checks
+ *  21.10.2026: Step 2's eligibility filter now checks
+ *  `notificationPrefs.onboarding_dropoff` (was training_reminder). Historical note: it checked
  *  `notificationPrefs.training_reminder` regardless of routing (unchanged
  *  from before this migration); when routed, `sendPush()` ALSO
  *  independently checks `notificationPrefs.onboarding_dropoff`. A routed
@@ -114,6 +115,7 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush, isQuietHours } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
+import { dropoffStageOf, pushTrackFromUserData, trackConditions, type PushTrack } from './lib/push-lifecycle';
 import {
   resolvePushCopy,
   pushCopyData,
@@ -176,6 +178,8 @@ interface StaleUser {
   audience: PushAudience;
   authorityId: string | null;
   onboardingStep: string | null;
+  /** Copy track (lib/push-lifecycle.ts) — null when unknown mid-signup. */
+  track: PushTrack | null;
   tokens: string[];
 }
 
@@ -219,6 +223,17 @@ export function dropoffCapSkipReason(
     return `notified ${Math.round((nowMs - notifiedMs) / MS_PER_HOUR)}h ago, cooldown=${RE_NOTIFY_HOURS}h`;
   }
   return null;
+}
+
+/**
+ * Channel opt-out for the drop-off push: settings.notificationPrefs.onboarding_dropoff
+ * === false (absent = on, the opt-out model). Until 21.10.2026 this read
+ * training_reminder, so muting reminders also silenced the signup nudge.
+ * Exported for tests.
+ */
+export function dropoffPrefSkipReason(data: Record<string, unknown>): string | null {
+  const prefs = (data?.settings as { notificationPrefs?: Record<string, unknown> } | undefined)?.notificationPrefs;
+  return prefs?.onboarding_dropoff === false ? 'onboarding_dropoff opt-out' : null;
 }
 
 /**
@@ -375,12 +390,12 @@ export const onboardingDropoffDispatcher = onSchedule(
         continue;
       }
 
-      // Per-channel opt-out. This dispatcher tags its payload
-      // channel:'training_reminder' (see fcmMessage below), so a user who
-      // disabled training reminders must NOT receive these inactivity pushes.
-      // Missing field defaults to enabled (opt-out model), matching all other senders.
-      if (data?.settings?.notificationPrefs?.training_reminder === false) {
-        logger.info(`[dropoff] uid=${uid} — skipping (training_reminder opt-out)`);
+      // Per-channel opt-out (21.10.2026: the drop-off's OWN channel, was
+      // training_reminder — "לא עכשיו" on reminders mutes reminders only and
+      // must not silence "continue your signup"). See dropoffPrefSkipReason.
+      const prefReason = dropoffPrefSkipReason(data);
+      if (prefReason) {
+        logger.info(`[dropoff] uid=${uid} — skipping (${prefReason})`);
         continue;
       }
 
@@ -406,6 +421,7 @@ export const onboardingDropoffDispatcher = onSchedule(
         audience: audienceFromUserData(data),
         authorityId: String(data?.core?.authorityId ?? '') || null,
         onboardingStep: typeof data.onboardingStep === 'string' ? data.onboardingStep : null,
+        track: pushTrackFromUserData(data),
         tokens,
       });
     }
@@ -427,10 +443,12 @@ export const onboardingDropoffDispatcher = onSchedule(
     let totalTokensPruned = 0;
 
     for (const user of eligible) {
+      // 21.10.2026: per stage ("נשאר רק עוד צעד" only near the end) and track.
       const copy = await resolvePushCopy('onboarding_dropoff', {
         uid: user.uid,
         audience: user.audience,
         vars: { '@שם': user.name },
+        conditions: trackConditions(user.track, { stage: dropoffStageOf(user.onboardingStep) }),
       });
       if (!copy) {
         logger.warn(`[dropoff] uid=${user.uid} — no push copy fits, skipping`);
