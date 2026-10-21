@@ -7,7 +7,7 @@
  * here until the recommendation itself changes (days count). The layout IS what is saved
  * (buildStrengthScheduleWrite over wbToStrengthWeek), so the host saves the edited week.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
@@ -17,6 +17,7 @@ import type { StrengthWeekRecommendation } from '@/features/schedule/utils/stren
 import { createWeekEngine, refreshDetails, type WbWeek } from '@/features/schedule/week-builder';
 import { applyStrengthFocus, strengthRules, strengthWeekToWb, wbToStrengthWeek, type StrengthWbData } from '@/features/schedule/week-builder/adapters/strength';
 import WeekBuilder from '@/features/schedule/week-builder/components/WeekBuilder';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
 
 const COUNT_OPTIONS = [2, 3, 4, 5, 6];
 
@@ -30,7 +31,6 @@ export interface StrengthWeekBuilderStepProps {
   dates: number[];
   frequency: number;
   onFrequency: (n: number) => void;
-  headerAction?: ReactNode;
   onAddRun: (week: StrengthWeekRecommendation) => void | Promise<void>;
   onConfirm: (week: StrengthWeekRecommendation) => void | Promise<void>;
 }
@@ -58,7 +58,7 @@ export default function StrengthWeekBuilderStep(p: StrengthWeekBuilderStepProps)
       engine={engine}
       onChange={setWb}
       dates={p.dates}
-      headerAction={p.headerAction}
+      headerAction={kellyWeekAction}
       daysCount={{ value: p.frequency, options: countOptions, onChange: p.onFrequency }}
       onWindow={onWindow}
       extra={

@@ -8,7 +8,7 @@
  * "keep it as it was" alternative stays, and the user's own moves keep each session's home
  * day so the save knows what moved (wbToAddTrackDays → planAddTrackSave).
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { useT } from '@/hooks/useT';
 import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import type { SchedulePriority } from '@/features/schedule/engine-v2/types';
@@ -17,6 +17,7 @@ import type { AddTrackDayView, AddTrackWeekView } from '@/features/schedule/add-
 import { createWeekEngine, type WbRules, type WbWeek } from '@/features/schedule/week-builder';
 import { addTrackWeekToWb, wbToAddTrackDays, type AddTrackWbData } from '@/features/schedule/week-builder/adapters/addTrack';
 import WeekBuilder from '@/features/schedule/week-builder/components/WeekBuilder';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
 
 const COPY: Record<AddedTrack, { title: OnboardingKey; subtitle: OnboardingKey }> = {
   running: { title: 'signup.addTrack.running.title', subtitle: 'signup.addTrack.running.subtitle' },
@@ -35,7 +36,6 @@ export interface AddTrackWeekBuilderStepProps {
   onPriority: (p: SchedulePriority) => void;
   keepOnly: boolean;
   onToggleKeepOnly: (() => void) | null;
-  headerAction?: ReactNode;
   error: string | null;
   onConfirm: (days: AddTrackDayView[]) => void | Promise<void>;
 }
@@ -61,7 +61,7 @@ export default function AddTrackWeekBuilderStep(p: AddTrackWeekBuilderStepProps)
       engine={engine}
       onChange={(next) => setEdited({ base: p.week, wb: next })}
       dates={p.dates}
-      headerAction={p.headerAction}
+      headerAction={kellyWeekAction}
       priority={{ value: p.priority, onChange: p.onPriority }}
       extra={
         p.onToggleKeepOnly && (

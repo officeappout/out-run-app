@@ -17,6 +17,7 @@ import type { PolicyAddOn } from '@/features/schedule/recommendation-policy/type
 import { createWeekEngine } from '@/features/schedule/week-builder';
 import { walkDaysOf, walkRules, walkWeekToWb, type WalkWbContext } from '@/features/schedule/week-builder/adapters/walk';
 import WeekBuilder from '@/features/schedule/week-builder/components/WeekBuilder';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
 
 export interface WalkWeekBuilderStepProps {
   plan: WalkPlan;
@@ -27,7 +28,6 @@ export interface WalkWeekBuilderStepProps {
   onWindow: (dow: number, w: TimeWindow) => void;
   /** Under the list (the "not alone" walking-group card). */
   extra?: ReactNode;
-  headerAction?: ReactNode;
   error: string | null;
   onConfirm: () => void | Promise<void>;
 }
@@ -46,7 +46,7 @@ export default function WalkWeekBuilderStep(p: WalkWeekBuilderStepProps) {
       engine={engine}
       onChange={(next) => p.onDays(walkDaysOf(next))}
       dates={p.dates}
-      headerAction={p.headerAction}
+      headerAction={kellyWeekAction}
       onWindow={p.onWindow}
       extra={p.extra}
       error={p.error}

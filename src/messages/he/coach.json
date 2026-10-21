@@ -83,5 +83,8 @@
   "parks.aria": "פתח במפה: {name}, {km} ק״מ",
   "parks.ariaEquipment": "פתח במפה: {name}, {km} ק״מ, {equipment}",
   "parks.line": "{km} ק״מ",
-  "parks.lineEquipment": "{km} ק״מ · {equipment}"
+  "parks.lineEquipment": "{km} ק״מ · {equipment}",
+  "weekChip.label": "סדר לי במילים",
+  "weekChip.context": "השבוע שלי (עוד לא שמרתי): {week}. ",
+  "weekChip.contextEmpty": "אני בונה את השבוע שלי. "
 }

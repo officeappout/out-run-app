@@ -34,8 +34,8 @@ export interface WeekBuilderProps<P> {
   onChange: (week: WbWeek<P>) => void;
   /** Day of month per weekday (display). */
   dates: number[];
-  /** Header action slot (the Kelly chip). */
-  headerAction?: ReactNode;
+  /** Header action slot, given the week on screen (the Kelly chip "סדר לי במילים"). */
+  headerAction?: (week: WbWeek<P>) => ReactNode;
   /** Chip labels for the run / walk tracks ("ריצת 10 ק״מ"). */
   chipLabels?: Partial<Record<'run' | 'walk', string>>;
   daysCount?: { value: number; options: number[]; onChange: (n: number) => void } | null;
@@ -94,7 +94,7 @@ export default function WeekBuilder<P>(p: WeekBuilderProps<P>) {
       <WeekBuilderHeader
         title={p.title}
         subtitle={p.subtitle}
-        action={p.headerAction}
+        action={p.headerAction?.(p.week)}
         tracks={tracks.filter((tr) => counts[tr] > 0)}
         tab={tab}
         onTab={setTab}

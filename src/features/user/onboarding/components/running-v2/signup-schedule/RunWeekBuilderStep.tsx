@@ -7,7 +7,7 @@
  * hands those back (onDays) and the flow's own engine week re-renders — the same engine call
  * the move was validated with (runMoveOptions), so what the user sees is what gets saved.
  */
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
 import type { TimeWindow } from '@/features/schedule/engine-v2/types';
@@ -15,6 +15,7 @@ import type { RunWeekRecommendation } from '@/features/schedule/utils/runWeekRec
 import { createWeekEngine } from '@/features/schedule/week-builder';
 import { longRunAfterEdit, runDaysOf, runMoveOptions, runRules, runWeekToWb, type RunWbContext } from '@/features/schedule/week-builder/adapters/run';
 import WeekBuilder from '@/features/schedule/week-builder/components/WeekBuilder';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
 
 export interface RunWeekBuilderStepProps {
   subtitle: string;
@@ -31,7 +32,6 @@ export interface RunWeekBuilderStepProps {
   onDays: (days: number[], chosenLongRunDay: number | null) => void;
   onWindow: (dow: number, w: TimeWindow) => void;
   dates: number[];
-  headerAction?: ReactNode;
   onConfirm: () => void | Promise<void>;
 }
 
@@ -53,7 +53,7 @@ export default function RunWeekBuilderStep(p: RunWeekBuilderStepProps) {
         p.onDays(days, longRunAfterEdit(longRunDow, longRun));
       }}
       dates={p.dates}
-      headerAction={p.headerAction}
+      headerAction={kellyWeekAction}
       chipLabels={{ run: p.planLabel }}
       daysCount={{ value: p.frequency, options: p.frequencyOptions, onChange: p.onFrequency }}
       onWindow={p.onWindow}
