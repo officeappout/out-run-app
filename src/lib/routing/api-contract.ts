@@ -3,6 +3,9 @@
  * Pure (shared by the route handler and the app-side client).
  */
 import { parseWireOurRoutes, type WireOurRoute } from './our-routes/wire';
+import type { ShadePrefMeta } from './shade-pref';
+
+export type { ShadePrefMeta };
 
 export type GenerateActivity = 'running' | 'walking' | 'cycling';
 
@@ -15,6 +18,10 @@ export interface GenerateLoopsRequest {
   maxResults?: number;
   /** Our mapped routes near the start (enable_loops_prefer_official) — see lib/routing/our-routes. */
   ourRoutes?: WireOurRoute[];
+  /** "Shadiest route" (enable_route_pref_shade): rank candidates by Technion shade where the city has a layer. */
+  preferShade?: boolean;
+  /** The app's resolved city name — picks the shade layer. Only read with preferShade. */
+  city?: string;
 }
 
 export interface GenerateAbRequest {
@@ -43,6 +50,8 @@ export interface GeneratedLoopDto {
   unmarkedCrossingsPerKm: number | null;
   retracedPct: number;
   compactness: number;
+  /** Mean Technion shade index (0..1) — only with preferShade, null when not measured. */
+  shadeShare?: number | null;
 }
 
 export interface GenerateLoopsResponse {
@@ -51,6 +60,8 @@ export interface GenerateLoopsResponse {
   calls: number;
   timedOut: boolean;
   osmLayer: boolean;
+  /** Only when the request asked for preferShade: whether shade ranking was applied, and why not. */
+  shade?: ShadePrefMeta;
 }
 
 export interface GenerateAbResponse {
@@ -83,9 +94,12 @@ export function parseGenerateRequest(body: unknown): GenerateRequest | { error: 
     const maxResults = typeof b.maxResults === 'number' ? Math.max(1, Math.min(3, Math.trunc(b.maxResults))) : 3;
     // Malformed / oversized ourRoutes is dropped, not an error: the loop still runs, without it.
     const ourRoutes = b.ourRoutes === undefined ? undefined : parseWireOurRoutes(b.ourRoutes);
-    return ourRoutes
-      ? { mode: 'loop', start, targetKm, activity, seed, maxResults, ourRoutes }
-      : { mode: 'loop', start, targetKm, activity, seed, maxResults };
+    const city = typeof b.city === 'string' && b.city.trim() && b.city.length <= 80 ? b.city.trim() : undefined;
+    return {
+      mode: 'loop', start, targetKm, activity, seed, maxResults,
+      ...(ourRoutes ? { ourRoutes } : {}),
+      ...(b.preferShade === true ? { preferShade: true, ...(city ? { city } : {}) } : {}),
+    };
   }
   if (b.mode === 'ab') {
     const from = point(b.from), to = point(b.to);

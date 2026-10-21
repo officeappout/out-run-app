@@ -28,6 +28,8 @@ export async function tryGraphhopperLoops(o: GhLoopOptions, deps?: ApiClientDeps
       seed: o.routeGenerationIndex,
       maxResults: Math.max(1, Math.min(3, o.preferences.maxRoutes ?? 3)),
       ...(ourRoutes && ourRoutes.length > 0 ? { ourRoutes } : {}),
+      // "Shadiest route" (enable_route_pref_shade): the server ranks by shade where it has data.
+      ...(o.preferences.preferShade ? { preferShade: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
     }, deps);
     if (res.loops.length === 0) return null;
     return res.loops.map((l, i) => loopDtoToRoute(l, i, o.activity, o.routeGenerationIndex));

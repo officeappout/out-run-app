@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   limited: false,
   rlKeys: [] as string[],
   client: null as GraphHopperClient | null,
+  shadeCity: null as string | null,
+  shadeLookups: [] as Array<string | null>,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -17,6 +19,19 @@ vi.mock('@/lib/rateLimit', () => ({
 }));
 vi.mock('@/lib/routing/graphhopper/server-client', () => ({ getServerGraphHopperClient: () => state.client }));
 vi.mock('@/lib/routing/osm-layer-server', () => ({ fetchOsmLayerForLoop: async () => null }));
+vi.mock('@/lib/routing/shade-loader.server', async () => {
+  const { buildShadeIndex } = await import('@/lib/shade');
+  return {
+    getServerShadeLoader: () => ({
+      indexFor: async () => null,
+      indexForName: async (name: string | null) => {
+        state.shadeLookups.push(name);
+        // An empty layer: the city "has data" but no loop is covered → not_measured.
+        return state.shadeCity ? { city: state.shadeCity, index: buildShadeIndex([]) } : null;
+      },
+    }),
+  };
+});
 
 import { POST } from '../route';
 
@@ -34,6 +49,8 @@ beforeEach(() => {
   state.limited = false;
   state.rlKeys = [];
   state.client = fakeClient(byRequest);
+  state.shadeCity = null;
+  state.shadeLookups = [];
 });
 
 describe('POST /api/routes/generate', () => {
@@ -78,5 +95,28 @@ describe('POST /api/routes/generate', () => {
     const res = await call({ mode: 'ab', from: GH.start, to: { lat: 32.0571, lng: 34.7687 }, activity: 'walking' });
     expect(res.status).toBe(200);
     expect((await res.json()).route.distanceKm).toBeCloseTo(3.104, 2);
+  });
+
+  it('preferShade: asks for the shade layer of the given city and reports why it was not applied', async () => {
+    const res = await call({ ...loopBody, preferShade: true, city: 'זכרון יעקב' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(state.shadeLookups).toEqual(['זכרון יעקב']);
+    expect(body.loops.length).toBeLessThanOrEqual(3);
+    expect(body.shade).toEqual({ requested: true, applied: false, city: null, reason: 'no_shade_data' });
+    expect(body.loops[0]).toHaveProperty('shadeShare', null);
+  });
+  it('preferShade in a city with a layer that covers none of the loops → not_measured, same top 3', async () => {
+    const plain = await (await call(loopBody)).json();
+    state.shadeCity = 'tel-aviv';
+    const body = await (await call({ ...loopBody, preferShade: true, city: 'תל אביב-יפו' })).json();
+    expect(body.shade).toMatchObject({ applied: false, city: 'tel-aviv', reason: 'not_measured' });
+    expect(body.loops.map((l: { path: unknown }) => l.path)).toEqual(plain.loops.map((l: { path: unknown }) => l.path));
+  });
+  it('without preferShade the response has no shade fields and the loader is never touched', async () => {
+    const body = await (await call(loopBody)).json();
+    expect(body).not.toHaveProperty('shade');
+    expect(body.loops[0]).not.toHaveProperty('shadeShare');
+    expect(state.shadeLookups).toEqual([]);
   });
 });

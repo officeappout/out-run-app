@@ -4,6 +4,9 @@
  *
  *   { mode: 'loop', start, targetKm, activity, seed? }  → top-3 loops (mix best-of-6 + trimSpurs, route-quality scored)
  *   { mode: 'ab', from, to, activity }                 → one quiet-streets A→B route
+ *   loop + { preferShade: true, city }                 → "shadiest route" (enable_route_pref_shade):
+ *     6 candidates re-ranked by Technion shade where the city has a layer;
+ *     elsewhere the normal top-3, with `shade.reason` saying why.
  *
  * Auth: Firebase ID token in Authorization: Bearer <token> (any signed-in user).
  * Rate limit: RATE_LIMITS.routesGenerate per uid (fails open, like every limiter).
@@ -20,6 +23,8 @@ import { generateLoops } from '@/lib/routing/loop-service';
 import { friendlyRoute } from '@/lib/routing/friendly-route';
 import { fetchOsmLayerForLoop } from '@/lib/routing/osm-layer-server';
 import { toLoopDto, toAbDto } from './dto';
+import { rankLoopsByShade, SHADE_PREF_POOL } from '@/lib/routing/shade-pref';
+import { getServerShadeLoader } from '@/lib/routing/shade-loader.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +33,17 @@ export const maxDuration = 10;
 /** The app gives up after 2 s and falls back to Mapbox; stay well inside that. */
 const LOOP_DEADLINE_MS = 1400;
 const OSM_WAIT_MS = 500;
+/** Extra wait for a cold shade layer after routing is done; past it the loops go out unranked. */
+const SHADE_WAIT_MS = 200;
+
+function shadeIndexFor(city: string | undefined) {
+  try {
+    return getServerShadeLoader().indexForName(city ?? null);
+  } catch (e) {
+    console.warn('[routes/generate] shade loader unavailable:', (e as Error)?.message);
+    return Promise.resolve(null);
+  }
+}
 
 export async function POST(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -59,21 +75,29 @@ export async function POST(req: NextRequest) {
     }
     // The OSM layer only matters for scoring: fetched while GraphHopper routes.
     const osmP = fetchOsmLayerForLoop(req.nextUrl.origin, parsed.start, parsed.targetKm, OSM_WAIT_MS);
+    // Shade layer loads while GraphHopper routes (cached per warm instance).
+    const shadeP = parsed.preferShade ? shadeIndexFor(parsed.city) : null;
     const out = await generateLoops(client, {
       start: parsed.start, targetKm: parsed.targetKm, activity: parsed.activity,
-      seed: parsed.seed ?? 0, maxResults: parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
+      seed: parsed.seed ?? 0, maxResults: parsed.preferShade ? SHADE_PREF_POOL : parsed.maxResults, deadlineMs: LOOP_DEADLINE_MS,
       // Our mapped routes, sent by the app only with enable_loops_prefer_official on.
       ...(parsed.ourRoutes ? { ourRoutes: parsed.ourRoutes } : {}),
     }, osmP);
     const osm = await osmP;
     if (out.loops.length === 0 && out.errors > 0) throw new Error(out.lastError ?? 'all candidates failed');
-    const body: GenerateLoopsResponse = {
-      backend: 'graphhopper',
-      loops: out.loops.map(toLoopDto),
-      calls: out.calls,
-      timedOut: out.timedOut,
-      osmLayer: !!osm,
-    };
+    let body: GenerateLoopsResponse;
+    if (shadeP) {
+      const TIMEOUT = Symbol('timeout');
+      const shade = await Promise.race([shadeP, new Promise<typeof TIMEOUT>((r) => setTimeout(() => r(TIMEOUT), SHADE_WAIT_MS))]);
+      const ranked = rankLoopsByShade(out.loops, shade === TIMEOUT ? null : shade, parsed.maxResults ?? 3, shade === TIMEOUT);
+      body = {
+        backend: 'graphhopper',
+        loops: ranked.loops.map((l) => ({ ...toLoopDto(l), shadeShare: l.shadeShare })),
+        calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm, shade: ranked.meta,
+      };
+    } else {
+      body = { backend: 'graphhopper', loops: out.loops.map(toLoopDto), calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm };
+    }
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     console.warn('[routes/generate] graphhopper failed:', (e as Error)?.message);
