@@ -229,7 +229,7 @@ function analyzeMainExercises(
   const total = mainExercises.length || 1;
   const families: FamilyWeight[] = [];
 
-  for (const [familyId, { count, broadPattern }] of counts) {
+  for (const [familyId, { count, broadPattern }] of Array.from(counts)) {
     const weight = count / total;
     const domainLevel =
       userProgramLevels.get(familyId) ??
