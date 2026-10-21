@@ -14,10 +14,13 @@ import { useEffect, useState } from 'react';
 import { Target } from 'lucide-react';
 import { getLeagueBoard, type LeagueBoardEntry } from '@/features/arena/services/ranking.service';
 import { CITY_MONTHLY_GOAL, challengeProgress } from './league-board-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
-const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']; // i18n-allow-hebrew: wave 3 — month names (fmt)
 
 export default function CityChallengeCard({ cityId, cityName }: { cityId: string | null; cityName?: string | null }) {
+  const t = useT(community);
   const [entry, setEntry] = useState<LeagueBoardEntry | null>(null);
 
   useEffect(() => {
@@ -44,9 +47,9 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
           <Target size={20} strokeWidth={2.4} aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate whitespace-nowrap text-[16px] font-black text-v2-ink">אתגר המיליון של {name}</div>
+          <div className="truncate whitespace-nowrap text-[16px] font-black text-v2-ink">{t('cityChallenge.title', { name })}</div>
           <div className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-            כל העיר יחד · {CITY_MONTHLY_GOAL.toLocaleString('he-IL')} נק׳ ב{month}
+            {t('cityChallenge.subtitle', { goal: CITY_MONTHLY_GOAL.toLocaleString('he-IL'), month })}
           </div>
         </div>
       </div>
@@ -56,7 +59,7 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
           {entry.totalScore.toLocaleString('he-IL')}
         </span>
         <span className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted tabular-nums">
-          {entry.activeMemberCount.toLocaleString('he-IL')} פעילים · {pct}%
+          {t('cityChallenge.active', { count: entry.activeMemberCount.toLocaleString('he-IL'), pct: String(pct) })}
         </span>
       </div>
 
@@ -66,14 +69,14 @@ export default function CityChallengeCard({ cityId, cityName }: { cityId: string
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
-        aria-label={`${pct}% מהיעד`}
+        aria-label={t('cityChallenge.aria', { pct: String(pct) })}
       >
         {/* min 3% so a fresh month still shows the bar has started */}
         <div className="h-full rounded-full bg-v2-cta" style={{ width: `${Math.max(pct, entry.totalScore > 0 ? 3 : 0)}%` }} />
       </div>
 
       <p className="mt-2 text-[12.5px] font-bold text-v2-ink-2">
-        {done ? `${name} הגיעה ליעד החודשי!` : `עוד ${left.toLocaleString('he-IL')} נק׳ ליעד — כל אימון וכל 1,000 צעדים מקרבים.`}
+        {done ? t('cityChallenge.done', { name }) : t('cityChallenge.left', { left: left.toLocaleString('he-IL') })}
       </p>
     </div>
   );

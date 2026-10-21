@@ -6,6 +6,8 @@ import { useMyGroups } from '@/features/arena/hooks/useMyGroups';
 import { useChatInbox } from '@/features/social/hooks/useChatInbox';
 import { useUserStore } from '@/features/user';
 import type { CommunityGroup } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Category → visual identity ────────────────────────────────────────────────
 
@@ -92,6 +94,7 @@ export default function CommunityCircles({
   onCreatePress,
   hideWhenEmpty = false,
 }: CommunityCirclesProps) {
+  const t = useT(community);
   const { groups, isLoading } = useMyGroups();
   const myUid = useUserStore((s) => s.profile?.id ?? null);
 
@@ -103,9 +106,9 @@ export default function CommunityCircles({
   const unreadGroupIds = useMemo(() => {
     const set = new Set<string>();
     if (!myUid) return set;
-    for (const t of threads) {
-      if (t.groupId && (t.unreadCount?.[myUid] ?? 0) > 0) {
-        set.add(t.groupId);
+    for (const thread of threads) {
+      if (thread.groupId && (thread.unreadCount?.[myUid] ?? 0) > 0) {
+        set.add(thread.groupId);
       }
     }
     return set;
@@ -162,7 +165,7 @@ export default function CommunityCircles({
         {/* ── Trailing "+" — create / join a new community ──── */}
         {onCreatePress && (
           <div className="snap-start flex-shrink-0">
-            <CircleItem label="צור / הצטרף" onClick={onCreatePress}>
+            <CircleItem label={t('circles.createOrJoin')} onClick={onCreatePress}>
               <div className="w-full h-full rounded-full border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
                 <Plus className="w-5 h-5 text-gray-400" />
               </div>

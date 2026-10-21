@@ -1,6 +1,9 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { SessionGoalSpec } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface WorkoutGoalEditorProps {
   value: SessionGoalSpec | undefined;
@@ -12,6 +15,7 @@ const PILL_TYPES = [null, 'distance', 'time'] as const;
 type PillType = (typeof PILL_TYPES)[number];
 
 export function WorkoutGoalEditor({ value, onChange, variant = 'app' }: WorkoutGoalEditorProps) {
+  const t = useT(community);
   const goalType = value?.type ?? null;
 
   function handlePillClick(type: PillType) {
@@ -27,16 +31,19 @@ export function WorkoutGoalEditor({ value, onChange, variant = 'app' }: WorkoutG
   }
 
   const valueText = value
-    ? value.type === 'distance'
-      ? `${value.value.toFixed(1)} ק״מ`
-      : `${Math.round(value.value / 60)} דק׳`
+    ? t('goalEditor.value', {
+        type: value.type,
+        value: value.type === 'distance' ? value.value.toFixed(1) : String(Math.round(value.value / 60)),
+      })
     : '';
 
   if (variant === 'app') {
     return (
       <div>
         <p className="text-xs font-bold text-gray-500 mb-2">
-          יעד אימון <span className="font-normal text-gray-400">(ברירת מחדל לכל משתתף)</span>
+          {t.rich('goalEditor.title', {
+            muted: (chunks: ReactNode) => <span className="font-normal text-gray-400">{chunks}</span>,
+          })}
         </p>
         <div className="flex gap-2 mb-3">
           {PILL_TYPES.map((type) => (
@@ -50,7 +57,7 @@ export function WorkoutGoalEditor({ value, onChange, variant = 'app' }: WorkoutG
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              {type === null ? 'ללא יעד' : type === 'distance' ? '📍 מרחק' : '⏱ זמן'}
+              {type === null ? t('goalEditor.none') : type === 'distance' ? t('goalEditor.pill.distance') : t('goalEditor.pill.time')}
             </button>
           ))}
         </div>
@@ -58,7 +65,7 @@ export function WorkoutGoalEditor({ value, onChange, variant = 'app' }: WorkoutG
           <div className="bg-gray-50 rounded-2xl px-4 py-3 space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-500">
-                {value.type === 'distance' ? 'מרחק' : 'משך זמן'}
+                {value.type === 'distance' ? t('goalEditor.label.distance') : t('goalEditor.label.time')}
               </span>
               <span className="text-base font-black text-emerald-600 tabular-nums">
                 {valueText}
@@ -79,7 +86,7 @@ export function WorkoutGoalEditor({ value, onChange, variant = 'app' }: WorkoutG
     );
   }
 
-  // Admin variant — compact desktop styling
+  // Admin variant — compact desktop styling. Admin copy stays Hebrew-only (PLAN decision 1).
   return (
     <div>
       <label className="text-[10px] font-bold text-gray-500 mb-1 block">

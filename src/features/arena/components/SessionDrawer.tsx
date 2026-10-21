@@ -27,13 +27,16 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
-const CATEGORY_CONFIG: Record<string, { label: string; icon: string; gradient: string }> = {
-  race:             { label: 'מרוץ',         icon: '🏃', gradient: 'from-orange-500 to-red-500' },
-  fitness_day:      { label: 'יום כושר',     icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
-  workshop:         { label: 'סדנה',         icon: '🎓', gradient: 'from-violet-500 to-purple-600' },
-  community_meetup: { label: 'מפגש קהילתי', icon: '🤝', gradient: 'from-emerald-500 to-teal-600' },
-  other:            { label: 'אחר',          icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
+// Labels: community.json `session.category` (select on the category id, unknown → other).
+const CATEGORY_CONFIG: Record<string, { icon: string; gradient: string }> = {
+  race:             { icon: '🏃', gradient: 'from-orange-500 to-red-500' },
+  fitness_day:      { icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
+  workshop:         { icon: '🎓', gradient: 'from-violet-500 to-purple-600' },
+  community_meetup: { icon: '🤝', gradient: 'from-emerald-500 to-teal-600' },
+  other:            { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
 function formatEventDate(date: Date | string): string {
@@ -76,6 +79,7 @@ export default function SessionDrawer({
   isJoined,
   joining,
 }: SessionDrawerProps) {
+  const t = useT(community);
   const [navOpen, setNavOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   // GPS comes from the shared store (driven by useGPS); no local watcher here.
@@ -162,14 +166,14 @@ export default function SessionDrawer({
       {/* Category badge */}
       <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-3 py-1.5 rounded-full" dir="rtl">
         <span>{catConfig.icon}</span>
-        <span>{catConfig.label}</span>
+        <span>{t('session.category', { category: event.category ?? '' })}</span>
       </div>
 
       {/* Official badge */}
       {event.isOfficial && (
         <div className="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm">
           <ShieldCheck className="w-3 h-3" />
-          <span>רשמי</span>
+          <span>{t('session.official')}</span>
         </div>
       )}
     </>
@@ -211,7 +215,7 @@ export default function SessionDrawer({
           >
             {staticMapUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={staticMapUrl} alt={effectiveAddress || 'מפה'} className="w-full h-[120px] object-cover" loading="lazy" />
+              <img src={staticMapUrl} alt={effectiveAddress || t('session.mapAlt')} className="w-full h-[120px] object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-[120px] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
                 <MapPin className="w-8 h-8 text-gray-400" />
@@ -246,7 +250,7 @@ export default function SessionDrawer({
           <div>
             <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
               <Target className="w-3.5 h-3.5 text-cyan-500" />
-              קבוצות שרירים
+              {t('session.muscles')}
             </h4>
             <div className="flex flex-wrap gap-1.5">
               {effectiveMuscles!.map((m) => (
@@ -263,7 +267,7 @@ export default function SessionDrawer({
           <div>
             <h4 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
               <Dumbbell className="w-3.5 h-3.5 text-emerald-500" />
-              ציוד נדרש
+              {t('session.equipment')}
             </h4>
             <div className="flex flex-wrap gap-1.5">
               {effectiveEquipment!.map((item) => (
@@ -288,11 +292,11 @@ export default function SessionDrawer({
           <div className="flex items-center gap-2 text-sm">
             <Users className="w-4 h-4 text-blue-500" />
             <span className="font-bold text-gray-700 dark:text-gray-300">
-              {displayCount} / {effectiveMaxParticipants} משתתפים
+              {t('session.capacity', { count: String(displayCount), max: String(effectiveMaxParticipants) })}
             </span>
             {displayCount >= effectiveMaxParticipants && (
               <span className="text-[10px] font-black text-red-500 px-2 py-0.5 rounded-full bg-red-50">
-                מלא
+                {t('session.full')}
               </span>
             )}
           </div>
@@ -302,7 +306,7 @@ export default function SessionDrawer({
         <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
           <AttendeesPreview attendees={registrations ?? []} total={displayCount} />
           <span className="text-xs text-gray-500">
-            {displayCount} {displayCount === 1 ? 'משתתף' : 'משתתפים'}
+            {t('session.attendees', { n: displayCount, count: String(displayCount) })}
           </span>
         </div>
 
@@ -315,7 +319,7 @@ export default function SessionDrawer({
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-black transition-all active:scale-[0.97] bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25"
           >
             <ExternalLink className="w-4 h-4" />
-            להרשמה ופרטים נוספים
+            {t('session.externalLink')}
           </a>
         )}
 
@@ -337,12 +341,12 @@ export default function SessionDrawer({
             ) : isJoined ? (
               <>
                 <CalendarCheck className="w-4 h-4" />
-                רשום/ה לאירוע
+                {t('session.registered')}
               </>
             ) : (
               <>
                 <Users className="w-4 h-4" />
-                הרשמה לאירוע
+                {t('session.register')}
               </>
             )}
           </button>
@@ -354,7 +358,7 @@ export default function SessionDrawer({
           className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-400 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 transition-colors"
         >
           <Flag className="w-3 h-3" />
-          דיווח על תוכן לא ראוי
+          {t('session.report')}
         </button>
       </div>
     </>
@@ -409,7 +413,7 @@ export default function SessionDrawer({
           <div className="relative h-56 flex-shrink-0 overflow-hidden rounded-t-[28px]">
             {heroImage}
             <SheetGrabber className="absolute inset-x-0 top-0 flex justify-center pt-3" />
-            <IconButton aria-label="סגירה" tone="glass" size={36} className="absolute right-4 top-4" onClick={onClose}>
+            <IconButton aria-label={t('session.close')} tone="glass" size={36} className="absolute right-4 top-4" onClick={onClose}>
               <X className="h-4 w-4" />
             </IconButton>
             {heroBadges}
