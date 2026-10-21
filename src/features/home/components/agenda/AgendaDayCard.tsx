@@ -743,7 +743,7 @@ function StrengthCard({
                 aria-label="ערוך אימון"
               >
                 <Pencil className="w-4 h-4" />
-                <span className="text-[10px] font-bold">ערוך</span>
+                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>ערוך</span>
               </button>
             </div>
             {/* Delete button (right half of panel) */}
@@ -762,7 +762,7 @@ function StrengthCard({
                 aria-label="מחק אימון"
               >
                 <Trash2 className="w-4 h-4" />
-                <span className="text-[10px] font-bold">מחק</span>
+                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>מחק</span>
               </button>
             </div>
           </div>
@@ -1192,7 +1192,7 @@ export default function AgendaDayCard({
             <span className={`block text-[12px] font-extrabold ${isToday ? 'text-v2-deep' : 'text-v2-muted'}`}>{dayShort}</span>
             <span
               className={`mx-auto mt-0.5 grid h-8 w-8 place-items-center rounded-full text-[16px] font-black tabular-nums ${
-                isToday ? 'bg-v2-cta text-v2-on-cta' : isSelected ? 'bg-v2-ink text-white' : (isRest || isEmpty) ? 'text-v2-muted' : 'text-v2-ink'
+                isToday ? 'bg-v2-cta text-v2-on-cta' : isSelected ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : (isRest || isEmpty) ? 'text-v2-muted' : 'text-v2-ink'
               }`}
             >
               {dayNum}
@@ -1359,10 +1359,10 @@ export default function AgendaDayCard({
                     ) : isToday ? (
                       <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
                         <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: runColor }} />
-                        <span className="text-[9px] font-bold" style={{ color: runColor }}>היום</span>
+                        <span className={`${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[9px]'} font-bold`} style={{ color: runColor }}>היום</span>
                       </div>
                     ) : timeLabel ? (
-                      <span className="text-[10px] font-bold tabular-nums flex-shrink-0" style={{ color: runColor }}>{timeLabel}</span>
+                      <span className={`${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold tabular-nums flex-shrink-0`} style={{ color: runColor }}>{timeLabel}</span>
                     ) : null}
                   </div>
                 </div>

@@ -63,6 +63,10 @@ export default defineConfig({
       'src/features/profile/components/exercise-analytics-v2/__tests__/**/*.test.tsx',
       // i18n wave 2 batch 1 (profile namespace, hub.*) — progress tab v2 Hebrew markup parity, static markup.
       'src/features/progression-hub/v2/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 (library namespace, exercises.*) — exercise library Hebrew markup parity (jsdom).
+      'src/features/content/exercises/client/__tests__/**/*.test.tsx',
+      // i18n wave 2 (profile namespace, profile.* / widgets.*) — profile screen components, Hebrew markup parity (jsdom).
+      'src/features/profile/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (community namespace) — arena cards / sheets / session banner parity (static + jsdom).
       'src/features/arena/components/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',

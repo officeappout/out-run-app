@@ -91,7 +91,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci --no-audit --no-fund --ignore-scripts
+      # The program outgrew Node's default heap (tsc OOM on the runner, 21.10.2026).
       - run: bash scripts/ci/tsc-baseline.sh check
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
   lint:
     name: lint (changed files, advisory)

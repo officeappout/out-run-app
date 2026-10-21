@@ -76,7 +76,7 @@ export const RULES: readonly Rule[] = [
   { id: 'RUN-CART-ICON', text: 'Session progress uses the cart icon with a segmented ring + count, not numbered circles.', source: 'run-ui-brief', lint: false, area: 'run' },
   { id: 'RUN-SETS-TABLE', text: 'Strength inside any workout uses exercise cards (image, name, reps) and the per-set boxes table; a run leg sits in the same boxes.', source: 'run-ui-brief', lint: false, area: 'run' },
   { id: 'SUM-MAP-BEHIND', text: 'Summary: map behind, content in tabs, program ring without XP, flame-dots streak, "שיפור מהפעם הקודמת" big and green, metric rings, no "פירוט התקדמות".', source: 'run-ui-brief', lint: false, area: 'run' },
-  { id: 'PREV-HEADER', text: 'Workout preview: existing header + journey strip + intensity chart, no duplicate 3-stat row.', source: 'run-ui-brief', lint: false, area: 'run' },
+  { id: 'PREV-HEADER', text: 'Run / interval / hybrid workout preview: existing header + journey strip + intensity chart, no duplicate 3-stat row. Does NOT apply to a pure strength workout preview (it has its own design without a journey strip or intensity chart) — never report a missing strip/chart there.', source: 'run-ui-brief', lint: false, area: 'run' },
   // Behaviour
   { id: 'HEALTH-ONCE', text: 'The health declaration appears once per user, never again after it was accepted.', source: 'run-ui-brief', lint: false, area: 'behaviour' },
   { id: 'STAB-CONSOLE', text: 'No console errors, failed requests (4xx/5xx) or permission-denied while using the app.', source: 'general', lint: true, area: 'behaviour' },
@@ -89,4 +89,15 @@ export const DESIGN_RULE_IDS: ReadonlySet<string> = new Set(RULES.filter((r) => 
 
 export function ruleText(id: string): string | null {
   return RULES.find((r) => r.id === id)?.text ?? null;
+}
+
+/** Preview kinds the PREV-HEADER rule (journey strip + intensity chart) applies to. */
+export const PREV_HEADER_PREVIEW_KINDS: ReadonlySet<string> = new Set(['run', 'interval', 'hybrid']);
+
+/**
+ * Whether PREV-HEADER applies to a workout preview of this kind (owner 21.10.2026: only
+ * run / interval / hybrid previews; a pure strength preview has its own design and is exempt).
+ */
+export function prevHeaderApplies(previewKind: string | null | undefined): boolean {
+  return !!previewKind && PREV_HEADER_PREVIEW_KINDS.has(previewKind.toLowerCase());
 }

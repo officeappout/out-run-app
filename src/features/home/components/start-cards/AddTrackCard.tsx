@@ -48,7 +48,7 @@ export default function AddTrackCard({ track, profile, onNavigate, onDismiss }: 
             type="button"
             onClick={tap}
             disabled={loading}
-            className="mt-2 flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
+            className="mt-1.5 flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-60"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
             {ADD_TRACK_CTA}
@@ -56,7 +56,7 @@ export default function AddTrackCard({ track, profile, onNavigate, onDismiss }: 
           <button
             type="button"
             onClick={onDismiss}
-            className="mx-auto h-8 whitespace-nowrap px-3 text-[12.5px] font-bold text-v2-muted"
+            className="mx-auto -my-1.5 h-11 whitespace-nowrap px-3 text-[12.5px] font-bold text-v2-muted"
           >
             {ADD_TRACK_DISMISS}
           </button>
