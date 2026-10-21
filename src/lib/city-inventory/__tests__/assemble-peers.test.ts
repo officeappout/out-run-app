@@ -12,6 +12,7 @@ const tallies = (): OsmTallies => ({
     major_roads: { count: 3, lengthM: 2500, knownSurfaceM: 0 },
     bike_paved: { count: 2, lengthM: 1000, knownSurfaceM: 800 },
     bike_offroad: { count: 0, lengthM: 0, knownSurfaceM: 0 },
+    bike_unknown: { count: 3, lengthM: 1200, knownSurfaceM: 0 },
     trails_paved: { count: 5, lengthM: 2000, knownSurfaceM: 200 },
     trails_offroad: { count: 1, lengthM: 500, knownSurfaceM: 500 },
     promenades: { count: 1, lengthM: 300, knownSurfaceM: 300 },
@@ -58,6 +59,11 @@ describe('assembleLayers', () => {
     expect(L.trails_paved.quality).toContain('untagged_majority');
     expect(L.bike_offroad).toMatchObject({ count: 0, lengthKm: 0, coveragePct: null });
     expect(L.lighting).toMatchObject({ lengthKm: 1.5, coveragePct: 20 });
+  });
+
+  it('bike_unknown: count + length, no tag-coverage % and no untagged flag (I1 review)', () => {
+    expect(L.bike_unknown).toMatchObject({ count: 3, lengthKm: 1.2, coveragePct: null, method: 'osm_count' });
+    expect(L.bike_unknown.quality).not.toContain('untagged_majority');
   });
 
   it('shade stays unmeasured without a layer; Technion carries method + licence flag', () => {

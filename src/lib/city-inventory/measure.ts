@@ -28,7 +28,7 @@ export interface InvArea { id: string; tags: OsmTags; geometry: { type: 'Polygon
 export interface InventoryFeatures { nodes: InvNode[]; ways: InvWay[]; areas: InvArea[] }
 
 /** Linear layers measured from open ways. */
-export const LINEAR_LAYER_KEYS = ['major_roads', 'bike_paved', 'bike_offroad', 'trails_paved', 'trails_offroad', 'promenades'] as const;
+export const LINEAR_LAYER_KEYS = ['major_roads', 'bike_paved', 'bike_offroad', 'bike_unknown', 'trails_paved', 'trails_offroad', 'promenades'] as const;
 export type LinearLayerKey = (typeof LINEAR_LAYER_KEYS)[number];
 /** Countable layers taken from nodes / polygons. */
 export const COUNT_LAYER_KEYS = ['courts', 'fitness_stations', 'benches', 'drinking_water', 'toilets'] as const;

@@ -36,6 +36,7 @@ import {
   type CityMappingSummary,
 } from '@/features/admin/services/city-mapping-summary';
 import type { AmenityCategory } from '@/features/parks/core/types/osm-amenity.types';
+import MapHealthCard from '@/features/admin/components/city-inventory/MapHealthCard';
 
 // ── Step definitions ─────────────────────────────────────────────────────────
 
@@ -362,6 +363,11 @@ export default function CityMappingPage() {
           </span>
         )}
       </div>
+
+      {/* Map health (RC4 I2) — read-only city_inventory card, via the server API. */}
+      {summary?.authorityId && summary.city === city.trim() && (
+        <MapHealthCard authorityId={summary.authorityId} cityLabel={summary.city} />
+      )}
 
       {/* Summary panel */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">

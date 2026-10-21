@@ -18,7 +18,7 @@ import {
   readCityInventoryRunDoc,
   type CityInventoryInput,
 } from './doc';
-import type { CityInventory, CityInventoryRun } from './types';
+import { CITY_INVENTORY_COLLECTION, CITY_INVENTORY_RUNS_SUBCOLLECTION, type CityInventory, type CityInventoryRun } from './types';
 
 export interface InventoryDocSnapshot {
   exists: boolean;
@@ -61,4 +61,29 @@ export async function readCityInventoryRun(db: InventoryDb, authorityId: string,
   const snap = await db.doc(cityInventoryRunDocPath(authorityId, runId)).get();
   if (!snap.exists) return null;
   return readCityInventoryRunDoc(runId, snap.data());
+}
+
+/** Subset of the Admin SDK for the run-history query (server routes only — never a client query). */
+export interface InventoryRunsQueryDb {
+  collection(path: string): {
+    orderBy(field: string, direction: 'asc' | 'desc'): {
+      limit(n: number): { get(): Promise<{ docs: Array<{ id: string; data(): unknown }> }> };
+    };
+  };
+}
+
+export const MAX_RECENT_RUNS = 20;
+
+/** Newest first, by `createdAt` (server timestamp). Unreadable rows are skipped, never guessed. */
+export async function readRecentCityInventoryRuns(db: InventoryRunsQueryDb, authorityId: string, limit = 5): Promise<CityInventoryRun[]> {
+  if (!authorityId?.trim() || authorityId.includes('/')) return [];
+  const n = Math.max(1, Math.min(MAX_RECENT_RUNS, Math.floor(Number.isFinite(limit) ? limit : 5)));
+  const snap = await db
+    .collection(`${CITY_INVENTORY_COLLECTION}/${authorityId}/${CITY_INVENTORY_RUNS_SUBCOLLECTION}`)
+    .orderBy('createdAt', 'desc')
+    .limit(n)
+    .get();
+  return snap.docs
+    .map((d) => readCityInventoryRunDoc(d.id, d.data()))
+    .filter((r): r is CityInventoryRun => r !== null);
 }

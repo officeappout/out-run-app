@@ -86,6 +86,21 @@ function isUsableWay(tags: OsmTags): boolean {
   return true;
 }
 
+/**
+ * Bike ways: paved / off-road / unknown. Off-road needs real surface
+ * evidence (a `surface`/`tracktype` tag) — a path or track with no surface
+ * tag is "unknown", never off-road (I1 review). A cycleway with no surface
+ * tag stays paved: `resolveSurface` defaults cycleways to asphalt, and the
+ * layer's coverage % already shows how much of it is actually tagged.
+ */
+export function bikeLayer(tags: OsmTags, inBuiltUp = true): 'bike_paved' | 'bike_offroad' | 'bike_unknown' {
+  const s = surfaceBucket(tags, inBuiltUp);
+  if (s.bucket === 'paved') return 'bike_paved';
+  // `surface=unpaved` is real evidence too (resolveSurface maps it to dirt but
+  // labels it a default, since the value is not specific).
+  return s.known || tags.surface === 'unpaved' ? 'bike_offroad' : 'bike_unknown';
+}
+
 function isBikeWay(tags: OsmTags): boolean {
   const hw = tags.highway ?? '';
   if (hw === 'cycleway') return true;
@@ -128,9 +143,7 @@ function wayLayers(tags: OsmTags, inBuiltUp: boolean): InventoryLayerKey[] {
   const hw = tags.highway;
   if (!hw || !isUsableWay(tags)) return [];
   if (MAJOR_ROAD_HIGHWAYS.has(hw)) return ['major_roads'];
-  if (isBikeWay(tags)) {
-    return [surfaceBucket(tags, inBuiltUp).bucket === 'paved' ? 'bike_paved' : 'bike_offroad'];
-  }
+  if (isBikeWay(tags)) return [bikeLayer(tags, inBuiltUp)];
   if (!TRAIL_LAYER_HIGHWAYS.has(hw)) return [];
   if (hw === 'footway' && STREET_FOOTWAYS.has(tags.footway ?? '')) return [];
   const out: InventoryLayerKey[] = [surfaceBucket(tags, inBuiltUp).bucket === 'paved' ? 'trails_paved' : 'trails_offroad'];
