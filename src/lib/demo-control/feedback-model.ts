@@ -11,7 +11,8 @@
  * Pure: lenient mappers (bad fields → defaults, never throw) + the markdown task text.
  * No Firebase import.
  */
-import { QA_SEVERITIES, type QaSeverity } from './qa-summary';
+import { QA_SEVERITIES, type QaDesignDimension, type QaSeverity } from './qa-summary';
+import { decodeDesignScores } from './qa-design';
 
 export type FeedbackSource = 'life' | 'testers';
 export const FEEDBACK_SOURCES: readonly FeedbackSource[] = ['life', 'testers'];
@@ -58,6 +59,8 @@ export interface FeedbackItem {
   /** Testers: Storage path qa/{runId}/… (the screenshot route signs it). */
   hasScreenshot: boolean;
   repro: string[];
+  /** Testers: a design score record's four 1–5 numbers (rule DESIGN-SCORE), else null. */
+  designScores: Record<QaDesignDimension, number> | null;
 }
 
 export function millisOf(v: unknown): number | null {
@@ -119,6 +122,7 @@ export function mapLifeFeedback(id: string, raw: Record<string, unknown> | undef
     count: 1,
     hasScreenshot: false,
     repro: [],
+    designScores: null,
   };
 }
 
@@ -152,6 +156,7 @@ export function mapQaFinding(id: string, raw: Record<string, unknown> | undefine
     count,
     hasScreenshot: typeof d.screenshot === 'string' && d.screenshot.startsWith('qa/'),
     repro: (Array.isArray(d.repro) ? d.repro : []).slice(-25).map(reproLine).filter((x): x is string => !!x),
+    designScores: decodeDesignScores(sOrNull(d.rule, 30), s(d.actual, 1000)),
   };
 }
 

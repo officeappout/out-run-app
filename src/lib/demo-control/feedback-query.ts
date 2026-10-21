@@ -20,6 +20,11 @@ import {
   type FeedbackType,
   type TriageStatus,
 } from './feedback-model';
+import { DESIGN_FILTER, isDesignQaFinding } from './qa-design';
+
+export { DESIGN_FILTER };
+export type FeedbackTypeFilter = FeedbackType | typeof DESIGN_FILTER;
+const TYPE_FILTERS: readonly FeedbackTypeFilter[] = [...FEEDBACK_TYPES, DESIGN_FILTER];
 
 export const FEEDBACK_PAGE_SIZE = 30;
 /** Docs read per source per request (load-safety bound). */
@@ -27,7 +32,7 @@ export const SCAN_LIMIT = 120;
 
 export interface FeedbackFilters {
   source: FeedbackSource | 'all';
-  type: FeedbackType | null;
+  type: FeedbackTypeFilter | null;
   severity: QaSeverity | null;
   /** Case-insensitive substring of the persona name or id. */
   persona: string | null;
@@ -61,7 +66,7 @@ export function parseFeedbackFilters(p: URLSearchParams): FeedbackFilters {
   const to = p.get('to');
   return {
     source: pickEnum(p.get('source'), ['life', 'testers'] as const) ?? 'all',
-    type: pickEnum(p.get('type'), FEEDBACK_TYPES),
+    type: pickEnum(p.get('type'), TYPE_FILTERS),
     severity: pickEnum(p.get('severity'), QA_SEVERITIES),
     persona: persona || null,
     status: pickEnum(p.get('status'), TRIAGE_STATUSES) ?? 'all',
@@ -81,7 +86,9 @@ export function sourcesFor(f: FeedbackFilters): FeedbackSource[] {
 }
 
 export function matchesFilters(item: FeedbackItem, f: FeedbackFilters): boolean {
-  if (f.type !== null && item.type !== f.type) return false;
+  if (f.type === DESIGN_FILTER) {
+    if (item.source !== 'testers' || !isDesignQaFinding({ category: item.type, rule: item.rule })) return false;
+  } else if (f.type !== null && item.type !== f.type) return false;
   if (f.severity !== null && item.severity !== f.severity) return false;
   if (f.status !== 'all' && item.status !== f.status) return false;
   if (f.persona !== null) {
@@ -194,4 +201,9 @@ export function isFeedbackDocId(v: unknown): v is string {
 /** A tester screenshot path the panel may sign: qa/… only, no traversal. */
 export function isQaScreenshotPath(v: unknown): v is string {
   return typeof v === 'string' && /^qa\/[A-Za-z0-9_.\/-]{1,300}$/.test(v) && !v.includes('..') && !v.includes('//');
+}
+
+/** A design screen key from the summary: a snake screen id or a route pattern ("/parks/[id]"). Looked up, never used as a path. */
+export function isDesignScreenKey(v: unknown): v is string {
+  return typeof v === 'string' && /^[A-Za-z0-9_\/\[\]:.-]{1,120}$/.test(v);
 }

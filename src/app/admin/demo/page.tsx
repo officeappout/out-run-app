@@ -27,6 +27,7 @@ import DemoSwitches from '@/features/admin/components/demo-control/DemoSwitches'
 import TesterRunPanel from '@/features/admin/components/demo-control/TesterRunPanel';
 import LiveCostPanel from '@/features/admin/components/demo-control/LiveCostPanel';
 import CapsEditor from '@/features/admin/components/demo-control/CapsEditor';
+import DesignScoresCard from '@/features/admin/components/demo-control/DesignScoresCard';
 import DemoFeedbackTab from '@/features/admin/components/demo-control/feedback/DemoFeedbackTab';
 
 type Tab = 'control' | 'feedback';
@@ -169,6 +170,7 @@ export default function DemoControlCenterPage() {
             {liveSwitches && <DemoSwitches values={liveSwitches} busyKey={busyKey} onToggle={toggle} />}
             <TesterRunPanel data={{ ...data, switches: liveSwitches ?? data.switches }} busy={runBusy} onRun={() => void testers('run')} onStop={() => void testers('stop')} />
           </div>
+          {data.qa && <DesignScoresCard qa={data.qa} />}
           <LiveCostPanel data={data} updatedAgoSec={updatedAgoSec} />
           <CapsEditor config={data.config} onSaved={() => void reload()} />
         </>

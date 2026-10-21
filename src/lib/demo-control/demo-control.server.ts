@@ -3,7 +3,7 @@ import 'server-only';
  * Demo control center — Admin SDK reads/writes for /api/admin/demo/** (super admin only;
  * the routes check that). demo_registry is closed to every client by firestore.rules, so
  * this file is the panel's only path to it. Every read is bounded:
- *   - flags / config / control: 3 single-doc gets
+ *   - flags / config / control / qa_summary: 4 single-doc gets
  *   - usage: ONE getAll of the 31 day docs by id (today + the 30 before = any month to date)
  *   - demo users: ONE query on the `demo_` uid range, projected to lastActive, limit 500
  */
@@ -14,6 +14,7 @@ import {
   DEFAULT_TESTER_WORKFLOW,
   DEMO_CONFIG_DOC,
   DEMO_CONTROL_DOC,
+  DEMO_QA_SUMMARY_DOC,
   DEMO_REGISTRY,
   DEMO_USAGE_DAYS,
   DEMO_USAGE_DOC,
@@ -66,7 +67,7 @@ export async function loadDemoStatus(db: Firestore, now = new Date()): Promise<D
   // Usage day docs are keyed YYYY-MM-DD, so read them by id (getAll) — no ordered
   // query on __name__ and no index needed.
   const usageRefs = usageWindowKeys(now).map((k) => usageDays(db).doc(k));
-  const [flagsSnap, configSnap, controlSnap, usageSnaps, usersSnap] = await Promise.all([
+  const [flagsSnap, configSnap, controlSnap, usageSnaps, usersSnap, qaSnap] = await Promise.all([
     safeRead('flags', () => db.collection('system_config').doc('feature_flags').get(), null),
     safeRead('config', () => registry(db).doc(DEMO_CONFIG_DOC).get(), null),
     safeRead('control', () => registry(db).doc(DEMO_CONTROL_DOC).get(), null),
@@ -83,6 +84,7 @@ export async function loadDemoStatus(db: Firestore, now = new Date()): Promise<D
           .get(),
       null,
     ),
+    safeRead('qa-summary', () => registry(db).doc(DEMO_QA_SUMMARY_DOC).get(), null),
   ]);
   const usageDocs = usageSnaps.filter((d) => d.exists).map((d) => ({ id: d.id, data: d.data() ?? {} }));
   const userDocs = usersSnap?.docs ?? [];
@@ -100,6 +102,7 @@ export async function loadDemoStatus(db: Firestore, now = new Date()): Promise<D
     }),
     demoUsersCapped: userDocs.length >= DEMO_USERS_READ_LIMIT,
     dispatchConfigured: isDispatchConfigured(),
+    qaSummaryRaw: qaSnap?.data(),
   });
 }
 

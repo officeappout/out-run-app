@@ -4,6 +4,8 @@
  */
 import { parseControl, type DemoControl } from './control';
 import { DEMO_SWITCH_KEYS, type DemoSwitchKey } from './paths';
+import { parseQaSummary } from './qa-summary';
+import { toClientDesign, type ClientDesignSummary } from './qa-design';
 import {
   checkCaps,
   parseConfig,
@@ -26,6 +28,8 @@ export interface DemoStatusPayload {
   caps: CapReport;
   /** GITHUB_DISPATCH_TOKEN is set on the server (the value is never sent). */
   dispatchConfigured: boolean;
+  /** The overseer's last summary (demo_registry/qa_summary) — the design block only; Storage paths stay server-side. */
+  qa: { runId: string | null; generatedAtMs: number | null; design: ClientDesignSummary | null };
 }
 
 export interface DemoStatusInput {
@@ -40,6 +44,8 @@ export interface DemoStatusInput {
   /** The demo-user read hit its limit (count shown as "N+"). */
   demoUsersCapped: boolean;
   dispatchConfigured: boolean;
+  /** demo_registry/qa_summary (undefined = missing or the read failed). */
+  qaSummaryRaw?: Record<string, unknown>;
 }
 
 export function buildDemoStatus(input: DemoStatusInput): DemoStatusPayload {
@@ -49,6 +55,7 @@ export function buildDemoStatus(input: DemoStatusInput): DemoStatusPayload {
   const config = parseConfig(input.configRaw);
   const days = input.usageDocs.map((d) => parseUsageDay(d.id, d.data));
   const usage = summarizeUsage(days, input.todayKey, config.prices);
+  const qa = parseQaSummary(input.qaSummaryRaw);
   return {
     nowMs: input.nowMs,
     todayKey: input.todayKey,
@@ -63,5 +70,6 @@ export function buildDemoStatus(input: DemoStatusInput): DemoStatusPayload {
     usage,
     caps: checkCaps(usage, config.caps),
     dispatchConfigured: input.dispatchConfigured,
+    qa: { runId: qa.runId, generatedAtMs: qa.generatedAtMs, design: toClientDesign(qa.design) },
   };
 }
