@@ -27,6 +27,8 @@ import { useSettingsStore } from '@/features/home/store/useSettingsStore';
 import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import { hapticMedium } from '@/lib/haptics';
 import { playSuccessChime } from '@/lib/sound';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const FALLBACK_STEPS_GOAL = DAILY_STEP_GOAL;
 
@@ -50,6 +52,7 @@ interface StepsSummaryCardProps {
 export default function StepsSummaryCard({ className = '', variant = 'default' }: StepsSummaryCardProps) {
   const router = useRouter();
   const homeV2 = useHomeV2();
+  const t = useT(home);
   const { stepsToday, todayActivity, isLoading } = useLiveDailyActivity();
 
   // Guard against flashing a stale number before real data lands.
@@ -99,12 +102,12 @@ export default function StepsSummaryCard({ className = '', variant = 'default' }
   const connectPromptLabel = healthConnected !== false
     ? null
     : healthPermissionAsked
-      ? 'דחית קודם, רוצה לחבר?'
-      : 'עוד לא חובר';
+      ? t('steps.connect.declined')
+      : t('steps.connect.notConnected');
 
   const handleOpen = triggerHealthPermission;
 
-  const ariaLabel = `פתח ניתוח צעדים: ${displaySteps} מתוך ${goal.toLocaleString('he-IL')}`;
+  const ariaLabel = t('steps.openAria', { steps: displaySteps, goal: goal.toLocaleString('he-IL') });
 
   return (
     <>

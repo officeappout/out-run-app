@@ -59,6 +59,8 @@ import { CATEGORY_COLORS } from '@/features/home/utils/day-display.utils';
 import { resolveIconKey, getProgramIcon, CheckMarkBadge } from '@/features/content/programs/core/program-icon.util';
 import type { ActivityCategory } from '@/features/activity/types/activity.types';
 import { todayCardShortLabel } from '@/features/home/utils/today-activity-labels';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface TodayActivityCardData {
   key: string;
@@ -106,6 +108,7 @@ export default function TodayActivityCard({
   programId,
   workoutType,
 }: TodayActivityCardData) {
+  const t = useT(home);
   const color = CATEGORY_COLORS[category];
   // `title` sometimes already carries an "אימון " prefix (home/page.tsx's
   // category-label fallback, e.g. "אימון כוח") and sometimes doesn't (a
@@ -113,7 +116,7 @@ export default function TodayActivityCard({
   // never doubles up into "אימון אימון כוח בוצע". A 'steps' card's title
   // never carries that prefix (its caller sets it directly), so this is a
   // safe no-op for it.
-  const label = title.replace(/^אימון\s+/, '');
+  const label = title.replace(/^אימון\s+/, ''); // i18n-allow-hebrew: data — strips the Hebrew prefix home/page.tsx's fallback titles carry
   // Same resolver SmartWeeklySchedule already uses: explicit programId first
   // (real strength program, e.g. resolves 'upper_body' → the muscle icon),
   // falling back to workoutType (distinguishes walking/running/cycling) or
@@ -148,15 +151,15 @@ export default function TodayActivityCard({
       </div>
       <div className="flex-1 min-w-0">
         <span className="block text-[15.5px] font-extrabold text-white truncate">
-          {category === 'steps' ? label : `אימון ${label} בוצע`}
+          {category === 'steps' ? label : t('todayActivity.done', { label })}
         </span>
         <span
           className="block text-[12.5px] font-semibold truncate mt-0.5"
           style={{ color: 'rgba(255,255,255,0.85)' }}
         >
           {category === 'steps'
-            ? `${(stepsAchieved ?? 0).toLocaleString('he-IL')} צעדים`
-            : `${minutes} דק' · ${todayCardShortLabel(category, workoutType)}`}
+            ? t('todayActivity.steps', { steps: (stepsAchieved ?? 0).toLocaleString('he-IL') })
+            : t('todayActivity.meta', { minutes: String(minutes), label: todayCardShortLabel(category, workoutType) })}
         </span>
       </div>
     </div>

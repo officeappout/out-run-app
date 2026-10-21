@@ -3,7 +3,9 @@
 import type { UserFullProfile } from '@/types/user-profile';
 import type { ProgramTrack } from '@/features/home/utils/program-start-cards';
 import ProgramStartCard from './ProgramStartCard';
-import { PROGRAM_START_COPY } from './program-start-copy';
+import { PROGRAM_START_KEYS } from './program-start-copy';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import { useOnboardingEntryTap } from './useOnboardingEntryTap';
 import type { ProgramTrackNavigate } from './entry-tap';
 import { PROGRAM_CARD_ENTRY } from './program-signup-gate';
@@ -29,6 +31,7 @@ export default function ProgramStartSlide({ track, profile, onNavigate }: Progra
     onNavigate ? (navigate, cancel) => onNavigate(track, navigate, cancel) : undefined,
     PROGRAM_CARD_ENTRY,
   );
-  const copy = PROGRAM_START_COPY[track];
-  return <ProgramStartCard slide track={track} title={copy.title} valueLine={copy.valueLine} chipLabel={copy.chip} loading={loading} onTap={tap} />;
+  const t = useT(home);
+  const keys = PROGRAM_START_KEYS[track];
+  return <ProgramStartCard slide track={track} title={t(keys.title)} valueLine={t(keys.valueLine)} chipLabel={t(keys.chip)} loading={loading} onTap={tap} />;
 }

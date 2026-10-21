@@ -25,6 +25,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useEquipmentIconsReady } from '../hooks/useEquipmentIconsReady';
 import { useToast } from '@/components/ui/Toast';
 import { hapticMedium } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ─── Layout — tuned for 260px card on a 390px viewport ──────────────────────
 const CARD_MAX_W = 260;
@@ -44,9 +46,9 @@ const BOLT_FILTER_DARK =
   'brightness(0) saturate(100%) invert(22%) sepia(10%) saturate(750%) hue-rotate(176deg) brightness(95%) contrast(90%)';
 
 const DIFFICULTY_LABELS: Record<number, string> = {
-  1: 'קל',
-  2: 'בינוני',
-  3: 'מאתגר',
+  1: 'קל', // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
+  2: 'בינוני', // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
+  3: 'מאתגר', // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
 };
 
 const PROGRAM_ICON_MAP: Record<string, string> = {
@@ -83,9 +85,9 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
   if (isRecovery) {
     return (
       <div className="flex items-center gap-2 text-[13px] font-normal" style={{ color: '#374151' }} dir="rtl">
-        <span>🧘 התאוששות פעילה</span>
+        <span>{/* i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true) */}🧘 התאוששות פעילה</span>
         <span style={{ color: '#343434' }}>|</span>
-        <span>{duration} דקות</span>
+        <span>{/* i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true) */}{duration} דקות</span>
       </div>
     );
   }
@@ -102,7 +104,7 @@ function MetadataRow({ difficulty, duration, isRecovery }: {
         ))}
       </span>
       <span style={{ color: '#343434' }}>|</span>
-      <span>{duration} דקות</span>
+      <span>{/* i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true) */}{duration} דקות</span>
     </div>
   );
 }
@@ -171,7 +173,7 @@ export default function WorkoutSelectionCarousel({
 
   const handleGuardedStart = useCallback((idx: number) => {
     if (!isOnline) {
-      showToast('error', 'יצירת אימון חדש דורשת חיבור לאינטרנט');
+      showToast('error', 'יצירת אימון חדש דורשת חיבור לאינטרנט'); // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
       return;
     }
     onStart(idx);
@@ -235,7 +237,7 @@ export default function WorkoutSelectionCarousel({
         {options.map((_, i) => (
           <button
             key={i}
-            aria-label={`כרטיס אימון ${i + 1}`}
+            aria-label={`כרטיס אימון ${i + 1}`} // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
             onClick={() => handleSelect(i)}
             className="transition-all duration-300 rounded-full"
             style={{
@@ -283,7 +285,7 @@ function TrioCard({
   const { workout } = option.result;
   const exercises = workout.exercises;
   const ctaText = useMemo(() => getGenderedCtaText(userGender, option.label), [userGender, option.label]);
-  const isNakedOption = /ללא ציוד|naked/i.test(option.label);
+  const isNakedOption = /ללא ציוד|naked/i.test(option.label); // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
   const isFavorited = useFavoritesStore((s) => s.isFavorited(workout));
   // Equipment badges wait for warm gear caches (non-blocking — card renders now).
   const iconsReady = useEquipmentIconsReady();
@@ -433,7 +435,7 @@ function TrioCard({
             <div
               className="bg-white/90 shadow-sm flex items-center justify-center"
               style={{ width: 30, height: 30, borderRadius: 6 }}
-              title="ללא ציוד – משקל גוף"
+              title="ללא ציוד – משקל גוף" // i18n-allow-hebrew: unreachable — trio carousel, StatsOverview renders it only when HOME_ANCHOR_V2_ENABLED = false (it is true)
             >
               <PersonStanding className="text-slate-500" style={{ width: 17, height: 17 }} />
             </div>
@@ -488,19 +490,13 @@ function TrioCard({
 
 // ─── BuildCustomButton ────────────────────────────────────────────────────────
 
-const MESSAGES_MALE = [
-  'תבנה אימון שמתאים למה שיש לך היום ✦',
-  'אז מה ה-OUT שלך היום? ✦',
-  'כמה זמן יש לך? אני אבנה לך אימון מושלם ✦',
-  'רוצה לבנות אימון בעצמך? ✦',
-];
-
-const MESSAGES_FEMALE = [
-  'תבני אימון שמתאים למה שיש לך היום ✦',
-  'אז מה ה-OUT שלך היום? ✦',
-  'כמה זמן יש לך? אני אבני לך אימון מושלם ✦',
-  'רוצה לבנות אימון בעצמך? ✦',
-];
+/** The rotating phrases, in order (catalog keys, src/messages/he/home.json). */
+const MESSAGE_KEYS = [
+  'buildCustom.build',
+  'buildCustom.whatsYourOut',
+  'buildCustom.howLong',
+  'buildCustom.yourself',
+] as const;
 
 export function BuildCustomButton({
   onTap,
@@ -510,7 +506,10 @@ export function BuildCustomButton({
   userGender?: 'male' | 'female' | 'other' | null;
 }) {
   // Chrome extracted to the shared ShimmerPhraseButton; home keeps its gendered copy.
-  const messages = userGender === 'female' ? MESSAGES_FEMALE : MESSAGES_MALE;
+  // The gender comes from the caller's prop (not the signed-in user's injected one).
+  const t = useT(home);
+  const gender = userGender ?? 'other';
+  const messages = useMemo(() => MESSAGE_KEYS.map((key) => t(key, { gender })), [t, gender]);
   return <ShimmerPhraseButton messages={messages} onTap={onTap} />;
 }
 

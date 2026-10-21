@@ -16,6 +16,8 @@
 import { motion } from 'framer-motion';
 import ConfirmSheet from '@/components/ui/v2/ConfirmSheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface DeleteEntrySheetProps {
   open: boolean;
@@ -24,6 +26,7 @@ export interface DeleteEntrySheetProps {
 }
 
 export function DeleteEntrySheetClassic({ open, onConfirm, onCancel }: DeleteEntrySheetProps) {
+  const t = useT(home);
   return (
     <>
       {/* Backdrop */}
@@ -52,8 +55,8 @@ export function DeleteEntrySheetClassic({ open, onConfirm, onCancel }: DeleteEnt
         </div>
         {/* Title */}
         <div className="px-5 pt-3 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-black text-gray-900">מחיקת אימון?</h2>
-          <p className="text-xs text-gray-500 mt-1">האימון יוסר מהלוח השבועי</p>
+          <h2 className="text-base font-black text-gray-900">{t('agenda.delete.title')}</h2>
+          <p className="text-xs text-gray-500 mt-1">{t('agenda.delete.body')}</p>
         </div>
         {/* Buttons */}
         <div className="px-5 py-4 space-y-3">
@@ -63,14 +66,14 @@ export function DeleteEntrySheetClassic({ open, onConfirm, onCancel }: DeleteEnt
             style={{ background: '#EF4444' }}
             onClick={onConfirm}
           >
-            מחק
+            {t('agenda.delete.confirm')}
           </button>
           <button
             type="button"
             className="w-full py-2 text-sm text-gray-400 active:scale-[0.98] transition-transform"
             onClick={onCancel}
           >
-            ביטול
+            {t('agenda.delete.cancel')}
           </button>
         </div>
       </motion.div>
@@ -80,20 +83,21 @@ export function DeleteEntrySheetClassic({ open, onConfirm, onCancel }: DeleteEnt
 
 /** enable_home_v2 — the same choice on the shared ConfirmSheet, in place. */
 export function DeleteEntrySheetV2({ open, onConfirm, onCancel }: DeleteEntrySheetProps) {
+  const t = useT(home);
   return (
     <ConfirmSheet
       open={open}
       onClose={onCancel}
-      title="מחיקת אימון?"
-      description="האימון יוסר מהלוח השבועי"
+      title={t('agenda.delete.title')}
+      description={t('agenda.delete.body')}
       zIndex={SHEET_Z.agendaDeletePanel}
       backdropZIndex={SHEET_Z.agendaDelete}
       portal={false}
       // Clears the planner's bottom chrome, like the classic sheet.
       safeArea="calc(env(safe-area-inset-bottom, 0px) + 80px)"
       actions={[
-        { label: 'מחק', tone: 'danger', onClick: onConfirm },
-        { label: 'ביטול', tone: 'ghost', onClick: onCancel },
+        { label: t('agenda.delete.confirm'), tone: 'danger', onClick: onConfirm },
+        { label: t('agenda.delete.cancel'), tone: 'ghost', onClick: onCancel },
       ]}
     />
   );

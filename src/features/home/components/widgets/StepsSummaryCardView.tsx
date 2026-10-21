@@ -16,6 +16,8 @@ import React from 'react';
 import { Footprints, ChevronLeft } from 'lucide-react';
 import CircularProgress from '@/components/CircularProgress';
 import { IconTile, StatNumber } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface StepsSummaryCardViewProps {
   variant: 'default' | 'compact';
@@ -60,6 +62,7 @@ export default function StepsSummaryCardView({
   onOpen: handleOpen,
   thickRing = false,
 }: StepsSummaryCardViewProps) {
+  const t = useT(home);
   if (variant === 'compact') {
     return (
       <button
@@ -84,7 +87,7 @@ export default function StepsSummaryCardView({
           <div className="flex flex-col items-center leading-none" dir="ltr">
             <Count steps={steps} displaySteps={displaySteps} size="sm" />
             <span className="text-[10px] font-semibold text-v2-muted mt-1" dir="rtl">
-              {connectPromptLabel ?? `מתוך ${goal.toLocaleString('he-IL')}`}
+              {connectPromptLabel ?? t('steps.ofGoal', { goal: goal.toLocaleString('he-IL') })}
             </span>
           </div>
         </CircularProgress>
@@ -119,7 +122,7 @@ export default function StepsSummaryCardView({
 
       <div className="flex-1 min-w-0">
         <p className="text-[12px] font-extrabold text-[#00865a] leading-none mb-1.5">
-          {connectPromptLabel ?? 'צעדים היום'}
+          {connectPromptLabel ?? t('steps.today')}
         </p>
         <div className="flex items-baseline gap-1.5" dir="ltr">
           <Count steps={steps} displaySteps={displaySteps} size="md" />

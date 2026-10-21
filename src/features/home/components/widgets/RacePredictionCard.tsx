@@ -30,6 +30,8 @@ import {
   formatTrend,
   selectRacePrediction,
 } from '@/features/home/utils/race-prediction';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const RUN_ONBOARDING_HREF = '/onboarding-new/program-path?track=run';
 
@@ -40,6 +42,7 @@ export interface RacePredictionCardProps {
 
 export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCardProps) {
   const v2 = useHomeV2();
+  const t = useT(home);
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -73,8 +76,8 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
           <Timer size={20} strokeWidth={2.4} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate whitespace-nowrap text-[15px] font-black text-v2-ink">רוצים תחזית למרוץ?</p>
-          <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">ספרו לנו על ריצה אחרונה ונחשב</p>
+          <p className="truncate whitespace-nowrap text-[15px] font-black text-v2-ink">{t('racePrediction.empty.title')}</p>
+          <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{t('racePrediction.empty.body')}</p>
         </div>
         <button
           type="button"
@@ -84,7 +87,7 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
           }}
           className="shrink-0 whitespace-nowrap rounded-full bg-white px-4 py-2 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          בואו נתחיל
+          {t('racePrediction.empty.cta')}
         </button>
       </div>
     );
@@ -97,14 +100,14 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
     <div className="w-full rounded-v2-card bg-white p-4 shadow-v2-card" dir="rtl">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-2">
-          <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">תחזית למרוץ</p>
+          <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('racePrediction.title')}</p>
           {view.basedOnRuns && (
-            <p className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">מתעדכן לפי הריצות שלך</p>
+            <p className="truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('racePrediction.basedOnRuns')}</p>
           )}
         </div>
         <button
           type="button"
-          aria-label="איך מחושבת התחזית"
+          aria-label={t('racePrediction.infoAria')}
           aria-expanded={infoOpen}
           aria-controls={infoId}
           onClick={() => setInfoOpen((o) => !o)}
@@ -130,7 +133,7 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
           >
             {trend.faster ? <TrendingUp size={14} strokeWidth={2.4} /> : <TrendingDown size={14} strokeWidth={2.4} />}
             <span dir="ltr">{trend.clock}</span>
-            <span>{trend.label} · 30 יום</span>
+            <span>{t('racePrediction.trend', { label: trend.label })}</span>
           </span>
         )}
       </div>
@@ -150,11 +153,11 @@ export function RacePredictionCard({ runningProgramsEnabled }: RacePredictionCar
 
       {infoOpen && (
         <p id={infoId} className="mt-3 rounded-[14px] bg-v2-surface p-3 text-[12.5px] font-bold leading-snug text-v2-ink-2">
-          הערכה בלבד, לא תוצאה מובטחת. מחושבת מקצב הבסיס שלך בתוכנית הריצה (
-          <span dir="ltr">{formatPacePerKm(view.basePace)}</span> דק׳ לק״מ) ומהמרחק שאליו התוכנית מכוונת. מרחקים אחרים מוערכים בנוסחת Riegel.
-          {view.basedOnRuns
-            ? ' קצב הבסיס מתעדכן אחרי כל 3 אימוני איכות מהתוכנית (אינטרוולים / טמפו), לפי הקצב שרצת בפועל.'
-            : ' אחרי 3 אימוני איכות מהתוכנית (אינטרוולים / טמפו) התחזית תתעדכן לפי הקצב שרצת בפועל.'}
+          {t.rich('racePrediction.info.body', {
+            pace: formatPacePerKm(view.basePace),
+            ltr: (chunks: React.ReactNode) => <span dir="ltr">{chunks}</span>,
+          })}
+          {view.basedOnRuns ? t('racePrediction.info.runs') : t('racePrediction.info.noRuns')}
         </p>
       )}
     </div>

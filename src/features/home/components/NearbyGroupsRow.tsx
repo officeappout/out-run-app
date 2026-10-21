@@ -13,18 +13,20 @@ import GroupDetailsDrawer from '@/features/arena/components/GroupDetailsDrawer';
 import { useCommunitySessionBanner } from '@/features/arena/hooks/useCommunitySessionBanner';
 import { usePublicGroupPhases } from '@/features/arena/hooks/usePublicGroupPhases';
 import type { CommunityGroup } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const CITY_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
-  'שדרות': { lat: 31.5250, lng: 34.5995 },
-  'תל אביב': { lat: 32.0853, lng: 34.7818 },
-  'ירושלים': { lat: 31.7683, lng: 35.2137 },
-  'חיפה': { lat: 32.7940, lng: 34.9896 },
-  'באר שבע': { lat: 31.2530, lng: 34.7915 },
-  'אשדוד': { lat: 31.8040, lng: 34.6553 },
-  'הרצליה': { lat: 32.1629, lng: 34.8446 },
-  'רמת גן': { lat: 32.0680, lng: 34.8240 },
-  'נתניה': { lat: 32.3215, lng: 34.8532 },
-  'ראשון לציון': { lat: 31.9730, lng: 34.7925 },
+  'שדרות': { lat: 31.5250, lng: 34.5995 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'תל אביב': { lat: 32.0853, lng: 34.7818 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'ירושלים': { lat: 31.7683, lng: 35.2137 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'חיפה': { lat: 32.7940, lng: 34.9896 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'באר שבע': { lat: 31.2530, lng: 34.7915 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'אשדוד': { lat: 31.8040, lng: 34.6553 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'הרצליה': { lat: 32.1629, lng: 34.8446 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'רמת גן': { lat: 32.0680, lng: 34.8240 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'נתניה': { lat: 32.3215, lng: 34.8532 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
+  'ראשון לציון': { lat: 31.9730, lng: 34.7925 }, // i18n-allow-hebrew: data — city names matched against profile.core.city
 };
 const DEFAULT_FALLBACK = { lat: 31.5250, lng: 34.5995 };
 
@@ -34,13 +36,13 @@ const MAX_GROUPS = 12;
 
 type CategoryFilter = 'all' | 'walking' | 'running' | 'calisthenics' | 'community';
 
-const CHIPS: { key: CategoryFilter; label: string }[] = [
-  { key: 'all',          label: 'הכל' },
-  { key: 'walking',      label: 'הליכה' },
-  { key: 'running',      label: 'ריצה' },
-  { key: 'calisthenics', label: 'כוח' },
-  { key: 'community',    label: 'קהילתי' },
-];
+const CHIPS = [
+  { key: 'all',          labelKey: 'nearbyGroups.chip.all' },
+  { key: 'walking',      labelKey: 'nearbyGroups.chip.walking' },
+  { key: 'running',      labelKey: 'nearbyGroups.chip.running' },
+  { key: 'calisthenics', labelKey: 'nearbyGroups.chip.calisthenics' },
+  { key: 'community',    labelKey: 'nearbyGroups.chip.community' },
+] as const satisfies readonly { key: CategoryFilter; labelKey: string }[];
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
@@ -84,10 +86,11 @@ function computeNearby(
 
 export default function NearbyGroupsRow() {
   const v2 = useHomeV2();
+  const t = useT(home);
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
   const userId = profile?.id ?? null;
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? 'משתמש'; // i18n-allow-hebrew: data — fallback member name written to Firestore by joinGroup
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [allGroups, setAllGroups] = useState<CommunityGroup[]>([]);
@@ -277,7 +280,7 @@ export default function NearbyGroupsRow() {
             className={`${v2 ? 'text-[19px] font-black text-[#0e1419]' : 'text-[15px] font-bold text-gray-800'} dark:text-gray-100 flex items-center gap-1.5`}
           >
             {!v2 && <Users size={15} className="text-cyan-500" />}
-            קבוצות קרובות אליך
+            {t('nearbyGroups.title')}
             {!loading && (
               <span className="text-[13px] font-semibold text-gray-400 dark:text-gray-500">
                 ({sorted.length})
@@ -289,7 +292,7 @@ export default function NearbyGroupsRow() {
               <button
                 type="button"
                 onClick={() => setFilterOpen((v) => !v)}
-                aria-label="סנן קבוצות"
+                aria-label={t('nearbyGroups.filter')}
                 aria-expanded={filterOpen}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                   filterOpen || categoryFilter !== 'all'
@@ -311,7 +314,7 @@ export default function NearbyGroupsRow() {
               onClick={() => router.push('/search?tab=groups')}
               className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 min-h-[44px] px-1"
             >
-              הכל ›
+              {t('nearbyGroups.all')}
             </button>
           </div>
         </div>
@@ -334,7 +337,7 @@ export default function NearbyGroupsRow() {
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >
-                {chip.label}
+                {t(chip.labelKey)}
               </button>
             ))}
           </div>
@@ -355,7 +358,7 @@ export default function NearbyGroupsRow() {
           </div>
         ) : sorted.length === 0 ? (
           <p className="text-xs text-gray-400 dark:text-gray-500 px-1">
-            אין קבוצות בקטגוריה זו באזורך
+            {t('nearbyGroups.emptyCategory')}
           </p>
         ) : (
           <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-4 px-4 pb-1">

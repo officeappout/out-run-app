@@ -5,6 +5,8 @@ import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { getProgramIcon, CheckMarkBadge, BRAND_CYAN } from '@/features/content/programs';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ============================================================================
 // TYPES
@@ -162,6 +164,7 @@ export function ProgramProgressCard({
   // Home v2: the design-lab card (white, v2 lift, bolder type). Home only —
   // HomeV2Context is false everywhere else (e.g. the profile's programs).
   const v2 = useHomeV2();
+  const t = useT(home);
 
   const cardStyle: React.CSSProperties = isCarousel
     ? { minHeight: 107 }
@@ -181,7 +184,7 @@ export function ProgramProgressCard({
   // started, based on your programs" text with no tappable CTA, regardless
   // of what the caller passed for lockedHint.
   if (isLocked || isNotStartedMaster) {
-    const displayHint = isNotStartedMaster ? 'טרם התחיל · מבוסס על התוכניות שלך' : lockedHint;
+    const displayHint = isNotStartedMaster ? t('programProgress.notStarted') : lockedHint;
     const hintTappable = isLocked && !!onLockedHintTap;
     return (
       <div
@@ -292,7 +295,9 @@ export function ProgramProgressCard({
           </div>
 
           <p className={v2 ? 'mb-0.5 text-[14px] font-extrabold text-v2-ink' : 'text-sm text-gray-600 dark:text-gray-300 font-semibold mb-0.5'}>
-            {v2 ? `רמה ${currentLevel} מתוך ${maxLevel}` : `רמה ${currentLevel}/${maxLevel}`}
+            {v2
+              ? t('programProgress.level.v2', { level: String(currentLevel), max: String(maxLevel) })
+              : t('programProgress.level.classic', { level: String(currentLevel), max: String(maxLevel) })}
           </p>
 
           {nextLevel <= maxLevel && (
@@ -302,7 +307,7 @@ export function ProgramProgressCard({
               ) : (
                 <>
                   <span className={v2 ? 'text-[12.5px] font-bold whitespace-normal break-words min-w-0' : 'text-xs whitespace-normal break-words min-w-0'}>
-                    עוד {remainingPercent}% לרמה {nextLevel}
+                    {t('programProgress.remaining', { pct: String(remainingPercent), next: String(nextLevel) })}
                   </span>
                   <ChevronUp className="w-3 h-3 flex-shrink-0 mt-0.5" />
                 </>

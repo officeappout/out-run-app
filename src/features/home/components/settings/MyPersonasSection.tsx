@@ -13,6 +13,8 @@ import { useResolvedPersonaSummary } from '@/features/user/identity/hooks/useRes
 import PersonaQuestionsDrawer from '@/features/user/onboarding/components/PersonaQuestionsDrawer';
 import { useToast } from '@/components/ui/Toast';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const ALL_PERSONA_IDS = Object.keys(LIFESTYLE_LABELS) as PersonaId[];
 const LIFESTYLE_OPTION_BY_ID = new Map(LIFESTYLE_OPTIONS.map((o) => [o.id, o]));
@@ -28,6 +30,7 @@ function PersonaRow({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const t = useT(home);
   const uid = auth.currentUser?.uid;
   const summary = useResolvedPersonaSummary(uid, entry, refreshKey);
   const hasQuestions = (PERSONA_QUESTIONS[entry.id]?.length ?? 0) > 0;
@@ -35,11 +38,11 @@ function PersonaRow({
   const sublabel = !hasQuestions
     ? undefined
     : summary.loading
-    ? 'טוען...'
+    ? t('personas.row.loading')
     : !summary.resolved
-    ? 'היחידה כבר לא קיימת — הקש לעדכון'
+    ? t('personas.row.stale')
     : !summary.isComplete
-    ? 'טרם הושלם — הקש להשלמה'
+    ? t('personas.row.pending')
     : summary.parts.join(' · ');
 
   // Flattened ("פרופיל חלק" Part 3) — no card chrome, matching
@@ -80,7 +83,7 @@ function PersonaRow({
         type="button"
         onClick={onRemove}
         className="p-2.5 rounded-xl text-gray-300 active:scale-90 transition-transform"
-        aria-label={`הסר ${LIFESTYLE_LABELS[entry.id]}`}
+        aria-label={t('personas.row.removeAria', { label: LIFESTYLE_LABELS[entry.id] })}
       >
         <X size={16} />
       </button>
@@ -101,6 +104,7 @@ function PersonaRow({
  * not a new screen).
  */
 export default function MyPersonasSection() {
+  const t = useT(home);
   const { profile, refreshProfile } = useUserStore();
   const { showToast } = useToast();
   const [editingPersonaId, setEditingPersonaId] = useState<PersonaId | null>(null);
@@ -128,7 +132,7 @@ export default function MyPersonasSection() {
       // silently appeared behind it. A toast always fires here so the
       // add is confirmed even when there's no follow-up drawer to make it
       // obvious (e.g. "אבא", no configured questions).
-      showToast('success', `${LIFESTYLE_LABELS[personaId]} נוספה`);
+      showToast('success', t('personas.added', { label: LIFESTYLE_LABELS[personaId] }));
       // Same UX as onboarding's PersonaStep: a newly-added persona with
       // configured questions opens its drawer immediately, not a second,
       // separate flow.
@@ -155,8 +159,8 @@ export default function MyPersonasSection() {
 
   return (
     <div dir="rtl" className="pt-1">
-      <p className="text-sm font-bold text-gray-900 mb-1 px-1">הפרסונות שלי</p>
-      <p className="text-xs text-gray-400 mb-2 px-1">הפרטים כאן פרטיים ולא מופיעים בפרופיל הציבורי שלך.</p>
+      <p className="text-sm font-bold text-gray-900 mb-1 px-1">{t('personas.title')}</p>
+      <p className="text-xs text-gray-400 mb-2 px-1">{t('personas.privacy')}</p>
       <div className="flex flex-col gap-2">
         {personas.map((entry) => (
           <PersonaRow
@@ -175,7 +179,7 @@ export default function MyPersonasSection() {
             className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-semibold text-gray-400 active:scale-[0.98] transition-transform"
           >
             <Plus size={16} />
-            <span>הוסף פרסונה</span>
+            <span>{t('personas.addButton')}</span>
           </button>
         )}
       </div>
@@ -205,7 +209,7 @@ export default function MyPersonasSection() {
             className="relative w-full bg-white rounded-t-3xl p-5 max-h-[70vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold text-gray-900 mb-4">הוסף פרסונה</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-4">{t('personas.pickerTitle')}</h3>
             <div className="flex flex-col gap-2">
               {addableIds.map((id) => {
                 const option = LIFESTYLE_OPTION_BY_ID.get(id);
@@ -236,8 +240,8 @@ export default function MyPersonasSection() {
           <div className="relative w-full max-w-sm bg-white rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm text-gray-900 mb-4 text-center">
               {(PERSONA_QUESTIONS[confirmingRemove]?.length ?? 0) > 0
-                ? `הסרת ${LIFESTYLE_LABELS[confirmingRemove]} תמחק גם את הפרטים שמילאת. להסיר?`
-                : `להסיר את ${LIFESTYLE_LABELS[confirmingRemove]}?`}
+                ? t('personas.confirmRemove.withAnswers', { label: LIFESTYLE_LABELS[confirmingRemove] })
+                : t('personas.confirmRemove.plain', { label: LIFESTYLE_LABELS[confirmingRemove] })}
             </p>
             <div className="flex gap-2">
               <button
@@ -245,7 +249,7 @@ export default function MyPersonasSection() {
                 onClick={() => setConfirmingRemove(null)}
                 className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700"
               >
-                ביטול
+                {t('personas.confirmRemove.cancel')}
               </button>
               <button
                 type="button"
@@ -253,7 +257,7 @@ export default function MyPersonasSection() {
                 onClick={handleConfirmRemove}
                 className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-50"
               >
-                הסר
+                {t('personas.confirmRemove.remove')}
               </button>
             </div>
           </div>

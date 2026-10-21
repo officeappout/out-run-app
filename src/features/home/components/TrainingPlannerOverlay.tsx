@@ -27,6 +27,8 @@ import ScheduleBuilderDrawer, { isScheduleBuilderDrawerEnabled } from '@/feature
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { DayCellV2Context } from '@/features/home/utils/day-display.utils';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -48,8 +50,8 @@ const SLIDE_SPRING = {
 };
 
 const HEBREW_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי',  'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',  // i18n-allow-hebrew: month names (wave 3, fmt)
+  'יולי',  'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',  // i18n-allow-hebrew: month names (wave 3, fmt)
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -133,6 +135,7 @@ export default function TrainingPlannerOverlay({
   const [refreshKey, setRefreshKey]               = useState(0);
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(true);
   const v2 = useHomeV2();
+  const t = useT(home);
   // The month grid is 5 or 6 rows (+ month and weekday headers), and v2's
   // flame cells sit taller — a fixed 310px cut the last row. Measure it.
   const calInnerRef = useRef<HTMLDivElement>(null);
@@ -163,8 +166,8 @@ export default function TrainingPlannerOverlay({
   // Brief opacity flash on the agenda when week changes
   useEffect(() => {
     setAgendaFade(true);
-    const t = setTimeout(() => setAgendaFade(false), 180);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setAgendaFade(false), 180);
+    return () => clearTimeout(timer);
   }, [weekStart]);
 
   // v2: the strip follows the selected day (tap or list scroll), so its
@@ -357,7 +360,7 @@ export default function TrainingPlannerOverlay({
               <div className="max-w-md mx-auto px-4 pb-3 flex items-center justify-between" dir="rtl">
                 <div className="flex items-center gap-2">
                   {!v2 && <CalendarDays className="w-5 h-5 text-[#00C9F2]" />}
-                  <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>תכנון אימונים</h2>
+                  <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-base font-black text-gray-900'}>{t('planner.title')}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {isScheduleBuilderDrawerEnabled() && (
@@ -374,7 +377,7 @@ export default function TrainingPlannerOverlay({
                             ? 'grid h-10 w-10 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
                             : 'w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm'
                         }
-                        aria-label="בנה לוז אימונים"
+                        aria-label={t('planner.buildSchedule')}
                       >
                         <CalendarDays className="w-4 h-4 stroke-[2.5] text-[#00C9F2]" />
                       </button>
@@ -388,7 +391,7 @@ export default function TrainingPlannerOverlay({
                             ? 'grid h-10 w-10 place-items-center rounded-full bg-white text-v2-ink shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
                             : 'w-9 h-9 rounded-full bg-white flex items-center justify-center border border-slate-200 text-gray-900 active:scale-90 transition-all shadow-sm'
                         }
-                    aria-label="סגור"
+                    aria-label={t('planner.close')}
                   >
                     <X className="w-4 h-4 stroke-[2.5]" />
                   </button>
@@ -472,7 +475,7 @@ export default function TrainingPlannerOverlay({
                             border:       '0.5px solid #00C9F240',
                           }}
                         >
-                          שבוע {weekNumber}
+                          {t('planner.week', { n: String(weekNumber) })}
                         </span>
                       )}
                     </div>
@@ -512,7 +515,7 @@ export default function TrainingPlannerOverlay({
                 onPointerUp={handleHandlePointerUp}
                 onPointerCancel={handleHandlePointerCancel}
                 style={{ touchAction: 'none' }}
-                aria-label={isCalendarCollapsed ? 'הרחב לוח שנה' : 'כווץ לוח שנה'}
+                aria-label={isCalendarCollapsed ? t('planner.calendar.expand') : t('planner.calendar.collapse')}
                 role="button"
               >
                 <div className={`w-12 h-1.5 rounded-full mx-auto ${v2 ? 'bg-v2-pill-border' : 'bg-gray-300 dark:bg-gray-700'}`} />

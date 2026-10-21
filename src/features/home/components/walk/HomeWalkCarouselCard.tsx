@@ -19,6 +19,8 @@ import { useNearbyWalkingGroup } from '@/features/schedule/walking/useNearbyWalk
 import NotAloneCard from '@/features/schedule/walking/components/NotAloneCard';
 import type { HomeWalkSlot } from '@/features/home/utils/home-walk-slot';
 import RunWeekCardV2 from '../widgets/run-week-v2/RunWeekCardV2';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 const WALK_COLOR = '#f59e0b';
 /** The steps tile's own text shade (IconTile tone "steps"), so label and tile match. */
@@ -35,6 +37,7 @@ export interface HomeWalkCarouselCardProps {
 }
 
 export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, standalone = false }: HomeWalkCarouselCardProps) {
+  const t = useT(home);
   const steps = useActivityStore((s) => Number(s.today?.steps) || 0);
   const goal = useActivityStore((s) => s.resolvedStepGoal ?? (s.today?.stepsGoal || null));
   const isToday = slot.kind === 'today';
@@ -52,37 +55,39 @@ export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, stand
   return (
     <div className={`flex w-full flex-col rounded-v2-card bg-v2-surface p-3 ${standalone ? '' : 'h-full'}`} dir="rtl" data-home-walk-card={slot.kind}>
       <p className="truncate whitespace-nowrap text-[13px] font-extrabold text-v2-deep">
-        {isToday ? 'יום הליכה · האימון וטבעת הצעדים יחד' : 'השלמת הצעדים'}
+        {isToday ? t('walkCard.kicker.today') : t('walkCard.kicker.gap')}
       </p>
       <h3 className="whitespace-nowrap text-[19px] font-black !tracking-[-0.02em] text-v2-ink">
-        {isToday ? 'ההליכה של היום' : 'הליכה קצרה'}
+        {isToday ? t('walkCard.title.today') : t('walkCard.title.gap')}
       </h3>
       <div className="mt-3">
         <RunWeekCardV2
           kind="easy"
           tile={tile}
           accentText={WALK_TEXT}
-          typeLabel={isToday ? 'הליכה' : 'הליכה קצרה'}
-          title={isToday ? (slot.entry.title ?? 'הליכה מהירה') : `~${slot.minutes} דק׳ להשלמת הצעדים`}
+          typeLabel={isToday ? t('walkCard.type.today') : t('walkCard.type.gap')}
+          title={isToday ? (slot.entry.title ?? t('walkCard.defaultTitle')) : t('walkCard.gapTitle', { minutes: String(slot.minutes) })}
           state="today"
           dayLetter={null}
           onStart={onStart}
-          startLabel={isToday ? 'צא להליכה' : 'יאללה'}
+          startLabel={isToday ? t('walkCard.start.today') : t('walkCard.start.gap')}
         >
           {isToday ? (
             <>
               {(target || walkSteps || slot.entry.startTime) && (
                 <p className="mt-2 truncate whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">
-                  {[target, walkSteps ? `~${fmt(walkSteps)} צעדים` : null, slot.entry.startTime].filter(Boolean).join(' · ')}
+                  {[target, walkSteps ? t('walkCard.walkSteps', { steps: fmt(walkSteps) }) : null, slot.entry.startTime].filter(Boolean).join(' · ')}
                 </p>
               )}
               <div className="mt-2.5 flex items-center gap-2.5 border-t border-v2-hairline pt-2.5">
-                <MiniRing pct={pct} plannedPct={plannedPct} color={WALK_COLOR} size={40} stroke={5} label={goal ? `${fmt(steps)} מתוך ${fmt(goal)} צעדים` : undefined}>
+                <MiniRing pct={pct} plannedPct={plannedPct} color={WALK_COLOR} size={40} stroke={5} label={goal ? t('walkCard.ringLabel', { steps: fmt(steps), goal: fmt(goal) }) : undefined}>
                   <Footprints size={14} strokeWidth={2.4} style={{ color: WALK_COLOR }} aria-hidden />
                 </MiniRing>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate whitespace-nowrap text-[13.5px] font-black text-v2-ink">
-                    צעדים היום {fmt(steps)}{goal ? ` מתוך ${fmt(goal)}` : ''}
+                    {goal
+                      ? t('walkCard.stepsToday.withGoal', { steps: fmt(steps), goal: fmt(goal) })
+                      : t('walkCard.stepsToday.plain', { steps: fmt(steps) })}
                   </span>
                   {hint && <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">{hint}</span>}
                 </span>
@@ -90,7 +95,9 @@ export default function HomeWalkCarouselCard({ slot, onStart, onOpenGroup, stand
             </>
           ) : (
             <p className="mt-2 truncate whitespace-nowrap text-[12.5px] font-extrabold text-v2-ink-2">
-              חסרים {fmt(slot.missingSteps)} צעדים{goal ? ` · יעד ${fmt(goal)}` : ''}
+              {goal
+                ? t('walkCard.missing.withGoal', { steps: fmt(slot.missingSteps), goal: fmt(goal) })
+                : t('walkCard.missing.plain', { steps: fmt(slot.missingSteps) })}
             </p>
           )}
         </RunWeekCardV2>

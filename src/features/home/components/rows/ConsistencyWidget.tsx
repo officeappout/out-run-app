@@ -25,6 +25,8 @@ import { WIDGET_CARD_STYLE } from '@/features/home/components/widgets/StrengthVo
 import { GhostUpsell } from './GhostUpsell';
 import { hasStrengthSurvey, hasRunSurvey } from '@/features/home/hooks/useProgramProgress';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 interface MiniBarsProps {
   /** Short Hebrew caption, e.g. "כוח" or "ריצה". */
@@ -147,6 +149,7 @@ function RunGlyph() {
 }
 
 export function ConsistencyWidget() {
+  const t = useT(home);
   const router = useRouter();
   const { profile } = useUserStore();
   const { summary } = useWeeklyProgress();
@@ -167,7 +170,7 @@ export function ConsistencyWidget() {
 
   const strengthRow = (
     <MiniBars
-      caption="כוח"
+      caption={t('consistency.strength')}
       done={strengthSessions}
       target={strengthTarget}
       icon={<StrengthGlyph />}
@@ -176,7 +179,7 @@ export function ConsistencyWidget() {
 
   const runRow = (
     <MiniBars
-      caption="ריצה"
+      caption={t('consistency.run')}
       done={runSessions}
       target={runTarget}
       fillColor="#84CC16"
@@ -196,7 +199,7 @@ export function ConsistencyWidget() {
         <GhostUpsell
           variant="silent"
           onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
-          label="הוסף תוכנית כוח"
+          label={t('consistency.addStrength')}
         >
           {strengthRow}
         </GhostUpsell>
@@ -208,7 +211,7 @@ export function ConsistencyWidget() {
         <GhostUpsell
           variant="silent"
           onClick={() => router.push(resolveOnboardingEntryHref(profile, 'RUNNING'))}
-          label="הוסף תוכנית ריצה"
+          label={t('consistency.addRun')}
         >
           {runRow}
         </GhostUpsell>

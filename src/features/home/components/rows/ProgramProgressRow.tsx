@@ -22,6 +22,8 @@ import { ProgramProgressCard } from '@/features/home/components/widgets/ProgramP
 import { useProgramProgress } from '@/features/home/hooks/useProgramProgress';
 import { GhostUpsell } from './GhostUpsell';
 import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onboarding-entry';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 /**
  * No explicit height is set here — ProgramProgressCard sizes to its own
@@ -35,6 +37,7 @@ import { resolveOnboardingEntryHref } from '@/features/user/onboarding/utils/onb
 const FIT_PARENT_CLASS = '';
 
 export function ProgramProgressRow() {
+  const t = useT(home);
   const router = useRouter();
   const { profile } = useUserStore();
   const data = useProgramProgress();
@@ -43,13 +46,13 @@ export function ProgramProgressRow() {
     return (
       <GhostUpsell
         onClick={() => router.push(resolveOnboardingEntryHref(profile, 'STRENGTH'))}
-        label="בואו נראה מאיפה מתחילים"
-        ctaText="לחצו כאן "
+        label={t('programProgressRow.ghost.label')}
+        ctaText={t('programProgressRow.ghost.cta')}
       >
         {/* Real ProgramProgressCard rendered with neutral defaults so the
             blurred surface keeps the card silhouette + height. */}
         <ProgramProgressCard
-          programName="תוכנית אימון"
+          programName={t('programProgressRow.placeholderName')}
           iconKey="muscle"
           currentLevel={1}
           maxLevel={25}
