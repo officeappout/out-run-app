@@ -83,6 +83,7 @@ const InputZ = z.object({
 const OutputZ = z.object({
   title: z.string().max(120).nullable().optional(),
   planLabel: z.string().max(80).nullable().optional(),
+  whyHe: z.string().max(160).nullable().optional(),
   planActivity: ActivityZ.nullable().optional(),
   totalMinutes: NumOrNull,
   exercises: z.array(ExerciseZ).max(40),

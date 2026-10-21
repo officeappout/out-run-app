@@ -77,6 +77,7 @@ export default function SessionPreview({ row }: { row: FlaggedRow }) {
           <p>בקשה: {input.requestedActivity ? ACT_HE[input.requestedActivity] : '—'}{input.targetMinutes ? ` · ${input.targetMinutes} דק׳` : ''}{input.targetKm ? ` · ${input.targetKm} ק״מ` : ''}{input.focus ? ` · פוקוס ${input.focus}` : ''}{input.location ? ` · ${input.location}` : ''}</p>
           <p>רמות: {Object.entries(input.levels ?? {}).map(([k, v]) => `${k} ${v}`).join(', ') || '—'} · אזור {input.areaGeohash5 ?? '—'}</p>
           <p>הוצג: {output.planLabel ?? output.title ?? '—'} · {output.totalMinutes ?? '?'} דק׳ · גרסה {row.appVersion ?? '—'} · {row.platform ?? ''}</p>
+          {output.whyHe && <p>למה האימון הזה: <span className="text-slate-700">{output.whyHe}</span></p>}
           {row.outcome && <p>מה קרה: {String(row.outcome.last ?? '—')}{typeof row.outcome.swappedExercises === 'number' ? ` · ${row.outcome.swappedExercises} החלפות` : ''}</p>}
         </section>
       </div>

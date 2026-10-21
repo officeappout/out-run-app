@@ -25,6 +25,7 @@ export default function FlaggedRowItem({ row, busy, onAction }: {
     <li className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <button type="button" onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-3 p-3 text-start hover:bg-slate-50">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${SEVERITY_CLASS[row.maxSeverity] ?? SEVERITY_CLASS[0]}`}>{row.reports.length && !row.findings.length ? 'דיווח' : `חומרה ${row.maxSeverity}`}</span>
+        {row.isDemo && <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-violet-100 text-violet-800">דמו</span>}
         <span className="text-sm font-bold text-slate-800">{GENERATION_TYPE_LABEL_HE[row.type] ?? row.type}</span>
         <span className="text-xs text-slate-500 truncate flex-1">
           {row.ruleIds.map((r) => RULE_BY_ID[r as keyof typeof RULE_BY_ID]?.titleHe ?? r).join(' · ')}
@@ -37,7 +38,8 @@ export default function FlaggedRowItem({ row, busy, onAction }: {
       {open && (
         <>
           <SessionPreview row={row} />
-          <div className="flex gap-2 p-3 border-t border-slate-200">
+          {/* Demo rows are read-only (no review doc exists for them). */}
+          {!row.isDemo && <div className="flex gap-2 p-3 border-t border-slate-200">
             {row.status === 'open' ? (
               <button disabled={busy} onClick={() => onAction('mark_fixed')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg disabled:opacity-50">
                 <CheckCircle2 size={14} /> סמן כתוקן
@@ -50,7 +52,7 @@ export default function FlaggedRowItem({ row, busy, onAction }: {
             <button disabled={busy} onClick={() => onAction('fixture')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg disabled:opacity-50">
               <FlaskConical size={14} /> הפוך לבדיקת רגרסיה
             </button>
-          </div>
+          </div>}
         </>
       )}
     </li>

@@ -24,7 +24,12 @@ interface ListResponse {
   summary: GenStatsDelta;
   trend: Array<{ day: string; sessions: number; flagged: number; reports: number }>;
   rows: FlaggedRow[];
+  /** ?world=demo only: the demo sessions' counts (no stats docs exist for them). */
+  demoSummary?: { sessions: number; flagged: number };
 }
+
+/** Which sessions the page shows — real users (default) or the demo world (PR 5). */
+type World = 'real' | 'demo';
 
 async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = await auth.currentUser?.getIdToken();
@@ -53,6 +58,7 @@ export default function GenerationReviewPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState<RowFilter>({ status: 'open' });
+  const [world, setWorld] = useState<World>('real');
 
   useEffect(() => onAuthStateChanged(auth, async (user) => {
     try {
@@ -68,7 +74,7 @@ export default function GenerationReviewPage() {
     setLoading(true);
     setNotice(null);
     try {
-      const res = await authedFetch(`/api/admin/generation-review?days=${days}`);
+      const res = await authedFetch(`/api/admin/generation-review?days=${days}${world === 'demo' ? '&world=demo' : ''}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? `שגיאה ${res.status}`);
       setData(json);
@@ -77,7 +83,7 @@ export default function GenerationReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, world]);
 
   useEffect(() => {
     if (allowed) void load();
@@ -126,13 +132,25 @@ export default function GenerationReviewPage() {
     );
   }
 
-  const s = data?.summary;
+  const s = world === 'real' ? data?.summary : undefined;
   return (
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen text-slate-900" dir="rtl">
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-bold">בקרת אימונים ומסלולים</h1>
         <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="text-sm border border-slate-200 rounded-lg px-2 py-1 bg-white">
           {[1, 7, 14, 30, 60].map((d) => <option key={d} value={d}>{d === 1 ? 'היום' : `${d} ימים`}</option>)}
+        </select>
+        <select
+          value={world}
+          onChange={(e) => {
+            setWorld(e.target.value as World);
+            setData(null);
+          }}
+          aria-label="עולם"
+          className={`text-sm border rounded-lg px-2 py-1 ${world === 'demo' ? 'border-violet-300 bg-violet-50 text-violet-800 font-bold' : 'border-slate-200 bg-white'}`}
+        >
+          <option value="real">משתמשים אמיתיים</option>
+          <option value="demo">דמו</option>
         </select>
         <button onClick={() => void load()} disabled={loading} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg disabled:opacity-50">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> רענן
@@ -141,6 +159,11 @@ export default function GenerationReviewPage() {
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} הרץ עכשיו
         </button>
       </header>
+      {world === 'demo' && (
+        <p className="text-sm text-violet-800 bg-violet-50 border border-violet-200 rounded-lg p-3">
+          אימונים שנוצרו למשתמשי דמו (כולל בודקי AI). החוקים רצים עליהם כאן בזמן הצפייה. לא נשמר כלום, ולא רצה בדיקת AI. אימוני הסימולטור (שנוצרים בלי מחולל אמיתי) לא מופיעים כאן.
+        </p>
+      )}
       {notice && <p className="text-sm text-slate-700 bg-white border border-slate-200 rounded-lg p-3">{notice}</p>}
 
       {s && (
@@ -179,6 +202,20 @@ export default function GenerationReviewPage() {
               onPick={(k) => setFilter((f) => ({ ...f, type: f.type === k ? undefined : k }))}
             />
           </div>
+        </section>
+      )}
+
+      {world === 'demo' && data?.demoSummary && (
+        <section className="grid gap-4 md:grid-cols-4">
+          {[
+            ['אימוני דמו', data.demoSummary.sessions],
+            ['עם ממצאים', data.demoSummary.flagged],
+          ].map(([label, value]) => (
+            <div key={label as string} className="bg-white rounded-xl border border-violet-200 p-4">
+              <p className="text-xs text-slate-500">{label}</p>
+              <p className="text-2xl font-bold">{value}</p>
+            </div>
+          ))}
         </section>
       )}
 

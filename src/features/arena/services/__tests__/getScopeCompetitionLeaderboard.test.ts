@@ -300,3 +300,23 @@ describe('getScopeCompetitionLeaderboard — scopes ranked against each other', 
     });
   });
 });
+
+describe('getScopeCompetitionLeaderboard — demo world never on a real board (21.10.2026)', () => {
+  it('the national city scan drops demo posts / demo cities', async () => {
+    state.POSTS = [
+      { id: 'p1', authorUid: 'u1', activityCredit: 10, authorityId: 'city-tlv' },
+      { id: 'demo_tlv01_post_2026-10-20_0', authorUid: 'demo_tlv01', activityCredit: 500, authorityId: 'demo-tlv' },
+    ];
+    const result = await getScopeCompetitionLeaderboard({ granularity: 'city', timeWindow: 'weekly' });
+    expect(result.entries.map((e) => e.scopeId)).toEqual(['city-tlv']);
+  });
+
+  it("a demo city's own neighbourhood board keeps its demo neighbourhoods", async () => {
+    state.POSTS = [
+      { id: 'demo_tlv01_post_x', authorUid: 'demo_tlv01', activityCredit: 50, authorityId: 'demo-tlv', neighborhoodId: 'demo-tlv-n1' },
+      { id: 'demo_tlv02_post_x', authorUid: 'demo_tlv02', activityCredit: 30, authorityId: 'demo-tlv', neighborhoodId: 'demo-tlv-n2' },
+    ];
+    const result = await getScopeCompetitionLeaderboard({ granularity: 'neighborhood', cityAuthorityId: 'demo-tlv', timeWindow: 'weekly' });
+    expect(result.entries.map((e) => e.scopeId)).toEqual(['demo-tlv-n1', 'demo-tlv-n2']);
+  });
+});

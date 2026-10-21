@@ -5,6 +5,11 @@
  *   ?author=<uid>    one person's posts (their profile)
  *   ?max=<n>         ≤ 50, default 30
  *
+ * Demo viewer (PR 5): a registered viewer's home feed also carries the demo
+ * cities' newest posts (one bounded query), and a demo author's partners
+ * post counts as visible to them — they read the demo world as a resident.
+ * Nobody else's feed changes.
+ *
  * Reads with the Admin SDK and filters each post with canSeePost(): public →
  * everyone, partners → the author's mutual follows, private → the author.
  * Auth: Firebase ID token in Authorization: Bearer <token>.
@@ -14,6 +19,8 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { canSeePost, feedPostJson, type AuthorConnections } from '@/features/social/services/feed-visibility';
 import { isDemoUid } from '@/lib/demo';
 import { isInDemoWorld } from '@/lib/demo-world.server';
+import { resolveDemoViewerWorld } from '@/lib/demo-viewer-world.server';
+import { demoWorldFeedDocs, viewerSeesDemoPost } from '@/features/social/services/feed-demo-viewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +40,8 @@ export async function GET(req: NextRequest) {
   const db = getAdminDb();
 
   let authors: string[];
+  // Only the viewers doc (cached) is read for a real caller.
+  const demoWorld = await resolveDemoViewerWorld(db, viewer);
   if (author) {
     // Demo world guard (demo-users-design.md L2): a demo user's posts reach
     // only someone who follows them (the owner's viewer accounts) — demo users
@@ -59,10 +68,19 @@ export async function GET(req: NextRequest) {
       .get();
     snap.forEach((d) => docs.push({ id: d.id, data: d.data() }));
   }
+  if (demoWorld && !author) {
+    const seen = new Set(docs.map((d) => d.id));
+    for (const d of await demoWorldFeedDocs(db, demoWorld, max)) if (!seen.has(d.id)) docs.push(d);
+  }
 
   // Each author's connections, once — needed only for non-public posts by others.
+  const demoVisible = (d: { data: Record<string, unknown> }) => !!demoWorld && viewerSeesDemoPost(d.data);
   const needConn = Array.from(
-    new Set(docs.filter((d) => d.data.authorUid !== viewer && d.data.audience !== 'public').map((d) => String(d.data.authorUid))),
+    new Set(
+      docs
+        .filter((d) => d.data.authorUid !== viewer && d.data.audience !== 'public' && !demoVisible(d))
+        .map((d) => String(d.data.authorUid)),
+    ),
   );
   const conns = new Map<string, AuthorConnections>();
   if (needConn.length) {
@@ -72,6 +90,7 @@ export async function GET(req: NextRequest) {
 
   const posts = docs
     .filter((d) =>
+      demoVisible(d) ||
       canSeePost({ authorUid: String(d.data.authorUid), audience: d.data.audience as string | undefined }, viewer, conns.get(String(d.data.authorUid))),
     )
     .map((d) => feedPostJson(d.id, d.data))

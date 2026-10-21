@@ -193,12 +193,12 @@ interface DashboardStats {
 // non-fatal: the rest of the dashboard still renders, residents card just
 // stays hidden (null), same as the .catch(() => []) already used below for
 // getReportsByAuthority.
-async function fetchResidentCounts(): Promise<{ total: number; approved: number } | null> {
+async function fetchResidentCounts(authorityId?: string | null): Promise<{ total: number; approved: number } | null> {
   try {
     const user = auth.currentUser;
     if (!user) return null;
     const idToken = await user.getIdToken();
-    const res = await fetch('/api/authority-manager/city-summary', {
+    const res = await fetch(`/api/authority-manager/city-summary${authorityId ? `?authorityId=${encodeURIComponent(authorityId)}` : ''}`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
     if (!res.ok) return null;
@@ -357,7 +357,7 @@ export default function AdminDashboardPage() {
         getGroupsByAuthority(aId),
         getEventsByAuthority(aId),
         getReportsByAuthority(aId).catch(() => []),
-        fetchResidentCounts(),
+        fetchResidentCounts(aId),
       ]);
 
       const now = new Date();

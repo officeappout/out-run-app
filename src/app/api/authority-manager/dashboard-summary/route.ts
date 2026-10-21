@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
     const db = getAdminDb();
 
-    const scope = await resolveAuthorityManagerScope(db, uid);
+    const scope = await resolveAuthorityManagerScope(db, uid, request.nextUrl.searchParams.get('authorityId'));
     if (!scope) {
       return NextResponse.json({ error: 'Not an authority manager' }, { status: 403 });
     }

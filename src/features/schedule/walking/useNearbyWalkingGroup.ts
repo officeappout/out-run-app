@@ -7,13 +7,15 @@
  * Fails quietly (no suggestion).
  */
 import { useEffect, useState } from 'react';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { isDemoDoc } from '@/lib/demo';
 import { useGPSStore } from '@/features/parks/core/store/useGPSStore';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { CommunityGroup } from '@/types/community.types';
 import { pickWalkingGroupSuggestion, type WalkingGroupSuggestion } from './nearbyWalkingGroup';
+import { useDemoViewerWorld } from '@/features/demo-viewer/useDemoViewerWorld';
+import { pickViewerWalkingSuggestion } from '@/features/demo-viewer/viewer-walking';
 
 const MAX_GROUPS = 20;
 
@@ -32,10 +34,20 @@ async function fetchWalkingGroups(): Promise<CommunityGroup[]> {
     .map((d) => ({ id: d.id, ...(d.data() as Omit<CommunityGroup, 'id'>) }) as CommunityGroup);
 }
 
+/** The demo viewer's demo groups, by id (≤ 10 reads; groups are readable by any signed-in user). */
+async function fetchDemoGroups(ids: readonly string[]): Promise<CommunityGroup[]> {
+  const snaps = await Promise.all(ids.slice(0, 10).map((id) => getDoc(doc(db, 'community_groups', id)).catch(() => null)));
+  return snaps
+    .filter((d): d is NonNullable<typeof d> => !!d && d.exists() && isDemoDoc(d.data(), d.id))
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<CommunityGroup, 'id'>) }) as CommunityGroup);
+}
+
 export function useNearbyWalkingGroup(enabled: boolean): WalkingGroupSuggestion | null {
   const coords = useGPSStore((s) => s.coords);
   const core = useUserStore((s) => (s.profile?.core ?? null) as { anchorLat?: unknown; anchorLng?: unknown } | null);
   const [suggestion, setSuggestion] = useState<WalkingGroupSuggestion | null>(null);
+  // Demo viewer (PR 5): "לא לבד" offers the demo world's walking groups instead.
+  const world = useDemoViewerWorld();
 
   const pos =
     coords && typeof coords.lat === 'number' && typeof coords.lng === 'number'
@@ -46,8 +58,19 @@ export function useNearbyWalkingGroup(enabled: boolean): WalkingGroupSuggestion 
   const posKey = pos ? `${pos.lat.toFixed(2)},${pos.lng.toFixed(2)}` : '';
 
   useEffect(() => {
-    if (!enabled || !pos) return;
+    if (!enabled) return;
     let alive = true;
+    if (world) {
+      fetchDemoGroups(world.groupIds)
+        .then((groups) => {
+          if (alive) setSuggestion(pickViewerWalkingSuggestion(groups, world.home.cityId, pos, new Date()));
+        })
+        .catch((err) => console.warn('[useNearbyWalkingGroup] demo read failed', err));
+      return () => {
+        alive = false;
+      };
+    }
+    if (!pos) return;
     fetchWalkingGroups()
       .then((groups) => {
         if (alive) setSuggestion(pickWalkingGroupSuggestion(groups, pos, new Date()));
@@ -58,7 +81,7 @@ export function useNearbyWalkingGroup(enabled: boolean): WalkingGroupSuggestion 
     };
     // Re-read only when the rounded position changes (≈1 km), not on every GPS tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, posKey]);
+  }, [enabled, posKey, world]);
 
   return enabled ? suggestion : null;
 }
