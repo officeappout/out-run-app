@@ -123,7 +123,7 @@ function candidates(idx: ShadeSpatialIndex, p: [number, number], r: number): Ind
       if (arr) for (const s of arr) out.add(s);
     }
   }
-  return [...out];
+  return Array.from(out);
 }
 
 /** Best segment for a step midpoint `p` heading (dx,dy unit), or null. */
