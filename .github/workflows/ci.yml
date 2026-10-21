@@ -127,3 +127,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/ci/v2-raw-style-grep.sh --summary
+
+  file-size:
+    name: file size guideline (changed files, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Warn-only: sizes are a guideline (docs/architecture/STANDARDS.md), not a
+    # gate. The script always exits 0; continue-on-error is belt and braces.
+    # Flags new files over the guideline and existing big files that grew by
+    # > 25 lines in this PR. Not part of scripts/safety-check.sh on purpose.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash scripts/ci/file-size-advisory.sh HEAD^1
