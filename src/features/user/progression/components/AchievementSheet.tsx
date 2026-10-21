@@ -8,7 +8,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Trophy } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { ACHIEVEMENT_DEFINITIONS } from '../config/achievement-definitions';
+import { ACHIEVEMENT_DEFINITIONS, achievementName } from '../config/achievement-definitions';
+import { useUiGender } from '@/hooks/useUiGender';
 import {
   CATEGORY_ORDER,
   CATEGORY_LABELS_HE,
@@ -62,6 +63,7 @@ function AchievementCard({
   achievement: AchievementDefinition;
   unlocked: UnlockedAchievementsMap;
 }) {
+  const gender = useUiGender();
   const isOneTime = achievement.type === 'one_time';
   const isUnlocked = isOneTime
     ? isOneTimeUnlocked(achievement.id, unlocked)
@@ -83,7 +85,7 @@ function AchievementCard({
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900 font-hebrew leading-snug">
-            {achievement.name_he}
+            {achievementName(achievement, gender)}
           </p>
           <p className="text-xs text-gray-500 font-hebrew leading-snug mt-0.5">
             {achievement.description_he}

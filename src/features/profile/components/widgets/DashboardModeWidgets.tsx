@@ -379,13 +379,13 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           <WidgetCardV2
             Icon={Route}
             iconColor="#00baf7"
-            label='ק"מ השבוע'
+            label='ק״מ השבוע'
             value={
               running.weeklyTargetDistance > 0
                 ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
                 : `${running.totalDistance.toFixed(1)}`
             }
-            sub='ק"מ'
+            sub='ק״מ'
             progressPct={kmPct}
           />
           <WidgetCardV2
@@ -393,7 +393,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
             iconColor="#65a30d"
             label="קצב ממוצע"
             value={formatPace(avgPaceMinPerKm)}
-            sub='דק׳ לק"מ'
+            sub='דק׳ לק״מ'
           />
           <WidgetCardV2
             Icon={Footprints}
@@ -408,7 +408,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
             iconColor="#8b5cf6"
             label="ריצה ארוכה"
             value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-            sub={longRunKm > 0 ? 'ק"מ' : 'אין נתונים עדיין'}
+            sub={longRunKm > 0 ? 'ק״מ' : 'אין נתונים עדיין'}
           />
         </div>
       </div>
@@ -426,13 +426,13 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
         <WidgetCard
           Icon={Route}
           iconColor="text-[#00ADEF]"
-          label='ק"מ השבוע'
+          label='ק״מ השבוע'
           value={
             running.weeklyTargetDistance > 0
               ? `${running.totalDistance.toFixed(1)} / ${running.weeklyTargetDistance.toFixed(0)}`
               : `${running.totalDistance.toFixed(1)}`
           }
-          sub='ק"מ'
+          sub='ק״מ'
           progressPct={kmPct}
         />
 
@@ -441,7 +441,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           iconColor="text-emerald-500"
           label="קצב ממוצע"
           value={formatPace(avgPaceMinPerKm)}
-          sub='דק׳ לק"מ'
+          sub='דק׳ לק״מ'
         />
 
         <WidgetCard
@@ -458,7 +458,7 @@ export function RunningWidgets({ workouts, v2 = false }: RunningWidgetsProps) {
           iconColor="text-purple-500"
           label="ריצה ארוכה"
           value={longRunKm > 0 ? `${longRunKm.toFixed(1)}` : '—'}
-          sub={longRunKm > 0 ? 'ק"מ' : 'אין נתונים עדיין'}
+          sub={longRunKm > 0 ? 'ק״מ' : 'אין נתונים עדיין'}
         />
       </div>
     </div>

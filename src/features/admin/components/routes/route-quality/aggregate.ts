@@ -7,6 +7,10 @@ export interface VariantAggregate {
   retraceOver8Pct: number;
   meanRetracePct: number;
   meanCompactness: number;
+  /** Turns > 45° per km over all top routes (length-weighted). */
+  turnsPerKm: number;
+  /** Mean path length / 60 m-simplified length (1.0 smooth, ≈1.41 block staircase). */
+  meanZigzag: number;
   withinWindowPct: number;
   majorRoadPct: number;
   crossingsPerKm: number;
@@ -37,6 +41,8 @@ export function aggregateVariant(routes: QualityRunRoute[], variant: QualityVari
     retraceOver8Pct: share(m.map(x => x.retracedPct > 0.08)),
     meanRetracePct: 100 * mean(m.map(x => x.retracedPct)),
     meanCompactness: mean(m.map(x => x.compactness)),
+    turnsPerKm: km ? m.reduce((a, x) => a + (x.turns ?? 0), 0) / km : 0,
+    meanZigzag: mean(m.map(x => x.zigzagIndex ?? 1)),
     withinWindowPct: share(m.map(x => Math.abs(x.distanceErrorPct ?? 1) <= 0.15)),
     majorRoadPct: 100 * mean(m.map(x => x.majorRoadPct ?? 0)),
     crossingsPerKm: km ? m.reduce((a, x) => a + (x.crossings?.total ?? 0), 0) / km : 0,

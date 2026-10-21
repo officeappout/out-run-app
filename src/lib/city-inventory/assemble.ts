@@ -1,5 +1,5 @@
 /**
- * city-inventory/assemble.ts — raw tallies ⇒ the 17 `InventoryLayer`s
+ * city-inventory/assemble.ts — raw tallies ⇒ the 18 `InventoryLayer`s
  * (plan §3.2 / §3.4). Pure.
  *
  * Method per layer:
@@ -7,7 +7,8 @@
  *   - benches / drinking water / toilets: density per km of street vs. the
  *     peer median (`osm_density_vs_peers`); coverage `null` without peers;
  *   - crossings, lighting, surface of bike/trail/promenade ways:
- *     `osm_tag_coverage` (tagged ÷ all);
+ *     `osm_tag_coverage` (tagged ÷ all); bike ways with no surface evidence
+ *     (`bike_unknown`) are a plain `osm_count` + length;
  *   - shade: Technion SI where the city has a layer — matched ÷ walkable.
  * "Not measured" stays `null` (never 0) — e.g. parks coverage until a
  * municipal reference area exists, shade outside the Technion cities.
@@ -132,6 +133,9 @@ export function assembleLayers(t: OsmTallies, ctx: AssembleContext): Record<Inve
     crossings: osmLayer('osm_tag_coverage', { count: t.crossings.count, coveragePct: pct(t.crossings.detailed, t.crossings.count) }, ctx),
     bike_paved: linear('bike_paved', 'osm_tag_coverage'),
     bike_offroad: linear('bike_offroad', 'osm_tag_coverage'),
+    // No surface evidence by definition — a plain count + length; a tag-coverage
+    // % here would always be 0 and flag itself.
+    bike_unknown: linear('bike_unknown', 'osm_count'),
     trails_paved: linear('trails_paved', 'osm_tag_coverage'),
     trails_offroad: linear('trails_offroad', 'osm_tag_coverage'),
     promenades: linear('promenades', 'osm_tag_coverage'),

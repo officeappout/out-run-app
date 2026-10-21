@@ -141,7 +141,7 @@
   "challenge.done.error.generic": "שגיאת חיבור. אנא ודא שהכתובת הוסמכה ב-Firebase Console.",
   "challenge.done.error.general": "שגיאה — אנא נסו שוב.",
   "challenge.done.existingAccount": "כבר יש לכם חשבון OUT",
-  "challenge.done.signin": "התחבר",
+  "challenge.done.signin": "התחברות",
   "challenge.done.download.title": "הורד את OUT",
   "challenge.done.download.ios": "הורד לאייפון",
   "challenge.done.download.android": "הורד לאנדרואד",

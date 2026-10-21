@@ -27,17 +27,18 @@ import {
   type ScopeCompetitionResult,
 } from '@/features/arena/services/ranking.service';
 import type { LeaderboardTimeWindow, LeaderboardCategory, LeaderboardGenderFilter } from '@/features/arena/services/ranking.service';
-import { CATEGORY_UNIT_LABEL } from './scope-category-unit-label';
+import { CATEGORY_UNIT_LABEL_KEYS } from './scope-category-unit-label';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
-import { useUiGender } from '@/hooks/useUiGender';
-import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { CommunityKey } from './league-t';
 
 /** Home v2 (18.10.2026): what the board ranks by — points (official) or km (for fun). */
 export type ScopeBoardMetric = 'points' | 'km';
-const METRIC_CHIPS: { id: ScopeBoardMetric; label: string }[] = [
-  { id: 'points', label: 'נקודות' },
-  { id: 'km', label: 'ק״מ' },
+const METRIC_CHIPS: { id: ScopeBoardMetric; labelKey: CommunityKey }[] = [
+  { id: 'points', labelKey: 'leagues.scopes.metric.points' },
+  { id: 'km', labelKey: 'leagues.scopes.metric.km' },
 ];
 
 
@@ -59,21 +60,6 @@ interface ScopeCompetitionLeaderboardProps {
   onCategoryChange?: (c: LeaderboardCategory) => void;
 }
 
-const GRANULARITY_LABEL: Record<ScopeCompetitionGranularity, string> = {
-  city: 'ערים',
-  neighborhood: 'שכונות',
-};
-
-const EMPTY_STATE_COPY: Record<ScopeCompetitionGranularity, { title: string; subtitle: string }> = {
-  city: {
-    title: 'אין עדיין תחרות בין ערים',
-    subtitle: 'כשמשתמשים בערים שונות יסיימו אימונים, הן יופיעו כאן בדירוג',
-  },
-  neighborhood: {
-    title: 'אין עדיין תחרות בין שכונות',
-    subtitle: 'הדירוג הזה יתמלא ככל שיותר משתמשים יבחרו שכונה בפרופיל שלהם',
-  },
-};
 
 
 
@@ -85,18 +71,19 @@ export default function ScopeCompetitionLeaderboard({
   genderFilter = 'all',
   onCategoryChange,
 }: ScopeCompetitionLeaderboardProps) {
+  const t = useT(community);
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
   const [result, setResult] = useState<ScopeCompetitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   // Home v2: rank by km (inside "סינון"). Without the flag always points.
   const [metric, setMetric] = useState<ScopeBoardMetric>('points');
   const km = v2 && metric === 'km';
 
   const fetch = async () => {
     setIsLoading(true);
-    setError(null);
+    setFailed(false);
     try {
       const data = await getScopeCompetitionLeaderboard({
         granularity,
@@ -109,7 +96,7 @@ export default function ScopeCompetitionLeaderboard({
       setResult(data);
     } catch (err) {
       console.error('[ScopeCompetitionLeaderboard]', err);
-      setError('שגיאה בטעינת הדירוג');
+      setFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +110,7 @@ export default function ScopeCompetitionLeaderboard({
       timeWindow={timeWindow}
       category={category}
       isLoading={isLoading}
-      error={error}
+      error={failed ? t('leagues.scopes.loadError') : null}
       entries={result?.entries ?? []}
       onRefresh={fetch}
       onCategoryChange={onCategoryChange}
@@ -151,10 +138,10 @@ export interface ScopeCompetitionLeaderboardViewProps {
   onMetricChange?: (m: ScopeBoardMetric) => void;
 }
 
-const CATEGORY_CHIPS: { id: LeaderboardCategory; label: string }[] = [
-  { id: 'overall', label: 'כל הפעילות' },
-  { id: 'strength', label: 'כוח' },
-  { id: 'cardio', label: 'אירובי' },
+const CATEGORY_CHIPS: { id: LeaderboardCategory; labelKey: CommunityKey }[] = [
+  { id: 'overall', labelKey: 'leagues.scopes.category.overall' },
+  { id: 'strength', labelKey: 'leagues.scopes.category.strength' },
+  { id: 'cardio', labelKey: 'leagues.scopes.category.cardio' },
 ];
 
 export function ScopeCompetitionLeaderboardView({
@@ -169,8 +156,7 @@ export function ScopeCompetitionLeaderboardView({
   metric,
   onMetricChange,
 }: ScopeCompetitionLeaderboardViewProps) {
-  const uiGender = useUiGender();
-  const windowLabel = timeWindow === 'daily' ? 'יומי' : timeWindow === 'weekly' ? 'שבועי' : 'חודשי';
+  const t = useT(community);
   const v2 = !!onMetricChange;
   const km = v2 && metric === 'km';
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -180,17 +166,19 @@ export function ScopeCompetitionLeaderboardView({
   // the same entries: average = totalScore / activeMemberCount.
   const [measure, setMeasure] = useState<GroupMeasure>('avg');
   const ranked = km ? rankByKm(entries, measure) : rankByMeasure(entries, measure);
-  const unit = CATEGORY_UNIT_LABEL[category];
+  const unit = t(CATEGORY_UNIT_LABEL_KEYS[category]);
   const shown = (e: ScopeCompetitionEntry) =>
     km
       ? formatKm(measure === 'avg' ? e.kmPerMember : e.totalKm)
       : (measure === 'avg' ? perMember(e) : e.totalScore).toLocaleString('he-IL');
-  const rowUnit = km ? (measure === 'avg' ? 'ק״מ למשתתף' : 'ק״מ') : measure === 'avg' ? `${unit} למשתתף` : unit;
+  const rowUnit = km
+    ? measure === 'avg' ? t('leagues.scopes.unit.kmPerMember') : t('leagues.scopes.unit.km')
+    : measure === 'avg' ? t('leagues.scopes.unit.perMember', { unit }) : unit;
   const rowSub = (e: ScopeCompetitionEntry) =>
     [
-      `${e.activeMemberCount} פעיל${e.activeMemberCount !== 1 ? 'ים' : ''}`,
+      t('leagues.scopes.active', { n: e.activeMemberCount, count: String(e.activeMemberCount) }),
       // v2: km next to the points (the km board shows them as the value).
-      v2 && !km && (e.totalKm ?? 0) > 0 ? `${formatKm(e.totalKm)} ק״מ` : null,
+      v2 && !km && (e.totalKm ?? 0) > 0 ? t('leagues.scopes.km', { km: formatKm(e.totalKm) }) : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -202,15 +190,18 @@ export function ScopeCompetitionLeaderboardView({
           name: e.scopeName,
           value: shown(e),
           // the full unit lives on the rows + the note; the pedestal keeps just the number
-          sub: v2 && !km && (e.totalKm ?? 0) > 0 ? `${e.activeMemberCount} פעילים · ${formatKm(e.totalKm)} ק״מ` : `${e.activeMemberCount} פעילים`,
+          sub:
+            v2 && !km && (e.totalKm ?? 0) > 0
+              ? t('leagues.scopes.podium.subKm', { count: String(e.activeMemberCount), km: formatKm(e.totalKm) })
+              : t('leagues.scopes.podium.sub', { count: String(e.activeMemberCount) }),
         })) as [PodiumEntry, PodiumEntry, PodiumEntry])
       : null;
 
   return (
     <BoardCard
-      title={`דירוג ה${GRANULARITY_LABEL[granularity]}`}
-      subtitle={`${GRANULARITY_LABEL[granularity]} • ${windowLabel}`}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
+      title={t('leagues.scopes.title', { granularity })}
+      subtitle={t('leagues.scopes.subtitle', { granularity, window: timeWindow })}
+      actions={<BoardIconButton icon={RefreshCw} label={t('leagues.scopes.refresh')} onClick={fetch} spinning={isLoading} />}
     >
       {v2 && (
         <div className="mb-2.5">
@@ -223,12 +214,12 @@ export function ScopeCompetitionLeaderboardView({
             }`}
           >
             <SlidersHorizontal size={14} strokeWidth={2.6} className="shrink-0" aria-hidden />
-            <span className="truncate">{km ? 'ק״מ' : 'סינון'}</span>
+            <span className="truncate">{km ? t('leagues.scopes.filtersKm') : t('leagues.scopes.filters')}</span>
             <ChevronDown size={14} strokeWidth={2.6} className={`shrink-0 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden />
           </button>
           {filtersOpen && (
             <div className="mt-2 rounded-[18px] bg-v2-surface p-2.5 ring-1 ring-inset ring-v2-hairline">
-              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label="מדד">
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label={t('leagues.scopes.metricLabel')}>
                 {METRIC_CHIPS.map((c) => (
                   <button
                     key={c.id}
@@ -240,7 +231,7 @@ export function ScopeCompetitionLeaderboardView({
                       (metric ?? 'points') === c.id ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
                     }`}
                   >
-                    {c.label}
+                    {t(c.labelKey)}
                   </button>
                 ))}
               </div>
@@ -249,7 +240,7 @@ export function ScopeCompetitionLeaderboardView({
         </div>
       )}
       {onCategoryChange && !km && (
-        <div className="-mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label="סוג פעילות">
+        <div className="-mx-1 mb-2.5 flex gap-1.5 overflow-x-auto px-1 no-scrollbar" role="radiogroup" aria-label={t('leagues.scopes.categoryLabel')}>
           {CATEGORY_CHIPS.map((c) => (
             <button
               key={c.id}
@@ -261,7 +252,7 @@ export function ScopeCompetitionLeaderboardView({
                 category === c.id ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
               }`}
             >
-              {c.label}
+              {t(c.labelKey)}
             </button>
           ))}
         </div>
@@ -278,30 +269,30 @@ export function ScopeCompetitionLeaderboardView({
           title={error}
           action={
             <Button variant="primary" size="sm" onClick={fetch}>
-              {pickGendered(uiGender, GENDERED_COPY.retry)}
+              {t('leagues.scopes.retry')}
             </Button>
           }
         />
       ) : entries.length === 0 ? (
         km ? (
-          <BoardMessage icon={Trophy} title="עוד אין ק״מ בתקופה הזו" body="הצעדים וההליכות מתעדכנים פעם בשעה." />
+          <BoardMessage icon={Trophy} title={t('leagues.scopes.noKm.title')} body={t('leagues.scopes.noKm.body')} />
         ) : (
           <BoardMessage
             icon={Trophy}
-            title={EMPTY_STATE_COPY[granularity].title}
-            body={EMPTY_STATE_COPY[granularity].subtitle}
+            title={t('leagues.scopes.empty.title', { granularity })}
+            body={t('leagues.scopes.empty.body', { granularity })}
           />
         )
       ) : (
         <>
         <div className="mb-2">
           <BoardToggle
-            label="שיטת דירוג"
+            label={t('leagues.scopes.measureLabel')}
             value={measure}
             onChange={setMeasure}
             options={[
-              { id: 'avg', label: 'ממוצע למשתתף' },
-              { id: 'total', label: 'סה״כ' },
+              { id: 'avg', label: t('leagues.scopes.measure.avg') },
+              { id: 'total', label: t('leagues.scopes.measure.total') },
             ]}
           />
         </div>
@@ -323,10 +314,10 @@ export function ScopeCompetitionLeaderboardView({
         </div>
         <p className="mt-3 text-[12px] font-bold leading-snug text-v2-muted">
           {km
-            ? 'הק״מ מוצגים בשביל הכיף — הם לא משנים את הנקודות או את הדירוג הרשמי.'
+            ? t('leagues.scopes.note.km')
             : measure === 'avg'
-            ? 'בממוצע למשתתף פעיל גודל השכונה לא קובע — גם קבוצה קטנה יכולה לנצח.'
-            : 'בסה״כ הגדולים מובילים. הדירוג הרשמי הוא לפי ממוצע למשתתף.'}
+            ? t('leagues.scopes.note.avg')
+            : t('leagues.scopes.note.total')}
         </p>
         </>
       )}

@@ -7,10 +7,19 @@
  *   GRAPHHOPPER_INVOKER_SA_KEY    optional dedicated invoker key (raw JSON or base64);
  *                                 defaults to FIREBASE_SERVICE_ACCOUNT_KEY / GOOGLE_SERVICE_ACCOUNT_KEY
  *   GRAPHHOPPER_TIMEOUT_MS        per-call timeout (default 1200)
+ *   GRAPHHOPPER_FOOT_PROFILE      `foot` (default) or `foot_turns` (turn costs → fewer zigzags);
+ *                                 set `foot_turns` ONLY after the server image with that profile is deployed
  *
  * A localhost URL (local `docker run`) is called without an ID token; any other
  * host must be https and always gets one.
  */
+import type { GhFootProfile } from './types';
+
+/** Running/walking profile from env; anything but `foot_turns` → `foot`. */
+export function readFootProfile(env: Record<string, string | undefined> = process.env): GhFootProfile {
+  return env.GRAPHHOPPER_FOOT_PROFILE?.trim() === 'foot_turns' ? 'foot_turns' : 'foot';
+}
+
 export interface GraphHopperConfig {
   baseUrl: string;
   audience: string;

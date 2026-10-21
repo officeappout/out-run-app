@@ -2,6 +2,8 @@
 
 import { Dumbbell, PersonStanding, Bike, Activity, Moon } from 'lucide-react';
 import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 
 interface RecentActivityListProps {
   workouts: WorkoutHistoryEntry[];
@@ -49,6 +51,7 @@ function formatDate(d: Date | string | undefined): string {
  */
 export default function RecentActivityList({ workouts, isLoading }: RecentActivityListProps) {
   const recent = workouts.slice(0, 5);
+  const uiGender = useUiGender();
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100" dir="rtl">
@@ -73,7 +76,7 @@ export default function RecentActivityList({ workouts, isLoading }: RecentActivi
           <p className="text-sm font-bold text-gray-500 text-center">
             עוד אין פעילויות.
             <br />
-            תתחיל לזוז!
+            {pickGendered(uiGender, { male: 'תתחיל לזוז!', female: 'תתחילי לזוז!', other: 'בואו נזוז!' })}
           </p>
         </div>
       ) : (
