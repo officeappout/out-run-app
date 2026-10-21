@@ -13,16 +13,19 @@
 import { useParams } from 'next/navigation';
 import { SkillTreeScreen } from '@/features/progression-map/components/SkillTreeScreen';
 import { isProgressionMapLeafProgram } from '@/lib/progression-map-config';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 export default function ProgressionMapProgramPage() {
   const params = useParams<{ programId: string }>();
   const programId = params?.programId ?? '';
+  const t = useT(profile);
 
   if (!programId || !isProgressionMapLeafProgram(programId)) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6" dir="rtl">
         <p className="text-sm text-gray-400 text-center">
-          המסלול הזה עדיין לא זמין כמפה — בקרוב.
+          {t('skillTree.unavailable')}
         </p>
       </div>
     );

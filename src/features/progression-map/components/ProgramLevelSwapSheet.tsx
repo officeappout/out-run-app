@@ -34,6 +34,8 @@ import {
   type SameLevelExerciseOption,
 } from '../services/program-level-swap-query';
 import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 const IMAGE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -132,6 +134,7 @@ export function ProgramLevelSwapSheet({
   onReplace,
 }: ProgramLevelSwapSheetProps) {
   const allExercises = useExerciseLibraryStore((s) => s.allExercises);
+  const t = useT(profile);
   const [options, setOptions] = useState<SameLevelExerciseOption[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -191,7 +194,7 @@ export function ProgramLevelSwapSheet({
           <div className="w-10 h-1 rounded-full bg-gray-200" />
         </div>
         <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-base font-black text-gray-900">גם ברמה הזו</h2>
+          <h2 className="text-base font-black text-gray-900">{t('skillTree.swap.title')}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -210,7 +213,7 @@ export function ProgramLevelSwapSheet({
             </div>
           )}
           {options !== null && options.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">אין תרגילים נוספים ברמה הזו כרגע.</p>
+            <p className="text-sm text-gray-400 text-center py-6">{t('skillTree.swap.empty')}</p>
           )}
           {options?.map((option) => (
             <SwapCard
@@ -238,7 +241,7 @@ export function ProgramLevelSwapSheet({
               }`}
               style={selectedOption ? { background: 'linear-gradient(135deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' } : undefined}
             >
-              החלף לתרגיל זה
+              {t('skillTree.swap.confirm')}
             </button>
           </div>
         )}

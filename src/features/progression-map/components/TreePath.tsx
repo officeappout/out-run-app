@@ -51,6 +51,8 @@ import { buildTreePathLayout, DEFAULT_TREE_PATH_LAYOUT_CONFIG } from '../service
 import { deriveState } from '../services/tree-node-state.service';
 import { TreeNode, type TreeNodeState } from './TreeNode';
 import type { SkillTreeData, SkillTreeRung } from '../core/types';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 const PATH_COLOR = '#20C6D6';
 const PATH_STROKE_WIDTH = 2;
@@ -78,11 +80,15 @@ function isAboveCurrentLevel(rung: SkillTreeRung, tree: SkillTreeData, currentLe
 }
 
 function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLevel: number; v2?: boolean }) {
-  const label = fromLevel === toLevel ? `רמה ${fromLevel}` : `רמות ${fromLevel}–${toLevel}`;
+  const t = useT(profile);
+  const label =
+    fromLevel === toLevel
+      ? t('skillTree.gap.single', { level: fromLevel })
+      : t('skillTree.gap.range', { from: fromLevel, to: toLevel });
   if (v2) {
     return (
       <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-[11px] font-bold text-v2-muted shadow-v2-ring" dir="rtl">
-        {label} · אין תרגיל ייעודי
+        {label}
       </div>
     );
   }
@@ -91,7 +97,7 @@ function GapPill({ fromLevel, toLevel, v2 = false }: { fromLevel: number; toLeve
       className="bg-slate-100 text-slate-400 text-[11px] font-semibold rounded-full px-3 py-1 whitespace-nowrap"
       dir="rtl"
     >
-      {label} · אין תרגיל ייעודי
+      {label}
     </div>
   );
 }

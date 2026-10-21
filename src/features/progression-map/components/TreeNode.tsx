@@ -54,6 +54,8 @@ import { Check, Lock, Crown } from 'lucide-react';
 import { Exercise, getLocalizedText } from '@/features/content/exercises';
 import { resolveTreeNodeImage } from '../services/resolve-tree-node-image';
 import { SwapPill } from './SwapPill';
+import { useT } from '@/hooks/useT';
+import { profile } from '@/messages/ns/profile';
 
 export type TreeNodeState = 'done' | 'current' | 'locked' | 'target';
 
@@ -101,6 +103,7 @@ function TreeNodeImpl({
   const isTarget = state === 'target';
   const isCurrent = state === 'current';
   const isDone = state === 'done';
+  const t = useT(profile);
   const name = getLocalizedText(exercise.name, 'he');
 
   const [imgFailed, setImgFailed] = useState(false);
@@ -128,7 +131,7 @@ function TreeNodeImpl({
           {isCurrent && (
             <div className="pointer-events-none absolute -top-9 left-1/2 flex -translate-x-1/2 flex-col items-center">
               <span className="whitespace-nowrap rounded-full bg-v2-deep px-3 py-1 text-[11px] font-black text-white shadow-v2-card">
-                אתה כאן
+                {t('skillTree.node.youAreHere')}
               </span>
               <div className="-mt-1 h-2 w-2 rotate-45 bg-v2-deep" />
             </div>
@@ -188,7 +191,7 @@ function TreeNodeImpl({
           }`}
           title={name}
         >
-          {isTarget ? `היעד · ${name}` : name}
+          {isTarget ? t('skillTree.node.targetName', { name }) : name}
         </span>
 
         {siblingCount > 0 && onSwapTap && (
@@ -208,7 +211,7 @@ function TreeNodeImpl({
         {isCurrent && (
           <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
             <span className="bg-[#2AA3E8] text-white text-[10px] font-black px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm">
-              אתה כאן
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אתה כאן
             </span>
             <div className="w-2 h-2 bg-[#2AA3E8] rotate-45 -mt-1" />
           </div>
@@ -258,7 +261,7 @@ function TreeNodeImpl({
       </div>
 
       {isTarget && (
-        <span className="text-[10px] font-black text-amber-500">היעד</span>
+        <span className="text-[10px] font-black text-amber-500">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}היעד</span>
       )}
 
       <span

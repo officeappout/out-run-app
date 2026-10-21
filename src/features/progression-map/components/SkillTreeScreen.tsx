@@ -138,9 +138,8 @@ import { ProgramInfoPanel, PROGRAM_INFO_PANEL_COLLAPSED_HEIGHT } from './Program
 import type { SkillTreeRung } from '../core/types';
 import type { TreeNodeState } from './TreeNode';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
-
-const LOCKED_NOTICE = '🔒 שים לב — זה עוד לא תרגיל ברמה שלך';
-const UNASSESSED_BANNER_TEXT = 'עדיין לא יודעים את הרמה שלך — בצע מבדק כדי לסמן איפה אתה';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface SkillTreeScreenProps {
   programId: string;
@@ -148,6 +147,7 @@ export interface SkillTreeScreenProps {
 
 export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
   const router = useRouter();
+  const t = useT(profileNs);
   const profile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the program strip docks in the header.
   const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
@@ -294,7 +294,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
             className={v2 ? 'flex h-8 items-center gap-1 rounded-full bg-white pe-3 ps-2 text-[13px] font-extrabold text-v2-ink-2 shadow-v2-ring' : 'flex items-center gap-1 text-xs text-gray-400'}
           >
             <ChevronRight size={14} />
-            חזרה
+            {t('skillTree.back')}
           </button>
         </div>
         {/* v2: the program strip lives in the sticky header so it never
@@ -336,7 +336,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                 gating anything about the tree itself. */}
             {!isLoading && isUnassessed && (
               <div className="bg-slate-100 text-slate-600 text-[13px] font-semibold text-center rounded-xl px-4 py-2.5 mb-4 flex flex-col items-center gap-2">
-                <span>{UNASSESSED_BANNER_TEXT}</span>
+                <span>{t('skillTree.unassessed.banner')}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -348,7 +348,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                   className="text-xs font-black text-white rounded-full px-4 py-1.5 active:opacity-80"
                   style={{ background: 'linear-gradient(90deg, #2CE0C0 0%, #20C6D6 50%, #2AA3E8 100%)' }}
                 >
-                  בצע מבדק
+                  {t('skillTree.unassessed.cta')}
                 </button>
               </div>
             )}
@@ -373,8 +373,9 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
               >
                 <h1 className="text-lg font-black text-gray-900">{skillName}</h1>
                 <p className="text-xs font-bold text-gray-500 mt-1">
-                  רמה {tree.minLevel} מתוך {tree.maxLevel}
-                  {targetName ? ` · היעד: ${targetName}` : ''}
+                  {targetName
+                    ? t('skillTree.title.levelRangeWithTarget', { min: tree.minLevel, max: tree.maxLevel, target: targetName })
+                    : t('skillTree.title.levelRange', { min: tree.minLevel, max: tree.maxLevel })}
                 </p>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: '0%' }} />
@@ -419,7 +420,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
 
             {!isLoading && !displayTree && (
               <p className="text-sm text-gray-400 text-center py-20">
-                לא נמצאו תרגילים למסלול הזה כרגע.
+                {t('skillTree.empty')}
               </p>
             )}
 
@@ -438,7 +439,7 @@ export function SkillTreeScreen({ programId }: SkillTreeScreenProps) {
                   // node. isAboveCurrentLevel checks the actual level
                   // comparison directly, independent of the visual label —
                   // see TreePath.tsx's isAboveCurrentLevel for the full reasoning.
-                  setDetailNotice(isAboveCurrentLevel ? LOCKED_NOTICE : null);
+                  setDetailNotice(isAboveCurrentLevel ? t('skillTree.lockedNotice') : null);
                 }}
                 onSwapTap={(rung) => setSwapRung(rung)}
               />
