@@ -46,7 +46,7 @@ describe('community page (communityPage.*)', () => {
       ['communityPage.feed.filter.neighborhood', 'השכונה'],
       ['communityPage.feed.filter.groups', 'קבוצות'],
       ['communityPage.feed.loading', 'טוען פיד...'],
-      ['communityPage.feed.refresh', 'רענן'],
+      ['communityPage.feed.refresh', 'רענון'],
       ['communityPage.feed.emptyFiltered', 'אין כאן עדיין פוסטים'],
       ['communityPage.leagues.sheetTitle', 'הליגות שלי'],
       ['communityPage.leagues.v2.tab.people', 'אישי'],

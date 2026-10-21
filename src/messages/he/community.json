@@ -597,7 +597,7 @@
   "communityPage.feed.filter.groups": "קבוצות",
   "communityPage.feed.loading": "טוען פיד...",
   "communityPage.feed.following": "עוקב אחרי {count} שותפים",
-  "communityPage.feed.refresh": "רענן",
+  "communityPage.feed.refresh": "רענון",
   "communityPage.feed.emptyFiltered": "אין כאן עדיין פוסטים",
   "communityPage.window.label": "{window, select, daily {יומי} weekly {שבועי} other {חודשי}}",
   "communityPage.window.phrase": "{window, select, daily {היום} weekly {השבוע} other {החודש}}",
