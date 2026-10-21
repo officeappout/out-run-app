@@ -126,7 +126,7 @@ npx tsx scripts/qa/register-testers.ts --project appout-1 --confirm "רשום א
 - **בפאנל:** מצב ה-runner (רץ / פנוי), מספר ממצאים, עלות היום לפי מקור (`testers`), וסיכום המפקח ב-`demo_registry/qa_summary`.
 - **ב-Firestore:** `qa_findings` (רק Admin SDK ומנהל-על). לכל ממצא: חומרה P0–P3, חוק, מה ציפינו, מה קרה, צעדי שחזור, צילום.
 - **ב-Storage:** `qa/<runId>/<משימה>/<צעד>-….png`.
-- **ב-GitHub:** artifact בשם ה-run (נשמר 14 יום) עם `report.md`, `findings.jsonl`, `run.json`.
+- **ב-GitHub:** artifact בשם ה-run (נשמר 14 יום) עם `report.md`, `findings.jsonl`, `run.json` ו-`shots/` — כל מסך שהבודק ראה, לפי הסדר: `shots/<משימה>/<NN>-<screenId>-<מכשיר>.jpg` (JPEG 80, עד ~200KB) ו-`shots/manifest.json` (order, mission, screenId, title בעברית, route, step, device, ציונים, מזהי ממצאים). להורדה: `gh run download <run-id> --repo officeappout/out-run-app`.
 - דוח ידני לתיקיית הדוחות:
   ```bash
   export QA_REPORT_ID_TOKEN=$(gcloud auth print-identity-token \
@@ -218,6 +218,11 @@ GitHub → Actions → qa-testers → Run workflow:
 
 ## שגיאות קונסול בכניסה (21.10.2026)
 ב-run הראשון הופיעו ב-`/gateway` (חשבון חדש) "Failed to fetch RSC payload for /home" ושגיאות של ערוץ Listen של Firestore. הסיבה: אחרי הכניסה ה-runner עשה `page.goto` לדף ההתחלה **באמצע** ההפניה של האפליקציה עצמה (`/qa/signin` → `/` → `/gateway`), בזמן ש-`/` עושה prefetch ל-`/home` ו-Firestore פותח מאזינים — הטעינה מחדש ביטלה אותם. משתמש אמיתי לא טוען את הדף מחדש באמצע ההפניה. עכשיו ה-runner מחכה שהכתובת תתייצב והרשת תירגע, לא טוען מחדש כשההתחלה היא `/` (האפליקציה כבר ניתבה), והשגיאות של שלב הכניסה נרשמות בלוג ההרצה (`sign-in/boot errors`) ולא כממצא.
+
+## קריסת דפדפן ושגיאות מודל (21.10.2026)
+- **`Target crashed`** (run 39550288326, D01 על iphone-13) הפיל את כל ההרצה. עכשיו קריסה סוגרת רק את הדפדפן של הסשן; נפתח דפדפן חדש (mint + כניסה מחדש) והסריקה ממשיכה מהמסך הראשון שעוד לא קיבל ציון — עד 2 פעמים לסשן (`lib/mission-runner.ts`, `lib/crash.ts`). צעדים ודקות ממשיכים להיספר מאותו תקציב. שגיאה אחרת בסשן נרשמת ב-`run.json` וההרצה ממשיכה.
+- Chromium (android-small) עולה עם `--disable-dev-shm-usage --disable-gpu`; ל-WebKit אין דגלים כאלה. הזיכרון נרשם בלוג בתחילת כל דפדפן, כל 10 צעדים ובקריסה (`mem rss … · machine free …`).
+- **`model call failed`** רושם עכשיו את השגיאה האמיתית (סטטוס, סוג, הודעה, request id) ומנסה שוב עד 3 פעמים עם המתנה (4ש׳, 12ש׳) — רק לעומס / rate limit / ניתוק, לא לבקשה שגויה (400).
 
 ---
 

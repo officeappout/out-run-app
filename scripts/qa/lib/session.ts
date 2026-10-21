@@ -19,6 +19,10 @@ import type { SessionDriver, StepView } from './driver';
 import type { Store } from './store';
 import type { UsageDelta } from './budget';
 import { buildScoreFinding, scoreAck, withScreen } from './design/score-finding';
+import { isBrowserCrash, memoryLine } from './crash';
+import { withModelRetry } from './model-retry';
+import type { ShotLog } from './shots';
+import { SCORE_RULE_ID } from './design/dimensions';
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
@@ -32,6 +36,8 @@ export interface SessionResult {
   summary: string;
   steps: number;
   newFindings: number;
+  /** Screen ids scored in this session (all attempts) — where a crashed sweep resumes from. */
+  scored?: string[];
 }
 
 export interface SessionDeps {
@@ -47,6 +53,10 @@ export interface SessionDeps {
   stopRequested: () => Promise<boolean>;
   onUsage?: (d: UsageDelta) => void;
   log: (msg: string) => void;
+  /** Every view goes into the run's artifact folder (screens in order for the owner). */
+  shots?: ShotLog;
+  /** Retry pause (tests pass a no-op). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const imageBlock = (png: Buffer): ResultContent => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: png.toString('base64') } });
@@ -54,8 +64,21 @@ const imageBlock = (png: Buffer): ResultContent => ({ type: 'image', source: { t
 export interface SessionOptions {
   /** Design sweep resumed from this checkpoint (plan.ts). */
   resumeFrom?: string | null;
+  /** After a browser crash: steps already used and the session's start (caps cover the whole mission). */
+  stepOffset?: number;
+  startedAt?: number;
+  /** Shared across a crashed session's attempts. */
+  scored?: Set<string>;
 }
 
+/** Log the process memory every this many steps (crash diagnosis on CI). */
+const MEMORY_LOG_EVERY = 10;
+
+/**
+ * One attempt of a session. A browser crash (renderer / process gone) does not throw: it ends
+ * the attempt as error/browser_crashed with the screens scored so far, and the caller
+ * (./mission-runner.ts) decides whether to resume in a fresh browser.
+ */
 export async function runSession(
   deps: SessionDeps,
   persona: Persona,
@@ -64,22 +87,51 @@ export async function runSession(
   driver: SessionDriver,
   opts: SessionOptions = {},
 ): Promise<SessionResult> {
-  const startedAt = Date.now();
+  const scored = opts.scored ?? new Set<string>();
+  const progress = { step: opts.stepOffset ?? 0, newFindings: 0 };
+  try {
+    const r = await runLoop(deps, persona, mission, deviceId, driver, opts, scored, progress);
+    return { ...r, scored: [...scored] };
+  } catch (e) {
+    if (!isBrowserCrash(e)) throw e;
+    deps.log(`browser crashed at step ${progress.step} (${e instanceof Error ? e.message.split('\n')[0].slice(0, 160) : 'unknown'}) · ${memoryLine()}`);
+    return { outcome: 'error', reason: 'browser_crashed', summary: '', steps: progress.step, newFindings: progress.newFindings, scored: [...scored] };
+  } finally {
+    deps.shots?.flush();
+  }
+}
+
+async function runLoop(
+  deps: SessionDeps,
+  persona: Persona,
+  mission: Mission,
+  deviceId: string,
+  driver: SessionDriver,
+  opts: SessionOptions,
+  scored: Set<string>,
+  progress: { step: number; newFindings: number },
+): Promise<SessionResult> {
+  const startedAt = opts.startedAt ?? Date.now();
   const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: buildSystemPrompt(persona, mission, { deviceId, resumeFrom: opts.resumeFrom ?? null }), cache_control: { type: 'ephemeral' } }];
-  let step = 0;
+  let step = progress.step;
   let newFindings = 0;
+  const note = (n: number) => {
+    newFindings += n;
+    progress.newFindings = newFindings;
+  };
   let lastStopPoll = 0;
   /** The screen id the tester last scored — findings without their own screen id go under it. */
   let currentScreen: string | null = null;
   let view: StepView = await driver.view();
-  if (view.blocked === 'not_signed_in_as_tester') return { outcome: 'error', reason: 'not_signed_in_as_tester', summary: '', steps: 0, newFindings: 0 };
-  newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen);
+  captureShot(deps, mission, deviceId, view, step);
+  if (view.blocked === 'not_signed_in_as_tester') return { outcome: 'error', reason: 'not_signed_in_as_tester', summary: '', steps: step, newFindings: 0 };
+  note(await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen));
 
   const messages: MessageParam[] = [
     {
       role: 'user',
       content: [
-        { type: 'text', text: observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events: [], note: 'You are signed in and the app is open. Begin the mission.' }) },
+        { type: 'text', text: observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events: [], note: opts.stepOffset ? 'The browser was restarted after a crash; you are signed in again. Continue the mission from the first screen you have not scored yet.' : 'You are signed in and the app is open. Begin the mission.' }) },
         imageBlock(view.png),
       ],
     },
@@ -90,7 +142,7 @@ export async function runSession(
   while (true) {
     const gate = sessionGate(step, startedAt, Date.now(), mission.budget);
     if (!gate.ok) {
-      newFindings += await recordRunnerFinding(deps, mission, persona, deviceId, view, step, driver, gate.reason);
+      note(await recordRunnerFinding(deps, mission, persona, deviceId, view, step, driver, gate.reason));
       return finish('capped', gate.reason);
     }
     const money = deps.budget.money();
@@ -100,10 +152,12 @@ export async function runSession(
       if (await deps.stopRequested()) return finish('stopped', 'stop_requested');
     }
     step += 1;
+    progress.step = step;
+    if (step % MEMORY_LOG_EVERY === 0) deps.log(`step ${step} · ${memoryLine()}`);
 
-    let res: Anthropic.Beta.BetaMessage;
-    try {
-      res = await deps.anthropic.beta.messages.create({
+    const reply = await withModelRetry(
+      () =>
+        deps.anthropic.beta.messages.create({
         model: deps.model,
         max_tokens: MAX_TOKENS_PER_TURN,
         system,
@@ -121,11 +175,11 @@ export async function runSession(
             },
           ],
         },
-      });
-    } catch (e) {
-      deps.log(`model call failed: ${e instanceof Error ? e.name : 'unknown'}`);
-      return finish('error', 'model_call_failed');
-    }
+      }),
+      { log: deps.log, sleep: deps.sleep },
+    );
+    if (!reply.ok) return finish('error', 'model_call_failed');
+    const res: Anthropic.Beta.BetaMessage = reply.value;
 
     const delta = deps.budget.record(res.usage);
     deps.onUsage?.(delta);
@@ -157,16 +211,18 @@ export async function runSession(
       }
       if (call.name === 'score_screen') {
         currentScreen = call.screen;
+        scored.add(call.screen);
         const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, null);
         const f = buildScoreFinding(b, call.screen, call.scores, call.notes);
         f.id = findingDocId(deps.runId, f.fingerprint);
-        if (await persist(deps, f, view, {})) newFindings += 1;
+        deps.shots?.score(call.screen, call.scores, f.id);
+        if (await persist(deps, f, view, {})) note(1);
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: scoreAck(call.screen, call.scores) });
         continue;
       }
       if (call.name === 'report_finding') {
         const isNew = await recordModelFinding(deps, mission, persona, deviceId, view, step, driver, call, call.screen ?? currentScreen);
-        if (isNew) newFindings += 1;
+        if (isNew) note(1);
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: isNew ? 'recorded' : 'already recorded (counted)' });
         continue;
       }
@@ -175,6 +231,7 @@ export async function runSession(
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'done' });
         needsView = true;
       } catch (e) {
+        if (isBrowserCrash(e)) throw e;
         results.push({ type: 'tool_result', tool_use_id: tu.id, is_error: true, content: e instanceof Error ? e.message.slice(0, 300) : 'action failed' });
         needsView = true;
       }
@@ -186,8 +243,9 @@ export async function runSession(
     const events = await driver.fireWorldEvents(step);
     if (needsView || events.length) {
       view = await driver.view();
+      captureShot(deps, mission, deviceId, view, step);
       if (view.blocked === 'not_signed_in_as_tester') return finish('error', 'not_signed_in_as_tester');
-      newFindings += await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen);
+      note(await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen));
       // The fresh screen goes with the last tool result of this turn.
       const last = results[results.length - 1];
       const text = observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events });
@@ -195,6 +253,17 @@ export async function runSession(
     }
     messages.push({ role: 'user', content: results });
   }
+}
+
+function captureShot(deps: SessionDeps, mission: Mission, deviceId: string, view: StepView, step: number): void {
+  if (!deps.shots) return;
+  let path = '/';
+  try {
+    path = new URL(view.url).pathname;
+  } catch {
+    /* keep / */
+  }
+  deps.shots.capture(mission, deviceId, step, path, routePattern(path), view.jpeg);
 }
 
 // ── Findings ──────────────────────────────────────────────────────────────────
@@ -219,6 +288,7 @@ function baseFinding(deps: SessionDeps, mission: Mission, persona: Persona, devi
 async function persist(deps: SessionDeps, f: Finding, view: StepView, shotCache: { path?: string | null }): Promise<boolean> {
   const { isNew, finding } = deps.book.add(f);
   const id = findingDocId(deps.runId, finding.fingerprint);
+  if (f.rule !== SCORE_RULE_ID) deps.shots?.finding(id);
   if (!isNew) {
     await deps.store.bumpFinding(id).catch(() => {});
     return false;
