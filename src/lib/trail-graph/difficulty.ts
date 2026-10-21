@@ -72,7 +72,7 @@ export function rateDifficulty(args: { gainM: number | null; distM: number; buil
 
 /**
  * Star prior 0–5 (a starting point before real user ratings exist).
- * Weights (documented in docs/TRAILS-PILOT-SHAAR-HANEGEV.md):
+ * Weights (documented in docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md):
  *   provenance  0–2   official operator (ITC/KKL/RTG) + official name 2.0 ·
  *                     official operator, no name 1.5 · other OSM relation 1.0 ·
  *                     graph-generated 0.5

@@ -3,7 +3,7 @@
 **תאריך:** 20.09.2026
 **עדכון אחרון:** 24.09.2026 — §2.2/§11: `tenant_owner`/`unit_admin` אומתו ונפרסו (וורטיקל צבא/בתי ספר, שלבים 0-3); ראו `docs/audit-2026-09/00-MASTER-PLAN.md` §13.15 לפירוט המלא
 **סטטוס:** מפרט מאושר ע"י בעל המוצר. טרם מיושם.
-**מיקום בריפו:** `docs/SPEC-PERMISSIONS-MODEL.md`
+**מיקום בריפו:** `docs/architecture/SPEC-PERMISSIONS-MODEL.md`
 
 ---
 

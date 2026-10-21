@@ -1,6 +1,6 @@
 /**
  * scripts/trails/lib/trails-apply.node.ts — the ONLY Firestore write path of
- * the trails pipeline (owner-approved 18.10.2026, docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6).
+ * the trails pipeline (owner-approved 18.10.2026, docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md §6).
  *
  * Guard rails (all enforced here, not by convention):
  *   - explicit flags: --apply --project <id> --authority <authorityId>

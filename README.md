@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OUT (OUTRUN) — app + admin panel
 
-## Getting Started
+OUT is a fitness app for Israeli municipalities: calisthenics parks, routes, workouts and XP progression.
+This repository holds both:
 
-First, run the development server:
+- **The admin panel** (Next.js 14 App Router, TypeScript, Tailwind) — CRM for authorities, content and exercise
+  management, feature flags, Google Drive/Gmail integration. API routes live under `src/app/api/`.
+- **The mobile app** — the same Next.js web app wrapped with Capacitor for iOS and Android (`ios/`, `android/`,
+  `capacitor.config.ts`, local plugin in `plugins/health-bridge/`).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Backend: Firebase (Auth, Firestore, Storage, Cloud Functions in `functions/`), served on Vercel.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Web (panel + app web content):** Vercel deploys automatically on merge to `main` only (`vercel.json`).
+  Work goes through a branch + PR; nothing is pushed straight to `main`.
+- **Native config / plugins:** `npx cap sync` (see the `cap:*` / `ship:*` scripts in `package.json`).
+  `cap sync` does not ship web content.
+- **Firestore rules / indexes:** deployed by the owner from `main`, after merge — never from a feature branch.
+  See `CLAUDE.md` (Git / Deploy Rules).
+- **CI:** `.github/workflows/ci.yml` (type-check baseline, lint, tests).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Where things are documented
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| What | Where |
+|---|---|
+| Rules for agents and contributors | `CLAUDE.md`, `.claude/rules/axioms.md` |
+| Code structure rules | `docs/architecture/STANDARDS.md` |
+| Docs index | `docs/README.md` |
+| Security + Firestore rules | `SECURITY.md` |
+| Environment variables | `.env.example` (never commit `.env.local` or key files) |

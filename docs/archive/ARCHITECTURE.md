@@ -1,3 +1,5 @@
+> HISTORICAL — לא משקף את הקוד. נשמר לתיעוד (הועבר מהשורש ל-docs/archive/ ב-MV-01, 21.10.2026).
+
 # Out-Run App Architecture
 
 ## System Architecture Diagram

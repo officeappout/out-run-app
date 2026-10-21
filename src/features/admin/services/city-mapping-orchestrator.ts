@@ -4,7 +4,7 @@
  * doc, CITY-ORCHESTRATOR-PLAN.md, was never committed to the repo; found
  * missing 23.09.2026. Its living successor, with the current 7-step
  * pipeline verified against this file directly, is
- * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md). Client-side sequential
+ * docs/architecture/CITY-MAPPING-PIPELINE-ARCHITECTURE.md). Client-side sequential
  * orchestrator for `runCityMapping()`,
  * mirroring `demo-seed-sderot.ts`'s `runSderotDemoSeed(progress, authorityId)`
  * shape exactly: named steps, a `ProgressUpdate{step,status,message,count}`

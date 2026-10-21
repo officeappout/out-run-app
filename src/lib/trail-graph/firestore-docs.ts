@@ -1,6 +1,6 @@
 /**
  * trail-graph/firestore-docs.ts — PURE mapping of pipeline output to the
- * exact Firestore documents `--apply` writes (docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6).
+ * exact Firestore documents `--apply` writes (docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md §6).
  * No I/O, no firebase imports: timestamps are added by the executor
  * (scripts/trails/lib/trails-apply.node.ts).
  *

@@ -66,7 +66,7 @@ const db = admin.firestore();
 
 /** Meters between an approved fitness_station and an existing park's own
  *  location for the amenity to link to it instead of spawning a new park.
- *  Chosen from the roadmap doc's dry-run (docs/amenities-approval-to-data-
+ *  Chosen from the roadmap doc's dry-run (docs/product/amenities-approval-to-data-
  *  roadmap.md, 22.09.2026): against the 46 fitness_station docs published
  *  at the time, 40m (GARDEN_DEDUP_RADIUS_METERS) linked 0/46; 100m and 200m
  *  both linked the same 2/46 — no additional real matches between 100 and
