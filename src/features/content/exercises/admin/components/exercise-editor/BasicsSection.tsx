@@ -8,7 +8,7 @@ import {
   resolveTutorialForLang,
 } from '../../../core/exercise.types';
 import { HelpCircle, Hash, CheckCircle2, Flame, Activity, Wind, Users, User, Moon, Zap, AlertTriangle, Info } from 'lucide-react';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import {
   EXERCISE_TYPE_LABELS,
   MOVEMENT_GROUP_LABELS,

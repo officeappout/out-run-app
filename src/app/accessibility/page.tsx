@@ -1,17 +1,29 @@
-import React from 'react';
+import React, { createElement, Fragment, type ReactNode } from 'react';
+import type { Metadata } from 'next';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { legal } from '@/messages/ns/legal';
 
-export const metadata = {
-  title: 'הצהרת נגישות | OUT',
-  description:
-    'הצהרת הנגישות של OUT — סטטוס ההתאמה לתקן ישראלי ת"י 5568 / WCAG 2.x ברמה AA, פרטי רכז הנגישות ואמצעי פנייה.',
-};
+/**
+ * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
+ * (src/lib/i18n/locale-cookie.ts) — until then the statement renders from the Hebrew source catalog.
+ */
+const pageT = () => makeT(SOURCE_LOCALE, legal);
+
+export function generateMetadata(): Metadata {
+  const t = pageT();
+  return {
+    title: t('accessibility.meta.title'),
+    description: t('accessibility.meta.description'),
+  };
+}
 
 /** Bump on every material change to the statement or to the real conformance status. */
-const ACCESSIBILITY_LAST_UPDATED_HE = '12 באוקטובר 2026';
+const ACCESSIBILITY_LAST_UPDATED_HE = '12 באוקטובר 2026'; // i18n-allow-hebrew: date text — wave 3 (fmt)
 
 const COORDINATOR = {
-  name: 'דוד מובשוביץ',
-  role: 'רכז נגישות',
+  name: 'דוד מובשוביץ', // i18n-allow-hebrew: a person's name (data)
+  role: 'רכז נגישות', // i18n-allow-hebrew: unused field (the rendered label is accessibility.contact.coordinatorLabel)
   email: 'david@appout.co.il',
   phone: '054-935-8118',
   phoneHref: 'tel:+972549358118',
@@ -24,67 +36,58 @@ const LINK =
   'font-semibold text-[#007EA8] underline underline-offset-2 hover:text-[#006E96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007EA8] rounded-sm';
 
 export default function AccessibilityStatementPage() {
+  const t = pageT();
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white" dir="rtl" lang="he">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 pb-20">
         <a href="/home" className={`${LINK} inline-block mb-4 text-sm`}>
-          ← חזרה לאפליקציה
+          {t('accessibility.backToApp')}
         </a>
         <header className="mb-6">
-          <h1 className="text-2xl font-black text-slate-900">הצהרת נגישות</h1>
-          <p className="text-xs text-slate-600 mt-1">עודכן לאחרונה: {ACCESSIBILITY_LAST_UPDATED_HE}</p>
+          <h1 className="text-2xl font-black text-slate-900">{t('accessibility.title')}</h1>
+          <p className="text-xs text-slate-600 mt-1">{t('accessibility.lastUpdated', { date: ACCESSIBILITY_LAST_UPDATED_HE })}</p>
         </header>
 
         <div className="space-y-5">
           <section aria-labelledby="a11y-commitment" className={SECTION}>
-            <h2 id="a11y-commitment" className={H2}>המחויבות שלנו</h2>
-            <p className={P}>
-              ב-OUT אנחנו מאמינים שאימון בחוץ צריך להיות נגיש לכולם. אנחנו פועלים להנגשת
-              האפליקציה ואתר OUT לאנשים עם מוגבלות, כחלק מהמחויבות שלנו לבריאות נגישה לכל אחד
-              ואחת.
-            </p>
+            <h2 id="a11y-commitment" className={H2}>{t('accessibility.commitment.title')}</h2>
+            <p className={P}>{t('accessibility.commitment.body')}</p>
           </section>
 
           <section aria-labelledby="a11y-standard" className={SECTION}>
-            <h2 id="a11y-standard" className={H2}>התקן והסטטוס הנוכחי</h2>
-            <p className={P}>
-              אנחנו מתאימים את השירות לתקן הישראלי ת"י 5568 (המבוסס על WCAG 2.x) ברמה AA, בהתאם
-              לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות).
-            </p>
+            <h2 id="a11y-standard" className={H2}>{t('accessibility.standard.title')}</h2>
+            <p className={P}>{t('accessibility.standard.body')}</p>
             <p className={`${P} mt-3`}>
-              <strong className="text-slate-900">סטטוס: בתהליך התאמה.</strong> השירות עדיין אינו
-              עומד במלואו בדרישות התקן. אנחנו בודקים את המסכים באופן שיטתי, מתקנים ליקויים לפי
-              סדר חשיבות, ומעדכנים הצהרה זו ככל שההתאמה מתקדמת. עד להשלמתה ייתכן שחלק מהמסכים
-              והרכיבים עדיין אינם נגישים במלואם.
+              {createElement(
+                Fragment,
+                null,
+                ...t.rich<ReactNode>('accessibility.standard.status', {
+                  b: (chunks: ReactNode) => <strong className="text-slate-900">{chunks}</strong>,
+                }),
+              )}
             </p>
-            <p className={`${P} mt-3`}>
-              בנוסף, סרגל נגישות של צד שלישי (UserWay) זמין להפעלה בהגדרות האפליקציה, תחת
-              &quot;הפעלת סרגל נגישות&quot;. הסרגל כבוי כברירת מחדל ואינו נטען עד שתפעילו אותו. הוא
-              כלי עזר משלים ואינו מחליף את ההתאמות שאנחנו מבצעים בקוד.
-            </p>
+            <p className={`${P} mt-3`}>{t('accessibility.standard.toolbar')}</p>
           </section>
 
           <section aria-labelledby="a11y-done" className={SECTION}>
-            <h2 id="a11y-done" className={H2}>מה כבר הותאם</h2>
+            <h2 id="a11y-done" className={H2}>{t('accessibility.done.title')}</h2>
             <ul className="list-disc pr-5 space-y-1.5">
-              <li className={P}>כפתורים המסומנים באייקון בלבד קיבלו שם נגיש לקוראי מסך.</li>
-              <li className={P}>צבעי טקסט ואייקונים בגוון הכחול של המותג הוכהו כדי לעמוד ביחס ניגודיות של 4.5:1 לפחות.</li>
-              <li className={P}>תווית האינטרוולים במסך האימון הוצגה על רקע אטום כך שהניגודיות אינה תלויה בתוכן שמאחוריה.</li>
+              <li className={P}>{t('accessibility.done.iconButtons')}</li>
+              <li className={P}>{t('accessibility.done.contrast')}</li>
+              <li className={P}>{t('accessibility.done.intervalLabel')}</li>
             </ul>
           </section>
 
           <section aria-labelledby="a11y-contact" className={`${SECTION} border-[#007EA8]/40`}>
-            <h2 id="a11y-contact" className={H2}>רכז הנגישות ופנייה אלינו</h2>
-            <p className={P}>
-              נתקלתם בקושי, או צריכים את המידע בדרך אחרת? נשמח לשמוע ולטפל בפנייה.
-            </p>
+            <h2 id="a11y-contact" className={H2}>{t('accessibility.contact.title')}</h2>
+            <p className={P}>{t('accessibility.contact.intro')}</p>
             <dl className="mt-3 space-y-1.5 text-sm text-slate-700">
               <div className="flex gap-2">
-                <dt className="font-bold text-slate-900">רכז נגישות:</dt>
+                <dt className="font-bold text-slate-900">{t('accessibility.contact.coordinatorLabel')}</dt>
                 <dd>{COORDINATOR.name}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="font-bold text-slate-900">דוא"ל:</dt>
+                <dt className="font-bold text-slate-900">{t('accessibility.contact.emailLabel')}</dt>
                 <dd>
                   <a href={`mailto:${COORDINATOR.email}`} className={LINK}>
                     {COORDINATOR.email}
@@ -92,7 +95,7 @@ export default function AccessibilityStatementPage() {
                 </dd>
               </div>
               <div className="flex gap-2">
-                <dt className="font-bold text-slate-900">טלפון:</dt>
+                <dt className="font-bold text-slate-900">{t('accessibility.contact.phoneLabel')}</dt>
                 <dd>
                   <a href={COORDINATOR.phoneHref} className={LINK} dir="ltr">
                     {COORDINATOR.phone}
@@ -100,15 +103,12 @@ export default function AccessibilityStatementPage() {
                 </dd>
               </div>
             </dl>
-            <p className={`${P} mt-3`}>
-              בפנייה מומלץ לציין את המסך או הפעולה, את המכשיר או הדפדפן, ואת טכנולוגיית העזר שבה
-              השתמשתם (אם יש). נשתדל להשיב בהקדם האפשרי.
-            </p>
+            <p className={`${P} mt-3`}>{t('accessibility.contact.tips')}</p>
           </section>
         </div>
 
         <footer className="mt-10 text-center">
-          <p className="text-xs text-slate-600">© 2026 קליסטניקס בע"מ, ח.פ 516841806.</p>
+          <p className="text-xs text-slate-600">{t('accessibility.footer')}</p>
         </footer>
       </div>
     </div>

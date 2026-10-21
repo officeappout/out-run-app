@@ -10,7 +10,7 @@ import {
   PIPELINE_STATUS_COLORS 
 } from '@/types/admin-types';
 import { AuthorityWithSubLocations, SubLocationStats } from '@/features/admin/hooks/useAuthorities';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import { ViewAsCityButton } from './ViewAsCity';
 
 interface AuthoritiesListProps {

@@ -1,52 +1,54 @@
-import React from 'react';
+import React, { createElement, Fragment, type ReactNode } from 'react';
+import type { Metadata } from 'next';
+import { makeT } from '@/lib/i18n/t';
+import { SOURCE_LOCALE } from '@/lib/i18n/locales';
+import { legal } from '@/messages/ns/legal';
 
-export const metadata = {
-  title: 'מחיקת נתונים | OUT',
-  description:
-    'בקשת מחיקת נתונים אישיים מאפליקציית OUT — עבור משתמשים שהסירו את האפליקציה מהמכשיר.',
-};
+/**
+ * Server component: no locale store here. The server-side locale read (out_locale cookie) is wave 4E
+ * (src/lib/i18n/locale-cookie.ts) — until then the page renders from the Hebrew source catalog.
+ */
+const pageT = () => makeT(SOURCE_LOCALE, legal);
+
+export function generateMetadata(): Metadata {
+  const t = pageT();
+  return {
+    title: t('deleteData.meta.title'),
+    description: t('deleteData.meta.description'),
+  };
+}
 
 const EMAIL = 'office@appout.co.il';
-const SUBJECT = 'בקשת מחיקת נתונים';
+// The request email goes to the (Hebrew) office inbox, which handles it by this subject — data, not copy.
+const SUBJECT = 'בקשת מחיקת נתונים'; // i18n-allow-hebrew: data — the mailto subject the office inbox handles
 const MAILTO = `mailto:${EMAIL}?subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(
-  'שלום,\n\nאני מבקש/ת למחוק את כל הנתונים האישיים שלי מאפליקציית OUT.\n\nפרטים:\nשם: \nכתובת אימייל שנרשמתי איתה: \n\nתודה.',
+  'שלום,\n\nאני מבקש/ת למחוק את כל הנתונים האישיים שלי מאפליקציית OUT.\n\nפרטים:\nשם: \nכתובת אימייל שנרשמתי איתה: \n\nתודה.', // i18n-allow-hebrew: data — the mailto body sent to the office inbox
 )}`;
 
 const STEPS = [
-  {
-    num: '1',
-    title: 'שלחו בקשה',
-    body: 'לחצו על הכפתור למטה. תיפתח אפליקציית האימייל שלכם עם הנושא והטקסט כבר מוכנים — רק צריך להוסיף את כתובת האימייל שנרשמתם איתה ולשלוח.',
-  },
-  {
-    num: '2',
-    title: 'אנחנו מאמתים את הבקשה',
-    body: 'נוודא שהאימייל תואם לחשבון קיים. אם יש צורך, ניצור קשר עבור פרטים נוספים לצורך אימות זהות.',
-  },
-  {
-    num: '3',
-    title: 'מחיקה תוך 15 יום',
-    body: 'לאחר אימות, נמחק את כל הנתונים האישיים שלכם: פרופיל, היסטוריית אימונים, נתוני מיקום, קשרים חברתיים ותמונות. תקבלו אישור בסיום.',
-  },
-];
+  { num: '1', titleKey: 'deleteData.steps.request.title', bodyKey: 'deleteData.steps.request.body' },
+  { num: '2', titleKey: 'deleteData.steps.verify.title', bodyKey: 'deleteData.steps.verify.body' },
+  { num: '3', titleKey: 'deleteData.steps.erase.title', bodyKey: 'deleteData.steps.erase.body' },
+] as const;
 
 const WHAT_GETS_DELETED = [
-  'פרטי פרופיל (שם, גיל, מגדר, פרטי כושר)',
-  'היסטוריית אימונים ונתוני ריצה',
-  'נתוני מיקום ומסלולים מוקלטים',
-  'קשרים חברתיים וחברי קהילה',
-  'תמונות פרופיל ותמונות אימון',
-  'הצהרת הבריאות (PDF)',
-  'העדפות והגדרות אישיות',
-];
+  'deleteData.deleted.profile',
+  'deleteData.deleted.history',
+  'deleteData.deleted.location',
+  'deleteData.deleted.social',
+  'deleteData.deleted.photos',
+  'deleteData.deleted.healthDeclaration',
+  'deleteData.deleted.preferences',
+] as const;
 
 const NOTES = [
-  'פוסטים שפרסמתם בפיד הקהילתי יאונונמו (שמכם יוחלף ב"משתמש מחוק") כדי לשמור על שלמות השיחות.',
-  'יומני ביקורת אנונימיים נשמרים עד 24 חודשים לצרכי אבטחה בלבד.',
-  'אם יש לכם מנוי פרימיום פעיל — מחיקת הנתונים לא מבטלת את החיוב. יש לבטל מנוי דרך Apple App Store או Google Play לפני הגשת הבקשה.',
-];
+  'deleteData.notes.feedPosts',
+  'deleteData.notes.auditLogs',
+  'deleteData.notes.subscription',
+] as const;
 
 export default function DeleteDataPage() {
+  const t = pageT();
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-slate-50 to-white"
@@ -77,10 +79,10 @@ export default function DeleteDataPage() {
           </div>
           <div className="min-w-0">
             <h1 className="text-base font-black text-slate-900 leading-none">
-              מחיקת נתונים אישיים
+              {t('deleteData.header.title')}
             </h1>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              OUT · קליסטניקס בע&quot;מ
+              {t('deleteData.header.company')}
             </p>
           </div>
         </div>
@@ -91,18 +93,23 @@ export default function DeleteDataPage() {
         {/* ── Intro card ── */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-5">
           <p className="text-sm text-slate-600 leading-relaxed mb-2">
-            דף זה מיועד למשתמשים שהסירו את אפליקציית OUT מהמכשיר שלהם ומעוניינים לבקש מחיקה של כל הנתונים האישיים שלהם מהשרתים שלנו.
+            {t('deleteData.intro.who')}
           </p>
           <p className="text-sm text-slate-600 leading-relaxed">
-            אם האפליקציה עדיין מותקנת אצלכם — תוכלו למחוק את החשבון ישירות מתוכה:{' '}
-            <span className="font-semibold text-slate-800">הגדרות ← חשבון ← מחיקת חשבון</span>.
+            {createElement(
+              Fragment,
+              null,
+              ...t.rich<ReactNode>('deleteData.intro.inApp', {
+                b: (chunks: ReactNode) => <span className="font-semibold text-slate-800">{chunks}</span>,
+              }),
+            )}
           </p>
         </div>
 
         {/* ── CTA button ── */}
         <div className="bg-rose-50 border border-rose-200 rounded-2xl px-5 py-6 text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-rose-600 mb-3">
-            שלחו בקשת מחיקה
+            {t('deleteData.cta.label')}
           </p>
           <a
             href={MAILTO}
@@ -122,26 +129,31 @@ export default function DeleteDataPage() {
               <rect x="2" y="4" width="20" height="16" rx="2" />
               <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
             </svg>
-            שלח בקשת מחיקה באימייל
+            {t('deleteData.cta.button')}
           </a>
           <p className="text-xs text-rose-500 mt-3">
-            הנושא &quot;{SUBJECT}&quot; ימולא אוטומטית
+            {t('deleteData.cta.subjectNote', { subject: SUBJECT })}
           </p>
           <p className="text-xs text-slate-600 mt-1">
-            או שלחו ישירות ל־{' '}
-            <a
-              href={`mailto:${EMAIL}`}
-              className="text-[#5BC2F2] hover:underline font-medium"
-            >
-              {EMAIL}
-            </a>
+            {createElement(
+              Fragment,
+              null,
+              ...t.rich<ReactNode>('deleteData.cta.direct', {
+                email: EMAIL,
+                link: (chunks: ReactNode) => (
+                  <a href={`mailto:${EMAIL}`} className="text-[#5BC2F2] hover:underline font-medium">
+                    {chunks}
+                  </a>
+                ),
+              }),
+            )}
           </p>
         </div>
 
         {/* ── Process steps ── */}
         <section className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-5">
           <h2 className="font-black text-slate-900 text-sm mb-4">
-            איך התהליך עובד
+            {t('deleteData.steps.title')}
           </h2>
           <ol className="space-y-5">
             {STEPS.map((step) => (
@@ -151,10 +163,10 @@ export default function DeleteDataPage() {
                 </span>
                 <div>
                   <p className="font-bold text-slate-800 text-sm mb-0.5">
-                    {step.title}
+                    {t(step.titleKey)}
                   </p>
                   <p className="text-sm text-slate-500 leading-relaxed">
-                    {step.body}
+                    {t(step.bodyKey)}
                   </p>
                 </div>
               </li>
@@ -179,7 +191,7 @@ export default function DeleteDataPage() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
             <p className="text-xs text-sky-700 font-semibold">
-              בקשות מטופלות תוך 15 יום מקבלתן
+              {t('deleteData.steps.timeline')}
             </p>
           </div>
         </section>
@@ -187,13 +199,13 @@ export default function DeleteDataPage() {
         {/* ── What gets deleted ── */}
         <section className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-5">
           <h2 className="font-black text-slate-900 text-sm mb-4">
-            מה נמחק
+            {t('deleteData.deleted.title')}
           </h2>
           <ul className="space-y-2">
-            {WHAT_GETS_DELETED.map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm text-slate-600 leading-relaxed">
+            {WHAT_GETS_DELETED.map((itemKey) => (
+              <li key={itemKey} className="flex items-start gap-2.5 text-sm text-slate-600 leading-relaxed">
                 <span className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                {item}
+                {t(itemKey)}
               </li>
             ))}
           </ul>
@@ -219,14 +231,14 @@ export default function DeleteDataPage() {
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
             <h2 className="font-black text-amber-800 text-sm">
-              לתשומת ליבכם
+              {t('deleteData.notes.title')}
             </h2>
           </div>
           <ul className="space-y-2.5">
-            {NOTES.map((note) => (
-              <li key={note} className="flex items-start gap-2.5 text-sm text-amber-800 leading-relaxed">
+            {NOTES.map((noteKey) => (
+              <li key={noteKey} className="flex items-start gap-2.5 text-sm text-amber-800 leading-relaxed">
                 <span className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400" />
-                {note}
+                {t(noteKey)}
               </li>
             ))}
           </ul>
@@ -235,16 +247,16 @@ export default function DeleteDataPage() {
         {/* ── Privacy policy link ── */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold text-slate-800">מדיניות פרטיות מלאה</p>
+            <p className="text-sm font-bold text-slate-800">{t('deleteData.privacyLink.title')}</p>
             <p className="text-xs text-slate-600 mt-0.5">
-              לפרטים על כל הנתונים שאנחנו אוספים ואיך אנחנו מגנים עליהם
+              {t('deleteData.privacyLink.body')}
             </p>
           </div>
           <a
             href="/privacy"
             className="flex-shrink-0 flex items-center gap-1.5 text-[#5BC2F2] text-sm font-semibold hover:underline"
           >
-            קראו כאן
+            {t('deleteData.privacyLink.cta')}
             <svg
               width="13"
               height="13"
@@ -265,7 +277,7 @@ export default function DeleteDataPage() {
         {/* ── Footer ── */}
         <footer className="text-center space-y-1.5 pt-2">
           <p className="text-xs text-slate-600">
-            © 2026 קליסטניקס בע&quot;מ, ח.פ 516841806. כל הזכויות שמורות.
+            {t('footer.copyright')}
           </p>
           <a
             href={`mailto:${EMAIL}`}

@@ -22,6 +22,8 @@
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Trophy } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import LeagueCarousel, { type LeagueCardData } from '@/features/arena/components/LeagueCarousel';
 import CityArenaView from '@/features/arena/components/CityArenaView';
 
@@ -42,6 +44,7 @@ export type LeagueDeepLinkBoundComponents = {
 
 export default function LeagueDeepLinkPage() {
   const router = useRouter();
+  const t = useT(community);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function LeagueDeepLinkPage() {
     >
       <div className="flex flex-col items-center gap-3 text-center text-slate-700">
         <Trophy className="h-10 w-10 text-amber-500 animate-pulse" aria-hidden />
-        <p className="text-sm font-semibold">פותח את הליגה שלך…</p>
+        <p className="text-sm font-semibold">{t('leagueLink.opening')}</p>
       </div>
     </div>
   );

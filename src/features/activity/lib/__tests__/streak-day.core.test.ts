@@ -24,7 +24,7 @@ import {
 } from '../streak-day.core';
 import { dayQualifiesForStreak, dayQualifiesByMinutes, dayQualifiesBySteps } from '../streak-rules';
 import { STREAK_MINIMUM_MINUTES } from '../../types/activity.types';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 const SAT = { shabbatFree: true, shields: false };
 const SHIELDS = { shabbatFree: false, shields: true };

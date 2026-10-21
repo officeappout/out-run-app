@@ -98,10 +98,10 @@ for line, cur, m, f, n in BADGES:
     rows.append(dict(area='Profile, progress & settings', file_or_key=f'src/features/user/progression/config/achievement-definitions.ts:{line}',
                      current=cur, male=m, female=f, neutral=n, note=note, kind='masc-only', gender_available='yes'))
 PERSONA = [
- ('src/core/constants/userLifestyles.ts:23', 'סטודנט', 'סטודנט', 'סטודנטית', 'לימודים'),
- ('src/core/constants/userLifestyles.ts:25', 'עובד מהבית', 'עובד מהבית', 'עובדת מהבית', 'עבודה מהבית'),
- ('src/core/constants/userLifestyles.ts:26', 'עובד משרד', 'עובד משרד', 'עובדת משרד', 'עבודה במשרד'),
- ('src/core/constants/userLifestyles.ts:28', 'ספורטאי', 'ספורטאי', 'ספורטאית', 'ספורט תחרותי'),
+ ('src/lib/constants/userLifestyles.ts:23', 'סטודנט', 'סטודנט', 'סטודנטית', 'לימודים'),
+ ('src/lib/constants/userLifestyles.ts:25', 'עובד מהבית', 'עובד מהבית', 'עובדת מהבית', 'עבודה מהבית'),
+ ('src/lib/constants/userLifestyles.ts:26', 'עובד משרד', 'עובד משרד', 'עובדת משרד', 'עבודה במשרד'),
+ ('src/lib/constants/userLifestyles.ts:28', 'ספורטאי', 'ספורטאי', 'ספורטאית', 'ספורט תחרותי'),
  ('src/features/workout-engine/logic/contextual-engine.types.ts:311', 'סטודנט', 'סטודנט', 'סטודנטית', 'לימודים'),
  ('src/features/workout-engine/logic/contextual-engine.types.ts:312', 'תלמיד', 'תלמיד', 'תלמידה', 'בית ספר'),
  ('src/features/workout-engine/logic/contextual-engine.types.ts:313', 'עובד משרד', 'עובד משרד', 'עובדת משרד', 'עבודה במשרד'),

@@ -276,5 +276,17 @@
   "steps.schedule.cta.save": "שמירת שינויים",
   "steps.schedule.cta.start": "בואו נתחיל!",
   "steps.schedule.cta.continue": "{gender, select, female {המשיכי} other {המשך}}",
-  "steps.schedule.cta.saved": "הלו״ז עודכן!"
+  "steps.schedule.cta.saved": "הלו״ז עודכן!",
+  "join.category": "{category, select, walking {הליכה} running {ריצה} yoga {יוגה} calisthenics {קליסתניקס} cycling {רכיבה} other {אחר}}",
+  "join.invalid.title": "הקישור אינו תקף",
+  "join.invalid.body": "ייתכן שהקבוצה הוסרה או שהקישור פג תוקפו.",
+  "join.invalid.cta": "גלה קבוצות אחרות",
+  "join.schedule.slot": "יום {day} בשעה {time}",
+  "join.invited": "הוזמנת להצטרף",
+  "join.members": "{count} חברים כבר בפנים",
+  "join.rules.title": "כללי הקבוצה",
+  "join.cta": "הצטרף לקבוצה",
+  "join.redirectNote": "תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות",
+  "join.referral.redirecting": "מעביר אותך...",
+  "legacyRedirect.redirecting": "מעביר לאיזור האישי..."
 }

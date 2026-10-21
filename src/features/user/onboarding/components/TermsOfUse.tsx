@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { TERMS_CONTENT } from '@/constants/terms-content';
+import { TERMS_CONTENT } from '@/features/legal/data/terms-content.data';
 import { getTranslation, DictionaryKey } from '@/lib/i18n/dictionaries';
 import { useAppStore } from '@/store/useAppStore';
 import { useRouter } from 'next/navigation';

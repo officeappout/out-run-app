@@ -7,7 +7,7 @@
  */
 
 import type { DailyStepsSnapshot } from '../services/activity-history.service';
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 export type StepsTimeRange = 'day' | 'week' | 'month' | 'year';
 

@@ -5,7 +5,7 @@
  * Used for concentric rings progress, smart dots, and priority calculations.
  */
 
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 
 // ============================================================================
 // ACTIVITY CATEGORIES
