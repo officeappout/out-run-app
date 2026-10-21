@@ -12,7 +12,7 @@ function route(o: { score: number; band?: ScoreBand; name?: string; km?: number;
   const input: RouteScoreInput = {
     id, name: o.name ?? `route ${id}`, authorityId: 'a', city: 'c', activityType: o.activity ?? 'running',
     distanceKm: o.km ?? 5, path: rectLoop(o.lng ?? 34.8 + seq * 0.02, o.lat ?? 32.1, 300, 300), shape: 'loop',
-    composition: null, litCoveragePct: null, amenitiesHas: null, osmSafety: null, geometry: null,
+    composition: null, compositionIsProxy: false, litCoveragePct: null, amenitiesHas: null, osmSafety: null, geometry: null,
     sourceTier: o.tier ?? 'osm_named', greenShare: null, parkRef: o.park ? { source: 'osm', id: o.park, name: o.park } : null,
     hasFitnessStop: false, certificate: 'approve',
     surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' },

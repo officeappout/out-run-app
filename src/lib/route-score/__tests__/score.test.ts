@@ -8,7 +8,7 @@ import { parkHaMesilaDoc, rectLoop, line } from './fixtures';
 function base(over: Partial<RouteScoreInput> = {}): RouteScoreInput {
   return {
     id: 'r', name: 'x', authorityId: 'a', city: 'c', activityType: 'running', distanceKm: 5,
-    path: rectLoop(34.8, 32.1, 800, 600), shape: 'loop', composition: null, litCoveragePct: null,
+    path: rectLoop(34.8, 32.1, 800, 600), shape: 'loop', composition: null, compositionIsProxy: false, litCoveragePct: null,
     amenitiesHas: null, osmSafety: null, geometry: { retracedPct: 0, uTurnCount: 0, spurCount: 0, compactness: 0.7 },
     sourceTier: 'osm_named', greenShare: null, parkRef: null, hasFitnessStop: false, certificate: null,
     surface: { pavedShare: 1, unpavedShare: 0, knownShare: 1, source: 'route_surface_type' }, surfaceClass: 'walk_run_paved', shadeShare: null, ...over,

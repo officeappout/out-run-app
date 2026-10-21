@@ -21,7 +21,7 @@ export function scoreSurface(i: RouteScoreInput): ComponentScore {
   const c = i.composition;
   if (!c) return missing(max, 'no composition');
   const raw = c.genuinePct + 0.5 * c.ordinaryPct + 0.25 * c.sidewalkPct - 0.5 * c.otherPct;
-  return { points: round1(max * clamp01(raw / 100)), max, coverage: 1, notes: [] };
+  return { points: round1(max * clamp01(raw / 100)), max, coverage: i.compositionIsProxy ? 0.5 : 1, notes: i.compositionIsProxy ? ['proxy: trail share'] : [] };
 }
 
 /**
@@ -72,7 +72,7 @@ export function scoreSafety(i: RouteScoreInput): ComponentScore {
   }
   if (i.composition) {
     const pts = max * (1 - clamp01(i.composition.sidewalkPct / 60));
-    return { points: round1(pts), max, coverage: 0.5, notes: ['proxy: sidewalk share'] };
+    return { points: round1(pts), max, coverage: i.compositionIsProxy ? 0.25 : 0.5, notes: ['proxy: sidewalk share'] };
   }
   return missing(max, 'no safety signal');
 }

@@ -100,12 +100,25 @@ export interface FromDocOptions {
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
   const path = parsePath(d?.path);
   const comp = d?.qualitySignals?.composition;
-  const composition =
+  const realComposition =
     comp && num(comp.genuinePct) != null && num(comp.sidewalkPct) != null
       ? { sidewalkPct: comp.sidewalkPct, genuinePct: comp.genuinePct, ordinaryPct: num(comp.ordinaryPct) ?? 0, otherPct: num(comp.otherPct) ?? 0 }
       : null;
+  // Trails pipeline (B) routes carry no composition classifier output, but do carry
+  // trail.stats (share on path/track/footway, lamp coverage). Used as a half-confidence
+  // proxy; never feeds the certificate (B doesn't run it — NATIONWIDE-PLAN.md §2.3).
+  const ts = d?.trail?.stats;
+  const trailPct = num(ts?.trailPct);
+  const composition = realComposition ?? (trailPct != null
+    ? { sidewalkPct: 0, genuinePct: Math.max(0, Math.min(100, trailPct)), ordinaryPct: Math.max(0, 100 - trailPct), otherPct: 0 }
+    : null);
+  const compositionIsProxy = !realComposition && !!composition;
   const light = d?.qualitySignals?.lighting;
-  const litCoveragePct = light?.status === 'computed' ? num(light?.litCoveragePct) : null;
+  const trailLit = num(ts?.litPct);
+  const trailLitUnknown = num(ts?.litUnknownPct);
+  const litCoveragePct = light?.status === 'computed'
+    ? num(light?.litCoveragePct)
+    : trailLit != null && trailLitUnknown != null && trailLitUnknown <= 50 ? trailLit : null;
   const am = d?.qualitySignals?.amenities;
   const amenitiesHas = am?.status === 'computed' && am?.has && typeof am.has === 'object' ? { ...am.has } : null;
 
@@ -117,9 +130,9 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
 
   const distanceKm = num(d?.distance);
   let certificate: CertificateVerdict | null = null;
-  if (composition) {
+  if (realComposition) {
     certificate = decideRouteAccuracy({
-      composition,
+      composition: realComposition,
       lighting: light?.status ? { status: light.status, litCoveragePct: num(light.litCoveragePct), isLit: light.isLit ?? null } : undefined,
       pathPointCount: path.length,
       distance: distanceKm != null && distanceKm > 0
@@ -148,6 +161,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     path,
     shape: deriveShape(d, path),
     composition,
+    compositionIsProxy,
     litCoveragePct,
     amenitiesHas,
     osmSafety: opts.osmSafety ?? null,
