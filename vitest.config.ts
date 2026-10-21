@@ -48,6 +48,8 @@ export default defineConfig({
       'src/features/progression-map/components/__tests__/**/*.test.tsx',
       // i18n wave 2 — Partner Finder Hebrew markup parity (static markup, node env).
       'src/features/partners/components/__tests__/**/*.test.tsx',
+      // i18n wave 2 (onboarding namespace) — strength quiz Hebrew markup parity.
+      'src/features/user/onboarding/components/visual-assessment/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
