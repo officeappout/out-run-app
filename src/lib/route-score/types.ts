@@ -42,6 +42,8 @@ export interface RouteScoreInput {
   path: LngLat[];
   shape: ScoreShape | null;
   composition: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number } | null;
+  /** True when `composition` is a proxy (trails pipeline: trail share of the length), not the real classifier. */
+  compositionIsProxy: boolean;
   /** Only when lighting was really computed (status 'computed'). */
   litCoveragePct: number | null;
   /** Only when the amenity join ran with coverage (status 'computed'). */

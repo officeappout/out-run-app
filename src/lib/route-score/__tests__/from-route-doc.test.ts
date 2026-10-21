@@ -64,3 +64,22 @@ describe('routeScoreInputFromDoc', () => {
     expect(i).toMatchObject({ name: '', authorityId: null, path: [], shape: null, geometry: null });
   });
 });
+
+describe('trails pipeline proxy (B routes carry trail.stats, no composition)', () => {
+  const doc = { distance: 4, routeShape: 'point_to_point', path: line(34.5, 31.4, 4000), trail: { kind: 'osm_relation', stats: { trailPct: 90, litPct: 0, litUnknownPct: 100 } } };
+  it('composition from trail share at half confidence; never a certificate', () => {
+    const i = routeScoreInputFromDoc('t', doc);
+    expect(i.composition).toEqual({ sidewalkPct: 0, genuinePct: 90, ordinaryPct: 10, otherPct: 0 });
+    expect(i.compositionIsProxy).toBe(true);
+    expect(i.certificate).toBeNull();
+    expect(i.litCoveragePct).toBeNull(); // lamp tags mostly unknown → not measured
+  });
+  it('lamp coverage counts when the lit tag is mostly known', () => {
+    expect(routeScoreInputFromDoc('t', { ...doc, trail: { stats: { trailPct: 10, litPct: 70, litUnknownPct: 20 } } }).litCoveragePct).toBe(70);
+  });
+  it('real composition always wins over the proxy', () => {
+    const i = routeScoreInputFromDoc('t', { ...doc, qualitySignals: { composition: { genuinePct: 50, sidewalkPct: 10, ordinaryPct: 40, otherPct: 0 } } });
+    expect(i.compositionIsProxy).toBe(false);
+    expect(i.composition?.genuinePct).toBe(50);
+  });
+});
