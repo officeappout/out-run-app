@@ -20,27 +20,38 @@ const SKILL = {
 
 describe('resolveTierLabel', () => {
   it('boundaries: just under 1/3 is beginner, exactly 1/3 is intermediate', () => {
-    expect(resolveTierLabel(0, false, t)).toBe(BEGINNER);
-    expect(resolveTierLabel(1 / 3 - 0.001, false, t)).toBe(BEGINNER);
-    expect(resolveTierLabel(1 / 3, false, t)).toBe(INTERMEDIATE);
+    expect(resolveTierLabel(0, 'other', t)).toBe(BEGINNER);
+    expect(resolveTierLabel(1 / 3 - 0.001, 'other', t)).toBe(BEGINNER);
+    expect(resolveTierLabel(1 / 3, 'other', t)).toBe(INTERMEDIATE);
   });
 
   it('boundaries: just under 2/3 is intermediate, exactly 2/3 is advanced', () => {
-    expect(resolveTierLabel(2 / 3 - 0.001, false, t)).toBe(INTERMEDIATE);
-    expect(resolveTierLabel(2 / 3, false, t)).toBe(ADVANCED);
-    expect(resolveTierLabel(1, false, t)).toBe(ADVANCED);
+    expect(resolveTierLabel(2 / 3 - 0.001, 'other', t)).toBe(INTERMEDIATE);
+    expect(resolveTierLabel(2 / 3, 'other', t)).toBe(ADVANCED);
+    expect(resolveTierLabel(1, 'other', t)).toBe(ADVANCED);
   });
 
   it('gendered variants for beginner/advanced, בינוני unchanged', () => {
-    expect(resolveTierLabel(0, true, t)).toBe(BEGINNER_F);
-    expect(resolveTierLabel(0.5, true, t)).toBe(INTERMEDIATE);
-    expect(resolveTierLabel(1, true, t)).toBe(ADVANCED_F);
+    expect(resolveTierLabel(0, 'female', t)).toBe(BEGINNER_F);
+    expect(resolveTierLabel(0.5, 'female', t)).toBe(INTERMEDIATE);
+    expect(resolveTierLabel(1, 'female', t)).toBe(ADVANCED_F);
+  });
+
+  it('male keeps the masculine label, unknown gender gets the neutral plural (gender batch 3)', () => {
+    expect(resolveTierLabel(0, 'male', t)).toBe('מתחיל');
+    expect(resolveTierLabel(1, 'male', t)).toBe('מתקדם');
+    expect(resolveTierLabel(0, 'female', t)).toBe('מתחילה');
+    expect(resolveTierLabel(1, 'female', t)).toBe('מתקדמת');
+    for (const g of ['other', undefined, null]) {
+      expect(resolveTierLabel(0, g, t)).toBe('מתחילים');
+      expect(resolveTierLabel(1, g, t)).toBe('מתקדמים');
+    }
   });
 
   it('out-of-range proportions clamp instead of throwing or misclassifying', () => {
-    expect(resolveTierLabel(-5, false, t)).toBe(BEGINNER);
-    expect(resolveTierLabel(5, false, t)).toBe(ADVANCED);
-    expect(resolveTierLabel(NaN, false, t)).toBe(BEGINNER);
+    expect(resolveTierLabel(-5, 'other', t)).toBe(BEGINNER);
+    expect(resolveTierLabel(5, 'other', t)).toBe(ADVANCED);
+    expect(resolveTierLabel(NaN, 'other', t)).toBe(BEGINNER);
   });
 });
 
@@ -91,8 +102,8 @@ describe('levelProportion', () => {
 
 describe('integration: coverflow vs degraded modes agree at the same relative position', () => {
   it('the middle step of a 7-step list and the middle level of a 1-25 range both resolve to בינוני', () => {
-    const coverflowLabel = resolveTierLabel(stepProportion(3, 7), false, t);
-    const degradedLabel = resolveTierLabel(levelProportion(13, 1, 25), false, t);
+    const coverflowLabel = resolveTierLabel(stepProportion(3, 7), 'other', t);
+    const degradedLabel = resolveTierLabel(levelProportion(13, 1, 25), 'other', t);
     expect(coverflowLabel).toBe(INTERMEDIATE);
     expect(degradedLabel).toBe(INTERMEDIATE);
   });

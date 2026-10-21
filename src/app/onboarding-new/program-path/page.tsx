@@ -67,6 +67,7 @@ import {
   MUSCLE_PACKAGES,
   type MusclePackageKey,
 } from '@/features/user/onboarding/constants/program-path.constants';
+import { genderArg } from '@/lib/i18n/core/i18n-core';
 
 
 /**
@@ -537,7 +538,7 @@ export default function ProgramPathPage() {
   if (v2 && v2Step === 'skills') {
     return (
       <ProgramPathSkillsStepV2
-        isFemale={isFemale}
+        gender={genderArg(gender)}
         selectedSkills={selectedSkills}
         toggleSkill={toggleSkill}
         readySkillIds={readySkillIds}
@@ -557,7 +558,7 @@ export default function ProgramPathPage() {
     const goal = selectedCards[0] ?? null;
     return (
       <ProgramPathV2View
-        isFemale={isFemale}
+        gender={genderArg(gender)}
         selectedGoal={goal}
         onSelectGoal={selectGoalV2}
         images={goalImages}

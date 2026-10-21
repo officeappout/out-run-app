@@ -22,9 +22,11 @@ import {
 import { V2_SKILL_GROUPS, canToggleSkillV2 } from '../../utils/skill-selection';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import type { Gender } from '@/lib/i18n/core/i18n-core';
 
 export interface ProgramPathSkillsStepV2Props {
-  isFemale: boolean;
+  /** Copy gender: male / female / other (neutral for unknown). */
+  gender: Gender;
   selectedSkills: string[];
   toggleSkill: (id: string) => void;
   readySkillIds: Set<string> | null;
@@ -47,7 +49,7 @@ const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => {
 
 export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props) {
   const t = useT(onboarding);
-  const gender = p.isFemale ? 'female' : 'other';
+  const gender = p.gender;
   const masterOn = p.selectedSkills.includes(SKILL_MASTER_ID);
   const tap = (id: string) => {
     if (canToggleSkillV2(p.selectedSkills, id)) p.toggleSkill(id);

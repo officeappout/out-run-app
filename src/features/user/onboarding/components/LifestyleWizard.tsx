@@ -30,7 +30,6 @@ import { resolvePersonaGoalMode } from '../utils/persona-goals';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
-import { genderArg } from '@/lib/i18n/core/i18n-core';
 import { resolveOnboardingEntryHref } from '../utils/onboarding-entry';
 import StrengthSignupScheduleFlow from './strength-v2/signup-schedule/StrengthSignupScheduleFlow';
 import WizardRemindersStepV2 from './wizard-v2/WizardRemindersStepV2';
@@ -86,15 +85,13 @@ export default function LifestyleWizard({ onComplete, onSkip }: LifestyleWizardP
   // Gender-aware copy — from the profile (this wizard opens from /home in
   // later sessions, where sessionStorage is empty); the signup's
   // sessionStorage answer is only the fallback.
-  const { gender } = useWizardIdentity();
+  const { copyGender } = useWizardIdentity();
 
   // True only once the strength schedule screen (ScheduleStep) was finished
   // in THIS wizard session — the only case the final submit may write
   // lifestyle.scheduleDays / trainingHistory / settings.calendarSync.
   const strengthScheduleEditedRef = useRef(false);
   const t = useT(onboarding);
-  // The wizard's identity gender — anything but 'female' read the masculine copy.
-  const copyGender = genderArg(gender);
 
   const stepIndex = ['persona', 'schedule', 'notifications'].indexOf(currentStep);
   const totalSteps = 3;

@@ -235,31 +235,36 @@ describe('onboarding — signup v2 / what-now / program-path keys', () => {
     }
   });
 
-  it('gender: every branch of the old two-way pick', () => {
+  it('gender: male / female keep the old two-way pick, unknown is neutral', () => {
     // StrengthSignupScheduleFlow (gender from the wizard identity, passed explicitly)
+    // Gender batch 3: male keeps the old copy, unknown / 'other' is neutral.
     for (const gender of ['male', 'female', 'other']) {
       expect(t('signup.strength.count.question', { gender })).toBe(
-        gender === 'female' ? 'כמה ימים בשבוע את פנויה להתאמן?' : 'כמה ימים בשבוע אתה פנוי להתאמן?',
+        gender === 'female'
+          ? 'כמה ימים בשבוע את פנויה להתאמן?'
+          : gender === 'male'
+            ? 'כמה ימים בשבוע אתה פנוי להתאמן?'
+            : 'כמה ימים בשבוע פנויים לאימון?',
       );
     }
-    // ProgramPathV2View / ProgramPathSkillsStepV2: g(m, f) on the isFemale prop
-    const pairs: Array<[OnboardingKey, string, string]> = [
-      ['programPath.goal.health.title', 'להרגיש טוב וחזק', 'להרגיש טובה וחזקה'],
-      ['programPath.goal.health.sub', 'למי שמתחיל, חוזר אחרי הפסקה או רוצה בסיס בריא לכל הגוף', 'למי שמתחילה, חוזרת אחרי הפסקה או רוצה בסיס בריא לכל הגוף'],
-      ['programPath.goal.health.level', 'מתחילים', 'מתחילות'],
-      ['programPath.goal.bodyFocus.sub', 'למי שכבר מתאמן ורוצה לעלות רמה, לחזור לכושר או למקד אזורים', 'למי שכבר מתאמנת ורוצה לעלות רמה, לחזור לכושר או למקד אזורים'],
-      ['programPath.goal.skills.level', 'מתקדמים', 'מתקדמות'],
-      ['programPath.subtitle', 'בחר מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.', 'בחרי מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.'],
-      ['programPath.skills.title', 'איזה אלמנט אתה רוצה לפתוח?', 'איזה אלמנט את רוצה לפתוח?'],
-      ['programPath.skills.subtitle', 'אפשר לבחור עד 3. הראשון שתבחר יהיה בעדיפות.', 'אפשר לבחור עד 3. הראשון שתבחרי יהיה בעדיפות.'],
-      ['programPath.skills.master.sub', 'לא בטוח? מסלול שמשלב את כל האלמנטים', 'לא בטוחה? מסלול שמשלב את כל האלמנטים'],
+    // ProgramPathV2View / ProgramPathSkillsStepV2: the real gender prop (gender batch 3) —
+    // male keeps the old masculine copy, unknown / 'other' gets the neutral one.
+    const triples: Array<[OnboardingKey, string, string, string]> = [
+      ['programPath.goal.health.title', 'להרגיש טוב וחזק', 'להרגיש טובה וחזקה', 'להרגיש טוב ולהתחזק'],
+      ['programPath.goal.health.sub', 'למי שמתחיל, חוזר אחרי הפסקה או רוצה בסיס בריא לכל הגוף', 'למי שמתחילה, חוזרת אחרי הפסקה או רוצה בסיס בריא לכל הגוף', 'להתחלה, לחזרה אחרי הפסקה או לבסיס בריא לכל הגוף'],
+      ['programPath.goal.health.level', 'מתחילים', 'מתחילות', 'מתחילים'],
+      ['programPath.goal.bodyFocus.sub', 'למי שכבר מתאמן ורוצה לעלות רמה, לחזור לכושר או למקד אזורים', 'למי שכבר מתאמנת ורוצה לעלות רמה, לחזור לכושר או למקד אזורים', 'כבר מתאמנים? לעלות רמה, לחזור לכושר או למקד אזורים'],
+      ['programPath.goal.skills.level', 'מתקדמים', 'מתקדמות', 'מתקדמים'],
+      ['programPath.subtitle', 'בחר מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.', 'בחרי מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.', 'בוחרים מטרה אחת. את הרמה המדויקת נמדוד במבחן הקצר.'],
+      ['programPath.skills.title', 'איזה אלמנט אתה רוצה לפתוח?', 'איזה אלמנט את רוצה לפתוח?', 'איזה אלמנט רוצים לפתוח?'],
+      ['programPath.skills.subtitle', 'אפשר לבחור עד 3. הראשון שתבחר יהיה בעדיפות.', 'אפשר לבחור עד 3. הראשון שתבחרי יהיה בעדיפות.', 'אפשר לבחור עד 3. הראשון שנבחר יהיה בעדיפות.'],
+      ['programPath.skills.master.sub', 'לא בטוח? מסלול שמשלב את כל האלמנטים', 'לא בטוחה? מסלול שמשלב את כל האלמנטים', 'לא בטוחים? מסלול שמשלב את כל האלמנטים'],
     ];
-    for (const [key, m, f] of pairs) {
-      for (const isFemale of [false, true]) {
-        const g = (male: string, female: string) => (isFemale ? female : male);
-        expect(t(key, { gender: isFemale ? 'female' : 'other' })).toBe(g(m, f));
-        expect(t(key, { gender: isFemale ? 'female' : 'male' })).toBe(g(m, f));
-      }
+    for (const [key, m, f, n] of triples) {
+      expect(t(key, { gender: 'male' })).toBe(m);
+      expect(t(key, { gender: 'female' })).toBe(f);
+      expect(t(key, { gender: 'other' })).toBe(n);
+      expect(t(key)).toBe(n);
     }
   });
 

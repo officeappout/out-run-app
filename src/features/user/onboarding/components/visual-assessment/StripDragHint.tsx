@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import type { Gender } from '@/lib/i18n/core/i18n-core';
 import { coachCopy, FINGER_RIDE_MS, NUDGE_PX, type CoachPill } from './strip-hint';
 
 /**
@@ -16,7 +17,8 @@ import { coachCopy, FINGER_RIDE_MS, NUDGE_PX, type CoachPill } from './strip-hin
 
 interface StripDragHintProps {
   pill: CoachPill;
-  isFemale: boolean;
+  /** The quiz's gender for the coach line: male / female / other (neutral). */
+  gender: Gender;
   showEndLabels: boolean;
   showDemoFinger: boolean;
   showStaticFinger: boolean;
@@ -27,7 +29,7 @@ interface StripDragHintProps {
 
 export default function StripDragHint({
   pill,
-  isFemale,
+  gender,
   showEndLabels,
   showDemoFinger,
   showStaticFinger,
@@ -38,7 +40,7 @@ export default function StripDragHint({
   const t = useT(onboarding);
   return (
     <>
-      <CoachPillBubble pill={pill} isFemale={isFemale} pulse={!reducedMotion} />
+      <CoachPillBubble pill={pill} gender={gender} pulse={!reducedMotion} />
 
       {/* "קל" on the right (the easiest tile is on the right — CoverflowStrip reverses), "קשה" on the left. */}
       <AnimatePresence>
@@ -93,9 +95,8 @@ const PULSE_SHADOW = [
 const AFTER_RING = '0 0 0 2px rgba(0,186,247,0.35)';
 
 /** The coach line, centred just above the strip with a small arrow down. Dark (intro) → light (after). */
-function CoachPillBubble({ pill, isFemale, pulse }: { pill: CoachPill; isFemale: boolean; pulse: boolean }) {
+function CoachPillBubble({ pill, gender, pulse }: { pill: CoachPill; gender: Gender; pulse: boolean }) {
   const t = useT(onboarding);
-  const gender = isFemale ? 'female' : 'other';
   return (
     <AnimatePresence mode="wait">
       {pill && (

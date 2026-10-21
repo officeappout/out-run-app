@@ -212,16 +212,19 @@ describe('coach copy', () => {
   // i18n wave 2: coachCopy returns onboarding keys; StripDragHint renders them with the quiz's
   // gender. The Hebrew below is the old literal, verbatim from the brief.
   const t = makeT('he', onboarding);
-  const render = (pill: 'intro' | 'after', isFemale: boolean) => {
+  const render = (pill: 'intro' | 'after', gender: 'male' | 'female' | 'other') => {
     const keys = coachCopy(pill);
-    const gender = isFemale ? 'female' : 'other';
     return { title: t(keys.title, { gender }), sub: t(keys.sub, { gender }) };
   };
   it('male / female, verbatim from the brief', () => {
-    expect(render('intro', false)).toEqual({ title: 'גרור את התמונות לצדדים', sub: 'הסרטון מתחלף לתרגיל שבחרת' });
-    expect(render('intro', true)).toEqual({ title: 'גררי את התמונות לצדדים', sub: 'הסרטון מתחלף לתרגיל שבחרת' });
-    expect(render('after', false)).toEqual({ title: 'יפה. עכשיו עצור על הכי קשה שאתה בטוח שתבצע', sub: 'ולחץ למטה' });
-    expect(render('after', true)).toEqual({ title: 'יפה. עכשיו עצרי על הכי קשה שאת בטוחה שתבצעי', sub: 'ולחצי למטה' });
+    expect(render('intro', 'male')).toEqual({ title: 'גרור את התמונות לצדדים', sub: 'הסרטון מתחלף לתרגיל שבחרת' });
+    expect(render('intro', 'female')).toEqual({ title: 'גררי את התמונות לצדדים', sub: 'הסרטון מתחלף לתרגיל שבחרת' });
+    expect(render('after', 'male')).toEqual({ title: 'יפה. עכשיו עצור על הכי קשה שאתה בטוח שתבצע', sub: 'ולחץ למטה' });
+    expect(render('after', 'female')).toEqual({ title: 'יפה. עכשיו עצרי על הכי קשה שאת בטוחה שתבצעי', sub: 'ולחצי למטה' });
+  });
+  it('unknown gender — neutral (gender batch 3)', () => {
+    expect(render('intro', 'other')).toEqual({ title: 'גוררים את התמונות לצדדים', sub: 'הסרטון מתחלף לתרגיל שבחרת' });
+    expect(render('after', 'other')).toEqual({ title: 'יפה. עכשיו עוצרים על הכי קשה שבטוח תצליחו לבצע', sub: 'ולוחצים למטה' });
   });
 });
 

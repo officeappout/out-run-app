@@ -470,10 +470,10 @@ export default function ProgramResult({
 
   // Gender-aware social proof — aligned with the "1% start line" narrative
   const gender = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('onboarding_personal_gender') ?? 'male')
-    : 'male';
+    ? sessionStorage.getItem('onboarding_personal_gender')
+    : null;
   const nextLevel = levelNumber + 1;
-  // sessionStorage gender (default 'male') — anything but 'female' read the masculine copy.
+  // sessionStorage gender: male / female / other — unknown gets the neutral copy (owner decision 21.10.2026).
   const copyGender = genderArg(gender);
   const achievementText = t('result.achievement', {
     gender: copyGender,
