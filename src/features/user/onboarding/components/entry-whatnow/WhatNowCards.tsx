@@ -6,6 +6,8 @@
  */
 import { ChevronLeft } from 'lucide-react';
 import { hapticLight } from '@/lib/haptics';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import type { WhatNowRouteCopy } from '../../services/entry-whatnow';
 
 const BRAND_GRADIENT = 'linear-gradient(135deg, #00baf7 0%, #0cf2e3 100%)';
@@ -52,6 +54,7 @@ export function WhatNowRouteCard({
 }
 
 export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick: () => void }) {
+  const t = useT(onboarding);
   return (
     <button
       type="button"
@@ -72,18 +75,19 @@ export function WhatNowPlanCard({ tagged, onClick }: { tagged: boolean; onClick:
         ))}
       </div>
       {tagged && (
-        <span className="self-start flex h-[22px] items-center rounded-full bg-white/25 px-2.5 text-[11px] font-bold">מומלץ לך</span>
+        <span className="self-start flex h-[22px] items-center rounded-full bg-white/25 px-2.5 text-[11px] font-bold">{t('whatNow.plan.tag')}</span>
       )}
-      <span className="max-w-[200px] text-[19px] font-bold">תוכנית אישית בשבילך</span>
-      <span className="max-w-[190px] text-[13px] leading-[18px] opacity-95">כוח, ריצה או שניהם. נבנית לפי הרמה, הזמן והמקום שלך.</span>
+      <span className="max-w-[200px] text-[19px] font-bold">{t('whatNow.plan.title')}</span>
+      <span className="max-w-[190px] text-[13px] leading-[18px] opacity-95">{t('whatNow.plan.sub')}</span>
       <span className="mt-1 flex h-[30px] items-center gap-1 self-start rounded-full bg-white px-3 text-[12.5px] font-bold text-[#04222b]">
-        2 דק׳ · בואו נבנה <ChevronLeft size={14} aria-hidden />
+        {t('whatNow.plan.cta')}<ChevronLeft size={14} aria-hidden />
       </span>
     </button>
   );
 }
 
 export function WhatNowKellyCard({ onClick }: { onClick: () => void }) {
+  const t = useT(onboarding);
   return (
     <button
       type="button"
@@ -95,11 +99,11 @@ export function WhatNowKellyCard({ onClick }: { onClick: () => void }) {
         style={{ background: BRAND_GRADIENT }}
         aria-hidden
       >
-        ק
+        {t('whatNow.kelly.initial')}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[15px] font-bold">משהו אחר? לדבר עם קלי</span>
-        <span className="text-[12.5px] text-v2-muted">ספרו במילים שלכם, וקלי יבנה לכם</span>
+        <span className="text-[15px] font-bold">{t('whatNow.kelly.title')}</span>
+        <span className="text-[12.5px] text-v2-muted">{t('whatNow.kelly.sub')}</span>
       </span>
       <ChevronLeft size={16} className="shrink-0 text-[#94a3b8]" aria-hidden />
     </button>

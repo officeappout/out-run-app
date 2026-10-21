@@ -7,6 +7,8 @@
  * competes with it (one-card law, axioms §9). The host decides when it is open and records the
  * answer; this component only renders and reports which card was picked.
  */
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import { Sheet, StepBar } from '@/components/ui/v2';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import type { WhatNowAnswer, WhatNowLayout, WhatNowRouteCopy } from '../../services/entry-whatnow';
@@ -23,6 +25,7 @@ export interface WhatNowDrawerProps {
 }
 
 export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, showKelly, onAnswer }: WhatNowDrawerProps) {
+  const t = useT(onboarding);
   return (
     <Sheet
       open={open}
@@ -36,7 +39,7 @@ export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, sh
       header={null}
       hideClose
       scroll="body"
-      ariaLabel="מה בא לך עכשיו?"
+      ariaLabel={t('whatNow.aria')}
       className="max-h-[85vh]"
     >
       <div className="flex flex-col gap-3 px-[18px] pb-2 pt-1" dir="rtl">
@@ -56,7 +59,7 @@ export default function WhatNowDrawer({ open, layout, routeCopy, routeMapUrl, sh
           onClick={() => onAnswer('browse')}
           className="mt-2 self-center py-2 text-[13.5px] font-bold text-v2-muted"
         >
-          או רק להסתכל מסביב
+          {t('whatNow.browse')}
         </button>
       </div>
     </Sheet>

@@ -15,6 +15,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { hasRunningTrack, hasStrengthTrack } from '@/lib/track-ownership';
@@ -69,6 +71,7 @@ export interface WalkSignupFlowProps {
 }
 
 export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowProps) {
+  const t = useT(onboarding);
   const router = useRouter();
   const { data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
@@ -88,7 +91,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
   const [addOnOn, setAddOnOn] = useState(true);
   const [pickedDays, setPickedDays] = useState<number[] | null>(null);
   const [windows, setWindows] = useState<Partial<Record<number, TimeWindow>>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<OnboardingKey | null>(null);
   const dates = useMemo(() => currentWeekDates(), []);
 
   const planInput = { goal: goal ?? 'health', comfort, stepGoal, availableDays: [...DEFAULT_WALK_DAYS], audience };
@@ -133,7 +136,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
       setSub(3);
     } catch (err) {
       console.error('[WalkSignup] save failed', err);
-      setError('לא הצלחנו לשמור את השבוע. נסו שוב.');
+      setError('signup.walk.error.save');
     }
   };
 
@@ -165,8 +168,12 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
     const usual = recommended.weeks[0]?.walks.find((w) => !w.isLong) ?? recommended.weeks[0]?.walks[0];
     return (
       <RunDaysStep
-        title="מתי נצא להליכה?"
-        subtitle={`ממליצים ${recommended.frequency} הליכות בשבוע${usual ? ` · ${usual.minutes} דק׳` : ''} · שבת חופשית`}
+        title={t('signup.walk.days.title')}
+        subtitle={t('signup.walk.days.subtitle', {
+          hasUsual: usual ? 'yes' : 'no',
+          count: String(recommended.frequency),
+          minutes: usual ? String(usual.minutes) : '',
+        })}
         frequency={recommended.frequency}
         days={days}
         windows={windows}
@@ -186,7 +193,7 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
         dates={dates}
         notAlone={notAlone}
         onOpenGroup={(id) => router.push(walkingGroupHref(id))}
-        error={error}
+        error={error ? t(error) : null}
         onConfirm={confirmWeek}
       />
     );
@@ -195,10 +202,14 @@ export default function WalkSignupFlow({ sub, setSub, onDone }: WalkSignupFlowPr
   const firstWindow = first ? windows[first.dow] ?? DEFAULT_RUN_WINDOW : DEFAULT_RUN_WINDOW;
   return (
     <ReminderOptInStep
-      subtitle={`${days.length} הליכות בשבוע · ${dayLettersLine(days)}`}
-      sampleWorkoutName={first ? walkPieceTitle(first) : 'הליכה מהירה'}
+      subtitle={t('signup.walk.reminder.subtitle', { count: String(days.length), days: dayLettersLine(days) })}
+      sampleWorkoutName={first ? walkPieceTitle(first) : t('signup.walk.reminder.sampleFallback')}
       sampleTime={RUN_TIME_PRESETS[firstWindow].time}
-      sampleDetail={first ? `${first.minutes} דק׳ · ~${first.estSteps.toLocaleString('he-IL')} צעדים` : undefined}
+      sampleDetail={
+        first
+          ? t('signup.walk.reminder.sampleDetail', { minutes: String(first.minutes), steps: first.estSteps.toLocaleString('he-IL') })
+          : undefined
+      }
       alreadyActive={alreadyActive}
       onAccept={acceptReminders}
       onSkip={() => {

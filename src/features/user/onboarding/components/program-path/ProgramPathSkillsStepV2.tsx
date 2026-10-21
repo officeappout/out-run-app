@@ -20,6 +20,8 @@ import {
   SKILL_MASTER_ID,
 } from '../../constants/program-path.constants';
 import { V2_SKILL_GROUPS, canToggleSkillV2 } from '../../utils/skill-selection';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 export interface ProgramPathSkillsStepV2Props {
   isFemale: boolean;
@@ -44,15 +46,16 @@ const hideOnError = (e: React.SyntheticEvent<HTMLImageElement>) => {
 };
 
 export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props) {
-  const g = (m: string, f: string) => (p.isFemale ? f : m);
+  const t = useT(onboarding);
+  const gender = p.isFemale ? 'female' : 'other';
   const masterOn = p.selectedSkills.includes(SKILL_MASTER_ID);
   const tap = (id: string) => {
     if (canToggleSkillV2(p.selectedSkills, id)) p.toggleSkill(id);
   };
   const tip =
     p.missingCategory === 'push'
-      ? 'כדי לשמור על כתפיים מאוזנות, כדאי להוסיף גם אלמנט אחד מקבוצת הדחיפה.'
-      : 'כדי לשמור על כתפיים מאוזנות, כדאי להוסיף גם אלמנט אחד מקבוצת המשיכה.';
+      ? t('programPath.skills.tip.push')
+      : t('programPath.skills.tip.pull');
 
   return (
     <div
@@ -73,7 +76,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
           <button
             type="button"
             onClick={p.onBack}
-            aria-label="חזרה"
+            aria-label={t('programPath.back')}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <ChevronRight size={18} strokeWidth={2.4} className="text-v2-ink" />
@@ -89,13 +92,13 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
         </div>
 
         <span className="mt-[18px] inline-flex self-start whitespace-nowrap rounded-full bg-v2-tint px-[11px] py-[5px] text-[12.5px] font-extrabold text-v2-deep">
-          קליסטניקס
+          {t('programPath.skills.tag')}
         </span>
         <h1 className="mt-2 text-[26px] font-black leading-[1.15] !tracking-[-0.02em] [@media(max-height:720px)]:text-[23px]">
-          {g('איזה אלמנט אתה רוצה לפתוח?', 'איזה אלמנט את רוצה לפתוח?')}
+          {t('programPath.skills.title', { gender })}
         </h1>
         <p className="mb-3.5 mt-1 text-[14px] font-medium text-v2-ink-2">
-          {g('אפשר לבחור עד 3. הראשון שתבחר יהיה בעדיפות.', 'אפשר לבחור עד 3. הראשון שתבחרי יהיה בעדיפות.')}
+          {t('programPath.skills.subtitle', { gender })}
         </p>
 
         {/* Master — "all elements", exclusive with the others */}
@@ -111,9 +114,9 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
             <Star size={22} strokeWidth={2} className="text-v2-deep" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block whitespace-nowrap text-[15.5px] font-black">קליסטניקס עליון</span>
+            <span className="block whitespace-nowrap text-[15.5px] font-black">{t('programPath.skills.master.title')}</span>
             <span className="block truncate text-[12.5px] font-semibold text-v2-ink-2">
-              {g('לא בטוח? מסלול שמשלב את כל האלמנטים', 'לא בטוחה? מסלול שמשלב את כל האלמנטים')}
+              {t('programPath.skills.master.sub', { gender })}
             </span>
           </span>
           <span
@@ -175,7 +178,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
                     </span>
                     {notReady && (
                       <span className="absolute right-2 top-2 rounded-full bg-v2-hairline px-1.5 py-px text-[11px] font-extrabold text-v2-muted">
-                        בקרוב
+                        {t('programPath.skills.soon')}
                       </span>
                     )}
                     {on && order !== null && (
@@ -206,7 +209,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
                 <Lightbulb size={17} strokeWidth={2.2} className="text-v2-deep" aria-hidden />
               </span>
               <span className="text-[13px] font-semibold leading-[1.45] text-v2-ink-2">
-                <b className="font-extrabold text-v2-ink">טיפ מהמאמן: </b>
+                <b className="font-extrabold text-v2-ink">{t('programPath.skills.tip.label')}</b>
                 {tip}
               </span>
             </motion.div>

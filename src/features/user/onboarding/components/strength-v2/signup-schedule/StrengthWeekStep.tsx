@@ -8,6 +8,8 @@
  * "רוצה להוסיף ריצה?" starts the running signup. One CTA.
  */
 import { Info, Plus, Sparkles } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { Chip, SegmentedPicker } from '@/components/ui/v2';
@@ -34,24 +36,25 @@ export interface StrengthWeekStepProps {
 const COUNT_OPTIONS = [2, 3, 4, 5, 6];
 
 export default function StrengthWeekStep(p: StrengthWeekStepProps) {
+  const t = useT(onboarding);
   const byDow = new Map(p.week.days.map((d) => [d.dow, d]));
   const counts = strengthItemCounts(p.week);
   const countOptions = (COUNT_OPTIONS.includes(p.frequency) ? COUNT_OPTIONS : [...COUNT_OPTIONS, p.frequency].sort((a, b) => a - b))
     .map((n) => ({ key: String(n), label: String(n) }));
   const gaps = p.week.days.map((d, i) => (i === 0 ? Infinity : (d.dow - p.week.days[i - 1].dow) * 24));
   const fullRecovery = p.week.days.length > 1 && gaps.every((g) => g >= p.week.recoveryHours);
-  const note = p.week.warningsHe[0] ?? (fullRecovery ? `כל שריר מקבל ${p.week.recoveryHours} שעות לפני שחוזרים אליו.` : null);
+  const note = p.week.warningsHe[0] ?? (fullRecovery ? t('signup.strength.week.recoveryNote', { hours: String(p.week.recoveryHours) }) : null);
 
   return (
     <div dir="rtl" className="relative mx-auto flex min-h-full w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <div className="px-4 pb-2 pt-1">
-        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">השבוע שלך</h1>
+        <h1 className="truncate whitespace-nowrap text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('signup.strength.week.title')}</h1>
         <p className="mt-0.5 truncate whitespace-nowrap text-[13.5px] font-bold text-v2-muted">{p.subtitle}</p>
 
         <div className="mt-3.5 flex items-center gap-2.5">
-          <span className="shrink-0 whitespace-nowrap text-[13px] font-extrabold text-v2-muted">ימים בשבוע</span>
+          <span className="shrink-0 whitespace-nowrap text-[13px] font-extrabold text-v2-muted">{t('signup.strength.week.days')}</span>
           <SegmentedPicker
-            ariaLabel="ימים בשבוע"
+            ariaLabel={t('signup.strength.week.days')}
             className="min-w-0 flex-1"
             options={countOptions}
             value={String(p.frequency)}
@@ -115,7 +118,7 @@ export default function StrengthWeekStep(p: StrengthWeekStepProps) {
           className="mx-auto mt-3 flex h-9 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-[13.5px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <Plus size={15} strokeWidth={2.4} aria-hidden />
-          רוצה להוסיף ריצה? נשלב אותה בלי לפגוע בכוח
+          {t('signup.strength.week.addRun')}
         </button>
 
         {note && (
@@ -127,7 +130,7 @@ export default function StrengthWeekStep(p: StrengthWeekStepProps) {
       </div>
 
       <div className="flex-grow" />
-      <StickyActionButton variant="v2" label="אישור השבוע" onPress={p.onConfirm} />
+      <StickyActionButton variant="v2" label={t('signup.strength.week.confirm')} onPress={p.onConfirm} />
     </div>
   );
 }

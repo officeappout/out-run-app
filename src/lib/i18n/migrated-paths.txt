@@ -268,3 +268,11 @@ src/features/home/components/widgets/StepsSummaryCard.tsx
 src/features/home/components/widgets/StepsSummaryCardView.tsx
 src/features/home/components/widgets/run-week-v2/HomeRunCarouselCard.tsx
 src/features/home/components/widgets/run-week-v2/RunWeekCardV2.tsx
+# wave 2 batch s (namespace onboarding, keys signup.* / whatNow.* / programPath.*) — the v2 signup sub-flows
+# (running / strength / walking / add-track), the what-now drawer and the v2 program-path screens.
+src/features/user/onboarding/components/running-v2/
+src/features/user/onboarding/components/strength-v2/
+src/features/user/onboarding/components/walking-v2/
+src/features/user/onboarding/components/add-track/
+src/features/user/onboarding/components/entry-whatnow/
+src/features/user/onboarding/components/program-path/

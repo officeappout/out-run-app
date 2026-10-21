@@ -1,6 +1,8 @@
 'use client';
 
 /** Relative weekly volume bars for the plan summary (moved out of RunningPlanSummaryV2). */
+import { useT } from '@/hooks/useT';
+import { onboarding, type OnboardingKey } from '@/messages/ns/onboarding';
 import type { PlanWeekBar } from '../../../utils/running-plan-shape';
 import { weekLabelsToShow } from '../../../utils/running-plan-shape';
 
@@ -15,11 +17,12 @@ export const BAR_COLOR: Record<PlanWeekBar['kind'], string> = {
  * read as done, the current one gets a ring, weeks ahead are faded.
  */
 export default function PlanVolumeChart({ bars, currentWeek }: { bars: PlanWeekBar[]; currentWeek?: number }) {
+  const t = useT(onboarding);
   const labels = weekLabelsToShow(bars.length);
   const gap = bars.length > 20 ? 2 : 4;
   return (
     <div>
-      <div className="flex h-[92px] items-end" style={{ gap }} role="img" aria-label={`נפח שבועי יחסי לאורך ${bars.length} שבועות`}>
+      <div className="flex h-[92px] items-end" style={{ gap }} role="img" aria-label={t('signup.runSummary.volume.aria', { count: String(bars.length) })}>
         {bars.map((b) => (
           <div key={b.week} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
             <div
@@ -44,14 +47,14 @@ export default function PlanVolumeChart({ bars, currentWeek }: { bars: PlanWeekB
       </div>
       <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] font-extrabold text-v2-muted">
         {([
-          ['build', 'בנייה'],
-          ['recovery', 'שבוע קל'],
-          ['goal', 'שבוע המטרה'],
-        ] as const).map(([k, label]) =>
+          ['build', 'signup.runSummary.legend.build'],
+          ['recovery', 'signup.runSummary.legend.recovery'],
+          ['goal', 'signup.runSummary.legend.goal'],
+        ] as const satisfies ReadonlyArray<readonly [PlanWeekBar['kind'], OnboardingKey]>).map(([k, labelKey]) =>
           k === 'recovery' && !bars.some((b) => b.kind === 'recovery') ? null : (
             <span key={k} className="inline-flex items-center gap-[5px] whitespace-nowrap">
               <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: BAR_COLOR[k] }} />
-              {label}
+              {t(labelKey)}
             </span>
           ),
         )}

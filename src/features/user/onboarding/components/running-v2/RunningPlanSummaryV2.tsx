@@ -18,6 +18,8 @@
 import { useMemo, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Check, ChevronRight } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { Card, MediaHeroFade, RevealOnScroll } from '@/components/ui/v2';
 import type { RunWeekDay } from '@/features/schedule/utils/runWeekRecommendation';
@@ -53,12 +55,13 @@ export interface RunningPlanSummaryV2Props {
 }
 
 export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
+  const t = useT(onboarding);
   const reduce = useReducedMotion();
   const bars = useMemo(() => buildWeeklyVolumePattern(p.weeks, isConservativePlan(p.answers)), [p.weeks, p.answers]);
   const paceRows = useMemo(() => paceTargetRows(p.answers), [p.answers]);
 
   const view = p.mode === 'view';
-  const title = p.answers.targetDistance === 'maintenance' ? 'תוכנית לשמירה על כושר' : `תוכנית ${p.distLabel}`;
+  const title = t('signup.runSummary.title', { goal: String(p.answers.targetDistance ?? ''), dist: p.distLabel });
 
   const tiles = [
     p.weekDays.length > 0 && { id: 'days', node: <ChosenDaysTile days={p.weekDays} timesLine={p.timesLine} onEdit={p.onEditDays} /> },
@@ -68,8 +71,8 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
       node: (
         <Card padding="none" className="px-4 py-3.5">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="whitespace-nowrap text-[15px] font-black">נפח שבועי</h2>
-            <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-muted">נפח יחסי</span>
+            <h2 className="whitespace-nowrap text-[15px] font-black">{t('signup.runSummary.volume.title')}</h2>
+            <span className="whitespace-nowrap text-[12px] font-extrabold text-v2-muted">{t('signup.runSummary.volume.relative')}</span>
           </div>
           <PlanVolumeChart bars={bars} currentWeek={view ? p.progress?.currentWeek : undefined} />
         </Card>
@@ -81,7 +84,7 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
   return (
     <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
       <MediaHeroFade
-        media={{ kind: 'image', src: '/images/gateway/card-running.png', alt: 'רצים בקו הזינוק של מרוץ', position: '50% 100%', zoom: 2 }}
+        media={{ kind: 'image', src: '/images/gateway/card-running.png', alt: t('signup.runSummary.heroAlt'), position: '50% 100%', zoom: 2 }}
         height="clamp(200px,34vh,300px)"
         fadeTo="#f6fbfd"
         topShade={false}
@@ -95,31 +98,38 @@ export default function RunningPlanSummaryV2(p: RunningPlanSummaryV2Props) {
         >
           <span className="inline-flex h-7 items-center gap-[5px] whitespace-nowrap rounded-full bg-white px-2.5 text-[12.5px] font-extrabold text-v2-deep shadow-v2-ring">
             <Check size={14} strokeWidth={3} aria-hidden />
-            {view && p.progress ? `שבוע ${p.progress.currentWeek} מתוך ${p.weeks}` : 'התוכנית שלך מוכנה'}
+            {view && p.progress
+              ? t('signup.runSummary.chip.view', { current: String(p.progress.currentWeek), weeks: String(p.weeks) })
+              : t('signup.runSummary.chip.ready')}
           </span>
           <h1 className="mt-2.5 truncate whitespace-nowrap text-[30px] font-black leading-[1.1] !tracking-[-0.03em]">{title}</h1>
           <p className="mt-1 truncate whitespace-nowrap text-[14px] font-bold text-v2-ink-2">
             {view && p.progress
-              ? `${p.progress.done}/${p.progress.dueSoFar} אימונים בוצעו · עד ${p.endDateShort} · ${p.frequency} ריצות בשבוע`
-              : `${p.weeks} שבועות · עד ${p.endDateShort} · ${p.frequency} ריצות בשבוע`}
+              ? t('signup.runSummary.line.view', {
+                  done: String(p.progress.done),
+                  due: String(p.progress.dueSoFar),
+                  end: p.endDateShort,
+                  frequency: String(p.frequency),
+                })
+              : t('signup.runSummary.line.create', { weeks: String(p.weeks), end: p.endDateShort, frequency: String(p.frequency) })}
           </p>
         </motion.div>
 
-        {tiles.map((t, i) => (
-          <RevealOnScroll key={t.id} index={i}>
-            {t.node}
+        {tiles.map((tile, i) => (
+          <RevealOnScroll key={tile.id} index={i}>
+            {tile.node}
           </RevealOnScroll>
         ))}
       </div>
 
       <div className="flex-grow" />
 
-      {!view && p.onGenerate && <StickyActionButton variant="v2" label="בואו נתחיל" onPress={p.onGenerate} />}
+      {!view && p.onGenerate && <StickyActionButton variant="v2" label={t('signup.runSummary.cta')} onPress={p.onGenerate} />}
       {view && p.onBack && (
         <button
           type="button"
           onClick={p.onBack}
-          aria-label="חזרה"
+          aria-label={t('signup.runSummary.back')}
           className="fixed start-4 top-[max(16px,env(safe-area-inset-top))] z-[2] grid h-10 w-10 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <ChevronRight className="h-5 w-5 text-v2-ink" aria-hidden />
