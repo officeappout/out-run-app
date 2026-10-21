@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, Trash2, X } from 'lucide-react';
 import { MEMORY_CATEGORY_HE } from '@/lib/ai/coach/memory/types';
 import { deleteAllMemory, deleteMemoryFact, listMemory, type MemoryFactView } from '../services/kelly-phase3-api';
+import { MEMORY_EMPTY_EXPLAINER, MEMORY_EMPTY_TITLE } from '../services/memory-copy';
 
 export default function KellyMemorySheet({ onClose }: { onClose: () => void }) {
   const [facts, setFacts] = useState<MemoryFactView[] | null>(null);
@@ -62,7 +63,12 @@ export default function KellyMemorySheet({ onClose }: { onClose: () => void }) {
 
         {!facts && !failed && <p className="py-6 text-center text-sm text-gray-400 animate-pulse">טוען...</p>}
         {failed && <p className="py-6 text-center text-sm text-gray-500">לא הצלחנו לטעון כרגע. נסו שוב בעוד רגע.</p>}
-        {facts && facts.length === 0 && <p className="py-6 text-center text-sm text-gray-500">קלי עוד לא זוכר שום דבר.</p>}
+        {facts && facts.length === 0 && (
+          <div className="py-6 text-center">
+            <p className="text-sm text-gray-500">{MEMORY_EMPTY_TITLE}</p>
+            <p className="mx-auto mt-2 max-w-xs text-[12.5px] leading-snug text-gray-400">{MEMORY_EMPTY_EXPLAINER}</p>
+          </div>
+        )}
 
         {facts && facts.length > 0 && (
           <ul className="space-y-2">
