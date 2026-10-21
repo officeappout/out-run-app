@@ -46,3 +46,44 @@ export function placeCoachBubble(input: {
 
 /** Minimum time a step stays before "הבא" accepts a tap (stops a double tap skipping a step). */
 export const COACH_MIN_DWELL_MS = 600;
+
+// ── Screen headers that paint over scrolled content (tour fixes round 2, 21.10) ─────────────
+// A screen marks its overlaying header `data-coach-occluder` (e.g. the strength player's
+// RunnerHeader with its white fade). A target that is NOT inside such a header must sit fully
+// below it: the scroll leaves a header-high margin, and the spotlight never reaches under it.
+
+/** Extra room between an occluding header's bottom and the scrolled-in target. */
+export const COACH_OCCLUDER_GAP = 8;
+
+/** `scroll-margin-top` (px) for a target so scrollIntoView parks it below the header. */
+export function coachScrollMarginTop(input: {
+  /** Header bottom (viewport px); null = no occluding header on screen. */
+  occluderBottom: number | null;
+  /** The target's scroll container top (viewport px); 0 for the document. */
+  scrollerTop: number;
+  gap?: number;
+}): number {
+  if (input.occluderBottom == null) return 0;
+  return Math.max(0, Math.round(input.occluderBottom - input.scrollerTop + (input.gap ?? COACH_OCCLUDER_GAP)));
+}
+
+/**
+ * The spotlight hugs only the target: when the (padded) box pokes up under a header, its top
+ * is clipped to the header's bottom so the header's own content ("סט 1 מתוך 3") never falls
+ * inside the hole. A box fully under the header (should not happen after the scroll) is kept.
+ */
+export function clipCoachBox(box: CoachBox, clearTop: number | null): CoachBox {
+  if (clearTop == null || box.top >= clearTop) return box;
+  const bottom = box.top + box.height;
+  if (bottom <= clearTop) return box;
+  return { ...box, top: clearTop, height: bottom - clearTop };
+}
+
+/**
+ * "דלג" — ONE rule for every tour (entry bubble): a secondary text button inside the bubble,
+ * next to "הבא", so it never covers the target or the screen's header controls (progress bars,
+ * "תחנה 1 מתוך 2", the lap ring). Not on the last step — "הבנתי" ends the tour there.
+ */
+export function coachSkipVisible(index: number, total: number): boolean {
+  return total > 1 && index < total - 1;
+}

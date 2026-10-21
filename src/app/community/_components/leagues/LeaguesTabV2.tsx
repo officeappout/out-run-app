@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Info } from 'lucide-react';
-import { FIRST_RUN_COACH } from '@/features/user/onboarding/services/first-run-tour';
+import { FIRST_RUN_COACH, leagueTabCoachTarget } from '@/features/user/onboarding/services/first-run-tour';
 import { BoardToggle } from '@/features/arena/components/LeagueBoard';
 import { ScopeCompetitionLeaderboard, ScopeBattleCard, NationalLeagueBoard, InviteBonusCard, CityChallengeCard } from '@/app/community/CommunityWidgets';
 import type { LeagueTabV2 } from '@/app/community/_lib/community-constants';
@@ -85,6 +85,7 @@ export function LeaguesTabV2({ vm }: { vm: LeaguesVM }) {
                 role="tab"
                 aria-selected={on}
                 onClick={() => pick(tab.id)}
+                data-coach={leagueTabCoachTarget(tab.id)}
                 className={`h-10 whitespace-nowrap rounded-full text-[14px] font-extrabold transition-colors duration-200 ease-v2 ${
                   on ? 'bg-v2-cta text-v2-on-cta shadow-v2-cta' : 'text-v2-ink-2'
                 }`}

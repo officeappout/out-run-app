@@ -2,7 +2,8 @@
 
 /**
  * The entry-flow coach-mark bubble (enable_onboarding_tutorial_v1 / enable_entry_whatnow_v1):
- * a v2 card — short bold title + one line, progress dots, the pill "הבא" / "הבנתי" — with a
+ * a v2 card — short bold title + one line, progress dots, the pill "הבא" / "הבנתי" (+ a quiet
+ * "דלג" text button beside it — never a floating pill over the screen's own controls) — with a
  * caret pointing at the spotlit element. Enters with a 240 ms ease-out (replays per step);
  * reduced motion → no movement. Rendered by CoachMarks for `variant="entry"`.
  */
@@ -21,10 +22,13 @@ interface Props {
   nextLabel: string;
   doneLabel: string;
   onNext: () => void;
+  /** "דלג" as a secondary text button beside "הבא" (omitted → no skip on this step). */
+  skipLabel?: string;
+  onSkip?: () => void;
 }
 
 export default function EntryCoachBubble({
-  stepKey, title, text, index, total, placement, isLast, nextLabel, doneLabel, onNext,
+  stepKey, title, text, index, total, placement, isLast, nextLabel, doneLabel, onNext, skipLabel, onSkip,
 }: Props) {
   // Read first: the button accepts a tap only after a short dwell (no accidental skip).
   const [ready, setReady] = useState(false);
@@ -64,16 +68,27 @@ export default function EntryCoachBubble({
             />
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => { if (ready) onNext(); }}
-          aria-disabled={!ready}
-          className={`h-9 rounded-full bg-v2-cta px-5 text-[14px] font-bold text-v2-on-cta shadow-v2-cta transition-[opacity,transform] duration-200 ease-v2 active:scale-[0.97] ${
-            ready ? 'opacity-100' : 'opacity-60'
-          }`}
-        >
-          {isLast ? doneLabel : nextLabel}
-        </button>
+        <div className="flex items-center gap-1">
+          {onSkip && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="h-9 rounded-full px-3 text-[13px] font-bold text-v2-muted transition-transform duration-150 ease-v2 active:scale-[0.97]"
+            >
+              {skipLabel}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { if (ready) onNext(); }}
+            aria-disabled={!ready}
+            className={`h-9 rounded-full bg-v2-cta px-5 text-[14px] font-bold text-v2-on-cta shadow-v2-cta transition-[opacity,transform] duration-200 ease-v2 active:scale-[0.97] ${
+              ready ? 'opacity-100' : 'opacity-60'
+            }`}
+          >
+            {isLast ? doneLabel : nextLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

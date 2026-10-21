@@ -67,6 +67,7 @@ vi.mock('@/features/arena/components/LeaguesTabChrome', async () => {
 });
 vi.mock('@/features/user/onboarding/services/first-run-tour', () => ({
   FIRST_RUN_COACH: { communityLeague: 'community-league', communityInvite: 'community-invite' },
+  leagueTabCoachTarget: (id: string) => (id === 'neighborhoods' ? 'community-hoods-tab' : undefined),
 }));
 vi.mock('@/app/community/_components/feed/FeedShareBlock', async () => {
   const { stub } = await import('./community-stub');

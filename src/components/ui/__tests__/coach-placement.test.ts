@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  COACH_CARET_INSET, COACH_FINGER_GAP, COACH_GAP, COACH_GUTTER, COACH_MIN_DWELL_MS, placeCoachBubble,
+  COACH_CARET_INSET, COACH_FINGER_GAP, COACH_GAP, COACH_GUTTER, COACH_MIN_DWELL_MS, COACH_OCCLUDER_GAP,
+  clipCoachBox, coachScrollMarginTop, coachSkipVisible, placeCoachBubble,
 } from '../coach-marks/coach-placement';
 
 const root = { rootW: 390, rootH: 844 };
@@ -34,5 +35,28 @@ describe('coach bubble placement (owner note 21.10 #6 — anchored to the real e
   });
   it('a step cannot be skipped by a double tap', () => {
     expect(COACH_MIN_DWELL_MS).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe('tour fixes round 2 — header occluders and the in-bubble "דלג"', () => {
+  it('scroll margin = header bottom below the scroller top + gap; none without a header', () => {
+    expect(coachScrollMarginTop({ occluderBottom: null, scrollerTop: 0 })).toBe(0);
+    expect(coachScrollMarginTop({ occluderBottom: 180, scrollerTop: 0 })).toBe(180 + COACH_OCCLUDER_GAP);
+    expect(coachScrollMarginTop({ occluderBottom: 180, scrollerTop: 40, gap: 0 })).toBe(140);
+    expect(coachScrollMarginTop({ occluderBottom: 20, scrollerTop: 100 })).toBe(0);
+  });
+  it('the hole is clipped to below the header (never shows "סט 1 מתוך 3")', () => {
+    const box = { top: 150, left: 20, width: 350, height: 70 };
+    expect(clipCoachBox(box, null)).toEqual(box);
+    expect(clipCoachBox(box, 100)).toEqual(box);
+    expect(clipCoachBox(box, 180)).toEqual({ top: 180, left: 20, width: 350, height: 40 });
+    // fully under the header — kept as is (the scroll should have moved it)
+    expect(clipCoachBox(box, 300)).toEqual(box);
+  });
+  it('"דלג" sits in the bubble on every step but the last', () => {
+    expect(coachSkipVisible(0, 3)).toBe(true);
+    expect(coachSkipVisible(1, 3)).toBe(true);
+    expect(coachSkipVisible(2, 3)).toBe(false);
+    expect(coachSkipVisible(0, 1)).toBe(false);
   });
 });

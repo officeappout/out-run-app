@@ -72,9 +72,10 @@ export function guidanceLine(kind: 'reps' | 'time', gender: AppGender | null | u
 /** Welcome-screen greeting (guided only). "הגעת" is spelled the same for both genders. */
 export const WELCOME_GREETING = 'כל הכבוד, הגעת!';
 
-/** Welcome-screen CTA (guided only) — gendered. */
-export function welcomeCta(gender: AppGender | null | undefined): string {
-  return g(gender, 'בוא נתחיל', 'בואי נתחיל');
+/** Welcome-screen CTA (guided only) — one neutral form for everyone (owner gender decisions:
+ *  buttons use neutral / noun forms, not "בוא/בואי נתחיל"). `gender` kept for call-site parity. */
+export function welcomeCta(_gender?: AppGender | null): string {
+  return 'מתחילים';
 }
 
 /** Welcome-screen type chip: Timer ("זמן") for time-based / tabata exercises, Repeat ("חזרות") for rep-counted ones. */

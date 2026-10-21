@@ -137,6 +137,8 @@ export default function RunnerHeader({
         touchAction: 'none',
       }}
       onPointerDown={onPointerDown}
+      // Inert marker: coach-mark tours keep targets below this header + its white fade.
+      data-coach-occluder=""
     >
       <div className="px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 44px) + 0.75rem)' }}>
         {/* Row 1: Story Bars */}
