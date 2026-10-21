@@ -142,7 +142,7 @@ async function main() {
     rows.push(...saved.filter(r => r.variant === 'v1' || r.variant.endsWith('-all')));
     const cells = new Map<string, RouteRow[]>();
     for (const r of saved) if (r.variant === 'gh-all' && r.metrics) { const k = `${r.start}|${r.targetKm}|${Math.floor(r.run / 100)}`; cells.set(k, [...(cells.get(k) ?? []), r]); }
-    for (const list of cells.values()) {
+    for (const list of Array.from(cells.values())) {
       const base = (r: RouteRow) => (r.pass ? 0 : 10) + rq.evaluateLoopQuality(r.metrics!).penalty + 2 * Math.abs(r.metrics!.distanceErrorPct ?? 0);
       const near = list.filter(r => Math.abs(r.metrics!.distanceErrorPct ?? 0) <= 0.3);
       const pool = near.length ? near : list;
