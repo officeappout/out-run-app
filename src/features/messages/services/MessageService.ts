@@ -69,7 +69,8 @@ export interface SmartMessage {
   /** Optional: specific persona this message targets */
   targetPersona?: string;
   /** Optional: grammatical gender of the copy (male/female variants instead of slashes).
-   *  Unset = neutral, shown to everyone; a user of unknown gender gets the male form. */
+   *  Unset = neutral, shown to everyone. A user of unknown / "other" gender sees only
+   *  neutral rows (owner decision 21.10.2026: other = neutral, never the male form). */
   targetGender?: 'male' | 'female';
   /** Optional: minimum streak to show this message */
   minStreak?: number;
@@ -110,10 +111,11 @@ export interface MessageContext {
   gender?: 'male' | 'female' | 'other';
 }
 
-/** Gendered copy: neutral rows fit everyone; unknown/other gender reads the male form. */
+/** Gendered copy: neutral rows fit everyone; a male / female row only that gender.
+ *  Unknown / 'other' gender → neutral rows only (decision 21.10.2026, src/lib/i18n/gender-copy.ts). */
 export function messageMatchesGender(msg: Pick<SmartMessage, 'targetGender'>, gender?: MessageContext['gender']): boolean {
   if (!msg.targetGender) return true;
-  return msg.targetGender === (gender === 'female' ? 'female' : 'male');
+  return msg.targetGender === gender;
 }
 
 function pickDefault(type: MessageType, gender?: MessageContext['gender']): SmartMessage {
@@ -148,9 +150,12 @@ export const DEFAULT_MESSAGES: Record<MessageType, SmartMessage[]> = {
   post_workout: [
     { id: 'default-pw-1', type: 'post_workout', text: 'כל הכבוד!', subText: 'סיימת את האימון בהצלחה', priority: 5, isActive: true },
     { id: 'default-pw-2', type: 'post_workout', text: 'מדהים!', subText: 'עוד אימון בכיס', priority: 5, isActive: true },
-    { id: 'default-pw-3', type: 'post_workout', text: 'איזה חיה!', subText: 'המשך כך', priority: 5, isActive: true },
+    // Personal praise stays gendered; no "חיה" (owner decisions 6 + 9, 21.10.2026).
+    { id: 'default-pw-3', type: 'post_workout', text: 'איזה אימון!', subText: 'המשך כך', priority: 5, isActive: true, targetGender: 'male' },
+    { id: 'default-pw-3f', type: 'post_workout', text: 'איזה אימון!', subText: 'המשיכי כך', priority: 5, isActive: true, targetGender: 'female' },
     { id: 'default-pw-4', type: 'post_workout', text: 'סיימת!', subText: 'הגוף שלך מודה לך', priority: 5, isActive: true },
-    { id: 'default-pw-5', type: 'post_workout', text: 'אלוף!', subText: 'עוד צעד קדימה', priority: 5, isActive: true },
+    { id: 'default-pw-5', type: 'post_workout', text: 'אלוף!', subText: 'עוד צעד קדימה', priority: 5, isActive: true, targetGender: 'male' },
+    { id: 'default-pw-5f', type: 'post_workout', text: 'אלופה!', subText: 'עוד צעד קדימה', priority: 5, isActive: true, targetGender: 'female' },
   ],
   partial_workout: [
     { id: 'default-part-1', type: 'partial_workout', text: 'גם זה משהו!', subText: 'כל תנועה חשובה', priority: 5, isActive: true },
@@ -219,7 +224,7 @@ const INITIAL_SEED_DATA: SmartMessage[] = [
   { id: 'seed-re-2', type: 're_engagement', text: 'הופה!', subText: 'אימון קליל להיום?', priority: 6, isActive: true },
   
   // PR Record
-  { id: 'seed-pr-1', type: 'pr_record', text: 'מפלצת!', subText: 'שבירת שיאים זה הדבר שלך', priority: 10, isActive: true },
+  { id: 'seed-pr-1', type: 'pr_record', text: 'שיא חדש!', subText: 'עוד שיא אישי. ככה בונים כוח', priority: 10, isActive: true },
   
   // Default
   { id: 'seed-def-1', type: 'default', text: 'יאללה!', subText: 'בוא נתחיל', priority: 5, isActive: true },

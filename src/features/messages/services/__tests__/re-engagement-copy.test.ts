@@ -36,11 +36,14 @@ describe('re-engagement / missed-workout copy (calm return)', () => {
     expect(female.length).toBe(male.length);
   });
 
-  it('gender matching: neutral for all, unknown gender reads the male form', () => {
+  it('gender matching: neutral for all, unknown / other gender reads neutral rows only (21.10.2026)', () => {
     expect(messageMatchesGender({}, 'female')).toBe(true);
+    expect(messageMatchesGender({}, undefined)).toBe(true);
     expect(messageMatchesGender({ targetGender: 'female' }, 'female')).toBe(true);
     expect(messageMatchesGender({ targetGender: 'female' }, 'male')).toBe(false);
-    expect(messageMatchesGender({ targetGender: 'male' }, undefined)).toBe(true);
+    expect(messageMatchesGender({ targetGender: 'male' }, 'male')).toBe(true);
+    expect(messageMatchesGender({ targetGender: 'male' }, undefined)).toBe(false);
+    expect(messageMatchesGender({ targetGender: 'male' }, 'other')).toBe(false);
     expect(messageMatchesGender({ targetGender: 'female' }, 'other')).toBe(false);
   });
 });
