@@ -22,9 +22,10 @@ import type { RunSegmentFilter } from '@/features/arena/services/ranking.service
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { CardTile } from '@/components/ui/v2/Card';
 import Button from '@/components/ui/v2/Button';
-import { useUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
-import { LEAGUE_COPY } from './league-gender-copy';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import { LEAGUE_COPY_KEYS } from './league-gender-copy';
+import type { LeagueT, CommunityKey } from './league-t';
 
 import { BoardCard, BoardIconButton, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
 import { BoardSheet, ParticipantPeek, HowPointsContent } from './LeagueBoardSheets';
@@ -67,25 +68,27 @@ const MODE_TO_CATEGORY: Record<LeaderboardMode, LeaderboardCategory> = {
 // all rank by a genuine measured quantity. Shown but disabled ("בקרוב")
 // rather than removed, so the full intended metric set stays visible.
 // Design v2: emoji → lucide icons.
-const CATEGORY_OPTIONS: { value: LeaderboardMode; label: string; icon: LucideIcon; comingSoon?: boolean }[] = [
-  { value: 'general',  label: 'כללי',   icon: Flame },
-  { value: 'running',  label: 'ריצה',   icon: Activity, comingSoon: true },
-  { value: 'strength', label: 'כוח',    icon: Dumbbell, comingSoon: true },
-  { value: 'steps',    label: 'צעדים',  icon: Footprints },
-  { value: 'distance', label: 'מרחק',   icon: MapPin },
+const CATEGORY_OPTIONS: { value: LeaderboardMode; labelKey: CommunityKey; icon: LucideIcon; comingSoon?: boolean }[] = [
+  { value: 'general',  labelKey: 'leagues.individual.category.general',  icon: Flame },
+  { value: 'running',  labelKey: 'leagues.individual.category.running',  icon: Activity, comingSoon: true },
+  { value: 'strength', labelKey: 'leagues.individual.category.strength', icon: Dumbbell, comingSoon: true },
+  { value: 'steps',    labelKey: 'leagues.individual.category.steps',    icon: Footprints },
+  { value: 'distance', labelKey: 'leagues.individual.category.distance', icon: MapPin },
 ];
 
+// The running-segment sub-filter is hidden (showSubFilter below is `false && …`), so these labels
+// are never rendered today.
 const RUN_SEGMENT_OPTIONS: { value: RunSegment; label: string }[] = [
-  { value: 'all', label: 'כללי'     },
-  { value: '3k',  label: '3 ק"מ'   },
-  { value: '5k',  label: '5 ק"מ'   },
-  { value: '10k', label: '10 ק"מ'  },
+  { value: 'all', label: 'כללי'     }, // i18n-allow-hebrew: unreachable (showSubFilter is false)
+  { value: '3k',  label: '3 ק"מ'   }, // i18n-allow-hebrew: unreachable (showSubFilter is false)
+  { value: '5k',  label: '5 ק"מ'   }, // i18n-allow-hebrew: unreachable (showSubFilter is false)
+  { value: '10k', label: '10 ק"מ'  }, // i18n-allow-hebrew: unreachable (showSubFilter is false)
 ];
 
-const TIME_OPTIONS: { value: LeaderboardTimeWindow; label: string }[] = [
-  { value: 'daily',   label: 'יומי'   },
-  { value: 'weekly',  label: 'שבועי'  },
-  { value: 'monthly', label: 'חודשי' },
+const TIME_OPTIONS: { value: LeaderboardTimeWindow; labelKey: CommunityKey }[] = [
+  { value: 'daily',   labelKey: 'leagues.individual.time.daily'   },
+  { value: 'weekly',  labelKey: 'leagues.individual.time.weekly'  },
+  { value: 'monthly', labelKey: 'leagues.individual.time.monthly' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,20 +100,18 @@ function getContextLabel(
   mode: LeaderboardMode,
   runSegment: RunSegment,
   strengthProgram: Program | null,
+  t: LeagueT,
 ): string {
   switch (mode) {
-    case 'general': return 'ימי אימון ברצף';
-    case 'steps':   return 'ממוצע יומי שבועי';
-    case 'distance': return 'סה"כ ק"מ';
+    case 'general': return t('leagues.individual.context.general');
+    case 'steps':   return t('leagues.individual.context.steps');
+    case 'distance': return t('leagues.individual.context.distance');
     case 'running':
-      if (runSegment === '3k')  return 'שיא קצב ל-3 ק"מ';
-      if (runSegment === '5k')  return 'שיא קצב ל-5 ק"מ';
-      if (runSegment === '10k') return 'שיא קצב ל-10 ק"מ';
-      return 'סה"כ ק"מ שבועי';
+      return t('leagues.individual.context.running', { segment: runSegment });
     case 'strength':
       return strengthProgram
-        ? `רמה ואחוז השלמה — ${strengthProgram.name}`
-        : 'רמה ואחוז השלמה';
+        ? t('leagues.individual.context.strengthProgram', { program: strengthProgram.name })
+        : t('leagues.individual.context.strength');
   }
 }
 
@@ -414,7 +415,7 @@ export function NeighborhoodLeaderboardView({
   initialPeekUid,
   initialHowOpen = false,
 }: NeighborhoodLeaderboardViewProps) {
-  const uiGender = useUiGender();
+  const t = useT(community);
   const [openDropdown, setOpenDropdown]         = useState<OpenDropdown>(null);
   const [showInvite, setShowInvite]             = useState(false);
   const [filterSheetOpen, setFilterSheetOpen]   = useState(false);
@@ -446,19 +447,19 @@ export function NeighborhoodLeaderboardView({
   // as the page-level sticky "my rank" footer (community/page.tsx), scoped
   // to this leaderboard's own `scopeLabel` instead of the page-level active
   // league card name — same behavior, no cross-component reach-through.
-  const heroWindowPhrase = timeWindow === 'daily' ? 'היום' : timeWindow === 'weekly' ? 'השבוע' : 'החודש';
+  const heroWindowPhrase = t('leagues.individual.windowPhrase', { window: timeWindow });
 
   function handleHeroShare() {
     if (!myEntry) return;
-    const name = scopeLabel ?? 'הליגה';
-    const text = `אני במקום #${myEntry.rank} ב${name} ${heroWindowPhrase} על Out! 🔥`;
+    const name = scopeLabel ?? t('leagues.individual.leagueFallback');
+    const text = t('leagues.individual.share.rank', { rank: String(myEntry.rank), name, window: heroWindowPhrase });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }
 
   function handleHeroInvite() {
-    const name = scopeLabel ?? 'הליגה';
-    const text = `בואו להצטרף אליי ב${name} על Out! 🔥`;
+    const name = scopeLabel ?? t('leagues.individual.leagueFallback');
+    const text = t('leagues.individual.share.invite', { name });
     if (navigator.share) navigator.share({ text }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(text);
   }
@@ -485,7 +486,7 @@ export function NeighborhoodLeaderboardView({
   // drive useLeaderboard as before; only the trigger to open this dropdown
   // is hidden. Flip this back to the original condition to re-show it.
   const showSubFilter      = false && (localMode === 'running' || localMode === 'strength');
-  const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg);
+  const contextLabel       = getContextLabel(localMode, runSegment, activeStrengthProg, t);
 
   const catActive    = localMode !== 'general';
 
@@ -499,7 +500,7 @@ export function NeighborhoodLeaderboardView({
       return opt.label;
     }
     if (activeStrengthProg) return activeStrengthProg.name;
-    return 'בחר';
+    return 'בחר'; // i18n-allow-hebrew: unreachable (showSubFilter is false)
   }
 
   // ── v2 board derivations (pure — league-board-logic.ts) ──────────────────
@@ -507,7 +508,7 @@ export function NeighborhoodLeaderboardView({
   const visibleRows = getVisibleRows(entries, expanded);
   const pinMyRow = shouldPinMyRow(visibleRows, myEntry);
   const nextTarget = computeNextRankTarget(entries, myEntry, localMode, isSegmentMode);
-  const countdown = hasPeriodEnd(localMode) ? formatTimeLeft(getPeriodEnd(timeWindow, now), now) : null;
+  const countdown = hasPeriodEnd(localMode) ? formatTimeLeft(getPeriodEnd(timeWindow, now), now, t) : null;
   const sparse = isSparseBoard(entries.length);
   const peekEntry = peekUid
     ? entries.find((e) => e.uid === peekUid) ?? (myEntry && myEntry.uid === peekUid ? myEntry : null)
@@ -538,14 +539,14 @@ export function NeighborhoodLeaderboardView({
   const showStickyMe = !!myEntry && !shouldBlur && !isLoading && (pinMyRow || !myRowOnScreen);
 
   function renderRow(entry: LeaderboardEntry, blurred = false, sticky = false) {
-    const s = splitScore(entry.totalCredit, localMode, isSegmentMode);
+    const s = splitScore(entry.totalCredit, localMode, isSegmentMode, t);
     const row = (
       <BoardRow
         key={entry.uid}
         rank={entry.rank}
         name={entry.name}
-        nameTag={entry.isCurrentUser ? '(אני)' : undefined}
-        sub={localMode !== 'general' && localMode !== 'steps' && !isSegmentMode ? `${entry.workoutCount} אימונים` : undefined}
+        nameTag={entry.isCurrentUser ? t('leagues.individual.me') : undefined}
+        sub={localMode !== 'general' && localMode !== 'steps' && !isSegmentMode ? t('leagues.individual.workouts', { count: String(entry.workoutCount) }) : undefined}
         value={s.value}
         unit={s.unit}
         isMe={entry.isCurrentUser}
@@ -565,7 +566,7 @@ export function NeighborhoodLeaderboardView({
   const podium: [PodiumEntry, PodiumEntry, PodiumEntry] | null =
     top3.length === 3 && top3.every((e, i) => e.rank === i + 1)
       ? (top3.map((e) => {
-          const sc = splitScore(e.totalCredit, localMode, isSegmentMode);
+          const sc = splitScore(e.totalCredit, localMode, isSegmentMode, t);
           return {
             key: e.uid,
             name: e.name,
@@ -584,17 +585,17 @@ export function NeighborhoodLeaderboardView({
   return (
     <section dir="rtl">
       <BoardCard
-        title={isGlobal ? 'דירוג ארצי' : 'ליגת העיר'}
+        title={t('leagues.individual.title', { global: isGlobal ? 'yes' : 'no' })}
         subtitle={
           <>
-            {scopeLabel ?? 'טבלת דירוג'}
+            {scopeLabel ?? t('leagues.individual.subtitleFallback')}
             {countdown && <span className="tabular-nums"> · {countdown}</span>}
           </>
         }
         actions={
           <>
-            <BoardIconButton icon={Info} label="איך צוברים נקודות" onClick={() => setHowOpen(true)} />
-            <BoardIconButton icon={RefreshCw} label="רענון" onClick={refresh} spinning={isLoading} />
+            <BoardIconButton icon={Info} label={t('leagues.individual.howPoints')} onClick={() => setHowOpen(true)} />
+            <BoardIconButton icon={RefreshCw} label={t('leagues.individual.refresh')} onClick={refresh} spinning={isLoading} />
           </>
         }
       >
@@ -604,7 +605,7 @@ export function NeighborhoodLeaderboardView({
               the Groups tab's "מדד:" dropdown and the time dropdown).
               ריצה/כוח render as disabled "בקרוב" items. */}
           <FilterDropdown
-            label={<><ActiveCatIcon size={14} strokeWidth={2.4} aria-hidden />{activeCatOpt.label}</>}
+            label={<><ActiveCatIcon size={14} strokeWidth={2.4} aria-hidden />{t(activeCatOpt.labelKey)}</>}
             isActive={catActive}
             isOpen={openDropdown === 'cat'}
             onToggle={() => setOpenDropdown(openDropdown === 'cat' ? null : 'cat')}
@@ -617,10 +618,10 @@ export function NeighborhoodLeaderboardView({
                   isSelected={localMode === opt.value}
                   onClick={() => handleSetMode(opt.value)}
                   disabled={opt.comingSoon}
-                  trailingLabel={opt.comingSoon ? 'בקרוב' : undefined}
+                  trailingLabel={opt.comingSoon ? t('leagues.individual.comingSoon') : undefined}
                 >
                   <OptIcon size={16} strokeWidth={2.4} aria-hidden />
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </DropdownItem>
               );
             })}
@@ -646,7 +647,7 @@ export function NeighborhoodLeaderboardView({
 
               {localMode === 'strength' && (
                 programs.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-v2-muted">טוען תוכניות...</div>
+                  <div className="px-3 py-3 text-xs text-v2-muted">{/* i18n-allow-hebrew: unreachable (showSubFilter is false) */}טוען תוכניות...</div>
                 ) : (
                   programs.map((prog) => (
                     <DropdownItem
@@ -665,7 +666,7 @@ export function NeighborhoodLeaderboardView({
 
           {/* טווח */}
           <FilterDropdown
-            label={(TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).label}
+            label={t((TIME_OPTIONS.find((o) => o.value === timeWindow) ?? TIME_OPTIONS[0]).labelKey)}
             isActive={timeActive}
             isOpen={openDropdown === 'time'}
             onToggle={() => setOpenDropdown(openDropdown === 'time' ? null : 'time')}
@@ -676,7 +677,7 @@ export function NeighborhoodLeaderboardView({
                 isSelected={timeWindow === opt.value}
                 onClick={() => { setTimeWindow(opt.value); setOpenDropdown(null); }}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </DropdownItem>
             ))}
           </FilterDropdown>
@@ -685,7 +686,7 @@ export function NeighborhoodLeaderboardView({
           <button
             type="button"
             onClick={() => setFilterSheetOpen(true)}
-            aria-label="פילטרים"
+            aria-label={t('leagues.individual.filters')}
             className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ease-v2 ${
               genderActive ? 'bg-v2-tint text-v2-deep ring-1 ring-inset ring-v2-accent/40' : 'bg-white text-v2-ink-2 shadow-v2-ring'
             }`}
@@ -700,7 +701,7 @@ export function NeighborhoodLeaderboardView({
             {localMode === 'general' && (
               <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-v2-tint text-v2-deep text-[11px] font-bold">
                 <Flame size={11} strokeWidth={2.6} aria-hidden />
-                {scope === 'tenant' ? 'ימים פעילים' : 'רצף'}
+                {t('leagues.individual.badge', { scope })}
               </span>
             )}
             {contextLabel}
@@ -715,20 +716,20 @@ export function NeighborhoodLeaderboardView({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[12px] text-v2-muted truncate">
-                  המיקום שלך {heroWindowPhrase} · {scopeLabel ?? 'הליגה'}
+                  {t('leagues.individual.hero.position', { window: heroWindowPhrase, name: scopeLabel ?? t('leagues.individual.leagueFallback') })}
                 </p>
                 <p className="mt-1 truncate tabular-nums">
                   <span className="text-[26px] font-black leading-none tracking-v2-tighter text-v2-deep">
-                    {splitScore(myEntry.totalCredit, localMode, isSegmentMode).value}
+                    {splitScore(myEntry.totalCredit, localMode, isSegmentMode, t).value}
                   </span>
                   <span className="text-[13px] font-bold text-v2-ink-2 mr-1">
-                    {splitScore(myEntry.totalCredit, localMode, isSegmentMode).unit}
+                    {splitScore(myEntry.totalCredit, localMode, isSegmentMode, t).unit}
                   </span>
                 </p>
               </div>
               <div className="text-center rounded-v2-tile px-3 py-2 shrink-0 bg-white shadow-v2-ring">
                 <p className="text-[20px] font-black leading-none tabular-nums">#{myEntry.rank}</p>
-                <p className="text-[10px] mt-1 text-v2-muted tabular-nums">מתוך {totalParticipants}</p>
+                <p className="text-[10px] mt-1 text-v2-muted tabular-nums">{t('leagues.individual.hero.of', { count: String(totalParticipants) })}</p>
               </div>
             </div>
 
@@ -738,7 +739,7 @@ export function NeighborhoodLeaderboardView({
             {localMode === 'general' && myEntry.totalCredit > 0 && (
               <p className="mt-2 text-[12px] font-bold text-[#c2410c] flex items-center gap-1">
                 <Flame size={13} strokeWidth={2.6} fill="currentColor" aria-hidden />
-                {myEntry.totalCredit} ימי אימון ברצף
+                {t('leagues.individual.hero.streak', { days: String(myEntry.totalCredit) })}
               </p>
             )}
 
@@ -748,7 +749,7 @@ export function NeighborhoodLeaderboardView({
             {nextTarget && (
               <div className="mt-3">
                 <p className="text-[12.5px] font-bold text-v2-ink truncate">
-                  {formatNextRankLine(nextTarget, localMode)}
+                  {formatNextRankLine(nextTarget, localMode, t)}
                 </p>
                 <div
                   className="mt-1.5 h-1.5 rounded-full bg-v2-tint overflow-hidden"
@@ -767,7 +768,7 @@ export function NeighborhoodLeaderboardView({
 
             <div className="flex gap-2 mt-3.5">
               <Button variant="primary" size="sm" className="flex-1" onClick={handleHeroShare}>
-                שיתוף המיקום שלי
+                {t('leagues.individual.hero.share')}
               </Button>
               <button
                 type="button"
@@ -775,7 +776,7 @@ export function NeighborhoodLeaderboardView({
                 className="flex-1 h-9 rounded-full inline-flex items-center justify-center gap-1.5 bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline text-[13px] font-extrabold active:scale-[0.97] transition-transform ease-v2"
               >
                 <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-                הזמנת חברים
+                {t('leagues.individual.hero.invite')}
               </button>
             </div>
           </CardTile>
@@ -793,9 +794,9 @@ export function NeighborhoodLeaderboardView({
           <div className="mt-4">
             <div className="grid grid-cols-1 gap-2">
               {[
-                { icon: Plus, label: pickGendered(uiGender, LEAGUE_COPY.stepTrain) },
-                { icon: UserPlus, label: pickGendered(uiGender, LEAGUE_COPY.stepInvite) },
-                { icon: Trophy, label: pickGendered(uiGender, LEAGUE_COPY.stepPodium) },
+                { icon: Plus, label: t(LEAGUE_COPY_KEYS.stepTrain) },
+                { icon: UserPlus, label: t(LEAGUE_COPY_KEYS.stepInvite) },
+                { icon: Trophy, label: t(LEAGUE_COPY_KEYS.stepPodium) },
               ].map((step, i) => {
                 const StepIcon = step.icon;
                 return (
@@ -810,12 +811,12 @@ export function NeighborhoodLeaderboardView({
               })}
             </div>
             <p className="text-[13px] text-v2-ink-2 text-center mt-4 leading-relaxed">
-              היו הראשונים בליגה! הזמינו חברים והתחילו להתאמן כדי לתפוס את הפודיום
+              {t('leagues.individual.empty.body')}
             </p>
             <div className="flex justify-center mt-3">
               <Button variant="primary" size="md" onClick={() => setShowInvite(true)}>
                 <UserPlus size={16} strokeWidth={2.4} aria-hidden />
-                הזמנת חברים לליגה
+                {t('leagues.individual.empty.cta')}
               </Button>
             </div>
           </div>
@@ -840,16 +841,16 @@ export function NeighborhoodLeaderboardView({
                 {shouldBlur && (
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white via-white/90 to-transparent flex flex-col items-center justify-center px-5 text-center">
                     <Lock size={20} strokeWidth={2.4} className="text-v2-accent mb-2" aria-hidden />
-                    <p className="text-[15px] font-black">הטבלה נעולה</p>
+                    <p className="text-[15px] font-black">{t('leagues.individual.locked.title')}</p>
                     <p className="text-[12.5px] text-v2-ink-2 mt-1 mb-3 max-w-[240px]">
                       {!socialUnlocked
-                        ? pickGendered(uiGender, LEAGUE_COPY.lockedInvite)
-                        : pickGendered(uiGender, LEAGUE_COPY.lockedCity)}
+                        ? t(LEAGUE_COPY_KEYS.lockedInvite)
+                        : t(LEAGUE_COPY_KEYS.lockedCity)}
                     </p>
                     {!socialUnlocked && (
                       <Button variant="primary" size="sm" onClick={() => setShowInvite(true)}>
                         <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-                        הזמנת שותף
+                        {t('leagues.individual.locked.cta')}
                       </Button>
                     )}
                   </div>
@@ -878,7 +879,7 @@ export function NeighborhoodLeaderboardView({
                 onClick={() => setExpanded((v) => !v)}
                 className="mt-3 w-full h-10 rounded-full bg-v2-surface text-[13px] font-extrabold text-v2-ink flex items-center justify-center gap-1.5 active:scale-[0.97] transition-transform ease-v2"
               >
-                {expanded ? 'להציג פחות' : `להציג את כל ${entries.length} המשתתפים`}
+                {expanded ? t('leagues.individual.expand.less') : t('leagues.individual.expand.all', { count: String(entries.length) })}
                 <ChevronDown
                   size={15}
                   strokeWidth={2.4}
@@ -897,13 +898,13 @@ export function NeighborhoodLeaderboardView({
                   <UserPlus size={20} strokeWidth={2.4} aria-hidden />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-black">הליגה רק מתחילה</p>
+                  <p className="text-[15px] font-black">{t('leagues.individual.sparse.title')}</p>
                   <p className="text-[12.5px] text-v2-ink-2 leading-snug mt-0.5">
-                    {entries.length === 1 ? 'משתתף אחד עד עכשיו' : `רק ${entries.length} משתתפים עד עכשיו`} — הזמינו חברים להתחרות איתכם
+                    {t('leagues.individual.sparse.body', { n: entries.length, count: String(entries.length) })}
                   </p>
                 </div>
-                <Button variant="primary" size="sm" onClick={() => setShowInvite(true)} aria-label="הזמנת חברים לליגה">
-                  הזמנה
+                <Button variant="primary" size="sm" onClick={() => setShowInvite(true)} aria-label={t('leagues.individual.sparse.ctaLabel')}>
+                  {t('leagues.individual.sparse.cta')}
                 </Button>
               </div>
             )}
@@ -922,7 +923,7 @@ export function NeighborhoodLeaderboardView({
         onGenderFilterChange={setGenderFilter}
       />
 
-      <BoardSheet isOpen={!!peekEntry} onClose={() => setPeekUid(null)} title="פרטי המשתתף">
+      <BoardSheet isOpen={!!peekEntry} onClose={() => setPeekUid(null)} title={t('leagues.individual.peekTitle')}>
         {peekEntry && (
           <ParticipantPeek
             entry={peekEntry}
@@ -936,7 +937,7 @@ export function NeighborhoodLeaderboardView({
         )}
       </BoardSheet>
 
-      <BoardSheet isOpen={howOpen} onClose={() => setHowOpen(false)} title="איך צוברים נקודות">
+      <BoardSheet isOpen={howOpen} onClose={() => setHowOpen(false)} title={t('leagues.individual.howPoints')}>
         <HowPointsContent isTenant={scope === 'tenant'} />
       </BoardSheet>
 
