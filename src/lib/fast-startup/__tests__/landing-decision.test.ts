@@ -78,3 +78,69 @@ describe('fastStartGuardTarget — home re-check after a fast path', () => {
     expect(fastStartGuardTarget({ expectedUid: 'u1', authUid: 'u1', doc: 'unknown' })).toBeNull();
   });
 });
+
+describe('decideLandingRoute — enable_landing_real_fallback', () => {
+  const on = { realFallback: true };
+  const withStrength = { progression: { domains: { upper_body: { currentLevel: 3 } } } };
+  const withActive = { progression: { domains: {}, activePrograms: [{ id: 'p1' }] } };
+  const withRun = { running: { activeProgram: { programId: 'r1' } } };
+
+  it('flag off (default / explicit false) → every old branch unchanged, /gateway stays', () => {
+    for (const opts of [undefined, { realFallback: false }]) {
+      expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING' }, opts)).toBe('/gateway');
+      expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', ...withStrength }, opts)).toBe('/gateway');
+      expect(decideLandingRoute({}, opts)).toBe('/gateway');
+      expect(decideLandingRoute(null, opts)).toBe('/gateway');
+      expect(decideLandingRoute({ onboardingStatus: 'LEGACY_X', ...withRun }, opts)).toBe('/gateway');
+      expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', onboardingPath: 'MAP_ONLY', ...withStrength }, opts)).toBe('/explorer');
+    }
+  });
+
+  it('flag on → never /gateway', () => {
+    for (const d of [null, undefined, {}, { onboardingStatus: 'ONBOARDING' }, { onboardingStatus: 'WHATEVER' }]) {
+      expect(decideLandingRoute(d, on)).not.toBe('/gateway');
+    }
+  });
+
+  it('flag on: ONBOARDING / unknown / missing status without a program → /explorer', () => {
+    expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', onboardingStep: 'PROCESSING', onboardingPath: 'FULL_PROGRAM' }, on)).toBe('/explorer');
+    expect(decideLandingRoute({ onboardingStatus: 'LEGACY_X' }, on)).toBe('/explorer');
+    expect(decideLandingRoute({}, on)).toBe('/explorer');
+    expect(decideLandingRoute(null, on)).toBe('/explorer');
+    // the quick-signup scaffold's empty program fields are "no program"
+    expect(decideLandingRoute({ progression: { domains: {}, activePrograms: [] }, running: { activeProgram: null } }, on)).toBe('/explorer');
+  });
+
+  it('flag on: ONBOARDING / unknown / missing status WITH a program → /home', () => {
+    for (const prog of [withStrength, withActive, withRun]) {
+      expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', ...prog }, on)).toBe('/home');
+      expect(decideLandingRoute({ onboardingStatus: 'LEGACY_X', ...prog }, on)).toBe('/home');
+      expect(decideLandingRoute({ ...prog }, on)).toBe('/home');
+    }
+  });
+
+  it('flag on: ONBOARDING is checked before the MAP_ONLY path (a program goes home)', () => {
+    expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', onboardingPath: 'MAP_ONLY', ...withRun }, on)).toBe('/home');
+    expect(decideLandingRoute({ onboardingStatus: 'ONBOARDING', onboardingPath: 'MAP_ONLY' }, on)).toBe('/explorer');
+  });
+
+  it('flag on: the known branches are untouched', () => {
+    expect(decideLandingRoute({ onboardingStatus: 'IN_PROGRESS', onboardingStep: 'IDENTITY', ...withStrength }, on)).toBe('/onboarding-new/profile');
+    expect(decideLandingRoute({ onboardingStatus: 'IN_PROGRESS', onboardingStep: 'HEALTH' }, on)).toBe('/onboarding-new/health');
+    expect(decideLandingRoute({ onboardingStatus: 'COMPLETED' }, on)).toBe('/home');
+    expect(decideLandingRoute({ onboardingStatus: 'MAP_ONLY', ...withStrength }, on)).toBe('/explorer');
+    expect(decideLandingRoute({ onboardingPath: 'MAP_ONLY' }, on)).toBe('/explorer');
+  });
+
+  it('canFastPathToHome stays strict (no flag): an ONBOARDING user with a program takes the slow path', () => {
+    expect(canFastPathToHome({ hasSessionHint: true, lastAuthUid: 'u1', persistedProfile: { id: 'u1', onboardingStatus: 'ONBOARDING', ...withStrength } })).toBe(false);
+  });
+
+  it('fastStartGuardTarget passes the flag through', () => {
+    const base = { expectedUid: 'u1', authUid: 'u1' };
+    expect(fastStartGuardTarget({ ...base, doc: { onboardingStatus: 'ONBOARDING' } })).toBe('/gateway');
+    expect(fastStartGuardTarget({ ...base, doc: { onboardingStatus: 'ONBOARDING' }, realFallback: true })).toBe('/explorer');
+    expect(fastStartGuardTarget({ ...base, doc: { onboardingStatus: 'ONBOARDING', ...withStrength }, realFallback: true })).toBeNull();
+    expect(fastStartGuardTarget({ ...base, doc: 'missing', realFallback: true })).toBe('/');
+  });
+});

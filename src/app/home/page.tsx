@@ -2,6 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
+import { decideLandingRoute } from '@/lib/fast-startup/landing-decision';
+import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
@@ -2953,7 +2955,10 @@ export default function HomePage() {
         if (snap.exists()) {
           const d = snap.data();
           const s = d?.onboardingStatus;
-          if (s === 'COMPLETED' || s === 'PENDING_LIFESTYLE' || d?.onboardingComplete || s === 'MAP_ONLY') {
+          // enable_landing_real_fallback: `/` now also sends an ONBOARDING / unknown-status user
+          // with a program here (decideLandingRoute) — load them instead of bouncing them out.
+          const homeByRealFallback = isLandingRealFallbackOn() && decideLandingRoute(d, { realFallback: true }) === '/home';
+          if (s === 'COMPLETED' || s === 'PENDING_LIFESTYLE' || d?.onboardingComplete || s === 'MAP_ONLY' || homeByRealFallback) {
             const fp = await getUserFromFirestore(uid);
             if (fp) { useUserStore.getState().initializeProfile(fp); setIsCheckingFirestore(false); return; }
           }

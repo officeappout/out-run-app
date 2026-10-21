@@ -22,6 +22,7 @@ import { auth, db } from '@/lib/firebase';
 import { fastStartGuardTarget } from '@/lib/fast-startup/landing-decision';
 import { clearLastAuthUid, clearPendingVerify, readPendingVerify, writeLastAuthUid } from '@/lib/fast-startup/session-uid';
 import { startupMark } from '@/lib/fast-startup/perf';
+import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 
 const VERIFY_TIMEOUT_MS = 8_000;
 
@@ -67,6 +68,7 @@ export function useFastStartGuard(router: RouterLike): void {
           expectedUid,
           authUid: auth.currentUser?.uid ?? null,
           doc: snap.exists() ? (snap.data() ?? {}) : 'missing',
+          realFallback: isLandingRealFallbackOn(),
         });
         if (target) bail(target);
       } catch {

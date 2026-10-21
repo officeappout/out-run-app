@@ -7,6 +7,9 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/hooks/useT';
 import { onboarding } from '@/messages/ns/onboarding';
+import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
+import { LEGACY_GATEWAY_ROUTE, resolveBackFallback } from '@/lib/landing-fallback/fallback-routes';
 
 /**
  * Redirect page for /onboarding -> /gateway
@@ -18,10 +21,14 @@ import { onboarding } from '@/messages/ns/onboarding';
 export default function OnboardingRedirect() {
   const router = useRouter();
   const t = useT(onboarding);
+  // enable_landing_real_fallback: /home with a loaded profile, else the welcome screen.
+  const { enabled: realFallback, loading: flagLoading } = useLandingRealFallback();
+  const hasProfile = useUserStore((st) => !!st.profile?.id);
 
   useEffect(() => {
-    router.replace('/gateway');
-  }, [router]);
+    if (flagLoading) return;
+    router.replace(realFallback ? resolveBackFallback(hasProfile) : LEGACY_GATEWAY_ROUTE);
+  }, [router, realFallback, flagLoading, hasProfile]);
 
   return (
     <div className="h-screen w-full flex items-center justify-center bg-gradient-to-br from-cyan-50 to-blue-100">

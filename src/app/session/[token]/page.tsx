@@ -14,6 +14,8 @@ import { useSharedSession } from '@/features/workout-engine/core/store/useShared
 import { onAuthStateChange } from '@/lib/auth.service';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
+import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
+import { LEGACY_GATEWAY_ROUTE, WELCOME_ROUTE } from '@/lib/landing-fallback/fallback-routes';
 
 export default function SessionTokenPage() {
   const params = useParams();
@@ -25,6 +27,7 @@ export default function SessionTokenPage() {
   const [error, setError] = useState<'not_found' | 'expired' | 'max_uses_reached' | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const { enabled: realFallback } = useLandingRealFallback();
 
   useEffect(() => {
     if (!token) { setError('not_found'); setLoading(false); return; }
@@ -51,8 +54,10 @@ export default function SessionTokenPage() {
       unsub();
 
       if (!user) {
-        // Not signed in — localStorage key is already set; gateway will consume it post-auth
-        router.push('/gateway');
+        // Not signed in — localStorage key is already set; gateway will consume it post-auth.
+        // enable_landing_real_fallback: the welcome screen — quick signup (runExploreMapFlow)
+        // consumes pending_session_token the same way.
+        router.push(realFallback ? WELCOME_ROUTE : LEGACY_GATEWAY_ROUTE);
         return;
       }
 
