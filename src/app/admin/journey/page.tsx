@@ -88,7 +88,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import { AlertCircle } from 'lucide-react';
 
 // Reused as-is from PR #123 — same components /admin/statistics already

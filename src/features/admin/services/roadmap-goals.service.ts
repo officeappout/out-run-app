@@ -14,7 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { RoadmapDomain, CommonStatus, RoadmapPriority } from '@/types/roadmap-unified.types';
+import type { RoadmapDomain, CommonStatus, RoadmapPriority } from '@/features/admin/types/roadmap-unified.types';
 
 const COLLECTION = 'roadmap_goals';
 

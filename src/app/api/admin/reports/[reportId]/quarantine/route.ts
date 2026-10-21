@@ -9,7 +9,7 @@
  * stays recoverable by an admin. Replaces the browser-side deleteGroup /
  * deleteEvent + deleteDoc(reports) (root-only at the rules layer).
  *
- * Authorization: authorizeReportAccess (src/lib/reportScope.ts) — root, or the
+ * Authorization: authorizeReportAccess (src/features/admin/lib/reportScope.ts) — root, or the
  * manager of the authority that owns the report's TARGET; re-derived from the
  * target doc every time. Non-manager / out-of-scope / not-found / malformed /
  * non-group-event report: the same generic 403 (zero report reads for a
@@ -39,7 +39,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { authorizeReportAccess, REPORT_TARGET_COLLECTION, type ReportCaller } from '@/lib/reportScope';
+import { authorizeReportAccess, REPORT_TARGET_COLLECTION, type ReportCaller } from '@/features/admin/lib/reportScope';
 import { isContentRemoved, MODERATION_REMOVED } from '@/lib/moderation';
 import { getRequestIp } from '@/lib/requestIp';
 import { RATE_LIMITS, isBlockedByAny } from '@/lib/rateLimitConfig';

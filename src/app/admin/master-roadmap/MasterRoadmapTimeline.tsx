@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { ChevronRight, ChevronDown, LayoutList, Layers } from 'lucide-react';
-import type { RoadmapItem } from '@/types/roadmap-unified.types';
-import { ROADMAP_LANES, resolveLaneKey, type LaneConfig } from '@/config/roadmap-lanes.config';
+import type { RoadmapItem } from '@/features/admin/types/roadmap-unified.types';
+import { ROADMAP_LANES, resolveLaneKey, type LaneConfig } from '@/features/admin/config/roadmap-lanes.config';
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 

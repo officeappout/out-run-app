@@ -19,7 +19,7 @@ import {
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import { getAuthoritiesByManager, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getReportsByAuthority, updateReportStatus } from '@/features/admin/services/maintenance.service';
-import type { MaintenanceReport, MaintenanceStatus, MaintenanceIssueType } from '@/types/maintenance.types';
+import type { MaintenanceReport, MaintenanceStatus, MaintenanceIssueType } from '@/features/admin/types/maintenance.types';
 import ParkDetailDrawer from '@/features/admin/components/parks/ParkDetailDrawer';
 import {
   Flag,

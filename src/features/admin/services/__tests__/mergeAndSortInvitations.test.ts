@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeAndSortInvitations } from '../mergeInvitations';
-import type { AdminInvitation } from '@/types/invitation.type';
+import type { AdminInvitation } from '@/features/admin/types/invitation.type';
 
 function inv(partial: Partial<AdminInvitation> & { id: string; createdAt: Date }): AdminInvitation {
   return {

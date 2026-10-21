@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import {
   getTopBaseMovements,
   getLocationDistribution,

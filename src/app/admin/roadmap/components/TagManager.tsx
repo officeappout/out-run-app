@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Plus, Edit2, Trash2, Save, Loader2, Palette } from 'lucide-react';
-import { ProductTag } from '@/types/product-roadmap.types';
+import { ProductTag } from '@/features/admin/types/product-roadmap.types';
 import {
   createTag,
   updateTag,

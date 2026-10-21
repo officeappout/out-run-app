@@ -12,7 +12,7 @@ import { Program } from '@/features/content/programs';
 import { Save, X, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import ExerciseEditorForm from '@/features/content/exercises/admin/ExerciseEditorForm';
-import MobileFrame from '@/components/MobileFrame';
+import MobileFrame from '@/features/admin/components/shared/MobileFrame';
 import ExerciseDetailView from '@/features/app/exercises/components/ExerciseDetailView';
 import { useIsMounted } from '@/hooks/useIsMounted';
 

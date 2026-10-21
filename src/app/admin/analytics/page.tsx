@@ -40,7 +40,7 @@ import {
   getMarketingLinks,
   type MarketingLink,
 } from '@/features/admin/services/marketing-links.service';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import PushFunnelSection, {
   type PushFunnelSummaryResponse,
 } from '@/features/admin/components/cpo-dashboard/PushFunnelSection';

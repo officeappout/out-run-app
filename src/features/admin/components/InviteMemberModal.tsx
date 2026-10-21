@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { UserPlus, Mail, Loader2, X, Copy, Check, Camera, Shield } from 'lucide-react';
 import { getChildrenByParent, getAllAuthorities } from '@/features/admin/services/authority.service';
 import { getTenantLabels } from '@/features/admin/config/tenantLabels';
-import type { InvitationRole } from '@/types/invitation.type';
+import type { InvitationRole } from '@/features/admin/types/invitation.type';
 import type { TenantType } from '@/types/admin-types';
 import type { Authority } from '@/types/admin-types';
 import SearchableSelect from '@/features/admin/components/SearchableSelect';

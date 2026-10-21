@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import type { ParkActivity } from '@/features/admin/services/city-week';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';

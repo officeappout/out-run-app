@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import { ErrorState, KpiCard, KpiGrid, Panel, Skeleton, StatusPill } from '@/features/admin/components/ui';
 import type { CityWeekResponse } from '@/features/admin/services/city-week';
 
