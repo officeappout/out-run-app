@@ -3,6 +3,7 @@
  * /admin/demo → "משוב דמו": what the demo personas said about parks and the app (life engine)
  * and what the AI testers found (qa_findings), newest first, 30 at a time. Everything goes
  * through /api/admin/demo/feedback/** (super admin; both collections are server-only).
+ * On top: the owner's notes to the testers (OWN-1xx rules) — the learning loop.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -10,6 +11,7 @@ import { Button, EmptyState, ErrorState, Skeleton } from '@/features/admin/compo
 import type { FeedbackItem, TriageStatus } from '@/lib/demo-control/feedback-model';
 import FeedbackFilters from './FeedbackFilters';
 import FeedbackCard from './FeedbackCard';
+import OwnerNotesPanel from './OwnerNotesPanel';
 import { DEFAULT_FILTERS, openScreenshot, useDemoFeedback, type FeedbackFilterState } from './useDemoFeedback';
 
 const PERSONA_DEBOUNCE_MS = 400;
@@ -27,9 +29,9 @@ export default function DemoFeedbackTab({ enabled }: { enabled: boolean }) {
   const { items, hasMore, loading, loaded, error, loadMore, reload, setStatus } = useDemoFeedback(enabled, filters);
 
   const onStatus = useCallback(
-    async (item: FeedbackItem, status: TriageStatus) => {
+    async (item: FeedbackItem, status: TriageStatus, reason?: string) => {
       setNotice(null);
-      const err = await setStatus(item, status);
+      const err = await setStatus(item, status, reason);
       if (err) setNotice(err);
     },
     [setStatus],
@@ -43,6 +45,7 @@ export default function DemoFeedbackTab({ enabled }: { enabled: boolean }) {
 
   return (
     <div className="space-y-4">
+      <OwnerNotesPanel enabled={enabled} />
       <FeedbackFilters value={filters} personaDraft={personaDraft} onChange={setFilters} onPersonaDraft={setPersonaDraft} />
 
       {notice && (
@@ -64,7 +67,7 @@ export default function DemoFeedbackTab({ enabled }: { enabled: boolean }) {
 
       <div className="space-y-3">
         {items.map((it) => (
-          <FeedbackCard key={`${it.source}:${it.id}`} item={it} onStatus={(i, s) => void onStatus(i, s)} onScreenshot={(i) => void onScreenshot(i)} />
+          <FeedbackCard key={`${it.source}:${it.id}`} item={it} onStatus={(i, s, r) => void onStatus(i, s, r)} onScreenshot={(i) => void onScreenshot(i)} />
         ))}
       </div>
 

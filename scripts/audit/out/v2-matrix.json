@@ -1,12 +1,12 @@
 {
  "summary": {
-  "generatedAt": "2026-10-21T05:32:26.607Z",
+  "generatedAt": "2026-10-21T05:58:09.370Z",
   "mode": "full",
   "seed": 20261021,
   "scenarios": 205,
   "workouts": 549,
   "errors": [],
-  "ms": 6866,
+  "ms": 7850,
   "hermetic": {
    "firestoreReads": 2627,
    "blockedWrites": 0
@@ -14,7 +14,7 @@
   "perHard": {
    "H1": 0,
    "H2": 0,
-   "H3": 23,
+   "H3": 4,
    "H4": 0,
    "H5": 0,
    "H6": 0,
@@ -27,11 +27,11 @@
    "V3": 0,
    "V4": 0,
    "V5": 0,
-   "V6": 14,
+   "V6": 0,
    "V7": 0,
    "V8": 0,
    "V9": 6,
-   "V10": 5
+   "V10": 0
   },
   "byGroup": {
    "focus": {
@@ -49,11 +49,11 @@
    },
    "equip": {
     "workouts": 144,
-    "hardFail": 12,
-    "softWarn": 2,
+    "hardFail": 4,
+    "softWarn": 0,
     "H1": 0,
     "H2": 0,
-    "H3": 12,
+    "H3": 4,
     "H4": 0,
     "H5": 0,
     "H6": 0,
@@ -62,11 +62,11 @@
    },
    "ppl6": {
     "workouts": 72,
-    "hardFail": 8,
-    "softWarn": 2,
+    "hardFail": 0,
+    "softWarn": 0,
     "H1": 0,
     "H2": 0,
-    "H3": 8,
+    "H3": 0,
     "H4": 0,
     "H5": 0,
     "H6": 0,
@@ -101,11 +101,11 @@
    },
    "pool": {
     "workouts": 12,
-    "hardFail": 3,
-    "softWarn": 1,
+    "hardFail": 0,
+    "softWarn": 0,
     "H1": 0,
     "H2": 0,
-    "H3": 3,
+    "H3": 0,
     "H4": 0,
     "H5": 0,
     "H6": 0,
@@ -115,7 +115,7 @@
    "topup": {
     "workouts": 16,
     "hardFail": 0,
-    "softWarn": 14,
+    "softWarn": 0,
     "H1": 0,
     "H2": 0,
     "H3": 0,
@@ -156,35 +156,8 @@
    "H3": [
     {
      "pattern": "H#: # main < # for #min",
-     "n": 23,
-     "example": "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b1 — H3: 2 main < 4 for 20min"
-    }
-   ],
-   "V6": [
-    {
-     "pattern": "V#: main \"…\" needs [VQoqHLfhHGhPsaz#zsQO]",
-     "n": 9,
-     "example": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/push#b2 — V6: main \"מקבילים אקצנטרי\" needs [VQoqHLfhHGhPsaz2zsQO]"
-    },
-    {
-     "pattern": "V#: main \"…\" needs [BlaaMRjaztS#ljty#h#L]",
-     "n": 8,
-     "example": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/pull#b2 — V6: main \"חתירות ב-15° עם ברכיים כפופות\" needs [BlaaMRjaztS9ljty9h1L]"
-    },
-    {
-     "pattern": "V#: warmup \"…\" needs [VQoqHLfhHGhPsaz#zsQO]",
-     "n": 7,
-     "example": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/push#b2 — V6: warmup \"החזקת מקבילים ב-90°\" needs [VQoqHLfhHGhPsaz2zsQO]"
-    },
-    {
-     "pattern": "V#: main \"…\" needs [pKh#gGIGOKFcgLET#Fn]",
-     "n": 6,
-     "example": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/push#b2 — V6: main \"שכיבות סמיכה ב-45°\" needs [pKh30gGIGOKFcgLET2Fn]"
-    },
-    {
-     "pattern": "V#: main \"…\" needs [rsGezdRxG#hayY#x#pJ]",
-     "n": 5,
-     "example": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/pull#b2 — V6: main \"מתח קומנדו\" needs [rsGezdRxG5hayY7x88pJ]"
+     "n": 4,
+     "example": "v2/equip/L16/home-doorbar/20m/6d#2/performance/full_body#b3 — H3: 3 main < 4 for 20min"
     }
    ],
    "V9": [
@@ -202,13 +175,6 @@
      "pattern": "V#: programs [push,pull] — stops miss [pull]",
      "n": 2,
      "example": "v2/route_stops/L12/park-typical/30m/3d#0/performance/push+pull/stop1#b2 — V9: programs [push,pull] — stops miss [pull]"
-    }
-   ],
-   "V10": [
-    {
-     "pattern": "V#: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"…\"",
-     "n": 5,
-     "example": "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b1 — V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
     }
    ]
   },
@@ -302,7 +268,7 @@
     "K6": {
      "n": 720,
      "fail": 0,
-     "warn": 174
+     "warn": 0
     }
    },
    "failures": []
@@ -4856,25 +4822,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 2x12",
+   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 2x5 | pull:חתירות קשתים ב-30° 2x12 | core:דרגון פלאג בפישוק 2x15s | core:ישיבת L על הרצפה 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
-   "pullGap": null,
-   "whyLine": "היום יום משיכה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
-   "soft": [
-    "V10"
-   ],
-   "evidence": [
-    "H3: 2 main < 4 for 20min",
-    "V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
-   ]
+   "pullGap": "bodyweight_pull",
+   "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
+   "hard": [],
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b2",
@@ -4887,22 +4846,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אתגר הרמה הבאה בבית",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x3 | pull:חתירות קשתים ב-30° 3x5",
+   "title": "אימון כללי עצים: פונקציונלי בבית",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 2x2 | pull:חתירות קשתים ב-30° 2x4 | core:דרגון פלאג בפישוק 2x15s | core:ישיבת L על הרצפה 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 2 main < 4 for 20min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/20m/6d#1/performance/full_body#b3",
@@ -4915,22 +4870,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "מיקוד גב בבית: רמה מתקדם",
-   "main": 1,
-   "exercises": "pull:חתירות קשתים ב-30° 4x4",
+   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
+   "main": 4,
+   "exercises": "pull:חתירות קשתים ב-30° 2x5 | pull:מתח 2x5 | core:דרגון פלאג בפישוק 2x10s | core:ישיבת L על הרצפה 2x10s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 1 main < 4 for 20min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/20m/6d#2/performance/full_body#b1",
@@ -5303,25 +5254,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 3x12",
+   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 3x12 | core:דרגון פלאג בפישוק 2x15s | core:ישיבת L על הרצפה 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
-   "pullGap": null,
-   "whyLine": "היום יום משיכה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
-   "soft": [
-    "V10"
-   ],
-   "evidence": [
-    "H3: 2 main < 4 for 30min",
-    "V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
-   ]
+   "pullGap": "bodyweight_pull",
+   "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
+   "hard": [],
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/45m/6d#1/performance/full_body#b2",
@@ -5334,22 +5278,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אתגר הרמה הבאה בבית",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x3 | pull:חתירות קשתים ב-30° 3x5",
+   "title": "בונה יסודות בבית: טכניקה וגוף מלא (משלים)",
+   "main": 5,
+   "exercises": "pull:חתירות יד אחת ב-45° 3x2 | pull:חתירות קשתים ב-30° 3x4 | pull:מתח 3x5 | core:דרגון פלאג בפישוק 3x15s | core:ישיבת L על הרצפה 3x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 2 main < 5 for 45min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/45m/6d#1/performance/full_body#b3",
@@ -5362,22 +5302,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "מיקוד גוף מלא בבית: רמה מתקדם",
-   "main": 1,
-   "exercises": "pull:חתירות קשתים ב-30° 4x4",
+   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
+   "main": 5,
+   "exercises": "pull:חתירות קשתים ב-30° 4x4 | pull:מתח 3x5 | pull:שולחן הפוך 2x7s | core:דרגון פלאג בפישוק 3x10s | core:ישיבת L על הרצפה 2x10s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 1 main < 5 for 45min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/45m/6d#2/performance/full_body#b1",
@@ -5415,21 +5351,17 @@
    "programs": "full_body",
    "bolt": 2,
    "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 4,
-   "exercises": "legs:כפיפת נורדיק 3x12 | core:ישיבת L על הרצפה 3x15s | core:דרגון פלאג בפישוק 3x15s | core:דרגון פלאג בטאק מתקדם 3x15s",
+   "main": 5,
+   "exercises": "legs:כפיפת נורדיק 3x12 | legs:דרגון סקוואט 3x10 | core:ישיבת L על הרצפה 3x15s | core:דרגון פלאג בפישוק 3x15s | core:דרגון פלאג בטאק מתקדם 3x15s",
    "dow": 2,
    "split": "ppl",
    "expectedFocus": "legs",
    "dayFocus": "legs",
    "pullGap": null,
    "whyLine": "היום יום רגליים בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 4 main < 5 for 45min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L16/home-nogear/45m/6d#2/performance/full_body#b3",
@@ -5443,21 +5375,17 @@
    "programs": "full_body",
    "bolt": 3,
    "title": "אימון כללי סוף יום בבית",
-   "main": 4,
-   "exercises": "legs:כפיפת נורדיק 3x10 | core:דרגון פלאג בפישוק 3x14s | core:ישיבת L על הרצפה 3x15s | core:דרגון פלאג בטאק מתקדם 3x15s",
+   "main": 5,
+   "exercises": "legs:כפיפת נורדיק 3x11 | legs:דרגון סקוואט 2x12 | core:דרגון פלאג בפישוק 3x15s | core:ישיבת L על הרצפה 3x15s | core:דרגון פלאג בטאק מתקדם 2x12s",
    "dow": 2,
    "split": "ppl",
    "expectedFocus": "legs",
    "dayFocus": "legs",
    "pullGap": null,
    "whyLine": "היום יום רגליים בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 4 main < 5 for 45min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/equip/L3/home-nogear/45m/3d#0/performance/full_body#b1",
@@ -8222,22 +8150,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 3,
-   "exercises": "push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  3x5 | push:פלאנץ׳ בטאק מתקדם  3x15s | push:שכיבות סמיכה פסודו פלאנץ׳ 3x5",
+   "title": "אימון כללי עצים: פונקציונלי בבית",
+   "main": 4,
+   "exercises": "push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  3x5 | push:פלאנץ׳ בטאק מתקדם  3x15s | push:שכיבות סמיכה פסודו פלאנץ׳ 3x5 | push:שכיבות סמיכה קשתים 2x10",
    "dow": 0,
    "split": "ppl",
    "expectedFocus": "push",
    "dayFocus": "push",
    "pullGap": null,
    "whyLine": "היום יום דחיפה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#0/performance/full_body#b2",
@@ -8250,7 +8174,7 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "בונה יסודות בבית: טכניקה וכתפיים",
+   "title": "אימון כללי סוף יום בבית",
    "main": 4,
    "exercises": "push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x4 | push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 3x5 | push:פלאנץ׳ בטאק מתקדם  2x15s | push:שכיבות סמיכה פלאנץ׳ טאק 2x5",
    "dow": 0,
@@ -8274,9 +8198,9 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "אימון כללי סוף יום בבית",
+   "title": "מיקוד גוף מלא בבית: רמה מקצוען",
    "main": 4,
-   "exercises": "push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 2x6 | push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x6 | push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  2x6 | push:פלאנץ׳ בטאק מתקדם  2x15s",
+   "exercises": "push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 2x6 | push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x6 | push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  2x6 | push:פלאנץ׳ בטאק מתקדם  2x11s",
    "dow": 0,
    "split": "ppl",
    "expectedFocus": "push",
@@ -8514,25 +8438,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אתגר הרמה הבאה בבית",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 4x5 | pull:חתירות קשתים ב-30° 3x8 | pull:חתירות קשתים ב-45° 2x5",
+   "title": "מיקוד גוף מלא בבית: רמה מקצוען",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 2x8 | pull:חתירות קשתים ב-45° 2x5 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
-   "pullGap": null,
-   "whyLine": "היום יום משיכה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
-   "soft": [
-    "V10"
-   ],
-   "evidence": [
-    "H3: 3 main < 4 for 30min",
-    "V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
-   ]
+   "pullGap": "bodyweight_pull",
+   "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
+   "hard": [],
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#1/performance/full_body#b2",
@@ -8545,22 +8462,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "ניתוח תנועה בבית: פוקוס השרירים",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 4x1 | pull:חתירות קשתים ב-45° 3x4 | pull:חתירות קשתים ב-30° 3x5",
+   "title": "אתגר הרמה הבאה בבית",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 4x1 | pull:חתירות קשתים ב-45° 2x4 | pull:חתירות קשתים ב-30° 2x4 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#1/performance/full_body#b3",
@@ -8573,22 +8486,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x4 | pull:חתירות קשתים ב-45° 2x5 | pull:חתירות קשתים ב-30° 2x6",
+   "title": "בונה יסודות בבית: טכניקה וגב",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 2x1 | pull:חתירות קשתים ב-45° 2x5 | pull:חתירות קשתים ב-30° 2x6 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L10/home-doorbar/30m/6d#1/muscle/full_body#b1",
@@ -9105,22 +9014,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 3,
-   "exercises": "push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  3x5 | push:פלאנץ׳ בטאק מתקדם  3x15s | push:שכיבות סמיכה פסודו פלאנץ׳ 3x5",
+   "title": "אימון כללי עצים: פונקציונלי בבית",
+   "main": 4,
+   "exercises": "push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  3x5 | push:פלאנץ׳ בטאק מתקדם  3x15s | push:שכיבות סמיכה פסודו פלאנץ׳ 3x5 | push:שכיבות סמיכה קשתים 2x10",
    "dow": 3,
    "split": "ppl",
    "expectedFocus": "push",
    "dayFocus": "push",
    "pullGap": null,
    "whyLine": "היום יום דחיפה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#3/performance/full_body#b2",
@@ -9133,7 +9038,7 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "בונה יסודות בבית: טכניקה וכתפיים",
+   "title": "אימון כללי סוף יום בבית",
    "main": 4,
    "exercises": "push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x4 | push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 3x5 | push:פלאנץ׳ בטאק מתקדם  2x15s | push:שכיבות סמיכה פלאנץ׳ טאק 2x5",
    "dow": 3,
@@ -9157,9 +9062,9 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "אימון כללי סוף יום בבית",
+   "title": "מיקוד גוף מלא בבית: רמה מקצוען",
    "main": 4,
-   "exercises": "push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 2x6 | push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x6 | push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  2x6 | push:פלאנץ׳ בטאק מתקדם  2x15s",
+   "exercises": "push:שכיבות סמיכה פלאנץ׳ בטאק מתקדם 2x6 | push:שכיבות סמיכה בעמידת ידיים חזה לקיר 2x6 | push:שכיבות סמיכה שלילי בעמידת ידיים חזה לקיר  2x6 | push:פלאנץ׳ בטאק מתקדם  2x11s",
    "dow": 3,
    "split": "ppl",
    "expectedFocus": "push",
@@ -9397,25 +9302,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 1,
-   "title": "אתגר הרמה הבאה בבית",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 4x5 | pull:חתירות קשתים ב-30° 3x8 | pull:חתירות קשתים ב-45° 2x5",
+   "title": "מיקוד גוף מלא בבית: רמה מקצוען",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 2x8 | pull:חתירות קשתים ב-45° 2x5 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 4,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
-   "pullGap": null,
-   "whyLine": "היום יום משיכה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
-   "soft": [
-    "V10"
-   ],
-   "evidence": [
-    "H3: 3 main < 4 for 30min",
-    "V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
-   ]
+   "pullGap": "bodyweight_pull",
+   "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
+   "hard": [],
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#4/performance/full_body#b2",
@@ -9428,22 +9326,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "ניתוח תנועה בבית: פוקוס השרירים",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 4x1 | pull:חתירות קשתים ב-45° 3x4 | pull:חתירות קשתים ב-30° 3x5",
+   "title": "אתגר הרמה הבאה בבית",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 4x1 | pull:חתירות קשתים ב-45° 2x4 | pull:חתירות קשתים ב-30° 2x4 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 4,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L20/home-nogear/30m/6d#4/performance/full_body#b3",
@@ -9456,22 +9350,18 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 3,
-   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
-   "main": 3,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x4 | pull:חתירות קשתים ב-45° 2x5 | pull:חתירות קשתים ב-30° 2x6",
+   "title": "בונה יסודות בבית: טכניקה וגב",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 2x1 | pull:חתירות קשתים ב-45° 2x5 | pull:חתירות קשתים ב-30° 2x6 | core:דרגון פלאג בפישוק 2x15s",
    "dow": 4,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 3 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/ppl6/L10/home-doorbar/30m/6d#4/muscle/full_body#b1",
@@ -12724,25 +12614,18 @@
    "goals": "performance",
    "programs": "upper_body",
    "bolt": 1,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 3x12",
+   "title": "מיקוד גוף מלא בבית: רמה מתקדם",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 3x5 | pull:חתירות קשתים ב-30° 3x12 | core:ישיבת L על הרצפה 2x15s | core:דרגון פלאג בפישוק 2x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
-   "pullGap": null,
-   "whyLine": "היום יום משיכה בתוכנית דחיפה / משיכה / רגליים · 6 ימים בשבוע",
-   "hard": [
-    "H3"
-   ],
-   "soft": [
-    "V10"
-   ],
-   "evidence": [
-    "H3: 2 main < 4 for 30min",
-    "V10: no pull gear but pullGap not stamped (areas [pull]) — the why line won't say \"אין מתח\""
-   ]
+   "pullGap": "bodyweight_pull",
+   "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
+   "hard": [],
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/pool/L16/home-nogear/30m/6d#1/performance/upper_body#b2",
@@ -12755,22 +12638,18 @@
    "goals": "performance",
    "programs": "upper_body",
    "bolt": 2,
-   "title": "סבב 19 דק' בבית: Full Body Integration",
-   "main": 2,
-   "exercises": "pull:חתירות יד אחת ב-45° 3x1 | pull:חתירות קשתים ב-30° 3x5",
+   "title": "מיקוד גוף מלא בבית: רמה מתקדם (משלים)",
+   "main": 4,
+   "exercises": "pull:חתירות יד אחת ב-45° 2x3 | pull:חתירות קשתים ב-30° 2x4 | core:ישיבת L על הרצפה 3x15s | core:דרגון פלאג בפישוק 3x15s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 2 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/pool/L16/home-nogear/30m/6d#1/performance/upper_body#b3",
@@ -12783,22 +12662,18 @@
    "goals": "performance",
    "programs": "upper_body",
    "bolt": 3,
-   "title": "ניתוח תנועה בבית: פוקוס השרירים",
-   "main": 1,
-   "exercises": "pull:חתירות קשתים ב-30° 3x4",
+   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
+   "main": 4,
+   "exercises": "pull:חתירות קשתים ב-30° 2x3 | pull:מתח 2x5 | core:ישיבת L על הרצפה 3x5s | core:דרגון פלאג בפישוק 2x14s",
    "dow": 1,
    "split": "ppl",
    "expectedFocus": "pull",
    "dayFocus": "pull",
    "pullGap": "bodyweight_pull",
    "whyLine": "אין מתח בבית — משיכה בלי ציוד במקום מתח",
-   "hard": [
-    "H3"
-   ],
+   "hard": [],
    "soft": [],
-   "evidence": [
-    "H3: 1 main < 4 for 30min"
-   ]
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/push#b2",
@@ -12811,20 +12686,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אתגר הרמה הבאה בפארק",
+   "title": "אתגר הרמה הבאה בבית",
    "main": 5,
-   "exercises": "push:החזקת שכיבת סמיכה ב-90° במרפק 2x20s | push:שכיבות סמיכה לשכמות 3x6 | push:שכיבות סמיכה ב-45° 2x7 | push:פשיטת מרפקים על הרצפה 4x6 | push:שכיבות סמיכה ב-60° 2x7",
+   "exercises": "push:שכיבות סמיכה טווח עליון 4x3 | push:פשיטת מרפקים על ספסל 2x6 | push:שכיבות סמיכה לשכמות 2x9 | push:שכיבות סמיכה ב-45° 2x7 | push:שכיבות סמיכה ב-60° 2x6",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"פשיטת מרפקים על ספסל\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: warmup \"שכיבות סמיכה ב-75°\" needs [xQ617v3yzLpVQv4ChfRJ]",
-    "V6: main \"שכיבות סמיכה ב-45°\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"שכיבות סמיכה ב-60°\" needs [xQ617v3yzLpVQv4ChfRJ]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-doorbar/0m/3d#0/performance/full_body/push#b2",
@@ -12837,18 +12705,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אתגר הרמה הבאה בפארק",
+   "title": "אתגר הרמה הבאה בבית",
    "main": 5,
-   "exercises": "push:החזקת שכיבת סמיכה ב-90° במרפק 2x20s | push:שכיבות סמיכה לשכמות 3x6 | push:שכיבות סמיכה ב-45° 2x7 | push:פשיטת מרפקים על הרצפה 4x6 | push:שכיבות סמיכה ב-60° 2x7",
+   "exercises": "push:שכיבות סמיכה ב-15° 4x3 | push:החזקת שכיבת סמיכה ב-90° במרפק 2x15s | push:שכיבות סמיכה לשכמות 2x9 | push:שכיבות סמיכה ב-45° 2x7 | push:שכיבות סמיכה ב-60° 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"שכיבות סמיכה ב-30°\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"שכיבות סמיכה ב-45°\" needs [pKh30gGIGOKFcgLET2Fn]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/push#b2",
@@ -12861,21 +12724,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בפארק",
+   "title": "בונה יסודות בבית: טכניקה וחזה",
    "main": 5,
-   "exercises": "push:שכיבות סמיכה סופינציה 3x5 | push:שכיבות סמיכה רחבות 4x5 | push:מקבילים אקצנטרי 2x6 | push:מקבילים טווח עליון 2x6 | push:פרפר רצועות ב-45° 2x11",
+   "exercises": "push:החזקות מקבילים אקצנטרי 3x5 | push:עמידת פייק גובה שוק 4x15s | push:מקבילים 2x5 | push:עמידת פייק 2x15s | push:מקבילים טווח תחתון 2x6",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"החזקת מקבילים ב-90°\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: warmup \"מתח אוסטרלי ב-30° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"מקבילים אקצנטרי\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"מקבילים טווח עליון\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"פרפר רצועות ב-45°\" needs [7gLOFEfgSvInu7lfLHxV]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-doorbar/0m/3d#0/performance/full_body/push#b2",
@@ -12888,21 +12743,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "בונה יסודות בפארק: טכניקה וחזה",
+   "title": "בונה יסודות בבית: טכניקה וחזה",
    "main": 5,
-   "exercises": "push:שכיבות סמיכה סופינציה 4x5 | push:שכיבות סמיכה רחבות 4x5 | push:מקבילים אקצנטרי 2x6 | push:מקבילים טווח עליון 2x6 | push:החזקת מקבילים ב-90° 2x16s",
+   "exercises": "push:החזקות מקבילים אקצנטרי 2x5 | push:עמידת פייק גובה שוק 2x15s | push:מקבילים 2x5 | push:שכיבות סמיכה סופינציה 4x5 | push:מקבילים טווח עליון 2x6",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"החזקת מקבילים\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: warmup \"מתח אוסטרלי ב-60° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"מקבילים אקצנטרי\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"מקבילים טווח עליון\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"החזקת מקבילים ב-90°\" needs [VQoqHLfhHGhPsaz2zsQO]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/pull#b2",
@@ -12915,23 +12762,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "מיקוד גב בפארק: רמה מתחיל",
+   "title": "אימון כללי עצים: פונקציונלי בבית",
    "main": 5,
-   "exercises": "pull:חתירות ב-15° עם ברכיים כפופות 4x1 | pull:החזקת חתירה ב-90° מעלות במרפק 2x17s | pull:חתירות ב-30° 2x6 | pull:מתח אוסטרלי ב-60° מעלות 2x6 | pull:חתירות ב-60° 2x7",
+   "exercises": "pull:חתירות ב-15° עם ברכיים כפופות 5x2 | pull:החזקת חתירה ב-90° מעלות במרפק 2x20s | pull:חתירות ב-45° 2x6 | pull:חתירות ב-60° 2x8 | pull:חתירות ב-75° 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"מתח אוסטרלי ב-30° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: warmup \"חתירות ב-45°\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"חתירות ב-15° עם ברכיים כפופות\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"החזקת חתירה ב-90° מעלות במרפק\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"חתירות ב-30°\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"מתח אוסטרלי ב-60° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"חתירות ב-60°\" needs [BlaaMRjaztS9ljty9h1L]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-doorbar/0m/3d#0/performance/full_body/pull#b2",
@@ -12944,23 +12781,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "מיקוד גב בפארק: רמה מתחיל",
+   "title": "סבב 43 דק' בבית: Full Body Integration",
    "main": 5,
-   "exercises": "pull:חתירות ב-15° עם ברכיים כפופות 4x1 | pull:החזקת חתירה ב-90° מעלות במרפק 2x17s | pull:חתירות ב-30° 2x6 | pull:מתח אוסטרלי ב-60° מעלות 2x6 | pull:חתירות ב-60° 2x7",
+   "exercises": "pull:חתירות ב-15° עם ברכיים כפופות 5x2 | pull:חתירות ב-30° 2x11 | pull:החזקת חתירה ב-90° מעלות במרפק 2x25s | pull:חתירות ב-45° 2x7 | pull:חתירות ב-60° 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"מתח אוסטרלי ב-30° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: warmup \"חתירות ב-45°\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"חתירות ב-15° עם ברכיים כפופות\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"החזקת חתירה ב-90° מעלות במרפק\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"חתירות ב-30°\" needs [BlaaMRjaztS9ljty9h1L]",
-    "V6: main \"מתח אוסטרלי ב-60° מעלות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"חתירות ב-60°\" needs [BlaaMRjaztS9ljty9h1L]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/pull#b2",
@@ -12973,25 +12800,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי סוף יום בפארק",
-   "main": 5,
-   "exercises": "pull:מתח קומנדו 4x3 | pull:מתח סופינציה 2x5 | pull:משיכות Y 2x5 | pull:מתח אקצנטרי עם החזקות 2x6 | pull:מתח טווח תחתון 2x6",
+   "title": "סבב 44 דק' בבית: Full Body Integration",
+   "main": 3,
+   "exercises": "pull:מתח 5x2 | pull:פרפר הפוך 3x15s | pull:משיכות Y 4x5",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"מתח טווח עליון\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: warmup \"החזקת מתח ב-120°\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: warmup \"החזקת מתח ב-15°\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: warmup \"תלייה פסיבית\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: main \"מתח קומנדו\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: main \"מתח סופינציה\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: main \"משיכות Y\" needs [i9SmtXFmalgRLlw2GBWG]",
-    "V6: main \"מתח אקצנטרי עם החזקות\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: main \"מתח טווח תחתון\" needs [rsGezdRxG5hayY7x88pJ]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-doorbar/0m/3d#0/performance/full_body/pull#b2",
@@ -13004,17 +12819,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי עצים: פונקציונלי בפארק",
+   "title": "אימון כללי סוף יום בבית",
    "main": 5,
-   "exercises": "pull:מתח קומנדו 4x3 | pull:מתח סופינציה 2x5 | pull:משיכות Y 2x5 | pull:מתח אקצנטרי עם החזקות 2x6 | pull:מתח אקצנטרי 2x7",
+   "exercises": "pull:מתח 4x1 | pull:מתח סופינציה 2x4 | pull:משיכות Y 2x5 | pull:פרפר הפוך 2x15s | pull:החזקת מתח ב-90° 2x16s",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: main \"משיכות Y\" needs [i9SmtXFmalgRLlw2GBWG]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/legs#b2",
@@ -13027,19 +12838,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "מיקוד גוף מלא בפארק: רמה מתחיל",
+   "title": "אתגר הרמה הבאה בבית",
    "main": 5,
-   "exercises": "legs:לאנג׳ בולגרי טווח חלקי 4x4 | legs:סקוואט 2x4 | legs:עליית מדרגה גובה ברך 2x4 | legs:היפ טראסט רגל אחת 2x5 | legs:סקוואט סטטי כנגד קיר 2x22s",
+   "exercises": "legs:סקוואט 4x4 | legs:עליית מדרגה גובה ברך 2x4 | legs:היפ טראסט רגל אחת 2x3 | legs:גוד מורנינג בישיבה 3x7 | legs:עליית מדרגה גובה קרסול 2x6",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"גוד מורנינג בישיבה\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"לאנג׳ בולגרי טווח חלקי\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"עליית מדרגה גובה ברך\" needs [pKh30gGIGOKFcgLET2Fn]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-doorbar/0m/3d#0/performance/full_body/legs#b2",
@@ -13052,19 +12857,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "מיקוד עכוז בפארק: רמה מתחיל",
+   "title": "אתגר הרמה הבאה בבית",
    "main": 5,
-   "exercises": "legs:לאנג׳ בולגרי טווח חלקי 4x4 | legs:סקוואט 2x4 | legs:עליית מדרגה גובה ברך 2x4 | legs:היפ טראסט רגל אחת 2x5 | legs:סקוואט סטטי כנגד קיר 2x22s",
+   "exercises": "legs:דדליפט רגל אחת 2x3 | legs:סקוואט 4x4 | legs:עליית מדרגה גובה ברך 2x4 | legs:לאנג׳ קדמי 2x7 | legs:סקוואט טווח חלקי (להגבהה) 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"קפיצה גובה שוק\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"לאנג׳ בולגרי טווח חלקי\" needs [pKh30gGIGOKFcgLET2Fn]",
-    "V6: main \"עליית מדרגה גובה ברך\" needs [pKh30gGIGOKFcgLET2Fn]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-nogear/0m/3d#0/performance/full_body/legs#b2",
@@ -13077,18 +12876,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי סוף יום בפארק",
+   "title": "בונה יסודות בבית: טכניקה וגוף מלא",
    "main": 5,
-   "exercises": "legs:סיסי סקוואט 4x3 | legs:נורדיק אחורי 2x4 | legs:שרימפ סקוואט עמוק בלי ידיים 2x4 | legs:סיסי סקוואט אקצנטרי 2x4 | legs:דרגון סקוואט בתמיכת יד 2x6",
+   "exercises": "legs:סיסי סקוואט 2x1 | legs:סיסי סקוואט אקצנטרי 4x4 | legs:סקוואט קשתים מוגבה 2x5 | legs:פיסטול סקוואט מוגבה 2x3 | legs:דרגון סקוואט בתמיכת יד 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"שרימפ סקוואט בלי ידיים טווח חלקי\" needs [mL3YJywh3aobJni7YVdu]",
-    "V6: main \"שרימפ סקוואט עמוק בלי ידיים\" needs [mL3YJywh3aobJni7YVdu]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-doorbar/0m/3d#0/performance/full_body/legs#b2",
@@ -13101,18 +12895,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי עצים: פונקציונלי בפארק",
+   "title": "ניתוח תנועה בבית: פוקוס השרירים",
    "main": 5,
-   "exercises": "legs:סיסי סקוואט 4x3 | legs:נורדיק אחורי 2x4 | legs:שרימפ סקוואט עמוק בלי ידיים 2x4 | legs:סיסי סקוואט אקצנטרי 2x4 | legs:דרגון סקוואט בתמיכת יד 2x6",
+   "exercises": "legs:דרגון סקוואט מוגבה 2x3 | legs:נורדיק אחורי 4x5 | legs:סיסי סקוואט אקצנטרי 2x5 | legs:דרגון סקוואט אקצנטרי 2x3 | legs:פיסטול סקוואט מוגבה טווח חלקי 2x7",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"שרימפ סקוואט טווח חלקי\" needs [mL3YJywh3aobJni7YVdu]",
-    "V6: main \"שרימפ סקוואט עמוק בלי ידיים\" needs [mL3YJywh3aobJni7YVdu]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L3/home-nogear/0m/3d#0/performance/full_body/core#b2",
@@ -13125,9 +12914,9 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "ניתוח תנועה בפארק: פוקוס השרירים",
+   "title": "אימון כללי סוף יום בבית",
    "main": 5,
-   "exercises": "core:ישיבת L בתמיכת הרגליים 2x19s | core:פלאנק על הברכיים 3x20s | core:פינגווינים 4x8 | core:אופניים 2x8 | core:כפיפות בטן 2x8",
+   "exercises": "core:מספריים אופקיים בשכיבה 4x8 | core:הרמות רגל אחת בישיבת L 2x15s | core:טבטה 2x15s | core:כפיפות בטן אלכוסונים 2x8 | core:כפיפות בטן חצי טווח 2x8",
    "empty": false,
    "hard": [],
    "soft": [],
@@ -13144,9 +12933,9 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "ניתוח תנועה בפארק: פוקוס השרירים",
+   "title": "ניתוח תנועה בבית: פוקוס השרירים",
    "main": 5,
-   "exercises": "core:ישיבת L בתמיכת הרגליים 2x19s | core:פלאנק על הברכיים 3x20s | core:פינגווינים 4x8 | core:אופניים 2x8 | core:כפיפות בטן 2x8",
+   "exercises": "core:מספריים אופקיים בשכיבה 3x8 | core:ישיבת L בתמיכת הרגליים 2x20s | core:פלאנק על הברכיים 3x17s | core:כפיפות בטן אלכוסונים 2x8 | core:כפיפות בטן חצי טווח 3x8",
    "empty": false,
    "hard": [],
    "soft": [],
@@ -13163,19 +12952,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בפארק",
-   "main": 5,
-   "exercises": "core:עליות l בתלייה 3x8 | core:ישיבת L רגל אחת 3x15s | core:פלאנק רחוק 3x15s | core:עליות ספר רגליים ישרות 2x8 | core:הרמות רגליים בישיבת פייק/L 2x8",
+   "title": "אימון כללי עצים: פונקציונלי בבית",
+   "main": 6,
+   "exercises": "core:הרמות רגליים בישיבת פייק/L 3x8 | core:טבטה + 3x15s | core:פלאנק רחוק 3x15s | core:עליות ספר רגליים ישרות 3x8 | core:ישיבת L ברכיים כפופות 3x18s | core:קופנהגן פלאנק 2x24s",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: warmup \"ישיבת L ברכיים כפופות\" needs [VQoqHLfhHGhPsaz2zsQO]",
-    "V6: main \"עליות l בתלייה\" needs [rsGezdRxG5hayY7x88pJ]",
-    "V6: main \"ישיבת L רגל אחת\" needs [VQoqHLfhHGhPsaz2zsQO]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/topup/L10/home-doorbar/0m/3d#0/performance/full_body/core#b2",
@@ -13188,17 +12971,13 @@
    "goals": "performance",
    "programs": "full_body",
    "bolt": 2,
-   "title": "אימון כללי מהיר: מקסימום דחיסות בפארק",
+   "title": "אימון כללי מהיר: מקסימום דחיסות בבית",
    "main": 5,
-   "exercises": "core:עליות l בתלייה 3x8 | core:ישיבת L רגל אחת 3x15s | core:פלאנק רחוק 3x15s | core:עליות ספר רגליים ישרות 2x8 | core:הרמות רגליים בישיבת פייק/L 2x8",
+   "exercises": "core:עליות l בתלייה 3x8 | core:ישיבת L רגל אחת 3x15s | core:עליות ספר רגליים ישרות 3x8 | core:הרמות רגליים בישיבת פייק/L 2x8 | core:טבטה + 2x15s",
    "empty": false,
    "hard": [],
-   "soft": [
-    "V6"
-   ],
-   "evidence": [
-    "V6: main \"ישיבת L רגל אחת\" needs [VQoqHLfhHGhPsaz2zsQO]"
-   ]
+   "soft": [],
+   "evidence": []
   },
   {
    "key": "v2/hybrid/L3/park-typical/8m/3d#0/performance/full_body#b2",
@@ -21994,7 +21773,7 @@
    "id": "walk/weight_loss/short/none/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/general/012345",
@@ -22023,8 +21802,8 @@
   {
    "id": "walk/weight_loss/short/none/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/none/general/024",
@@ -22102,7 +21881,7 @@
    "id": "walk/weight_loss/short/none/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/general/0123456",
@@ -22131,8 +21910,8 @@
   {
    "id": "walk/weight_loss/short/none/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/none/general/56",
@@ -22174,7 +21953,7 @@
    "id": "walk/weight_loss/short/none/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/general/default",
@@ -22203,14 +21982,14 @@
   {
    "id": "walk/weight_loss/short/none/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/none/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/senior/012345",
@@ -22239,8 +22018,8 @@
   {
    "id": "walk/weight_loss/short/none/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/none/senior/024",
@@ -22318,7 +22097,7 @@
    "id": "walk/weight_loss/short/none/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/senior/0123456",
@@ -22347,8 +22126,8 @@
   {
    "id": "walk/weight_loss/short/none/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/none/senior/56",
@@ -22390,7 +22169,7 @@
    "id": "walk/weight_loss/short/none/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/none/senior/default",
@@ -22419,14 +22198,14 @@
   {
    "id": "walk/weight_loss/short/none/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [80,85,85,85]"
+   "detail": "target 250, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/general/012345",
@@ -22455,8 +22234,8 @@
   {
    "id": "walk/weight_loss/short/3000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/general/024",
@@ -22534,7 +22313,7 @@
    "id": "walk/weight_loss/short/3000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [80,85,85,85]"
+   "detail": "target 250, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/general/0123456",
@@ -22563,8 +22342,8 @@
   {
    "id": "walk/weight_loss/short/3000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/general/56",
@@ -22606,7 +22385,7 @@
    "id": "walk/weight_loss/short/3000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [80,85,85,85]"
+   "detail": "target 250, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/general/default",
@@ -22635,14 +22414,14 @@
   {
    "id": "walk/weight_loss/short/3000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/senior/012345",
@@ -22671,8 +22450,8 @@
   {
    "id": "walk/weight_loss/short/3000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/senior/024",
@@ -22750,7 +22529,7 @@
    "id": "walk/weight_loss/short/3000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/senior/0123456",
@@ -22779,8 +22558,8 @@
   {
    "id": "walk/weight_loss/short/3000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/3000/senior/56",
@@ -22822,7 +22601,7 @@
    "id": "walk/weight_loss/short/3000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/weight_loss/short/3000/senior/default",
@@ -22851,14 +22630,14 @@
   {
    "id": "walk/weight_loss/short/3000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/general/012345",
@@ -22887,8 +22666,8 @@
   {
    "id": "walk/weight_loss/short/6000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/general/024",
@@ -22966,7 +22745,7 @@
    "id": "walk/weight_loss/short/6000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/general/0123456",
@@ -22995,8 +22774,8 @@
   {
    "id": "walk/weight_loss/short/6000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/general/56",
@@ -23038,7 +22817,7 @@
    "id": "walk/weight_loss/short/6000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 250, weeks [105,105,110,110]"
+   "detail": "target 250, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/general/default",
@@ -23067,14 +22846,14 @@
   {
    "id": "walk/weight_loss/short/6000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/senior/012345",
@@ -23103,8 +22882,8 @@
   {
    "id": "walk/weight_loss/short/6000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/senior/024",
@@ -23182,7 +22961,7 @@
    "id": "walk/weight_loss/short/6000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/senior/0123456",
@@ -23211,8 +22990,8 @@
   {
    "id": "walk/weight_loss/short/6000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/6000/senior/56",
@@ -23254,7 +23033,7 @@
    "id": "walk/weight_loss/short/6000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/weight_loss/short/6000/senior/default",
@@ -23283,8 +23062,8 @@
   {
    "id": "walk/weight_loss/short/6000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/9000/general/012345",
@@ -23391,8 +23170,8 @@
   {
    "id": "walk/weight_loss/short/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/9000/general/0123456",
@@ -23463,8 +23242,8 @@
   {
    "id": "walk/weight_loss/short/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/9000/general/default",
@@ -23607,8 +23386,8 @@
   {
    "id": "walk/weight_loss/short/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/9000/senior/0123456",
@@ -23679,8 +23458,8 @@
   {
    "id": "walk/weight_loss/short/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/9000/senior/default",
@@ -23787,8 +23566,8 @@
   {
    "id": "walk/weight_loss/short/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/13000/general/13",
@@ -23823,8 +23602,8 @@
   {
    "id": "walk/weight_loss/short/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/13000/general/0123456",
@@ -23895,8 +23674,8 @@
   {
    "id": "walk/weight_loss/short/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/13000/general/default",
@@ -24039,8 +23818,8 @@
   {
    "id": "walk/weight_loss/short/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/13000/senior/0123456",
@@ -24111,8 +23890,8 @@
   {
    "id": "walk/weight_loss/short/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/short/13000/senior/default",
@@ -25551,8 +25330,8 @@
   {
    "id": "walk/weight_loss/medium/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/9000/general/0123456",
@@ -25623,8 +25402,8 @@
   {
    "id": "walk/weight_loss/medium/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/9000/general/default",
@@ -25767,8 +25546,8 @@
   {
    "id": "walk/weight_loss/medium/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/9000/senior/0123456",
@@ -25839,8 +25618,8 @@
   {
    "id": "walk/weight_loss/medium/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/9000/senior/default",
@@ -25947,8 +25726,8 @@
   {
    "id": "walk/weight_loss/medium/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/13000/general/13",
@@ -25983,8 +25762,8 @@
   {
    "id": "walk/weight_loss/medium/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/13000/general/0123456",
@@ -26055,8 +25834,8 @@
   {
    "id": "walk/weight_loss/medium/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/13000/general/default",
@@ -26199,8 +25978,8 @@
   {
    "id": "walk/weight_loss/medium/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/13000/senior/0123456",
@@ -26271,8 +26050,8 @@
   {
    "id": "walk/weight_loss/medium/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/medium/13000/senior/default",
@@ -27711,8 +27490,8 @@
   {
    "id": "walk/weight_loss/long/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/9000/general/0123456",
@@ -27783,8 +27562,8 @@
   {
    "id": "walk/weight_loss/long/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/9000/general/default",
@@ -27927,8 +27706,8 @@
   {
    "id": "walk/weight_loss/long/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/9000/senior/0123456",
@@ -27999,8 +27778,8 @@
   {
    "id": "walk/weight_loss/long/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/9000/senior/default",
@@ -28107,8 +27886,8 @@
   {
    "id": "walk/weight_loss/long/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/13000/general/13",
@@ -28143,8 +27922,8 @@
   {
    "id": "walk/weight_loss/long/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/13000/general/0123456",
@@ -28215,8 +27994,8 @@
   {
    "id": "walk/weight_loss/long/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/13000/general/default",
@@ -28359,8 +28138,8 @@
   {
    "id": "walk/weight_loss/long/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/13000/senior/0123456",
@@ -28431,8 +28210,8 @@
   {
    "id": "walk/weight_loss/long/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/weight_loss/long/13000/senior/default",
@@ -28474,7 +28253,7 @@
    "id": "walk/health/short/none/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/general/012345",
@@ -28503,8 +28282,8 @@
   {
    "id": "walk/health/short/none/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/none/general/024",
@@ -28582,7 +28361,7 @@
    "id": "walk/health/short/none/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/general/0123456",
@@ -28611,8 +28390,8 @@
   {
    "id": "walk/health/short/none/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/none/general/56",
@@ -28654,7 +28433,7 @@
    "id": "walk/health/short/none/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/general/default",
@@ -28683,14 +28462,14 @@
   {
    "id": "walk/health/short/none/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/none/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/senior/012345",
@@ -28719,8 +28498,8 @@
   {
    "id": "walk/health/short/none/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/none/senior/024",
@@ -28798,7 +28577,7 @@
    "id": "walk/health/short/none/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/senior/0123456",
@@ -28827,8 +28606,8 @@
   {
    "id": "walk/health/short/none/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/none/senior/56",
@@ -28870,7 +28649,7 @@
    "id": "walk/health/short/none/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/none/senior/default",
@@ -28899,14 +28678,14 @@
   {
    "id": "walk/health/short/none/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/general/012345",
@@ -28935,8 +28714,8 @@
   {
    "id": "walk/health/short/3000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/general/024",
@@ -29014,7 +28793,7 @@
    "id": "walk/health/short/3000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/general/0123456",
@@ -29043,8 +28822,8 @@
   {
    "id": "walk/health/short/3000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/general/56",
@@ -29086,7 +28865,7 @@
    "id": "walk/health/short/3000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/general/default",
@@ -29115,14 +28894,14 @@
   {
    "id": "walk/health/short/3000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/senior/012345",
@@ -29151,8 +28930,8 @@
   {
    "id": "walk/health/short/3000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/senior/024",
@@ -29230,7 +29009,7 @@
    "id": "walk/health/short/3000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/senior/0123456",
@@ -29259,8 +29038,8 @@
   {
    "id": "walk/health/short/3000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/3000/senior/56",
@@ -29302,7 +29081,7 @@
    "id": "walk/health/short/3000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/health/short/3000/senior/default",
@@ -29331,14 +29110,14 @@
   {
    "id": "walk/health/short/3000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/general/012345",
@@ -29367,8 +29146,8 @@
   {
    "id": "walk/health/short/6000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/general/024",
@@ -29446,7 +29225,7 @@
    "id": "walk/health/short/6000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/general/0123456",
@@ -29475,8 +29254,8 @@
   {
    "id": "walk/health/short/6000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/general/56",
@@ -29518,7 +29297,7 @@
    "id": "walk/health/short/6000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/general/default",
@@ -29547,14 +29326,14 @@
   {
    "id": "walk/health/short/6000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/senior/012345",
@@ -29583,8 +29362,8 @@
   {
    "id": "walk/health/short/6000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/senior/024",
@@ -29662,7 +29441,7 @@
    "id": "walk/health/short/6000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/senior/0123456",
@@ -29691,8 +29470,8 @@
   {
    "id": "walk/health/short/6000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/6000/senior/56",
@@ -29734,7 +29513,7 @@
    "id": "walk/health/short/6000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/health/short/6000/senior/default",
@@ -29763,8 +29542,8 @@
   {
    "id": "walk/health/short/6000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/9000/general/012345",
@@ -29871,8 +29650,8 @@
   {
    "id": "walk/health/short/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/9000/general/0123456",
@@ -29943,8 +29722,8 @@
   {
    "id": "walk/health/short/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/9000/general/default",
@@ -30087,8 +29866,8 @@
   {
    "id": "walk/health/short/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/9000/senior/0123456",
@@ -30159,8 +29938,8 @@
   {
    "id": "walk/health/short/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/9000/senior/default",
@@ -30303,8 +30082,8 @@
   {
    "id": "walk/health/short/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/13000/general/0123456",
@@ -30375,8 +30154,8 @@
   {
    "id": "walk/health/short/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/13000/general/default",
@@ -30519,8 +30298,8 @@
   {
    "id": "walk/health/short/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/13000/senior/0123456",
@@ -30591,8 +30370,8 @@
   {
    "id": "walk/health/short/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/short/13000/senior/default",
@@ -32031,8 +31810,8 @@
   {
    "id": "walk/health/medium/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/9000/general/0123456",
@@ -32103,8 +31882,8 @@
   {
    "id": "walk/health/medium/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/9000/general/default",
@@ -32247,8 +32026,8 @@
   {
    "id": "walk/health/medium/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/9000/senior/0123456",
@@ -32319,8 +32098,8 @@
   {
    "id": "walk/health/medium/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/9000/senior/default",
@@ -32463,8 +32242,8 @@
   {
    "id": "walk/health/medium/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/13000/general/0123456",
@@ -32535,8 +32314,8 @@
   {
    "id": "walk/health/medium/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/13000/general/default",
@@ -32679,8 +32458,8 @@
   {
    "id": "walk/health/medium/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/13000/senior/0123456",
@@ -32751,8 +32530,8 @@
   {
    "id": "walk/health/medium/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/medium/13000/senior/default",
@@ -34191,8 +33970,8 @@
   {
    "id": "walk/health/long/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/9000/general/0123456",
@@ -34263,8 +34042,8 @@
   {
    "id": "walk/health/long/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/9000/general/default",
@@ -34407,8 +34186,8 @@
   {
    "id": "walk/health/long/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/9000/senior/0123456",
@@ -34479,8 +34258,8 @@
   {
    "id": "walk/health/long/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/9000/senior/default",
@@ -34623,8 +34402,8 @@
   {
    "id": "walk/health/long/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/13000/general/0123456",
@@ -34695,8 +34474,8 @@
   {
    "id": "walk/health/long/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/13000/general/default",
@@ -34839,8 +34618,8 @@
   {
    "id": "walk/health/long/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/13000/senior/0123456",
@@ -34911,8 +34690,8 @@
   {
    "id": "walk/health/long/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/health/long/13000/senior/default",
@@ -34954,7 +34733,7 @@
    "id": "walk/steps/short/none/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/general/012345",
@@ -34983,8 +34762,8 @@
   {
    "id": "walk/steps/short/none/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/none/general/024",
@@ -35062,7 +34841,7 @@
    "id": "walk/steps/short/none/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/general/0123456",
@@ -35091,8 +34870,8 @@
   {
    "id": "walk/steps/short/none/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/none/general/56",
@@ -35134,7 +34913,7 @@
    "id": "walk/steps/short/none/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/general/default",
@@ -35163,14 +34942,14 @@
   {
    "id": "walk/steps/short/none/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/none/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/senior/012345",
@@ -35199,8 +34978,8 @@
   {
    "id": "walk/steps/short/none/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/none/senior/024",
@@ -35278,7 +35057,7 @@
    "id": "walk/steps/short/none/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/senior/0123456",
@@ -35307,8 +35086,8 @@
   {
    "id": "walk/steps/short/none/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/none/senior/56",
@@ -35350,7 +35129,7 @@
    "id": "walk/steps/short/none/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/none/senior/default",
@@ -35379,14 +35158,14 @@
   {
    "id": "walk/steps/short/none/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/general/012345",
@@ -35415,8 +35194,8 @@
   {
    "id": "walk/steps/short/3000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/general/024",
@@ -35494,7 +35273,7 @@
    "id": "walk/steps/short/3000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/general/0123456",
@@ -35523,8 +35302,8 @@
   {
    "id": "walk/steps/short/3000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/general/56",
@@ -35566,7 +35345,7 @@
    "id": "walk/steps/short/3000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/general/default",
@@ -35595,14 +35374,14 @@
   {
    "id": "walk/steps/short/3000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/senior/012345",
@@ -35631,8 +35410,8 @@
   {
    "id": "walk/steps/short/3000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/senior/024",
@@ -35710,7 +35489,7 @@
    "id": "walk/steps/short/3000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/senior/0123456",
@@ -35739,8 +35518,8 @@
   {
    "id": "walk/steps/short/3000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/3000/senior/56",
@@ -35782,7 +35561,7 @@
    "id": "walk/steps/short/3000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/steps/short/3000/senior/default",
@@ -35811,14 +35590,14 @@
   {
    "id": "walk/steps/short/3000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/general/012345",
@@ -35847,8 +35626,8 @@
   {
    "id": "walk/steps/short/6000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/general/024",
@@ -35926,7 +35705,7 @@
    "id": "walk/steps/short/6000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/general/0123456",
@@ -35955,8 +35734,8 @@
   {
    "id": "walk/steps/short/6000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/general/56",
@@ -35998,7 +35777,7 @@
    "id": "walk/steps/short/6000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/general/default",
@@ -36027,14 +35806,14 @@
   {
    "id": "walk/steps/short/6000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/senior/012345",
@@ -36063,8 +35842,8 @@
   {
    "id": "walk/steps/short/6000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/senior/024",
@@ -36142,7 +35921,7 @@
    "id": "walk/steps/short/6000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/senior/0123456",
@@ -36171,8 +35950,8 @@
   {
    "id": "walk/steps/short/6000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/6000/senior/56",
@@ -36214,7 +35993,7 @@
    "id": "walk/steps/short/6000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/steps/short/6000/senior/default",
@@ -36243,8 +36022,8 @@
   {
    "id": "walk/steps/short/6000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/9000/general/012345",
@@ -36351,8 +36130,8 @@
   {
    "id": "walk/steps/short/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/9000/general/0123456",
@@ -36423,8 +36202,8 @@
   {
    "id": "walk/steps/short/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/9000/general/default",
@@ -36567,8 +36346,8 @@
   {
    "id": "walk/steps/short/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/9000/senior/0123456",
@@ -36639,8 +36418,8 @@
   {
    "id": "walk/steps/short/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/9000/senior/default",
@@ -36783,8 +36562,8 @@
   {
    "id": "walk/steps/short/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/13000/general/0123456",
@@ -36855,8 +36634,8 @@
   {
    "id": "walk/steps/short/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/13000/general/default",
@@ -36999,8 +36778,8 @@
   {
    "id": "walk/steps/short/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/13000/senior/0123456",
@@ -37071,8 +36850,8 @@
   {
    "id": "walk/steps/short/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/short/13000/senior/default",
@@ -38511,8 +38290,8 @@
   {
    "id": "walk/steps/medium/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/9000/general/0123456",
@@ -38583,8 +38362,8 @@
   {
    "id": "walk/steps/medium/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/9000/general/default",
@@ -38727,8 +38506,8 @@
   {
    "id": "walk/steps/medium/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/9000/senior/0123456",
@@ -38799,8 +38578,8 @@
   {
    "id": "walk/steps/medium/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/9000/senior/default",
@@ -38943,8 +38722,8 @@
   {
    "id": "walk/steps/medium/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/13000/general/0123456",
@@ -39015,8 +38794,8 @@
   {
    "id": "walk/steps/medium/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/13000/general/default",
@@ -39159,8 +38938,8 @@
   {
    "id": "walk/steps/medium/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/13000/senior/0123456",
@@ -39231,8 +39010,8 @@
   {
    "id": "walk/steps/medium/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/medium/13000/senior/default",
@@ -40671,8 +40450,8 @@
   {
    "id": "walk/steps/long/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/9000/general/0123456",
@@ -40743,8 +40522,8 @@
   {
    "id": "walk/steps/long/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/9000/general/default",
@@ -40887,8 +40666,8 @@
   {
    "id": "walk/steps/long/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/9000/senior/0123456",
@@ -40959,8 +40738,8 @@
   {
    "id": "walk/steps/long/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/9000/senior/default",
@@ -41103,8 +40882,8 @@
   {
    "id": "walk/steps/long/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/13000/general/0123456",
@@ -41175,8 +40954,8 @@
   {
    "id": "walk/steps/long/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/13000/general/default",
@@ -41319,8 +41098,8 @@
   {
    "id": "walk/steps/long/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/13000/senior/0123456",
@@ -41391,8 +41170,8 @@
   {
    "id": "walk/steps/long/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/steps/long/13000/senior/default",
@@ -41434,7 +41213,7 @@
    "id": "walk/belly/short/none/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/general/012345",
@@ -41463,8 +41242,8 @@
   {
    "id": "walk/belly/short/none/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/none/general/024",
@@ -41542,7 +41321,7 @@
    "id": "walk/belly/short/none/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/general/0123456",
@@ -41571,8 +41350,8 @@
   {
    "id": "walk/belly/short/none/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/none/general/56",
@@ -41614,7 +41393,7 @@
    "id": "walk/belly/short/none/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/general/default",
@@ -41643,14 +41422,14 @@
   {
    "id": "walk/belly/short/none/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/none/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/senior/012345",
@@ -41679,8 +41458,8 @@
   {
    "id": "walk/belly/short/none/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/none/senior/024",
@@ -41758,7 +41537,7 @@
    "id": "walk/belly/short/none/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/senior/0123456",
@@ -41787,8 +41566,8 @@
   {
    "id": "walk/belly/short/none/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/none/senior/56",
@@ -41830,7 +41609,7 @@
    "id": "walk/belly/short/none/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/none/senior/default",
@@ -41859,14 +41638,14 @@
   {
    "id": "walk/belly/short/none/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [80,85,85,85]"
+   "detail": "target 200, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/general/012345",
@@ -41895,8 +41674,8 @@
   {
    "id": "walk/belly/short/3000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/general/024",
@@ -41974,7 +41753,7 @@
    "id": "walk/belly/short/3000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [80,85,85,85]"
+   "detail": "target 200, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/general/0123456",
@@ -42003,8 +41782,8 @@
   {
    "id": "walk/belly/short/3000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/general/56",
@@ -42046,7 +41825,7 @@
    "id": "walk/belly/short/3000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [80,85,85,85]"
+   "detail": "target 200, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/general/default",
@@ -42075,14 +41854,14 @@
   {
    "id": "walk/belly/short/3000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/senior/012345",
@@ -42111,8 +41890,8 @@
   {
    "id": "walk/belly/short/3000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/senior/024",
@@ -42190,7 +41969,7 @@
    "id": "walk/belly/short/3000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/senior/0123456",
@@ -42219,8 +41998,8 @@
   {
    "id": "walk/belly/short/3000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/3000/senior/56",
@@ -42262,7 +42041,7 @@
    "id": "walk/belly/short/3000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [80,85,85,85]"
+   "detail": "target 150, weeks [65,70,70,75]"
   },
   {
    "id": "walk/belly/short/3000/senior/default",
@@ -42291,14 +42070,14 @@
   {
    "id": "walk/belly/short/3000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [80,85,85,85] vs planned [60,65,70,75] on 4 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/general/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/general/012345",
@@ -42327,8 +42106,8 @@
   {
    "id": "walk/belly/short/6000/general/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/general/024",
@@ -42406,7 +42185,7 @@
    "id": "walk/belly/short/6000/general/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/general/0123456",
@@ -42435,8 +42214,8 @@
   {
    "id": "walk/belly/short/6000/general/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/general/56",
@@ -42478,7 +42257,7 @@
    "id": "walk/belly/short/6000/general/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 200, weeks [105,105,110,110]"
+   "detail": "target 200, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/general/default",
@@ -42507,14 +42286,14 @@
   {
    "id": "walk/belly/short/6000/general/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/senior/012345",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/senior/012345",
@@ -42543,8 +42322,8 @@
   {
    "id": "walk/belly/short/6000/senior/012345",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/senior/024",
@@ -42622,7 +42401,7 @@
    "id": "walk/belly/short/6000/senior/0123456",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/senior/0123456",
@@ -42651,8 +42430,8 @@
   {
    "id": "walk/belly/short/6000/senior/0123456",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/6000/senior/56",
@@ -42694,7 +42473,7 @@
    "id": "walk/belly/short/6000/senior/default",
    "check": "K1",
    "grade": "pass",
-   "detail": "target 150, weeks [105,105,110,110]"
+   "detail": "target 150, weeks [90,95,110,110]"
   },
   {
    "id": "walk/belly/short/6000/senior/default",
@@ -42723,8 +42502,8 @@
   {
    "id": "walk/belly/short/6000/senior/default",
    "check": "K6",
-   "grade": "warn",
-   "detail": "OVER: walks sum [105,105,110,110] vs planned [90,95,100,110] on 5 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/9000/general/012345",
@@ -42831,8 +42610,8 @@
   {
    "id": "walk/belly/short/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/9000/general/0123456",
@@ -42903,8 +42682,8 @@
   {
    "id": "walk/belly/short/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/9000/general/default",
@@ -43047,8 +42826,8 @@
   {
    "id": "walk/belly/short/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/9000/senior/0123456",
@@ -43119,8 +42898,8 @@
   {
    "id": "walk/belly/short/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/9000/senior/default",
@@ -43227,8 +43006,8 @@
   {
    "id": "walk/belly/short/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/13000/general/13",
@@ -43263,8 +43042,8 @@
   {
    "id": "walk/belly/short/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/13000/general/0123456",
@@ -43335,8 +43114,8 @@
   {
    "id": "walk/belly/short/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/13000/general/default",
@@ -43479,8 +43258,8 @@
   {
    "id": "walk/belly/short/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/13000/senior/0123456",
@@ -43551,8 +43330,8 @@
   {
    "id": "walk/belly/short/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/short/13000/senior/default",
@@ -44991,8 +44770,8 @@
   {
    "id": "walk/belly/medium/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/9000/general/0123456",
@@ -45063,8 +44842,8 @@
   {
    "id": "walk/belly/medium/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/9000/general/default",
@@ -45207,8 +44986,8 @@
   {
    "id": "walk/belly/medium/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/9000/senior/0123456",
@@ -45279,8 +45058,8 @@
   {
    "id": "walk/belly/medium/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/9000/senior/default",
@@ -45387,8 +45166,8 @@
   {
    "id": "walk/belly/medium/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/13000/general/13",
@@ -45423,8 +45202,8 @@
   {
    "id": "walk/belly/medium/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/13000/general/0123456",
@@ -45495,8 +45274,8 @@
   {
    "id": "walk/belly/medium/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/13000/general/default",
@@ -45639,8 +45418,8 @@
   {
    "id": "walk/belly/medium/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/13000/senior/0123456",
@@ -45711,8 +45490,8 @@
   {
    "id": "walk/belly/medium/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/medium/13000/senior/default",
@@ -47151,8 +46930,8 @@
   {
    "id": "walk/belly/long/9000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/9000/general/0123456",
@@ -47223,8 +47002,8 @@
   {
    "id": "walk/belly/long/9000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/9000/general/default",
@@ -47367,8 +47146,8 @@
   {
    "id": "walk/belly/long/9000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/9000/senior/0123456",
@@ -47439,8 +47218,8 @@
   {
    "id": "walk/belly/long/9000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [120,130,140,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/9000/senior/default",
@@ -47547,8 +47326,8 @@
   {
    "id": "walk/belly/long/13000/general/024",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [150,150,150,150] vs planned [150,165,180,195] on 3 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/13000/general/13",
@@ -47583,8 +47362,8 @@
   {
    "id": "walk/belly/long/13000/general/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/13000/general/0123456",
@@ -47655,8 +47434,8 @@
   {
    "id": "walk/belly/long/13000/general/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,165,180,195] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/13000/general/default",
@@ -47799,8 +47578,8 @@
   {
    "id": "walk/belly/long/13000/senior/13",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/13000/senior/0123456",
@@ -47871,8 +47650,8 @@
   {
    "id": "walk/belly/long/13000/senior/56",
    "check": "K6",
-   "grade": "warn",
-   "detail": "UNDER: walks sum [105,105,105,105] vs planned [150,150,150,150] on 2 days"
+   "grade": "pass",
+   "detail": ""
   },
   {
    "id": "walk/belly/long/13000/senior/default",

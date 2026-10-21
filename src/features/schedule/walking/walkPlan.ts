@@ -9,7 +9,9 @@
  *             the WHO minimum + a balance note)
  *   week k  = start(level) × 1.1^k, capped at the target, rounded down to 5′
  *   walks   = weekly minutes ÷ the comfortable walk length → 3–5, never more than
- *             the days the user has; each walk 20–45′; one longer walk a week (≤ 60′)
+ *             the days the user has; each walk 20–45′ (comfort "short": down to 15′ in
+ *             a gentle-start week); one longer walk a week (≤ 60′)
+ *   planned = min(target, what the days can hold) — fewer days say so honestly
  *   target  = time for most walks; the long walk (and every walk for the "steps"
  *             goal) is a distance — the free walk player's own goal types
  *
@@ -107,18 +109,31 @@ function targetFor(minutes: number, distance: boolean, cfg: WalkPlanConfig): Wal
   return distance ? { type: 'distance', km: distanceForMinutes(minutes, cfg) } : { type: 'time', minutes };
 }
 
-/** One week: `total` minutes over `days`, one longer walk, every walk inside the session bounds. */
+/** The most weekly minutes `n` walks can hold: one long walk (≤ longWalkMax, from 2 walks) + the others ≤ session.max. */
+export function weekCapacityMinutes(n: number, cfg: WalkPlanConfig = WALK_PLAN_CONFIG): number {
+  if (n <= 0) return 0;
+  const longMax = Math.max(cfg.session.max, cfg.longWalkMax ?? cfg.session.max);
+  return n === 1 ? cfg.session.max : longMax + (n - 1) * cfg.session.max;
+}
+
+/**
+ * One week: `total` minutes over `days`, one longer walk, every walk inside the session
+ * bounds. `minSession` (default session.min) lowers the floor for a "short" comfort
+ * gentle-start week.
+ */
 export function buildWalkWeek(
   index: number,
   total: number,
   days: readonly number[],
   goal: WalkGoal,
   cfg: WalkPlanConfig = WALK_PLAN_CONFIG,
+  minSession: number = cfg.session.min,
 ): WalkWeek {
   const sorted = [...days].sort((a, b) => a - b);
   const n = sorted.length;
   if (n === 0) return { index, totalMinutes: 0, walks: [] };
-  const { min, max } = cfg.session;
+  const { max } = cfg.session;
+  const min = minSession;
   const longDow = longWalkDay(sorted);
   const base = total / n;
   // The long walk: up to longWalkMax (owner 20.10.2026); the others stay within session.max.
@@ -165,14 +180,30 @@ export function recommendWalkPlan(input: WalkPlanInput, cfg: WalkPlanConfig = WA
   const session = preferredSessionMinutes(input.comfort, input.audience, cfg);
   const frequency = walkFrequency(ramp[ramp.length - 1] ?? start, session, available.length, cfg);
   const days = daysOverride && daysOverride.length ? [...daysOverride].sort((a, b) => a - b) : pickWalkDays(frequency, available);
-  const weeks = ramp.map((total, i) => buildWalkWeek(i, total, days, input.goal, cfg));
+  // Few days can't hold the target (2 days: 45 + 60 = 105′) → the weeks stop at what
+  // they hold and a reason says so, instead of promising minutes the walks don't add up to.
+  const planned = Math.min(target, weekCapacityMinutes(days.length, cfg));
+  // Comfort "short": a week too small for every walk at session.min uses shorter walks.
+  const minFor = (total: number) =>
+    input.comfort === 'short' && total < days.length * cfg.session.min
+      ? Math.min(cfg.session.min, cfg.shortComfortMinSession ?? cfg.session.min)
+      : cfg.session.min;
+  const weeks = ramp.map((total, i) => {
+    const t = Math.min(total, planned);
+    return buildWalkWeek(i, t, days, input.goal, cfg, minFor(t));
+  });
 
   const reasonsHe = [
     `${LEVEL_REASON_HE[level]} · עד 10% יותר כל שבוע`,
     `היעד: ${target} דק׳ הליכה מהירה בשבוע — לפי המלצת ארגון הבריאות העולמי`,
   ];
+  if (days.length && planned < target) {
+    reasonsHe.push(days.length < cfg.frequency.max
+      ? `עד ${planned} דק׳ עם ${days.length === 1 ? 'יום אחד' : `${days.length} ימים`} — הוסיפו יום כדי להגיע ל-${target}`
+      : `עד ${planned} דק׳ בשבוע בהליכות של עד ${cfg.session.max} דק׳`);
+  }
   if (input.audience === 'senior') reasonsHe.push('כדאי להוסיף תרגילי שיווי משקל קצרים');
-  return { level, targetWeeklyMinutes: target, frequency, days, weeks, reasonsHe };
+  return { level, targetWeeklyMinutes: target, plannedWeeklyMinutes: planned, frequency, days, weeks, reasonsHe };
 }
 
 /**

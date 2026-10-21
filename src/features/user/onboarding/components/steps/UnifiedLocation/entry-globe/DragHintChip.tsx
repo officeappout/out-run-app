@@ -3,10 +3,12 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Hand } from 'lucide-react';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 /** Dark chip under the lemur pin: "גוררים את המפה כדי לדייק" (hidden after the first drag). */
 export function DragHintChip() {
+  const t = useT(onboarding);
   const reduce = !!useReducedMotion();
   return (
     <motion.span
@@ -25,7 +27,7 @@ export function DragHintChip() {
       >
         <Hand size={17} strokeWidth={2} />
       </motion.span>
-      {ENTRY_COPY.dragHint}
+      {t('location.entry.dragHint')}
     </motion.span>
   );
 }

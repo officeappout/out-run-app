@@ -31,6 +31,12 @@ export interface WalkPlanConfig {
   /** One walk's length bounds (minutes). */
   session: { min: number; max: number };
   /**
+   * Comfort "short" (עד 15 דק׳): a week whose minutes can't fill every walk at
+   * session.min (the gentle-start weeks) uses walks down to this instead, so week 1
+   * stays at the ramp's start rather than jumping above it (generator QA K6, 21.10.2026).
+   */
+  shortComfortMinSession: number;
+  /**
    * The week's ONE long walk may go up to this (owner 20.10.2026) — the others stay
    * ≤ session.max — so a higher weekly target is reachable with 3 walks (45+45+60).
    */
@@ -73,6 +79,7 @@ export const WALK_PLAN_CONFIG: WalkPlanConfig = {
   stepGoalStretch: 1.1,
   weeklyRampCap: 0.1,
   session: { min: 20, max: 45 },
+  shortComfortMinSession: 15,
   longWalkMax: 60,
   comfortSessionMinutes: { short: 20, medium: 30, long: 40 },
   frequency: { min: 3, max: 5 },

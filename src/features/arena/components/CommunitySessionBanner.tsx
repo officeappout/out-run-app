@@ -17,29 +17,36 @@ import { useUserStore } from '@/features/user';
 import type { UpcomingSession } from '@/features/arena/hooks/useCommunitySessionBanner';
 import type { LiveSessionPhase, MemberSessionStatus } from '@/types/community.types';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+
+type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
-const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const DAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: wave 3 — weekday names (fmt)
 const ALL_PHASES: LiveSessionPhase[] = ['far', 'approaching', 'lobby', 'active', 'ended'];
+// i18n-allow-hebrew: dev-only phase override panel (IS_DEV), never shown in production
 const PHASE_LABELS: Record<LiveSessionPhase, string> = {
-  far: 'רחוק', approaching: 'מתקרב', lobby: 'לובי', active: 'פעיל', ended: 'הסתיים',
+  far: 'רחוק', approaching: 'מתקרב', lobby: 'לובי', active: 'פעיל', ended: 'הסתיים', // i18n-allow-hebrew: dev-only panel
 };
 const LATE_OPTIONS: MemberSessionStatus['lateMinutes'][] = [2, 5, 10, 15];
 const IS_DEV = process.env.NODE_ENV === 'development';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function formatCountdown(mins: number): string | null {
+function formatCountdown(mins: number, t: CommunityT): string | null {
   if (mins <= -60) return null;
-  if (mins < 0) return `החל לפני ${Math.abs(Math.round(mins))} דק׳`;
-  if (mins < 1) return 'עכשיו';
-  if (mins < 60) return `עוד ${Math.round(mins)} דקות`;
+  if (mins < 0) return t('banner.countdown.started', { mins: String(Math.abs(Math.round(mins))) });
+  if (mins < 1) return t('banner.countdown.now');
+  if (mins < 60) return t('banner.countdown.minutes', { mins: String(Math.round(mins)) });
   const hours = Math.floor(mins / 60);
   const rem = Math.round(mins % 60);
-  const hoursStr = hours === 1 ? 'שעה' : hours === 2 ? 'שעתיים' : `${hours} שעות`;
-  if (rem === 0) return `עוד ${hoursStr}`;
-  return `עוד ${hoursStr} ו-${rem} דק׳`;
+  // `h` picks שעה / שעתיים / "{hours} שעות" (=1 / =2 / other); `hours` is the printed count.
+  if (rem === 0) return t('banner.countdown.hours', { h: hours, hours: String(hours) });
+  return t('banner.countdown.hoursMinutes', { h: hours, hours: String(hours), rem: String(rem) });
 }
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -118,6 +125,7 @@ export default function CommunitySessionBanner({
   onDropIn,
   isJoined = true,
 }: CommunitySessionBannerProps) {
+  const t       = useT(community);
   const router  = useRouter();
   const profile = useUserStore((s) => s.profile);
   const uid      = profile?.id ?? '';
@@ -132,7 +140,8 @@ export default function CommunitySessionBanner({
     groupGender === 'female' ||
     (groupGender !== 'male' && userGender === 'female');
 
-  const g = (f: string, m: string) => (isFeminine ? f : m);
+  // Passed explicitly to every gendered key: the group's audience overrides the user's own gender.
+  const gender = isFeminine ? 'female' : 'other';
 
   // ── booking (far) ──────────────────────────────────────────────────────────
   const [booking, setBooking] = useState(false);
@@ -169,9 +178,9 @@ export default function CommunitySessionBanner({
   // ── time ───────────────────────────────────────────────────────────────────
   const mins      = session.minutesUntil;
   const dayLabel  = DAY_LABELS[new Date(`${session.date}T12:00:00`).getDay()];
-  const dateLabel = session.isToday ? 'היום' : session.isTomorrow ? 'מחר' : `יום ${dayLabel}`;
+  const dateLabel = session.isToday ? t('banner.date.today') : session.isTomorrow ? t('banner.date.tomorrow') : `יום ${dayLabel}`; // i18n-allow-hebrew: wave 3 — weekday label (fmt)
   const timeLabel = `${dateLabel} · ${session.time}`;
-  const countdown = formatCountdown(mins);
+  const countdown = formatCountdown(mins, t);
   const price     = session.slot.price;
 
   // ── handlers ───────────────────────────────────────────────────────────────
@@ -249,7 +258,7 @@ export default function CommunitySessionBanner({
     if (lateDone) {
       return (
         <p className={`text-center text-[11px] font-bold ${accentColor}`}>
-          הבנו, נחכה לך ❤️
+          {t('banner.late.ack')}
         </p>
       );
     }
@@ -260,7 +269,7 @@ export default function CommunitySessionBanner({
             onClick={() => setLatePickerOpen((v) => !v)}
             className={`flex items-center gap-0.5 text-[11px] font-bold ${accentColor} underline underline-offset-2`}
           >
-            {g('מאחרת?', 'מאחר?')}
+            {t('banner.late.toggle', { gender })}
             <ChevronDown className={`w-3 h-3 transition-transform ${latePickerOpen ? 'rotate-180' : ''}`} />
           </button>
           <span className="text-gray-300 select-none">·</span>
@@ -269,7 +278,7 @@ export default function CommunitySessionBanner({
             disabled={skipping}
             className="text-[11px] text-gray-400 font-semibold disabled:opacity-60"
           >
-            {skipping ? '...' : 'לא הפעם'}
+            {skipping ? '...' : t('banner.skip')}
           </button>
         </div>
 
@@ -292,7 +301,7 @@ export default function CommunitySessionBanner({
                     {lateSetting ? (
                       <Loader2 className="w-3 h-3 animate-spin mx-auto" />
                     ) : (
-                      `+${m} דק׳`
+                      t('banner.late.option', { m: String(m) })
                     )}
                   </button>
                 ))}
@@ -309,14 +318,14 @@ export default function CommunitySessionBanner({
   function renderGoalChip(dark = false) {
     if (!session.slot.workoutGoal) return null;
     const { type, value } = session.slot.workoutGoal;
-    const label = type === 'distance' ? `${value.toFixed(1)} ק״מ` : `${Math.round(value / 60)} דק׳`;
+    const label = t('banner.goal', { type, value: type === 'distance' ? value.toFixed(1) : String(Math.round(value / 60)) });
     return (
       <span
         className={`inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
           dark ? 'bg-white/20 text-white/80' : 'bg-white border border-gray-200 text-gray-600'
         }`}
       >
-        🎯 יעד אישי · {label}
+        {label}
       </span>
     );
   }
@@ -360,7 +369,7 @@ export default function CommunitySessionBanner({
                 animate={{ scale: 1, opacity: 1 }}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-[11px] font-black"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> אושר!
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t('banner.booked')}
               </motion.div>
             ) : (
               <motion.button
@@ -373,7 +382,7 @@ export default function CommunitySessionBanner({
               >
                 {booking
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : session.isToday ? 'אשר הגעה' : g('הירשמי', 'הירשם')}
+                  : session.isToday ? t('banner.confirmArrival') : t('banner.register', { gender })}
               </motion.button>
             )}
           </AnimatePresence>
@@ -401,7 +410,7 @@ export default function CommunitySessionBanner({
           <div className="flex-1 min-w-0">
             {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
             <p className="text-[11px] text-gray-600 truncate">
-              {communityMsg.subText || communityMsg.text || 'מפגש קהילתי בקרוב'}
+              {communityMsg.subText || communityMsg.text || t('banner.fallback')}
             </p>
             {renderGoalChip()}
           </div>
@@ -420,7 +429,7 @@ export default function CommunitySessionBanner({
               animate={{ scale: 1, opacity: 1 }}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black"
             >
-              <CheckCircle2 className="w-4 h-4" /> {g('בדרך! 🏃‍♀️', 'בדרך! 🏃')}
+              <CheckCircle2 className="w-4 h-4" /> {t('banner.onMyWay.done', { gender })}
             </motion.div>
           ) : (
             <motion.button
@@ -431,7 +440,7 @@ export default function CommunitySessionBanner({
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-teal-500/30"
             >
-              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : isJoined ? '✋ אני בדרך' : g('הצטרפי לאימון', 'הצטרף לאימון')}
+              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : isJoined ? t('banner.onMyWay.cta') : t('banner.joinWorkout', { gender })}
             </motion.button>
           )}
         </AnimatePresence>
@@ -443,8 +452,8 @@ export default function CommunitySessionBanner({
 
   function renderLobby() {
     const countLabel = maxCount
-      ? `${attendeeCount}/${maxCount} הגיעו`
-      : attendeeCount > 0 ? `${attendeeCount} הגיעו` : null;
+      ? t('banner.arrived.ofMax', { count: String(attendeeCount), max: String(maxCount) })
+      : attendeeCount > 0 ? t('banner.arrived.count', { count: String(attendeeCount) }) : null;
 
     return (
       <div
@@ -464,7 +473,7 @@ export default function CommunitySessionBanner({
           <div className="flex-1 min-w-0">
             {!compact && <p className="text-[13px] font-black text-gray-900 truncate">{session.groupName}</p>}
             <p className="text-[11px] text-emerald-700 font-bold">
-              {countdown ?? 'המפגש החל!'}
+              {countdown ?? t('banner.started')}
             </p>
             {renderGoalChip()}
           </div>
@@ -490,7 +499,7 @@ export default function CommunitySessionBanner({
               animate={{ scale: 1, opacity: 1 }}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black"
             >
-              <CheckCircle2 className="w-4 h-4" /> אני כאן! 🙌
+              <CheckCircle2 className="w-4 h-4" /> {t('banner.here')}
             </motion.div>
           ) : (
             <motion.button
@@ -524,7 +533,7 @@ export default function CommunitySessionBanner({
               disabled={settingStatus}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500 text-white text-[13px] font-black transition-all active:scale-[0.97] disabled:opacity-60 shadow-sm shadow-emerald-500/30"
             >
-              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : g('הצטרפי לאימון', 'הצטרף לאימון')}
+              {settingStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : t('banner.joinWorkout', { gender })}
             </motion.button>
           )}
         </AnimatePresence>
@@ -555,7 +564,7 @@ export default function CommunitySessionBanner({
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
               <p className="text-[11px] text-green-300 font-bold">
-                פעיל{activeCount > 0 ? ` · ${activeCount} כאן` : ''}
+                {activeCount > 0 ? t('banner.active.here', { count: String(activeCount) }) : t('banner.active.label')}
               </p>
             </div>
             {renderGoalChip(true)}
@@ -577,7 +586,7 @@ export default function CommunitySessionBanner({
               />
             </div>
             <p className="text-[10px] text-white/50 text-start">
-              {activeCount} / {maxCount} {g('משתתפות', 'משתתפים')}
+              {t('banner.participants', { active: String(activeCount), max: String(maxCount), gender })}
             </p>
           </div>
         ) : null}
@@ -609,14 +618,14 @@ export default function CommunitySessionBanner({
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white text-green-800 text-[13px] font-black transition-all active:scale-[0.97]"
         >
           <Zap className="w-4 h-4 text-green-600" />
-          {g('הצטרפי לאימון', 'הצטרף לאימון')}
+          {t('banner.joinWorkout', { gender })}
         </button>
       </div>
     );
   }
 
   function renderEnded() {
-    const celebrationText = communityMsg.text || g('סיימתן! 💪', 'סיימתם! 💪');
+    const celebrationText = communityMsg.text || t('banner.ended', { gender });
     const celebrationSub  = communityMsg.subText;
 
     return (
@@ -647,7 +656,7 @@ export default function CommunitySessionBanner({
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-400 text-white text-[13px] font-black transition-all active:scale-[0.97] shadow-sm shadow-amber-400/30"
         >
           <Trophy className="w-4 h-4" />
-          לסיכום
+          {t('banner.summary')}
         </button>
       </div>
     );

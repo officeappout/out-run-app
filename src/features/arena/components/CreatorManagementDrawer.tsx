@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -21,16 +21,19 @@ import Sheet, { SHEET_TITLE_CLASS } from '@/components/ui/v2/Sheet';
 import ConfirmSheet from '@/components/ui/v2/ConfirmSheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const CATEGORY_CONFIG: Record<string, { label: string; emoji: string; gradient: string }> = {
-  walking:      { label: 'הליכה',      emoji: '🚶', gradient: 'from-emerald-500 to-teal-600' },
-  running:      { label: 'ריצה',       emoji: '🏃', gradient: 'from-orange-500 to-red-500' },
-  yoga:         { label: 'יוגה',       emoji: '🧘', gradient: 'from-violet-500 to-purple-600' },
-  calisthenics: { label: 'קליסתניקס', emoji: '💪', gradient: 'from-cyan-500 to-blue-600' },
-  cycling:      { label: 'רכיבה',      emoji: '🚴', gradient: 'from-lime-500 to-green-600' },
-  other:        { label: 'אחר',        emoji: '⭐', gradient: 'from-gray-500 to-gray-600' },
+// Labels: community.json `creator.category` (select on the category id, unknown → other).
+const CATEGORY_CONFIG: Record<string, { emoji: string; gradient: string }> = {
+  walking:      { emoji: '🚶', gradient: 'from-emerald-500 to-teal-600' },
+  running:      { emoji: '🏃', gradient: 'from-orange-500 to-red-500' },
+  yoga:         { emoji: '🧘', gradient: 'from-violet-500 to-purple-600' },
+  calisthenics: { emoji: '💪', gradient: 'from-cyan-500 to-blue-600' },
+  cycling:      { emoji: '🚴', gradient: 'from-lime-500 to-green-600' },
+  other:        { emoji: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
 function memberInitials(name: string): string {
@@ -56,6 +59,7 @@ export default function CreatorManagementDrawer({
   groupId,
   onEditGroup,
 }: CreatorManagementDrawerProps) {
+  const t = useT(community);
   const [group, setGroup] = useState<CommunityGroup | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,6 +140,8 @@ export default function CreatorManagementDrawer({
   }, [groupId, actionPending]);
 
   const cat = group ? (CATEGORY_CONFIG[group.category] ?? CATEGORY_CONFIG.other) : null;
+  const catLabel = group ? t('creator.category', { category: group.category ?? '' }) : null;
+  const memberCountLabel = group?.memberCount != null ? t('creator.memberCount', { count: String(group.memberCount) }) : null;
 
   const body = (
     <>
@@ -150,7 +156,7 @@ export default function CreatorManagementDrawer({
           <>
             {/* ── Quick Actions ───────────────────────── */}
             <section>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">פעולות מהירות</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2.5">{t('creator.quickActions')}</p>
               <div className="space-y-2">
 
                 {/* Edit Group Details */}
@@ -166,8 +172,8 @@ export default function CreatorManagementDrawer({
                     <Pencil className="w-4 h-4" />
                   </div>
                   <div className="text-right flex-1">
-                    <p className="text-sm font-black leading-tight">ערוך פרטי קהילה</p>
-                    <p className="text-[10px] opacity-60 font-medium">שם, תיאור, מיקום, לוח זמנים</p>
+                    <p className="text-sm font-black leading-tight">{t('creator.edit.title')}</p>
+                    <p className="text-[10px] opacity-60 font-medium">{t('creator.edit.subtitle')}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 opacity-40 flex-shrink-0" />
                 </button>
@@ -181,8 +187,8 @@ export default function CreatorManagementDrawer({
                     <BarChart2 className="w-4 h-4" />
                   </div>
                   <div className="text-right flex-1">
-                    <p className="text-sm font-black leading-tight">צפה בסטטיסטיקות</p>
-                    <p className="text-[10px] font-medium">בקרוב — נתוני פעילות ונוכחות</p>
+                    <p className="text-sm font-black leading-tight">{t('creator.stats.title')}</p>
+                    <p className="text-[10px] font-medium">{t('creator.stats.subtitle')}</p>
                   </div>
                 </button>
 
@@ -194,7 +200,7 @@ export default function CreatorManagementDrawer({
               <div className="flex items-center gap-2 mb-2.5">
                 <Users className="w-3.5 h-3.5 text-gray-400" />
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  חברי הקהילה
+                  {t('creator.members.title')}
                   {members.length > 0 && (
                     <span className="normal-case tracking-normal font-semibold text-gray-400 mr-1">
                       ({members.length})
@@ -204,7 +210,7 @@ export default function CreatorManagementDrawer({
               </div>
 
               {members.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">אין חברים רשומים עדיין</p>
+                <p className="text-sm text-gray-400 text-center py-6">{t('creator.members.empty')}</p>
               ) : (
                 <div className="space-y-1.5">
                   {members.map((member) => {
@@ -235,13 +241,13 @@ export default function CreatorManagementDrawer({
                             {isGroupCreator && (
                               <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5 leading-tight">
                                 <Crown className="w-2.5 h-2.5" />
-                                בעלים
+                                {t('creator.members.owner')}
                               </p>
                             )}
                             {isGroupAdminMember && (
                               <p className="text-[10px] text-blue-500 dark:text-blue-400 font-bold flex items-center gap-0.5 leading-tight">
                                 <Shield className="w-2.5 h-2.5" />
-                                מנהל/ת
+                                {t('creator.members.admin')}
                               </p>
                             )}
                           </div>
@@ -254,7 +260,7 @@ export default function CreatorManagementDrawer({
                         {isExpanded && (
                           <div className="bg-gray-100 dark:bg-slate-700/60 border-t border-gray-200 dark:border-slate-600/40 px-3 py-2 space-y-1" dir="rtl">
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">
-                              {member.name} · פעולות מנהל
+                              {t('creator.members.actions', { name: member.name })}
                             </p>
                             {canPromote && (
                               <button
@@ -263,8 +269,8 @@ export default function CreatorManagementDrawer({
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                               >
                                 {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-blue-500" />}
-                                הפוך למנהל
-                                <span className="text-xs text-gray-400 font-normal mr-auto">אותן סמכויות כמו שלך</span>
+                                {t('creator.members.promote')}
+                                <span className="text-xs text-gray-400 font-normal mr-auto">{t('creator.members.promoteHint')}</span>
                               </button>
                             )}
                             {canDemote && (
@@ -274,7 +280,7 @@ export default function CreatorManagementDrawer({
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                               >
                                 {actionPending === member.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-gray-400" />}
-                                הסר ניהול
+                                {t('creator.members.demote')}
                               </button>
                             )}
                             {canRemove && (
@@ -283,7 +289,7 @@ export default function CreatorManagementDrawer({
                                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               >
                                 <X className="w-4 h-4" />
-                                הסר מהקבוצה
+                                {t('creator.members.remove')}
                               </button>
                             )}
                           </div>
@@ -319,7 +325,7 @@ export default function CreatorManagementDrawer({
           className="flex max-h-[88dvh] flex-col"
           safeArea={false}
           transition={{ type: 'spring', stiffness: 300, damping: 32, mass: 0.9 }}
-          ariaLabel="ניהול קהילה"
+          ariaLabel={t('creator.title')}
           header={
             <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-1" dir="rtl">
               <div className="flex min-w-0 items-center gap-3">
@@ -329,19 +335,19 @@ export default function CreatorManagementDrawer({
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">ניהול קהילה</p>
+                  <p className="whitespace-nowrap text-[13px] font-extrabold text-v2-deep">{t('creator.title')}</p>
                   <h2 className={`${SHEET_TITLE_CLASS} truncate leading-tight`}>
                     {loading ? '...' : (group?.name ?? '—')}
                   </h2>
                   {!loading && group && (
                     <p className="truncate text-[12px] font-bold text-v2-muted">
-                      {cat?.label}
-                      {group.memberCount != null && ` · ${group.memberCount} חברים`}
+                      {catLabel}
+                      {memberCountLabel}
                     </p>
                   )}
                 </div>
               </div>
-              <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={onClose}>
+              <IconButton aria-label={t('creator.close')} tone="surface" size={36} className="shrink-0" onClick={onClose}>
                 <X className="h-4 w-4" />
               </IconButton>
             </div>
@@ -357,14 +363,15 @@ export default function CreatorManagementDrawer({
           zIndex={SHEET_Z.navigatePanel}
           backdropZIndex={SHEET_Z.navigate}
           portal={false}
-          title="הסרת חבר/ה"
+          title={t('creator.remove.title')}
           description={
             confirmRemove && (
               <>
-                האם להסיר את{' '}
-                <span className="text-v2-ink">{confirmRemove.name}</span>
-                {' '}מהקהילה?
-                <span className="mt-1 block text-[12.5px]">המשתמש יוסר מהקבוצה, מהצ׳אט ומהלוז האישי שלו</span>
+                {t.rich('creator.remove.question', {
+                  name: confirmRemove.name,
+                  b: (chunks: ReactNode) => <span className="text-v2-ink">{chunks}</span>,
+                })}
+                <span className="mt-1 block text-[12.5px]">{t('creator.remove.note')}</span>
               </>
             )
           }
@@ -375,14 +382,14 @@ export default function CreatorManagementDrawer({
               ) : (
                 <span className="inline-flex items-center justify-center gap-2">
                   <LogOut className="h-4 w-4" />
-                  הסר
+                  {t('creator.remove.confirm')}
                 </span>
               ),
               tone: 'danger',
               disabled: !!removingUid,
               onClick: handleRemove,
             },
-            { label: 'ביטול', tone: 'ghost', disabled: !!removingUid, onClick: () => setConfirmRemove(null) },
+            { label: t('creator.remove.cancel'), tone: 'ghost', disabled: !!removingUid, onClick: () => setConfirmRemove(null) },
           ]}
         />
       </>
@@ -428,14 +435,14 @@ export default function CreatorManagementDrawer({
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ניהול קהילה</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('creator.title')}</p>
                       <h2 className="text-base font-black text-gray-900 dark:text-white leading-tight truncate">
                         {loading ? '...' : (group?.name ?? '—')}
                       </h2>
                       {!loading && group && (
                         <p className="text-[11px] text-gray-500 font-medium">
-                          {cat?.label}
-                          {group.memberCount != null && ` · ${group.memberCount} חברים`}
+                          {catLabel}
+                          {memberCountLabel}
                         </p>
                       )}
                     </div>
@@ -480,13 +487,14 @@ export default function CreatorManagementDrawer({
                 <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
                   <LogOut className="w-5 h-5 text-red-500" />
                 </div>
-                <h3 className="text-base font-black text-gray-900 dark:text-white">הסרת חבר/ה</h3>
+                <h3 className="text-base font-black text-gray-900 dark:text-white">{t('creator.remove.title')}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  האם להסיר את{' '}
-                  <span className="font-bold text-gray-900 dark:text-white">{confirmRemove.name}</span>
-                  {' '}מהקהילה?
+                  {t.rich('creator.remove.question', {
+                    name: confirmRemove.name,
+                    b: (chunks: ReactNode) => <span className="font-bold text-gray-900 dark:text-white">{chunks}</span>,
+                  })}
                 </p>
-                <p className="text-xs text-gray-400">המשתמש יוסר מהקבוצה, מהצ׳אט ומהלוז האישי שלו</p>
+                <p className="text-xs text-gray-400">{t('creator.remove.note')}</p>
               </div>
 
               {/* Actions */}
@@ -501,7 +509,7 @@ export default function CreatorManagementDrawer({
                   ) : (
                     <>
                       <LogOut className="w-3.5 h-3.5" />
-                      הסר
+                      {t('creator.remove.confirm')}
                     </>
                   )}
                 </button>
@@ -510,7 +518,7 @@ export default function CreatorManagementDrawer({
                   onClick={() => setConfirmRemove(null)}
                   className="flex-1 py-3 rounded-2xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 text-sm font-bold active:scale-95 transition-all"
                 >
-                  ביטול
+                  {t('creator.remove.cancel')}
                 </button>
               </div>
             </motion.div>

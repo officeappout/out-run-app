@@ -22,18 +22,24 @@ import { shareInputFromPost } from '../services/share-image';
 import { cardioPostStats } from '../services/feed-cardio-stats';
 import RouteLine from './RouteLine';
 import ShareImageSheet from './ShareImageSheet';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
-/** Activity colours — the same as the home flames. */
-export const V2_ACTIVITY: Record<string, { label: string; hex: string; text: string; rgb: string; tint: string }> = {
-  strength: { label: 'כוח', hex: '#00baf7', text: '#0284c7', rgb: '0,186,247', tint: 'linear-gradient(160deg,#eef8fc,#dff4fb)' },
-  cardio: { label: 'אירובי', hex: '#84cc16', text: '#65a30d', rgb: '132,204,22', tint: 'linear-gradient(165deg,#f3fbe6,#e3f4c8)' },
-  maintenance: { label: 'תחזוקה', hex: '#8b5cf6', text: '#7c3aed', rgb: '139,92,246', tint: 'linear-gradient(160deg,#f5f3ff,#ede9fe)' },
+/**
+ * Activity colours — the same as the home flames. The label is the
+ * `social.post.activity` select (community namespace), keyed by the same id.
+ */
+export const V2_ACTIVITY: Record<string, { hex: string; text: string; rgb: string; tint: string }> = {
+  strength: { hex: '#00baf7', text: '#0284c7', rgb: '0,186,247', tint: 'linear-gradient(160deg,#eef8fc,#dff4fb)' },
+  cardio: { hex: '#84cc16', text: '#65a30d', rgb: '132,204,22', tint: 'linear-gradient(165deg,#f3fbe6,#e3f4c8)' },
+  maintenance: { hex: '#8b5cf6', text: '#7c3aed', rgb: '139,92,246', tint: 'linear-gradient(160deg,#f5f3ff,#ede9fe)' },
 };
 
-const V2_AUDIENCE: Record<string, { label: string; Icon: typeof Users }> = {
-  partners: { label: 'שותפים', Icon: Users },
-  public: { label: 'כולם', Icon: Globe },
-  private: { label: 'רק אני', Icon: Lock },
+/** The label is the `social.post.audience` select, keyed by the same id. */
+const V2_AUDIENCE: Record<string, { Icon: typeof Users }> = {
+  partners: { Icon: Users },
+  public: { Icon: Globe },
+  private: { Icon: Lock },
 };
 
 export interface FeedPostCardV2Props {
@@ -72,18 +78,20 @@ function Avatar({ name, hex, size = 44, ring }: { name: string; hex: string; siz
 }
 
 export function StreakChip({ days }: { days: number }) {
+  const t = useT(community);
   return (
     <span className="inline-flex h-5 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full bg-[#fff4e5] px-1.5 text-[11.5px] font-extrabold text-[#c2410c]">
       <Flame size={11} strokeWidth={2.6} fill="currentColor" aria-hidden />
-      רצף {days} ימים
+      {t('social.post.streak', { days: String(days) })}
     </span>
   );
 }
 
 export function SetDots({ ex, hex, rgb }: { ex: FeedTopExercise; hex: string; rgb: string }) {
+  const t = useT(community);
   const n = Math.min(ex.sets, 8);
   return (
-    <span className="flex shrink-0 gap-[3px]" aria-label={`${ex.setsDone} מתוך ${ex.sets} סטים`}>
+    <span className="flex shrink-0 gap-[3px]" aria-label={t('social.post.setDots', { done: String(ex.setsDone), sets: String(ex.sets) })}>
       {Array.from({ length: n }, (_, i) => (
         <span key={i} className="h-2 w-2 rounded-full" style={{ background: i < ex.setsDone ? hex : `rgba(${rgb},0.28)` }} />
       ))}
@@ -94,10 +102,11 @@ export function SetDots({ ex, hex, rgb }: { ex: FeedTopExercise; hex: string; rg
 export function PaceBars({ splits }: { splits: number[] }) {
   const heights = paceBarHeights(splits);
   const fastest = Math.min(...splits);
+  const t = useT(community);
   return (
     <div className="px-4 pb-1 pt-1.5">
-      <div className="mb-1.5 whitespace-nowrap text-[12px] font-extrabold text-v2-ink-2">קצב לפי הקפה</div>
-      <div className="flex h-[46px] items-end gap-1.5" role="img" aria-label={`קצב לפי הקפה: ${splits.map(formatSecPerKm).join(', ')}`}>
+      <div className="mb-1.5 whitespace-nowrap text-[12px] font-extrabold text-v2-ink-2">{t('social.post.paceBars.title')}</div>
+      <div className="flex h-[46px] items-end gap-1.5" role="img" aria-label={t('social.post.paceBars.label', { splits: splits.map(formatSecPerKm).join(', ') })}>
         {splits.map((s, i) => (
           <div
             key={i}
@@ -141,10 +150,14 @@ export default function FeedPostCardV2({
   menu,
   report,
 }: FeedPostCardV2Props) {
+  const t = useT(community);
   const [shareOpen, setShareOpen] = useState(false);
-  const act = V2_ACTIVITY[post.activityCategory] ?? V2_ACTIVITY.strength;
-  const aud = V2_AUDIENCE[post.audience ?? 'partners'] ?? V2_AUDIENCE.partners;
-  const AudIcon = aud.Icon;
+  // The id whose colours (and label) the card uses — unknown categories look like strength.
+  const actId = V2_ACTIVITY[post.activityCategory] ? post.activityCategory : 'strength';
+  const act = V2_ACTIVITY[actId];
+  const actLabel = t('social.post.activity', { category: actId });
+  const audId = V2_AUDIENCE[post.audience ?? 'partners'] ? (post.audience ?? 'partners') : 'partners';
+  const AudIcon = V2_AUDIENCE[audId].Icon;
   const isCardio = post.activityCategory === 'cardio';
   const hasRoute = isCardio && Array.isArray(post.routeShape) && post.routeShape.length >= 6;
   const photo = post.photoUrl;
@@ -155,7 +168,7 @@ export default function FeedPostCardV2({
     <span className="flex items-center gap-1 whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
       {post.parkName ? <span className="truncate">{post.parkName} ·</span> : null}
       {timeLabel} ·
-      <AudIcon size={12} strokeWidth={2.6} aria-label={aud.label} />
+      <AudIcon size={12} strokeWidth={2.6} aria-label={t('social.post.audience', { audience: audId })} />
     </span>
   );
 
@@ -187,7 +200,7 @@ export default function FeedPostCardV2({
         }`}
       >
         <Flame size={17} strokeWidth={2.4} fill={reacted ? 'currentColor' : 'none'} aria-hidden />
-        {reacted ? 'עודדת' : 'עידוד'}
+        {reacted ? t('social.post.cheered') : t('social.post.cheer')}
         {count > 0 && <span className="tabular-nums"> · {count}</span>}
       </button>
       <span className="flex-1" />
@@ -198,7 +211,7 @@ export default function FeedPostCardV2({
           className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3.5 text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
           <Share2 size={16} strokeWidth={2.6} aria-hidden />
-          שיתוף לרשתות
+          {t('social.post.shareImage')}
         </button>
       )}
     </div>
@@ -220,15 +233,15 @@ export default function FeedPostCardV2({
           <div className="relative h-[210px]" style={{ background: act.tint }}>
             {photo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={photo} alt={`תמונה מהאימון של ${post.authorName}`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+              <img src={photo} alt={t('social.post.photoAlt', { name: post.authorName })} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
             ) : (
               <div className="absolute inset-x-0 bottom-0 top-10">
-                <RouteLine shape={post.routeShape} variant="hero" width={358} height={170} label={`קו המסלול של ${post.authorName}`} />
+                <RouteLine shape={post.routeShape} variant="hero" width={358} height={170} label={t('social.post.routeLabel', { name: post.authorName })} />
               </div>
             )}
             {photo && hasRoute && (
               <div className="absolute bottom-3 start-3 h-[74px] w-[74px] overflow-hidden rounded-[16px] bg-white/85 p-1 shadow-v2-ring">
-                <RouteLine shape={post.routeShape} variant="hero" width={66} height={66} label={`קו המסלול של ${post.authorName}`} />
+                <RouteLine shape={post.routeShape} variant="hero" width={66} height={66} label={t('social.post.routeLabel', { name: post.authorName })} />
               </div>
             )}
             <div className="absolute inset-x-3 top-3 flex items-center gap-2">
@@ -250,7 +263,7 @@ export default function FeedPostCardV2({
             {post.runSegment && (
               <span className="absolute bottom-3 end-3 inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full bg-[#fef3c7] px-2.5 text-[12.5px] font-extrabold text-[#92400e]">
                 <Trophy size={13} strokeWidth={2.6} aria-hidden />
-                {post.runSegment.replace('k', ' ק״מ')}
+                {post.runSegment.replace('k', t('social.post.segmentKm'))}
               </span>
             )}
           </div>
@@ -275,7 +288,7 @@ export default function FeedPostCardV2({
             {!hero && post.runSegment && (
               <span className="inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded-full bg-[#fef3c7] px-2.5 text-[12px] font-extrabold text-[#92400e]">
                 <Trophy size={12} strokeWidth={2.6} aria-hidden />
-                {post.runSegment.replace('k', ' ק״מ')}
+                {post.runSegment.replace('k', t('social.post.segmentKm'))}
               </span>
             )}
             {post.parkName && (
@@ -304,7 +317,7 @@ export default function FeedPostCardV2({
       {photo && (
         <div className="mx-3 mb-2 overflow-hidden rounded-[20px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo} alt={`תמונה מהאימון של ${post.authorName}`} className="block aspect-[4/3] w-full object-cover" loading="lazy" />
+          <img src={photo} alt={t('social.post.photoAlt', { name: post.authorName })} className="block aspect-[4/3] w-full object-cover" loading="lazy" />
         </div>
       )}
 
@@ -312,16 +325,18 @@ export default function FeedPostCardV2({
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="truncate whitespace-nowrap text-[12px] font-extrabold" style={{ color: act.text }}>
-              {act.label}
+              {actLabel}
               {programLabel ? ` · ${programLabel}` : ''}
             </div>
             <div className="truncate whitespace-nowrap text-[19px] font-black !tracking-[-0.02em] text-v2-ink">
-              {levelKnown ? `שלב ${post.levelIndex} מתוך ${post.levelCount}` : act.label === 'כוח' ? 'אימון כוח' : `אימון ${act.label}`}
+              {levelKnown
+                ? t('social.post.level', { index: String(post.levelIndex), count: String(post.levelCount) })
+                : t('social.post.workoutTitle', { category: actId })}
             </div>
           </div>
           <div className="shrink-0 text-center">
             <div className="text-[26px] font-black leading-none tabular-nums text-v2-ink">{post.durationMinutes}</div>
-            <div className="text-[11.5px] font-bold text-v2-ink-2">דקות</div>
+            <div className="text-[11.5px] font-bold text-v2-ink-2">{t('social.post.minutes')}</div>
           </div>
         </div>
         {levelKnown && (
@@ -344,18 +359,18 @@ export default function FeedPostCardV2({
             ))}
             {post.moreExercises ? (
               <div className="ps-1 text-[12.5px] font-bold" style={{ color: act.text }}>
-                ועוד {post.moreExercises} תרגילים
+                {t('social.post.moreExercises', { n: String(post.moreExercises) })}
               </div>
             ) : null}
           </div>
         ) : (
           <div className="mt-3 flex flex-wrap gap-1.5">
             <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full bg-white px-2.5 text-[12px] font-extrabold text-v2-ink-2">
-              {post.activityCredit} נקודות
+              {t('social.post.points', { credit: String(post.activityCredit) })}
             </span>
             {post.intensityLevel && (
               <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full bg-white px-2.5 text-[12px] font-extrabold text-v2-ink-2">
-                עצימות {post.intensityLevel}
+                {t('social.post.intensity', { level: post.intensityLevel })}
               </span>
             )}
           </div>

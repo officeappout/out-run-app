@@ -10,17 +10,24 @@ import { distanceLabel } from '@/features/arena/utils/distance';
 import UnitIconBadge from '@/components/ui/UnitIconBadge';
 import { joinGroup } from '@/features/arena/services/group.service';
 import { useUserStore } from '@/features/user';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 
-const CATEGORY_CONFIG: Record<CommunityGroupCategory, { label: string; icon: string; gradient: string }> = {
-  walking:     { label: 'הליכה',      icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
-  running:     { label: 'ריצה',       icon: '🏃', gradient: 'from-orange-500 to-red-500' },
-  yoga:        { label: 'יוגה',       icon: '🧘', gradient: 'from-violet-500 to-purple-600' },
-  calisthenics:{ label: 'קליסתניקס', icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
-  cycling:     { label: 'רכיבה',      icon: '🚴', gradient: 'from-lime-500 to-green-600' },
-  other:       { label: 'אחר',        icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
+type CommunityT = (key: NamespaceKey<typeof community>, values?: MessageValues) => string;
+
+// Labels: community.json `groupCard.category` (select on the category id).
+const CATEGORY_CONFIG: Record<CommunityGroupCategory, { icon: string; gradient: string }> = {
+  walking:     { icon: '🚶', gradient: 'from-emerald-500 to-teal-600' },
+  running:     { icon: '🏃', gradient: 'from-orange-500 to-red-500' },
+  yoga:        { icon: '🧘', gradient: 'from-violet-500 to-purple-600' },
+  calisthenics:{ icon: '💪', gradient: 'from-cyan-500 to-blue-600' },
+  cycling:     { icon: '🚴', gradient: 'from-lime-500 to-green-600' },
+  other:       { icon: '⭐', gradient: 'from-gray-500 to-gray-600' },
 };
 
-const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: wave 3 — weekday names (fmt)
 
 interface GroupCardProps {
   group: CommunityGroup;
@@ -48,18 +55,18 @@ interface GroupCardProps {
 // this cap also catches any future miscomputation the same way.
 const MAX_SANE_TRAVEL_MINUTES = 120;
 
-function travelTimeLabel(km: number): string | null {
+function travelTimeLabel(km: number, t: CommunityT): string | null {
   const roadKm = km * 1.3;
   if (roadKm < 1.5) {
     const mins = Math.ceil((roadKm / 5) * 60);
-    return `~${mins} דק׳ הליכה`;
+    return t('groupCard.travel.walk', { mins: String(mins) });
   }
   const mins = Math.ceil((roadKm / 30) * 60);
   if (mins > MAX_SANE_TRAVEL_MINUTES) {
     console.error(`[travelTimeLabel] refusing to render an absurd travel time: ${mins}min (from ${km}km)`);
     return null;
   }
-  return `~${mins} דק׳ נסיעה`;
+  return t('groupCard.travel.drive', { mins: String(mins) });
 }
 
 export default function GroupCard({
@@ -76,7 +83,9 @@ export default function GroupCard({
   onCardClick,
   onOpenChat,
 }: GroupCardProps) {
+  const t = useT(community);
   const catConfig = CATEGORY_CONFIG[group.category];
+  const categoryLabel = t('groupCard.category', { category: group.category ?? '' });
   const coverImage = group.images?.[0];
 
   // 07.09.2026 — a groupType:'military' group's cover used to render
@@ -116,10 +125,10 @@ export default function GroupCard({
 
   const scheduleLabel = (() => {
     if (group.scheduleSlots?.length) {
-      return group.scheduleSlots.map(s => `יום ${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(' · ');
+      return group.scheduleSlots.map(s => `יום ${DAY_LABELS[s.dayOfWeek]} ${s.time}`).join(' · '); // i18n-allow-hebrew: wave 3 — weekday label (fmt)
     }
     if (group.schedule) {
-      return `יום ${DAY_LABELS[group.schedule.dayOfWeek]} ${group.schedule.time}`;
+      return `יום ${DAY_LABELS[group.schedule.dayOfWeek]} ${group.schedule.time}`; // i18n-allow-hebrew: wave 3 — weekday label (fmt)
     }
     return null;
   })();
@@ -150,11 +159,11 @@ export default function GroupCard({
           <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
           <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2 py-0.5 rounded-full">
             <span>{catConfig.icon}</span>
-            <span>{catConfig.label}</span>
+            <span>{categoryLabel}</span>
           </div>
           {group.source === 'user' && (
             <div className="absolute top-1.5 left-1.5 bg-emerald-500/90 text-white text-xs font-black px-1.5 py-0.5 rounded-full">
-              קהילתי
+              {t('groupCard.community')}
             </div>
           )}
           {livePhase && (
@@ -164,7 +173,7 @@ export default function GroupCard({
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                 livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
               }`} />
-              {livePhase === 'active' ? 'לייב' : 'בקרוב'}
+              {livePhase === 'active' ? t('groupCard.live.compact.active') : t('groupCard.live.compact.soon')}
             </div>
           )}
         </div>
@@ -177,7 +186,7 @@ export default function GroupCard({
                 matching, rules-permitted read) — no component-level
                 isMilitaryGroup check needed or wanted here: that would ALSO
                 hide a reservist's own entitled details from them. */}
-            {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+            {group.name || `${categoryLabel}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
           </p>
           {scheduleLabel && (
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{scheduleLabel}</p>
@@ -195,9 +204,9 @@ export default function GroupCard({
               </p>
             )
           ) : (
-            distanceKm != null && travelTimeLabel(distanceKm) != null && (
+            distanceKm != null && travelTimeLabel(distanceKm, t) != null && (
               <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400">
-                {travelTimeLabel(distanceKm)}
+                {travelTimeLabel(distanceKm, t)}
               </p>
             )
           )}
@@ -230,7 +239,7 @@ export default function GroupCard({
     setCodeSubmitting(true);
     setCodeError(false);
     try {
-      await joinGroup(group.id, profile.id, profile.core?.name ?? 'משתמש', { providedCode: codeValue });
+      await joinGroup(group.id, profile.id, profile.core?.name ?? 'משתמש', { providedCode: codeValue }); // i18n-allow-hebrew: data — fallback member name written to Firestore
       onJoin?.(group.id);
       setCodeMode(false);
       setCodeValue('');
@@ -280,7 +289,7 @@ export default function GroupCard({
         {/* Category chip — top right */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
           <span>{catConfig.icon}</span>
-          <span>{catConfig.label}</span>
+          <span>{categoryLabel}</span>
         </div>
 
         {/* Schedule chip — bottom right over scrim. Data-layer gated, see compact variant's comment above. */}
@@ -295,7 +304,7 @@ export default function GroupCard({
         {group.source === 'user' && (
           <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-2.5 py-1 rounded-full">
             <Users className="w-3 h-3" />
-            <span>קהילתי</span>
+            <span>{t('groupCard.community')}</span>
           </div>
         )}
 
@@ -307,7 +316,7 @@ export default function GroupCard({
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
               livePhase === 'active' ? 'bg-green-200 animate-pulse' : 'bg-orange-200 animate-bounce'
             }`} />
-            {livePhase === 'active' ? '🟢 לייב' : '🟠 בקרוב'}
+            {livePhase === 'active' ? t('groupCard.live.active') : t('groupCard.live.soon')}
           </div>
         )}
       </div>
@@ -315,7 +324,7 @@ export default function GroupCard({
       {/* ── Card body ─────────────────────────────────────── */}
       <div className="relative p-4">
         <h4 className="text-[15px] font-black text-gray-900 dark:text-gray-50 leading-snug mb-1 line-clamp-1">
-          {group.name || `${catConfig.label}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
+          {group.name || `${categoryLabel}${group.meetingLocation?.address ? ` · ${group.meetingLocation.address.split(',')[0]}` : ''}`}
         </h4>
 
         {group.description && (
@@ -328,7 +337,7 @@ export default function GroupCard({
         {todaySlot && (
           <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-400 mb-2.5">
             <CalendarCheck className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>מפגש היום · {todaySlot.time}</span>
+            <span>{t('groupCard.today', { time: todaySlot.time })}</span>
             {todaySlot.price != null && todaySlot.price > 0 && (
               <span className="text-gray-500 dark:text-gray-400">· ₪{todaySlot.price}</span>
             )}
@@ -375,11 +384,11 @@ export default function GroupCard({
         {onUpdateLocation && (
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateLocation(); }}
-            aria-label="עדכן מיקום למיקומי הנוכחי"
+            aria-label={t('groupCard.updateLocation')}
             className="flex items-center gap-1 text-xs text-cyan-600 dark:text-cyan-400 font-semibold mb-2.5 hover:underline active:opacity-70 transition-opacity"
           >
             <Navigation className="w-3 h-3" />
-            עדכן מיקום למיקומי הנוכחי
+            {t('groupCard.updateLocation')}
           </button>
         )}
 
@@ -399,7 +408,7 @@ export default function GroupCard({
                 maxLength={6}
                 placeholder="XXXXXX"
                 autoFocus
-                aria-label="קוד הצטרפות"
+                aria-label={t('groupCard.code.label')}
                 className={`flex-1 text-center text-sm font-mono font-black tracking-widest border-2 rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
                   codeError
                     ? 'border-red-400 bg-red-50 text-red-600'
@@ -411,11 +420,11 @@ export default function GroupCard({
                 onClick={handleCodeSubmit}
                 className="px-3 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-black flex-shrink-0 disabled:opacity-40 active:scale-95 transition-all"
               >
-                אישור
+                {t('groupCard.code.submit')}
               </button>
               <button
                 onClick={exitCodeMode}
-                aria-label="ביטול הזנת קוד"
+                aria-label={t('groupCard.code.cancel')}
                 className="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0"
               >
                 <X className="w-4 h-4 text-gray-500" />
@@ -423,7 +432,7 @@ export default function GroupCard({
             </div>
             {codeError && (
               <p role="alert" className="text-xs text-red-500 font-semibold text-center">
-                קוד שגוי, אנא נסה שנית
+                {t('groupCard.code.wrong')}
               </p>
             )}
           </div>
@@ -446,17 +455,17 @@ export default function GroupCard({
               {isJoined ? (
                 <>
                   <MessageCircle className="w-3.5 h-3.5" />
-                  כנס לצ&apos;אט
+                  {t('groupCard.chat')}
                 </>
               ) : !group.isPublic ? (
                 <>
                   <Lock className="w-3.5 h-3.5" />
-                  הזן קוד
+                  {t('groupCard.enterCode')}
                 </>
               ) : (
                 <>
                   <UserPlus className="w-3.5 h-3.5" />
-                  הצטרף
+                  {t('groupCard.join')}
                 </>
               )}
             </button>

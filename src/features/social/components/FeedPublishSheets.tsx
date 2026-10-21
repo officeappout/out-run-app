@@ -18,17 +18,21 @@ import type { FeedPostDetails } from '../services/feed-post-details';
 import type { ShareExtras } from '../services/share-image';
 import { pickFeedPhoto, type PickedPhoto } from '../services/feed-photo';
 import RouteLine from './RouteLine';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { CommunityKey, SocialT } from './social-t';
 
-const ACTIVITY: Record<FeedActivity, { label: string; rgb: string; icon: string }> = {
-  strength: { label: 'כוח', rgb: '0,186,247', icon: '/icons/programs/muscle.svg' },
-  cardio: { label: 'אירובי', rgb: '132,204,22', icon: '/icons/programs/Run.svg' },
-  maintenance: { label: 'תחזוקה', rgb: '139,92,246', icon: '/icons/programs/walking.svg' },
+/** The label is the `social.publish.activity` select (community namespace), keyed by the same id. */
+const ACTIVITY: Record<FeedActivity, { rgb: string; icon: string }> = {
+  strength: { rgb: '0,186,247', icon: '/icons/programs/muscle.svg' },
+  cardio: { rgb: '132,204,22', icon: '/icons/programs/Run.svg' },
+  maintenance: { rgb: '139,92,246', icon: '/icons/programs/walking.svg' },
 };
 
-const AUDIENCE: Record<FeedPrefsAudience, { label: string; hint: string; Icon: typeof Users }> = {
-  partners: { label: 'שותפים', hint: 'מי שעוקב אחריך ואת/ה אחריו', Icon: Users },
-  public: { label: 'כולם', hint: 'כל משתמשי OUT', Icon: Globe },
-  private: { label: 'רק אני', hint: 'נשמר אצלך, לא מתפרסם', Icon: Lock },
+const AUDIENCE: Record<FeedPrefsAudience, { labelKey: CommunityKey; hintKey: CommunityKey; Icon: typeof Users }> = {
+  partners: { labelKey: 'social.publish.audience.partners.label', hintKey: 'social.publish.audience.partners.hint', Icon: Users },
+  public: { labelKey: 'social.publish.audience.public.label', hintKey: 'social.publish.audience.public.hint', Icon: Globe },
+  private: { labelKey: 'social.publish.audience.private.label', hintKey: 'social.publish.audience.private.hint', Icon: Lock },
 };
 
 export interface ShareableWorkout extends FeedPostDetails, ShareExtras {
@@ -53,22 +57,23 @@ function ActivityBadge({ activity, size }: { activity: FeedActivity; size: numbe
   );
 }
 
-function summary(w: ShareableWorkout): string {
-  const parts = [ACTIVITY[w.activityCategory].label, `${w.durationMinutes} דק׳`];
-  if (w.distanceKm != null) parts.push(`${w.distanceKm.toFixed(1)} ק״מ`);
+function summary(t: SocialT, w: ShareableWorkout): string {
+  const parts = [t('social.publish.activity', { activity: w.activityCategory }), t('social.publish.summary.minutes', { n: String(w.durationMinutes) })];
+  if (w.distanceKm != null) parts.push(t('social.publish.summary.km', { km: w.distanceKm.toFixed(1) }));
   return parts.join(' · ');
 }
 
 export function SharePromptCard({ workout, onShare }: { workout: ShareableWorkout; onShare: () => void }) {
+  const t = useT(community);
   return (
     <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-ring" dir="rtl">
       <ActivityBadge activity={workout.activityCategory} size={44} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14.5px] font-black text-v2-ink">{workout.title || 'האימון האחרון שלך'}</div>
-        <div className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{summary(workout)}</div>
+        <div className="truncate text-[14.5px] font-black text-v2-ink">{workout.title || t('social.publish.fallbackTitle')}</div>
+        <div className="whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{summary(t, workout)}</div>
       </div>
       <Button size="sm" onClick={onShare}>
-        שיתוף
+        {t('social.publish.prompt.share')}
       </Button>
     </div>
   );
@@ -93,11 +98,12 @@ export function SummaryShareCard({
   /** Home v2: "שיתוף לרשתות" — the story / square image sheet. */
   onShareImage?: () => void;
 }) {
+  const t = useT(community);
   const shareImageButton = onShareImage ? (
     <button
       type="button"
       onClick={onShareImage}
-      aria-label="שיתוף לרשתות"
+      aria-label={t('social.publish.card.shareImage')}
       className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
     >
       <Share2 size={16} strokeWidth={2.6} aria-hidden />
@@ -111,10 +117,10 @@ export function SummaryShareCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-black text-v2-ink">
-            {status === 'published' ? 'האימון פורסם בפיד' : 'האימון יפורסם בפיד'}
+            {status === 'published' ? t('social.publish.card.published') : t('social.publish.card.queued')}
           </div>
           <div className="truncate text-[12.5px] font-bold text-v2-muted">
-            {status === 'published' ? summary(workout) : 'ברגע שתסיים/י את הסיכום'}
+            {status === 'published' ? summary(t, workout) : t('social.publish.card.queuedHint')}
           </div>
         </div>
         {onShareImage && (
@@ -123,7 +129,7 @@ export function SummaryShareCard({
             onClick={onShareImage}
             className="h-9 shrink-0 whitespace-nowrap rounded-full bg-white px-3.5 text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
-            שיתוף לרשתות
+            {t('social.publish.card.shareImage')}
           </button>
         )}
       </div>
@@ -133,21 +139,21 @@ export function SummaryShareCard({
     <div className="flex items-center gap-3 rounded-v2-card bg-white p-3 shadow-v2-card" dir="rtl">
       <ActivityBadge activity={workout.activityCategory} size={44} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-black text-v2-ink">לשתף את האימון בפיד?</div>
-        <div className="truncate text-[12.5px] font-bold text-v2-muted">{summary(workout)}</div>
+        <div className="truncate text-[15px] font-black text-v2-ink">{t('social.publish.card.ask')}</div>
+        <div className="truncate text-[12.5px] font-bold text-v2-muted">{summary(t, workout)}</div>
       </div>
       <button
         type="button"
         onClick={onShare}
         className="h-9 shrink-0 whitespace-nowrap rounded-full bg-white px-4 text-[13.5px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
-        שיתוף
+        {t('social.publish.card.share')}
       </button>
       {shareImageButton}
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="לא הפעם"
+        aria-label={t('social.publish.card.dismiss')}
         className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-v2-surface text-v2-muted ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
         <X size={16} strokeWidth={2.6} aria-hidden />
@@ -157,6 +163,7 @@ export function SummaryShareCard({
 }
 
 export function Sheet({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+  const t = useT(community);
   const reduce = useReducedMotion();
   return (
     <AnimatePresence>
@@ -164,7 +171,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
         <div className="kb-fit fixed inset-0 z-[120]" role="dialog" aria-modal="true" aria-label={title} dir="rtl">
           <motion.button
             type="button"
-            aria-label="סגירה"
+            aria-label={t('social.publish.sheet.close')}
             className="absolute inset-0 bg-[#0e1419]/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -186,7 +193,7 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגירה"
+                aria-label={t('social.publish.sheet.close')}
                 className="grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline"
               >
                 <X size={17} strokeWidth={2.6} />
@@ -201,10 +208,11 @@ export function Sheet({ open, title, onClose, children }: { open: boolean; title
 }
 
 function AudiencePicker({ value, onChange }: { value: FeedPrefsAudience; onChange: (a: FeedPrefsAudience) => void }) {
+  const t = useT(community);
   return (
     <div className="mt-2 grid grid-cols-3 gap-2">
       {(Object.keys(AUDIENCE) as FeedPrefsAudience[]).map((a) => {
-        const { label, hint, Icon } = AUDIENCE[a];
+        const { labelKey, hintKey, Icon } = AUDIENCE[a];
         const on = a === value;
         return (
           <button
@@ -217,8 +225,8 @@ function AudiencePicker({ value, onChange }: { value: FeedPrefsAudience; onChang
             }`}
           >
             <Icon size={17} strokeWidth={2.6} className={on ? 'text-v2-deep' : 'text-v2-ink-2'} aria-hidden />
-            <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{label}</span>
-            <span className="text-[11px] font-bold leading-snug text-v2-muted">{hint}</span>
+            <span className="whitespace-nowrap text-[14px] font-black text-v2-ink">{t(labelKey)}</span>
+            <span className="text-[11px] font-bold leading-snug text-v2-muted">{t(hintKey)}</span>
           </button>
         );
       })}
@@ -266,6 +274,7 @@ export function FeedShareSheet({
   /** Home v2: offer "הוספת תמונה" (one photo on the post). */
   allowPhoto?: boolean;
 }) {
+  const t = useT(community);
   const { showToast } = useToast();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [audience, setAudience] = useState<FeedPrefsAudience>(defaults.audience);
@@ -286,31 +295,31 @@ export function FeedShareSheet({
       const picked = await pickFeedPhoto();
       if (picked) setPhoto(picked);
     } catch {
-      showToast('error', 'לא הצלחנו לפתוח את התמונה');
+      showToast('error', t('social.publish.share.photoError'));
     }
   };
   const hasRoute = workout?.activityCategory === 'cardio' && !!routeShapeToSvg(workout.routeShape, 320, 150);
 
   return (
-    <Sheet open={open && !!workout} title="לשתף את האימון?" onClose={onClose}>
+    <Sheet open={open && !!workout} title={t('social.publish.share.title')} onClose={onClose}>
       {workout && (
         <div>
           <div className="flex items-center gap-3 rounded-[20px] bg-v2-surface p-3">
             <ActivityBadge activity={workout.activityCategory} size={48} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[15.5px] font-black text-v2-ink">{workout.title || 'האימון האחרון שלך'}</div>
+              <div className="truncate text-[15.5px] font-black text-v2-ink">{workout.title || t('social.publish.fallbackTitle')}</div>
               <div className="whitespace-nowrap text-[13px] font-bold text-v2-muted">
-                {summary(workout)}
+                {summary(t, workout)}
                 {workout.parkName ? ` · ${workout.parkName}` : ''}
               </div>
             </div>
           </div>
           <label className="mt-3 block">
-            <span className="sr-only">כמה מילים על האימון</span>
+            <span className="sr-only">{t('social.publish.share.captionLabel')}</span>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value.slice(0, 80))}
-              placeholder="כמה מילים על האימון (לא חובה)"
+              placeholder={t('social.publish.share.captionPlaceholder')}
               className="h-12 w-full rounded-[16px] bg-white px-3 text-[14.5px] font-semibold text-v2-ink shadow-v2-ring outline-none placeholder:text-v2-muted"
             />
           </label>
@@ -319,11 +328,11 @@ export function FeedShareSheet({
             photo ? (
               <div className="relative mt-3 overflow-hidden rounded-[18px] shadow-v2-ring">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.previewUrl} alt="התמונה שתצורף לפוסט" className="block aspect-[4/3] w-full object-cover" />
+                <img src={photo.previewUrl} alt={t('social.publish.share.photoAlt')} className="block aspect-[4/3] w-full object-cover" />
                 <button
                   type="button"
                   onClick={() => setPhoto(null)}
-                  aria-label="הסרת התמונה"
+                  aria-label={t('social.publish.share.removePhoto')}
                   className="absolute end-2 top-2 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-v2-ink shadow-v2-ring"
                 >
                   <X size={16} strokeWidth={2.6} aria-hidden />
@@ -336,21 +345,21 @@ export function FeedShareSheet({
                 className="mt-3 flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[16px] bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.98]"
               >
                 <ImagePlus size={17} strokeWidth={2.6} aria-hidden />
-                הוספת תמונה
+                {t('social.publish.share.addPhoto')}
               </button>
             )
           )}
 
-          <div className="mt-4 text-[13px] font-extrabold text-v2-deep">מי יראה</div>
+          <div className="mt-4 text-[13px] font-extrabold text-v2-deep">{t('social.publish.share.audienceTitle')}</div>
           <AudiencePicker value={audience} onChange={setAudience} />
           {workout.parkName && (
-            <Toggle label="להראות באיזה פארק" hint="בלי מפה ובלי כתובת, רק שם הפארק" on={showPark} onChange={setShowPark} />
+            <Toggle label={t('social.publish.share.park.label')} hint={t('social.publish.share.park.hint')} on={showPark} onChange={setShowPark} />
           )}
           {hasRoute && (
             <>
               <Toggle
-                label="להראות את קו המסלול"
-                hint="רק צורת הקו, בלי מפה. 200 המטרים הראשונים והאחרונים לא מוצגים"
+                label={t('social.publish.share.route.label')}
+                hint={t('social.publish.share.route.hint')}
                 on={showRoute}
                 onChange={setShowRoute}
               />
@@ -368,15 +377,15 @@ export function FeedShareSheet({
                   ...(allowPhoto && photo ? { photo: photo.blob } : {}),
                 })
               }>
-              {audience === 'private' ? 'שמירה אצלי' : 'פרסום'}
+              {audience === 'private' ? t('social.publish.share.savePrivate') : t('social.publish.share.publish')}
             </Button>
             <Button size="lg" variant="ghost" disabled={busy} onClick={onSkip}>
-              לא הפעם
+              {t('social.publish.share.skip')}
             </Button>
           </div>
           <button type="button" onClick={onOpenPrivacy} className="mx-auto mt-3 flex items-center gap-1.5 text-[13px] font-extrabold text-v2-muted">
             <Settings2 size={14} strokeWidth={2.6} aria-hidden />
-            לפרסם אוטומטית בפעם הבאה?
+            {t('social.publish.share.autoPublish')}
           </button>
         </div>
       )}
@@ -397,21 +406,22 @@ export function FeedPrivacySheet({
   onSave: (next: FeedPrefs) => void;
   onClose: () => void;
 }) {
+  const t = useT(community);
   const [draft, setDraft] = useState<FeedPrefs>(prefs);
   useEffect(() => {
     if (open) setDraft(prefs);
   }, [open, prefs]);
   return (
-    <Sheet open={open} title="מי רואה מה" onClose={onClose}>
+    <Sheet open={open} title={t('social.publish.privacy.title')} onClose={onClose}>
       <p className="text-[14px] font-semibold leading-relaxed text-v2-ink-2">
-        שום דבר לא מתפרסם בלי שבחרת. האימונים נספרים בליגות גם אם לא פרסמת אותם.
+        {t('social.publish.privacy.intro')}
       </p>
       <section className="mt-5 border-t border-v2-hairline pt-4">
-        <h3 className="text-[13px] font-extrabold text-v2-deep">פרסום אוטומטי אחרי אימון</h3>
+        <h3 className="text-[13px] font-extrabold text-v2-deep">{t('social.publish.privacy.autoTitle')}</h3>
         {(Object.keys(ACTIVITY) as FeedActivity[]).map((a) => (
           <Toggle
             key={a}
-            label={ACTIVITY[a].label}
+            label={t('social.publish.activity', { activity: a })}
             icon={<ActivityBadge activity={a} size={30} />}
             on={draft.autoPublish[a]}
             onChange={(v) => setDraft((d) => ({ ...d, autoPublish: { ...d.autoPublish, [a]: v } }))}
@@ -419,26 +429,26 @@ export function FeedPrivacySheet({
         ))}
       </section>
       <section className="mt-5 border-t border-v2-hairline pt-4">
-        <h3 className="text-[13px] font-extrabold text-v2-deep">מי רואה את הפוסטים שלי</h3>
+        <h3 className="text-[13px] font-extrabold text-v2-deep">{t('social.publish.privacy.audienceTitle')}</h3>
         <AudiencePicker value={draft.audience} onChange={(audience) => setDraft((d) => ({ ...d, audience }))} />
       </section>
       <section className="mt-5 border-t border-v2-hairline pt-4">
-        <h3 className="text-[13px] font-extrabold text-v2-deep">מיקום</h3>
+        <h3 className="text-[13px] font-extrabold text-v2-deep">{t('social.publish.privacy.locationTitle')}</h3>
         <Toggle
-          label="שם הפארק על הפוסט"
-          hint="בלי מפה ובלי כתובת"
+          label={t('social.publish.privacy.park.label')}
+          hint={t('social.publish.privacy.park.hint')}
           on={draft.showPark}
           onChange={(showPark) => setDraft((d) => ({ ...d, showPark }))}
         />
         <Toggle
-          label="קו המסלול על פוסט אירובי"
-          hint="רק צורת הקו, בלי מפה. בלי 200 המטרים הראשונים והאחרונים"
+          label={t('social.publish.privacy.route.label')}
+          hint={t('social.publish.privacy.route.hint')}
           on={draft.showRoute}
           onChange={(showRoute) => setDraft((d) => ({ ...d, showRoute }))}
         />
       </section>
       <Button size="lg" block className="mt-5" disabled={busy} onClick={() => onSave(draft)}>
-        שמירה
+        {t('social.publish.privacy.save')}
       </Button>
     </Sheet>
   );

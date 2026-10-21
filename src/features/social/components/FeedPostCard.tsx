@@ -7,6 +7,9 @@ import { toggleReaction, hasUserReacted } from '../services/reactions.service';
 import { deleteFeedPost, type FeedPost } from '../services/feed.service';
 import ReportContentSheet from '@/features/arena/components/ReportContentSheet';
 import FeedPostCardV2 from './FeedPostCardV2';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { SocialT } from './social-t';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   strength: '💪',
@@ -14,23 +17,24 @@ const CATEGORY_EMOJI: Record<string, string> = {
   maintenance: '⚡',
 };
 
+// Classic card only (enable_home_v2 off).
 const CATEGORY_LABEL: Record<string, string> = {
-  strength: 'כוח / קליסטניקס',
-  cardio: 'ריצה / קרדיו',
-  maintenance: 'תחזוקה',
+  strength: 'כוח / קליסטניקס', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  cardio: 'ריצה / קרדיו', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  maintenance: 'תחזוקה', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 };
 
-function timeAgo(date: Date): string {
+function timeAgo(t: SocialT, date: Date): string {
   const now = Date.now();
   const diff = now - date.getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'עכשיו';
-  if (mins < 60) return `לפני ${mins} דק׳`;
+  if (mins < 1) return t('social.post.time.now');
+  if (mins < 60) return t('social.post.time.minutes', { n: String(mins) });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `לפני ${hrs} שע׳`;
+  if (hrs < 24) return t('social.post.time.hours', { n: String(hrs) });
   const days = Math.floor(hrs / 24);
-  if (days === 1) return 'אתמול';
-  return `לפני ${days} ימים`;
+  if (days === 1) return t('social.post.time.yesterday');
+  return t('social.post.time.days', { n: String(days) });
 }
 
 function formatPace(pace: number): string {
@@ -53,6 +57,7 @@ interface FeedPostCardProps {
 }
 
 export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }: FeedPostCardProps) {
+  const t = useT(community);
   const router = useRouter();
   const emoji = CATEGORY_EMOJI[post.activityCategory] ?? '⚡';
   const label = CATEGORY_LABEL[post.activityCategory] ?? post.activityCategory;
@@ -102,14 +107,14 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
       onDeleted?.(post.id);
     } catch (err) {
       console.error('[FeedPostCard] delete failed:', err);
-      alert('מחיקת הפוסט נכשלה. אנא נסה/י שוב.');
+      alert(t('social.post.deleteFailed'));
       setDeleting(false);
       setConfirmDelete(false);
       setMenuOpen(false);
     }
     // On success the card is unmounted by the parent via onDeleted, so
     // we deliberately do not reset the spinner.
-  }, [deleting, post.id, post.photoPath, onDeleted]);
+  }, [deleting, post.id, post.photoPath, onDeleted, t]);
 
   const handleKudos = useCallback(
     async (e: React.MouseEvent) => {
@@ -150,7 +155,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                 setConfirmDelete(false);
               }}
               className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-90 transition-all"
-              aria-label="פעולות נוספות"
+              aria-label={t('social.post.menu.label')}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
@@ -166,10 +171,10 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                 {confirmDelete ? (
                   <div className="p-3" dir="rtl">
                     <p className="text-xs text-gray-700 dark:text-gray-200 font-medium mb-2">
-                      למחוק את הפוסט?
+                      {t('social.post.confirm.title')}
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3 leading-snug">
-                      הפעולה הזו אינה ניתנת לביטול.
+                      {t('social.post.confirm.body')}
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -178,7 +183,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                         disabled={deleting}
                         className="flex-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold active:scale-95 disabled:opacity-50"
                       >
-                        ביטול
+                        {t('social.post.confirm.cancel')}
                       </button>
                       <button
                         type="button"
@@ -191,7 +196,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                         ) : (
                           <Trash2 size={12} />
                         )}
-                        מחק
+                        {t('social.post.confirm.delete')}
                       </button>
                     </div>
                   </div>
@@ -206,7 +211,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                           className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <Trash2 size={16} />
-                          מחק פוסט
+                          {t('social.post.menu.delete')}
                         </button>
                       </li>
                     )}
@@ -219,7 +224,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                           className="w-full flex items-center gap-2 px-3 py-2 text-right text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
                         >
                           <Flag size={16} />
-                          דווח על פוסט
+                          {t('social.post.menu.report')}
                         </button>
                       </li>
                     )}
@@ -237,7 +242,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
           onClose={() => setShowReport(false)}
           targetId={post.id}
           targetType="post"
-          targetName={post.title || `פוסט של ${post.authorName}`}
+          targetName={post.title || t('social.post.reportName', { name: post.authorName })}
           reporterId={currentUid}
         />
       );
@@ -246,7 +251,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
     return (
       <FeedPostCardV2
         post={post}
-        timeLabel={timeAgo(post.createdAt)}
+        timeLabel={timeAgo(t, post.createdAt)}
         isAuthor={isAuthor}
         signedIn={!!currentUid}
         reacted={reacted}
@@ -279,7 +284,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
               {post.authorName}
             </h4>
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              {timeAgo(post.createdAt)}
+              {timeAgo(t, post.createdAt)}
             </span>
           </div>
           <span className="text-xl">{emoji}</span>
@@ -295,7 +300,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
         {/* Title bar */}
         <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-700/50">
           <span className="text-[13px] font-black text-gray-900 dark:text-gray-100">
-            סיכום אימון
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}סיכום אימון
           </span>
           <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 px-2 py-0.5 rounded-full">
             {label}
@@ -311,7 +316,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
               {post.durationMinutes}
             </span>
             <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-              דקות
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דקות
             </span>
           </div>
 
@@ -324,7 +329,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                   {post.distanceKm != null ? post.distanceKm.toFixed(1) : '—'}
                 </span>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                  ק״מ
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ק״מ
                 </span>
               </div>
               {/* Pace */}
@@ -334,7 +339,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                   {post.paceMinPerKm != null ? formatPace(post.paceMinPerKm) : '—'}
                 </span>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                  דק׳/ק״מ
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}דק׳/ק״מ
                 </span>
               </div>
             </>
@@ -347,7 +352,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                   {post.intensityLevel ?? '—'}
                 </span>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                  עצימות
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עצימות
                 </span>
               </div>
               {/* Activity Credit */}
@@ -357,7 +362,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
                   {post.activityCredit}
                 </span>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                  קרדיט פעילות
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קרדיט פעילות
                 </span>
               </div>
             </>
@@ -369,7 +374,7 @@ export default function FeedPostCard({ post, currentUid, onDeleted, v2 = false }
           <div className="flex items-center justify-center gap-1.5 py-2 border-t border-gray-100 dark:border-gray-700/50">
             <span className="text-xs">⭐</span>
             <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-              {post.activityCredit} קרדיט פעילות
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{post.activityCredit} קרדיט פעילות
             </span>
           </div>
         )}

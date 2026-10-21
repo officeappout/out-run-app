@@ -1,4 +1,4 @@
-import { AdminInvitation } from '@/types/invitation.type';
+import { AdminInvitation } from '@/features/admin/types/invitation.type';
 
 /**
  * Merge two invitation lists (by-authorityId and by-tenantId results) into

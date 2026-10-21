@@ -31,11 +31,11 @@ import { isTestOrPlaceholderExercise } from '../shared/utils/test-exercise.utils
 import { rederiveVolumeForSwappedExercise } from './workout-budgeting.utils';
 import type { PullGapMode } from '../services/split-decision/why-this-workout';
 
-const isPull = (ex: Exercise | undefined) => !!ex && isOnStrictFocus(ex, ['pull']);
+export const isPull = (ex: Exercise | undefined) => !!ex && isOnStrictFocus(ex, ['pull']);
 const isMainRole = (e: WorkoutExercise) => e.exerciseRole !== 'warmup' && e.exerciseRole !== 'cooldown';
 /** Areas the focus balance tracks (skills fold to their parent in strictDomainsOfExercise). */
 const AREAS = ['push', 'pull', 'legs', 'core'] as const;
-const areaOf = (ex: Exercise): string | undefined => strictDomainsOfExercise(ex).find((d) => (AREAS as readonly string[]).includes(d));
+export const areaOf = (ex: Exercise): string | undefined => strictDomainsOfExercise(ex).find((d) => (AREAS as readonly string[]).includes(d));
 
 /** Gear that makes real pulling possible (a bar, rings, TRX, a band). */
 const PULL_GEAR = ['pullup_bar', 'rings', 'trx', 'resistance_bands'];
@@ -67,9 +67,9 @@ export function widenFocusForPullGap(
   return { domains: [...base, 'core'], gap: true };
 }
 
-type Cand = { ex: Exercise; method: ExecutionMethod; delta: number; level: number; source: 'pool' | 'catalog' | 'stopgap' };
+export type Cand = { ex: Exercise; method: ExecutionMethod; delta: number; level: number; source: 'pool' | 'catalog' | 'stopgap' };
 
-function usableIn(workout: GeneratedWorkout) {
+export function usableIn(workout: GeneratedWorkout) {
   const inPlan = new Set(workout.exercises.map((e) => e.exercise.id));
   const bases = new Set(workout.exercises.map((e) => e.exercise.base_movement_id).filter((b) => b && b !== 'unspecified_movement'));
   return (ex: Exercise) =>
@@ -79,7 +79,7 @@ function usableIn(workout: GeneratedWorkout) {
     && ex.exerciseRole !== 'recovery' && ex.exerciseRole !== 'reinforcement';
 }
 
-function fitting(list: Exercise[], opts: NeverEmptyOptions, source: Cand['source'], minDelta: number, maxDelta: number): Cand[] {
+export function fitting(list: Exercise[], opts: NeverEmptyOptions, source: Cand['source'], minDelta: number, maxDelta: number): Cand[] {
   return list.flatMap((ex) => {
     const method = selectMethodForContext(ex, opts.location, opts.availableEquipment);
     if (!method || !methodFits(method, opts.location, opts.availableEquipment)) return [];

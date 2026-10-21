@@ -6,7 +6,8 @@
  * role. Everything it reads or writes goes through this one endpoint, which accepts a closed
  * set of ops, validates every field, and maps each op to fixed paths:
  *
- *   status        read   flags (2 switches), demo_registry/config, control stop flag, usage (31 days), testers roster
+ *   status        read   flags (2 switches), demo_registry/config, control stop flag, usage (31 days), testers roster,
+ *                        demo_registry/owner_rules (notes + dismissals, whitelisted; read only)
  *   stop          read   demo_registry/control.testersStopRequested
  *   heartbeat     merge  demo_registry/control.testers.{state, runId, lastSessionAt, findingsCount, spentUsd, heartbeatAt}
  *   usage         incr   demo_registry/usage/days/{today ± 1}  totals + bySource.testers (+ testerSessions)
@@ -331,6 +332,8 @@ export function statusPayload(input: {
   controlRaw: Record<string, unknown> | undefined;
   testersRaw: Record<string, unknown> | undefined;
   usageDocs: Array<{ id: string; data: Record<string, unknown> | undefined }>;
+  /** demo_registry/owner_rules (the owner's notes + "לא רלוונטי" dismissals). */
+  ownerRulesRaw?: Record<string, unknown> | undefined;
 }): Record<string, unknown> {
   const roster = Array.isArray(input.testersRaw?.uids) ? (input.testersRaw!.uids as unknown[]).filter((u): u is string => typeof u === 'string') : [];
   return {
@@ -339,7 +342,57 @@ export function statusPayload(input: {
     stopRequested: input.controlRaw?.testersStopRequested === true,
     usageDays: input.usageDocs.map((d) => ({ id: d.id, data: jsonSafe(d.data ?? {}) })),
     roster,
+    ownerRules: ownerRulesPayload(input.ownerRulesRaw),
   };
+}
+
+// ── owner rules (src/lib/demo-control/owner-rules-model.ts) ──────────────────
+
+export const OWNER_NOTES_MAX = 200;
+export const OWNER_DISMISSALS_MAX = 300;
+const OWN_ID_RE = /^OWN-\d{3}$/;
+const SCREEN_KEY_RE = /^[A-Za-z0-9_/\[\]:.-]{1,120}$/;
+const RULE_ID_RE = /^[A-Z0-9-]{2,30}$/;
+const isScreenKey = (v: unknown): v is string => typeof v === 'string' && SCREEN_KEY_RE.test(v) && !v.includes('..');
+const FINDING_ID_LOOSE_RE = /^[A-Za-z0-9_.:-]{1,300}$/;
+const ms = (v: unknown): number => {
+  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
+  const t = v as { toMillis?: () => number } | null;
+  return t && typeof t.toMillis === 'function' ? t.toMillis() : 0;
+};
+
+/**
+ * Whitelist of demo_registry/owner_rules for the runner: note id / text / screen / severity /
+ * time, and dismissal finding id / rule / screen / title / reason / time. Never `by` (admin uid).
+ */
+export function ownerRulesPayload(raw: Record<string, unknown> | undefined): { notes: Array<Record<string, unknown>>; dismissals: Array<Record<string, unknown>> } {
+  const r = isObj(raw) ? raw : {};
+  const notes = (Array.isArray(r.notes) ? r.notes : []).slice(-OWNER_NOTES_MAX).flatMap((n: unknown) => {
+    if (!isObj(n) || typeof n.id !== 'string' || !OWN_ID_RE.test(n.id) || typeof n.text !== 'string' || !n.text.trim()) return [];
+    return [
+      {
+        id: n.id,
+        text: n.text.slice(0, 500),
+        screen: isScreenKey(n.screen) ? n.screen : null,
+        severity: SEVERITIES.includes(n.severity as string) ? n.severity : 'P2',
+        createdAtMs: ms(n.createdAtMs),
+      },
+    ];
+  });
+  const dismissals = (Array.isArray(r.dismissals) ? r.dismissals : []).slice(-OWNER_DISMISSALS_MAX).flatMap((d: unknown) => {
+    if (!isObj(d) || typeof d.findingId !== 'string' || !FINDING_ID_LOOSE_RE.test(d.findingId) || !isScreenKey(d.screen)) return [];
+    return [
+      {
+        findingId: d.findingId,
+        rule: typeof d.rule === 'string' && RULE_ID_RE.test(d.rule) ? d.rule : null,
+        screen: d.screen as string,
+        title: typeof d.title === 'string' ? d.title.slice(0, 140) : '',
+        reason: typeof d.reason === 'string' ? d.reason.slice(0, 300) : '',
+        atMs: ms(d.atMs),
+      },
+    ];
+  });
+  return { notes, dismissals };
 }
 
 /** Firestore Timestamps → ms numbers so the payload is plain JSON. */

@@ -4,7 +4,7 @@
  */
 import { DEFAULT_BASE_URL, DEVICES, HARD_CAPS } from './config';
 import type { Mission } from './missions';
-import { isSweep, parseMissionRef, uidFor } from './design/checkpoints';
+import { ANDROID_DEVICE, allowsAndroidBack, isSweep, parseMissionRef, uidFor } from './design/checkpoints';
 
 export interface RunArgs {
   missions: string[] | null;
@@ -96,7 +96,9 @@ export function planRun(all: readonly Mission[], args: Pick<RunArgs, 'missions' 
     }
     const own = m.devices?.length ? m.devices : [m.device];
     let devices: string[];
-    if (isSweep(m)) devices = args.device ? (own.includes(args.device) ? [args.device] : []) : own;
+    // A sweep runs on its own phones; the Android phone only when asked for (back-button check).
+    const allowed = (d: string) => own.includes(d) || (d === ANDROID_DEVICE && allowsAndroidBack(m));
+    if (isSweep(m)) devices = args.device ? (allowed(args.device) ? [args.device] : []) : own;
     else devices = [args.device ?? m.device];
     if (!devices.length) {
       skipped.push({ id: ref, reason: 'device_not_in_mission' });

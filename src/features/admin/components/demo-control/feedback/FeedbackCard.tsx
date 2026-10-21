@@ -6,6 +6,7 @@ import { Button, Panel, StatusPill, type PillTone } from '@/features/admin/compo
 import { STATUS_LABEL, TYPE_LABEL, buildTaskMarkdown, type FeedbackItem, type TriageStatus } from '@/lib/demo-control/feedback-model';
 import { fmtWhen } from '../demo-client';
 import DesignScoreChips from '../DesignScoreChips';
+import DismissReasonForm from './DismissReasonForm';
 
 const SEVERITY_TONE: Record<string, PillTone> = { P0: 'bad', P1: 'bad', P2: 'warn', P3: 'neutral' };
 const STATUS_TONE: Record<TriageStatus, PillTone> = { open: 'info', handled: 'good', irrelevant: 'neutral' };
@@ -16,10 +17,11 @@ export default function FeedbackCard({
   onScreenshot,
 }: {
   item: FeedbackItem;
-  onStatus: (item: FeedbackItem, status: TriageStatus) => void;
+  onStatus: (item: FeedbackItem, status: TriageStatus, reason?: string) => void;
   onScreenshot: (item: FeedbackItem) => void;
 }) {
   const [copied, setCopied] = useState<'ok' | 'fail' | null>(null);
+  const [asking, setAsking] = useState(false);
   const tester = item.source === 'testers';
 
   const copy = async () => {
@@ -96,12 +98,17 @@ export default function FeedbackCard({
             <Button onClick={() => onStatus(item, 'handled')}>
               <Check size={14} aria-hidden /> טופל
             </Button>
-            <Button onClick={() => onStatus(item, 'irrelevant')}>
+            <Button onClick={() => setAsking(true)}>
               <X size={14} aria-hidden /> לא רלוונטי
             </Button>
           </>
         ) : (
-          <Button onClick={() => onStatus(item, 'open')}>
+          <Button
+            onClick={() => {
+              setAsking(false);
+              onStatus(item, 'open');
+            }}
+          >
             <RotateCcw size={14} aria-hidden /> פתח מחדש
           </Button>
         )}
@@ -114,6 +121,21 @@ export default function FeedbackCard({
           </Button>
         )}
       </div>
+      {item.status === 'irrelevant' && item.triageReason && (
+        <p className="mt-2 text-[13px] text-slate-600">
+          <b className="font-extrabold text-slate-800">למה לא רלוונטי: </b>
+          {item.triageReason}
+        </p>
+      )}
+      {asking && item.status === 'open' && (
+        <DismissReasonForm
+          onCancel={() => setAsking(false)}
+          onConfirm={(reason) => {
+            setAsking(false);
+            onStatus(item, 'irrelevant', reason || undefined);
+          }}
+        />
+      )}
     </Panel>
   );
 }

@@ -428,7 +428,7 @@ reviewer.
 - **Schema:** every row records `adminId`, `adminName`, `actionType`,
   `targetEntity`, `targetId`, `details`, **`oldValue`**, **`newValue`**,
   **`sourceIp`**, and server `timestamp`. See
-  `src/types/audit-log.type.ts`.
+  `src/features/admin/types/audit-log.type.ts`.
 - **Server-only writes:** Firestore rules deny client writes
   (`firestore.rules` → `audit_logs` block: `allow create, update, delete:
   if false`). The only writer is the Callable Cloud Function

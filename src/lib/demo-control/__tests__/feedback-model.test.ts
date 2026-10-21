@@ -81,7 +81,17 @@ describe('mapQaFinding', () => {
 describe('helpers', () => {
   it('parseTriage ignores unknown statuses', () => {
     expect(parseTriage({ status: 'deleted' }).status).toBe('open');
-    expect(parseTriage(undefined)).toEqual({ status: 'open', atMs: null });
+    expect(parseTriage(undefined)).toEqual({ status: 'open', atMs: null, reason: null });
+  });
+  it('parseTriage keeps the "למה לא רלוונטי" reason only on irrelevant', () => {
+    expect(parseTriage({ status: 'irrelevant', reason: '  בכוונה  ' }).reason).toBe('בכוונה');
+    expect(parseTriage({ status: 'handled', reason: 'x' }).reason).toBeNull();
+  });
+  it('mapQaFinding exposes the screen id (repro marker, else route) and the triage reason', () => {
+    const it1 = mapQaFinding('r__1', { route: '/home', repro: [{ name: 'tap' }, { name: 'screen', screen: 'home_today' }], triage: { status: 'irrelevant', reason: 'בכוונה' } });
+    expect(it1.screen).toBe('home_today');
+    expect(it1.triageReason).toBe('בכוונה');
+    expect(mapQaFinding('r__2', { route: '/map' }).screen).toBe('/map');
   });
   it('reproLine skips non-objects and nested values', () => {
     expect(reproLine(null)).toBeNull();

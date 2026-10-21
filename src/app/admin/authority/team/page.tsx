@@ -19,7 +19,7 @@ import {
 import { getUserFromFirestore } from '@/lib/firestore.service';
 import { isRootAdmin } from '@/config/feature-flags';
 import type { Authority } from '@/types/admin-types';
-import type { AdminInvitation } from '@/types/invitation.type';
+import type { AdminInvitation } from '@/features/admin/types/invitation.type';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';
 import AdminBreadcrumb from '@/features/admin/components/AdminBreadcrumb';
 import type { UserFullProfile } from '@/features/user/core/types/user.types';

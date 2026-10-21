@@ -139,7 +139,7 @@ AUTHORIZED_ROUTE_WRITERS=(
   "src/features/admin/services/seed-sderot-demo.ts"
   "src/features/admin/components/routes/RouteEditor.tsx"
   "src/app/admin/segments/page.tsx"
-  "src/scripts/import-osm-segments.ts"
+  "scripts/import-osm-segments.ts"
   "scripts/geo-discovery-routes.ts"
   "scripts/import-osm-routes-tlv.ts"
   "scripts/write-climb-segments-tlv.ts"
@@ -170,7 +170,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
   "scripts/geo-discovery-routes.ts"
   # commitSegmentsToFirestore migrated in the surface-type phase — the CLI's
-  # separate REST-based writer (src/scripts/import-osm-segments.ts) is NOT
+  # separate REST-based writer (scripts/import-osm-segments.ts) is NOT
   # migrated yet (flagged, not fixed — see that file's own header comment).
   "src/features/admin/services/osm-segment-importer.ts"
   # Stage 3 Phases 3.2/3.3 (route-enrichment-pipeline plan, 17.08.2026) —

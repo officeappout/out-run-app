@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { MaintenanceReport } from '@/types/maintenance.types';
+import { MaintenanceReport } from '@/features/admin/types/maintenance.types';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { useState, useEffect } from 'react';
 

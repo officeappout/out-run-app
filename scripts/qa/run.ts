@@ -24,7 +24,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { getIsraelDateKey } from '@/lib/israelTime';
 import { checkCaps, summarizeUsage } from '@/lib/demo-control/usage-cost';
-import { DEFAULT_TESTER_MODEL, DEVICES, HARD_CAPS } from './lib/config';
+import { DEFAULT_TESTER_MODEL, HARD_CAPS } from './lib/config';
 import { Budget, preflight } from './lib/budget';
 import { openBrowser } from './lib/browser';
 import { redactSecrets } from './lib/demo-guard';
@@ -38,6 +38,8 @@ import { memoryLine } from './lib/crash';
 import { ShotLog } from './lib/shots';
 import { missionUids } from './lib/design/checkpoints';
 import { DEFAULT_REPORT_URL, openStore, sessionStartDelta, type Store } from './lib/store';
+import { mergeOwnerRules } from './lib/owner/owner-rules';
+import { buildLearning } from './lib/owner/learning';
 
 const log = (msg: string) => console.log(`[qa] ${redactSecrets(msg)}`);
 
@@ -46,12 +48,13 @@ const MINT_STOPS = new Set(['mint_switch_off', 'mint_caller_not_allowed', 'mint_
 
 async function main(): Promise<number> {
   const args = parseRunArgs(process.argv.slice(2), process.env);
-  const { personas, missions } = loadPersonasAndMissions();
+  const { personas, missions, ownerRules } = loadPersonasAndMissions();
   const runId = args.runId ?? makeRunId(new Date(), process.env.GITHUB_RUN_ID ?? '');
   const model = process.env.QA_MODEL?.trim() || DEFAULT_TESTER_MODEL;
 
   if (args.dryRun) {
     const plan = planRun(missions, args, new Set(missions.flatMap(missionUids)));
+    log(`owner rules: ${ownerRules.map((r) => r.id).join(', ') || '(none)'}`);
     log(`dry run ${runId}: ${plan.sessions.map((s) => `${s.mission.id}@${s.device}`).join(', ') || '(nothing)'}; skipped ${JSON.stringify(plan.skipped)}`);
     return 0;
   }
@@ -64,12 +67,12 @@ async function main(): Promise<number> {
   if (!reportToken) throw new Error('QA_REPORT_ID_TOKEN is not set (second auth step, audience = qaRunnerReport)');
 
   const store = openStore({ url: process.env.QA_REPORT_URL?.trim() || DEFAULT_REPORT_URL, idToken: reportToken });
-  return runAll(store, { args, runId, model, apiKey, idToken, personas, missions });
+  return runAll(store, { args, runId, model, apiKey, idToken, personas, missions, ownerRules });
 }
 
 async function runAll(
   store: Store,
-  ctx: { args: ReturnType<typeof parseRunArgs>; runId: string; model: string; apiKey: string; idToken: string; personas: ReturnType<typeof loadPersonasAndMissions>['personas']; missions: ReturnType<typeof loadPersonasAndMissions>['missions'] },
+  ctx: { args: ReturnType<typeof parseRunArgs>; runId: string; model: string; apiKey: string; idToken: string; personas: ReturnType<typeof loadPersonasAndMissions>['personas']; missions: ReturnType<typeof loadPersonasAndMissions>['missions']; ownerRules: ReturnType<typeof loadPersonasAndMissions>['ownerRules'] },
 ): Promise<number> {
   const { args, runId, model } = ctx;
   const status = await store.status();
@@ -93,6 +96,10 @@ async function runAll(
     log('a money / session cap is already reached today — not starting.');
     return 0;
   }
+
+  // The owner's rules: the seed file + notes from the panel; and what his "לא רלוונטי" marks taught.
+  const owner = { rules: mergeOwnerRules(ctx.ownerRules, status.ownerRules.notes), learning: buildLearning(status.ownerRules.dismissals) };
+  log(`owner rules: ${owner.rules.length} (${status.ownerRules.notes.length} from the panel), suppressed: ${owner.learning.suppressed.length}, clarifications: ${owner.learning.clarifications.length}`);
 
   const roster = status.roster;
   const plan = planRun(ctx.missions, args, roster);
@@ -159,6 +166,7 @@ async function runAll(
               stopRequested: () => store.stopRequested().catch(() => false),
               log,
               shots,
+              owner,
             },
             baseUrl: args.baseUrl,
             seed: i + 1,

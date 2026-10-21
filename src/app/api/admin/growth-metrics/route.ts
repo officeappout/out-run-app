@@ -79,7 +79,7 @@ import { resolveAdminAnalyticsScope, type AdminAnalyticsScope } from '@/lib/admi
 import { isExcludedFromGlobalKpis } from '@/lib/testAccountFilter';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { getLevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
-import { getAgeInYears } from '@/lib/age-buckets';
+import { getAgeInYears } from '@/features/admin/lib/age-buckets';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 export const runtime = 'nodejs';

@@ -135,6 +135,9 @@ describe('sweep missions', () => {
     const m = { uid: 'demo_qa_ds_run', device: 'iphone-13', devices: ['iphone-se', 'iphone-13'], uidPerDevice: true };
     expect(uidFor(m, 'iphone-se')).toBe('demo_qa_ds_run_se');
     expect(missionUids(m)).toEqual(['demo_qa_ds_run_se', 'demo_qa_ds_run_i13']);
+    // a sweep also gets an Android account (back-button check), unless it opts out
+    expect(missionUids({ ...m, kind: 'design-sweep' as const })).toEqual(['demo_qa_ds_run_se', 'demo_qa_ds_run_i13', 'demo_qa_ds_run_as']);
+    expect(missionUids({ ...m, kind: 'design-sweep' as const, androidBack: false })).toHaveLength(2);
     expect(parseMissionRef('D06_run_player@run_summary')).toEqual({ id: 'D06_run_player', checkpoint: 'run_summary' });
     expect(parseMissionRef('M01')).toEqual({ id: 'M01', checkpoint: null });
     const cps = [{ id: 'a', screen: 'א', how: 'הגיעי' }, { id: 'b', screen: 'ב', how: 'הגיעי' }];
@@ -153,7 +156,13 @@ describe('sweep missions', () => {
     const resumed = planRun(missions, { missions: ['D09_map_routes@map', 'D09_map_routes@nope'], device: 'iphone-13', maxSessions: 8 }, roster);
     expect(resumed.sessions[0]).toMatchObject({ resumeFrom: 'map', mission: { start: '/map' } });
     expect(resumed.skipped).toEqual([{ id: 'D09_map_routes@nope', reason: 'unknown_checkpoint' }]);
-    expect(planRun(missions, { missions: ['D09_map_routes'], device: 'android-small', maxSessions: 8 }, roster).skipped[0].reason).toBe('device_not_in_mission');
+    // Android is not one of a sweep's own phones, but sweeps run there on request (back-button check).
+    const android = planRun(missions, { missions: ['D09_map_routes'], device: 'android-small', maxSessions: 8 }, roster);
+    expect(android.sessions.map((s) => s.device)).toEqual(['android-small']);
+    expect(planRun(missions, { missions: ['D09_map_routes'], device: null, maxSessions: 8 }, roster).sessions.map((s) => s.device)).not.toContain('android-small');
+    const optedOut = missions.map((m) => (m.id === 'D09_map_routes' ? { ...m, androidBack: false } : m));
+    expect(planRun(optedOut, { missions: ['D09_map_routes'], device: 'android-small', maxSessions: 8 }, roster).skipped[0].reason).toBe('device_not_in_mission');
+    expect(planRun(missions, { missions: ['M01_walker58'], device: 'android-small', maxSessions: 8 }, roster).sessions).toHaveLength(1);
   });
   it('the sweep prompt lists checkpoints, the phone and the scoring contract; resume starts later', () => {
     const m = missions.find((x) => x.id === 'D09_map_routes')!;

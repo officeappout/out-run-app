@@ -35,7 +35,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, RefreshCw, AlertCircle } from 'lucide-react';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import type { PushPerformanceRow, PushPerformanceSummaryResponse } from '@/app/api/admin/push-performance-summary/route';
 import { PUSH_CATALOG, type ChannelKey } from '@/features/admin/services/push-catalog.service';
 import InfoHint from './InfoHint';

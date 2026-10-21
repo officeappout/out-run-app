@@ -100,3 +100,63 @@ src/features/profile/components/ProgressLinkRow.tsx
 src/features/profile/components/NeighborhoodPickerSheet.tsx
 src/features/profile/components/widgets/ProgramsSection.tsx
 src/features/profile/components/widgets/program-groups.utils.ts
+# wave 2 (namespace community, arena components: attendees / groupCard / eventCard / session / nav / report /
+# postJoin / banner / creator / circles / inviteBonus / cityChallenge / pressure / outreach / goalEditor / mapCard).
+# Listed per file: the rest of src/features/arena/components (create-group wizard, GroupDetailsDrawer,
+# LeagueBoardSheets, CommunityAddressSearch = other open work; the league boards + their helpers = next batch)
+# still carries Hebrew. Left in these files, marked: weekday / month names (wave 3), the fallback member
+# name written to Firestore, the dev-only phase panel. WorkoutGoalEditor's admin variant stays Hebrew (admin).
+src/features/arena/components/AttendeesPreview.tsx
+src/features/arena/components/CityChallengeCard.tsx
+src/features/arena/components/CommunityCircles.tsx
+src/features/arena/components/CommunitySessionBanner.tsx
+src/features/arena/components/CreatorManagementDrawer.tsx
+src/features/arena/components/EventCard.tsx
+src/features/arena/components/GroupCard.tsx
+src/features/arena/components/InviteBonusCard.tsx
+src/features/arena/components/MapCard.tsx
+src/features/arena/components/MunicipalPressureCard.tsx
+src/features/arena/components/NavigationSheet.tsx
+src/features/arena/components/PostJoinSuccessDrawer.tsx
+src/features/arena/components/ReportContentSheet.tsx
+src/features/arena/components/SchoolOutreachCard.tsx
+src/features/arena/components/SessionDrawer.tsx
+src/features/arena/components/WorkoutGoalEditor.tsx
+# wave 2 (namespace onboarding, keys steps.* / location.*) — onboarding + lifestyle-wizard steps and the
+# location step's sheets. Listed per file: steps/ and entry-globe/ also hold files the owner's design
+# agents are editing (AccessCodeStep, UnifiedLocationStep, EntryGlobeHeadline/Layer, EntryLogoSlot,
+# location-types) — not migrated. Also not migrated: entry-copy.ts (the globe headline's copy, read by
+# EntryGlobeHeadline), location-utils.ts (identity hook / badges / pioneer copy, read outside this
+# folder), location-constants.ts (data), HistoryStep / SummaryStep / UnifiedLocation/index.ts (dead).
+src/features/user/onboarding/components/steps/AccountSecureStep.tsx
+src/features/user/onboarding/components/steps/EquipmentStep.tsx
+src/features/user/onboarding/components/steps/PersonaStep.tsx
+src/features/user/onboarding/components/steps/PersonalStatsStep.tsx
+src/features/user/onboarding/components/steps/PlanLengthStep.tsx
+src/features/user/onboarding/components/steps/ProcessingStep.tsx
+src/features/user/onboarding/components/steps/RunningPlanSummary.tsx
+src/features/user/onboarding/components/steps/RunningScheduleStep.tsx
+src/features/user/onboarding/components/steps/ScheduleStep.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/sub-components/
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/DivePill.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/DragHintChip.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryConfirmDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntryInitialDrawer.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/EntrySearchOverlay.tsx
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-confirm.ts
+src/features/user/onboarding/components/steps/UnifiedLocation/entry-globe/entry-search.ts
+# wave 2 (namespace community, social.* keys) — feed post, publishing / share-image sheets,
+# activity panel, follow card, route line. Single files, not the folder: ChatInbox.tsx /
+# ChatThread.tsx (busy in other work) and DiscoverSection.tsx (dead) are not migrated.
+# ShareImageSheet.tsx's legacy (enable_home_v2 off) sheet is marked i18n-allow-hebrew.
+src/features/social/components/ActivityPanel.tsx
+src/features/social/components/FeedPostCard.tsx
+src/features/social/components/FeedPostCardV2.tsx
+src/features/social/components/FeedPublishSheets.tsx
+src/features/social/components/PartnerCard.tsx
+src/features/social/components/RouteLine.tsx
+src/features/social/components/ShareImageSheet.tsx
+src/features/social/components/SummaryFeedShare.tsx
+src/features/social/components/social-t.ts
+src/features/social/components/share-v2/

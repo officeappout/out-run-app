@@ -2,7 +2,7 @@
  * unitPermissionScope.ts — server-side-only role → scope resolution for the
  * military/school unit join-request loop (Stage 0 of the tenant/military/
  * school vertical build — see .claude/plans/tenant-military-school-vertical-
- * model.md §ח, and docs/SPEC-PERMISSIONS-MODEL.md for the wider root→level1→
+ * model.md §ח, and docs/architecture/SPEC-PERMISSIONS-MODEL.md for the wider root→level1→
  * level2 hierarchy this instantiates for the military/school verticals).
  *
  * Hard requirement (David, 23.09.2026): "פונקציה טהורה, הסקופ נקבע מה-uid

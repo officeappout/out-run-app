@@ -13,7 +13,7 @@ import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
   TASK_SOURCE_LABELS,
-} from '@/types/product-roadmap.types';
+} from '@/features/admin/types/product-roadmap.types';
 import { AdminUser } from '@/features/admin/services/admin-management.service';
 
 interface RoadmapTaskFormProps {

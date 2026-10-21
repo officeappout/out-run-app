@@ -10,6 +10,8 @@
  */
 import { useId, useMemo } from 'react';
 import { routeShapeToSvg } from '../services/feed-route';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 const W = 320;
 const H = 150;
@@ -18,7 +20,7 @@ const LINE = '#65a30d';
 export default function RouteLine({
   shape,
   className = '',
-  label = 'קו המסלול',
+  label: labelProp,
   variant = 'card',
   width = W,
   height = H,
@@ -30,6 +32,8 @@ export default function RouteLine({
   width?: number;
   height?: number;
 }) {
+  const t = useT(community);
+  const label = labelProp ?? t('social.routeLine.label');
   const hero = variant === 'hero';
   const w = hero ? width : W;
   const h = hero ? height : H;

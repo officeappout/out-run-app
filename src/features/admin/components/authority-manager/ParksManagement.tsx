@@ -12,7 +12,7 @@ import {
   updateReportStatus,
 } from '@/features/admin/services/maintenance.service';
 import { Park, ParkStatus } from '@/types/admin-types';
-import { MaintenanceReport, MaintenanceStatus } from '@/types/maintenance.types';
+import { MaintenanceReport, MaintenanceStatus } from '@/features/admin/types/maintenance.types';
 import { Plus, Edit2, Trash2, MapPin, CheckCircle2, AlertCircle, XCircle, Wrench, AlertTriangle } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';

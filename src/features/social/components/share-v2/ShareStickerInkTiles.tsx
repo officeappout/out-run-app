@@ -7,14 +7,18 @@
 import { Check, Image as ImageIcon } from 'lucide-react';
 import type { ShareInk } from '../../share-v2/types';
 import { CHECKER_STYLE } from './checker';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { CommunityKey } from '../social-t';
 
-const INKS: { id: ShareInk; label: string; dot: string; ring: string }[] = [
-  { id: 'white', label: 'לבן', dot: '#ffffff', ring: 'rgba(255,255,255,0.4)' },
-  { id: 'dark', label: 'כהה', dot: '#0e1419', ring: '#ffffff' },
-  { id: 'brand', label: 'צבעי OUT', dot: 'linear-gradient(135deg,#00baf7,#0cf2e3)', ring: '#ffffff' },
+const INKS: { id: ShareInk; labelKey: CommunityKey; dot: string; ring: string }[] = [
+  { id: 'white', labelKey: 'social.share.ink.white', dot: '#ffffff', ring: 'rgba(255,255,255,0.4)' },
+  { id: 'dark', labelKey: 'social.share.ink.dark', dot: '#0e1419', ring: '#ffffff' },
+  { id: 'brand', labelKey: 'social.share.ink.brand', dot: 'linear-gradient(135deg,#00baf7,#0cf2e3)', ring: '#ffffff' },
 ];
 
 export default function ShareStickerInkTiles({ value, onChange }: { value: ShareInk; onChange: (ink: ShareInk) => void }) {
+  const t = useT(community);
   return (
     <div>
       <div className="flex gap-2 pt-1">
@@ -39,7 +43,7 @@ export default function ShareStickerInkTiles({ value, onChange }: { value: Share
                   </span>
                 )}
               </span>
-              <span className={`whitespace-nowrap text-[12.5px] ${on ? 'font-black text-v2-deep' : 'font-extrabold text-v2-ink-2'}`}>{o.label}</span>
+              <span className={`whitespace-nowrap text-[12.5px] ${on ? 'font-black text-v2-deep' : 'font-extrabold text-v2-ink-2'}`}>{t(o.labelKey)}</span>
             </button>
           );
         })}
@@ -47,7 +51,7 @@ export default function ShareStickerInkTiles({ value, onChange }: { value: Share
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-[16px] bg-[#f1f9fd] px-3 py-2.5">
         <ImageIcon size={18} strokeWidth={2.4} className="shrink-0 text-v2-deep" aria-hidden />
-        <span className="text-[12.5px] font-bold text-v2-ink-2">רקע שקוף — באינסטגרם מדביקים אותו מעל תמונה או סרטון</span>
+        <span className="text-[12.5px] font-bold text-v2-ink-2">{t('social.share.ink.hint')}</span>
       </div>
     </div>
   );

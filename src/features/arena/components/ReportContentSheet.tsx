@@ -11,6 +11,8 @@ import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { CONFIRM_ACTION_CLASS } from '@/components/ui/v2/ConfirmSheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 /**
  * Reason taxonomy.
@@ -21,13 +23,13 @@ import { SHEET_Z } from '@/components/ui/v2/tokens';
  * each target without duplicating the array.
  */
 const REASONS = [
-  { id: 'spam',           label: 'ספאם / תוכן מסחרי',  appliesTo: ['group', 'event', 'post'] as const },
-  { id: 'inappropriate',  label: 'תוכן לא ראוי',        appliesTo: ['group', 'event', 'post', 'user'] as const },
-  { id: 'harassment',     label: 'הטרדה או אלימות',    appliesTo: ['group', 'event', 'post', 'user'] as const },
-  { id: 'misinformation', label: 'מידע מטעה',           appliesTo: ['group', 'event', 'post'] as const },
-  { id: 'impersonation',  label: 'התחזות',              appliesTo: ['user'] as const },
-  { id: 'other',          label: 'אחר',                 appliesTo: ['group', 'event', 'post', 'user'] as const },
-];
+  { id: 'spam',           labelKey: 'report.reason.spam',           appliesTo: ['group', 'event', 'post'] as const },
+  { id: 'inappropriate',  labelKey: 'report.reason.inappropriate',  appliesTo: ['group', 'event', 'post', 'user'] as const },
+  { id: 'harassment',     labelKey: 'report.reason.harassment',     appliesTo: ['group', 'event', 'post', 'user'] as const },
+  { id: 'misinformation', labelKey: 'report.reason.misinformation', appliesTo: ['group', 'event', 'post'] as const },
+  { id: 'impersonation',  labelKey: 'report.reason.impersonation',  appliesTo: ['user'] as const },
+  { id: 'other',          labelKey: 'report.reason.other',          appliesTo: ['group', 'event', 'post', 'user'] as const },
+] as const;
 
 /**
  * Phase 7.2 — supported report targets. The Firestore `reports`
@@ -38,23 +40,11 @@ const REASONS = [
  */
 export type ReportTargetType = 'group' | 'event' | 'post' | 'user';
 
-function reasonsForType(t: ReportTargetType) {
-  return REASONS.filter((r) => (r.appliesTo as readonly string[]).includes(t));
+function reasonsForType(type: ReportTargetType) {
+  return REASONS.filter((r) => (r.appliesTo as readonly string[]).includes(type));
 }
 
-const TARGET_LABEL: Record<ReportTargetType, string> = {
-  group: 'הקבוצה',
-  event: 'האירוע',
-  post:  'הפוסט',
-  user:  'המשתמש',
-};
-
-const PROMPT_BY_TYPE: Record<ReportTargetType, string> = {
-  group: 'מדוע ברצונך לדווח על הקבוצה',
-  event: 'מדוע ברצונך לדווח על האירוע',
-  post:  'מדוע ברצונך לדווח על הפוסט של',
-  user:  'מדוע ברצונך לדווח על המשתמש',
-};
+// Title ("report.title") and prompt ("report.prompt") per target type: ICU selects in community.json.
 
 interface ReportContentSheetProps {
   isOpen: boolean;
@@ -73,6 +63,7 @@ export default function ReportContentSheet({
   targetName,
   reporterId,
 }: ReportContentSheetProps) {
+  const t = useT(community);
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -107,7 +98,8 @@ export default function ReportContentSheet({
   };
 
   const visibleReasons = reasonsForType(targetType);
-  const promptPrefix = PROMPT_BY_TYPE[targetType];
+  const title = t('report.title', { type: targetType });
+  const prompt = t('report.prompt', { type: targetType, name: targetName });
 
   const handleClose = () => {
     setSelectedReason(null);
@@ -130,14 +122,14 @@ export default function ReportContentSheet({
         frameClassName="max-w-md mx-auto"
         transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.8 }}
         scroll="none"
-        ariaLabel={submitted ? 'הדיווח נשלח' : `דיווח על ${TARGET_LABEL[targetType]}`}
+        ariaLabel={submitted ? t('report.sent') : title}
         header={
           <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-1">
             <h2 className="flex min-w-0 items-center gap-2 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">
               {!submitted && <Flag className="h-5 w-5 shrink-0 text-v2-down" strokeWidth={2.4} />}
-              <span className="truncate">{submitted ? 'הדיווח נשלח' : `דיווח על ${TARGET_LABEL[targetType]}`}</span>
+              <span className="truncate">{submitted ? t('report.sent') : title}</span>
             </h2>
-            <IconButton aria-label="סגירה" tone="surface" size={36} className="shrink-0" onClick={handleClose}>
+            <IconButton aria-label={t('report.close')} tone="surface" size={36} className="shrink-0" onClick={handleClose}>
               <X className="h-4 w-4" />
             </IconButton>
           </div>
@@ -150,16 +142,16 @@ export default function ReportContentSheet({
                 <Check className="h-7 w-7" strokeWidth={2.6} />
               </span>
               <p className="mt-3 max-w-[280px] text-[15px] font-bold leading-relaxed text-v2-ink-2">
-                תודה על שמירת הקהילה. נבדוק את הדיווח בהקדם.
+                {t('report.thanks')}
               </p>
               <button type="button" onClick={handleClose} className={`mt-6 ${CONFIRM_ACTION_CLASS.secondary}`}>
-                סגור
+                {t('report.done')}
               </button>
             </div>
           ) : (
             <>
               <p className="mb-4 text-[14px] font-bold text-v2-muted">
-                {promptPrefix} &ldquo;{targetName}&rdquo;?
+                {prompt}
               </p>
               <div className="mb-5 space-y-2">
                 {visibleReasons.map((r) => (
@@ -173,7 +165,7 @@ export default function ReportContentSheet({
                         : 'bg-white text-v2-ink-2 shadow-v2-ring'
                     }`}
                   >
-                    {r.label}
+                    {t(r.labelKey)}
                   </button>
                 ))}
               </div>
@@ -183,7 +175,7 @@ export default function ReportContentSheet({
                 onClick={handleSubmit}
                 className={`flex items-center justify-center gap-2 ${CONFIRM_ACTION_CLASS.danger}`}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'שלח דיווח'}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('report.submit')}
               </button>
             </>
           )}
@@ -225,16 +217,16 @@ export default function ReportContentSheet({
                 <div className="text-center py-6">
                   <div className="text-5xl mb-3">✅</div>
                   <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1">
-                    הדיווח נשלח
+                    {t('report.sent')}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    תודה על שמירת הקהילה. נבדוק את הדיווח בהקדם.
+                    {t('report.thanks')}
                   </p>
                   <button
                     onClick={handleClose}
                     className="mt-6 w-full py-3 rounded-2xl text-sm font-bold text-gray-400"
                   >
-                    סגור
+                    {t('report.done')}
                   </button>
                 </div>
               ) : (
@@ -242,11 +234,11 @@ export default function ReportContentSheet({
                   <div className="flex items-center gap-2 mb-1">
                     <Flag className="w-5 h-5 text-red-500" />
                     <h3 className="text-lg font-black text-gray-900 dark:text-white">
-                      {`דיווח על ${TARGET_LABEL[targetType]}`}
+                      {title}
                     </h3>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-                    {promptPrefix} &ldquo;{targetName}&rdquo;?
+                    {prompt}
                   </p>
 
                   <div className="space-y-2 mb-6">
@@ -260,7 +252,7 @@ export default function ReportContentSheet({
                             : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                       >
-                        {r.label}
+                        {t(r.labelKey)}
                       </button>
                     ))}
                   </div>
@@ -272,7 +264,7 @@ export default function ReportContentSheet({
                   >
                     {loading
                       ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : 'שלח דיווח'
+                      : t('report.submit')
                     }
                   </button>
                 </>

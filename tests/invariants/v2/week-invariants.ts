@@ -191,7 +191,9 @@ export function walkRows(): WeekRow[] {
       for (const w of plan.weeks) {
         const longs = w.walks.filter((x) => x.minutes > C.session.max);
         if (longs.length > 1) k2.push(`wk${w.index}: ${longs.length} long`);
-        if (w.walks.some((x) => x.minutes > C.longWalkMax || x.minutes < C.session.min)) k2.push(`wk${w.index}: [${w.walks.map((x) => x.minutes).join(',')}]`);
+        // Comfort "short": a gentle-start week may use walks down to shortComfortMinSession.
+        const minWalk = comfort === 'short' ? C.shortComfortMinSession : C.session.min;
+        if (w.walks.some((x) => x.minutes > C.longWalkMax || x.minutes < minWalk)) k2.push(`wk${w.index}: [${w.walks.map((x) => x.minutes).join(',')}]`);
       }
       row('K2', k2.length ? 'fail' : 'pass', k2.join('; '));
       const k3 = totals.slice(1).map((t, i) => [totals[i], t]).filter(([a, b]) => b > Math.ceil((a * (1 + C.weeklyRampCap)) / 5) * 5 + 5);
@@ -201,10 +203,15 @@ export function walkRows(): WeekRow[] {
       row('K4', offDay.length || (plan.days.includes(6) && !allowed.includes(6)) ? 'fail' : 'pass', `days [${plan.days.join(',')}]`);
       const okFreq = plan.days.length >= Math.min(C.frequency.min, allowed.length) && plan.days.length <= C.frequency.max;
       row('K5', okFreq ? 'pass' : 'fail', `${plan.days.length} walks on ${allowed.length} days`);
-      const ramp = weeklyMinutesRamp(Math.min(C.startMinutesByLevel[plan.level], plan.targetWeeklyMinutes), plan.targetWeeklyMinutes, C.horizonWeeks, C.weeklyRampCap);
+      // The plan = the ramp up to what the days can hold (plannedWeeklyMinutes) — and a
+      // plan that holds less than the WHO target must SAY so ("עד X דק׳ …").
+      const ramp = weeklyMinutesRamp(Math.min(C.startMinutesByLevel[plan.level], plan.targetWeeklyMinutes), plan.targetWeeklyMinutes, C.horizonWeeks, C.weeklyRampCap)
+        .map((m) => Math.min(m, plan.plannedWeeklyMinutes));
       const drift = plan.weeks.filter((w, i) => Math.abs(w.totalMinutes - ramp[i]) > 10);
       const under = drift.some((w) => w.totalMinutes < ramp[w.index]);
-      row('K6', drift.length ? 'warn' : 'pass', drift.length ? `${under ? 'UNDER' : 'OVER'}: walks sum [${totals.join(',')}] vs planned [${ramp.join(',')}] on ${plan.days.length} days` : '');
+      const silentCap = plan.plannedWeeklyMinutes < plan.targetWeeklyMinutes && !plan.reasonsHe.some((r) => r.includes(`עד ${plan.plannedWeeklyMinutes} דק׳`));
+      row('K6', drift.length || silentCap ? 'warn' : 'pass', silentCap ? `planned ${plan.plannedWeeklyMinutes} < target ${plan.targetWeeklyMinutes} without an honest reason`
+        : drift.length ? `${under ? 'UNDER' : 'OVER'}: walks sum [${totals.join(',')}] vs planned [${ramp.join(',')}] on ${plan.days.length} days` : '');
     }
   return rows;
 }

@@ -25,7 +25,7 @@ import {
   TaskPriority,
   TaskSource,
   DEFAULT_TAGS,
-} from '@/types/product-roadmap.types';
+} from '@/features/admin/types/product-roadmap.types';
 import { logAction } from './audit.service';
 
 const TASKS_COLLECTION = 'product_roadmap';

@@ -20,7 +20,7 @@ import {
 import {
   getAllInvitations,
 } from '@/features/admin/services/invitation.service';
-import type { AdminInvitation } from '@/types/invitation.type';
+import type { AdminInvitation } from '@/features/admin/types/invitation.type';
 import { isRootAdmin } from '@/config/feature-flags';
 import { getAllAuthorities, getAuthoritiesGrouped } from '@/features/admin/services/authority.service';
 import InviteMemberModal from '@/features/admin/components/InviteMemberModal';

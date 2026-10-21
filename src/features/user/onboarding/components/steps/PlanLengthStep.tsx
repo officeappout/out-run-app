@@ -8,6 +8,8 @@ import { DEFAULT_PLAN_WEEKS, type GeneratorTargetDistance } from '@/features/wor
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { CustomLengthIcon, RaceBibIcon, WeeksCalendarIcon } from '../running-v2/PlanLengthIcons';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface PlanLengthStepProps {
   onNext: () => void;
@@ -18,17 +20,17 @@ type SelectionMode = 'preset' | 'slider' | 'calendar';
 const PRESET_WEEKS = [12, 10, 8] as const;
 
 const PRESET_LABELS: Record<number, string> = {
-  12: 'מומלץ לתהליך ארוך ומדורג',
-  10: 'מומלץ לאימון מאוזן',
-  8: 'מומלץ למסלול מהיר',
+  12: 'מומלץ לתהליך ארוך ומדורג', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  10: 'מומלץ לאימון מאוזן', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+  8: 'מומלץ למסלול מהיר', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 };
 
 const HE_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', // i18n-allow-hebrew: month names (wave 3, fmt)
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר', // i18n-allow-hebrew: month names (wave 3, fmt)
 ];
 
-const HE_WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const HE_WEEKDAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳']; // i18n-allow-hebrew: weekday letters (wave 3, fmt)
 
 function computeRecommendedWeeks(): number {
   if (typeof window === 'undefined') return 8;
@@ -49,30 +51,21 @@ function computeRecommendedWeeks(): number {
   }
 }
 
-// v2 (enable_home_v2) — R5-prop-planlength order and copy.
+// v2 (enable_home_v2) — R5-prop-planlength order and copy (labels: `steps.planLength.preset.line`).
 const V2_PRESET_WEEKS = [8, 10, 12] as const;
-const V2_PRESET_LABELS: Record<number, string> = {
-  8: 'מהיר',
-  10: 'מאוזן',
-  12: 'מדורג ובטוח',
-};
 /** The weeks bar under each preset card is drawn out of this many segments. */
 const WEEKS_BAR_SEGMENTS = 16;
 
-const PLAN_DIST_LABELS: Record<string, string> = {
-  '2k': '2 ק״מ',
-  '3k': '3 ק״מ',
-  '5k': '5 ק״מ',
-  '10k': '10 ק״מ',
-};
+/** Distances with a label (`steps.planLength.dist`). */
+const PLAN_DISTANCES = new Set(['2k', '3k', '5k', '10k']);
 
-/** "10 ק״מ" from the running answers, or null (e.g. maintenance). */
-function planDistanceLabel(): string | null {
+/** The target distance from the running answers ("10k"), or null (e.g. maintenance). */
+function planDistanceKey(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     const stored = sessionStorage.getItem('onboarding_running_answers');
     const d = stored ? JSON.parse(stored).targetDistance : null;
-    return typeof d === 'string' ? PLAN_DIST_LABELS[d] ?? null : null;
+    return typeof d === 'string' && PLAN_DISTANCES.has(d) ? d : null;
   } catch {
     return null;
   }
@@ -120,6 +113,7 @@ function MiniCalendar({
   /** enable_home_v2 — light calendar (white card, tint selected day). */
   v2?: boolean;
 }) {
+  const t = useT(onboarding);
   const [viewYear, setViewYear] = useState(
     selected?.getFullYear() ?? minDate.getFullYear(),
   );
@@ -165,7 +159,7 @@ function MiniCalendar({
           <button
             type="button"
             onClick={prevMonth}
-            aria-label="החודש הקודם"
+            aria-label={t('steps.planLength.calendar.prevMonth')}
             className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <ChevronLeft size={18} className="text-v2-deep" />
@@ -174,7 +168,7 @@ function MiniCalendar({
           <button
             type="button"
             onClick={nextMonth}
-            aria-label="החודש הבא"
+            aria-label={t('steps.planLength.calendar.nextMonth')}
             className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <ChevronRight size={18} className="text-v2-deep" />
@@ -284,6 +278,7 @@ function MiniCalendar({
 
 export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const recommended = useMemo(() => computeRecommendedWeeks(), []);
 
   const [mode, setMode] = useState<SelectionMode>('preset');
@@ -323,7 +318,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
   }, [activeWeeks, onNext]);
 
   const formatCalendarDisplay = () => {
-    if (!calendarDate) return 'בחרו תאריך סיום';
+    if (!calendarDate) return t('steps.planLength.race.pickEnd');
     return calendarDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
@@ -350,7 +345,8 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
         {node}
       </span>
     );
-    const distLabel = planDistanceLabel();
+    const distKey = planDistanceKey();
+    const distLabel = distKey ? t('steps.planLength.dist', { dist: distKey }) : null;
     const expand = {
       initial: { opacity: 0, height: 0 },
       animate: { opacity: 1, height: 'auto' },
@@ -362,13 +358,13 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
       <div dir="rtl" className="relative mx-auto flex w-full max-w-md flex-1 flex-col bg-v2-surface font-simpler text-v2-ink">
         <div className="px-4 pb-2 pt-1">
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 px-1">
-            <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">לכמה שבועות התוכנית?</h1>
+            <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('steps.planLength.title')}</h1>
             <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
-              {distLabel ? `בונים עד ל-${distLabel} · אפשר לשנות אחר כך` : 'אפשר לשנות אחר כך'}
+              {distLabel ? t('steps.planLength.subtitle.withDist', { dist: distLabel }) : t('steps.planLength.subtitle.plain')}
             </p>
           </motion.div>
 
-          <div role="radiogroup" aria-label="משך התוכנית" className="flex flex-col gap-2.5">
+          <div role="radiogroup" aria-label={t('steps.planLength.options.aria')} className="flex flex-col gap-2.5">
             {V2_PRESET_WEEKS.map((weeks) => {
               const on = mode === 'preset' && selectedPreset === weeks;
               const isRecommended = weeks === recommended;
@@ -385,15 +381,15 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                     {iconTile(<WeeksCalendarIcon weeks={weeks} />)}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{weeks} שבועות</span>
+                        <span className="whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{t('steps.planLength.preset.weeks', { weeks: String(weeks) })}</span>
                         {isRecommended && (
                           <span className="whitespace-nowrap rounded-full bg-v2-tint px-2 py-0.5 text-[11px] font-extrabold text-v2-deep">
-                            מומלץ
+                            {t('steps.planLength.preset.recommended')}
                           </span>
                         )}
                       </span>
                       <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                        {V2_PRESET_LABELS[weeks]} · עד {formatShortEndDate(weeks)}
+                        {t('steps.planLength.preset.line', { weeks: String(weeks), date: formatShortEndDate(weeks) })}
                       </span>
                     </span>
                     {radio(on)}
@@ -421,11 +417,11 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               >
                 {iconTile(<RaceBibIcon />)}
                 <span className="min-w-0 flex-1">
-                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">יש לי מרוץ</span>
+                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{t('steps.planLength.race.title')}</span>
                   <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
                     {calendarDate
-                      ? `${formatCalendarDisplay()} · ${weeksFromDate(calendarDate)} שבועות`
-                      : 'בחרו תאריך — נחשב את מספר השבועות'}
+                      ? t('steps.planLength.race.chosen', { date: formatCalendarDisplay(), weeks: String(weeksFromDate(calendarDate)) })
+                      : t('steps.planLength.race.hint')}
                   </span>
                 </span>
                 {radio(mode === 'calendar')}
@@ -452,9 +448,11 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               >
                 {iconTile(<CustomLengthIcon />)}
                 <span className="min-w-0 flex-1">
-                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">אחר</span>
+                  <span className="block whitespace-nowrap text-[17px] font-black !tracking-[-0.01em]">{t('steps.planLength.custom.title')}</span>
                   <span className="mt-0.5 block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-                    {mode === 'slider' ? `${sliderWeeks} שבועות · עד ${formatShortEndDate(sliderWeeks)}` : '4–52 שבועות'}
+                    {mode === 'slider'
+                      ? t('steps.planLength.custom.chosen', { weeks: String(sliderWeeks), date: formatShortEndDate(sliderWeeks) })
+                      : t('steps.planLength.custom.hint')}
                   </span>
                 </span>
                 {radio(mode === 'slider')}
@@ -464,7 +462,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                   <motion.div {...expand} className="overflow-hidden">
                     <div className="flex flex-col items-center gap-1 px-4 pb-4">
                       <span className="whitespace-nowrap text-[30px] font-black tabular-nums !tracking-[-0.02em] text-v2-deep">
-                        {sliderWeeks} שבועות
+                        {t('steps.planLength.custom.value', { weeks: String(sliderWeeks) })}
                       </span>
                       <div className="relative mt-1 flex h-10 w-full items-center" dir="ltr">
                         <input
@@ -473,7 +471,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                           max={52}
                           value={sliderWeeks}
                           onChange={(e) => setSliderWeeks(Number(e.target.value))}
-                          aria-label="מספר שבועות"
+                          aria-label={t('steps.planLength.custom.aria')}
                           className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
                           style={{
                             background: `linear-gradient(to right, #00baf7 ${((sliderWeeks - 4) / 48) * 100}%, #e6edf2 ${((sliderWeeks - 4) / 48) * 100}%)`,
@@ -497,7 +495,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
 
         <StickyActionButton
           variant="v2"
-          label="המשך"
+          label={t('steps.planLength.cta')}
           disabled={mode === 'calendar' && !calendarDate}
           onPress={handleContinue}
         />
@@ -514,10 +512,10 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
         className="mb-2 pt-6 pb-2"
       >
         <h1 className="text-2xl font-black leading-tight text-slate-900 mb-2">
-          לכמה שבועות תרצה את התוכנית?
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}לכמה שבועות תרצה את התוכנית?
         </h1>
         <p className="text-slate-500 text-sm">
-          בחרו את משך התוכנית המועדף עליכם
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחרו את משך התוכנית המועדף עליכם
         </p>
       </motion.div>
 
@@ -546,7 +544,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
                   className="absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full text-white"
                   style={{ background: '#0AC2B6' }}
                 >
-                  מומלץ
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מומלץ
                 </span>
               )}
 
@@ -555,8 +553,8 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               </p>
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-lg font-bold text-slate-900">{weeks} שבועות</p>
-                  <p className="text-slate-400 text-sm">עד {formatEndDate(weeks)}</p>
+                  <p className="text-lg font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{weeks} שבועות</p>
+                  <p className="text-slate-400 text-sm">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עד {formatEndDate(weeks)}</p>
                 </div>
                 <div
                   className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
@@ -588,7 +586,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <SlidersHorizontal size={18} className="text-slate-400" />
-            <p className="text-lg font-bold text-slate-900">בחירה מותאמת אישית</p>
+            <p className="text-lg font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחירה מותאמת אישית</p>
           </div>
           <div
             className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
@@ -611,9 +609,9 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <span className="text-4xl font-black tabular-nums" style={{ color: '#00BAF7' }}>
-                {sliderWeeks} שבועות
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{sliderWeeks} שבועות
               </span>
-              <p className="text-slate-400 text-sm">עד {formatEndDate(sliderWeeks)}</p>
+              <p className="text-slate-400 text-sm">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עד {formatEndDate(sliderWeeks)}</p>
 
               <div className="relative w-full h-12 flex items-center mt-2" dir="ltr">
                 <input
@@ -653,7 +651,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-slate-400" />
-            <p className="text-lg font-bold text-slate-900">בחירת תאריך סיום</p>
+            <p className="text-lg font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחירת תאריך סיום</p>
           </div>
           <div
             className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
@@ -678,7 +676,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
               {calendarDate && (
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm text-slate-500">
-                    {formatCalendarDisplay()} ({weeksFromDate(calendarDate)} שבועות)
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{formatCalendarDisplay()} ({weeksFromDate(calendarDate)} שבועות)
                   </p>
                 </div>
               )}
@@ -696,7 +694,7 @@ export default function PlanLengthStep({ onNext }: PlanLengthStepProps) {
       <div className="flex-grow" />
 
       <StickyActionButton
-        label="המשך"
+        label="המשך" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
         disabled={mode === 'calendar' && !calendarDate}
         onPress={handleContinue}
       />

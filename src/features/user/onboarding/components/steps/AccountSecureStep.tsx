@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, AlertTriangle, X } from 'lucide-react';
 import { linkWithGoogleAccount, linkWithAppleAccount } from '@/lib/auth.service';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
 
 interface AccountSecureStepProps {
   onNext: (secured: boolean, method?: string, email?: string) => void;
@@ -14,8 +17,10 @@ interface AccountSecureStepProps {
 export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepProps) {
   // enable_home_v2 — styling only; auth handlers/order/brand marks unchanged.
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // The error's catalog key — translated at render.
+  const [error, setError] = useState<NamespaceKey<typeof onboarding> | null>(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
 
   // Hide Apple button on Android — ASAuthorizationController is iOS-only.
@@ -45,20 +50,20 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
           return;
         }
         if (linkError === 'google_timeout') {
-          setError('חלון Google לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.');
+          setError('steps.account.error.googleTimeout');
           setLoading(null);
           return;
         }
         if (linkError === 'google_account_exists') {
-          setError('חשבון Google זה כבר בשימוש. אנא השתמש בחשבון אחר.');
+          setError('steps.account.error.googleExists');
         } else if (linkError === 'popup_closed') {
-          setError('החלון נסגר. אנא נסה שוב.');
+          setError('steps.account.error.popupClosed');
         } else if (linkError === 'not_anonymous') {
           // Already authenticated - auto-proceed
           onNext(true, 'google');
           return;
         } else {
-          setError('שגיאה בחיבור ל-Google. אנא נסה שוב.');
+          setError('steps.account.error.google');
         }
         setLoading(null);
         return;
@@ -68,7 +73,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         onNext(true, 'google', user.email || undefined);
       }
     } catch {
-      setError('שגיאה בלתי צפויה. אנא נסה שוב.');
+      setError('steps.account.error.unexpected');
       setLoading(null);
     }
   };
@@ -87,17 +92,17 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
           return;
         }
         if (linkError === 'apple_timeout') {
-          setError('חלון Apple לא נפתח. אנא נסה שוב או בחר שיטת התחברות אחרת.');
+          setError('steps.account.error.appleTimeout');
           setLoading(null);
           return;
         }
         if (linkError === 'apple_account_exists') {
-          setError('חשבון Apple זה כבר בשימוש. אנא השתמש בחשבון אחר.');
+          setError('steps.account.error.appleExists');
         } else if (linkError === 'not_anonymous') {
           onNext(true, 'apple');
           return;
         } else {
-          setError('שגיאה בחיבור ל-Apple. אנא נסה שוב.');
+          setError('steps.account.error.apple');
         }
         setLoading(null);
         return;
@@ -107,7 +112,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         onNext(true, 'apple', user.email || undefined);
       }
     } catch {
-      setError('שגיאה בלתי צפויה. אנא נסה שוב.');
+      setError('steps.account.error.unexpected');
       setLoading(null);
     }
   };
@@ -158,7 +163,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         transition={{ delay: 0.1 }}
         className={v2 ? 'mb-2 text-center text-[26px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-2xl font-bold text-slate-900 text-center mb-3'}
       >
-        {userName}, התוכנית שלך מוכנה!
+        {t('steps.account.title', { name: userName })}
       </motion.h1>
 
       <motion.p
@@ -167,7 +172,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         transition={{ delay: 0.2 }}
         className={v2 ? 'mb-8 max-w-md text-center text-[15px] font-medium text-v2-ink-2' : 'text-slate-500 text-center mb-8 max-w-md'}
       >
-        {v2 && isFemale ? 'בואי נבטיח שהיא לא תלך לאיבוד.' : 'בוא נבטיח שהיא לא תלך לאיבוד.'}
+        {t('steps.account.subtitle', { gender: v2 && isFemale ? 'female' : 'other' })}
       </motion.p>
 
       {/* Primary CTA: Google Sign-In */}
@@ -185,7 +190,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
           <img src="https://www.google.com/favicon.ico" alt="G" className="w-5 h-5" />
         )}
         <span className={v2 ? 'truncate text-[16px] font-extrabold text-v2-ink' : 'font-bold text-slate-700'}>
-          {loading === 'google' ? 'מתחבר...' : 'המשך עם Google'}
+          {loading === 'google' ? t('steps.account.connecting') : t('steps.account.continueGoogle')}
         </span>
       </motion.button>
 
@@ -207,7 +212,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
             </svg>
           )}
           <span className={v2 ? 'truncate text-[16px] font-extrabold text-v2-ink' : 'font-bold text-white'}>
-            {loading === 'apple' ? 'מתחבר...' : 'המשך עם Apple'}
+            {loading === 'apple' ? t('steps.account.connecting') : t('steps.account.continueApple')}
           </span>
         </motion.button>
       )}
@@ -222,7 +227,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
             className={v2 ? 'mb-4 flex w-full max-w-md items-start gap-2 rounded-2xl bg-white px-4 py-3 text-[#b4232a] shadow-v2-ring' : 'w-full max-w-md bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl mb-4 flex items-start gap-2'}
           >
             <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p className={v2 ? 'text-[12.5px] font-bold' : 'text-sm'}>{error}</p>
+            <p className={v2 ? 'text-[12.5px] font-bold' : 'text-sm'}>{t(error)}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -236,7 +241,7 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
         disabled={isLoading}
         className={v2 ? 'whitespace-nowrap py-2 text-[14px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97] disabled:opacity-50' : 'text-slate-400 hover:text-slate-500 transition-colors text-sm font-medium py-2 disabled:opacity-50'}
       >
-        המשך עם פרופיל מקומי (ללא גיבוי)
+        {t('steps.account.skip')}
       </motion.button>
 
       {/* Warning Modal — Premium Dark Theme */}
@@ -276,19 +281,24 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
 
               {/* Title */}
               <h2 className={v2 ? 'mb-3 text-center text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-xl font-bold text-white text-center mb-4'}>
-                המשך ללא גיבוי?
+                {t('steps.account.warning.title')}
               </h2>
 
               {/* Warning Text */}
               <div className={v2 ? 'mb-6 space-y-3 text-[14px] font-medium leading-relaxed text-v2-ink-2' : 'space-y-3 text-gray-400 text-sm mb-6 leading-relaxed'}>
                 <p>
-                  <strong className={v2 ? 'font-extrabold text-v2-ink' : 'text-gray-300'}>הצהרת הבריאות החתומה שלך</strong> והיסטוריית האימונים שלך מאוחסנים כרגע רק במכשיר זה.
+                  {t.rich('steps.account.warning.localOnly', {
+                    b: (chunks: React.ReactNode) => <strong className={v2 ? 'font-extrabold text-v2-ink' : 'text-gray-300'}>{chunks}</strong>,
+                  })}
                 </p>
                 <p>
-                  {isFemale ? 'אם תמחקי את האפליקציה, תחליפי מכשיר, או תנקי נתונים — ' : 'אם תמחק את האפליקציה, תחליף מכשיר, או תנקה נתונים — '}<strong className={v2 ? 'font-extrabold text-v2-ink' : 'text-gray-300'}>{isFemale ? 'תאבדי את כל ההתקדמות שלך' : 'תאבד את כל ההתקדמות שלך'}</strong>.
+                  {t.rich('steps.account.warning.loss', {
+                    gender: isFemale ? 'female' : 'other',
+                    b: (chunks: React.ReactNode) => <strong className={v2 ? 'font-extrabold text-v2-ink' : 'text-gray-300'}>{chunks}</strong>,
+                  })}
                 </p>
                 <p className={v2 ? 'font-bold text-v2-deep' : 'text-[#00F0FF]/80'}>
-                  {isFemale ? 'תוכלי לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.' : 'תוכל לאבטח את החשבון שלך בכל עת מהדאשבורד הראשי.'}
+                  {t('steps.account.warning.secureLater', { gender: isFemale ? 'female' : 'other' })}
                 </p>
               </div>
 
@@ -298,13 +308,13 @@ export default function AccountSecureStep({ onNext, onSkip }: AccountSecureStepP
                   onClick={() => setShowWarningModal(false)}
                   className={v2 ? 'h-[52px] w-full whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full bg-gradient-to-r from-[#00F0FF] to-[#0047FF] text-white py-3.5 rounded-xl font-bold hover:shadow-lg transition-all active:scale-[0.98]'}
                 >
-                  חזור לאחור
+                  {t('steps.account.warning.back')}
                 </button>
                 <button
                   onClick={handleConfirmSkip}
                   className={v2 ? 'h-[52px] w-full whitespace-nowrap rounded-full bg-white text-[16px] font-extrabold text-v2-ink-2 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]' : 'w-full bg-white/5 hover:bg-white/10 text-gray-400 py-3.5 rounded-xl font-medium transition-all border border-white/10 active:scale-[0.98]'}
                 >
-                  המשך בלי גיבוי
+                  {t('steps.account.warning.skip')}
                 </button>
               </div>
             </motion.div>

@@ -23,7 +23,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { AdminInvitation, InvitationData } from '@/types/invitation.type';
+import { AdminInvitation, InvitationData } from '@/features/admin/types/invitation.type';
 import { logAction } from './audit.service';
 import { updateAuthority, getAuthority, getChildrenByParent } from './authority.service';
 import { isRootAdmin } from '@/config/feature-flags';
@@ -368,7 +368,7 @@ export async function applyInvitationToUser(
       // to undefined. Fixed by omitting the key entirely when it doesn't
       // apply — the same "absent, not undefined" pattern the UPDATE branch
       // just below already uses (`if (cond) updateData['core.x'] = value`,
-      // no `else` branch). See docs/SPEC-PERMISSIONS-MODEL.md §6.2 for the
+      // no `else` branch). See docs/architecture/SPEC-PERMISSIONS-MODEL.md §6.2 for the
       // full narrative; this does NOT touch §6.1 (the separate, still-open
       // acceptance-flow block in noAdminFieldsChanged()).
       await setDoc(userDocRef, {

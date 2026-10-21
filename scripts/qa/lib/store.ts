@@ -7,6 +7,7 @@
  * with a short-lived signed PUT URL the function issues for one path under qa/{runId}/.
  */
 import { parseConfig, parseUsageDay, type DemoConfig, type UsageDay } from '@/lib/demo-control/usage-cost';
+import { parseOwnerRulesDoc, type OwnerRulesDoc } from '@/lib/demo-control/owner-rules-model';
 import type { UsageDelta } from './budget';
 import type { Finding } from './findings';
 
@@ -18,6 +19,8 @@ export interface RunnerStatus {
   stopRequested: boolean;
   usageDays: UsageDay[];
   roster: Set<string>;
+  /** The owner's panel notes + "לא רלוונטי" dismissals (empty until qaRunnerReport is redeployed). */
+  ownerRules: OwnerRulesDoc;
 }
 
 export interface HeartbeatInput {
@@ -65,6 +68,7 @@ export function parseStatus(body: Record<string, unknown>): RunnerStatus {
       return typeof x.id === 'string' ? [parseUsageDay(x.id, (x.data ?? {}) as Record<string, unknown>)] : [];
     }),
     roster: new Set(Array.isArray(body.roster) ? body.roster.filter((u): u is string => typeof u === 'string') : []),
+    ownerRules: parseOwnerRulesDoc(body.ownerRules),
   };
 }
 

@@ -13,15 +13,18 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import Sheet from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
 import type { ActivityFeedItem, ActivityEventType } from '@/types/community.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { SocialT } from './social-t';
 
 // ─── Time formatting ─────────────────────────────────────────────────────────
 
-function timeAgo(date: Date): string {
+function timeAgo(t: SocialT, date: Date): string {
   const diff = (Date.now() - date.getTime()) / 1000;
-  if (diff < 60) return 'עכשיו';
-  if (diff < 3600) return `לפני ${Math.floor(diff / 60)} דק׳`;
-  if (diff < 86400) return `לפני ${Math.floor(diff / 3600)} שעות`;
-  return `לפני ${Math.floor(diff / 86400)} ימים`;
+  if (diff < 60) return t('social.activity.time.now');
+  if (diff < 3600) return t('social.activity.time.minutes', { n: String(Math.floor(diff / 60)) });
+  if (diff < 86400) return t('social.activity.time.hours', { n: String(Math.floor(diff / 3600)) });
+  return t('social.activity.time.days', { n: String(Math.floor(diff / 86400)) });
 }
 
 function activityIcon(type: ActivityEventType): React.ReactNode {
@@ -35,17 +38,17 @@ function activityIcon(type: ActivityEventType): React.ReactNode {
   }
 }
 
-function renderDynamicMessage(item: ActivityFeedItem): string {
+function renderDynamicMessage(t: SocialT, item: ActivityFeedItem): string {
   if (item.type === 'high_five') {
     const name = item.fromName || item.message;
-    if (item.fromName) return `${name} הרים/ה לך ידיים 🤘`;
+    if (item.fromName) return t('social.activity.message.highFive', { name });
     return item.message;
   }
   if (item.type === 'group_join') {
     const name = item.fromName;
     const group = item.groupName;
-    if (name && group) return `${name} הצטרף/ה ל-${group}`;
-    if (group) return `אווטיר חדש הצטרף ל-${group}`;
+    if (name && group) return t('social.activity.message.groupJoin', { name, group });
+    if (group) return t('social.activity.message.groupJoinAnon', { group });
     return item.message;
   }
   if (item.type === 'leaderboard_badge') {
@@ -62,9 +65,10 @@ interface ActivityPanelProps {
 }
 
 export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
+  const t = useT(community);
   const { profile } = useUserStore();
   const myUid = profile?.id ?? null;
-  const myName = profile?.core?.name ?? 'אווטיר';
+  const myName = profile?.core?.name ?? 'אווטיר'; // i18n-allow-hebrew: data — sender name written to the kudos doc by sendKudo
   const { items, isLoading } = useActivityFeed(myUid);
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
   const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
@@ -84,22 +88,22 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
   const content = (
     <>
       {isLoading && (
-        <p className="text-sm text-gray-400 text-center py-12 animate-pulse">טוען פעילות...</p>
+        <p className="text-sm text-gray-400 text-center py-12 animate-pulse">{t('social.activity.loading')}</p>
       )}
 
       {!isLoading && items.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <span className="text-4xl mb-3">🐒</span>
-          <p className="text-sm font-bold text-gray-900">עדיין אין פעילות...</p>
+          <p className="text-sm font-bold text-gray-900">{t('social.activity.empty.title')}</p>
           <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
-            כשאווטירים יעלו לך ידיים או יצטרפו לקבוצה, זה יופיע כאן
+            {t('social.activity.empty.body')}
           </p>
         </div>
       )}
 
       <div className="space-y-2">
         {items.map((item) => {
-          const displayMessage = renderDynamicMessage(item);
+          const displayMessage = renderDynamicMessage(t, item);
           return (
             <div
               key={item.id}
@@ -115,7 +119,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
                 <p className="text-[13px] font-semibold text-gray-900 leading-snug">
                   {displayMessage}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(item.createdAt)}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{timeAgo(t, item.createdAt)}</p>
               </div>
 
               {item.type === 'high_five' && item.fromUid && item.fromUid !== myUid && (
@@ -123,7 +127,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
                   onClick={() => handleHighFiveBack(item)}
                   className="flex-shrink-0 text-[11px] font-bold text-cyan-600 bg-cyan-50 border border-cyan-200 rounded-full px-3 py-1.5 hover:bg-cyan-100 transition-colors"
                 >
-                  🤘 בחזרה
+                  {t('social.activity.highFiveBack')}
                 </button>
               )}
             </div>
@@ -145,7 +149,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
         safeArea={false}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className="max-h-[80dvh]"
-        title="פעילות"
+        title={t('social.activity.title')}
         bodyClassName="px-4 pb-8"
       >
         {content}
@@ -177,7 +181,7 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
             </div>
 
             <div className="flex items-center justify-between px-5 py-3" dir="rtl">
-              <h2 className="text-base font-black text-gray-900">פעילות</h2>
+              <h2 className="text-base font-black text-gray-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}פעילות</h2>
               <button
                 onClick={onClose}
                 className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"

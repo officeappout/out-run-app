@@ -191,3 +191,30 @@ describe('one long walk up to 60′ (owner 20.10.2026)', () => {
     for (const x of w.walks) expect(x.minutes).toBeLessThanOrEqual(WALK_PLAN_CONFIG.session.max);
   });
 });
+
+describe('few days / short comfort — the walks add up to the plan (generator QA K6, 21.10.2026)', () => {
+  const base2 = { goal: 'health' as const, comfort: 'medium' as const, stepGoal: null, audience: 'general' as const };
+  it('2 days can hold 45 + 60 = 105′ → the plan says so honestly, the WHO target stays 150', () => {
+    const p = recommendWalkPlan({ ...base2, availableDays: [1, 3] });
+    expect(p.targetWeeklyMinutes).toBe(150);
+    expect(p.plannedWeeklyMinutes).toBe(105);
+    expect(p.weeks.every((w) => w.totalMinutes <= 105)).toBe(true);
+    expect(p.reasonsHe).toContain('עד 105 דק׳ עם 2 ימים — הוסיפו יום כדי להגיע ל-150');
+    expect(p.reasonsHe.some((r) => r.includes('ארגון הבריאות העולמי') && r.includes('150'))).toBe(true);
+  });
+  it('enough days → no cap line', () => {
+    const p = recommendWalkPlan({ ...base2, availableDays: [0, 2, 4] });
+    expect(p.plannedWeeklyMinutes).toBe(150);
+    expect(p.reasonsHe.some((r) => r.startsWith('עד '))).toBe(false);
+  });
+  it('comfort "short" on 5 days: week 1 stays at the gentle start (15′ walks), not above it', () => {
+    const p = recommendWalkPlan({ ...base2, comfort: 'short', availableDays: [] });
+    expect(p.days).toHaveLength(5);
+    expect(p.weeks[0].totalMinutes).toBeLessThanOrEqual(90);
+    expect(Math.min(...p.weeks[0].walks.map((w) => w.minutes))).toBe(WALK_PLAN_CONFIG.shortComfortMinSession);
+  });
+  it('comfort "medium" keeps the 20′ floor', () => {
+    const p = recommendWalkPlan({ ...base2, availableDays: [] });
+    expect(p.weeks.every((w) => w.walks.every((x) => x.minutes >= WALK_PLAN_CONFIG.session.min))).toBe(true);
+  });
+});

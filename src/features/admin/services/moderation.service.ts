@@ -23,7 +23,7 @@ import { auth, db } from '@/lib/firebase';
 import { logAction } from './audit.service';
 import { approvePark } from './parks.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
-import type { AuditTargetEntity } from '@/types/audit-log.type';
+import type { AuditTargetEntity } from '@/features/admin/types/audit-log.type';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import { buildUnitDoc } from '@/lib/unit-doc';
 

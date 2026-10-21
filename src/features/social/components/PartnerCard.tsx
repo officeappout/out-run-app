@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { UserPlus, UserMinus } from 'lucide-react';
 import { useSocialStore } from '../store/useSocialStore';
 import type { UserSearchResult } from '../services/user-search.service';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface PartnerCardProps {
   user: UserSearchResult;
@@ -12,6 +14,7 @@ interface PartnerCardProps {
 }
 
 export default function PartnerCard({ user, myUid }: PartnerCardProps) {
+  const t = useT(community);
   const router = useRouter();
   const { isFollowing, followUser, unfollowUser } = useSocialStore();
   const isSelf = user.uid === myUid;
@@ -73,19 +76,19 @@ export default function PartnerCard({ user, myUid }: PartnerCardProps) {
           {followed ? (
             <>
               <UserMinus className="w-3.5 h-3.5" />
-              עוקב
+              {t('social.partner.following')}
             </>
           ) : (
             <>
               <UserPlus className="w-3.5 h-3.5" />
-              עקוב
+              {t('social.partner.follow')}
             </>
           )}
         </button>
       )}
 
       {isSelf && (
-        <span className="text-[10px] font-bold text-gray-400 px-2">אני</span>
+        <span className="text-[10px] font-bold text-gray-400 px-2">{t('social.partner.self')}</span>
       )}
     </div>
   );

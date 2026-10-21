@@ -60,7 +60,7 @@ import {
 import { db } from '@/lib/firebase';
 import { hasStrengthTrack, hasRunningTrack } from '@/lib/track-ownership';
 import { levelTierToRange, type LevelTier } from '@/features/workout-engine/services/split-decision/split-decision.types';
-import { ageRangeToBirthDateRange } from '@/lib/age-buckets';
+import { ageRangeToBirthDateRange } from '@/features/admin/lib/age-buckets';
 import { isRealWorkoutCompletion } from '@/lib/workout-completion-kpi';
 
 const USERS_COLLECTION = 'users';

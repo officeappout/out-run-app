@@ -23,6 +23,10 @@ import { isBrowserCrash, memoryLine } from './crash';
 import { withModelRetry } from './model-retry';
 import type { ShotLog } from './shots';
 import { SCORE_RULE_ID } from './design/dimensions';
+import { RULE_IDS } from './checklist';
+import { EMPTY_LEARNING, isSuppressed, type Learning } from './owner/learning';
+import { ownerRuleIds, type OwnerRule } from './owner/owner-rules';
+import { backResultText, type BackOutcome } from './android-back';
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 type ToolResult = Anthropic.Beta.BetaToolResultBlockParam;
@@ -57,7 +61,12 @@ export interface SessionDeps {
   shots?: ShotLog;
   /** Retry pause (tests pass a no-op). */
   sleep?: (ms: number) => Promise<void>;
+  /** Owner rules (file + panel notes) and what was learned from the owner's triage. */
+  owner?: { rules: readonly OwnerRule[]; learning: Learning };
 }
+
+/** The Android-back owner rule; its findings cite it when the rule exists. */
+export const ANDROID_BACK_RULE = 'OWN-007';
 
 const imageBlock = (png: Buffer): ResultContent => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: png.toString('base64') } });
 
@@ -112,7 +121,10 @@ async function runLoop(
   progress: { step: number; newFindings: number },
 ): Promise<SessionResult> {
   const startedAt = opts.startedAt ?? Date.now();
-  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: buildSystemPrompt(persona, mission, { deviceId, resumeFrom: opts.resumeFrom ?? null }), cache_control: { type: 'ephemeral' } }];
+  const system: Anthropic.Beta.BetaTextBlockParam[] = [
+    { type: 'text', text: buildSystemPrompt(persona, mission, { deviceId, resumeFrom: opts.resumeFrom ?? null, owner: deps.owner }), cache_control: { type: 'ephemeral' } },
+  ];
+  const ruleIds = new Set([...Array.from(RULE_IDS), ...Array.from(ownerRuleIds(deps.owner?.rules ?? []))]);
   let step = progress.step;
   let newFindings = 0;
   const note = (n: number) => {
@@ -197,8 +209,9 @@ async function runLoop(
     const results: ToolResult[] = [];
     let ended: { outcome: 'success' | 'blocked' | 'gave_up'; summary: string } | null = null;
     let needsView = false;
+    const pendingBack: Array<{ outcome: BackOutcome; screen: string | null }> = [];
     for (const tu of toolUses) {
-      const parsed = parseToolCall(tu.name, tu.input);
+      const parsed = parseToolCall(tu.name, tu.input, ruleIds);
       if (!parsed.ok) {
         results.push({ type: 'tool_result', tool_use_id: tu.id, is_error: true, content: parsed.error });
         continue;
@@ -226,6 +239,18 @@ async function runLoop(
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: isNew ? 'recorded' : 'already recorded (counted)' });
         continue;
       }
+      if (call.name === 'back_button') {
+        try {
+          const outcome = await driver.backButton();
+          // Recorded with the fresh screen below (one view per turn: view() drains the error log).
+          if (!outcome.ok) pendingBack.push({ outcome, screen: currentScreen });
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: backResultText(outcome) });
+        } catch (e) {
+          results.push({ type: 'tool_result', tool_use_id: tu.id, is_error: true, content: e instanceof Error ? e.message.slice(0, 300) : 'back failed' });
+        }
+        needsView = true;
+        continue;
+      }
       try {
         await driver.act(call);
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'done' });
@@ -246,6 +271,7 @@ async function runLoop(
       captureShot(deps, mission, deviceId, view, step);
       if (view.blocked === 'not_signed_in_as_tester') return finish('error', 'not_signed_in_as_tester');
       note(await recordLint(deps, mission, persona, deviceId, view, step, driver, currentScreen));
+      for (const pb of pendingBack) if (await recordBackFinding(deps, mission, persona, deviceId, view, step, driver, pb.outcome, pb.screen, ruleIds)) note(1);
       // The fresh screen goes with the last tool result of this turn.
       const last = results[results.length - 1];
       const text = observationText({ url: view.url, elements: view.observation.elements, lint: view.lint, blocked: view.blocked, events });
@@ -285,7 +311,16 @@ function baseFinding(deps: SessionDeps, mission: Mission, persona: Persona, devi
   };
 }
 
-async function persist(deps: SessionDeps, f: Finding, view: StepView, shotCache: { path?: string | null }): Promise<boolean> {
+/** The owner dismissed this rule on this screen repeatedly → not written (owner/learning.ts). */
+function suppressed(deps: SessionDeps, f: Finding, screen: string | null): boolean {
+  if (f.rule === SCORE_RULE_ID) return false;
+  if (!isSuppressed(deps.owner?.learning ?? EMPTY_LEARNING, f.rule, [screen, f.route])) return false;
+  deps.log(`suppressed by owner triage: ${f.rule} on ${screen ?? f.route}`);
+  return true;
+}
+
+async function persist(deps: SessionDeps, f: Finding, view: StepView, shotCache: { path?: string | null }, screen: string | null = null): Promise<boolean> {
+  if (suppressed(deps, f, screen)) return false;
   const { isNew, finding } = deps.book.add(f);
   const id = findingDocId(deps.runId, finding.fingerprint);
   if (f.rule !== SCORE_RULE_ID) deps.shots?.finding(id);
@@ -334,7 +369,7 @@ async function recordLint(
       source: 'lint',
     };
     f.id = findingDocId(deps.runId, f.fingerprint);
-    if (await persist(deps, f, view, shot)) n += 1;
+    if (await persist(deps, f, view, shot, screen)) n += 1;
   }
   return n;
 }
@@ -371,7 +406,43 @@ async function recordModelFinding(
     source: 'llm',
   };
   f.id = findingDocId(deps.runId, f.fingerprint);
-  return persist(deps, f, view, {});
+  return persist(deps, f, view, {}, screen);
+}
+
+/** A wrong Android back outcome (android-back.ts), recorded by the runner itself. */
+async function recordBackFinding(
+  deps: SessionDeps,
+  mission: Mission,
+  persona: Persona,
+  deviceId: string,
+  view: StepView,
+  step: number,
+  driver: SessionDriver,
+  o: BackOutcome,
+  screen: string | null,
+  ruleIds: ReadonlySet<string>,
+): Promise<boolean> {
+  const b = baseFinding(deps, mission, persona, deviceId, view, step, driver, screen);
+  const rule = ruleIds.has(ANDROID_BACK_RULE) ? ANDROID_BACK_RULE : null;
+  const route = routePattern(o.from);
+  const f: Finding = {
+    ...b,
+    url: o.from,
+    route,
+    id: '',
+    fingerprint: fingerprint(route, rule ?? 'android-back', `${screen ?? ''}|back:${o.kind}`),
+    category: 'ux',
+    severity: o.severity ?? 'P2',
+    rule,
+    title: o.midFlow ? 'כפתור חזרה באנדרואיד שובר את התהליך' : 'כפתור חזרה באנדרואיד לא מתנהג כמצופה',
+    expected: 'חזרה סוגרת מגירה פתוחה, אחרת חוזרת שלב/מסך אחורה; אף פעם לא דף ריק ולא יציאה מהאפליקציה באמצע תהליך',
+    actual: `${o.kind}: ${o.he}`,
+    screenshot: null,
+    confidence: o.confidence,
+    source: 'runner',
+  };
+  f.id = findingDocId(deps.runId, f.fingerprint);
+  return persist(deps, f, view, {}, screen);
 }
 
 async function recordRunnerFinding(deps: SessionDeps, mission: Mission, persona: Persona, deviceId: string, view: StepView, step: number, driver: SessionDriver, reason: RefuseReason): Promise<number> {

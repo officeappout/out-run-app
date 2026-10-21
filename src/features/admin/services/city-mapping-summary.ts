@@ -9,7 +9,7 @@
  * Source-of-truth decisions, confirmed by reading the actual code/schemas
  * (not assumed — Stage C1's own investigation, originally in
  * CITY-ORCHESTRATOR-PLAN.md, which was never committed to the repo — see
- * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md for the living version):
+ * docs/architecture/CITY-MAPPING-PIPELINE-ARCHITECTURE.md for the living version):
  *
  * - Routes: `official_routes` ONLY, never summed with `curated_routes` —
  *   InventoryService.saveCuratedRoutes writes every curated route into

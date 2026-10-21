@@ -18,7 +18,7 @@ import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ArrowLeft, CheckCircle2, Compass, Dumbbell, Link2, Map, Users } from 'lucide-react';
 import { auth } from '@/lib/firebase';
-import { adminAuthedFetch } from '@/lib/adminAuthedFetch';
+import { adminAuthedFetch } from '@/features/admin/lib/adminAuthedFetch';
 import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services/auth.service';
 import {
   EmptyState,

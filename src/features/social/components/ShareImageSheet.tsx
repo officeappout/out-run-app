@@ -134,7 +134,7 @@ function LegacyShareImageSheet({
       setUsePhoto(true);
       setPhotoBlocked(false);
     } catch {
-      showToast('error', 'לא הצלחנו לפתוח את התמונה');
+      showToast('error', 'לא הצלחנו לפתוח את התמונה'); // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
     }
   };
 
@@ -143,10 +143,10 @@ function LegacyShareImageSheet({
     setBusy(true);
     try {
       const res = await shareOrDownload(blobRef.current, shareFileName(input.kind, size));
-      if (res === 'downloaded') showToast('success', 'התמונה נשמרה');
+      if (res === 'downloaded') showToast('success', 'התמונה נשמרה'); // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
       if (res !== 'cancelled') onClose();
     } catch {
-      showToast('error', 'השיתוף לא הצליח');
+      showToast('error', 'השיתוף לא הצליח'); // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
     } finally {
       setBusy(false);
     }
@@ -154,7 +154,11 @@ function LegacyShareImageSheet({
 
   const dims = SHARE_SIZES[size];
   return (
-    <Sheet open={open && !!input} title="שיתוף לרשתות" onClose={onClose}>
+    <Sheet
+      open={open && !!input}
+      title="שיתוף לרשתות" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+      onClose={onClose}
+    >
       <div className="flex justify-center">
         <div
           className="relative overflow-hidden rounded-[20px] bg-v2-surface shadow-v2-ring"
@@ -162,7 +166,11 @@ function LegacyShareImageSheet({
         >
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="תצוגה מקדימה של התמונה לשיתוף" className="h-full w-full object-cover" />
+            <img
+              src={preview}
+              alt="תצוגה מקדימה של התמונה לשיתוף" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="grid h-full w-full place-items-center text-v2-muted">
               <Loader2 size={22} className="animate-spin" aria-hidden />
@@ -171,7 +179,7 @@ function LegacyShareImageSheet({
         </div>
       </div>
 
-      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">עיצוב</div>
+      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עיצוב</div>
       <div className="mt-2 flex flex-wrap gap-2">
         {templates.map((t) => (
           <button key={t.id} type="button" aria-pressed={t.id === tid} onClick={() => setTemplateId(t.id)} className={chip(t.id === tid)}>
@@ -180,7 +188,7 @@ function LegacyShareImageSheet({
         ))}
       </div>
 
-      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">גודל</div>
+      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}גודל</div>
       <div className="mt-2 flex gap-2">
         {(Object.keys(SHARE_SIZES) as ShareSize[]).map((s) => (
           <button key={s} type="button" aria-pressed={s === size} onClick={() => setSize(s)} className={chip(s === size)}>
@@ -189,30 +197,30 @@ function LegacyShareImageSheet({
         ))}
       </div>
 
-      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">רקע</div>
+      <div className="mt-4 text-[13px] font-extrabold text-v2-deep">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}רקע</div>
       <div className="mt-2 flex flex-wrap gap-2">
         {bgUrl && (
           <>
             <button type="button" aria-pressed={usePhoto} onClick={() => setUsePhoto(true)} className={chip(usePhoto)}>
-              עם התמונה
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}עם התמונה
             </button>
             <button type="button" aria-pressed={!usePhoto} onClick={() => setUsePhoto(false)} className={chip(!usePhoto)}>
-              בלי תמונה
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בלי תמונה
             </button>
           </>
         )}
         <button type="button" onClick={() => void handlePick()} className={`${chip(false)} inline-flex items-center gap-1.5`}>
           <ImagePlus size={15} strokeWidth={2.6} aria-hidden />
-          {bgUrl ? 'תמונה אחרת' : 'הוספת תמונה'}
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{bgUrl ? 'תמונה אחרת' : 'הוספת תמונה'}
         </button>
       </div>
       {photoBlocked && usePhoto && (
-        <p className="mt-2 text-[12px] font-bold text-v2-muted">את התמונה הזו לא הצלחנו לצרף. אפשר לבחור תמונה מהגלריה.</p>
+        <p className="mt-2 text-[12px] font-bold text-v2-muted">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}את התמונה הזו לא הצלחנו לצרף. אפשר לבחור תמונה מהגלריה.</p>
       )}
 
       <Button size="lg" block className="mt-5" disabled={!preview || busy} onClick={() => void handleShare()}>
         <Share2 size={18} strokeWidth={2.6} aria-hidden />
-        שיתוף
+        {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}שיתוף
       </Button>
     </Sheet>
   );

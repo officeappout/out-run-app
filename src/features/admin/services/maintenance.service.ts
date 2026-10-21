@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MaintenanceReport, MaintenanceStatus } from '@/types/maintenance.types';
+import { MaintenanceReport, MaintenanceStatus } from '@/features/admin/types/maintenance.types';
 
 const MAINTENANCE_COLLECTION = 'maintenance_reports';
 

@@ -22,7 +22,7 @@ import {
   TASK_SOURCE_LABELS,
   TASK_SOURCE_COLORS,
   TASK_STATUS_LABELS,
-} from '@/types/product-roadmap.types';
+} from '@/features/admin/types/product-roadmap.types';
 
 interface RoadmapTaskCardProps {
   task: ProductTask;

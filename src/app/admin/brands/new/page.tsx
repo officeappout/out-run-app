@@ -9,8 +9,8 @@ import { OutdoorBrandFormData } from '@/features/content/equipment/brands';
 import { Save, X, Loader2, ArrowRight, Video, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import { parseVideoUrl, isValidHexColor } from '@/utils/video-utils';
-import Alert from '@/components/admin/Alert';
+import { parseVideoUrl, isValidHexColor } from '@/features/admin/lib/video-utils';
+import Alert from '@/features/admin/components/shared/Alert';
 
 export default function NewBrandPage() {
   const router = useRouter();

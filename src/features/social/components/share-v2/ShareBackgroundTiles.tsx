@@ -9,6 +9,8 @@ import type { ReactNode } from 'react';
 import { Check, ImagePlus } from 'lucide-react';
 import type { BrandStyle, ShareBackground, ShareKind } from '../../share-v2/types';
 import type { PhotoState } from './useSharePreviews';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 const BRAND_SWATCH: Record<BrandStyle, string> = {
   cyan: 'linear-gradient(160deg,#00baf7,#0cf2e3)',
@@ -57,9 +59,10 @@ export default function ShareBackgroundTiles({
   onChange: (bg: ShareBackground) => void;
   onPickPhoto: () => void;
 }) {
+  const t = useT(community);
   const failed = photo.status === 'failed';
   const pick = (
-    <Tile key="pick" on={false} label={photoUrl ? 'תמונה אחרת' : 'הוספת תמונה'} onClick={onPickPhoto}>
+    <Tile key="pick" on={false} label={photoUrl ? t('social.share.bg.otherPhoto') : t('social.share.bg.addPhoto')} onClick={onPickPhoto}>
       <span className="absolute inset-0 grid place-items-center rounded-[16px] bg-v2-surface text-v2-deep shadow-[inset_0_0_0_1.5px_#b9d3e0]">
         <ImagePlus size={22} strokeWidth={2.4} aria-hidden />
       </span>
@@ -70,23 +73,23 @@ export default function ShareBackgroundTiles({
       <div className="flex gap-2 pt-1">
         {!photoUrl && pick}
         {photoUrl && (
-          <Tile on={value === 'photo' && !failed} label={failed ? 'לא זמינה' : 'התמונה שלך'} onClick={() => onChange('photo')} disabled={failed}>
+          <Tile on={value === 'photo' && !failed} label={failed ? t('social.share.bg.unavailable') : t('social.share.bg.yourPhoto')} onClick={() => onChange('photo')} disabled={failed}>
             <span
               className={`absolute inset-0 rounded-[16px] bg-cover ${failed ? 'opacity-40 grayscale' : ''}`}
               style={{ backgroundImage: `url("${photoUrl}")`, backgroundPosition: 'center 20%' }}
             />
           </Tile>
         )}
-        <Tile on={value === 'brand'} label={kind === 'cardio' && brand === 'night' ? 'לילה' : 'צבעי OUT'} onClick={() => onChange('brand')}>
+        <Tile on={value === 'brand'} label={kind === 'cardio' && brand === 'night' ? t('social.share.bg.night') : t('social.share.bg.brand')} onClick={() => onChange('brand')}>
           <span className="absolute inset-0 rounded-[16px]" style={{ background: BRAND_SWATCH[brand] }} />
         </Tile>
-        <Tile on={value === 'plain'} label="נקי" onClick={() => onChange('plain')}>
+        <Tile on={value === 'plain'} label={t('social.share.bg.plain')} onClick={() => onChange('plain')}>
           <span className="absolute inset-0 rounded-[16px] bg-v2-surface shadow-[inset_0_0_0_1px_#e6edf2]" />
         </Tile>
         {photoUrl && pick}
       </div>
-      {!photoUrl && <p className="mt-2 text-[12.5px] font-bold text-v2-muted">אפשר להוסיף תמונה מהאימון — הנתונים יופיעו עליה.</p>}
-      {failed && <p className="mt-2 text-[12.5px] font-bold text-v2-muted">את התמונה הזו לא הצלחנו לצרף. אפשר לבחור תמונה מהגלריה.</p>}
+      {!photoUrl && <p className="mt-2 text-[12.5px] font-bold text-v2-muted">{t('social.share.bg.addPhotoHint')}</p>}
+      {failed && <p className="mt-2 text-[12.5px] font-bold text-v2-muted">{t('social.share.bg.photoFailed')}</p>}
     </div>
   );
 }
