@@ -39,7 +39,7 @@
  * crashing; a real generic DEM-slope-scanning pipeline is future work, not
  * built here (originally scoped as CITY-ORCHESTRATOR-PLAN.md Phase 0.2 —
  * that file was never committed to the repo; see
- * docs/CITY-MAPPING-PIPELINE-ARCHITECTURE.md for the living plan).
+ * docs/architecture/CITY-MAPPING-PIPELINE-ARCHITECTURE.md for the living plan).
  *
  *   npx tsx scripts/write-climb-segments-tlv.ts --dry-run                  # TLV (default)
  *   npx tsx scripts/write-climb-segments-tlv.ts

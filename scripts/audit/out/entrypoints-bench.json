@@ -1,15 +1,15 @@
 {
  "summary": {
-  "generatedAt": "2026-10-18T17:53:11.947Z",
+  "generatedAt": "2026-10-21T05:58:01.075Z",
   "mode": "full",
   "seed": 20261018,
   "scenarios": 332,
   "workouts": 476,
   "errors": [],
-  "ms": 4606,
+  "ms": 8412,
   "aiShapingApplied": true,
   "hermetic": {
-   "firestoreReads": 3387,
+   "firestoreReads": 3055,
    "blockedWrites": 0
   },
   "corpusNote": "tests/invariants/hermetic/corpus = public REST dump 2026-10-17; programLevelSettings (auth-only) absent → weekly budget falls back to max(tier default 8/12/16, level×2)",

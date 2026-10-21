@@ -12,7 +12,7 @@
  *   5. (optional) Commit them to Firestore in 500-doc batches.
  *
  * Used by:
- *   - src/scripts/import-osm-segments.ts (CLI, dry-run from anywhere; commit
+ *   - scripts/import-osm-segments.ts (CLI, dry-run from anywhere; commit
  *     via REST + ID token, see that file)
  *   - src/app/admin/segments/page.tsx (admin UI, dry-run + commit via the
  *     authenticated browser session)
@@ -25,7 +25,7 @@ import { mapOsmSurfaceToType, type SurfaceType } from '@/lib/route-collections/s
 import { buildValidatedDoc } from '@/lib/route-collections/validate';
 // getAllAuthorities is dynamically imported (not top-level) — this file is
 // used by BOTH the browser-only admin UI AND a bare Node CLI script
-// (src/scripts/import-osm-segments.ts). A top-level import here was found
+// (scripts/import-osm-segments.ts). A top-level import here was found
 // to transitively pull in a browser-only shapefile library (`shpjs`, via
 // authority.service.ts's import graph) that crashes under Node with
 // `ReferenceError: self is not defined` — breaking the CLI's dry-run even
@@ -763,7 +763,7 @@ export function processSegments(
  *
  * Authentication: relies on the caller's Firebase auth context. Works in
  * the admin UI (logged-in admin) but NOT from a bare Node CLI — the CLI
- * uses its own REST + ID token writer (see src/scripts/import-osm-segments.ts).
+ * uses its own REST + ID token writer (see scripts/import-osm-segments.ts).
  */
 export async function commitSegmentsToFirestore(
   segments: ScoredSegment[],

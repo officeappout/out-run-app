@@ -38,6 +38,8 @@ import {
   resolvePersonaGoalMode,
   type GoalOption,
 } from '../../utils/persona-goals';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // Personas that open the access-code popup: resolveAccessCodePersonaIds
 // (utils/persona-access-code.ts). office_worker is the one vertical whose
@@ -84,8 +86,8 @@ export interface LifestyleOption {
 export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   {
     id: 'parent',
-    labelHeMale: 'אבא',
-    labelHeFemale: 'אמא',
+    labelHeMale: 'אבא', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'אמא', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Parent',
     emoji: '👨‍👧',
     emojiMale: '👨‍👧',
@@ -95,8 +97,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   },
   {
     id: 'student',
-    labelHeMale: 'סטודנט',
-    labelHeFemale: 'סטודנטית',
+    labelHeMale: 'סטודנט', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'סטודנטית', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Student',
     emoji: '🎓',
     tags: ['student', 'young'],
@@ -104,8 +106,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   },
   {
     id: 'pupil',
-    labelHeMale: 'תלמיד',
-    labelHeFemale: 'תלמידה',
+    labelHeMale: 'תלמיד', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'תלמידה', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Pupil',
     emoji: '📚',
     tags: ['pupil', 'young', 'school'],
@@ -113,8 +115,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   },
   {
     id: 'office_worker',
-    labelHeMale: 'עובד משרד',
-    labelHeFemale: 'עובדת משרד',
+    labelHeMale: 'עובד משרד', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'עובדת משרד', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Office Worker',
     emoji: '💼',
     tags: ['office_worker', 'wfh'],
@@ -126,8 +128,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
     // (Phase 4 drawer, docs/research/military-persona-unified-architecture.md),
     // not a separate top-level persona.
     id: 'military',
-    labelHeMale: 'צה"ל',
-    labelHeFemale: 'צה"ל',
+    labelHeMale: 'צה"ל', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'צה"ל', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'IDF / Military',
     emoji: '🎖️',
     tags: ['military'],
@@ -135,8 +137,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   },
   {
     id: 'vatikim',
-    labelHeMale: 'גיל הזהב',
-    labelHeFemale: 'גיל הזהב',
+    labelHeMale: 'גיל הזהב', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'גיל הזהב', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Golden Age',
     emoji: '🧓',
     tags: ['vatikim', 'senior', 'health'],
@@ -144,8 +146,8 @@ export const LIFESTYLE_OPTIONS: LifestyleOption[] = [
   },
   {
     id: 'pro_athlete',
-    labelHeMale: 'ספורטאי קצה',
-    labelHeFemale: 'ספורטאית קצה',
+    labelHeMale: 'ספורטאי קצה', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
+    labelHeFemale: 'ספורטאית קצה', // i18n-allow-hebrew: exported constant (MyPersonasSection imports LIFESTYLE_OPTIONS); this screen renders steps.persona.label
     labelEn: 'Pro Athlete',
     emoji: '🏋️',
     tags: ['pro_athlete', 'advanced', 'performance'],
@@ -182,6 +184,7 @@ const PERSONA_ICONS_V2: Record<string, LucideIcon> = {
 export default function PersonaStep({ onNext }: PersonaStepProps) {
   const { updateData, data } = useOnboardingStore();
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   
   // Gender + first name: the profile first (returning users on /home have no
   // sessionStorage), the signup's sessionStorage answers as the fallback.
@@ -260,7 +263,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   // Get label based on gender
   const getPersonaLabel = (option: LifestyleOption): string => {
     if (!isHebrew) return option.labelEn;
-    return userGender === 'female' ? option.labelHeFemale : option.labelHeMale;
+    return t('steps.persona.label', { persona: option.id, gender: userGender ?? '' });
   };
   
   // Get emoji based on gender
@@ -404,8 +407,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
   const personaHint = (() => {
     const female = userGender === 'female';
     if (!isHebrew) return askGoals ? 'Select at least one persona and one goal' : 'Select at least one persona';
-    if (!askGoals) return female ? 'בחרי לפחות פרסונה אחת' : 'בחר לפחות פרסונה אחת';
-    return female ? 'בחרי לפחות פרסונה אחת ומטרה אחת' : 'בחר לפחות פרסונה אחת ומטרה אחת';
+    if (!askGoals) return t('steps.persona.hint.persona', { gender: female ? 'female' : 'other' });
+    return t('steps.persona.hint.personaGoal', { gender: female ? 'female' : 'other' });
   })();
 
   // Handle continue
@@ -426,7 +429,10 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       const option1 = LIFESTYLE_OPTIONS.find(o => o.id === selectedPersonaIds[0]);
       const option2 = LIFESTYLE_OPTIONS.find(o => o.id === selectedPersonaIds[1]);
       if (isHebrew) {
-        return `${option1 ? getPersonaLabel(option1) : ''} ו${option2 ? getPersonaLabel(option2) : ''}`;
+        return t('steps.persona.madlib.two', {
+          a: option1 ? getPersonaLabel(option1) : '',
+          b: option2 ? getPersonaLabel(option2) : '',
+        });
       }
       return `${option1?.labelEn} & ${option2?.labelEn}`;
     }
@@ -435,12 +441,18 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     if (selectedPersonaIds.length === 3) {
       const options = selectedPersonaIds.map(id => LIFESTYLE_OPTIONS.find(o => o.id === id));
       if (isHebrew) {
-        return `${options[0] ? getPersonaLabel(options[0]) : ''}, ${options[1] ? getPersonaLabel(options[1]) : ''} ו${options[2] ? getPersonaLabel(options[2]) : ''}`;
+        return t('steps.persona.madlib.three', {
+          a: options[0] ? getPersonaLabel(options[0]) : '',
+          b: options[1] ? getPersonaLabel(options[1]) : '',
+          c: options[2] ? getPersonaLabel(options[2]) : '',
+        });
       }
       return `${options[0]?.labelEn}, ${options[1]?.labelEn} & ${options[2]?.labelEn}`;
     }
     
-    return isHebrew ? (userGender === 'female' ? 'פעילה במגוון תחומים' : 'פעיל במגוון תחומים') : 'multi-faceted';
+    return isHebrew
+      ? t('steps.persona.madlib.many', { gender: userGender === 'female' ? 'female' : 'other' })
+      : 'multi-faceted';
   };
 
   // Get selected goals LONG DESCRIPTION for Mad-libs sentence (THE FLIP!)
@@ -456,7 +468,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
     const goal1 = findGoal(selectedGoalIds[0]);
     const goal2 = findGoal(selectedGoalIds[1]);
     if (isHebrew) {
-      return `${goal1?.longDescHe} ו${goal2?.longDescHe}`;
+      return t('steps.persona.madlib.goalsTwo', { a: String(goal1?.longDescHe), b: String(goal2?.longDescHe) });
     }
     return `${goal1?.longDescEn} & ${goal2?.longDescEn}`;
   };
@@ -482,7 +494,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
         >
           <div className="flex items-center justify-between gap-2">
             <h2 className="min-w-0 truncate text-[22px] font-black leading-[1.2] !tracking-[-0.02em] text-v2-ink">
-              {isHebrew ? 'שנכיר?' : "Let's get to know you"}
+              {isHebrew ? t('steps.persona.title') : "Let's get to know you"}
             </h2>
             {selectedPersonaIds.length > 0 && (
               <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold tabular-nums text-v2-deep">
@@ -492,10 +504,8 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           </div>
           {isHebrew && (
             <p className="mt-1 text-[14px] font-medium leading-snug text-v2-ink-2">
-              {userName ? `היי ${userName}, ` : ''}
-              {isFemale
-                ? 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב.'
-                : 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב.'}
+              {userName ? t('steps.persona.greeting', { name: userName }) : ''}
+              {t('steps.persona.intro', { gender: isFemale ? 'female' : 'other' })}
             </p>
           )}
         </motion.div>
@@ -508,16 +518,12 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
         >
           <div className="text-center text-[15px] font-bold leading-relaxed text-v2-ink">
             {isHebrew ? (
-              <>
-                אני{' '}
-                <span className={madlibPill(selectedPersonaIds.length > 0)}>{getSelectedLifestyleLabel()}</span>
-                {askGoals && (
-                  <>
-                    {' '}שרוצה{' '}
-                    <span className={madlibPill(selectedGoalIds.length > 0)}>{getSelectedGoalsLabel()}</span>
-                  </>
-                )}
-              </>
+              t.rich(askGoals ? 'steps.persona.madlib.sentenceGoals' : 'steps.persona.madlib.sentence', {
+                persona: getSelectedLifestyleLabel(),
+                goals: askGoals ? getSelectedGoalsLabel() : '',
+                who: (chunks: React.ReactNode) => <span className={madlibPill(selectedPersonaIds.length > 0)}>{chunks}</span>,
+                what: (chunks: React.ReactNode) => <span className={madlibPill(selectedGoalIds.length > 0)}>{chunks}</span>,
+              })
             ) : (
               <>
                 I&apos;m a{' '}
@@ -602,7 +608,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           >
             <div className="mb-2.5 flex items-center justify-between gap-2">
               <h3 className="min-w-0 truncate whitespace-nowrap text-[15px] font-black text-v2-ink">
-                {isHebrew ? 'מה המטרות שלך? (עד 2)' : 'Your goals? (up to 2)'}
+                {isHebrew ? t('steps.persona.goalsTitle') : 'Your goals? (up to 2)'}
               </h3>
               {selectedGoalIds.length > 0 && (
                 <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-v2-tint px-2.5 py-0.5 text-[12px] font-extrabold tabular-nums text-v2-deep">
@@ -662,7 +668,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 : 'cursor-not-allowed bg-v2-hairline text-v2-muted'
             }`}
           >
-            {isHebrew ? (isFemale ? 'המשיכי' : 'המשך') : 'Continue'}
+            {isHebrew ? t('steps.persona.continue', { gender: isFemale ? 'female' : 'other' }) : 'Continue'}
           </button>
         </div>
 
@@ -687,7 +693,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
               >
                 {codeSuccessResult ? (
                   <div className="rounded-v2-card bg-white p-6 text-center shadow-v2-float" dir="rtl">
-                    <h3 className="mb-4 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">הקוד אומת!</h3>
+                    <h3 className="mb-4 text-[22px] font-black !tracking-[-0.02em] text-v2-ink">{t('steps.persona.code.verified')}</h3>
                     <div className="mb-5 flex justify-center">
                       <UnitJoinSuccessBanner result={codeSuccessResult} />
                     </div>
@@ -696,7 +702,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                       onClick={handleCodeSuccessContinue}
                       className="flex h-12 w-full items-center justify-center whitespace-nowrap rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta transition-transform duration-150 ease-v2 active:scale-[0.97]"
                     >
-                      {isFemale ? 'המשיכי' : 'המשך'}
+                      {t('steps.persona.code.continue', { gender: isFemale ? 'female' : 'other' })}
                     </button>
                   </div>
                 ) : (
@@ -706,7 +712,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                         <PendingIcon size={26} strokeWidth={2.2} />
                       </span>
                       <h3 className="mt-3 text-[20px] font-black !tracking-[-0.02em] text-white" dir="rtl">
-                        {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
+                        {isHebrew ? t('steps.persona.code.title') : 'Got an access code?'}
                       </h3>
                     </div>
                     <AccessCodeGate
@@ -746,7 +752,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
       >
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xl font-bold text-black dark:text-white">
-            {isHebrew ? 'שנכיר? ✨' : "Let's get to know you ✨"}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'שנכיר? ✨' : "Let's get to know you ✨"}
           </h3>
           {selectedPersonaIds.length > 0 && (
             <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
@@ -759,10 +765,10 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed mt-2"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            {userName ? `היי ${userName}, ` : ''}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{userName ? `היי ${userName}, ` : ''}
             {userGender === 'female'
-              ? 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾'
-              : 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾'}
+              ? 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחרי את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+              : 'כדי שנבנה לך את לו״ז האימונים המדויק ביותר עבור הסגנון והמטרות שלך – בחר את התפקיד שמקשר ומאפיין אותך הכי טוב. 🦾' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
           </p>
         )}
       </motion.div>
@@ -776,7 +782,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
         <div className={`text-base font-bold text-slate-800 leading-relaxed text-center ${isHebrew ? 'font-simpler' : ''}`}>
           {isHebrew ? (
             <>
-              אני{' '}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}אני{' '}
               <span className={`inline-block px-2 py-0.5 rounded-md text-sm transition-all ${
                 selectedPersonaIds.length > 0
                   ? 'bg-[#5BC2F2]/10 text-[#5BC2F2] border border-[#5BC2F2]/50' 
@@ -785,7 +791,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                 {getSelectedLifestyleLabel()}
               </span>
 {askGoals && (<>
-              {' '}שרוצה{' '}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{' '}שרוצה{' '}
               <span className={`inline-block px-2 py-0.5 rounded-md text-sm transition-all ${
                 selectedGoalIds.length > 0
                   ? 'bg-[#5BC2F2]/10 text-[#5BC2F2] border border-[#5BC2F2]/50' 
@@ -893,7 +899,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
         >
           <div className="flex items-center justify-between mb-2 px-1">
             <h3 className="text-sm font-bold text-slate-600">
-              {isHebrew ? 'מה המטרות שלך? (עד 2)' : 'Your goals? (up to 2)'}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'מה המטרות שלך? (עד 2)' : 'Your goals? (up to 2)'}
             </h3>
             {selectedGoalIds.length > 0 && (
               <span className="text-xs font-bold text-[#5BC2F2] bg-[#5BC2F2]/10 px-2 py-0.5 rounded-full">
@@ -962,7 +968,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
           style={canContinue ? { background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' } : undefined}
         >
           {isHebrew
-            ? (userGender === 'female' ? 'המשיכי' : 'המשך')
+            ? (userGender === 'female' ? 'המשיכי' : 'המשך') // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             : 'Continue'}
         </button>
       </div>
@@ -988,7 +994,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
             >
               {codeSuccessResult ? (
                 <div className="bg-white rounded-2xl p-6 text-center" dir="rtl">
-                  <h3 className="text-lg font-black text-gray-900 mb-4">הקוד אומת!</h3>
+                  <h3 className="text-lg font-black text-gray-900 mb-4">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הקוד אומת!</h3>
                   <div className="flex justify-center mb-4">
                     <UnitJoinSuccessBanner result={codeSuccessResult} />
                   </div>
@@ -996,7 +1002,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                     onClick={handleCodeSuccessContinue}
                     className="w-full py-3 rounded-xl font-semibold text-on-brand bg-brand-cta hover:brightness-105"
                   >
-                    המשך
+                    {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}המשך
                   </button>
                 </div>
               ) : (
@@ -1004,7 +1010,7 @@ export default function PersonaStep({ onNext }: PersonaStepProps) {
                   <div className="text-center mb-4">
                     <span className="text-4xl">{getPersonaEmoji(pendingPersona)}</span>
                     <h3 className="text-lg font-black text-white mt-2" dir="rtl">
-                      {isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
+                      {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'יש לך קוד גישה מהארגון?' : 'Got an access code?'}
                     </h3>
                   </div>
                   <AccessCodeGate

@@ -273,7 +273,7 @@ function summarize(segments: TrailSegment[], named: TrailRoute[], gen: TrailRout
 /** Exactly what an approved `--apply` would write. Nothing here is executed. */
 export function applyPlan(segments: number, named: number, generated: number) {
   return {
-    status: 'dry-run plan — the owner runs --apply (see docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6)',
+    status: 'dry-run plan — the owner runs --apply (see docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md §6)',
     writes: [
       {
         collection: 'trail_segments',

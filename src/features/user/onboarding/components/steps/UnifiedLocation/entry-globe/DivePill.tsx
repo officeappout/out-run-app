@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { LOCATING_MANUAL_SEARCH_HINT_MS } from '../fast-locate';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 /**
  * LOCATING / diving — the white pill at the bottom while the Earth flies in.
@@ -12,14 +13,15 @@ import { ENTRY_COPY } from './entry-copy';
  * still-pending fix, "לוקח זמן? חיפוש ידני" (only while the fix is pending).
  */
 export function DivePill({ onSearchManually }: { onSearchManually?: () => void }) {
+  const t = useT(onboarding);
   const [showManual, setShowManual] = useState(false);
   useEffect(() => {
     if (!onSearchManually) {
       setShowManual(false);
       return;
     }
-    const t = setTimeout(() => setShowManual(true), LOCATING_MANUAL_SEARCH_HINT_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowManual(true), LOCATING_MANUAL_SEARCH_HINT_MS);
+    return () => clearTimeout(timer);
   }, [onSearchManually]);
 
   return (
@@ -45,7 +47,7 @@ export function DivePill({ onSearchManually }: { onSearchManually?: () => void }
             className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-extrabold text-v2-deep shadow-v2-float whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
           >
             <Search size={16} aria-hidden />
-            {ENTRY_COPY.diveManual}
+            {t('location.entry.dive.manual')}
           </motion.button>
         )}
       </AnimatePresence>
@@ -55,7 +57,7 @@ export function DivePill({ onSearchManually }: { onSearchManually?: () => void }
           animate={{ opacity: [1, 0.35, 1] }}
           transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
         />
-        {ENTRY_COPY.divePill}
+        {t('location.entry.dive.pill')}
       </span>
     </motion.div>
   );

@@ -129,7 +129,11 @@ describe('buildFeedbackPage', () => {
 
 describe('inputs', () => {
   it('parseStatusInput', () => {
-    expect(parseStatusInput({ source: 'testers', id: 'r1__abc', status: 'handled' })).toEqual({ ok: true, value: { source: 'testers', id: 'r1__abc', status: 'handled' } });
+    expect(parseStatusInput({ source: 'testers', id: 'r1__abc', status: 'handled' })).toEqual({ ok: true, value: { source: 'testers', id: 'r1__abc', status: 'handled', reason: null } });
+    expect(parseStatusInput({ source: 'testers', id: 'r1__abc', status: 'irrelevant', reason: ' בכוונה ' })).toEqual({ ok: true, value: { source: 'testers', id: 'r1__abc', status: 'irrelevant', reason: 'בכוונה' } });
+    // a reason only counts with "irrelevant"; a non-string reason is rejected
+    expect(parseStatusInput({ source: 'testers', id: 'r1__abc', status: 'handled', reason: 'x' })).toMatchObject({ ok: true, value: { reason: null } });
+    expect(parseStatusInput({ source: 'testers', id: 'r1__abc', status: 'irrelevant', reason: 5 }).ok).toBe(false);
     expect(parseStatusInput({ source: 'life', id: 'app_demo_a_2026-10-20', status: 'irrelevant' }).ok).toBe(true);
     for (const bad of [null, {}, { source: 'users', id: 'a', status: 'open' }, { source: 'life', id: 'a/b', status: 'open' }, { source: 'life', id: '..', status: 'open' }, { source: 'life', id: 'a', status: 'done' }]) {
       expect(parseStatusInput(bad)).toEqual({ ok: false, error: 'bad_request' });

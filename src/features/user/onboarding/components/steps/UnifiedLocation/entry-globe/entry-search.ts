@@ -4,8 +4,14 @@
  * and cap are unchanged); this only groups, counts and highlights.
  */
 import type { CityData } from '../location-types';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+import type { MessageValues } from '@/lib/i18n/core/i18n-core';
+import type { onboarding } from '@/messages/ns/onboarding';
 
 export type SearchFilter = 'all' | 'neighborhoods' | 'cities';
+
+/** The caller's translator (useT(onboarding) in the drawer, makeT in tests). */
+type OnboardingT = (key: NamespaceKey<typeof onboarding>, values?: MessageValues) => string;
 
 export interface GroupedSearchResults {
   /** Rows with a parent (neighbourhoods / settlements inside a city or council). */
@@ -36,17 +42,8 @@ export function visibleSections(filter: SearchFilter): { neighborhoods: boolean;
 }
 
 /** The grey line under a top-level place. */
-export function placeTypeLabel(type: CityData['type'] | undefined): string {
-  switch (type) {
-    case 'city':
-      return 'עיר';
-    case 'regional_council':
-      return 'מועצה אזורית';
-    case 'local_council':
-      return 'מועצה מקומית';
-    default:
-      return 'יישוב';
-  }
+export function placeTypeLabel(type: CityData['type'] | undefined, t: OnboardingT): string {
+  return t('location.entry.search.placeType', { type: type ?? '' });
 }
 
 export interface HighlightSegment {

@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Search } from 'lucide-react';
 import { LOCATING_MANUAL_SEARCH_HINT_MS } from '../fast-locate';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 export function LocatingCard({
   v2 = false,
@@ -11,11 +13,12 @@ export function LocatingCard({
 }: { v2?: boolean; onSearchManually?: () => void } = {}) {
   // v2: if the fix is slow (cold GPS, weak signal), offer the manual search
   // after a few seconds instead of leaving the user on a spinner.
+  const t = useT(onboarding);
   const [showManualHint, setShowManualHint] = useState(false);
   useEffect(() => {
     if (!v2 || !onSearchManually) return;
-    const t = setTimeout(() => setShowManualHint(true), LOCATING_MANUAL_SEARCH_HINT_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShowManualHint(true), LOCATING_MANUAL_SEARCH_HINT_MS);
+    return () => clearTimeout(timer);
   }, [v2, onSearchManually]);
 
   if (v2) {
@@ -39,7 +42,7 @@ export function LocatingCard({
               <Loader2 size={28} className="text-v2-accent animate-spin" />
             </div>
             <p className="text-[16px] font-extrabold text-v2-ink whitespace-nowrap">
-              מאתרים את המיקום שלך...
+              {t('location.locating.title')}
             </p>
             {/* Fixed-height slot so the sheet doesn't jump when the link appears */}
             <div className="mt-4 h-11">
@@ -54,7 +57,7 @@ export function LocatingCard({
                     className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14px] font-extrabold text-v2-deep shadow-v2-ring whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2"
                   >
                     <Search size={16} />
-                    לוקח זמן? חיפוש ידני
+                    {t('location.locating.manual')}
                   </motion.button>
                 )}
               </AnimatePresence>
@@ -81,7 +84,7 @@ export function LocatingCard({
               className="text-slate-700 font-medium text-lg"
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
-              מאתרים את המיקום שלך...
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מאתרים את המיקום שלך...
             </p>
           </div>
         </div>

@@ -8,6 +8,8 @@ import { type OnboardingLanguage } from '@/lib/i18n/onboarding-locales';
 import WheelPicker from '@/components/ui/WheelPicker';
 import StickyActionButton from '@/components/ui/StickyActionButton';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface PersonalStatsStepProps {
   onNext: () => void;
@@ -18,6 +20,7 @@ interface PersonalStatsStepProps {
 export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: PersonalStatsStepProps) {
   const { updateData, data } = useOnboardingStore();
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
 
   const [weight, setWeight] = useState<number>((data as any).weight || 70);
 
@@ -36,13 +39,13 @@ export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: Persona
   };
 
   const buttonLabel = isJIT
-    ? (isHebrew ? 'שמירת שינויים' : 'Save Changes')
+    ? (isHebrew ? t('steps.stats.cta.save') : 'Save Changes')
     : isLastStep
-      ? (isHebrew ? 'בואו נתחיל!' : "Let's Go!")
-      : (isHebrew ? 'המשך' : 'Continue');
+      ? (isHebrew ? t('steps.stats.cta.start') : "Let's Go!")
+      : (isHebrew ? t('steps.stats.cta.continue') : 'Continue');
 
   const successLabel = isJIT
-    ? (isHebrew ? 'הפרופיל עודכן!' : 'Profile Updated!')
+    ? (isHebrew ? t('steps.stats.cta.saved') : 'Profile Updated!')
     : undefined;
 
   // ── v2 (enable_home_v2) — same weight state / store write / CTA; v2 look ──
@@ -67,11 +70,11 @@ export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: Persona
                 <Weight size={26} strokeWidth={2.2} />
               </motion.div>
               <h2 className="text-[22px] font-black leading-[1.2] !tracking-[-0.02em] text-v2-ink">
-                {isHebrew ? 'מה המשקל שלך?' : 'What is your weight?'}
+                {isHebrew ? t('steps.stats.title') : 'What is your weight?'}
               </h2>
               <p className="mx-auto mt-1 max-w-[320px] text-[14px] font-medium leading-snug text-v2-ink-2">
                 {isHebrew
-                  ? 'נשתמש בזה כדי לחשב את צריכת הקלוריות ולהתאים תוכנית אישית'
+                  ? t('steps.stats.subtitle')
                   : "We'll use this to calculate your calorie burn and personalize your plan"}
               </p>
             </div>
@@ -84,7 +87,7 @@ export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: Persona
                   min={40}
                   max={150}
                   step={1}
-                  unit="ק״ג"
+                  unit={t('steps.stats.unitKg')}
                 />
               </div>
             </div>
@@ -122,11 +125,11 @@ export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: Persona
               <Weight size={28} className="text-[#5BC2F2]" />
             </motion.div>
             <h2 className="text-xl font-bold text-slate-900">
-              {isHebrew ? 'מה המשקל שלך?' : 'What is your weight?'}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'מה המשקל שלך?' : 'What is your weight?'}
             </h2>
             <p className="text-sm text-slate-500 mt-1">
               {isHebrew
-                ? 'נשתמש בזה כדי לחשב את צריכת הקלוריות ולהתאים תוכנית אישית'
+                ? 'נשתמש בזה כדי לחשב את צריכת הקלוריות ולהתאים תוכנית אישית' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 : "We'll use this to calculate your calorie burn and personalize your plan"}
             </p>
           </div>
@@ -138,7 +141,7 @@ export default function PersonalStatsStep({ onNext, isJIT, isLastStep }: Persona
               min={40}
               max={150}
               step={1}
-              unit="ק״ג"
+              unit="ק״ג" // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             />
           </div>
         </motion.div>

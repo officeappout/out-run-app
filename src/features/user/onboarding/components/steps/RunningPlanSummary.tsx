@@ -7,6 +7,8 @@ import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import RunningPlanSummaryV2 from '../running-v2/RunningPlanSummaryV2';
 import { buildSummaryWeek } from '../running-v2/summary/summary-week';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface RunningPlanSummaryProps {
   onGenerate: () => void;
@@ -14,12 +16,13 @@ interface RunningPlanSummaryProps {
   onEditDays?: () => void;
 }
 
-const DIST_LABELS: Record<string, { he: string; km: number }> = {
-  '2k':  { he: '2 ק״מ',  km: 2 },
-  '3k':  { he: '3 ק״מ',  km: 3 },
-  '5k':  { he: '5 ק״מ',  km: 5 },
-  '10k': { he: '10 ק״מ', km: 10 },
-  'maintenance': { he: 'שמירה על כושר', km: 5 },
+/** km per target distance; the label is `steps.runSummary.dist` (unknown → 5k). */
+const DIST_KM: Record<string, number> = {
+  '2k': 2,
+  '3k': 3,
+  '5k': 5,
+  '10k': 10,
+  'maintenance': 5,
 };
 
 const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -62,12 +65,14 @@ function formatTotalTime(totalSeconds: number): string {
 
 export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPlanSummaryProps) {
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const { data } = useOnboardingStore();
 
   const summary = useMemo(() => {
     const answers = getRunningAnswers();
     const targetDistance = answers.targetDistance ?? '5k';
-    const distMeta = DIST_LABELS[targetDistance] ?? DIST_LABELS['5k'];
+    const distKey = DIST_KM[targetDistance] !== undefined ? String(targetDistance) : '5k';
+    const distMeta = { label: t('steps.runSummary.dist', { dist: distKey }), km: DIST_KM[distKey] };
     const paceInputSeconds = answers.paceInputSeconds ?? 0;
     const weeks = answers.runningPlanWeeks ?? 8;
     const pace = formatPace(paceInputSeconds, distMeta.km);
@@ -79,12 +84,12 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
 
     const scheduleDays: string[] = (data as any).runningScheduleDays ?? [];
     const daysDisplay = scheduleDays.length > 0
-      ? scheduleDays.map(d => `יום ${d}'`).join(', ')
-      : 'לא נבחרו';
+      ? scheduleDays.map(d => `יום ${d}'`).join(', ') // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+      : 'לא נבחרו'; // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
 
     return {
       targetDistance,
-      distLabel: distMeta.he,
+      distLabel: distMeta.label,
       distKm: distMeta.km,
       weeks,
       pace,
@@ -95,7 +100,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
       daysDisplay,
       frequency: (data as any).runningWeeklyFrequency ?? scheduleDays.length,
     };
-  }, [data]);
+  }, [data, t]);
 
   if (v2) {
     // enable_home_v2 — R6 hero + journey-2 tiles (jr/J2-10, J2-11).
@@ -151,7 +156,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           className="absolute bottom-4 right-4"
         >
           <h1 className="text-white text-3xl font-black tracking-tight" dir="rtl">
-            תוכנית ל-{summary.distLabel}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תוכנית ל-{summary.distLabel}
           </h1>
         </motion.div>
       </div>
@@ -172,7 +177,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
             <RotateCw size={20} style={{ color: '#00BAF7' }} />
           </div>
           <p className="text-slate-100 text-base font-semibold">
-            {summary.weeks} שבועות · {summary.distKm} ק״מ
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{summary.weeks} שבועות · {summary.distKm} ק״מ
           </p>
         </div>
 
@@ -184,7 +189,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
             <Timer size={20} style={{ color: '#00BAF7' }} />
           </div>
           <p className="text-slate-100 text-base font-semibold">
-            קצב: {summary.pace} דק׳/ק״מ
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}קצב: {summary.pace} דק׳/ק״מ
           </p>
         </div>
 
@@ -210,7 +215,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
         dir="rtl"
       >
         <h3 className="text-slate-400 text-sm font-medium mb-4">
-          התוכנית שלך מותאמת על בסיס הפרטים הבאים
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}התוכנית שלך מותאמת על בסיס הפרטים הבאים
         </h3>
 
         <ul className="space-y-4">
@@ -218,7 +223,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
             <li className="flex items-start gap-3">
               <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
               <p className="text-slate-200 text-sm leading-relaxed">
-                הזמן המשוער שלך ל-{summary.distLabel} הוא{' '}
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הזמן המשוער שלך ל-{summary.distLabel} הוא{' '}
                 <span className="font-bold text-white">{summary.totalTime}</span>
               </p>
             </li>
@@ -227,7 +232,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           <li className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
             <p className="text-slate-200 text-sm leading-relaxed">
-              ימי אימון:{' '}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ימי אימון:{' '}
               <span className="font-bold text-white">{summary.daysDisplay}</span>
             </p>
           </li>
@@ -235,22 +240,22 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           <li className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
             <p className="text-slate-200 text-sm leading-relaxed">
-              {summary.frequency} אימונים בשבוע למשך{' '}
-              <span className="font-bold text-white">{summary.weeks} שבועות</span>
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{summary.frequency} אימונים בשבוע למשך{' '}
+              <span className="font-bold text-white">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{summary.weeks} שבועות</span>
             </p>
           </li>
 
           <li className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
             <p className="text-slate-200 text-sm leading-relaxed">
-              התוכנית מתחילה ב-<span className="font-bold text-white">{summary.startDate}</span>
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}התוכנית מתחילה ב-<span className="font-bold text-white">{summary.startDate}</span>
             </p>
           </li>
 
           <li className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 shrink-0" />
             <p className="text-slate-200 text-sm leading-relaxed">
-              התוכנית מסתיימת ב-<span className="font-bold text-white">{summary.endDate}</span>
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}התוכנית מסתיימת ב-<span className="font-bold text-white">{summary.endDate}</span>
             </p>
           </li>
         </ul>
@@ -267,7 +272,7 @@ export default function RunningPlanSummary({ onGenerate, onEditDays }: RunningPl
           className="w-full py-4 rounded-xl text-lg font-bold transition-colors shadow-xl"
           style={{ background: '#00BAF7', color: '#0F172A' }}
         >
-          צרו לי את התוכנית!
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}צרו לי את התוכנית!
         </motion.button>
       </div>
     </div>

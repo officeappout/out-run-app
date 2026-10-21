@@ -36,6 +36,8 @@ import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { useWizardIdentity } from '../../hooks/useWizardIdentity';
 import { resolveRunningScheduleCta } from '../../utils/running-schedule-cta';
 import { getRunningScheduleSource } from '@/lib/running-schedule-source';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // ============================================================================
 // CONSTANTS
@@ -47,23 +49,19 @@ interface RunningScheduleStepProps {
   isLastStep?: boolean;
 }
 
-const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-const DAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const DAYS_HEBREW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: data — day letters matched against / written to scheduleDays (wave 3 for display)
+const DAY_NAMES_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']; // i18n-allow-hebrew: weekday names (wave 3, fmt)
 
 const RECOMMENDED_FREQUENCY = 3;
 
-// enable_home_v2 (R5-prop-schedule) — what each weekly count means, and the
-// time presets. A preset only sets the same "HH:MM" `time` string the
-// hour/minute picker sets; 07:00 (בוקר) is today's default time.
-const V2_FREQUENCY_MEANING: Record<number, string> = {
-  2: 'התחלה רכה',
-  3: 'מומלץ עבורך',
-  4: 'למתקדמים',
-};
+// enable_home_v2 (R5-prop-schedule) — what each weekly count means
+// (`steps.runSchedule.frequencyMeaning`), and the time presets. A preset only
+// sets the same "HH:MM" `time` string the hour/minute picker sets; 07:00
+// (morning) is today's default time.
 const V2_TIME_PRESETS = [
-  { id: 'morning', label: 'בוקר', time: '07:00', Icon: Sunrise },
-  { id: 'noon', label: 'צהריים', time: '12:30', Icon: Sun },
-  { id: 'evening', label: 'ערב', time: '19:00', Icon: Sunset },
+  { id: 'morning', labelKey: 'steps.runSchedule.time.morning', time: '07:00', Icon: Sunrise },
+  { id: 'noon', labelKey: 'steps.runSchedule.time.noon', time: '12:30', Icon: Sun },
+  { id: 'evening', labelKey: 'steps.runSchedule.time.evening', time: '19:00', Icon: Sunset },
 ] as const;
 // MIN_FREQUENCY/MAX_FREQUENCY mirror the shared bound (David, 01.09.2026:
 // "MAX_FREQUENCY נשאר 4. תוסיף MIN_FREQUENCY = 2 באותו מקום") -- declared
@@ -83,6 +81,7 @@ const MAX_FREQUENCY = MAX_RUNNING_FREQUENCY;
 
 export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: RunningScheduleStepProps) {
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
   const { updateData, data } = useOnboardingStore();
   const profile = useUserStore((s) => s.profile);
   const refreshProfile = useUserStore((s) => s.refreshProfile);
@@ -366,13 +365,13 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
     if (v2) {
       return (
         <div className="flex flex-1 items-center justify-center bg-v2-surface">
-          <p className="text-[13px] font-bold text-v2-muted">טוען...</p>
+          <p className="text-[13px] font-bold text-v2-muted">{t('steps.runSchedule.loading')}</p>
         </div>
       );
     }
     return (
       <div className="min-h-[100dvh] flex items-center justify-center">
-        <p className="text-slate-400 text-sm">טוען...</p>
+        <p className="text-slate-400 text-sm">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טוען...</p>
       </div>
     );
   }
@@ -409,8 +408,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
         <div className="px-4 pb-2 pt-1">
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 px-1">
-            <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">מתי נרוץ?</h1>
-            <p className="mt-1 text-[14px] font-medium text-v2-ink-2">נבנה תוכנית שמתאימה לשבוע שלך</p>
+            <h1 className="text-[24px] font-black leading-[1.2] !tracking-[-0.02em]">{t('steps.runSchedule.title')}</h1>
+            <p className="mt-1 text-[14px] font-medium text-v2-ink-2">{t('steps.runSchedule.subtitle')}</p>
           </motion.div>
 
           {/* Hybrid notice */}
@@ -425,8 +424,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 <div className="flex items-start gap-2.5 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring">
                   <Dumbbell size={16} className="mt-0.5 shrink-0 text-[#00baf7]" strokeWidth={2.4} aria-hidden />
                   <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
-                    ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים במשקולת.
-                    אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.
+                    {t('steps.runSchedule.hybridNotice', { days: strengthDays.join(', ') })}
                   </p>
                 </div>
               </motion.div>
@@ -445,9 +443,9 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 <div className="flex items-start gap-2.5 rounded-[18px] bg-white px-3.5 py-3 shadow-v2-ring">
                   <AlertCircle size={16} className="mt-0.5 shrink-0 text-v2-amber" strokeWidth={2.4} />
                   <p className="text-right text-[12.5px] font-bold leading-relaxed text-v2-ink-2">
-                    בחרת יותר ימים מהתוכנית הנוכחית שלך.
+                    {t('steps.runSchedule.loadNotice.line1')}
                     <br />
-                    נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
+                    {t('steps.runSchedule.loadNotice.line2')}
                   </p>
                 </div>
               </motion.div>
@@ -456,7 +454,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
 
           {/* Section 1: Frequency */}
           <section className="mb-5 text-right">
-            <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">כמה ריצות בשבוע?</h2>
+            <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">{t('steps.runSchedule.frequency.title')}</h2>
             <div className="flex gap-2">
               {Array.from(
                 { length: MAX_FREQUENCY - MIN_FREQUENCY + 1 },
@@ -469,14 +467,14 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => handleFrequencySelect(num)}
-                    aria-label={`${num} ימים בשבוע`}
+                    aria-label={t('steps.runSchedule.frequency.aria', { n: String(num) })}
                     className={`${cardCls(isSelected)} flex-1 px-2 py-3 text-center`}
                   >
                     <span className={`block text-[26px] font-black leading-none tabular-nums ${isSelected ? 'text-v2-deep' : 'text-v2-ink'}`}>
                       {num}
                     </span>
                     <span className="mt-1.5 block whitespace-nowrap text-[11.5px] font-extrabold text-v2-muted">
-                      {V2_FREQUENCY_MEANING[num] ?? ''}
+                      {t('steps.runSchedule.frequencyMeaning', { n: String(num) })}
                     </span>
                   </button>
                 );
@@ -495,9 +493,9 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 className="mb-5 overflow-hidden px-0.5 pb-1 pt-1 text-right"
               >
                 <div className="mb-2.5 flex items-baseline justify-between px-1">
-                  <h2 className="whitespace-nowrap text-[15px] font-black">באילו ימים?</h2>
+                  <h2 className="whitespace-nowrap text-[15px] font-black">{t('steps.runSchedule.days.title')}</h2>
                   <span className={`whitespace-nowrap text-[12.5px] font-extrabold ${daysDone ? 'text-v2-up' : 'text-v2-deep'}`}>
-                    {selectedDays.length} מתוך {frequency} נבחרו
+                    {t('steps.runSchedule.days.count', { selected: String(selectedDays.length), total: String(frequency) })}
                   </span>
                 </div>
                 <div className="grid grid-cols-7 gap-[5px]">
@@ -510,10 +508,10 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                         type="button"
                         aria-pressed={isRunning}
                         onClick={() => handleDayToggle(index)}
-                        aria-label={`${DAY_NAMES_HE[index]}${isStrength ? ' (יום כוח)' : ''}`}
+                        aria-label={t('steps.runSchedule.days.aria', { day: DAY_NAMES_HE[index], strength: isStrength ? 'yes' : 'no' })}
                         className={`${tileCls(isRunning)} h-[58px] w-full flex-col gap-[3px] text-[14px]`}
                       >
-                        <span>{day}׳</span>
+                        <span>{/* i18n-allow-hebrew: weekday letter (wave 3, fmt) */}{day}׳</span>
                         <span className="flex h-[14px] items-center gap-0.5" aria-hidden>
                           {isRunning && <Footprints size={13} strokeWidth={2.4} className="text-v2-deep" />}
                           {isStrength && <Dumbbell size={13} strokeWidth={2.4} className="text-[#00baf7]" />}
@@ -526,15 +524,15 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 <div className="mt-2.5 flex items-center gap-3.5 px-1 text-[11.5px] font-extrabold text-v2-muted">
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <Footprints size={12} strokeWidth={2.4} className="text-v2-deep" aria-hidden />
-                    ריצה
+                    {t('steps.runSchedule.legend.run')}
                   </span>
                   {hasStrengthDays && (
                     <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Dumbbell size={12} strokeWidth={2.4} className="text-[#00baf7]" aria-hidden />
-                      כוח
+                      {t('steps.runSchedule.legend.strength')}
                     </span>
                   )}
-                  <span className="ms-auto truncate whitespace-nowrap">יום מנוחה בין ריצות קשות</span>
+                  <span className="ms-auto truncate whitespace-nowrap">{t('steps.runSchedule.legend.rest')}</span>
                 </div>
               </motion.section>
             )}
@@ -550,9 +548,9 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
                 className="mb-5 overflow-hidden px-0.5 pb-1 pt-0.5 text-right"
               >
-                <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">באיזו שעה?</h2>
+                <h2 className="mb-2.5 whitespace-nowrap px-1 text-[15px] font-black">{t('steps.runSchedule.time.title')}</h2>
                 <div className="flex gap-1.5">
-                  {V2_TIME_PRESETS.map(({ id, label, time: presetTime, Icon }) => {
+                  {V2_TIME_PRESETS.map(({ id, labelKey, time: presetTime, Icon }) => {
                     const on = !showCustomTime && matchedPreset === id;
                     return (
                       <button
@@ -563,7 +561,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                         className={`${tileCls(on)} flex-1 flex-col gap-0.5 rounded-[18px] px-1.5 py-2.5`}
                       >
                         <Icon size={18} strokeWidth={2.2} className={on ? 'text-v2-deep' : 'text-v2-ink-2'} aria-hidden />
-                        <span className={`whitespace-nowrap text-[13px] font-black ${on ? 'text-v2-deep' : 'text-v2-ink'}`}>{label}</span>
+                        <span className={`whitespace-nowrap text-[13px] font-black ${on ? 'text-v2-deep' : 'text-v2-ink'}`}>{t(labelKey)}</span>
                         <span dir="ltr" className="text-[11.5px] font-extrabold text-v2-muted">{presetTime}</span>
                       </button>
                     );
@@ -575,7 +573,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                     className={`${tileCls(showCustomTime)} flex-1 flex-col gap-0.5 rounded-[18px] px-1.5 py-2.5`}
                   >
                     <Clock size={18} strokeWidth={2.2} className={showCustomTime ? 'text-v2-deep' : 'text-v2-ink-2'} aria-hidden />
-                    <span className={`whitespace-nowrap text-[13px] font-black ${showCustomTime ? 'text-v2-deep' : 'text-v2-ink'}`}>אחר</span>
+                    <span className={`whitespace-nowrap text-[13px] font-black ${showCustomTime ? 'text-v2-deep' : 'text-v2-ink'}`}>{t('steps.runSchedule.time.other')}</span>
                     <span dir="ltr" className="text-[11.5px] font-extrabold text-v2-muted">{showCustomTime ? time : '--:--'}</span>
                   </button>
                 </div>
@@ -662,10 +660,10 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,186,247,0.1)' }}>
             <Footprints size={20} style={{ color: '#00BAF7' }} />
           </div>
-          <h2 className="text-xl font-black text-slate-900">מתי נרוץ?</h2>
+          <h2 className="text-xl font-black text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מתי נרוץ?</h2>
         </div>
         <p className="text-sm text-slate-500 mr-[52px]">
-          נבנה תוכנית ריצה שמתאימה לסדר היום שלך
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נבנה תוכנית ריצה שמתאימה לסדר היום שלך
         </p>
       </motion.div>
 
@@ -679,8 +677,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             className="mb-4 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl"
           >
             <p className="text-xs text-blue-700 font-medium text-right leading-relaxed">
-              ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
-              אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}ימי הכוח שלך ({strengthDays.join(', ')}) מסומנים בכחול.
+              אפשר לבחור בהם גם ריצה — שני האימונים יופיעו באותו יום בלוז.{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
             </p>
           </motion.div>
         )}
@@ -708,9 +706,9 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
           >
             <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700 font-medium text-right leading-relaxed">
-              בחרת יותר ימים מהתוכנית הנוכחית שלך.
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}בחרת יותר ימים מהתוכנית הנוכחית שלך.
               <br />
-              נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נעדכן אותה בהתאם — ההתקדמות שלך תישמר.
             </p>
           </motion.div>
         )}
@@ -719,7 +717,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
       {/* ── Section 1: Frequency (1–4 only) ─────────────────────────────── */}
       <section className="mb-5 text-right">
         <h3 className="text-base font-bold text-slate-900 mb-3">
-          כמה אימוני ריצה בשבוע?
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}כמה אימוני ריצה בשבוע?
         </h3>
 
         <div className="flex gap-3 justify-center">
@@ -745,7 +743,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                     fontWeight: isSelected ? 700 : 500,
                     ...(isSelected ? { background: '#00BAF7' } : {}),
                   }}
-                  aria-label={`${num} ${num === 1 ? 'יום' : 'ימים'} בשבוע`}
+                  aria-label={`${num} ${num === 1 ? 'יום' : 'ימים'} בשבוע` /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
                 >
                   {num}
                 </motion.button>
@@ -760,7 +758,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                       className="text-[10px] px-2 py-0.5 rounded-full text-white"
                       style={{ fontWeight: 600, background: '#0AC2B6' }}
                     >
-                      מומלץ עבורך
+                      {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מומלץ עבורך
                     </span>
                   </motion.div>
                 )}
@@ -787,7 +785,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             className="mb-5 text-right overflow-hidden"
           >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-bold text-slate-900">באילו ימים?</h3>
+              <h3 className="text-base font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}באילו ימים?</h3>
 
               {/* Calendar Sync toggle — mirrors ScheduleStep. Hidden in JIT
                   (David, 01.09.2026): a global, once-per-user preference
@@ -813,7 +811,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                     strokeWidth={1.5}
                     style={{ color: calendarSyncEnabled ? '#00BAF7' : '#94a3b8' }}
                   />
-                  <span className="text-[11px] font-medium">סנכרון ליומן</span>
+                  <span className="text-[11px] font-medium">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}סנכרון ליומן</span>
                   <div
                     className="w-3 h-3 rounded-full flex items-center justify-center transition-all"
                     style={{ background: calendarSyncEnabled ? '#00BAF7' : '#e2e8f0' }}
@@ -832,7 +830,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
               }`}
               style={selectedDays.length !== frequency ? { color: '#00BAF7' } : undefined}
             >
-              נבחרו {selectedDays.length} מתוך {frequency} ימים
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}נבחרו {selectedDays.length} מתוך {frequency} ימים
             </p>
 
             <div className="flex flex-wrap justify-center gap-2">
@@ -869,7 +867,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                         is the separate strength marker next to it). */}
                     {isStrength && (
                       <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#5BC2F2] flex items-center justify-center pointer-events-none">
-                        <span className="text-[7px] text-on-brand font-bold leading-none">כ</span>
+                        <span className="text-[7px] text-on-brand font-bold leading-none">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}כ</span>
                       </div>
                     )}
                   </div>
@@ -881,8 +879,8 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             {hasStrengthDays && (
               <div className="mt-3 flex flex-wrap gap-3 justify-center">
                 {[
-                  { color: 'bg-[#10B981]', label: 'ריצה' },
-                  { color: 'bg-[#5BC2F2]', label: 'כוח' },
+                  { color: 'bg-[#10B981]', label: 'ריצה' }, // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                  { color: 'bg-[#5BC2F2]', label: 'כוח' }, // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                 ].map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${color}`} />
@@ -908,7 +906,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Timer size={16} style={{ color: '#00BAF7' }} />
-                <h3 className="text-base font-bold text-slate-900">{gender === 'female' ? 'באיזו שעה תרוצי?' : 'באיזו שעה תרוץ?'}</h3>
+                <h3 className="text-base font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{gender === 'female' ? 'באיזו שעה תרוצי?' : 'באיזו שעה תרוץ?'}</h3>
               </div>
 
               {/* Reminders toggle — hidden in JIT (David, 01.09.2026):
@@ -929,7 +927,7 @@ export default function RunningScheduleStep({ onNext, isJIT, isLastStep }: Runni
                     strokeWidth={1.5}
                     className={notificationsEnabled ? 'text-amber-600' : 'text-slate-400'}
                   />
-                  <span className="text-[11px] font-medium">תזכורת</span>
+                  <span className="text-[11px] font-medium">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}תזכורת</span>
                   <div
                     className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
                       notificationsEnabled ? 'bg-amber-500' : 'bg-slate-200'

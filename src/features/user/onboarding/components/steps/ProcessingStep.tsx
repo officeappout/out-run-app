@@ -4,32 +4,15 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
-// Persona ID → Hebrew label map. Canonical PersonaId vocabulary since the
-// 01.09.2026 persona-model redefinition -- 'reservist'/'soldier' merged into
-// 'military' (see PersonaStep.tsx). Missing this key means every military
-// signup silently falls back to the generic 'המשתמש' label on this exact
-// screen, since selectedPersonaId is 'military' now, not the old split.
-const PERSONA_LABELS: Record<string, string> = {
-  parent: 'הורה',
-  student: 'סטודנט/ית',
-  pupil: 'תלמיד/ה',
-  office_worker: 'עובד/ת משרד',
-  military: 'חייל/ת',
-  vatikim: 'גיל הזהב',
-  pro_athlete: 'ספורטאי/ת קצה',
-};
-
-// v2 only: gendered persona labels (no "/ית" slashes) when gender is known.
-const PERSONA_LABELS_V2: Record<string, { m: string; f: string }> = {
-  parent: { m: 'הורה', f: 'הורה' },
-  student: { m: 'סטודנט', f: 'סטודנטית' },
-  pupil: { m: 'תלמיד', f: 'תלמידה' },
-  office_worker: { m: 'עובד משרד', f: 'עובדת משרד' },
-  military: { m: 'חייל', f: 'חיילת' },
-  vatikim: { m: 'גיל הזהב', f: 'גיל הזהב' },
-  pro_athlete: { m: 'ספורטאי קצה', f: 'ספורטאית קצה' },
-};
+// Persona ID → label: `steps.processing.persona` (onboarding catalog, a select
+// per canonical PersonaId since the 01.09.2026 persona-model redefinition --
+// 'reservist'/'soldier' merged into 'military', see PersonaStep.tsx). A missing
+// id falls to the generic "user" label on this exact screen.
+// v2 only: `steps.processing.personaGendered` — gendered labels (no slash forms)
+// when gender is known; an unknown id gives '' and falls back to the above.
 
 interface ProcessingStepProps {
   onNext: () => void;
@@ -41,23 +24,24 @@ export default function ProcessingStep({ onNext }: ProcessingStepProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const { data } = useOnboardingStore();
   const v2 = useOnboardingV2();
+  const t = useT(onboarding);
 
   // Resolve persona label from onboarding data
-  const personaId = (data as any).selectedPersonaId || (data as any).selectedPersonaIds?.[0] || '';
+  const personaId = String((data as any).selectedPersonaId || (data as any).selectedPersonaIds?.[0] || '');
   const v2Gender =
     v2 && typeof window !== 'undefined' ? sessionStorage.getItem('onboarding_personal_gender') : null;
   const v2Label =
     v2Gender === 'female' || v2Gender === 'male'
-      ? PERSONA_LABELS_V2[personaId]?.[v2Gender === 'female' ? 'f' : 'm']
+      ? t('steps.processing.personaGendered', { persona: personaId, gender: v2Gender })
       : undefined;
-  const personaLabel = v2Label || PERSONA_LABELS[personaId] || 'המשתמש';
+  const personaLabel = v2Label || t('steps.processing.persona', { persona: personaId });
 
   const MESSAGES = [
-    'מנתח העדפות אימון...',
-    `בונה תוכנית מותאמת לפרסונת ${personaLabel}...`,
-    'מחשב עומסים אופטימליים...',
-    'מייצר הצהרת בריאות חתומה...',
-    'מכין את לוח הבקרה האישי שלך...',
+    t('steps.processing.msg.analyzing'),
+    t('steps.processing.msg.building', { persona: personaLabel }),
+    t('steps.processing.msg.loads'),
+    t('steps.processing.msg.health'),
+    t('steps.processing.msg.dashboard'),
   ];
 
   // Cycle messages every 900ms

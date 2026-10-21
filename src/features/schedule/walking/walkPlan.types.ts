@@ -52,6 +52,12 @@ export interface WalkPlan {
   level: WalkActivityLevel;
   /** The weekly minutes the plan ramps towards (WHO band, by goal / audience). */
   targetWeeklyMinutes: number;
+  /**
+   * The weekly minutes these days can actually hold (≤ targetWeeklyMinutes): one long
+   * walk ≤ longWalkMax + the others ≤ session.max. Below the target → a reason says so
+   * honestly ("עד 105 דק׳ עם 2 ימים — …"); the WHO target itself is unchanged.
+   */
+  plannedWeeklyMinutes: number;
   /** Walks a week (3–5, never more than the available days). */
   frequency: number;
   /** The days chosen (sorted). */

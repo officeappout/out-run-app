@@ -1,5 +1,5 @@
 {
-  "status": "dry-run plan — the owner runs --apply (see docs/TRAILS-PILOT-SHAAR-HANEGEV.md §6)",
+  "status": "dry-run plan — the owner runs --apply (see docs/trails-pilot/TRAILS-PILOT-SHAAR-HANEGEV.md §6)",
   "writes": [
     {
       "collection": "trail_segments",

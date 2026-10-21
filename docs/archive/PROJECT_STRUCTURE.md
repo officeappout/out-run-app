@@ -1,3 +1,5 @@
+> HISTORICAL — לא משקף את הקוד. נשמר לתיעוד (הועבר מהשורש ל-docs/archive/ ב-MV-01, 21.10.2026).
+
 # Out-Run App - Project Structure
 
 Complete directory tree of the project focusing on `src/` and root configuration files.

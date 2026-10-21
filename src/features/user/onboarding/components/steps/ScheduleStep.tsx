@@ -37,6 +37,8 @@ import ScheduleWarningsPanel from '@/features/schedule/components/ScheduleWarnin
 import TrainingTimePicker from '@/features/schedule/components/TrainingTimePicker';
 import { useOnboardingV2 } from '../../hooks/useOnboardingV2';
 import { useWizardIdentity } from '../../hooks/useWizardIdentity';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 interface ScheduleStepProps {
   onNext: () => void;
@@ -150,8 +152,10 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   // fallback before a profile exists) — see utils/wizard-identity.ts.
   const { gender } = useWizardIdentity();
   
-  // Gender-aware translation helper
-  const t = (male: string, female: string) => gender === 'female' ? female : male;
+  // Gender-aware pick (legacy v1 copy) + the catalog translator.
+  const g = (male: string, female: string) => gender === 'female' ? female : male;
+  const t = useT(onboarding);
+  const genderArg = gender === 'female' ? 'female' : 'other';
 
   // ── Deep History (merged from HistoryStep) ──────────────────────
   const [historyFreq, setHistoryFreq] = useState<string>(data.historyFrequency || '');
@@ -160,24 +164,24 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
   const historyDone = historyFreq !== '';
 
   const FREQ_OPTIONS = [
-    { id: 'none',  label: isHebrew ? 'לא התאמנתי' : "I didn't train", icon: Sofa,       bg: 'bg-slate-50', color: 'text-slate-500' },
-    { id: '1-2',   label: isHebrew ? '1-2 פעמים בשבוע' : '1-2/week',   icon: Footprints, bg: 'bg-blue-50',  color: 'text-blue-500'  },
-    { id: '3+',    label: isHebrew ? '3+ פעמים בשבוע' : '3+/week',     icon: Flame,      bg: 'bg-orange-50',color: 'text-orange-500' },
+    { id: 'none',  label: isHebrew ? t('steps.schedule.history.freq.none') : "I didn't train", icon: Sofa,       bg: 'bg-slate-50', color: 'text-slate-500' },
+    { id: '1-2',   label: isHebrew ? t('steps.schedule.history.freq.low') : '1-2/week',   icon: Footprints, bg: 'bg-blue-50',  color: 'text-blue-500'  },
+    { id: '3+',    label: isHebrew ? t('steps.schedule.history.freq.high') : '3+/week',     icon: Flame,      bg: 'bg-orange-50',color: 'text-orange-500' },
   ];
   const LOC_OPTIONS = [
-    { id: 'studio', label: isHebrew ? 'סטודיו/חוגים' : 'Studio',  icon: Building2 },
-    { id: 'park',   label: isHebrew ? 'גינת כושר' : 'Park',       icon: TreePine },
-    { id: 'home',   label: isHebrew ? 'בית' : 'Home',              icon: HomeIcon },
-    { id: 'gym',    label: isHebrew ? 'חדר כושר' : 'Gym',          icon: Dumbbell },
+    { id: 'studio', label: isHebrew ? t('steps.schedule.history.loc.studio') : 'Studio',  icon: Building2 },
+    { id: 'park',   label: isHebrew ? t('steps.schedule.history.loc.park') : 'Park',       icon: TreePine },
+    { id: 'home',   label: isHebrew ? t('steps.schedule.history.loc.home') : 'Home',              icon: HomeIcon },
+    { id: 'gym',    label: isHebrew ? t('steps.schedule.history.loc.gym') : 'Gym',          icon: Dumbbell },
   ];
   const SPORT_OPTIONS = [
-    { id: 'running',  label: isHebrew ? 'ריצה' : 'Running',      icon: Zap },
-    { id: 'swimming', label: isHebrew ? 'שחייה' : 'Swimming',    icon: Heart },
-    { id: 'yoga',     label: isHebrew ? 'יוגה/פילאטיס' : 'Yoga', icon: Sparkles },
-    { id: 'cycling',  label: isHebrew ? 'רכיבה' : 'Cycling',     icon: Bike },
-    { id: 'strength', label: isHebrew ? 'כוח' : 'Strength',      icon: Dumbbell },
-    { id: 'cardio',   label: isHebrew ? 'קרדיו' : 'Cardio',      icon: Heart },
-    { id: 'crossfit', label: isHebrew ? 'קרוספיט' : 'CrossFit',  icon: Flame },
+    { id: 'running',  label: isHebrew ? t('steps.schedule.history.sport.running') : 'Running',      icon: Zap },
+    { id: 'swimming', label: isHebrew ? t('steps.schedule.history.sport.swimming') : 'Swimming',    icon: Heart },
+    { id: 'yoga',     label: isHebrew ? t('steps.schedule.history.sport.yoga') : 'Yoga', icon: Sparkles },
+    { id: 'cycling',  label: isHebrew ? t('steps.schedule.history.sport.cycling') : 'Cycling',     icon: Bike },
+    { id: 'strength', label: isHebrew ? t('steps.schedule.history.sport.strength') : 'Strength',      icon: Dumbbell },
+    { id: 'cardio',   label: isHebrew ? t('steps.schedule.history.sport.cardio') : 'Cardio',      icon: Heart },
+    { id: 'crossfit', label: isHebrew ? t('steps.schedule.history.sport.crossfit') : 'CrossFit',  icon: Flame },
   ];
 
   // Local-only until handleContinue's single consolidated updateData() call —
@@ -551,10 +555,10 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
             <h1 className="text-[24px] font-black leading-[1.15] !tracking-[-0.02em]">
-              {isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
+              {isHebrew ? t('steps.schedule.title') : 'When do we train?'}
             </h1>
             <p className="mt-1 text-[14px] font-medium text-v2-ink-2">
-              {isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
+              {isHebrew ? t('steps.schedule.subtitle') : "We'll adapt to your availability"}
             </p>
           </motion.div>
 
@@ -577,7 +581,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                       <Lightbulb size={16} className="text-v2-amber" strokeWidth={2.4} />
                     </span>
                     <span className="truncate whitespace-nowrap text-[14px] font-extrabold text-v2-ink">
-                      {isHebrew ? 'המלצה שלנו' : 'Our Recommendation'}
+                      {isHebrew ? t('steps.schedule.recommendation.title') : 'Our Recommendation'}
                     </span>
                   </span>
                   <motion.span animate={{ rotate: showRecommendation ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -597,16 +601,13 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                         {showRecommendationA && (
                           <p>
                             {isHebrew
-                              ? 'היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.'
+                              ? t('steps.schedule.recommendation.startSlow')
                               : "Hey, we noticed you haven't trained in a while. We recommend starting with 1-2 times a week to build a strong foundation."}
                           </p>
                         )}
                         {showRecommendationB && (
                           <p>
-                            {t(
-                              'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
-                              'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!'
-                            )}
+                            {t('steps.schedule.recommendation.atLeastTwo', { gender: genderArg })}
                           </p>
                         )}
                       </div>
@@ -625,7 +626,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           >
             <div className="space-y-2.5">
               <h2 className="text-[15px] font-black">
-                {t('איך נראתה שגרת האימונים שלך בחודש האחרון?', 'איך נראתה שגרת האימונים שלך בחודש האחרון?')}
+                {t('steps.schedule.history.title')}
               </h2>
               <div role="radiogroup" className="flex flex-col gap-2">
                 {FREQ_OPTIONS.map((opt) => {
@@ -673,7 +674,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                   <div className="h-px bg-v2-hairline" />
                   <div className="space-y-2.5">
                     <h2 className="text-[15px] font-black">
-                      {t('איפה התאמנת בדרך כלל?', 'איפה התאמנת בדרך כלל?')}
+                      {t('steps.schedule.history.whereTitle')}
                     </h2>
                     <div className="flex flex-wrap gap-2">
                       {LOC_OPTIONS.map((opt) => {
@@ -690,7 +691,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                   </div>
                   <div className="space-y-2.5">
                     <h2 className="text-[15px] font-black">
-                      {isHebrew ? 'באילו ענפי ספורט?' : 'Which sports?'}
+                      {isHebrew ? t('steps.schedule.history.sportsTitle') : 'Which sports?'}
                     </h2>
                     <div className="flex flex-wrap gap-2">
                       {SPORT_OPTIONS.map((opt) => {
@@ -719,7 +720,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                 </div>
               )}
               <h2 className="whitespace-nowrap text-[16px] font-black">
-                {isHebrew ? 'כמה פעמים בשבוע?' : 'How many times a week?'}
+                {isHebrew ? t('steps.schedule.frequency.title') : 'How many times a week?'}
               </h2>
             </div>
             <div className="grid grid-cols-7 gap-1.5">
@@ -743,7 +744,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                         className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap"
                       >
                         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-extrabold text-v2-deep shadow-v2-ring">
-                          {isHebrew ? 'מומלץ עבורך' : 'Recommended'}
+                          {isHebrew ? t('steps.schedule.frequency.recommended') : 'Recommended'}
                         </span>
                       </motion.div>
                     )}
@@ -772,7 +773,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                       </div>
                     )}
                     <h2 className="whitespace-nowrap text-[16px] font-black">
-                      {isHebrew ? 'באילו ימים?' : 'Which days?'}
+                      {isHebrew ? t('steps.schedule.days.title') : 'Which days?'}
                     </h2>
                   </div>
                   <button
@@ -786,14 +787,14 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                     }`}
                   >
                     <RefreshCw size={12} strokeWidth={2.2} />
-                    <span>{isHebrew ? 'סנכרון ליומן' : 'Sync'}</span>
+                    <span>{isHebrew ? t('steps.schedule.days.calendarSync') : 'Sync'}</span>
                     {calendarSyncEnabled && <Check size={12} strokeWidth={3} />}
                   </button>
                 </div>
 
                 <p className={`mb-2.5 text-[12.5px] font-bold ${selectedDays.length === frequency ? 'text-v2-up' : 'text-v2-amber'}`}>
                   {isHebrew
-                    ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים`
+                    ? t('steps.schedule.days.count', { selected: String(selectedDays.length), total: String(frequency) })
                     : `${selectedDays.length} of ${frequency} days selected`}
                 </p>
 
@@ -810,7 +811,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                         key={index}
                         type="button"
                         onClick={() => handleDayCardClick(index)}
-                        aria-label={`${dayLabel} — ${isRest ? 'יום מנוחה' : `${day.sessions.length} סשנים`}`}
+                        aria-label={t('steps.schedule.days.aria', { day: dayLabel, rest: isRest ? 'yes' : 'no', n: String(day.sessions.length) })}
                         className={`relative flex w-full flex-col items-center gap-1.5 rounded-2xl px-0.5 py-2 transition-transform duration-150 ease-v2 active:scale-[0.97] ${
                           isPopoverOpen
                             ? 'bg-white shadow-v2-card ring-2 ring-v2-accent'
@@ -875,7 +876,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                       <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
                         <h3 className="truncate whitespace-nowrap text-[15px] font-black">
                           {isHebrew
-                            ? `מה מתאמנים ביום ${DAY_LETTERS[openPopoverDay]}׳?`
+                            ? t('steps.schedule.popover.title', { day: DAY_LETTERS[openPopoverDay] })
                             : `Day ${DAY_LETTERS[openPopoverDay]} — pick programs`}
                         </h3>
                         <button
@@ -937,7 +938,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                             <Moon size={16} className="text-v2-muted" />
                           </span>
                           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-[14px] font-bold text-v2-ink-2">
-                            {isHebrew ? 'יום מנוחה' : 'Rest day'}
+                            {isHebrew ? t('steps.schedule.popover.rest') : 'Rest day'}
                           </span>
                         </button>
                       </div>
@@ -947,7 +948,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                           onClick={handleClosePopover}
                           className="whitespace-nowrap text-[14px] font-extrabold text-v2-deep"
                         >
-                          {isHebrew ? 'סיימתי' : 'Done'}
+                          {isHebrew ? t('steps.schedule.popover.done') : 'Done'}
                         </button>
                       </div>
                     </motion.div>
@@ -969,7 +970,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                           <div className="mb-1 flex items-center gap-2">
                             <AlertTriangle size={15} className="text-[#b4232a]" strokeWidth={2.5} />
                             <span className="whitespace-nowrap text-[13px] font-extrabold text-[#b4232a]">
-                              {isHebrew ? 'שגיאות חובה לתקן' : 'Errors to resolve'}
+                              {isHebrew ? t('steps.schedule.warnings.errorsTitle') : 'Errors to resolve'}
                             </span>
                           </div>
                           <ul className="space-y-1">
@@ -984,7 +985,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                           <div className="mb-1 flex items-center gap-2">
                             <AlertTriangle size={15} className="text-v2-amber" strokeWidth={2.5} />
                             <span className="whitespace-nowrap text-[13px] font-extrabold text-v2-ink">
-                              {isHebrew ? 'אזהרות מהמנוע החכם' : 'Smart engine warnings'}
+                              {isHebrew ? t('steps.schedule.warnings.warnsTitle') : 'Smart engine warnings'}
                             </span>
                           </div>
                           <ul className="space-y-1">
@@ -1019,7 +1020,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                   )}
                   <Clock size={17} className="shrink-0 text-v2-deep" strokeWidth={2.4} />
                   <h2 className="whitespace-nowrap text-[16px] font-black">
-                    {isHebrew ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?') : 'What time do you train?'}
+                    {isHebrew ? t('steps.schedule.time.title', { gender: genderArg }) : 'What time do you train?'}
                   </h2>
                 </div>
                 <div className="flex select-none items-center justify-center rounded-v2-card bg-white py-4 shadow-v2-card">
@@ -1039,12 +1040,12 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
         <StickyActionButton
           variant="v2"
           label={isJIT
-            ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
+            ? (savedLanguage === 'he' ? t('steps.schedule.cta.save') : 'Save Changes')
             : isLastStep
-              ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
-              : (savedLanguage === 'he' ? t('המשך', 'המשיכי') : locale.common.continue)}
+              ? (savedLanguage === 'he' ? t('steps.schedule.cta.start') : "Let's Go!")
+              : (savedLanguage === 'he' ? t('steps.schedule.cta.continue', { gender: genderArg }) : locale.common.continue)}
           successLabel={isJIT
-            ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!')
+            ? (savedLanguage === 'he' ? t('steps.schedule.cta.saved') : 'Schedule Updated!')
             : undefined}
           disabled={!canContinue}
           onPress={handleContinue}
@@ -1078,11 +1079,11 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             <Calendar size={20} className="text-[#5BC2F2]" />
           </div>
           <h2 className="text-xl font-black text-slate-900">
-            {isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'מתי נתאמן?' : 'When do we train?'}
           </h2>
         </div>
         <p className="text-sm text-slate-500 mr-[52px]">
-          {isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
+          {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'נתאים את התוכנית לזמינות שלך' : "We'll adapt to your availability"}
         </p>
       </motion.div>
 
@@ -1101,7 +1102,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             >
               <div className="flex items-center gap-2">
                 <Lightbulb size={16} className="text-amber-600" />
-                <span className="text-sm font-bold">{isHebrew ? 'המלצה שלנו' : 'Our Recommendation'}</span>
+                <span className="text-sm font-bold">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'המלצה שלנו' : 'Our Recommendation'}</span>
               </div>
               <motion.div
                 animate={{ rotate: showRecommendation ? 180 : 0 }}
@@ -1124,16 +1125,16 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                     {showRecommendationA && (
                       <p className="font-medium font-simpler">
                         {isHebrew 
-                          ? 'היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.'
+                          ? 'היי, שמנו לב שלא התאמנת הרבה זמן. אנחנו ממליצים להתחיל מ-1-2 פעמים בשבוע כדי לבנות בסיס חזק.' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                           : "Hey, we noticed you haven't trained in a while. We recommend starting with 1-2 times a week to build a strong foundation."
                         }
                       </p>
                     )}
                     {showRecommendationB && (
                       <p className="font-medium font-simpler">
-                        {t(
-                          'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!',
-                          'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!'
+                        {g(
+                          'שים לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאג, אנחנו נעזור לך!', // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                          'שימי לב, ראינו שיש לך רקע קודם. אנחנו ממליצים לשלב לפחות 2 אימונים בשבוע. אל תדאגי, אנחנו נעזור לך!' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                         )}
                       </p>
                     )}
@@ -1154,7 +1155,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
         {/* Q1: Frequency */}
         <div className="space-y-2">
           <h4 className="text-sm font-bold text-slate-800">
-            {t('איך נראתה שגרת האימונים שלך בחודש האחרון?', 'איך נראתה שגרת האימונים שלך בחודש האחרון?')}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{g('איך נראתה שגרת האימונים שלך בחודש האחרון?', 'איך נראתה שגרת האימונים שלך בחודש האחרון?')}
           </h4>
           <div className="space-y-1.5">
             {FREQ_OPTIONS.map((opt) => {
@@ -1196,7 +1197,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
               <div className="h-px bg-slate-100" />
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-800">
-                  {t('איפה התאמנת בדרך כלל?', 'איפה התאמנת בדרך כלל?')}
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{g('איפה התאמנת בדרך כלל?', 'איפה התאמנת בדרך כלל?')}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {LOC_OPTIONS.map((opt) => {
@@ -1221,7 +1222,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
 
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-slate-800">
-                  {isHebrew ? 'באילו ענפי ספורט?' : 'Which sports?'}
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'באילו ענפי ספורט?' : 'Which sports?'}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {SPORT_OPTIONS.map((opt) => {
@@ -1270,7 +1271,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             </div>
           )}
           <h3 className="text-base font-bold text-slate-900">
-            {isHebrew ? 'כמה פעמים בשבוע?' : 'How many times a week?'}
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'כמה פעמים בשבוע?' : 'How many times a week?'}
           </h3>
         </div>
         
@@ -1319,7 +1320,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
               </div>
             )}
             <h3 className="text-base font-bold text-slate-900">
-              {isHebrew ? 'באילו ימים?' : 'Which days?'}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'באילו ימים?' : 'Which days?'}
             </h3>
           </div>
           
@@ -1337,7 +1338,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
             }`}
           >
             <RefreshCw size={10} strokeWidth={1.5} className={calendarSyncEnabled ? 'text-[#5BC2F2]' : 'text-slate-400'} />
-            <span className="text-[11px] font-medium">{isHebrew ? 'סנכרון ליומן' : 'Sync'}</span>
+            <span className="text-[11px] font-medium">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}{isHebrew ? 'סנכרון ליומן' : 'Sync'}</span>
             {/* Subtle check mark indicator */}
             <div className={`w-3 h-3 rounded-full flex items-center justify-center transition-all ${
               calendarSyncEnabled 
@@ -1353,7 +1354,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
           selectedDays.length === frequency ? 'text-green-600' : 'text-orange-500'
         }`}>
           {isHebrew
-            ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים`
+            ? `נבחרו ${selectedDays.length} מתוך ${frequency} ימים` // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
             : `${selectedDays.length} of ${frequency} days selected`}
         </p>
 
@@ -1411,7 +1412,7 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
                 <Clock size={16} className="text-[#5BC2F2]" />
                 <h3 className="text-base font-bold text-slate-900">
                   {isHebrew
-                    ? t('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?')
+                    ? g('באיזו שעה אתה מתאמן?', 'באיזו שעה את מתאמנת?') // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                     : 'What time do you train?'
                   }
                 </h3>
@@ -1435,12 +1436,12 @@ export default function ScheduleStep({ onNext, isJIT, isLastStep }: ScheduleStep
       <StickyActionButton
         variant="premium"
         label={isJIT
-          ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes')
+          ? (savedLanguage === 'he' ? 'שמירת שינויים' : 'Save Changes') // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           : isLastStep
-            ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!")
-            : (savedLanguage === 'he' ? t('המשך', 'המשיכי') : locale.common.continue)}
+            ? (savedLanguage === 'he' ? 'בואו נתחיל!' : "Let's Go!") // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+            : (savedLanguage === 'he' ? g('המשך', 'המשיכי') : locale.common.continue) /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
         successLabel={isJIT
-          ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!')
+          ? (savedLanguage === 'he' ? 'הלו״ז עודכן!' : 'Schedule Updated!') // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
           : undefined}
         disabled={!canContinue}
         onPress={handleContinue}

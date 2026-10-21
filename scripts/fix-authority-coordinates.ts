@@ -17,12 +17,12 @@
  * ─────────────────────────────────────────────────────────────────────────
  *
  * Run:
- *   node --env-file=.env.local ./node_modules/.bin/tsx src/scripts/fix-authority-coordinates.ts
+ *   node --env-file=.env.local ./node_modules/.bin/tsx scripts/fix-authority-coordinates.ts
  */
 
 import * as https from 'https';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db } from '@/lib/firebase';
 
 // ── Firebase project ──────────────────────────────────────────
 const PROJECT_ID = 'appout-1';

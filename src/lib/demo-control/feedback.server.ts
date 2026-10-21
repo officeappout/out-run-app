@@ -4,7 +4,8 @@ import 'server-only';
  * routes check that). demo_registry and qa_findings are closed to every client by
  * firestore.rules, so this file is the tab's only path to them. Bounded:
  *   - page: per source ONE query (orderBy createdAt desc, limit SCAN_LIMIT) + ONE personas doc get
- *   - status: one update on the item's own doc (doc must exist)
+ *   - status: one update on the item's own doc (doc must exist); a tester finding's update runs in
+ *     a transaction with demo_registry/owner_rules (the dismissal list the testers learn from)
  *   - screenshot: one doc get + a 10-minute signed READ url for its qa/… path
  *     (a finding by id, or a "ציוני עיצוב" screen by its key in demo_registry/qa_summary.design)
  */
@@ -13,6 +14,7 @@ import { FieldValue, Timestamp, type Firestore, type Query } from 'firebase-admi
 import { getStorage } from 'firebase-admin/storage';
 import { DEMO_LIFE_DOC, DEMO_LIFE_FEEDBACK, DEMO_PERSONAS_DOC, DEMO_QA_SUMMARY_DOC, DEMO_REGISTRY, QA_FINDINGS } from './paths';
 import { parseQaDesign } from './qa-summary';
+import { OWNER_RULES_DOC, applyTriageToDismissals, dismissalFromFinding, parseOwnerRulesDoc } from './owner-rules-model';
 import { mapLifeFeedback, mapQaFinding, personaNames, type FeedbackSource, type TriageStatus } from './feedback-model';
 import {
   SCAN_LIMIT,
@@ -63,16 +65,46 @@ export async function loadFeedbackPage(db: Firestore, f: FeedbackFilters, cursor
   return buildFeedbackPage(scans, f, cursor);
 }
 
-/** Marks one item. false = no such doc. */
-export async function setFeedbackStatus(db: Firestore, uid: string, source: FeedbackSource, id: string, status: TriageStatus): Promise<boolean> {
+/**
+ * Marks one item. false = no such doc. A tester finding's "לא רלוונטי" (+ optional reason) also
+ * lands in demo_registry/owner_rules.dismissals in the same transaction (the testers learn from
+ * it); any other status removes the finding's dismissal row ("טופל" keeps the rule).
+ */
+export async function setFeedbackStatus(
+  db: Firestore,
+  uid: string,
+  source: FeedbackSource,
+  id: string,
+  status: TriageStatus,
+  reason: string | null = null,
+): Promise<boolean> {
+  const triage = { status, by: uid, at: FieldValue.serverTimestamp(), ...(status === 'irrelevant' && reason ? { reason } : {}) };
+  if (source === 'testers') return setTesterFindingStatus(db, id, triage, status, reason);
   try {
-    await collectionOf(db, source).doc(id).update({ triage: { status, by: uid, at: FieldValue.serverTimestamp() } });
+    await collectionOf(db, source).doc(id).update({ triage });
     return true;
   } catch (err) {
     // NOT_FOUND (gRPC 5) — the doc is gone (purged demo world / old run).
     if ((err as { code?: unknown })?.code === 5) return false;
     throw err;
   }
+}
+
+async function setTesterFindingStatus(db: Firestore, id: string, triage: Record<string, unknown>, status: TriageStatus, reason: string | null): Promise<boolean> {
+  const findingRef = db.collection(QA_FINDINGS).doc(id);
+  const rulesRef = db.collection(DEMO_REGISTRY).doc(OWNER_RULES_DOC);
+  return db.runTransaction(async (tx) => {
+    const [finding, rules] = await Promise.all([tx.get(findingRef), tx.get(rulesRef)]);
+    if (!finding.exists) return false;
+    const current = parseOwnerRulesDoc(rules.data());
+    const row = status === 'irrelevant' ? dismissalFromFinding(id, finding.data(), reason ?? '', Date.now()) : null;
+    const had = current.dismissals.some((d) => d.findingId === id);
+    tx.update(findingRef, { triage });
+    if (row || had) {
+      tx.set(rulesRef, { dismissals: applyTriageToDismissals(current.dismissals, id, row), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+    return true;
+  });
 }
 
 export type ScreenshotResult = { ok: true; url: string } | { ok: false; status: number; error: string };

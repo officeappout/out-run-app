@@ -24,8 +24,8 @@ and the **React/Capacitor mobile app**. Owner: David, Calisthenics Ltd (office@a
 | Domain | File |
 |--------|------|
 | Security + Firestore rules | `SECURITY.md` |
-| Product + feature overview | `PRODUCT_TECHNICAL_REPORT.md` |
-| File/folder map | `PROJECT_STRUCTURE.md` |
+| Product + feature overview | `docs/product/PRODUCT_TECHNICAL_REPORT.md` (May 2026 snapshot) |
+| File/folder map + structure rules | `docs/architecture/STANDARDS.md`, `docs/README.md` (docs index; the January tree `docs/archive/PROJECT_STRUCTURE.md` is historical — do not trust it) |
 | Schedule algorithm | `src/features/schedule/out-run-schedule-logic-v1.3.md` |
 | Workout engine rules | `.cursoragents/Workout_Engine_Truth.md` |
 | XP / Level / Coins rules | `.cursoragents/XP_Progression_Truth.md` |

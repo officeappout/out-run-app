@@ -6,6 +6,9 @@
  */
 import { RULES, type Rule, type RuleArea } from '../checklist';
 import { DIMENSION_RUBRIC, LOW_SCORE, SCORE_DIMENSIONS } from './dimensions';
+import { buildLearningSection, buildOwnerRulesSection } from '../owner/prompt-section';
+import type { OwnerRule } from '../owner/owner-rules';
+import type { Learning } from '../owner/learning';
 
 export const AREA_TITLES: Record<RuleArea, string> = {
   surfaces: 'Surfaces and colour tokens',
@@ -32,6 +35,12 @@ export interface ChecklistOptions {
   /** e.g. "iPhone SE, 375×667" — tells the model what "fits on the screen" means. */
   viewportLabel?: string;
   rules?: readonly Rule[];
+  /** The owner's rules (OWN-*): listed FIRST, they outrank the generic rules. */
+  ownerRules?: readonly OwnerRule[];
+  /** Owner rule ids in scope for this mission (marked ★). */
+  ownerInScope?: ReadonlySet<string>;
+  /** What the testers learned from the owner's "לא רלוונטי" marks. */
+  learning?: Learning;
 }
 
 function ruleLine(r: Rule, focus: ReadonlySet<string>): string {
@@ -63,13 +72,17 @@ export function buildScoringSection(viewportLabel?: string): string {
   ].join('\n');
 }
 
-/** Rules + scoring, ready to paste into the system prompt. */
+/** Owner rules (first) + generic rules + scoring + what was learned, ready to paste into the system prompt. */
 export function buildDesignChecklist(opts: ChecklistOptions = {}): string {
+  const owner = buildOwnerRulesSection(opts.ownerRules ?? [], opts.ownerInScope ?? new Set());
+  const learned = opts.learning ? buildLearningSection(opts.learning) : '';
   return [
+    ...(owner ? [owner, ''] : []),
     '## Design checklist (cite the rule id in report_finding; ★ = this mission\'s focus)',
     'Look at every screen like a product designer reviewing the OUT "v2" design language, not only like a user.',
     buildRuleSections(opts),
     '',
     buildScoringSection(opts.viewportLabel),
+    ...(learned ? ['', learned] : []),
   ].join('\n');
 }

@@ -7,6 +7,8 @@ import type { ConfirmationCardProps, NearbyFacility } from '../location-types';
 import { getIdentityHook, selectSmartBadges, formatDistance, buildPioneerFallback } from '../location-utils';
 import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
 import { resolveParkImage } from '@/lib/park-image';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 
 // v2 renders no emoji — strip pictographs (surrogate-pair emoji, dingbats,
 // VS16/ZWJ joiners) from copy that comes from the shared copy matrix.
@@ -37,6 +39,7 @@ export function ConfirmationCard({
   mode = 'onboarding',
   v2 = false,
 }: ConfirmationCardProps) {
+  const t = useT(onboarding);
   const isExplorer = mode === 'explorer';
   const isBridge = mode === 'bridge';
   // Get user data from sessionStorage
@@ -181,8 +184,12 @@ export function ConfirmationCard({
           {!isUpdatingLocation && userName && (
             <div className="mb-4 pb-4 border-b border-v2-hairline text-right">
               <p className="text-[17px] leading-snug mb-1.5">
-                <span className="font-black text-v2-ink">היי {userName}</span>,{' '}
-                <span className="font-extrabold text-v2-deep">{stripEmoji(identityHook.intro)}</span>
+                {t.rich('location.confirm.greeting', {
+                  name: userName,
+                  intro: stripEmoji(identityHook.intro),
+                  hi: (chunks: React.ReactNode) => <span className="font-black text-v2-ink">{chunks}</span>,
+                  hook: (chunks: React.ReactNode) => <span className="font-extrabold text-v2-deep">{chunks}</span>,
+                })}
               </p>
               <p className="text-[14px] leading-relaxed text-v2-ink-2">
                 {stripEmoji(identityHook.value)}
@@ -193,17 +200,17 @@ export function ConfirmationCard({
           {isUpdatingLocation && (
             <div className="mb-4 flex items-center gap-2">
               <Loader2 size={18} className="animate-spin text-v2-accent" />
-              <span className="text-[14px] font-bold text-v2-ink-2 whitespace-nowrap">מעדכן מיקום...</span>
+              <span className="text-[14px] font-bold text-v2-ink-2 whitespace-nowrap">{t('location.confirm.updating')}</span>
             </div>
           )}
 
           {isExplorer && !isUpdatingLocation && (
             <>
               <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
-                מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
+                {t('location.confirm.explorer.title', { place: detectedNeighborhood || detectedCity || locationText })}
               </h2>
               <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
-                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
+                {t('location.confirm.explorer.body')}
               </p>
             </>
           )}
@@ -211,10 +218,10 @@ export function ConfirmationCard({
           {!isExplorer && !isUpdatingLocation && !userName && (
             <>
               <h2 className="text-[22px] font-black !tracking-[-0.02em] leading-tight text-v2-ink text-right mb-1.5">
-                הגינה הכי קרובה ל{locationText}
+                {t('location.confirm.nearest.title', { place: locationText })}
               </h2>
               <p className="text-[14px] leading-relaxed text-v2-ink-2 text-right mb-3">
-                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
+                {t('location.confirm.nearest.body')}
               </p>
             </>
           )}
@@ -223,12 +230,12 @@ export function ConfirmationCard({
           <div className="mb-2.5 flex items-center justify-between gap-3">
             <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-extrabold text-v2-deep">
               <MapPin size={14} className="flex-shrink-0" />
-              <span className="truncate">גררו את המפה כדי לדייק את המיקום</span>
+              <span className="truncate">{t('location.confirm.dragHint')}</span>
             </p>
             {avgRating != null && (
               <span className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-[12px] font-extrabold text-v2-amber">
                 <Star size={12} className="fill-current" />
-                {avgRating.toFixed(1)} דירוג עירוני
+                {t('location.confirm.cityRating', { rating: avgRating.toFixed(1) })}
               </span>
             )}
           </div>
@@ -249,7 +256,7 @@ export function ConfirmationCard({
               ))}
               {isLoadingData && smartBadges.length === 0 && (
                 <span className="inline-flex h-7 items-center rounded-full bg-v2-tint px-3 text-[12px] font-extrabold text-v2-deep whitespace-nowrap">
-                  טוען נתונים...
+                  {t('location.confirm.loadingData')}
                 </span>
               )}
             </div>
@@ -299,10 +306,7 @@ export function ConfirmationCard({
                     </p>
                   ) : (
                     <p className="mt-1 text-[12.5px] font-bold leading-relaxed text-v2-muted">
-                      {isFemale
-                        ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!'
-                        : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!'
-                      }
+                      {t('location.confirm.pioneerLine', { gender })}
                     </p>
                   )}
                 </div>
@@ -311,7 +315,7 @@ export function ConfirmationCard({
               {pioneer.fallbackAsset && (
                 <div className="mt-3 rounded-2xl bg-v2-surface p-3">
                   <span className="mb-2 inline-flex h-6 items-center rounded-full bg-v2-tint px-2.5 text-[11px] font-extrabold text-v2-deep whitespace-nowrap">
-                    האלטרנטיבה הכי טובה בסביבה
+                    {t('location.confirm.bestAlternative')}
                   </span>
                   <div className="flex items-center gap-3">
                     {renderAvatar(pioneer.fallbackAsset, 'sm')}
@@ -338,7 +342,7 @@ export function ConfirmationCard({
                 : 'w-full h-[52px] rounded-full bg-v2-cta text-[16px] font-extrabold text-v2-on-cta shadow-v2-cta active:scale-[0.97] transition-transform duration-150 ease-v2 whitespace-nowrap px-5'
             }
           >
-            כן, זה הבית שלי!
+            {t('location.confirm.cta')}
           </button>
 
           {/* Secondary action — text link */}
@@ -347,7 +351,7 @@ export function ConfirmationCard({
             onClick={onSearchOther}
             className="mt-1.5 block w-full h-11 truncate whitespace-nowrap text-[13.5px] font-extrabold text-v2-deep active:scale-[0.97] transition-transform duration-150 ease-v2"
           >
-            זה לא אזור המגורים שלי, חפשו אזור אחר
+            {t('location.confirm.searchOther')}
           </button>
         </div>
       </motion.div>
@@ -374,7 +378,7 @@ export function ConfirmationCard({
             >
               {/* Part A: Greeting (Bold Black) + Pain Intro (Brand Blue #38BDF8) */}
               <p className="text-lg leading-relaxed mb-2">
-                <span className="font-bold text-slate-900">היי {userName}</span>,{' '}
+                <span className="font-bold text-slate-900">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}היי {userName}</span>,{' '}
                 <span className="font-semibold" style={{ color: '#38BDF8' }}>
                   {identityHook.intro}
                 </span>
@@ -394,7 +398,7 @@ export function ConfirmationCard({
               style={{ fontFamily: 'var(--font-simpler)' }}
             >
               <Loader2 size={18} className="animate-spin text-[#5BC2F2]" />
-              <span className="text-slate-600">מעדכן מיקום...</span>
+              <span className="text-slate-600">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מעדכן מיקום...</span>
             </div>
           )}
           
@@ -405,13 +409,13 @@ export function ConfirmationCard({
                 className="text-xl font-bold leading-tight text-slate-900 mb-2"
                 style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
               >
-                מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצאנו את הסביבה הקרובה ביותר ל{detectedNeighborhood || detectedCity || locationText}
               </h2>
               <p 
                 className="text-slate-500 text-sm mb-3 leading-relaxed"
                 style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
               >
-                מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. הכל בחינם וללא ציוד.
               </p>
             </>
           )}
@@ -422,7 +426,7 @@ export function ConfirmationCard({
               className="text-xl font-bold leading-tight text-slate-900 mb-2"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
             >
-              הגינה הכי קרובה ל{locationText}
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}הגינה הכי קרובה ל{locationText}
             </h2>
           )}
           
@@ -431,7 +435,7 @@ export function ConfirmationCard({
               className="text-slate-500 text-sm mb-3 leading-relaxed"
               style={{ fontFamily: 'var(--font-simpler)', textAlign: 'right', direction: 'rtl' }}
             >
-              מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}מצוין! כאן יוצגו מסלולי ההליכה, הגינות ומתקני הכושר הקרובים המומלצים ביותר אליכם. ניתן לגרור את המפה לדיוק המיקום.
             </p>
           )}
           
@@ -442,7 +446,7 @@ export function ConfirmationCard({
           >
             <p className="text-slate-700 text-sm font-bold flex items-center gap-1.5">
               <MapPin size={14} className="text-slate-600" />
-              גררו את המפה כדי לדייק את המיקום
+              {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}גררו את המפה כדי לדייק את המיקום
             </p>
             {nearbyFacilities.length > 0 && (() => {
               const rated = nearbyFacilities.filter(f => f.rating != null && typeof f.rating === 'number' && f.rating > 0);
@@ -450,7 +454,7 @@ export function ConfirmationCard({
               const avgRating = rated.reduce((sum, f) => sum + (f.rating ?? 0), 0) / rated.length;
               return (
                 <span className="text-[10px] text-amber-500 font-bold whitespace-nowrap">
-                  ⭐ {avgRating.toFixed(1)} דירוג עירוני
+                  {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}⭐ {avgRating.toFixed(1)} דירוג עירוני
                 </span>
               );
             })()}
@@ -471,7 +475,7 @@ export function ConfirmationCard({
             ))}
             {(isLoadingParks || isLoadingCurated) && smartBadges.length === 0 && (
               <div className="bg-[#5BC2F2]/10 text-[#5BC2F2] px-2.5 py-1 rounded-lg text-[11px] font-bold inline-block">
-                טוען נתונים...
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טוען נתונים...
               </div>
             )}
           </div>
@@ -603,7 +607,7 @@ export function ConfirmationCard({
                   <div className="bg-white/80 rounded-xl p-3 border border-amber-100/80">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
-                        האלטרנטיבה הכי טובה בסביבה
+                        {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}האלטרנטיבה הכי טובה בסביבה
                       </span>
                     </div>
                     {pioneer.fallbackAsset.kind === 'park' ? (() => {
@@ -680,8 +684,8 @@ export function ConfirmationCard({
                   style={{ fontFamily: 'var(--font-simpler)', paddingRight: '52px' }}
                 >
                   {isFemale 
-                    ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!'
-                    : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!'
+                    ? 'את הולכת להיות החלוצה הראשונה שתמפה את השכונה!' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
+                    : 'אתה הולך להיות החלוץ הראשון שימפה את השכונה!' // i18n-allow-hebrew: legacy v1 (enable_home_v2 on)
                   }
                 </p>
               )}
@@ -697,7 +701,7 @@ export function ConfirmationCard({
             className="w-full bg-brand-cta hover:brightness-105 text-on-brand font-bold py-4 rounded-2xl shadow-xl shadow-[#5BC2F2]/30 transition-all active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            כן, זה הבית שלי!
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}כן, זה הבית שלי!
           </motion.button>
 
           {/* Secondary Action */}
@@ -706,7 +710,7 @@ export function ConfirmationCard({
             className="w-full mt-3 text-[#5BC2F2] hover:text-[#4AADE3] text-sm py-2 transition-colors underline underline-offset-2 font-bold"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            זה לא אזור המגורים שלי, חפשו אזור אחר
+            {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}זה לא אזור המגורים שלי, חפשו אזור אחר
           </button>
         </div>
       </div>
