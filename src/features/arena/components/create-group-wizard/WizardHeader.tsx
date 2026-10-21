@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Check, X } from 'lucide-react';
 import { STEPS } from './wizard-constants';
-import { t } from './wizard-logic';
 import type { WizardSuccessInfo } from './wizard-types';
 
 /** Drag handle, title, close button and the step progress dots. */
@@ -24,6 +25,9 @@ export function WizardHeader({
   outreachMode: 'outreach' | null;
   handleClose: () => void;
 }) {
+  const t = useT(community);
+  // The old helper gave the female form only for 'female' — `other` repeats the male text.
+  const gender = myGender ?? 'other';
   return (
     <div className="flex-shrink-0 px-5 pt-4 pb-3" dir="rtl">
       {/* Drag handle */}
@@ -32,14 +36,14 @@ export function WizardHeader({
       <div className="flex items-center justify-between mb-4">
         <h2 className={v2 ? 'text-[22px] font-black !tracking-[-0.02em] text-v2-ink' : 'text-lg font-black text-gray-900'}>
           {successInfo
-            ? (v2 ? 'הקהילה שלך באוויר!' : 'הקהילה שלך באוויר! 🚀')
+            ? (v2 ? t('createGroup.header.success') : 'הקהילה שלך באוויר! 🚀' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */)
             : isEditMode
-              ? t('ערוך קהילה', 'ערכי קהילה', myGender)
-              : t('צור קהילה חדשה', 'צורי קהילה חדשה', myGender)}
+              ? t('createGroup.header.edit', { gender })
+              : t('createGroup.header.create', { gender })}
         </h2>
         <button
           onClick={handleClose}
-          aria-label="סגירה"
+          aria-label={t('createGroup.header.close')}
           className={v2 ? 'grid h-9 w-9 place-items-center rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center active:scale-90 transition-transform'}
         >
           <X className={v2 ? 'h-4 w-4 text-v2-ink' : 'w-4 h-4 text-gray-500'} />
@@ -76,7 +80,7 @@ export function WizardHeader({
             ))}
           </div>
           <p className={v2 ? 'mt-1.5 whitespace-nowrap text-center text-[12px] font-bold text-v2-muted' : 'text-[11px] text-gray-500 font-semibold mt-1.5 text-center'}>
-            {outreachMode ? 'פנייה לארגון' : STEPS[step]}
+            {outreachMode ? t('createGroup.header.outreachStep') : STEPS[step] ? t(STEPS[step]) : undefined}
           </p>
         </>
       )}

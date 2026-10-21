@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { Check, ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react';
 import { ALWAYS_PRIVATE_TYPES } from './wizard-constants';
-import { t } from './wizard-logic';
 import type { WizardForm } from './wizard-types';
 
 /** Back / next / create buttons + the "pick a location" hint. */
@@ -32,6 +33,9 @@ export function WizardFooter({
   handleNext: () => void;
   handleCreate: () => void;
 }) {
+  const t = useT(community);
+  // The old helper gave the female form only for 'female' — `other` repeats the male text.
+  const gender = myGender ?? 'other';
   return (
     <div
       className={`flex-shrink-0 px-5 pt-4 pb-4 border-t ${v2 ? 'border-v2-hairline' : 'border-gray-100'}`}
@@ -41,7 +45,7 @@ export function WizardFooter({
         {/* Back */}
         <button
           onClick={handleBack}
-          aria-label="חזרה"
+          aria-label={t('createGroup.footer.back')}
           className={v2 ? 'grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-white shadow-v2-ring transition-transform active:scale-90' : 'w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center active:scale-90 transition-transform flex-shrink-0'}
         >
           <ChevronRight className={v2 ? 'h-5 w-5 text-v2-ink' : 'w-5 h-5 text-gray-600'} />
@@ -57,7 +61,7 @@ export function WizardFooter({
                 : 'flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed'
             }
           >
-            {outreachMode ? 'המשך ליצירה' : 'המשך'}
+            {outreachMode ? t('createGroup.footer.nextOutreach') : t('createGroup.footer.next')}
             <ChevronLeft className="w-4 h-4" />
           </button>
         ) : (
@@ -76,8 +80,8 @@ export function WizardFooter({
               <>
                 <Check className="w-4 h-4" />
                 {isEditMode
-                  ? t('שמור שינויים', 'שמרי שינויים', myGender)
-                  : t('צור קהילה', 'צורי קהילה', myGender)}
+                  ? t('createGroup.footer.save', { gender })
+                  : t('createGroup.footer.create', { gender })}
               </>
             )}
           </button>
@@ -88,7 +92,7 @@ export function WizardFooter({
       {step === 3 && form.hasMeetups === true && !form.locationSelected && !ALWAYS_PRIVATE_TYPES.has(form.groupType) && (
         <p className={v2 ? 'mt-2.5 flex items-center justify-center gap-1 whitespace-nowrap text-[12px] font-bold text-[#b45309]' : 'text-[11px] text-center text-amber-500 font-semibold mt-2.5 flex items-center justify-center gap-1'}>
           <MapPin className="w-3 h-3" />
-          יש לבחור מיקום כדי להמשיך
+          {t('createGroup.footer.locationHint')}
         </p>
       )}
     </div>

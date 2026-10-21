@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Park } from '@/features/parks/core/types/park.types';
+import { makeT } from '@/lib/i18n/t';
+import { community } from '@/messages/ns/community';
 import { BLANK_FORM } from '../wizard-constants';
 import {
   canAdvanceStep,
@@ -89,16 +91,17 @@ describe('resolveSubmitMeetingFields', () => {
   });
 });
 
-describe('invite + summary helpers', () => {
+describe('invite + summary helpers (text through the community catalog)', () => {
+  const tr = makeT('he', community);
   it('builds the join link and share text', () => {
     const link = inviteLink('https://app.example', 'AB12');
     expect(link).toBe('https://app.example/join/AB12');
-    expect(inviteShareText('רצים', 'AB12', link)).toBe(
+    expect(inviteShareText(tr, 'רצים', 'AB12', link)).toBe(
       'היי! הקמתי קהילה חדשה "רצים" — בוא להצטרף! 🏃\nקוד הצטרפות: AB12\nhttps://app.example/join/AB12',
     );
   });
   it('summary location keeps the first two address parts', () => {
-    expect(summaryLocationLabel('רחוב 1, חיפה, ישראל')).toBe('רחוב 1, חיפה');
-    expect(summaryLocationLabel('   ')).toBe('לא נבחר מיקום');
+    expect(summaryLocationLabel(tr, 'רחוב 1, חיפה, ישראל')).toBe('רחוב 1, חיפה');
+    expect(summaryLocationLabel(tr, '   ')).toBe('לא נבחר מיקום');
   });
 });

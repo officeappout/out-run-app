@@ -295,3 +295,6 @@ src/features/user/onboarding/components/ResultLoading.tsx
 src/features/user/onboarding/components/SignaturePad.tsx
 src/features/user/onboarding/components/WelcomeDrawer.tsx
 src/features/user/onboarding/components/persona-questions-drawer/HierarchySearchStep.tsx
+# wave 2 batch u (namespace community, prefix createGroup.*): the create-group wizard steps / chrome / hook.
+# CreateGroupWizard.tsx itself has no Hebrew (and is in open PR #268) — not listed.
+src/features/arena/components/create-group-wizard/

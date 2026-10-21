@@ -3,6 +3,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useT } from '@/hooks/useT';
+import { community, type CommunityKey } from '@/messages/ns/community';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup, updateGroup, getGroupById } from '@/features/arena/services/group.service';
 import { uploadCommunityImage } from '@/features/admin/services/community.service';
@@ -25,13 +27,14 @@ export function useCreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }
   const access = useArenaAccess();
   const isEditMode = !!editGroupId;
   const myGender = profile?.core?.gender;
+  const t = useT(community);
 
   const [step, setStep] = useState(0);
   // outreachMode: shown after StepType for institutional types before StepBasics
   const [outreachMode, setOutreachMode] = useState<'outreach' | null>(null);
   const [outreachSent, setOutreachSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<CommunityKey | null>(null);
   const [successInfo, setSuccessInfo] = useState<WizardSuccessInfo | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(false);
@@ -244,7 +247,7 @@ export function useCreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }
       }
     } catch (err) {
       console.error('[CreateGroupWizard] submit failed:', err);
-      setSubmitError(isEditMode ? 'שמירת השינויים נכשלה. נסה שוב.' : 'יצירת הקבוצה נכשלה. נסה שוב.');
+      setSubmitError(isEditMode ? 'createGroup.error.save' : 'createGroup.error.create');
     } finally {
       setSubmitting(false);
     }
@@ -283,7 +286,7 @@ export function useCreateGroupWizard({ isOpen, onClose, onSuccess, editGroupId }
       ? window.location.origin
       : APP_ORIGIN;
     const link = inviteLink(origin, successInfo.inviteCode);
-    const text = inviteShareText(successInfo.name, successInfo.inviteCode, link);
+    const text = inviteShareText(t, successInfo.name, successInfo.inviteCode, link);
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: successInfo.name, text, url: link }).catch(() => {});
     } else {
