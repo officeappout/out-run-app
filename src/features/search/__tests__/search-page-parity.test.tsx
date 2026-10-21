@@ -1,7 +1,10 @@
 /**
  * Flag-off parity for /search: with enable_unified_search off the page renders today's search
- * (moved verbatim — the file hash below is origin/main's src/app/search/page.tsx before the
- * move), and the unified screen only with the flag on.
+ * (moved verbatim from src/app/search/page.tsx, hash 3cafa478…), and the unified screen only
+ * with the flag on. The i18n extraction (library namespace) then changed the file's source but
+ * not its Hebrew output — that is pinned by legacy-search-i18n-parity.test.tsx (snapshots taken
+ * before the extraction) — so the hash below now pins the post-extraction file: any further
+ * edit to the legacy page still has to be deliberate.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
@@ -29,8 +32,8 @@ describe('/search shell', () => {
     expect(html).toContain('unified-search');
     expect(html).not.toContain('legacy-search');
   });
-  it('the legacy page is byte-identical to the pre-move /search page', () => {
+  it('the legacy page is unchanged since the i18n extraction (Hebrew output: legacy-search-i18n-parity)', () => {
     const file = readFileSync(path.resolve(__dirname, '../legacy/LegacySearchPage.tsx'));
-    expect(createHash('sha256').update(file).digest('hex')).toBe('3cafa4787c9ed90b4c6e83e07286953dc4274724c04899e0bf75fdd23ed3b250');
+    expect(createHash('sha256').update(file).digest('hex')).toBe('946496ffac456e3c08b848a7a0a9583d5c9871b606a2a19edaf5a44df6a2819d');
   });
 });

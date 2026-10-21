@@ -14,6 +14,8 @@ import type { Exercise } from '@/features/content/exercises/core/exercise.types'
 import type { ArticleBlock, ArticleItem } from '@/lib/content-items/types';
 import ArticleCover from './cards/ArticleCover';
 import { ArticleMeta } from './cards/ArticleCard';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 function ExercisesBlock({ ids }: { ids: string[] }) {
   const [list, setList] = useState<Exercise[]>([]);
@@ -63,6 +65,7 @@ function Block({ b }: { b: ArticleBlock }) {
 }
 
 export default function ArticleReader({ article, onClose }: { article: ArticleItem; onClose: () => void }) {
+  const t = useT(library);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -71,10 +74,10 @@ export default function ArticleReader({ article, onClose }: { article: ArticleIt
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="article-title" dir="rtl" className="fixed inset-0 z-[56] flex flex-col bg-[#f8fafc]" style={{ colorScheme: 'light' }}>
       <div className="flex items-center gap-3 bg-white/90 px-4 pb-2.5 backdrop-blur" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}>
-        <button type="button" onClick={onClose} aria-label="חזרה לחיפוש" className="grid h-10 w-10 place-items-center rounded-full bg-[#f1f5f9] active:scale-95">
+        <button type="button" onClick={onClose} aria-label={t('search.article.back')} className="grid h-10 w-10 place-items-center rounded-full bg-[#f1f5f9] active:scale-95">
           <ArrowRight size={20} className="text-[#374151]" aria-hidden />
         </button>
-        <span className="truncate text-[14px] font-bold text-[#6b7280]">מאמר</span>
+        <span className="truncate text-[14px] font-bold text-[#6b7280]">{t('search.article.eyebrow')}</span>
       </div>
       <article className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+28px)] pt-3">
         <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[20px]"><ArticleCover cover={article.cover} big /></div>

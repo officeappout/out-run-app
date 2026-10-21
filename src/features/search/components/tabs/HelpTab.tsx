@@ -14,10 +14,13 @@ import QaRow from '../cards/QaRow';
 import SectionHead from '../SectionHead';
 import { RowSkeleton } from '../Skeletons';
 import { rankQa, type ContentCorpus } from '../../providers/content';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const CHAPTER_DOT = ['#ccfbf1', '#e0f2fe', '#fef9c3', '#c7f3ee', '#f1f5f9', '#ede9fe'];
 
 export default function HelpTab({ query, corpus }: { query: string; corpus: ContentCorpus | null }) {
+  const t = useT(library);
   const router = useRouter();
   const show = (c: HelpChapter) => {
     if (c.tour) router.push(requestTourReplay(c.tour.id, c.tour.step));
@@ -36,12 +39,12 @@ export default function HelpTab({ query, corpus }: { query: string; corpus: Cont
               <PlayCircle size={20} className="text-[#04222b]" />
             </span>
             <span className="flex flex-col">
-              <span className="text-[15px] font-bold text-[#171717]">סיור קצר באפליקציה</span>
-              <span className="text-[12px] text-[#6b7280]">2 דקות, אפשר לעצור בכל שלב</span>
+              <span className="text-[15px] font-bold text-[#171717]">{t('search.help.tour.title')}</span>
+              <span className="text-[12px] text-[#6b7280]">{t('search.help.tour.sub')}</span>
             </span>
           </BrandCard>
           <section aria-labelledby="help-chapters" className="flex flex-col gap-2">
-            <SectionHead id="help-chapters" tone="ink" title="איך משתמשים" />
+            <SectionHead id="help-chapters" tone="ink" title={t('search.help.chapters')} />
             <div className="grid grid-cols-2 gap-2">
               {HELP_CHAPTERS.map((c, i) => (
                 <button key={c.id} type="button" onClick={() => show(c)} disabled={!c.tour && !c.href} className="flex items-center gap-2 rounded-2xl bg-white p-2.5 text-start text-[13px] font-bold text-[#171717] shadow-[0_0_0_1px_rgba(14,27,42,0.06)] active:scale-[0.98] disabled:opacity-70">
@@ -56,19 +59,19 @@ export default function HelpTab({ query, corpus }: { query: string; corpus: Cont
       {faq.length > 0 && (
         <section aria-labelledby="help-faq" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
-            <h2 id="help-faq" className="m-0 text-[15px] font-bold text-[#171717]">שאלות נפוצות</h2>
-            <span className="text-[12px] text-[#6b7280]">אותן שאלות כמו באתר</span>
+            <h2 id="help-faq" className="m-0 text-[15px] font-bold text-[#171717]">{t('search.help.faq.title')}</h2>
+            <span className="text-[12px] text-[#6b7280]">{t('search.help.faq.sub')}</span>
           </div>
           {faq.map((f) => <QaRow key={f.key} q={f.q} a={f.a} query={query} />)}
         </section>
       )}
       {help.length > 0 && (
         <section aria-labelledby="help-answers" className="flex flex-col gap-2">
-          <h2 id="help-answers" className="m-0 text-[15px] font-bold text-[#171717]">תשובות על האפליקציה</h2>
+          <h2 id="help-answers" className="m-0 text-[15px] font-bold text-[#171717]">{t('search.help.answers')}</h2>
           {help.map((h) => <QaRow key={h.key} q={h.q} a={h.a} query={query} />)}
         </section>
       )}
-      {query && !faq.length && !help.length && <p className="py-8 text-center text-[14px] text-[#6b7280]">לא נמצאו תשובות</p>}
+      {query && !faq.length && !help.length && <p className="py-8 text-center text-[14px] text-[#6b7280]">{t('search.help.none')}</p>}
     </div>
   );
 }

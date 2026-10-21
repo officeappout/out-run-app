@@ -1,7 +1,9 @@
 'use client';
 
 import { BRAND_GRADIENT } from '@/components/ui/v2';
-import { CATEGORY_LABEL, SEARCH_CATEGORIES, type SearchCategory } from '../core/types';
+import { SEARCH_CATEGORIES, type SearchCategory } from '../core/types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface Props {
   value: SearchCategory;
@@ -12,10 +14,11 @@ interface Props {
 
 /** הכל · תרגילים · גינות · מסלולים · אנשים וקבוצות · אירועים · מאמרים · עזרה */
 export default function CategoryChips({ value, onChange, counts }: Props) {
+  const t = useT(library);
   return (
     <div
       role="tablist"
-      aria-label="סוג תוצאה"
+      aria-label={t('search.chips.label')}
       className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {SEARCH_CATEGORIES.map((c) => {
@@ -31,7 +34,7 @@ export default function CategoryChips({ value, onChange, counts }: Props) {
             className="h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[14px] font-bold transition-transform duration-150 ease-v2 active:scale-[0.97]"
             style={on ? { background: BRAND_GRADIENT, color: '#04222b' } : { background: '#ffffff', color: '#4b5563', border: '1px solid #e5e7eb' }}
           >
-            {CATEGORY_LABEL[c]}
+            {t(`search.category.${c}`)}
             {counts && typeof n === 'number' && (c === 'all' || n > 0) ? <span className="tabular-nums"> · {n}</span> : null}
           </button>
         );

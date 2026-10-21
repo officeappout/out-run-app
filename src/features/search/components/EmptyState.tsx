@@ -8,6 +8,8 @@ import AskKellyRow from './AskKellyRow';
 import ArticleCard from './cards/ArticleCard';
 import type { Situation, SituationIcon } from '../core/situations';
 import type { ArticleItem } from '@/lib/content-items/types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const ICON: Record<SituationIcon, { Icon: typeof MapPin; bg: string; fg: string }> = {
   park: { Icon: MapPin, bg: '#ccfbf1', fg: '#04222b' },
@@ -30,11 +32,12 @@ interface Props {
 }
 
 export default function EmptyState({ recents, onRecent, onClearRecents, situations, onSituation, articles, onArticle, onAllArticles }: Props) {
+  const t = useT(library);
   return (
     <div className="flex flex-col gap-[18px]">
       {recents.length > 0 && (
         <section aria-labelledby="se-recents" className="flex flex-col gap-2">
-          <SectionHead id="se-recents" tone="ink" title="חיפושים אחרונים" action="ניקוי" onAction={onClearRecents} />
+          <SectionHead id="se-recents" tone="ink" title={t('search.empty.recents')} action={t('search.empty.clearRecents')} onAction={onClearRecents} />
           <div className="flex flex-wrap gap-1.5">
             {recents.map((r) => (
               <button
@@ -52,7 +55,7 @@ export default function EmptyState({ recents, onRecent, onClearRecents, situatio
 
       {situations.length > 0 && (
         <section aria-labelledby="se-situations" className="flex flex-col gap-2">
-          <SectionHead id="se-situations" tone="ink" title="אולי זה מה שחיפשת" />
+          <SectionHead id="se-situations" tone="ink" title={t('search.empty.situations')} />
           <div className="grid grid-cols-2 gap-2">
             {situations.map((s) => {
               const { Icon, bg, fg } = ICON[s.icon];
@@ -61,8 +64,8 @@ export default function EmptyState({ recents, onRecent, onClearRecents, situatio
                   <span className="grid h-8 w-8 place-items-center rounded-[10px]" style={{ background: bg }} aria-hidden>
                     <Icon size={16} strokeWidth={2.2} style={{ color: fg }} />
                   </span>
-                  <span className="text-[14px] font-bold text-[#171717]">{s.title}</span>
-                  <span className="text-[12px] text-[#6b7280]">{s.sub}</span>
+                  <span className="text-[14px] font-bold text-[#171717]">{t(`search.situation.${s.id}.title`)}</span>
+                  <span className="text-[12px] text-[#6b7280]">{t(`search.situation.${s.id}.sub`, { n: s.n ?? 0 })}</span>
                 </BrandCard>
               );
             })}
@@ -72,7 +75,7 @@ export default function EmptyState({ recents, onRecent, onClearRecents, situatio
 
       {articles.length > 0 && (
         <section aria-labelledby="se-articles" className="flex flex-col gap-2">
-          <SectionHead id="se-articles" tone="ink" title="מאמרים מומלצים" action="לכל המאמרים" onAction={onAllArticles} />
+          <SectionHead id="se-articles" tone="ink" title={t('search.empty.articles')} action={t('search.empty.allArticles')} onAction={onAllArticles} />
           <div className="flex gap-2.5">
             {articles.slice(0, 2).map((a) => <ArticleCard key={a.id} article={a} variant="tile" onOpen={() => onArticle(a)} />)}
           </div>

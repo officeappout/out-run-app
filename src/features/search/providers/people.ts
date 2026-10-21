@@ -11,7 +11,7 @@ export function peopleToHits(list: readonly UserSearchResult[], query: string): 
     kind: 'person' as const,
     key: `person:${p.uid}`,
     title: p.name,
-    subtitle: p.currentLevel ? `רמה ${p.currentLevel}` : undefined,
+    subtitle: p.currentLevel ? `רמה ${p.currentLevel}` : undefined, // i18n-allow-hebrew: a person hit's subtitle is not rendered (PersonCard shows search.person.level)
     // the service already returns prefix matches in its own order; keep it, never 0
     score: Math.max(scoreText(p.name, query), 30) - i * 0.01,
     person: p,
