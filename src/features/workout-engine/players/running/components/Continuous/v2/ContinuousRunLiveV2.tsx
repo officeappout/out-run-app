@@ -20,7 +20,7 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell } from '../../../../shared/v2';
+import { HeaderProgressBar, MiniPlayer, PlayerHeaderCard, PlayerShell, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
@@ -71,6 +71,8 @@ export default function ContinuousRunLiveV2({
 
   const { currentBlock: block, currentBlockIndex: idx, blockProgress, blockTimeRemaining, blockDistanceRemaining } = engine;
   const [listOpen, setListOpen] = useState(false);
+  // Map camera keeps the runner's marker between the header and the card.
+  const chrome = usePublishedPlayerChrome({ topGapPx: 8, bottomGapPx: 12 });
 
   const zone = useMemo(
     () => continuousZone(block, engine.basePace, engine.zones, engine.showNumbers),
@@ -152,7 +154,7 @@ export default function ContinuousRunLiveV2({
     >
       {({ startDrag }) => (
         <>
-          <div className="absolute inset-x-3" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
+          <div ref={chrome.headerRef} className="absolute inset-x-3" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}>
             <PlayerHeaderCard
               onPointerDown={startDrag}
               leading={<CartProgressIcon items={cartItems} onClick={() => setListOpen(true)} size={48} />}
@@ -195,7 +197,7 @@ export default function ContinuousRunLiveV2({
             )}
           </AnimatePresence>
 
-          <div className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+          <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
             <ContinuousRunCardV2
               data={{
                 heroKind: kind,

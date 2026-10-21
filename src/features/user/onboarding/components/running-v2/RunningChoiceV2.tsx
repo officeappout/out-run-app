@@ -30,6 +30,7 @@ import {
   type RunningGoalVisual,
 } from '../../constants/running-goal-visuals';
 import { MediaHeroImage } from '@/components/ui/v2/MediaHeroFade';
+import { GOAL_HERO_HEIGHT } from '../../utils/fit-screen';
 
 type Answer = DynamicQuestionNode['answers'][number];
 
@@ -189,7 +190,8 @@ export function RunningGoalPickerV2({
   return (
     <div className="flex w-full flex-1 flex-col font-simpler text-v2-ink" dir="rtl">
       {/* Hero — crossfades to the picked goal */}
-      <div className="relative mb-4 h-[clamp(140px,24vh,230px)] shrink-0 overflow-hidden rounded-v2-card bg-v2-tint shadow-v2-card">
+      {/* Height yields on short phones so the first question fits one screen (fit-screen.ts). */}
+      <div className="relative mb-4 shrink-0 overflow-hidden rounded-v2-card bg-v2-tint shadow-v2-card" style={{ height: GOAL_HERO_HEIGHT }}>
         {answers.map((a, i) => {
           const on = i === activeIdx;
           return (

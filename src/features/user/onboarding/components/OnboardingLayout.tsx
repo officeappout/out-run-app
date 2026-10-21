@@ -13,6 +13,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
 import { isTopPaddingExemptRoute } from '@/lib/top-padding-exempt-routes';
 import { useOnboardingV2 } from '../hooks/useOnboardingV2';
+import { stepScrollOverscroll } from '../utils/fit-screen';
 
 interface OnboardingLayoutProps {
   /** 'stepper' = deprecated roadmap header; 'progress' = all current screens */
@@ -472,7 +473,7 @@ export default function OnboardingLayout({
         {renderUnifiedHeader(true)}
 
         <main
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4"
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${stepScrollOverscroll(v2)} px-4 py-4`}
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl p-4 md:p-6">
@@ -523,7 +524,7 @@ export default function OnboardingLayout({
         {/* v2: <main> already reserves the bottom inset on every non-map
             route, so the scroll area doesn't add it a second time. */}
         <div
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col"
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${stepScrollOverscroll(v2)} flex flex-col`}
           style={v2 && mainPadsBottom ? undefined : { paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           {children}
@@ -543,7 +544,7 @@ export default function OnboardingLayout({
       {renderUnifiedHeader(true)}
 
       <main
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 max-w-md mx-auto w-full"
+        className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${stepScrollOverscroll(v2)} px-4 py-4 max-w-md mx-auto w-full`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {children}

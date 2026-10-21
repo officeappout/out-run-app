@@ -65,7 +65,7 @@ export default function ProgramPathSkillsStepV2(p: ProgramPathSkillsStepV2Props)
       }}
     >
       <div
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain px-4"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-none px-4"
         style={{ paddingTop: `calc(${SAFE_TOP} + 10px)` }}
       >
         {/* Back + story bar */}

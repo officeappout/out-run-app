@@ -400,7 +400,7 @@ export default function ProgramPathV2View(p: ProgramPathV2ViewProps) {
       {/* Everything above the CTA. Fits without scrolling on 667–932px
           phones (the hero absorbs the slack); scrolls only as a fallback
           (very short screens, keyboard open). */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-none">
         <Hero
           images={p.images}
           activeGoal={activeGoal}
