@@ -22,6 +22,29 @@ import type { RunSegmentFilter } from '@/features/arena/services/ranking.service
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { CardTile } from '@/components/ui/v2/Card';
 import Button from '@/components/ui/v2/Button';
+import { useUiGender } from '@/hooks/useUiGender';
+import { pickGendered, type GenderedText } from '@/lib/i18n/gender-copy';
+
+/** Gender batch 2 (21.10.2026): these were masculine for everyone. other = neutral. */
+export const LEAGUE_COPY = {
+  stepTrain: { male: 'אמן כאן את האימון הראשון', female: 'אמני כאן את האימון הראשון', other: 'אימון ראשון כאן' },
+  stepInvite: { male: 'הזמן שותף לליגה', female: 'הזמיני שותף לליגה', other: 'מזמינים שותף לליגה' },
+  stepPodium: {
+    male: 'פתח את הליגה ותפוס את הפודיום',
+    female: 'פתחי את הליגה ותפסי את הפודיום',
+    other: 'פותחים את הליגה ותופסים את הפודיום',
+  },
+  lockedInvite: {
+    male: 'הזמן שותף אחד כדי לפתוח את הטבלה המלאה',
+    female: 'הזמיני שותף אחד כדי לפתוח את הטבלה המלאה',
+    other: 'עוד שותף אחד, והטבלה המלאה נפתחת',
+  },
+  lockedCity: {
+    male: 'לחץ על העירייה כדי לפתוח את הליגה הרשמית',
+    female: 'לחצי על העירייה כדי לפתוח את הליגה הרשמית',
+    other: 'לוחצים על העירייה כדי לפתוח את הליגה הרשמית',
+  },
+} as const satisfies Record<string, GenderedText>;
 import { BoardCard, BoardIconButton, BoardRow, BoardRowSkeleton, BoardPodium, type PodiumEntry } from './LeagueBoard';
 import { BoardSheet, ParticipantPeek, HowPointsContent } from './LeagueBoardSheets';
 import {
@@ -295,6 +318,7 @@ export default function NeighborhoodLeaderboard({
   const getSocialUnlocked = useUserStore((s) => s.getSocialUnlocked);
   const socialUnlocked    = getSocialUnlocked();
   const profile           = useUserStore((s) => s.profile);
+  const uiGender          = useUiGender();
   // bypassSocialGate overrides both gates — used for soft_launch cities so
   // seeded demo data is fully visible without a real referral.
   const shouldBlur = !bypassSocialGate && (!isLeagueActive || !socialUnlocked);
@@ -539,7 +563,7 @@ export function NeighborhoodLeaderboardView({
         key={entry.uid}
         rank={entry.rank}
         name={entry.name}
-        nameTag={entry.isCurrentUser ? '(את/ה)' : undefined}
+        nameTag={entry.isCurrentUser ? '(אני)' : undefined}
         sub={localMode !== 'general' && localMode !== 'steps' && !isSegmentMode ? `${entry.workoutCount} אימונים` : undefined}
         value={s.value}
         unit={s.unit}
@@ -762,7 +786,7 @@ export function NeighborhoodLeaderboardView({
 
             <div className="flex gap-2 mt-3.5">
               <Button variant="primary" size="sm" className="flex-1" onClick={handleHeroShare}>
-                שתף את המיקום שלי
+                שיתוף המיקום שלי
               </Button>
               <button
                 type="button"
@@ -770,7 +794,7 @@ export function NeighborhoodLeaderboardView({
                 className="flex-1 h-9 rounded-full inline-flex items-center justify-center gap-1.5 bg-v2-surface text-v2-ink ring-1 ring-inset ring-v2-hairline text-[13px] font-extrabold active:scale-[0.97] transition-transform ease-v2"
               >
                 <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-                הזמן חברים
+                הזמנת חברים
               </button>
             </div>
           </CardTile>
@@ -788,9 +812,9 @@ export function NeighborhoodLeaderboardView({
           <div className="mt-4">
             <div className="grid grid-cols-1 gap-2">
               {[
-                { icon: Plus, label: 'אמן כאן את האימון הראשון' },
-                { icon: UserPlus, label: 'הזמן שותף לליגה' },
-                { icon: Trophy, label: 'פתח את הליגה ותפוס את הפודיום' },
+                { icon: Plus, label: pickGendered(uiGender, LEAGUE_COPY.stepTrain) },
+                { icon: UserPlus, label: pickGendered(uiGender, LEAGUE_COPY.stepInvite) },
+                { icon: Trophy, label: pickGendered(uiGender, LEAGUE_COPY.stepPodium) },
               ].map((step, i) => {
                 const StepIcon = step.icon;
                 return (
@@ -810,7 +834,7 @@ export function NeighborhoodLeaderboardView({
             <div className="flex justify-center mt-3">
               <Button variant="primary" size="md" onClick={() => setShowInvite(true)}>
                 <UserPlus size={16} strokeWidth={2.4} aria-hidden />
-                הזמן חברים לליגה
+                הזמנת חברים לליגה
               </Button>
             </div>
           </div>
@@ -838,13 +862,13 @@ export function NeighborhoodLeaderboardView({
                     <p className="text-[15px] font-black">הטבלה נעולה</p>
                     <p className="text-[12.5px] text-v2-ink-2 mt-1 mb-3 max-w-[240px]">
                       {!socialUnlocked
-                        ? 'הזמן שותף אחד כדי לפתוח את הטבלה המלאה'
-                        : 'לחץ על העירייה כדי לפתוח את הליגה הרשמית'}
+                        ? pickGendered(uiGender, LEAGUE_COPY.lockedInvite)
+                        : pickGendered(uiGender, LEAGUE_COPY.lockedCity)}
                     </p>
                     {!socialUnlocked && (
                       <Button variant="primary" size="sm" onClick={() => setShowInvite(true)}>
                         <UserPlus size={14} strokeWidth={2.4} aria-hidden />
-                        הזמן שותף
+                        הזמנת שותף
                       </Button>
                     )}
                   </div>
@@ -873,7 +897,7 @@ export function NeighborhoodLeaderboardView({
                 onClick={() => setExpanded((v) => !v)}
                 className="mt-3 w-full h-10 rounded-full bg-v2-surface text-[13px] font-extrabold text-v2-ink flex items-center justify-center gap-1.5 active:scale-[0.97] transition-transform ease-v2"
               >
-                {expanded ? 'הצג פחות' : `הצג את כל ${entries.length} המשתתפים`}
+                {expanded ? 'להציג פחות' : `להציג את כל ${entries.length} המשתתפים`}
                 <ChevronDown
                   size={15}
                   strokeWidth={2.4}
@@ -897,8 +921,8 @@ export function NeighborhoodLeaderboardView({
                     {entries.length === 1 ? 'משתתף אחד עד עכשיו' : `רק ${entries.length} משתתפים עד עכשיו`} — הזמינו חברים להתחרות איתכם
                   </p>
                 </div>
-                <Button variant="primary" size="sm" onClick={() => setShowInvite(true)} aria-label="הזמן חברים לליגה">
-                  הזמן
+                <Button variant="primary" size="sm" onClick={() => setShowInvite(true)} aria-label="הזמנת חברים לליגה">
+                  הזמנה
                 </Button>
               </div>
             )}

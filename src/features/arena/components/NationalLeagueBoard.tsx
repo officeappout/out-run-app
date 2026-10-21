@@ -176,7 +176,7 @@ export default function NationalLeagueBoard({
     <BoardCard
       title={title}
       subtitle={windowLabel}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={() => void load()} spinning={loading} />}
+      actions={<BoardIconButton icon={RefreshCw} label="רענון" onClick={() => void load()} spinning={loading} />}
     >
       <div className="mb-2.5">
         <button

@@ -98,7 +98,7 @@ export function GroupLeaderboardView({
     <BoardCard
       title="דירוג הקבוצות"
       subtitle={`קבוצות • ${windowLabel}`}
-      actions={<BoardIconButton icon={RefreshCw} label="רענן" onClick={fetch} spinning={isLoading} />}
+      actions={<BoardIconButton icon={RefreshCw} label="רענון" onClick={fetch} spinning={isLoading} />}
     >
       {isLoading ? (
         <div className="grid grid-cols-1 gap-2">

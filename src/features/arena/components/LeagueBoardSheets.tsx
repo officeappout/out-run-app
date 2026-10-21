@@ -211,7 +211,7 @@ export function ParticipantPeek({ entry, myEntry, totalParticipants, mode, isSeg
 
       {!entry.isCurrentUser && (
         <Button variant="ghost" size="md" block className="mt-4" onClick={onInvite}>
-          הזמן חברים לליגה
+          הזמנת חברים לליגה
         </Button>
       )}
     </div>

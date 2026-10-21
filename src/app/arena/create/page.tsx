@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Home, Building2, GraduationCap, Trees, Share2, Lock, Check, Megaphone, Shield, School } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { pickGendered } from '@/lib/i18n/gender-copy';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { createGroup } from '@/features/arena/services/group.service';
 import AccessCodeGate from '@/components/ui/AccessCodeGate';
@@ -50,9 +51,13 @@ const INITIAL_STATE: WizardState = {
   meetingAddress: '',
 };
 
-/** Gender-aware text helper. Returns the female form when gender === 'female', male form otherwise. */
-function t(male: string, female: string, gender?: string | null): string {
-  return gender === 'female' ? female : male;
+/**
+ * Gender-aware text helper (gender batch 2, 21.10.2026 — src/lib/i18n/gender-copy.ts):
+ * male → male form, female → female form, anything else (unknown / "other") → the neutral
+ * form. Until 21.10 unknown gender got the masculine form.
+ */
+function t(male: string, female: string, neutral: string, gender?: string | null): string {
+  return pickGendered(gender, { male, female, other: neutral });
 }
 
 const CATEGORY_OPTIONS: Array<{ value: CommunityGroup['category']; label: string }> = [
@@ -118,12 +123,12 @@ export default function CreateGroupPage() {
 
   /** Dynamic page title based on selected group type and user gender */
   const pageTitle = useMemo(() => {
-    if (state.groupType === 'friends')    return t('צור ליגת חברים', 'צורי ליגת חברות', myGender);
-    if (state.groupType === 'family')     return t('צור ליגת משפחה', 'צורי ליגת משפחה', myGender);
-    if (state.groupType === 'school')     return t('הצטרף לבית ספר', 'הצטרפי לבית ספר', myGender);
-    if (state.groupType === 'military')   return t('הצטרף ליחידה', 'הצטרפי ליחידה', myGender);
-    if (state.groupType === 'neighborhood') return t('ליגת שכונה', 'ליגת שכונה', myGender);
-    return t('צור ליגה חדשה', 'צורי ליגה חדשה', myGender);
+    if (state.groupType === 'friends')    return t('צור ליגת חברים', 'צורי ליגת חברות', 'ליגת חברים חדשה', myGender);
+    if (state.groupType === 'family')     return t('צור ליגת משפחה', 'צורי ליגת משפחה', 'ליגת משפחה חדשה', myGender);
+    if (state.groupType === 'school')     return t('הצטרף לבית ספר', 'הצטרפי לבית ספר', 'הצטרפות לבית ספר', myGender);
+    if (state.groupType === 'military')   return t('הצטרף ליחידה', 'הצטרפי ליחידה', 'הצטרפות ליחידה', myGender);
+    if (state.groupType === 'neighborhood') return 'ליגת שכונה';
+    return t('צור ליגה חדשה', 'צורי ליגה חדשה', 'ליגה חדשה', myGender);
   }, [state.groupType, myGender]);
 
   function update<K extends keyof WizardState>(key: K, value: WizardState[K]) {
@@ -145,7 +150,7 @@ export default function CreateGroupPage() {
       label: 'שכונה',
       description: 'קבוצה פתוחה לכל מתאמני העיר',
       available: access.hasCityAccess,
-      lockedMsg: 'חבר GPS כדי להצטרף לעיר',
+      lockedMsg: t('חבר GPS כדי להצטרף לעיר', 'חברי GPS כדי להצטרף לעיר', 'צריך GPS כדי להצטרף לעיר', myGender),
       getScopeId: () => access.cityAuthorityId ?? '',
       getAuthorityId: () => access.cityAuthorityId ?? '',
     },
@@ -203,7 +208,7 @@ export default function CreateGroupPage() {
       type: 'school' as CommunityGroupType,
       icon: <School className="w-6 h-6" />,
       label: 'בית ספר 🏫',
-      description: 'הצטרף לליגת בית הספר שלך',
+      description: t('הצטרף לליגת בית הספר שלך', 'הצטרפי לליגת בית הספר שלך', 'הצטרפות לליגת בית הספר שלך', myGender),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -213,7 +218,7 @@ export default function CreateGroupPage() {
       type: 'military' as CommunityGroupType,
       icon: <Shield className="w-6 h-6" />,
       label: 'צבא / יחידה 🛡️',
-      description: 'הצטרף לליגת היחידה שלך',
+      description: t('הצטרף לליגת היחידה שלך', 'הצטרפי לליגת היחידה שלך', 'הצטרפות לליגת היחידה שלך', myGender),
       available: true,
       lockedMsg: '',
       getScopeId: () => '',
@@ -226,7 +231,7 @@ export default function CreateGroupPage() {
   function renderTypeStep() {
     return (
       <div className="space-y-3" dir="rtl">
-        <p className="text-sm text-gray-500 px-1">בחר את סוג הקבוצה</p>
+        <p className="text-sm text-gray-500 px-1">{t('בחר את סוג הקבוצה', 'בחרי את סוג הקבוצה', 'איזו קבוצה פותחים?', myGender)}</p>
         {TYPE_CARDS.map((card) => (
           <button
             key={card.type}
@@ -308,7 +313,7 @@ export default function CreateGroupPage() {
           <textarea
             value={state.description}
             onChange={(e) => update('description', e.target.value)}
-            placeholder="ספר בקצרה על הקבוצה..."
+            placeholder={t('ספר בקצרה על הקבוצה...', 'ספרי בקצרה על הקבוצה...', 'כמה מילים על הקבוצה...', myGender)}
             rows={3}
             className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm text-right outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
           />
@@ -415,7 +420,7 @@ export default function CreateGroupPage() {
           onClick={() => setStep('invite')}
           className="w-full py-3.5 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand font-black text-sm"
         >
-          הבא — הזמן שותפים
+          הבא — הזמנת שותפים
         </button>
       </div>
     );
@@ -472,7 +477,7 @@ export default function CreateGroupPage() {
       return { groupId: id, inviteCode };
     } catch (err) {
       console.error('[CreateGroup]', err);
-      setError('אירעה שגיאה ביצירת הקבוצה. נסה שוב.');
+      setError(t('אירעה שגיאה ביצירת הקבוצה. נסה שוב.', 'אירעה שגיאה ביצירת הקבוצה. נסי שוב.', 'אירעה שגיאה ביצירת הקבוצה. נסו שוב.', myGender));
       return null;
     } finally {
       setIsSaving(false);
@@ -509,7 +514,7 @@ export default function CreateGroupPage() {
         router.push('/community?tab=leagues');
       } catch (err) {
         console.error('[ShareGroup]', err);
-        setError('אירעה שגיאה. נסה שוב.');
+        setError(t('אירעה שגיאה. נסה שוב.', 'אירעה שגיאה. נסי שוב.', 'אירעה שגיאה. נסו שוב.', myGender));
       } finally {
         setIsSharing(false);
       }
@@ -528,7 +533,7 @@ export default function CreateGroupPage() {
         router.push('/community?tab=leagues');
       } catch (err) {
         console.error('[WhatsAppDirect]', err);
-        setError('אירעה שגיאה. נסה שוב.');
+        setError(t('אירעה שגיאה. נסה שוב.', 'אירעה שגיאה. נסי שוב.', 'אירעה שגיאה. נסו שוב.', myGender));
       } finally {
         setIsSharing(false);
       }
@@ -551,7 +556,7 @@ export default function CreateGroupPage() {
           >
             <Share2 className="w-8 h-8 text-cyan-500" />
           </div>
-          <h3 className="text-base font-black text-gray-900">הזמן לפחות שותף אחד</h3>
+          <h3 className="text-base font-black text-gray-900">{t('הזמן לפחות שותף אחד', 'הזמיני לפחות שותף אחד', 'מזמינים לפחות שותף אחד', myGender)}</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-[240px] mx-auto">
             קבוצה נפתחת לאחר שמצטרף שותף ראשון — כך בונים נבחרת אמיתית
           </p>
@@ -564,7 +569,7 @@ export default function CreateGroupPage() {
           className="w-full py-4 rounded-2xl font-black text-white text-sm disabled:opacity-60 active:scale-[0.98] transition-all"
           style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
         >
-          {busy ? 'יוצר ושולח...' : `🟢 ${t('שתף', 'שתפי', myGender)} ופתח/י קבוצה`}
+          {busy ? 'יוצר ושולח...' : `🟢 ${t('שתף ופתח קבוצה', 'שתפי ופתחי קבוצה', 'שיתוף ופתיחת קבוצה', myGender)}`}
         </button>
 
         {/* Fallback: guaranteed WhatsApp redirect */}
@@ -573,7 +578,7 @@ export default function CreateGroupPage() {
           disabled={busy}
           className="w-full py-3.5 rounded-2xl bg-white border border-green-200 text-green-700 font-bold text-sm disabled:opacity-40 active:scale-[0.98] transition-all"
         >
-          📲 {t('פתח', 'פתחי', myGender)} בוואטסאפ
+          📲 {t('פתח בוואטסאפ', 'פתחי בוואטסאפ', 'פתיחה בוואטסאפ', myGender)}
         </button>
 
         {/* Skip: create without sharing */}
@@ -582,7 +587,7 @@ export default function CreateGroupPage() {
           disabled={busy}
           className="w-full py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-bold text-sm disabled:opacity-40"
         >
-          {isSaving ? 'יוצר קבוצה...' : `${t('דלג', 'דלגי', myGender)} — קבוצה פרטית`}
+          {isSaving ? 'יוצר קבוצה...' : `${t('דלג', 'דלגי', 'דילוג', myGender)} — קבוצה פרטית`}
         </button>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -596,30 +601,30 @@ export default function CreateGroupPage() {
     const isMilitary = state.groupType === 'military';
     const icon = isMilitary ? '🛡️' : '🏫';
     const title = isMilitary
-      ? t('הצטרף ליחידה שלך', 'הצטרפי ליחידה שלך', myGender)
-      : t('הצטרף לבית הספר שלך', 'הצטרפי לבית הספר שלך', myGender);
+      ? t('הצטרף ליחידה שלך', 'הצטרפי ליחידה שלך', 'הצטרפות ליחידה שלך', myGender)
+      : t('הצטרף לבית הספר שלך', 'הצטרפי לבית הספר שלך', 'הצטרפות לבית הספר שלך', myGender);
     const orgName = isMilitary ? 'ליגת OUT של היחידה' : 'ליגת OUT של בית הספר';
     const contactLabel = isMilitary ? 'מפקד כושר' : 'מורה לחנ"ג';
 
     // Gender-aware fallback text; overridden by Firestore template when available
+    // First person (the user speaks): "אשמח" is the same for everyone — the old female
+    // branch "אשמחי" was not a Hebrew word.
     const fallbackNoCode = isMilitary
-      ? t('היי, אשמח להצטרף לליגת OUT של היחידה. אפשר לקבל קוד גישה?',
-          'היי, אשמחי להצטרף לליגת OUT של היחידה. אפשר לקבל קוד גישה?', myGender)
-      : t('היי, אשמח להצטרף לליגת OUT של בית הספר. אפשר לקבל קוד גישה?',
-          'היי, אשמחי להצטרף לליגת OUT של בית הספר. אפשר לקבל קוד גישה?', myGender);
+      ? 'היי, אשמח להצטרף לליגת OUT של היחידה. אפשר לקבל קוד גישה?'
+      : 'היי, אשמח להצטרף לליגת OUT של בית הספר. אפשר לקבל קוד גישה?';
     const noCodeWhatsapp = dynamicNoCodeMessage || fallbackNoCode;
 
     // How-it-works steps, gender-aware
     const howItWorks = isMilitary
       ? [
-          t('קבל קוד גישה ממפקד הכושר שלך', 'קבלי קוד גישה ממפקד הכושר שלך', myGender),
-          t('הזן את הקוד כאן', 'הזיני את הקוד כאן', myGender),
-          t('הצטרף אוטומטית לליגת היחידה שלך!', 'הצטרפי אוטומטית לליגת היחידה שלך!', myGender),
+          t('קבל קוד גישה ממפקד הכושר שלך', 'קבלי קוד גישה ממפקד הכושר שלך', 'מקבלים קוד גישה ממפקד הכושר', myGender),
+          t('הזן את הקוד כאן', 'הזיני את הקוד כאן', 'מזינים את הקוד כאן', myGender),
+          t('הצטרף אוטומטית לליגת היחידה שלך!', 'הצטרפי אוטומטית לליגת היחידה שלך!', 'מצטרפים אוטומטית לליגת היחידה!', myGender),
         ]
       : [
-          t('קבל קוד גישה ממורה לחנ"ג / רכזת הספורט', 'קבלי קוד גישה ממורה לחנ"ג / רכזת הספורט', myGender),
-          t('הזן את הקוד כאן', 'הזיני את הקוד כאן', myGender),
-          t('הצטרף אוטומטית לליגת בית הספר שלך!', 'הצטרפי אוטומטית לליגת בית הספר שלך!', myGender),
+          t('קבל קוד גישה ממורה לחנ"ג / רכזת הספורט', 'קבלי קוד גישה ממורה לחנ"ג / רכזת הספורט', 'מקבלים קוד גישה ממורה לחנ"ג / רכזת הספורט', myGender),
+          t('הזן את הקוד כאן', 'הזיני את הקוד כאן', 'מזינים את הקוד כאן', myGender),
+          t('הצטרף אוטומטית לליגת בית הספר שלך!', 'הצטרפי אוטומטית לליגת בית הספר שלך!', 'מצטרפים אוטומטית לליגת בית הספר!', myGender),
         ];
 
     function handleCodeSuccess(result: AccessCodeResult) {
@@ -639,7 +644,7 @@ export default function CreateGroupPage() {
       return (
         <div className="space-y-5 text-center py-8" dir="rtl">
           <div className="text-5xl mb-2">{icon}</div>
-          <h3 className="text-xl font-black text-gray-900 mb-3">ברוך הבא לליגת:</h3>
+          <h3 className="text-xl font-black text-gray-900 mb-3">{t('ברוך הבא לליגת:', 'ברוכה הבאה לליגת:', 'ברוכים הבאים לליגת:', myGender)}</h3>
           <div className="flex justify-center">
             <UnitJoinSuccessBanner result={codeSuccessResult} />
           </div>
@@ -687,7 +692,7 @@ export default function CreateGroupPage() {
             }
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-50 text-green-700 font-bold text-sm border border-green-100 active:scale-[0.98] transition-all"
           >
-            📲 {t('שלח', 'שלחי', myGender)} הודעה ל{contactLabel}
+            📲 {t('שלח', 'שלחי', 'שליחת', myGender)} הודעה ל{contactLabel}
           </button>
         </div>
 
@@ -696,7 +701,7 @@ export default function CreateGroupPage() {
           onClick={handleBack}
           className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
         >
-          חזור לבחירת סוג
+          חזרה לבחירת סוג
         </button>
       </div>
     );
@@ -712,7 +717,7 @@ export default function CreateGroupPage() {
     const icon = isWork ? '🏢' : '🎓';
 
     const shareText =
-      `היי, אני מתאמן/ת עם Out ורוצה להביא את הפלטפורמה ל${label} שלנו! Out זו ליגת כושר עירונית שמחברת אנשים לאימונים חכמים בחוץ. בואו נדבר!\n\nhttps://appout.co.il/`;
+      `היי, ${t('אני מתאמן עם Out ורוצה', 'אני מתאמנת עם Out ורוצה', 'אני באפליקציית Out ורוצה', myGender)} להביא את הפלטפורמה ל${label} שלנו! Out זו ליגת כושר עירונית שמחברת אנשים לאימונים חכמים בחוץ. בואו נדבר!\n\nhttps://appout.co.il/`;
 
     function handleShare() {
       window.open(
@@ -764,7 +769,7 @@ export default function CreateGroupPage() {
               <Check className="w-4 h-4" /> נשלח! תודה {icon}
             </span>
           ) : (
-            `📩 שלח הודעה ל${recipientLabel}`
+            `📩 ${t('שלח', 'שלחי', 'שליחת', myGender)} הודעה ל${recipientLabel}`
           )}
         </button>
 
@@ -776,7 +781,7 @@ export default function CreateGroupPage() {
           }}
           className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm"
         >
-          חזור לבחירת סוג
+          חזרה לבחירת סוג
         </button>
       </div>
     );
@@ -788,7 +793,7 @@ export default function CreateGroupPage() {
     type: 'סוג קבוצה',
     info: 'פרטים בסיסיים',
     schedule: 'לו"ז ומיקום',
-    invite: 'הזמן שותפים',
+    invite: 'הזמנת שותפים',
     outreach: 'הזמנת ארגון',
     code_entry: 'כניסה בקוד',
   };
