@@ -71,6 +71,8 @@ import { getCachedPrograms } from '../../services/program-hierarchy.utils';
 import { buildUserProgramLevels } from '../../services/level-resolution.utils';
 import { summarizeTodayStrengthVolume } from '@/features/home/utils/todayStrengthVolume';
 import { useWeeklyVolumeStore } from '../store/useWeeklyVolumeStore';
+import { isSplitDayFocusActive } from '../../services/split-decision/day-focus.switch';
+import { resolvePartialCompletionPlace } from './partial-completion-place';
 
 const LOG_PREFIX = '[PartialCompletion]';
 
@@ -156,8 +158,13 @@ export async function buildPartialCompletionWorkout(
   profile: UserFullProfile,
   domain: MovementPattern,
 ): Promise<GeneratedWorkout | null> {
+  // enable_home_v2: built where the user actually trains (home + home gear, or the
+  // nearby park's real gear) — before, no location → the service's 'park' default.
+  // Flag off → unchanged.
+  const place = isSplitDayFocusActive() ? await resolvePartialCompletionPlace(profile) : {};
   const trio = await generateHomeWorkoutTrio({
     userProfile: profile,
+    ...place,
     requiredDomains: [domain],
     strictDomains: true,
     generateSingleOption: true,

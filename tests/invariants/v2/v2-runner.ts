@@ -103,7 +103,9 @@ export async function runV2Scenario(s: V2Scenario): Promise<V2Run[]> {
 
 async function runTopUp(s: V2Scenario, profile: ReturnType<typeof v2ProfileOf>, hardBase: HardContext): Promise<V2Run[]> {
   const { buildPartialCompletionWorkout } = await import('@/features/workout-engine/core/generators/partial-completion.generator');
-  const w = await buildPartialCompletionWorkout(profile, s.domain as 'push');
+  setSplitDayFocusActive(true); // the home page sets it under enable_home_v2
+  let w: Awaited<ReturnType<typeof buildPartialCompletionWorkout>>;
+  try { w = await buildPartialCompletionWorkout(profile, s.domain as 'push'); } finally { setSplitDayFocusActive(false); }
   const workout = w ?? asWorkout([], '');
   return [{
     scenario: s, bolt: 2, workout,
