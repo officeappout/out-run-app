@@ -17,7 +17,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { QA_RUNNER_INVOKERS, audiencesFrom, isQaRunnerRequest } from './lib/qa-runner-auth';
-import { israelDayKey, testerSwitchesOn } from './lib/demo-tester-token';
+import { israelDayKey, testerSwitchesOn, usageWindowDayKeys } from './lib/demo-tester-token';
 import {
   CONTROL_DOC,
   FINDINGS_READ_LIMIT,
@@ -66,7 +66,9 @@ async function handle(op: string, args: Record<string, unknown>): Promise<Result
         reg.doc('config').get(),
         reg.doc('control').get(),
         reg.doc('testers').get(),
-        reg.doc('usage').collection('days').orderBy(admin.firestore.FieldPath.documentId(), 'desc').limit(USAGE_WINDOW_DAYS).get(),
+        // Day docs are keyed YYYY-MM-DD: read the window by id. An orderBy(__name__,'desc')
+        // query failed in production ("internal", 21.10.2026) — same fix as the panel (#562).
+        db.getAll(...usageWindowDayKeys(new Date(), USAGE_WINDOW_DAYS).map((k) => reg.doc('usage').collection('days').doc(k))),
       ]);
       return {
         status: 200,
@@ -75,7 +77,7 @@ async function handle(op: string, args: Record<string, unknown>): Promise<Result
           configRaw: config.data(),
           controlRaw: control.data(),
           testersRaw: testers.data(),
-          usageDocs: usage.docs.map((d) => ({ id: d.id, data: d.data() })),
+          usageDocs: usage.filter((d) => d.exists).map((d) => ({ id: d.id, data: d.data() ?? {} })),
         }),
       };
     }
@@ -190,7 +192,7 @@ export const qaRunnerReport = onRequest(
       const r = await handle(parsed.value.op, parsed.value.args);
       res.status(r.status).json(r.body);
     } catch (e) {
-      logger.error('[qaRunnerReport] op failed', { op: parsed.value.op, err: e instanceof Error ? e.name : 'unknown' });
+      logger.error('[qaRunnerReport] op failed', { op: parsed.value.op, err: e instanceof Error ? `${e.name}: ${e.message}`.slice(0, 300) : 'unknown' });
       res.status(500).json({ error: 'internal' });
     }
   },
