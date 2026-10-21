@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, X } from 'lucide-react';
 import type { CityData } from '../location-types';
-import { ENTRY_COPY } from './entry-copy';
+import { useT } from '@/hooks/useT';
+import { onboarding } from '@/messages/ns/onboarding';
 import {
   groupSearchResults,
   highlightSegments,
@@ -87,21 +88,18 @@ export function EntrySearchOverlay({
   onCitySelect,
   onBack,
 }: EntrySearchOverlayProps) {
+  const t = useT(onboarding);
   const inputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<SearchFilter>('all');
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 100);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const grouped = groupSearchResults(filteredCities);
   const show = visibleSections(filter);
-  const chips: { key: SearchFilter; label: string }[] = [
-    { key: 'all', label: ENTRY_COPY.chipAll },
-    { key: 'neighborhoods', label: ENTRY_COPY.chipNeighborhoods },
-    { key: 'cities', label: ENTRY_COPY.chipCities },
-  ];
+  const chips: SearchFilter[] = ['all', 'neighborhoods', 'cities'];
   const nothing = grouped.counts.all === 0;
 
   return (
@@ -124,7 +122,7 @@ export function EntrySearchOverlay({
               enterKeyHint="search"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={ENTRY_COPY.searchPlaceholder}
+              placeholder={t('location.entry.search.placeholder')}
               className="min-w-0 flex-1 bg-transparent text-right text-[16px] font-bold text-v2-ink outline-none placeholder:font-semibold placeholder:text-v2-muted [&::-webkit-search-cancel-button]:hidden"
               dir="rtl"
             />
@@ -132,7 +130,7 @@ export function EntrySearchOverlay({
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                aria-label={ENTRY_COPY.searchClear}
+                aria-label={t('location.entry.search.clear')}
                 className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-full bg-[#f1f5f9]"
               >
                 <X size={12} strokeWidth={2.4} className="text-v2-muted" />
@@ -144,25 +142,25 @@ export function EntrySearchOverlay({
             onClick={onBack}
             className="h-12 flex-shrink-0 px-1.5 text-[15px] font-bold text-v2-deep active:opacity-70"
           >
-            {ENTRY_COPY.searchCancel}
+            {t('location.entry.search.cancel')}
           </button>
         </div>
 
         <div className="flex gap-1.5" role="tablist">
-          {chips.map((c) => {
-            const active = filter === c.key;
+          {chips.map((chip) => {
+            const active = filter === chip;
             return (
               <button
-                key={c.key}
+                key={chip}
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setFilter(c.key)}
+                onClick={() => setFilter(chip)}
                 className={`flex h-8 flex-shrink-0 items-center rounded-full px-3 text-[13px] font-bold whitespace-nowrap transition-colors ${
                   active ? 'bg-v2-on-cta text-white' : 'bg-white text-v2-ink shadow-v2-ring'
                 }`}
               >
-                {c.label} · {grouped.counts[c.key]}
+                {t('location.entry.search.chip', { filter: chip, count: String(grouped.counts[chip]) })}
               </button>
             );
           })}
@@ -172,14 +170,14 @@ export function EntrySearchOverlay({
       <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         {nothing && searchQuery.trim().length > 0 ? (
           <div className="py-16 text-center">
-            <p className="text-[15px] font-extrabold text-v2-ink">{ENTRY_COPY.noResults(searchQuery)}</p>
-            <p className="mt-1 text-[12.5px] font-bold text-v2-muted">{ENTRY_COPY.noResultsHint}</p>
+            <p className="text-[15px] font-extrabold text-v2-ink">{t('location.entry.search.noResults', { query: searchQuery })}</p>
+            <p className="mt-1 text-[12.5px] font-bold text-v2-muted">{t('location.entry.search.noResultsHint')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3.5 pt-1">
             {show.neighborhoods && (
               <ResultSection
-                title={ENTRY_COPY.sectionNeighborhoods}
+                title={t('location.entry.search.section.neighborhoods')}
                 rows={grouped.neighborhoods}
                 query={searchQuery}
                 subtitle={(r) => r.parentName ?? ''}
@@ -188,10 +186,10 @@ export function EntrySearchOverlay({
             )}
             {show.cities && (
               <ResultSection
-                title={ENTRY_COPY.sectionCities}
+                title={t('location.entry.search.section.cities')}
                 rows={grouped.cities}
                 query={searchQuery}
-                subtitle={(r) => placeTypeLabel(r.type)}
+                subtitle={(r) => placeTypeLabel(r.type, t)}
                 onSelect={onCitySelect}
               />
             )}
