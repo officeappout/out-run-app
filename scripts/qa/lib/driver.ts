@@ -60,7 +60,7 @@ export class SessionDriver {
 
   async signIn(customToken: string): Promise<string | null> {
     // Token in the FRAGMENT only (never sent to the server, wiped by the page at once).
-    await this.b.page.goto(`${new URL('/qa/signin', this.baseUrl).toString()}#t=${customToken}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await this.gotoFollowingRedirects(`${new URL('/qa/signin', this.baseUrl).toString()}#t=${customToken}`);
     for (let i = 0; i < 30; i++) {
       const state = await this.b.page.evaluate<string | null>(`document.querySelector('[data-qa-signin]')?.getAttribute('data-qa-signin') ?? null`).catch(() => null);
       if (state && state.startsWith('refused')) return state;
@@ -76,8 +76,22 @@ export class SessionDriver {
   }
 
   async openStart(): Promise<void> {
-    await this.b.page.goto(this.startUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await this.gotoFollowingRedirects(this.startUrl);
     await this.settle();
+  }
+
+  /**
+   * The app redirects client-side (e.g. `/` → `/gateway` for a fresh account). Playwright
+   * reports that as "interrupted by another navigation" — that's the app working, not a
+   * failure: wait for wherever it landed and carry on (21.10.2026 first tour).
+   */
+  private async gotoFollowingRedirects(url: string): Promise<void> {
+    try {
+      await this.b.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    } catch (err) {
+      if (!isInterruptedNavigation(err)) throw err;
+      await this.b.page.waitForLoadState('domcontentloaded', { timeout: 45_000 }).catch(() => {});
+    }
   }
 
   private async settle() {
@@ -235,4 +249,10 @@ export class SessionDriver {
     if (this.gpsTimer) clearInterval(this.gpsTimer);
     this.gpsTimer = null;
   }
+}
+
+/** Playwright's error when a client-side redirect replaces the navigation we started. */
+export function isInterruptedNavigation(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /interrupted by another navigation/i.test(msg);
 }
