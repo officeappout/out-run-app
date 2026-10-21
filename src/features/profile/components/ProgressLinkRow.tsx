@@ -6,8 +6,11 @@
  */
 import Link from 'next/link';
 import { BarChart3, ChevronLeft } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export default function ProgressLinkRow() {
+  const t = useT(profileNs);
   return (
     <Link
       href="/progression"
@@ -17,8 +20,8 @@ export default function ProgressLinkRow() {
         <BarChart3 className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">ההתקדמות שלי</span>
-        <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">סיכום שבוע וחודש, ריצה, הליכה, צעדים, כוח ותוכניות</span>
+        <span className="block truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{t('profile.progressLink.title')}</span>
+        <span className="block truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">{t('profile.progressLink.subtitle')}</span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />
     </Link>

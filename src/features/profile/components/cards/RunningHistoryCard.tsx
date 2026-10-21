@@ -7,6 +7,8 @@ import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/sto
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import dynamic from 'next/dynamic';
 import { IS_COIN_SYSTEM_ENABLED } from '@/config/feature-flags';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 // Dynamic import for map to avoid SSR issues
 const RunMapBlock = dynamic(
@@ -20,16 +22,17 @@ interface RunningHistoryCardProps {
 }
 
 export default function RunningHistoryCard({ workout, onClick }: RunningHistoryCardProps) {
+  const t = useT(profileNs);
   // Format date in Hebrew - short format: "יום ה', 22 ינו' • 20:45"
   const formatDate = (date: Date): string => {
-    const dayLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+    const dayLetters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
     const dayLetter = dayLetters[date.getDay()];
     const day = date.getDate();
-    const monthAbbrs = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ'];
+    const monthAbbrs = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']; // i18n-allow-hebrew: wave 3 (fmt) — weekday / month names
     const monthAbbr = monthAbbrs[date.getMonth()];
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `יום ${dayLetter}', ${day} ${monthAbbr}' • ${hours}:${minutes}`;
+    return `יום ${dayLetter}', ${day} ${monthAbbr}' • ${hours}:${minutes}`; // i18n-allow-hebrew: wave 3 (fmt) — date format
   };
 
   // Format duration as MM:SS
@@ -92,7 +95,7 @@ export default function RunningHistoryCard({ workout, onClick }: RunningHistoryC
             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
               <MapPin size={20} className="text-gray-400 mb-1" />
               <span className="text-[9px] text-gray-500 font-medium text-center px-1 leading-tight">
-                אין נתוני GPS
+                {t('profile.history.card.noGps')}
               </span>
             </div>
           )}
@@ -106,7 +109,7 @@ export default function RunningHistoryCard({ workout, onClick }: RunningHistoryC
               <Clock size={12} className="text-gray-400" />
               <p className="text-sm font-bold text-gray-900">{formatDate(workoutDate)}</p>
             </div>
-            <p className="text-sm font-semibold text-gray-700">ריצה חופשית</p>
+            <p className="text-sm font-semibold text-gray-700">{t('profile.history.card.running')}</p>
           </div>
 
           {/* Bottom: Stats and Coins */}
@@ -115,7 +118,7 @@ export default function RunningHistoryCard({ workout, onClick }: RunningHistoryC
             <div className="flex items-center gap-3">
               {workout.distance > 0 && (
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-bold text-gray-900">{workout.distance.toFixed(2)} ק"מ</span>
+                  <span className="text-sm font-bold text-gray-900">{t('profile.history.card.distance', { km: workout.distance.toFixed(2) })}</span>
                 </div>
               )}
               {workout.pace > 0 && (
@@ -129,7 +132,7 @@ export default function RunningHistoryCard({ workout, onClick }: RunningHistoryC
             {IS_COIN_SYSTEM_ENABLED && workout.earnedCoins > 0 && (
               <div className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 rounded-lg px-2 py-1">
                 <Coins size={14} className="text-yellow-600" />
-                <span className="text-xs font-bold text-yellow-700">+{workout.earnedCoins} מטבעות</span>
+                <span className="text-xs font-bold text-yellow-700">{t('profile.history.card.coins', { coins: String(workout.earnedCoins) })}</span>
               </div>
             )}
           </div>

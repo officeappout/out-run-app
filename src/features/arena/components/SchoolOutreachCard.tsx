@@ -5,6 +5,11 @@ import { GraduationCap, Briefcase, Tent, Check } from 'lucide-react';
 import { useUserStore } from '@/features/user';
 import { pickTemplate } from '@/features/arena/services/message-templates.service';
 import type { MessageCategory } from '@/types/message-template.types';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import type { NamespaceKey } from '@/lib/i18n/catalogs';
+
+type CommunityKey = NamespaceKey<typeof community>;
 
 const APP_URL = 'https://appout.co.il/';
 
@@ -18,14 +23,14 @@ interface OrgCopy {
   iconBg: string;
   iconColor: string;
   buttonGradient: string;
-  /** Remote template key in message-templates (falls back to defaults below) */
+  /** Remote template key in message-templates (falls back to `messageKey` below) */
   templateKey: MessageCategory;
-  defaultMale: string;
-  defaultFemale: string;
-  title: (orgName: string, g: Gender) => string;
-  subtitle: (g: Gender) => string;
-  buttonIdle: (g: Gender) => string;
-  sentLabel: string;
+  /** community.json keys — the default message is gendered and takes {orgName}. */
+  messageKey: CommunityKey;
+  titleKey: CommunityKey;
+  subtitleKey: CommunityKey;
+  ctaKey: CommunityKey;
+  sentKey: CommunityKey;
 }
 
 const ORG_COPY: Record<OutreachOrgType, OrgCopy> = {
@@ -37,15 +42,11 @@ const ORG_COPY: Record<OutreachOrgType, OrgCopy> = {
     iconColor: 'text-purple-600',
     buttonGradient: 'from-purple-500 to-indigo-500',
     templateKey: 'school_outreach',
-    defaultMale:
-      'היי, אני תלמיד ב-${orgName} ומתאמן עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
-    defaultFemale:
-      'היי, אני תלמידה ב-${orgName} ומתאמנת עם Out. רציתי להציע שנביא את הפלטפורמה לבית הספר — זה בחינם ומדליק! 🔥',
-    title: (orgName) => `רוצה להביא את Out ל${orgName}?`,
-    subtitle: (g) =>
-      `${g === 'female' ? 'דברי' : 'דבר'} עם המנהל/ת! ${g === 'female' ? 'שלחי' : 'שלח'} הודעה בוואטסאפ והמורה ישמע על Out.`,
-    buttonIdle: (g) => `🏫 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה למנהל/ת`,
-    sentLabel: 'נשלח! תודה 🎓',
+    messageKey: 'outreach.school.message',
+    titleKey: 'outreach.school.title',
+    subtitleKey: 'outreach.school.subtitle',
+    ctaKey: 'outreach.school.cta',
+    sentKey: 'outreach.school.sent',
   },
   company: {
     icon: Briefcase,
@@ -55,15 +56,11 @@ const ORG_COPY: Record<OutreachOrgType, OrgCopy> = {
     iconColor: 'text-sky-600',
     buttonGradient: 'from-sky-500 to-blue-500',
     templateKey: 'company_outreach',
-    defaultMale:
-      'היי, אני עובד ב-${orgName} ומתאמן עם Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪',
-    defaultFemale:
-      'היי, אני עובדת ב-${orgName} ומתאמנת עם Out. שווה שנביא את זה לארגון — בחינם ומחזק את הצוות! 💪',
-    title: (orgName) => `רוצה ש-Out יגיע ל${orgName}?`,
-    subtitle: (g) =>
-      `${g === 'female' ? 'דברי' : 'דבר'} עם מחלקת הרווחה / HR ושתפו את הצוות בוואטסאפ.`,
-    buttonIdle: (g) => `🏢 ${g === 'female' ? 'שלחי' : 'שלח'} הודעה ל-HR`,
-    sentLabel: 'נשלח! תודה 🤝',
+    messageKey: 'outreach.company.message',
+    titleKey: 'outreach.company.title',
+    subtitleKey: 'outreach.company.subtitle',
+    ctaKey: 'outreach.company.cta',
+    sentKey: 'outreach.company.sent',
   },
   youth_movement: {
     icon: Tent,
@@ -73,15 +70,11 @@ const ORG_COPY: Record<OutreachOrgType, OrgCopy> = {
     iconColor: 'text-emerald-600',
     buttonGradient: 'from-emerald-500 to-teal-500',
     templateKey: 'youth_movement_outreach',
-    defaultMale:
-      'היי, אני חניך ב-${orgName} ומתאמן עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
-    defaultFemale:
-      'היי, אני חניכה ב-${orgName} ומתאמנת עם Out. בואו נביא את זה לתנועה — אימונים מגניבים בחינם! 🔥',
-    title: (orgName) => `רוצה את Out ב${orgName}?`,
-    subtitle: (g) =>
-      `${g === 'female' ? 'דברי' : 'דבר'} עם הרכז/ת ושתפו את החניכים בוואטסאפ.`,
-    buttonIdle: (g) => `⛺ ${g === 'female' ? 'שלחי' : 'שלח'} הודעה לרכז/ת`,
-    sentLabel: 'נשלח! תודה 🔥',
+    messageKey: 'outreach.youth.message',
+    titleKey: 'outreach.youth.title',
+    subtitleKey: 'outreach.youth.subtitle',
+    ctaKey: 'outreach.youth.cta',
+    sentKey: 'outreach.youth.sent',
   },
 };
 
@@ -96,6 +89,7 @@ export default function SchoolOutreachCard({
   schoolName,
   orgType = 'school',
 }: SchoolOutreachCardProps) {
+  const t = useT(community);
   const profile = useUserStore((s) => s.profile);
   const [sent, setSent] = useState(false);
   const [messageText, setMessageText] = useState('');
@@ -103,13 +97,16 @@ export default function SchoolOutreachCard({
   const gender: Gender = profile?.core?.gender === 'female' ? 'female' : 'male';
   const copy = ORG_COPY[orgType];
   const Icon = copy.icon;
+  // Rendered with the template's own `${orgName}` placeholder as the value, so the default goes
+  // through the same placeholder substitution as a remote template.
+  const defaultTemplate = t(copy.messageKey, { orgName: '${orgName}', gender });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       let raw = await pickTemplate(copy.templateKey, gender);
       if (!raw) {
-        raw = gender === 'female' ? copy.defaultFemale : copy.defaultMale;
+        raw = defaultTemplate;
       }
       if (cancelled) return;
 
@@ -124,10 +121,10 @@ export default function SchoolOutreachCard({
     return () => {
       cancelled = true;
     };
-  }, [gender, schoolName, copy]);
+  }, [gender, schoolName, copy, defaultTemplate]);
 
   function handleShare() {
-    const fallback = (gender === 'female' ? copy.defaultFemale : copy.defaultMale).replace(
+    const fallback = defaultTemplate.replace(
       /\$\{orgName\}/g,
       schoolName,
     );
@@ -150,8 +147,8 @@ export default function SchoolOutreachCard({
           <Icon className={`w-5 h-5 ${copy.iconColor}`} />
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-black text-gray-900">{copy.title(schoolName, gender)}</h3>
-          <p className="text-xs text-gray-600 mt-1 leading-relaxed">{copy.subtitle(gender)}</p>
+          <h3 className="text-sm font-black text-gray-900">{t(copy.titleKey, { orgName: schoolName })}</h3>
+          <p className="text-xs text-gray-600 mt-1 leading-relaxed">{t(copy.subtitleKey, { gender })}</p>
         </div>
       </div>
 
@@ -164,10 +161,10 @@ export default function SchoolOutreachCard({
       >
         {sent ? (
           <span className="flex items-center justify-center gap-2">
-            <Check className="w-4 h-4" /> {copy.sentLabel}
+            <Check className="w-4 h-4" /> {t(copy.sentKey)}
           </span>
         ) : (
-          copy.buttonIdle(gender)
+          t(copy.ctaKey, { gender })
         )}
       </button>
     </div>

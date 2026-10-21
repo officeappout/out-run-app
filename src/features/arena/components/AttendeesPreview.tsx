@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface Attendee {
   uid: string;
@@ -32,6 +34,7 @@ function getInitials(name: string): string {
 }
 
 export default function AttendeesPreview({ attendees, total, maxShown = 4 }: AttendeesPreviewProps) {
+  const t = useT(community);
   const visible = attendees.slice(0, maxShown);
   const overflow = total - visible.length;
 
@@ -67,7 +70,7 @@ export default function AttendeesPreview({ attendees, total, maxShown = 4 }: Att
       </div>
 
       <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tabular-nums">
-        {total} {total === 1 ? 'משתתף' : 'משתתפים'}
+        {t('attendees.count', { n: total, count: String(total) })}
       </span>
     </div>
   );

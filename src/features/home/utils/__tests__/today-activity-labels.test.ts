@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { todayCardFallbackTitle, todayCardShortLabel, HYBRID_TITLE } from '../today-activity-labels';
+import { makeT } from '@/lib/i18n/t';
+import { profile } from '@/messages/ns/profile';
 
 /** G7.3 (Sderot pilot) — a hybrid workout never shows strength copy on home / profile. */
 
@@ -35,6 +37,10 @@ describe('profile workout grid', () => {
   it('hybrid has its own tile ("אימון משולב"), no longer the default "ריצה"', () => {
     const grid = src('../../../profile/components/WorkoutGrid.tsx');
     expect(grid).toContain("case 'hybrid':");
-    expect(grid).toContain("label: 'אימון משולב'");
+    // i18n wave 2: the tile label is the `profile.grid.type` select (src/messages/he/profile.json).
+    expect(grid).toContain("t('profile.grid.type', { type })");
+    const t = makeT('he', profile);
+    expect(t('profile.grid.type', { type: 'hybrid' })).toBe('אימון משולב');
+    expect(t('profile.grid.type', { type: 'running' })).toBe('ריצה');
   });
 });

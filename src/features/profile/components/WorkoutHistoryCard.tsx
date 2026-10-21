@@ -9,6 +9,8 @@ import RunningHistoryCard from './cards/RunningHistoryCard';
 import StrengthHistoryCard from './cards/StrengthHistoryCard';
 import ActivityHistoryCard from './cards/ActivityHistoryCard';
 import RecoveryHistoryCard from './cards/RecoveryHistoryCard';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 interface WorkoutHistoryCardProps {
   workout: WorkoutHistoryEntry;
@@ -91,6 +93,7 @@ interface SwipeToDeleteRowProps {
 }
 
 function SwipeToDeleteRow({ workout, onClick, onDeleteRequest, children }: SwipeToDeleteRowProps) {
+  const t = useT(profileNs);
   const swipeX = useMotionValue(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [openX, setOpenX] = useState(-PANEL_WIDTH);
@@ -171,10 +174,10 @@ function SwipeToDeleteRow({ workout, onClick, onDeleteRequest, children }: Swipe
           onClick={handleDeleteTap}
           className="flex-1 flex flex-col items-center justify-center gap-1 text-white active:opacity-70 transition-opacity"
           style={{ background: '#EF4444' }}
-          aria-label="מחק אימון"
+          aria-label={t('profile.history.delete.label')}
         >
           <Trash2 className="w-5 h-5" />
-          <span className="text-[11px] font-bold">מחק</span>
+          <span className="text-[11px] font-bold">{t('profile.history.delete.action')}</span>
         </button>
       </div>
 
