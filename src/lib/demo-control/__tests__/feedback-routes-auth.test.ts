@@ -24,8 +24,8 @@ vi.mock('@/lib/demo-control/feedback.server', () => ({
     st.calls.push(`load:${f.source}:${cursor?.ms ?? '-'}`);
     return { items: [], nextCursor: null };
   },
-  setFeedbackStatus: async (_db: unknown, uid: string, source: string, id: string, status: string) => {
-    st.calls.push(`status:${uid}:${source}:${id}:${status}`);
+  setFeedbackStatus: async (_db: unknown, uid: string, source: string, id: string, status: string, reason: string | null) => {
+    st.calls.push(`status:${uid}:${source}:${id}:${status}${reason ? `:${reason}` : ''}`);
     return st.found;
   },
   signFindingScreenshot: async (_db: unknown, id: string) => {
@@ -38,7 +38,19 @@ vi.mock('@/lib/demo-control/feedback.server', () => ({
   },
 }));
 
+vi.mock('@/lib/demo-control/owner-rules.server', () => ({
+  loadOwnerRules: async () => {
+    st.calls.push('owner:load');
+    return { notes: [], learned: [] };
+  },
+  addOwnerNote: async (_db: unknown, uid: string, input: { text: string; screen: string | null; severity: string }) => {
+    st.calls.push(`owner:add:${uid}:${input.severity}:${input.screen ?? '-'}`);
+    return { id: 'OWN-101', ...input, createdAtMs: 1 };
+  },
+}));
+
 import { GET as getFeedback } from '@/app/api/admin/demo/feedback/route';
+import { GET as getOwnerRules, POST as postOwnerNote } from '@/app/api/admin/demo/feedback/owner-rules/route';
 import { POST as postStatus } from '@/app/api/admin/demo/feedback/status/route';
 import { GET as getScreenshot } from '@/app/api/admin/demo/feedback/screenshot/route';
 import { encodeCursor } from '@/lib/demo-control/feedback-query';
@@ -65,8 +77,10 @@ describe('denied callers touch nothing', () => {
         postStatus(req('/api/admin/demo/feedback/status', { method: 'POST', body: { source: 'testers', id: 'r1__a', status: 'handled' } })),
         getScreenshot(req('/api/admin/demo/feedback/screenshot?id=r1__a')),
         getScreenshot(req('/api/admin/demo/feedback/screenshot?screen=home_strength')),
+        getOwnerRules(req('/api/admin/demo/feedback/owner-rules')),
+        postOwnerNote(req('/api/admin/demo/feedback/owner-rules', { method: 'POST', body: { text: 'הערה תקינה' } })),
       ]);
-      expect(responses.map((r) => r.status)).toEqual([gate, gate, gate, gate]);
+      expect(responses.map((r) => r.status)).toEqual([gate, gate, gate, gate, gate, gate]);
       expect(st.calls).toEqual([]);
     });
   }
@@ -98,6 +112,11 @@ describe('POST /feedback/status', () => {
     }
     expect(st.calls).toEqual([]);
   });
+  it('passes the "למה לא רלוונטי" reason', async () => {
+    const res = await postStatus(req('/api/admin/demo/feedback/status', { method: 'POST', body: { source: 'testers', id: 'r1__a', status: 'irrelevant', reason: 'בכוונה' } }));
+    expect(res.status).toBe(200);
+    expect(st.calls).toEqual(['status:admin1:testers:r1__a:irrelevant:בכוונה']);
+  });
   it('404 when the doc is gone', async () => {
     st.found = false;
     const res = await postStatus(req('/api/admin/demo/feedback/status', { method: 'POST', body: { source: 'testers', id: 'r1__a', status: 'handled' } }));
@@ -127,6 +146,22 @@ describe('GET /feedback/screenshot', () => {
     expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot?screen=a%20b'))).status).toBe(400);
     expect((await getScreenshot(req(`/api/admin/demo/feedback/screenshot?screen=${'x'.repeat(121)}`))).status).toBe(400);
     expect((await getScreenshot(req('/api/admin/demo/feedback/screenshot?id=bad/..&screen=home'))).status).toBe(400);
+    expect(st.calls).toEqual([]);
+  });
+});
+
+describe('/feedback/owner-rules', () => {
+  it('GET lists; POST adds a note with the admin uid', async () => {
+    expect((await getOwnerRules(req('/api/admin/demo/feedback/owner-rules'))).status).toBe(200);
+    const res = await postOwnerNote(req('/api/admin/demo/feedback/owner-rules', { method: 'POST', body: { text: 'המיקום מעל הכרטיס', screen: 'map', severity: 'P1' } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).note.id).toBe('OWN-101');
+    expect(st.calls).toEqual(['owner:load', 'owner:add:admin1:P1:map']);
+  });
+  it('rejects a bad note before writing', async () => {
+    for (const body of [{}, { text: 'ab' }, { text: 'הערה תקינה', screen: '../x' }, { text: 'הערה תקינה', severity: 'P9' }]) {
+      expect((await postOwnerNote(req('/api/admin/demo/feedback/owner-rules', { method: 'POST', body }))).status).toBe(400);
+    }
     expect(st.calls).toEqual([]);
   });
 });

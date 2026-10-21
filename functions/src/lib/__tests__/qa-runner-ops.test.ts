@@ -156,7 +156,42 @@ describe('status payload', () => {
       stopRequested: true,
       usageDays: [{ id: TODAY, data: { llmCalls: 1, updatedAt: 9 } }],
       roster: ['demo_qa_walker58'],
+      ownerRules: { notes: [], dismissals: [] },
     });
+  });
+  it('owner rules: whitelisted notes + dismissals, never the admin uid', () => {
+    const p = statusPayload({
+      flagsRaw: {},
+      configRaw: {},
+      controlRaw: {},
+      testersRaw: {},
+      usageDocs: [],
+      ownerRulesRaw: {
+        notes: [
+          { id: 'OWN-101', text: 'הערה', screen: 'home_today', severity: 'P1', createdAtMs: 5, by: 'owner-uid' },
+          { id: 'X-1', text: 'bad id' },
+          { id: 'OWN-102', text: '   ' },
+          { id: 'OWN-103', text: 'עוד', screen: '../etc', severity: 'P9', createdAtMs: { toMillis: () => 7 } },
+        ],
+        dismissals: [
+          { findingId: 'qa-1__abc', rule: 'LAY-OVERLAP', screen: 'home_today', title: 't', reason: 'בכוונה', atMs: 3, by: 'owner-uid' },
+          { findingId: 'bad/id', rule: 'X', screen: 'home' },
+          { findingId: 'qa-1__def', rule: 'lower', screen: '/map', atMs: 1 },
+        ],
+        updatedBy: 'owner-uid',
+      },
+    });
+    expect(p.ownerRules).toEqual({
+      notes: [
+        { id: 'OWN-101', text: 'הערה', screen: 'home_today', severity: 'P1', createdAtMs: 5 },
+        { id: 'OWN-103', text: 'עוד', screen: null, severity: 'P2', createdAtMs: 7 },
+      ],
+      dismissals: [
+        { findingId: 'qa-1__abc', rule: 'LAY-OVERLAP', screen: 'home_today', title: 't', reason: 'בכוונה', atMs: 3 },
+        { findingId: 'qa-1__def', rule: null, screen: '/map', title: '', reason: '', atMs: 1 },
+      ],
+    });
+    expect(JSON.stringify(p)).not.toContain('owner-uid');
   });
   it('jsonSafe turns timestamps into ms', () => {
     expect(jsonSafe({ a: [{ t: { toMillis: () => 1 } }], b: null })).toEqual({ a: [{ t: 1 }], b: null });

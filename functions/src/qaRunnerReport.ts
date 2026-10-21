@@ -61,11 +61,12 @@ async function handle(op: string, args: Record<string, unknown>): Promise<Result
   switch (op) {
     case 'status': {
       const reg = db.collection(REGISTRY);
-      const [flagsSnap, config, control, testers, usage] = await Promise.all([
+      const [flagsSnap, config, control, testers, ownerRules, usage] = await Promise.all([
         db.collection('system_config').doc('feature_flags').get(),
         reg.doc('config').get(),
         reg.doc('control').get(),
         reg.doc('testers').get(),
+        reg.doc('owner_rules').get(),
         // Day docs are keyed YYYY-MM-DD: read the window by id. An orderBy(__name__,'desc')
         // query failed in production ("internal", 21.10.2026) — same fix as the panel (#562).
         db.getAll(...usageWindowDayKeys(new Date(), USAGE_WINDOW_DAYS).map((k) => reg.doc('usage').collection('days').doc(k))),
@@ -77,6 +78,7 @@ async function handle(op: string, args: Record<string, unknown>): Promise<Result
           configRaw: config.data(),
           controlRaw: control.data(),
           testersRaw: testers.data(),
+          ownerRulesRaw: ownerRules.data(),
           usageDocs: usage.filter((d) => d.exists).map((d) => ({ id: d.id, data: d.data() ?? {} })),
         }),
       };

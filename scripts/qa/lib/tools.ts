@@ -66,6 +66,12 @@ export const TOOLS: Tool[] = [
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
+    name: 'back_button',
+    description:
+      'The Android hardware back button: closes an open sheet first (Escape), else goes to the previous step/screen. Returns what happened (sheet_closed, went_back, step_back, no_change, blank_page, left_app, exit_at_root, would_exit_app); wrong outcomes are recorded by the runner.',
+    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
     name: 'background_app',
     description: 'Leave the app for some seconds and come back (like switching apps mid-workout).',
     input_schema: { type: 'object', properties: { seconds: { type: 'number', description: '2–60' } }, required: ['seconds'], additionalProperties: false },

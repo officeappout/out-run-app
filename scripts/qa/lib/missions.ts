@@ -62,6 +62,11 @@ export interface Mission {
    * 'fresh' = no profile (onboarding). Missions that share a uid must share the precondition.
    */
   precondition?: Precondition;
+  /**
+   * Design sweeps: also runnable on the Android phone (--device android-small) with a back-button
+   * check after every checkpoint (OWN-007). Default true for sweeps; false opts a sweep out.
+   */
+  androidBack?: boolean;
 }
 
 const ID = /^[A-Za-z0-9_-]{2,40}$/;
@@ -85,7 +90,8 @@ export function validatePersona(raw: unknown): Validation<Persona> {
   return e.length ? { ok: false, errors: e } : { ok: true, value: p as unknown as Persona };
 }
 
-export function validateMission(raw: unknown, personas: ReadonlySet<string>): Validation<Mission> {
+/** `ownerRuleIds`: OWN-* ids from scripts/qa/owner-rules.json a mission may focus on. */
+export function validateMission(raw: unknown, personas: ReadonlySet<string>, ownerRuleIds: ReadonlySet<string> = new Set()): Validation<Mission> {
   const e: string[] = [];
   const m = (raw ?? {}) as Record<string, unknown>;
   if (!isStr(m.id) || !ID.test(m.id)) e.push('mission.id');
@@ -100,7 +106,7 @@ export function validateMission(raw: unknown, personas: ReadonlySet<string>): Va
   const b = (m.budget ?? {}) as Record<string, unknown>;
   if (typeof b.maxSteps !== 'number' || b.maxSteps < 1 || b.maxSteps > HARD_CAPS.maxStepsPerSession) e.push('mission.budget.maxSteps');
   if (typeof b.maxMinutes !== 'number' || b.maxMinutes < 1 || b.maxMinutes > HARD_CAPS.maxSessionMinutes) e.push('mission.budget.maxMinutes');
-  if (!strArr(m.focusRules) || m.focusRules.some((r) => !RULE_IDS.has(r))) e.push('mission.focusRules (unknown rule id)');
+  if (!strArr(m.focusRules) || m.focusRules.some((r) => !RULE_IDS.has(r) && !ownerRuleIds.has(r))) e.push('mission.focusRules (unknown rule id)');
   if (m.gps !== undefined) {
     const g = m.gps as Record<string, unknown>;
     const route = g.route;
@@ -123,6 +129,7 @@ export function validateMission(raw: unknown, personas: ReadonlySet<string>): Va
       );
     if (!ok) e.push('mission.worldEvents');
   }
+  if (m.androidBack !== undefined && typeof m.androidBack !== 'boolean') e.push('mission.androidBack');
   if (m.precondition !== undefined && !isPrecondition(m.precondition)) e.push(`mission.precondition (one of ${PRECONDITIONS.join(' | ')})`);
   validateSweepFields(m, e);
   return e.length ? { ok: false, errors: e } : { ok: true, value: m as unknown as Mission };

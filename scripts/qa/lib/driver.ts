@@ -4,7 +4,8 @@
  * observation (screenshot + elements + linter issues). Every action is fenced by the demo guard:
  * on a non-demo page or a non-tester account it acts on nothing and goes back to the mission start.
  */
-import { HARD_CAPS } from './config';
+import { APP_HOSTS, HARD_CAPS } from './config';
+import { BACK_SNAPSHOT_JS, classifyBack, planBack, type BackOutcome, type BackSnapshot } from './android-back';
 import { checkPage, isTesterUid, SIGNED_IN_UID_JS } from './demo-guard';
 import { GpsSim } from './gps';
 import { COLLECT_JS, type Observation } from './lint/collect';
@@ -180,7 +181,7 @@ export class SessionDriver {
   /** Runs one browser action. Throws a model-readable Error on failure. */
   async act(call: ToolCall): Promise<void> {
     const p = this.b.page;
-    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission') this.repro.push({ ...call });
+    if (call.name !== 'observe' && call.name !== 'report_finding' && call.name !== 'score_screen' && call.name !== 'end_mission' && call.name !== 'back_button') this.repro.push({ ...call });
     switch (call.name) {
       case 'observe':
       case 'report_finding':
@@ -222,6 +223,9 @@ export class SessionDriver {
         await this.gap();
         await p.goBack({ timeout: 10_000 }).catch(() => {});
         break;
+      case 'back_button':
+        await this.backButton();
+        return;
       case 'background_app':
         await this.background(call.seconds);
         break;
@@ -244,6 +248,33 @@ export class SessionDriver {
       }
     }
     await this.settle();
+  }
+
+  /** The simulated Android back button (./android-back.ts — what it can and cannot see). */
+  async backButton(): Promise<BackOutcome> {
+    const p = this.b.page;
+    const snap = () => p.evaluate<BackSnapshot>(BACK_SNAPSHOT_JS);
+    await this.gap();
+    const before = await snap();
+    const plan = planBack(before);
+    let after: BackSnapshot | null = null;
+    if (plan === 'escape') {
+      await p.keyboard.press('Escape');
+      await this.settle();
+      after = await snap();
+      if (after.dialogs >= before.dialogs && after.path === before.path) {
+        await p.goBack({ timeout: 10_000 }).catch(() => {});
+        await this.settle();
+        after = await snap();
+      }
+    } else if (plan === 'history') {
+      await p.goBack({ timeout: 10_000 }).catch(() => {});
+      await this.settle();
+      after = await snap().catch(() => ({ ...before, url: p.url(), host: '', path: '', textLen: 0, sig: '', dialogs: 0 }));
+    }
+    const outcome = classifyBack(before, after, APP_HOSTS);
+    this.repro.push({ name: 'back_button', result: outcome.kind });
+    return outcome;
   }
 
   private async background(seconds: number) {

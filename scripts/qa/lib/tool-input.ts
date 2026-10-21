@@ -15,6 +15,7 @@ export type ToolCall =
   | { name: 'scroll'; direction: 'up' | 'down'; amount: number; x?: number; y?: number }
   | { name: 'drag'; from_x: number; from_y: number; to_x: number; to_y: number }
   | { name: 'back' }
+  | { name: 'back_button' }
   | { name: 'background_app'; seconds: number }
   | { name: 'gps'; action: 'start' | 'lose_signal' | 'poor_accuracy'; seconds: number }
   | { name: 'network'; mode: 'online' | 'offline' }
@@ -48,12 +49,14 @@ function target(i: Record<string, unknown>): { ref?: string; x?: number; y?: num
   return null;
 }
 
-export function parseToolCall(name: string, input: unknown): Parsed {
+/** `ruleIds`: the generic rule ids plus this run's owner rule ids (OWN-*). */
+export function parseToolCall(name: string, input: unknown, ruleIds: ReadonlySet<string> = RULE_IDS): Parsed {
   const i = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const bad = (error: string): Parsed => ({ ok: false, error });
   switch (name) {
     case 'observe':
     case 'back':
+    case 'back_button':
       return { ok: true, call: { name } };
     case 'tap': {
       const t = target(i);
@@ -91,7 +94,7 @@ export function parseToolCall(name: string, input: unknown): Parsed {
     case 'report_finding': {
       if (!isCategory(i.category) || !isSeverity(i.severity)) return bad('report_finding needs a valid category and severity');
       if (typeof i.title !== 'string' || !i.title.trim()) return bad('report_finding needs a title');
-      const rule = typeof i.rule === 'string' && RULE_IDS.has(i.rule) ? i.rule : null;
+      const rule = typeof i.rule === 'string' && ruleIds.has(i.rule) ? i.rule : null;
       const confidence = clamp(num(i.confidence) ? (i.confidence as number) : 0.5, 0, 1);
       return {
         ok: true,

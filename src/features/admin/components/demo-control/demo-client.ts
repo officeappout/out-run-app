@@ -39,6 +39,10 @@ const ERRORS: Record<string, string> = {
   not_found: 'הפריט כבר לא קיים (אולי עולם הדמו נמחק).',
   no_screenshot: 'לממצא הזה אין צילום מסך.',
   sign_failed: 'לא הצלחנו לפתוח את צילום המסך (חתימת הקישור נכשלה בשרת).',
+  bad_text: 'ההערה צריכה להיות בין 4 ל-500 תווים.',
+  bad_screen: 'מזהה מסך לא תקין (למשל home_today או ‎/map).',
+  bad_severity: 'חומרה לא תקינה',
+  too_many_notes: 'אין עוד מקום להערות חדשות.',
   Unauthorized: 'צריך להתחבר מחדש',
   Forbidden: 'אין הרשאה',
 };
