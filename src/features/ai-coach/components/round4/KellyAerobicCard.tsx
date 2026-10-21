@@ -11,9 +11,12 @@ import type { AerobicCardView } from '@/lib/ai/coach/round4/types';
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import { BRAND_GRADIENT, CARD_FADE, CTA_SHADOW, GlassTag, frameStyle } from '../AiCoachWorkoutCard';
 import { aerobicCardFace } from '../../services/aerobic-card-view.pure';
+import { useT } from '@/hooks/useT';
+import { coach } from '@/messages/ns/coach';
 
 export default function KellyAerobicCard({ card, onOpen }: { card: AerobicCardView; onOpen: (card: AerobicCardView) => void }) {
-  const face = aerobicCardFace(card);
+  const t = useT(coach);
+  const face = aerobicCardFace(card, t);
   return (
     <button
       type="button"

@@ -12,20 +12,17 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, ChevronLeft } from 'lucide-react';
 import { useUserStore } from '@/features/user';
-import { coachGenderOf, type CoachGender } from '@/lib/ai/coach/persona';
+import { coachGenderOf } from '@/lib/ai/coach/persona';
+import { useT } from '@/hooks/useT';
+import { coach } from '@/messages/ns/coach';
 import { useAiCoachAccess } from '../hooks/useAiCoachAccess';
 import { useKellyThreadMeta } from '../hooks/useKellyThread';
 
 export const AI_COACH_PATH = '/ai-coach';
 
-const ASK: Record<CoachGender, string> = {
-  male: 'שאל את קלי',
-  female: 'שאלי את קלי',
-  other: 'שאלו את קלי',
-};
-
 export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
+  const t = useT(coach);
   const { canUseAi } = useAiCoachAccess();
   if (!canUseAi) return null;
   return (
@@ -42,10 +39,10 @@ export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-black text-gray-900">קלי AI</span>
+          <span className="text-sm font-black text-gray-900">{t('entry.inbox.title')}</span>
           <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">AI</span>
         </div>
-        <p className="truncate text-xs text-gray-500">מאמן דיגיטלי. אימון, התקדמות ותוכנית השבוע</p>
+        <p className="truncate text-xs text-gray-500">{t('entry.inbox.subtitle')}</p>
       </div>
       <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
     </button>
@@ -54,10 +51,11 @@ export function AiCoachInboxRow({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
   const router = useRouter();
+  const t = useT(coach);
   const { profile } = useUserStore();
   const { canUseAi } = useAiCoachAccess();
   if (!canUseAi) return null;
-  const label = ASK[coachGenderOf(profile?.core?.gender)];
+  const label = t('entry.ask', { gender: coachGenderOf(profile?.core?.gender) });
   return (
     <button
       type="button"
@@ -67,7 +65,7 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
           ? 'flex w-full items-center gap-2.5 rounded-[18px] bg-white/80 px-3 py-2.5 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.99]'
           : 'flex w-full items-center gap-2.5 rounded-2xl border border-cyan-100 bg-white px-3 py-2.5 text-right shadow-sm active:scale-[0.99]'
       }
-      aria-label="פתח את קלי AI"
+      aria-label={t('entry.home.aria')}
     >
       <span className={v2 ? 'grid h-8 w-8 place-items-center rounded-[11px] bg-v2-tint text-v2-deep' : 'grid h-8 w-8 place-items-center rounded-xl bg-cyan-50 text-cyan-600'}>
         <Sparkles className="h-4 w-4" aria-hidden />
@@ -77,7 +75,7 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
           {label} <span className="text-[10px] font-black text-cyan-600">AI</span>
         </span>
         <span className={v2 ? 'block text-[12px] font-bold text-v2-muted' : 'block text-[12px] text-gray-500'}>
-          אימון להיום, התקדמות ותוכנית השבוע
+          {t('entry.home.subtitle')}
         </span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
@@ -87,6 +85,7 @@ export function AiCoachHomeEntry({ v2 }: { v2: boolean }) {
 
 export function KellyInboxRow({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
+  const t = useT(coach);
   const { profile } = useUserStore();
   const meta = useKellyThreadMeta(profile?.id, true);
   const unread = meta.unreadForUser;
@@ -104,11 +103,11 @@ export function KellyInboxRow({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className={`text-sm ${unread > 0 ? 'font-black text-gray-900' : 'font-black text-gray-800'}`}>קלי</span>
-          <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">המאמן שלך</span>
+          <span className={`text-sm ${unread > 0 ? 'font-black text-gray-900' : 'font-black text-gray-800'}`}>{t('entry.kelly.title')}</span>
+          <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-[9px] font-black text-cyan-700">{t('entry.kelly.badge')}</span>
         </div>
         <p className={`truncate text-xs ${unread > 0 ? 'font-semibold text-gray-700' : 'text-gray-500'}`}>
-          {meta.lastMessagePreview || 'אימונים, תוכנית השבוע ושאלות על האפליקציה'}
+          {meta.lastMessagePreview || t('entry.kelly.previewFallback')}
         </p>
       </div>
       {unread > 0 ? (

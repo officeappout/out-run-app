@@ -19,6 +19,8 @@ import { pickHeroExercise, resolveHeroMedia } from '@/features/workout-engine/sh
 import { BRAND_CTA_FILL_CLASS } from '@/components/ui/BrandCtaButton';
 import { getAiWorkout } from '../services/workout-cache';
 import { workoutCardView } from '../services/workout-card-view.pure';
+import { useT } from '@/hooks/useT';
+import { coach } from '@/messages/ns/coach';
 
 /** Half the home card (330px), so a reply with a card still fits the screen. */
 export const AI_CARD_HEIGHT = 176;
@@ -45,6 +47,7 @@ export const frameStyle: React.CSSProperties = {
 
 /** Liquid-glass tag over the image (design language §5, small). */
 export function GlassTag() {
+  const t = useT(coach);
   return (
     <span
       className="absolute right-2.5 top-2.5 z-20 inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10.5px] font-extrabold text-v2-ink"
@@ -57,7 +60,7 @@ export function GlassTag() {
       aria-hidden
     >
       <Sparkles className="h-3 w-3 text-v2-deep" />
-      קלי AI
+      {t('card.tag')}
     </span>
   );
 }
@@ -73,7 +76,8 @@ export interface AiCoachWorkoutCardFaceProps {
 
 /** Ready state, from plain props (rendered by tests without the device cache). */
 export function AiCoachWorkoutCardFace({ card, thumbnailUrl, cachedDifficulty, onOpen }: AiCoachWorkoutCardFaceProps) {
-  const view = workoutCardView(card, cachedDifficulty);
+  const t = useT(coach);
+  const view = workoutCardView(card, cachedDifficulty, t);
   const iconSrc = iconSrcFor(view.iconKey);
   return (
     <button
@@ -139,7 +143,7 @@ export function AiCoachWorkoutCardFace({ card, thumbnailUrl, cachedDifficulty, o
           style={{ boxShadow: CTA_SHADOW }}
         >
           <Play size={13} strokeWidth={2.6} className="fill-current" aria-hidden />
-          פתח אימון
+          {t('card.open')}
         </span>
       </span>
     </button>
@@ -159,13 +163,14 @@ export default function AiCoachWorkoutCard({ card, onOpen }: { card: WorkoutCard
 
 /** Building state: the card's own shape, pulsing, while the device builds the workout. */
 export function AiCoachWorkoutCardSkeleton() {
+  const t = useT(coach);
   return (
     <div role="status" aria-live="polite" data-ai-card="building" className="relative overflow-hidden bg-white" style={frameStyle} dir="rtl">
       <div className="absolute inset-x-0 top-0 h-[62%] bg-v2-tint motion-safe:animate-pulse" aria-hidden />
       <div className="pointer-events-none absolute inset-0" style={{ background: CARD_FADE }} aria-hidden />
       <div className="absolute right-2.5 top-2.5 inline-flex h-6 items-center gap-1 rounded-full bg-white/85 px-2 text-[11px] font-extrabold text-v2-deep">
         <Sparkles className="h-3 w-3 motion-safe:animate-spin [animation-duration:2.4s]" aria-hidden />
-        בונה לך אימון…
+        {t('card.building')}
       </div>
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 px-3 pb-3" aria-hidden>
         <div className="flex gap-1.5">
@@ -182,6 +187,7 @@ export function AiCoachWorkoutCardSkeleton() {
 
 /** Failed state: the device could not build the workout. Impersonal copy (any user gender). */
 export function AiCoachWorkoutCardError({ onRetry, onBuilder }: { onRetry?: () => void; onBuilder?: () => void }) {
+  const t = useT(coach);
   return (
     <div
       role="alert"
@@ -195,8 +201,8 @@ export function AiCoachWorkoutCardError({ onRetry, onBuilder }: { onRetry?: () =
           <AlertCircle className="h-[18px] w-[18px]" aria-hidden />
         </span>
         <span className="min-w-0">
-          <span className="block text-[14px] font-black text-v2-ink">לא הצלחתי לבנות את האימון</span>
-          <span className="block text-[12px] font-semibold text-v2-muted">אפשר לנסות שוב או לבנות בבונה האימונים.</span>
+          <span className="block text-[14px] font-black text-v2-ink">{t('card.failed.title')}</span>
+          <span className="block text-[12px] font-semibold text-v2-muted">{t('card.failed.body')}</span>
         </span>
       </div>
       {(onRetry || onBuilder) && (
@@ -207,7 +213,7 @@ export function AiCoachWorkoutCardError({ onRetry, onBuilder }: { onRetry?: () =
               onClick={onRetry}
               className={`${BRAND_CTA_FILL_CLASS} h-10 flex-1 text-[13px] font-extrabold transition-transform active:scale-[0.97]`}
             >
-              לנסות שוב
+              {t('card.failed.retry')}
             </button>
           )}
           {onBuilder && (
@@ -216,7 +222,7 @@ export function AiCoachWorkoutCardError({ onRetry, onBuilder }: { onRetry?: () =
               onClick={onBuilder}
               className="h-10 flex-1 rounded-full bg-white text-[13px] font-extrabold text-v2-ink ring-1 ring-inset ring-v2-pill-border transition-transform active:scale-[0.97]"
             >
-              לבונה האימונים
+              {t('card.failed.builder')}
             </button>
           )}
         </div>
