@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import type { LegacyStoreLanguage } from '@/lib/i18n/locales';
 
 // ==========================================
 // App Global State (i18n, Direction, etc.)
 // ==========================================
-type Language = 'he' | 'en';
+// Legacy he/en toggle (challenge pages). The one locale type: src/lib/i18n/locales.ts.
+type Language = LegacyStoreLanguage;
 type Direction = 'rtl' | 'ltr';
 
 interface AppState {

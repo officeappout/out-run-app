@@ -3,7 +3,11 @@
  * Centralized translations for all onboarding screens (Intro, Selection, Dynamic)
  */
 
-export type OnboardingLanguage = 'he' | 'en' | 'ru';
+import type { LegacyOnboardingLanguage } from './locales';
+
+// Subset of the one locale type (src/lib/i18n/locales.ts). TODO(i18n wave 2D): fold these texts
+// into src/messages/*/onboarding.json and delete this file (docs/i18n/PLAN.md §1.4).
+export type OnboardingLanguage = LegacyOnboardingLanguage;
 
 export interface OnboardingLocales {
   // Intro Screen

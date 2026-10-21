@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { LazyMotion, domAnimation } from 'framer-motion';
 import BottomNavigation from "@/features/navigation/BottomNavbar";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import LocaleSync from "@/components/system/LocaleSync";
 import { useSessionStore } from "@/features/workout-engine/core/store/useSessionStore";
 import GlobalDetailOverlay from "@/features/parks/core/components/GlobalDetailOverlay";
 import ChatInbox from "@/features/social/components/ChatInbox";
@@ -67,7 +67,7 @@ export default function ClientLayout({
   // Route-dependent logic is gated by `mounted` to avoid SSR/client pathname
   // mismatch, but the provider tree renders on BOTH the first (pre-mount)
   // paint and all subsequent renders — eliminating the hydration flicker
-  // that occurred when LanguageProvider / ToastProvider were absent until
+  // that occurred when the (former) LanguageProvider / ToastProvider were absent until
   // useEffect fired.
   const isHiddenRoute = mounted && HIDDEN_NAV_ROUTES.some(route => pathname.startsWith(route));
   const isLandingPage = mounted && pathname === '/';
@@ -76,7 +76,9 @@ export default function ClientLayout({
   const isTopPaddingExempt = mounted && isTopPaddingExemptRoute(pathname);
 
   return (
-    <LanguageProvider>
+    <>
+      {/* Locale + <html lang dir> (was LanguageProvider; i18n wave 1). Renders nothing. */}
+      <LocaleSync />
       <ToastProvider>
         {/* LazyMotion loads only the domAnimation feature subset (~15 kB less
             than the full bundle). Files that already use motion.* continue to
@@ -168,6 +170,6 @@ export default function ClientLayout({
           <OnboardingSyncErrorToast />
         </LazyMotion>
       </ToastProvider>
-    </LanguageProvider>
+    </>
   );
 }

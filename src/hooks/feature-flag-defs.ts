@@ -349,6 +349,16 @@ export const FLAG_DEFS = [
   { key: 'demoLifeLlm', firestoreKey: 'demo_life_llm', defaultValue: false, superAdminValue: false },
   { key: 'enableAiTesters', firestoreKey: 'enable_ai_testers', defaultValue: false, superAdminValue: false },
   { key: 'demoKelly', firestoreKey: 'demo_kelly', defaultValue: false, superAdminValue: false },
+  // i18n wave 1 (21.10.2026, owner-approved docs/i18n/PLAN.md §3.1) — the translation layer.
+  // enable_i18n is the master: off = locale is always 'he', no out_locale cookie, <html lang dir>
+  // exactly as before (byte-identical Hebrew). On = the locale resolves from users/{uid}.core.locale
+  // → onboardingPrefs 'app_locale' → device language, among the languages switched on below.
+  // The per-language flags stay OFF (superAdminValue false too) until that language's catalogs
+  // are complete — a super admin must not land in a half-translated app by opening it.
+  { key: 'enableI18n', firestoreKey: 'enable_i18n', defaultValue: false, superAdminValue: true },
+  { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
+  { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
+  { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
