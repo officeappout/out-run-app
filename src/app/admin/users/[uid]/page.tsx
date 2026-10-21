@@ -14,7 +14,7 @@ import {
 import { UserFullProfile } from '@/types/user-profile';
 import { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
 import { getStepsTrend, type DailyStepsSnapshot } from '@/features/activity/services/activity-history.service';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import {
   Search, Trash2, Eye, Shield, Mail, Phone, Calendar, Coins,
   User, X, Activity, TrendingUp, MapPin, Package, RefreshCw,

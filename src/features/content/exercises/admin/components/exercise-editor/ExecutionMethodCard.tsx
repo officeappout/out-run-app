@@ -38,7 +38,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type { AppLanguage, ExerciseLang, LocalizedText, ExternalVideo } from '../../../core/exercise.types';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import VideoPreview from './helpers/VideoPreview';
 import ImagePreview from './helpers/ImagePreview';
 import InstructionalVideosEditor from './helpers/InstructionalVideosEditor';

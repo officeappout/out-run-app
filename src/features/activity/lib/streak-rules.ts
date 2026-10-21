@@ -19,7 +19,7 @@
  * A day is counted at most once: `lastStreakDate === today` is the
  * idempotency key shared by both rules (see advanceStreakForDay).
  */
-import { DAILY_STEP_GOAL } from '@/config/health-goals';
+import { DAILY_STEP_GOAL } from '@/features/activity/config/health-goals.config';
 import { STREAK_MINIMUM_MINUTES } from '../types/activity.types';
 
 /** Minimal shape of a day the rules need (a DailyActivity satisfies it). */

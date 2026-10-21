@@ -58,7 +58,7 @@ import { checkUserRole, isOnlyAuthorityManager } from '@/features/admin/services
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { remapParksToAuthorities } from '@/features/admin/services/remap-parks-to-authorities';
 import { Authority } from '@/types/admin-types';
-import { safeRenderText } from '@/utils/render-helpers';
+import { safeRenderText } from '@/lib/utils/render-helpers';
 import { ref, uploadBytes, getDownloadURL, getStorage } from 'firebase/storage';
 import dynamicImport from 'next/dynamic';
 import {
@@ -71,7 +71,7 @@ import {
     BRANDING_GROUPS,
 } from '@/features/admin/services/category-branding.service';
 import type { CategoryBrandingConfig, BrandingCategoryKey } from '@/features/admin/services/category-branding.service';
-import { getFacilityIcon, resolveCategoryKey } from '@/utils/facility-icon';
+import { getFacilityIcon, resolveCategoryKey } from '@/lib/utils/facility-icon';
 
 const storage = getStorage();
 
