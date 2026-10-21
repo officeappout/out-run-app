@@ -10,8 +10,11 @@ import { ChevronLeft } from 'lucide-react';
 import type { RunningPlanProgress } from '../utils/running-plan-progress';
 import { PROGRESS_COLORS } from '../utils/progress-model';
 import KindIcon from './KindIcon';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export default function RunningPlanCard({ plan }: { plan: RunningPlanProgress }) {
+  const t = useT(profileNs);
   const router = useRouter();
   return (
     <button
@@ -24,7 +27,12 @@ export default function RunningPlanCard({ plan }: { plan: RunningPlanProgress })
         <div className="min-w-0 flex-1">
           <p className="truncate whitespace-nowrap text-[15px] font-extrabold text-v2-ink">{plan.title}</p>
           <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted tabular-nums">
-            שבוע {plan.currentWeek} מתוך {plan.weeks} · {plan.done}/{plan.dueSoFar} אימונים בוצעו
+            {t('hub.runningPlan.progress', {
+              week: String(plan.currentWeek),
+              weeks: String(plan.weeks),
+              done: String(plan.done),
+              due: String(plan.dueSoFar),
+            })}
           </p>
         </div>
         <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />

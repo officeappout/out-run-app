@@ -14,8 +14,10 @@ import { sortTones } from '@/components/ui/v2/streak';
 import { STREAK_MINIMUM_MINUTES } from '@/features/activity/types/activity.types';
 import { missedLine, reasonCounts, REASON_LABEL, type ConsistencyDay, type ConsistencyReason } from '../utils/consistency-days';
 import { KindGlyph } from './KindIcon';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
-const HEB_DAY = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const HEB_DAY = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // i18n-allow-hebrew: weekday letters — wave 3 (fmt), Intl differs
 const COLLAPSED = 7;
 
 const TONE: Record<ConsistencyReason, { bg: string; fg: string }> = {
@@ -54,6 +56,7 @@ export interface ConsistencyCardProps {
 }
 
 export default function ConsistencyCard({ days, currentStreak, longestStreak }: ConsistencyCardProps) {
+  const t = useT(profileNs);
   const [all, setAll] = useState(false);
   const counted = days.filter((d) => d.counted);
   const headTones = sortTones(counted.slice(0, 7).flatMap((d) => d.tones));
@@ -66,11 +69,12 @@ export default function ConsistencyCard({ days, currentStreak, longestStreak }: 
         {headTones.length > 0 ? <StreakFlame tones={headTones} size={40} /> : null}
         <div className="min-w-0 flex-1">
           <h2 className="whitespace-nowrap text-[17px] font-black text-v2-ink">
-            התמדה{currentStreak > 0 ? ` · רצף ${currentStreak} ימים` : ''}
+            {currentStreak > 0 ? t('hub.consistency.titleWithStreak', { count: String(currentStreak) }) : t('hub.consistency.title')}
           </h2>
           <p className="truncate whitespace-nowrap text-[12.5px] font-bold text-v2-muted">
-            {longestStreak > 1 ? `השיא שלך ${longestStreak} ימים · ` : ''}
-            {counted.length} מתוך {days.length} הימים נספרו
+            {longestStreak > 1
+              ? t('hub.consistency.countedWithBest', { best: String(longestStreak), counted: String(counted.length), total: String(days.length) })
+              : t('hub.consistency.counted', { counted: String(counted.length), total: String(days.length) })}
           </p>
         </div>
       </div>
@@ -78,7 +82,7 @@ export default function ConsistencyCard({ days, currentStreak, longestStreak }: 
       <div className="mx-3.5 mt-2.5 flex items-start gap-2 rounded-[14px] bg-v2-surface p-2.5 ring-1 ring-inset ring-v2-hairline">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-v2-muted" aria-hidden />
         <p className="text-[12px] font-bold leading-snug text-v2-ink-2">
-          יום נספר לרצף כשיש לפחות {STREAK_MINIMUM_MINUTES} דק׳ פעילות (כוח, ריצה, הליכה, התאוששות) או כשהגעת ליעד הצעדים היומי.
+          {t('hub.consistency.rule', { minutes: String(STREAK_MINIMUM_MINUTES) })}
         </p>
       </div>
 
@@ -115,12 +119,14 @@ export default function ConsistencyCard({ days, currentStreak, longestStreak }: 
                       ))
                     ) : (
                       <span className="inline-flex h-[26px] items-center whitespace-nowrap rounded-full bg-v2-surface px-2.5 text-[12px] font-extrabold text-v2-muted">
-                        {d.isToday ? 'עוד לא נספר' : 'לא נספר'}
+                        {d.isToday ? t('hub.consistency.notCountedToday') : t('hub.consistency.notCounted')}
                       </span>
                     )}
                   </div>
                   <p className="mt-1 truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
-                    {d.counted ? `${d.minutes} דק׳ פעילות${d.isToday ? ' · היום' : ''}` : missedLine(d)}
+                    {d.counted
+                      ? t(d.isToday ? 'hub.consistency.dayMinutesToday' : 'hub.consistency.dayMinutes', { minutes: String(d.minutes) })
+                      : missedLine(d)}
                   </p>
                 </div>
                 <span className="grid h-[30px] w-[30px] shrink-0 place-items-center">
@@ -138,7 +144,7 @@ export default function ConsistencyCard({ days, currentStreak, longestStreak }: 
           onClick={() => setAll((v) => !v)}
           className="mx-auto mb-1.5 mt-1 flex h-9 items-center whitespace-nowrap rounded-full bg-white px-4 text-[13px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
         >
-          {all ? 'הצג פחות' : `הצג את כל ${days.length} הימים`}
+          {all ? t('hub.consistency.showLess') : t('hub.consistency.showAll', { count: String(days.length) })}
         </button>
       )}
     </Card>

@@ -16,6 +16,8 @@ import { PROGRESS_COLORS, KIND_LABEL } from '../utils/progress-model';
 import { formatCount, formatKm, formatMinutes, monthName, weekRangeLabel } from '../utils/progress-format';
 import { activitySplit, type PeriodSpark, type SplitKind } from '../utils/period-spark';
 import { KindGlyph } from './KindIcon';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface PeriodSummaryRingCardProps {
   period: ProgressPeriod;
@@ -65,6 +67,7 @@ function StatRow({
   last?: boolean;
   onOpenCompare?: () => void;
 }) {
+  const t = useT(profileNs);
   const badge = <DeltaBadge current={current} previous={previous} className="!h-[22px] shrink-0 !px-1.5 !text-[11px]" />;
   return (
     <div className={`flex items-center gap-2 py-2 ${last ? '' : 'border-b border-v2-hairline'}`}>
@@ -76,7 +79,7 @@ function StatRow({
         <div className="mt-1 flex items-center gap-1.5">
           <span className="truncate whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{label}</span>
           {onOpenCompare ? (
-            <button type="button" onClick={onOpenCompare} aria-label={`השוואה · ${label}`} className="shrink-0 rounded-full transition-transform duration-150 ease-v2 active:scale-[0.97]">
+            <button type="button" onClick={onOpenCompare} aria-label={t('hub.summary.compareStatAria', { label })} className="shrink-0 rounded-full transition-transform duration-150 ease-v2 active:scale-[0.97]">
               {badge}
             </button>
           ) : (
@@ -90,10 +93,14 @@ function StatRow({
 }
 
 export default function PeriodSummaryRingCard({ period, ranges, current, previous, spark, onSelectKind, onOpenCompare }: PeriodSummaryRingCardProps) {
+  const t = useT(profileNs);
   const start = ranges.current.start;
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
-  const title = period === 'week' ? `השבוע שלך · ${weekRangeLabel(start, end)}` : `${monthName(start.getMonth())} ${start.getFullYear()} · עד היום`;
-  const vs = period === 'week' ? 'מול שבוע שעבר' : `מול ${monthName(ranges.previous.start.getMonth())} באותו שלב`;
+  const title =
+    period === 'week'
+      ? t('hub.summary.title.week', { range: weekRangeLabel(start, end) })
+      : t('hub.summary.title.month', { month: monthName(start.getMonth()), year: String(start.getFullYear()) });
+  const vs = period === 'week' ? t('hub.summary.vs.week') : t('hub.summary.vs.month', { month: monthName(ranges.previous.start.getMonth()) });
   const time = formatMinutes(current.minutes);
   const split = activitySplit(current);
   const ring = (
@@ -101,10 +108,10 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
       size={128}
       stroke={13}
       segments={split.map((s) => ({ key: s.kind, value: s.minutes, color: PROGRESS_COLORS[s.kind] }))}
-      label={`${time.value} ${time.unit} פעילות`}
+      label={t('hub.summary.ringLabel', { value: time.value, unit: time.unit })}
     >
       <span className="text-[32px] font-black leading-none !tracking-[-0.03em] tabular-nums text-v2-ink">{time.value}</span>
-      <span className="mt-0.5 whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{time.unit} פעילות</span>
+      <span className="mt-0.5 whitespace-nowrap text-[11.5px] font-bold text-v2-muted">{t('hub.summary.ringUnit', { unit: time.unit })}</span>
       <DeltaBadge current={current.minutes} previous={previous.minutes} className="mt-1.5 !h-[22px] !px-1.5 !text-[11px]" />
     </SegmentedRing>
   );
@@ -132,7 +139,7 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
 
       <div className="mt-2.5 flex items-center gap-3.5">
         {onOpenCompare ? (
-          <button type="button" onClick={onOpenCompare} aria-label={`השוואה ${vs}`} className="shrink-0 rounded-full transition-transform duration-150 ease-v2 active:scale-[0.97]">
+          <button type="button" onClick={onOpenCompare} aria-label={t('hub.summary.compareRingAria', { vs })} className="shrink-0 rounded-full transition-transform duration-150 ease-v2 active:scale-[0.97]">
             {ring}
           </button>
         ) : (
@@ -141,7 +148,7 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
         <div className="min-w-0 flex-1">
           <StatRow
             value={formatCount(current.workouts)}
-            label="אימונים"
+            label={t('hub.summary.stat.workouts')}
             current={current.workouts}
             previous={previous.workouts}
             bars={spark.workouts}
@@ -151,8 +158,8 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
           />
           <StatRow
             value={formatKm(current.km)}
-            unit="ק״מ"
-            label="ריצה והליכה"
+            unit={t('hub.summary.stat.kmUnit')}
+            label={t('hub.summary.stat.km')}
             current={current.km}
             previous={previous.km}
             bars={spark.km}
@@ -162,7 +169,7 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
           />
           <StatRow
             value={formatCount(stepsValue)}
-            label={period === 'week' ? 'צעדים' : 'צעדים ליום'}
+            label={period === 'week' ? t('hub.summary.stat.steps.week') : t('hub.summary.stat.steps.month')}
             current={stepsValue}
             previous={stepsPrev}
             bars={spark.steps}
@@ -183,7 +190,7 @@ export default function PeriodSummaryRingCard({ period, ranges, current, previou
               onClick={() => onSelectKind?.(s.kind)}
               className="flex h-10 min-w-0 flex-1 items-center gap-1.5 rounded-[14px] px-2.5 transition-transform duration-150 ease-v2 active:scale-[0.97]"
               style={{ background: CHIP[s.kind].bg, color: CHIP[s.kind].fg }}
-              aria-label={`${KIND_LABEL[s.kind]} · ${s.minutes} דקות`}
+              aria-label={t('hub.summary.chipAria', { label: KIND_LABEL[s.kind], minutes: String(s.minutes) })}
             >
               <KindGlyph kind={s.kind} className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate whitespace-nowrap text-[12.5px] font-extrabold">{KIND_LABEL[s.kind]}</span>

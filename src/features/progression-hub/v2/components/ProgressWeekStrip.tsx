@@ -11,6 +11,8 @@
 import { ChevronLeft, Flame } from 'lucide-react';
 import SmartWeeklySchedule from '@/features/home/components/SmartWeeklySchedule';
 import { useWeekStripProps } from '@/features/home/hooks/useWeekStripProps';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export interface ProgressWeekStripProps {
   activeDays: number;
@@ -20,11 +22,12 @@ export interface ProgressWeekStripProps {
 }
 
 export default function ProgressWeekStrip({ activeDays, currentStreak, onOpenConsistency }: ProgressWeekStripProps) {
+  const t = useT(profileNs);
   const { props } = useWeekStripProps();
   return (
     <section>
       <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-        <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{activeDays} ימי פעילות השבוע</span>
+        <span className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('hub.weekStrip.activeDays', { count: String(activeDays) })}</span>
         {currentStreak > 0 && (
           <button
             type="button"
@@ -32,7 +35,7 @@ export default function ProgressWeekStrip({ activeDays, currentStreak, onOpenCon
             className="inline-flex items-center gap-0.5 whitespace-nowrap text-[13px] font-extrabold text-v2-deep transition-transform duration-150 ease-v2 active:scale-[0.97]"
           >
             <Flame className="h-4 w-4" aria-hidden />
-            רצף {currentStreak} ימים
+            {t('hub.weekStrip.streak', { count: String(currentStreak) })}
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
           </button>
         )}
