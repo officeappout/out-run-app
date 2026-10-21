@@ -9,6 +9,7 @@
  */
 import type { LeaderboardMode } from './format-leaderboard-score';
 import { formatLeaderboardScore } from './format-leaderboard-score';
+import { leagueHeT, type LeagueT } from './league-t';
 
 /** Rows shown before the "show all" toggle. Anyone below this is outside the
  *  visible range, and your own row gets pinned to the bottom of the board. */
@@ -34,8 +35,13 @@ interface RankedRow {
  * the board can show "16/900 number + 12/700 unit" without re-deriving the
  * unit rules. Falls back to the whole string as the number.
  */
-export function splitScore(value: number, mode: LeaderboardMode, isSegmentMode = false): { value: string; unit: string } {
-  const full = formatLeaderboardScore(value, mode, isSegmentMode);
+export function splitScore(
+  value: number,
+  mode: LeaderboardMode,
+  isSegmentMode = false,
+  t: LeagueT = leagueHeT(),
+): { value: string; unit: string } {
+  const full = formatLeaderboardScore(value, mode, isSegmentMode, t);
   const i = full.indexOf(' ');
   if (i <= 0) return { value: full, unit: '' };
   return { value: full.slice(0, i), unit: full.slice(i + 1) };
@@ -96,10 +102,10 @@ export function computeNextRankTarget(
   return { targetName: above.name, targetRank: above.rank, needed, progress };
 }
 
-/** "עוד 3 ימים כדי לעקוף את נועה" — unit follows the metric. */
-export function formatNextRankLine(target: NextRankTarget, mode: LeaderboardMode): string {
-  if (mode === 'general' && target.needed === 1) return `עוד יום אחד כדי לעקוף את ${target.targetName}`;
-  return `עוד ${formatLeaderboardScore(target.needed, mode)} כדי לעקוף את ${target.targetName}`;
+/** "עוד 3 ימים כדי לעקוף את נועה" — unit follows the metric. i18n: `leagues.nextRank.*` (default `t` = Hebrew catalog). */
+export function formatNextRankLine(target: NextRankTarget, mode: LeaderboardMode, t: LeagueT = leagueHeT()): string {
+  if (mode === 'general' && target.needed === 1) return t('leagues.nextRank.oneDay', { name: target.targetName });
+  return t('leagues.nextRank.line', { score: formatLeaderboardScore(target.needed, mode, false, t), name: target.targetName });
 }
 
 // ── Countdown to the end of the period ───────────────────────────────────────
@@ -133,17 +139,13 @@ export function getPeriodEnd(window: BoardWindow, now: Date): Date {
 }
 
 /** "נשארו 2 ימים" / "נשאר יום אחד" / "נשארו 5 שעות" / "נשארה שעה אחת" / "נשארה פחות משעה". */
-export function formatTimeLeft(end: Date, now: Date): string {
+export function formatTimeLeft(end: Date, now: Date, t: LeagueT = leagueHeT()): string {
   const ms = end.getTime() - now.getTime();
-  if (ms <= 0) return 'התקופה הסתיימה';
+  if (ms <= 0) return t('leagues.timeLeft.ended');
   const hours = Math.floor(ms / 3_600_000);
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    return days === 1 ? 'נשאר יום אחד' : `נשארו ${days} ימים`;
-  }
-  if (hours >= 2) return `נשארו ${hours} שעות`;
-  if (hours === 1) return 'נשארה שעה אחת';
-  return 'נשארה פחות משעה';
+  if (hours >= 24) return t('leagues.timeLeft.days', { days: Math.floor(hours / 24) });
+  if (hours >= 1) return t('leagues.timeLeft.hours', { hours });
+  return t('leagues.timeLeft.underHour');
 }
 
 // ── Head-to-head split ───────────────────────────────────────────────────────

@@ -9,12 +9,16 @@ import { getRelativeTime } from '@/lib/utils/date-formatter';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import { formatKm } from './league-board-logic';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
+import { common } from '@/messages/ns/common';
+import type { CommunityKey } from './league-t';
 
-const RANGE_OPTIONS: { value: UnitLeagueRange; label: string }[] = [
-  { value: 'my_battalion_companies', label: 'הפלוגות בגדוד שלי' },
-  { value: 'my_brigade_battalions', label: 'הגדודים בחטיבה שלי' },
-  { value: 'all_companies', label: 'כל הפלוגות בארץ' },
-  { value: 'all_brigades', label: 'כל החטיבות בארץ' },
+const RANGE_OPTIONS: { value: UnitLeagueRange; labelKey: CommunityKey }[] = [
+  { value: 'my_battalion_companies', labelKey: 'leagues.units.range.myBattalionCompanies' },
+  { value: 'my_brigade_battalions', labelKey: 'leagues.units.range.myBrigadeBattalions' },
+  { value: 'all_companies', labelKey: 'leagues.units.range.allCompanies' },
+  { value: 'all_brigades', labelKey: 'leagues.units.range.allBrigades' },
 ];
 
 interface UnitLeagueTableProps {
@@ -91,21 +95,23 @@ export function UnitLeagueTableView({
   onRefresh: fetchData,
   showKm = false,
 }: UnitLeagueTableViewProps) {
-  const kmText = (avgKm: number | null) => (showKm && avgKm && avgKm > 0 ? `${formatKm(avgKm)} ק״מ ליום` : null);
+  const t = useT(community);
+  const tc = useT(common);
+  const kmText = (avgKm: number | null) => (showKm && avgKm && avgKm > 0 ? t('leagues.units.kmPerDay', { km: formatKm(avgKm) }) : null);
   const [isOpen, setIsOpen] = useState(false);
   const activeOpt = RANGE_OPTIONS.find((o) => o.value === range) ?? RANGE_OPTIONS[0];
 
   return (
     <section dir="rtl">
       <BoardCard
-        title="תחרות בין יחידות"
+        title={t('leagues.units.title')}
         subtitle={
           // Mandatory, not decoration (David, 05.09.2026) — every row's data is from a scheduled hourly rollup, must be legible how fresh it is.
           // 07.09.2026 fix: keyed off isLoading (an updatedAt of null after load is a legitimate state —
           // unitLeagueRollup skips any unit with zero declared members), not result?.updatedAt alone.
-          isLoading ? 'טוען...' : result?.updatedAt ? `עודכן ${getRelativeTime(result.updatedAt)}` : 'אין נתונים עדיין'
+          isLoading ? tc('status.loading') : result?.updatedAt ? t('leagues.units.updated', { when: getRelativeTime(result.updatedAt) }) : t('leagues.units.noData')
         }
-        actions={<BoardIconButton icon={RefreshCw} label="רענון" onClick={fetchData} spinning={isLoading} />}
+        actions={<BoardIconButton icon={RefreshCw} label={t('leagues.units.refresh')} onClick={fetchData} spinning={isLoading} />}
       >
         {/* Range dropdown */}
         <div className="relative mb-4">
@@ -115,7 +121,7 @@ export function UnitLeagueTableView({
             aria-expanded={isOpen}
             className="h-8 px-3 rounded-full bg-white text-v2-ink-2 shadow-v2-ring whitespace-nowrap text-[12.5px] font-bold flex items-center gap-1.5"
           >
-            {activeOpt.label}
+            {t(activeOpt.labelKey)}
             <ChevronDown size={14} strokeWidth={2.4} className={`transition-transform ease-v2 ${isOpen ? 'rotate-180' : ''}`} />
           </button>
           {isOpen && (
@@ -129,7 +135,7 @@ export function UnitLeagueTableView({
                     opt.value === range ? 'text-v2-deep' : 'text-v2-ink hover:bg-v2-surface'
                   }`}
                 >
-                  <span className="flex-1">{opt.label}</span>
+                  <span className="flex-1">{t(opt.labelKey)}</span>
                   {opt.value === range && <Check size={16} strokeWidth={2.6} aria-hidden />}
                 </button>
               ))}
@@ -153,9 +159,9 @@ export function UnitLeagueTableView({
                   key: e.directoryId,
                   name: e.name,
                   value: e.avgSteps.toLocaleString('he-IL'),
-                  unit: 'צעדים',
+                  unit: t('leagues.units.steps'),
                   isMe: e.isMyUnit,
-                  sub: [`${e.activeParticipantCount} פעילים`, kmText(e.avgKm)].filter(Boolean).join(' · '),
+                  sub: [t('leagues.units.active', { count: String(e.activeParticipantCount) }), kmText(e.avgKm)].filter(Boolean).join(' · '),
                 })) as [PodiumEntry, PodiumEntry, PodiumEntry]
               }
             />
@@ -166,12 +172,12 @@ export function UnitLeagueTableView({
                 key={entry.directoryId}
                 rank={idx + 1}
                 name={entry.name}
-                nameTag={entry.isMyUnit ? '(היחידה שלך)' : undefined}
+                nameTag={entry.isMyUnit ? t('leagues.units.myUnit') : undefined}
                 isMe={entry.isMyUnit}
                 leading={<UnitIconBadge unitId={entry.unitId} iconUrl={entry.iconUrl} name={entry.name} size={32} />}
-                sub={[entry.parentBreadcrumb, `${entry.activeParticipantCount} משתתפים פעילים`, kmText(entry.avgKm)].filter(Boolean).join(' · ')}
+                sub={[entry.parentBreadcrumb, t('leagues.units.activeParticipants', { count: String(entry.activeParticipantCount) }), kmText(entry.avgKm)].filter(Boolean).join(' · ')}
                 value={entry.avgSteps.toLocaleString('he-IL')}
-                unit="צעדים"
+                unit={t('leagues.units.steps')}
               />
             ))}
           </div>
@@ -179,14 +185,14 @@ export function UnitLeagueTableView({
         ) : result?.myUnitBelowFloor ? (
           <BoardMessage
             icon={Users}
-            title={`עוד ${result.myUnitBelowFloor.needed} מ${result.myUnitBelowFloor.name} וייפתח הדירוג`}
-            body={`${result.myUnitBelowFloor.activeParticipantCount} משתתפים פעילים כרגע — שלח לחברים שלך ליחידה!`}
+            title={t('leagues.units.belowFloor.title', { needed: String(result.myUnitBelowFloor.needed), name: result.myUnitBelowFloor.name })}
+            body={t('leagues.units.belowFloor.body', { count: String(result.myUnitBelowFloor.activeParticipantCount) })}
           />
         ) : (
           <BoardMessage
             icon={Shield}
-            title="אין עדיין נתונים בטווח הזה"
-            body="ברגע שיהיו מספיק מתאמנים פעילים, הדירוג יופיע כאן"
+            title={t('leagues.units.empty.title')}
+            body={t('leagues.units.empty.body')}
           />
         )}
       </BoardCard>

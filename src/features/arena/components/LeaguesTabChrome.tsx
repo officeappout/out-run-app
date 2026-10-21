@@ -11,6 +11,8 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import IconTile from '@/components/ui/v2/IconTile';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 import { leagueIconFor } from './league-icons';
 import type { LeagueCardData } from './LeagueCarousel';
 
@@ -33,6 +35,7 @@ export function LeagueSelectorButton({
   expanded,
   onOpen,
 }: LeagueSelectorButtonProps) {
+  const t = useT(community);
   if (isLoading) {
     return (
       <div className="w-full flex items-center gap-3 rounded-v2-card px-3.5 py-3 bg-white shadow-v2-card mb-3" dir="rtl">
@@ -66,7 +69,7 @@ export function LeagueSelectorButton({
       )}
       <div className="flex-1 min-w-0 text-right">
         <div className="flex items-center gap-1.5">
-          <span className="text-[16px] font-black text-v2-ink truncate tracking-v2-tight">{activeCard?.name ?? 'בחר ליגה'}</span>
+          <span className="text-[16px] font-black text-v2-ink truncate tracking-v2-tight">{activeCard?.name ?? t('leagues.selector.placeholder')}</span>
           <ChevronDown size={16} strokeWidth={2.4} className="text-v2-muted flex-shrink-0" />
         </div>
         <div className="text-[12.5px] font-semibold text-v2-muted truncate">
@@ -77,7 +80,7 @@ export function LeagueSelectorButton({
       {rank != null && (
         <div className="flex flex-col items-center flex-shrink-0 leading-none rounded-v2-tile bg-v2-tint px-2.5 py-1.5">
           <span className="font-black tabular-nums text-[15px] text-v2-deep">#{rank}</span>
-          <span className="text-[10px] font-bold text-v2-deep/70 mt-0.5">דירוג</span>
+          <span className="text-[10px] font-bold text-v2-deep/70 mt-0.5">{t('leagues.selector.rank')}</span>
         </div>
       )}
     </button>

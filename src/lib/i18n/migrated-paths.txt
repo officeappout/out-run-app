@@ -177,3 +177,30 @@ src/app/settings/refine-levels/
 src/app/map/error.tsx
 src/app/league/
 src/app/workouts/[id]/history/
+# wave 2 batch q (namespace community, leagues.* keys) — the free league boards + their helpers.
+# Listed per file: NeighborhoodLeaderboard / NationalLeagueBoard / ScopeBattleCard / ScopeCompetitionLeaderboard /
+# GroupLeaderboard / LeagueBoardSheets (open PR #607 + other work) and app/community are not migrated. The helpers
+# take the caller's `t` and default to the Hebrew catalog (leagueHeT) for those callers; CATEGORY_UNIT_LABEL
+# stays (read from the he catalog) next to CATEGORY_UNIT_LABEL_KEYS. LeagueCarousel's carousel mode is
+# unreachable (every caller passes mode="sheet") — marked. v1 (enable_home_v2 off) sheet headers are marked.
+src/features/arena/components/LeagueBoard.tsx
+src/features/arena/components/LeagueCarousel.tsx
+src/features/arena/components/LeagueFilterSheet.tsx
+src/features/arena/components/LeaguesTabChrome.tsx
+src/features/arena/components/UnitLeagueTable.tsx
+src/features/arena/components/GroupLeagueStatsBoard.tsx
+src/features/arena/components/OpponentPickerSheet.tsx
+src/features/arena/components/league-board-logic.ts
+src/features/arena/components/format-leaderboard-score.ts
+src/features/arena/components/scope-category-unit-label.ts
+src/features/arena/components/league-t.ts
+# wave 2 batch q (namespace player, gps.* / shareLive.* / preview.* / coachNote.* / strengthOverview.*) — shared
+# workout components. Listed per file: strength/ (the strength player's summary — StrengthRunner boundary, hooks
+# busy in other work), cards/StrengthExerciseCard (rendered inside the strength player's playlist),
+# PostWorkoutSurvey / RunShareBar (busy) are not migrated. StrengthOverviewCard's smart-description template
+# and the goal / name values it feeds resolveDescription are CMS content (@-tags, PLAN §2.7) — marked.
+src/features/workout-engine/components/GpsIndicator.tsx
+src/features/workout-engine/components/ShareAsLiveToggle.tsx
+src/features/workout-engine/components/WorkoutPreviewHeader.tsx
+src/features/workout-engine/components/CoachNoteBlock.tsx
+src/features/workout-engine/components/StrengthOverviewCard.tsx

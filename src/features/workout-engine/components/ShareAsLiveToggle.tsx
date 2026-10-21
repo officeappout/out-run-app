@@ -10,7 +10,9 @@ import {
 import { usePrivacyStore } from '@/features/safecity/store/usePrivacyStore';
 import { useUserStore } from '@/features/user';
 import { auth } from '@/lib/firebase';
-import { g, type AppGender } from '@/lib/utils/gendered-text';
+import type { AppGender } from '@/lib/utils/gendered-text';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
 import PlannedActivityComposeSheet, {
   type ComposeActivityType,
@@ -50,11 +52,13 @@ import PlannedActivityComposeSheet, {
  *   here, matching the plan's explicit "no new compose logic" scope.
  */
 
-const ACTIVITY_LABELS: Record<WorkoutActivityStatus, { male: string; female: string }> = {
-  strength: { male: 'שתף שאני יוצא לאימון', female: 'שתפי שאני יוצאת לאימון' },
-  running: { male: 'שתף שאני יוצא לריצה', female: 'שתפי שאני יוצאת לריצה' },
-  walking: { male: 'שתף שאני יוצא להליכה', female: 'שתפי שאני יוצאת להליכה' },
-  cycling: { male: 'שתף שאני יוצא לרכיבה', female: 'שתפי שאני יוצאת לרכיבה' },
+// i18n (namespace `player`, keys `shareLive.*`): one gendered select per activity — the gender is the
+// prop / stored profile gender (passed explicitly; `male`/`other` both read the old male text, as g() did).
+const HEADLINE_KEYS: Record<WorkoutActivityStatus, PlayerKey> = {
+  strength: 'shareLive.headline.strength',
+  running: 'shareLive.headline.running',
+  walking: 'shareLive.headline.walking',
+  cycling: 'shareLive.headline.cycling',
 };
 
 /** Minimal place shape a caller can pass when it already has a specific
@@ -117,6 +121,7 @@ export default function ShareAsLiveToggle({
   contextRoute,
   v2 = false,
 }: ShareAsLiveToggleProps) {
+  const t = useT(player);
   const profile = useUserStore((s) => s.profile);
   const storedGender = useUserStore((s) => s.profile?.core?.gender ?? 'male');
   const effectiveGender: AppGender = gender ?? storedGender;
@@ -219,13 +224,8 @@ export default function ShareAsLiveToggle({
     }
   }, [shareAsLive, userLocation, profile, activityType, workoutTitle]);
 
-  const labels = ACTIVITY_LABELS[activityType];
-  const headline = g(effectiveGender, labels.male, labels.female);
-  const subheadline = g(
-    effectiveGender,
-    'תופיע לאחרים שמחפשים שותף',
-    'תופיעי לאחרים שמחפשות שותפה',
-  );
+  const headline = t(HEADLINE_KEYS[activityType], { gender: effectiveGender });
+  const subheadline = t('shareLive.sub', { gender: effectiveGender });
 
   const initialPlace = contextRoute
     ? { kind: 'route' as const, id: contextRoute.id, name: contextRoute.name, lat: contextRoute.lat ?? null, lng: contextRoute.lng ?? null }
