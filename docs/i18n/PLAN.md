@@ -112,7 +112,7 @@
 | `visual_assessment_content` | string | `/admin/visual-assessment` |
 | `smart_messages` | string + `targetGender` | `features/messages/services/MessageService.ts` |
 | `pressure_messages` (תבניות) | string | `/admin/pressure-messages` |
-| `achievements` | string | seed (`src/scripts/seedAchievements.ts`) + `achievement-definitions.ts` |
+| `achievements` | string | seed (`scripts/seedAchievements.ts`) + `achievement-definitions.ts` |
 | `site_content` (FAQ / מאמרים / עזרה, חדש ב-#514) | `title: string`, `body: ArticleBlock[]` | `/admin/content` |
 | `parks`, `curated_routes`, `official_routes` | שמות (שמות פרטיים) + תיאורים | `/admin/locations`, `/admin/routes`, `/admin/parks` |
 | `community_events`, `feed_posts`, צ'אט | תוכן משתמשים | **לא מתרגמים** |
