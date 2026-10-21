@@ -48,14 +48,14 @@
  *
  * ── Run ───────────────────────────────────────────────────────────────────
  *   # Dry run for Tel Aviv (no Firestore writes, no token needed)
- *   npx tsx src/scripts/import-osm-segments.ts \
+ *   npx tsx scripts/import-osm-segments.ts \
  *     --city "תל אביב" --authority placeholder_tlv \
  *     --south 32.04 --west 34.75 --north 32.10 --east 34.82 \
  *     --dry-run
  *
  *   # Commit run (requires FIREBASE_ID_TOKEN)
  *   node --env-file=.env.local ./node_modules/.bin/tsx \
- *     src/scripts/import-osm-segments.ts \
+ *     scripts/import-osm-segments.ts \
  *     --city "תל אביב" --authority placeholder_tlv \
  *     --south 32.04 --west 34.75 --north 32.10 --east 34.82 \
  *     --commit
@@ -69,7 +69,7 @@ import {
   type ScoredSegment,
   type ImportOptions,
   type ProgressFn,
-} from '../features/admin/services/osm-segment-importer';
+} from '@/features/admin/services/osm-segment-importer';
 
 // ── Firebase project ──────────────────────────────────────────────────────
 const PROJECT_ID = 'appout-1';
@@ -289,7 +289,7 @@ async function main(): Promise<void> {
     console.error(`Argument error: ${(err as Error).message}\n`);
     console.error(
       'Usage:\n' +
-        '  npx tsx src/scripts/import-osm-segments.ts \\\n' +
+        '  npx tsx scripts/import-osm-segments.ts \\\n' +
         '    --city "תל אביב" --authority placeholder_tlv \\\n' +
         '    --south 32.04 --west 34.75 --north 32.10 --east 34.82 \\\n' +
         '    --dry-run | --commit',

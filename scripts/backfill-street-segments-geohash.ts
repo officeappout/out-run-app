@@ -12,7 +12,7 @@
  * is always safe and cheap.
  *
  * All THREE street_segments writers (osm-segment-importer.ts's
- * commitSegmentsToFirestore, src/scripts/import-osm-segments.ts's
+ * commitSegmentsToFirestore, scripts/import-osm-segments.ts's
  * buildSegmentFields, official-route-broadcaster.ts's buildSegmentDoc)
  * already write geohash on every NEW doc as of this same change — this
  * script only needs to run ONCE, covering docs written before that.
