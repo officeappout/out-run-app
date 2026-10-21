@@ -53,6 +53,8 @@ export default defineConfig({
       // i18n wave 2 (map namespace) — route preview + equipment sheets, Hebrew markup parity (jsdom).
       'src/features/parks/client/components/route-preview/__tests__/**/*.test.tsx',
       'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
+      // i18n wave 2 (profile namespace) — exercise page v2, Hebrew markup parity (jsdom).
+      'src/features/profile/components/exercise-analytics-v2/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
