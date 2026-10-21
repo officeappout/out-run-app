@@ -97,6 +97,23 @@ const LEGACY_MASCULINE_OTHER: readonly string[] = [
   'onboarding:quiz.why.age50plus.skills.cta',
   'onboarding:tier.beginner',
   'onboarding:tier.advanced',
+  'onboarding:location.initial.headline.running',
+  'onboarding:location.confirm.pioneerLine',
+  'onboarding:location.entry.confirm.pioneerLine',
+  'onboarding:steps.processing.personaGendered',
+  'onboarding:steps.account.subtitle',
+  'onboarding:steps.account.warning.loss',
+  'onboarding:steps.account.warning.secureLater',
+  'onboarding:steps.persona.label',
+  'onboarding:steps.persona.madlib.many',
+  'onboarding:steps.persona.hint.persona',
+  'onboarding:steps.persona.hint.personaGoal',
+  'onboarding:steps.persona.intro',
+  'onboarding:steps.persona.continue',
+  'onboarding:steps.persona.code.continue',
+  'onboarding:steps.schedule.recommendation.atLeastTwo',
+  'onboarding:steps.schedule.time.title',
+  'onboarding:steps.schedule.cta.continue',
 ];
 
 const root = path.resolve(__dirname, '../../../messages/he');

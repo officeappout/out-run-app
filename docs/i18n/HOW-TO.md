@@ -219,7 +219,7 @@ t('start.ready')
 - **Why `male` is always explicit (owner decision 21.10.2026):** `other` means unknown / "other" gender and is
   NEUTRAL, never the masculine form. A later copy PR then only rewrites `other` (to "בואו…", "נסו שוב", …) without
   touching men's text. `src/lib/i18n/__tests__/gender-select-rule.test.ts` fails on a gender select without a `male`
-  branch (75 older keys are recorded there as a backlog that only shrinks). Code that is not extracted yet uses
+  branch (92 older keys are recorded there as a backlog that only shrinks). Code that is not extracted yet uses
   `pickGendered(useUiGender(), { male, female, other })` from `src/lib/i18n/gender-copy.ts`.
 - The injected gender is the profile's, or during onboarding the gender picked on the identity screen
   (`sessionStorage('onboarding_personal_gender')`, read by LocaleSync) — onboarding keys need no explicit `{ gender }`.
