@@ -1,0 +1,234 @@
+# dead-files.txt — files the i18n waves (and design fixes) must SKIP.
+# Generated 21.10.2026 from origin/main @ af4a580c by the A0 architecture audit
+# (docs/architecture/AUDIT-2026-10.md §1 explains the method and its limits).
+#
+# Format: one file per line, TAB-separated:
+#   <path>  <category>  <lines>  <evidence>
+# Lines starting with '#' are comments. To get just the paths:
+#   grep -v '^#' docs/architecture/dead-files.txt | cut -f1
+#
+# Categories:
+#   dead          not reachable from ANY Next entry (src/app pages/layouts/routes,
+#                 middleware, instrumentation) — user, admin or API — by a
+#                 symbol-aware import graph (named imports are followed through
+#                 barrel re-exports to the module that declares them).
+#                 Evidence: no-importer | only-dead-importers:<files> |
+#                 barrel-reexport-only:<barrel> (the barrel re-exports it, nobody
+#                 imports that name) | only-test-or-script-importers.
+#   orphan-route  reachable only from /run, /roadmap or /active-workout-ui —
+#                 routes with no in-app link, no push deep link and no native
+#                 deep link (they still answer if typed). Confirm with David
+#                 before deleting the routes.
+#   dev-only      reachable only from /debug/* (fixtures / diagnostics; 404 or
+#                 hidden in production). Never translate.
+#
+# NOT in this file (still live, translate them): code behind a fail-closed flag
+# that is OFF by default (enable_home_v2, enable_unified_search, ...). Both the
+# old and the new branch are live until David flips + retires the flag. See
+# AUDIT-2026-10.md §1.4.
+#
+# Deleting a 'dead' file: run tsc + vitest; for barrel-reexport-only also delete
+# the re-export line in the barrel. Delete in separate PRs (AUDIT §4).
+src/@core/hooks/useCardPage.ts	dead	6	only-dead-importers:src/features/parks/client/components/park-item/index.tsx
+src/app/map/FullMapView.tsx	dead	165	no-importer
+src/app/map/layers/index.ts	dead	8	no-importer
+src/components/AuthModal.tsx	dead	245	no-importer
+src/components/BottomNavigation.tsx	dead	11	no-importer
+src/components/CalculatingProfileScreen.tsx	dead	197	no-importer
+src/components/KingLemurLoadingScreen.tsx	dead	185	no-importer
+src/components/SecureAccountBanner.tsx	dead	93	no-importer
+src/components/ui/FeedbackFAB.tsx	dead	388	no-importer
+src/constants/terms-content.ts	dead	65	only-dead-importers:src/features/user/onboarding/components/TermsOfUse.tsx
+src/features/activity/hooks/useWeeklyRunningKm.ts	dead	59	barrel-reexport-only:src/features/activity/index.ts
+src/features/admin/actions/importExcelAction.ts	dead	1818	no-importer
+src/features/admin/components/GymEquipmentEditorForm.tsx	dead	397	no-importer
+src/features/admin/components/authorities/AuthoritiesHeader.tsx	dead	23	no-importer
+src/features/admin/components/authority-manager/ParksManagement.tsx	dead	436	no-importer
+src/features/admin/components/cpo-dashboard/NewUsersTrendChart.tsx	dead	82	no-importer
+src/features/admin/components/cpo-dashboard/OnboardingFunnel.tsx	dead	176	no-importer
+src/features/admin/components/cpo-dashboard/PeakHours.tsx	dead	132	no-importer
+src/features/admin/components/locations/LocationEditor.tsx	dead	834	no-importer
+src/features/admin/components/readiness-bulk-import/BulkImportExtraFieldsModal.tsx	dead	59	no-importer
+src/features/admin/components/readiness-bulk-import/BulkImportPasteStep.tsx	dead	84	no-importer
+src/features/admin/components/readiness-bulk-import/BulkImportReviewStep.tsx	dead	218	no-importer
+src/features/admin/services/demo-seed-sderot.ts	dead	1394	no-importer
+src/features/admin/services/edit-requests.service.ts	dead	363	no-importer
+src/features/admin/services/gis-integration.service.ts	dead	52	no-importer
+src/features/admin/services/group-session.service.ts	dead	185	no-importer
+src/features/admin/services/leaderboard.service.ts	dead	137	no-importer
+src/features/admin/services/military-declared.service.ts	dead	36	no-importer
+src/features/admin/services/seed-sderot-demo.ts	dead	927	no-importer
+src/features/admin/utils/tenant-query.utils.ts	dead	67	no-importer
+src/features/app/home/components/DailyPhrase.tsx	dead	182	no-importer
+src/features/arena/components/LockedArenaCard.tsx	dead	52	no-importer
+src/features/arena/hooks/useGroupMembershipReconciliation.ts	dead	127	only-dead-importers:src/app/map/FullMapView.tsx
+src/features/content/exercises/admin/components/exercise-editor/DraftStatusIndicator.tsx	dead	129	no-importer
+src/features/content/exercises/client/components/ExerciseLibraryCard.tsx	dead	83	no-importer
+src/features/content/index.ts	dead	18	no-importer
+src/features/content/programs/admin/components/GlobalLevelsManager.tsx	dead	633	no-importer
+src/features/favorites/index.ts	dead	7	no-importer
+src/features/home/components/CalendarSheet.tsx	dead	185	no-importer
+src/features/home/components/CoinPill.tsx	dead	75	no-importer
+src/features/home/components/DailyFeed.tsx	dead	1	no-importer
+src/features/home/components/DailyGoalRingsCard.tsx	dead	96	no-importer
+src/features/home/components/GuestHeroCard.tsx	dead	43	no-importer
+src/features/home/components/HeroCard.tsx	dead	186	no-importer
+src/features/home/components/PlaceholderRow.tsx	dead	34	no-importer
+src/features/home/components/ProgressCard.tsx	dead	169	no-importer
+src/features/home/components/QuickActions.tsx	dead	1	no-importer
+src/features/home/components/StatsWidgets.tsx	dead	98	no-importer
+src/features/home/components/UserHeaderPill.tsx	dead	206	no-importer
+src/features/home/components/carousel/DashedGoalCarousel.tsx	dead	516	no-importer
+src/features/home/components/rows/HealthMetricsRow.tsx	dead	134	no-importer
+src/features/home/components/rows/PerformanceMetricsRow.tsx	dead	133	no-importer
+src/features/home/components/rows/RaceAndKmCarousel.tsx	dead	95	only-dead-importers:src/features/home/components/rows/PerformanceMetricsRow.tsx
+src/features/home/components/rows/SectionHeader.tsx	dead	33	only-dead-importers:src/features/home/components/rows/HealthMetricsRow.tsx,src/features/home/components/rows/PerformanceMetricsRow.tsx
+src/features/home/components/rows/SideBySideRow.tsx	dead	55	only-dead-importers:src/features/home/components/rows/HealthMetricsRow.tsx,src/features/home/components/rows/PerformanceMetricsRow.tsx
+src/features/home/components/start-cards/AddRunningProgramCard.tsx	dead	22	no-importer
+src/features/home/components/widgets/ActivityRingsWidget.tsx	dead	146	no-importer
+src/features/home/components/widgets/CompactMetricTile.tsx	dead	112	only-dead-importers:src/features/home/components/rows/HealthMetricsRow.tsx,src/features/home/components/rows/PerformanceMetricsRow.tsx,src/features/home/components/rows/RaceAndKmCarousel.tsx
+src/features/home/components/widgets/FloorsWidget.tsx	dead	114	no-importer
+src/features/home/components/widgets/RunProgressCircle.tsx	dead	312	no-importer
+src/features/home/components/widgets/RunningStatsWidget.tsx	dead	39	no-importer
+src/features/home/components/widgets/UnifiedHeartGauge.tsx	dead	150	no-importer
+src/features/home/components/widgets/WeeklyActivityWidget.tsx	dead	60	no-importer
+src/features/home/components/widgets/WeeklyExecutionCard.tsx	dead	98	no-importer
+src/features/home/hooks/useSmartSchedule.ts	dead	204	no-importer
+src/features/home/hooks/useWeeklyMovementGoal.ts	dead	77	only-dead-importers:src/features/home/components/DailyGoalRingsCard.tsx
+src/features/home/hooks/useWeeklyStrengthGoal.ts	dead	88	only-dead-importers:src/features/home/components/DailyGoalRingsCard.tsx
+src/features/messages/components/SmartGreeting.tsx	dead	415	barrel-reexport-only:src/features/messages/index.ts
+src/features/parks/admin/index.ts	dead	9	barrel-reexport-only:src/features/parks/index.ts
+src/features/parks/client/components/RouteCard.tsx	dead	82	barrel-reexport-only:src/features/parks/client/index.ts
+src/features/parks/client/components/park-drawer/index.tsx	dead	43	barrel-reexport-only:src/features/parks/client/index.ts
+src/features/parks/client/components/park-item/index.tsx	dead	65	only-dead-importers:src/features/parks/client/components/park-list/index.tsx,src/features/parks/client/index.ts
+src/features/parks/client/components/park-list/index.tsx	dead	21	only-dead-importers:src/features/parks/client/components/park-drawer/index.tsx
+src/features/parks/client/types/park-with-distance.type.ts	dead	5	only-dead-importers:src/features/parks/client/components/park-drawer/index.tsx,src/features/parks/client/components/park-item/index.tsx,src/features/parks/client/components/park-list/index.tsx
+src/features/parks/core/components/AIChatOverlay.tsx	dead	151	no-importer
+src/features/parks/core/components/ActiveWorkoutOverlay.tsx	dead	235	no-importer
+src/features/parks/core/components/ActivityCarousel.tsx	dead	312	no-importer
+src/features/parks/core/components/FreeActivityCard.tsx	dead	16	no-importer
+src/features/parks/core/components/FreeRunRouteSelector.tsx	dead	541	no-importer
+src/features/parks/core/components/MapTabs.tsx	dead	43	no-importer
+src/features/parks/core/components/MapTopBar.tsx	dead	45	barrel-reexport-only:src/features/parks/core/index.ts
+src/features/parks/core/components/SavedPlacesQuickRow.tsx	dead	199	no-importer
+src/features/parks/core/data/mock-locations.ts	dead	122	no-importer
+src/features/parks/core/data/mock-routes.ts	dead	3	no-importer
+src/features/parks/core/services/route-ranking.service.ts	dead	163	no-importer
+src/features/parks/core/services/route.service.ts	dead	65	no-importer
+src/features/parks/core/types/map.types.ts	dead	46	barrel-reexport-only:src/features/parks/core/index.ts
+src/features/partners/hooks/useAutoRadius.ts	dead	21	barrel-reexport-only:src/features/partners/index.ts
+src/features/profile/components/widgets/ActiveProgramsCarousel.tsx	dead	60	no-importer
+src/features/profile/components/widgets/ExerciseTrendChart.tsx	dead	210	no-importer
+src/features/profile/components/widgets/FavoritesStrip.tsx	dead	110	no-importer
+src/features/profile/components/widgets/RecentActivityList.tsx	dead	121	no-importer
+src/features/profile/components/widgets/RunningTrendChart.tsx	dead	178	no-importer
+src/features/safecity/components/LiveAvatar.tsx	dead	56	no-importer
+src/features/safecity/components/LiveFriendMarker.tsx	dead	107	no-importer
+src/features/safecity/components/PrivacyModeSwitcher.tsx	dead	146	only-dead-importers:src/features/safecity/components/SafeCityOverlay.tsx
+src/features/safecity/components/SafeCityOverlay.tsx	dead	121	no-importer
+src/features/safecity/hooks/useSafeCityMap.ts	dead	159	no-importer
+src/features/safecity/utils/activity-icon.ts	dead	34	only-dead-importers:src/features/safecity/components/LiveFriendMarker.tsx
+src/features/schedule/advisor/index.ts	dead	10	only-test-or-script-importers
+src/features/social/components/DiscoverSection.tsx	dead	45	no-importer
+src/features/user/onboarding/components/BlockingErrorModal.tsx	dead	53	no-importer
+src/features/user/onboarding/components/ChoiceCard.tsx	dead	177	no-importer
+src/features/user/onboarding/components/DatePicker.tsx	dead	146	no-importer
+src/features/user/onboarding/components/EquipmentSelector.tsx	dead	171	no-importer
+src/features/user/onboarding/components/HealthDeclaration.tsx	dead	133	no-importer
+src/features/user/onboarding/components/LoaderScreen.tsx	dead	108	no-importer
+src/features/user/onboarding/components/LoadingAIBuilder.tsx	dead	271	no-importer
+src/features/user/onboarding/components/MultiDaySelector.tsx	dead	74	no-importer
+src/features/user/onboarding/components/SaveProgressScreen.tsx	dead	62	no-importer
+src/features/user/onboarding/components/SaveProgressStep.tsx	dead	70	no-importer
+src/features/user/onboarding/components/SimpleSelection.tsx	dead	63	no-importer
+src/features/user/onboarding/components/SummaryReveal.tsx	dead	294	no-importer
+src/features/user/onboarding/components/TermsOfUse.tsx	dead	94	no-importer
+src/features/user/onboarding/components/TextInput.tsx	dead	44	no-importer
+src/features/user/onboarding/components/steps/HistoryStep.tsx	dead	566	no-importer
+src/features/user/onboarding/components/steps/SummaryStep.tsx	dead	462	no-importer
+src/features/user/onboarding/components/steps/UnifiedLocation/index.ts	dead	13	no-importer
+src/features/user/onboarding/components/visual-assessment/BlurredHowStep.tsx	dead	397	no-importer
+src/features/user/onboarding/engine/QuestionnaireChainOrchestrator.ts	dead	282	no-importer
+src/features/user/onboarding/services/migration.service.ts	dead	129	no-importer
+src/features/user/onboarding/services/recommendation.service.ts	dead	489	only-dead-importers:src/features/user/onboarding/components/steps/SummaryStep.tsx
+src/features/user/progression/components/CoinPill.tsx	dead	73	barrel-reexport-only:src/features/user/progression/index.ts
+src/features/user/progression/components/ProgressRing.tsx	dead	71	barrel-reexport-only:src/features/user/progression/index.ts
+src/features/workout-engine/budget-light/index.ts	dead	16	no-importer
+src/features/workout-engine/components/strength/components/SummaryStatsRow.tsx	dead	67	no-importer
+src/features/workout-engine/components/strength/components/summary-atoms/StatBox.tsx	dead	52	barrel-reexport-only:src/features/workout-engine/components/strength/components/summary-atoms/index.ts
+src/features/workout-engine/core/methods/pyramid.method.ts	dead	58	no-importer
+src/features/workout-engine/core/methods/superset.method.ts	dead	46	no-importer
+src/features/workout-engine/core/methods/tabata.method.ts	dead	60	no-importer
+src/features/workout-engine/core/pipeline/ProtocolInjector.ts	dead	353	no-importer
+src/features/workout-engine/core/services/adaptive-rest.service.ts	dead	215	no-importer
+src/features/workout-engine/core/services/audio-guidance.service.ts	dead	75	no-importer
+src/features/workout-engine/core/services/running-migration.service.ts	dead	95	no-importer
+src/features/workout-engine/core/types/blueprint.types.ts	dead	547	only-dead-importers:src/features/workout-engine/core/index.ts,src/features/workout-engine/logic/Fragmenter.ts,src/features/workout-engine/logic/RestCalculator.ts
+src/features/workout-engine/core/types/method.types.ts	dead	73	only-dead-importers:src/features/workout-engine/core/methods/pyramid.method.ts,src/features/workout-engine/core/methods/superset.method.ts,src/features/workout-engine/core/methods/tabata.method.ts
+src/features/workout-engine/core/types/tracking-matrix.types.ts	dead	230	only-dead-importers:src/features/workout-engine/core/index.ts,src/features/workout-engine/core/types/blueprint.types.ts,src/features/workout-engine/logic/RestCalculator.ts
+src/features/workout-engine/engines/index.ts	dead	27	no-importer
+src/features/workout-engine/generator/constants/workout-timing.constants.ts	dead	63	no-importer
+src/features/workout-engine/generator/hooks/useExerciseReplacement.ts	dead	56	barrel-reexport-only:src/features/workout-engine/generator/index.ts
+src/features/workout-engine/hybrid/station-content-resolver.ts	dead	165	no-importer
+src/features/workout-engine/logic/Fragmenter.ts	dead	318	barrel-reexport-only:src/features/workout-engine/logic/index.ts
+src/features/workout-engine/logic/RestCalculator.ts	dead	362	barrel-reexport-only:src/features/workout-engine/logic/index.ts
+src/features/workout-engine/logic/SwapEngine.ts	dead	380	barrel-reexport-only:src/features/workout-engine/logic/index.ts
+src/features/workout-engine/players/running/components/FreeRun/AdaptiveMetricsWrapper.tsx	dead	401	no-importer
+src/features/workout-engine/players/running/components/FreeRun/FreeRunPaused.tsx	dead	181	no-importer
+src/features/workout-engine/players/running/components/FreeRun/RunMiniDockContent.tsx	dead	12	no-importer
+src/features/workout-engine/players/running/components/GuidedRouteProgressStrip.tsx	dead	106	no-importer
+src/features/workout-engine/players/running/components/IntervalRunView.tsx	dead	133	no-importer
+src/features/workout-engine/players/running/components/PlannedRun/BlockHeader.tsx	dead	99	only-dead-importers:src/features/workout-engine/players/running/components/PlannedRun/PlannedRunPaused.tsx
+src/features/workout-engine/players/running/components/PlannedRun/PaceGauge.tsx	dead	210	no-importer
+src/features/workout-engine/players/running/components/PlannedRun/PlannedRunPaused.tsx	dead	111	no-importer
+src/features/workout-engine/players/running/components/RouteRun/v2/index.ts	dead	10	no-importer
+src/features/workout-engine/players/running/components/RunControls.tsx	dead	54	barrel-reexport-only:src/features/workout-engine/players/running/index.ts
+src/features/workout-engine/players/running/components/RunDashboard.tsx	dead	168	barrel-reexport-only:src/features/workout-engine/players/running/index.ts
+src/features/workout-engine/players/running/components/RunLapsTable.tsx	dead	66	barrel-reexport-only:src/features/workout-engine/players/running/index.ts
+src/features/workout-engine/players/running/components/RunModeSelector.tsx	dead	55	barrel-reexport-only:src/features/workout-engine/players/running/index.ts
+src/features/workout-engine/players/running/hooks/useDraggableMetrics.ts	dead	520	only-dead-importers:src/features/workout-engine/players/running/components/FreeRun/AdaptiveMetricsWrapper.tsx
+src/features/workout-engine/players/running/lib/buildDrawerSlides.ts	dead	17	no-importer
+src/features/workout-engine/players/running/types/activity.type.ts	dead	1	no-importer
+src/features/workout-engine/players/running/types/run-state.type.ts	dead	25	no-importer
+src/features/workout-engine/players/strength/components/CircularTimer.tsx	dead	295	only-dead-importers:src/features/workout-engine/players/strength/components/ExerciseDetailsSheet.tsx,src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/players/strength/components/ExerciseDetailsSheet.tsx	dead	317	barrel-reexport-only:src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/players/strength/components/LiveWorkoutOverlay.tsx	dead	467	barrel-reexport-only:src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/players/strength/components/SegmentCard.tsx	dead	106	barrel-reexport-only:src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/players/strength/overlays/TimeLoggerPopup.tsx	dead	23	barrel-reexport-only:src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/players/strength/playlist/WorkoutQueue.tsx	dead	23	barrel-reexport-only:src/features/workout-engine/players/strength/index.ts
+src/features/workout-engine/services/global-training-config.service.ts	dead	162	no-importer
+src/features/workout-engine/shared/utils/areWorkoutsComparable.ts	dead	22	no-importer
+src/features/workout-engine/summary/blocks/IdentityUnitsRow.tsx	dead	59	only-dead-importers:src/features/workout-engine/summary/blocks/index.ts
+src/features/workout-engine/summary/blocks/StreakBlock.tsx	dead	10	only-dead-importers:src/features/workout-engine/summary/blocks/index.ts
+src/features/workout-engine/summary/blocks/SummarySheet.tsx	dead	72	only-dead-importers:src/features/workout-engine/summary/blocks/index.ts
+src/features/workout-engine/summary/blocks/SummaryTabs.tsx	dead	52	only-dead-importers:src/features/workout-engine/summary/blocks/index.ts
+src/features/workout-engine/summary/blocks/index.ts	dead	31	no-importer
+src/features/workout-engine/summary/index.ts	dead	4	no-importer
+src/features/workouts/components/ExpandableText.tsx	dead	82	no-importer
+src/features/workouts/data/mock-workouts.ts	dead	136	no-importer
+src/lib/distanseStr.ts	dead	8	only-dead-importers:src/features/parks/client/components/park-item/index.tsx
+src/types/gear-definition.type.ts	dead	64	no-importer
+src/types/progression-settings.type.ts	dead	6	no-importer
+src/app/run/page.tsx	orphan-route	112	reachable only from /run, /roadmap, /active-workout-ui
+src/app/run/error.tsx	orphan-route	18	reachable only from /run, /roadmap, /active-workout-ui
+src/app/roadmap/page.tsx	orphan-route	80	reachable only from /run, /roadmap, /active-workout-ui
+src/app/active-workout-ui/page.tsx	orphan-route	186	reachable only from /run, /roadmap, /active-workout-ui
+src/features/workout-engine/players/strength/components/WorkoutStickyNav.tsx	orphan-route	106	reachable only from /run, /roadmap, /active-workout-ui
+src/features/workout-engine/players/strength/components/WorkoutHeader.tsx	orphan-route	47	reachable only from /run, /roadmap, /active-workout-ui
+src/features/workout-engine/players/strength/components/WorkoutTimeline.tsx	orphan-route	65	reachable only from /run, /roadmap, /active-workout-ui
+src/features/workout-engine/players/strength/components/TravelCard.tsx	orphan-route	49	reachable only from /run, /roadmap, /active-workout-ui
+src/features/workout-engine/players/strength/components/StationCard.tsx	orphan-route	73	reachable only from /run, /roadmap, /active-workout-ui
+src/app/debug/health-sync/page.tsx	dev-only	182	reachable only from /debug/*
+src/app/debug/design-v2/summary/page.tsx	dev-only	23	reachable only from /debug/*
+src/app/debug/design-v2/summary/SummaryPreview.tsx	dev-only	162	reachable only from /debug/*
+src/app/debug/design-v2/summary/fixtures.ts	dev-only	95	reachable only from /debug/*
+src/app/debug/design-v2/demo-access.ts	dev-only	32	reachable only from /debug/*
+src/app/debug/design-v2/steps/page.tsx	dev-only	18	reachable only from /debug/*
+src/app/debug/design-v2/steps/StepsPreview.tsx	dev-only	123	reachable only from /debug/*
+src/app/debug/design-v2/steps/fixtures.ts	dev-only	53	reachable only from /debug/*
+src/features/home/components/widgets/StepsWidget.tsx	dev-only	113	reachable only from /debug/*
+src/features/user/progression/services/smart-goals.service.ts	dev-only	244	reachable only from /debug/*
+src/app/debug/design-v2/leagues/page.tsx	dev-only	25	reachable only from /debug/*
+src/app/debug/design-v2/leagues/LeaguesPreview.tsx	dev-only	208	reachable only from /debug/*
+src/app/debug/design-v2/guided/page.tsx	dev-only	23	reachable only from /debug/*
+src/app/debug/design-v2/guided/GuidedPreview.tsx	dev-only	137	reachable only from /debug/*
