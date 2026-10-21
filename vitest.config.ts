@@ -55,6 +55,14 @@ export default defineConfig({
       // i18n wave 2 (map namespace) — route preview + equipment sheets, Hebrew markup parity (jsdom).
       'src/features/parks/client/components/route-preview/__tests__/**/*.test.tsx',
       'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
+      // i18n wave 2 (community namespace) — group page Hebrew markup parity (static markup + jsdom taps).
+      'src/features/arena/components/group-details/__tests__/**/*.test.tsx',
+      // i18n wave 2 (onboarding namespace) — strength assessment page parity (jsdom, services mocked).
+      'src/app/onboarding-new/assessment-visual/__tests__/**/*.test.tsx',
+      // i18n wave 2 (profile namespace) — exercise page v2, Hebrew markup parity (jsdom).
+      'src/features/profile/components/exercise-analytics-v2/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch 1 (profile namespace, hub.*) — progress tab v2 Hebrew markup parity, static markup.
+      'src/features/progression-hub/v2/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (library namespace, exercises.*) — exercise library Hebrew markup parity (jsdom).
       'src/features/content/exercises/client/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',

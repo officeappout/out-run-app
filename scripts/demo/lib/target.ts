@@ -122,7 +122,11 @@ export async function openDemoTarget(args: DemoArgs, env: Record<string, string 
   } else {
     app = initializeApp({ credential: cert(JSON.parse(r.credentialJson!)), projectId: r.projectId }, name);
   }
-  return { db: getFirestore(app), app, projectId: r.projectId, emulator: r.emulator };
+  const db = getFirestore(app);
+  // Engine outputs (e.g. the generated running template) can carry optional fields set to
+  // undefined; the app's own writers drop them, so the demo/tester seeders do too.
+  db.settings({ ignoreUndefinedProperties: true });
+  return { db, app, projectId: r.projectId, emulator: r.emulator };
 }
 
 export async function closeDemoTarget(t: DemoTarget): Promise<void> {

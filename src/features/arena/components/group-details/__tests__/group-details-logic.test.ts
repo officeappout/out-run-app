@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { makeT } from '@/lib/i18n/t';
+import { community } from '@/messages/ns/community';
 import {
   buildGCalLink,
   buildStaticMapUrl,
@@ -29,9 +31,10 @@ describe('group-details logic', () => {
   afterEach(() => vi.useRealTimers());
 
   it('formats session dates relative to today', () => {
-    expect(formatSessionDate('2026-10-19', '18:00')).toBe('היום ב-18:00');
-    expect(formatSessionDate('2026-10-20', '07:30')).toBe('מחר ב-07:30');
-    expect(formatSessionDate('2026-10-22', '06:00')).toMatch(/^יום .+ ב-06:00$/);
+    const tHe = makeT('he', community);
+    expect(formatSessionDate('2026-10-19', '18:00', tHe)).toBe('היום ב-18:00');
+    expect(formatSessionDate('2026-10-20', '07:30', tHe)).toBe('מחר ב-07:30');
+    expect(formatSessionDate('2026-10-22', '06:00', tHe)).toMatch(/^יום .+ ב-06:00$/);
   });
 
   it('haversine ~ distance in km', () => {

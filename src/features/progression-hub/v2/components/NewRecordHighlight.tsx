@@ -10,17 +10,28 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Trophy } from 'lucide-react';
 import { useProfileRecords } from '@/features/profile/hooks/useProfileRecords';
 import { dateLabel } from '@/features/profile/components/records/record-tiles';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 /** The profile opens on its records card from this link (DashboardTab reads ?tab=). */
 export const PROFILE_RECORDS_HREF = '/profile?tab=badges#records';
 
 export default function NewRecordHighlight() {
+  const t = useT(profileNs);
   const router = useRouter();
   const { tiles } = useProfileRecords(true);
-  const fresh = tiles.filter((t) => t.isNew).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
+  const fresh = tiles.filter((tile) => tile.isNew).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   if (!fresh.length) return null;
   const top = fresh[0];
   const more = fresh.length - 1;
+  // "12 חזרות · 20 באוק׳ · ועוד 2" — the pieces that exist, joined by " · " exactly as before.
+  const detail = [
+    `${top.value}${top.unit ? ` ${top.unit}` : ''}`,
+    top.at != null ? dateLabel(top.at) : null,
+    more > 0 ? t('hub.newRecord.more', { count: String(more) }) : null,
+  ]
+    .filter((part): part is string => part != null)
+    .join(' · ');
   return (
     <button
       type="button"
@@ -31,12 +42,9 @@ export default function NewRecordHighlight() {
         <Trophy className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate whitespace-nowrap text-[13.5px] font-black text-v2-ink">שיא חדש · {top.label}</span>
+        <span className="block truncate whitespace-nowrap text-[13.5px] font-black text-v2-ink">{t('hub.newRecord.title', { label: top.label })}</span>
         <span className="block truncate whitespace-nowrap text-[12px] font-bold text-v2-muted">
-          {top.value}
-          {top.unit ? ` ${top.unit}` : ''}
-          {top.at != null ? ` · ${dateLabel(top.at)}` : ''}
-          {more > 0 ? ` · ועוד ${more}` : ''} · לכל השיאים בפרופיל
+          {t('hub.newRecord.meta', { detail })}
         </span>
       </span>
       <ChevronLeft className="h-4 w-4 shrink-0 text-v2-muted" aria-hidden />

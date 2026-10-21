@@ -356,7 +356,7 @@ for (const v2 of [false, true]) {
       expect(markup('initial')).toMatchSnapshot('initial');
       await click(byText('drop-in'));
       expect(markup('join prompt')).toMatchSnapshot('join prompt');
-      await click(byText('כן, הצטרפי לקבוצה'));
+      await click(byText('כן, הצטרף לקבוצה'));
       expect(markup('joined')).toMatchSnapshot('joined');
       expect(calls).toMatchSnapshot('calls');
     });

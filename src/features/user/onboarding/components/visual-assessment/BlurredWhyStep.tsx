@@ -71,9 +71,10 @@ export function getOnboardingIntroText(
 
   // Unknown age group → 26-50. Every cell has both genders; the old lookup
   // (`goalEntry[gender] ?? goalEntry[gender === 'female' ? 'male' : 'female']`) gave any value
-  // other than 'male' the female body — kept as is (the title stays female only for 'female').
+  // other than 'male' the female body. Owner copy fix (21.10.2026): an unknown gender now gets the male
+  // body too, matching the title (female only for 'female').
   const age = Object.prototype.hasOwnProperty.call(AGE_KEYS, ageGroup) ? AGE_KEYS[ageGroup] : 'age26to50';
-  const bodyGender = gender === 'male' ? 'male' : 'female';
+  const bodyGender = gender === 'female' ? 'female' : 'male'; // owner copy fix 21.10.2026: unknown gender → male body, same as the title
 
   const areaId = sanitizeTargetArea(targetArea);
   const area = areaId ? t('quiz.why.area', { area: areaId }) : '';

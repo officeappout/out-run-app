@@ -17,14 +17,17 @@ import { formatCount, formatKm, isoDayLabel } from '../../utils/progress-format'
 import StatCell from '../StatCell';
 import KindIcon from '../KindIcon';
 import { ChartCard, TabEmpty, TabSkeleton } from './TabParts';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 export default function StepsTab() {
+  const t = useT(profileNs);
   const { data, loading } = useRecentDays(true);
   const now = useMemo(() => new Date(), []);
   const s = useMemo(() => stepsStats(data ?? [], now, DAILY_STEP_GOAL), [data, now]);
 
   if (loading && !data) return <TabSkeleton />;
-  if (!data || data.length === 0) return <TabEmpty kind="steps" text="עוד אין נתוני צעדים. חברו את אפליקציית הבריאות כדי לראות אותם כאן." />;
+  if (!data || data.length === 0) return <TabEmpty kind="steps" text={t('hub.steps.empty')} />;
 
   const pct = s.goal > 0 ? Math.min(100, Math.round((s.today / s.goal) * 100)) : 0;
   return (
@@ -33,12 +36,15 @@ export default function StepsTab() {
         <div className="flex items-start gap-2.5">
           <KindIcon kind="steps" size={36} />
           <div className="min-w-0 flex-1">
-            <p className="whitespace-nowrap text-[15px] font-black text-v2-ink">ממוצע יומי · השבוע</p>
-            <p className="whitespace-nowrap text-[12px] font-bold text-v2-muted">מול שבוע שעבר</p>
+            <p className="whitespace-nowrap text-[15px] font-black text-v2-ink">{t('hub.steps.title')}</p>
+            <p className="whitespace-nowrap text-[12px] font-bold text-v2-muted">{t('hub.steps.subtitle')}</p>
           </div>
           <DeltaBadge current={s.weekAvg} previous={s.prevWeekAvg} />
         </div>
-        <StatCell className="mt-3" value={formatCount(s.weekAvg)} unit="צעדים" label={`היום ${formatCount(s.today)} · ${pct}% מהיעד (${formatCount(s.goal)})`} />
+        <StatCell className="mt-3" value={formatCount(s.weekAvg)}
+          unit={t('hub.steps.unit')}
+          label={t('hub.steps.todayLine', { today: formatCount(s.today), pct: String(pct), goal: formatCount(s.goal) })}
+        />
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-v2-surface ring-1 ring-inset ring-v2-hairline">
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: PROGRESS_COLORS.steps }} />
         </div>
@@ -47,31 +53,31 @@ export default function StepsTab() {
       <div className="grid grid-cols-2 gap-2">
         {s.best && (
           <Card padding="none" className="p-3.5">
-            <StatCell size="md" value={formatCount(s.best.steps)} unit="צעדים" label={`שיא · ${isoDayLabel(s.best.date)}`} />
+            <StatCell size="md" value={formatCount(s.best.steps)} unit={t('hub.steps.unit')} label={t('hub.steps.best', { date: isoDayLabel(s.best.date) })} />
           </Card>
         )}
         <Card padding="none" className="p-3.5">
-          <StatCell size="md" value={`${s.daysInGoal}/${s.daysCounted}`} label="ימים ביעד השבוע" />
+          <StatCell size="md" value={`${s.daysInGoal}/${s.daysCounted}`} label={t('hub.steps.daysInGoal')} />
         </Card>
         <Card padding="none" className="p-3.5">
-          <StatCell size="md" value={String(s.goalStreak)} unit="ימים" label="רצף ביעד" />
+          <StatCell size="md" value={String(s.goalStreak)} unit={t('hub.steps.goalStreakUnit')} label={t('hub.steps.goalStreak')} />
         </Card>
         {s.weekKm > 0 && (
           <Card padding="none" className="p-3.5">
-            <StatCell size="md" value={formatKm(s.weekKm)} unit="ק״מ" label="מרחק השבוע" />
+            <StatCell size="md" value={formatKm(s.weekKm)} unit={t('hub.steps.kmUnit')} label={t('hub.steps.weekKm')} />
           </Card>
         )}
       </div>
 
-      <ChartCard title="30 הימים האחרונים" hint="צעדים ביום">
-        <BarChart data={s.chart} goal={s.goal} goalLabel={`יעד ${formatCount(s.goal)}`} highlightKey={s.chart[s.chart.length - 1]?.key} color={PROGRESS_COLORS.steps} height={170} ariaLabel="צעדים ב-30 הימים האחרונים" />
+      <ChartCard title={t('hub.steps.chart.title')} hint={t('hub.steps.chart.hint')}>
+        <BarChart data={s.chart} goal={s.goal} goalLabel={t('hub.steps.chart.goal', { goal: formatCount(s.goal) })} highlightKey={s.chart[s.chart.length - 1]?.key} color={PROGRESS_COLORS.steps} height={170} ariaLabel={t('hub.steps.chart.aria')} />
       </ChartCard>
 
       <Link
         href="/activity/steps"
         className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-white text-[14px] font-extrabold text-v2-deep shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]"
       >
-        לניתוח הצעדים המלא · יום · שבוע · חודש · שנה
+        {t('hub.steps.fullAnalysis')}
       </Link>
     </div>
   );

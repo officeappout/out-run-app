@@ -1,0 +1,8 @@
+toast(["success","מפגש הוסר"])
+toast(["error","שגיאה בשמירה"])
+toast(["error","שעה לא תקינה"])
+toast(["success","מפגש נוסף"])
+toast(["error","שגיאה בשמירה"])
+toast(["error","שעה לא תקינה"])
+toast(["success","המפגש עודכן"])
+toast(["error","שגיאה בשמירה"])

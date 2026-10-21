@@ -24,13 +24,23 @@ const GENDERS = [
   ['male', false],
 ] as const;
 
+/**
+ * Owner copy fixes (21.10.2026) on top of the verbatim old lookup: an unknown gender now gets the male
+ * body (same as the title), and "פרונט לבר" is spelled "פרונט ליבר" like the rest of the app.
+ */
+function expectedIntro(...args: Parameters<typeof getOnboardingIntroTextOld>) {
+  const [gender, ...rest] = args;
+  const old = getOnboardingIntroTextOld(gender === 'female' ? 'female' : 'male', ...rest);
+  return JSON.parse(JSON.stringify(old).replaceAll('פרונט לבר', 'פרונט ליבר'));
+}
+
 describe('onboarding · quiz (he) — byte-identical to the pre-extraction literals', () => {
   it('plain strings', () => {
     const cases: Array<[Key, string]> = [
       ['quiz.tier.title', 'מה הרמה שלך?'],
       ['quiz.tier.levelBadge', 'רמה'],
       ['quiz.slider.back', 'חזרה'],
-      ['quiz.slider.escapeAria', 'עדיין לא מצליח את התרגיל?'],
+      // escapeAria is gendered since the owner copy fix (21.10.2026) — pinned in the select test below.
       ['quiz.slider.easierAria', 'תרגיל קל יותר'],
       ['quiz.slider.easier', 'קל יותר'],
       ['quiz.slider.myLevel', 'הרמה שלי'],
@@ -151,10 +161,18 @@ describe('onboarding · quiz (he) — byte-identical to the pre-extraction liter
           for (const area of areas)
             for (const count of [1, 2, 7]) {
               expect(getOnboardingIntroText(t, gender, age, goal, area, count)).toEqual(
-                getOnboardingIntroTextOld(gender, age, goal, area, count),
+                expectedIntro(gender, age, goal, area, count),
               );
               checked++;
             }
     expect(checked).toBe(7 * 6 * 3 * 33 * 3);
+  });
+});
+
+describe('owner copy fixes (21.10.2026)', () => {
+  it('escape aria label follows the gender', () => {
+    expect(t('quiz.slider.escapeAria', { gender: 'female' })).toBe('עדיין לא מצליחה את התרגיל?');
+    expect(t('quiz.slider.escapeAria', { gender: 'male' })).toBe('עדיין לא מצליח את התרגיל?');
+    expect(t('quiz.slider.escapeAria', { gender: 'other' })).toBe('עדיין לא מצליח את התרגיל?');
   });
 });

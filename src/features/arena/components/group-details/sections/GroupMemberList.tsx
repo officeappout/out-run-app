@@ -4,6 +4,8 @@ import { Users } from 'lucide-react';
 import type { GroupMember } from '@/types/community.types';
 import { memberPermissions } from '../utils/group-details-logic';
 import GroupMemberRow from './GroupMemberRow';
+import { useT } from '@/hooks/useT';
+import { community } from '@/messages/ns/community';
 
 interface GroupMemberListProps {
   v2: boolean;
@@ -35,11 +37,12 @@ export default function GroupMemberList({
   onToggleAdmin,
   onRemove,
 }: GroupMemberListProps) {
+  const t = useT(community);
   return (
     <div>
       <h4 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink mb-2.5' : 'text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2.5'}>
         <Users className="w-3.5 h-3.5" />
-        חברי הקהילה
+        {t('group.members.title')}
         {!loading && members.length > 0 && (
           <span className="text-gray-400 normal-case tracking-normal font-semibold">({members.length})</span>
         )}
