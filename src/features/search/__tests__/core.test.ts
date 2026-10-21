@@ -110,7 +110,7 @@ describe('situations', () => {
   it('parks nearby + morning abs + help + events this week', () => {
     const s = situationSuggestions({ hour: 9, parksWithin1Km: 3, eventsThisWeek: 2, groupsNearby: 0 });
     expect(s.map((x) => x.id)).toEqual(['park', 'abs', 'help', 'events']);
-    expect(s[0].sub).toBe('3 גינות עד 1 ק״מ');
+    expect(s[0].n).toBe(3); // the sub line is search.situation.park.sub (library-he.test.ts)
     expect(s[1].action).toEqual({ type: 'muscle', muscle: 'abs' });
   });
   it('evening → a run; no events → groups; never more than 4', () => {

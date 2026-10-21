@@ -13,5 +13,6 @@ import IdentityProfileScreen from '@/features/user/onboarding/components/Identit
  */
 export default function IdentityProfilePage() {
   const searchParams = useSearchParams();
-  return <IdentityProfileScreen context={searchParams.get('context')} />;
+  // hostPadsTop: ClientLayout's <main> already pads the top safe-area inset here.
+  return <IdentityProfileScreen context={searchParams.get('context')} hostPadsTop />;
 }

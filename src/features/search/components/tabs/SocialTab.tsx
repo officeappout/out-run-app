@@ -15,15 +15,14 @@ import { groupToHit } from '../../providers/community';
 import { scoreText } from '../../core/text';
 import type { SearchHit } from '../../core/types';
 import type { SearchContext } from '../../hooks/useSearchContext';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 type Sub = 'partners' | 'groups' | 'people';
-const SUBS: Array<{ id: Sub; label: string }> = [
-  { id: 'partners', label: 'השותפים שלי' },
-  { id: 'groups', label: 'גלה קבוצות' },
-  { id: 'people', label: 'אנשים' },
-];
+const SUBS: ReadonlyArray<Sub> = ['partners', 'groups', 'people'];
 
 export default function SocialTab({ query, hits, loading, ctx, deps }: { query: string; hits: SearchHit[]; loading: boolean; ctx: SearchContext; deps: HitViewDeps }) {
+  const t = useT(library);
   const [sub, setSub] = useState<Sub>('groups');
   const following = useSocialStore((s) => s.following);
   const socialLoaded = useSocialStore((s) => s.isLoaded);
@@ -55,38 +54,38 @@ export default function SocialTab({ query, hits, loading, ctx, deps }: { query: 
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label="אנשים וקבוצות" className="grid grid-cols-3 gap-1 rounded-xl bg-[#eef2f6] p-1">
-        {SUBS.map((s) => (
+      <div role="tablist" aria-label={t('search.social.label')} className="grid grid-cols-3 gap-1 rounded-xl bg-[#eef2f6] p-1">
+        {SUBS.map((id) => (
           <button
-            key={s.id}
+            key={id}
             type="button"
             role="tab"
-            aria-selected={sub === s.id}
-            onClick={() => setSub(s.id)}
-            className={`h-[34px] rounded-[9px] text-[13px] font-bold ${sub === s.id ? 'bg-white text-[#04222b] shadow-[0_2px_10px_rgba(0,0,0,0.06)]' : 'text-[#6b7280]'}`}
+            aria-selected={sub === id}
+            onClick={() => setSub(id)}
+            className={`h-[34px] rounded-[9px] text-[13px] font-bold ${sub === id ? 'bg-white text-[#04222b] shadow-[0_2px_10px_rgba(0,0,0,0.06)]' : 'text-[#6b7280]'}`}
           >
-            {s.label}
+            {t(`search.social.sub.${id}`)}
           </button>
         ))}
       </div>
 
       {sub === 'groups' && (
         groupHits.length ? <HitGroupView category="social" hits={groupHits} query={query} deps={deps} />
-          : <Empty text={query ? 'לא נמצאו קבוצות' : ctx.hasCityAccess ? 'עוד אין קבוצות בעיר שלך' : 'קבוצות יופיעו כאן כשיהיו בעיר שלך'} />
+          : <Empty text={query ? t('search.social.groups.none') : ctx.hasCityAccess ? t('search.social.groups.emptyCity') : t('search.social.groups.emptyNoAccess')} />
       )}
 
       {sub === 'people' && (
-        query.length < 2 ? <Empty text="הקלידו שם כדי למצוא אנשים" />
+        query.length < 2 ? <Empty text={t('search.social.people.prompt')} />
           : loading && !peopleHits.length ? <div className="grid grid-cols-2 gap-2.5"><RowSkeleton /><RowSkeleton /></div>
             : peopleHits.length ? <HitGroupView category="social" hits={peopleHits} query={query} deps={deps} />
-              : <Empty text="לא נמצאו אנשים בשם הזה" />
+              : <Empty text={t('search.social.people.none')} />
       )}
 
       {sub === 'partners' && (
         filteredPartners === null ? <div className="flex flex-col gap-2"><RowSkeleton /><RowSkeleton /></div>
           : filteredPartners.length ? (
             <div className="grid grid-cols-2 gap-2.5">{filteredPartners.map((p) => <PersonCard key={p.uid} person={p} query={query} />)}</div>
-          ) : <Empty text="עוד אין לך שותפים. אפשר למצוא אותם ב״אנשים״" />
+          ) : <Empty text={t('search.social.partners.none')} />
       )}
     </div>
   );

@@ -24,6 +24,15 @@ import { doc, onSnapshot, type DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FLAG_DEFS } from './feature-flag-defs';
 import { resolveViewerFlags } from './feature-flag-resolve';
+import {
+  readViewerFlags,
+  writeViewerFlags,
+  readLastViewerUid,
+  writeLastViewerUid,
+  resolveDisplayFlags,
+  shouldWriteViewerCache,
+} from './feature-flag-viewer-cache';
+import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { useIsQaTester } from '@/lib/qa/useIsQaTester';
 
 // ============================================================================
@@ -125,47 +134,54 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
    */
   rawFlags: FeatureFlags;
   loading: boolean;
+  /**
+   * false while NOTHING is known about this viewer's flags yet (server render, the
+   * hydration render, a first-ever launch before Firestore answers). A screen that
+   * branches v1/v2 renders a neutral skeleton (FlagsSkeleton) instead of guessing —
+   * never v1 first and then v2. true from a device cache onward.
+   */
+  ready: boolean;
 } {
   // After the app's first hydration, a hook that mounts later (a client-side
   // navigation, a sheet, the bottom bar) starts straight from the best flags
   // this device knows — no render with SAFE_DEFAULTS at all. During the
-  // hydration render itself it must still match the server (SAFE_DEFAULTS);
-  // the layout effect below corrects that before the first paint.
-  const [flags, setFlags] = useState<FeatureFlags>(() => initialFlags() ?? SAFE_DEFAULTS);
-  const [loading, setLoading] = useState(() => initialFlags() === null);
+  // hydration render itself it must still match the server (SAFE_DEFAULTS,
+  // ready=false); the layout effect below corrects that before the first paint.
+  const [hydrated, setHydrated] = useState(() => clientHydrated && typeof window !== 'undefined');
+  // The live document from THIS JS session (null until a snapshot arrives).
+  const [docFlags, setDocFlags] = useState<FeatureFlags | null>(() => (hydrated ? lastKnownFlags : null));
+  const [docCache, setDocCache] = useState<FeatureFlags | null>(() => (hydrated ? readCachedFlags() : null));
+  const [gaveUp, setGaveUp] = useState(false);
+  // The signed-in viewer (persisted profile; null on the server / hydration render
+  // and until the profile is restored).
+  const uid = useUserStore((s) => s.profile?.id ?? null);
 
-  // Before the first paint: the last-known flags, so the right design shows
-  // straight away. (Not in useState's initializer on the hydration render —
-  // the server render has no localStorage, and the first client render must
-  // match it.)
   useIsomorphicLayoutEffect(() => {
     clientHydrated = true;
-    const known = lastKnownFlags ?? readCachedFlags();
-    if (known) {
-      setFlags(known);
-      setLoading(false);
+    if (!hydrated) {
+      setHydrated(true);
+      setDocFlags(lastKnownFlags);
+      setDocCache(readCachedFlags());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const cap = setTimeout(() => setLoading(false), LOADING_CAP_MS);
+    const cap = setTimeout(() => setGaveUp(true), LOADING_CAP_MS);
     // system_config is publicly readable — subscribe immediately, no auth gate needed.
     const unsubscribe = onSnapshot(
       doc(db, 'system_config', 'feature_flags'),
       (snap) => {
         const next = snap.exists() ? flagsFromFirestoreData(snap.data()) : SAFE_DEFAULTS;
         lastKnownFlags = next;
-        setFlags(next);
-        setLoading(false);
+        setDocFlags(next);
         writeCachedFlags(next);
       },
       () => {
-        // On an unexpected error keep the device's last-known flags (falling
-        // back to safe defaults only when there are none) — wiping them here
-        // would bring the old-design flash right back. In production this
+        // On an unexpected error keep the device's caches (the old-design flash
+        // would come back if we wiped them) and stop waiting. In production this
         // should never fire since the rule is public.
-        setFlags(lastKnownFlags ?? readCachedFlags() ?? SAFE_DEFAULTS);
-        setLoading(false);
+        setGaveUp(true);
       },
     );
 
@@ -178,16 +194,48 @@ export function useFeatureFlags(isSuperAdmin?: boolean): {
   // AI testers (uid demo_qa_* + claim qa) get each flag's qaTesterValue while the demo
   // switches are on — never the super-admin set. false for every real user (from the uid alone).
   const isQaTester = useIsQaTester();
+  const viewer = { isSuperAdmin: !!isSuperAdmin, isQaTester };
 
   // Super Admins bypass all flags — they always see every feature enabled
   // (maintenanceMode is the one exception, per SUPER_ADMIN_FLAGS above).
-  if (isSuperAdmin) {
-    return { flags: SUPER_ADMIN_FLAGS, rawFlags: flags, loading: false };
-  }
+  const live = !hydrated
+    ? null
+    : isSuperAdmin
+      ? SUPER_ADMIN_FLAGS
+      : docFlags
+        ? resolveViewerFlags(docFlags, viewer, SUPER_ADMIN_FLAGS)
+        : null;
+  // The per-viewer cache is for callers that pass isSuperAdmin (the resolved view).
+  // Callers that deliberately call useFeatureFlags() without it (no override) keep
+  // using the raw document only, so the two views never overwrite each other.
+  const usesViewerCache = isSuperAdmin !== undefined;
+  const viewerUid = hydrated && usesViewerCache ? uid ?? readLastViewerUid() : null;
+  const viewerCache = viewerUid ? readViewerFlags(viewerUid) : null;
+  const display = resolveDisplayFlags({
+    live,
+    viewerKnown: hydrated && !!uid,
+    viewerCache,
+    docCache: docCache ? resolveViewerFlags(docCache, viewer, SUPER_ADMIN_FLAGS) : null,
+    gaveUp,
+    fallback: SAFE_DEFAULTS,
+  });
 
-  if (isQaTester) {
-    return { flags: resolveViewerFlags(flags, { isSuperAdmin: false, isQaTester: true }, SUPER_ADMIN_FLAGS), rawFlags: flags, loading };
-  }
+  // Remember what this viewer ended up with (only live truth, only when it changed).
+  const writeNow = usesViewerCache && shouldWriteViewerCache(uid, hydrated && !!uid, display, viewerCache);
+  useEffect(() => {
+    if (writeNow && uid) {
+      writeViewerFlags(uid, display.flags);
+      writeLastViewerUid(uid);
+    }
+  });
 
-  return { flags, rawFlags: flags, loading };
+  const rawFlags = docFlags ?? docCache ?? SAFE_DEFAULTS;
+  return {
+    flags: display.flags,
+    rawFlags,
+    // Same meaning as before: false once the live document, a device cache, the
+    // super-admin set or the loading cap is in — true only while nothing is.
+    loading: display.source === 'unknown',
+    ready: display.source !== 'unknown',
+  };
 }

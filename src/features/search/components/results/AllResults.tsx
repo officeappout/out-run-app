@@ -4,9 +4,12 @@
 import SectionHead from '../SectionHead';
 import HitGroupView, { type HitViewDeps } from './HitGroupView';
 import { previewOf, type HitGroup } from '../../core/grouping';
-import { CATEGORY_LABEL, type ResultCategory } from '../../core/types';
+import type { ResultCategory } from '../../core/types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export default function AllResults({ groups, query, deps, onSeeAll }: { groups: HitGroup[]; query: string; deps: HitViewDeps; onSeeAll: (c: ResultCategory) => void }) {
+  const t = useT(library);
   return (
     <div className="flex flex-col gap-4">
       {groups.map((g) => {
@@ -14,7 +17,7 @@ export default function AllResults({ groups, query, deps, onSeeAll }: { groups: 
         const titleId = `sr-${g.category}`;
         return (
           <section key={g.category} aria-labelledby={titleId} className="flex flex-col gap-2">
-            <SectionHead id={titleId} title={CATEGORY_LABEL[g.category]} action={more > 0 ? `לכל ${g.total}` : undefined} onAction={() => onSeeAll(g.category)} />
+            <SectionHead id={titleId} title={t(`search.category.${g.category}`)} action={more > 0 ? t('search.results.seeAll', { count: String(g.total) }) : undefined} onAction={() => onSeeAll(g.category)} />
             <HitGroupView category={g.category} hits={shown} query={query} deps={deps} />
           </section>
         );

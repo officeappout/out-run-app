@@ -17,6 +17,12 @@ src/app/progression-map/
 src/features/activity/components/
 src/app/activity/
 
+# wave 2 (namespace library) — search: unified search (enable_unified_search) + today's
+# /search page (search/legacy, flag off). src/features/messages is NOT migrated: its only
+# Hebrew is MessageService's smart_messages defaults / admin type labels (Firestore content
+# + admin, read by home / workouts / arena / admin outside this PR) — manual list in the PR.
+src/features/search/
+src/app/search/
 # wave 2 batch 1 (namespace map, partners.* keys) — Partner Finder.
 # PartnerBubbles.tsx is dead (imported by DiscoverLayer, never rendered): left as is.
 # heatmap: only hooks/ + services/ (no copy); heatmap/components is admin-only (Hebrew only, PLAN decision 1).
@@ -28,3 +34,9 @@ src/features/heatmap/services/
 # BlurredHowStep.tsx in this folder is dead (no importer) and was skipped; its old
 # Hebrew stays, but new Hebrew lines are blocked here like everywhere else.
 src/features/user/onboarding/components/visual-assessment/
+# wave 2 batch 1 (namespace map) — route preview, route overview, equipment sheets.
+# Hebrew left in these folders is marked i18n-allow-hebrew (Firestore/presence
+# values, turn-text matching, an unused helper, the legacy v1 close label).
+src/features/parks/client/components/route-preview/
+src/features/parks/client/components/equipment-detail/
+src/features/parks/core/components/overview/route/

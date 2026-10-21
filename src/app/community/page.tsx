@@ -32,6 +32,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useUserStore } from '@/features/user';
 import { useSocialStore } from '@/features/social/store/useSocialStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
+import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { feedPrefsFrom, type FeedPrefs } from '@/features/social/services/feed-prefs';
 import { useArenaAccess } from '@/features/arena/hooks/useArenaAccess';
 import { useViewerArenaAccess } from '@/features/demo-viewer/useViewerArenaAccess';
@@ -68,7 +70,7 @@ export default function CommunityPage() {
   useCommunityOverlayPreload();
   const { profile, _hasHydrated, refreshProfile } = useUserStore();
   const isSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
-  const { flags: featureFlags, loading: flagsLoading } = useFeatureFlags(isSuperAdmin);
+  const { flags: featureFlags, loading: flagsLoading, ready: flagsReady } = useFeatureFlags(isSuperAdmin);
   const { following, isLoaded: socialLoaded, loadConnections, isPartner } = useSocialStore();
   // Home v2 feed filter (all / partners / my neighborhood / my groups).
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
@@ -118,7 +120,10 @@ export default function CommunityPage() {
   // used by the profile-hydration guard below. Without this, the component
   // briefly renders with enableLeagues=false (the safe default) which can
   // flash the "city not connected" state before the real flags are known.
+  // Flags unknown, or v2 on: the neutral v2 skeleton (never the old loader first
+  // and then v2 — owner bug 21.10.2026). Flags known off: the old loader.
   if (flagsLoading || !_hasHydrated || access.isLoading) {
+    if (loadingLook(flagsReady, featureFlags.enableHomeV2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
         <p className="text-sm text-gray-500 animate-pulse">טוען...</p>

@@ -63,7 +63,7 @@ vi.mock('@/features/social/store/useSocialStore', async () => {
   };
 });
 vi.mock('@/hooks/useFeatureFlags', () => ({
-  useFeatureFlags: () => ({ flags: state.flags, loading: state.flagsLoading }),
+  useFeatureFlags: () => ({ flags: state.flags, loading: state.flagsLoading, ready: !state.flagsLoading }),
 }));
 vi.mock('@/config/feature-flags', () => ({ IS_COMMUNITY_FEED_ENABLED: true }));
 vi.mock('@/features/social/services/feed.service', async () => {
@@ -253,6 +253,14 @@ for (const v2 of [false, true]) {
 
     it('loading guard (flags loading)', async () => {
       state.flagsLoading = true;
+      await page();
+      expect(snapshot()).toMatchSnapshot();
+    });
+
+    // Owner bug 21.10.2026: flags known, access still loading — the v2 skeleton
+    // for v2 users (no old loader first), the old loader for flag-off users.
+    it('loading guard (access loading, flags known)', async () => {
+      state.access = { ...state.access, isLoading: true };
       await page();
       expect(snapshot()).toMatchSnapshot();
     });

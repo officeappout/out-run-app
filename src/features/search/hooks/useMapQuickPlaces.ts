@@ -12,7 +12,7 @@ import type { SearchSuggestion } from '@/features/parks/core/hooks/useSearchNavi
 import { isFitnessGarden, loadParks, loadRoutes, nearestParks, nearestRoutes } from '../providers/places';
 
 export type MapQuickChip = 'gyms' | 'routes';
-export const MAP_QUICK_LABEL: Record<MapQuickChip, string> = { gyms: 'גינות כושר', routes: 'מסלולי ריצה' };
+export const MAP_QUICK_LABEL: Record<MapQuickChip, string> = { gyms: 'גינות כושר', routes: 'מסלולי ריצה' }; // i18n-allow-hebrew: read by parks/SearchOverlayV2 (outside this PR); MapQuickChips uses search.mapQuick.*
 
 export function useMapQuickPlaces(enabled: boolean, pos: { lat: number; lng: number } | null | undefined) {
   const [lists, setLists] = useState<Record<MapQuickChip, SearchSuggestion[]>>({ gyms: [], routes: [] });

@@ -125,3 +125,5 @@ export type { SplitBarProps, SplitBarSegment } from './SplitBar';
 export { default as PairedBarRow, PAIRED_PREVIOUS_COLOR } from './PairedBarRow';
 export type { PairedBarRowProps } from './PairedBarRow';
 export * from './compare-bars';
+export { default as ScreenSkeleton } from './ScreenSkeleton';
+export type { ScreenSkeletonProps } from './ScreenSkeleton';

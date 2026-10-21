@@ -29,6 +29,7 @@ import type { Route } from '../types/route.types';
 import type { RouteTurn } from '../services/geoUtils';
 import { bearingBetween, haversineMeters } from '../services/geoUtils';
 import { previewFitDelayMs, overviewFitBounds, overviewFitPadding } from './camera-fit';
+import { playerFollowPadding } from './player-follow-padding';
 import { IS_PERF_BATCH2_ENABLED, MAP_OVERVIEW_CHROME_V1 } from '@/config/feature-flags';
 import { isFiniteLatLng, isFiniteNum } from '@/utils/geoValidation';
 import {
@@ -380,6 +381,9 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   // Fix 2: debounce timer — cancels competing camera moves when isActiveWorkout,
   // isNavigationMode, or mapMode all change in rapid succession at workout start.
   const cameraDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last follow padding actually sent to Mapbox (v2 player chrome only — see the
+  // P1 delta-guard: a padding change while standing still must still re-frame).
+  const lastFollowPaddingRef = useRef<unknown>(null);
 
   // ── Idle-recenter machinery ──────────────────────────────────────────────
   // After the user manually pans / rotates / zooms, we set a 15 s timer.
@@ -612,7 +616,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
   const overviewActiveRef = useRef(overviewSheetHeightPx != null);
   overviewActiveRef.current = overviewSheetHeightPx != null;
 
-  const wazePadding = useMemo(() => {
+  const legacyWazePadding = useMemo(() => {
     const H = typeof window !== 'undefined' ? window.innerHeight : 800;
     if (metricsCardPosition === 'bottom') {
       // Card-at-bottom regime: lift the focal point well above the card.
@@ -636,6 +640,26 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     }
     return { top, bottom: 0, left: 0, right: 0 };
   }, [metricsCardPosition]);
+
+  // enable_home_v2 live players publish the px their header + bottom card
+  // cover (usePublishedPlayerChrome); null for every legacy player, so the
+  // legacy padding above (and its identity) is untouched for them.
+  const playerChrome = useMapStore((s) => s.playerChrome);
+  // The turn card (TurnCarousel) hangs under a v2 player's header — also covered.
+  // Read only while a v2 player is mounted (no extra legacy re-renders).
+  const navCardHeightPx = useMapStore((s) => (s.playerChrome ? s.navCardHeight : 0));
+  const v2FollowPadding = useMemo(() => {
+    if (!playerChrome) return null;
+    const H = typeof window !== 'undefined' ? window.innerHeight : 800;
+    // Keep the marker in the free window between the header and the bottom
+    // card — the legacy top-half padding put it ~25 % from the bottom, right
+    // under the v2 live card ("the run screen doesn't show me").
+    return playerFollowPadding(H, {
+      top: playerChrome.top + Math.max(0, navCardHeightPx),
+      bottom: playerChrome.bottom,
+    });
+  }, [playerChrome, navCardHeightPx]);
+  const wazePadding = v2FollowPadding ?? legacyWazePadding;
 
   // Follow mode uses FOLLOW_ZOOM / FOLLOW_PITCH constants (see top of file).
   // Speed-adaptive zoom/pitch removed — adds complexity without clear user benefit.
@@ -820,7 +844,10 @@ export function useCameraController(params: CameraControllerParams): CameraContr
           // follow is gated — state transitions bypass (they must animate), and
           // the sim jumpTo path (below) is untouched. Flag is the first operand so
           // when off the getters never run and the ease path is byte-identical.
-          if (IS_PERF_BATCH2_ENABLED && !isStateTransition && !simulationActive) {
+          // v2 player chrome changed (card grew / header resized) → the marker
+          // must move into the new free window even when the runner stands still.
+          const v2PaddingChanged = playerChrome != null && lastFollowPaddingRef.current !== wazePadding;
+          if (IS_PERF_BATCH2_ENABLED && !isStateTransition && !simulationActive && !v2PaddingChanged) {
             const camCenter = rm.getCenter();
             const movedM = haversineMeters(camCenter.lat, camCenter.lng, currentLocation.lat, currentLocation.lng);
             const bearingDeltaDeg = Math.abs(shortestBearingDelta(rm.getBearing(), bearing));
@@ -836,6 +863,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
                 duration, easing: (t: number) => t * (2 - t), essential: true,
               });
             }
+            if (playerChrome != null) lastFollowPaddingRef.current = wazePadding;
           } catch (err) {
             console.error(`[Cam] ${logTag} camera call threw — ignored.`, err);
           }
@@ -1155,7 +1183,7 @@ export function useCameraController(params: CameraControllerParams): CameraContr
     isNavigationMode, isActiveWorkout, simulationActive,
     focusedRoute, routes, destinationMarker,
     skipInitialZoom, isAutoFollowEnabled,
-    wazePadding, mapRef,
+    wazePadding, playerChrome, mapRef,
     mapMode,
     // sessionStatus drives the STOPPED camera state (paused workout → flatten).
     sessionStatus,

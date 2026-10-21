@@ -50,6 +50,9 @@ export default defineConfig({
       'src/features/partners/components/__tests__/**/*.test.tsx',
       // i18n wave 2 (onboarding namespace) — strength quiz Hebrew markup parity.
       'src/features/user/onboarding/components/visual-assessment/__tests__/**/*.test.tsx',
+      // i18n wave 2 (map namespace) — route preview + equipment sheets, Hebrew markup parity (jsdom).
+      'src/features/parks/client/components/route-preview/__tests__/**/*.test.tsx',
+      'src/features/parks/client/components/equipment-detail/__tests__/**/*.test.tsx',
       'tests/firestore-rules.test.ts',
       'tests/military-panel-adversarial-audit.rules.test.ts',
       'tests/firestore-fix-write-layer2-batch-a.rules.test.ts',
@@ -114,9 +117,7 @@ export default defineConfig({
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
       'src/features/workout-engine/hybrid/__tests__/hybrid-runtime.test.ts',
       'src/features/workout-engine/hybrid/__tests__/hybrid-orchestrator.test.ts',
-    ],
     environment: 'node',
     testTimeout: 60_000,
     hookTimeout: 60_000,
-  },
 });

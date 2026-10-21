@@ -16,7 +16,7 @@ import React from 'react';
 import type { useDragControls } from 'framer-motion';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { PlayerHeaderCard, usePublishedHeaderHeight } from '../../players/shared/v2';
+import { PlayerHeaderCard, usePublishedHeaderHeight, usePublishedPlayerChrome } from '../../players/shared/v2';
 import { useRunningPlayer } from '../../players/running/store/useRunningPlayer';
 import { useSessionStore } from '../../core/store/useSessionStore';
 import { fmtClock } from '../../players/running/lib/planned-rep-results';
@@ -38,6 +38,8 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
   const gpsStatus = useRunningPlayer((s) => s.gpsStatus);
   const gpsAccuracy = useRunningPlayer((s) => s.gpsAccuracy);
   const header = usePublishedHeaderHeight();
+  // Map camera keeps the runner's marker between the header and the card.
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true });
   if (!api?.enabled || !api.view || !api.strip) return null;
 
   const view = api.view;
@@ -46,7 +48,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
 
   return (
     <>
-      <div className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div ref={header.ref} className="px-3 pt-2">
           <PlayerHeaderCard
             onPointerDown={(e) => {
@@ -73,7 +75,7 @@ export default function HybridOverlayV2({ dragControls, onMinimize }: Props) {
         <GpsIndicator accuracy={gpsAccuracy} status={gpsStatus} />
       </div>
 
-      <div className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir="rtl">
+      <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }} dir="rtl">
         {view.phase === 'transition' ? (
           <HybridTransitionCardV2 api={api} />
         ) : view.phase === 'run' || view.phase === 'cooldown' || view.phase === 'idle' ? (

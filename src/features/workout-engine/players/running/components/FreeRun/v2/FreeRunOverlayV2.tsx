@@ -20,7 +20,7 @@ import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { Participant } from '@/features/workout-engine/shared/types/session-policy';
-import { HeaderProgressBar, PlayerHeaderCard } from '../../../../shared/v2';
+import { HeaderProgressBar, PlayerHeaderCard, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import { useGroupSessionGoal } from '../../../hooks/useGroupSessionGoal';
 import { useZoneTracking } from '../../../hooks/useZoneTracking';
@@ -105,6 +105,9 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
 
   // ── Header height → map camera padding, turn card, recenter pill ─────
   const headerRef = useRef<HTMLDivElement>(null);
+  // Map camera keeps the runner's marker between the header and the card
+  // (the legacy framing put it right under the bottom card).
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: 12, headerIncludesSafeTop: true });
   const [headerH, setHeaderH] = useState(96);
   const setStoreStoryBarHeight = useMapStore((s) => s.setStoryBarHeight);
   const navCardH = useMapStore((s) => s.navCardHeight);
@@ -125,7 +128,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
 
   return (
     <>
-      <div className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div ref={chrome.headerRef} className="absolute inset-x-0 top-0 z-10" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div ref={headerRef} className="px-3 pt-2">
           <PlayerHeaderCard
             onPointerDown={(e) => {
@@ -173,7 +176,7 @@ export default function FreeRunOverlayV2({ dragControls, onMinimize, sideRailPar
 
       <SideRail participants={sideRailParticipants ?? []} storyBarHeight={headerH} onSelect={onSelectParticipant} />
 
-      <div className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
+      <div ref={chrome.cardRef} className="absolute inset-x-3 z-10" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
         <ContinuousRunCardV2
           data={{
             heroKind: kind,

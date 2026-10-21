@@ -61,6 +61,8 @@ import { joinEvent } from '@/features/admin/services/community.service';
 import { addCommunitySessionsToPlanner } from '@/features/user/scheduling/services/communitySchedule.service';
 import type { CommunityGroup, CommunityEvent } from '@/types/community.types';
 import { computeAgeGroup } from '@/lib/age';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // Heavy embedded library — lazy-loaded so the social/events tabs aren't
 // punished with the exercise corpus parser on first paint.
@@ -74,20 +76,20 @@ const ExerciseLibraryContent = nextDynamic(
 
 // ── Verb mappings (mirrors /community for consistent success drawer copy) ────
 const GROUP_VERB: Record<string, string> = {
-  walking: 'ילך',
-  running: 'ירוץ',
-  yoga: 'יתאמן',
-  calisthenics: 'יתאמן',
-  cycling: 'ירכב',
-  other: 'יתאמן',
+  walking: 'ילך', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  running: 'ירוץ', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  yoga: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  calisthenics: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  cycling: 'ירכב', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  other: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
 };
 
 const EVENT_VERB: Record<string, string> = {
-  race: 'ירוץ',
-  fitness_day: 'יתאמן',
-  workshop: 'ישתתף',
-  community_meetup: 'ישתתף',
-  other: 'יתאמן',
+  race: 'ירוץ', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  fitness_day: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  workshop: 'ישתתף', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  community_meetup: 'ישתתף', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
+  other: 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
 };
 
 type SearchTopTab = 'groups' | 'people' | 'exercises' | 'events';
@@ -99,29 +101,29 @@ type EventFilter = 'all' | 'running' | 'walking' | 'strength' | 'near';
 // not shared with any other tab bar; default active tab (on a fresh visit,
 // no ?tab= param) is a separate hardcoded fallback below, unaffected by
 // this order.
-const TOP_TABS: { value: SearchTopTab; label: string }[] = [
-  { value: 'exercises', label: 'תרגילים' },
-  { value: 'groups',    label: 'קבוצות' },
-  { value: 'people',   label: 'אנשים' },
-  { value: 'events',   label: 'אירועים' },
-];
+const TOP_TABS = [
+  { value: 'exercises', labelKey: 'search.legacy.tab.exercises' },
+  { value: 'groups',    labelKey: 'search.legacy.tab.groups' },
+  { value: 'people',   labelKey: 'search.legacy.tab.people' },
+  { value: 'events',   labelKey: 'search.legacy.tab.events' },
+] as const satisfies ReadonlyArray<{ value: SearchTopTab; labelKey: string }>;
 
 const GROUP_CATEGORY_CHIPS = [
-  { key: 'all',          label: 'הכל' },
-  { key: 'walking',      label: 'הליכה' },
-  { key: 'running',      label: 'ריצה' },
-  { key: 'calisthenics', label: 'קליסתניקס' },
-  { key: 'cycling',      label: 'רכיבה' },
-  { key: 'community',    label: 'קהילתי' },
-];
+  { key: 'all',          labelKey: 'search.legacy.groupChip.all' },
+  { key: 'walking',      labelKey: 'search.legacy.groupChip.walking' },
+  { key: 'running',      labelKey: 'search.legacy.groupChip.running' },
+  { key: 'calisthenics', labelKey: 'search.legacy.groupChip.calisthenics' },
+  { key: 'cycling',      labelKey: 'search.legacy.groupChip.cycling' },
+  { key: 'community',    labelKey: 'search.legacy.groupChip.community' },
+] as const;
 
-const EVENT_FILTERS: { value: EventFilter; label: string }[] = [
-  { value: 'all', label: 'הכל' },
-  { value: 'running', label: 'ריצה' },
-  { value: 'walking', label: 'הליכה' },
-  { value: 'strength', label: 'כוח' },
-  { value: 'near', label: 'קרוב אלי' },
-];
+const EVENT_FILTERS = [
+  { value: 'all', labelKey: 'search.legacy.eventFilter.all' },
+  { value: 'running', labelKey: 'search.legacy.eventFilter.running' },
+  { value: 'walking', labelKey: 'search.legacy.eventFilter.walking' },
+  { value: 'strength', labelKey: 'search.legacy.eventFilter.strength' },
+  { value: 'near', labelKey: 'search.legacy.eventFilter.near' },
+] as const satisfies ReadonlyArray<{ value: EventFilter; labelKey: string }>;
 
 const ACCENT = '#00ADEF';
 
@@ -130,6 +132,7 @@ const ACCENT = '#00ADEF';
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
+  const t = useT(library);
   // Home v2 (enable_home_v2): the search page in the site's language.
   const searchSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(searchSuperAdmin).flags.enableHomeV2;
@@ -138,7 +141,7 @@ export default function SearchPage() {
 
   const { profile } = useUserStore();
   const userId = profile?.id ?? null;
-  const userName = profile?.core?.name ?? 'משתמש';
+  const userName = profile?.core?.name ?? 'משתמש'; // i18n-allow-hebrew: fallback member name written to Firestore (joinGroup / joinEvent), data
   const photoURL = profile?.core?.photoURL;
   // SPEC-04 Wave B/D — searchUsersByName requires this so a minor never
   // surfaces in an adult's search and vice versa (see the service's own
@@ -412,21 +415,21 @@ export default function SearchPage() {
       list = list.filter(
         ({ event: e }) =>
           e.category === 'race' ||
-          /ריצ|מרוץ|run/i.test(e.name) ||
-          /ריצ|מרוץ|run/i.test(e.description ?? ''),
+          /ריצ|מרוץ|run/i.test(e.name) || // i18n-allow-hebrew: keyword regex over event data, not copy
+          /ריצ|מרוץ|run/i.test(e.description ?? ''), // i18n-allow-hebrew: keyword regex over event data, not copy
       );
     } else if (eventFilter === 'walking') {
       list = list.filter(
         ({ event: e }) =>
-          /הליכה|walk/i.test(e.name) ||
-          /הליכה|walk/i.test(e.description ?? ''),
+          /הליכה|walk/i.test(e.name) || // i18n-allow-hebrew: keyword regex over event data, not copy
+          /הליכה|walk/i.test(e.description ?? ''), // i18n-allow-hebrew: keyword regex over event data, not copy
       );
     } else if (eventFilter === 'strength') {
       list = list.filter(
         ({ event: e }) =>
           e.category === 'fitness_day' ||
-          /כוח|strength|כושר/i.test(e.name) ||
-          /כוח|strength|כושר/i.test(e.description ?? ''),
+          /כוח|strength|כושר/i.test(e.name) || // i18n-allow-hebrew: keyword regex over event data, not copy
+          /כוח|strength|כושר/i.test(e.description ?? ''), // i18n-allow-hebrew: keyword regex over event data, not copy
       );
     } else if (eventFilter === 'near') {
       list = list
@@ -463,7 +466,7 @@ export default function SearchPage() {
               : [];
           setSuccessData({
             name: group.name,
-            verb: GROUP_VERB[group.category] ?? 'יתאמן',
+            verb: GROUP_VERB[group.category] ?? 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer, wave 2I
             groupId: group.id,
             scheduleSlots: allSlots,
             category: group.category,
@@ -491,7 +494,7 @@ export default function SearchPage() {
         if (event) {
           setSuccessData({
             name: event.name,
-            verb: EVENT_VERB[event.category] ?? 'יתאמן',
+            verb: EVENT_VERB[event.category] ?? 'יתאמן', // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer, wave 2I
           });
         }
       } catch (err) {
@@ -566,16 +569,16 @@ export default function SearchPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={getPlaceholder(topTab, discoverMode)}
+              placeholder={t(placeholderKey(topTab, discoverMode))}
               className={v2 ? 'flex-1 bg-transparent text-[15px] font-semibold text-v2-ink placeholder:text-v2-muted outline-none' : 'flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none'}
-              aria-label="חיפוש"
+              aria-label={t('search.legacy.field.label')}
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
                 className="p-0.5 rounded-full hover:bg-gray-200 transition-colors"
-                aria-label="נקה חיפוש"
+                aria-label={t('search.legacy.field.clear')}
               >
                 <X className="w-3.5 h-3.5 text-gray-500" />
               </button>
@@ -588,22 +591,22 @@ export default function SearchPage() {
           <div
             className={v2 ? 'flex border-b border-v2-hairline' : 'flex border-b border-slate-100 dark:border-slate-800'}
             role="tablist"
-            aria-label="חיפוש"
+            aria-label={t('search.legacy.tabs.label')}
           >
-            {TOP_TABS.map((t) => {
+            {TOP_TABS.map((tab) => {
               const count =
-                t.value === 'groups'    ? groups.length :
-                t.value === 'people'    ? following.length :
-                t.value === 'exercises' ? exerciseCount :
-                t.value === 'events'    ? events.length : 0;
-              const active = topTab === t.value;
+                tab.value === 'groups'    ? groups.length :
+                tab.value === 'people'    ? following.length :
+                tab.value === 'exercises' ? exerciseCount :
+                tab.value === 'events'    ? events.length : 0;
+              const active = topTab === tab.value;
               return (
                 <button
-                  key={t.value}
+                  key={tab.value}
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setTopTab(t.value)}
+                  onClick={() => setTopTab(tab.value)}
                   className={
                     v2
                       ? `relative min-h-[44px] flex-1 py-3 text-center text-[14px] font-extrabold transition-colors ${active ? 'text-v2-deep' : 'text-v2-muted'}`
@@ -615,7 +618,7 @@ export default function SearchPage() {
                   }
                 >
                   <span className="inline-flex items-center gap-1 justify-center">
-                    {t.label}
+                    {t(tab.labelKey)}
                     {count > 0 && (
                       <span
                         className={
@@ -646,7 +649,7 @@ export default function SearchPage() {
             <div
               className="flex rounded-full bg-gray-100 dark:bg-gray-800 p-0.5"
               role="group"
-              aria-label="מצב תצוגה"
+              aria-label={t('search.legacy.mode.label')}
             >
               {(['discover', 'my'] as const).map((mode) => (
                 <button
@@ -660,7 +663,7 @@ export default function SearchPage() {
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  {mode === 'discover' ? 'גלה' : 'שלי'}
+                  {mode === 'discover' ? t('search.legacy.mode.discover') : t('search.legacy.mode.my')}
                 </button>
               ))}
             </div>
@@ -671,11 +674,11 @@ export default function SearchPage() {
             <button
               type="button"
               onClick={() => setInviteOpen(true)}
-              aria-label="הזמן חברים"
+              aria-label={t('search.legacy.invite')}
               className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-full text-xs font-bold transition-colors active:scale-95 min-h-[32px]"
             >
               <Share2 className="w-3.5 h-3.5 flex-shrink-0" />
-              הזמן חברים
+              {t('search.legacy.invite')}
             </button>
 
             {/* Filter icon — groups tab only */}
@@ -683,7 +686,7 @@ export default function SearchPage() {
               <button
                 type="button"
                 onClick={() => setFilterPanelOpen((v) => !v)}
-                aria-label="סנן קבוצות"
+                aria-label={t('search.legacy.filterGroups')}
                 aria-expanded={filterPanelOpen}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
                   filterPanelOpen || groupCategoryFilter !== 'all'
@@ -715,7 +718,7 @@ export default function SearchPage() {
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                   }`}
                 >
-                  {chip.label}
+                  {t(chip.labelKey)}
                 </button>
               ))}
             </div>
@@ -751,7 +754,7 @@ export default function SearchPage() {
         isOpen={!!successData}
         onClose={() => setSuccessData(null)}
         name={successData?.name ?? ''}
-        verb={successData?.verb ?? 'יתאמן'}
+        verb={successData?.verb ?? 'יתאמן'} // i18n-allow-hebrew: verb fragment for arena PostJoinSuccessDrawer (outside this folder), wave 2I
         scheduleSlots={successData?.scheduleSlots}
         category={successData?.category}
         address={successData?.address}
@@ -796,7 +799,7 @@ export default function SearchPage() {
               livePhaseMap={livePhaseMap}
               emptyMessage={
                 discoverMode === 'my'
-                  ? 'עוד לא הצטרפת לקבוצות — עבור ל"גלה" כדי למצוא קבוצות'
+                  ? t('search.legacy.myGroupsEmpty')
                   : undefined
               }
             />
@@ -862,7 +865,7 @@ export default function SearchPage() {
                       border: active ? 'none' : '0.5px solid rgba(0,0,0,0.12)',
                     }}
                   >
-                    {f.label}
+                    {t(f.labelKey)}
                   </button>
                 );
               })}
@@ -887,12 +890,12 @@ export default function SearchPage() {
 // Helpers / small render functions
 // ────────────────────────────────────────────────────────────────────────────
 
-function getPlaceholder(top: SearchTopTab, mode: DiscoverMode): string {
-  if (top === 'exercises') return 'חפש תרגיל...';
-  if (top === 'events') return 'חפש אירוע...';
-  if (top === 'groups') return 'חפש קבוצה...';
-  if (top === 'people' && mode === 'discover') return 'חפש לפי שם...';
-  return 'חיפוש...';
+function placeholderKey(top: SearchTopTab, mode: DiscoverMode) {
+  if (top === 'exercises') return 'search.legacy.placeholder.exercises' as const;
+  if (top === 'events') return 'search.legacy.placeholder.events' as const;
+  if (top === 'groups') return 'search.legacy.placeholder.groups' as const;
+  if (top === 'people' && mode === 'discover') return 'search.legacy.placeholder.people' as const;
+  return 'search.legacy.placeholder.default' as const;
 }
 
 function MyPartnersList({
@@ -906,10 +909,11 @@ function MyPartnersList({
   myUid: string | null;
   onInvite: () => void;
 }) {
+  const t = useT(library);
   if (isLoading && partners.length === 0) {
     return (
       <p className="text-xs text-gray-500 text-center py-8 animate-pulse">
-        טוען...
+        {t('search.legacy.partners.loading')}
       </p>
     );
   }
@@ -917,10 +921,9 @@ function MyPartnersList({
     return (
       <div className="flex flex-col items-center py-10 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
-        <p className="text-sm font-bold text-gray-700">עדיין אין לך שותפים</p>
+        <p className="text-sm font-bold text-gray-700">{t('search.legacy.partners.empty.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5 max-w-[260px]">
-          עקוב אחרי משתמשים בלשונית "גלה אנשים" או הזמן חברים שעדיין לא
-          באפליקציה
+          {t('search.legacy.partners.empty.body')}
         </p>
         <button
           type="button"
@@ -932,14 +935,14 @@ function MyPartnersList({
           }}
         >
           <Upload className="w-3.5 h-3.5" />
-          הזמן חברים
+          {t('search.legacy.partners.empty.invite')}
         </button>
       </div>
     );
   }
   return (
     <div className="space-y-2 pb-6" dir="rtl">
-      <p className="text-[11px] text-gray-500 px-1">{partners.length} שותפים</p>
+      <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.partners.count', { count: String(partners.length) })}</p>
       {partners.map((u) => (
         <motion.div key={u.uid} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <PartnerCard user={u} myUid={myUid ?? ''} />
@@ -960,10 +963,11 @@ function DiscoverPeopleList({
   results: UserSearchResult[];
   myUid: string | null;
 }) {
+  const t = useT(library);
   if (isSearching) {
     return (
       <p className="text-xs text-gray-500 text-center py-8 animate-pulse">
-        מחפש...
+        {t('search.legacy.people.searching')}
       </p>
     );
   }
@@ -971,9 +975,9 @@ function DiscoverPeopleList({
     return (
       <div className="flex flex-col items-center py-10 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
-        <p className="text-sm text-gray-500">הקלד לפחות 2 תווים לחיפוש</p>
+        <p className="text-sm text-gray-500">{t('search.legacy.people.minChars')}</p>
         <p className="text-xs text-gray-400 mt-1 max-w-[240px]">
-          חיפוש משתמשים מכל הארץ — לא מוגבל לעיר שלך
+          {t('search.legacy.people.nationwide')}
         </p>
       </div>
     );
@@ -982,14 +986,14 @@ function DiscoverPeopleList({
     return (
       <div className="flex flex-col items-center py-10 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
-        <p className="text-sm font-bold text-gray-700">לא נמצאו תוצאות</p>
-        <p className="text-xs text-gray-500 mt-0.5">נסה שם אחר</p>
+        <p className="text-sm font-bold text-gray-700">{t('search.legacy.people.none.title')}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{t('search.legacy.people.none.body')}</p>
       </div>
     );
   }
   return (
     <div className="space-y-2 pb-6" dir="rtl">
-      <p className="text-[11px] text-gray-500 px-1">{results.length} תוצאות</p>
+      <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.people.count', { count: String(results.length) })}</p>
       {results.map((u) => (
         <motion.div key={u.uid} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <PartnerCard user={u} myUid={myUid ?? ''} />
@@ -1020,6 +1024,7 @@ function DiscoverGroupsList({
   livePhaseMap?: Record<string, 'approaching' | 'lobby' | 'active'>;
   emptyMessage?: string;
 }) {
+  const t = useT(library);
   const phaseOrder: Record<string, number> = { active: 0, lobby: 1, approaching: 2 };
   const sorted = [...groups].sort((a, b) => {
     const pa = phaseOrder[livePhaseMap[a.id] ?? ''] ?? 3;
@@ -1031,18 +1036,18 @@ function DiscoverGroupsList({
     return (
       <div className="flex flex-col items-center py-12 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
-        <p className="text-sm font-bold text-gray-700">לא נמצאו קבוצות</p>
+        <p className="text-sm font-bold text-gray-700">{t('search.legacy.groups.none.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5">
           {emptyMessage ?? (hasCityAccess
-            ? 'קבוצות חדשות יופיעו כאן ברגע שיתווספו לעיר שלך'
-            : 'חבר GPS כדי לגלות קבוצות באזורך')}
+            ? t('search.legacy.groups.none.access')
+            : t('search.legacy.groups.none.noAccess'))}
         </p>
       </div>
     );
   }
   return (
     <div className="space-y-2 pb-6" dir="rtl">
-      <p className="text-[11px] text-gray-500 px-1">{sorted.length} קבוצות</p>
+      <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.groups.count', { count: String(sorted.length) })}</p>
       {sorted.map((g) => (
         <motion.div key={g.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <GroupCard
@@ -1075,22 +1080,23 @@ function EventsList({
   onCardClick: (e: CommunityEvent) => void;
   hasCityAccess: boolean;
 }) {
+  const t = useT(library);
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center py-12 text-center" dir="rtl">
         <Search className="w-8 h-8 text-gray-300 mb-2" />
-        <p className="text-sm font-bold text-gray-700">לא נמצאו אירועים</p>
+        <p className="text-sm font-bold text-gray-700">{t('search.legacy.events.none.title')}</p>
         <p className="text-xs text-gray-500 mt-0.5">
           {hasCityAccess
-            ? 'אירועים חדשים יופיעו כאן ברגע שיתווספו'
-            : 'חבר GPS כדי לגלות אירועים באזורך'}
+            ? t('search.legacy.events.none.access')
+            : t('search.legacy.events.none.noAccess')}
         </p>
       </div>
     );
   }
   return (
     <div className="space-y-2 pb-6" dir="rtl">
-      <p className="text-[11px] text-gray-500 px-1">{events.length} אירועים</p>
+      <p className="text-[11px] text-gray-500 px-1">{t('search.legacy.events.count', { count: String(events.length) })}</p>
       {events.map(({ event }) => (
         <motion.div key={event.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
           <EventCard

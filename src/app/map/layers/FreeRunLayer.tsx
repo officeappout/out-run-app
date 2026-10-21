@@ -109,6 +109,8 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
   // Entry flow v2 (enable_entry_whatnow_v1): the one-time long-press tip on the player controls.
   const entryPlayerTipOn = !adminAwareFlagsLoading && adminAwareFlags.enableEntryWhatnowV1;
   const runnerUid = useUserStore((s) => s.profile?.id);
+  // The runner's own avatar on the map (discover passes it; free run didn't → generic lemur).
+  const runnerPersonaId = useUserStore((s) => s.profile?.personas?.[0]?.id);
   const sessionMode = useRunningPlayer((s) => s.sessionMode);
   const v2 = homeV2 && sessionMode !== 'commute';
   // Home v2 hybrid player (run + strength): the sequencer-driven player replaces today's
@@ -367,6 +369,7 @@ export default function FreeRunLayer({ logic, effectivePos }: FreeRunLayerProps)
               activityType={activityType}
               isNavigationMode={logic.isNavigationMode}
               partnerPositions={partnerPositions}
+              userPersonaId={homeV2 ? runnerPersonaId : undefined}
             />
           </div>
 

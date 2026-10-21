@@ -16,6 +16,8 @@ import { X } from 'lucide-react';
 import Sheet from '@/components/ui/v2/Sheet';
 import IconButton from '@/components/ui/v2/IconButton';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { map } from '@/messages/ns/map';
 
 export interface EquipmentDetailSheetV2Props {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export interface EquipmentDetailSheetV2Props {
 }
 
 export default function EquipmentDetailSheetV2({ isOpen, onClose, ariaLabel, children }: EquipmentDetailSheetV2Props) {
+  const t = useT(map);
   return (
     <Sheet
       open={isOpen}
@@ -42,7 +45,7 @@ export default function EquipmentDetailSheetV2({ isOpen, onClose, ariaLabel, chi
       grabberClassName="flex justify-center pt-2 pb-1 flex-shrink-0"
       ariaLabel={ariaLabel}
     >
-      <IconButton aria-label="סגור" tone="white-ring" size={36} className="absolute left-3 top-3 z-30" onClick={onClose}>
+      <IconButton aria-label={t('equipment.sheet.close')} tone="white-ring" size={36} className="absolute left-3 top-3 z-30" onClick={onClose}>
         <X className="h-4 w-4" />
       </IconButton>
       <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain">{children}</div>

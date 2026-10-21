@@ -1,15 +1,18 @@
 'use client';
 
 import { Dumbbell, Route as RouteIcon } from 'lucide-react';
-import { MAP_QUICK_LABEL, type MapQuickChip } from '../../hooks/useMapQuickPlaces';
+import type { MapQuickChip } from '../../hooks/useMapQuickPlaces';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const ICON: Record<MapQuickChip, typeof Dumbbell> = { gyms: Dumbbell, routes: RouteIcon };
 
 /** The map search's quick chips row (MapEmpty board). Only chips that have data are passed in. */
 export default function MapQuickChips({ chips, active, onToggle }: { chips: MapQuickChip[]; active: MapQuickChip | null; onToggle: (c: MapQuickChip) => void }) {
+  const t = useT(library);
   if (!chips.length) return null;
   return (
-    <div className="mt-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="חיפוש מהיר">
+    <div className="mt-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label={t('search.mapQuick.label')}>
       {chips.map((c) => {
         const Icon = ICON[c];
         const on = active === c;
@@ -24,7 +27,7 @@ export default function MapQuickChips({ chips, active, onToggle }: { chips: MapQ
             }`}
           >
             <Icon size={14} strokeWidth={2.4} className={on ? '' : 'text-v2-muted'} aria-hidden />
-            {MAP_QUICK_LABEL[c]}
+            {t(`search.mapQuick.${c}`)}
           </button>
         );
       })}

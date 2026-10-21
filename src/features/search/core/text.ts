@@ -7,7 +7,7 @@ import { normalizeHe } from '@/lib/ai/coach/app-help/retrieve';
 export const MIN_QUERY_CHARS = 2;
 
 /** Leading ו/ה/ב/ל/מ/ש/כ (one or two) before a real word. */
-const PREFIXES = /^(?:ו|ה|ב|ל|מ|ש|כ){1,2}(?=[א-ת]{2,})/;
+const PREFIXES = /^(?:ו|ה|ב|ל|מ|ש|כ){1,2}(?=[א-ת]{2,})/; // i18n-allow-hebrew: Hebrew prefix letters for matching (regex, not copy)
 
 export function norm(s: string | null | undefined): string {
   return normalizeHe(s ?? '');

@@ -16,6 +16,7 @@ import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { isMiniAssessmentActive } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
+import { contentEntryMotion, headerSafeTop, stepScrollOverscroll } from '@/features/user/onboarding/utils/fit-screen';
 
 /**
  * Resolve uid from multiple sources (in priority order):
@@ -55,12 +56,19 @@ interface IdentityProfileScreenProps {
   onWorkoutIdentitySaved?: () => void;
   /** context 'workout': the back button closes the JIT gate instead of router.back(). */
   onWorkoutBack?: () => void;
+  /**
+   * The host already pads env(safe-area-inset-top) — true on the
+   * /onboarding-new/profile route (ClientLayout's <main>), false (default) in
+   * the fixed full-screen JIT overlays. v2 only: stops the doubled top inset.
+   */
+  hostPadsTop?: boolean;
 }
 
 export default function IdentityProfileScreen({
   context = null,
   onWorkoutIdentitySaved,
   onWorkoutBack,
+  hostPadsTop = false,
 }: IdentityProfileScreenProps) {
   const router = useRouter();
   /** When true the page was opened mid-session to collect a missing name only. */
@@ -472,7 +480,7 @@ export default function IdentityProfileScreen({
           className={v2
             ? 'flex-shrink-0 bg-v2-surface/90 backdrop-blur-xl z-10 flex items-center gap-2 px-3 pt-1 pb-2.5'
             : 'flex-shrink-0 bg-white z-10 flex items-center gap-2 px-3 pb-2.5'}
-          style={{ paddingTop: v2 ? 'calc(env(safe-area-inset-top, 0px) + 4px)' : 'env(safe-area-inset-top, 0px)' }}
+          style={{ paddingTop: headerSafeTop(v2, hostPadsTop) }}
         >
           <button
             onClick={() => {
@@ -504,12 +512,11 @@ export default function IdentityProfileScreen({
 
       {/* Scrollable content */}
       <div className={v2
-        ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain w-full max-w-md mx-auto px-5 pt-2 pb-2'
+        ? `flex-1 min-h-0 overflow-y-auto ${stepScrollOverscroll(true)} w-full max-w-md mx-auto px-5 pt-2 pb-2`
         : 'flex-1 min-h-0 overflow-y-auto w-full max-w-md mx-auto px-6 pt-4 pb-2'}>
-        {/* ── Page entry animation ── */}
+        {/* ── Page entry animation (v2: fade only — a translate grows the scroll area on mount) ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          {...contentEntryMotion(v2)}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
 

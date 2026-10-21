@@ -20,7 +20,7 @@ import { LocateFixed } from 'lucide-react';
 import { CartProgressIcon, StoryBars } from '@/components/ui/v2';
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import GpsIndicator from '@/features/workout-engine/components/GpsIndicator';
-import { MiniPlayer, PlayerShell } from '../../../../shared/v2';
+import { MiniPlayer, PlayerShell, usePublishedPlayerChrome } from '../../../../shared/v2';
 import { useRunningPlayer } from '../../../store/useRunningPlayer';
 import type { RunBlock } from '../../../types/run-block.type';
 import type { PlannedRunEngine } from '../../../hooks/usePlannedRunEngine';
@@ -68,6 +68,8 @@ export default function PlannedRunLiveV2({
   const { currentBlock, currentBlockIndex, blockProgress, blockTimeRemaining, blockDistanceRemaining } = engine;
 
   const [listOpen, setListOpen] = useState(false);
+  // Map camera keeps the runner's marker between the header and the card.
+  const chrome = usePublishedPlayerChrome({ bottomGapPx: 14, headerIncludesSafeTop: true });
 
   const segments = useMemo(() => blocks.map((b, i) => ({ key: b.id ?? String(i), color: v2BlockColor(b) })), [blocks]);
   const cartItems = useMemo(
@@ -130,6 +132,7 @@ export default function PlannedRunLiveV2({
           <>
             {/* Header — also the drag handle. */}
             <header
+              ref={chrome.headerRef}
               className="pointer-events-auto absolute inset-x-0 top-0 px-4 pb-8"
               style={{
                 paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)',
@@ -171,7 +174,7 @@ export default function PlannedRunLiveV2({
             </AnimatePresence>
 
             {/* The card over the map. */}
-            <div className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
+            <div ref={chrome.cardRef} className="absolute inset-x-3" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)' }}>
               <PlannedLiveCardV2
                 engine={engine}
                 blocks={blocks}
