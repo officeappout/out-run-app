@@ -16,6 +16,8 @@
 
 import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 import { createPortal } from 'react-dom';
 import { motion, Reorder } from 'framer-motion';
 import AgendaDayCard from './AgendaDayCard';
@@ -37,6 +39,7 @@ import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
+// Weekday letters / names and month names below: wave 3 (fmt). DAY_LETTERS is also matched against scheduleDays (data).
 const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
 const PAST_DAYS           = 7;
@@ -178,6 +181,7 @@ export default function RollingAgenda({
   const { profile } = useUserStore();
   const runScheduleDays = profile?.running?.scheduleDays;
   const v2 = useHomeV2();
+  const t = useT(home);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -545,10 +549,10 @@ export default function RollingAgenda({
       {filterMode === 'all' && (
         <div className="flex items-center justify-between px-4 mb-2">
           <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">
-            {dates.length} ימים
+            {t('rollingAgenda.header.days', { n: String(dates.length) })}
           </span>
           <h3 className="text-sm font-black text-gray-900 dark:text-white">
-            יומן אימונים
+            {t('rollingAgenda.header.title')}
           </h3>
         </div>
       )}
@@ -579,7 +583,7 @@ export default function RollingAgenda({
               >
                 <span className={v2 ? 'text-[16px] font-black text-v2-ink' : undefined}>
                   {group.dateRange}
-                  {v2 && group.isCurrentWeek && <span className="text-[12.5px] font-bold text-v2-muted"> · השבוע</span>}
+                  {v2 && group.isCurrentWeek && <span className="text-[12.5px] font-bold text-v2-muted">{t('rollingAgenda.week.current')}</span>}
                 </span>
                 {group.weekNumber !== null && (
                   <span
@@ -594,7 +598,7 @@ export default function RollingAgenda({
                       border:       '0.5px solid #00C9F240',
                     }}
                   >
-                    שבוע {group.weekNumber}
+                    {t('rollingAgenda.week.number', { n: String(group.weekNumber) })}
                   </span>
                 )}
               </div>
@@ -712,8 +716,8 @@ export default function RollingAgenda({
           open: !!moveIntent,
           title: moveIntent
             ? moveIntent.targetHasEntry
-              ? `הוסף לאימון ב${getDayLabel(moveIntent.toDate)}`
-              : `העברת אימון ל${getDayLabel(moveIntent.toDate)}`
+              ? t('rollingAgenda.move.titleAdd', { day: getDayLabel(moveIntent.toDate) })
+              : t('rollingAgenda.move.titleMove', { day: getDayLabel(moveIntent.toDate) })
             : '',
           fromLabel: moveIntent ? formatShortDate(moveIntent.fromDate) : '',
           toLabel: moveIntent ? formatShortDate(moveIntent.toDate) : '',

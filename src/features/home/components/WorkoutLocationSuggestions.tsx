@@ -16,12 +16,15 @@ import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { resolveParkImage } from '@/lib/park-image';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
 
 const PARK_FALLBACK_IMAGE = '/assets/lemur/lemur-avatar.png';
 
 const MAX_SUGGESTIONS = 8;
 const RADIUS_KM = 10;
 
+// City names below are data (matched against profile.core.city), not copy.
 const CITY_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
   'שדרות': { lat: 31.5250, lng: 34.5995 },
   'תל אביב': { lat: 32.0853, lng: 34.7818 },
@@ -42,15 +45,16 @@ interface WorkoutLocationSuggestionsProps {
   workoutType: WorkoutType;
 }
 
-function formatDist(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} מ'`;
-  return `${km.toFixed(1)} ק"מ`;
+function formatDist(km: number, t: ReactTFunction<HomeKey>): string {
+  if (km < 1) return t('nearbySpots.distance.m', { m: String(Math.round(km * 1000)) });
+  return t('nearbySpots.distance.km', { km: km.toFixed(1) });
 }
 
 export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocationSuggestionsProps) {
   const router = useRouter();
   // v2 type floor: the distance badge / type line never below 11px (V2-FONT-11).
   const v2 = useHomeV2();
+  const t = useT(home);
   const setDeepLink = useMapStore((s) => s.setDeepLink);
   const openGlobalParkSheet = useMapStore((s) => s.openGlobalParkSheet);
   const openGlobalRouteSheet = useMapStore((s) => s.openGlobalRouteSheet);
@@ -132,7 +136,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           name: p.name,
           distance: haversineKm(userPos.lat, userPos.lng, p.location.lat, p.location.lng),
           type: 'park' as const,
-          subtitle: p.facilityType === 'gym_park' ? 'גינת כושר' : p.facilityType === 'court' ? 'מגרש' : 'מתקן',
+          subtitle: t('nearbySpots.parkType', { facilityType: p.facilityType ?? '' }),
           // imageUrl (Bunny, real photo) first — was inverted (images[0]/image
           // first) which rendered the stale Firebase cover. Shared resolver +
           // bunnyImg resize (card ~148px → 300 for retina).
@@ -152,14 +156,14 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           name: r.name,
           distance: haversineKm(userPos.lat, userPos.lng, start[1], start[0]),
           type: 'route' as const,
-          subtitle: r.distance ? `${r.distance.toFixed(1)} ק"מ` : 'מסלול',
+          subtitle: r.distance ? t('nearbySpots.route.km', { km: r.distance.toFixed(1) }) : t('nearbySpots.route.fallback'),
           imageUrl: null as string | null,
         };
       })
       .filter((s) => s.distance <= RADIUS_KM)
       .sort((a, b) => a.distance - b.distance)
       .slice(0, MAX_SUGGESTIONS);
-  }, [userPos, parks, routes, workoutType]);
+  }, [userPos, parks, routes, workoutType, t]);
 
   const isStrength = workoutType === 'strength';
 
@@ -189,7 +193,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           {isStrength
             ? <Dumbbell size={15} className="text-cyan-500" />
             : <RouteIcon size={15} className="text-cyan-500" />}
-          {isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים'}
+          {isStrength ? t('nearbySpots.title.parks') : t('nearbySpots.title.routes')}
         </h3>
         <button
           onClick={() => {
@@ -209,11 +213,11 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
             <MapPin size={18} className="text-cyan-500" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">הפעל גישת מיקום</p>
+            <p className="text-sm font-bold text-slate-800">{t('nearbySpots.gps.title')}</p>
             <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
               {isStrength
-                ? 'כדי למצוא גינות כושר קרובות, נדרשת גישה למיקומך'
-                : 'כדי למצוא מסלולים קרובים, נדרשת גישה למיקומך'}
+                ? t('nearbySpots.gps.body.parks')
+                : t('nearbySpots.gps.body.routes')}
             </p>
           </div>
           <ChevronLeft size={16} className="text-slate-500 flex-shrink-0" />
@@ -244,7 +248,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
     router.push('/map');
   };
 
-  const title = isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים';
+  const title = isStrength ? t('nearbySpots.title.parks') : t('nearbySpots.title.routes');
 
   return (
     <motion.div
@@ -262,7 +266,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
           onClick={() => router.push('/map')}
           className={`flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 active:opacity-70 transition-opacity${v2 ? ' -my-3 py-3 ps-2' : ''}`}
         >
-          הכל
+          {t('nearbySpots.all')}
           <ChevronLeft size={14} />
         </button>
       </div>
@@ -295,7 +299,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                 {/* Distance badge */}
                 <div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md ${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums`}>
-                  {formatDist(item.distance)}
+                  {formatDist(item.distance, t)}
                 </div>
               </div>
               {/* Details */}
@@ -323,8 +327,9 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
  * Uses `aspect-video` (not a fixed pixel height) per the responsive task.
  */
 function WorkoutLocationSuggestionsSkeleton({ workoutType }: { workoutType: WorkoutType }) {
+  const t = useT(home);
   const isStrength = workoutType === 'strength';
-  const title = isStrength ? 'גינות כושר קרובות' : 'מסלולים קרובים';
+  const title = isStrength ? t('nearbySpots.title.parks') : t('nearbySpots.title.routes');
 
   return (
     <div dir="rtl" aria-busy="true" aria-live="polite">

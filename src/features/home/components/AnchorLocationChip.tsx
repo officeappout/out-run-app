@@ -19,6 +19,8 @@ import { LOCATION_OPTIONS, type LocationId } from './WorkoutBuilderSheet';
 import { useUserStore } from '@/features/user';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
+import { useT } from '@/hooks/useT';
+import { home } from '@/messages/ns/home';
 
 export interface AnchorLocationChipProps {
   value: LocationId;
@@ -34,18 +36,19 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
   const current = options.find((o) => o.id === value) ?? options[0];
   const CurrentIcon = current.Icon;
   const v2 = useHomeV2();
+  const t = useT(home);
 
   return (
     <div className="relative flex-shrink-0" dir="rtl">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={`מיקום האימון: ${current.label}`}
+        aria-label={t('builder.location.chipAria', { label: t(current.labelKey) })}
         className={`flex items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 active:scale-[0.97] transition-transform ${v2 ? 'h-9 ps-3 pe-2.5' : 'px-2.5 py-1.5'}`}
         style={v2 ? { borderRadius: 999, boxShadow: '0 0 0 1px rgba(14,27,42,0.08)' } : { borderRadius: 10, border: '1px solid #E0E9FF' }}
       >
         <CurrentIcon size={15} className={v2 ? 'text-[#0284c7]' : 'text-[#00C9F2]'} />
-        <span className={`text-[13px] ${v2 ? 'font-extrabold text-[#0e1419]' : 'font-bold text-gray-700'} dark:text-gray-200`}>{current.label}</span>
+        <span className={`text-[13px] ${v2 ? 'font-extrabold text-[#0e1419]' : 'font-bold text-gray-700'} dark:text-gray-200`}>{t(current.labelKey)}</span>
         <ChevronDown size={13} className="text-gray-400" />
       </button>
 
@@ -78,8 +81,8 @@ export default function AnchorLocationChip({ value, onSelect }: AnchorLocationCh
                 >
                   <Icon size={16} className={isActive ? 'text-[#00C9F2]' : 'text-gray-400'} />
                   <span className="flex flex-col leading-tight">
-                    <span className="text-[13px] font-bold text-gray-800 dark:text-gray-100">{o.label}</span>
-                    <span className="text-[11px] text-gray-400">{o.sub}</span>
+                    <span className="text-[13px] font-bold text-gray-800 dark:text-gray-100">{t(o.labelKey)}</span>
+                    <span className="text-[11px] text-gray-400">{t(o.subKey)}</span>
                   </span>
                 </button>
               );

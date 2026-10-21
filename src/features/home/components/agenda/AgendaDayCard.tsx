@@ -32,6 +32,10 @@ import { AGENDA_UNPLANNED_COMPLETION_FIX_ENABLED, AGENDA_HYBRID_DAY_DISPLAY_ENAB
 import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeRunningShadowEntry';
 import { DeleteEntrySheetClassic, DeleteEntrySheetV2 } from './DeleteEntrySheet';
 import { DoneCheck, DONE_SURFACE_STYLE } from '@/components/ui/v2/DoneRow';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
+
+type HomeT = ReactTFunction<HomeKey>;
 
 /** Compile-time flag with an optional runtime A/B override (device-friendly).
  *  Same pattern as isPlsCacheEnabled (programLevelSettings.service.ts). */
@@ -64,23 +68,20 @@ export function isAgendaHybridDayDisplayEnabled(): boolean {
  * second mapping.
  */
 function resolveStrengthTitle(
+  t: HomeT,
   programIds: string[] | undefined,
   scheduledCategories?: ScheduleActivityCategory[],
 ): string {
   const primary = programIds?.[0];
   if (primary) {
     // Premium edge-case: combined hybrid session
-    if (primary === 'UPPER_CALISTHENICS') return 'אימון קליסטניקס משולב';
+    if (primary === 'UPPER_CALISTHENICS') return t('agendaCard.title.upperCalisthenics');
 
     const display = SKILL_DISPLAY[primary as keyof typeof SKILL_DISPLAY];
-    if (display) return `אימון ${display.shortName}`;
+    if (display) return t('agendaCard.title.skill', { name: display.shortName });
   }
 
-  switch (scheduledCategories?.[0]) {
-    case 'cardio':  return 'אימון קרדיו';
-    case 'walking': return 'הליכה';
-    default:        return 'אימון כוח';
-  }
+  return t('agendaCard.title.category', { category: scheduledCategories?.[0] ?? '' });
 }
 
 /**
@@ -108,15 +109,8 @@ function workoutTypeToCategories(t: WorkoutHistoryEntry['workoutType'] | undefin
  * card even though its color/icon are already correct via
  * `workoutTypeToCategories`.
  */
-function resolveReconstructedTitle(workoutType: WorkoutHistoryEntry['workoutType'] | undefined): string {
-  switch (workoutType) {
-    case 'walking':  return 'הליכה';
-    case 'running':
-    case 'cycling':  return 'אימון קרדיו';
-    case 'hybrid':   return 'אימון משולב';
-    case 'recovery': return 'אימון התאוששות';
-    default:         return 'אימון כוח';
-  }
+function resolveReconstructedTitle(t: HomeT, workoutType: WorkoutHistoryEntry['workoutType'] | undefined): string {
+  return t('agendaCard.title.reconstructed', { workoutType: workoutType ?? '' });
 }
 
 /**
@@ -291,6 +285,7 @@ export interface ResolvedRunningWorkout {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// Weekday letters: wave 3 (fmt).
 const HEBREW_DAY_SHORT: Record<string, string> = {
   'א': 'א׳', 'ב': 'ב׳', 'ג': 'ג׳', 'ד': 'ד׳',
   'ה': 'ה׳', 'ו': 'ו׳', 'ש': 'ש׳',
@@ -304,6 +299,7 @@ const CATEGORY_ACCENT: Record<ScheduleActivityCategory, string> = {
   maintenance: '#A855F7',
   walking: '#F59E0B',
 };
+// CATEGORY_PILL_LABEL / STRENGTH_DURATION_ESTIMATE are unused (no reader) — left as is.
 const CATEGORY_PILL_LABEL: Record<ScheduleActivityCategory, string> = {
   strength: 'כוח',
   cardio: 'קרדיו',
@@ -374,7 +370,8 @@ function resolveRunningEntry(
   schedule: any[],
   programStartDate: Date | string | number | undefined,
   currentWeek: number,
-  placement?: RunWeekMapOptions,
+  placement: RunWeekMapOptions | undefined,
+  t: HomeT,
 ): ResolvedRunningWorkout | null {
   if (!schedule?.length) return null;
 
@@ -384,7 +381,7 @@ function resolveRunningEntry(
   if (!entry) return null;
 
   return {
-    name: (entry as any).workoutName || RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry as any).category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] || 'אימון ריצה',
+    name: (entry as any).workoutName || RUNNING_WORKOUT_CATEGORY_LABELS_HE[(entry as any).category as keyof typeof RUNNING_WORKOUT_CATEGORY_LABELS_HE] || t('agendaCard.title.runFallback'),
     category: (entry as any).category,
     status: (entry as any).status ?? 'pending',
   };
@@ -399,20 +396,10 @@ function resolveRunningEntry(
 // plain string — we widen through `string` here to handle every group
 // category, not just the three strict `ScheduleActivityCategory` values.
 
-const COMMUNITY_TITLE_BY_CATEGORY: Record<string, string> = {
-  walking: 'קבוצת הליכה',
-  running: 'קבוצת ריצה',
-  yoga: 'קבוצת יוגה',
-  calisthenics: 'קבוצת קליסטניקס',
-  cycling: 'קבוצת רכיבה',
-  other: 'אימון קבוצתי',
-};
-
-function getCommunityTitle(entry: UserScheduleEntry): string {
+function getCommunityTitle(t: HomeT, entry: UserScheduleEntry): string {
   if (entry.groupName) return entry.groupName;
   const cat = entry.scheduledCategories?.[0] as string | undefined;
-  if (!cat) return 'אימון קבוצתי';
-  return COMMUNITY_TITLE_BY_CATEGORY[cat] ?? 'אימון קבוצתי';
+  return t('agendaCard.title.community', { category: cat ?? '' });
 }
 
 const COMMUNITY_CARD_ICON: Record<string, React.FC<{ className?: string }>> = {
@@ -532,6 +519,7 @@ function StrengthCard({
   onPreviewEntry,
   v2 = false,
 }: StrengthCardProps) {
+  const t = useT(home);
   const router = useRouter();
   const dragControls = useDragControls();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -678,8 +666,8 @@ function StrengthCard({
 
   const barColor = isCompleted ? (completedFill ?? '#1D9E75') : (accentColor ?? '#00C9F2');
   const title = titleProp ?? (isCommunity
-    ? getCommunityTitle(entry)
-    : resolveStrengthTitle(entry.programIds, entry.scheduledCategories));
+    ? getCommunityTitle(t, entry)
+    : resolveStrengthTitle(t, entry.programIds, entry.scheduledCategories));
   const CommunityIcon: React.FC<{ className?: string }> | undefined = isCommunity
     ? COMMUNITY_CARD_ICON[entry.scheduledCategories?.[0] as string ?? '']
     : undefined;
@@ -740,10 +728,10 @@ function StrengthCard({
               <button
                 onClick={handleEditTap}
                 className="flex flex-col items-center gap-0.5 text-white active:opacity-70 transition-opacity"
-                aria-label="ערוך אימון"
+                aria-label={t('agendaCard.swipe.editAria')}
               >
                 <Pencil className="w-4 h-4" />
-                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>ערוך</span>
+                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>{t('agendaCard.swipe.edit')}</span>
               </button>
             </div>
             {/* Delete button (right half of panel) */}
@@ -759,10 +747,10 @@ function StrengthCard({
               <button
                 onClick={handleDeleteTap}
                 className="flex flex-col items-center gap-0.5 text-white active:opacity-70 transition-opacity"
-                aria-label="מחק אימון"
+                aria-label={t('agendaCard.swipe.deleteAria')}
               >
                 <Trash2 className="w-4 h-4" />
-                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>מחק</span>
+                <span className={`${v2 ? "text-[11px]" : "text-[10px]"} font-bold`}>{t('agendaCard.swipe.delete')}</span>
               </button>
             </div>
           </div>
@@ -889,8 +877,8 @@ function StrengthCard({
                   borderRadius: 3,
                   background: '#E8F4FE',
                 }}
-                aria-label={entry.groupName ? `קבוצה: ${entry.groupName}` : 'אימון קהילתי'}
-                title={entry.groupName ?? 'אימון קהילתי'}
+                aria-label={entry.groupName ? t('agendaCard.communityBadge.group', { name: entry.groupName }) : t('agendaCard.communityBadge.generic')}
+                title={entry.groupName ?? t('agendaCard.communityBadge.generic')}
               >
                 <Users className="w-2.5 h-2.5" style={{ color: '#3B82F6' }} />
               </div>
@@ -928,6 +916,7 @@ export default function AgendaDayCard({
   v2 = false,
   runsByType = v2,
 }: AgendaDayCardProps) {
+  const t = useT(home);
   const { profile } = useUserStore();
   /**
    * `undefined` while the initial fetch is in flight, then a (possibly empty)
@@ -959,8 +948,9 @@ export default function AgendaDayCard({
       running.activeProgram.currentWeek ?? 1,
       // enable_home_v2 planner: runs on their weekday by slot type (runWeekByType).
       runsByType ? { byType: true, ...runPlacementOf(running) } : undefined,
+      t,
     );
-  }, [date, profile?.running, runningOverride, runsByType]);
+  }, [date, profile?.running, runningOverride, runsByType, t]);
 
   const hasRunning = !!runningWorkout;
   const runCompleted = runningWorkout?.status === 'completed';
@@ -1242,13 +1232,13 @@ export default function AgendaDayCard({
           {v2 && !isLoading && (isEmpty || mode === 'rest') ? (
             /* ── v2: rest / empty — a quiet label and a round "+" at the end ── */
             <span className="flex flex-1 items-center justify-between gap-2">
-              <span className="text-[13.5px] font-bold text-v2-muted/80">{isEmpty ? 'אין אימון מתוכנן' : 'מנוחה'}</span>
+              <span className="text-[13.5px] font-bold text-v2-muted/80">{isEmpty ? t('agendaCard.empty') : t('agendaCard.rest')}</span>
               {(isEmpty || (baseMode !== 'past' && !!onAddWorkout)) && (
                 <button
                   type="button"
                   onClick={handleAddClick}
                   className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full text-v2-deep ring-1 ring-inset ring-v2-pill-border transition-transform duration-150 ease-v2 active:scale-[0.97]"
-                  aria-label="הוסף אימון ליום זה"
+                  aria-label={t('agendaCard.addAria')}
                 >
                   <Plus className="h-4 w-4" strokeWidth={2.6} />
                 </button>
@@ -1264,10 +1254,10 @@ export default function AgendaDayCard({
               onClick={handleAddClick}
               className="flex items-center gap-1.5 transition-colors active:scale-95"
               style={{ color: '#64748B' }}
-              aria-label="הוסף אימון ליום זה"
+              aria-label={t('agendaCard.addAria')}
             >
               <Plus className="w-3 h-3" strokeWidth={2.5} />
-              <span className="text-[10px] font-semibold">הוסף אימון</span>
+              <span className="text-[10px] font-semibold">{t('agendaCard.add')}</span>
             </button>
 
           ) : mode === 'rest' ? (
@@ -1277,13 +1267,13 @@ export default function AgendaDayCard({
                 onClick={handleAddClick}
                 className="flex items-center gap-1.5 transition-colors active:scale-95"
                 style={{ color: '#64748B' }}
-                aria-label="הוסף אימון ליום זה"
+                aria-label={t('agendaCard.addAria')}
               >
                 <Plus className="w-3 h-3" strokeWidth={2.5} />
-                <span className="text-[10px] font-semibold">הוסף אימון</span>
+                <span className="text-[10px] font-semibold">{t('agendaCard.add')}</span>
               </button>
             ) : (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">🛌 מנוחה</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{t('agendaCard.restClassic')}</span>
             )
 
           ) : (hasRunning || trainingCount > 0) ? (
@@ -1354,12 +1344,12 @@ export default function AgendaDayCard({
                       // accessible, non-color-only "done" signal.
                       <div className="flex items-center gap-0.5 px-1.5 py-px rounded-md bg-white/90 flex-shrink-0">
                         <Check className="w-2.5 h-2.5 text-[#1D9E75]" />
-                        <span className="text-[9px] font-bold text-[#1D9E75]">הושלם</span>
+                        <span className="text-[9px] font-bold text-[#1D9E75]">{t('agendaCard.done')}</span>
                       </div>
                     ) : isToday ? (
                       <div className="flex items-center gap-1 px-1.5 py-px rounded-md flex-shrink-0" style={{ background: `${runColor}20` }}>
                         <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: runColor }} />
-                        <span className={`${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[9px]'} font-bold`} style={{ color: runColor }}>היום</span>
+                        <span className={`${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[9px]'} font-bold`} style={{ color: runColor }}>{t('agendaCard.today')}</span>
                       </div>
                     ) : timeLabel ? (
                       <span className={`${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold tabular-nums flex-shrink-0`} style={{ color: runColor }}>{timeLabel}</span>
@@ -1385,7 +1375,7 @@ export default function AgendaDayCard({
                   title={e.title
                     ? e.title
                     : e.source === 'reconstructed'
-                      ? resolveReconstructedTitle(actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
+                      ? resolveReconstructedTitle(t, actualWorkoutsMap?.[date]?.find((w) => w.id === e.completedWorkoutId)?.workoutType)
                       : undefined}
                   completedFill={e.source === 'reconstructed'
                     ? (() => {
@@ -1418,7 +1408,7 @@ export default function AgendaDayCard({
                       : 'flex items-center justify-center flex-shrink-0 active:scale-90 transition-all'
                   }
                   style={v2 ? undefined : { color: '#64748B' }}
-                  aria-label="הוסף אימון ליום זה"
+                  aria-label={t('agendaCard.addAria')}
                 >
                   <Plus className={v2 ? 'h-4 w-4' : 'w-3.5 h-3.5'} strokeWidth={v2 ? 2.6 : 2.5} />
                 </button>

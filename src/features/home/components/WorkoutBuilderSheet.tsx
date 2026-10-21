@@ -31,8 +31,8 @@ import {
   startMiniDomainAssessment,
   resolveBaseCategoryForProgramId,
 } from '@/features/user/onboarding/services/mini-domain-assessment';
-import { currentUiGender } from '@/hooks/useUiGender';
-import { pickGendered } from '@/lib/i18n/gender-copy';
+import { useT, type ReactTFunction } from '@/hooks/useT';
+import { home, type HomeKey } from '@/messages/ns/home';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -66,32 +66,33 @@ export interface WorkoutBuilderSheetProps {
 
 export const LOCATION_OPTIONS: {
   id: LocationId;
-  label: string;
-  sub: string;
+  labelKey: HomeKey;
+  subKey: HomeKey;
   Icon: LucideIcon;
 }[] = [
   // חדר כושר removed from every user-facing location picker — no gym footage exists.
   // 'gym' intentionally REMAINS in the ExecutionLocation type + LocationId so already
   // gym-tagged content stays valid; it is simply not offerable.
-  { id: 'park',    label: 'בחוץ',     sub: 'פארק / מגרש', Icon: Trees },
-  { id: 'home',    label: 'בבית',     sub: 'אימון ביתי',   Icon: Home },
+  { id: 'park',    labelKey: 'builder.location.park.label',    subKey: 'builder.location.park.sub',    Icon: Trees },
+  { id: 'home',    labelKey: 'builder.location.home.label',    subKey: 'builder.location.home.sub',    Icon: Home },
   // 'service' (צבא/שירות) is a SWAP-only variant, gated to the military persona in
   // AnchorLocationChip. It is intentionally filtered out of the builder-sheet GENERATION
   // picker below (generation PARK-FORCEs, so generating "at service" would be a no-op).
-  { id: 'service', label: 'צבא/שירות', sub: 'מוצב / בסיס',  Icon: Shield },
+  { id: 'service', labelKey: 'builder.location.service.label', subKey: 'builder.location.service.sub', Icon: Shield },
 ];
 
 const TIME_OPTIONS = [15, 30, 45, 60] as const;
 
-const TIME_MOTIVATION: Record<number | 'other', { male: string; female: string }> = {
-  15:    { male: 'קצר? בטח. עדיף על כלום',              female: 'קצר? בטח. עדיף על כלום' },
-  30:    { male: 'קלאסי. הזמן שעובד לרוב',              female: 'קלאסי. הזמן שעובד לרוב' },
-  45:    { male: 'אימון מספק שתרגיש אותו',              female: 'אימון מספק שתרגישי אותו' },
-  60:    { male: 'למי שאוהב להשקיע בעצמו',              female: 'למי שאוהבת להשקיע בעצמה' },
-  other: { male: 'תבחר בדיוק מה שמתאים לך',           female: 'תבחרי בדיוק מה שמתאים לך' },
+/** Gendered by the `gender` value passed at render (the profile's, female / male). */
+const TIME_MOTIVATION_KEYS: Record<number | 'other', HomeKey> = {
+  15:    'builder.duration.motivation.15',
+  30:    'builder.duration.motivation.30',
+  45:    'builder.duration.motivation.45',
+  60:    'builder.duration.motivation.60',
+  other: 'builder.duration.motivation.other',
 };
 
-const BOLT_LABELS: Record<1 | 2 | 3, string> = { 1: 'קליל', 2: 'מאוזן', 3: 'עצים' };
+const BOLT_LABEL_KEYS: Record<1 | 2 | 3, HomeKey> = { 1: 'builder.intensity.1', 2: 'builder.intensity.2', 3: 'builder.intensity.3' };
 
 // Bolt SVG filters — same values as WorkoutSelectionCarousel
 const BOLT_FILTER_FILLED_INACTIVE =
@@ -133,13 +134,14 @@ function getNextFullHour(): string {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
+// Weekday names: wave 3 (fmt).
 const HEBREW_DAY_NAMES: Record<number, string> = {
   0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
 };
-function formatScheduleDate(iso: string): string {
+function formatScheduleDate(iso: string, t: ReactTFunction<HomeKey>): string {
   const d = new Date(iso + 'T00:00:00');
   const day = HEBREW_DAY_NAMES[d.getDay()] ?? '';
-  return `יום ${day}, ${d.getDate()}/${d.getMonth() + 1}`;
+  return t('builder.schedule.date', { day, date: `${d.getDate()}/${d.getMonth() + 1}` });
 }
 
 /** 'easy'|'medium'|'hard'|'blast' → DifficultyLevel */
@@ -175,6 +177,10 @@ function ProgramPill({
   v2?: boolean;
 }) {
   const { IconComp } = prog;
+  const t = useT(home);
+  const sub = prog.isMaster
+    ? t('builder.program.children', { n: String(prog.children.length) })
+    : t('builder.program.level', { level: String(prog.level) });
   if (v2) {
     const muted = prog.isLocked || prog.isUnenrolled;
     return (
@@ -193,7 +199,7 @@ function ProgramPill({
         <span className="text-start leading-tight">
           <span className="block whitespace-nowrap text-[14px] font-extrabold">{prog.label}</span>
           <span className="block whitespace-nowrap text-[11px] font-bold opacity-75">
-            {prog.isMaster ? `${prog.children.length} תוכניות` : `רמה ${prog.level}`}
+            {sub}
           </span>
         </span>
       </button>
@@ -229,7 +235,7 @@ function ProgramPill({
       </div>
       <span className="text-center leading-tight">{prog.label}</span>
       <span className={`text-[10px] font-medium ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>
-        {prog.isMaster ? `${prog.children.length} תוכניות` : `רמה ${prog.level}`}
+        {sub}
       </span>
     </button>
   );
@@ -264,6 +270,7 @@ export default function WorkoutBuilderSheet({
   const { profile } = useUserStore();
   const { flags: builderFlags } = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = builderFlags.enableHomeV2;
+  const t = useT(home);
   const gender = useUserStore((s) => (s.profile?.core as any)?.gender === 'female' ? 'female' : 'male') as 'male' | 'female';
   const router = useRouter();
 
@@ -299,7 +306,7 @@ export default function WorkoutBuilderSheet({
 
   // ── Form state (all preserved on "שנה משהו" — never reset) ──────────────
   const [availableTime, setAvailableTime]   = useState<number>(initDuration.current);
-  const [timeMotivation, setTimeMotivation] = useState<string | null>(null);
+  const [timeMotivation, setTimeMotivation] = useState<HomeKey | null>(null);
   const [showCustomTime, setShowCustomTime] = useState(false);
   const [customTime, setCustomTime]         = useState(35);
   const [difficulty, setDifficulty]         = useState<DifficultyLevel>(initDifficulty.current);
@@ -347,7 +354,7 @@ export default function WorkoutBuilderSheet({
 
   // ── Generation ──────────────────────────────────────────────────────────
   const [isLoading, setIsLoading]               = useState(false);
-  const [error, setError]                       = useState<string | null>(null);
+  const [error, setError]                       = useState<HomeKey | null>(null);
   const [generatedWorkout, setGeneratedWorkout] = useState<GeneratedWorkout | null>(null);
   const [workoutId, setWorkoutId]               = useState<string>('');
   const [showPreview, setShowPreview]           = useState(false);
@@ -723,7 +730,7 @@ export default function WorkoutBuilderSheet({
       setShowPreview(true);
     } catch (err: unknown) {
       console.error('[WorkoutBuilder] Generation failed:', err);
-      setError(pickGendered(currentUiGender(), { male: 'לא הצלחנו ליצור אימון. נסה שוב.', female: 'לא הצלחנו ליצור אימון. נסי שוב.', other: 'לא הצלחנו ליצור אימון. נסו שוב.' }));
+      setError('builder.error.generate');
     } finally {
       setIsLoading(false);
     }
@@ -749,7 +756,7 @@ export default function WorkoutBuilderSheet({
       onClose();
     } catch (err) {
       console.error('[WorkoutBuilder] Schedule save failed:', err);
-      setError(pickGendered(currentUiGender(), { male: 'שמירה נכשלה. נסה שוב.', female: 'שמירה נכשלה. נסי שוב.', other: 'שמירה נכשלה. נסו שוב.' }));
+      setError('builder.error.save');
       setIsSaving(false);
     }
   }, [profile, scheduleDateParam, startTime, resolvedScheduledProgramIds, onClose, isSaving]);
@@ -760,7 +767,7 @@ export default function WorkoutBuilderSheet({
     const diffMap: Record<number, 'easy' | 'medium' | 'hard'> = { 1: 'easy', 2: 'medium', 3: 'hard' };
     return {
       id:          workoutId,
-      title:       generatedWorkout.title       || 'אימון מותאם אישית',
+      title:       generatedWorkout.title       || 'אימון מותאם אישית', // i18n-allow-hebrew: workout title handed to the preview drawer (can be saved with the workout) — data
       description: generatedWorkout.description || '',
       difficulty:  diffMap[generatedWorkout.difficulty] ?? 'medium',
       duration:    generatedWorkout.estimatedDuration,
@@ -807,16 +814,16 @@ export default function WorkoutBuilderSheet({
               ? 'grid h-11 w-11 place-items-center rounded-full bg-white/80 shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.97]'
               : 'p-2 rounded-full bg-gray-100 dark:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700'
           }
-          aria-label="חזור"
+          aria-label={t('builder.back')}
         >
           <ArrowRight size={v2 ? 19 : 20} strokeWidth={v2 ? 2.4 : 2} className={v2 ? 'text-v2-ink' : 'text-gray-700 dark:text-gray-300'} />
         </button>
         <div>
           <h1 className={v2 ? 'text-[19px] font-black leading-tight text-v2-ink' : 'text-xl font-bold text-gray-900 dark:text-white'}>
-            {isScheduleMode ? 'תזמן אימון' : 'בנה אימון משלך'}
+            {isScheduleMode ? t('builder.title.schedule') : t('builder.title.build')}
           </h1>
           <p className={v2 ? 'text-[12.5px] font-bold text-v2-muted' : 'text-xs text-gray-400'}>
-            {isScheduleMode ? 'בחר תוכנית ושעה לשמירה בלוז' : 'מותאם אישית לפי הבחירות שלך'}
+            {isScheduleMode ? t('builder.subtitle.schedule') : t('builder.subtitle.build')}
           </p>
         </div>
       </div>
@@ -845,7 +852,7 @@ export default function WorkoutBuilderSheet({
                   ? 'w-full flex items-start gap-3 rounded-[18px] bg-white/70 p-3 text-right shadow-v2-ring transition-transform duration-150 ease-v2 active:scale-[0.99]'
                   : 'w-full flex items-start gap-3 px-4 py-3.5 bg-cyan-50 rounded-2xl border border-cyan-100 text-right active:scale-[0.99] transition-transform'
               }
-              aria-label="הגדר ציוד לאימון מותאם"
+              aria-label={t('builder.gearNudge.aria')}
             >
               {v2 ? (
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-v2-tint text-v2-deep">
@@ -856,10 +863,10 @@ export default function WorkoutBuilderSheet({
               )}
               <div className="flex-1 min-w-0">
                 <p className={v2 ? 'text-[13.5px] font-black leading-snug text-v2-ink' : 'text-sm font-semibold text-cyan-700 leading-snug'}>
-                  רוצים אימון מותאם ב-100% לציוד שלכם?
+                  {t('builder.gearNudge.title')}
                 </p>
                 <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-v2-ink-2' : 'text-xs text-cyan-500 mt-0.5'}>
-                  לחצו כאן כדי לסמן מה יש לכם בסביבה
+                  {t('builder.gearNudge.body')}
                 </p>
               </div>
               <ArrowRight size={15} className="flex-shrink-0 mt-1 text-cyan-400 rotate-180" />
@@ -890,10 +897,10 @@ export default function WorkoutBuilderSheet({
             )}
             <div className="flex-1 min-w-0">
               <p className={v2 ? 'text-[13.5px] font-black leading-snug text-v2-ink' : 'text-sm font-semibold text-sky-700 dark:text-sky-300 leading-snug'}>
-                מילאנו עבורכם הגדרות מומלצות
+                {t('builder.recommended.title')}
               </p>
               <p className={v2 ? 'mt-0.5 text-[12.5px] font-bold text-v2-ink-2' : 'text-xs text-sky-500 dark:text-sky-400 mt-0.5'}>
-                תוכנית, משך, עצימות ואזורי אימון — אפשר לשנות כל דבר למטה
+                {t('builder.recommended.body')}
               </p>
             </div>
           </div>
@@ -906,15 +913,15 @@ export default function WorkoutBuilderSheet({
             <div className="flex items-center gap-2 px-4 py-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl border border-cyan-100 dark:border-cyan-800">
               <CalendarDays className="w-4 h-4 text-cyan-500 flex-shrink-0" />
               <span className="text-sm font-bold text-cyan-700 dark:text-cyan-300">
-                {formatScheduleDate(scheduleDateParam)}
+                {formatScheduleDate(scheduleDateParam, t)}
               </span>
             </div>
 
             {/* Time picker */}
-            <Section v2={v2} title="שעה" sub="מתי?">
+            <Section v2={v2} title={t('builder.schedule.section')} sub={t('builder.schedule.sectionSub')}>
               <label className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-2">
                 <Clock className="w-3.5 h-3.5" />
-                שעת התחלה
+                {t('builder.schedule.startTime')}
               </label>
               <DrumTimePicker value={startTime} onChange={setStartTime} />
             </Section>
@@ -922,11 +929,13 @@ export default function WorkoutBuilderSheet({
         )}
 
         {/* 1. מיקום וציוד — merged section */}
-        <Section v2={v2} title="מיקום וציוד">
+        <Section v2={v2} title={t('builder.location.section')}>
           {/* Location grid — 2 options since חדר כושר was removed */}
           <div className={`grid grid-cols-2 mb-3 ${v2 ? 'gap-2.5' : 'gap-2'}`}>
-            {LOCATION_OPTIONS.filter((o) => o.id !== 'service').map(({ id, label, sub, Icon }) => {
+            {LOCATION_OPTIONS.filter((o) => o.id !== 'service').map(({ id, labelKey, subKey, Icon }) => {
               const active = location === id;
+              const label = t(labelKey);
+              const sub = t(subKey);
               if (v2)
                 return (
                   <button
@@ -994,7 +1003,7 @@ export default function WorkoutBuilderSheet({
             {equipmentChips.length === 0 && (
               <span className="text-xs text-gray-400 flex items-center gap-1.5 ps-2.5 pe-3 py-1.5">
                 <Dumbbell size={13} className="text-gray-400" />
-                לפי מיקום
+                {t('builder.equipment.byLocation')}
               </span>
             )}
             <button
@@ -1004,12 +1013,12 @@ export default function WorkoutBuilderSheet({
                   ? 'flex-shrink-0 flex h-8 items-center gap-1 whitespace-nowrap rounded-full px-3 text-[12.5px] font-extrabold text-v2-deep ring-1 ring-inset ring-v2-hairline transition-transform duration-150 ease-v2 active:scale-[0.97]'
                   : 'flex-shrink-0 w-8 h-8 rounded-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400 active:bg-gray-100 transition-colors'
               }
-              aria-label="ערוך ציוד"
+              aria-label={t('builder.equipment.editAria')}
             >
               {v2 ? (
                 <>
                   <Settings2 size={13} strokeWidth={2.6} aria-hidden />
-                  עריכה
+                  {t('builder.equipment.edit')}
                 </>
               ) : (
                 <Plus size={14} />
@@ -1020,18 +1029,18 @@ export default function WorkoutBuilderSheet({
 
         {/* 2. זמן (hidden in schedule mode) */}
         {!isScheduleMode && (
-          <Section v2={v2} title="משך זמן">
+          <Section v2={v2} title={t('builder.duration.section')}>
             {/* Fixed time buttons + "אחר" */}
             <div className="grid grid-cols-5 gap-2">
-              {TIME_OPTIONS.map(t => {
-                const active = availableTime === t && !showCustomTime;
+              {TIME_OPTIONS.map(minutes => {
+                const active = availableTime === minutes && !showCustomTime;
                 return (
                   <button
-                    key={t}
+                    key={minutes}
                     onClick={() => {
-                      setAvailableTime(t);
+                      setAvailableTime(minutes);
                       setShowCustomTime(false);
-                      setTimeMotivation(TIME_MOTIVATION[t][gender]);
+                      setTimeMotivation(TIME_MOTIVATION_KEYS[minutes]);
                       setIsUsingRecommendedDefaults(false);
                     }}
                     aria-pressed={active}
@@ -1041,8 +1050,8 @@ export default function WorkoutBuilderSheet({
                         : `flex flex-col items-center gap-0.5 py-3 rounded-2xl border text-xs font-bold transition-all active:scale-95 ${active ? ACTIVE_PILL : INACTIVE_PILL}`
                     }
                   >
-                    <span className={v2 ? 'text-[19px] font-black leading-none tabular-nums' : 'text-sm font-bold'}>{t}</span>
-                    <span className={v2 ? 'mt-0.5 text-[11px] font-bold opacity-75' : `text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400'}`}>דק&apos;</span>
+                    <span className={v2 ? 'text-[19px] font-black leading-none tabular-nums' : 'text-sm font-bold'}>{minutes}</span>
+                    <span className={v2 ? 'mt-0.5 text-[11px] font-bold opacity-75' : `text-[10px] font-medium ${active ? 'text-blue-100' : 'text-gray-400'}`}>{t('builder.duration.minutesUnit')}</span>
                   </button>
                 );
               })}
@@ -1051,7 +1060,7 @@ export default function WorkoutBuilderSheet({
                 onClick={() => {
                   setShowCustomTime(true);
                   setAvailableTime(customTime);
-                  setTimeMotivation(TIME_MOTIVATION['other'][gender]);
+                  setTimeMotivation(TIME_MOTIVATION_KEYS.other);
                   setIsUsingRecommendedDefaults(false);
                 }}
                 aria-pressed={showCustomTime}
@@ -1062,11 +1071,11 @@ export default function WorkoutBuilderSheet({
                 }
               >
                 {v2 ? (
-                  'אחר'
+                  t('builder.duration.other')
                 ) : (
                   <>
                     <span className="text-sm font-bold">✦</span>
-                    <span className={`text-[10px] font-medium ${showCustomTime ? 'text-blue-100' : 'text-gray-400'}`}>אחר</span>
+                    <span className={`text-[10px] font-medium ${showCustomTime ? 'text-blue-100' : 'text-gray-400'}`}>{t('builder.duration.other')}</span>
                   </>
                 )}
               </button>
@@ -1074,16 +1083,16 @@ export default function WorkoutBuilderSheet({
 
             {/* Motivational text */}
             {timeMotivation && (
-              <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-gray-500 text-center italic'}>{timeMotivation}</p>
+              <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-gray-500 text-center italic'}>{t(timeMotivation, { gender })}</p>
             )}
 
             {/* Custom slider (shown when "אחר" is active) */}
             {showCustomTime && (
               <div className="mt-3 space-y-2" dir="rtl">
                 <div className="flex items-center justify-between">
-                  <span className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-gray-700'}>{customTime} דק׳</span>
+                  <span className={v2 ? 'text-[15px] font-black text-v2-ink' : 'text-sm font-bold text-gray-700'}>{t('builder.duration.custom', { minutes: String(customTime) })}</span>
                   <span className="text-xs text-gray-400">
-                    {gender === 'female' ? 'תבחרי את הזמן שלך' : 'תבחר את הזמן שלך'}
+                    {t('builder.duration.choose', { gender })}
                   </span>
                 </div>
                 <input
@@ -1102,8 +1111,8 @@ export default function WorkoutBuilderSheet({
                   style={{ direction: 'rtl' }}
                 />
                 <div className="flex justify-between text-[10px] text-gray-400">
-                  <span>90 דק׳</span>
-                  <span>10 דק׳</span>
+                  <span>{t('builder.duration.sliderMax')}</span>
+                  <span>{t('builder.duration.sliderMin')}</span>
                 </div>
               </div>
             )}
@@ -1112,7 +1121,7 @@ export default function WorkoutBuilderSheet({
 
         {/* 3. תוכנית */}
         {displayPrograms.length > 0 && (
-          <Section v2={v2} title="תוכנית">
+          <Section v2={v2} title={t('builder.program.section')}>
             <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <div className="flex gap-2 pb-1" style={{ direction: 'rtl' }}>
                 <button
@@ -1138,16 +1147,16 @@ export default function WorkoutBuilderSheet({
                     <>
                       <Sparkles size={17} strokeWidth={2.4} aria-hidden />
                       <span className="text-start leading-tight">
-                        <span className="block whitespace-nowrap text-[14px] font-extrabold">אוטו</span>
-                        <span className="block whitespace-nowrap text-[11px] font-bold opacity-75">מומלץ</span>
+                        <span className="block whitespace-nowrap text-[14px] font-extrabold">{t('builder.program.auto')}</span>
+                        <span className="block whitespace-nowrap text-[11px] font-bold opacity-75">{t('builder.program.recommended')}</span>
                       </span>
                     </>
                   ) : (
                     <>
                       <span className="text-base leading-none">✨</span>
-                      <span>אוטו</span>
+                      <span>{t('builder.program.auto')}</span>
                       <span className={`text-[10px] font-medium ${isAutoActive ? 'text-blue-100' : 'text-gray-400'}`}>
-                        מומלץ
+                        {t('builder.program.recommended')}
                       </span>
                     </>
                   )}
@@ -1205,8 +1214,7 @@ export default function WorkoutBuilderSheet({
               >
                 {!v2 && <span className="text-sm leading-none">✦</span>}
                 <span>
-                  יאומן לפי <b>{autoAppliedProgram.label}</b> — הותאם אוטומטית לשרירים שבחרת.
-                  אפשר לבחור תוכנית אחרת למעלה.
+                  {t.rich('builder.program.autoApplied', { label: autoAppliedProgram.label, b: (chunks: React.ReactNode) => <b>{chunks}</b> })}
                 </span>
               </div>
             )}
@@ -1227,14 +1235,14 @@ export default function WorkoutBuilderSheet({
                 );
               }).join(' · ');
               return (
-                <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-[#2b6cb0] font-medium'}>כולל: {allChildLabels}</p>
+                <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-[#2b6cb0] font-medium'}>{t('builder.program.includes', { list: allChildLabels })}</p>
               );
             })()}
           </Section>
         )}
 
         {/* 4. שרירים */}
-        <Section v2={v2} title="אזור אימון" sub="(ריק = כל הגוף)">
+        <Section v2={v2} title={t('builder.muscles.section')} sub={t('builder.muscles.sectionSub')}>
           {!muscleExpanded ? (
             <button
               onClick={() => setMuscleExpanded(true)}
@@ -1246,8 +1254,8 @@ export default function WorkoutBuilderSheet({
             >
               <span>
                 {effectiveChips.length > 0
-                  ? `${effectiveChips.length} אזורים נבחרו`
-                  : 'כל הגוף (לחץ לסינון)'}
+                  ? t('builder.muscles.selected', { n: String(effectiveChips.length) })
+                  : t('builder.muscles.all')}
               </span>
               <ChevronDown size={16} className="text-gray-400" />
             </button>
@@ -1255,7 +1263,7 @@ export default function WorkoutBuilderSheet({
             <div className="space-y-4">
               {/* ── Primary row ── */}
               <div>
-                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>שרירים ראשיים</p>
+                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>{t('builder.muscles.primary')}</p>
                 <div
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
@@ -1278,7 +1286,7 @@ export default function WorkoutBuilderSheet({
 
               {/* ── Secondary row ── */}
               <div>
-                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>שרירים משניים</p>
+                <p className={v2 ? 'mb-2 text-[12.5px] font-extrabold text-v2-muted' : 'text-[11px] font-semibold text-gray-400 mb-2'}>{t('builder.muscles.secondary')}</p>
                 <div
                   className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
                   style={{ scrollbarWidth: 'none' }}
@@ -1304,14 +1312,14 @@ export default function WorkoutBuilderSheet({
                 className="w-full flex items-center justify-center gap-1 py-1 text-xs text-gray-400 active:opacity-70"
               >
                 <ChevronUp size={14} />
-                <span>סגור</span>
+                <span>{t('builder.muscles.close')}</span>
               </button>
             </div>
           )}
         </Section>
 
         {/* 5. עצימות — bolt selector */}
-        <Section v2={v2} title="עוצמה">
+        <Section v2={v2} title={t('builder.intensity.section')}>
           <div className="flex gap-2">
             {([1, 2, 3] as DifficultyLevel[]).map(level => {
               const active = difficulty === level;
@@ -1351,7 +1359,7 @@ export default function WorkoutBuilderSheet({
                         : `text-xs font-bold ${active ? 'text-white' : 'text-gray-700 dark:text-gray-300'}`
                     }
                   >
-                    {BOLT_LABELS[level]}
+                    {t(BOLT_LABEL_KEYS[level])}
                   </span>
                 </button>
               );
@@ -1360,7 +1368,7 @@ export default function WorkoutBuilderSheet({
           {/* Auto-blast hint when כוח + short time */}
           {difficulty === 3 && availableTime <= 20 && (
             <p className={v2 ? 'mt-2 text-[13px] font-bold text-v2-deep' : 'mt-2 text-xs text-center text-amber-600 font-medium'}>
-              {v2 ? '' : '⚡ '}אימון קצר + עצימות גבוהה → בלאסט אוטומטי
+              {v2 ? '' : '⚡ '}{t('builder.intensity.blastHint')}
             </p>
           )}
         </Section>
@@ -1370,7 +1378,7 @@ export default function WorkoutBuilderSheet({
       {/* ── Error ── */}
       {error && (
         <div className="px-4 pb-2">
-          <p className="text-sm text-red-500 text-center bg-red-50 rounded-xl py-2 px-3">{error}</p>
+          <p className="text-sm text-red-500 text-center bg-red-50 rounded-xl py-2 px-3">{t(error)}</p>
         </div>
       )}
 
@@ -1389,13 +1397,13 @@ export default function WorkoutBuilderSheet({
             className="!h-12 !text-[16px]"
           >
             {isScheduleMode ? (
-              isSaving ? 'שומר…' : 'שמירה בלו״ז'
+              isSaving ? t('builder.cta.saving') : t('builder.cta.save')
             ) : isLoading ? (
-              'מייצר אימון…'
+              t('builder.cta.generating')
             ) : (
               <>
                 <Sparkles size={18} strokeWidth={2.6} aria-hidden />
-                צור אימון · {availableTime} דק׳
+                {t('builder.cta.generate', { minutes: String(availableTime) })}
               </>
             )}
           </Button>
@@ -1409,9 +1417,9 @@ export default function WorkoutBuilderSheet({
             {isSaving ? (
               <>
                 <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>שומר...</span>
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}<span>שומר...</span>
               </>
-            ) : 'שמור ללוז ←'}
+            ) : 'שמור ללוז ←' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
           </button>
         ) : (
           <button
@@ -1423,9 +1431,9 @@ export default function WorkoutBuilderSheet({
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                <span>מייצר אימון...</span>
+                {/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}<span>מייצר אימון...</span>
               </>
-            ) : 'צור אימון'}
+            ) : 'צור אימון' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}
           </button>
         )}
       </div>
@@ -1442,10 +1450,10 @@ export default function WorkoutBuilderSheet({
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">🔓</span>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">פתיחת תוכנית חדשה</h3>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">{t('builder.unlock.title')}</h3>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              עדיין לא הערכנו את הרמה שלך באזור הזה. בצע/י מבדק כוח קצר של דקה כדי לפתוח את התוכנית.
+              {t('builder.unlock.body')}
             </p>
             <button
               onClick={() => {
@@ -1455,13 +1463,13 @@ export default function WorkoutBuilderSheet({
               }}
               className="w-full py-3 rounded-2xl bg-brand-cta hover:brightness-105 text-on-brand text-sm font-bold"
             >
-              בצע/י מבדק קצר
+              {t('builder.unlock.cta')}
             </button>
             <button
               onClick={() => setShowUnlockModal(false)}
               className="w-full py-2 rounded-2xl text-sm font-bold text-gray-500 dark:text-gray-400"
             >
-              אולי מאוחר יותר
+              {t('builder.unlock.later')}
             </button>
           </div>
         </div>
