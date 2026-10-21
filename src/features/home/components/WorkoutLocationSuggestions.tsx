@@ -15,6 +15,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { resolveParkImage } from '@/lib/park-image';
+import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 
 const PARK_FALLBACK_IMAGE = '/assets/lemur/lemur-avatar.png';
 
@@ -48,6 +49,8 @@ function formatDist(km: number): string {
 
 export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocationSuggestionsProps) {
   const router = useRouter();
+  // v2 type floor: the distance badge / type line never below 11px (V2-FONT-11).
+  const v2 = useHomeV2();
   const setDeepLink = useMapStore((s) => s.setDeepLink);
   const openGlobalParkSheet = useMapStore((s) => s.openGlobalParkSheet);
   const openGlobalRouteSheet = useMapStore((s) => s.openGlobalRouteSheet);
@@ -257,7 +260,7 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
         </h3>
         <button
           onClick={() => router.push('/map')}
-          className="flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 active:opacity-70 transition-opacity"
+          className={`flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 active:opacity-70 transition-opacity${v2 ? ' -my-3 py-3 ps-2' : ''}`}
         >
           הכל
           <ChevronLeft size={14} />
@@ -291,14 +294,14 @@ export default function WorkoutLocationSuggestions({ workoutType }: WorkoutLocat
                 {/* Fade into card body */}
                 <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                 {/* Distance badge */}
-                <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums">
+                <div className={`absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md ${v2 ? 'text-[11px] whitespace-nowrap' : 'text-[10px]'} font-bold text-white bg-black/50 backdrop-blur-sm tabular-nums`}>
                   {formatDist(item.distance)}
                 </div>
               </div>
               {/* Details */}
               <div className="px-2.5 py-2">
                 <p className="text-xs font-bold text-gray-800 truncate leading-tight">{item.name}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">{item.subtitle}</p>
+                <p className={v2 ? 'mt-0.5 truncate whitespace-nowrap text-[11px] font-bold text-v2-muted' : 'text-[10px] text-gray-500 mt-0.5'}>{item.subtitle}</p>
               </div>
             </motion.button>
           ))}

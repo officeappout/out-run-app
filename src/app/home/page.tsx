@@ -82,6 +82,7 @@ import { useSwapAll } from '@/features/workouts/components/workout-preview-drawe
 import { useExercisePool } from '@/features/workouts/components/workout-preview-drawer/hooks/useExercisePool';
 import type { ExecutionLocation } from '@/features/content/exercises/core/exercise.types';
 import { SOCIAL_COMPOSE_UI_ENABLED } from '@/config/feature-flags';
+import { APP_MAIN_NAV_RESERVE_CSS, V2_FAB_BOTTOM_CSS, scrollEndPaddingCss } from '@/components/ui/v2/bottom-chrome';
 import { useUserLocationSync } from '@/features/parks/core/hooks/useUserLocationSync';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
 import type { UserScheduleEntry } from '@/features/user/scheduling/types/schedule.types';
@@ -3095,7 +3096,16 @@ export default function HomePage() {
       )}
 
       {/* ── Main Content: Clean Execution Zone ── */}
-      <div className="max-w-md mx-auto px-4 pt-2 space-y-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)' }}>
+      <div
+        className="max-w-md mx-auto px-4 pt-2 space-y-2"
+        style={{
+          // v2: the floating nav (+ raised map circle) and the "+" FAB float over the
+          // page — pad the end so the last card can scroll clear of both (bottom-chrome.ts).
+          paddingBottom: featureFlags.enableHomeV2
+            ? scrollEndPaddingCss({ fab: SOCIAL_COMPOSE_UI_ENABLED, reservedCss: APP_MAIN_NAV_RESERVE_CSS })
+            : 'calc(env(safe-area-inset-bottom, 16px) + 1.5rem)',
+        }}
+      >
 
         {/* Home v2 greeting (design lab): "בוקר טוב, דוד" + today's date. */}
         {featureFlags.enableHomeV2 && (
@@ -3594,6 +3604,7 @@ export default function HomePage() {
                       })()}
                       keyExtractor={(s) => s.id}
                       cardHeight={330}
+                      passiveDots={featureFlags.enableHomeV2}
                       maxCardWidthPx={300}
                       maxCardWidthVw={100}
                       onSettle={(item) => {
@@ -3851,6 +3862,7 @@ export default function HomePage() {
                 }
                 keyExtractor={(s) => s.id}
                 cardHeight={330}
+                passiveDots={featureFlags.enableHomeV2}
                 renderCard={(s) =>
                   isRunPlanCarouselItem(s) ? (
                     homeRun.slot ? (
@@ -4006,8 +4018,8 @@ export default function HomePage() {
               : 'fixed z-[55] w-14 h-14 rounded-full shadow-xl flex items-center justify-center bg-[#00E5FF] text-on-brand active:scale-95 transition-all'
           }
           style={{
-            // v2: a bit higher, clear of the floating bar's raised map circle.
-            bottom: featureFlags.enableHomeV2 ? 'calc(104px + env(safe-area-inset-bottom, 0px))' : 'calc(84px + env(safe-area-inset-bottom, 0px))',
+            // v2: above the floating nav stack (pill + raised map circle) — bottom-chrome.ts.
+            bottom: featureFlags.enableHomeV2 ? V2_FAB_BOTTOM_CSS : 'calc(84px + env(safe-area-inset-bottom, 0px))',
             right: '16px',
             // v2: one filled gradient per screen — the "+" floats white (design-language §9.11)
             ...(featureFlags.enableHomeV2

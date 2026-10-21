@@ -127,3 +127,5 @@ export type { PairedBarRowProps } from './PairedBarRow';
 export * from './compare-bars';
 export { default as ScreenSkeleton } from './ScreenSkeleton';
 export type { ScreenSkeletonProps } from './ScreenSkeleton';
+// Bottom chrome math: nav / FAB offsets and the end padding a scroll container needs.
+export * from './bottom-chrome';

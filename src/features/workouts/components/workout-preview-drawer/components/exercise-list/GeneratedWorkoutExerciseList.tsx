@@ -65,6 +65,8 @@ export interface GeneratedWorkoutExerciseListProps {
   onToggleWarmupExpanded: () => void;
   onToggleWarmupActive: () => void;
   actions?: WorkoutActions;
+  /** Hide the difficulty / duration pills (the drawer's intensity toggle already shows them). */
+  hideStatPills?: boolean;
 }
 
 /**
@@ -96,6 +98,7 @@ export default function GeneratedWorkoutExerciseList({
   onToggleWarmupExpanded,
   onToggleWarmupActive,
   actions,
+  hideStatPills = false,
 }: GeneratedWorkoutExerciseListProps) {
   const v2 = useHomeV2();
   // enable_home_v2: a workout with a timed block (AMRAP / EMOM main, tabata) gets the
@@ -197,6 +200,8 @@ export default function GeneratedWorkoutExerciseList({
       <div className="flex items-center justify-between mb-3">
         {timedModel ? (
           <div className="min-w-0"><TimedPreviewMeta workout={generatedWorkout} /></div>
+        ) : hideStatPills ? (
+          <span />
         ) : (
         <div className="flex items-center gap-2">
           {diff != null && (
