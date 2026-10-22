@@ -1,12 +1,16 @@
 /**
  * One authority, sources in the plan's order (§3.1 / §3.4):
- *   existing → dataset → osm → park_loops → generated → neighbourhood
- * (`generated` = pipeline B's offline trail loops; `neighbourhood` =
+ *   existing → dataset → osm → named_ways → park_loops → generated → neighbourhood
+ * (`named_ways` = same-name OSM paths/promenades stitched into named corridors;
+ *  `generated` = pipeline B's offline trail loops; `neighbourhood` =
  * GraphHopper foot_turns round trips from a few well-spread seeds — RC8.)
  * After every stage the whole pool (existing + new) is scored and the top-N
- * selection re-run (src/lib/route-score). Once the quota minimum is met with
- * selected (≥70) routes, later stages are NOT run — in particular nothing is
- * generated for a city that already has enough good routes.
+ * selection re-run (src/lib/route-score). Every FINDING source (datasets, OSM
+ * relations, named corridors, park loops — real, named routes) always runs
+ * (owner 22.10.2026: the goal is to find every real route in the city, not to
+ * stop at a count). Only the GENERATING stages (QUOTA_GATED_STAGES) are
+ * skipped once the quota minimum is met with selected (≥70) routes — nothing
+ * is generated for a city that already has enough good routes.
  * Cross-stage dedup: a new route overlapping an earlier one ≥70% within 15 m
  * is dropped — the earlier (more official) stage wins.
  * Pure orchestration: every source is an injected provider. Each provider
@@ -18,8 +22,10 @@ import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
 import { scoreAuthorityRoutes, type AuthorityScoreRun } from '../route-score/score-authority';
 
-export const STAGE_ORDER = ['existing', 'dataset', 'osm', 'park_loops', 'generated', 'neighbourhood'] as const;
+export const STAGE_ORDER = ['existing', 'dataset', 'osm', 'named_ways', 'park_loops', 'generated', 'neighbourhood'] as const;
 export type StageKey = (typeof STAGE_ORDER)[number];
+/** Stages that invent geometry — run only while the quota minimum is unmet. */
+export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood']);
 
 export interface CandidateRoute {
   id: string;
@@ -90,7 +96,7 @@ export async function runAuthorityStages(
 
   for (const key of STAGE_ORDER) {
     const provider = byKey.get(key);
-    if (quotaMetAfter && key !== 'existing') {
+    if (quotaMetAfter && QUOTA_GATED_STAGES.has(key)) {
       stages.push({ key, ran: false, offered: 0, added: 0, droppedDuplicate: 0, note: `skipped — quota minimum met after "${quotaMetAfter}"`, selectedAfter: score.selection.counts.selected });
       continue;
     }

@@ -8,6 +8,8 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { buildPathIndex, pointInRing, selectBigParks, type LngLat, type ParkPolygon, type PathIndex, type PathLine, type PointFeature } from '../../../src/lib/park-loops';
+import type { NamedWay } from '../../../src/lib/routes-nationwide/named-corridors';
+import type { NamingContext } from '../../../src/lib/routes-nationwide/route-naming';
 import { assertOsmium, ensureIsraelPbf, extractPilot, fetchAdminBoundary, pbfTimestamp, type PilotExtract } from '../../trails/lib/pilot-osm.node';
 
 /** Ways a runner/walker can actually follow around a park. Roads are deliberately excluded. */
@@ -60,6 +62,31 @@ export function seedCandidates(ex: PilotExtract, rings: LngLat[][]): LngLat[] {
   return pts.filter((_, i) => i % stride === 0).filter((p) => rings.some((r) => pointInRing(p, r))).slice(0, MAX_SEED_CANDIDATES);
 }
 
+const PLACE_KINDS = new Set(['neighbourhood', 'suburb', 'quarter']);
+
+/** Every named highway way (for corridors) + the naming context (named-line index, parks, neighbourhoods). */
+export function namedWaysAndNaming(ex: PilotExtract, parks: ParkPolygon[]): { namedWays: NamedWay[]; naming: NamingContext } {
+  const namedWays: NamedWay[] = [];
+  const lines: PathLine[] = [];
+  const names = new Map<string, string>();
+  for (const w of Array.from(ex.data.ways.values())) {
+    const name = (w.tags['name:he'] ?? w.tags.name ?? '').trim();
+    const highway = w.tags.highway ?? '';
+    if (!name || !highway) continue;
+    const coords = w.nodes.map((n) => ex.data.nodes.get(n)).filter(Boolean).map((n) => [n!.lon, n!.lat] as LngLat);
+    if (coords.length < 2) continue;
+    namedWays.push({ id: w.id, name, highway, coords });
+    lines.push({ id: `way/${w.id}`, coords, highway });
+    names.set(`way/${w.id}`, name);
+  }
+  const places: NamingContext['places'] = [];
+  for (const n of Array.from(ex.data.nodes.values())) {
+    const name = (n.tags?.['name:he'] ?? n.tags?.name ?? '').trim();
+    if (name && PLACE_KINDS.has(n.tags?.place ?? '')) places.push({ name, coord: [n.lon, n.lat] });
+  }
+  return { namedWays, naming: { namedLines: buildPathIndex(lines), names, parks, places } };
+}
+
 export interface AuthorityOsm {
   name: string;
   rings: LngLat[][];
@@ -69,6 +96,8 @@ export interface AuthorityOsm {
   paths: PathIndex;
   fitness: PointFeature[];
   seeds: LngLat[];
+  namedWays: NamedWay[];
+  naming: NamingContext;
 }
 
 /**
@@ -118,6 +147,7 @@ export class AuthorityOsmSlice {
       paths: buildPathIndex(walkableLines(ex)),
       fitness: fitnessStations(path.join(work, 'pilot.osm.pbf'), work),
       seeds: seedCandidates(ex, rings),
+      ...namedWaysAndNaming(ex, parks),
     };
   }
 

@@ -73,7 +73,7 @@ export function deriveSourceTier(d: Doc): SourceTier {
   if (gen === 'roundtrip') return 'generated';
   if (gen === 'park-perimeter') return 'named_place';
   if (externalId.startsWith('osm:rel/')) return 'osm_named';
-  if (externalId.startsWith('osm:stitched/')) return 'stitched';
+  if (externalId.startsWith('osm:stitched/')) return NAMED_PLACE_PATTERN.test(name) ? 'named_place' : 'stitched';
   if (externalId.startsWith('osm:way/')) return NAMED_PLACE_PATTERN.test(name) ? 'named_place' : 'stitched';
   if (origin === 'authority_admin' || origin === 'super_admin') return 'osm_named';
   if (NAMED_PLACE_PATTERN.test(name)) return 'named_place';

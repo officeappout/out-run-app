@@ -108,14 +108,14 @@ export function neighbourhoodLoopId(authorityId: string, l: Pick<NeighbourhoodLo
 /** official_routes doc — pending, unpublished, origin 'generated'. Callers pass it through buildValidatedDoc. */
 export function neighbourhoodLoopDoc(
   n: NeighbourhoodLoop,
-  ctx: { authorityId: string; city: string; importBatchId: string; profile?: GhProfile },
+  ctx: { authorityId: string; city: string; importBatchId: string; profile?: GhProfile; name?: string },
 ): { id: string; data: Record<string, unknown> } {
   const km = Math.round(n.loop.distanceKm * 100) / 100;
   const m = n.loop.metrics;
   return {
     id: neighbourhoodLoopId(ctx.authorityId, n),
     data: {
-      name: `לולאה שכונתית ${km.toFixed(1)} ק״מ — ${ctx.city}`,
+      name: ctx.name ?? `לולאה שכונתית ב${ctx.city} · ${km.toFixed(1)} ק״מ`,
       description: 'לולאה שכונתית שנבנתה אוטומטית (GraphHopper, פרופיל עם עלות פניות) — ממתינה לבדיקה',
       distance: km,
       duration: Math.max(1, Math.round((km * 1000) / PACE_RUN_M_PER_MIN)),

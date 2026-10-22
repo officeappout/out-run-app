@@ -1,9 +1,11 @@
 /**
- * The runner's two OSM+GraphHopper stages (RC8) — candidate docs only, no
+ * The runner's OSM (+GraphHopper) stages (RC8) — candidate docs only, no
  * writes. Every doc is passed through buildValidatedDoc (create mode, the
  * authority's id in knownAuthorityIds) before it enters the pool, exactly as
  * the apply path will validate it again at the write site.
  *
+ *   named_ways    — same-name OSM paths / promenades / park paths stitched into
+ *                   named corridors (named-corridors.ts), OSM name kept verbatim.
  *   park_loops    — big parks inside the boundary (≥ 80,000 m² or perimeter
  *                   ≥ 1.2 km): known loop (an earlier-stage route circling the
  *                   park) → perimeter on real paths → inner loop via
@@ -11,10 +13,12 @@
  *   neighbourhood — GraphHopper foot_turns loops from a few well-spread seeds;
  *                   the runner only reaches it while the quota is still short.
  */
-import { loopsForPark, parkLoopDoc, type LngLat } from '../../../src/lib/park-loops';
+import { loopsForPark, parkLoopDoc, pointInRing, type LngLat } from '../../../src/lib/park-loops';
 import { buildValidatedDoc } from '../../../src/lib/route-collections/validate';
 import { parsePath } from '../../../src/lib/route-score';
 import type { CandidateRoute, StageProvider } from '../../../src/lib/routes-nationwide';
+import { corridorDoc, namedCorridors } from '../../../src/lib/routes-nationwide/named-corridors';
+import { nameGeneratedLoop } from '../../../src/lib/routes-nationwide/route-naming';
 import { generateNeighbourhoodLoops, neighbourhoodLoopDoc, spreadSeeds, NEIGHBOURHOOD_PROFILE } from '../../../src/lib/routes-nationwide/neighbourhood-loops';
 import type { AuthorityGh } from './gh-client.node';
 import { ghViaRouter } from './gh-via-router.node';
@@ -43,6 +47,20 @@ const ghNote = (gh: AuthorityGh | null) => {
   const s = gh.stats();
   return `GH ${s.calls} call(s), ${s.cacheHits} cached${s.refused ? `, ${s.refused} over budget` : ''}${s.errors ? `, ${s.errors} error(s)` : ''}`;
 };
+
+export function namedWaysProvider(a: AuthorityCtx, slice: AuthorityOsmSlice, importBatchId: string): StageProvider {
+  return {
+    key: 'named_ways',
+    async run() {
+      const osm = await slice.get();
+      if (!osm) return { routes: [], note: 'no boundary — skipped' };
+      // Only corridors whose middle lies inside the authority.
+      const inside = namedCorridors(osm.namedWays).filter((c) => osm.rings.some((r) => pointInRing(c.coords[Math.floor(c.coords.length / 2)], r)));
+      const v = validated(a, inside.map((c) => corridorDoc(c, { authorityId: a.id, city: a.name, osmSnapshot: osm.osmSnapshot, importBatchId })), 'named_ways');
+      return { routes: v.routes, note: `${osm.namedWays.length} named ways → ${inside.length} corridor(s) ≥ 0.8 km${v.invalid.length ? `, ${v.invalid.length} invalid (${v.invalid[0]})` : ''}` };
+    },
+  };
+}
 
 export function parkLoopsProvider(a: AuthorityCtx, slice: AuthorityOsmSlice, gh: AuthorityGh | null, importBatchId: string): StageProvider {
   return {
@@ -85,7 +103,7 @@ export function neighbourhoodProvider(a: AuthorityCtx, slice: AuthorityOsmSlice,
       if (!seeds.length) return { routes: [], note: 'no street vertices inside the boundary' };
       const res = await generateNeighbourhoodLoops(gh.client, seeds, { isBudgetSpent: gh.spent });
       gh.flush();
-      const docs = res.loops.map((l) => neighbourhoodLoopDoc(l, { authorityId: a.id, city: a.name, importBatchId, profile: NEIGHBOURHOOD_PROFILE }));
+      const docs = res.loops.map((l) => neighbourhoodLoopDoc(l, { authorityId: a.id, city: a.name, importBatchId, profile: NEIGHBOURHOOD_PROFILE, name: nameGeneratedLoop(l.loop.path, osm.naming, a.name).name }));
       const v = validated(a, docs, 'neighbourhood');
       const notes = [...res.notes, ...(v.invalid.length ? [`${v.invalid.length} invalid (${v.invalid[0]})`] : [])];
       return { routes: v.routes, note: `${seeds.length} seed(s) → ${v.routes.length} loop(s)${notes.length ? ` [${notes.join(' · ')}]` : ''} · ${ghNote(gh)}` };

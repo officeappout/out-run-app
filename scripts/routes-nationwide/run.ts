@@ -4,12 +4,14 @@
  *
  * For every authority (clients → big cities → regional councils → the rest),
  * one at a time: existing routes → open datasets (W1.5) → OSM route relations
- * (pipeline B on the local Geofabrik PBF) → park loops around big parks (W5:
+ * (pipeline B on the local Geofabrik PBF) → named OSM paths/promenades stitched
+ * into named corridors → park loops around big parks (W5:
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
- * GraphHopper foot_turns neighbourhood loops — the last two ONLY if the quota
- * is still short. Each step is scored (routeScore v1.2: shade where the city
+ * GraphHopper foot_turns neighbourhood loops (named after the park / streets /
+ * neighbourhood they pass). Every finding source always runs; the two
+ * generating stages run ONLY if the quota is still short. Each step is scored (routeScore v1.2: shade where the city
  * has a layer, turns/zigzag on loops) and the top-N set re-selected
- * (src/lib/route-score); once the quota minimum is met the rest is skipped.
+ * (src/lib/route-score); once the quota minimum is met the generating stages are skipped.
  *
  *   npx tsx scripts/routes-nationwide/run.ts                          # whole country, dry-run, resumes automatically
  *   npx tsx scripts/routes-nationwide/run.ts --city=חיפה --city=ערד   # by authority name (repeatable)
@@ -57,7 +59,7 @@ import { loadAdminRelations } from './lib/admin-index.node';
 import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
-import { neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
+import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 
 const argv = process.argv.slice(2);
@@ -208,7 +210,7 @@ async function main() {
           existingProvider(target.db, ctx, { surfaceJoin: !NO_SURFACE_JOIN }),
           datasets.provider(ctx),
           trails.osm(),
-          ...(SKIP_OSM ? [] : [parkLoopsProvider(ctx, slice, ghA, batch)]),
+          ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
           trails.generated(),
           ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
         ], new Date(), { enrich: shade.enrich });
