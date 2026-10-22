@@ -119,6 +119,14 @@ export const FLAG_DEFS = [
   // (LevelRingCard hidden when skipped, StrengthSummaryView.tsx, after #305). David turns it on
   // himself after field-testing.
   { key: 'enableNoAutoStrengthLevel', firestoreKey: 'enable_no_auto_strength_level', defaultValue: false, superAdminValue: false },
+  // Progression from the admin panel (22.10.2026, owner decision). ON = the workout-completion
+  // engine uses what "מנהל התקדמות" saved (rules by program doc id + slug, last configured level
+  // carries upward, goal bonus once per goal per level, firstSession / persistence / RPE bonuses,
+  // maxSets cap). Default OFF — David flips it. superAdminValue true = super admins preview it on
+  // their own workouts (read one-shot in the service via resolveAdminRulesFlag, which applies the
+  // super-admin preview itself). Replaces the code constant PROGRESSION_RULES_FROM_ADMIN_V1
+  // (kept as the fallback default).
+  { key: 'progressionRulesFromAdmin', firestoreKey: 'progression_rules_from_admin', defaultValue: false, superAdminValue: true },
   // League aggregates (17.10.2026, David) — the neighborhood / city boards read the
   // league_scope_stats sums (written by onWorkoutCreateLeagueStats from the workouts
   // record) instead of summing feed_posts on the client. Fail-closed: turn it on once the

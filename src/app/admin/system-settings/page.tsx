@@ -40,6 +40,7 @@ interface FlagState {
   enable_hybrid_cards_v2: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
+  progression_rules_from_admin: boolean;
   enable_league_aggregates: boolean;
   enable_home_v2: boolean;
   enable_calm_return_v1: boolean;
@@ -276,6 +277,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'אין רמת כוח בלי שאלון',
     description: 'משתמש שלא מילא את שאלון הכוח לא מקבל רמה או תוכנית: לא באונבורדינג (גם לא מתשובת "רמת כושר" או בחירת שרירים), ולא אחרי אימון כוח (היסטוריה ו-XP נשמרים כרגיל). משתמשים קיימים לא משתנים. במסך הסיכום כרטיס הרמה מוסתר למשתמשים האלה. ⚠️ להפעיל רק אחרי בדיקת שטח. כבוי = כמו היום.',
+  },
+  {
+    key: 'progression_rules_from_admin',
+    icon: Dumbbell,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'התקדמות לפי הגדרות הפאנל',
+    description: 'אחרי אימון כוח, אחוז ההתקדמות מחושב לפי מה שהוגדר ב"מנהל התקדמות": כללים לפי תוכנית ורמה (רמה מעל האחרונה שהוגדרה = האחרונה), בונוס יעד פעם אחת לכל יעד ברמה (היום: בכל אימון), בונוס אימון ראשון ברמה, בונוס התמדה חודשי, בונוס RPE (כשנרשם), ותקרת סטים. ⚠️ משנה את קצב ההתקדמות למשתמשים. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום (ברירות מחדל קבועות).',
   },
   // OUT AI Phase 0 (18.10.2026) — the server enforces these (src/lib/ai/), the panel only flips them.
   {

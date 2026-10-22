@@ -107,7 +107,8 @@ describe('G8.2 W3 — flag ON: a strength workout without the questionnaire writ
     state.USER_DOC = assessedUser();
     const r = await processWorkoutCompletion(workout('push') as any);
     expect(r.skipped).toBeUndefined();
-    expect(flagReadMock).not.toHaveBeenCalled();
+    // (progression_rules_from_admin is read for every assessed user — not this gate)
+    expect(flagReadMock).not.toHaveBeenCalledWith('enable_no_auto_strength_level');
   });
 });
 
