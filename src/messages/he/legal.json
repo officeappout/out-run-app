@@ -72,7 +72,7 @@
   "credits.osm.copyrightLink": "זכויות יוצרים ורישיון של OpenStreetMap",
   "credits.osm.odblLink": "נוסח הרישיון ODbL 1.0",
   "credits.trails.title": "מאיפה מגיעים שמות השבילים",
-  "credits.trails.body": "שמות השבילים והמסלולים המסומנים שמוצגים באפליקציה נלקחו מתורמי OpenStreetMap. קק\"ל ורשות הטבע והגנים אינן מקור לנתונים אלה, אלא אם צוין אחרת במפורש ברשימה זו.",
+  "credits.trails.body": "הגיאומטריה והשמות של השבילים והמסלולים המסומנים שמוצגים באפליקציה מבוססים על תרומות של מתנדבי OpenStreetMap, ברישיון ODbL 1.0.",
   "credits.mapbox.title": "Mapbox",
   "credits.mapbox.body": "המפות באפליקציה מוצגות באמצעות Mapbox, ומשלבות נתונים מ-OpenStreetMap ומספקים נוספים. הקרדיט של Mapbox מופיע על המפה עצמה.",
   "credits.mapbox.link": "אתר Mapbox",
