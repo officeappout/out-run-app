@@ -10,7 +10,7 @@ import {
   generateSettlementLoops, isSettlementLoopDoc, parsePopulation, rankSettlements, settlementLoopDoc, settlementLoopId, settlementLoopName,
   SETTLEMENT_LOOP_KM, SETTLEMENT_LOOPS_MAX, SETTLEMENT_PIPELINE, type Settlement,
 } from '../settlement-loops';
-import { quotaMet, runAuthorityStages, QUOTA_GATED_STAGES, type CandidateRoute, type StageProvider } from '../stages';
+import { quotaMet, runAuthorityStages, QUOTA_GATED_STAGES, REGIONAL_SKIPPED_STAGES, REGIONAL_SKIP_NOTE, SETTLEMENT_LOOPS_ENABLED, type CandidateRoute, type StageKey, type StageProvider } from '../stages';
 
 type LngLat = [number, number];
 
@@ -150,18 +150,47 @@ describe('settlement loops — selection', () => {
   });
 });
 
-describe('settlement_loops stage', () => {
-  it('is not quota-gated: runs even after the quota minimum was met', async () => {
-    expect(QUOTA_GATED_STAGES.has('settlement_loops')).toBe(false);
-    const pathOf = (x: number, side = 600) => rect([34.5 + x, 31.4], side).map(([lng, lat]) => ({ lng, lat }));
-    const trail = (k: number): CandidateRoute => ({ id: `t${k}`, stage: 'osm', isNew: true, data: { name: `שביל ${k}`, distance: 12, routeShape: 'loop', activityType: 'running', path: pathOf(k * 0.05) } });
-    const ran: string[] = [];
+describe('settlement_loops stage / regional real-trails-only', () => {
+  const pathOf = (x: number, side = 600) => rect([34.5 + x, 31.4], side).map(([lng, lat]) => ({ lng, lat }));
+  const trail = (k: number): CandidateRoute => ({ id: `t${k}`, stage: 'osm', isNew: true, data: { name: `שביל ${k}`, distance: 12, routeShape: 'loop', activityType: 'running', path: pathOf(k * 0.05) } });
+  const loop: CandidateRoute = { id: 'ghsettle_x', stage: 'settlement_loops', isNew: true, data: { name: 'לולאת א · 5.0 ק״מ', distance: 5, routeShape: 'loop', activityType: 'running', origin: 'generated', generator: { pipeline: SETTLEMENT_LOOP_PIPELINE }, path: pathOf(3, 1250) } };
+  const gen: CandidateRoute = { id: 'g1', stage: 'generated', isNew: true, data: { name: 'לולאה', distance: 5, routeShape: 'loop', activityType: 'running', origin: 'generated', path: pathOf(4, 1250) } };
+  const providers = (ran: string[], nOsm: number) => {
     const p = (key: StageProvider['key'], routes: CandidateRoute[]): StageProvider => ({ key, run: async () => { ran.push(key); return { routes }; } });
-    const loop: CandidateRoute = { id: 'ghsettle_x', stage: 'settlement_loops', isNew: true, data: { name: 'לולאת א · 5.0 ק״מ', distance: 5, routeShape: 'loop', activityType: 'running', origin: 'generated', generator: { pipeline: SETTLEMENT_LOOP_PIPELINE }, path: pathOf(3, 1250) } };
-    const r = await runAuthorityStages({ id: 'rc', type: 'regional_council' }, [
-      p('osm', Array.from({ length: 30 }, (_, k) => trail(k))), p('neighbourhood', []), p('settlement_loops', [loop]),
-    ]);
-    expect(ran).toContain('settlement_loops');
+    return [p('osm', Array.from({ length: nOsm }, (_, k) => trail(k))), p('generated', [gen]), p('neighbourhood', [gen]), p('settlement_loops', [loop])];
+  };
+
+  it('settlement loops are OFF by default; the code stays', () => {
+    expect(SETTLEMENT_LOOPS_ENABLED).toBe(false);
+    expect(Array.from(REGIONAL_SKIPPED_STAGES).sort()).toEqual(['generated', 'neighbourhood', 'settlement_loops']);
+    expect(QUOTA_GATED_STAGES.has('settlement_loops')).toBe(false);
+  });
+
+  it('regional: generated / neighbourhood / settlement_loops never run, even with the quota unmet — fewer routes, no padding', async () => {
+    const ran: string[] = [];
+    const r = await runAuthorityStages({ id: 'rc', type: 'regional_council' }, providers(ran, 5));
+    expect(ran).toEqual(['osm']);
+    for (const k of ['generated', 'neighbourhood', 'settlement_loops'] as const) {
+      expect(r.stages.find((s) => s.key === k)).toMatchObject({ ran: false, note: REGIONAL_SKIP_NOTE });
+    }
+    expect(r.quotaMetAfter).toBeNull();
+    expect(quotaMet(r.score)).toBe(false);
+    expect(r.pool.map((p) => p.id)).toEqual(['t0', 't1', 't2', 't3', 't4']);
+    expect(r.score.selection.counts.selected).toBeLessThanOrEqual(5);
+  });
+
+  it('municipal: unchanged — generated / neighbourhood still quota-gated, no settlement_loops line at all', async () => {
+    const ran: string[] = [];
+    const r = await runAuthorityStages({ id: 'm', type: 'local_council', population: 20_000 }, providers(ran, 2));
+    expect(ran).toEqual(['osm', 'generated', 'neighbourhood']);
+    expect(r.stages.map((s) => s.key)).not.toContain('settlement_loops');
+    expect(r.score.selection.counts).not.toHaveProperty('settlementLoops');
+  });
+
+  it('when switched on (option), the regional settlement stage runs and is not quota-gated', async () => {
+    const ran: string[] = [];
+    const r = await runAuthorityStages({ id: 'rc', type: 'regional_council' }, providers(ran, 30), new Date(), { settlementLoopsEnabled: true, regionalSkip: new Set<StageKey>(['generated', 'neighbourhood']) });
+    expect(ran).toEqual(['osm', 'settlement_loops']);
     expect(r.stages.find((s) => s.key === 'settlement_loops')).toMatchObject({ ran: true, added: 1 });
   });
 });

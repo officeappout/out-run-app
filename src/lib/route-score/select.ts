@@ -45,7 +45,7 @@ export interface SelectionRow {
 export interface SelectionResult {
   rows: SelectionRow[];
   selectedIds: string[];
-  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number; urbanFloor: number; settlementLoops: number };
+  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number; urbanFloor: number; settlementLoops?: number };
   /** Selected routes per surface class. */
   selectedBySurface: Record<SurfaceClass, number>;
 }
@@ -214,7 +214,8 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: S
   }
 
   const out = routes.map((r) => rows.get(r.input.id)!);
-  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling, urbanFloor: urbanTaken, settlementLoops: settlementTaken };
+  // settlementLoops only when there were any — every other authority's counts stay exactly as before.
+  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling, urbanFloor: urbanTaken, ...(settlement.length ? { settlementLoops: settlementTaken } : {}) };
   for (const row of out) counts[row.decision]++;
   const selectedBySurface: Record<SurfaceClass, number> = { walk_run_paved: 0, hike_offroad: 0, bike_road: 0, bike_offroad: 0, unknown: 0 };
   const byId = new Map(routes.map((r) => [r.input.id, r.input]));

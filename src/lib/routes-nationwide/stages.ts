@@ -8,8 +8,9 @@
  *  `generated` = pipeline B's offline trail loops; `neighbourhood` =
  * GraphHopper foot_turns round trips from a few well-spread seeds — RC8;
  *  `settlement_loops` = regional councils only: 2–3 short GraphHopper loops
- *  (3–8 km) from the council's settlements — owner 22.10.2026. NOT quota-gated:
- *  it always runs, and the selection adds its loops on top of the top-N set.)
+ *  (3–8 km) from the council's settlements — currently OFF (SETTLEMENT_LOOPS_ENABLED).
+ *  Regional councils run real sources only: generated / neighbourhood /
+ *  settlement_loops are skipped for them (REGIONAL_SKIPPED_STAGES, owner 22.10.2026).)
  * After every stage the whole pool (existing + new) is scored and the top-N
  * selection re-run (src/lib/route-score). Every FINDING source (datasets, OSM
  * relations, named corridors, park loops — real, named routes) always runs
@@ -33,6 +34,21 @@ export const STAGE_ORDER = ['existing', 'known_routes', 'dataset', 'osm', 'named
 export type StageKey = (typeof STAGE_ORDER)[number];
 /** Stages that invent geometry — run only while the quota minimum is unmet. */
 export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood']);
+/**
+ * Regional councils — real trails only (owner, 22.10.2026, on PR #720): the
+ * synthetic stages never run for a regional council, whether or not its quota
+ * is met. The quota (20–40) is a ceiling: a council with fewer real trails just
+ * gets fewer, it is never padded with generated loops.
+ */
+export const REGIONAL_SKIPPED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood', 'settlement_loops']);
+export const REGIONAL_SKIP_NOTE = 'skipped — regional: real trails only';
+/**
+ * Settlement loops (settlement-loops.ts) are kept in the code but OFF (owner,
+ * 22.10.2026). Only regional councils ever had the stage; with it off, regional
+ * councils report it as skipped and other authorities never list it.
+ */
+export const SETTLEMENT_LOOPS_ENABLED = false;
+const isRegional = (a: { type?: string | null }) => a?.type === 'regional_council';
 
 export interface CandidateRoute {
   id: string;
@@ -89,6 +105,13 @@ export function quotaMet(run: AuthorityScoreRun): boolean {
 export interface RunStagesOptions {
   /** Extra scoring inputs for one route (merged over the provider's own opts). May be async (RC9 urban measurement loads the OSM slice). */
   enrich?: (r: CandidateRoute) => FromDocOptions | null | undefined | Promise<FromDocOptions | null | undefined>;
+  /**
+   * Regional-council overrides (tests / a future owner decision): which stages
+   * are skipped (default REGIONAL_SKIPPED_STAGES) and whether settlement loops
+   * may run at all (default SETTLEMENT_LOOPS_ENABLED).
+   */
+  regionalSkip?: ReadonlySet<StageKey>;
+  settlementLoopsEnabled?: boolean;
 }
 
 export async function runAuthorityStages(
@@ -104,8 +127,18 @@ export async function runAuthorityStages(
   let quotaMetAfter: StageKey | null = null;
   let score = scoreAuthorityRoutes(authority, [], now);
 
+  const regional = isRegional(authority);
+  const regionalSkip = options.regionalSkip ?? REGIONAL_SKIPPED_STAGES;
+  const settlementOn = options.settlementLoopsEnabled ?? SETTLEMENT_LOOPS_ENABLED;
+
   for (const key of STAGE_ORDER) {
     const provider = byKey.get(key);
+    // Settlement loops exist only for regional councils: no report line elsewhere (other authorities unchanged).
+    if (key === 'settlement_loops' && !regional) continue;
+    if (regional && (regionalSkip.has(key) || (key === 'settlement_loops' && !settlementOn))) {
+      stages.push({ key, ran: false, offered: 0, added: 0, droppedDuplicate: 0, note: REGIONAL_SKIP_NOTE, selectedAfter: score.selection.counts.selected });
+      continue;
+    }
     if (quotaMetAfter && QUOTA_GATED_STAGES.has(key)) {
       stages.push({ key, ran: false, offered: 0, added: 0, droppedDuplicate: 0, note: `skipped — quota minimum met after "${quotaMetAfter}"`, selectedAfter: score.selection.counts.selected });
       continue;
