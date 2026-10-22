@@ -1,0 +1,4 @@
+{"authorityId":"RctoNYaNiT9Q1mUXuCiQ","city":"שומרון","researchedAt":"2026-10-22","routes":[
+{"name":"שביל אופניים מעלה נחל אלכסנדר","aliases":["מעלה אלכסנדר המלא","מעלה נחל אלכסנדר"],"kind":"bike","lengthKm":27,"inPark":null,"description":"שלוש טבעות משתלבות בין כוכב יאיר, צור יצחק, צור נתן וסלית, נגד כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/alexander_stream_road/","title":"שביל אופניים מעלה נחל אלכסנדר - קק\"ל"}]},
+{"name":"בוסתנים ומעיינות בלב השומרון","aliases":[],"kind":"walk","lengthKm":5,"inPark":"נחל קנה","description":"מסלול קווי בשמורת נחל קנה מחניון בית העלמין בקרני שומרון אל יקיר, בין מעיינות ובוסתנים","sources":[{"url":"https://www.tiuli.com/tracks/204/נחל-קנה-בוסתנים-ומעיינות-בלב-השומרון","title":"נחל קנה - בוסתנים ומעיינות בלב השומרון - טיולי"}]}
+],"notes":"Kana Cliffs singletrack and Har Kabir scenic road are in OSM but no source found."}
