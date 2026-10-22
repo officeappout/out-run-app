@@ -93,6 +93,7 @@ interface FlagState {
   enable_locale_en: boolean;
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
+  enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
 }
 
@@ -703,6 +704,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
     parentKey: 'enable_i18n',
+  },  // Analytics — app-session signal (22.10.2026).
+  {
+    key: 'enable_app_session_signal',
+    icon: Users,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: כניסות לאפליקציה',
+    description: 'מונה יומי לכל משתמש: כמה פעמים נכנס לאפליקציה וכמה מהכניסות היו מהקשה על פוש — כדי לדעת מי חוזר בלי פוש. בלי מיקום ובלי פרטים אישיים, כתיבה אחת לכניסה (עד 12 ביום). להדליק רק אחרי פריסת חוקי Firestore.',
   },
   // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
   {

@@ -82,6 +82,7 @@ import { db } from '@/lib/firebase';
 import { usePushToastStore } from '@/lib/native/usePushToastStore';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { mapLegacyPushPath } from '@/lib/landing-fallback/fallback-routes';
+import { markPushTap } from '@/lib/app-session-mark';
 
 let listenersInstalled = false;
 let tapListenerInstalled = false;
@@ -333,6 +334,8 @@ export async function installTapListener(): Promise<void> {
 
         const data = (event?.notification as any)?.data ?? {};
         const messageId = data.messageId as string | undefined;
+        // enable_app_session_signal (off = no-op): the session this tap opens is a push session.
+        markPushTap();
 
         // ── Notification-engine measurement (Wave 1): push_opened ──
         // `messageId` doubles as the `pushId` push.service.ts's sendPush()
