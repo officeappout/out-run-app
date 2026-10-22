@@ -109,6 +109,17 @@ import {
  * rather than being deleted in favor of this one.
  */
 import { resolveToSlug, ensureIdSlugMapWarm } from '@/features/workout-engine/services/program-hierarchy.utils';
+import {
+  KNOWN_MASTER_PROGRAMS,
+  averageMasterChildren,
+  calculateTotalSetsPerformed,
+  calculateVolumeBreakdown,
+  classifyExerciseToChild,
+  computeGoalBonus,
+  computeSessionGain,
+  computeSkillMasteryBonus,
+  SKILL_PROGRAMS,
+} from './progression-calc';
 
 const PROGRAM_LEVEL_SETTINGS_COLLECTION = 'program_level_settings';
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
@@ -126,11 +137,8 @@ const READY_FOR_SPLIT_PROGRAMS = ['full_body'];
  * activeProgramId is a slug like "full_body" but the Firestore document
  * was created with an auto-generated ID via addDoc).
  */
-export const KNOWN_MASTER_PROGRAMS: Record<string, string[]> = {
-  full_body: ['push', 'pull', 'legs', 'core'],
-  upper_body: ['push', 'pull'],
-  lower_body: ['legs', 'core'],
-};
+// Moved to progression-calc.ts (pure, shared with the level-up screen); re-exported here.
+export { KNOWN_MASTER_PROGRAMS };
 
 /**
  * Resolve Firestore program IDs to human-readable slugs.
@@ -163,7 +171,7 @@ export interface ProgramSlugMap {
   idToProgram: Map<string, Program>;
 }
 
-async function buildProgramSlugMap(): Promise<ProgramSlugMap> {
+export async function buildProgramSlugMap(): Promise<ProgramSlugMap> {
   const allPrograms = await getAllPrograms();
   const idToSlug = new Map<string, string>();
   const slugToId = new Map<string, string>();
@@ -577,8 +585,8 @@ export async function getMasterProgramProgress(
       MASTER_PROGRAM_ID_TO_SLUG[masterProgramId] ||
       masterProgramId;
 
-    const EXCLUDED_FROM_AVG: Record<string, string[]> = { full_body: ['core'] };
-    const MASTER_CAP: Record<string, number> = { full_body: 15 };
+    // Exclusions (full_body: no core) and caps (full_body ≤ 15) live in
+    // progression-calc.ts's averageMasterChildren.
 
     // ── calisthenics_upper: restrict averaging to assessed skill tracks ──────
     //
@@ -604,11 +612,8 @@ export async function getMasterProgramProgress(
     // None of these tiers affect full_body / upper_body / lower_body averaging
     // — the guard only fires when masterSlug === 'calisthenics_upper'.
 
-    // Foundational slugs that must NEVER contribute to a skill-master average.
-    const SKILL_MASTER_FOUNDATIONAL_EXCLUDE = new Set([
-      'push', 'pull', 'legs', 'core',
-      'upper_body', 'lower_body', 'full_body',
-    ]);
+    // (Foundational slugs excluded from a skill-master average: see
+    // SKILL_MASTER_FOUNDATIONAL_EXCLUDE in progression-calc.ts.)
 
     let skillFocusIds: string[] | undefined;
     if (masterSlug === 'calisthenics_upper') {
@@ -643,40 +648,23 @@ export async function getMasterProgramProgress(
       }
     }
 
-    const excluded = EXCLUDED_FROM_AVG[masterSlug] ?? [];
-    const avgChildren = subPrograms.filter(sp => {
-      if (excluded.includes(sp.programId)) return false;
-      if (!configuredChildIds.has(sp.programId)) return false;
-      if (masterSlug === 'calisthenics_upper') {
-        // Tier 1 / 2: explicit focus list → include ONLY these skill IDs.
-        if (skillFocusIds && skillFocusIds.length > 0) {
-          return skillFocusIds.includes(sp.programId);
-        }
-        // Tier 3 safety net: exclude all foundational domain slugs so the
-        // average is computed from actual skill tracks only.
-        return !SKILL_MASTER_FOUNDATIONAL_EXCLUDE.has(sp.programId);
-      }
-      return true;
+    // Averaging (exclusions, configured-only, caps, calisthenics_upper skill focus) is the
+    // shared pure averageMasterChildren (progression-calc.ts) — the level-up screen runs
+    // the same function to show exactly the number stored here.
+    const averaged = averageMasterChildren({
+      masterSlug,
+      subPrograms,
+      configuredChildIds,
+      skillFocusIds,
     });
 
     // ── Defense C: Empty-set abort ────────────────────────────────────────
     // If the filter rejected every child BUT at least one child is genuinely
     // configured (level > 0), this is a routing/config mismatch — NOT a
-    // legitimate "brand-new user with no assessed tracks" state.
-    //
-    // Returning routingEmptySkip=true tells recalculateMasterLevel to abort the
-    // Firestore write entirely, preserving whatever level was already stored.
-    //
-    // The distinction:
-    //   configuredChildIds.size === 0  → user has no assessed children → L0 write is correct
-    //   configuredChildIds.size > 0    → children exist but all were filtered out → abort
-    if (avgChildren.length === 0 && configuredChildIds.size > 0) {
-      // Working-as-designed (confirmed Phase 4c-1 follow-up) — this is the
-      // calisthenics_upper Tier-3 "all children rejected by the averaging
-      // filter" guard, not a bug. Gated behind NODE_ENV (Phase 4c-2): it
-      // was firing on every relevant write and flooding the console.
-      // Logic (the abort itself, routingEmptySkip) is unchanged — only the
-      // log is silenced.
+    // legitimate "brand-new user with no assessed tracks" state. Returning
+    // routingEmptySkip=true tells recalculateMasterLevel to abort the write.
+    if (averaged.routingEmptySkip) {
+      // Working-as-designed (calisthenics_upper Tier-3 guard). Log gated behind NODE_ENV.
       if (process.env.NODE_ENV === 'development') {
         console.warn(
           `[Progression] getMasterProgramProgress: empty filter for master "${masterSlug}" ` +
@@ -696,21 +684,16 @@ export async function getMasterProgramProgress(
       };
     }
 
-    // avgCount falls back to 1 to avoid division-by-zero when no children are
-    // configured yet (brand-new user who hasn't completed any assessment for
-    // this master's domain).  In that case avgLevel = 0, displayLevel = 0.
-    const avgCount = avgChildren.length || 1;
-    const avgLevel = avgChildren.reduce((sum, sp) => sum + sp.level, 0) / avgCount;
-    const avgPercent = avgChildren.reduce((sum, sp) => sum + sp.percent, 0) / avgCount;
-    const cap = MASTER_CAP[masterSlug] ?? Infinity;
-    const displayLevel = Math.min(cap, Math.round(avgLevel));
-    const displayPercent = avgPercent;
-
     return {
-      displayLevel,
-      displayPercent: Math.round(displayPercent * 100) / 100,
+      displayLevel: averaged.displayLevel,
+      displayPercent: averaged.displayPercent,
       subPrograms,
       priorMasterLevel,
+      averagingInputs: {
+        masterSlug,
+        configuredChildIds: Array.from(configuredChildIds),
+        ...(skillFocusIds ? { skillFocusIds } : {}),
+      },
     };
   } catch (error) {
     console.error('Error getting master program progress:', error);
@@ -1329,49 +1312,8 @@ async function loadProgressionRuleForLevel(
   }
 }
 
-/**
- * Calculate total sets performed across all exercises
- */
-function calculateTotalSetsPerformed(exercises: WorkoutExerciseResult[]): number {
-  return exercises.reduce((sum, exercise) => sum + exercise.setsCompleted, 0);
-}
-
-/**
- * Calculate volume breakdown for Dopamine Screen display.
- * Pay-as-you-go: Gain is strictly linear — (Completed Sets / Target Sets) * Total Possible Gain.
- * minSets is ignored; even 1 set earns proportional credit (e.g., 1/10 = 10% of session progress).
- */
-function calculateVolumeBreakdown(
-  setsPerformed: number,
-  requiredSets: number
-): VolumeBreakdown {
-  const volumeRatio = Math.min(1, setsPerformed / requiredSets);
-  return {
-    setsPerformed,
-    requiredSets,
-    volumeRatio,
-    isFullVolume: volumeRatio >= 1,
-  };
-}
-
-/**
- * Calculate performance ratio (actual vs target)
- */
-function calculatePerformanceRatio(exercises: WorkoutExerciseResult[]): number {
-  let totalActual = 0;
-  let totalTarget = 0;
-  
-  for (const exercise of exercises) {
-    const actualReps = exercise.repsPerSet.reduce((sum, r) => sum + r, 0);
-    const targetReps = exercise.targetReps * exercise.setsCompleted;
-    
-    totalActual += actualReps;
-    totalTarget += targetReps;
-  }
-  
-  if (totalTarget === 0) return 1;
-  return totalActual / totalTarget;
-}
+// calculateTotalSetsPerformed / calculateVolumeBreakdown / calculatePerformanceRatio
+// live in progression-calc.ts (pure, shared with the level-up screen).
 
 /**
  * Gate + credit a set of candidate target-program slugs (Progression v2
@@ -1712,7 +1654,7 @@ const CHILD_LABELS: Record<string, string> = {
  * Batch-fetch exercise documents from Firestore for all unique IDs in the log.
  * Returns a map of exerciseId → Exercise for O(1) lookups during classification.
  */
-async function fetchExerciseLookup(
+export async function fetchExerciseLookup(
   exercises: WorkoutExerciseResult[],
 ): Promise<Map<string, Exercise>> {
   const uniqueIds = [...new Set(exercises.map(e => e.exerciseId).filter(Boolean))];
@@ -1726,93 +1668,7 @@ async function fetchExerciseLookup(
   return map;
 }
 
-/**
- * Result of exercise classification — carries diagnostic info for logging.
- */
-interface ClassificationResult {
-  childSlug: string | null;
-  tier: 'targetPrograms' | 'programIds' | 'programLevels' | 'keyword' | null;
-  resolvedFrom?: string;
-}
-
-/**
- * Classify an exercise to a child program slug.
- *
- * The critical step: exercise programIds / targetPrograms contain raw Firestore
- * IDs (e.g. "H2279XsRGDg9G370J7S9"). We resolve each ID to its slug via the
- * programSlugMap, then compare against the child slug list.
- *
- * Master programs (full_body, upper_body, etc.) are skipped during resolution
- * so an exercise linked to both "full_body" and "legs" correctly maps to "legs".
- *
- * Priority order:
- *   1. targetPrograms resolved through slug map
- *   2. programIds resolved through slug map
- *   3. programLevels from the log entry (legacy)
- *   4. Keyword matching on exercise name (last resort)
- */
-function classifyExerciseToChild(
-  exerciseName: string,
-  programLevels: Record<string, number> | undefined,
-  childSlugs: string[],
-  firestoreExercise: Exercise | null | undefined,
-  slugMap: ProgramSlugMap | null,
-): ClassificationResult {
-  const masterSlugs = new Set(Object.keys(KNOWN_MASTER_PROGRAMS));
-
-  // ── Tier 1: targetPrograms → resolve IDs to slugs ─────────────────────
-  if (firestoreExercise?.targetPrograms?.length && slugMap) {
-    for (const tp of firestoreExercise.targetPrograms) {
-      const slug = slugMap.idToSlug.get(tp.programId);
-      if (slug && masterSlugs.has(slug)) continue;
-      if (slug && childSlugs.includes(slug)) {
-        return { childSlug: slug, tier: 'targetPrograms', resolvedFrom: tp.programId };
-      }
-    }
-  }
-
-  // ── Tier 2: programIds → resolve IDs to slugs ─────────────────────────
-  if (firestoreExercise?.programIds?.length && slugMap) {
-    for (const pid of firestoreExercise.programIds) {
-      const slug = slugMap.idToSlug.get(pid);
-      if (slug && masterSlugs.has(slug)) continue;
-      if (slug && childSlugs.includes(slug)) {
-        return { childSlug: slug, tier: 'programIds', resolvedFrom: pid };
-      }
-    }
-  }
-
-  // ── Tier 3: programLevels from the log entry ──────────────────────────
-  if (programLevels) {
-    for (const childSlug of childSlugs) {
-      if (programLevels[childSlug] !== undefined) {
-        return { childSlug, tier: 'programLevels' };
-      }
-    }
-  }
-
-  // ── Tier 4: keyword matching (last resort) ────────────────────────────
-  const name = exerciseName.toLowerCase();
-
-  if (name.includes('pull') || name.includes('row') || name.includes('chin') || name.includes('curl') || name.includes('משיכ') || name.includes('מתח')) {
-    const match = childSlugs.find(id => id.includes('pull'));
-    if (match) return { childSlug: match, tier: 'keyword' };
-  }
-  if (name.includes('squat') || name.includes('lunge') || name.includes('leg') || name.includes('calf') || name.includes('רגל') || name.includes('סקוואט') || name.includes('ירך')) {
-    const match = childSlugs.find(id => id.includes('leg'));
-    if (match) return { childSlug: match, tier: 'keyword' };
-  }
-  if (name.includes('plank') || name.includes('core') || name.includes('abs') || name.includes('ליבה') || name.includes('בטן')) {
-    const match = childSlugs.find(id => id.includes('core'));
-    if (match) return { childSlug: match, tier: 'keyword' };
-  }
-  if (name.includes('push') || name.includes('press') || name.includes('dip') || name.includes('fly') || name.includes('דחיפ') || name.includes('שכיב') || name.includes('לחיצ')) {
-    const match = childSlugs.find(id => id.includes('push'));
-    if (match) return { childSlug: match, tier: 'keyword' };
-  }
-
-  return { childSlug: null, tier: null };
-}
+// classifyExerciseToChild lives in progression-calc.ts (pure, shared with the level-up screen).
 
 /**
  * Build muscle group progress breakdown from exercises.
@@ -1943,19 +1799,13 @@ async function processBottomUpMasterCompletion(
       continue;
     }
 
-    // Pay-as-you-go: linear (Completed/Target) × baseGain
-    const childVolumeRatio = Math.min(1, childSets / childRule.requiredSetsForFullGain);
-    const childBaseGain = childVolumeRatio * childRule.baseSessionGain;
-
-    const childPerfRatio = calculatePerformanceRatio(childExercises);
-    let childBonusGain = 0;
-    if (childPerfRatio > 1) {
-      const excessPercent = (childPerfRatio - 1) * 100;
-      childBonusGain = Math.min(
-        excessPercent * (childRule.bonusPercent / 100),
-        childRule.bonusPercent,
-      ) * childVolumeRatio;
-    }
+    // Pay-as-you-go: linear (Completed/Target) × baseGain (+ capped, volume-scaled
+    // performance bonus) — the shared pure formula in progression-calc.ts.
+    const {
+      volumeRatio: childVolumeRatio,
+      baseGain: childBaseGain,
+      bonusGain: childBonusGain,
+    } = computeSessionGain(childExercises, childRule);
 
     const childTotalGain = childBaseGain + childBonusGain;
 
@@ -2170,6 +2020,57 @@ async function processBottomUpMasterCompletion(
  * @returns Promise<WorkoutCompletionResult>
  */
 /**
+ * Master-program detection for a completion (three tiers): direct doc →
+ * query by isMaster (id or name slug) → hardcoded KNOWN_MASTER_PROGRAMS.
+ * Returns null for a leaf program. Read-only — shared with the level-up
+ * screen's input loader so both pick the same flow.
+ */
+export async function resolveMasterProgram(activeProgramId: string): Promise<Program | null> {
+  let masterProgram: Program | null = null;
+
+  // Tier 1: Direct document lookup (works if doc ID === activeProgramId)
+  try {
+    masterProgram = await getProgram(activeProgramId);
+    if (masterProgram && !masterProgram.isMaster) {
+      masterProgram = null;
+    }
+  } catch (e) {
+    console.warn('[Progression] Tier 1 master lookup failed:', e);
+  }
+
+  // Tier 2: Query all master programs and match by ID or slug
+  if (!masterProgram) {
+    try {
+      const q = query(collection(db, PROGRAMS_COLLECTION), where('isMaster', '==', true));
+      const snapshot = await getDocs(q);
+      const masters = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
+      const slug = activeProgramId.toLowerCase().replace(/[\s-]+/g, '_');
+      masterProgram = masters.find(m =>
+        m.id === activeProgramId ||
+        m.name?.toLowerCase().replace(/[\s-]+/g, '_') === slug
+      ) ?? null;
+      if (masterProgram) {
+        console.log(`[Progression] Tier 2: Matched master "${masterProgram.name}" (doc ID: ${masterProgram.id}) for slug "${activeProgramId}"`);
+      }
+    } catch (e) {
+      console.warn('[Progression] Tier 2 master query failed:', e);
+    }
+  }
+
+  // Tier 3: Hardcoded known masters (bulletproof fallback)
+  if (!masterProgram && KNOWN_MASTER_PROGRAMS[activeProgramId]) {
+    masterProgram = {
+      id: activeProgramId,
+      isMaster: true,
+      subPrograms: KNOWN_MASTER_PROGRAMS[activeProgramId],
+      name: activeProgramId.replace(/_/g, ' '),
+    } as Program;
+    console.log(`[Progression] Tier 3: Using hardcoded master config for "${activeProgramId}" → children [${masterProgram.subPrograms!.join(', ')}]`);
+  }
+  return masterProgram?.isMaster && masterProgram.subPrograms?.length ? masterProgram : null;
+}
+
+/**
  * G8.2: the result for a strength workout by a user with no questionnaire result. success is
  * true (nothing failed — a false here would make the summary's fallback retry), zero gains,
  * nothing written.
@@ -2252,47 +2153,7 @@ export async function processWorkoutCompletion(
     // Master programs (e.g., full_body) do NOT have their own progression rules.
     // Their gain is calculated bottom-up from child programs.
     // Three-tier detection: direct doc → query by isMaster → hardcoded fallback.
-    let masterProgram: Program | null = null;
-
-    // Tier 1: Direct document lookup (works if doc ID === activeProgramId)
-    try {
-      masterProgram = await getProgram(activeProgramId);
-      if (masterProgram && !masterProgram.isMaster) {
-        masterProgram = null;
-      }
-    } catch (e) {
-      console.warn('[Progression] Tier 1 master lookup failed:', e);
-    }
-
-    // Tier 2: Query all master programs and match by ID or slug
-    if (!masterProgram) {
-      try {
-        const q = query(collection(db, PROGRAMS_COLLECTION), where('isMaster', '==', true));
-        const snapshot = await getDocs(q);
-        const masters = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Program));
-        const slug = activeProgramId.toLowerCase().replace(/[\s-]+/g, '_');
-        masterProgram = masters.find(m =>
-          m.id === activeProgramId ||
-          m.name?.toLowerCase().replace(/[\s-]+/g, '_') === slug
-        ) ?? null;
-        if (masterProgram) {
-          console.log(`[Progression] Tier 2: Matched master "${masterProgram.name}" (doc ID: ${masterProgram.id}) for slug "${activeProgramId}"`);
-        }
-      } catch (e) {
-        console.warn('[Progression] Tier 2 master query failed:', e);
-      }
-    }
-
-    // Tier 3: Hardcoded known masters (bulletproof fallback)
-    if (!masterProgram && KNOWN_MASTER_PROGRAMS[activeProgramId]) {
-      masterProgram = {
-        id: activeProgramId,
-        isMaster: true,
-        subPrograms: KNOWN_MASTER_PROGRAMS[activeProgramId],
-        name: activeProgramId.replace(/_/g, ' '),
-      } as Program;
-      console.log(`[Progression] Tier 3: Using hardcoded master config for "${activeProgramId}" → children [${masterProgram.subPrograms!.join(', ')}]`);
-    }
+    const masterProgram = await resolveMasterProgram(activeProgramId);
 
     if (masterProgram?.isMaster && masterProgram.subPrograms?.length) {
       console.log(`[Progression] "${activeProgramId}" is a MASTER → delegating to bottom-up flow`);
@@ -2311,90 +2172,33 @@ export async function processWorkoutCompletion(
     const setsPerformed = calculateTotalSetsPerformed(exercises);
     const requiredSets = rule.requiredSetsForFullGain;
     
-    // Pay-as-you-go: strictly linear — (Completed Sets / Target Sets) × Total Possible Gain.
-    // minSets is ignored; 1 set with target 10 = 10% of session progress.
-    const volumeRatio = Math.min(1, setsPerformed / requiredSets);
-    
     // Calculate volume breakdown for Dopamine Screen
     const volumeBreakdown = calculateVolumeBreakdown(setsPerformed, requiredSets);
-    
-    // Calculate performance ratio for bonus
-    const performanceRatio = calculatePerformanceRatio(exercises);
-    
-    // Base gain: linear proportion of baseSessionGain (no minSets gate)
-    const baseGain = volumeRatio * rule.baseSessionGain;
-    
-    // Apply bonus if exceeding target reps
-    let bonusGain = 0;
-    if (performanceRatio > 1) {
-      const excessPercent = (performanceRatio - 1) * 100;
-      // Bonus is also scaled by volume ratio
-      bonusGain = Math.min(excessPercent * (rule.bonusPercent / 100), rule.bonusPercent) * volumeRatio;
-    }
+
+    // Pay-as-you-go: strictly linear — (Completed Sets / Target Sets) × Total Possible Gain,
+    // plus the capped, volume-scaled bonus for exceeding target reps. Shared pure formula
+    // (progression-calc.ts) — the level-up screen computes the same numbers instantly.
+    const { volumeRatio, baseGain, bonusGain } = computeSessionGain(exercises, rule);
     
     // ── MANUAL WEIGHTED PROGRESS: Each goal carries its own admin-defined progressBonus ──
     // Strict logic: actualValue >= targetValue → add the exact progressBonus.
     //              actualValue < targetValue  → add 0%.
     // Fallback: if a goal has no progressBonus defined, default to 5%.
     let goalBonusGain = 0;
-    const newlyCompletedGoalIds: string[] = [];
-    const DEFAULT_PROGRESS_BONUS = 5; // Fallback for goals without admin-defined progressBonus
+    let newlyCompletedGoalIds: string[] = [];
 
     try {
       const levelSettings = await getProgramLevelSetting(activeProgramId, currentLevel);
       const levelGoals: LevelGoal[] = levelSettings?.targetGoals || [];
-      const alreadyCompleted = new Set(currentTrack.completedGoalIds || []);
-
-      for (const goal of levelGoals) {
-        const bonus = (goal as any).progressBonus ?? DEFAULT_PROGRESS_BONUS;
-
-        // Find matching exercise in this workout's results
-        const match = exercises.find(
-          (ex) =>
-            ex.exerciseId === goal.exerciseId ||
-            ex.exerciseName.toLowerCase().includes(goal.exerciseName.toLowerCase()),
-        );
-        if (!match) {
-          console.log(`[Progression] Goal "${goal.exerciseName}": not in workout → +0%`);
-          continue;
-        }
-
-        // Evaluate: best set value vs target
-        const bestValue =
-          goal.unit === 'reps'
-            ? Math.max(...match.repsPerSet, 0)
-            : match.repsPerSet.reduce((sum, r) => sum + r, 0); // total hold seconds
-
-        if (bestValue >= goal.targetValue) {
-          // Goal met. Behind PROGRESSION_RULES_FROM_ADMIN_V1 the progressBonus
-          // is a ONE-TIME weight per goal per level (completedGoalIds resets on
-          // level-up): paid the first time the goal is met, never again at this
-          // level. Flag off (today): it is re-added on EVERY session that
-          // repeats the goal (+5% default per workout) — gated because removing
-          // that materially slows progression for users who hit their goals.
-          if (PROGRESSION_RULES_FROM_ADMIN_V1 && alreadyCompleted.has(goal.exerciseId)) {
-            console.log(
-              `[Progression] Goal "${goal.exerciseName}": already completed at this level → +0%`,
-            );
-            continue;
-          }
-          goalBonusGain += bonus;
-          if (!alreadyCompleted.has(goal.exerciseId)) {
-            newlyCompletedGoalIds.push(goal.exerciseId);
-          }
-          if (PROGRESSION_RULES_FROM_ADMIN_V1) alreadyCompleted.add(goal.exerciseId);
-          console.log(
-            `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
-              ` ✅ MET → +${bonus}%`,
-          );
-        } else {
-          // STRICT: goal not met → 0%
-          console.log(
-            `[Progression] Goal "${goal.exerciseName}": ${bestValue}/${goal.targetValue} ${goal.unit}` +
-              ` ❌ NOT MET → +0% (needed ${goal.targetValue}, bonus would be ${bonus}%)`,
-          );
-        }
-      }
+      // Strict per-goal evaluation (met → exact progressBonus, default 5%; not met → 0).
+      // Behind PROGRESSION_RULES_FROM_ADMIN_V1 the bonus is one-time per goal per level;
+      // flag off (today) it is re-added on every session that repeats the goal.
+      ({ goalBonusGain, newlyCompletedGoalIds } = computeGoalBonus({
+        goals: levelGoals,
+        exercises,
+        completedGoalIds: currentTrack.completedGoalIds,
+        oneTimeGoals: PROGRESSION_RULES_FROM_ADMIN_V1,
+      }));
 
       if (goalBonusGain > 0) {
         console.log(
@@ -2420,51 +2224,10 @@ export async function processWorkoutCompletion(
     //
     // Only fires once per session (we break on the first qualifying exercise)
     // because mastery is a session-level event, not a per-exercise reward.
-    const SKILL_PROGRAMS = new Set([
-      'front_lever',
-      'planche',
-      'muscle_up',
-      'handstand',
-      'hspu',
-      'back_lever',
-      'human_flag',
-      'one_arm_pullup',
-      'one_arm_pushup',
-    ]);
-    const SKILL_REP_THRESHOLD = 5;     // 5 clean bilateral reps
-    const SKILL_HOLD_THRESHOLD = 10;   // 10s isometric hold
-    const SKILL_MASTERY_BONUS = 17.5;  // midpoint of the agreed 15-20% band
-    const ISOMETRIC_HEURISTIC_REPS = 5; // any single "rep" ≥ 5 implies a hold log
-
-    let masteryBonusGain = 0;
-    let masteryTriggerExercise: string | null = null;
+    const { masteryBonusGain, trigger: masteryTriggerExercise } =
+      computeSkillMasteryBonus(activeProgramId, exercises);
 
     if (SKILL_PROGRAMS.has(activeProgramId)) {
-      for (const ex of exercises) {
-        if (ex.repsPerSet.length === 0) continue;
-
-        // Heuristic: holds (time-based) typically log values >= 5 across all
-        // sets (since 5s is the minimum meaningful hold), while bodyweight
-        // skill reps cluster around 1-5. We treat a set whose every value
-        // is >= 5 as a hold log.
-        const isLikelyHold = ex.repsPerSet.every(r => r >= ISOMETRIC_HEURISTIC_REPS);
-        if (isLikelyHold) {
-          const totalHold = ex.repsPerSet.reduce((s, r) => s + r, 0);
-          if (totalHold >= SKILL_HOLD_THRESHOLD) {
-            masteryBonusGain = SKILL_MASTERY_BONUS;
-            masteryTriggerExercise = `${ex.exerciseName} (${totalHold}s hold)`;
-            break;
-          }
-        } else {
-          const bestSet = Math.max(...ex.repsPerSet, 0);
-          if (bestSet >= SKILL_REP_THRESHOLD) {
-            masteryBonusGain = SKILL_MASTERY_BONUS;
-            masteryTriggerExercise = `${ex.exerciseName} (${bestSet} reps)`;
-            break;
-          }
-        }
-      }
-
       if (masteryBonusGain > 0 && masteryTriggerExercise) {
         console.log(
           `[Progression] 🏆 SKILL MASTERY in "${activeProgramId}": +${masteryBonusGain}% from ${masteryTriggerExercise}`,

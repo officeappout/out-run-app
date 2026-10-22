@@ -256,6 +256,16 @@ export interface MasterProgramProgress {
    * recalculateMasterLevel aborts the Firestore write to prevent level wipeout.
    */
   routingEmptySkip?: boolean;
+  /**
+   * The inputs the average was computed from (absent on the abort path) — read
+   * by the level-up screen to re-run the same pure averageMasterChildren with
+   * this session's child gains applied (progression-calc.ts). Display-only.
+   */
+  averagingInputs?: {
+    masterSlug: string;
+    configuredChildIds: string[];
+    skillFocusIds?: string[];
+  };
 }
 
 /**
