@@ -299,6 +299,6 @@
   "plannerV2.time.save": "שמירה",
   "plannerV2.time.move": "להזיז ליום אחר",
   "plannerV2.time.open": "לאימון",
-  "plannerV2.time.notForRun": "השעה של הריצה נקבעת בתזכורות",
+  "plannerV2.time.notForRun": "השעה של הריצה נקבעת לפי התזכורת שלך",
   "plannerV2.time.past": "היום הזה כבר עבר"
 }

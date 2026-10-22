@@ -20,6 +20,7 @@ import type { PlannerWbData } from '@/features/schedule/week-builder/planner/pla
 import type { WbSession } from '@/features/schedule/week-builder/types';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useShownPlannedTime } from '../hooks/useShownPlannedTime';
 
 export interface PlannedSessionSheetProps {
   /** null = closed. */
@@ -41,6 +42,7 @@ type ProfileLike = {
 
 export default function PlannedSessionSheet({ session, iso, isPast, userId, onClose, onSaved, onMove, onOpenWorkout }: PlannedSessionSheetProps) {
   const t = useT(home);
+  const shownTime = useShownPlannedTime();
   const lifestyle = useUserStore((s) => (s.profile as ProfileLike | null)?.lifestyle);
   const [h, setH] = useState(7);
   const [m, setM] = useState(0);
@@ -94,7 +96,7 @@ export default function PlannedSessionSheet({ session, iso, isPast, userId, onCl
               </div>
             ) : (
               <p className="rounded-[14px] bg-v2-surface px-3.5 py-3 text-[13.5px] font-bold text-v2-muted">
-                {session.data?.startTime ?? (isPast ? t('plannerV2.time.past') : t('plannerV2.time.notForRun'))}
+                {shownTime(session.data?.startTime) ?? (isPast ? t('plannerV2.time.past') : t('plannerV2.time.notForRun'))}
               </p>
             )}
             {error && <p className="mt-2 text-center text-[13px] font-bold text-red-600">{t('plannerV2.saveError')}</p>}

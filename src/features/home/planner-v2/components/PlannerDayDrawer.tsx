@@ -24,6 +24,7 @@ import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
 import { buildDayDrawer, type DayDrawerDone } from '../lib/dayDrawer';
 import { buildDayRings, dayMinutesByTrack } from '../lib/dayRings';
+import { useShownPlannedTime } from '../hooks/useShownPlannedTime';
 
 export interface PlannerDayDrawerProps {
   /** null = closed. */
@@ -50,6 +51,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
   const t = useT(home);
   const router = useRouter();
   const locale = useLocaleStore((s) => s.locale);
+  const shownTime = useShownPlannedTime();
   const model = useMemo(() => {
     if (!p.iso) return null;
     const rings = buildDayRings({ minutes: dayMinutesByTrack(p.workouts, p.day), steps: p.day?.steps ?? 0, stepGoal: p.stepGoal });
@@ -138,7 +140,7 @@ export default function PlannerDayDrawer(p: PlannerDayDrawerProps) {
                       {session && <SessionIcon s={session} />}
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate text-[15px] font-extrabold text-v2-ink">{s.titleHe}</span>
-                        <span className="truncate text-[12px] font-bold text-v2-muted">{[s.time, s.detailHe].filter(Boolean).join(' · ')}</span>
+                        <span className="truncate text-[12px] font-bold text-v2-muted">{[shownTime(s.time), s.detailHe].filter(Boolean).join(' · ')}</span>
                       </span>
                       {(s.timeEditable || s.movable) && <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0 text-v2-muted" aria-hidden />}
                     </button>
