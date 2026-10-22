@@ -76,7 +76,7 @@ export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, 
       unit={left != null ? 'מ׳' : target?.unit ?? null}
       warn={warn}
       action={
-        <Button variant="cta" size="md" onClick={onDone}>
+        <Button variant="cta" size="md" onClick={() => { hapticTap('impact'); onDone(); }}>
           סיימתי
           <Check size={18} strokeWidth={2.75} aria-hidden />
         </Button>
