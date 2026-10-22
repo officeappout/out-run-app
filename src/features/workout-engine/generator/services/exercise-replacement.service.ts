@@ -13,6 +13,7 @@ import { UserFullProfile } from '@/types/user-profile';
 import { Park } from '@/types/admin-types';
 import { selectExecutionMethodWithBrand } from './execution-method-selector.service';
 import { isHiddenSkillExercise } from '@/lib/hidden-programs';
+import { pickFittingParkMethod } from '../../players/strength/logic/equipment-filter';
 
 export interface AlternativeExerciseOption {
   exercise: Exercise;
@@ -68,6 +69,29 @@ function debugMethodLocations(exercise: Exercise): string {
  *  the exercise being replaced is itself one (the user trains that skill). */
 function isOfferableSwap(ex: Exercise, current: Exercise): boolean {
   return !isHiddenSkillExercise(ex) || isHiddenSkillExercise(current);
+}
+
+/**
+ * enable_swap_fixes_v1 — optional query inputs. Omitted → today's behaviour exactly.
+ *   excludeIds          — exercises already in the workout (every slot / station): never offered.
+ *   allowedEquipmentIds — a hybrid station's park gear: filtered BEFORE the cap of 3, so the
+ *                         list is not emptied by a post-cap filter while fitting candidates exist;
+ *                         the fitting park method becomes the option's method.
+ */
+export interface SwapQueryOptions {
+  excludeIds?: ReadonlySet<string> | null;
+  allowedEquipmentIds?: readonly string[] | null;
+}
+
+async function resolveCandidateMethod(
+  ex: Exercise,
+  location: ExecutionLocation,
+  park: Park | null,
+  userProfile: UserFullProfile,
+  opts: SwapQueryOptions | undefined,
+): Promise<ExecutionMethod | null> {
+  if (opts?.allowedEquipmentIds) return pickFittingParkMethod(ex, opts.allowedEquipmentIds) ?? null;
+  return (await selectExecutionMethodWithBrand(ex, location, park, userProfile)) ?? null;
 }
 
 // ── Smart Select 3 ──
@@ -139,6 +163,7 @@ export async function getExerciseVariations(
   park: Park | null,
   userProfile: UserFullProfile,
   activeProgramId?: string,
+  opts?: SwapQueryOptions,
 ): Promise<AlternativeExerciseOption[]> {
   if (!currentExercise.base_movement_id || currentExercise.base_movement_id === 'unspecified_movement') {
     console.warn(
@@ -148,7 +173,6 @@ export async function getExerciseVariations(
   }
 
   const allExercises = withoutTestExercises(await getAllExercisesCached()); // H5: never offer a test item as a swap
-  const { selectExecutionMethodWithBrand } = await import('./execution-method-selector.service');
 
   const all: AlternativeExerciseOption[] = [];
   let originalGearType: RequiredGearType | undefined;
@@ -165,6 +189,7 @@ export async function getExerciseVariations(
     if (ex.id === currentExercise.id) continue;
     if (ex.base_movement_id !== currentExercise.base_movement_id) continue;
     if (!isOfferableSwap(ex, currentExercise)) continue;
+    if (opts?.excludeIds?.has(ex.id)) continue;
 
     familyCount++;
     const exLevel = getExerciseLevel(ex, activeProgramId);
@@ -187,9 +212,9 @@ export async function getExerciseVariations(
       continue;
     }
 
-    const selectedMethod = await selectExecutionMethodWithBrand(ex, location, park, userProfile);
+    const selectedMethod = await resolveCandidateMethod(ex, location, park, userProfile, opts);
     if (!selectedMethod) {
-      console.log(`  [FILTERED] "${nameOf(ex)}" — Equipment mismatch (selectExecutionMethodWithBrand → null)`);
+      console.log(`  [FILTERED] "${nameOf(ex)}" — Equipment mismatch (no fitting method)`);
       continue;
     }
 
@@ -224,6 +249,7 @@ export async function getAlternativeExercises(
    * collection read PER exercise lacking a method at the target location.
    */
   pool?: Exercise[],
+  opts?: SwapQueryOptions,
 ): Promise<AlternativeExerciseOption[]> {
   if (!currentExercise.movementGroup) {
     console.warn(
@@ -246,6 +272,7 @@ export async function getAlternativeExercises(
   for (const ex of allExercises) {
     if (ex.id === currentExercise.id) continue;
     if (excludeIds?.has(ex.id)) continue;
+    if (opts?.excludeIds?.has(ex.id)) continue;
     if (ex.movementGroup !== currentExercise.movementGroup) continue;
     if (!isOfferableSwap(ex, currentExercise)) continue;
 
@@ -270,7 +297,7 @@ export async function getAlternativeExercises(
       continue;
     }
 
-    const selectedMethod = await selectExecutionMethodWithBrand(ex, location, park, userProfile);
+    const selectedMethod = await resolveCandidateMethod(ex, location, park, userProfile, opts);
     if (!selectedMethod) {
       console.log(`  [FILTERED] "${nameOf(ex)}" — Equipment mismatch`);
       continue;

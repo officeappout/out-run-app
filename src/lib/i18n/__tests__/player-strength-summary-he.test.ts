@@ -19,7 +19,7 @@ type Key = keyof typeof he;
 
 describe('player (he) strength summary + dopamine screen — byte-identical to the pre-extraction literals', () => {
   it('owns exactly the keys this test pins (count per prefix)', () => {
-    const PREFIXES: Record<string, number> = { strengthSummary: 68, dopamine: 8 };
+    const PREFIXES: Record<string, number> = { strengthSummary: 69, dopamine: 8 };
     for (const [prefix, n] of Object.entries(PREFIXES)) {
       expect([prefix, Object.keys(he).filter((k) => k.startsWith(`${prefix}.`)).length]).toEqual([prefix, n]);
     }

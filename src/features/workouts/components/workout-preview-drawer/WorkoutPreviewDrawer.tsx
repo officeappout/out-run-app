@@ -11,6 +11,8 @@ import { useSheetScrollChain } from '@/hooks/useSheetScrollChain';
 import { X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
+import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import StrengthOverviewCard from '@/features/workout-engine/components/StrengthOverviewCard';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import type { ExecutionLocation } from '@/features/content/exercises';
@@ -173,6 +175,7 @@ export default function WorkoutPreviewDrawer({
     handleShare,
   } = useFavoritesActions({ generatedWorkout, workout, workoutLocation });
 
+  const swapFixesOn = useSwapFixesV1();
   const {
     replacementModalOpen,
     exerciseToReplace,
@@ -189,7 +192,12 @@ export default function WorkoutPreviewDrawer({
       (generatedWorkout?.executionLocation as string | undefined) ||
       (workoutLocation as string | undefined) ||
       'park',
+    swapFixesOn,
   });
+  const swapExcludeIds = React.useMemo(
+    () => (swapFixesOn && generatedWorkout ? collectWorkoutExerciseIds(generatedWorkout.exercises as any) : null),
+    [swapFixesOn, generatedWorkout],
+  );
 
   const isOnline = useOnlineStatus();
   const workoutTitleForPresence = generatedWorkout?.title ?? workout?.title ?? '';
@@ -800,6 +808,7 @@ export default function WorkoutPreviewDrawer({
           park={null}
           userProfile={profile as any}
           onReplace={handleExerciseReplace}
+          excludeExerciseIds={swapExcludeIds}
         />
       )}
     </>

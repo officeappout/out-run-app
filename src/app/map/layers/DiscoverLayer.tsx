@@ -15,6 +15,10 @@ import type { CompiledLegPlanRoute } from '@/features/parks/core/services/leg-pl
 import HybridOverviewScreen from '@/features/parks/core/components/hybrid/HybridOverviewScreen';
 import OverviewTitleBar from '@/features/parks/core/components/hybrid/OverviewTitleBar';
 import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
+import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
+import { swapPyramidStep } from '@/features/workout-engine/players/strength/logic/pyramid-step-swap';
+import { useHybridSwapPark } from '@/features/workout-engine/hybrid/useHybridSwapPark';
 import { adaptationStampForPlan, swapStampForEntry } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import { getLocalizedText } from '@/features/content/shared/localized-text.types';
 import { useProgramMap } from '@/features/workouts/components/workout-preview-drawer/hooks/useProgramMap';
@@ -352,7 +356,13 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
     MAP_OVERVIEW_CHROME_V1 && mapMode === 'freeRun' && freeRunStep === 'overview' && !!hybridComposed;
   // Hybrid station exercise detail (tap) + replacement (swap) — the REAL preview drawers.
   const [hybridDetailEx, setHybridDetailEx] = useState<any | null>(null);
-  const [hybridSwap, setHybridSwap] = useState<{ segIndex: number; exIndex: number; exercise: any; level: number } | null>(null);
+  const [hybridSwap, setHybridSwap] = useState<{ segIndex: number; exIndex: number; exercise: any; level: number; stepIndex?: number } | null>(null);
+  // enable_swap_fixes_v1 — overview swap: the station's park, the session's exercises, per-step pyramid swap.
+  const swapFixesOn = useSwapFixesV1();
+  const hybridSwapPark = useHybridSwapPark(
+    hybridSwap ? (hybridComposed?.plan.segments[hybridSwap.segIndex] as any)?.parkId : null,
+    swapFixesOn,
+  );
   const { programMap: hybridProgramMap } = useProgramMap();
 
   // Carousel-config payload — captured when the user taps "Generate" in the
@@ -2345,9 +2355,16 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 composed={hybridComposed}
                 cityName={userCityName}
                 onExerciseTap={(we) => setHybridDetailEx(we)}
-                onSwapExercise={(segIndex, exIndex, we) =>
-                  setHybridSwap({ segIndex, exIndex, exercise: we?.exercise, level: we?.programLevel ?? we?.exercise?.level ?? 1 })
-                }
+                onSwapExercise={(segIndex, exIndex, we, stepIndex) => {
+                  const step = swapFixesOn && stepIndex != null ? we?.pyramidSequence?.[stepIndex] : undefined;
+                  setHybridSwap({
+                    segIndex,
+                    exIndex,
+                    exercise: we?.exercise,
+                    level: step?.level ?? we?.programLevel ?? we?.exercise?.level ?? 1,
+                    ...(step ? { stepIndex } : {}),
+                  });
+                }}
                 onBack={() => { setFreeRunStep(overviewBackStep); logic.setFocusedRoute(null); }}
                 // needs-assessment link follow-up: only present when the composed
                 // session actually carries assessmentDomains (the needsAssessment
@@ -2472,8 +2489,15 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                 currentExercise={hybridSwap.exercise}
                 currentLevel={hybridSwap.level}
                 location={'park' as ExecutionLocation}
-                park={null}
+                park={swapFixesOn ? hybridSwapPark : null}
                 userProfile={profile as any}
+                excludeExerciseIds={
+                  swapFixesOn && hybridComposed
+                    ? collectWorkoutExerciseIds(
+                        hybridComposed.plan.segments.flatMap((sg: any) => (sg?.kind === 'strength' ? sg.content?.exercises ?? [] : [])),
+                      )
+                    : null
+                }
                 onReplace={(newExercise, executionMethod, levelComparison, meta) => {
                   // Stability: mutate hybridComposed at [segIndex][exIndex], keeping the
                   // prescription (sets/reps/rest). runHybridPlan runs the swapped plan.
@@ -2510,6 +2534,15 @@ export default function DiscoverLayer({ logic, devSim, initialOpenRun, targetSte
                     const exercises: any[] = [...(seg.content.exercises ?? [])];
                     const current = exercises[exIndex];
                     if (!current) return prev;
+                    if (hybridSwap.stepIndex != null && Array.isArray(current.pyramidSequence)) {
+                      // enable_swap_fixes_v1: only the tapped pyramid step changes.
+                      exercises[exIndex] = {
+                        ...current,
+                        pyramidSequence: swapPyramidStep(current.pyramidSequence, hybridSwap.stepIndex, newExercise, executionMethod, meta?.toLevel),
+                      };
+                      const stepSeg = { ...seg, content: { ...seg.content, exercises } };
+                      return { ...prev, plan: { ...prev.plan, segments: prev.plan.segments.map((s, i) => (i === segIndex ? stepSeg : s)) } };
+                    }
                     exercises[exIndex] = {
                       ...current,
                       exercise: newExercise,

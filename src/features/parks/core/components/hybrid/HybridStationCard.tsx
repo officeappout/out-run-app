@@ -62,7 +62,7 @@ export interface HybridStationCardProps {
   onToggleWarmupActive?: () => void;
   onToggleWarmupExpanded?: () => void;
   onExerciseTap?: (we: EngineWorkoutExercise) => void;
-  onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
+  onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise, stepIndex?: number) => void;
 }
 
 export default function HybridStationCard({
@@ -180,7 +180,7 @@ export default function HybridStationCard({
                               uniLabel={uniLabel}
                               parentName={parentName}
                               onTap={(parentEx) => onExerciseTap?.(parentEx)}
-                              onSwapStep={(parentEx) => onSwapExercise?.(i, exs.indexOf(parentEx), parentEx)}
+                              onSwapStep={(parentEx, stepIdx) => onSwapExercise?.(i, exs.indexOf(parentEx), parentEx, stepIdx)}
                             />
                           ));
                         }
