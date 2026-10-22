@@ -3,7 +3,8 @@
  * Every input is zod-validated again on the server (execute.server.ts) even though the
  * definitions are `strict`; a name not in this list is never executed.
  *
- * Wave 3: navigation + the operations numbers. Wave 4 adds the product-analytics tools.
+ * Wave 3: navigation + the operations numbers. Wave 4: the product-analytics batch 1 (the
+ * existing /admin/journey computations — product-metrics.server.ts).
  * The list order is STABLE (it is part of the cached prompt prefix) — append, never reorder.
  */
 import type Anthropic from '@anthropic-ai/sdk';
@@ -85,6 +86,109 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
     name: 'get_ai_costs',
     description:
       'Estimated AI spend: today, the admin assistant today, last 7 days by day, month to date, and the configured daily budgets. definitionId ai_cost.',
+    input_schema: empty,
+    zod: z.object({}).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  // ── wave 4: product advisor, batch 1 (existing computations of /admin/journey) ──
+  {
+    name: 'get_north_star',
+    description:
+      'WAE (weekly active exercisers), workouts per active user, DAU, MAU, stickiness, and the last 30 days of daily actives in weekly buckets. Optional segment filters (null = all): cityAuthorityId (an authorities id from another tool), source/campaign (marketing attribution), sex, level, program (strength program slug, running, map_only), ageFrom/ageTo. definitionId wae.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cityAuthorityId: { type: ['string', 'null'] },
+        source: { type: ['string', 'null'] },
+        campaign: { type: ['string', 'null'] },
+        sex: { type: ['string', 'null'], enum: ['male', 'female', 'other', null] },
+        level: { type: ['string', 'null'], enum: ['beginner', 'intermediate', 'advanced', null] },
+        program: { type: ['string', 'null'] },
+        ageFrom: { type: ['integer', 'null'] },
+        ageTo: { type: ['integer', 'null'] },
+      },
+      required: ['cityAuthorityId', 'source', 'campaign', 'sex', 'level', 'program', 'ageFrom', 'ageTo'],
+      additionalProperties: false,
+    },
+    zod: z
+      .object({
+        cityAuthorityId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).nullable(),
+        source: z.string().trim().max(80).nullable(),
+        campaign: z.string().trim().max(120).nullable(),
+        sex: z.enum(['male', 'female', 'other']).nullable(),
+        level: z.enum(['beginner', 'intermediate', 'advanced']).nullable(),
+        program: z.string().trim().max(80).nullable(),
+        ageFrom: z.number().int().min(10).max(100).nullable(),
+        ageTo: z.number().int().min(10).max(100).nullable(),
+      })
+      .strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_retention_cohorts',
+    description:
+      'Weekly signup cohorts (newest 8): size and % active on day 1/7/14/30; overall D7 retention; resurrected users. Cohorts under 50 users have no percentages. Not segmented. definitionId cohort_dN.',
+    input_schema: empty,
+    zod: z.object({}).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_retention_drivers',
+    description:
+      'Which first-week behaviours go with staying (≥1 real workout on days 14-28): per behaviour, retained % with vs without and the lift. Correlation, not cause. definitionId retained_14_28.',
+    input_schema: empty,
+    zod: z.object({}).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_onboarding_stall',
+    description:
+      'For users who signed up in the last N days (default 30, 7-90): where they are stuck in onboarding now (a snapshot by step, not a funnel), the road to the first workout within 7 days, location permission answers, and how many finished onboarding but never trained. definitionId onboarding_stall / first_workout_road.',
+    input_schema: {
+      type: 'object',
+      properties: { days: { type: ['integer', 'null'], description: '7-90, null = 30' } },
+      required: ['days'],
+      additionalProperties: false,
+    },
+    zod: z.object({ days: z.number().int().min(7).max(90).nullable() }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_push_performance',
+    description:
+      'Push notifications by type × copy variant (top 10 by volume): sent, delivered %, opened %, acted %, average minutes to action; plus the push types that are NOT measured. Optional channel and last-N-days filter. definitionId push_delivered_opened_acted.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: ['string', 'null'],
+          enum: ['progression', 'retention', 'onboarding_dropoff', 'training_reminder', 'encouragement', 'social', 'chat', 'health_milestone', 'community', 'contribution_status', 'week_start', 'coach', null],
+        },
+        days: { type: ['integer', 'null'], description: '1-180, null = all time' },
+      },
+      required: ['channel', 'days'],
+      additionalProperties: false,
+    },
+    zod: z
+      .object({
+        channel: z
+          .enum(['progression', 'retention', 'onboarding_dropoff', 'training_reminder', 'encouragement', 'social', 'chat', 'health_milestone', 'community', 'contribution_status', 'week_start', 'coach'])
+          .nullable(),
+        days: z.number().int().min(1).max(180).nullable(),
+      })
+      .strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_push_funnel',
+    description:
+      'Push → workout funnel, all time: sent → delivered → opened → started a workout, overall and per measured category. definitionId push_started_workout.',
     input_schema: empty,
     zod: z.object({}).strict(),
     minRole: 'super',
