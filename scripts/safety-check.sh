@@ -242,7 +242,6 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   # 22.10.2026 regional-run cleanup: rename / archive-as-duplicate of still-pending docs; buildValidatedDoc update mode, updateTime precondition, never deletes.
   "scripts/routes-nationwide/lib/cleanup-apply.node.ts"
-  "scripts/routes-nationwide/cleanup-regional-pending.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
   # RC10 (22.10.2026): field-level {displayRole:'connector'} tag on one
   # authority's official_routes — buildValidatedDoc update mode at the write

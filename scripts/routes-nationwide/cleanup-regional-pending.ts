@@ -12,6 +12,7 @@
  * Touches ONLY docs that are regional-council, importBatchId nationwide-*,
  * status 'pending' AND published false. Writes are guarded by read-time updateTime.
  *
+ * (Writes go through lib/cleanup-apply.node.ts, which is the chokepoint-migrated writer; this CLI only reads and plans.)
  * DEFAULT = DRY-RUN (reads prod only). Writes only with --apply --project appout-1 + typed YES.
  *   npx tsx scripts/routes-nationwide/cleanup-regional-pending.ts [--out <dir>]
  *   npx tsx scripts/routes-nationwide/cleanup-regional-pending.ts --apply --project appout-1
