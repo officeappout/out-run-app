@@ -152,6 +152,9 @@ export default defineConfig({
       'src/features/admin/components/city-inventory/__tests__/**/*.test.tsx',
       // Week builder (enable_week_builder_v1) — static-markup render test (node env).
       'src/features/schedule/week-builder/__tests__/**/*.test.tsx',
+      // Park "mapped by" credit (enable_park_mapped_by_credit) — park sheet flag-off parity + credit line render.
+      'src/features/parks/client/components/park-detail/__tests__/**/*.test.tsx',
+      'src/features/parks/core/mapped-by/__tests__/**/*.test.tsx',
     ],
     // hybrid-runtime.test.ts + hybrid-orchestrator.test.ts (22.09.2026,
     // field-test doc 12/13): both predate this vitest setup — plain
