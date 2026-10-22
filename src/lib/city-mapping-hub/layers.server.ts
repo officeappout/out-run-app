@@ -8,13 +8,16 @@
  * Routes: `official_routes where authorityId == id` PLUS `where city in
  * [the authority's names]` — 156 / 183 docs had no authorityId (16.08), so
  * the legacy city-name fallback is required, exactly like the table's counts.
+ * Parks get the same fallback (`city` is optional on parks). osm_amenities
+ * always carry authorityId (OsmAmenity.authorityId is required at ingest) and
+ * user_contributions carry it or nothing — no name guessing for those.
  */
 import 'server-only';
 import type { Firestore } from 'firebase-admin/firestore';
 import { normCity } from '../city-inventory/overview';
-import { boundaryPayload, routesPayload } from './layer-geojson';
+import { amenityFeature, boundaryPayload, contributionFeature, parkFeature, pointsPayload, routesPayload } from './layer-geojson';
 import { emptyFC, type HubLayerPayload } from './layer-payload';
-import type { HubFetchLayer } from './layers';
+import { AMENITY_LAYER_CATEGORY, type AmenityFetchLayer, type HubFetchLayer } from './layers';
 
 type Data = Record<string, unknown>;
 
@@ -49,6 +52,38 @@ async function readRoutes(db: Firestore, authorityId: string, names: string[]): 
   return routesPayload(docs);
 }
 
+const docsOf = (snaps: Array<{ docs: Array<{ id: string; data: () => Data | undefined }> } | null>) =>
+  snaps.flatMap((s) => s?.docs ?? []).map((d) => ({ id: d.id, data: (d.data() ?? {}) as Data }));
+
+async function readParks(db: Firestore, authorityId: string, names: string[]): Promise<HubLayerPayload> {
+  const col = db.collection('parks');
+  const fields = ['name', 'location', 'lat', 'lng', 'published', 'contentStatus', 'facilityType', 'images', 'image', 'gymEquipment', 'origin', 'authorityId', 'city'];
+  const [byId, byCity] = await Promise.all([
+    col.where('authorityId', '==', authorityId).select(...fields).get(),
+    names.length ? col.where('city', 'in', names).select(...fields).get() : Promise.resolve(null),
+  ]);
+  const docs = docsOf([byId, byCity]).filter((d) => !d.data.authorityId || d.data.authorityId === authorityId);
+  return pointsPayload(docs, parkFeature);
+}
+
+async function readAmenities(db: Firestore, authorityId: string, layer: AmenityFetchLayer): Promise<HubLayerPayload> {
+  const snap = await db.collection('osm_amenities')
+    .where('authorityId', '==', authorityId)
+    .where('category', '==', AMENITY_LAYER_CATEGORY[layer])
+    .select('location', 'status', 'category', 'name', 'sport')
+    .get();
+  return pointsPayload(docsOf([snap]), amenityFeature);
+}
+
+async function readContributions(db: Firestore, authorityId: string): Promise<HubLayerPayload> {
+  const snap = await db.collection('user_contributions')
+    .where('authorityId', '==', authorityId)
+    .where('status', '==', 'pending')
+    .select('type', 'status', 'location', 'photoUrl', 'parkName', 'facilityType', 'gymEquipment', 'editSummary', 'issueType', 'rating', 'linkedParkId', 'createdAt')
+    .get();
+  return pointsPayload(docsOf([snap]), contributionFeature);
+}
+
 async function readBoundary(db: Firestore, authorityId: string): Promise<HubLayerPayload> {
   const snap = await db.collection('authorities').doc(authorityId).get();
   return boundaryPayload(snap.exists ? snap.data()?.boundaryGeoJSON : null);
@@ -58,6 +93,10 @@ export async function readHubLayer(db: Firestore, authorityId: string, layer: Hu
   switch (layer) {
     case 'boundary': return readBoundary(db, authorityId);
     case 'routes': return readRoutes(db, authorityId, names);
+    case 'parks': return readParks(db, authorityId, names);
+    case 'contributions': return readContributions(db, authorityId);
+    case 'fitness': case 'courts': case 'benches': case 'water': case 'crossings':
+      return readAmenities(db, authorityId, layer);
     default: return { featureCollection: emptyFC(), truncated: false, total: 0 };
   }
 }

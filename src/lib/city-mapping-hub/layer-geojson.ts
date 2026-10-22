@@ -8,7 +8,7 @@ import { normalizeStoredRoutePath, type LngLat } from '@/features/parks/core/uti
 import { simplifyLineM } from '@/lib/routing/our-routes/simplify';
 import { parseBoundaryGeoJSON } from '@/lib/route-collections/authority-resolution';
 import { capped, type HubLayerPayload } from './layer-payload';
-import { isPendingRoute } from './rows';
+import { isPendingPark, isPendingRoute } from './rows';
 
 export type HubRouteStatus = 'approved' | 'pending';
 
@@ -60,4 +60,92 @@ export function routesPayload(docs: Array<{ id: string; data: Record<string, unk
 export function boundaryPayload(raw: unknown): HubLayerPayload {
   const f = parseBoundaryGeoJSON(raw);
   return capped(f ? [{ ...f, properties: { kind: 'boundary' } }] : []);
+}
+
+// ── Points (H2) ─────────────────────────────────────────────────────────────
+
+export type HubPointStatus = 'approved' | 'pending';
+type PointFeature = GeoJSON.Feature<GeoJSON.Point, Record<string, unknown>>;
+
+/** {lat,lng} (or legacy top-level lat/lng) → [lng, lat] inside Israel's rough box, else null. */
+export function pointOf(d: Record<string, unknown>): [number, number] | null {
+  const loc = d.location && typeof d.location === 'object' ? (d.location as Record<string, unknown>) : d;
+  const lat = num(loc.lat), lng = num(loc.lng);
+  if (lat == null || lng == null || lat < 29 || lat > 34 || lng < 33.5 || lng > 36.5) return null;
+  return [lng, lat];
+}
+
+const point = (id: string, c: [number, number], properties: Record<string, unknown>): PointFeature =>
+  ({ type: 'Feature', id, properties: { id, ...properties }, geometry: { type: 'Point', coordinates: c } });
+
+const httpsUrl = (v: unknown) => (typeof v === 'string' && /^https:\/\//.test(v) ? v : null);
+const isoOf = (v: unknown): string | null => {
+  const d = v && typeof (v as { toDate?: unknown }).toDate === 'function' ? (v as { toDate: () => Date }).toDate() : v instanceof Date ? v : null;
+  return d && Number.isFinite(d.getTime()) ? d.toISOString() : null;
+};
+
+/** A park the owner / admins entered: approved = published; pending = the approval center's rule. */
+export function parkFeature(id: string, d: Record<string, unknown>): PointFeature | null {
+  const status: HubPointStatus | null = d.published === true ? 'approved' : isPendingPark(d) ? 'pending' : null;
+  const c = pointOf(d);
+  if (!status || !c) return null;
+  const images = Array.isArray(d.images) ? d.images.map(httpsUrl).filter((u): u is string => !!u) : [];
+  const cover = images[0] ?? httpsUrl(d.image);
+  return point(id, c, {
+    kind: 'park',
+    status,
+    name: str(d.name) ?? '(ללא שם)',
+    facilityType: str(d.facilityType),
+    photo: cover,
+    photoCount: images.length || (cover ? 1 : 0),
+    equipmentCount: Array.isArray(d.gymEquipment) ? d.gymEquipment.length : 0,
+    origin: str(d.origin),
+  });
+}
+
+/** osm_amenities: published / pending (rejected hidden). */
+export function amenityFeature(id: string, d: Record<string, unknown>): PointFeature | null {
+  const status: HubPointStatus | null = d.status === 'published' ? 'approved' : d.status === 'pending' ? 'pending' : null;
+  const c = pointOf(d);
+  if (!status || !c) return null;
+  return point(id, c, { kind: 'amenity', status, category: str(d.category), name: str(d.name), sport: str(d.sport) });
+}
+
+/**
+ * user_contributions (pending): "there's a park here" (new_location), photos,
+ * equipment / detail edits (suggest_edit), reports, reviews. No user id or
+ * free-text PII on the wire — the panel shows what the moderator needs.
+ */
+export function contributionFeature(id: string, d: Record<string, unknown>): PointFeature | null {
+  if (d.status !== 'pending') return null;
+  const c = pointOf(d);
+  if (!c) return null;
+  return point(id, c, {
+    kind: 'contribution',
+    status: 'pending',
+    type: str(d.type),
+    name: str(d.parkName),
+    facilityType: str(d.facilityType),
+    photo: httpsUrl(d.photoUrl),
+    equipmentCount: Array.isArray(d.gymEquipment) ? d.gymEquipment.length : 0,
+    editSummary: str(d.editSummary),
+    issueType: str(d.issueType),
+    rating: num(d.rating),
+    linkedParkId: str(d.linkedParkId),
+    createdAt: isoOf(d.createdAt),
+  });
+}
+
+export function pointsPayload(docs: Array<{ id: string; data: Record<string, unknown> }>, build: (id: string, d: Record<string, unknown>) => PointFeature | null): HubLayerPayload {
+  const seen = new Set<string>();
+  const out: GeoJSON.Feature[] = [];
+  for (const { id, data } of docs) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const f = build(id, data);
+    if (f) out.push(f);
+  }
+  // Pending first, so a cap never cuts the items waiting for a decision.
+  out.sort((a, b) => Number(b.properties?.status === 'pending') - Number(a.properties?.status === 'pending'));
+  return capped(out);
 }

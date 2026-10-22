@@ -13,12 +13,20 @@ import { DEFAULT_HUB_URL_STATE, type HubUrlState } from '@/lib/city-mapping-hub/
 
 // The real map needs WebGL (not in jsdom): a stand-in that exposes what the live HubMap receives.
 vi.mock('../HubMap', () => ({
-  default: (p: { selected: { authorityId: string } | null; data: { routes?: { featureCollection: { features: unknown[] } }; boundary?: unknown }; layers: string[]; rows: unknown[]; onSelectAuthority: (id: string) => void }) => (
-    <div data-testid="hub-map" data-selected={p.selected?.authorityId ?? ''} data-routes={p.data.routes?.featureCollection.features.length ?? -1} data-boundary={p.data.boundary ? 1 : 0} data-layers={p.layers.join(',')}>
+  default: (p: {
+    selected: { authorityId: string } | null; data: Record<string, { featureCollection: { features: unknown[] } } | undefined>; layers: string[]; rows: unknown[];
+    onSelectAuthority: (id: string) => void; onFeatureClick?: (f: unknown) => void; selectedFeatureId?: string | null; focusPoint?: [number, number] | null;
+  }) => (
+    <div data-testid="hub-map" data-selected={p.selected?.authorityId ?? ''} data-routes={p.data.routes?.featureCollection.features.length ?? -1}
+      data-parks={p.data.parks?.featureCollection.features.length ?? -1} data-boundary={p.data.boundary ? 1 : 0} data-layers={p.layers.join(',')}
+      data-focus={p.selectedFeatureId ?? ''} data-focus-point={p.focusPoint ? p.focusPoint.join(',') : ''}>
       <button type="button" data-testid="map-dot-arad" onClick={() => p.onSelectAuthority('arad')}>dot</button>
+      <button type="button" data-testid="map-point-c1" onClick={() => p.onFeatureClick?.({ kind: 'contribution', id: 'c1', properties: { id: 'c1' }, lngLat: [34.8, 31.2] })}>pt</button>
     </div>
   ),
 }));
+// MapHealthCard reads the inventory route; not under test here.
+vi.mock('../../city-inventory/MapHealthCard', () => ({ default: (p: { authorityId: string }) => <div data-testid="map-health" data-id={p.authorityId} /> }));
 vi.mock('next/link', () => ({ default: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => <a href={href} {...p}>{children}</a> }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -40,10 +48,14 @@ const ROWS = [
 const changes: HubUrlState[] = [];
 const layerCalls: string[] = [];
 const route = (id: string, status: string) => ({ type: 'Feature', properties: { id, kind: 'route', status }, geometry: { type: 'LineString', coordinates: [[34.8, 31.2], [34.81, 31.21]] } });
+const pt = (id: string, kind: string, status: string, extra: Record<string, unknown> = {}) => ({ type: 'Feature', properties: { id, kind, status, ...extra }, geometry: { type: 'Point', coordinates: [34.8, 31.2] } });
 const loadLayer = vi.fn(async (authorityId: string, layer: string) => {
   layerCalls.push(`${authorityId}:${layer}`);
-  const features = layer === 'routes' ? [route('r1', 'approved'), route('r2', 'pending'), route('r3', 'pending')] : [];
-  return { featureCollection: { type: 'FeatureCollection' as const, features: features as never[] }, truncated: layer === 'routes', total: layer === 'routes' ? 6000 : 0 };
+  const features = layer === 'routes' ? [route('r1', 'approved'), route('r2', 'pending'), route('r3', 'pending')]
+    : layer === 'contributions' ? [pt('c1', 'contribution', 'pending', { type: 'new_location', name: 'גינה חדשה', photo: 'https://img.example/c1.jpg', equipmentCount: 3 })]
+    : layer === 'parks' ? [pt('p1', 'park', 'pending', { name: 'פארק הנחל', photoCount: 2, equipmentCount: 5 }), pt('p2', 'park', 'approved', { name: 'גן העיר' })]
+    : [];
+  return { featureCollection: { type: 'FeatureCollection' as const, features: features as never[] }, truncated: layer === 'routes', total: layer === 'routes' ? 6000 : features.length };
 });
 function Harness({ initial }: { initial: HubUrlState }) {
   const [s, setS] = useState(initial);
@@ -104,7 +116,7 @@ describe('CityMappingHub (H0)', () => {
     await act(async () => { (h.querySelector('[data-testid="map-dot-arad"]') as HTMLElement).click(); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(changes.at(-1)?.authority).toBe('arad');
-    expect(layerCalls.sort()).toEqual(['arad:boundary', 'arad:routes']);
+    expect(layerCalls.sort()).toEqual(['arad:boundary', 'arad:contributions', 'arad:fitness', 'arad:parks', 'arad:routes']);
     const map = h.querySelector('[data-testid="hub-map"]')!;
     expect(map.getAttribute('data-selected')).toBe('arad');
     expect(map.getAttribute('data-routes')).toBe('3');
@@ -118,9 +130,37 @@ describe('CityMappingHub (H0)', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const n = layerCalls.length;
     await act(async () => { (h.querySelector('[data-testid="chip-routes_pending"]') as HTMLElement).click(); });
-    expect(changes.at(-1)?.layers).toEqual(['routes_approved']);
-    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-layers')).toBe('routes_approved');
+    expect(changes.at(-1)?.layers).toEqual(['routes_approved', 'parks', 'fitness', 'contributions']);
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-layers')).toBe('routes_approved,parks,fitness,contributions');
     expect(layerCalls.length).toBe(n);
+  });
+  it('H2: contributions + parks show in the panel from the same loaded layer; a list click focuses the map', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad', panel: 'contributions' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const list = h.querySelector('[data-testid="hub-list-contributions"]')!;
+    expect(list.textContent).toContain('גינה חדשה');
+    expect(list.textContent).toContain('3 מתקנים');
+    expect(list.querySelector('img')!.getAttribute('src')).toBe('https://img.example/c1.jpg');
+    await act(async () => { (list.querySelector('[data-id="c1"] button') as HTMLElement).click(); });
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-focus')).toBe('c1');
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-focus-point')).toBe('34.8,31.2');
+    const parksTab = Array.from(h.querySelectorAll('[role="tab"]')).find((t) => t.textContent?.startsWith('מיקומים'))! as HTMLElement;
+    expect(parksTab.textContent).toBe('מיקומים (2)');
+    await act(async () => { parksTab.click(); });
+    expect(changes.at(-1)?.panel).toBe('parks');
+    const items = Array.from(h.querySelectorAll('[data-testid="hub-list-parks"] [data-testid="hub-list-item"]'));
+    expect(items.map((i) => i.textContent)).toEqual([expect.stringContaining('ממתין'), expect.stringContaining('מאושר')]);
+    expect(items[0].textContent).toContain('2 תמונות');
+  });
+  it('H2: a map click on a contribution opens the contributions tab; data-only layers are disabled, never empty maps', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { (h.querySelector('[data-testid="map-point-c1"]') as HTMLElement).click(); });
+    expect(changes.at(-1)?.panel).toBe('contributions');
+    const toilets = h.querySelector('[data-testid="chip-dataonly-toilets"]')!;
+    expect(toilets.getAttribute('aria-disabled')).toBe('true');
+    expect(toilets.getAttribute('title')).toContain('אין גאומטריה');
+    expect(h.querySelector('[data-testid="chip-parks"]')!.textContent).toContain('2');
   });
   it('a loader failure is shown, not swallowed', async () => {
     host = document.createElement('div');

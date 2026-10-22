@@ -86,4 +86,22 @@ describe('GET /api/admin/city-mapping/hub/layers', () => {
     const body = await (await GET(req('authorityId=a&layer=boundary'))).json();
     expect(body.featureCollection.features).toHaveLength(1);
   });
+  it('parks: by authorityId + legacy city; amenities by authorityId + category; contributions pending only', async () => {
+    const loc = { lat: 31.52, lng: 34.6 };
+    state.store.set('authorities/sderot', { name: 'שדרות' });
+    state.store.set('parks/p1', { authorityId: 'sderot', published: true, location: loc, name: 'גן' });
+    state.store.set('parks/p2', { city: 'שדרות', published: false, contentStatus: 'pending_review', location: loc });
+    state.store.set('parks/p3', { authorityId: 'other', city: 'שדרות', published: true, location: loc });
+    state.store.set('osm_amenities/a1', { authorityId: 'sderot', category: 'bench', status: 'published', location: loc });
+    state.store.set('osm_amenities/a2', { authorityId: 'sderot', category: 'drinking_water', status: 'pending', location: loc });
+    state.store.set('user_contributions/c1', { authorityId: 'sderot', status: 'pending', type: 'new_location', location: loc, userId: 'u-secret' });
+    state.store.set('user_contributions/c2', { authorityId: 'sderot', status: 'approved', type: 'new_location', location: loc });
+    const ids = async (layer: string) => (await (await GET(req(`authorityId=sderot&layer=${layer}`))).json()).featureCollection.features.map((f: { id: string }) => f.id).sort();
+    expect(await ids('parks')).toEqual(['p1', 'p2']);
+    expect(await ids('benches')).toEqual(['a1']);
+    expect(await ids('water')).toEqual(['a2']);
+    expect(await ids('contributions')).toEqual(['c1']);
+    const raw = JSON.stringify(await (await GET(req('authorityId=sderot&layer=contributions'))).json());
+    expect(raw).not.toContain('u-secret');
+  });
 });

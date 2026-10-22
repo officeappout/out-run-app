@@ -5,7 +5,9 @@
  * behind enable_city_mapping_hub. H0: header + KPIs + filters + the all-
  * authorities table + the selected authority's summary. H1: the map
  * (national dots → selected authority's boundary + routes), layer chips in
- * the URL.
+ * the URL. H2: clustered point layers (parks, amenities, user contributions)
+ * and the authority panel (gaps | contributions | parks | layers). The layer
+ * state lives here so the map and the panel read the same loaded data.
  *
  * State is owned by the caller (the page keeps it in the URL — §3.1); this
  * component is controlled, so it is testable without a router. Desktop: table
@@ -22,10 +24,11 @@ import { CityMappingHubError, loadHubRows } from '@/features/admin/services/city
 import HubKpis from './HubKpis';
 import HubFiltersBar from './HubFiltersBar';
 import HubTable from './HubTable';
-import HubAuthoritySummary from './HubAuthoritySummary';
+import HubAuthorityPanel from './HubAuthorityPanel';
 import HubMapCard from './HubMapCard';
-import type { LoadHubLayer } from './useHubLayers';
-import type { HubChipLayer } from '@/lib/city-mapping-hub/layers';
+import type { HubPointItem } from './HubPointList';
+import { useHubLayers, type LoadHubLayer } from './useHubLayers';
+import { fetchLayersFor, type HubChipLayer } from '@/lib/city-mapping-hub/layers';
 
 export interface CityMappingHubProps {
   state: HubUrlState;
@@ -91,6 +94,18 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
   const onToggleLayer = (k: HubChipLayer) =>
     patch({ layers: state.layers.includes(k) ? state.layers.filter((x) => x !== k) : [...state.layers, k] });
 
+  const fetchLayers = useMemo(() => fetchLayersFor(state.layers), [state.layers]);
+  const layerState = useHubLayers(selected?.authorityId ?? null, fetchLayers, version, loadLayer);
+  /** The map / list item in focus (H3: the approve / reject popover target). */
+  const [focused, setFocused] = useState<HubPointItem | null>(null);
+  useEffect(() => { setFocused(null); }, [state.authority]);
+  const onFocusItem = (it: HubPointItem) => setFocused(it);
+  const onFeatureClick = (f: HubPointItem) => {
+    setFocused(f);
+    if (f.kind === 'contribution' && state.panel !== 'contributions') patch({ panel: 'contributions' });
+    else if (f.kind === 'park' && state.panel !== 'parks') patch({ panel: 'parks' });
+  };
+
   const show = (v: HubMobileView) => (state.view === v ? 'flex' : 'hidden');
 
   return (
@@ -143,12 +158,22 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
               layers={state.layers}
               onToggleLayer={onToggleLayer}
               onSelectAuthority={onSelect}
-              version={version}
-              loadLayer={loadLayer}
+              layerState={layerState}
+              onFeatureClick={onFeatureClick}
+              selectedFeatureId={focused?.id ?? null}
+              focusPoint={focused && focused.kind !== 'route' ? focused.lngLat : null}
             />
           </div>
-          <div className={`${show('gaps')} flex-col overflow-auto rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:max-h-[260px] md:shrink-0`}>
-            <HubAuthoritySummary row={selected} onClear={() => patch({ authority: null })} />
+          <div className={`${show('gaps')} flex-col overflow-auto rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:max-h-[300px] md:shrink-0`}>
+            <HubAuthorityPanel
+              row={selected}
+              tab={state.panel}
+              onTab={(t) => patch({ panel: t })}
+              onClear={() => patch({ authority: null })}
+              layerState={layerState}
+              selectedFeatureId={focused?.id ?? null}
+              onFocus={onFocusItem}
+            />
           </div>
         </section>
       </main>

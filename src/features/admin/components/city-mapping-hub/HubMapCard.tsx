@@ -3,15 +3,16 @@
 /**
  * HubMapCard — layer chips + the map + its honest banners (loading,
  * truncated, read errors, "no geometry") for the hub (§3.1 / §3.3 / §5).
- * Loads the selected authority's layers lazily via useHubLayers.
+ * The layer state (useHubLayers) is owned by the shell, so the authority
+ * panel's lists read the very same loaded data.
  */
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { HubRow } from '@/lib/city-mapping-hub/rows';
-import { fetchLayersFor, type HubChipLayer, type HubFetchLayer } from '@/lib/city-mapping-hub/layers';
+import { POINT_FETCH_LAYERS, type HubChipLayer, type HubFetchLayer } from '@/lib/city-mapping-hub/layers';
 import HubLayerChips from './HubLayerChips';
 import HubMap, { type HubMapProps } from './HubMap';
-import { useHubLayers, type HubLayerData, type LoadHubLayer } from './useHubLayers';
+import type { HubLayerData, HubLayersState } from './useHubLayers';
 
 export interface HubMapCardProps {
   rows: HubRow[];
@@ -20,16 +21,18 @@ export interface HubMapCardProps {
   layers: HubChipLayer[];
   onToggleLayer: (key: HubChipLayer) => void;
   onSelectAuthority: (id: string) => void;
-  /** Bumped by the caller after a refresh / write — invalidates the layer cache. */
-  version: number;
-  loadLayer?: LoadHubLayer;
+  layerState: HubLayersState;
   onFeatureClick?: HubMapProps['onFeatureClick'];
   selectedFeatureId?: string | null;
+  focusPoint?: [number, number] | null;
   /** Rendered over the map (H3: the approve / reject popover). */
   overlay?: (data: HubLayerData) => ReactNode;
 }
 
-const LAYER_NAMES: Record<HubFetchLayer, string> = { boundary: 'גבול', routes: 'מסלולים' };
+export const LAYER_NAMES: Record<HubFetchLayer, string> = {
+  boundary: 'גבול', routes: 'מסלולים', parks: 'פארקים', fitness: 'מתקני כושר', courts: 'מגרשים',
+  benches: 'ספסלים', water: 'ברזיות', crossings: 'מעברי חצייה', contributions: 'תרומות',
+};
 
 function chipCounts(data: HubLayerData): Partial<Record<HubChipLayer, number>> {
   const out: Partial<Record<HubChipLayer, number>> = {};
@@ -38,12 +41,15 @@ function chipCounts(data: HubLayerData): Partial<Record<HubChipLayer, number>> {
     out.routes_approved = routes.filter((f) => f.properties?.status === 'approved').length;
     out.routes_pending = routes.filter((f) => f.properties?.status === 'pending').length;
   }
+  for (const l of POINT_FETCH_LAYERS) {
+    const p = data[l];
+    if (p) out[l] = p.total;
+  }
   return out;
 }
 
 export default function HubMapCard(p: HubMapCardProps) {
-  const fetchLayers = useMemo(() => fetchLayersFor(p.layers), [p.layers]);
-  const { data, loading, errors } = useHubLayers(p.selected?.authorityId ?? null, fetchLayers, p.version, p.loadLayer);
+  const { data, loading, errors } = p.layerState;
   const truncated = (Object.keys(data) as HubFetchLayer[]).filter((l) => data[l]?.truncated);
   const errorList = (Object.keys(errors) as HubFetchLayer[]).filter((l) => errors[l]);
   const noBoundary = p.selected && data.boundary && data.boundary.featureCollection.features.length === 0;
@@ -61,6 +67,7 @@ export default function HubMapCard(p: HubMapCardProps) {
           onSelectAuthority={p.onSelectAuthority}
           onFeatureClick={p.onFeatureClick}
           selectedFeatureId={p.selectedFeatureId}
+          focusPoint={p.focusPoint}
         />
         <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-col items-start gap-1.5" dir="rtl">
           {p.selected && (

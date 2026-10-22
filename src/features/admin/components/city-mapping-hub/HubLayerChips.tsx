@@ -6,7 +6,7 @@
  * Counts come from the loaded layer (or "…" while loading).
  */
 import type { HubChipLayer } from '@/lib/city-mapping-hub/layers';
-import { HUB_CHIPS } from '@/lib/city-mapping-hub/layers';
+import { DATA_ONLY_CHIPS, HUB_CHIPS } from '@/lib/city-mapping-hub/layers';
 
 export interface HubLayerChipsProps {
   enabled: HubChipLayer[];
@@ -16,7 +16,7 @@ export interface HubLayerChipsProps {
 }
 
 export default function HubLayerChips({ enabled, counts, onToggle }: HubLayerChipsProps) {
-  const groups = Array.from(new Set(HUB_CHIPS.map((c) => c.group)));
+  const groups = Array.from(new Set([...HUB_CHIPS, ...DATA_ONLY_CHIPS].map((c) => c.group)));
   return (
     <div className="flex gap-3 overflow-x-auto border-b border-slate-100 px-3 py-2.5" role="group" aria-label="שכבות מפה">
       {groups.map((g) => (
@@ -34,6 +34,14 @@ export default function HubLayerChips({ enabled, counts, onToggle }: HubLayerChi
               </button>
             );
           })}
+          {DATA_ONLY_CHIPS.filter((c) => c.group === g).map((c) => (
+            // Disabled on purpose: no geometry yet — never an empty layer that reads like "none here".
+            <span key={c.key} aria-disabled="true" title={c.why} data-testid={`chip-dataonly-${c.key}`}
+              className="inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-full border border-dashed border-slate-200 bg-slate-50 px-2.5 py-1 text-[12px] font-bold text-slate-400">
+              <i className="inline-block h-2.5 w-2.5 rounded-full opacity-40" style={{ background: c.color }} aria-hidden />
+              {c.label} <span className="font-semibold">· נתון בלבד</span>
+            </span>
+          ))}
         </div>
       ))}
     </div>

@@ -10,6 +10,8 @@ import { HUB_AUTHORITY_TYPES, HUB_GAP_KEYS } from './rows';
 import { DEFAULT_CHIP_LAYERS, HUB_CHIP_LAYERS, isHubChipLayer, type HubChipLayer } from './layers';
 
 export type HubMobileView = 'table' | 'map' | 'gaps';
+export type HubPanelTab = 'gaps' | 'contributions' | 'parks' | 'layers';
+export const HUB_PANEL_TABS: readonly HubPanelTab[] = ['gaps', 'contributions', 'parks', 'layers'];
 
 export interface HubUrlState extends HubFilters {
   authority: string | null;
@@ -18,6 +20,8 @@ export interface HubUrlState extends HubFilters {
   view: HubMobileView;
   /** Enabled map layer chips (§3.3 defaults when the param is absent). */
   layers: HubChipLayer[];
+  /** Authority panel tab. */
+  panel: HubPanelTab;
 }
 
 export const DEFAULT_HUB_URL_STATE: HubUrlState = {
@@ -27,6 +31,7 @@ export const DEFAULT_HUB_URL_STATE: HubUrlState = {
   dir: 'asc',
   view: 'table',
   layers: [...DEFAULT_CHIP_LAYERS],
+  panel: 'gaps',
 };
 
 const LEVELS = ['all', 'red', 'yellow', 'green', 'unmeasured'] as const;
@@ -57,6 +62,7 @@ export function parseHubUrlState(sp: { get(name: string): string | null }): HubU
     dir: pick(sp.get('dir'), ['asc', 'desc'] as const, d.dir),
     view: pick(sp.get('view'), VIEWS, d.view),
     layers: parseLayers(sp.get('layers')),
+    panel: pick(sp.get('panel'), HUB_PANEL_TABS, d.panel),
   };
 }
 
@@ -84,5 +90,6 @@ export function serializeHubUrlState(s: HubUrlState): string {
   if (s.dir !== d.dir) p.set('dir', s.dir);
   if (s.view !== d.view) p.set('view', s.view);
   if (!sameLayers(s.layers, d.layers)) p.set('layers', HUB_CHIP_LAYERS.filter((k) => s.layers.includes(k)).join(','));
+  if (s.panel !== d.panel) p.set('panel', s.panel);
   return p.toString();
 }
