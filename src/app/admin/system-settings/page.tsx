@@ -763,6 +763,7 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-teal-600',
     title: 'מסלולים: הסתרת מקטעי חיבור',
     description: 'מסלולים שסומנו כ"מקטע חיבור" (displayRole: connector — למשל "מקטע 2" או "תוספת א" מהמסלולים של עיריית שדרות) נשארים במערכת אבל לא מוצגים למשתמשים ברשימות המסלולים, בקרוסלת המפה ובחיפוש. כבוי = הכול מוצג כמו היום. לא נדלק אוטומטית לסופר-אדמין.',
+  },
   // City-mapping hub (22.10.2026) — docs/admin/CITY-MAPPING-HUB-DESIGN.md.
   {
     key: 'enable_city_mapping_hub',
