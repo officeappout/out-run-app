@@ -9,7 +9,7 @@ import { classifyRouteGenerator } from '../route-collections/route-generator';
 import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
 import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier, UrbanRouteKind } from './types';
-import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
+import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN, SETTLEMENT_LOOP_PIPELINE } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
 import type { HourlyProfileSummary } from '../shade-hourly/route-hourly';
@@ -217,6 +217,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     geometry,
     sourceTier,
     urbanKind: deriveUrbanKind(d, sourceTier, shape, !!parkRef),
+    ...(d?.generator?.pipeline === SETTLEMENT_LOOP_PIPELINE ? { settlementLoop: true } : {}),
     greenShare: opts.greenShare ?? null,
     parkRef,
     hasFitnessStop,

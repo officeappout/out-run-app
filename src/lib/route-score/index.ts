@@ -8,9 +8,9 @@ export * from './weights';
 export { scoreSurface, scoreGeometry, scoreSafety, scoreSource, scoreComfort, scoreExperience } from './components';
 export { routeScore, scoreBand } from './score';
 export { routeScoreInputFromDoc, parsePath, deriveShape, deriveSourceTier, deriveUrbanKind, type FromDocOptions } from './from-route-doc';
-export { quotaForAuthority, authoritySizeClass, QUOTAS, type AuthorityQuota, type AuthoritySizeClass, type Range } from './quota';
+export { quotaForAuthority, authoritySizeClass, QUOTAS, REGIONAL_TOTAL_MIN, REGIONAL_TOTAL_MAX, type AuthorityQuota, type AuthoritySizeClass, type Range } from './quota';
 export {
-  selectTopN, urbanFloorBlocker, anchorKey, gridCell, lengthBucket, isParkLoop, isCycling,
+  selectTopN, urbanFloorBlocker, anchorKey, gridCell, lengthBucket, isParkLoop, isCycling, isSettlementLoop,
   MAX_PER_ANCHOR, MAX_PER_CELL,
   type ScoredRoute, type SelectionDecision, type SelectionResult, type SelectionRow, type LengthBucket, type SelectOptions,
 } from './select';

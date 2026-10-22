@@ -11,6 +11,7 @@ import { buildPathIndex, pointInRing, selectBigParks, type LngLat, type ParkPoly
 import type { NamedWay } from '../../../src/lib/routes-nationwide/named-corridors';
 import { buildUrbanLayer, urbanInputFromOsm, type UrbanLayer } from '../../../src/lib/urban-measure';
 import type { NamingContext } from '../../../src/lib/routes-nationwide/route-naming';
+import { parsePopulation, SETTLEMENT_PLACE_KINDS, type Settlement } from '../../../src/lib/routes-nationwide/settlement-loops';
 import { assertOsmium, ensureIsraelPbf, extractPilot, fetchAdminBoundary, pbfTimestamp, type PilotExtract } from '../../trails/lib/pilot-osm.node';
 
 /** Ways a runner/walker can actually follow around a park. Roads are deliberately excluded. */
@@ -88,6 +89,38 @@ export function namedWaysAndNaming(ex: PilotExtract, parks: ParkPolygon[]): { na
   return { namedWays, naming: { namedLines: buildPathIndex(lines), names, parks, places } };
 }
 
+/**
+ * Settlements inside the boundary (owner 22.10.2026, regional councils):
+ * place=village/hamlet/kibbutz/moshav nodes, plus place AREAS of those kinds
+ * with no same-name node (centroid of the outer ring).
+ */
+export function settlementsInside(ex: PilotExtract, rings: LngLat[][]): Settlement[] {
+  const out: Settlement[] = [];
+  const names = new Set<string>();
+  const inside = (p: LngLat) => rings.some((r) => pointInRing(p, r));
+  for (const n of Array.from(ex.data.nodes.values())) {
+    const place = n.tags?.place ?? '';
+    const name = (n.tags?.['name:he'] ?? n.tags?.name ?? '').trim();
+    if (!name || !SETTLEMENT_PLACE_KINDS.has(place)) continue;
+    const coord: LngLat = [n.lon, n.lat];
+    if (!inside(coord) || names.has(name)) continue;
+    names.add(name);
+    out.push({ name, coord, place, population: parsePopulation(n.tags?.population), osmNodeId: n.id });
+  }
+  for (const a of ex.areas) {
+    const place = a.tags?.place ?? '';
+    const name = (a.tags?.['name:he'] ?? a.tags?.name ?? '').trim();
+    if (!name || !SETTLEMENT_PLACE_KINDS.has(place) || names.has(name)) continue;
+    const ring = outerRings(a.geometry)[0];
+    if (!ring) continue;
+    const coord: LngLat = [ring.reduce((s, q) => s + q[0], 0) / ring.length, ring.reduce((s, q) => s + q[1], 0) / ring.length];
+    if (!inside(coord)) continue;
+    names.add(name);
+    out.push({ name, coord, place, population: parsePopulation(a.tags?.population), osmNodeId: null });
+  }
+  return out;
+}
+
 export interface AuthorityOsm {
   name: string;
   rings: LngLat[][];
@@ -97,6 +130,8 @@ export interface AuthorityOsm {
   paths: PathIndex;
   fitness: PointFeature[];
   seeds: LngLat[];
+  /** place=village/hamlet/kibbutz/moshav inside the boundary (settlement loops). */
+  settlements: Settlement[];
   namedWays: NamedWay[];
   naming: NamingContext;
   /** RC9: ways + lamps + amenities + crossings for the urban measurements. */
@@ -151,6 +186,7 @@ export class AuthorityOsmSlice {
       paths: buildPathIndex(walkableLines(ex)),
       fitness,
       seeds: seedCandidates(ex, rings),
+      settlements: settlementsInside(ex, rings),
       ...namedWaysAndNaming(ex, parks),
       urban: buildUrbanLayer(urbanInputFromOsm(ex.data, fitness.map((f) => f.coord))),
     };
