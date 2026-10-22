@@ -252,7 +252,8 @@ describe('get_authority_overview tool', () => {
 
 describe('prompt + nav registry', () => {
   it('the tool is in the fixed list (appended last) and the prompt points to it', () => {
-    expect(ADMIN_TOOLS[ADMIN_TOOLS.length - 1].name).toBe('get_authority_overview');
+    const names = ADMIN_TOOLS.map((t) => t.name);
+    expect(names.indexOf('get_authority_overview')).toBeGreaterThan(names.indexOf('get_push_funnel')); // appended, never reordered
     expect(adminAssistantSystemPrompt()).toContain('get_authority_overview');
     expect(adminAssistantSystemPrompt()).toContain('authority_overview —');
   });

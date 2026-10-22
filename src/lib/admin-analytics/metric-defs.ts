@@ -43,6 +43,10 @@ export const METRIC_DEFS: MetricDef[] = [
   { id: 'first_workout_road', nameHe: 'הדרך לאימון הראשון', def: 'of the signups: how many reached recommendation_shown → workout_detail_viewed → workout_start_pressed → workout_session_started → workout_complete within 7 days', source: 'journey-activation' },
   { id: 'push_delivered_opened_acted', nameHe: 'ביצועי פוש', def: 'cascading: delivered/sent, opened/delivered, acted/opened; acted = post_push_outcome.goalCompleted in the open-anchored window; unmeasured push types = not measured', window: 'optional date range', source: 'push-performance-summary' },
   { id: 'push_started_workout', nameHe: 'פוש → אימון', def: 'sent → delivered → opened → started a workout from the push', window: 'all time', source: 'push-funnel-summary' },
+  // ── users & activity ──
+  { id: 'signups_overview', nameHe: 'הרשמות חדשות', def: 'real users (not test/demo) by users.createdAt Israel day over the last N days vs the previous N days; split by core.authorityId and marketingAttribution.source/campaign; "unattributed" = attribution not captured (not organic); split cells under 5 masked', window: 'N days (1-180) + previous N', source: 'users' },
+  { id: 'workouts_overview', nameHe: 'אימונים לאורך זמן', def: 'saved workouts docs passing isRealWorkoutCompletion by date over N days vs the previous N; active users = distinct users with ≥1; per active user = workouts ÷ active users; type = workoutType; real accounts only; completion rate not measurable (finished workouts only)', denominator: 'active users in the period', window: 'N days (1-180) + previous N', source: 'workouts, users' },
+  { id: 'user_lookup', nameHe: 'איתור משתמש', def: 'one user by uid / full email / start of name: operational fields only (city, role flags, signup date + source, last active, workouts docs count, streak, onboarding status); email masked; no health or contact data', window: 'now (snapshot)', source: 'users, workouts' },
 ];
 
 const BY_ID = new Map(METRIC_DEFS.map((d) => [d.id, d]));

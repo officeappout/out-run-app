@@ -22,6 +22,8 @@ import {
 } from '@/lib/admin-analytics/product-metrics.server';
 import type { NorthStarFilters } from '@/lib/admin-analytics/north-star.server';
 import { getAuthorityOverview } from '@/lib/admin-analytics/authority-overview.server';
+import { getSignupsOverview, getWorkoutsOverview } from '@/lib/admin-analytics/users-activity.server';
+import { getUserLookup } from '@/lib/admin-analytics/user-lookup.server';
 import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { validateAdminToolInput } from './tools';
 import { capToolResult, numbersIn, wrapToolData } from './tool-result';
@@ -167,6 +169,36 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
           value: { matchedBy: found.matchedBy, ...ov, buttonsShownToUser: links.map((l) => l.title) },
         });
         return links.length ? { ...r, links } : r;
+      }
+      case 'get_signups_overview': {
+        const i = v.input as { days: number; groupBy: 'day' | 'week'; authorityId: string | null; source: string | null };
+        return dataResult(name, await getSignupsOverview(ctx.db, i, { now: ctx.now }));
+      }
+      case 'get_workouts_overview': {
+        const i = v.input as { days: number; authorityId: string | null };
+        return dataResult(name, await getWorkoutsOverview(ctx.db, i, { now: ctx.now }));
+      }
+      case 'get_user_lookup': {
+        const { query } = v.input as { query: string };
+        const found = await getUserLookup(ctx.db, query, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind !== 'resolved') {
+          const json = JSON.stringify(
+            found.kind === 'ambiguous'
+              ? { resolved: false, candidates: found.candidates, moreMatchesExist: found.more, note: 'several users match — ask the admin which one (by masked email / city), or call again with the uid' }
+              : { resolved: false, candidates: [], note: 'no user found — email must be the full address, a name must be the start of the display name' },
+          );
+          return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
+        }
+        const profile = found.result.value!;
+        const page = adminPageById('admin/users/[uid]');
+        let link: AdminToolLink | undefined;
+        if (page && canRoleSee(page, ctx.role)) {
+          const built = buildAdminHref(page, { uid: profile.uid });
+          if (built.ok) link = { href: built.href, title: `משתמש · ${profile.displayName ?? profile.uid}`, pageId: page.id };
+        }
+        const r = dataResult(name, { ...found.result, value: { matchedBy: found.matchedBy, ...profile, ...(link ? { buttonShownToUser: link.title } : {}) } });
+        return link ? { ...r, link } : r;
       }
       case 'get_push_funnel':
         return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
