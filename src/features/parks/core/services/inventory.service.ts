@@ -1638,6 +1638,37 @@ export const InventoryService = {
     },
 
     /**
+     * Post-approval side effects for routes that the SERVER already flipped to
+     * published (city-mapping hub nationwide bulk approve,
+     * /api/admin/city-mapping/hub/bulk-routes). Identical to what single
+     * approveRoute does after its write: cache invalidation, street-segment
+     * broadcast, adjacency + enrichment recompute (once per city) and the
+     * accuracy decision-log row. Writes NO official_routes field itself.
+     * Non-fatal per route: a failing broadcast / log never throws. Awaited in
+     * small chunks so a 500-route batch does not fan out all at once.
+     */
+    runRouteApproveSideEffects: async (routeIds: string[], admin: { adminId: string }): Promise<{ processed: number }> => {
+        invalidateOfficialRoutesCache();
+        const cities: Array<string | undefined> = [];
+        let processed = 0;
+        for (let i = 0; i < routeIds.length; i += 10) {
+            const routes = await Promise.all(routeIds.slice(i, i + 10).map((id) => InventoryService.getRouteById(id)));
+            await Promise.all(routes.map(async (route) => {
+                if (!route) return;
+                processed++;
+                cities.push(route.city);
+                try { await broadcastRouteToStreetSegments(route); } catch (err) {
+                    console.warn('[InventoryService] Hub bulk-approve broadcast failed (non-fatal):', err);
+                }
+                logRouteDecision(route, 'approve', admin.adminId).catch(() => {});
+            }));
+        }
+        recomputeAdjacencyForCities(cities);
+        recomputeEnrichmentForCities(cities);
+        return { processed };
+    },
+
+    /**
      * Reject (un-publish) multiple routes by their document IDs — soft
      * "back to pending", same semantics as single rejectRoute (the inventory
      * tab's draft/publish toggle, NOT Approval Center's harder "archived"
