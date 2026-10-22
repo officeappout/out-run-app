@@ -4,6 +4,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DynamicOnboardingEngine, DynamicQuestionNode } from '@/features/user/onboarding/engine/DynamicOnboardingEngine';
@@ -499,6 +500,8 @@ export default function DynamicOnboardingPage() {
         
         await syncOnboardingToFirestore(syncStep, syncPayload);
         console.log('✅ assignedResults synced to Firestore');
+        // enable_onboarding_step_funnel (off = no-op): the questionnaire is this path's assessment.
+        logOnboardingFunnelStep('ASSESSMENT');
 
         // Refresh the Zustand store from Firestore so the home screen (and
         // the partner finder's program pills) immediately see the validated
