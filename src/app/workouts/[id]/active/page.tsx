@@ -13,6 +13,7 @@ import { buildExerciseProgramLookup, buildWorkoutExerciseResults, planExerciseId
 import { buildAdaptiveSessionMeta } from '@/features/workout-engine/players/strength/logic/adaptive-session-meta';
 import type { GoalTargetLite } from '@/features/workout-engine/players/strength/logic/goal-reached';
 import { useGoalsForProgram } from '@/features/user/progression/hooks/useGoalsForProgram';
+import StreakCelebrationHost from '@/features/streak-celebration/components/StreakCelebrationHost';
 import LevelUpScreen from '@/features/workout-engine/components/strength/levelup-v2/LevelUpScreen';
 import { useLevelUpV2 } from '@/features/workout-engine/components/strength/levelup-v2/useLevelUpV2';
 // Mid-workout modals are code-split + mounted on first open (drop-in replacements).
@@ -2143,11 +2144,15 @@ export default function ActiveWorkoutPage() {
     ) : null;
     // enable_home_v2 push re-ask (gates itself; waits for the survey).
     const pushReAsk = <PushReAskAfterWorkout blocked={surveySessionNumber != null} />;
+    // enable_streak_celebrations_v1: after the level-up screen, over the summary (z-[112]
+    // clears the survey's z-[101]); renders nothing while the flag is off.
+    const streakCelebration = <StreakCelebrationHost surface="workout" />;
     if (STRENGTH_SUMMARY_V2_ENABLED) {
       return (
         <>
         {surveyOverlay}
         {pushReAsk}
+        {streakCelebration}
         <StrengthSummary
           duration={workoutStats.duration}
           totalReps={workoutStats.totalReps}
@@ -2175,6 +2180,7 @@ export default function ActiveWorkoutPage() {
       <>
       {surveyOverlay}
       {pushReAsk}
+      {streakCelebration}
       <StrengthSummaryPage
         duration={workoutStats.duration}
         totalReps={workoutStats.totalReps}

@@ -47,6 +47,7 @@ interface FlagState {
   enable_shabbat_free_streak: boolean;
   enable_streak_shields: boolean;
   enable_streak_pushes: boolean;
+  enable_streak_celebrations_v1: boolean;
   ai_coach_enabled: boolean;
   ai_coach_free_for_all: boolean;
   coach_note_llm: boolean;
@@ -197,6 +198,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-orange-500',
     title: 'פושים של רצף',
     description: 'הצלת רצף ב-19:30 (רצף 2+) ושוב ב-21:15 (רצף 7+, אם הראשון לא נפתח), "הרצף נעצר" ב-10:00 (רצף 7+), ואבני דרך ב-20:00 למי שלא ראה באפליקציה. דורש פריסה של streakRescueScheduler',
+  },
+  {
+    key: 'enable_streak_celebrations_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    title: 'חגיגות רצף',
+    description: 'מסך חגיגה כשיום הרצף נסגר: יום נשמר, שבוע מלא, אבני דרך 7, 30 ו-100, מגן שנכנס לפעולה וחזרה אחרי הפסקה. פעם ביום לכל היותר, אחרי מסך העלייה ברמה או בכניסה לבית. מנהלי־על רואים אותו תמיד',
   },
   {
     key: 'enable_hybrid_slots',

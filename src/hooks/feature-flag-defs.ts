@@ -158,6 +158,13 @@ export const FLAG_DEFS = [
   { key: 'enableShabbatFreeStreak', firestoreKey: 'enable_shabbat_free_streak', defaultValue: false, superAdminValue: false },
   { key: 'enableStreakShields', firestoreKey: 'enable_streak_shields', defaultValue: false, superAdminValue: false },
   { key: 'enableStreakPushes', firestoreKey: 'enable_streak_pushes', defaultValue: false, superAdminValue: false },
+  // Streak celebrations (22.10.2026, owner approved; designs ST-1…ST-5) — the full-screen
+  // celebration when the streak day closes: day kept (N→N+1), full week, milestones 7 / 30 / 100,
+  // shield used, back after a break. At most once per day (src/features/streak-celebration).
+  // Shown after the workout's level-up screen, on home (steps goal, a day closed in the
+  // background, a shield used) and from the `?celebrate=streak` deep link. Fail-closed;
+  // superAdminValue true = super admins preview it while everyone else is untouched.
+  { key: 'enableStreakCelebrationsV1', firestoreKey: 'enable_streak_celebrations_v1', defaultValue: false, superAdminValue: true },
   // OUT AI Phase 0 (18.10.2026) — foundation only, no user-facing AI feature reads these yet.
   // The SERVER is the enforcer (src/lib/ai/*.server.ts reads this same document via the Admin
   // SDK, ignoring superAdminValue); the client copies below only drive UI.
