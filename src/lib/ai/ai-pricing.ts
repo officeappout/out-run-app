@@ -9,18 +9,33 @@
  *   claude-haiku-5-5   $0.10 in / $0.50 out for prompts ≤100K tokens ($0.50 / $2.50 above),
  *                      cache read = 10% of input.
  *   claude-sonnet-5-5  $2 in / $10 out, cache read $0.20.
+ *   claude-opus-5-5    $4 in / $20 out, cache read $0.20 (added 22.10.2026).
+ *   claude-haiku-4-5   $1 in / $5 out, cache read $0.10 (the admin transcript service's
+ *                      dated id `claude-haiku-4-5-20251001` resolves here — see priceFor).
  * Cache WRITES (5-minute TTL) bill at 1.25× input — included so a cold cache isn't
  * under-counted.
+ *
+ * Under-count fix (22.10.2026): before Opus 5.5 had a row, an Opus id set through
+ * AI_MODEL_SMART / AI_MODEL_FAST was costed at the "most expensive known row", which was
+ * Sonnet — half the real Opus price, so the daily budget tripped late. Every model the code
+ * can run now has its own row, and the `admin` tier refuses a model without one
+ * (isPricedModel) instead of guessing.
  *
  * Changing a price or adding a model: edit AI_PRICE_TABLE only.
  */
 
-export type AiModelTier = 'fast' | 'smart';
+export type AiModelTier = 'fast' | 'smart' | 'admin';
 
-/** Exact model ids (no date suffixes). Overridable per environment via AI_MODEL_FAST / AI_MODEL_SMART. */
+/**
+ * Exact model ids (no date suffixes). Overridable per environment via AI_MODEL_FAST /
+ * AI_MODEL_SMART / AI_MODEL_ADMIN. `admin` is the admin-panel assistant's own tier, kept
+ * apart from `smart` so switching the assistant's model never changes the review agent or
+ * the generation review (both read `smart`).
+ */
 export const AI_MODEL_DEFAULTS: Record<AiModelTier, string> = {
   fast: 'claude-haiku-5-5',
   smart: 'claude-sonnet-5-5',
+  admin: 'claude-sonnet-5-5',
 };
 
 interface PriceRow {
@@ -49,7 +64,33 @@ export const AI_PRICE_TABLE: Record<string, ModelPrice> = {
     cacheReadPerM: 0.2,
     cacheWritePerM: 2.5,
   },
+  'claude-opus-5-5': {
+    inputPerM: 4,
+    outputPerM: 20,
+    cacheReadPerM: 0.2,
+    cacheWritePerM: 5,
+  },
+  'claude-haiku-4-5': {
+    inputPerM: 1,
+    outputPerM: 5,
+    cacheReadPerM: 0.1,
+    cacheWritePerM: 1.25,
+  },
 };
+
+/** A trailing `-YYYYMMDD` snapshot suffix, e.g. `claude-haiku-4-5-20251001`. */
+const DATE_SUFFIX = /-\d{8}$/;
+
+/** The table row for a model id, accepting a dated snapshot id of a priced model; else null. */
+function knownPrice(model: string): ModelPrice | null {
+  const id = model.trim();
+  return AI_PRICE_TABLE[id] ?? AI_PRICE_TABLE[id.replace(DATE_SUFFIX, '')] ?? null;
+}
+
+/** True when `model` has its own row in AI_PRICE_TABLE (directly or as a dated snapshot). */
+export function isPricedModel(model: string): boolean {
+  return knownPrice(model) !== null;
+}
 
 /**
  * A model id missing from the table (an env override nobody priced) is costed at the MOST
@@ -85,7 +126,7 @@ export function usageFromSdk(u: SdkUsageLike): AiUsage {
 }
 
 export function priceFor(model: string): ModelPrice {
-  return AI_PRICE_TABLE[model] ?? UNKNOWN_MODEL_PRICE;
+  return knownPrice(model) ?? UNKNOWN_MODEL_PRICE;
 }
 
 /** Estimated USD cost of one call. */

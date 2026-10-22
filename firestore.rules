@@ -1261,6 +1261,36 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ADMIN-PANEL AI ASSISTANT (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md §2.7, §6.5
+    // ⚠️ NOT YET DEPLOYED as of this commit (axiom §27) — tracked in the wave-1 PR; deploy
+    //    from main after merge (David runs it). Until deployed these collections fall to the
+    //    catch-all at the bottom (isRootAdmin only) — still no access for anyone else.
+    //   admin_ai_threads/{uid}               an admin's own assistant chat (TTL expireAt, 90 days)
+    //   admin_ai_threads/{uid}/messages/{id}
+    //   admin_ai_audit/{id}                  one row per question: route, tools, usage, cost (TTL 180 days)
+    //   admin_ai_stats/{day}                 daily counters + the admin daily budget ledger
+    // Written and read ONLY by the Admin SDK (/api/admin/assistant/**). No client
+    // read or write: a client-written assistant turn would put words in the model's
+    // mouth on replay, and the audit/budget ledger must not be editable.
+    // NOTE: rules OR together — the root-admin catch-all `match /{document=**}` at
+    // the bottom still admits isRootAdmin() here. `if false` closes every OTHER
+    // caller; the panel itself never reads these from the browser.
+    // ============================================================
+    match /admin_ai_threads/{userId} {
+      allow read, write: if false;
+
+      match /messages/{messageId} {
+        allow read, write: if false;
+      }
+    }
+    match /admin_ai_audit/{docId} {
+      allow read, write: if false;
+    }
+    match /admin_ai_stats/{day} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
     // KELLY PHASE 3 (19.10.2026) — proactive messages + memory
     //   ai_coach_memory/{uid}           { facts[], extractedUntil } — what Kelly remembers
     //   ai_coach_proactive/{uid}        proactive ledger (weekly / level-check / asked workouts)

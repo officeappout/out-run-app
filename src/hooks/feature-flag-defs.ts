@@ -455,6 +455,11 @@ export const FLAG_DEFS = [
   { key: 'enableLocaleEn', firestoreKey: 'enable_locale_en', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleRu', firestoreKey: 'enable_locale_ru', defaultValue: false, superAdminValue: false },
   { key: 'enableLocaleDe', firestoreKey: 'enable_locale_de', defaultValue: false, superAdminValue: false },
+  // Admin-panel AI assistant (22.10.2026, docs/admin/ADMIN-AI-ASSISTANT-PLAN.md). Off = no drawer,
+  // and every /api/admin/assistant/** route + tool answers 403. Its own flag on purpose (axiom
+  // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
+  // and the server always reads the real value, so the drawer and the routes never disagree.
+  { key: 'adminAiAssistantV1', firestoreKey: 'admin_ai_assistant_v1', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

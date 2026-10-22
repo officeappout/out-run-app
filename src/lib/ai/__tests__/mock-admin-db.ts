@@ -43,6 +43,11 @@ export function createMockDb(seed: Record<string, Data> = {}, opts: MockDbOption
       const data = docs.get(path);
       return { exists: data !== undefined, data: () => data };
     },
+    set: async (data: Data, o?: { merge?: boolean }) => {
+      if (opts.failBatch) throw new Error('simulated write failure');
+      const prev = o?.merge ? (docs.get(path) ?? {}) : {};
+      docs.set(path, applyMerge(prev, data));
+    },
   });
 
   const db = {

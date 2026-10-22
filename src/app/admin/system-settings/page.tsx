@@ -92,6 +92,7 @@ interface FlagState {
   enable_locale_en: boolean;
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
+  admin_ai_assistant_v1: boolean;
 }
 
 // ============================================================================
@@ -692,6 +693,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
     parentKey: 'enable_i18n',
+  },
+  // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
+  {
+    key: 'admin_ai_assistant_v1',
+    icon: Bot,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
+    title: 'פאנל: עוזר AI ("שאל את OUT")',
+    description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
   },
 ];
 
