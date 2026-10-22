@@ -100,15 +100,22 @@ describe('Source-fact check (mechanical): useRunningPlayer derives completion la
       'src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx',
     );
     const lines = fs.readFileSync(sharePath, 'utf-8').split('\n');
-    // Located by CONTENT, not line number.
-    const shareLines = lines.filter((l) => l.includes('סיימתי אימון'));
-    expect(shareLines).toHaveLength(1);
-    const shareLine = shareLines[0];
+    // i18n batch ad: the share text moved to the `summary` catalog
+    // (src/messages/he/summary.json, key share.text); the component renders it
+    // with t('share.text', { distance, group }). Located by CONTENT, not line number.
+    const callLines = lines.filter((l) => l.includes("t('share.text'"));
+    expect(callLines).toHaveLength(1);
+    expect(callLines[0]).toContain('distance: distanceStr');
+    const catalog = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, 'src/messages/he/summary.json'), 'utf-8'),
+    ) as Record<string, string>;
+    const shareLine = catalog['share.text'];
+    expect(shareLine).toContain('סיימתי אימון');
     // No running-specific wording (the bug): not "ריצה", not "#ריצה", no 🏃.
     expect(shareLine).not.toContain('ריצה');
     expect(shareLine).not.toContain('🏃');
     // Still the generic workout message with the distance interpolated.
-    expect(shareLine).toContain('${distanceStr}');
+    expect(shareLine).toContain('{distance}');
   });
 });
 
