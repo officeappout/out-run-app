@@ -9,6 +9,10 @@ import type { PyramidStep } from '@/features/workout-engine/logic/workout-genera
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 import { useStrengthPlayerV2 } from '../context/StrengthPlayerV2Context';
+import { useStrengthDrawerV1 } from '../hooks/useStrengthDrawerV1';
+import { useSnapDrawer } from '../../shared/v2/useSnapDrawer';
+import SnapDrawerGrabber from '../../shared/v2/SnapDrawerGrabber';
+import PlayerDrawerCompact from '../../shared/v2/PlayerDrawerCompact';
 
 /**
  * ActiveExerciseView — the live ACTIVE-phase player surface.
@@ -182,6 +186,12 @@ export default function ActiveExerciseView({
   const [mainVideoReady, setMainVideoReady] = useState(false);
   // enable_home_v2 — styling only (provided once by StrengthRunner).
   const v2 = useStrengthPlayerV2();
+  // enable_strength_drawer_v1: the reps / timer card as a two-snap drawer
+  // (remembered for the app session) + the corner "הסבר" chip.
+  const drawerV1 = useStrengthDrawerV1();
+  const drawerState = useSnapDrawer('strength', drawerV1);
+  const drawer = drawerV1 ? drawerState : null;
+  const collapsed = !!drawer?.collapsed;
 
   // Reset the gate on every set remount so the prefetch is re-deferred.
   useEffect(() => {
@@ -210,6 +220,7 @@ export default function ActiveExerciseView({
         hasAudio={false}
         onVideoElement={onVideoElement}
         fullTutorial={exerciseFullTutorial ?? null}
+        tutorialPlacement={drawerV1 ? 'corner' : 'legacy'}
         onVideoProgress={onSetVideoProgress}
         onVideoEnded={(isTimeExercise || !TIMER_AUTO_ADVANCE_ENABLED) ? undefined : () => onComplete()}
         onLoadingChange={(loading) => {
@@ -240,6 +251,7 @@ export default function ActiveExerciseView({
           prepSeconds={timerPrepSeconds}
           externalPaused={isPaused}
           guidanceLine={guidanceLine}
+          drawer={drawer}
         />
       )}
 
@@ -247,17 +259,21 @@ export default function ActiveExerciseView({
       {!isTimeExercise && (
         <div
           ref={scrollRef}
-          className="absolute inset-0 overflow-y-auto overscroll-contain z-10"
+          className={collapsed
+            ? 'absolute inset-x-0 bottom-0 z-10'
+            : 'absolute inset-0 overflow-y-auto overscroll-contain z-10'}
         >
           {/* Spacer — pushes card to bottom; maximises visible video. B4:
               warmup / follow-along shows a guided clip with no big reps/target
               number, so its card is naturally shorter — reserve less bottom
               space (140px vs 220px) for a taller video and a card peek sized to
               its lighter content. Live-player only; the overview sheet is untouched. */}
+          {!collapsed && (
           <div
             className="pointer-events-none"
             style={{ height: `calc(100dvh - ${exerciseType === 'follow-along' ? 140 : 220}px)` }}
           />
+          )}
 
           {/* Card — compact, content-hugging */}
           <div
@@ -267,10 +283,32 @@ export default function ActiveExerciseView({
             dir="rtl"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 24px))' }}
           >
-            {/* Scroll hint — drag handle */}
+            {/* Scroll hint — drag handle (enable_strength_drawer_v1: the snap grabber) */}
+            {drawer ? (
+              <SnapDrawerGrabber drawer={drawer} />
+            ) : (
             <div className="flex justify-center mb-1.5">
               <div className={v2 ? 'h-1.5 w-10 rounded-full bg-v2-pill-border' : 'w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full'} />
             </div>
+            )}
+
+            {/* Compact snap: one row (name · range · target · round) above the SAME
+                FillingButton below — it stays mounted, so its auto-fill keeps going. */}
+            {collapsed && drawer ? (
+              <div className="mb-2">
+                <PlayerDrawerCompact
+                  drawer={drawer}
+                  title={exerciseName}
+                  caption={[
+                    repsOrDurationText ? `${repsOrDurationText}${isUnilateral ? ' (לכל צד)' : ''}` : null,
+                    (isPyramidActive || (isSupersetActive && totalRounds > 1)) ? `סבב ${currentRound} מתוך ${totalRounds}` : null,
+                  ].filter(Boolean).join(' · ')}
+                  value={targetValue > 0 ? String(targetValue) : null}
+                  unit={targetValue > 0 ? 'יעד' : null}
+                />
+              </div>
+            ) : (
+            <>
 
             {/* ── Central Metrics: Range (XL Black) + Target (Blue) ────── */}
             {repsOrDurationText && (
@@ -364,6 +402,9 @@ export default function ActiveExerciseView({
               </div>
             )}
 
+            </>
+            )}
+
             {/* Primary CTA */}
             <div className="mb-2" data-coach="player-done">
               <FillingButton
@@ -377,7 +418,7 @@ export default function ActiveExerciseView({
             </div>
 
             {/* Swap button — tight below CTA */}
-            {onSwap && (
+            {!collapsed && onSwap && (
               <div className="flex justify-center mb-1">
                 <button
                   onClick={onSwap}
@@ -399,6 +440,7 @@ export default function ActiveExerciseView({
             {/* ── Below the fold — unified ExerciseDetailContent ──────────
                 The player tour's ONE "איך מבצעים" target (always rendered, unlike the
                 video's conditional "צפה בהסבר המלא" button). */}
+            {!collapsed && (
             <div className="-mx-5 mt-4" data-coach="player-how-to">
               <ExerciseDetailContent
                 exerciseName={exerciseName}
@@ -413,6 +455,7 @@ export default function ActiveExerciseView({
                 workoutLocation={workoutLocation}
               />
             </div>
+            )}
           </div>
         </div>
       )}

@@ -524,6 +524,14 @@ export const FLAG_DEFS = [
   // hybrid pyramid step swap replaces only that step with the park's equipment, list images
   // follow the chosen method. superAdminValue true: the owner previews it first.
   { key: 'enableSwapFixesV1', firestoreKey: 'enable_swap_fixes_v1', defaultValue: false, superAdminValue: true },
+  // Strength / timed players drawer (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md).
+  // Inside the enable_home_v2 players: the bottom card of the strength player (reps card, timer
+  // card) and of tabata / AMRAP / EMOM becomes a two-snap drawer (compact ↔ full, drag or tap,
+  // remembered for the app session) so the exercise video stays visible; "צפה בהסבר המלא" moves to
+  // a small "הסבר" chip at the video's top corner and into the exercise row details; the session
+  // list rows get an expandable "פרטי התרגיל" (the exercise page's muscles / cues / equipment).
+  // Fail-closed; super admins preview it. Off = byte-identical players.
+  { key: 'enableStrengthDrawerV1', firestoreKey: 'enable_strength_drawer_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

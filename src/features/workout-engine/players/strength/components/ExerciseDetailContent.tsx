@@ -55,6 +55,9 @@ export interface ExerciseDetailContentProps {
   notes?: string[];
   hideHeroVideo?: boolean;
   hideTitle?: boolean;
+  /** Tight padding, no own background — for a session-list row's details
+   *  (enable_strength_drawer_v1). Default false = unchanged. */
+  compact?: boolean;
 }
 
 export default function ExerciseDetailContent({
@@ -77,6 +80,7 @@ export default function ExerciseDetailContent({
   notes,
   hideHeroVideo = false,
   hideTitle = false,
+  compact = false,
 }: ExerciseDetailContentProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ytLoaded, setYtLoaded] = useState(false);
@@ -167,7 +171,7 @@ export default function ExerciseDetailContent({
       )}
 
       {/* ── White content area ── */}
-      <div className="bg-white dark:bg-slate-900 px-4 pt-4 pb-12">
+      <div className={compact ? 'px-1 pt-2 pb-1' : 'bg-white dark:bg-slate-900 px-4 pt-4 pb-12'}>
         {/* Exercise title — always shown unless explicitly hidden */}
         {!hideTitle && (
           <h2
