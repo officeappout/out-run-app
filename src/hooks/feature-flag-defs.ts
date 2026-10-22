@@ -289,6 +289,13 @@ export const FLAG_DEFS = [
   // device via readLiveFlag, so superAdminValue false — the panel toggle is the one switch.
   // Off = the generator is byte-identical. A/B: /admin/routes/quality.
   { key: 'enableLoopsPreferOfficial', firestoreKey: 'enable_loops_prefer_official', defaultValue: false, superAdminValue: false },
+  // Cycling fixes v1 (22.10.2026, owner-approved, docs/routes/BIKE-GENERATOR-AUDIT.md) — ONE switch
+  // for every user-visible cycling change: known-route `mixed` docs reach cyclists, loops-prefer-official
+  // filters our routes by activity, one shared bike speed, commute / leg-plan rides keep 'cycling', and a
+  // ride started from the map is recorded as a ride (live screen, calories, history label). XP awarding is
+  // untouched (XP_Progression_Truth.md defines no cycling). Read on the device via readLiveFlag, so
+  // superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
+  { key: 'enableCyclingFixesV1', firestoreKey: 'enable_cycling_fixes_v1', defaultValue: false, superAdminValue: false },
   // "Shadiest route" (RC6, 21.10.2026, owner-approved) — a "המסלול המוצל ביותר" row in the
   // free-run extras sheet. The app sends preferShade to /api/routes/generate, which asks
   // GraphHopper for 6 candidates and ranks them by Technion shade (src/lib/shade) in the 13 cities

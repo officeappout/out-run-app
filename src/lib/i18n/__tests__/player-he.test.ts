@@ -411,9 +411,13 @@ describe('player (he) — byte-identical to the pre-extraction literals', () => 
     expect(t('run.drawer.stopAria')).toBe('סיום אימון · לחיצה ארוכה');
   });
 
+  it('cycling-fixes-v1: the ride speed label on the legacy stats card', () => {
+    expect(t('run.stats.main.avgSpeed')).toBe('מהירות (קמ״ש)');
+  });
+
   it('no key is left untested', () => {
     // Keep in step with the catalog: a new run.* key needs a case above. Counted per prefix
     // (other batches add keys to the same namespace file — e.g. sessionInvite.*, app-pages-he.test.ts).
-    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(326);
+    expect(Object.keys(he).filter((k) => k.startsWith('run.')).length).toBe(327);
   });
 });

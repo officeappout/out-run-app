@@ -15,6 +15,7 @@ import type { OverviewLeg } from '../overview-legs';
 import type { NamespaceKey } from '@/lib/i18n/catalogs';
 import type { MessageValues } from '@/lib/i18n/core/i18n-core';
 import type { map } from '@/messages/ns/map';
+import { CYCLING_MIN_PER_KM } from '@/lib/cycling-pace';
 
 /** The `map` namespace's t() (useT(map) in the caller) — these helpers stay pure. */
 export type MapT = (key: NamespaceKey<typeof map>, values?: MessageValues) => string;
@@ -27,7 +28,7 @@ export const ROUTE_ACTIVITIES: readonly RouteActivity[] = ['walking', 'running',
  * `route.duration` (route-geometry-edit.service: cycling 3 · running 6 ·
  * walking 12), so the trio's numbers agree with the stored duration.
  */
-export const ACTIVITY_MIN_PER_KM: Record<RouteActivity, number> = { walking: 12, running: 6, cycling: 3 };
+export const ACTIVITY_MIN_PER_KM: Record<RouteActivity, number> = { walking: 12, running: 6, cycling: CYCLING_MIN_PER_KM };
 
 export function activityMinutes(distanceKm: number, activity: RouteActivity): number {
   const km = Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : 0;

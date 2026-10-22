@@ -3,6 +3,8 @@
 import { useSessionStore } from '@/features/workout-engine/core/store/useSessionStore';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
+import { readLiveFlag } from '@/lib/feature-flag-live';
+import { fmtSpeed, paceSecToKmh } from '@/features/workout-engine/players/running/lib/aerobic-activity';
 import { useT } from '@/hooks/useT';
 import { player } from '@/messages/ns/player';
 
@@ -18,6 +20,8 @@ export default function MainMetrics() {
   const currentPace = useRunningPlayer((s) => s.currentPace);
   const totalCalories = useRunningPlayer((s) => s.totalCalories);
   const sessionGoal = useRunningPlayer((s) => s.sessionGoal);
+  // cycling-fixes-v1 (enable_cycling_fixes_v1): a ride shows km/h here, not min/km.
+  const isRide = useRunningPlayer((s) => s.activityType) === 'cycling' && readLiveFlag('enableCyclingFixesV1');
 
   const formatDuration = (totalSeconds: number): string => {
     if (!totalSeconds || totalSeconds <= 0) return '00:00';
@@ -77,10 +81,10 @@ export default function MainMetrics() {
           style={{ borderLeft: `1px solid ${DIVIDER_COLOR}`, paddingLeft: '0.75rem' }}
         >
           <div className="font-bold leading-none tabular-nums" style={{ fontSize: '2rem', color: NUM_COLOR }}>
-            {formatPace(safePace)}
+            {isRide ? fmtSpeed(paceSecToKmh(safePace * 60)) : formatPace(safePace)}
           </div>
           <div className="text-[10px] font-bold mt-1 tracking-wide" style={{ color: LABEL_COLOR }}>
-            {t('run.stats.main.avgPace')}
+            {isRide ? t('run.stats.main.avgSpeed') : t('run.stats.main.avgPace')}
           </div>
         </div>
 
