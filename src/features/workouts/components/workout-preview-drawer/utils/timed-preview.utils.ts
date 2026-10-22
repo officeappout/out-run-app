@@ -15,6 +15,7 @@ import type { TimedBlockSpec, TimedItem } from '@/features/workout-engine/engine
 import type { JourneyStripItem } from '@/components/ui/v2/journey-strip';
 import type { ProfileStripSegment } from '@/components/ui/v2/ProfileStrip';
 import { exDisplayName } from './section-grouping.utils';
+import type { LibraryT } from '@/messages/ns/library';
 
 type Gw = Pick<GeneratedWorkout, 'structure' | 'blastMode' | 'exercises' | 'tabataBlock' | 'estimatedDuration'>;
 
@@ -102,41 +103,60 @@ export function previewProfile(gw: Gw, m: PreviewTimedModel): ProfileStripSegmen
   });
 }
 
-/** "14 דק׳ · 9 תרגילים · מסיים ~9:55". */
-export function previewMeta(gw: Gw, now: Date): Array<{ key: string; text: string }> {
+/** "14 דק׳ · 9 תרגילים · מסיים ~9:55" (library `preview.timed.meta.*`). */
+export function previewMeta(gw: Gw, now: Date, t: LibraryT): Array<{ key: string; text: string }> {
   const min = Math.max(1, Math.round(gw.estimatedDuration || 0));
   const end = new Date(now.getTime() + min * 60_000);
   const hhmm = `${end.getHours()}:${String(end.getMinutes()).padStart(2, '0')}`;
   const n = gw.exercises.length;
   return [
-    { key: 'dur', text: `${min} דק׳` },
-    { key: 'count', text: `${n} ${n === 1 ? 'תרגיל' : 'תרגילים'}` },
-    { key: 'end', text: `מסיים ~${hhmm}` },
+    { key: 'dur', text: t('preview.timed.meta.duration', { min: String(min) }) },
+    { key: 'count', text: t('preview.timed.meta.count', { n }) },
+    { key: 'end', text: t('preview.timed.meta.end', { time: hhmm }) },
   ];
 }
 
 /** Block section header: format name, length pill, the format's one-line rule. */
-export function blockHeaderModel(spec: TimedBlockSpec): { name: string; pill: string; line: string; tone: 'amrap' | 'emom' | 'tabata' } {
-  if (spec.format === 'amrap') return { name: 'AMRAP', pill: `${Math.round(spec.config.capSec / 60)}′`, line: 'כמה שיותר סבבים', tone: 'amrap' };
+export function blockHeaderModel(spec: TimedBlockSpec, t: LibraryT): { name: string; pill: string; line: string; tone: 'amrap' | 'emom' | 'tabata' } {
+  if (spec.format === 'amrap') return { name: 'AMRAP', pill: `${Math.round(spec.config.capSec / 60)}′`, line: t('preview.timed.amrap.line'), tone: 'amrap' };
   if (spec.format === 'emom') {
     const n = spec.items.length;
-    const every = spec.config.intervalSec === 60 ? 'כל דקה' : `כל ${spec.config.intervalSec} שנ׳`;
-    return { name: 'EMOM', pill: `${spec.config.totalIntervals}′`, line: `${every} · ${n} ${n === 1 ? 'תרגיל' : 'תרגילים'}`, tone: 'emom' };
+    const line =
+      spec.config.intervalSec === 60
+        ? t('preview.timed.emom.lineMinute', { n })
+        : t('preview.timed.emom.lineSec', { sec: String(spec.config.intervalSec), n });
+    return { name: 'EMOM', pill: `${spec.config.totalIntervals}′`, line, tone: 'emom' };
   }
-  return { name: 'טבטה', pill: `${spec.config.workSec}/${spec.config.restSec}`, line: `${spec.config.rounds} אינטרוולים`, tone: 'tabata' };
+  return {
+    name: t('preview.timed.tabata.name'),
+    pill: `${spec.config.workSec}/${spec.config.restSec}`,
+    line: t('preview.timed.tabata.line', { n: String(spec.config.rounds) }),
+    tone: 'tabata',
+  };
 }
 
 /** Card line of a block member: "12 חזרות · בכל סבב" / "דקות אי-זוגיות · 12 חזרות". */
-export function blockItemLine(spec: TimedBlockSpec, index: number): string {
+export function blockItemLine(spec: TimedBlockSpec, index: number, t: LibraryT): string {
   const it = spec.items[index];
   if (!it) return '';
-  const uni = it.isUnilateral ? ' לכל צד' : '';
-  const target = it.targetReps ? `${it.targetReps} חזרות${uni}` : it.targetHoldSec ? `${it.targetHoldSec} שנ׳${uni}` : '';
-  if (spec.format === 'amrap') return target ? `${target} · בכל סבב` : 'בכל סבב';
+  const uni = it.isUnilateral ? t('preview.timed.item.unilateral') : '';
+  const target = it.targetReps
+    ? t('preview.timed.item.reps', { n: String(it.targetReps), uni })
+    : it.targetHoldSec
+      ? t('preview.timed.item.hold', { n: String(it.targetHoldSec), uni })
+      : '';
+  if (spec.format === 'amrap') return target ? t('preview.timed.item.amrapTarget', { target }) : t('preview.timed.item.amrap');
   if (spec.format === 'emom') {
     const n = spec.items.length;
-    const which = n === 2 ? (index === 0 ? 'דקות אי-זוגיות' : 'דקות זוגיות') : n > 2 ? `כל ${n} דקות` : 'כל דקה';
-    return target ? `${which} · ${target}` : which;
+    const which =
+      n === 2
+        ? index === 0
+          ? t('preview.timed.item.emomOdd')
+          : t('preview.timed.item.emomEven')
+        : n > 2
+          ? t('preview.timed.item.emomEveryN', { n: String(n) })
+          : t('preview.timed.item.emomEveryMinute');
+    return target ? t('preview.timed.item.emomTarget', { which, target }) : which;
   }
-  return `${spec.config.workSec} שנ׳${uni}`;
+  return t('preview.timed.item.tabata', { sec: String(spec.config.workSec), uni });
 }

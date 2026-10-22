@@ -8,6 +8,7 @@
  */
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { resolveExerciseMedia } from '@/features/workout-engine/shared/utils/media-resolution.utils';
+import type { LibraryT } from '@/messages/ns/library';
 
 /** Resolve exercise thumbnail image URL via shared 5-level deep search */
 export function resolveExerciseImage(ex: EngineWorkoutExercise): string {
@@ -48,11 +49,13 @@ export function resolveExerciseImage(ex: EngineWorkoutExercise): string {
  *
  * @param ex          The engine workout exercise wrapper.
  * @param uniLabel    Suffix appended for unilateral movements (e.g. " (לכל צד)").
- * @returns           A Hebrew-formatted volume string ready for display.
+ * @param t           The caller's `useT(library)` (keys `preview.volume.*`).
+ * @returns           A volume string ready for display.
  */
 export function buildExerciseVolumeLabel(
   ex: EngineWorkoutExercise,
   uniLabel: string,
+  t: LibraryT,
 ): string {
   // Prefer the pre-computed string from Tier-3 PresentationFormatter when present.
   if (ex.formattedRepRange) {
@@ -62,10 +65,16 @@ export function buildExerciseVolumeLabel(
   // Legacy fallback — kept verbatim so non-engine WorkoutExercise inputs
   // (Firestore-restored sessions, share-link payloads) still render correctly.
   const isTimeBased = ex.isTimeBased === true;
-  const unit = isTimeBased ? 'שניות' : 'חזרות';
 
   if (ex.repsRange && ex.repsRange.min !== ex.repsRange.max) {
-    return `${ex.repsRange.min}-${ex.repsRange.max} ${unit}${uniLabel}`;
+    return t('preview.volume.range', {
+      min: String(ex.repsRange.min),
+      max: String(ex.repsRange.max),
+      unit: isTimeBased ? 'seconds' : 'reps',
+      uni: uniLabel,
+    });
   }
-  return isTimeBased ? `${ex.reps} שניות` : `${ex.reps} חזרות${uniLabel}`;
+  return isTimeBased
+    ? t('preview.volume.seconds', { n: String(ex.reps) })
+    : t('preview.volume.reps', { n: String(ex.reps), uni: uniLabel });
 }

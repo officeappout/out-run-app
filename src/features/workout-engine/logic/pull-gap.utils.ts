@@ -104,7 +104,7 @@ export function findAreaCandidate(workout: GeneratedWorkout, opts: NeverEmptyOpt
 }
 
 function toWorkoutExercise(c: Cand, opts: NeverEmptyOptions, sets: number): WorkoutExercise {
-  const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty);
+  const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
   return {
     exercise: c.ex, method: c.method, mechanicalType: d.mechanicalType,
     sets: Math.max(2, sets), reps: d.reps, repsRange: d.repsRange, isTimeBased: d.isTimeBased, restSeconds: d.restSeconds,

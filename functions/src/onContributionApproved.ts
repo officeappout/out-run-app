@@ -37,6 +37,7 @@ import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { sendPush } from './services/push.service';
 import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/push-copy.service';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -83,6 +84,7 @@ export const onContributionApproved = onDocumentUpdated(
       const result = await sendPush({
         toUids: [userId],
         channel: 'contribution_status',
+        measurementTypeId: PUSH_TYPE_IDS.contributionApproved, // enable_push_measure_all (off = ignored)
         title: copy.title,
         body: copy.body,
         deepLink: copy.deepLink,

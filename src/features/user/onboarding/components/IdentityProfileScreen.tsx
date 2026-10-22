@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { isKeyboardControllerActive } from '@/lib/keyboard/keyboardInsetController';
@@ -377,6 +378,7 @@ export default function IdentityProfileScreen({
         }
       } else {
         // Full onboarding: pass identity to downstream screens via sessionStorage
+        logOnboardingFunnelStep('IDENTITY'); // enable_onboarding_step_funnel (off = no-op)
         sessionStorage.setItem('onboarding_personal_name',   formData.name);
         sessionStorage.setItem('onboarding_personal_gender', formData.gender);
         sessionStorage.setItem('onboarding_personal_dob',    birthDate.toISOString().split('T')[0]);

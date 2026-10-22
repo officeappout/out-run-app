@@ -67,6 +67,8 @@ export interface PushEventMetadata {
   /** Copy tone ('cute' | 'personal' | 'curious' | 'friendly' | 'none') and the sender's lever — tone learning. */
   tone?: string;
   lever?: string;
+  /** enable_push_measure_all only (push-measure-all.ts): the push type id, = category. Absent otherwise. */
+  typeId?: string;
 }
 
 export interface WritePushSentOpts extends PushEventMetadata {
@@ -133,6 +135,7 @@ export async function writePushSentEvent(opts: WritePushSentOpts): Promise<void>
       ...(opts.copyRowId ? { copyRowId: opts.copyRowId } : {}),
       ...(opts.tone ? { tone: opts.tone } : {}),
       ...(opts.lever ? { lever: opts.lever } : {}),
+      ...(opts.typeId ? { typeId: opts.typeId } : {}),
       delivered: opts.delivered,
       sentAt: now,
       outcomeWindowHours: windowHours,
@@ -166,13 +169,26 @@ export async function activateOutcomeWindow(opts: {
   uid: string;
   openedAtMillis: number;
 }): Promise<boolean> {
+  return (await activateOutcomeWindowDetailed(opts)).activated;
+}
+
+/**
+ * activateOutcomeWindow + the sibling push_sent's `typeId` (present only on sends measured
+ * while enable_push_measure_all was on), so onPushOpened can stamp it on the push_opened
+ * record without a second read.
+ */
+export async function activateOutcomeWindowDetailed(opts: {
+  pushId: string;
+  uid: string;
+  openedAtMillis: number;
+}): Promise<{ activated: boolean; typeId: string | null }> {
   const db = getDb();
   const sentRef = db.collection('push_events').doc(`${opts.pushId}_${opts.uid}_push_sent`);
   try {
     const sentSnap = await sentRef.get();
     if (!sentSnap.exists) {
       logger.warn(`[push-events] activateOutcomeWindow: no push_sent doc for pushId=${opts.pushId} uid=${opts.uid}`);
-      return false;
+      return { activated: false, typeId: null };
     }
     const sentData = sentSnap.data() as Record<string, unknown>;
     const windowHours =
@@ -182,11 +198,38 @@ export async function activateOutcomeWindow(opts: {
       openedAt: admin.firestore.Timestamp.fromMillis(opts.openedAtMillis),
       checkAfter: admin.firestore.Timestamp.fromMillis(checkAfterMillis),
     });
-    return true;
+    return { activated: true, typeId: typeof sentData.typeId === 'string' ? sentData.typeId : null };
   } catch (err: unknown) {
     logger.warn(`[push-events] activateOutcomeWindow failed pushId=${opts.pushId} uid=${opts.uid}`, err);
-    return false;
+    return { activated: false, typeId: null };
   }
+}
+
+/**
+ * enable_push_measure_all — push_sent for the legacy direct-FCM senders (chat, onboarding
+ * drop-off, queue broadcasts), which don't go through sendPush(). One doc per attempted uid,
+ * same shape sendPush() writes for a type-only sender (push-measure-all.ts defaultMeasurement).
+ */
+export async function writeLegacyPushSentEvents(opts: {
+  pushId: string;
+  channel: string;
+  typeId: string;
+  uidDelivered: Map<string, boolean>;
+}): Promise<void> {
+  await Promise.all(
+    Array.from(opts.uidDelivered.entries()).map(([uid, delivered]) =>
+      writePushSentEvent({
+        pushId: opts.pushId,
+        uid,
+        delivered,
+        channel: opts.channel,
+        variantId: `default:${opts.typeId}`,
+        category: opts.typeId,
+        persona: 'all',
+        typeId: opts.typeId,
+      }),
+    ),
+  );
 }
 
 /** Server-side write for the outcome sweeper (pushOutcomeSweeper.ts).
@@ -228,6 +271,7 @@ export async function writePostPushOutcomeEvent(opts: {
     timeOfDay: sent.timeOfDay ?? null,
     channel: sent.channel ?? null,
     ...(typeof sent.copyRowId === 'string' ? { copyRowId: sent.copyRowId, pushType: sent.pushType ?? null } : {}),
+    ...(typeof sent.typeId === 'string' ? { typeId: sent.typeId } : {}),
     goalCompleted: opts.outcomeAchieved,
     outcomeType: opts.outcomeType,
     actionAt: opts.actionAt ?? null,

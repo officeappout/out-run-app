@@ -58,6 +58,8 @@ import * as admin from 'firebase-admin';
 import { sendPush, type PushChannel } from './services/push.service';
 import { isShabbatObserver, isShabbatOrYomTov } from './services/shabbat.service';
 import { activityToMillis, lastActivityFromUserData, readActivityFlags } from './lib/user-activity';
+import { PUSH_TYPE_IDS, accumulateUidDelivery, isPushMeasureAllEnabled } from './services/push-measure-all';
+import { writeLegacyPushSentEvents } from './services/push-events.service';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -188,6 +190,7 @@ export const sendPushFromQueue = onDocumentCreated(
       const result = await sendPush({
         toUids: Array.from(candidateUids),
         channel,
+        measurementTypeId: PUSH_TYPE_IDS.broadcast, // enable_push_measure_all (off = ignored)
         title,
         body,
         deepLink: data.deepLink,
@@ -281,6 +284,10 @@ export const sendPushFromQueue = onDocumentCreated(
     let deliveredCount = 0;
     let failedCount = 0;
     const tokensToRemove: string[] = [];
+    // enable_push_measure_all (off = no push_events writes — as before). The payload already
+    // carries messageId = this queue doc id, which the app reports on open → it is the pushId.
+    const measureLegacy = await isPushMeasureAllEnabled();
+    const uidDelivered = new Map<string, boolean>();
 
     for (let i = 0; i < tokens.length; i += MULTICAST_BATCH_SIZE) {
       const batch = tokens.slice(i, i + MULTICAST_BATCH_SIZE);
@@ -289,6 +296,7 @@ export const sendPushFromQueue = onDocumentCreated(
           ...messageBase,
           tokens: batch,
         });
+        if (measureLegacy) accumulateUidDelivery(uidDelivered, batch, tokenOwners, response.responses.map((r) => r.success));
         response.responses.forEach((resp, idx) => {
           if (resp.success) {
             deliveredCount += 1;
@@ -309,8 +317,13 @@ export const sendPushFromQueue = onDocumentCreated(
         // a wholesale fail for this batch — do NOT remove tokens since
         // they may still be valid.
         failedCount += batch.length;
+        if (measureLegacy) accumulateUidDelivery(uidDelivered, batch, tokenOwners, null);
         logger.warn(`[sendPushFromQueue] batch send failed`, e);
       }
+    }
+
+    if (measureLegacy) {
+      await writeLegacyPushSentEvents({ pushId: messageId, channel, typeId: PUSH_TYPE_IDS.broadcast, uidDelivered });
     }
 
     // ── Step 6: prune dead tokens from each owner's user doc ─────────

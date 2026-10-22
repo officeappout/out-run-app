@@ -64,6 +64,8 @@ export interface ExerciseResultLog {
   repsSource?: RepsSource[];
   /** Per set: the coach hint shown at save ('none' when no hint). */
   coachHints?: CoachHintMark[];
+  /** 3a: deload / heat / calm-return session — doesn't move the progression. */
+  adaptiveSkip?: true;
 }
 
 /** Optional provenance a save call site knows (5th handleRepetitionSave arg). */

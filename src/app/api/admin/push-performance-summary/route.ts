@@ -316,8 +316,11 @@ export async function computePushPerformanceSummary(
 
   // Unmeasured catalog sources — real types with zero push_events data,
   // shown honestly rather than silently omitted (refinement #2).
+  // A source measured only under enable_push_measure_all counts as measured once it has rows.
+  const categoriesWithRows = new Set(measuredRows.map((r) => r.funnelCategory));
   const unmeasuredRows: PushPerformanceRow[] = ALL_PUSH_SOURCES
     .filter((s) => !s.source.measured)
+    .filter((s) => !(s.source.measuredWithFlag && s.source.funnelCategory && categoriesWithRows.has(s.source.funnelCategory)))
     .filter((s) => !params.channel || s.channel === params.channel)
     .map((s) => ({
       channel: s.channel,

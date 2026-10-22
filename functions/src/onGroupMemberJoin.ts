@@ -39,6 +39,7 @@ import { resolvePushCopy, pushCopyData, loadPushRecipient } from './services/pus
 import type { PushGender } from './shared/push-library.core';
 import { isDemoUid, restrictToDemoWorld } from './lib/demo';
 import { loadDemoViewerUids } from './lib/demo-world';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -111,6 +112,7 @@ export const onGroupMemberJoin = onDocumentCreated(
       const welcomeResult = await sendPush({
         toUids: [joinerUid],
         channel: 'social',
+        measurementTypeId: PUSH_TYPE_IDS.groupWelcome, // enable_push_measure_all (off = ignored)
         title: copy.title,
         body: copy.body,
         deepLink: copy.deepLink,
@@ -147,6 +149,7 @@ export const onGroupMemberJoin = onDocumentCreated(
       const adminResult = await sendPush({
         toUids: [adminUid],
         channel: 'social',
+        measurementTypeId: PUSH_TYPE_IDS.groupAdminJoin, // enable_push_measure_all (off = ignored)
         title: copy.title,
         body: copy.body,
         deepLink: copy.deepLink,

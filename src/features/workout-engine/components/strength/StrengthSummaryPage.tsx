@@ -159,6 +159,8 @@ export interface StrengthSummaryPageProps {
    * When provided, SummaryPage skips calling processWorkoutCompletion.
    */
   precomputedProgression?: WorkoutCompletionResult | null;
+  /** enable_levelup_v2: the stored level/percent the level-up screen showed (see useSummaryAnalytics). */
+  levelOverride?: { level: number; percent: number };
 
   /** Per-domain set counts for weekly volume tracking (Phase 3). */
   domainSets?: Record<string, number>;
@@ -197,6 +199,7 @@ export default function StrengthSummaryPage({
   levelGoals,
   rawExerciseLog,
   precomputedProgression,
+  levelOverride,
   domainSets,
   workoutSegments,
   previousSets,
@@ -304,6 +307,7 @@ export default function StrengthSummaryPage({
     currentLevel,
     progressToNextLevel,
     progressionResult: progression.progressionResult,
+    levelOverride,
   });
 
   const { evaluatedGoals } = useGoalEvaluation({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { logOnboardingFunnelStep } from '@/features/analytics/onboarding-funnel';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -251,6 +252,7 @@ export default function HealthDeclarationPage() {
     // destination. consumeMiniAssessmentState() itself already ran above
     // (Stage 5(a) fix — moved earlier so its clearing lands before the sync
     // fires); miniReturnTo is that same call's result, just captured sooner.
+    if (!miniActive) logOnboardingFunnelStep('HEALTH_DECLARATION'); // enable_onboarding_step_funnel (off = no-op)
     if (miniActive) {
       router.push(miniReturnTo!);
     } else {
