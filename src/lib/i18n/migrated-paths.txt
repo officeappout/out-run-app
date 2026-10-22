@@ -351,6 +351,7 @@ src/features/home/components/day-preview/
 
 # enable_map_polish_v1 (21.10.2026, namespace map) — new files, no hard-coded Hebrew.
 src/features/parks/core/map-polish/
+src/features/parks/core/dest-planner/
 src/features/parks/client/components/park-preview/ParkCardCompact.tsx
 # wave 2 batch z (namespace player, keys strengthSummary.* / dopamine.*) — the strength post-workout screens. Listed per
 # file: StrengthSummaryPage / XpStatusRow / hooks are busy in other work; GainBreakdownCard, WeeklyAchievementsGrid,
