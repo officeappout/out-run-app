@@ -15,6 +15,7 @@
 | `research/` | חקירות חד-פעמיות | היסטורי |
 | `trails-pilot/` | פיילוט שבילים שער הנגב (`TRAILS-PILOT-SHAAR-HANEGEV.md` + פלטי dry-run) | כן, לפיילוט |
 | `i18n/` | תוכנית ו-HOW-TO לתרגום | כן |
+| `admin/` | תוכנית עוזר ה-AI בפאנל הניהול (`ADMIN-AI-ASSISTANT-PLAN.md`) | תוכנית לאישור |
 | `analytics/` | טקסונומיית אירועים, תוכנית growth analytics | כן |
 | `design-v2/` | אודיט עיצוב v2 | תמונת מצב |
 | `push-library/` | פלטי סיווג של ספריית ה-push | נתונים |
