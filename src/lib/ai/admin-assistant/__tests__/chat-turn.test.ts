@@ -7,6 +7,7 @@ const st = vi.hoisted(() => ({
   sonnetCalls: 0,
   audits: [] as any[],
   appended: [] as any[],
+  reply: 'תשובה',
 }));
 
 vi.mock('server-only', () => ({}));
@@ -38,8 +39,8 @@ vi.mock('../thread-store.server', () => ({
 vi.mock('../model-call.server', () => ({
   streamAdminModelCall: async (_c: unknown, _u: string, _p: unknown, onText: (d: string) => void) => {
     st.sonnetCalls += 1;
-    onText('תשובה');
-    return { message: { content: [{ type: 'text', text: 'תשובה' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }, costUsd: 0.01 };
+    onText(st.reply);
+    return { message: { content: [{ type: 'text', text: st.reply }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } }, costUsd: 0.01 };
   },
 }));
 
@@ -58,6 +59,7 @@ beforeEach(() => {
   st.sonnetCalls = 0;
   st.audits = [];
   st.appended = [];
+  st.reply = 'תשובה';
 });
 
 describe('runChatTurn — cheapest path first', () => {
@@ -95,5 +97,20 @@ describe('runChatTurn — cheapest path first', () => {
     st.decision = { kind: 'nav' };
     await run('קקקקקק זזזזזז');
     expect(st.sonnetCalls).toBe(1);
+  });
+});
+
+describe('runChatTurn — the evidence guard (wave 4)', () => {
+  it('a number no tool returned → done.unverified, audit guardFailed, stored message flagged', async () => {
+    st.reply = 'יש 340 משתמשים פעילים השבוע.';
+    const ev = await run('כמה פעילים?', 'data_question');
+    expect(ev.at(-1)).toMatchObject({ type: 'done', unverified: true });
+    expect(st.audits[0].guardFailed).toBe(true);
+    expect(st.appended[1].unverified).toBe(true);
+  });
+  it('an answer without numbers is not checked (guardFailed null)', async () => {
+    const ev = await run('מה זה WAE?', 'data_question');
+    expect(ev.at(-1)).toMatchObject({ unverified: false });
+    expect(st.audits[0].guardFailed).toBeNull();
   });
 });

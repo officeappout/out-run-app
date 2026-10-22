@@ -26,6 +26,7 @@ import { computeQuickCard } from './quick-metrics.server';
 import { appendAdminMessage, historyMessages, loadAdminThread, maybeRollAdminSummary } from './thread-store.server';
 import { writeAdminAudit } from './audit.server';
 import { streamAdminModelCall } from './model-call.server';
+import { checkEvidence } from './evidence-guard';
 import type { AdminAssistantEvent } from './sse';
 
 export const OUT_OF_SCOPE_TEXT_HE =
@@ -102,8 +103,9 @@ export async function runChatTurn(
     },
   );
 
-  // The "number not from a tool" guard lands in wave 4; until then nothing is checked.
-  const guard = { checked: false, ok: true };
+  // "a number not from a tool" → the answer is marked לא אומת (not blocked) and audited.
+  const guard = checkEvidence(outcome.text, outcome.evidence);
+  if (guard.checked && !guard.ok) console.warn(`[admin-ai] evidence guard: ${guard.unmatched.length} unmatched number(s)`);
   if (outcome.evidence.length) emit({ type: 'evidence', items: outcome.evidence });
   const costUsd = outcome.costUsd + routerCost;
   const auditId = await writeAdminAudit(

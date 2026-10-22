@@ -73,3 +73,21 @@ describe('executeAdminTool — every call re-checked on the server', () => {
     expect(asRoot.content).toContain('admin/agents');
   });
 });
+
+describe('wave 4 tools — strict inputs', () => {
+  it('north star rejects a bad segment value before any read', async () => {
+    const r = await executeAdminTool(ctx('super'), 'get_north_star', { cityAuthorityId: null, source: null, campaign: null, sex: 'x', level: null, program: null, ageFrom: null, ageTo: null });
+    expect(r.isError).toBe(true);
+    expect(reads.n).toBe(0);
+  });
+  it('north star needs every key (strict schema) — a missing key is rejected', async () => {
+    expect((await executeAdminTool(ctx('super'), 'get_north_star', {})).isError).toBe(true);
+  });
+  it('onboarding days are bounded 7-90', async () => {
+    expect((await executeAdminTool(ctx('super'), 'get_onboarding_stall', { days: 365 })).isError).toBe(true);
+    expect((await executeAdminTool(ctx('super'), 'get_onboarding_stall', { days: 3 })).isError).toBe(true);
+  });
+  it('push performance channel must be a catalog channel', async () => {
+    expect((await executeAdminTool(ctx('super'), 'get_push_performance', { channel: 'drop', days: null })).isError).toBe(true);
+  });
+});

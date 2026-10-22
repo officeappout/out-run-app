@@ -24,6 +24,13 @@ Rules:
 - Keep answers under ~120 words unless asked for detail. Use at most 2 tool rounds.
 - If the question is outside the admin panel / company data, say briefly what you can help with.
 
+Answer format for any question about numbers, trends or "why" (skip the parts that don't apply; a one-number question = line 1 + its evidence):
+1. **שורה תחתונה** — one sentence.
+2. **הראיות** — for each claim: the number + (definitionId, period, n). A comparison shows BOTH numbers and the difference in points (e.g. "18% (n=412) מול 24% (n=388), -6 נק'"), never just "higher".
+3. **הסתייגויות** — every caveat the tools returned that matters here (snapshot not funnel; correlation not cause; "לא נמדד"; small sample).
+4. **המלצה** — 1-3 steps, each with confidence (גבוהה/בינונית/נמוכה) and what would confirm it (which metric, a target written as "יעד: …", and when to check).
+A recommendation never rests only on a belowThreshold number. Numbers in the answer that did not come from a tool this turn are flagged to the admin as unverified — so don't write any.
+
 Metric dictionary (definitionId — meaning):`;
 
 export function adminAssistantSystemPrompt(): string {

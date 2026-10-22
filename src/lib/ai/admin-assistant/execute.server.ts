@@ -12,6 +12,15 @@ import { adminPageById, buildAdminHref, canRoleSee, pagesVisibleTo, type AdminAs
 import { searchAdminPages } from '@/lib/admin-nav/fuzzy-search';
 import { getAiCosts, getAttentionQueue, getCrmPipeline, getPendingApprovals } from '@/lib/admin-analytics/ops-metrics.server';
 import type { MetricResult } from '@/lib/admin-analytics/meta';
+import {
+  getNorthStar,
+  getOnboardingStall,
+  getPushFunnel,
+  getPushPerformance,
+  getRetentionCohorts,
+  getRetentionDrivers,
+} from '@/lib/admin-analytics/product-metrics.server';
+import type { NorthStarFilters } from '@/lib/admin-analytics/north-star.server';
 import { validateAdminToolInput } from './tools';
 import { capToolResult, numbersIn, wrapToolData } from './tool-result';
 import type { EvidenceItem } from './sse';
@@ -54,7 +63,7 @@ function dataResult(tool: string, res: MetricResult<unknown>): AdminToolExecutio
       n: res.meta.n,
       belowThreshold: res.meta.belowThreshold,
       caveats: res.meta.caveats,
-      numbers: numbersIn(res.value),
+      numbers: [...numbersIn(res.value), ...(res.meta.minSample !== null ? [res.meta.minSample] : [])],
     },
   };
 }
@@ -94,6 +103,22 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
         return dataResult(name, await getCrmPipeline(ctx.db, { now: ctx.now }));
       case 'get_ai_costs':
         return dataResult(name, await getAiCosts(ctx.db, { now: ctx.now }));
+      case 'get_north_star':
+        return dataResult(name, await getNorthStar(ctx.db, v.input as NorthStarFilters, { now: ctx.now }));
+      case 'get_retention_cohorts':
+        return dataResult(name, await getRetentionCohorts(ctx.db, { now: ctx.now }));
+      case 'get_retention_drivers':
+        return dataResult(name, await getRetentionDrivers(ctx.db, { now: ctx.now }));
+      case 'get_onboarding_stall': {
+        const { days } = v.input as { days: number | null };
+        return dataResult(name, await getOnboardingStall(ctx.db, { days: days ?? undefined }, { now: ctx.now }));
+      }
+      case 'get_push_performance': {
+        const { channel, days } = v.input as { channel: string | null; days: number | null };
+        return dataResult(name, await getPushPerformance(ctx.db, { channel, days }, { now: ctx.now }));
+      }
+      case 'get_push_funnel':
+        return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
       default:
         return errorResult(`unknown tool ${name}`);
     }

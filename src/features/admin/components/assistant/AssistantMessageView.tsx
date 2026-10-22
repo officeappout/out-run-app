@@ -19,6 +19,12 @@ const TOOL_LABELS: Record<string, string> = {
   get_pending_approvals: 'סופר ממתינים לאישור',
   get_crm_pipeline: 'קורא את צנרת ה-CRM',
   get_ai_costs: 'קורא עלויות AI',
+  get_north_star: 'מחשב מתאמנים פעילים',
+  get_retention_cohorts: 'מחשב קוהורטות שימור',
+  get_retention_drivers: 'בודק מה מחזיק משתמשים',
+  get_onboarding_stall: 'בודק איפה נתקעים באונבורדינג',
+  get_push_performance: 'בודק ביצועי פושים',
+  get_push_funnel: 'בודק פוש ← אימון',
 };
 
 export function PageButtons({ links, onNavigate }: { links: AssistantLink[]; onNavigate?: () => void }) {
