@@ -20,6 +20,7 @@
  */
 import { approveEntity, rejectEntity, type ModeratorInfo } from './moderation.service';
 import { InventoryService } from '@/features/parks/core/services/inventory.service';
+import type { BatchOutcome, PendingRouteCandidate } from '@/lib/city-mapping-hub/bulk-approve.logic';
 
 export type HubModerationKind = 'route' | 'park' | 'contribution' | 'amenity';
 export type HubAction = 'approve' | 'reject';
@@ -71,4 +72,47 @@ export async function moderateOne(i: ModerateOneInput): Promise<void> {
 /** Every pending route of the focused authority, via the existing bulk approve (publish + broadcast + recompute). */
 export async function bulkApproveRoutes(ids: string[]): Promise<number> {
   return InventoryService.bulkApproveRoutes(ids);
+}
+
+// ── Nationwide bulk approve of pending routes (confirmed, filtered) ─────────
+
+export interface PendingRoutesPreviewResponse {
+  candidates: PendingRouteCandidate[];
+  authorityNames: Record<string, string>;
+  unattributed: number;
+}
+
+/** Read-only: every pending route nationwide (server-side Admin SDK read). */
+export async function loadPendingRoutesNationwide(fetchImpl: typeof fetch = fetch): Promise<PendingRoutesPreviewResponse> {
+  const res = await fetchImpl('/api/admin/city-mapping/hub/bulk-routes', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+  const json = (await res.json().catch(() => ({}))) as Partial<PendingRoutesPreviewResponse> & { error?: string };
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  return { candidates: json.candidates ?? [], authorityNames: json.authorityNames ?? {}, unattributed: json.unattributed ?? 0 };
+}
+
+/**
+ * One batch (≤ 500) of ONE authority: the server flips only docs still pending
+ * + unpublished (reporting the rest as skipped), then the browser runs the same
+ * post-approval side effects as the single approve (broadcast, adjacency /
+ * enrichment recompute, decision log, cache invalidation).
+ */
+export async function approvePendingRoutesBatch(
+  authorityId: string, ids: string[], admin: ModeratorInfo, fetchImpl: typeof fetch = fetch,
+): Promise<BatchOutcome> {
+  const res = await fetchImpl('/api/admin/city-mapping/hub/bulk-routes', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ authorityId, ids }),
+  });
+  const json = (await res.json().catch(() => ({}))) as Partial<BatchOutcome> & { error?: string };
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  const out: BatchOutcome = { updated: json.updated ?? [], skipped: json.skipped ?? [] };
+  if (out.updated.length) {
+    // The docs are already published; a side-effect failure must not mark the batch as failed.
+    await InventoryService.runRouteApproveSideEffects(out.updated, { adminId: admin.adminId }).catch((err) => {
+      console.warn('[city-mapping-hub] post-approve side effects failed (non-fatal):', err);
+    });
+  }
+  return out;
 }
