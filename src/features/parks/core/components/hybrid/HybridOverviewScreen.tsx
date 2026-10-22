@@ -60,7 +60,7 @@ interface Props {
   /** Tap an exercise → the real preview detail drawer (owned by DiscoverLayer). */
   onExerciseTap?: (we: any) => void;
   /** Swap at [segIndex][exIndex] → the real replacement modal (owned by DiscoverLayer). */
-  onSwapExercise?: (segIndex: number, exIndex: number, we: any) => void;
+  onSwapExercise?: (segIndex: number, exIndex: number, we: any, stepIndex?: number) => void;
   /**
    * needs-assessment link follow-up: present ONLY when `composed.assessmentDomains`
    * is set (the fallback banner is the needsAssessment message, never a real rest

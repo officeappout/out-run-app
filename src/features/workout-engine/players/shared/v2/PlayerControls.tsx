@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { Pause, Play, Square, Timer } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import { useHoldToConfirm } from './useHoldToConfirm';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
@@ -79,7 +80,7 @@ export default function PlayerControls({ isPaused, onPause, onResume, onLap, onS
         <button
           type="button"
           aria-label={pickGendered(gender, isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.pauseWorkout)}
-          onClick={isPaused ? onResume : onPause}
+          onClick={() => { hapticTap('impact'); (isPaused ? onResume : onPause)(); }}
           className="grid shrink-0 place-items-center rounded-full bg-v2-ink text-white active:scale-[0.97] transition-transform duration-150 ease-v2"
           style={{ width: CENTRE, height: CENTRE, boxShadow: '0 16px 30px -14px rgba(9,30,50,0.6)' }}
         >

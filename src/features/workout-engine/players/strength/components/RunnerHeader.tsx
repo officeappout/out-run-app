@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Play, Check, PersonStanding } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import WorkoutStoryBars from './WorkoutStoryBars';
 import { setCounterLabel } from '../logic/player-controls.utils';
 import {
@@ -191,7 +192,7 @@ export default function RunnerHeader({
 
           <div className="w-[92px] flex justify-end">
             <button
-              onClick={onTogglePause}
+              onClick={() => { hapticTap('impact'); onTogglePause(); }}
               aria-label={pickGendered(gender, isPaused ? GENDERED_COPY.resumeWorkout : GENDERED_COPY.stopWorkout)}
               className={v2
                 ? 'h-10 px-3 flex items-center justify-center gap-1.5 rounded-full bg-white shadow-v2-ring whitespace-nowrap active:scale-[0.97] transition-transform duration-150 ease-v2'

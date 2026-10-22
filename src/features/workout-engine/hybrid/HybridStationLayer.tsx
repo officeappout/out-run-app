@@ -42,6 +42,7 @@ import { resolveWalkUiState, nextArmed, walkingLine } from './hybrid-walk-state'
 import StationCompleteScreen from './StationCompleteScreen';
 import HybridStationCta from './HybridStationCta';
 import ExerciseReplacementModal from '@/features/workout-engine/players/strength/components/ExerciseReplacementModal';
+import { collectWorkoutExerciseIds } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
 import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { SwapOpenContext } from '@/features/workout-engine/adaptation/adaptation.types';
@@ -296,6 +297,8 @@ export default function HybridStationLayer({ v2 }: HybridStationLayerProps = {})
             // PR-B3 (guided only): limit alternatives to this park's equipment + bodyweight.
             // Fast mode / every other caller: unchanged (null = no filter).
             allowedEquipmentIds={guided ? stationContext?.availableEquipment ?? null : null}
+            // enable_swap_fixes_v1 (ignored while off): never offer an exercise already in this station.
+            excludeExerciseIds={collectWorkoutExerciseIds((stationPlan?.segments ?? []).flatMap((sg) => sg.exercises ?? []) as any)}
             onReplace={(newExercise, executionMethod, levelComparison, meta) => {
               // Soft-adaptation Phase 0: record the swap (data only, fire-and-forget).
               const planEx = stationPlan?.segments?.[swapTarget.segIdx]?.exercises?.[swapTarget.exIdx];

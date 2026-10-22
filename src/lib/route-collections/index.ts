@@ -20,3 +20,15 @@ export {
   classifyRouteGenerator,
   type RouteGenerator,
 } from './route-generator';
+export {
+  ROUTE_DISPLAY_ROLES,
+  isConnectorRoute,
+  hideConnectorRoutes,
+  classifyConnectors,
+  CONNECTOR_NAME_PATTERN,
+  CONNECTOR_MIN_OPEN_GAP_M,
+  CONNECTOR_ATTACH_M,
+  type RouteDisplayRole,
+  type ConnectorCandidate,
+  type ConnectorVerdict,
+} from './display-role';

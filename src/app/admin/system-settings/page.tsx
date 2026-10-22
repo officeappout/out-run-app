@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned, QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -84,6 +84,7 @@ interface FlagState {
   enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
+  enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
   enable_push_measure_all: boolean;
@@ -99,7 +100,11 @@ interface FlagState {
   admin_ai_assistant_v1: boolean;
   enable_city_mapping_hub: boolean;
   pyramid_injection_off: boolean;
+  enable_hide_route_connectors: boolean;
   enable_scoped_official_routes: boolean;
+  enable_swap_fixes_v1: boolean;
+  enable_strength_drawer_v1: boolean;
+  enable_site_qr_links: boolean;
 }
 
 // ============================================================================
@@ -619,6 +624,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'נגן ריצה/הליכה: המפה קודם',
     description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
   },
+  // Haptics v1 — one helper, a "רטט" setting, web no-op (22.10.2026).
+  {
+    key: 'enable_haptics_v1',
+    icon: Pointer,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'רטט (הפטיקה) v1',
+    description: 'טיק קל בבחירה בבוררים ובמתגים, ורטט קל בכפתורים הראשיים בנגנים (התחלה, השהייה, המשך, סיימתי). כל הרטטים באפליקציה מכבדים הגדרת "רטט" חדשה בהגדרות (ברירת מחדל דלוקה) ואת הגדרת הפחתת התנועה של המכשיר. באפליקציה בלבד, לא בדפדפן.',
+  },
   // Two-level schedule UI — simple days picker / week builder (21.10.2026).
   {
     key: 'enable_week_builder_v1',
@@ -763,6 +777,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'מסלולים רשמיים לפי רשות',
     description: 'דלוק = האפליקציה קוראת רק את המסלולים הרשמיים של הרשות של המשתמש ושל העיר שבה הוא נמצא (עד 300), ואם אין — רק מסלולים מאושרים (עד 200). כבוי = כמו היום: 200 המסלולים הראשונים מכל הארץ, כך שעם ייבוא ארצי רוב הערים לא יראו כלום. לפני הדלקה: להריץ את backfill-route-publish-status ולשייך רשות ל-16 המסלולים הישנים בלי authorityId.',
   },
+  // Route connectors (RC10, 22.10.2026) — src/lib/route-collections/display-role.ts.
+  {
+    key: 'enable_hide_route_connectors',
+    icon: RouteIcon,
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
+    title: 'מסלולים: הסתרת מקטעי חיבור',
+    description: 'מסלולים שסומנו כ"מקטע חיבור" (displayRole: connector — למשל "מקטע 2" או "תוספת א" מהמסלולים של עיריית שדרות) נשארים במערכת אבל לא מוצגים למשתמשים ברשימות המסלולים, בקרוסלת המפה ובחיפוש. כבוי = הכול מוצג כמו היום. לא נדלק אוטומטית לסופר-אדמין.',
+  },
   // City-mapping hub (22.10.2026) — docs/admin/CITY-MAPPING-HUB-DESIGN.md.
   {
     key: 'enable_city_mapping_hub',
@@ -771,6 +794,33 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-700',
     title: 'פאנל: מרכז מיפוי ערים',
     description: 'דף חדש לסופר-אדמין ב-/admin/city-mapping/hub: כל הרשויות בטבלה אחת (חיפוש, סינון, מיון), מפה עם מסלולים, נקודות ותרומות משתמשים, ואישור או דחייה ישירות מהמפה. כבוי = הדף מציג "כבוי". דף מיפוי העיר הקיים לא משתנה.',
+  },
+  // Swap fixes (22.10.2026) — swap/hybrid audit §1.
+  {
+    key: 'enable_swap_fixes_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'החלפת תרגיל — תיקונים',
+    description: 'תרגיל שכבר באימון לא מוצע להחלפה; בתצוגה מקדימה ההחלפה לפי המקום ולא לפי התרגיל; באימון פעיל טווח הרמות סביב רמת התרגיל עצמו והחזרות/ההחזקה מותאמות; בתחנה סינון לפי ציוד הפארק לפני הבחירה של 3; החלפה נשמרת בהמשך אימון ומופיעה בסיכום; אין החלפה בזמן עבודה בטבטה; החלפת שלב בפירמידה משולבת מחליפה רק את השלב ולפי ציוד הפארק; תמונה לפי שיטת הביצוע שנבחרה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Strength / timed players — collapsible drawer, details in the list (22.10.2026).
+  {
+    key: 'enable_strength_drawer_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'נגן כוח/טבטה/AMRAP/EMOM: מגירה מתקפלת',
+    description: 'הכרטיס התחתון בנגן הכוח ובטבטה/AMRAP/EMOM נהיה מגירה: קומפקטית (שם התרגיל, טיימר/סבב, יעד וכפתור ראשי) או מלאה, בגרירה או בהקשה, והבחירה נשמרת. הווידאו נשאר גלוי. "צפה בהסבר המלא" עובר לכפתור "הסבר" קטן בפינת הווידאו ולפרטי התרגיל ברשימה, ושורות הרשימה נפתחות לשרירים, דגשים וציוד כמו בעמוד התרגיל.',
+  },
+  // Site QR links (22.10.2026) — the marketing site's app-store QR codes.
+  {
+    key: 'enable_site_qr_links',
+    icon: QrCode,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'פאנל: קישורי QR של האתר',
+    description: 'כרטיס בראש מרכז הקישורים השיווקיים (/admin/links) עם שלושת הקישורים הקבועים שקודי ה-QR באתר מפנים אליהם: app-ios (App Store), app-android (Google Play) ו-app-smart (לפי המכשיר). רואים אם קיימים וכמה סריקות, ויוצרים את החסרים בלחיצה. משנים יעד בעריכת הקישור — הקוד המודפס לא משתנה. מנהל-על רואה את זה כבר עכשיו. כבוי = הדף כמו היום.',
   },
 ];
 

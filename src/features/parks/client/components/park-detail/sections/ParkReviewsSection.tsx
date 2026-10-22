@@ -4,6 +4,8 @@ import { Star } from 'lucide-react';
 import type { UserContribution } from '@/types/contribution.types';
 import { formatDate, REVIEWS_COLLAPSED_COUNT } from '../utils/park-detail-format';
 import { sectionTitleClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkReviewsSectionProps {
   v2: boolean;
@@ -21,12 +23,13 @@ interface ParkReviewsSectionProps {
  * reviewerNames (userPublic lookup, 'משתמש' fallback) — never the raw uid.
  */
 export default function ParkReviewsSection({ v2, ratedReviews, visibleReviews, reviewerNames, expanded, onExpand }: ParkReviewsSectionProps) {
+  const t = useT(mapNs);
   return (
     <section className="mb-4">
-      <h3 className={sectionTitleClass(v2)}>ביקורות</h3>
+      <h3 className={sectionTitleClass(v2)}>{t('parkDetail.reviews.title')}</h3>
       <div className="divide-y divide-gray-100 dark:divide-slate-800">
         {visibleReviews.map(review => {
-          const reviewerName = (review.userId && reviewerNames[review.userId]) || 'משתמש';
+          const reviewerName = (review.userId && reviewerNames[review.userId]) || t('parkDetail.reviews.userFallback');
           return (
             <div key={review.id} className="py-3.5 first:pt-0">
               <div className="flex items-center gap-2">
@@ -55,7 +58,7 @@ export default function ParkReviewsSection({ v2, ratedReviews, visibleReviews, r
           onClick={onExpand}
           className="mt-2 text-xs font-bold text-cyan-600 dark:text-cyan-400 active:opacity-70 transition-opacity"
         >
-          צפה בעוד ביקורות ({ratedReviews.length - REVIEWS_COLLAPSED_COUNT})
+          {t('parkDetail.reviews.more', { count: String(ratedReviews.length - REVIEWS_COLLAPSED_COUNT) })}
         </button>
       )}
     </section>

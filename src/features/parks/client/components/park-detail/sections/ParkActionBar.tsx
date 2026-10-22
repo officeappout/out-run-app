@@ -2,6 +2,8 @@
 
 import { Play, Pencil, Navigation } from 'lucide-react';
 import { actionIconButtonClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkActionBarProps {
   v2: boolean;
@@ -13,6 +15,7 @@ interface ParkActionBarProps {
 
 /** Fixed bottom action bar: start workout (primary) + suggest-edit + navigate. */
 export default function ParkActionBar({ v2, ctaLabel, onStartWorkout, onSuggestEdit, onNavigate }: ParkActionBarProps) {
+  const t = useT(mapNs);
   return (
     <div
       className="absolute bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200/50 dark:border-gray-800/50 px-4 pt-3"
@@ -39,7 +42,7 @@ export default function ParkActionBar({ v2, ctaLabel, onStartWorkout, onSuggestE
           onClick={onSuggestEdit}
           className={actionIconButtonClass(v2)}
           style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
-          title="עדכן פרטים"
+          title={t('parkDetail.actions.suggestEdit')}
         >
           <Pencil size={18} className={v2 ? 'text-v2-ink' : 'text-cyan-500'} />
         </button>
@@ -49,7 +52,7 @@ export default function ParkActionBar({ v2, ctaLabel, onStartWorkout, onSuggestE
           onClick={onNavigate}
           className={actionIconButtonClass(v2)}
           style={v2 ? undefined : { border: '0.5px solid #E0E9FF' }}
-          title="ניווט"
+          title={t('parkDetail.actions.navigate')}
         >
           <Navigation size={18} className={v2 ? 'text-v2-deep' : 'text-emerald-500'} />
         </button>

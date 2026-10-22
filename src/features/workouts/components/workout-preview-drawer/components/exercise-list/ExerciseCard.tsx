@@ -30,7 +30,7 @@ interface ExerciseCardProps {
   /** Tap-to-open-detail handler.  Stable reference required for memoisation. */
   onTap?: (exercise: EngineWorkoutExercise) => void;
   /** Swap handler.  Stable reference required for memoisation. */
-  onSwap?: (exercise: FirestoreExercise, level: number) => void;
+  onSwap?: (exercise: FirestoreExercise, level: number, entry?: EngineWorkoutExercise) => void;
   /**
    * Replaces the sets/reps volume line (Stage 3 UX): tabata members show
    * the work-interval ("20 שנ'") instead of strength language — sets/reps
@@ -78,7 +78,7 @@ function ExerciseCardImpl({
   }, [onTap, exercise]);
 
   const handleSwap = useCallback(() => {
-    onSwap?.(exercise.exercise, exercise.programLevel || 1);
+    onSwap?.(exercise.exercise, exercise.programLevel || 1, exercise);
   }, [onSwap, exercise]);
 
   return (

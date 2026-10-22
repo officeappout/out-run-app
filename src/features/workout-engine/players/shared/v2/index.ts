@@ -25,3 +25,11 @@ export { default as RunDrawerCompact } from './RunDrawerCompact';
 export type { RunDrawerCompactProps } from './RunDrawerCompact';
 export { default as RunHeaderStrip } from './RunHeaderStrip';
 export type { RunHeaderStripProps } from './RunHeaderStrip';
+// enable_strength_drawer_v1 — strength / tabata / AMRAP / EMOM: the bottom card as a two-snap drawer.
+export { useSnapDrawer } from './useSnapDrawer';
+export type { SnapDrawerState } from './useSnapDrawer';
+export { default as SnapDrawerGrabber } from './SnapDrawerGrabber';
+export { default as PlayerDrawerBody } from './PlayerDrawerBody';
+export type { PlayerDrawerBodyProps } from './PlayerDrawerBody';
+export { default as PlayerDrawerCompact } from './PlayerDrawerCompact';
+export type { PlayerDrawerCompactProps } from './PlayerDrawerCompact';

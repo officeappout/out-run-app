@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // test doesn't need a real Firebase app just to read a string constant.
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(), doc: vi.fn(), addDoc: vi.fn(), getDoc: vi.fn(),
-  getDocs: vi.fn(), updateDoc: vi.fn(), deleteDoc: vi.fn(), increment: vi.fn(),
+  getDocs: vi.fn(), setDoc: vi.fn(), updateDoc: vi.fn(), deleteDoc: vi.fn(), increment: vi.fn(),
   orderBy: vi.fn(), query: vi.fn(), serverTimestamp: vi.fn(), Timestamp: class {},
 }));
 vi.mock('@/lib/firebase', () => ({ db: {} }));

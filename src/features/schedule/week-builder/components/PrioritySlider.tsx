@@ -6,6 +6,7 @@
  * those three stops; the line in the middle is what the engine's week holds ("3 כוח · 3 ריצה").
  */
 import { useT } from '@/hooks/useT';
+import { hapticTap } from '@/lib/haptics';
 import { schedule } from '@/messages/ns/schedule';
 import type { SchedulePriority } from '../../engine-v2/types';
 
@@ -37,7 +38,7 @@ export default function PrioritySlider({ value, onChange, strengthCount, runCoun
         max={STOPS.length - 1}
         step={1}
         value={priorityStop(value)}
-        onChange={(e) => onChange(STOPS[Number(e.target.value)] ?? 'balanced')}
+        onChange={(e) => { const next = STOPS[Number(e.target.value)] ?? 'balanced'; if (next !== value) hapticTap('selection'); onChange(next); }}
         aria-label={t('weekBuilder.ratio.aria')}
         aria-valuetext={t('weekBuilder.ratio.line', { strength: String(strengthCount), run: String(runCount) })}
         className="h-8 w-full cursor-pointer accent-v2-accent"

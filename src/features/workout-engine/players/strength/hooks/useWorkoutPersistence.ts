@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { ExerciseResultLog } from './useWorkoutStateMachine';
+import { clearCheckpointSwaps } from './swap-checkpoint';
 
 // ============================================================================
 // TYPES
@@ -105,6 +106,7 @@ export function clearWorkoutCheckpoint(): void {
   } catch {
     // Private browsing / storage quota — silently ignore
   }
+  clearCheckpointSwaps(); // enable_swap_fixes_v1 — swaps ride next to the checkpoint
 }
 
 /**

@@ -397,6 +397,13 @@ export const FLAG_DEFS = [
   // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
   // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Haptics v1 (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md ask 4). On: a light
+  // selection tick on segmented controls and the live set-logger wheel, a light impact on the live
+  // players' primary buttons (start / pause / resume / done) — all via hapticTap (src/lib/haptics) —
+  // and every haptic in the app (old and new) obeys the new "רטט" setting (device-local, default on),
+  // the OS reduced-motion preference, and native only (web no-op). Fail-closed; super admins
+  // preview it. Off = today's haptics exactly, no setting row.
+  { key: 'enableHapticsV1', firestoreKey: 'enable_haptics_v1', defaultValue: false, superAdminValue: true },
   // Two-level schedule UI (21.10.2026, owner-approved — agent-briefs/week-builder-brief.md, boards
   // S-2a…S-2h). Inside the enable_home_v2 signup schedule flows: a simple plan (one repeated
   // workout, one track, under 5 days) keeps the days picker (S-2b look) and today's week screen; a
@@ -502,6 +509,14 @@ export const FLAG_DEFS = [
   // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
   // superAdminValue false: one switch, same for everyone.
   { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
+  // Route connectors (RC10, 22.10.2026, owner: Sderot's municipal "transition segments").
+  // ON = official_routes docs with displayRole 'connector' (src/lib/route-collections/display-role.ts)
+  // are skipped by the user-facing route lists — getCachedOfficialRoutes (map, search, hybrid,
+  // planned activity, onboarding geo, route-fit) and the map carousel's own fetch. They stay in
+  // the data and in the behind-the-scenes stitching (loops-prefer-official, corridor engine).
+  // Read synchronously via readLiveFlag → superAdminValue FALSE. Fail-closed. Off = every list
+  // exactly as before.
+  { key: 'enableHideRouteConnectors', firestoreKey: 'enable_hide_route_connectors', defaultValue: false, superAdminValue: false },
   // Scoped official_routes read (22.10.2026, fix/official-routes-cap-and-approval-query). OFF =
   // today's whole-collection limit(200) read (byte-identical). ON = the app reads only the
   // user's authorities (core.authorityId + GPS city affiliations), cap 300, else published-only
@@ -510,6 +525,26 @@ export const FLAG_DEFS = [
   // superAdminValue false: one switch, same for everyone. Fail-closed. Preconditions before ON:
   // the publish-status backfill + authorityId on the 16 legacy routes without one.
   { key: 'enableScopedOfficialRoutes', firestoreKey: 'enable_scoped_official_routes', defaultValue: false, superAdminValue: false },
+  // Swap fixes (22.10.2026, swap/hybrid audit §1). ON = exercises already in the workout are never
+  // offered, preview swaps by slot, the active player's ±3 window centres on the exercise's own
+  // level and re-derives reps↔hold, station equipment is filtered before the cap of 3, swaps
+  // survive resume and show in the summary, no swap during a running tabata work interval, the
+  // hybrid pyramid step swap replaces only that step with the park's equipment, list images
+  // follow the chosen method. superAdminValue true: the owner previews it first.
+  { key: 'enableSwapFixesV1', firestoreKey: 'enable_swap_fixes_v1', defaultValue: false, superAdminValue: true },
+  // Strength / timed players drawer (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md).
+  // Inside the enable_home_v2 players: the bottom card of the strength player (reps card, timer
+  // card) and of tabata / AMRAP / EMOM becomes a two-snap drawer (compact ↔ full, drag or tap,
+  // remembered for the app session) so the exercise video stays visible; "צפה בהסבר המלא" moves to
+  // a small "הסבר" chip at the video's top corner and into the exercise row details; the session
+  // list rows get an expandable "פרטי התרגיל" (the exercise page's muscles / cues / equipment).
+  // Fail-closed; super admins preview it. Off = byte-identical players.
+  { key: 'enableStrengthDrawerV1', firestoreKey: 'enable_strength_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Site QR links (22.10.2026) — /admin/links shows a card for the three fixed-id links the
+  // marketing site's QR codes point at (marketing_links/app-ios, app-android, app-smart): which
+  // exist, their clicks, and one button that creates the missing ones with today's store URLs.
+  // Admin-panel only; the redirect itself (/r/[id]) never reads this flag. Super admins see it.
+  { key: 'enableSiteQrLinks', firestoreKey: 'enable_site_qr_links', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

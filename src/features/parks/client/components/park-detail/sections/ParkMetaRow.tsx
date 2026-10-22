@@ -3,6 +3,8 @@
 import { Star, Navigation, MapPin } from 'lucide-react';
 import type { Park } from '@/features/parks/core/types/park.types';
 import { metaChipClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkMetaRowProps {
   park: Park;
@@ -14,6 +16,7 @@ interface ParkMetaRowProps {
 
 /** Rating + distance + city + status row. */
 export default function ParkMetaRow({ park, v2, avgRating, ratedCount, distText }: ParkMetaRowProps) {
+  const t = useT(mapNs);
   return (
     <div className="flex items-center gap-4 mb-4 flex-wrap">
       {avgRating && (
@@ -37,7 +40,7 @@ export default function ParkMetaRow({ park, v2, avgRating, ratedCount, distText 
         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
           park.status === 'under_repair' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
         }`}>
-          {park.status === 'under_repair' ? 'בתיקון' : 'סגור'}
+          {t('parkDetail.meta.status', { status: park.status })}
         </span>
       )}
     </div>

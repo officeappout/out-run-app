@@ -44,6 +44,7 @@ import { programRingModel, type ProgramProgressItem, type WeekDot } from '@/comp
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerT } from '@/messages/ns/player';
+import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
 
 /** Home-v2 (enable_home_v2) data. Absent ⇒ today's summary, unchanged. */
 export interface StrengthSummaryV2Data {
@@ -156,6 +157,7 @@ export default function StrengthSummaryView({
   feedShareSlot,
 }: StrengthSummaryViewProps) {
   const t = useT(player);
+  const swapFixesOn = useSwapFixesV1(); // enable_swap_fixes_v1 — swapped tag in the breakdown
   // Secondary stat derived from data the screen already shows (exercise breakdown).
   const totalSets = completedExercises.reduce((acc, ex) => acc + (ex.sets?.length ?? 0), 0);
 
@@ -232,7 +234,7 @@ export default function StrengthSummaryView({
           {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} celebrate={goalCelebration} />}
 
           <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">{t('strengthSummary.exercisesTitle')}</h2>
-          <PhaseBreakdownV2 phases={v2.phases} />
+          <PhaseBreakdownV2 phases={v2.phases} showSwapped={swapFixesOn} />
         </div>
       ) : (
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-3">

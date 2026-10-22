@@ -25,6 +25,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   increment,
@@ -260,14 +261,42 @@ export function buildTrackingUrl(link: Pick<MarketingLink,
 export async function createMarketingLink(
   input: CreateMarketingLinkInput,
 ): Promise<string> {
+  validateCreateInput(input);
+
+  const ref = await addDoc(collection(db, COLLECTION), newLinkDoc(input));
+  return ref.id;
+}
+
+/**
+ * Create a link under a FIXED doc id (e.g. `app-ios`) — for links whose
+ * `/r/{id}` URL is baked into something that can't be reprinted, like the
+ * marketing site's QR codes. Uses a transaction-free create-if-missing:
+ * refuses to overwrite an existing doc so a second click never resets its
+ * history (clicksCount, edited destinations).
+ */
+export async function createMarketingLinkWithId(
+  id: string,
+  input: CreateMarketingLinkInput,
+): Promise<boolean> {
+  validateCreateInput(input);
+  const ref = doc(db, COLLECTION, id);
+  if ((await getDoc(ref)).exists()) return false;
+  await setDoc(ref, newLinkDoc(input));
+  return true;
+}
+
+function validateCreateInput(input: CreateMarketingLinkInput): void {
   if (!input.friendlyName?.trim()) {
     throw new Error('friendlyName is required');
   }
   if (!input.useSmartLink && !input.oneLinkUrl?.trim()) {
     throw new Error('oneLinkUrl is required unless useSmartLink is true');
   }
+}
 
-  const ref = await addDoc(collection(db, COLLECTION), {
+/** The Firestore body of a brand-new link (shared by both create paths). */
+function newLinkDoc(input: CreateMarketingLinkInput) {
+  return {
     friendlyName: input.friendlyName.trim(),
     oneLinkUrl: input.oneLinkUrl?.trim() ?? '',
     utmSource: nullishString(input.utmSource ?? null),
@@ -287,8 +316,7 @@ export async function createMarketingLink(
     updatedAt: serverTimestamp(),
     createdBy: input.createdBy ?? null,
     updatedBy: input.createdBy ?? null,
-  });
-  return ref.id;
+  };
 }
 
 /**

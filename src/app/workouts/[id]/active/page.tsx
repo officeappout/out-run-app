@@ -69,6 +69,11 @@ import { useKudosInbox } from '@/features/safecity/hooks/useKudosInbox';
 import KudoToast from '@/features/safecity/components/KudoToast';
 import { resolveExerciseCues } from '@/features/content/exercises/utils/cue-text.utils';
 import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
+import { useSwapFixesV1 } from '@/features/workout-engine/players/strength/hooks/useSwapFixesV1';
+import { applyCheckpointSwaps, saveSwapToCheckpoint } from '@/features/workout-engine/players/strength/hooks/swap-checkpoint';
+import { collectWorkoutExerciseIds, swapWindowLevel } from '@/features/workout-engine/players/strength/logic/swap-fixes';
+import { isTimeBasedExercise } from '@/features/workout-engine/logic/workout-budgeting.utils';
+import { deriveRunnerSwapVolume } from './runner-swap-volume';
 import { domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { ReplacementMeta, SwapOpenContext, WorkoutFeedbackRecord } from '@/features/workout-engine/adaptation/adaptation.types';
 import { bumpStrengthSummaryCount, shouldPromptPostWorkoutSurvey } from '@/features/workout-engine/adaptation/survey-cadence';
@@ -708,6 +713,7 @@ export default function ActiveWorkoutPage() {
     context?: SwapOpenContext;
   } | null>(null);
   const [fullSwapExercise, setFullSwapExercise] = useState<FirestoreExercise | null>(null);
+  const swapFixesOn = useSwapFixesV1();
   /** Incremented when an exercise is swapped mid-session to force stableWorkoutPlan to update */
   const [workoutVersion, setWorkoutVersion] = useState(0);
 
@@ -1762,14 +1768,28 @@ export default function ActiveWorkoutPage() {
         workoutLocation,
       );
 
+      // enable_swap_fixes_v1: re-derive reps↔hold + level-delta volume like the preview does.
+      const derived = swapFixesOn && oldExercise
+        ? deriveRunnerSwapVolume(
+            { ...(oldExercise as any), exerciseLevel: oldExercise.exerciseLevel ?? meta?.fromLevel },
+            isTimeBasedExercise(newExercise),
+            meta?.toLevel,
+            (newExercise as any).symmetry === 'unilateral',
+          )
+        : null;
+
       // ── Step 2: Overlay preserved volume + superset binding ─────────────
       const newWorkoutExercise = {
         ...enriched,
         // Volume preservation — engine-assigned budget survives the swap
         ...(inheritedSets        != null && { sets: inheritedSets }),
-        ...(inheritedReps        != null && { reps: inheritedReps }),
-        ...(inheritedDuration    != null && { duration: inheritedDuration }),
-        ...(inheritedRepsRange   != null && { repsRange: inheritedRepsRange }),
+        ...(derived
+          ? derived
+          : {
+              ...(inheritedReps        != null && { reps: inheritedReps }),
+              ...(inheritedDuration    != null && { duration: inheritedDuration }),
+              ...(inheritedRepsRange   != null && { repsRange: inheritedRepsRange }),
+            }),
         ...(inheritedRestSeconds != null && { restSeconds: inheritedRestSeconds }),
         // Superset linkage — carry the old pairedWith string forward
         pairedWith: inheritedPairedWith ?? null,
@@ -1822,6 +1842,8 @@ export default function ActiveWorkoutPage() {
 
       setWorkoutPlan({ ...workoutPlan, segments: newSegments });
       setWorkoutVersion((v) => v + 1);
+      // enable_swap_fixes_v1: keep the swap for a resume (next to the crash checkpoint).
+      if (swapFixesOn && workoutId) saveSwapToCheckpoint(workoutId, segIdx, exIdx, newWorkoutExercise);
 
       console.log(
         `[ActiveWorkoutPage] Swapped [${segIdx}][${exIdx}]: "${oldExercise?.name}" → "${newExercise.id}"` +
@@ -1832,7 +1854,7 @@ export default function ActiveWorkoutPage() {
       setSwapTarget(null);
       setFullSwapExercise(null);
     },
-    [swapTarget, workoutPlan, workoutLocation],
+    [swapTarget, workoutPlan, workoutLocation, swapFixesOn, workoutId],
   );
 
   // === LOADING STATE ===
@@ -1919,7 +1941,17 @@ export default function ActiveWorkoutPage() {
     return (
       <ResumeWorkoutDialog
         elapsedTime={pendingCheckpoint.elapsedTime}
-        onResume={() => setCheckpointDecisionMade(true)}
+        onResume={() => {
+          // enable_swap_fixes_v1: put back the swaps made before the crash (no-op when none saved).
+          if (workoutPlan && workoutId) {
+            const withSwaps = applyCheckpointSwaps(workoutId, workoutPlan);
+            if (withSwaps !== workoutPlan) {
+              setWorkoutPlan(withSwaps);
+              setWorkoutVersion((v) => v + 1);
+            }
+          }
+          setCheckpointDecisionMade(true);
+        }}
         onStartOver={() => {
           clearWorkoutCheckpoint();
           setPendingCheckpoint(null);
@@ -2037,11 +2069,20 @@ export default function ActiveWorkoutPage() {
             isOpen={true}
             onClose={() => { setSwapTarget(null); setFullSwapExercise(null); }}
             currentExercise={fullSwapExercise}
-            currentLevel={userProgression.currentLevel}
+            currentLevel={swapWindowLevel(
+              swapFixesOn,
+              workoutPlan?.segments[swapTarget.segIdx]?.exercises?.[swapTarget.exIdx] as any,
+              userProgression.currentLevel,
+            )}
             location={workoutLocation as any}
             park={null}
             userProfile={profile as any}
             onReplace={handleReplaceExercise}
+            excludeExerciseIds={
+              swapFixesOn && workoutPlan
+                ? collectWorkoutExerciseIds(workoutPlan.segments.flatMap((sg) => sg.exercises ?? []) as any)
+                : null
+            }
           />
         )}
       </div>

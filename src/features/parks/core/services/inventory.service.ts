@@ -28,9 +28,9 @@ import {
 } from './official-route-broadcaster';
 import { IS_ROUTE_ADJACENCY_ENABLED, IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED, ROUTE_ENRICHMENT_PILOT_CITIES } from '@/config/feature-flags';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
-import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
-import { logRouteDecision } from '@/lib/route-decisions/log-decision';
+import { buildValidatedDoc, stripUndefined, hideConnectorRoutes } from '@/lib/route-collections';
 import { readLiveFlag } from '@/lib/feature-flag-live';
+import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 import {
     chunkIds,
     resolveOfficialRoutesScope,
@@ -171,11 +171,28 @@ function chunk<T>(arr: T[], size: number): T[][] {
     return result;
 }
 
-export async function getCachedOfficialRoutes(): Promise<Route[]> {
+/**
+ * The published official set as stored — INCLUDING connector routes
+ * (displayRole 'connector'). For behind-the-scenes stitching only
+ * (loops-prefer-official); every user-facing list uses getCachedOfficialRoutes.
+ * Both read paths: enable_scoped_official_routes on → the scoped cached read.
+ */
+export async function getCachedOfficialRoutesIncludingConnectors(): Promise<Route[]> {
     // Panel flag enable_scoped_official_routes (default OFF). Off = the exact legacy path below.
     if (readLiveFlag('enableScopedOfficialRoutes')) return getScopedCachedOfficialRoutes();
     if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
     return _officialCache;
+}
+
+/**
+ * The published official set for USER-FACING lists (legacy or scoped path). With
+ * enable_hide_route_connectors on, connector routes (src/lib/route-collections/display-role.ts)
+ * are skipped; off → the cached array itself, exactly as before. The flag is read on every
+ * call (cheap, synchronous), so a flag flip applies without refetching.
+ */
+export async function getCachedOfficialRoutes(): Promise<Route[]> {
+    const all = await getCachedOfficialRoutesIncludingConnectors();
+    return hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors'));
 }
 
 // ── Scoped read (enable_scoped_official_routes) — see official-routes-scope.ts ──

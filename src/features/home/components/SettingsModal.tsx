@@ -15,7 +15,7 @@ import {
   ChevronLeft, ArrowRight, Loader2, AlertTriangle, Globe, Users, EyeOff,
   Heart, Ruler, Camera, MapPin, Dumbbell, Eye,
   BarChart3, Mail, Pencil, Check, Tag, CreditCard, MessageSquare, Calendar, CalendarDays,
-  Clock, Plus, Accessibility, ListChecks, Footprints, Moon, Map as MapIcon, HelpCircle,
+  Clock, Plus, Accessibility, ListChecks, Footprints, Moon, Map as MapIcon, HelpCircle, Vibrate,
 } from 'lucide-react';
 import { useActivityStore } from '@/features/activity/store/useActivityStore';
 import { setStepGoalChoice } from '@/features/activity/services/step-goal.service';
@@ -62,6 +62,7 @@ import {
 } from '@/features/notifications/services/notification-prefs.service';
 import { initPushNotifications } from '@/lib/native/push';
 import { hapticSelection } from '@/lib/haptics';
+import { readHapticsPref, writeHapticsPref } from '@/lib/haptics-gate';
 import MyPersonasSection from './settings/MyPersonasSection';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
 import {
@@ -388,6 +389,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Opt-in third-party accessibility toolbar (UserWay). Default OFF; the actual
   // script load lives in AccessibilityWidgetLoader, driven by this preference.
   const [a11yWidgetOn, setA11yWidgetOn] = useState(false);
+  // enable_haptics_v1: the device-local "רטט" switch (default on) — read by src/lib/haptics-gate.
+  const [hapticsOn, setHapticsOn] = useState(readHapticsPref);
   useEffect(() => {
     let alive = true;
     void readA11yWidgetEnabled().then((v) => { if (alive) setA11yWidgetOn(v); });
@@ -2335,6 +2338,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       />
                     }
                   />
+                  {v2Flags.enableHapticsV1 === true && (
+                    <SettingsRow
+                      icon={<Vibrate size={20} className="text-gray-700" />}
+                      label="רטט"
+                      sublabel="רטט קל בבחירה ובכפתורים הראשיים באימון. במכשיר הזה בלבד."
+                      right={
+                        <Toggle
+                          checked={hapticsOn}
+                          onChange={(v) => { writeHapticsPref(v); setHapticsOn(v); }}
+                          label="רטט"
+                        />
+                      }
+                    />
+                  )}
                   <SettingsRow
                     icon={<FileText size={20} className="text-gray-700" />}
                     label="תנאי שימוש ופרטיות"
