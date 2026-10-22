@@ -7,7 +7,8 @@ import { routeScoreInputFromDoc, type FromDocOptions } from './from-route-doc';
 import { quotaForAuthority, type AuthorityQuota } from './quota';
 import { buildRouteScoreDoc, type RouteScoreDoc } from './route-scores-doc';
 import { routeScore } from './score';
-import { selectTopN, type ScoredRoute, type SelectionResult } from './select';
+import { selectTopN, type ScoredRoute, type SelectionResult, type SelectOptions } from './select';
+import { URBAN_FLOOR_CALIBRATION } from './weights';
 
 export interface AuthorityScoreRun {
   authorityId: string | null;
@@ -18,12 +19,15 @@ export interface AuthorityScoreRun {
   bands: { green: number; yellow: number; red: number };
   /** All scored routes per surface class (selected counts are in selection.selectedBySurface). */
   bySurface: Record<string, number>;
+  /** RC9: how many routes the selection would hold at each urban floor (the 70 row = no urban floor). */
+  floorCalibration: Record<string, number>;
 }
 
 export function scoreAuthorityRoutes(
   authority: { id: string | null; type?: string | null; population?: number | null },
   routes: Array<{ id: string; data: Record<string, any>; opts?: FromDocOptions }>,
   now: Date = new Date(),
+  opts: SelectOptions = {},
 ): AuthorityScoreRun {
   const nameCounts = new Map<string, number>();
   for (const r of routes) {
@@ -36,7 +40,9 @@ export function scoreAuthorityRoutes(
     return { input, score: routeScore(input) };
   });
   const quota = quotaForAuthority(authority);
-  const selection = selectTopN(scored, quota);
+  const selection = selectTopN(scored, quota, opts);
+  const floorCalibration: Record<string, number> = {};
+  for (const f of URBAN_FLOOR_CALIBRATION) floorCalibration[String(f)] = selectTopN(scored, quota, { urbanFloor: f }).selectedIds.length;
   const byId = new Map(selection.rows.map((row) => [row.id, row]));
   const docs = scored.map((s) => {
     const row = byId.get(s.input.id);
@@ -46,5 +52,5 @@ export function scoreAuthorityRoutes(
   for (const s of scored) bands[s.score.band]++;
   const bySurface: Record<string, number> = {};
   for (const s of scored) bySurface[s.input.surfaceClass] = (bySurface[s.input.surfaceClass] ?? 0) + 1;
-  return { authorityId: authority.id, quota, scored, selection, docs, bands, bySurface };
+  return { authorityId: authority.id, quota, scored, selection, docs, bands, bySurface, floorCalibration };
 }

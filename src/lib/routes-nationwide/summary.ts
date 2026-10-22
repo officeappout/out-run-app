@@ -18,6 +18,8 @@ export interface AuthoritySummary {
   surface: { all: Record<string, number>; selected: Record<string, number> };
   selectedBySource: Partial<Record<StageKey, number>>;
   quotaMetAfter: StageKey | null;
+  /** RC9: selected count at each urban floor (62 / 65 / 70 — the 70 row is the pre-RC9 rule). */
+  floorCalibration?: Record<string, number>;
   stages: AuthorityRunResult['stages'];
   routes: Array<{ id: string; name: string; stage: StageKey; isNew: boolean; score: number; band: string; surfaceClass: string; selection: string | null; reason: string | null; km: number | null }>;
 }
@@ -48,6 +50,7 @@ export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; 
     surface: { all: r.score.bySurface, selected: { ...r.score.selection.selectedBySurface } },
     selectedBySource,
     quotaMetAfter: r.quotaMetAfter,
+    floorCalibration: r.score.floorCalibration,
     stages: r.stages,
     routes: r.pool.map((p) => {
       const d = docById.get(p.id);

@@ -75,7 +75,8 @@ function bbox(c: [number, number][]): Box | null {
 const boxesMeet = (p: Box | null, q: Box | null) => !!p && !!q && p[0] <= q[2] && q[0] <= p[2] && p[1] <= q[3] && q[1] <= p[3];
 
 export function quotaMet(run: AuthorityScoreRun): boolean {
-  return run.selection.counts.selected >= run.quota.total.min;
+  // Only ≥70 selections count: routes the urban floor let in (RC9) never stop the generating stages.
+  return run.selection.counts.selected - (run.selection.counts.urbanFloor ?? 0) >= run.quota.total.min;
 }
 
 export interface RunStagesOptions {

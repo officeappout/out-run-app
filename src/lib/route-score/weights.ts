@@ -35,6 +35,20 @@ export const BAND_THRESHOLDS = {
 
 /** Selection floor (§3.7): only routeScore ≥ 70 can enter the city set. */
 export const SELECTION_MIN_SCORE = 70;
+/**
+ * Urban floor (RC9, owner 22.10.2026): a NAMED urban route (named corridor,
+ * park loop, known route, bike-adjacent walk — `urbanKind`) may be selected
+ * from this score up, but only while its authority is still below the quota
+ * MINIMUM with ≥70 routes, only up to that minimum, and only when it passes
+ * the hard quality bars (urbanFloorBlocker in select.ts). A starting value —
+ * the runner reports the selection at every URBAN_FLOOR_CALIBRATION value so
+ * the owner can calibrate it.
+ */
+export const URBAN_SELECTION_MIN_SCORE = 62;
+export const URBAN_FLOOR_CALIBRATION = [62, 65, 70] as const;
+/** Hard bar for the urban floor: stored distance within this share of the measured path length. */
+export const URBAN_FLOOR_MAX_DISTANCE_ERROR = 0.15;
+
 /** Official-dataset routes scoring 55-70 are flagged for manual review, never auto-selected. */
 export const MANUAL_REVIEW_MIN_SCORE = 55;
 
