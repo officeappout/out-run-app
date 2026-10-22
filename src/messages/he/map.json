@@ -342,5 +342,12 @@
   "overview.axis.watchVideo": "צפה בסרטון: {name}",
   "overview.axis.reps": "חזרות",
   "overview.roundTrip.on": "הלוך וחזור · כולל {min} דק׳ הליכה אל המסלול וממנו",
-  "overview.roundTrip.off": "הוסף הליכה הלוך וחזור"
+  "overview.roundTrip.off": "הוסף הליכה הלוך וחזור",
+  "arrivalWheel.cta": "{gender, select, female {אני מגיעה…} male {אני מגיע…} other {מגיעים…}}",
+  "arrivalWheel.title": "מתי מגיעים?",
+  "arrivalWheel.publish": "פרסום",
+  "arrivalWheel.day": "{day, select, today {היום} other {מחר}}",
+  "arrivalWheel.dayAria": "יום",
+  "arrivalWheel.hourAria": "שעה",
+  "arrivalWheel.minuteAria": "דקות"
 }

@@ -4,6 +4,8 @@ import { Calendar, Users } from 'lucide-react';
 import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
 import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import { minutesToLabel, RANGE_MIN, RANGE_MAX, RANGE_STEP_MIN } from '../utils/park-detail-format';
+import ArrivalWheelSheet from '../../arrival-wheel/ArrivalWheelSheet';
+import ArrivalWheelCtaLabel from '../../arrival-wheel/ArrivalWheelCtaLabel';
 
 interface ArrivalPublishPanelProps {
   v2: boolean;
@@ -17,6 +19,13 @@ interface ArrivalPublishPanelProps {
   onTimeRangeChange: (range: [number, number]) => void;
   publishing: boolean;
   onPublish: () => void;
+  /**
+   * enable_map_polish_v1: the button opens the "מתי מגיעים?" wheel sheet
+   * instead of the inline slider, and publishes through `onPublishAt`.
+   * Omitted / false → today's panel, unchanged.
+   */
+  wheel?: boolean;
+  onPublishAt?: (window: { startTime: Date; endTime: Date }) => void;
 }
 
 /**
@@ -38,6 +47,8 @@ export default function ArrivalPublishPanel({
   onTimeRangeChange,
   publishing,
   onPublish,
+  wheel = false,
+  onPublishAt,
 }: ArrivalPublishPanelProps) {
   return (
     <div className={v2 ? 'mb-2 overflow-hidden rounded-[20px] bg-v2-surface ring-1 ring-inset ring-v2-hairline' : 'bg-emerald-50/50 border border-emerald-100 rounded-xl overflow-hidden mb-2'}>
@@ -56,10 +67,19 @@ export default function ArrivalPublishPanel({
               : 'flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform'
           }
         >
-          {v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
+          {wheel ? <ArrivalWheelCtaLabel /> : v2 ? 'אני מגיע…' : 'אני מגיע ב...'}
         </button>
       </div>
-      {showTimePicker && (
+      {wheel && (
+        <ArrivalWheelSheet
+          open={showTimePicker}
+          onClose={onToggleTimePicker}
+          publishing={publishing}
+          onPublish={(win) => onPublishAt?.(win)}
+          preferTomorrow={dayFilter === 'tomorrow'}
+        />
+      )}
+      {!wheel && showTimePicker && (
         <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-3">
           {/* Date input — only in השבוע mode; today/tomorrow fix the date. */}
           {dayFilter === 'week' && (
