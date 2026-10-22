@@ -10,7 +10,7 @@ import { auth, db } from '@/lib/firebase';
 import { checkUserRole } from '@/features/admin/services/auth.service';
 import {
   Settings, Footprints, Users, Trophy, ShieldAlert, Save, CheckCircle2, CalendarDays,
-  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages,
+  Map as MapIcon, Dumbbell, Route as RouteIcon, Star, FlaskConical, ListChecks, X, MessageCircle, Bot, Pointer, Languages, MapPinned,
   type LucideIcon,
 } from 'lucide-react';
 import { FIRESTORE_FLAG_DEFAULTS } from '@/hooks/feature-flag-defs';
@@ -97,6 +97,7 @@ interface FlagState {
   enable_locale_de: boolean;
   enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
+  enable_city_mapping_hub: boolean;
   pyramid_injection_off: boolean;
 }
 
@@ -752,6 +753,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פירמידות כבויות',
     description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
+  },
+  // City-mapping hub (22.10.2026) — docs/admin/CITY-MAPPING-HUB-DESIGN.md.
+  {
+    key: 'enable_city_mapping_hub',
+    icon: MapPinned,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-700',
+    title: 'פאנל: מרכז מיפוי ערים',
+    description: 'דף חדש לסופר-אדמין ב-/admin/city-mapping/hub: כל הרשויות בטבלה אחת (חיפוש, סינון, מיון), מפה עם מסלולים, נקודות ותרומות משתמשים, ואישור או דחייה ישירות מהמפה. כבוי = הדף מציג "כבוי". דף מיפוי העיר הקיים לא משתנה.',
   },
 ];
 
