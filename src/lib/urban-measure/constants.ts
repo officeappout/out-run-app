@@ -27,6 +27,3 @@ export const LIGHTING_MIN_KNOWN = 0.5;
 
 /** Amenities count as "along the route" within this distance (owner: ~50 m). */
 export const AMENITY_RADIUS_M = 50;
-
-/** A trail-pipeline route (osm / generated stage) is urban when at least this share runs in built-up area. */
-export const URBAN_BUILT_UP_MIN_PCT = 50;
