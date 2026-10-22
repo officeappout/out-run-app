@@ -8,7 +8,7 @@ import { decideRouteAccuracy } from '../route-decisions/decide-accuracy';
 import { classifyRouteGenerator } from '../route-collections/route-generator';
 import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
-import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier } from './types';
+import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier, UrbanRouteKind } from './types';
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
@@ -81,6 +81,23 @@ export function deriveSourceTier(d: Doc): SourceTier {
   return 'unknown';
 }
 
+/**
+ * RC9 urban floor eligibility: named corridors (OSM named ways), park loops
+ * (perimeter / known — never GraphHopper inner loops), known routes from web
+ * research and bike-adjacent walks. Generated loops never qualify.
+ */
+export function deriveUrbanKind(d: Doc, tier: SourceTier, shape: ScoreShape | null, hasParkRef: boolean): UrbanRouteKind | null {
+  const origin = d?.origin;
+  if (origin === 'bike_adjacent_walk') return 'bike_adjacent';
+  if (origin === 'web_research') return 'known_route';
+  if (origin === 'osm_named_way') return 'named_corridor';
+  if (origin === 'park_loop') return d?.parkLoopKind === 'inner' ? null : 'park_loop';
+  if (tier === 'generated' || tier === 'official' || tier === 'osm_named') return null;
+  if (hasParkRef || (tier === 'named_place' && shape === 'loop')) return 'park_loop';
+  if (tier === 'named_place' && shape === 'linear_corridor') return 'named_corridor';
+  return null;
+}
+
 function parseParkRef(v: unknown): ParkRef | null {
   const p = v as Doc | null;
   if (p && typeof p.id === 'string' && typeof p.name === 'string') return { source: String(p.source ?? ''), id: p.id, name: p.name };
@@ -102,6 +119,16 @@ export interface FromDocOptions {
   shade?: RouteShade | null;
   /** Hour-aware shade summary (hourlyProfileSummary), when the city has an hourly file. Informational. */
   hourlyShade?: HourlyProfileSummary | null;
+  /**
+   * RC9 urban measurement (src/lib/urban-measure) — fills a gap only: the
+   * stored doc's own qualitySignals always win. A measured composition
+   * replaces the trail-share proxy but never feeds the certificate.
+   */
+  composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number } | null;
+  litCoveragePct?: number | null;
+  amenitiesHas?: RouteScoreInput['amenitiesHas'];
+  /** SI-equivalent tree hint (0..1) from a dataset; used only without a Technion measurement. */
+  shadeHint?: number | null;
 }
 
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
@@ -116,18 +143,28 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   // proxy; never feeds the certificate (B doesn't run it — NATIONWIDE-PLAN.md §2.3).
   const ts = d?.trail?.stats;
   const trailPct = num(ts?.trailPct);
-  const composition = realComposition ?? (trailPct != null
+  const measuredComposition = !realComposition && opts.composition ? { ...opts.composition } : null;
+  const composition = realComposition ?? measuredComposition ?? (trailPct != null
     ? { sidewalkPct: 0, genuinePct: Math.max(0, Math.min(100, trailPct)), ordinaryPct: Math.max(0, 100 - trailPct), otherPct: 0 }
     : null);
-  const compositionIsProxy = !realComposition && !!composition;
+  const compositionIsProxy = !realComposition && !measuredComposition && !!composition;
   const light = d?.qualitySignals?.lighting;
   const trailLit = num(ts?.litPct);
   const trailLitUnknown = num(ts?.litUnknownPct);
-  const litCoveragePct = light?.status === 'computed'
-    ? num(light?.litCoveragePct)
-    : trailLit != null && trailLitUnknown != null && trailLitUnknown <= 50 ? trailLit : null;
+  const storedLit = light?.status === 'computed' ? num(light?.litCoveragePct) : null;
+  const measuredLit = storedLit == null ? num(opts.litCoveragePct) : null;
+  const litCoveragePct = storedLit ?? measuredLit
+    ?? (trailLit != null && trailLitUnknown != null && trailLitUnknown <= 50 ? trailLit : null);
   const am = d?.qualitySignals?.amenities;
-  const amenitiesHas = am?.status === 'computed' && am?.has && typeof am.has === 'object' ? { ...am.has } : null;
+  const storedAmenities = am?.status === 'computed' && am?.has && typeof am.has === 'object' ? { ...am.has } : null;
+  const measuredAmenities = !storedAmenities && opts.amenitiesHas ? { ...opts.amenitiesHas } : null;
+  const amenitiesHas = storedAmenities ?? measuredAmenities;
+  const measuredBy: NonNullable<RouteScoreInput['measuredBy']> = {
+    ...(measuredComposition ? { composition: 'osm_urban_measure' as const } : {}),
+    ...(measuredLit != null ? { lighting: 'osm_urban_measure' as const } : {}),
+    ...(measuredAmenities ? { amenities: 'osm_urban_measure' as const } : {}),
+    ...(opts.osmSafety ? { safety: 'osm_urban_measure' as const } : {}),
+  };
 
   let geometry: RouteScoreInput['geometry'] = null;
   if (path.length >= 2) {
@@ -159,6 +196,9 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   const shadeMeasure = opts.shade ?? null;
   const shade = num(opts.shadeShare ?? (shadeMeasure?.status === 'measured' ? shadeMeasure.shadeShare : null) ?? d?.qualitySignals?.shade?.shadeShare);
 
+  const shape = deriveShape(d, path);
+  const sourceTier = deriveSourceTier(d);
+  const parkRef = parseParkRef(d?.parkRef);
   return {
     id,
     name: String(d?.name ?? ''),
@@ -167,16 +207,17 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     activityType,
     distanceKm,
     path,
-    shape: deriveShape(d, path),
+    shape,
     composition,
     compositionIsProxy,
     litCoveragePct,
     amenitiesHas,
     osmSafety: opts.osmSafety ?? null,
     geometry,
-    sourceTier: deriveSourceTier(d),
+    sourceTier,
+    urbanKind: deriveUrbanKind(d, sourceTier, shape, !!parkRef),
     greenShare: opts.greenShare ?? null,
-    parkRef: parseParkRef(d?.parkRef),
+    parkRef,
     hasFitnessStop,
     certificate,
     surface,
@@ -184,5 +225,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     shadeShare: shade,
     shade: shadeMeasure,
     ...(opts.hourlyShade ? { hourlyShade: opts.hourlyShade } : {}),
+    ...(shade == null && num(opts.shadeHint) != null ? { shadeHint: num(opts.shadeHint) } : {}),
+    ...(Object.keys(measuredBy).length ? { measuredBy } : {}),
   };
 }

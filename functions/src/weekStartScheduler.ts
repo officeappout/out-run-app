@@ -60,6 +60,7 @@ import {
   SHABBAT_OBSERVER_FIELD,
 } from './services/shabbat.service';
 import { isDemoUid } from './lib/demo';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -148,6 +149,7 @@ export async function runWeekStart(now: Date = new Date()): Promise<WeekStartRun
           const r = await sendPush({
             toUids: uids,
             channel: 'week_start',
+            measurementTypeId: PUSH_TYPE_IDS.weekStart, // enable_push_measure_all (off = ignored)
             title: copy.title,
             body: copy.body,
             deepLink: copy.deepLink,

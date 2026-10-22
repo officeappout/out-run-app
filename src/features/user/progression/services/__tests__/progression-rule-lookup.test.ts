@@ -109,7 +109,7 @@ describe('getProgressionRuleForLevel', () => {
     };
     const rule = await getProgressionRuleForLevel('push', 13, slugMap);
     expect(rule).toEqual({
-      baseSessionGain: 6, bonusPercent: 5, requiredSetsForFullGain: 10, linkedPrograms: [],
+      baseSessionGain: 6, bonusPercent: 5, requiredSetsForFullGain: 10, linkedPrograms: [], source: 'progression_rules',
     });
     expect(state.reads[0]).toBe('progression_rules/J0fLpmJhG0KDN2tQouxh_level_13');
   });
@@ -123,7 +123,7 @@ describe('getProgressionRuleForLevel', () => {
 
   it('no rule anywhere → level defaults (unchanged behaviour)', async () => {
     const rule = await getProgressionRuleForLevel('core', 7, slugMap);
-    expect(rule).toEqual({ baseSessionGain: 6, bonusPercent: 12, requiredSetsForFullGain: 6, linkedPrograms: [] });
+    expect(rule).toEqual({ baseSessionGain: 6, bonusPercent: 12, requiredSetsForFullGain: 6, linkedPrograms: [], source: 'default' });
   });
 
   it('builds the slug map itself when the caller has none', async () => {

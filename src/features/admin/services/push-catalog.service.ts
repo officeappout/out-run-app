@@ -44,6 +44,12 @@ export interface CatalogSource {
   measured: boolean;
   /** push_events.category value to sum for this source, when measured. */
   funnelCategory?: string;
+  /**
+   * Measured only while system_config/feature_flags.enable_push_measure_all is on (22.10.2026,
+   * functions/src/services/push-measure-all.ts) — under `funnelCategory` (= the push type id the
+   * functions stamp as `typeId`). Off = no data, the row stays "לא נמדד".
+   */
+  measuredWithFlag?: boolean;
   note?: string;
 }
 
@@ -63,6 +69,8 @@ export interface CatalogEntry {
   /** Single-source measurement — ignored when `sources` is set. */
   measured?: boolean;
   funnelCategory?: string;
+  /** Single-source only — see CatalogSource.measuredWithFlag. */
+  measuredWithFlag?: boolean;
   /**
    * True for the 3 senders confirmed (04.10.2026 audit) to still call FCM
    * directly instead of routing through push.service.ts in their default
@@ -79,6 +87,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'progression',
     label: 'עליית רמה',
+    funnelCategory: 'LevelUp',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'onChange users/{uid}.progression.globalLevel',
     templateVars: ['{level}'],
@@ -91,6 +101,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'retention',
     label: 'חזרה לשגרה',
+    funnelCategory: 'Inactivity',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'Scheduler — כל יום 10:00',
     templateVars: ['{name}', '{days_since}'],
@@ -103,6 +115,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'onboarding_dropoff',
     label: 'נשירת הרשמה',
+    funnelCategory: 'OnboardingDropoff',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'Scheduler — כל 30 דקות',
     deployed: true,
@@ -140,6 +154,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'encouragement',
     label: 'עידוד מהעירייה',
+    funnelCategory: 'AdminBroadcast',
+    measuredWithFlag: true,
     type: 'manual',
     trigger: 'שליחה ידנית מהפאנל',
     deployed: true,
@@ -154,16 +170,22 @@ export const PUSH_CATALOG: CatalogEntry[] = [
     sources: [
       {
         label: 'קודוס שהתקבל',
+        funnelCategory: 'Kudos',
+        measuredWithFlag: true,
         trigger: 'onCreate — קודוס חדש (onKudosCreated)',
         measured: false,
       },
       {
         label: 'ברוכים הבאים לקבוצה',
+        funnelCategory: 'GroupWelcome',
+        measuredWithFlag: true,
         trigger: 'onCreate community_groups/{groupId}/members/{uid} (onGroupMemberJoin)',
         measured: false,
       },
       {
         label: 'התראת מנהל קבוצה',
+        funnelCategory: 'GroupAdminJoin',
+        measuredWithFlag: true,
         trigger: 'אותו טריגר — להתראת המנהל (onGroupMemberJoin)',
         measured: false,
       },
@@ -172,6 +194,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'chat',
     label: 'הודעה בצ\'אט',
+    funnelCategory: 'ChatMessage',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'onCreate chats/{chatId}/messages',
     deployed: true,
@@ -203,6 +227,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'contribution_status',
     label: 'אישור תרומת מיקום',
+    funnelCategory: 'ContributionApproved',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'onUpdate user_contributions/{id} — status→approved, type:\'new_location\' בלבד (onContributionApproved)',
     rateCapHours: 0,
@@ -212,6 +238,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'week_start',
     label: 'תחילת שבוע (שומרי שבת)',
+    funnelCategory: 'WeekStart',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: 'Scheduler — מוצאי שבת 21:15 (weekStartScheduler), רק settings.shabbatObserver; לא נשלח כשחג ממשיך אחרי שבת',
     defaultTitle: 'שבוע טוב',
@@ -224,6 +252,8 @@ export const PUSH_CATALOG: CatalogEntry[] = [
   {
     channel: 'coach',
     label: 'הודעה מקלי (צוות / מערכת)',
+    funnelCategory: 'CoachMessage',
+    measuredWithFlag: true,
     type: 'auto',
     trigger: "onCreate ai_coach_threads/{uid}/messages — source 'human' / 'system' בלבד (onKellyThreadMessage), רק כש-kelly_unified_v1 דלוק",
     rateCapHours: 0.25,
@@ -246,6 +276,7 @@ export function getCatalogSources(entry: CatalogEntry): CatalogSource[] {
     trigger: entry.trigger ?? '',
     measured: entry.measured ?? false,
     funnelCategory: entry.funnelCategory,
+    ...(entry.measuredWithFlag ? { measuredWithFlag: true } : {}),
     note: entry.note,
   }];
 }
@@ -279,9 +310,12 @@ export const MEASURED_FUNNEL_CATEGORIES = ALL_PUSH_SOURCES
   .filter((s) => s.source.measured && s.source.funnelCategory)
   .map((s) => s.source.funnelCategory!);
 
-/** Reverse lookup: push_events.category → which catalog source it belongs to. */
+/**
+ * Reverse lookup: push_events.category → which catalog source it belongs to. Includes the
+ * sources measured only under enable_push_measure_all (they only have rows once it's on).
+ */
 export const CATEGORY_TO_SOURCE: Record<string, FlatPushSource> = Object.fromEntries(
   ALL_PUSH_SOURCES
-    .filter((s) => s.source.measured && s.source.funnelCategory)
+    .filter((s) => (s.source.measured || s.source.measuredWithFlag) && s.source.funnelCategory)
     .map((s) => [s.source.funnelCategory!, s]),
 );

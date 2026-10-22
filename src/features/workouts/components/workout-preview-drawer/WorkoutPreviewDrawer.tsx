@@ -46,6 +46,8 @@ import { useProgramMap } from './hooks/useProgramMap';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { useExerciseSwap } from './hooks/useExerciseSwap';
 import ReportProblemButton from '@/features/generation-review/components/ReportProblemButton';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 const DRAWER_HEIGHT = '95vh';
 const CLOSE_THRESHOLD = 120; // px dragged DOWN to dismiss
@@ -96,6 +98,7 @@ export default function WorkoutPreviewDrawer({
   surface,
 }: WorkoutPreviewDrawerProps) {
   const homeV2 = useHomeV2();
+  const t = useT(library);
   const router = useRouter();
   const { profile } = useUserStore();
   const y = useMotionValue(0);
@@ -302,8 +305,8 @@ export default function WorkoutPreviewDrawer({
   const [methodRecomputing, setMethodRecomputing] = useState(false);
   useEffect(() => {
     if (!methodRecomputing) return;
-    const t = setTimeout(() => setMethodRecomputing(false), 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setMethodRecomputing(false), 250);
+    return () => clearTimeout(timer);
   }, [generatedWorkout, methodRecomputing]);
   const isRecomputing = isSwapping || methodRecomputing;
 
@@ -562,7 +565,7 @@ export default function WorkoutPreviewDrawer({
             >
               {homeV2 ? (
                 !headerShown && (
-                  <IconButton aria-label="סגור" tone="glass" size={40} onClick={onClose}>
+                  <IconButton aria-label={t('preview.hero.close')} tone="glass" size={40} onClick={onClose}>
                     <X size={20} strokeWidth={2.5} />
                   </IconButton>
                 )
@@ -570,7 +573,7 @@ export default function WorkoutPreviewDrawer({
                 <button
                   onClick={onClose}
                   className="w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-700 active:scale-90 transition-transform"
-                  aria-label="סגור"
+                  aria-label={t('preview.hero.close')}
                 >
                   <X size={20} strokeWidth={2.5} />
                 </button>
@@ -623,7 +626,7 @@ export default function WorkoutPreviewDrawer({
               <div
                 className="flex w-full items-stretch bg-white dark:bg-slate-800 rounded-full"
                 role="group"
-                aria-label="בחירת עצימות"
+                aria-label={t('preview.intensity.label')}
                 style={{ border: '0.5px solid #E0E9FF', boxShadow: '0 2px 12px rgba(0,0,0,.05)', padding: 3, gap: 3 }}
               >
                 {intensityOptions.map((option, i) => {
@@ -642,7 +645,7 @@ export default function WorkoutPreviewDrawer({
                         className="text-[11px] font-bold whitespace-nowrap"
                         style={{ color: active ? '#00ADEF' : '#6B7280' }}
                       >
-                        {option.label} · {option.duration}׳
+                        {t('preview.intensity.option', { label: option.label, duration: String(option.duration) })}
                       </span>
                     </button>
                   );
@@ -709,7 +712,7 @@ export default function WorkoutPreviewDrawer({
             {nearbyParks.length > 0 && (
               <section className="mt-6 mb-2">
                 <h3 className="text-right font-bold text-lg text-slate-900 dark:text-white mb-3">
-                  איפה כדאי להתאמן?
+                  {t('preview.parks.title')}
                 </h3>
                 <div
                   className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1"
@@ -737,8 +740,8 @@ export default function WorkoutPreviewDrawer({
                           <MapPin size={13} className="flex-shrink-0" />
                           <span className="text-xs font-medium">
                             {park.walkingMinutes <= 1
-                              ? 'דקה הליכה ממך'
-                              : `${park.walkingMinutes} דקות הליכה ממך`}
+                              ? t('preview.parks.walkOne')
+                              : t('preview.parks.walk', { minutes: String(park.walkingMinutes) })}
                           </span>
                         </div>
                       </div>

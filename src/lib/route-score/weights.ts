@@ -4,8 +4,11 @@ import type { ScoreComponentKey, SourceTier } from './types';
 /**
  * v1.1 (RC6, 21.10.2026): shade (Technion SI) joins comfort on the recalibrated 0.10→0.35 scale.
  * v1.2 (RC8, 22.10.2026): geometry judges turns/km + zigzag on loops (GEOMETRY_TURNS below).
+ * v1.3 (RC9, 22.10.2026): urban candidates arrive MEASURED (composition, lighting, amenities,
+ *   crossings — src/lib/urban-measure); comfort's "other" amenity point also counts toilets and
+ *   fitness stations; a dataset tree hint stands in for shade (half coverage) where Technion is missing.
  */
-export const ROUTE_SCORE_VERSION = 'v1.2';
+export const ROUTE_SCORE_VERSION = 'v1.3';
 
 export const SCORE_WEIGHTS: Record<ScoreComponentKey, number> = {
   surface: 25,
@@ -35,6 +38,20 @@ export const BAND_THRESHOLDS = {
 
 /** Selection floor (§3.7): only routeScore ≥ 70 can enter the city set. */
 export const SELECTION_MIN_SCORE = 70;
+/**
+ * Urban floor (RC9, owner 22.10.2026): a NAMED urban route (named corridor,
+ * park loop, known route, bike-adjacent walk — `urbanKind`) may be selected
+ * from this score up, but only while its authority is still below the quota
+ * MINIMUM with ≥70 routes, only up to that minimum, and only when it passes
+ * the hard quality bars (urbanFloorBlocker in select.ts). A starting value —
+ * the runner reports the selection at every URBAN_FLOOR_CALIBRATION value so
+ * the owner can calibrate it.
+ */
+export const URBAN_SELECTION_MIN_SCORE = 62;
+export const URBAN_FLOOR_CALIBRATION = [62, 65, 70] as const;
+/** Hard bar for the urban floor: stored distance within this share of the measured path length. */
+export const URBAN_FLOOR_MAX_DISTANCE_ERROR = 0.15;
+
 /** Official-dataset routes scoring 55-70 are flagged for manual review, never auto-selected. */
 export const MANUAL_REVIEW_MIN_SCORE = 55;
 

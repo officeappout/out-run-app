@@ -111,6 +111,7 @@ import { createBudgetDistributor } from '../core/pipeline/BudgetDistributor';
 
 // GuaranteePassRunner — Tier-2 coverage guarantees (Phase 3b)
 import { runAllGuarantees } from '../core/pipeline/GuaranteePassRunner';
+import { GOAL_SCORE_BOOST } from './adaptive/adaptive.config';
 
 // ============================================================================
 // PYRAMID TARGET SELECTION
@@ -419,6 +420,7 @@ export function substituteExercise(
   difficulty: DifficultyLevel,
   levelProgressPercent?: number,
   intentMode?: WorkoutGenerationContext['intentMode'],
+  policy?: WorkoutGenerationContext['progressionPolicy'],
 ): Pick<WorkoutExercise, 'exercise' | 'method' | 'mechanicalType' | 'isTimeBased' | 'reps' | 'repsRange' | 'restSeconds' | 'tier'
   | 'pyramidSequence' | 'repsSequence' | 'pairedWith' | 'supersetType'> {
   // Re-derive isTimeBased/mechanicalType/tier/reps/repsRange/restSeconds for
@@ -429,7 +431,7 @@ export function substituteExercise(
   // (and their own levelDelta/programLevel/isOverLevel fields) in sync with
   // the swap instead of describing the pre-swap exercise.
   let { isTimeBased: newIsTimeBased, mechanicalType, reps, repsRange, restSeconds, tier } =
-    rederiveVolumeForSwappedExercise(newEx, levelDelta, difficulty, levelProgressPercent, intentMode);
+    rederiveVolumeForSwappedExercise(newEx, levelDelta, difficulty, levelProgressPercent, intentMode, policy);
 
   // Skill-Rep Guard: unilateral high-skill exercises (One-Arm Pull-up, Pistol Squat,
   // etc.) must NEVER inherit a tier-computed rep count.  Discard it entirely
@@ -1179,6 +1181,7 @@ export class WorkoutGenerator {
               ...substituteExercise(
                 workoutExercises[idx], sub.exercise, resolveSubstituteMethod(sub.exercise, context),
                 sub.level - domainLevel, difficulty, context.levelProgressPercent, context.intentMode,
+                context.progressionPolicy,
               ),
               programLevel: sub.level,
               isOverLevel: sub.level > domainLevel,
@@ -1854,6 +1857,18 @@ export class WorkoutGenerator {
         bonus -= 10;
         skillPenalised++;
         reasoning.push('skill_soft_offset:-10(general_training)');
+      }
+
+      // ── Adaptive nudges (3a variation step / 3e goal presence) ─────────
+      // Precomputed per generation (logic/adaptive/); absent while the flags are off.
+      const adaptiveNudge = context.adaptiveScoreBonus?.get(ex.exercise.id);
+      if (adaptiveNudge && adaptiveNudge.delta !== 0) {
+        bonus += adaptiveNudge.delta;
+        reasoning.push(`adaptive:${adaptiveNudge.reason}`);
+      }
+      if (context.goalPresenceBoostIds?.has(ex.exercise.id) && context.difficulty !== 1) {
+        bonus += GOAL_SCORE_BOOST;
+        reasoning.push(`goal_presence:+${GOAL_SCORE_BOOST}`);
       }
 
       if (bonus === 0) return ex;

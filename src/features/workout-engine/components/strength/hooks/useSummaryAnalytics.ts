@@ -48,6 +48,11 @@ export interface UseSummaryAnalyticsParams {
   progressToNextLevel: number;
   /** Real-time progression result from processWorkoutCompletion (when available). */
   progressionResult: WorkoutCompletionResult | null;
+  /**
+   * enable_levelup_v2: the level/percent the level-up screen showed (= the
+   * stored number; for a master program the stored average). Absent = as before.
+   */
+  levelOverride?: { level: number; percent: number };
 }
 
 export interface SummaryAnalytics {
@@ -104,6 +109,7 @@ export function useSummaryAnalytics({
   currentLevel,
   progressToNextLevel,
   progressionResult,
+  levelOverride,
 }: UseSummaryAnalyticsParams): SummaryAnalytics {
   // ── Activity-store sources ──
   const { streak: activityStreak } = useDailyActivity();
@@ -138,11 +144,14 @@ export function useSummaryAnalytics({
     (weeklySummary?.categoryTotals?.strength ?? 0) + (weeklySummary?.categoryTotals?.cardio ?? 0);
 
   // ── Live progression overlay ──
-  const liveLevel =
-    progressionResult?.success && progressionResult.activeProgramGain.leveledUp
+  const liveLevel = levelOverride
+    ? levelOverride.level
+    : progressionResult?.success && progressionResult.activeProgramGain.leveledUp
       ? progressionResult.activeProgramGain.newLevel ?? currentLevel + 1
       : currentLevel;
-  const livePercent = progressionResult?.success
+  const livePercent = levelOverride
+    ? Math.min(99, Math.round(levelOverride.percent))
+    : progressionResult?.success
     ? Math.round(progressionResult.activeProgramGain.newPercent)
     : progressToNextLevel;
 

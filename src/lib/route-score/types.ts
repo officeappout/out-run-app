@@ -27,6 +27,9 @@ export type SourceTier = 'official' | 'osm_named' | 'named_place' | 'stitched' |
 
 export type CertificateVerdict = 'approve' | 'edit' | 'drop';
 
+/** Named urban route kinds eligible for the urban selection floor (RC9). */
+export type UrbanRouteKind = 'named_corridor' | 'park_loop' | 'known_route' | 'bike_adjacent';
+
 export interface ParkRef {
   source: string;
   id: string;
@@ -49,7 +52,13 @@ export interface RouteScoreInput {
   /** Only when lighting was really computed (status 'computed'). */
   litCoveragePct: number | null;
   /** Only when the amenity join ran with coverage (status 'computed'). */
-  amenitiesHas: Partial<Record<'bench' | 'drinking_water' | 'court' | 'dog_park' | 'fitness_station', boolean>> | null;
+  amenitiesHas: Partial<Record<'bench' | 'drinking_water' | 'court' | 'dog_park' | 'fitness_station' | 'toilets', boolean>> | null;
+  /**
+   * Which of composition / lighting / amenities / safety were filled by the
+   * runner's urban measurement (src/lib/urban-measure, RC9) rather than read
+   * from the stored doc. Informational — lands in the component notes.
+   */
+  measuredBy?: Partial<Record<'composition' | 'lighting' | 'amenities' | 'safety', 'osm_urban_measure'>>;
   /** From route-quality v1 with an OSM road layer; null when not measured. */
   osmSafety: { majorRoadPct: number; unmarkedPerKm: number } | null;
   /** Geometry facts (computed from `path` by the adapter, or supplied). */
@@ -59,6 +68,8 @@ export interface RouteScoreInput {
    */
   geometry: { retracedPct: number; uTurnCount: number; spurCount: number; compactness: number; turnsPerKm?: number; zigzagIndex?: number } | null;
   sourceTier: SourceTier;
+  /** RC9: a NAMED urban route (urban floor eligible) — null for everything else. Optional for older callers. */
+  urbanKind?: UrbanRouteKind | null;
   /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
   greenShare: number | null;
   parkRef: ParkRef | null;
@@ -76,6 +87,12 @@ export interface RouteScoreInput {
   shadeShare: number | null;
   /** Full shade measurement (status, shadedPct, coverage) for the route_scores doc; null = not attempted. */
   shade: RouteShade | null;
+  /**
+   * Shade HINT (RC9) — an SI-equivalent (0..1) from a dataset's "trees along
+   * the path" field (MoT bike-path layer). Used only when `shadeShare` is null
+   * (no Technion layer), at half coverage.
+   */
+  shadeHint?: number | null;
   /**
    * Hour-aware shade (RC7, shade/hourly/v1): summer mean + 21-July by-hour curve.
    * Informational only — exposed on the comfort component, never changes points.

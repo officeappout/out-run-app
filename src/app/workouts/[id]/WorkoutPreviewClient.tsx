@@ -15,6 +15,8 @@ import { buildBunnyThumbnailUrl } from '@/lib/bunny/bunny.config';
 import { getSharedWorkout, type SharedWorkoutDoc } from '@/features/workout-engine/services/share.service';
 import { useUiGender } from '@/hooks/useUiGender';
 import { GENDERED_COPY, pickGendered } from '@/lib/i18n/gender-copy';
+import { useT } from '@/hooks/useT';
+import { library, type LibraryKey, type LibraryT } from '@/messages/ns/library';
 
 // ============================================================================
 // Types
@@ -69,9 +71,10 @@ interface StoredSegment {
 interface DisplayGroup {
   id: string;
   isSuperset: boolean;
-  label?: string;
-  /** Section header rendered above this group (e.g. "חימום", "שחרור") */
-  sectionLabel?: string;
+  /** 1-based superset number (rendered as `sharedWorkout.superset`) */
+  supersetIndex?: number;
+  /** Section header rendered above this group (warmup / cooldown) */
+  section?: SectionId;
   exercises: {
     id: string;
     title: string;
@@ -88,39 +91,70 @@ interface DisplayGroup {
 // Helpers
 // ============================================================================
 
-function buildRangeLabel(ex: StoredExercise): string {
-  if (ex.repsRange) {
-    const { min, max } = ex.repsRange;
-    const unit = ex.isTimeBased ? 'שניות' : 'חזרות';
-    const goalSuffix = ex.isGoalExercise && ex.rampedTarget ? ` (יעד: ${ex.rampedTarget})` : '';
-    return min !== max ? `${min}-${max} ${unit}${goalSuffix}` : `${min} ${unit}${goalSuffix}`;
-  }
-  if (ex.reps) return ex.reps;
-  return ex.type === 'hold' ? '20-40 שניות' : '8-12 חזרות';
+type SectionId = 'warmup' | 'cooldown';
+
+/** Stored segment titles that open a section (data: the plan's / convertSharedToLocal's segment titles). */
+const SECTION_IDS: Record<string, SectionId> = {
+  'חימום': 'warmup', // i18n-allow-hebrew: data — matched against stored segment titles
+  'שחרור': 'cooldown', // i18n-allow-hebrew: data — matched against stored segment titles
+};
+
+const SECTION_KEYS: Record<SectionId, LibraryKey> = {
+  warmup: 'sharedWorkout.section.warmup',
+  cooldown: 'sharedWorkout.section.cooldown',
+};
+
+/** "{min}-{max} unit" / "{min} unit" (+ per-side / goal suffixes) — one line of an exercise card. */
+function repsLine(
+  t: LibraryT,
+  min: number | string | undefined,
+  max: number | string | undefined,
+  opts: { timeBased?: boolean; side?: boolean; goalTarget?: number },
+): string {
+  const values = {
+    min: String(min),
+    max: String(max),
+    unit: opts.timeBased ? 'seconds' : 'reps',
+    side: opts.side ? 'yes' : 'no',
+    goal: opts.goalTarget ? 'yes' : 'no',
+    target: String(opts.goalTarget ?? ''),
+  };
+  return max === undefined ? t('sharedWorkout.reps.single', values) : t('sharedWorkout.reps.range', values);
 }
 
-function buildDisplayGroups(segments: StoredSegment[]): DisplayGroup[] {
+function buildRangeLabel(t: LibraryT, ex: StoredExercise): string {
+  if (ex.repsRange) {
+    const { min, max } = ex.repsRange;
+    const goalTarget = ex.isGoalExercise && ex.rampedTarget ? ex.rampedTarget : undefined;
+    return min !== max
+      ? repsLine(t, min, max, { timeBased: ex.isTimeBased, goalTarget })
+      : repsLine(t, min, undefined, { timeBased: ex.isTimeBased, goalTarget });
+  }
+  if (ex.reps) return ex.reps;
+  return ex.type === 'hold' ? t('sharedWorkout.reps.defaultHold') : t('sharedWorkout.reps.defaultReps', { side: 'no' });
+}
+
+function buildDisplayGroups(t: LibraryT, segments: StoredSegment[]): DisplayGroup[] {
   const groups: DisplayGroup[] = [];
   let supersetIdx = 0;
-
-  const SECTION_TITLES = new Set(['חימום', 'שחרור']);
 
   for (const seg of segments) {
     if (!seg.exercises?.length) continue;
 
-    const sectionLabel = seg.title && SECTION_TITLES.has(seg.title) ? seg.title : undefined;
-    const isSuperset = seg.exercises.length >= 2 || (seg.title?.includes('סופר') ?? false);
+    const section =
+      seg.title && Object.prototype.hasOwnProperty.call(SECTION_IDS, seg.title) ? SECTION_IDS[seg.title] : undefined;
+    const isSuperset = seg.exercises.length >= 2 || (seg.title?.includes('סופר') ?? false); // i18n-allow-hebrew: data — matched against stored segment titles
 
-    if (isSuperset && !sectionLabel) {
+    if (isSuperset && !section) {
       supersetIdx++;
       groups.push({
         id: seg.id,
         isSuperset: true,
-        label: `סופרסט ${supersetIdx}`,
+        supersetIndex: supersetIdx,
         exercises: seg.exercises.map((ex) => ({
           id: ex.id,
           title: ex.name,
-          repsOrDuration: buildRangeLabel(ex),
+          repsOrDuration: buildRangeLabel(t, ex),
           imageUrl: ex.imageUrl,
           isGoalExercise: ex.isGoalExercise,
           rampedTarget: ex.rampedTarget,
@@ -134,11 +168,11 @@ function buildDisplayGroups(segments: StoredSegment[]): DisplayGroup[] {
         groups.push({
           id: `${seg.id}-${ex.id}`,
           isSuperset: false,
-          sectionLabel: isFirst ? sectionLabel : undefined,
+          section: isFirst ? section : undefined,
           exercises: [{
             id: ex.id,
             title: ex.name,
-            repsOrDuration: buildRangeLabel(ex),
+            repsOrDuration: buildRangeLabel(t, ex),
             imageUrl: ex.imageUrl,
             isGoalExercise: ex.isGoalExercise,
             rampedTarget: ex.rampedTarget,
@@ -155,23 +189,24 @@ function buildDisplayGroups(segments: StoredSegment[]): DisplayGroup[] {
 
 const DIFFICULTY_MAP: Record<number, string> = { 1: 'easy', 2: 'medium', 3: 'hard' };
 
-function sharedExToStored(ex: SharedWorkoutDoc['exercises'][number]): StoredExercise {
+function sharedExToStored(t: LibraryT, ex: SharedWorkoutDoc['exercises'][number]): StoredExercise {
   return {
     id: ex.exerciseId,
     name: ex.name,
     sets: ex.sets,
-    reps: ex.isTimeBased ? `${ex.reps} שניות` : `${ex.reps} חזרות`,
+    reps: repsLine(t, ex.reps, undefined, { timeBased: ex.isTimeBased }),
     imageUrl: ex.imageUrl ?? undefined,
     repsRange: ex.repsRange,
     isTimeBased: ex.isTimeBased,
   };
 }
 
-function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
+function convertSharedToLocal(t: LibraryT, shared: SharedWorkoutDoc & { id: string }): {
   workout: WorkoutData;
   segments: StoredSegment[];
 } {
   type SE = SharedWorkoutDoc['exercises'][number];
+  const toStored = (ex: SE) => sharedExToStored(t, ex);
   const warmup: SE[] = [];
   const main: SE[] = [];
   const cooldown: SE[] = [];
@@ -189,9 +224,9 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
   if (warmup.length > 0) {
     storedSegments.push({
       id: 'section-warmup',
-      title: 'חימום',
+      title: 'חימום', // i18n-allow-hebrew: data — segment title matched by SECTION_IDS
       type: 'station',
-      exercises: warmup.map(sharedExToStored),
+      exercises: warmup.map(toStored),
     });
   }
 
@@ -208,9 +243,9 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
         usedIds.add(partner.exerciseId);
         storedSegments.push({
           id: `superset-${ex.exerciseId}`,
-          title: 'סופרסט',
+          title: 'סופרסט', // i18n-allow-hebrew: data — segment title matched by includes() in buildDisplayGroups
           type: 'superset',
-          exercises: [sharedExToStored(ex), sharedExToStored(partner)],
+          exercises: [toStored(ex), toStored(partner)],
         });
         continue;
       }
@@ -219,16 +254,16 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
     storedSegments.push({
       id: `main-${ex.exerciseId}`,
       type: 'station',
-      exercises: [sharedExToStored(ex)],
+      exercises: [toStored(ex)],
     });
   }
 
   if (cooldown.length > 0) {
     storedSegments.push({
       id: 'section-cooldown',
-      title: 'שחרור',
+      title: 'שחרור', // i18n-allow-hebrew: data — segment title matched by SECTION_IDS
       type: 'station',
-      exercises: cooldown.map(sharedExToStored),
+      exercises: cooldown.map(toStored),
     });
   }
 
@@ -236,9 +271,9 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
     id: ex.exerciseId,
     type: 'strength' as const,
     title: ex.name,
-    repsOrDuration: ex.isTimeBased
-      ? `${ex.repsRange ? `${ex.repsRange.min}-${ex.repsRange.max}` : ex.reps} שניות`
-      : `${ex.repsRange ? `${ex.repsRange.min}-${ex.repsRange.max}` : ex.reps} חזרות`,
+    repsOrDuration: ex.repsRange
+      ? repsLine(t, ex.repsRange.min, ex.repsRange.max, { timeBased: ex.isTimeBased })
+      : repsLine(t, ex.reps, undefined, { timeBased: ex.isTimeBased }),
     imageUrl: ex.imageUrl ?? null,
   }));
 
@@ -255,7 +290,7 @@ function convertSharedToLocal(shared: SharedWorkoutDoc & { id: string }): {
   };
 }
 
-async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData | null> {
+async function fetchWorkoutFromFirestore(t: LibraryT, workoutId: string): Promise<WorkoutData | null> {
   try {
     const exercises = await getAllExercisesCached();
     if (!exercises?.length) return null;
@@ -284,19 +319,19 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
 
     const segments: WorkoutSegment[] = exercises.slice(0, 8).map((ex) => {
       const rangeData = rangeMap[ex.id];
-      const uniSuffix = (ex as any).symmetry === 'unilateral' ? ' (לכל צד)' : '';
+      const side = (ex as any).symmetry === 'unilateral';
       let repsOrDuration: string;
 
       if (rangeData?.repsRange) {
         const { min, max } = rangeData.repsRange;
-        const unit = rangeData.isTimeBased ? 'שניות' : 'חזרות';
-        const goalSuffix = rangeData.isGoalExercise && rangeData.rampedTarget
-          ? ` (יעד: ${rangeData.rampedTarget})` : '';
+        const goalTarget = rangeData.isGoalExercise && rangeData.rampedTarget ? rangeData.rampedTarget : undefined;
         repsOrDuration = min !== max
-          ? `${min}-${max} ${unit}${uniSuffix}${goalSuffix}`
-          : `${min} ${unit}${uniSuffix}${goalSuffix}`;
+          ? repsLine(t, min, max, { timeBased: rangeData.isTimeBased, side, goalTarget })
+          : repsLine(t, min, undefined, { timeBased: rangeData.isTimeBased, side, goalTarget });
       } else {
-        repsOrDuration = ex.type === 'reps' ? `8-12 חזרות${uniSuffix}` : '20-40 שניות';
+        repsOrDuration = ex.type === 'reps'
+          ? t('sharedWorkout.reps.defaultReps', { side: side ? 'yes' : 'no' })
+          : t('sharedWorkout.reps.defaultHold');
       }
 
       return {
@@ -310,8 +345,8 @@ async function fetchWorkoutFromFirestore(workoutId: string): Promise<WorkoutData
 
     return {
       id: workoutId,
-      title: 'אימון כוח מותאם',
-      description: 'אימון דינמי המותאם לרמה שלך',
+      title: t('sharedWorkout.fallback.title'),
+      description: t('sharedWorkout.fallback.description'),
       level: 'medium',
       difficulty: 'medium',
       duration: 45,
@@ -336,18 +371,19 @@ interface SmartAppBannerProps {
 }
 
 function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
+  const t = useT(library);
   return (
     <div
       className="flex items-center gap-3 px-3 py-2.5 bg-white border-b border-gray-100 shadow-sm"
       dir="rtl"
       role="banner"
-      aria-label="הורדת האפליקציה"
+      aria-label={t('sharedWorkout.banner.label')}
     >
       {/* Dismiss */}
       <button
         onClick={onDismiss}
         className="flex-shrink-0 text-gray-400 active:text-gray-600 transition-colors p-1 -ml-1"
-        aria-label="סגור"
+        aria-label={t('sharedWorkout.banner.close')}
       >
         <X size={15} strokeWidth={2.5} />
       </button>
@@ -367,10 +403,10 @@ function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
       {/* Text */}
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-black text-gray-900 leading-tight truncate">
-          רוצה לבצע את האימון הזה?
+          {t('sharedWorkout.banner.title')}
         </p>
         <p className="text-[11px] text-gray-500 leading-snug mt-0.5 line-clamp-1">
-          עקוב אחרי הסטים, המנוחות וההתקדמות שלך באפליקציה
+          {t('sharedWorkout.banner.subtitle')}
         </p>
       </div>
 
@@ -385,7 +421,7 @@ function SmartAppBanner({ onDismiss }: SmartAppBannerProps) {
           boxShadow: '0 2px 12px rgba(0,186,247,0.35)',
         }}
       >
-        להורדה חינם
+        {t('sharedWorkout.banner.cta')}
       </a>
     </div>
   );
@@ -417,6 +453,7 @@ export default function WorkoutPreviewClient({
 }: WorkoutPreviewClientProps) {
   const uiGender = useUiGender();
   const router = useRouter();
+  const t = useT(library);
 
   // ── Smart App Banner state ───────────────────────────────────────────────
   // Hidden when: (a) inside the Capacitor native shell, or (b) user dismissed.
@@ -455,7 +492,7 @@ export default function WorkoutPreviewClient({
       : null,
   );
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LibraryKey | null>(null);
 
   const [heroMedia, setHeroMedia] = useState<{ thumbnailUrl?: string; videoUrl?: string } | null>(null);
   const [storedSegments, setStoredSegments] = useState<StoredSegment[] | null>(null);
@@ -482,8 +519,8 @@ export default function WorkoutPreviewClient({
         if (plan?.name || plan?.totalDuration) {
           setWorkout((prev) => prev ?? {
             id: workoutId,
-            title: plan.name || 'אימון כוח מותאם',
-            description: plan.description || 'אימון דינמי המותאם לרמה שלך',
+            title: plan.name || t('sharedWorkout.fallback.title'),
+            description: plan.description || t('sharedWorkout.fallback.description'),
             difficulty: plan.difficulty || 'medium',
             duration: plan.totalDuration || 45,
             segments: [],
@@ -491,6 +528,8 @@ export default function WorkoutPreviewClient({
         }
       }
     } catch { /* ignore */ }
+  // Mount-only hydrate, as before the i18n extraction: `t` (fallback title) must not re-run it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workoutId]);
 
   // Fetch workout data — try sharedWorkouts first, then generic Firestore fallback
@@ -506,18 +545,18 @@ export default function WorkoutPreviewClient({
 
       const shared = await getSharedWorkout(workoutId);
       if (shared) {
-        const { workout: sharedWorkout, segments } = convertSharedToLocal(shared);
+        const { workout: sharedWorkout, segments } = convertSharedToLocal(t, shared);
         setWorkout((prev) => prev ?? sharedWorkout);
         setStoredSegments(segments);
         setIsLoading(false);
         return;
       }
 
-      const firestoreWorkout = await fetchWorkoutFromFirestore(workoutId);
+      const firestoreWorkout = await fetchWorkoutFromFirestore(t, workoutId);
       if (firestoreWorkout) {
         setWorkout((prev) => prev ?? firestoreWorkout);
       } else if (!workout) {
-        setError('לא הצלחנו לטעון את האימון');
+        setError('sharedWorkout.error.message');
       }
 
       setIsLoading(false);
@@ -528,9 +567,9 @@ export default function WorkoutPreviewClient({
   }, [workoutId]);
 
   const displayGroups: DisplayGroup[] = useMemo(() => {
-    if (storedSegments) return buildDisplayGroups(storedSegments);
+    if (storedSegments) return buildDisplayGroups(t, storedSegments);
     return [];
-  }, [storedSegments]);
+  }, [storedSegments, t]);
 
   const hasStructuredGroups = displayGroups.length > 0;
 
@@ -548,7 +587,7 @@ export default function WorkoutPreviewClient({
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-950 dark:to-gray-900">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 font-medium">טוען את האימון...</p>
+          <p className="text-gray-600 dark:text-gray-400 font-medium">{t('sharedWorkout.loading')}</p>
         </div>
       </div>
     );
@@ -562,13 +601,13 @@ export default function WorkoutPreviewClient({
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">:(</span>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">לא הצלחנו לטעון את האימון</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{error || pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('sharedWorkout.error.title')}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">{error ? t(error) : pickGendered(uiGender, GENDERED_COPY.retryLater)}</p>
           <button
             onClick={() => router.push('/home')}
             className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-xl transition-all"
           >
-            חזרה לדף הבית
+            {t('sharedWorkout.error.home')}
           </button>
         </div>
       </div>
@@ -586,7 +625,7 @@ export default function WorkoutPreviewClient({
 
       {/* ── Hero Header ─────────────────────────────────────────────── */}
       <WorkoutPreviewHeader
-        title={workout?.title || 'אימון כוח מותאם'}
+        title={workout?.title || t('sharedWorkout.fallback.title')}
         description={coachNote ? workout?.description : logicCue || workout?.description}
         difficulty={workout?.difficulty === 'easy' ? 1 : workout?.difficulty === 'hard' ? 3 : 2}
         estimatedDuration={workout?.duration}
@@ -606,10 +645,10 @@ export default function WorkoutPreviewClient({
             displayGroups.map((group) => (
               <React.Fragment key={group.id}>
                 {/* Section header (warmup / cooldown) */}
-                {group.sectionLabel && (
+                {group.section && (
                   <div className="flex items-center gap-2 pt-3 pb-1 px-1">
                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wide">
-                      {group.sectionLabel}
+                      {t(SECTION_KEYS[group.section])}
                     </span>
                     <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                   </div>
@@ -620,7 +659,7 @@ export default function WorkoutPreviewClient({
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <Link2 size={14} className="text-cyan-500" />
                       <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400 tracking-wide">
-                        {group.label}
+                        {t('sharedWorkout.superset', { n: String(group.supersetIndex) })}
                       </span>
                       <div className="flex-1 h-px bg-cyan-200/60 dark:bg-cyan-800/40" />
                     </div>
@@ -691,14 +730,14 @@ export default function WorkoutPreviewClient({
             style={{ background: 'linear-gradient(to left, #0CF2E3, #00BAF7)', height: 42 }}
           >
             <Play size={20} fill="currentColor" />
-            <span>התחלת אימון</span>
+            <span>{t('sharedWorkout.footer.start')}</span>
           </button>
 
           <button
             onClick={() => router.push('/home')}
             className="flex-shrink-0 w-[42px] h-[42px] rounded-full flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-sm"
             style={{ background: '#FEFEFE', border: '0.5px solid #E0E9FF' }}
-            aria-label="בית"
+            aria-label={t('sharedWorkout.footer.home')}
           >
             <Home size={20} />
           </button>

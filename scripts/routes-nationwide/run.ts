@@ -10,8 +10,9 @@
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
  * GraphHopper foot_turns neighbourhood loops (named after the park / streets /
  * neighbourhood they pass). Every finding source always runs; the two
- * generating stages run ONLY if the quota is still short. Each step is scored (routeScore v1.2: shade where the city
- * has a layer, turns/zigzag on loops) and the top-N set re-selected
+ * generating stages run ONLY if the quota is still short. Each step is scored (routeScore v1.3: shade where the city
+ * has a layer, turns/zigzag on loops; urban candidates measured on the OSM slice — composition, lighting,
+ * amenities ≤ 50 m, road crossings — src/lib/urban-measure) and the top-N set re-selected
  * (src/lib/route-score); once the quota minimum is met the generating stages are skipped.
  *
  *   npx tsx scripts/routes-nationwide/run.ts                          # whole country, dry-run, resumes automatically
@@ -24,6 +25,7 @@
  *                              ID token from the Firebase Admin SA in .env.local; without it both are skipped)
  *   … --gh-max-calls=30      (hard cap of live GH requests per authority; answers cached in <out>/cache/gh)
  *   … --no-shade             (do not load the Technion / hourly shade layers)
+ *   … --no-urban-measure     (RC9: do not measure composition / lighting / amenities / crossings on urban candidates)
  *   … --known-routes-dir=<dir> (web-research name files, default docs/routes/known-routes/<authorityId>.json)
  *   … --fresh                (ignore the checkpoint, start over)  --retry-errors
  *   … --out=<dir>            (default scripts/output/nationwide-<YYYY-MM-DD>)
@@ -53,7 +55,7 @@ import { boundaryFromStored, type AuthorityBoundary } from '../../src/lib/datase
 import { writeRouteScoreDocs } from '../../src/lib/route-score';
 import {
   buildAdminNameIndex, checkpointMismatch, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
-  runAuthorityStages, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
+  combineEnrichers, runAuthorityStages, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
 } from '../../src/lib/routes-nationwide';
 import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, executePlan, flagValue, formatPlan, openTarget, planCollection } from '../trails/lib/trails-apply.node';
 import { assertOsmium, ensureIsraelPbf } from '../trails/lib/pilot-osm.node';
@@ -64,6 +66,7 @@ import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
 import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
 import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
+import { urbanEnricher } from './lib/urban-enrich.node';
 
 const argv = process.argv.slice(2);
 const flagAll = (name: string) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3)).filter(Boolean);
@@ -82,6 +85,7 @@ const TRAILS_OUT = path.join(OUT, 'trails');
 const GH_URL = flagValue(argv, 'graphhopper-url') ?? process.env.GRAPHHOPPER_URL ?? null;
 const GH_MAX_CALLS = Math.max(0, Number(flagValue(argv, 'gh-max-calls') ?? 30) || 0);
 const NO_SHADE = argv.includes('--no-shade');
+const NO_URBAN_MEASURE = argv.includes('--no-urban-measure');
 const KNOWN_DIR = flagValue(argv, 'known-routes-dir') ?? KNOWN_ROUTES_DIR;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -207,6 +211,7 @@ async function main() {
       const ghA = SKIP_OSM ? null : authorityGh(gh.client, path.join(OUT, 'cache', 'gh'), a.id, GH_MAX_CALLS);
       const shade = await shadeEnricher(shadeLoaders, a.name);
       console.log(`  ${shade.note}`);
+      const urban = urbanEnricher(SKIP_OSM || NO_URBAN_MEASURE ? null : slice);
       const batch = `nationwide-${a.id}`;
       const known = new KnownRoutesStage(ctx, KNOWN_DIR, slice, trails, batch, !SKIP_OSM);
       let result;
@@ -219,11 +224,12 @@ async function main() {
           ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
           trails.generated(),
           ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
-        ], new Date(), { enrich: shade.enrich });
+        ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich) });
       } finally {
         slice.cleanup();
       }
-      const summary = { ...summarizeAuthority(result, { name: a.name, tier: a.tier }), gh: ghA?.stats() ?? null, shade: shade.note, knownRoutes: known.report };
+      const summary = { ...summarizeAuthority(result, { name: a.name, tier: a.tier }), gh: ghA?.stats() ?? null, shade: shade.note, urbanMeasure: { ...urban.stats, note: urban.note() }, knownRoutes: known.report };
+      console.log(`  ${urban.note()}`);
       writeJson(path.join(OUT, 'authorities', `${a.id}.json`), summary);
       printAuthority(summary);
 

@@ -7,12 +7,12 @@ export * from './types';
 export * from './weights';
 export { scoreSurface, scoreGeometry, scoreSafety, scoreSource, scoreComfort, scoreExperience } from './components';
 export { routeScore, scoreBand } from './score';
-export { routeScoreInputFromDoc, parsePath, deriveShape, deriveSourceTier, type FromDocOptions } from './from-route-doc';
+export { routeScoreInputFromDoc, parsePath, deriveShape, deriveSourceTier, deriveUrbanKind, type FromDocOptions } from './from-route-doc';
 export { quotaForAuthority, authoritySizeClass, QUOTAS, type AuthorityQuota, type AuthoritySizeClass, type Range } from './quota';
 export {
-  selectTopN, anchorKey, gridCell, lengthBucket, isParkLoop, isCycling,
+  selectTopN, urbanFloorBlocker, anchorKey, gridCell, lengthBucket, isParkLoop, isCycling,
   MAX_PER_ANCHOR, MAX_PER_CELL,
-  type ScoredRoute, type SelectionDecision, type SelectionResult, type SelectionRow, type LengthBucket,
+  type ScoredRoute, type SelectionDecision, type SelectionResult, type SelectionRow, type LengthBucket, type SelectOptions,
 } from './select';
 export {
   ROUTE_SCORES_COLLECTION, buildRouteScoreDoc, routeScoreDocFromStored, toDateLike,

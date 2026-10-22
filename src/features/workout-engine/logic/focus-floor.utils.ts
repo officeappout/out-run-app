@@ -86,7 +86,7 @@ export function topUpFocusDayReserve(
     if (!c) { exhausted.add(area); continue; }
     taken.add(c.ex.id);
     if (c.ex.base_movement_id && c.ex.base_movement_id !== 'unspecified_movement') bases.add(c.ex.base_movement_id);
-    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty);
+    const d = rederiveVolumeForSwappedExercise(c.ex, c.delta, opts.difficulty, undefined, undefined, opts.progressionPolicy);
     added.push({
       exercise: c.ex, method: c.method, mechanicalType: d.mechanicalType,
       sets: 2, reps: d.reps, repsRange: d.repsRange, isTimeBased: d.isTimeBased, restSeconds: d.restSeconds,

@@ -18,12 +18,20 @@ export interface AuthoritySummary {
   surface: { all: Record<string, number>; selected: Record<string, number> };
   selectedBySource: Partial<Record<StageKey, number>>;
   quotaMetAfter: StageKey | null;
+  /** RC9: selected count at each urban floor (62 / 65 / 70 — the 70 row is the pre-RC9 rule). */
+  floorCalibration?: Record<string, number>;
   stages: AuthorityRunResult['stages'];
-  routes: Array<{ id: string; name: string; stage: StageKey; isNew: boolean; score: number; band: string; surfaceClass: string; selection: string | null; reason: string | null; km: number | null }>;
+  routes: Array<{
+    id: string; name: string; stage: StageKey; isNew: boolean; score: number; band: string; surfaceClass: string; selection: string | null; reason: string | null; km: number | null;
+    /** RC9: points per component (surface/geometry/safety/source/comfort/experience) and which inputs the urban measurement filled. */
+    pts?: Record<string, number>;
+    measured?: string[];
+  }>;
 }
 
 export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; tier: OrderTier }): AuthoritySummary {
   const docById = new Map(r.score.docs.map((d) => [d.routeId, d]));
+  const scoredById = new Map(r.score.scored.map((x) => [x.input.id, x]));
   const selectedIds = new Set(r.score.selection.selectedIds);
   const selectedBySource: Partial<Record<StageKey, number>> = {};
   let selExisting = 0, selNew = 0;
@@ -48,6 +56,7 @@ export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; 
     surface: { all: r.score.bySurface, selected: { ...r.score.selection.selectedBySurface } },
     selectedBySource,
     quotaMetAfter: r.quotaMetAfter,
+    floorCalibration: r.score.floorCalibration,
     stages: r.stages,
     routes: r.pool.map((p) => {
       const d = docById.get(p.id);
@@ -56,9 +65,18 @@ export function summarizeAuthority(r: AuthorityRunResult, meta: { name: string; 
         score: d?.score ?? 0, band: d?.band ?? 'yellow', surfaceClass: d?.surfaceClass ?? 'unknown',
         selection: d?.selection ?? null, reason: d?.selectionReason ?? null,
         km: typeof p.data?.distance === 'number' ? p.data.distance : null,
+        ...componentPoints(scoredById.get(p.id)),
       };
     }),
   };
+}
+
+function componentPoints(x: AuthorityRunResult['score']['scored'][number] | undefined): { pts?: Record<string, number>; measured?: string[] } {
+  if (!x) return {};
+  const pts: Record<string, number> = {};
+  for (const [k, c] of Object.entries(x.score.components)) pts[k] = c.points;
+  const measured = Object.keys(x.input.measuredBy ?? {});
+  return { pts, ...(measured.length ? { measured } : {}) };
 }
 
 export interface NationalSummary {

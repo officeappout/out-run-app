@@ -17,8 +17,9 @@
  * is dropped — the earlier (more official) stage wins.
  * Pure orchestration: every source is an injected provider. Each provider
  * sees the pool so far (park loops reuse it as "known" loops), and an
- * optional `enrich` hook adds per-route scoring inputs (shade, hourly shade)
- * once, as the route enters the pool — so every candidate is scored alike.
+ * optional `enrich` hook adds per-route scoring inputs (shade, hourly shade;
+ * RC9: urban composition / lighting / amenities / crossings) once, as the
+ * route enters the pool — so every candidate is scored alike.
  */
 import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
@@ -75,12 +76,13 @@ function bbox(c: [number, number][]): Box | null {
 const boxesMeet = (p: Box | null, q: Box | null) => !!p && !!q && p[0] <= q[2] && q[0] <= p[2] && p[1] <= q[3] && q[1] <= p[3];
 
 export function quotaMet(run: AuthorityScoreRun): boolean {
-  return run.selection.counts.selected >= run.quota.total.min;
+  // Only ≥70 selections count: routes the urban floor let in (RC9) never stop the generating stages.
+  return run.selection.counts.selected - (run.selection.counts.urbanFloor ?? 0) >= run.quota.total.min;
 }
 
 export interface RunStagesOptions {
-  /** Extra scoring inputs for one route (merged over the provider's own opts). */
-  enrich?: (r: CandidateRoute) => FromDocOptions | null | undefined;
+  /** Extra scoring inputs for one route (merged over the provider's own opts). May be async (RC9 urban measurement loads the OSM slice). */
+  enrich?: (r: CandidateRoute) => FromDocOptions | null | undefined | Promise<FromDocOptions | null | undefined>;
 }
 
 export async function runAuthorityStages(
@@ -113,7 +115,7 @@ export async function runAuthorityStages(
       const coords = parsePath(r.data?.path);
       const box = bbox(coords);
       if (key !== 'existing' && geo.some((g) => boxesMeet(box, g.box) && isDuplicate(coords, g.coords))) { dropped++; continue; }
-      const extra = options.enrich?.(r);
+      const extra = await options.enrich?.(r);
       pool.push({ ...r, stage: key, ...(extra ? { opts: { ...(r.opts ?? {}), ...extra } } : {}) });
       geo.push({ coords, box });
       added++;
@@ -123,4 +125,20 @@ export async function runAuthorityStages(
     if (!quotaMetAfter && quotaMet(score)) quotaMetAfter = key;
   }
   return { authorityId: authority.id, stages, quotaMetAfter, pool, score };
+}
+
+type Enrich = NonNullable<RunStagesOptions['enrich']>;
+
+/** Run several enrich hooks in order; later hooks' keys win. Absent hooks are skipped; all-absent ⇒ undefined. */
+export function combineEnrichers(...hooks: Array<Enrich | null | undefined>): Enrich | undefined {
+  const live = hooks.filter((h): h is Enrich => !!h);
+  if (!live.length) return undefined;
+  return async (r) => {
+    let out: FromDocOptions | null = null;
+    for (const h of live) {
+      const x = await h(r);
+      if (x) out = { ...(out ?? {}), ...x };
+    }
+    return out;
+  };
 }

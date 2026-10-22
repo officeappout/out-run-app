@@ -4,6 +4,8 @@ import React from 'react';
 import { ArrowDownCircle, Link2 } from 'lucide-react';
 import type { ExerciseSection } from '../../types';
 import type { TabataProtocolConfig } from '@/features/workout-engine/core/types/protocol.types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export interface SectionHeaderProps {
   section: ExerciseSection;
@@ -65,6 +67,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
   onToggleWarmupActive,
   hideExpandToggle = false,
 }) => {
+  const t = useT(library);
   // ── Tabata branch (Stage 3 UX, David's design 12.07) ────────────────────
   // Clean title + compact work/rest chip; the right-side meta reflects the
   // ACTUAL composition — the block varies (8 ex × 1 cycle / 4×2 / 2×4, all
@@ -84,11 +87,12 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
     const cycles = cycleCost > 0 && tabataConfig.rounds % cycleCost === 0 ? tabataConfig.rounds / cycleCost : null;
     const cyclesLabel =
       cycles === null
-        ? `${tabataConfig.rounds} אינטרוולים`
+        ? t('preview.section.tabata.intervals', { n: String(tabataConfig.rounds) })
         : cycles === 1
-          ? 'סבב אחד'
-          : `${cycles} סבבים`;
-    const exercisesLabel = n === 1 ? 'תרגיל אחד' : `${n} תרגילים`;
+          ? t('preview.section.tabata.oneCycle')
+          : t('preview.section.tabata.cycles', { n: String(cycles) });
+    const exercisesLabel =
+      n === 1 ? t('preview.section.tabata.oneExercise') : t('preview.section.tabata.exercises', { n: String(n) });
     return (
       <div className="w-full flex items-center justify-between mb-3" dir="rtl">
         <div className="flex items-center gap-2">
@@ -96,12 +100,12 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
             className="text-[16px] font-semibold text-orange-600 dark:text-orange-400"
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            טבטה
+            {t('preview.section.tabata.title')}
           </h3>
           <span
             className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-300"
             style={{ fontVariantNumeric: 'tabular-nums' }}
-            title={`${tabataConfig.workSec} שנ' עבודה / ${tabataConfig.restSec} שנ' מנוחה`}
+            title={t('preview.section.tabata.chip', { work: String(tabataConfig.workSec), rest: String(tabataConfig.restSec) })}
           >
             {tabataConfig.workSec}/{tabataConfig.restSec}
           </span>
@@ -127,7 +131,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
           {section.title}
         </h3>
         <span className="text-xs text-slate-400">
-          ({section.exercises.length} תרגילים)
+          {t('preview.section.warmup.count', { n: String(section.exercises.length) })}
         </span>
         {!hideExpandToggle && (
           <ArrowDownCircle
@@ -150,7 +154,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
             disabled={!isWarmupActive}
             className="flex items-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-transform"
             aria-expanded={isWarmupExpanded}
-            aria-label={isWarmupExpanded ? 'כווץ חימום' : 'הרחב חימום'}
+            aria-label={isWarmupExpanded ? t('preview.section.warmup.collapse') : t('preview.section.warmup.expand')}
           >
             {titleBlock}
           </button>
@@ -166,7 +170,7 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
           }`}
           aria-pressed={isWarmupActive}
         >
-          {isWarmupActive ? 'פעיל' : 'דלג'}
+          {isWarmupActive ? t('preview.section.warmup.active') : t('preview.section.warmup.skip')}
         </button>
       </div>
     );
@@ -188,7 +192,9 @@ const SectionHeaderImpl: React.FC<SectionHeaderProps> = ({
         </h3>
       </div>
       <span className="text-sm font-medium text-slate-400">
-        {isPyramidSection ? `${section.rounds} שלבים` : `${section.rounds}x סבבים`}
+        {isPyramidSection
+          ? t('preview.section.steps', { n: String(section.rounds) })
+          : t('preview.section.rounds', { n: String(section.rounds) })}
       </span>
     </div>
   );

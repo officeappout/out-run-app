@@ -1,6 +1,6 @@
 /**
  * One authority's OSM slice for the park-loops and neighbourhood stages
- * (RC8): one osmium cut of the boundary bbox from the local Geofabrik PBF,
+ * (RC8) and the urban measurements (RC9): one osmium cut of the boundary bbox from the local Geofabrik PBF,
  * loaded lazily, at most once per authority, and deleted after the authority
  * (only the small JSON outputs stay). Read-only; writes nothing to Firestore.
  */
@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { buildPathIndex, pointInRing, selectBigParks, type LngLat, type ParkPolygon, type PathIndex, type PathLine, type PointFeature } from '../../../src/lib/park-loops';
 import type { NamedWay } from '../../../src/lib/routes-nationwide/named-corridors';
+import { buildUrbanLayer, urbanInputFromOsm, type UrbanLayer } from '../../../src/lib/urban-measure';
 import type { NamingContext } from '../../../src/lib/routes-nationwide/route-naming';
 import { assertOsmium, ensureIsraelPbf, extractPilot, fetchAdminBoundary, pbfTimestamp, type PilotExtract } from '../../trails/lib/pilot-osm.node';
 
@@ -98,6 +99,8 @@ export interface AuthorityOsm {
   seeds: LngLat[];
   namedWays: NamedWay[];
   naming: NamingContext;
+  /** RC9: ways + lamps + amenities + crossings for the urban measurements. */
+  urban: UrbanLayer;
 }
 
 /**
@@ -138,6 +141,7 @@ export class AuthorityOsmSlice {
       const c: LngLat = [r.reduce((s, q) => s + q[0], 0) / r.length, r.reduce((s, q) => s + q[1], 0) / r.length];
       return rings.some((br) => pointInRing(c, br));
     });
+    const fitness = fitnessStations(path.join(work, 'pilot.osm.pbf'), work);
     return {
       name: this.a.name,
       rings,
@@ -145,9 +149,10 @@ export class AuthorityOsmSlice {
       parks,
       parkStats: { considered: sel.considered, big: sel.parks.length, inside: parks.length },
       paths: buildPathIndex(walkableLines(ex)),
-      fitness: fitnessStations(path.join(work, 'pilot.osm.pbf'), work),
+      fitness,
       seeds: seedCandidates(ex, rings),
       ...namedWaysAndNaming(ex, parks),
+      urban: buildUrbanLayer(urbanInputFromOsm(ex.data, fitness.map((f) => f.coord))),
     };
   }
 

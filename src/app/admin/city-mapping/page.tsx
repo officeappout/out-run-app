@@ -37,6 +37,7 @@ import {
 } from '@/features/admin/services/city-mapping-summary';
 import type { AmenityCategory } from '@/features/parks/core/types/osm-amenity.types';
 import MapHealthCard from '@/features/admin/components/city-inventory/MapHealthCard';
+import AllCitiesTable from '@/features/admin/components/city-inventory/AllCitiesTable';
 
 // ── Step definitions ─────────────────────────────────────────────────────────
 
@@ -231,6 +232,16 @@ export default function CityMappingPage() {
     return () => { cancelled = true; };
   }, [summary?.registeredCity, discoveryRunId]);
 
+  // "All cities" table (RC8 step 5): a row click selects that city, then the
+  // summary (and with it the per-city map-health card) loads for it.
+  const [pickedCity, setPickedCity] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pickedCity || city !== pickedCity) return;
+    setPickedCity(null);
+    refreshSummary();
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [pickedCity, city, refreshSummary]);
+
   const onProgress = useCallback((update: CityMappingProgressUpdate) => {
     setSteps((prev) =>
       prev.map((s) => (s.id === update.step ? { ...s, status: update.status, message: update.message, count: update.count ?? s.count } : s)),
@@ -363,6 +374,14 @@ export default function CityMappingPage() {
           </span>
         )}
       </div>
+
+      {/* All cities (RC8 step 5) — read-only overview of every city_inventory doc, via the server API. */}
+      <details className="group">
+        <summary className="cursor-pointer select-none text-xs font-black text-gray-600 hover:text-gray-900">כל הערים — טבלת מצב מיפוי (לחיצה על עיר פותחת את הכרטיס שלה)</summary>
+        <div className="mt-2">
+          <AllCitiesTable onSelectCity={(name) => { if (!running) { setCity(name); setPickedCity(name); } }} />
+        </div>
+      </details>
 
       {/* Map health (RC4 I2) — read-only city_inventory card, via the server API. */}
       {summary?.authorityId && summary.city === city.trim() && (

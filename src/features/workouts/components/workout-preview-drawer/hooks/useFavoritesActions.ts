@@ -6,6 +6,8 @@ import type { GeneratedWorkout } from '@/features/workout-engine/logic/WorkoutGe
 import { shareWorkout } from '@/features/workout-engine/services/share.service';
 import type { WorkoutData } from '../types';
 import { APP_ORIGIN } from '@/lib/config/domain';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface UseFavoritesActionsParams {
   generatedWorkout: GeneratedWorkout | null | undefined;
@@ -75,6 +77,7 @@ export function useFavoritesActions({
   const dlProgress = favId ? checkDownloadProgress(favId) : 0;
 
   const [isSharing, setIsSharing] = useState(false);
+  const t = useT(library);
 
   const handleToggleFavorite = useCallback(async () => {
     if (isFavToggling) return;
@@ -121,8 +124,8 @@ export function useFavoritesActions({
     if (isSharing) return;
 
     if (!generatedWorkout) {
-      const title = workout?.title || 'אימון כוח';
-      const text = `💪 ${title}\nבואו לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
+      const title = workout?.title || t('preview.share.fallbackTitle');
+      const text = t('preview.share.text', { title, origin: APP_ORIGIN });
       if (typeof navigator !== 'undefined' && navigator.share) {
         try {
           await navigator.share({ title, text });
@@ -140,12 +143,12 @@ export function useFavoritesActions({
       await shareWorkout(generatedWorkout, workoutLocation);
     } catch (err) {
       console.error('[useFavoritesActions] Share failed:', err);
-      const text = `💪 ${generatedWorkout.title}\nבואו לנסות את האימון שלי ב-Out!\n${APP_ORIGIN}`;
+      const text = t('preview.share.text', { title: generatedWorkout.title, origin: APP_ORIGIN });
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     } finally {
       setIsSharing(false);
     }
-  }, [generatedWorkout, workout, workoutLocation, isSharing]);
+  }, [generatedWorkout, workout, workoutLocation, isSharing, t]);
 
   return {
     isFav,

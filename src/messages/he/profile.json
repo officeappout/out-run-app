@@ -286,5 +286,20 @@
   "widgets.programs.level": "שלב {level}/{max}",
   "widgets.programs.empty": "עדיין לא בחרת תוכנית אימון.",
   "widgets.programs.choose": "בחירת תוכנית",
-  "widgets.programs.fallbackName": "תוכנית אימון"
+  "widgets.programs.fallbackName": "תוכנית אימון",
+  "publicProfile.notFound.title": "משתמש לא נמצא",
+  "publicProfile.notFound.back": "חזרה",
+  "publicProfile.header.back": "חזרה",
+  "publicProfile.header.self": "הפרופיל שלי",
+  "publicProfile.header.report": "דווח על המשתמש",
+  "publicProfile.stats.streak": "ימי רצף",
+  "publicProfile.stats.partners": "שותפים",
+  "publicProfile.stats.workouts": "אימונים",
+  "publicProfile.bio.selfEmpty": "עדיין אין תיאור אישי",
+  "publicProfile.bio.otherEmpty": "המשתמש לא הוסיף תיאור אישי",
+  "publicProfile.actions.unfollow": "מפסיק לעקוב",
+  "publicProfile.actions.follow": "עקוב",
+  "publicProfile.actions.message": "שלח הודעה",
+  "publicProfile.actions.adultsOnly": "הודעות לבני 18+ בלבד",
+  "publicProfile.activity.title": "פעילות אחרונה"
 }

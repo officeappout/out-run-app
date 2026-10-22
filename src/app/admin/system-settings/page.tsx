@@ -40,6 +40,7 @@ interface FlagState {
   enable_hybrid_cards_v2: boolean;
   enable_route_direction_adapt: boolean;
   enable_no_auto_strength_level: boolean;
+  progression_rules_from_admin: boolean;
   enable_league_aggregates: boolean;
   enable_home_v2: boolean;
   enable_calm_return_v1: boolean;
@@ -67,6 +68,10 @@ interface FlagState {
   enable_route_pref_shade: boolean;
   enable_route_time_aware: boolean;
   enable_route_shade_tag: boolean;
+  enable_levelup_v2: boolean;
+  enable_skill_cap_true_skills: boolean;
+  enable_adaptive_reps_v1: boolean;
+  enable_goal_presence_v1: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
@@ -76,10 +81,12 @@ interface FlagState {
   enable_jit_identity_v1: boolean;
   enable_entry_intro_v1: boolean;
   enable_strength_quiz_hint_v2: boolean;
+  enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
+  enable_push_measure_all: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -88,6 +95,7 @@ interface FlagState {
   enable_locale_en: boolean;
   enable_locale_ru: boolean;
   enable_locale_de: boolean;
+  enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
 }
 
@@ -277,6 +285,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'אין רמת כוח בלי שאלון',
     description: 'משתמש שלא מילא את שאלון הכוח לא מקבל רמה או תוכנית: לא באונבורדינג (גם לא מתשובת "רמת כושר" או בחירת שרירים), ולא אחרי אימון כוח (היסטוריה ו-XP נשמרים כרגיל). משתמשים קיימים לא משתנים. במסך הסיכום כרטיס הרמה מוסתר למשתמשים האלה. ⚠️ להפעיל רק אחרי בדיקת שטח. כבוי = כמו היום.',
   },
+  {
+    key: 'progression_rules_from_admin',
+    icon: Dumbbell,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'התקדמות לפי הגדרות הפאנל',
+    description: 'אחרי אימון כוח, אחוז ההתקדמות מחושב לפי מה שהוגדר ב"מנהל התקדמות": כללים לפי תוכנית ורמה (רמה מעל האחרונה שהוגדרה = האחרונה), בונוס יעד פעם אחת לכל יעד ברמה (היום: בכל אימון), בונוס אימון ראשון ברמה, בונוס התמדה חודשי, בונוס RPE (כשנרשם), ותקרת סטים. ⚠️ משנה את קצב ההתקדמות למשתמשים. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום (ברירות מחדל קבועות).',
+  },
   // OUT AI Phase 0 (18.10.2026) — the server enforces these (src/lib/ai/), the panel only flips them.
   {
     key: 'ai_coach_enabled',
@@ -465,6 +481,42 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'תגית "מוצל %" על מסלולים',
     description: 'על כרטיס מסלול: "🌳 מוצל X%" — רק כשמפת הצל של הטכניון מכסה לפחות חצי מהמסלול (אחרת אין תגית, אף פעם לא "0%"). בפרטי המסלול: שורת צל עם האחוז הכללי, "עכשיו · בצהריים · אחה״צ" כשיש לעיר שכבת צל לפי שעה (פרופיל קיץ), ו"מואר בלילה X%" כשיש נתוני תאורה. שורה בלי נתונים לא מוצגת. מסלולים שמורים נקראים מ-route_scores דרך השרת; מסלולים מעגליים משרת הניווט מקבלים את האחוז מהשרת. לא משנה דירוג. כבוי = כמו היום.',
   },
+  // Level-up v2 (22.10.2026).
+  {
+    key: 'enable_levelup_v2',
+    icon: Trophy,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-700',
+    title: 'מסך עליית אחוזים חדש',
+    description: 'אחרי אימון כוח: התוצאה מופיעה מיד (מחושבת במכשיר באותן נוסחאות של השמירה), השמירה רצה ברקע ("שומר…" ← "נשמר") ואם המספר השמור שונה הוא מתעדכן בשקט. מספר אחד = בדיוק מה שנשמר (בתוכנית-אם: הממוצע השמור של תתי-התוכניות). טבעת בלבד, הבונוסים מופיעים אחד אחרי השני ודוחפים אותה; עלייה ברמה = חגיגה עם הרמה החדשה. אימון התאוששות / בלי אחוזים / תקלה: מצב רגוע מיד, הכפתורים פעילים מיד. מנהלי-על רואים אותו גם כשהוא כבוי. כבוי = המסך הקיים.',
+  },
+  // Adaptive progression 3d (22.10.2026).
+  {
+    key: 'enable_skill_cap_true_skills',
+    icon: Dumbbell,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'תקרת 5 חזרות רק לסקילים אמיתיים',
+    description: 'תקרת 5 חזרות ו-12 שניות החזקה רק לסקילים אמיתיים: מתח יד אחת, פרונט/בק לבר, פלאנץ׳, שכיבות סמיכה בעמידת ידיים, עליית כוח, דגל אנושי ופיסטול. תרגיל רגיל (מתח, מקבילים, שכיבות) ברמה אחת מעל המתאמן מקבל 3-6 חזרות, ושתי רמות ומעלה 2-5 (במקום 1-3), כך שיעד כמו "10 מתח" בר-השגה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Adaptive progression 3a (22.10.2026).
+  {
+    key: 'enable_adaptive_reps_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'התקדמות כפולה לכל תרגיל',
+    description: 'כל תרגיל זוכר איך הלך בפעם הקודמת: כל הסטים הגיעו ליעד ⇐ +1 חזרה (או +5 שניות בהחזקה) עד ראש הטווח. בראש הטווח פעמיים ברצף ⇐ +1 סט, שלוש פעמים ⇐ המערכת מעדיפה את הווריאציה הקשה הבאה. פספוס ⇐ אותו יעד, פספוס פעמיים ברצף ⇐ צעד אחורה (ובמינימום, וריאציה קלה יותר). אימון דילואד, חום, חזרה רגועה, תרגיל שהוחלף וחימום לא נספרים. סט שנשמר בלי לגעת בבורר נחשב "הגיע ליעד" רק כשהוצע ראש הטווח. המיקום בתוך הטווח קבוע (לא אקראי). אין בחירת וריאציה למשתמש, הוא עדיין יכול להחליף תרגיל. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Adaptive progression 3e (22.10.2026).
+  {
+    key: 'enable_goal_presence_v1',
+    icon: Trophy,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-500',
+    title: 'תרגילי יעד: נוכחות, רמפה וחגיגה',
+    description: 'תרגיל יעד שלא הופיע בשני האימונים האחרונים של התחום שלו מקבל עדיפות קטנה בבחירה (לא מוכנס בכוח, ולא באימון קל, דילואד, חום או התאוששות). היעד באימון נקבע לפי הביצוע: הכי טוב בפעם הקודמת (+1 חזרה או +5 שניות), אף פעם לא מעל היעד, בלי "30% מהיעד" בהתחלה. כשסט מגיע ליעד: חגיגה קטנה באימון ("הגעת ליעד!") ושורה חגיגית בסיכום, פעם אחת לכל יעד באימון. בונוס ה-% פעם אחת ליעד מגיע מ"התקדמות לפי הגדרות הפאנל". מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
   // Unified search (19.10.2026).
   {
     key: 'enable_unified_search',
@@ -546,6 +598,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שאלון כוח: הדרכת גרירה חדשה',
     description: 'בלי טשטוש: השורה מדגימה את עצמה בקטגוריה הראשונה, תזכורת קצרה בשאר, וההדרכה נשארת עד הגרירה הראשונה.',
   },
+  // Analytics — onboarding step funnel (22.10.2026).
+  {
+    key: 'enable_onboarding_step_funnel',
+    icon: ListChecks,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: משפך שלבי הרשמה',
+    description: 'כל שלב באונבורדינג שהושלם נרשם פעם אחת (אירוע onboarding_step_completed), כדי למדוד נטישה בין שלב לשלב ולא רק "איפה אנשים עומדים עכשיו". בלי מיקום ובלי פרטים אישיים, כ-10 כתיבות למשתמש לכל ההרשמה.',
+  },
   // Run / walk live players — map first, metrics drawer, attached story bars (21.10.2026).
   {
     key: 'enable_run_player_drawer_v1',
@@ -572,6 +633,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
     description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
+  },
+  // Analytics — measure every push type (22.10.2026).
+  {
+    key: 'enable_push_measure_all',
+    icon: MessageCircle,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: מדידת כל סוגי הפושים',
+    description: 'כל פוש שנשלח (לא רק 10 הסוגים שנמדדים היום) נרשם: נשלח, נפתח, ומה המשתמש עשה אחריו, עם מזהה הסוג בכל רשומה. כתיבה אחת לכל פוש לכל נמען, ועוד אחת-שתיים כשנפתח. דורש פריסת functions.',
   },
   // Retire /gateway as the fallback (21.10.2026).
   {
@@ -654,6 +724,23 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
     parentKey: 'enable_i18n',
+  },  // Analytics — app-session signal (22.10.2026).
+  {
+    key: 'enable_app_session_signal',
+    icon: Users,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: כניסות לאפליקציה',
+    description: 'מונה יומי לכל משתמש: כמה פעמים נכנס לאפליקציה וכמה מהכניסות היו מהקשה על פוש — כדי לדעת מי חוזר בלי פוש. בלי מיקום ובלי פרטים אישיים, כתיבה אחת לכניסה (עד 12 ביום). להדליק רק אחרי פריסת חוקי Firestore.',
+  },
+  // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
+  {
+    key: 'admin_ai_assistant_v1',
+    icon: Bot,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
+    title: 'פאנל: עוזר AI ("שאל את OUT")',
+    description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
   },
   // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
   {

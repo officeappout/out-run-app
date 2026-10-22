@@ -24,7 +24,7 @@
  *   npx tsx scripts/city-inventory/run.ts --all                     # every city/council with a boundary, dry-run
  *   … --all --tier=client|large_city|regional_council|other  --limit=N  --fresh  --retry-errors
  *   … --all --out=<dir>   (default scripts/output/city-inventory/all — checkpoint.json + summary-all.{json,md})
- *   Owner batch write: --all --tier=client --apply --project appout-1   (typed YES per authority)
+ *   Owner batch write: --all --tier=client --apply --project appout-1   (one typed YES for the whole batch)
  *
  * Point-layer density is compared with the median of earlier runs of the
  * same authority type (≥ 3 peers) found under scripts/output/city-inventory/,
@@ -41,7 +41,7 @@ import * as fs from 'fs';
 import { formatRollupMarkdown, inventoryTodo, INVENTORY_TIERS, newInventoryCheckpoint, orderInventoryAuthorities, parseInventoryCheckpoint, rollupReadiness, type InventoryCheckpoint, type InventoryTier } from '../../src/lib/city-inventory/all-run';
 import { boundaryFromStored } from '../../src/lib/dataset-import';
 import { assertOsmium, ensureIsraelPbf, pbfTimestamp } from '../lib/osm-pbf.node';
-import { PRODUCTION_PROJECT, describeTarget, flagValue, openTarget, parseApplyFlags, type Target } from '../trails/lib/trails-apply.node';
+import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, flagValue, openTarget, parseApplyFlags, type Target } from '../trails/lib/trails-apply.node';
 import { OUTPUT_ROOT } from './lib/output.node';
 import { runOneInventory, type RunOneOptions } from './lib/run-one.node';
 
@@ -93,13 +93,25 @@ async function runAll(prod: Target, o: RunOneOptions) {
   console.log(`checkpoint: ${Object.keys(cp.done).length} done · to do now: ${todo.length}`);
   writeJson(cpFile, cp);
 
+  // --all --apply: ONE typed YES for the whole batch (owner request 22.10.2026), showing how many
+  // authorities will be written. Per authority only city_inventory/{id} + its run row are written.
+  let batchConfirm: RunOneOptions['confirm'];
+  if (FLAGS.apply && todo.length) {
+    const ok = await confirmTypedYes(`\nType YES to write city_inventory (+ run row) for ${todo.length} authorities to ${describeTarget(prod)}: `);
+    if (!ok) {
+      console.log('Not confirmed — nothing was written.');
+      return;
+    }
+    batchConfirm = async () => true;
+  }
+
   const byId = new Map(inRun.map((a) => [a.id, a]));
   for (const id of todo) {
     if (stopRequested) break;
     const a = byId.get(id)!;
     console.log(`\n■ ${a.name} [${a.id}] — ${a.tier}`);
     try {
-      const r = await runOneInventory(prod, { id, city: null }, { ...o, batch: true, log: () => {} });
+      const r = await runOneInventory(prod, { id, city: null }, { ...o, batch: true, confirm: batchConfirm, log: () => {} });
       const rd = r.inventory.readiness;
       console.log(`  ${rd.level} ${rd.score}/100 · approved routes ${r.routes.approved} · ${rd.blockers[0] ?? 'no blocker'}`);
       cp.done[id] = { name: a.name, tier: a.tier, status: 'done', finishedAt: new Date().toISOString(), level: rd.level, score: rd.score, missing: rd.missing, blockers: rd.blockers, approvedRoutes: r.routes.approved, file: r.files.json };

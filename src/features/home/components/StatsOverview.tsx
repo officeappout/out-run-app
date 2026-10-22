@@ -75,6 +75,7 @@ import type { WorkoutWeather } from '@/features/weather/core/weather.types';
 import { resolveWorkoutContext } from '@/features/workout-engine/services/workout-context-resolver';
 import { ensureEquipmentCachesLoaded } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { Target, ChevronDown } from 'lucide-react';
+import { recentIdsByDomain } from '@/features/workout-engine/logic/adaptive/goal-presence';
 
 
 // ============================================================================
@@ -924,6 +925,10 @@ export default function StatsOverview({
             ? domainSetsCompletedThisWeek : undefined,
           remainingScheduleDays,
           recentExerciseIds: recentExerciseIds.length > 0 ? recentExerciseIds : undefined,
+          // 3e goal presence (enable_goal_presence_v1): plain data, ignored while the flag is off.
+          ...(storeOwnsCurrentUser
+            ? { recentExerciseIdsByDomain: recentIdsByDomain(volumeStoreState.sessionLogs ?? []) }
+            : {}),
           parkEquipmentIds: resolvedParkGear.length > 0 ? resolvedParkGear : undefined,
           // Drawer fast-path: skip D1/D3 generation when only D2 is needed.
           generateSingleOption: generateSingleOptionRef.current || undefined,

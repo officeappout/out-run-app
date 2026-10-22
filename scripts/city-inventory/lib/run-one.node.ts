@@ -21,8 +21,10 @@ export interface RunOneOptions {
   lightingFile: string | null;
   keepWork: boolean;
   flags: ApplyFlags;
-  /** --all: the batch has no single --authority to match; the per-authority typed YES still applies. */
+  /** --all: the batch has no single --authority to match. */
   batch?: boolean;
+  /** --all --apply: the owner typed YES once for the whole batch (count shown); reuse that answer. */
+  confirm?: (question: string) => Promise<boolean>;
   log?: (s: string) => void;
 }
 
@@ -94,6 +96,6 @@ export async function runOneInventory(prod: Target, sel: { id: string | null; ci
   log(`\n${report}\n\nsummary: ${files.json}\ntable:   ${files.md}\ntimings (ms): ${JSON.stringify(timings)}`);
 
   let written = false;
-  if (o.flags.apply) written = await applyInventory(prod, inventory);
+  if (o.flags.apply) written = await applyInventory(prod, inventory, o.confirm);
   return { inventory, routes, files, written };
 }

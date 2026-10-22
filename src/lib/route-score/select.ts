@@ -10,12 +10,18 @@
  * - park loops and cycling routes capped by the quota; the best cycling route
  *   and the best park loops (up to the quota minimum) are reserved first;
  * - the quota is a ceiling: no relaxation pass, so a city with few good routes
- *   gets a small set (quality over quantity).
+ *   gets a small set (quality over quantity) — with ONE named exception (RC9):
+ *   the urban floor. While the ≥70 selection is below the quota MINIMUM, named
+ *   urban routes (urbanKind) scoring ≥ URBAN_SELECTION_MIN_SCORE that pass the
+ *   hard quality bars (no U-turn/spur, retrace limit, distance accuracy) may
+ *   fill up to that minimum — never beyond it, same diversity rules.
  * Everything not selected stays a hidden `candidate` (owner decision Q13).
  */
 import type { AuthorityQuota } from './quota';
 import type { RouteScore, RouteScoreInput } from './types';
-import { MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE } from './weights';
+import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
+import { pathLengthM } from '../route-quality/geo';
+import { MANUAL_REVIEW_MIN_SCORE, NAMED_PLACE_PATTERN, SELECTION_MIN_SCORE, URBAN_FLOOR_MAX_DISTANCE_ERROR, URBAN_SELECTION_MIN_SCORE } from './weights';
 import { SURFACE_CLASSES, type SurfaceClass } from './surface-class';
 
 export type SelectionDecision = 'selected' | 'candidate' | 'manual_review' | 'rejected';
@@ -35,7 +41,7 @@ export interface SelectionRow {
 export interface SelectionResult {
   rows: SelectionRow[];
   selectedIds: string[];
-  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number };
+  counts: Record<SelectionDecision, number> & { parkLoops: number; cycling: number; urbanFloor: number };
   /** Selected routes per surface class. */
   selectedBySurface: Record<SurfaceClass, number>;
 }
@@ -75,7 +81,33 @@ export function gridCell(i: RouteScoreInput): string | null {
 export const isParkLoop = (i: RouteScoreInput) => !!i.parkRef || (i.sourceTier === 'named_place' && i.shape === 'loop');
 export const isCycling = (i: RouteScoreInput) => i.activityType === 'cycling';
 
-export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota): SelectionResult {
+/**
+ * The hard quality bars a route must pass to use the urban floor (null = passes):
+ * no U-turn / spur (an out-and-back keeps its one turnaround), retrace within
+ * the loop bar (not judged on an out-and-back — it retraces by definition), and
+ * the stored distance within URBAN_FLOOR_MAX_DISTANCE_ERROR of the path.
+ */
+export function urbanFloorBlocker(i: RouteScoreInput): string | null {
+  const g = i.geometry;
+  if (!g || i.path.length < 2) return 'no geometry';
+  const t = LOOP_QUALITY_THRESHOLDS;
+  const allowed = i.shape === 'out_and_back' ? 1 : 0;
+  if (g.uTurnCount + g.spurCount > t.maxUTurns + allowed) return `${g.uTurnCount + g.spurCount} U-turn/spur`;
+  if (i.shape !== 'out_and_back' && g.retracedPct > t.maxRetracedPct) return `retrace ${Math.round(g.retracedPct * 100)}%`;
+  const km = pathLengthM(i.path) / 1000;
+  if (i.distanceKm == null || !(km > 0)) return 'no distance';
+  const err = Math.abs(i.distanceKm - km) / km;
+  if (err > URBAN_FLOOR_MAX_DISTANCE_ERROR) return `distance off by ${Math.round(err * 100)}%`;
+  return null;
+}
+
+export interface SelectOptions {
+  /** Urban floor (RC9). Default URBAN_SELECTION_MIN_SCORE; ≥ SELECTION_MIN_SCORE turns it off. */
+  urbanFloor?: number;
+}
+
+export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota, opts: SelectOptions = {}): SelectionResult {
+  const urbanFloor = opts.urbanFloor ?? URBAN_SELECTION_MIN_SCORE;
   const rows = new Map<string, SelectionRow>();
   const eligible: ScoredRoute[] = [];
   for (const r of routes) {
@@ -145,8 +177,25 @@ export function selectTopN(routes: ScoredRoute[], quota: AuthorityQuota): Select
     else take(r, `top score ${r.score.score}`);
   }
 
+  // Urban floor (RC9): only while the ≥70 set is below the quota minimum, only up to it.
+  let urbanTaken = 0;
+  if (urbanFloor < SELECTION_MIN_SCORE && picked.length < quota.total.min) {
+    const pool = routes
+      .filter((r) => !!r.input.urbanKind && r.score.band !== 'red' && r.score.score >= urbanFloor && r.score.score < SELECTION_MIN_SCORE && ['candidate', 'manual_review'].includes(rows.get(r.input.id)?.decision ?? ''))
+      .sort((a, b) => b.score.score - a.score.score || b.score.confidence - a.score.confidence || a.input.id.localeCompare(b.input.id));
+    for (const r of pool) {
+      if (picked.length >= quota.total.min) break;
+      const bar = urbanFloorBlocker(r.input);
+      if (bar) { rows.set(r.input.id, { id: r.input.id, decision: 'candidate', reason: `score ${r.score.score} < ${SELECTION_MIN_SCORE}; urban floor: ${bar}`, score: r.score.score }); continue; }
+      const why = blocker(r);
+      if (why) { rows.set(r.input.id, { id: r.input.id, decision: 'candidate', reason: `score ${r.score.score} < ${SELECTION_MIN_SCORE}; urban floor: ${why}`, score: r.score.score }); continue; }
+      take(r, `urban floor ${urbanFloor}: ${r.input.urbanKind}, score ${r.score.score}`);
+      urbanTaken++;
+    }
+  }
+
   const out = routes.map((r) => rows.get(r.input.id)!);
-  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling };
+  const counts = { selected: 0, candidate: 0, manual_review: 0, rejected: 0, parkLoops, cycling, urbanFloor: urbanTaken };
   for (const row of out) counts[row.decision]++;
   const selectedBySurface: Record<SurfaceClass, number> = { walk_run_paved: 0, hike_offroad: 0, bike_road: 0, bike_offroad: 0, unknown: 0 };
   const byId = new Map(routes.map((r) => [r.input.id, r.input]));
