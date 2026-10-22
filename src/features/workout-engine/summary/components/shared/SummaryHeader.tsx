@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface SummaryHeaderProps {
   title?: string;
@@ -9,10 +11,11 @@ interface SummaryHeaderProps {
 }
 
 export default function SummaryHeader({
-  title = 'האימון הושלם!',
+  title,
   date = new Date(),
   motivationalMessage,
 }: SummaryHeaderProps) {
+  const t = useT(summary);
   const formattedDate = date.toLocaleDateString('he-IL', {
     weekday: 'long',
     day: 'numeric',
@@ -28,7 +31,7 @@ export default function SummaryHeader({
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-2 leading-tight">
-        {title}
+        {title ?? t('fallback.header.title')}
       </h1>
       <p className="text-gray-500 text-lg font-medium mb-2">{formattedDate}</p>
       {motivationalMessage && (
