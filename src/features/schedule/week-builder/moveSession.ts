@@ -60,5 +60,5 @@ export function moveSession<P>(week: WbWeek<P>, move: WbMove, rules: WbRules, op
 
 /** The default engine a host hands the builder. */
 export function createWeekEngine<P>(rules: WbRules, opts: MoveOptions<P> = {}): WeekBuilderEngine<P> {
-  return { move: (week, move) => moveSession(week, move, rules, opts) };
+  return { move: (week, move) => moveSession(week, move, rules, opts), rules };
 }

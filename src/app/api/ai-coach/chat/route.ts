@@ -76,6 +76,7 @@ import { hasRound4Extras, newRound4TurnState, type Round4TurnState } from '@/lib
 import { round4TurnActions } from '@/lib/ai/coach/round4/turn-extras';
 import { primeHelpEntries } from '@/lib/content-items/help-prime.server';
 import { runsByTypeFor } from '@/features/schedule/utils/runsByTypeGate';
+import { weekBuilderFor } from '@/lib/ai/coach/schedule-proposal/builder-gate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -259,6 +260,9 @@ export async function POST(request: Request) {
   // enable_home_v2 for this user (the live flag, or a super admin — home's own gating):
   // the advisor reads the run week by slot type, the week home shows. Off = ordinal, as before.
   const runsByType = runsByTypeFor(auth.flags, profile.core?.isSuperAdmin === true);
+  // Kelly in the week builder (enable_week_builder_v1, with phase 2): the draft week on screen.
+  // Flag off, phase 2 off or no builder in the request = everything exactly as before.
+  const builder = phase2 && body.builder && weekBuilderFor(auth.flags, profile.core?.isSuperAdmin === true) ? body.builder : null;
   const toolCtx: ServerToolContext = {
     db,
     uid,
@@ -270,6 +274,7 @@ export async function POST(request: Request) {
     ...(runsByType ? { runsByType: true } : {}),
     ...(unified ? { unified: true } : {}),
     ...(phase2 ? { phase2: true } : {}),
+    ...(builder ? { builder } : {}),
   };
 
   // Grounding: the user sheet (programs, levels, recent workouts, today's and this week's
@@ -318,7 +323,7 @@ export async function POST(request: Request) {
 
   const cached = withPromptCaching({
     system: round4 ? coachSystemPrompt({ round4: true }) : COACH_SYSTEM_PROMPT,
-    tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}) }),
+    tools: coachToolDefinitions({ scheduleAdvisor, ...(phase2 ? { phase2: true } : {}), ...(round4 ? { round4: true } : {}), ...(builder ? { builder: true } : {}) }),
   });
   const system: Anthropic.TextBlockParam[] = [
     ...cached.system,

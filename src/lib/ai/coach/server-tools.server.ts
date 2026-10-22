@@ -35,6 +35,7 @@ import { normalizeAdvisorProfile, recommendToday, recommendWeek, runAdvisor, she
 import { plannedWeekEntries } from './week-plan';
 import { appHelpToolResult, type GetAppHelpInputT } from './app-help/retrieve';
 import { proposeScheduleChange } from './schedule-proposal/propose.server';
+import type { BuilderContext } from './schedule-proposal/builder-context';
 import type { ProposeScheduleChangeInputT, StoredProposal } from './schedule-proposal/types';
 import { executeRound4Tool, isRound4Tool, type Round4ToolContext } from './round4/execute.server';
 
@@ -68,6 +69,12 @@ export interface ServerToolContext {
    * don't exist and get_app_help reads only the original entries.
    */
   round4?: Pick<Round4ToolContext, 'sheet' | 'flags' | 'state'>;
+  /**
+   * Kelly in the week builder (enable_week_builder_v1 + phase 2, route.ts): the DRAFT week on
+   * screen. Present → propose_schedule_change proposes moves of THIS week (builder mode).
+   * Absent = exactly the old behaviour.
+   */
+  builder?: BuilderContext;
 }
 
 const json = (v: unknown): ToolExecResult => ({ content: JSON.stringify(v) });

@@ -19,6 +19,7 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import { resolveToSlug } from '@/features/workout-engine/services/program-hierarchy.utils';
 import { isStrengthTemplateId } from '../../../engine/strengthVocabulary';
 import WeekBuilder from '../../components/WeekBuilder';
+import { kellyWeekAction } from '@/features/ai-coach/components/KellyWeekChip';
 import { createWeekEngine } from '../../moveSession';
 import { planPlannerSave, plannerMoves, recurringMoves, type PlannerSaveScope } from '../plannerSave.plan';
 import { executePlannerSave } from '../plannerSave.service';
@@ -108,7 +109,12 @@ export default function PlannerWeekSheet({ userId, sunday, mode, onClose, onSave
         engine={engine}
         onChange={setWeek}
         dates={model.dates}
-        headerAction={() => closeButton}
+        headerAction={(w, ctl) => (
+          <div className="flex shrink-0 items-center gap-2">
+            {kellyWeekAction(w, ctl)}
+            {closeButton}
+          </div>
+        )}
         error={error}
         confirmDisabled={saving}
         onConfirm={() => (moves.length === 0 ? onClose() : setScopeOpen(true))}

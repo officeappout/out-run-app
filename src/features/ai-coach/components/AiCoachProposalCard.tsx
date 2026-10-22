@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { CalendarCheck, CalendarDays, Check, Loader2 } from 'lucide-react';
 import type { ProposalStatus, ProposalView } from '@/lib/ai/coach/schedule-proposal/types';
+import type { BuilderMove } from '@/lib/ai/coach/schedule-proposal/builder-context';
 import { confirmScheduleProposal, dismissScheduleProposal, type ProposalOutcome } from '../services/schedule-proposal-api';
 import { useT } from '@/hooks/useT';
 import { coach } from '@/messages/ns/coach';
@@ -18,6 +19,7 @@ export default function AiCoachProposalCard({
   disabled,
   onStatus,
   onSaved,
+  onApplyBuilder,
 }: {
   messageId: string;
   proposal: ProposalView;
@@ -25,6 +27,11 @@ export default function AiCoachProposalCard({
   onStatus: (status: ProposalStatus) => void;
   /** After a successful write (e.g. refresh the profile so home shows the new week). */
   onSaved?: () => void;
+  /**
+   * enable_week_builder_v1: the chat is open over the week builder. A builder proposal's
+   * button applies its moves to the week on screen (no server call, nothing saved).
+   */
+  onApplyBuilder?: (moves: BuilderMove[]) => void;
 }) {
   const t = useT(coach);
   const [busy, setBusy] = useState<'confirm' | 'dismiss' | null>(null);
@@ -32,8 +39,17 @@ export default function AiCoachProposalCard({
   const [note, setNote] = useState<ProposalOutcome | null>(null);
   const status = proposal.status;
 
+  const builderMoves = proposal.builderMoves ?? null;
+
   const confirm = async () => {
     if (busy) return;
+    if (builderMoves) {
+      // The week on screen only: the builder applies the moves; "אישור השבוע" saves later.
+      if (!onApplyBuilder) return;
+      onStatus('applied');
+      onApplyBuilder(builderMoves);
+      return;
+    }
     setBusy('confirm');
     setNote(null);
     onStatus('applying');
@@ -52,6 +68,10 @@ export default function AiCoachProposalCard({
 
   const dismiss = async () => {
     if (busy) return;
+    if (builderMoves) {
+      onStatus('dismissed');
+      return;
+    }
     setBusy('dismiss');
     const r = await dismissScheduleProposal(messageId, proposal.id);
     setBusy(null);
@@ -61,6 +81,8 @@ export default function AiCoachProposalCard({
 
   const done = status === 'applied';
   const closed = status === 'dismissed';
+  // A builder proposal seen outside the builder (the draft is gone): shown, never actionable.
+  const orphan = !!builderMoves && !onApplyBuilder;
   return (
     <div className="mt-2 w-[min(320px,80vw)] rounded-2xl border border-cyan-100 bg-white p-3.5 text-right shadow-sm">
       <div className="flex items-center gap-2">
@@ -79,13 +101,15 @@ export default function AiCoachProposalCard({
       {done ? (
         <p className="mt-3 flex items-center gap-1.5 text-[13px] font-bold text-emerald-700">
           <Check className="h-4 w-4" aria-hidden />
-          {t('proposal.saved')}
+          {t(builderMoves ? 'proposal.builderApplied' : 'proposal.saved')}
         </p>
       ) : closed ? (
-        <p className="mt-3 text-[12.5px] font-semibold text-gray-400">{t('proposal.dismissed')}</p>
+        <p className="mt-3 text-[12.5px] font-semibold text-gray-400">{t(builderMoves ? 'proposal.builderDismissed' : 'proposal.dismissed')}</p>
+      ) : orphan ? (
+        <p className="mt-3 text-[12.5px] font-semibold text-gray-400">{t('proposal.builderOnly')}</p>
       ) : (
         <>
-          <p className="mt-2 text-[11.5px] font-semibold text-gray-400">{t('proposal.hint')}</p>
+          <p className="mt-2 text-[11.5px] font-semibold text-gray-400">{t(builderMoves ? 'proposal.builderHint' : 'proposal.hint')}</p>
           <div className="mt-2.5 flex gap-2">
             <button
               type="button"
@@ -94,7 +118,7 @@ export default function AiCoachProposalCard({
               className="flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-full bg-cyan-500 px-4 text-[13.5px] font-black text-white transition-transform active:scale-[0.97] disabled:opacity-50"
             >
               {busy === 'confirm' || status === 'applying' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {t('proposal.confirm')}
+              {t(builderMoves ? 'proposal.builderApply' : 'proposal.confirm')}
             </button>
             <button
               type="button"
