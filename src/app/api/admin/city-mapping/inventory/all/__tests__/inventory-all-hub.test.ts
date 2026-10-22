@@ -84,6 +84,6 @@ describe('GET inventory/all?view=hub', () => {
     const byId = Object.fromEntries(rows.map((r) => [r.authorityId, r]));
     expect(Object.keys(byId).sort()).toEqual(['arad', 'rc']);
     expect(byId.arad).toMatchObject({ measured: false, level: null, approvedRoutes: 1, pendingRoutes: 1, pendingContributions: 1, center: { lat: 31.26, lng: 35.21 } });
-    expect(byId.rc).toMatchObject({ pendingParks: 1, isActiveClient: true, authorityType: 'regional_council', quota: { min: 10, max: 20 } });
+    expect(byId.rc).toMatchObject({ pendingParks: 1, isActiveClient: true, authorityType: 'regional_council', quota: { min: 20, max: 40 } });
   });
 });

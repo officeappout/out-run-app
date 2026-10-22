@@ -97,7 +97,7 @@ describe('runAuthorityStages (RC8)', () => {
     data: { name: id, distance: 3, routeShape: 'loop', activityType: 'running', path: rect([34.7 + x, 32.1], 700).map(([lng, lat]) => ({ lng, lat })) },
   });
   it('neighbourhood runs last; providers see the pool so far; enrich feeds every route', async () => {
-    expect(STAGE_ORDER.slice(-3)).toEqual(['park_loops', 'generated', 'neighbourhood']);
+    expect(STAGE_ORDER.slice(-4)).toEqual(['park_loops', 'generated', 'neighbourhood', 'settlement_loops']);
     const seen: Record<string, string[]> = {};
     const p = (key: StageProvider['key'], routes: CandidateRoute[]): StageProvider => ({
       key, run: async (prior) => { seen[key] = prior.map((r) => r.id); return { routes: routes.map((r) => ({ ...r, isNew: key !== 'existing' })) }; },

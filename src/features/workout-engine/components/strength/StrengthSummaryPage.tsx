@@ -22,7 +22,6 @@ import { useUserStore } from '@/features/user/identity/store/useUserStore';
 import type { WorkoutCompletionResult } from '@/features/user/core/types/progression.types';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
-import { WHO_COMPLIANCE_BASELINE } from '@/features/activity/types/activity.types';
 import { buildPhaseSummary, sessionTotals, type PlanSegment } from './utils/phase-summary';
 import { timedResultsFor } from '@/features/workout-engine/players/strength/timed/state/timed-results';
 import { toTimedBlockRecord, type TimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
@@ -59,6 +58,16 @@ import { useGoalEvaluation } from './hooks/useGoalEvaluation';
 import { useEmailCapture } from './hooks/useEmailCapture';
 import { useXpAward } from './hooks/useXpAward';
 import { useProgressionSync } from './hooks/useProgressionSync';
+import {
+  buildLevelSnapshot,
+  buildStreakSnapshot,
+  buildSummarySnapshot,
+  buildWeekCard,
+  streakSnapshotToView,
+  type SavedLevelSnapshot,
+  type SavedStreakSnapshot,
+  type StrengthSummarySnapshot,
+} from './history/summary-snapshot';
 
 // ============================================================================
 // PROPS
@@ -100,6 +109,11 @@ export interface StrengthSummaryPageProps {
      * as before (auto-publish or a pending share).
      */
     feedShare?: SummaryShareDecision | null;
+    /**
+     * What this summary showed (compact plan, "vs last time", level ring,
+     * streak card) — saved with the workout so the history view can redraw it.
+     */
+    summarySnapshot?: StrengthSummarySnapshot;
   }) => void;
 
   // ── Read-only history view ─────────────────────────────────────────────
@@ -115,6 +129,17 @@ export interface StrengthSummaryPageProps {
   savedTimedBlocks?: TimedBlockRecord[];
   /** Already-awarded XP to display when `isReadOnly` is true. */
   savedXpEarned?: number;
+  /**
+   * enable_history_summary_parity (read-only only): the level ring and the
+   * streak card as saved with that workout. Absent ⇒ both stay hidden in
+   * history, as before.
+   */
+  savedSummary?: {
+    level?: SavedLevelSnapshot;
+    streak?: SavedStreakSnapshot;
+    /** The workout's date — anchors the saved week dots. */
+    workoutDate: Date;
+  };
   /** Close callback for `isReadOnly` mode (replaces `onFinish`). */
   onClose?: () => void;
   /**
@@ -206,6 +231,7 @@ export default function StrengthSummaryPage({
   isReadOnly = false,
   savedTimedBlocks,
   savedXpEarned = 0,
+  savedSummary,
   onClose,
   onDelete,
 }: StrengthSummaryPageProps) {
@@ -299,7 +325,7 @@ export default function StrengthSummaryPage({
     isReadOnly,
   });
 
-  const analytics = useSummaryAnalytics({
+  const liveAnalytics = useSummaryAnalytics({
     duration,
     difficulty,
     completedExercises,
@@ -309,6 +335,15 @@ export default function StrengthSummaryPage({
     progressionResult: progression.progressionResult,
     levelOverride,
   });
+  // History parity: the saved level ring / streak of that workout replace
+  // the "now" values (absent ⇒ unchanged; the cards stay hidden in history).
+  const savedLevel = isReadOnly && savedSummary?.level && !savedSummary.level.skipped ? savedSummary.level : null;
+  const savedStreak = isReadOnly ? savedSummary?.streak ?? null : null;
+  const analytics = {
+    ...liveAnalytics,
+    ...(savedLevel ? { liveLevel: savedLevel.after.level, livePercent: savedLevel.after.percent } : {}),
+    ...(savedStreak ? { streak: savedStreak.streak } : {}),
+  };
 
   const { evaluatedGoals } = useGoalEvaluation({
     levelGoals,
@@ -344,13 +379,20 @@ export default function StrengthSummaryPage({
         : null,
     [homeV2, completedExercises, rawExerciseLog, workoutSegments, previousSets],
   );
+  // Activity-store weekly numbers are read BEFORE this session's sync (it
+  // runs at Finish — see the hook-stack note above), so the live view adds
+  // this one session exactly as runActivitySync will.
+  const isCardio = trainingType === 'cardio';
+  const scheduled = profile?.lifestyle?.scheduleDays?.length ?? 0;
+  const liveWeek = {
+    cardio: isCardio,
+    sessions: analytics.weeklyCategorySessions[isCardio ? 'cardio' : 'strength'] + 1,
+    plannedSessions: !isCardio && scheduled > 0 ? scheduled : null,
+    minutes: analytics.weeklyAerobicMinutes + analytics.durationMinutes,
+  };
+  const savedStreakView = savedStreak && savedSummary ? streakSnapshotToView(savedStreak, savedSummary.workoutDate) : null;
   let v2: StrengthSummaryV2Data | undefined;
   if (v2Phases) {
-    // Activity-store weekly numbers are read BEFORE this session's sync (it
-    // runs at Finish — see the hook-stack note above), so the live view adds
-    // this one session exactly as runActivitySync will.
-    const isCardio = trainingType === 'cardio';
-    const scheduled = profile?.lifestyle?.scheduleDays?.length ?? 0;
     // Timed blocks: this session's (in memory) live, the saved doc's `timedBlocks` in history.
     const timedResults: TimedBlockRecord[] = isReadOnly
       ? savedTimedBlocks ?? []
@@ -359,16 +401,9 @@ export default function StrengthSummaryPage({
       phases: v2Phases,
       ...(timedResults.length > 0 ? { timedResults } : {}),
       totals: sessionTotals(v2Phases),
-      streakWeek: isReadOnly ? null : streakWeek,
-      week: isReadOnly
-        ? null
-        : {
-            categoryLabel: isCardio ? 'אימוני אירובי השבוע' : 'אימוני כוח השבוע',
-            sessions: analytics.weeklyCategorySessions[isCardio ? 'cardio' : 'strength'] + 1,
-            plannedSessions: !isCardio && scheduled > 0 ? scheduled : null,
-            minutes: analytics.weeklyAerobicMinutes + analytics.durationMinutes,
-            whoMinutes: WHO_COMPLIANCE_BASELINE.weeklyAerobicMinutes,
-          },
+      streakWeek: isReadOnly ? savedStreakView?.streakWeek ?? null : streakWeek,
+      week: isReadOnly ? savedStreakView?.week ?? null : buildWeekCard(liveWeek),
+      ...(savedLevel ? { savedLevel: { gain: savedLevel.gain, leveledUp: savedLevel.leveledUp } } : {}),
     };
   }
 
@@ -392,10 +427,32 @@ export default function StrengthSummaryPage({
     } else {
       if (isFinishing) return;
       setIsFinishing(true);
+      // History parity: what this screen showed, saved with the workout.
+      // Display data only — never allowed to block Finish.
+      let summarySnapshot: StrengthSummarySnapshot | undefined;
+      try {
+        summarySnapshot = buildSummarySnapshot({
+          segments: workoutSegments,
+          rawLog: rawExerciseLog,
+          previousSets,
+          level: buildLevelSnapshot({
+            programId: propProgramId,
+            currentLevel,
+            progressToNextLevel,
+            maxLevel,
+            progressionResult: progression.progressionResult,
+            levelOverride,
+          }),
+          streak: buildStreakSnapshot({ streak: analytics.streak, streakWeek, week: liveWeek }),
+        });
+      } catch (e) {
+        console.warn('[StrengthSummaryPage] summary snapshot skipped:', e);
+      }
       onFinish?.({
         xpEarned: xp.xpEarnedAmount,
         xpStatus: xp.xpStatus,
         ...(showFeedShare && feedShare ? { feedShare } : {}),
+        ...(summarySnapshot ? { summarySnapshot } : {}),
       });
     }
   };

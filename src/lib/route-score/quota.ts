@@ -17,11 +17,19 @@ export interface AuthorityQuota {
   populationKnown: boolean;
 }
 
+/**
+ * Regional councils (owner 22.10.2026): many good marked trails and singles —
+ * 20–40, raised from 10–20. Their settlement loops (routes-nationwide/
+ * settlement-loops.ts) come on top of this range, not out of it.
+ */
+export const REGIONAL_TOTAL_MIN = 20;
+export const REGIONAL_TOTAL_MAX = 40;
+
 export const QUOTAS: Record<AuthoritySizeClass, Omit<AuthorityQuota, 'sizeClass' | 'populationKnown'>> = {
   large: { total: { min: 25, max: 40 }, parkLoops: { min: 6, max: 10 }, cycling: { min: 4, max: 8 } },
   medium: { total: { min: 15, max: 25 }, parkLoops: { min: 4, max: 6 }, cycling: { min: 2, max: 4 } },
   small: { total: { min: 8, max: 15 }, parkLoops: { min: 2, max: 4 }, cycling: { min: 0, max: 2 } },
-  regional: { total: { min: 10, max: 20 }, parkLoops: { min: 0, max: 3 }, cycling: { min: 2, max: 5 } },
+  regional: { total: { min: REGIONAL_TOTAL_MIN, max: REGIONAL_TOTAL_MAX }, parkLoops: { min: 0, max: 3 }, cycling: { min: 2, max: 5 } },
 };
 
 export const LARGE_CITY_MIN_POPULATION = 200_000;
