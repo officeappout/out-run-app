@@ -102,8 +102,8 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
         cityAuthorityId: { type: ['string', 'null'] },
         source: { type: ['string', 'null'] },
         campaign: { type: ['string', 'null'] },
-        sex: { type: ['string', 'null'], enum: ['male', 'female', 'other', null] },
-        level: { type: ['string', 'null'], enum: ['beginner', 'intermediate', 'advanced', null] },
+        sex: { anyOf: [{ type: 'string', enum: ['male', 'female', 'other'] }, { type: 'null' }] },
+        level: { anyOf: [{ type: 'string', enum: ['beginner', 'intermediate', 'advanced'] }, { type: 'null' }] },
         program: { type: ['string', 'null'] },
         ageFrom: { type: ['integer', 'null'] },
         ageTo: { type: ['integer', 'null'] },
@@ -166,8 +166,7 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
       type: 'object',
       properties: {
         channel: {
-          type: ['string', 'null'],
-          enum: ['progression', 'retention', 'onboarding_dropoff', 'training_reminder', 'encouragement', 'social', 'chat', 'health_milestone', 'community', 'contribution_status', 'week_start', 'coach', null],
+          anyOf: [{ type: 'string', enum: ['progression', 'retention', 'onboarding_dropoff', 'training_reminder', 'encouragement', 'social', 'chat', 'health_milestone', 'community', 'contribution_status', 'week_start', 'coach'] }, { type: 'null' }],
         },
         days: { type: ['integer', 'null'], description: '1-180, null = all time' },
       },
