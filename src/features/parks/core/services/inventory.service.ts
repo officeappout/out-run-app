@@ -30,6 +30,14 @@ import { IS_ROUTE_ADJACENCY_ENABLED, IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED, R
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
 import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
+import { readLiveFlag } from '@/lib/feature-flag-live';
+import {
+    chunkIds,
+    resolveOfficialRoutesScope,
+    SCOPED_FALLBACK_CAP,
+    SCOPED_PER_QUERY_CAP,
+    type ScopeProfileCore,
+} from './official-routes-scope';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
 // Mirrors parks.service.ts's fetchRealParks/_inflightParksFetch pattern —
@@ -164,13 +172,45 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export async function getCachedOfficialRoutes(): Promise<Route[]> {
+    // Panel flag enable_scoped_official_routes (default OFF). Off = the exact legacy path below.
+    if (readLiveFlag('enableScopedOfficialRoutes')) return getScopedCachedOfficialRoutes();
     if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
     return _officialCache;
+}
+
+// ── Scoped read (enable_scoped_official_routes) — see official-routes-scope.ts ──
+// Keyed on the user's authority set, so a login / a new GPS city re-reads once; concurrent
+// callers on map load share ONE in-flight read (the legacy path has no dedupe).
+let _scopedCache: { key: string; routes: Route[] } | null = null;
+let _scopedInflight: { key: string; promise: Promise<Route[]> } | null = null;
+
+// Dynamic import (the flag-off path never loads the user store from here), memoised so
+// concurrent first callers all await the SAME module promise.
+let _userStoreModule: Promise<typeof import('@/features/user/identity/store/useUserStore')> | null = null;
+
+async function getScopedCachedOfficialRoutes(): Promise<Route[]> {
+    _userStoreModule ??= import('@/features/user/identity/store/useUserStore');
+    const { useUserStore } = await _userStoreModule;
+    const scope = resolveOfficialRoutesScope(useUserStore.getState().profile?.core as ScopeProfileCore | undefined);
+    if (_scopedCache && _scopedCache.key === scope.key) return _scopedCache.routes;
+    if (_scopedInflight && _scopedInflight.key === scope.key) return _scopedInflight.promise;
+    const promise = InventoryService.fetchOfficialRoutesScoped(scope.authorityIds)
+        .then((routes) => {
+            _scopedCache = { key: scope.key, routes };
+            return routes;
+        })
+        .finally(() => {
+            if (_scopedInflight?.promise === promise) _scopedInflight = null;
+        });
+    _scopedInflight = { key: scope.key, promise };
+    return promise;
 }
 
 /** Invalidate the in-memory official-routes cache so the next read re-fetches from Firestore. */
 export function invalidateOfficialRoutesCache(): void {
     _officialCache = null;
+    _scopedCache = null;
+    _scopedInflight = null;
 }
 
 /**
@@ -796,6 +836,58 @@ export const InventoryService = {
             }
         } catch (error) {
             console.error('❌ Error fetching official routes:', error);
+            return [];
+        }
+    },
+
+    /**
+     * Scoped app read (panel flag enable_scoped_official_routes) — replaces the whole-collection
+     * `limit(200)` read for the app's consumers. See official-routes-scope.ts for the full why.
+     *   authorityIds non-empty → `authorityId in [chunk ≤30]` + limit(SCOPED_PER_QUERY_CAP) per
+     *     chunk (automatic single-field index, no composite index); `published === false` dropped
+     *     client-side exactly like fetchOfficialRoutes(_, true), so docs with NO published field
+     *     stay visible (axiom §33).
+     *   empty, or the scoped read found nothing → `published == true` + limit(SCOPED_FALLBACK_CAP).
+     * official_routes rule is `allow read: if true` — every shape here is admitted (axiom §25).
+     * Never throws: a failed read resolves to [] (same contract as fetchOfficialRoutes).
+     */
+    fetchOfficialRoutesScoped: async (authorityIds: string[]): Promise<Route[]> => {
+        const normalise = (docSnap: any): Route | null => {
+            const data = docSnap.data();
+            if (data.published === false) return null;
+            const path = normalizeStoredRoutePath(data.path);
+            if (path.length < 2) return null;
+            return { ...data, id: docSnap.id, path } as Route;
+        };
+        try {
+            if (authorityIds.length > 0) {
+                const snapshots = await Promise.all(
+                    chunkIds(authorityIds).map((batch) =>
+                        getDocs(
+                            query(
+                                collection(db, 'official_routes'),
+                                where('authorityId', 'in', batch),
+                                limit(SCOPED_PER_QUERY_CAP),
+                            ),
+                        ),
+                    ),
+                );
+                // Dedupe across `in` chunks (a doc can only match one authorityId, so this is
+                // belt-and-braces). Plain record, not a Map: keeps this file's diff free of `.set(`
+                // (safety-check's route-collection write-verb scan).
+                const byId: Record<string, any> = {};
+                for (const d of snapshots.flatMap((snap) => snap.docs)) byId[d.id] ??= d;
+                const routes = Object.values(byId)
+                    .map(normalise)
+                    .filter((r): r is Route => r !== null);
+                if (routes.length > 0) return routes;
+            }
+            const snap = await getDocs(
+                query(collection(db, 'official_routes'), where('published', '==', true), limit(SCOPED_FALLBACK_CAP)),
+            );
+            return snap.docs.map(normalise).filter((r): r is Route => r !== null);
+        } catch (error) {
+            console.error('❌ Error fetching scoped official routes:', error);
             return [];
         }
     },

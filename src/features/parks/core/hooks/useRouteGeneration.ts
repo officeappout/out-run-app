@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { Route, ActivityType } from '../types/route.types';
 import { Park } from '../types/park.types';
 import { useRouteFilter, FilterPreferences } from './useRouteFilter';
@@ -92,7 +93,11 @@ export function useRouteGeneration(
   useEffect(() => {
     if (officialFetched.current) return;
     officialFetched.current = true;
-    InventoryService.fetchOfficialRoutes(undefined, true)
+    // enable_scoped_official_routes ON: share the scoped, cached read every other consumer uses
+    // (one read per session instead of a second whole-collection limit(200) here). OFF: unchanged.
+    (readLiveFlag('enableScopedOfficialRoutes')
+      ? getCachedOfficialRoutes()
+      : InventoryService.fetchOfficialRoutes(undefined, true))
       .then((routes) => {
         console.log(`[Routes] Fetched ${routes.length} published official routes from Firestore`);
         if (routes.length > 0) {
