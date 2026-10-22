@@ -410,3 +410,5 @@ src/features/workout-engine/summary/components/aerobic/ParticipantsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicShareBlock.tsx
 src/features/workout-engine/summary/components/aerobic/AerobicStatRingsBlock.tsx
 src/features/workout-engine/summary/components/aerobic/TogetherBlock.tsx
+src/app/legal/credits/page.tsx
+src/features/parks/client/components/route-preview/RouteOsmSourceLine.tsx

@@ -498,6 +498,10 @@ export const FLAG_DEFS = [
   // (src/features/analytics/app-session.ts) → superAdminValue FALSE. Fail-closed. Needs the
   // app_sessions_daily rules (firestore.rules) deployed BEFORE it is switched on.
   { key: 'enableAppSessionSignal', firestoreKey: 'enable_app_session_signal', defaultValue: false, superAdminValue: false },
+  // OSM attribution + licences/credits page (22.10.2026) — /legal/credits, the "מקור: OpenStreetMap" line on
+  // route detail, the settings link. Off = none of it is visible (the page 404s). Fail-closed; the panel
+  // toggle is the one switch (superAdminValue false).
+  { key: 'enableOsmAttribution', firestoreKey: 'enable_osm_attribution', defaultValue: false, superAdminValue: false },
   // Admin-panel AI assistant (22.10.2026, docs/admin/ADMIN-AI-ASSISTANT-PLAN.md). Off = no drawer,
   // and every /api/admin/assistant/** route + tool answers 403. Its own flag on purpose (axiom
   // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
