@@ -14,6 +14,8 @@ import { STRENGTH_PHASES } from '@/features/user/onboarding/constants/onboarding
 import { firePhaseConfetti } from '@/features/user/onboarding/utils/onboarding-confetti';
 import { getOnboardingPref, getOnboardingPrefAsync } from '@/lib/onboardingPrefs';
 import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
+import { consumePendingInvites, hasPendingInvite } from '@/features/user/onboarding/services/consume-pending-invites';
 import { reportSignupFailure, extractErrorCode } from '@/lib/reportSignupFailure';
 import { isMiniAssessmentActive } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useOnboardingV2 } from '@/features/user/onboarding/hooks/useOnboardingV2';
@@ -75,6 +77,7 @@ export default function IdentityProfileScreen({
 }: IdentityProfileScreenProps) {
   const router = useRouter();
   const t = useT(onboarding);
+  const groupFixes = useGroupFixesV1();
   /** When true the page was opened mid-session to collect a missing name only. */
   const isProfileOnly = context === 'profile-only';
   /** Fast path: collect identity then land at the deep-link destination. */
@@ -344,6 +347,15 @@ export default function IdentityProfileScreen({
 
         if (pendingCode) {
           router.push(`/onboarding-new/access-code?code=${encodeURIComponent(pendingCode)}`);
+        } else if (groupFixes && hasPendingInvite()) {
+          // enable_group_fixes_v1: the shared consumer (code / session / group id),
+          // with the name the user just entered.
+          const target = await consumePendingInvites({
+            uid: auth.currentUser?.uid ?? '',
+            displayName: formData.name,
+            photoURL: auth.currentUser?.photoURL,
+          });
+          router.push(target ?? '/home');
         } else if (pendingInvite) {
           // Confirm membership inline — no second tap needed. The user clicked
           // "הצטרף" → identity screen → "המשך" → community. One linear flow.
@@ -372,7 +384,9 @@ export default function IdentityProfileScreen({
         } else if (pendingSession) {
           router.push(`/session/${encodeURIComponent(pendingSession)}`);
         } else if (pendingGroup) {
-          router.push(`/community?groupId=${encodeURIComponent(pendingGroup)}`);
+          router.push(groupFixes
+            ? resolveJoinLanding(pendingGroup, { joined: false })
+            : `/community?groupId=${encodeURIComponent(pendingGroup)}`);
         } else {
           router.push('/home');
         }

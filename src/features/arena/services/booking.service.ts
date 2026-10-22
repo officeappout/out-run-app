@@ -23,9 +23,11 @@ import {
   where,
   getDocs,
   orderBy,
+  runTransaction,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { SessionAttendance, ScheduleSlot, SessionGoalSpec } from '@/types/community.types';
+import { decideBooking } from './booking-decision';
 
 function attendanceDocId(date: string, time: string): string {
   return `${date}_${time.replace(':', '-')}`;
@@ -146,6 +148,8 @@ export async function bookSession(
   photoURL?: string | null,
   maxParticipants?: number,
   sessionGoal?: SessionGoalSpec,
+  /** enable_group_fixes_v1: capacity check + write in one transaction. */
+  opts?: { transactional?: boolean },
 ): Promise<{ success: boolean; full?: boolean; waitlisted?: boolean }> {
   if (!uid) {
     console.warn('[bookSession] called without uid — aborting');
@@ -155,6 +159,39 @@ export async function bookSession(
   const docId = attendanceDocId(date, time);
   const ref = doc(db, 'community_groups', groupId, 'attendance', docId);
   const profile = safeProfile(userName, photoURL);
+
+  if (opts?.transactional) {
+    try {
+      // Same writes (same shapes the rules check) as the branch below — only
+      // read and write now share one snapshot.
+      const action = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        const next = decideBooking(snap.exists() ? snap.data() : undefined, uid);
+        if (next === 'waitlist') {
+          tx.update(ref, { waitlist: arrayUnion(uid), [`waitlistProfiles.${uid}`]: profile });
+        } else if (next === 'book') {
+          tx.update(ref, { attendees: arrayUnion(uid), currentCount: increment(1), [`attendeeProfiles.${uid}`]: profile });
+        } else if (next === 'create') {
+          tx.set(ref, stripUndefined({
+            groupId, date, time,
+            attendees: [uid],
+            currentCount: 1,
+            maxParticipants: maxParticipants != null ? maxParticipants : null,
+            attendeeProfiles: { [uid]: profile },
+            createdAt: serverTimestamp(),
+            ...(sessionGoal ? { sessionGoal } : {}),
+          }));
+        }
+        return next;
+      });
+      if (action === 'waitlist' || action === 'already-waitlisted') return { success: true, waitlisted: true };
+      if (action !== 'already-booked') await upsertBookingPresence(uid, groupId, date, time, userName, photoURL);
+      return { success: true };
+    } catch (err) {
+      console.error('[bookSession] transaction failed:', err);
+      return { success: false };
+    }
+  }
 
   try {
     const snap = await getDoc(ref);

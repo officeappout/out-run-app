@@ -2,30 +2,42 @@
 
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { WorkoutHistoryEntry } from '@/features/workout-engine/core/services/storage.service';
+import { auth, db } from '@/lib/firebase';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
+import { buildGroupSummary, type GroupSummaryCtx } from '@/lib/group-fixes/group-summary';
 
-export interface GroupParticipant {
-  uid: string;
-  name: string;
-  photoURL?: string;
-  distanceKm: number;
-  pace: number; // min/km, 0 if unavailable
+export type { GroupParticipant, GroupSummaryCtx } from '@/lib/group-fixes/group-summary';
+
+/** enable_group_fixes_v1: the server computes the aggregate (Admin SDK). */
+async function fetchServerSummary(groupId: string, attendanceId: string): Promise<GroupSummaryCtx | null> {
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) return null;
+  const qs = new URLSearchParams({ groupId, attendanceId });
+  const res = await fetch(`/api/social/group-summary?${qs}`, { headers: { Authorization: `Bearer ${idToken}` } });
+  if (!res.ok) return null;
+  return ((await res.json()) as { ctx?: GroupSummaryCtx }).ctx ?? null;
 }
 
-export interface GroupSummaryCtx {
-  groupName: string;
-  collectiveDistanceKm: number;
-  participantCount: number;
-  participants: GroupParticipant[];
-  /** undefined = field not in Firestore yet; hide the chip */
-  coLocationMode: 'physical' | 'virtual' | undefined;
+/**
+ * Legacy (flag off): reads the attendance doc + queries sibling workouts from
+ * the client. The rules deny other users' workouts, so only the viewer's own
+ * distance ever arrives — kept byte-identical until the flag ships.
+ */
+async function fetchClientSummary(groupId: string, attendanceId: string, currentUid?: string): Promise<GroupSummaryCtx> {
+  const attendanceSnap = await getDoc(doc(db, 'community_groups', groupId, 'attendance', attendanceId));
+  const attendance = attendanceSnap.data() ?? {};
+  const groupDocSnap = await getDoc(doc(db, 'community_groups', groupId));
+  const groupName: string = groupDocSnap.data()?.name ?? '';
+  const workoutsSnap = await getDocs(query(
+    collection(db, 'workouts'),
+    where('groupId', '==', groupId),
+    where('attendanceId', '==', attendanceId),
+  ));
+  return buildGroupSummary({ groupName, attendance, workouts: workoutsSnap.docs.map((d) => d.data()), currentUid });
 }
 
 /**
  * Fetches group session context for the post-workout summary screen.
- * Reads the attendance doc for participant profiles and queries sibling
- * workouts to build the collective distance block.
  */
 export function useGroupSummaryCtx(
   groupId: string | null | undefined,
@@ -34,6 +46,7 @@ export function useGroupSummaryCtx(
 ): { ctx: GroupSummaryCtx | null; loading: boolean } {
   const [ctx, setCtx] = useState<GroupSummaryCtx | null>(null);
   const [loading, setLoading] = useState(false);
+  const groupFixes = useGroupFixesV1();
 
   useEffect(() => {
     if (!groupId || !attendanceId) return;
@@ -43,81 +56,10 @@ export function useGroupSummaryCtx(
 
     (async () => {
       try {
-        // ── 1. Read attendance doc for profiles ──────────────────────────
-        const attendanceRef = doc(
-          db,
-          'community_groups',
-          groupId,
-          'attendance',
-          attendanceId,
-        );
-        const attendanceSnap = await getDoc(attendanceRef);
-        const attendance = attendanceSnap.data() ?? {};
-
-        const attendeeProfiles: Record<string, { name: string; photoURL?: string }> =
-          attendance.attendeeProfiles ?? {};
-
-        const groupDocSnap = await getDoc(doc(db, 'community_groups', groupId));
-        const groupName: string = groupDocSnap.data()?.name ?? '';
-
-        // coLocationMode: not stored yet — hide chip in Phase 1
-        const coLocationMode: 'physical' | 'virtual' | undefined = undefined;
-
-        // ── 2. Query sibling workouts for per-participant distances ───────
-        const workoutsQuery = query(
-          collection(db, 'workouts'),
-          where('groupId', '==', groupId),
-          where('attendanceId', '==', attendanceId),
-        );
-        const workoutsSnap = await getDocs(workoutsQuery);
-        const siblingWorkouts = workoutsSnap.docs.map((d) => d.data() as WorkoutHistoryEntry);
-
-        // ── 3. Build participant list ─────────────────────────────────────
-        // Merge profiles from attendeeProfiles with distances from sibling workouts.
-        const distanceByUid: Record<string, number> = {};
-        const paceByUid: Record<string, number> = {};
-        for (const w of siblingWorkouts) {
-          if (w.userId) {
-            distanceByUid[w.userId] = (distanceByUid[w.userId] ?? 0) + (w.distance ?? 0);
-            if (w.pace && w.pace > 0) paceByUid[w.userId] = w.pace;
-          }
-        }
-
-        const uids = Object.keys(attendeeProfiles);
-        const participants: GroupParticipant[] = uids.map((uid) => ({
-          uid,
-          name: attendeeProfiles[uid]?.name ?? '',
-          photoURL: attendeeProfiles[uid]?.photoURL,
-          distanceKm: distanceByUid[uid] ?? 0,
-          pace: paceByUid[uid] ?? 0,
-        }));
-
-        // Current user pinned to top, then alphabetical
-        participants.sort((a, b) => {
-          if (a.uid === currentUid) return -1;
-          if (b.uid === currentUid) return 1;
-          return a.name.localeCompare(b.name, 'he');
-        });
-
-        const collectiveDistanceKm = participants.reduce((sum, p) => sum + p.distanceKm, 0);
-
-        // Fallback when siblings haven't saved yet (race condition at finish time):
-        // use activeCount * own distance as an estimate.
-        const effectiveDistance =
-          collectiveDistanceKm > 0
-            ? collectiveDistanceKm
-            : (attendance.collectiveProgress?.activeCount ?? uids.length) *
-              (distanceByUid[currentUid ?? ''] ?? 0);
-
-        if (!cancelled) {
-          setCtx({
-            groupName,
-            collectiveDistanceKm: Math.round(effectiveDistance * 100) / 100,
-            participantCount: Math.max(uids.length, 1),
-            participants,
-            coLocationMode,
-          });
-        }
+        const next = groupFixes
+          ? await fetchServerSummary(groupId, attendanceId)
+          : await fetchClientSummary(groupId, attendanceId, currentUid);
+        if (!cancelled && next) setCtx(next);
       } catch (err) {
         console.warn('[useGroupSummaryCtx] fetch failed:', err);
       } finally {
@@ -126,7 +68,7 @@ export function useGroupSummaryCtx(
     })();
 
     return () => { cancelled = true; };
-  }, [groupId, attendanceId, currentUid]);
+  }, [groupId, attendanceId, currentUid, groupFixes]);
 
   return { ctx, loading };
 }

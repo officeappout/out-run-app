@@ -36,6 +36,8 @@ import { INTRO_SEEN_PREF, isIntroPreview, isIntroSeen, withIntroRedirect } from 
 import { useLandingRealFallback } from '@/features/user/onboarding/hooks/useLandingRealFallback';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import { runNewAccountFlow } from '@/features/user/onboarding/services/run-new-account-flow';
+import { consumePendingInvites, hasPendingInvite } from '@/features/user/onboarding/services/consume-pending-invites';
+import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
 
 // localStorage key written by `auth.service.ts` on every positive auth
 // emission and cleared in `signOutUser`. Read here on first paint to
@@ -583,6 +585,22 @@ export default function LandingPage() {
   // Exception: if a pending_invite_code exists in localStorage (set by /join/[inviteCode]),
   // confirm the join inline and land on the group drawer — regardless of existing/new user.
   const redirectAfterAuth = useCallback(async (uid: string) => {
+    // enable_group_fixes_v1: ONE consumer for every pending invite (code,
+    // session token, group id) — Google / Apple sign-in used to handle only
+    // the invite code, so a session / group invite was dropped here.
+    if (hasPendingInvite() && (await readFeatureFlagOnce('enable_group_fixes_v1'))) {
+      const current = auth.currentUser;
+      const target = await consumePendingInvites({
+        uid,
+        displayName: current?.displayName,
+        photoURL: current?.photoURL,
+      });
+      if (target) {
+        router.push(target);
+        return;
+      }
+    }
+
     const pendingInvite = typeof window !== 'undefined'
       ? localStorage.getItem('pending_invite_code')
       : null;
