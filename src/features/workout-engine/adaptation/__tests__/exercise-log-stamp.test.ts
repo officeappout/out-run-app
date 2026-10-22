@@ -144,7 +144,7 @@ describe('toSegmentExerciseDetail carries the Phase 0 fields', () => {
       exerciseId: 'a', exerciseName: 'A', segmentId: 's', confirmedReps: [10], targetReps: 10,
     };
     expect(toSegmentExerciseDetail([legacy])).toEqual([
-      { exerciseId: 'a', exerciseName: 'A', confirmedReps: [10], targetReps: 10 },
+      { exerciseId: 'a', exerciseName: 'A', segmentId: 's', confirmedReps: [10], targetReps: 10 },
     ]);
 
     const stamped: ExerciseResultLog = {
