@@ -1,15 +1,14 @@
 /**
  * ViaRouter (src/lib/park-loops) on the existing GraphHopper client:
  * buildViaRequest (pass_through) + preferParks = the park polygon.
- * Returns null when GRAPHHOPPER_URL / the invoker key is not configured, so
- * an offline run reports inner loops as blocked instead of inventing them.
+ * `ghViaRouterFromEnv` returns null when GRAPHHOPPER_URL / the invoker key is
+ * not configured, so an offline run reports inner loops as blocked instead of
+ * inventing them; the nationwide runner passes its own budgeted client.
  */
 import type { ViaRouter } from '../../../src/lib/park-loops';
-import { buildViaRequest, DEFAULT_TAGS, getServerGraphHopperClient, type GhProfile } from '../../../src/lib/routing/graphhopper';
+import { buildViaRequest, DEFAULT_TAGS, getServerGraphHopperClient, type GhProfile, type GraphHopperClient } from '../../../src/lib/routing/graphhopper';
 
-export function ghViaRouterFromEnv(): ViaRouter | null {
-  const client = getServerGraphHopperClient();
-  if (!client) return null;
+export function ghViaRouter(client: GraphHopperClient): ViaRouter {
   return {
     async route(points, opts) {
       const body = buildViaRequest(points.map(([lng, lat]) => ({ lng, lat })), opts.profile as GhProfile, {
@@ -20,4 +19,9 @@ export function ghViaRouterFromEnv(): ViaRouter | null {
       return res ? { coords: res.path } : null;
     },
   };
+}
+
+export function ghViaRouterFromEnv(): ViaRouter | null {
+  const client = getServerGraphHopperClient();
+  return client ? ghViaRouter(client) : null;
 }

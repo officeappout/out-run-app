@@ -44,6 +44,15 @@ describe('components', () => {
     expect(bad.points).toBeLessThan(10);
     expect(bad.notes.length).toBe(3);
   });
+  it('geometry v1.2: a zigzagging generated loop loses points; a marked trail and a calm loop do not', () => {
+    const geo = { retracedPct: 0, uTurnCount: 0, spurCount: 0, compactness: 0.7 };
+    expect(scoreGeometry(base({ sourceTier: 'generated', geometry: { ...geo, turnsPerKm: 6, zigzagIndex: 1.05 } })).points).toBe(20);
+    const zig = scoreGeometry(base({ sourceTier: 'generated', geometry: { ...geo, turnsPerKm: 12, zigzagIndex: 1.4 } }));
+    expect(zig.points).toBe(15); // −2 turns (4 extra × 0.5) −3 zigzag (capped)
+    expect(zig.notes).toEqual(['12.0 turns/km', 'zigzag 1.40']);
+    expect(scoreGeometry(base({ sourceTier: 'osm_named', geometry: { ...geo, turnsPerKm: 12, zigzagIndex: 1.4 } })).points).toBe(20);
+    expect(scoreGeometry(base({ sourceTier: 'generated' })).points).toBe(20); // older inputs without the fields
+  });
   it('geometry: a linear corridor is not penalised on compactness', () => {
     const g = scoreGeometry(base({ shape: 'linear_corridor', geometry: { retracedPct: 0, uTurnCount: 0, spurCount: 0, compactness: 0 } }));
     expect(g.points).toBe(18);

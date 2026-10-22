@@ -125,8 +125,3 @@ export class TrailsRun {
     return { key: 'generated', run: async () => { const r = await this.run(); return { routes: r.generated, note: `${r.generated.length} generated — ${r.note}` }; } };
   }
 }
-
-/** W5 hook — park loops are not built yet; the stage reports itself as empty. */
-export function parkLoopsProvider(): StageProvider {
-  return { key: 'park_loops', run: async () => ({ routes: [], note: 'park loops not wired yet (W5)' }) };
-}

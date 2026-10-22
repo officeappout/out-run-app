@@ -73,7 +73,7 @@ export function deriveSourceTier(d: Doc): SourceTier {
   if (gen === 'roundtrip') return 'generated';
   if (gen === 'park-perimeter') return 'named_place';
   if (externalId.startsWith('osm:rel/')) return 'osm_named';
-  if (externalId.startsWith('osm:stitched/')) return 'stitched';
+  if (externalId.startsWith('osm:stitched/')) return NAMED_PLACE_PATTERN.test(name) ? 'named_place' : 'stitched';
   if (externalId.startsWith('osm:way/')) return NAMED_PLACE_PATTERN.test(name) ? 'named_place' : 'stitched';
   if (origin === 'authority_admin' || origin === 'super_admin') return 'osm_named';
   if (NAMED_PLACE_PATTERN.test(name)) return 'named_place';
@@ -131,7 +131,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   let geometry: RouteScoreInput['geometry'] = null;
   if (path.length >= 2) {
     const m = computeRouteQualityMetrics(downsample(path, MAX_METRIC_POINTS));
-    geometry = { retracedPct: m.retracedPct, uTurnCount: m.uTurnCount, spurCount: m.spurCount, compactness: m.compactness };
+    geometry = { retracedPct: m.retracedPct, uTurnCount: m.uTurnCount, spurCount: m.spurCount, compactness: m.compactness, turnsPerKm: m.turnsPerKm, zigzagIndex: m.zigzagIndex };
   }
 
   const distanceKm = num(d?.distance);
