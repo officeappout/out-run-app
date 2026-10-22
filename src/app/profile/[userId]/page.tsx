@@ -22,6 +22,8 @@ import ProfileHeader from '@/features/profile/components/ProfileHeader';
 import PartnersHighlightsRow from '@/features/profile/components/PartnersHighlightsRow';
 import PublicActivityGrid from '@/features/profile/components/PublicActivityGrid';
 import LinkAccountPrompt from '@/components/LinkAccountPrompt';
+import { useT } from '@/hooks/useT';
+import { profile as profileNs } from '@/messages/ns/profile';
 
 /**
  * Public profile — flat (IG-style) redesign, "public profile" slice 1.
@@ -61,6 +63,7 @@ export default function PublicProfilePage() {
   const router = useRouter();
   const params = useParams();
   const targetUid = params.userId as string;
+  const t = useT(profileNs);
 
   const myProfile = useUserStore((s) => s.profile);
   // Home v2 (enable_home_v2): the same look as the own profile.
@@ -118,7 +121,7 @@ export default function PublicProfilePage() {
     }
     void useChatStore.getState().openDM(
       myUid,
-      myProfile?.core?.name ?? 'אווטיר',
+      myProfile?.core?.name ?? 'אווטיר', // i18n-allow-hebrew: data — fallback sender name written to chats.participantNames
       targetUid,
       publicProfile.name,
     );
@@ -157,7 +160,7 @@ export default function PublicProfilePage() {
         if (userSnap.exists()) {
           const data = userSnap.data();
           setPublicProfile(isSelf ? {
-            name: data.core?.name ?? 'משתמש',
+            name: data.core?.name ?? 'משתמש', // i18n-allow-hebrew: data — fallback name handed to openDM / report (stored)
             photoURL: data.core?.photoURL ?? undefined,
             ageGroup: data.core?.ageGroup === 'minor' || data.core?.ageGroup === 'adult' ? data.core.ageGroup : undefined,
             bio: data.core?.bio ?? undefined,
@@ -167,7 +170,7 @@ export default function PublicProfilePage() {
             currentStreak: data.progression?.currentStreak ?? undefined,
             workoutCount: data.progression?.workoutCount ?? undefined,
           } : {
-            name: data.name ?? 'משתמש',
+            name: data.name ?? 'משתמש', // i18n-allow-hebrew: data — fallback name handed to openDM / report (stored)
             photoURL: data.photoURL ?? undefined,
             // Merge note (main ← worktree-spec01-close-guest-leaks, 2026-09-10):
             // main added ageGroup only to the isSelf branch (data.core.ageGroup,
@@ -257,7 +260,7 @@ export default function PublicProfilePage() {
     if (loadingLook(flagsReady, v2) === 'skeleton') return <ScreenSkeleton />;
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-[#F8FAFC]">
-        <p className="text-sm text-gray-500 animate-pulse">טוען פרופיל...</p>
+        <p className="text-sm text-gray-500 animate-pulse">{/* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}טוען פרופיל...</p>
       </div>
     );
   }
@@ -265,12 +268,12 @@ export default function PublicProfilePage() {
   if (!publicProfile) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#F8FAFC] gap-3">
-        <p className="text-sm font-bold text-gray-900">משתמש לא נמצא</p>
+        <p className="text-sm font-bold text-gray-900">{t('publicProfile.notFound.title')}</p>
         <button
           onClick={() => router.back()}
           className="text-xs text-cyan-600 font-bold"
         >
-          חזרה
+          {t('publicProfile.notFound.back')}
         </button>
       </div>
     );
@@ -287,7 +290,7 @@ export default function PublicProfilePage() {
           <button
             onClick={() => router.back()}
             className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
-            aria-label="חזרה"
+            aria-label={t('publicProfile.header.back')}
           >
             <ArrowRight className="w-5 h-5 text-gray-700" />
           </button>
@@ -296,7 +299,7 @@ export default function PublicProfilePage() {
           </h1>
           {isSelf ? (
             <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-              הפרופיל שלי
+              {t('publicProfile.header.self')}
             </span>
           ) : (
             myUid && (
@@ -304,8 +307,8 @@ export default function PublicProfilePage() {
                 type="button"
                 onClick={() => setShowReport(true)}
                 className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 active:scale-95 transition-all"
-                aria-label="דווח על המשתמש"
-                title="דווח על המשתמש"
+                aria-label={t('publicProfile.header.report')}
+                title={t('publicProfile.header.report')}
               >
                 <Flag className="w-4 h-4" />
               </button>
@@ -365,16 +368,16 @@ export default function PublicProfilePage() {
                         {publicProfile.currentStreak}
                       </span>
                     ),
-                    label: 'ימי רצף',
+                    label: t('publicProfile.stats.streak'),
                   }]
                 : []),
-              { key: 'partners', value: partnersLoading ? '—' : partners.length, label: 'שותפים' },
+              { key: 'partners', value: partnersLoading ? '—' : partners.length, label: t('publicProfile.stats.partners') },
               ...(publicProfile.workoutCount != null
-                ? [{ key: 'workouts', value: publicProfile.workoutCount, label: 'אימונים' }]
+                ? [{ key: 'workouts', value: publicProfile.workoutCount, label: t('publicProfile.stats.workouts') }]
                 : []),
             ]}
             bio={publicProfile.bio ?? null}
-            bioPlaceholder={isSelf ? 'עדיין אין תיאור אישי' : 'המשתמש לא הוסיף תיאור אישי'}
+            bioPlaceholder={isSelf ? t('publicProfile.bio.selfEmpty') : t('publicProfile.bio.otherEmpty')}
             tagIds={publicProfile.trainingTags ?? []}
             actions={
               !isSelf && myUid ? (
@@ -391,12 +394,12 @@ export default function PublicProfilePage() {
                     {followed ? (
                       <>
                         <UserMinus className="w-4 h-4" />
-                        מפסיק לעקוב
+                        {t('publicProfile.actions.unfollow')}
                       </>
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        עקוב
+                        {t('publicProfile.actions.follow')}
                       </>
                     )}
                   </button>
@@ -412,7 +415,7 @@ export default function PublicProfilePage() {
                       }
                     >
                       <MessageCircle className="w-4 h-4" />
-                      שלח הודעה
+                      {t('publicProfile.actions.message')}
                     </button>
                   ) : (
                     // Covers both a real minor AND a missing/undefined
@@ -424,7 +427,7 @@ export default function PublicProfilePage() {
                       aria-disabled="true"
                     >
                       <Lock className="w-3.5 h-3.5 flex-shrink-0" />
-                      הודעות לבני 18+ בלבד
+                      {t('publicProfile.actions.adultsOnly')}
                     </div>
                   )}
                 </div>
@@ -442,7 +445,7 @@ export default function PublicProfilePage() {
         </div>
 
         <div className="mt-5" dir="rtl">
-          <h3 className={v2 ? 'mb-2.5 text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800 mb-3'}>פעילות אחרונה</h3>
+          <h3 className={v2 ? 'mb-2.5 text-[15px] font-black text-v2-ink' : 'text-sm font-black text-gray-800 mb-3'}>{t('publicProfile.activity.title')}</h3>
           <PublicActivityGrid posts={posts} isLoading={loading} v2={v2} />
         </div>
       </div>
