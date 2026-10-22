@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * The planner's phase-2 week builder pieces in one mount (enable_week_builder_v1): the missed
- * card for the current week and the "סידור השבוע" sheet. The planner renders this only with
+ * The planner's phase-2 week builder pieces in one mount (enable_week_builder_v1): the calm
+ * "נסדר לך את שאר השבוע" card for the current week and the "סידור השבוע" sheet. The planner renders this only with
  * the flag on and opens a week through `request` (from the agenda's week label).
  */
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { addDaysToKey } from '../../../advisor';
 import { localDateKey } from '../../../advisor/adapters/client';
 import { usePlannerWeek } from '../usePlannerWeek';
-import MissedWeekCard from './MissedWeekCard';
+import CalmArrangeCard from './CalmArrangeCard';
 import PlannerWeekSheet, { type PlannerWeekMode } from './PlannerWeekSheet';
 
 export interface PlannerWeekBuilderHostProps {
@@ -38,7 +38,7 @@ export default function PlannerWeekBuilderHost(p: PlannerWeekBuilderHostProps) {
   };
   return (
     <ErrorBoundary fallback={null}>
-      {current.status === 'ready' && <MissedWeekCard count={current.model.missedCount} onReplan={() => setReplanOpen(true)} />}
+      {current.status === 'ready' && <CalmArrangeCard show={current.model.missedCount > 0} onArrange={() => setReplanOpen(true)} />}
       <PlannerWeekSheet userId={p.userId} sunday={sunday} mode={(replanOpen ? 'replan' : 'arrange') as PlannerWeekMode} onClose={close} onSaved={p.onSaved} />
     </ErrorBoundary>
   );

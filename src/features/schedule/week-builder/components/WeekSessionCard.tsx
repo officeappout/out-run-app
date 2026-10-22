@@ -18,7 +18,7 @@ import { clientYOf } from './useDayHitTest';
 export interface WeekSessionCardProps {
   session: WbSession;
   dow: number;
-  /** The day is over (planner): its sessions read "בוצע" / "פוספס". */
+  /** The day is over (planner): a done session reads "בוצע"; nothing is ever tagged missed. */
   past?: boolean;
   /** "1 מתוך 2" on a double day. */
   counterHe?: string | null;
@@ -33,8 +33,8 @@ export default function WeekSessionCard({ session: s, dow, past = false, counter
   const reduce = useReducedMotion();
   const tag = s.status === 'done'
     ? { label: t('weekBuilder.tag.done'), tone: 'done' as const }
-    : past && s.status === 'missed'
-      ? { label: t('weekBuilder.tag.missed'), tone: 'missed' as const }
+    : past
+      ? null
       : s.isNew
     ? { label: t('weekBuilder.tag.new'), tone: 'new' as const }
     : s.homeDow != null && s.homeDow !== dow

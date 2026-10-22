@@ -36,7 +36,7 @@ export function useHomeRunSlot(
   const storedWeek = running?.activeProgram?.currentWeek;
   const scheduleDays = running?.scheduleDays as string[] | undefined;
 
-  const { level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay } = runPlacementOf(running);
+  const { level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay, runMoves } = runPlacementOf(running);
 
   // Recompute when the day rolls over while home stays open.
   const todayKey = new Date().toDateString();
@@ -56,14 +56,14 @@ export function useHomeRunSlot(
       currentWeek ?? 1,
       new Date(),
       startDate as any,
-      byType ? { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay } : undefined,
+      byType ? { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay, runMoves } : undefined,
     );
     return {
       slot: resolveHomeRunSlot({ enabled, hasRunningPlan, hasStrengthProgram, dayState, skippedToday }),
       hasRunningPlan,
       currentWeek,
     };
-  }, [enabled, byType, placeLevel, placeDistance, placeLongDay, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey, skippedToday]);
+  }, [enabled, byType, placeLevel, placeDistance, placeLongDay, runMoves, hasStrengthProgram, running?.isUnlocked, schedule, startDate, storedWeek, scheduleDays, todayKey, skippedToday]);
 
   return { ...resolved, skipToday, undoSkip };
 }

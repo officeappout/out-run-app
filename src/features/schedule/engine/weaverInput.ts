@@ -52,6 +52,8 @@ export interface WeaverInputProfile {
     scheduleDaysSource?: unknown;
     /** enable_home_v2: the user's long-run day (0-6) — read only with opts.runsByType. */
     longRunDay?: number | null;
+    /** enable_week_builder_v1: per-date run moves (utils/runWeekMoves.ts) — read only with opts.runsByType. */
+    runMoves?: unknown;
     /** RunnerProfileType 1-4 — read by resolveRunningLevel (bug #10). */
     paceProfile?: { profileType?: number } | null;
     onboardingData?: { currentAbility?: { abilityTier?: string } | null } | null;

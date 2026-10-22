@@ -42,6 +42,7 @@ import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeR
 import { mapRunEntriesToWeekdays, runOverlayDayFields } from '@/features/home/utils/run-overlay-day';
 import { walkDayCell, walkSessionOverride, WALK_DAY_COLOR } from '@/features/home/utils/walk-day-cell';
 import { mapRunWeekFromLetters, type RunPlacementContext } from '@/features/schedule/utils/runWeekByType';
+import { applyRunMovesToDowMap, localKeyOf, sundayKeyOf } from '@/features/schedule/utils/runWeekMoves';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -899,16 +900,19 @@ export default function SmartWeeklySchedule({
   const placeLevel = runPlacement?.level;
   const placeDistance = runPlacement?.targetDistance;
   const placeLongDay = runPlacement?.preferredLongRunDay;
+  // enable_week_builder_v1: this week's per-date run moves (runWeekMoves.ts); none = unchanged.
+  const placeRunMoves = runPlacement?.runMoves;
   const runningEntriesByDayIndex = useMemo(() => {
     // enable_home_v2: by slot type — the long run on its engine-v2 day, the
     // same week the signup summary showed (runWeekByType).
     if (v2 && (runOverlay || isRunningMode)) {
-      return mapRunWeekFromLetters(currentWeekEntries, runOverlay ? runOverlayDays ?? [] : scheduleDays, {
+      const byDay = mapRunWeekFromLetters(currentWeekEntries, runOverlay ? runOverlayDays ?? [] : scheduleDays, {
         byType: true,
         level: placeLevel,
         targetDistance: placeDistance,
         preferredLongRunDay: placeLongDay,
       });
+      return placeRunMoves?.length ? applyRunMovesToDowMap(byDay, sundayKeyOf(localKeyOf(new Date())), placeRunMoves) : byDay;
     }
     if (runOverlay) return mapRunEntriesToWeekdays(currentWeekEntries, runOverlayDays ?? [], HEBREW_DAYS);
     if (!isRunningMode || !currentWeekEntries.length) return new Map<number, RunningScheduleEntry>();
@@ -924,7 +928,7 @@ export default function SmartWeeklySchedule({
       if (dayIdx !== undefined) map.set(dayIdx, entry);
     });
     return map;
-  }, [v2, placeLevel, placeDistance, placeLongDay, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
+  }, [v2, placeLevel, placeDistance, placeLongDay, placeRunMoves, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
 
   const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
     const params = new URLSearchParams();

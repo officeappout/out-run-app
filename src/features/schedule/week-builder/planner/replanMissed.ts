@@ -1,15 +1,17 @@
 /**
- * "פספסת X — לסדר מחדש את השאר?" (enable_week_builder_v1, phase 2) — the engine's suggestion
+ * "שבוע עמוס? נסדר לך את שאר השבוע" (enable_week_builder_v1; owner 22.10: never a count of
+ * missed workouts, never "פספסת") — the engine's suggestion
  * for the rest of the week: every missed session, oldest first, goes to the earliest day still
- * ahead where it is VALID (engine-v2 hard rules through moveSession: 48h between the same
- * muscles, nothing heavy before / on the long run, …). Free days first, then a day that holds
+ * ahead where it is VALID (engine-v2 hard rules + the run rules through movePlannerSession: 48h
+ * between the same muscles, nothing heavy before / on the long run, no two hard runs in a row …).
+ * A run that did not happen moves the same way (current week only). Free days first, then a day that holds
  * only the other track. What fits nowhere stays where it was (missed, nothing is written for
  * it) with a short reason in the week's notes. Only a suggestion: nothing saves without
  * "אישור השבוע". Pure.
  */
-import { moveSession } from '../moveSession';
 import type { WbRules } from '../types';
 import { settleStatus, type PlannerWeek } from './plannerWeek';
+import { movePlannerSession } from './runMoveRules';
 
 export interface ReplanDrop {
   sessionId: string;
@@ -44,7 +46,7 @@ export function replanMissed(week: PlannerWeek, rules: WbRules): ReplanResult {
     let reason: string | null = null;
     let done = false;
     for (const toDow of candidateDays(cur, s.track)) {
-      const r = moveSession(cur, { sessionId: s.id, toDow }, rules, { normalize: settleStatus });
+      const r = movePlannerSession(cur, { sessionId: s.id, toDow }, rules, { normalize: settleStatus });
       if (r.ok) {
         cur = r.week;
         placed.push({ sessionId: s.id, toDow });
