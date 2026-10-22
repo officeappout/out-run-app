@@ -21,6 +21,8 @@ import {
   getRetentionDrivers,
 } from '@/lib/admin-analytics/product-metrics.server';
 import type { NorthStarFilters } from '@/lib/admin-analytics/north-star.server';
+import { getAuthorityOverview } from '@/lib/admin-analytics/authority-overview.server';
+import { getServerFeatureFlags } from '@/lib/ai/entitlement.server';
 import { validateAdminToolInput } from './tools';
 import { capToolResult, numbersIn, wrapToolData } from './tool-result';
 import type { EvidenceItem } from './sse';
@@ -32,12 +34,20 @@ export interface AdminToolContext {
   now: Date;
 }
 
+export interface AdminToolLink {
+  href: string;
+  title: string;
+  pageId: string;
+}
+
 export interface AdminToolExecution {
   /** the tool_result content (already wrapped in <tool_data>) */
   content: string;
   isError: boolean;
-  /** a clickable link for the drawer (navigate only) */
-  link?: { href: string; title: string; pageId: string };
+  /** a clickable link for the drawer (navigate) */
+  link?: AdminToolLink;
+  /** several clickable links (get_authority_overview) */
+  links?: AdminToolLink[];
   evidence?: EvidenceItem;
   resultChars: number;
   truncated: boolean;
@@ -46,6 +56,27 @@ export interface AdminToolExecution {
 function errorResult(message: string): AdminToolExecution {
   const json = JSON.stringify({ error: message });
   return { content: wrapToolData(json), isError: true, resultChars: json.length, truncated: false };
+}
+
+/**
+ * Buttons for one authority: the city-mapping hub focused on it (?authority=<id>) when the hub
+ * flag is on, else the plain city-mapping page; and its CRM detail page. Only pages the
+ * caller may open; every href goes through buildAdminHref.
+ */
+export async function authorityLinks(ctx: AdminToolContext, authorityId: string, name: string): Promise<AdminToolLink[]> {
+  const out: AdminToolLink[] = [];
+  const hubOn = (await getServerFeatureFlags(ctx.db)).enableCityMappingHub === true;
+  const mapping = adminPageById(hubOn ? 'admin/city-mapping/hub' : 'admin/city-mapping');
+  if (mapping && canRoleSee(mapping, ctx.role)) {
+    const built = buildAdminHref(mapping, {}, hubOn ? { authority: authorityId } : {});
+    if (built.ok) out.push({ href: built.href, title: hubOn ? `מרכז מיפוי · ${name}` : mapping.title, pageId: mapping.id });
+  }
+  const crm = adminPageById('admin/authorities/[id]');
+  if (crm && canRoleSee(crm, ctx.role)) {
+    const built = buildAdminHref(crm, { id: authorityId });
+    if (built.ok) out.push({ href: built.href, title: `ניהול רשות · ${name}`, pageId: crm.id });
+  }
+  return out;
 }
 
 function dataResult(tool: string, res: MetricResult<unknown>): AdminToolExecution {
@@ -116,6 +147,26 @@ export async function executeAdminTool(ctx: AdminToolContext, name: string, rawI
       case 'get_push_performance': {
         const { channel, days } = v.input as { channel: string | null; days: number | null };
         return dataResult(name, await getPushPerformance(ctx.db, { channel, days }, { now: ctx.now }));
+      }
+      case 'get_authority_overview': {
+        const { query } = v.input as { query: string };
+        const found = await getAuthorityOverview(ctx.db, query, { now: ctx.now });
+        if (found.kind === 'unavailable') return errorResult(`${name}: could not be computed right now (this is NOT zero)`);
+        if (found.kind !== 'resolved') {
+          const json = JSON.stringify(
+            found.kind === 'ambiguous'
+              ? { resolved: false, candidates: found.candidates, note: 'several authorities match — ask the admin which one, or call again with the id' }
+              : { resolved: false, candidates: [], note: 'no authority with this name — ask the admin to check the spelling' },
+          );
+          return { content: wrapToolData(json), isError: false, resultChars: json.length, truncated: false };
+        }
+        const ov = found.result.value!;
+        const links = await authorityLinks(ctx, ov.authority.id, ov.authority.name).catch(() => [] as AdminToolLink[]);
+        const r = dataResult(name, {
+          ...found.result,
+          value: { matchedBy: found.matchedBy, ...ov, buttonsShownToUser: links.map((l) => l.title) },
+        });
+        return links.length ? { ...r, links } : r;
       }
       case 'get_push_funnel':
         return dataResult(name, await getPushFunnel(ctx.db, { now: ctx.now }));
