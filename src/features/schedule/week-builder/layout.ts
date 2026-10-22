@@ -28,6 +28,7 @@ export type LayoutMoveOutcome<P> =
   | { kind: 'noop' }
   | { kind: 'missing' }
   | { kind: 'locked' }
+  | { kind: 'past' }
   | { kind: 'closed' }
   | { kind: 'full' };
 
@@ -45,6 +46,7 @@ export function applyMove<P>(week: WbWeek<P>, move: WbMove, maxPerDay: number): 
   if (from.dow === move.toDow) return { kind: 'noop' };
   if (from.session.locked) return { kind: 'locked' };
   const target = week.days[move.toDow];
+  if (target?.past) return { kind: 'past' };
   if (!target?.open) return { kind: 'closed' };
 
   const s = from.session;
@@ -75,10 +77,13 @@ export function applyMove<P>(week: WbWeek<P>, move: WbMove, maxPerDay: number): 
   return { kind: 'moved', week: { ...week, days }, swappedWith: swap?.id ?? null };
 }
 
+/** A missed session still sitting on its past day never happened: it is not part of the load. */
+export const countsInLoad = <P>(day: WbDay<P>, s: WbSession<P>): boolean => !(day.past && s.status === 'missed');
+
 /** The week as engine sessions per day (what validateLayout / dayReasons read). */
 export function toPlacedDays<P>(week: WbWeek<P>): PlacedSession[][] {
   return week.days.map((day) =>
-    day.sessions.map((s): PlacedSession => {
+    day.sessions.filter((s) => countsInLoad(day, s)).map((s): PlacedSession => {
       if (s.track === 'run') return { kind: 'run', slot: s.slot, ...(s.minutes ? { minutes: s.minutes } : {}) };
       if (s.track === 'strength') return { kind: 'strength', slug: s.slug };
       return { kind: 'walk', ...(s.minutes ? { minutes: s.minutes } : {}) };

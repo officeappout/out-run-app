@@ -41,7 +41,7 @@ export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, o
         letter={DAY_LETTERS_HE[day.dow]}
         date={date}
         muted={total === 0}
-        emptyLabel={day.open ? t('weekBuilder.rest') : t('weekBuilder.notFree')}
+        emptyLabel={day.past ? t('weekBuilder.past') : day.open ? t('weekBuilder.rest') : t('weekBuilder.notFree')}
         onDateTap={onEdit}
         dateAriaLabel={t('weekBuilder.dateAria', { day: dayNameHe(day.dow) })}
       >
@@ -52,6 +52,7 @@ export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, o
                 key={s.id}
                 session={s}
                 dow={day.dow}
+                past={day.past}
                 counterHe={total > 1 ? t('weekBuilder.double', { n: String(day.sessions.indexOf(s) + 1), total: String(total) }) : null}
                 draggable={!s.locked}
                 onDragMove={onDragMove}
