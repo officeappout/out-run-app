@@ -277,6 +277,61 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
     minRole: 'super',
     dataTool: true,
   },
+  // ── users & activity (signups / workouts / one user) ──
+  {
+    name: 'get_signups_overview',
+    description:
+      'New signups over the last N days (1-180) vs the previous equal period, as a day/week series, split by city and by marketing source / campaign. Optional filters: authorityId (an authorities id from get_authority_overview), source (e.g. "instagram"). "unattributed" = attribution not captured (not organic). definitionId signups_overview.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        days: { type: 'integer', description: '1-180' },
+        groupBy: { type: 'string', enum: ['day', 'week'] },
+        authorityId: { type: ['string', 'null'] },
+        source: { type: ['string', 'null'] },
+      },
+      required: ['days', 'groupBy', 'authorityId', 'source'],
+      additionalProperties: false,
+    },
+    zod: z
+      .object({
+        days: z.number().int().min(1).max(180),
+        groupBy: z.enum(['day', 'week']),
+        authorityId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).nullable(),
+        source: z.string().trim().min(1).max(80).nullable(),
+      })
+      .strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_workouts_overview',
+    description:
+      'Real workouts over the last N days (1-180) vs the previous equal period: total, active users, workouts per active user, split by type (strength / running / walking / hybrid) and a day/week series. Optional authorityId filter. Completion rate is not available (the app stores finished workouts only). definitionId workouts_overview.',
+    input_schema: {
+      type: 'object',
+      properties: { days: { type: 'integer', description: '1-180' }, authorityId: { type: ['string', 'null'] } },
+      required: ['days', 'authorityId'],
+      additionalProperties: false,
+    },
+    zod: z.object({ days: z.number().int().min(1).max(180), authorityId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).nullable() }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_user_lookup',
+    description:
+      'Find ONE user by email (full address), display name (start of the name) or uid. Returns operational fields only: uid, name, masked email, city, role flags, signup date + source, last active, workouts count, streak, onboarding status; plus a button to the user page. Several matches → up to 5 candidates, ask which one. Never returns health or personal-contact data. definitionId user_lookup.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'email, display name or uid' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    zod: z.object({ query: z.string().trim().min(2).max(120) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
 ];
 
 const BY_NAME = new Map(ADMIN_TOOLS.map((t) => [t.name, t]));
