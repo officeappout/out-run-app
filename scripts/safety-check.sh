@@ -2,7 +2,7 @@
 # scripts/safety-check.sh
 # ── Static Pre-Commit Safety Check ─────────────────────────────────────────
 #
-# Catches 5 hard-block patterns on staged diffs (new lines only).
+# Catches 6 hard-block patterns on staged diffs (new lines only).
 # Runs via Claude Code PreToolUse hook on Bash(git commit*).
 #
 # ⚠️  SCOPE LIMITATION: PreToolUse only intercepts agent-issued git commits
@@ -10,7 +10,7 @@
 #     TODO: replicate as .githooks/pre-commit + `git config core.hooksPath .githooks`
 #     for full coverage.
 #
-# What this checks (5 patterns only — everything else is AI-layer):
+# What this checks (6 patterns only — everything else is AI-layer):
 #   1. 'social.groupIds': as Firestore field key outside authorized routes
 #   2. New get(/databases/.../documents/users/) in .rules files (1MiB read risk)
 #   3. New route-collection writes outside authorized files; and for the
@@ -19,6 +19,8 @@
 #   4. community_groups_{persona} writes outside the one atomic primitive
 #      (createGroup/updateGroup/deleteGroup in community.service.ts)
 #   5. New hard-coded Hebrew in folders listed in src/lib/i18n/migrated-paths.txt
+#   6. Hard-coded Hebrew in NEWLY ADDED user-facing files (src/app, src/features;
+#      not admin/tests) — escape hatch: line 1 "// i18n-exempt: <reason>"
 #
 # What this does NOT check (AI reviewer's job):
 #   - arrayRemove usage (legitimate uses exist)
@@ -410,6 +412,60 @@ ${MATCHED}
   fi
 fi
 
+# ── Check 6: newly ADDED user-facing files are "born translated" ───────────────
+# Source: docs/i18n/HOW-TO.md §11. Check 5 only guards folders already in the
+# manifest, so brand-new screens elsewhere kept arriving with hard-coded Hebrew
+# and the extraction backlog kept growing. A file ADDED in this diff
+# (--diff-filter=A) under src/app/** or src/features/** (.ts/.tsx) that is not
+# admin (any /admin/ segment), not a test, not .d.ts, must not contain Hebrew
+# letters on non-comment lines. Existing files are never checked here.
+# Escape hatch for genuine data/content files: line 1 of the file is
+#   // i18n-exempt: <reason>
+# (a reason is required). A single data line can use i18n-allow-hebrew as in
+# Check 5. Files already inside a migrated folder are left to Check 5.
+NEW_UI_FILES=$(git diff --cached --name-only --diff-filter=A 2>/dev/null \
+  | grep -E '^src/(app|features)/.*\.(ts|tsx)$' || true)
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  case "$file" in
+    */admin/*|*.d.ts|*/__tests__/*|*.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx|src/messages/*) continue ;;
+  esac
+  if [ -n "${I18N_PATHS:-}" ]; then
+    IN_MIGRATED=""
+    while IFS= read -r prefix; do
+      [ -z "$prefix" ] && continue
+      case "$file" in "$prefix"*) IN_MIGRATED=1 ;; esac
+    done <<< "$I18N_PATHS"
+    [ -n "$IN_MIGRATED" ] && continue
+  fi
+  if git show ":$file" 2>/dev/null | head -1 | grep -qE '^\s*(//|/\*|\{/\*)\s*i18n-exempt:\s*\S'; then
+    continue
+  fi
+
+  HEBREW_LINES=$(git show ":$file" 2>/dev/null \
+    | grep -vE '^\s*(//|\*|/\*|\{/\*)' \
+    | grep -v 'i18n-allow-hebrew' \
+    | perl -CSD -ne 'print if /[\x{0590}-\x{05FF}]/' \
+    || true)
+  if [ -n "$HEBREW_LINES" ]; then
+    COUNT=$(echo "$HEBREW_LINES" | wc -l | tr -d ' ')
+    MATCHED=$(echo "$HEBREW_LINES" | head -3 | sed 's/^[[:space:]]*/   + /')
+    VIOLATIONS="${VIOLATIONS}
+❌ BLOCKED — new user-facing file with hard-coded Hebrew ($COUNT line(s))
+   file: $file
+${MATCHED}
+   New screens/components must be born translated:
+     1. Put the text in src/messages/he/<namespace>.json (the namespace that
+        owns this folder — HOW-TO §2) and render it with t():
+        const t = useT(ns)   (client)   |   await getT(locale, ns)   (server)
+     2. Add this file's folder (or the file path) to $I18N_MANIFEST.
+   Recipe: docs/i18n/HOW-TO.md (agents: ~/Development/agent-briefs/i18n/W2-howto-update.md).
+   Genuine data/content file (not UI copy)? Put on line 1:
+     // i18n-exempt: <reason>
+   One data line: add i18n-allow-hebrew: <reason> on that line."
+  fi
+done <<< "$NEW_UI_FILES"
+
 # ── Result ────────────────────────────────────────────────────────────────────
 if [ -n "$VIOLATIONS" ]; then
   printf "\n🚫 safety-check FAILED — commit blocked%s\n" "$VIOLATIONS"
@@ -417,5 +473,5 @@ if [ -n "$VIOLATIONS" ]; then
   exit 1
 fi
 
-printf "✅ safety-check passed (5 static checks)\n"
+printf "✅ safety-check passed (6 static checks)\n"
 exit 0

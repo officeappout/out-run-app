@@ -17,7 +17,7 @@
 | Firestore content (`{he,en,...}` fields) | `pickText(value, locale, gender)` from `@/lib/i18n/core/i18n-core` |
 | Numbers / dates | `formatNumber/formatDate/formatTime/weekdayName` from `@/lib/i18n/core/fmt` (wave 3) |
 | Locale type | `Locale` from `@/lib/i18n/locales` |
-| Folders where new Hebrew is blocked | `src/lib/i18n/migrated-paths.txt` (enforced by `scripts/safety-check.sh` Check 5) |
+| Folders where new Hebrew is blocked | `src/lib/i18n/migrated-paths.txt` (enforced by `scripts/safety-check.sh` Check 5); newly added UI files anywhere: Check 6 (§11) |
 
 Flags: `enable_i18n` (master) + `enable_locale_en/ru/de`. All off = locale is always `he` and `t()` returns the
 Hebrew catalog text exactly. Your PR does not need its own flag: moving text to the catalog is invisible.
@@ -443,3 +443,23 @@ everywhere). Add your folder in commit 1, with a one-line comment:
 7. PR body: namespace and key prefix, number of keys, folders migrated and skipped (with why), the two-commit proof
    (snapshot count), and a **"manual"** list: data strings left, services with outside callers, slash forms,
    wave-3 dates/numbers, content names, copy oddities kept verbatim.
+
+## 11. New files are born translated (Check 6)
+
+`scripts/safety-check.sh` Check 6 blocks a commit/PR that **adds** a `.ts`/`.tsx` file under `src/app/**` or
+`src/features/**` with Hebrew letters on a non-comment line — wherever it lives, even outside `migrated-paths.txt`.
+Only newly added files are checked (existing files are Check 5's job once their folder is migrated). Skipped:
+any path with an `/admin/` segment, tests (`__tests__/`, `*.test.*`, `*.spec.*`), `.d.ts`, and files already inside
+a migrated folder (Check 5 covers those).
+
+Fix: write the screen with `t()` from the start — keys in `src/messages/he/<namespace>.json` (the namespace that owns
+the folder, §2), then add the folder (or file) to `migrated-paths.txt` so later edits stay clean too.
+
+Escape hatch for a genuine data/content file (seed lists, city names, content that is not UI copy) — line 1:
+
+```ts
+// i18n-exempt: city-name seed data, not UI copy
+```
+
+A reason is required (`// i18n-exempt:` alone does not count). For one data line inside a UI file use the
+per-line `i18n-allow-hebrew: <reason>` marker from §8.
