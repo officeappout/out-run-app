@@ -593,6 +593,31 @@ export async function replaceRecurringSchedule(
   }
 }
 
+/**
+ * Planner week builder "מעכשיו והלאה" (enable_week_builder_v1, phase 2 — the only caller is
+ * src/features/schedule/week-builder/planner/plannerSave.service.ts). The recurring template
+ * (already merged per day with mergeDayItems by the pure planner) and lifestyle.scheduleDays,
+ * the same two fields updateScheduleDays writes. Dotted paths only.
+ */
+export async function replaceRecurringTemplate(
+  recurringTemplate: Record<string, string[]>,
+  scheduleDays: string[],
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      'lifestyle.recurringTemplate': recurringTemplate,
+      'lifestyle.scheduleDays': scheduleDays,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.error('[UserSchedule] replaceRecurringTemplate FAILED', err);
+    return false;
+  }
+}
+
 /** The builder drawer's controls alone ("this week only" still remembers them). Same flag as above. */
 export async function saveScheduleAdvisorPrefs(prefs: { availableDayCount: number; focus: number }): Promise<boolean> {
   const uid = await resolveAuthUid();
@@ -756,6 +781,44 @@ export async function addScheduleEntry(
   } catch (err) {
     console.error(`[UserSchedule] addScheduleEntry FAILED  ${date}`, err);
     throw err;
+  }
+}
+
+/**
+ * Planner v2 (enable_week_builder_v1): set the planned time of some of a day's entries —
+ * the EXISTING `startTime` field ('HH:MM'). One read + one write of the day doc; the
+ * entries keep their order and every other field. Returns false when nothing matched or
+ * the write failed (never throws).
+ */
+export async function setScheduleEntriesStartTime(
+  _userId: string,
+  date: string,
+  entryIds: readonly string[],
+  startTime: string,
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid || entryIds.length === 0) return false;
+  try {
+    const day = await getScheduleDay(_userId, date);
+    if (!day) return false;
+    let hit = 0;
+    const entries = day.entries.map((e) => {
+      if (!e.entryId || !entryIds.includes(e.entryId)) return e;
+      hit++;
+      return { ...e, startTime, updatedAt: new Date().toISOString() };
+    });
+    if (hit === 0) return false;
+    const next: UserScheduleDay = {
+      userId: uid,
+      date,
+      entries: entries.map((e) => stripUndefined(e as unknown as Record<string, unknown>) as unknown as UserScheduleEntry),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, COLLECTION, docId(uid, date)), next, { merge: false });
+    return true;
+  } catch (err) {
+    console.error(`[UserSchedule] setScheduleEntriesStartTime FAILED  ${date}`, err);
+    return false;
   }
 }
 

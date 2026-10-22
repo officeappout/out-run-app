@@ -4,6 +4,8 @@
  * Request (JSON):
  *   { message: string }                                  a new user turn
  *   { toolResult: { id, outcome: ClientToolOutcome } }   answer to a client_tool event
+ *   either may carry `builder` (BuilderContext): the draft week on screen while the chat is
+ *   open over the week builder (enable_week_builder_v1; ignored with the flag off)
  *
  * Response: text/event-stream, one JSON object per `data:` line:
  *   text         a chunk of Kelly's reply
@@ -20,6 +22,7 @@
  */
 import { z } from 'zod';
 import { ClientToolOutcomeSchema, type CoachLocation } from './tools';
+import { BuilderContextSchema } from './schedule-proposal/builder-context';
 import type { CoachGender } from './persona';
 import { aiPauseReply } from './ai-pause';
 import type { CoachActionId } from './action-chips';
@@ -30,9 +33,10 @@ import type { Round4Extras } from './round4/types';
 export const CHAT_MESSAGE_MAX_CHARS = 1000;
 
 export const ChatRequestSchema = z.union([
-  z.object({ message: z.string().trim().min(1).max(CHAT_MESSAGE_MAX_CHARS) }),
+  z.object({ message: z.string().trim().min(1).max(CHAT_MESSAGE_MAX_CHARS), builder: BuilderContextSchema.optional() }),
   z.object({
     toolResult: z.object({ id: z.string().min(1).max(100), outcome: ClientToolOutcomeSchema }),
+    builder: BuilderContextSchema.optional(),
   }),
 ]);
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;

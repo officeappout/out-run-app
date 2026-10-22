@@ -99,6 +99,9 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { loadingLook } from '@/hooks/feature-flag-viewer-cache';
 import ScreenSkeleton from '@/components/ui/v2/ScreenSkeleton';
 import { useCalmReturn } from '@/features/home/hooks/useCalmReturn';
+import { useRunCatchUp } from '@/features/home/hooks/useRunCatchUp';
+import RunReturnDrawer from '@/features/home/components/run-return/RunReturnDrawer';
+import RunCatchUpNotice from '@/features/home/components/run-return/RunCatchUpNotice';
 import { calmCopy } from '@/lib/calm-return/surface';
 import { startMiniDomainAssessment } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { HomeV2Context, useHomeV2 } from '@/features/home/context/HomeV2Context';
@@ -1279,6 +1282,8 @@ export default function HomePage() {
   // return episode (the one write + the ONE fresh-week card per return); StatsOverview only
   // reads the same state for its card titles. Off → nothing here renders or writes.
   const calmReturn = useCalmReturn(profile, { manageEpisode: true });
+  // enable_week_builder_v1: the running-plan catch-up (one calm line, or the "חוזרים לרוץ" drawer).
+  const runCatchUp = useRunCatchUp(profile, { manage: true });
   // enable_home_v2: is there a streak card today (broken / shield / milestone)? Cheap store read.
   const hasStreakNotice = useHasStreakCard();
   const [startingPreWorkoutSuggestionId, setStartingPreWorkoutSuggestionId] = useState<string | null>(null);
@@ -3793,6 +3798,11 @@ export default function HomePage() {
                 );
                 // Calm return: the ONE quiet card on the first open after 7+ days away —
                 // above today's workout, never a modal. null whenever the flag is off.
+                const runCatchUpCard = runCatchUp.notice && isViewingToday ? (
+                  <div className="px-4 mb-3">
+                    <RunCatchUpNotice text={runCatchUp.notice} onDismiss={runCatchUp.dismissNotice} />
+                  </div>
+                ) : null;
                 const calmReturnCard = calmReturn.surface.kind === 'fresh_week_card' && isViewingToday ? (
                   <div className="px-4 mb-3">
                     <CalmReturnCard
@@ -3814,7 +3824,7 @@ export default function HomePage() {
                 const streakCard = featureFlags.enableHomeV2 && isViewingToday && hasStreakNotice ? (
                   <div className="px-4 mb-3"><StreakNoticeCard /></div>
                 ) : null;
-                const calmCard = calmReturnCard ?? streakCard;
+                const calmCard = calmReturnCard ?? runCatchUpCard ?? streakCard;
                 // enable_home_v2: the first-week card (days 0–7 until the first workout;
                 // renders nothing otherwise). The calm-return card wins when both apply.
                 const firstWeekCard = featureFlags.enableHomeV2 && isViewingToday && !calmCard
@@ -4366,6 +4376,9 @@ export default function HomePage() {
         onDismiss={dismissJIT}
         onCancel={cancelJIT}
       />
+
+      {/* enable_week_builder_v1: "חוזרים לרוץ" — asks before a long break changes the running plan. */}
+      <RunReturnDrawer key={runCatchUp.ask ? `ask-${runCatchUp.ask.raceDate ?? ""}` : "none"} ask={runCatchUp.ask} onChoose={runCatchUp.choose} onClose={runCatchUp.dismissAsk} />
     </div>
     </HomeV2Context.Provider>
   );

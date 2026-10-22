@@ -26,6 +26,7 @@ import { refusedSendAction } from '@/lib/ai/coach/ai-pause';
 import { useKellyThreadMeta } from './useKellyThread';
 import { parseStoredSuggestions } from '@/lib/ai/coach/suggestions/stored';
 import { parseProposalView } from '@/lib/ai/coach/schedule-proposal/types';
+import type { BuilderContext } from '@/lib/ai/coach/schedule-proposal/builder-context';
 import { parseRound4Extras } from '@/lib/ai/coach/round4/types';
 
 /** Kelly phase 2 fields of a stored message (absent unless ai_coach_phase2 wrote them). */
@@ -82,6 +83,11 @@ export interface AiCoachChatOptions {
   unified?: boolean;
   /** Start in team-only mode (no AI for this user). Only with `unified`. */
   teamOnly?: boolean;
+  /**
+   * enable_week_builder_v1: the chat is open over the week builder — the draft week on screen,
+   * read at every request (the latest edit) and sent as `builder`. Absent = unchanged requests.
+   */
+  builderContext?: () => BuilderContext | null;
 }
 
 export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachChatOptions = {}) {
@@ -94,6 +100,8 @@ export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachCha
   useEffect(() => {
     if (unified && opts.teamOnly) setTeamMode(true);
   }, [unified, opts.teamOnly]);
+  const builderRef = useRef(opts.builderContext);
+  builderRef.current = opts.builderContext;
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -199,7 +207,9 @@ export function useAiCoachChat(profile: UserFullProfile | null, opts: AiCoachCha
   }, []);
 
   // ── One request (+ the client tool continuation it may trigger) ─────────────
-  const run = useCallback(async (body: ChatRequest): Promise<void> => {
+  const run = useCallback(async (request: ChatRequest): Promise<void> => {
+    const builder = builderRef.current?.() ?? null;
+    const body: ChatRequest = builder ? { ...request, builder } : request;
     const ac = new AbortController();
     abortRef.current = ac;
     let clientCall: Extract<CoachStreamEvent, { type: 'client_tool' }> | null = null;

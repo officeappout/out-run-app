@@ -4,6 +4,8 @@ import { useId } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { Card, IconTile } from '@/components/ui/v2';
 import { levelRingModel, ringDashOffset } from '../utils/level-ring.util';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 export interface LevelRingCardProps {
   programName: string;
@@ -24,7 +26,8 @@ const R = SIZE / 2 - STROKE / 2 - 1;
  */
 export default function LevelRingCard({ programName, currentLevel, maxLevel, progressPercent }: LevelRingCardProps) {
   const gid = useId().replace(/:/g, '');
-  const m = levelRingModel(currentLevel, maxLevel, progressPercent);
+  const t = useT(player);
+  const m = levelRingModel(t, currentLevel, maxLevel, progressPercent);
   const c = 2 * Math.PI * R;
 
   return (

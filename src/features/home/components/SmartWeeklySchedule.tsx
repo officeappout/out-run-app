@@ -14,7 +14,7 @@ import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { DaySchedule } from '@/features/home/data/mock-schedule-data';
-import { Bed, Check, ChevronDown, CalendarDays, Footprints, Zap, Timer, TrendingUp, Mountain } from 'lucide-react';
+import { Bed, Check, ChevronDown, CalendarDays, Footprints } from 'lucide-react';
 import { useDailyActivity, useWeeklyProgress, useDayStatus, useDateKey, usePastWorkoutCompleted } from '@/features/activity';
 import { CompactRingsProgress } from './rings/ConcentricRingsProgress';
 import { resolveIconKey, SmartDayIcon, getProgramIcon, CyanDot, PROGRAM_ALIAS_TO_ICON } from '@/features/content/programs/core/program-icon.util';
@@ -27,6 +27,8 @@ import {
   type DayDisplayProps,
   type DaySessionInput,
 } from '@/features/home/utils/day-display.utils';
+import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
+import { RUN_CATEGORY_COLORS, getRunCategoryColor, getRunCategoryIcon } from '@/features/home/utils/run-category-icon';
 import { capsuleBackground, streakRuns, FLAME_TONES, type FlameTone, type StreakCell } from '@/components/ui/v2/streak';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
 import MonthlyCalendarGrid from './calendar/MonthlyCalendarGrid';
@@ -42,6 +44,7 @@ import { excludeRunningShadowEntry } from '@/features/schedule/services/excludeR
 import { mapRunEntriesToWeekdays, runOverlayDayFields } from '@/features/home/utils/run-overlay-day';
 import { walkDayCell, walkSessionOverride, WALK_DAY_COLOR } from '@/features/home/utils/walk-day-cell';
 import { mapRunWeekFromLetters, type RunPlacementContext } from '@/features/schedule/utils/runWeekByType';
+import { applyRunMovesToDowMap, localKeyOf, sundayKeyOf } from '@/features/schedule/utils/runWeekMoves';
 import { 
   ACTIVITY_COLORS, 
   ACTIVITY_LABELS,
@@ -255,25 +258,8 @@ const MINI_RING_GOALS = {
 } as const;
 
 // ── Running Workout Category → Color (Admin Panel sync) ──
-const CATEGORY_COLORS: Record<string, string> = {
-  easy_run:             '#4CAF50',
-  long_run:             '#2E7D32',
-  short_intervals:      '#E11D48',
-  long_intervals:       '#0D9488',
-  fartlek_easy:         '#CE93D8',
-  fartlek_structured:   '#AB47BC',
-  tempo:                '#9C27B0',
-  hill_long:            '#FF7043',
-  hill_short:           '#EF6C00',
-  hill_sprints:         '#DC2626',
-  strides:              '#00BAF7',
-  recovery:             '#B0BEC5',
-};
-
-function getCategoryColor(category: string | undefined): string {
-  if (!category) return '#00BAF7';
-  return CATEGORY_COLORS[category] ?? '#00BAF7';
-}
+const CATEGORY_COLORS = RUN_CATEGORY_COLORS;
+const getCategoryColor = getRunCategoryColor;
 
 function getCategoryLabel(category: string | undefined): string {
   if (!category) return 'אימון ריצה';
@@ -757,23 +743,7 @@ function CompactWorkoutCard({ entry }: { entry: RunningScheduleEntry }) {
 // RUNNING DAY ICON (color-coded for calendar strip)
 // ============================================================================
 
-function getCategoryIcon(category: string | undefined, className: string) {
-  switch (category) {
-    case 'short_intervals':
-    case 'long_intervals':
-      return <Zap className={className} />;
-    case 'tempo':
-      return <Timer className={className} />;
-    case 'long_run':
-      return <TrendingUp className={className} />;
-    case 'hill_long':
-    case 'hill_short':
-    case 'hill_sprints':
-      return <Mountain className={className} />;
-    default:
-      return <Footprints className={className} />;
-  }
-}
+const getCategoryIcon = getRunCategoryIcon;
 
 function RunningDayIcon({
   entry,
@@ -899,16 +869,19 @@ export default function SmartWeeklySchedule({
   const placeLevel = runPlacement?.level;
   const placeDistance = runPlacement?.targetDistance;
   const placeLongDay = runPlacement?.preferredLongRunDay;
+  // enable_week_builder_v1: this week's per-date run moves (runWeekMoves.ts); none = unchanged.
+  const placeRunMoves = runPlacement?.runMoves;
   const runningEntriesByDayIndex = useMemo(() => {
     // enable_home_v2: by slot type — the long run on its engine-v2 day, the
     // same week the signup summary showed (runWeekByType).
     if (v2 && (runOverlay || isRunningMode)) {
-      return mapRunWeekFromLetters(currentWeekEntries, runOverlay ? runOverlayDays ?? [] : scheduleDays, {
+      const byDay = mapRunWeekFromLetters(currentWeekEntries, runOverlay ? runOverlayDays ?? [] : scheduleDays, {
         byType: true,
         level: placeLevel,
         targetDistance: placeDistance,
         preferredLongRunDay: placeLongDay,
       });
+      return placeRunMoves?.length ? applyRunMovesToDowMap(byDay, sundayKeyOf(localKeyOf(new Date())), placeRunMoves) : byDay;
     }
     if (runOverlay) return mapRunEntriesToWeekdays(currentWeekEntries, runOverlayDays ?? [], HEBREW_DAYS);
     if (!isRunningMode || !currentWeekEntries.length) return new Map<number, RunningScheduleEntry>();
@@ -924,7 +897,7 @@ export default function SmartWeeklySchedule({
       if (dayIdx !== undefined) map.set(dayIdx, entry);
     });
     return map;
-  }, [v2, placeLevel, placeDistance, placeLongDay, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
+  }, [v2, placeLevel, placeDistance, placeLongDay, placeRunMoves, isRunningMode, runOverlay, runOverlayDays, currentWeekEntries, scheduleDays]);
 
   const handleRunCardClick = useCallback((entry: RunningScheduleEntry) => {
     const params = new URLSearchParams();
@@ -965,6 +938,7 @@ export default function SmartWeeklySchedule({
   // Centralized day-status brain — encapsulates the Completion Bridge and
   // icon-priority logic. Returns a stable getter to use inside useMemo.
   const getDayStatus = useDayStatus();
+  const ringColors = useTrackRingColors();
 
   // Subscribe to the global midnight clock so the weekly strip's "today"
   // index advances at 00:00 without a hard refresh.
@@ -1493,7 +1467,7 @@ export default function SmartWeeklySchedule({
         totalMinutes: dayData.totalMinutes,
         categories: dayData.categories,
         dominantCategory: dayData.dominantCategory,
-      });
+      }, ringColors);
       // props are required by DayIconCell but ignored when activityRing is set;
       // pass minimal valid state so the cell can echo today/selection if needed.
       // isRecoveryCompletion intentionally NOT threaded here: isRest and

@@ -32,6 +32,8 @@ export function decideTransition(p: StoredProposal | null, proposalId: string, a
   if (!p || p.id !== proposalId) return { ok: false, httpStatus: 404, error: 'not_found' };
   switch (action) {
     case 'confirm': {
+      // A builder-mode proposal (the draft week on screen) is applied by the builder, never saved here.
+      if (p.builderMoves !== undefined) return { ok: false, httpStatus: 404, error: 'not_found' };
       if (p.status === 'applied') return { ok: true, status: 'applied', patch: null, already: true };
       if (p.status === 'dismissed') return { ok: false, httpStatus: 409, error: 'dismissed' };
       if (p.status === 'applying' && ctx.nowMs - (p.claimedAtMs ?? 0) < CLAIM_STALE_MS) return { ok: false, httpStatus: 409, error: 'in_progress' };

@@ -62,6 +62,7 @@ export * from './tokens';
 export { default as StreakFlame } from './StreakFlame';
 export type { StreakFlameProps } from './StreakFlame';
 export * from './streak';
+export * from './track-colors';
 // Post-workout summary (home v2) building blocks.
 export * from './summary';
 export { default as ExerciseSetsTable, SetTileBox, SetsLegend, ExerciseThumb } from './ExerciseSetsTable';
@@ -131,3 +132,5 @@ export { default as ScreenSkeleton } from './ScreenSkeleton';
 export type { ScreenSkeletonProps } from './ScreenSkeleton';
 // Bottom chrome math: nav / FAB offsets and the end padding a scroll container needs.
 export * from './bottom-chrome';
+export { default as WheelPicker } from './WheelPicker';
+export type { WheelPickerProps, WheelColumn, WheelOption, WheelValue } from './WheelPicker';

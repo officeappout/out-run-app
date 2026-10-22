@@ -36,6 +36,7 @@ import type { RecurringTemplate, UserScheduleEntry } from '@/features/user/sched
 import { useUserStore } from '@/features/user';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { isDateWithinRunningPlan } from '@/lib/running-plan-date-range';
+import ArrangeWeekButton from '@/features/schedule/week-builder/planner/components/ArrangeWeekButton';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -99,6 +100,11 @@ interface RollingAgendaProps {
    * while the user is scrolling it.
    */
   scrollPickedDate?: string | null;
+  /**
+   * enable_week_builder_v1 (phase 2): "סידור השבוע" on the current and future weeks' labels —
+   * opens the week builder for that dated week. Absent = no button (flag off: unchanged).
+   */
+  onArrangeWeek?: (weekSunday: string) => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -177,6 +183,7 @@ export default function RollingAgenda({
   onEditEntry,
   onPreviewEntry,
   scrollPickedDate,
+  onArrangeWeek,
 }: RollingAgendaProps) {
   const { profile } = useUserStore();
   const runScheduleDays = profile?.running?.scheduleDays;
@@ -600,6 +607,9 @@ export default function RollingAgenda({
                   >
                     {t('rollingAgenda.week.number', { n: String(group.weekNumber) })}
                   </span>
+                )}
+                {onArrangeWeek && !group.isPastWeek && (
+                  <ArrangeWeekButton onPress={() => onArrangeWeek(group.weekSunday)} range={group.dateRange} />
                 )}
               </div>
 

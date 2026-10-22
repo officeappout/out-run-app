@@ -4,7 +4,6 @@ import React from 'react';
 import { useMapMode } from '@/features/parks/core/context/MapModeContext';
 import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
 import WorkoutSummaryPage from '@/features/workout-engine/summary/WorkoutSummaryPage';
-import { StrengthDopamineScreen } from '@/features/workout-engine/components/strength';
 import { useMapLogic } from '@/features/parks';
 import { useHybridRun } from '@/features/workout-engine/hybrid/useHybridRun';
 import { useProgressionStore } from '@/features/user/progression/store/useProgressionStore';
@@ -48,21 +47,9 @@ export default function SummaryLayer({ logic }: SummaryLayerProps) {
     router.push('/home');
   };
 
-  // Dopamine screen (transition to summary)
-  if (logic.showDopamine) {
-    return (
-      <StrengthDopamineScreen
-        initialProgress={63}
-        currentLevel={5}
-        programName={logic.workoutMode === 'free' ? 'אימון חופשי' : 'אימון מסלול'}
-        onShare={() => {}}
-        onBack={() => {
-          logic.setShowDopamine(false);
-          logic.setShowSummary(true);
-        }}
-      />
-    );
-  }
+  // (A mock StrengthDopamineScreen branch with a hard-coded 63% / level 5 used
+  // to live here behind logic.showDopamine — nothing ever sets that true, so it
+  // was removed. The real level-up screen renders on /workouts/[id]/active.)
 
   // Hybrid summary — the unified run+strength recap (Stage 3). Gated on the flag
   // + a stashed finalize result; a normal run leaves finishedHybrid=false and

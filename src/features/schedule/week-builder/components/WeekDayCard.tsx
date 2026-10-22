@@ -21,27 +21,32 @@ export interface WeekDayCardProps {
   date: number;
   tab: WbTab;
   hovered: boolean;
+  /** Just changed by Kelly's builder proposal (a short tint). */
+  highlighted?: boolean;
   rowRef: (el: HTMLElement | null) => void;
   onEdit: () => void;
   onDragMove: (clientY: number | null) => void;
   onDrop: (sessionId: string, clientY: number | null) => void;
 }
 
-export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, onDragMove, onDrop }: WeekDayCardProps) {
+export default function WeekDayCard({ day, date, tab, hovered, highlighted = false, rowRef, onEdit, onDragMove, onDrop }: WeekDayCardProps) {
   const t = useT(schedule);
-  const shown = day.sessions.filter((s) => inTab(tab, s.track));
-  const total = day.sessions.length;
+  // Owner 22.10: a past day shows only what was done — a session that did not happen is not
+  // shown (the calm "נסדר לך את שאר השבוע" suggestion is the one way it moves).
+  const visible = day.past ? day.sessions.filter((s) => s.status !== 'missed') : day.sessions;
+  const shown = visible.filter((s) => inTab(tab, s.track));
+  const total = visible.length;
   return (
     <div
       ref={rowRef}
       data-dow={day.dow}
-      className={`transition-colors duration-150 ease-v2 first:rounded-t-[22px] last:rounded-b-[22px] ${day.dow > 0 ? 'border-t border-v2-hairline' : ''} ${hovered ? 'bg-v2-tint/70' : ''}`}
+      className={`transition-colors duration-150 ease-v2 first:rounded-t-[22px] last:rounded-b-[22px] ${day.dow > 0 ? 'border-t border-v2-hairline' : ''} ${hovered || highlighted ? 'bg-v2-tint/70' : ''}`}
     >
       <WeekDayRow
         letter={DAY_LETTERS_HE[day.dow]}
         date={date}
         muted={total === 0}
-        emptyLabel={day.open ? t('weekBuilder.rest') : t('weekBuilder.notFree')}
+        emptyLabel={day.past ? t('weekBuilder.past') : day.open ? t('weekBuilder.rest') : t('weekBuilder.notFree')}
         onDateTap={onEdit}
         dateAriaLabel={t('weekBuilder.dateAria', { day: dayNameHe(day.dow) })}
       >
@@ -52,7 +57,8 @@ export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, o
                 key={s.id}
                 session={s}
                 dow={day.dow}
-                counterHe={total > 1 ? t('weekBuilder.double', { n: String(day.sessions.indexOf(s) + 1), total: String(total) }) : null}
+                past={day.past}
+                counterHe={total > 1 ? t('weekBuilder.double', { n: String(visible.indexOf(s) + 1), total: String(total) }) : null}
                 draggable={!s.locked}
                 onDragMove={onDragMove}
                 onDrop={(y) => onDrop(s.id, y)}

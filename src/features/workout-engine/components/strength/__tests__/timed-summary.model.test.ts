@@ -4,6 +4,11 @@ import { buildTimedResult } from '@/features/workout-engine/engines/timed/timed-
 import type { TimedBlockSpec, TimedItem } from '@/features/workout-engine/engines/timed/timed.types';
 import { amrapSummaryModel, emomSummaryModel, roundOrdinal, tabataSummaryLine } from '../utils/timed-summary.model';
 import { toTimedBlockRecord } from '@/features/workout-engine/engines/timed/timed-record';
+import { makeT } from '@/lib/i18n/t';
+import { player } from '@/messages/ns/player';
+
+// The card copy comes from the `player` catalog (strengthSummary.timed.*) through the caller's translator.
+const t = makeT('he', player);
 const rec = (s: Parameters<typeof buildTimedResult>[0]) => toTimedBlockRecord('seg-main', buildTimedResult(s));
 
 const T0 = 1_000_000;
@@ -20,13 +25,13 @@ describe('timed summary cards (A-2f / A-4f)', () => {
       { type: 'TICK', atMs: T0 + 600_000 },
       { type: 'LOG_REPS', atMs: T0 + 601_000, reps: 4 },
     ]);
-    const m = amrapSummaryModel(rec(s))!;
+    const m = amrapSummaryModel(t, rec(s))!;
     expect(m.title).toBe('AMRAP 10′');
     expect(m.fullRounds).toBe(1);
     expect(m.extraLine).toBe('ועוד 16 חזרות בסבב השני');
     expect(m.rounds).toEqual([{ key: 'r0', label: 'סבב 1', time: '2:31' }]);
     expect(m.partial).toEqual({ label: '16/22', fraction: 16 / 22 });
-    expect(roundOrdinal(14)).toBe('בסבב ה-14');
+    expect(roundOrdinal(t, 14)).toBe('בסבב ה-14');
   });
 
   it('EMOM: minutes on time, averages, bars by tone', () => {
@@ -37,7 +42,7 @@ describe('timed summary cards (A-2f / A-4f)', () => {
       { type: 'LOG_REPS', atMs: T0 + 119_000, reps: 8, index: 1 },
       { type: 'TICK', atMs: T0 + 181_000 },
     ]);
-    const m = emomSummaryModel(rec(s))!;
+    const m = emomSummaryModel(t, rec(s))!;
     expect(m.doneLabel).toBe('1/3');
     expect(m.percent).toBe(33);
     expect(m.totalReps).toBe(20);
@@ -45,12 +50,12 @@ describe('timed summary cards (A-2f / A-4f)', () => {
     expect(m.avgRest).toBe('0:20');
     expect(m.bars.map((b) => b.tone)).toEqual(['done', 'partial', 'missed']);
     expect(m.note).toBe('דקה 2 (כתום): 8 מתוך 10 חזרות');
-    expect(amrapSummaryModel(rec(s))).toBeNull();
+    expect(amrapSummaryModel(t, rec(s))).toBeNull();
   });
 
   it('tabata line', () => {
     const spec: TimedBlockSpec = { format: 'tabata', config: { workSec: 20, restSec: 10, rounds: 2 }, items: [ex('a', 0)] };
     const s = reduceTimedAll(initTimed(spec), [{ type: 'START', atMs: T0 }, { type: 'TICK', atMs: T0 + 60_000 }]);
-    expect(tabataSummaryLine(rec(s))).toBe('2/2 אינטרוולים');
+    expect(tabataSummaryLine(t, rec(s))).toBe('2/2 אינטרוולים');
   });
 });

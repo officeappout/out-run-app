@@ -18,6 +18,7 @@ import type { WeatherFlag } from '@/features/weather/core/weather.types';
 import { resolveRunningCurrentWeek } from '@/features/workout-engine/shared/utils/running-current-week.utils';
 import { resolveRunningDayState } from '@/lib/running-day-resolution';
 import { mapRunWeekFromLetters, runPlacementOf } from '@/features/schedule/utils/runWeekByType';
+import { applyRunMovesToDowMap, localKeyOf, sundayKeyOf } from '@/features/schedule/utils/runWeekMoves';
 import type { WorkoutCategory } from '@/features/workout-engine/core/types/running.types';
 import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import RunWeekListV2 from './run-week-v2/RunWeekListV2';
@@ -146,8 +147,8 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
   // comment for the bug this closes).
   // enable_home_v2: runs on their weekday by slot type (runWeekByType — the
   // signup placement); flag off → the k-th run on the k-th day, as today.
-  const { level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay } = runPlacementOf(running);
-  const placement = v2 ? { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay } : undefined;
+  const { level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay, runMoves } = runPlacementOf(running);
+  const placement = v2 ? { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay, runMoves } : undefined;
   const dayState = resolveRunningDayState(
     scheduleDays,
     running?.activeProgram?.schedule as any[] | undefined,
@@ -188,7 +189,11 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
       const todayIdx = new Date().getDay();
 
       let todayEntry: any | undefined = v2
-        ? mapRunWeekFromLetters(weekEntries, scheduleDays, { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay }).get(todayIdx)
+        ? applyRunMovesToDowMap(
+            mapRunWeekFromLetters(weekEntries, scheduleDays, { byType: true, level: placeLevel, targetDistance: placeDistance, preferredLongRunDay: placeLongDay }),
+            sundayKeyOf(localKeyOf(new Date())),
+            runMoves,
+          ).get(todayIdx)
         : undefined;
       if (!v2) for (const entry of weekEntries) {
         const slotIndex = entry.day - 1;
@@ -224,7 +229,7 @@ export default function NextRunWorkoutCard({ weatherFlag = null, calmReturn = nu
       pendingWeek: effectiveCurrentWeek ?? 1,
       pendingDay: undefined as number | undefined,
     };
-  }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek, v2, placeLevel, placeDistance, placeLongDay]);
+  }, [running?.activeProgram, hasActiveSchedule, scheduleDays, effectiveCurrentWeek, v2, placeLevel, placeDistance, placeLongDay, runMoves]);
 
   // ── Load full workout when briefing drawer opens ──
   // v2 loads today's workout up front (its card shows the strip + numbers);

@@ -20,6 +20,12 @@
  * run prints TARGET + the summary and asks for a typed YES, then writes
  * city_inventory/{authorityId} + runs/{runId} in one batch via the I0 store.
  *
+ * ALL AUTHORITIES (RC8 step 4) — resumable, one authority at a time:
+ *   npx tsx scripts/city-inventory/run.ts --all                     # every city/council with a boundary, dry-run
+ *   … --all --tier=client|large_city|regional_council|other  --limit=N  --fresh  --retry-errors
+ *   … --all --out=<dir>   (default scripts/output/city-inventory/all — checkpoint.json + summary-all.{json,md})
+ *   Owner batch write: --all --tier=client --apply --project appout-1   (typed YES per authority)
+ *
  * Point-layer density is compared with the median of earlier runs of the
  * same authority type (≥ 3 peers) found under scripts/output/city-inventory/,
  * so run the pilot cities once, then again, to fill the peer medians.
@@ -31,105 +37,110 @@ const envFlag = argv.find((a) => a.startsWith('--env='))?.slice('--env='.length)
 dotenv.config({ path: envFlag || '.env.local' });
 dotenv.config();
 
-import { buildBoundaryIndex, buildCityInventory, formatCityReport, licensePendingKeys } from '../../src/lib/city-inventory';
-import { TECHNION_PERMISSION } from '../../src/lib/shade/technion-layers';
+import * as fs from 'fs';
+import { formatRollupMarkdown, inventoryTodo, INVENTORY_TIERS, newInventoryCheckpoint, orderInventoryAuthorities, parseInventoryCheckpoint, rollupReadiness, type InventoryCheckpoint, type InventoryTier } from '../../src/lib/city-inventory/all-run';
+import { boundaryFromStored } from '../../src/lib/dataset-import';
 import { assertOsmium, ensureIsraelPbf, pbfTimestamp } from '../lib/osm-pbf.node';
-import { PRODUCTION_PROJECT, describeTarget, flagValue, openTarget, parseApplyFlags } from '../trails/lib/trails-apply.node';
-import { applyFlagErrors, applyInventory } from './lib/apply.node';
-import { extractInventoryFeatures } from './lib/osm-extract.node';
-import { readPeerRows, removeWorkDir, writeSummary, WORK_ROOT } from './lib/output.node';
-import { countApprovedRoutes, loadTechnionShade, readAuthority } from './lib/prod-read.node';
-import { loadLightingFromFile, loadLightingFromStorage } from './lib/lighting-read.node';
+import { PRODUCTION_PROJECT, describeTarget, flagValue, openTarget, parseApplyFlags, type Target } from '../trails/lib/trails-apply.node';
+import { OUTPUT_ROOT } from './lib/output.node';
+import { runOneInventory, type RunOneOptions } from './lib/run-one.node';
 
 const AUTHORITY = flagValue(argv, 'authority');
 const CITY = flagValue(argv, 'city');
 const PBF = flagValue(argv, 'pbf');
-const NO_SHADE = argv.includes('--no-shade');
-const NO_LIGHTING = argv.includes('--no-lighting');
-const LIGHTING_FILE = flagValue(argv, 'lighting-file');
-const KEEP_WORK = argv.includes('--keep-work');
+const ALL = argv.includes('--all');
+const TIER = flagValue(argv, 'tier') as InventoryTier | null;
+const LIMIT = Number(flagValue(argv, 'limit') ?? 0) || null;
+const FRESH = argv.includes('--fresh');
+const RETRY_ERRORS = argv.includes('--retry-errors');
+const ALL_OUT = flagValue(argv, 'out') ?? path.join(OUTPUT_ROOT, 'all');
 const FLAGS = parseApplyFlags(argv);
 
-async function timed<T>(timings: Record<string, number>, key: string, fn: () => Promise<T> | T): Promise<T> {
-  const t0 = Date.now();
-  try { return await fn(); } finally { timings[key] = Date.now() - t0; }
+let stopRequested = false;
+process.on('SIGINT', () => {
+  if (stopRequested) process.exit(130);
+  stopRequested = true;
+  console.log('\n⏸  Stop requested — finishing the current authority, then saving the checkpoint. (Ctrl-C again to abort now.)');
+});
+
+function writeJson(file: string, v: unknown) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify(v, null, 2));
+  fs.renameSync(`${file}.tmp`, file);
+}
+
+async function runAll(prod: Target, o: RunOneOptions) {
+  if (TIER && !INVENTORY_TIERS.includes(TIER)) throw new Error(`--tier must be one of ${INVENTORY_TIERS.join(', ')}`);
+  if (FLAGS.apply && !FLAGS.project) throw new Error('--all --apply needs --project <id> (production: --project appout-1)');
+  const snap = await prod.db.collection('authorities').select('name', 'type', 'population', 'isActiveClient', 'boundaryGeoJSON').get();
+  const rows = snap.docs.map((d) => {
+    const a = d.data();
+    return {
+      id: d.id, name: String(a?.name ?? d.id).trim(), type: typeof a?.type === 'string' ? a.type : null,
+      population: typeof a?.population === 'number' && a.population > 0 ? a.population : null,
+      isActiveClient: a?.isActiveClient === true, hasBoundary: !!boundaryFromStored(a?.boundaryGeoJSON),
+    };
+  });
+  const { ordered, skippedNoBoundary } = orderInventoryAuthorities(rows);
+  const inRun = ordered.filter((a) => !TIER || a.tier === TIER).slice(0, LIMIT ?? undefined);
+  console.log(`authorities: ${rows.length} docs → ${ordered.length} city/council with a boundary (${skippedNoBoundary.length} without — skipped) → ${inRun.length} in this run`);
+
+  const cpFile = path.join(ALL_OUT, 'checkpoint.json');
+  let cp: InventoryCheckpoint | null = !FRESH && fs.existsSync(cpFile) ? parseInventoryCheckpoint(fs.readFileSync(cpFile, 'utf8')) : null;
+  if (cp && cp.apply !== FLAGS.apply) throw new Error(`checkpoint ${cpFile} is a ${cp.apply ? 'apply' : 'dry-run'} run — use --fresh or another --out`);
+  cp = cp ?? newInventoryCheckpoint(FLAGS.apply);
+  const todo = inventoryTodo(cp, inRun.map((a) => a.id), RETRY_ERRORS);
+  console.log(`checkpoint: ${Object.keys(cp.done).length} done · to do now: ${todo.length}`);
+  writeJson(cpFile, cp);
+
+  const byId = new Map(inRun.map((a) => [a.id, a]));
+  for (const id of todo) {
+    if (stopRequested) break;
+    const a = byId.get(id)!;
+    console.log(`\n■ ${a.name} [${a.id}] — ${a.tier}`);
+    try {
+      const r = await runOneInventory(prod, { id, city: null }, { ...o, batch: true, log: () => {} });
+      const rd = r.inventory.readiness;
+      console.log(`  ${rd.level} ${rd.score}/100 · approved routes ${r.routes.approved} · ${rd.blockers[0] ?? 'no blocker'}`);
+      cp.done[id] = { name: a.name, tier: a.tier, status: 'done', finishedAt: new Date().toISOString(), level: rd.level, score: rd.score, missing: rd.missing, blockers: rd.blockers, approvedRoutes: r.routes.approved, file: r.files.json };
+    } catch (e) {
+      console.error(`  ✖ ${(e as Error).message}`);
+      cp.done[id] = { name: a.name, tier: a.tier, status: 'error', finishedAt: new Date().toISOString(), note: (e as Error).message.slice(0, 300) };
+    }
+    writeJson(cpFile, cp);
+  }
+
+  const rollup = rollupReadiness(cp.done);
+  writeJson(path.join(ALL_OUT, 'summary-all.json'), { generatedAt: new Date().toISOString(), apply: FLAGS.apply, skippedNoBoundary: skippedNoBoundary.map((r) => ({ id: r.id, name: r.name, type: r.type })), rollup, done: cp.done });
+  fs.writeFileSync(path.join(ALL_OUT, 'summary-all.md'), `${formatRollupMarkdown(rollup, cp.done)}\n`);
+  console.log(`\nREADINESS (${rollup.authorities}): 🔴${rollup.levels.red} 🟡${rollup.levels.yellow} 🟢${rollup.levels.green} · errors ${rollup.errors} · mean ${rollup.meanScore ?? '—'}`);
+  console.log(`summary: ${path.join(ALL_OUT, 'summary-all.md')}${stopRequested ? ' — stopped early; run the same command to continue' : ''}`);
+  if (!FLAGS.apply) console.log('Dry run — nothing written to Firestore or Storage.');
 }
 
 async function main() {
-  if (!AUTHORITY && !CITY) throw new Error('usage: --authority=<authorityId> | --city=<name>  [--apply --project appout-1 --authority=<id>]');
-  const timings: Record<string, number> = {};
-  const t0 = Date.now();
+  if (!ALL && !AUTHORITY && !CITY) throw new Error('usage: --authority=<authorityId> | --city=<name> | --all  [--apply --project appout-1 --authority=<id>]');
   assertOsmium();
   const pbf = PBF ? path.resolve(PBF) : await ensureIsraelPbf();
   const osmTs = pbfTimestamp(pbf);
   if (!osmTs) throw new Error(`cannot read the replication timestamp of ${pbf} — refusing to report an undated snapshot`);
-  const osmSnapshotDate = osmTs.slice(0, 10);
 
   // One target for the reads and (with --apply) the write: production by
   // default, the emulator when FIRESTORE_EMULATOR_HOST is set.
   const prod = await openTarget(FLAGS.project ?? PRODUCTION_PROJECT);
   console.log(`READ (read-only): ${describeTarget(prod)} · OSM ${osmTs} (${pbf})`);
-
-  const authority = await timed(timings, 'authority', () => readAuthority(prod.db, { id: AUTHORITY, city: CITY }));
-  const boundary = buildBoundaryIndex(authority.boundary);
-  if (!boundary) throw new Error(`authorities/${authority.id} (${authority.name}) has no usable boundaryGeoJSON — stopping (axioms §23: no boundary, no inventory)`);
-  console.log(`AUTHORITY: ${authority.name} (${authority.id}, ${authority.type}, population ${authority.population ?? 'unknown'}) · boundary ${boundary.areaKm2} km²`);
-
-  if (FLAGS.apply) {
-    const errs = applyFlagErrors(FLAGS, authority.id);
-    if (errs.length) throw new Error(`--apply refused:\n  - ${errs.join('\n  - ')}`);
-  }
-
-  const work = path.join(WORK_ROOT, authority.id);
-  let features: Awaited<ReturnType<typeof extractInventoryFeatures>>;
-  try {
-    features = await timed(timings, 'osmExtract', () => extractInventoryFeatures(pbf, boundary, work));
-  } finally {
-    // The cuts are only needed by the extract itself; everything after works
-    // from the parsed features. Removed on failure too, unless --keep-work.
-    if (KEEP_WORK) console.log(`work dir kept: ${work}`);
-    else if (removeWorkDir(work)) console.log(`work dir removed: ${work}`);
-  }
-  console.log(`OSM: ${features.ways.length} ways · ${features.nodes.length} tagged nodes · ${features.areas.length} polygons (bbox extract)`);
-
-  const routes = await timed(timings, 'approvedRoutes', () => countApprovedRoutes(prod.db, authority));
-  const shade = NO_SHADE ? null : await timed(timings, 'shadeLoad', () => loadTechnionShade(prod.app, prod.projectId, authority.name));
-  console.log(`approved routes: ${routes.approved} (${routes.byAuthorityId} by authorityId + ${routes.byCityName} legacy by city name; ${routes.pending} pending, ${routes.noStatus} with no published flag) · shade: ${shade ? `${shade.choice.sourceKey} ${shade.segmentCount} segments (${shade.snapshotDate})` : 'none'}`);
-
-  const lighting = NO_LIGHTING
-    ? null
-    : await timed(timings, 'lightingLoad', () => (LIGHTING_FILE ? loadLightingFromFile(LIGHTING_FILE) : loadLightingFromStorage(prod.app, prod.projectId, authority.name)));
-  if (lighting) console.log(`lighting: lighting/v1 ${lighting.file.city} — ${lighting.file.pieces.length} pieces, sources ${lighting.sources.map((s) => s.key).join(', ')}${lighting.pendingKeys.length ? ` (pending licence: ${lighting.pendingKeys.join(', ')})` : ''}`);
-  const pendingKeys = licensePendingKeys(TECHNION_PERMISSION);
-  for (const k of lighting?.pendingKeys ?? []) pendingKeys.add(k);
-
-  const now = new Date();
-  const runId = `ci-${now.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')}`;
-  const { inventory, extras } = await timed(timings, 'build', () => buildCityInventory({
-    authority: { id: authority.id, name: authority.name, type: authority.type, population: authority.population },
-    boundary,
-    features,
-    osmSnapshotDate,
-    approvedRoutes: routes.approved,
-    shade,
-    peers: readPeerRows(),
-    lighting,
-    licensePendingKeys: pendingKeys,
-    now,
-    runId,
-    builtBy: 'scripts/city-inventory/run.ts',
-  }));
-  timings.total = Date.now() - t0;
-
-  const report = formatCityReport(inventory, extras, routes.approved);
-  const files = writeSummary({ kind: 'city-inventory-dry-run', generatedAt: now.toISOString(), apply: FLAGS.apply, inventory, extras, approvedRoutes: routes, timingsMs: timings }, report);
-  console.log(`\n${report}\n\nsummary: ${files.json}\ntable:   ${files.md}\ntimings (ms): ${JSON.stringify(timings)}`);
-
-  if (!FLAGS.apply) {
-    console.log('\nDry run — nothing written to Firestore or Storage.');
-    return;
-  }
-  await applyInventory(prod, inventory);
+  const o: RunOneOptions = {
+    pbf, osmTs,
+    noShade: argv.includes('--no-shade'),
+    noLighting: argv.includes('--no-lighting'),
+    lightingFile: flagValue(argv, 'lighting-file'),
+    keepWork: argv.includes('--keep-work'),
+    flags: FLAGS,
+  };
+  if (ALL) return runAll(prod, o);
+  const r = await runOneInventory(prod, { id: AUTHORITY, city: CITY }, o);
+  if (!FLAGS.apply) console.log('\nDry run — nothing written to Firestore or Storage.');
+  void r;
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

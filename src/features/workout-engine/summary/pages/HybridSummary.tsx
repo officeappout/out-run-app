@@ -308,6 +308,7 @@ export default function HybridSummary({
       header={hero}
       peekHeight={peekHeight}
       initialSnap={initialSnap}
+      topBar={isReadOnly ? { title: 'סיכום אימון', onClose: onFinish } : undefined}
       footer={footer}
     >
       {tabBody[tab] ?? tabBody.overview}

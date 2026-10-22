@@ -24,6 +24,7 @@ import {
   type DayDisplayInput,
 } from '@/features/home/utils/day-display.utils';
 import { buildActivityRingData } from '@/features/home/utils/activity-ring.utils';
+import { useTrackRingColors } from '@/features/home/hooks/useTrackRingColors';
 import { resolveIconKey } from '@/features/content/programs/core/program-icon.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -257,6 +258,8 @@ export default function MonthlyCalendarGrid({
   // useDayStatus encapsulates the Completion Bridge (≥10 min OR workoutCompleted)
   // for both today and any past days still in weekActivities.
   const getDayStatus = useDayStatus();
+  // Ring hexes: the shared v2 track map under the v2 planner flag, classic otherwise.
+  const ringColors = useTrackRingColors();
 
   // Subscribe to the global midnight clock so isToday/isPast flip at 00:00
   // even when the user has the calendar open across the day boundary.
@@ -470,7 +473,7 @@ export default function MonthlyCalendarGrid({
                     // cell via the shared builder. Slightly larger for today.
                     activityRing={
                       activityView
-                        ? buildActivityRingData(getDayStatus(cell.iso))
+                        ? buildActivityRingData(getDayStatus(cell.iso), ringColors)
                         : undefined
                     }
                     ringSizePx={cell.isToday ? 36 : 30}

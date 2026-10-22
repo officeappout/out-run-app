@@ -66,6 +66,7 @@ interface FlagState {
   enable_loops_prefer_official: boolean;
   enable_route_pref_shade: boolean;
   enable_route_time_aware: boolean;
+  enable_route_shade_tag: boolean;
   enable_unified_search: boolean;
   enable_entry_whatnow_v1: boolean;
   enable_generation_review: boolean;
@@ -453,6 +454,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-amber-700',
     title: 'מסלול לפי שעה: צל ביום, תאורה בלילה',
     description: 'בשעות חמות ושמשיות (מאי עד אוקטובר, שמש גבוהה מ-25°) השרת מבקש 6 מסלולים ומדרג אותם לפי הצל בשעה הנוכחית. אחרי השקיעה הוא מדרג לפי רחובות מוארים. בשאר השעות, ובערים בלי שכבת צל לפי שעה או שכבת תאורה, חוזרים 3 המסלולים הרגילים. עובד רק כש"מסלולים מעגליים משרת הניווט שלנו" דלוק. "המסלול המוצל ביותר", כשנבחר, גובר. כבוי = כמו היום.',
+  },
+  // Route shade tag (22.10.2026).
+  {
+    key: 'enable_route_shade_tag',
+    icon: RouteIcon,
+    iconBg: 'bg-green-50',
+    iconColor: 'text-green-700',
+    title: 'תגית "מוצל %" על מסלולים',
+    description: 'על כרטיס מסלול: "🌳 מוצל X%" — רק כשמפת הצל של הטכניון מכסה לפחות חצי מהמסלול (אחרת אין תגית, אף פעם לא "0%"). בפרטי המסלול: שורת צל עם האחוז הכללי, "עכשיו · בצהריים · אחה״צ" כשיש לעיר שכבת צל לפי שעה (פרופיל קיץ), ו"מואר בלילה X%" כשיש נתוני תאורה. שורה בלי נתונים לא מוצגת. מסלולים שמורים נקראים מ-route_scores דרך השרת; מסלולים מעגליים משרת הניווט מקבלים את האחוז מהשרת. לא משנה דירוג. כבוי = כמו היום.',
   },
   // Unified search (19.10.2026).
   {

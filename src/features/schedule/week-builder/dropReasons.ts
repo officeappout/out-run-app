@@ -9,6 +9,7 @@ export type WbDropCode =
   | 'closed'
   | 'full'
   | 'locked'
+  | 'past'
   | 'missing'
   | 'too_many_days'
   | 'too_many_today'
@@ -18,6 +19,7 @@ const DROP_REASON_HE: Record<WbDropCode, string> = {
   closed: 'היום הזה מסומן כלא פנוי',
   full: 'אין מקום ביום הזה',
   locked: 'את האימון הזה לא מזיזים מכאן',
+  past: 'היום הזה כבר עבר',
   missing: 'האימון כבר לא בשבוע',
   too_many_days: 'זה יוסיף יום אימון מעבר למה שבחרת',
   too_many_today: 'יותר מדי אימונים ביום אחד',

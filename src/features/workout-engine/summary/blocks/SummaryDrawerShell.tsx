@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { DraggableSheet } from '@/components/ui/v2';
-import { summarySheetSnaps, type SummarySnap } from './summary-sheet.util';
+import { X } from 'lucide-react';
+import { DraggableSheet, IconButton } from '@/components/ui/v2';
+import { useSafeAreaTop } from '@/lib/safe-area/useSafeAreaTop';
+import { summarySheetSnaps, SUMMARY_COLLAPSED_PX, type SummarySnap } from './summary-sheet.util';
+
+/** Height of the optional history top bar row (36px button + bottom pad). */
+const TOP_BAR_PX = 40;
 
 export interface DrawerTab {
   id: string;
@@ -27,6 +32,11 @@ interface SummaryDrawerShellProps {
    * drawer never dismisses, finishes or saves.
    */
   footer?: ReactNode;
+  /**
+   * Opened from history (no live flow behind it): renders a small top bar
+   * (title + ✕) above the hero, so there's always an exit besides the footer.
+   */
+  topBar?: { title: string; onClose: () => void };
   children: ReactNode;
 }
 
@@ -48,8 +58,10 @@ export default function SummaryDrawerShell({
   peekHeight = 150,
   initialSnap = 'full',
   footer,
+  topBar,
   children,
 }: SummaryDrawerShellProps) {
+  const safeTop = useSafeAreaTop();
   const [vh, setVh] = useState(800);
   useEffect(() => {
     const update = () => setVh(window.innerHeight || 800);
@@ -58,7 +70,30 @@ export default function SummaryDrawerShell({
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  const { snapPoints, initialIndex } = summarySheetSnaps(vh, peekHeight, initialSnap);
+  const { snapPoints, initialIndex } = summarySheetSnaps(
+    vh,
+    peekHeight,
+    initialSnap,
+    // The history top bar adds a row to the peek, so the collapsed sheet grows with it.
+    SUMMARY_COLLAPSED_PX + (topBar ? TOP_BAR_PX : 0),
+    safeTop,
+  );
+
+  const topBarRow = topBar ? (
+    <div className="flex items-center justify-between gap-2 px-4 pb-1">
+      <span className="truncate text-[15px] font-extrabold text-v2-ink">{topBar.title}</span>
+      <IconButton
+        aria-label="סגירה"
+        tone="surface"
+        size={36}
+        // Keep the tap from starting a sheet drag (the header is the drag zone).
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={topBar.onClose}
+      >
+        <X className="h-4 w-4" aria-hidden />
+      </IconButton>
+    </div>
+  ) : null;
 
   const tabRow = (
     <div
@@ -100,6 +135,7 @@ export default function SummaryDrawerShell({
         ariaLabel="סיכום אימון"
         header={
           <>
+            {topBarRow}
             {header}
             {tabRow}
           </>

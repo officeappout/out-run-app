@@ -45,12 +45,16 @@ vi.mock('@/features/parks/core/hooks/useMyRegistrations', () => ({ useMyRegistra
 vi.mock('@/features/admin/services/community.service', () => ({ joinEvent: async () => {}, materializeVirtualSession: async () => {} }));
 vi.mock('@/features/admin/services/planned-sessions.service', () => ({ createPlannedSession: async () => {} }));
 vi.mock('@/components/ui/Toast', () => ({ useToast: () => ({ showToast: () => {} }) }));
+// enable_route_shade_tag OFF (its live flag hook needs Firestore): the markup below must stay byte-identical.
+vi.mock('@/features/parks/core/services/route-shade/useRouteShade', () => ({ useRouteShade: () => null, useRouteShadeTagEnabled: () => false }));
 vi.mock('@/features/workout-engine/components/ShareAsLiveToggle', () => ({
   default: (p: { workoutTitle: string; contextRoute?: { name: string } }) => (
     <div data-share={p.workoutTitle} data-context={p.contextRoute?.name} />
   ),
 }));
 vi.mock('@/features/parks/client/components/UserProfileSheet', () => ({ default: () => null }));
+// enable_map_polish_v1 off — the wheel sheet is not part of this parity snapshot.
+vi.mock('@/features/parks/core/map-polish/useMapPolishV1', () => ({ useMapPolishV1: () => false }));
 
 import { MotionGlobalConfig } from 'framer-motion';
 import RouteDetailSheet from '../RouteDetailSheet';

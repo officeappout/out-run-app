@@ -7,11 +7,11 @@
 import { fetchGraphhopperLoops, type ApiClientDeps } from './api-client';
 import { GH_MIN_TARGET_KM, isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 import { loopDtoToRoute } from './to-route';
-import { resolveRouteTimeAware } from './flag';
+import { resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
 import type { Route } from '../../types/route.types';
 import type { WireOurRoute } from '@/lib/routing/our-routes/wire';
 
-export { resolveGraphhopperRoutes, resolveRouteTimeAware } from './flag';
+export { resolveGraphhopperRoutes, resolveRouteShadeTag, resolveRouteTimeAware } from './flag';
 export { isGraphhopperLoopRequest, type GhLoopOptions } from './eligible';
 export { fetchGraphhopperLoops, GH_CLIENT_TIMEOUT_MS } from './api-client';
 export { loopDtoToRoute } from './to-route';
@@ -33,6 +33,8 @@ export async function tryGraphhopperLoops(o: GhLoopOptions, deps?: ApiClientDeps
       ...(o.preferences.preferShade ? { preferShade: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
       // Time-aware (enable_route_time_aware): shade at this hour by day, lit streets after dark. Off = absent.
       ...(!o.preferences.preferShade && resolveRouteTimeAware(o.timeAware) ? { timeAware: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
+      // "🌳 מוצל X%" (enable_route_shade_tag): shadedPct on each measured loop. Off = absent.
+      ...(resolveRouteShadeTag(o.shadeTag) ? { shadeTag: true, ...(o.cityName ? { city: o.cityName } : {}) } : {}),
     }, deps);
     if (res.loops.length === 0) return null;
     return res.loops.map((l, i) => loopDtoToRoute(l, i, o.activity, o.routeGenerationIndex));

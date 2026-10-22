@@ -6,7 +6,7 @@
 import { longRunTargetDay, type DayAvailability } from '../engine-v2/availability';
 import { dayReasons } from '../engine-v2/explain';
 import { renderV2ReasonHe, type V2Reason } from '../engine-v2/reasonsV2';
-import { toPlacedDays } from './layout';
+import { countsInLoad, toPlacedDays } from './layout';
 import type { WbRules, WbWeek } from './types';
 
 /** Codes that say nothing the card doesn't (rest / closed / "strength on its own day"). */
@@ -34,7 +34,7 @@ export function explainWeek<P>(week: WbWeek<P>, rules: Pick<WbRules, 'preferredL
 
   let prevStrength: number | null = null;
   const days = week.days.map((day, d) => {
-    const strength = day.sessions.some((s) => s.track === 'strength');
+    const strength = day.sessions.some((s) => s.track === 'strength' && countsInLoad(day, s));
     const reason = perDay[d].find((r) => !GENERIC.has(r.code));
     let whyHe: string | null = reason ? trim(renderV2ReasonHe(reason)) : null;
     if (!whyHe && strength) whyHe = strengthGapLineHe(prevStrength, d);

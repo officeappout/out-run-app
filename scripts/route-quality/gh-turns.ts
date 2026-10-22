@@ -24,7 +24,13 @@
  * rescore: no network — re-ranks the saved gh-all candidates of rows-compare.json
  *          with the CURRENT scoring constants (gh = without, gh+rank = with the
  *          turn term), so retuning the weights needs no new GraphHopper calls.
- * GraphHopper calls are counted and hard-capped (--max-calls).
+ * GraphHopper calls are counted and hard-capped (--max-calls). When the cap
+ * is reached the remaining generations are skipped and listed — never
+ * records them as "GraphHopper found no loop". (RC8 step 2, 22.10.2026: the
+ * "0 loops for all 3 Herzliya generations" of the 21.10 foot_turns compare was
+ * exactly this — 300 calls spent before the 5th start, every Herzliya request
+ * refused locally in 0-1 ms; the live server answers Herzliya normally.)
+ * Rough cost per start × km: ~15 calls per GraphHopper variant.
  */
 import './hermetic/guard';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -103,9 +109,12 @@ async function main() {
   if (!key) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY not in env');
   const base = gh.createGraphHopperClient({ baseUrl: URL_, timeoutMs: 8000, getIdToken: gh.createIdTokenProvider(key) });
   let calls = 0;
+  const skipped: string[] = [];
+  let refused = 0;
+  const budgetLeft = () => calls < MAX_CALLS;
   const clientFor = (model: Model | null): import('@/lib/routing/graphhopper').GraphHopperClient => ({
     route(body, signal) {
-      if (calls >= MAX_CALLS) return Promise.reject(new Error('call budget exhausted'));
+      if (calls >= MAX_CALLS) { refused++; return Promise.reject(new Error('call budget exhausted')); }
       calls++;
       return base.route((model ? model(body as unknown as Body) : body) as never, signal);
     },
@@ -164,6 +173,7 @@ async function main() {
               ? await c.route(gh.buildRoundTripRequest({ start: s, distanceM: 5000, seed: 1, heading: 0, profile: 'foot', tags }))
               : await viaOnce(c, s, gh, tags);
           } catch (e) { log(`  ! ${s.id} ${name} ${kind}: ${(e as Error).message}`); }
+          if (!r && !budgetLeft()) { skipped.push(`${s.id} ${name}/${kind}`); continue; }
           push(s.id, 5, `${name}/${kind}`, r ? rq.trimSpurs(r.path).path : null, Date.now() - t0, osm);
         }
         log(`${s.id} ${name}: calls so far ${calls}`);
@@ -182,7 +192,9 @@ async function main() {
         // GraphHopper: today's model, scored with the old and the turn-aware ranking.
         const ghVariants: Array<[string, string]> = [['gh', 'foot'], ...(TURNS_PROFILE ? [['gh-turns', TURNS_PROFILE] as [string, string]] : [])];
         for (const seed of SEEDS) for (const [variant, profile] of ghVariants) {
+          if (!budgetLeft()) { skipped.push(`${s.id} ${targetKm}km ${variant} seed ${seed}`); continue; }
           const t0 = Date.now();
+          const refused0 = refused;
           const params = { client: clientFor(null), start: s, targetKm, profile: profile as 'foot', tags: gh.DEFAULT_TAGS };
           const headings = spreadHeadings(seed);
           const settled = await Promise.allSettled([
@@ -191,6 +203,8 @@ async function main() {
           ]);
           const ms = Date.now() - t0;
           const cands = settled.flatMap(x => (x.status === 'fulfilled' && x.value ? [x.value] : []));
+          // Cut off by the local budget mid-generation: not run, never "no loop".
+          if (!cands.length && refused > refused0) { skipped.push(`${s.id} ${targetKm}km ${variant} seed ${seed} (cut off)`); continue; }
           const scored = cands.map(c => scoreLoop(c, targetKm, osm, null));
           const run = seed;
           const pushTop = (v: string, list: typeof scored) => {
@@ -229,7 +243,10 @@ async function main() {
     }
   }
   writeFileSync(join(OUT, `rows-${PHASE}.json`), JSON.stringify(rows));
-  const md = `GraphHopper calls: ${calls}\n\n` + toMarkdown(summarize(rows));
+  const budgetNote = skipped.length
+    ? `**Call budget (--max-calls ${MAX_CALLS}) exhausted — ${skipped.length} generation(s) NOT run (not "no loop"):** ${skipped.join('; ')}. Re-run with a higher --max-calls or --only <start>.\n\n`
+    : '';
+  const md = `GraphHopper calls: ${calls}\n\n` + budgetNote + toMarkdown(summarize(rows));
   writeFileSync(join(OUT, `summary-${PHASE}.md`), md);
   log(md);
 }

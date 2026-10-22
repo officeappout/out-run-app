@@ -10,6 +10,8 @@ const state = vi.hoisted(() => ({
   client: null as GraphHopperClient | null,
   shadeCity: null as string | null,
   shadeLookups: [] as Array<string | null>,
+  /** Layer segments (empty = the city "has data" but covers nothing). */
+  shadeFeatures: [] as unknown[],
   hourlyCity: null as string | null,
   litCity: null as string | null,
   taLookups: [] as string[],
@@ -30,7 +32,7 @@ vi.mock('@/lib/routing/shade-loader.server', async () => {
       indexForName: async (name: string | null) => {
         state.shadeLookups.push(name);
         // An empty layer: the city "has data" but no loop is covered → not_measured.
-        return state.shadeCity ? { city: state.shadeCity, index: buildShadeIndex([]) } : null;
+        return state.shadeCity ? { city: state.shadeCity, index: buildShadeIndex(state.shadeFeatures as Parameters<typeof buildShadeIndex>[0]) } : null;
       },
     }),
   };
@@ -76,6 +78,7 @@ beforeEach(() => {
   state.client = fakeClient(byRequest);
   state.shadeCity = null;
   state.shadeLookups = [];
+  state.shadeFeatures = [];
   state.hourlyCity = null;
   state.litCity = null;
   state.taLookups = [];
@@ -146,6 +149,48 @@ describe('POST /api/routes/generate', () => {
     expect(body).not.toHaveProperty('shade');
     expect(body.loops[0]).not.toHaveProperty('shadeShare');
     expect(state.shadeLookups).toEqual([]);
+  });
+
+  describe('shadeTag (enable_route_shade_tag)', () => {
+    const shadeAlong = (path: [number, number][], si: number) => path.slice(1).map((p, i) => ({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [path[i], p] },
+      properties: { shadeIndex: si, indexType: 'SI_daily', city: 'tel-aviv', sourceLayer: 'fixture', sourceFeatureId: i, fetchedAt: '2026-10-22' },
+    }));
+
+    it('flag off (no shadeTag): byte-identical response, the loader is never touched', async () => {
+      const plain = await (await call(loopBody)).text();
+      expect(plain).not.toContain('shadedPct');
+      expect(state.shadeLookups).toEqual([]);
+    });
+    it('city without a layer → the same loops, no shadedPct field', async () => {
+      const plain = await (await call(loopBody)).text();
+      const tagged = await (await call({ ...loopBody, shadeTag: true, city: 'זכרון יעקב' })).text();
+      expect(tagged).toBe(plain);
+      expect(state.shadeLookups).toEqual(['זכרון יעקב']);
+    });
+    it('a layer that covers no loop → still no shadedPct (never "0%")', async () => {
+      state.shadeCity = 'tel-aviv';
+      const plain = await (await call(loopBody)).text();
+      expect(await (await call({ ...loopBody, shadeTag: true, city: 'תל אביב-יפו' })).text()).toBe(plain);
+    });
+    it('measured loop → shadedPct on that loop; order and every other field unchanged', async () => {
+      const plain = await (await call(loopBody)).json();
+      state.shadeCity = 'tel-aviv';
+      state.shadeFeatures = shadeAlong(plain.loops[0].path, 0.4);
+      const body = await (await call({ ...loopBody, shadeTag: true, city: 'תל אביב-יפו' })).json();
+      expect(body.loops[0].shadedPct).toBeGreaterThan(90);
+      const { shadedPct: _drop, ...rest } = body.loops[0];
+      expect(rest).toEqual(plain.loops[0]);
+      expect(body.loops.map((l: { path: unknown }) => l.path)).toEqual(plain.loops.map((l: { path: unknown }) => l.path));
+      expect(body).not.toHaveProperty('shade');
+    });
+    it('with preferShade the same layer serves both (one lookup)', async () => {
+      state.shadeCity = 'tel-aviv';
+      const body = await (await call({ ...loopBody, preferShade: true, shadeTag: true, city: 'תל אביב-יפו' })).json();
+      expect(body).toHaveProperty('shade');
+      expect(state.shadeLookups).toEqual(['תל אביב-יפו']);
+    });
   });
 
   describe('timeAware (enable_route_time_aware)', () => {

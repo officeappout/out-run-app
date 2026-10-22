@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
 import type { EvaluatedGoal } from '../hooks/useGoalEvaluation';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 /**
  * LevelGoalsChecklist — admin-defined goals card with per-goal achievement state.
@@ -26,6 +28,7 @@ export interface LevelGoalsChecklistProps {
 }
 
 export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsChecklistProps) {
+  const t = useT(player);
   if (evaluatedGoals.length === 0) return null;
 
   const totalBonus = evaluatedGoals.reduce(
@@ -35,7 +38,7 @@ export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsCheckl
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-v2-card p-4 shadow-v2-card">
-      <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">יעדי רמה</h3>
+      <h3 className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-3">{t('strengthSummary.goals.title')}</h3>
       <div className="space-y-3">
         {evaluatedGoals.map((goal, idx) => {
           const bonus = goal.progressBonus ?? 5;
@@ -66,7 +69,11 @@ export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsCheckl
                 {goal.label}
               </span>
               <span className="text-xs tabular-nums text-slate-400">
-                {goal.bestValue}/{goal.targetValue} {goal.unit === 'reps' ? 'חזרות' : 'שניות'}
+                {t('strengthSummary.goals.progress', {
+                  best: String(goal.bestValue),
+                  target: String(goal.targetValue),
+                  unit: goal.unit === 'reps' ? 'reps' : 'other',
+                })}
               </span>
               <span className={`text-xs font-bold tabular-nums min-w-[3rem] text-left ${
                 goal.achieved ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-300 dark:text-slate-600'
@@ -79,7 +86,7 @@ export default function LevelGoalsChecklist({ evaluatedGoals }: LevelGoalsCheckl
       </div>
       {/* Session Goal Total */}
       <div className="border-t border-slate-100 dark:border-slate-700 mt-3 pt-3 flex items-center justify-between">
-        <span className="text-sm font-bold text-slate-800 dark:text-white">סה״כ יעדים באימון</span>
+        <span className="text-sm font-bold text-slate-800 dark:text-white">{t('strengthSummary.goals.total')}</span>
         <span className="text-base font-black text-cyan-600 dark:text-cyan-400 tabular-nums">
           +{totalBonus}%
         </span>

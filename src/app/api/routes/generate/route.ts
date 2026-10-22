@@ -10,6 +10,9 @@
  *   loop + { timeAware: true, city, at? }              → time-aware preference (enable_route_time_aware):
  *     hot sunny hour → 6 candidates ranked by the hourly shade at that hour; after dark → by lit
  *     length share; otherwise (or without the city's layer) the normal top-3. `timeAware` says which.
+ *   loop + { shadeTag: true, city }                    → enable_route_shade_tag: after the loops are picked,
+ *     each loop the city's shade layer measures gets `shadedPct` (the card's "🌳 מוצל X%").
+ *     Never changes the ranking; without shadeTag the response is byte-identical.
  *
  * Auth: Firebase ID token in Authorization: Bearer <token> (any signed-in user).
  * Rate limit: RATE_LIMITS.routesGenerate per uid (fails open, like every limiter).
@@ -27,6 +30,7 @@ import { friendlyRoute } from '@/lib/routing/friendly-route';
 import { fetchOsmLayerForLoop } from '@/lib/routing/osm-layer-server';
 import { toLoopDto, toAbDto } from './dto';
 import { rankLoopsByShade, SHADE_PREF_POOL } from '@/lib/routing/shade-pref';
+import { withShadedPct } from '@/lib/routing/shade-tag';
 import { getServerShadeLoader } from '@/lib/routing/shade-loader.server';
 import { rankLoopsByMeasure, timeAwareMode, TIME_AWARE_POOL, type TimeAwareDecision, type TimeAwareMeta } from '@/lib/routing/time-aware-pref';
 import { getServerHourlyShadeLoader, getServerLightingLoader } from '@/lib/routing/time-aware-loaders.server';
@@ -104,6 +108,8 @@ export async function POST(req: NextRequest) {
     const osmP = fetchOsmLayerForLoop(req.nextUrl.origin, parsed.start, parsed.targetKm, OSM_WAIT_MS);
     // Shade layer loads while GraphHopper routes (cached per warm instance).
     const shadeP = parsed.preferShade ? shadeIndexFor(parsed.city) : null;
+    // enable_route_shade_tag: the same (cached) layer, for `shadedPct` on the picked loops.
+    const shadeTagP = parsed.shadeTag ? (shadeP ?? shadeIndexFor(parsed.city)) : null;
     // Time-aware (enable_route_time_aware; the parser never sets it together with preferShade).
     const ta = parsed.timeAware ? timeAwareMode(parsed.at ? new Date(parsed.at) : new Date(), parsed.start.lat, parsed.start.lng) : null;
     const taRanks = !!ta && ta.mode !== 'neutral' && !!technionCityForName(parsed.city ?? null);
@@ -150,6 +156,11 @@ export async function POST(req: NextRequest) {
       }
     } else {
       body = { backend: 'graphhopper', loops: out.loops.map(toLoopDto), calls: out.calls, timedOut: out.timedOut, osmLayer: !!osm };
+    }
+    if (shadeTagP) {
+      const TIMEOUT = Symbol('timeout');
+      const tagShade = await Promise.race([shadeTagP, new Promise<typeof TIMEOUT>((r) => setTimeout(() => r(TIMEOUT), SHADE_WAIT_MS))]);
+      body = { ...body, loops: withShadedPct(body.loops, tagShade === TIMEOUT ? null : tagShade?.index ?? null) };
     }
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {

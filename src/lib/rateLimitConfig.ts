@@ -190,6 +190,12 @@ export const RATE_LIMITS = {
   routesGenerate: {
     uid: () => envWindow('RL_ROUTES_GENERATE_UID', 10 * MIN, 40),
   },
+  // POST /api/routes/shade (22.10.2026, enable_route_shade_tag) — per caller uid. The app
+  // batches every route card on screen into one call and caches the answer per route for
+  // the session, so 120 per 10 minutes is far above normal map browsing.
+  routeShade: {
+    uid: () => envWindow('RL_ROUTE_SHADE_UID', 10 * MIN, 120),
+  },
 } as const;
 
 /**

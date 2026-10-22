@@ -22,10 +22,16 @@ interface RouteQualityBadgesProps {
    * instead of a wrapping, capped one. The card stays one row tall; the user scrolls for the rest.
    */
   scrollable?: boolean;
+  /**
+   * enable_route_shade_tag: "🌳 מוצל X%" as the FIRST pill (never counted against the card cap).
+   * Null / omitted → exactly the badges as before.
+   */
+  leadingLabel?: string | null;
 }
 
-export default function RouteQualityBadges({ qualitySignals, className, scrollable = false }: RouteQualityBadgesProps) {
-  const badges = computeQualityBadges(qualitySignals, scrollable ? Infinity : undefined);
+export default function RouteQualityBadges({ qualitySignals, className, scrollable = false, leadingLabel = null }: RouteQualityBadgesProps) {
+  const quality = computeQualityBadges(qualitySignals, scrollable ? Infinity : undefined);
+  const badges = leadingLabel ? [{ key: 'shade', label: leadingLabel }, ...quality] : quality;
   if (badges.length === 0) return null;
   if (scrollable) {
     return (

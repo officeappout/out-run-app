@@ -50,6 +50,22 @@ describe('tryGraphhopperLoops', () => {
     expect(routes![0].features).toMatchObject({ hasBenches: false, lit: undefined, trafficLoad: 'low' });
     expect(routes![1].features.trafficLoad).toBe('high');
   });
+  it('enable_route_shade_tag: off → no shadeTag in the request and no shadeInfo on the Route', async () => {
+    const f = okFetch([dto()]);
+    const routes = await tryGraphhopperLoops(opts({ cityName: 'חיפה', shadeTag: false }), deps(f));
+    const body = JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).not.toHaveProperty('shadeTag');
+    expect(body).not.toHaveProperty('city');
+    expect(routes![0]).not.toHaveProperty('shadeInfo');
+  });
+  it('enable_route_shade_tag: on → shadeTag + city; a measured loop carries shadeInfo, an unmeasured one does not', async () => {
+    const f = okFetch([dto({ shadedPct: 42.5 }), dto()]);
+    const routes = await tryGraphhopperLoops(opts({ cityName: 'חיפה', shadeTag: true }), deps(f));
+    const body = JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).toMatchObject({ shadeTag: true, city: 'חיפה' });
+    expect(routes![0].shadeInfo).toEqual({ shadedPct: 42.5 });
+    expect(routes![1]).not.toHaveProperty('shadeInfo');
+  });
   it('sends our routes (enable_loops_prefer_official) only when there are some', async () => {
     const f = okFetch([dto()]);
     const wire = [{ id: 'r1', path: [[34.775, 32.08], [34.78, 32.08]] as [number, number][] }];

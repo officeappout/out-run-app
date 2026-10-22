@@ -29,6 +29,9 @@ import { useHomeV2 } from '@/features/home/context/HomeV2Context';
 import { DayCellV2Context } from '@/features/home/utils/day-display.utils';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useWeekBuilderV1 } from '@/features/schedule/week-builder/useWeekBuilderV1';
+import PlannerWeekBuilderHost from '@/features/schedule/week-builder/planner/components/PlannerWeekBuilderHost';
+import PlannerV2 from '@/features/home/planner-v2/components/PlannerV2';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -136,6 +139,11 @@ export default function TrainingPlannerOverlay({
   const [isCalendarCollapsed, setIsCalendarCollapsed] = useState(true);
   const v2 = useHomeV2();
   const t = useT(home);
+  // enable_week_builder_v1 (phase 2): "סידור השבוע" per week + the missed-sessions card.
+  const weekBuilder = useWeekBuilderV1();
+  // Planner v2 (boards "לו״ז גדול · סבב 2") — the week builder flag already requires enable_home_v2.
+  const plannerV2 = weekBuilder && v2;
+  const [arrangeSunday, setArrangeSunday] = useState<string | null>(null);
   // The month grid is 5 or 6 rows (+ month and weekday headers), and v2's
   // flame cells sit taller — a fixed 310px cut the last row. Measure it.
   const calInnerRef = useRef<HTMLDivElement>(null);
@@ -352,6 +360,15 @@ export default function TrainingPlannerOverlay({
             className={`fixed inset-0 z-50 flex flex-col ${v2 ? 'bg-v2-surface text-v2-ink' : 'bg-[#F8FAFC]'}`}
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
+            {plannerV2 ? (
+              // enable_week_builder_v1 (+ enable_home_v2): the big planner v2 — its own header
+              // (no ScheduleBuilderDrawer button: the drawer stays for the home add-track card),
+              // month strip, week section. Off = everything below, unchanged.
+              <ErrorBoundary fallback={null}>
+                <PlannerV2 userId={userId} onClose={onClose} refreshKey={refreshKey} onSaved={handleSaved} onStartWorkout={onStartWorkout} />
+              </ErrorBoundary>
+            ) : (
+            <>
             {/* ── Header ── */}
             <div
               className={v2 ? 'flex-shrink-0 bg-white' : 'flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-100'}
@@ -521,6 +538,16 @@ export default function TrainingPlannerOverlay({
                 <div className={`w-12 h-1.5 rounded-full mx-auto ${v2 ? 'bg-v2-pill-border' : 'bg-gray-300 dark:bg-gray-700'}`} />
               </div>
 
+              {weekBuilder && (
+                <PlannerWeekBuilderHost
+                  userId={userId}
+                  request={arrangeSunday}
+                  onRequestDone={() => setArrangeSunday(null)}
+                  refreshKey={refreshKey}
+                  onSaved={handleSaved}
+                />
+              )}
+
               {/* Ultra-thin hairline divider between handle row and agenda */}
               {!v2 && <div className="flex-shrink-0 h-[1px] bg-gray-100/70" />}
 
@@ -556,10 +583,13 @@ export default function TrainingPlannerOverlay({
                     onPreviewEntry={onPreviewEntry}
                     onCommunityTap={onCommunityTap}
                     scrollPickedDate={scrollPicked}
+                    onArrangeWeek={weekBuilder ? setArrangeSunday : undefined}
                   />
                 </div>
               </div>
             </div>
+            </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

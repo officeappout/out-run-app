@@ -22,6 +22,8 @@ import { useMyRegistrations } from '@/features/parks/core/hooks/useMyRegistratio
 import { joinEvent, materializeVirtualSession } from '@/features/admin/services/community.service';
 import { createPlannedSession } from '@/features/admin/services/planned-sessions.service';
 import DualRangeSlider from '@/features/partners/components/DualRangeSlider';
+import { useMapPolishV1 } from '@/features/parks/core/map-polish/useMapPolishV1';
+import ArrivalWheelSheet from '../arrival-wheel/ArrivalWheelSheet';
 import { auth } from '@/lib/firebase';
 import { useUserStore } from '@/features/user';
 import { useMapStore } from '@/features/parks/core/store/useMapStore';
@@ -30,6 +32,7 @@ import { bunnyImg } from '@/lib/bunny-image';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges, isRouteLitVerified } from '@/features/parks/core/services/route-quality-badges.service';
+import { RouteShadeRow } from '@/features/parks/core/components/route-shade/RouteShade';
 import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
 import { formatTooFarLabels } from '@/features/parks/core/services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
@@ -146,6 +149,8 @@ export default function RouteDetailSheet({
   const [dayFilter, setDayFilter] = useState<DayFilter>('week');
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  // enable_map_polish_v1: the arrive button opens the wheel sheet instead of the slider.
+  const arrivalWheel = useMapPolishV1();
   // Arrival-window range in minutes-from-midnight. Default 17:00-19:00
   // mirrors the ParkDetailSheet default so the UX is consistent across
   // both publish surfaces.
@@ -158,31 +163,16 @@ export default function RouteDetailSheet({
 
   const currentUid = auth.currentUser?.uid;
 
-  const handlePublishArrival = useCallback(async () => {
+  // The write — shared by the slider (handlePublishArrival) and the
+  // enable_map_polish_v1 wheel (handlePublishArrivalAt); same planned_sessions doc.
+  const publishWindow = useCallback(async (
+    resolve: () => { startTime: Date; endTime: Date; label: string },
+  ) => {
     const user = auth.currentUser;
     if (!user || !route) return;
     setPublishingSession(true);
     try {
-      // Derive startTime / endTime from the dual-range slider, same
-      // pattern as ParkDetailSheet. Base date is today; if the window
-      // has already ended today we shift to tomorrow.
-      const baseDate = new Date();
-      baseDate.setHours(0, 0, 0, 0);
-      const [startMinutes, endMinutes] = timeRangeMinutes;
-      const startTime = new Date(baseDate);
-      startTime.setMinutes(startMinutes);
-      const endTime = new Date(baseDate);
-      endTime.setMinutes(endMinutes);
-
-      // Guard: if the window has already ended, publish for tomorrow.
-      if (endTime.getTime() < Date.now()) {
-        startTime.setDate(startTime.getDate() + 1);
-        endTime.setDate(endTime.getDate() + 1);
-      }
-      // Defensive: clamp to at least one slider step.
-      if (endTime.getTime() <= startTime.getTime()) {
-        endTime.setTime(startTime.getTime() + RANGE_STEP_MIN * 60 * 1000);
-      }
+      const { startTime, endTime, label } = resolve();
 
       // Capture the publisher's active strength program at write
       // time so the partner card can show the same "🎯 program ·
@@ -215,7 +205,7 @@ export default function RouteDetailSheet({
       });
       setShowTimePicker(false);
       setJustPublished({
-        time: `${minutesToLabel(startMinutes)} - ${minutesToLabel(endMinutes)}`,
+        time: label,
         name: user.displayName ?? t('routePreview.community.userFallback'),
         photoURL: user.photoURL ?? undefined,
       });
@@ -237,7 +227,37 @@ export default function RouteDetailSheet({
     } finally {
       setPublishingSession(false);
     }
-  }, [timeRangeMinutes, route, t]);
+  }, [route, t]);
+
+  const handlePublishArrival = useCallback(() => publishWindow(() => {
+    // Derive startTime / endTime from the dual-range slider, same
+    // pattern as ParkDetailSheet. Base date is today; if the window
+    // has already ended today we shift to tomorrow.
+    const baseDate = new Date();
+    baseDate.setHours(0, 0, 0, 0);
+    const [startMinutes, endMinutes] = timeRangeMinutes;
+    const startTime = new Date(baseDate);
+    startTime.setMinutes(startMinutes);
+    const endTime = new Date(baseDate);
+    endTime.setMinutes(endMinutes);
+
+    // Guard: if the window has already ended, publish for tomorrow.
+    if (endTime.getTime() < Date.now()) {
+      startTime.setDate(startTime.getDate() + 1);
+      endTime.setDate(endTime.getDate() + 1);
+    }
+    // Defensive: clamp to at least one slider step.
+    if (endTime.getTime() <= startTime.getTime()) {
+      endTime.setTime(startTime.getTime() + RANGE_STEP_MIN * 60 * 1000);
+    }
+    return { startTime, endTime, label: `${minutesToLabel(startMinutes)} - ${minutesToLabel(endMinutes)}` };
+  }), [publishWindow, timeRangeMinutes]);
+
+  /** enable_map_polish_v1 wheel — an explicit window from ArrivalWheelSheet. */
+  const handlePublishArrivalAt = useCallback((win: { startTime: Date; endTime: Date }) => publishWindow(() => ({
+    ...win,
+    label: `${minutesToLabel(win.startTime.getHours() * 60 + win.startTime.getMinutes())} - ${minutesToLabel(win.endTime.getHours() * 60 + win.endTime.getMinutes())}`,
+  })), [publishWindow]);
 
   const routeIds = useMemo(() => (route ? [route.id] : []), [route?.id]);
   const routeArr = useMemo(() => (route ? [route] : []), [route]);
@@ -636,10 +656,18 @@ export default function RouteDetailSheet({
                             onClick={() => setShowTimePicker(!showTimePicker)}
                             className="flex-shrink-0 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[11px] font-bold active:scale-[0.97] transition-transform"
                           >
-                            {t('routePreview.community.arrive')}
+                            {arrivalWheel ? t('arrivalWheel.cta') : t('routePreview.community.arrive')}
                           </button>
                         </div>
-                        {showTimePicker && (
+                        {arrivalWheel && (
+                          <ArrivalWheelSheet
+                            open={showTimePicker}
+                            onClose={() => setShowTimePicker(false)}
+                            publishing={publishingSession}
+                            onPublish={handlePublishArrivalAt}
+                          />
+                        )}
+                        {!arrivalWheel && showTimePicker && (
                           <div className="px-3 pb-3 pt-2 border-t border-emerald-100 space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-bold text-emerald-700">{t('routePreview.community.arrivalTime')}</span>
@@ -1018,6 +1046,9 @@ export default function RouteDetailSheet({
                       {route.description}
                     </p>
                   )}
+
+                  {/* enable_route_shade_tag: shade % · by hour · lit at night (nothing without the flag / data) */}
+                  <RouteShadeRow route={route} variant="legacy" />
 
                   {/* Features + amenity tags — merged into one section.
                       surface/environment/lit come from route.features;

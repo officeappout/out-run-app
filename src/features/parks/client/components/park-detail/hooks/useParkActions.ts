@@ -36,17 +36,18 @@ export function useParkArrivalPublish(selectedPark: Park | null, dayFilter: DayF
   // Cleared when the sheet closes (see the body-overflow effect in the sheet).
   const [localArrivals, setLocalArrivals] = useState<SessionEnrichment[]>([]);
 
-  const handlePublishArrival = useCallback(async () => {
+  // The write itself — shared by the slider path (handlePublishArrival) and the
+  // enable_map_polish_v1 wheel (handlePublishArrivalAt); same planned_sessions doc.
+  const publishWindow = useCallback(async (
+    resolve: () => { startTime: Date; endTime: Date } | null,
+  ) => {
     const user = auth.currentUser;
     if (!user || !selectedPark) return;
     setPublishingSession(true);
     try {
-      const arrivalWindow = resolveArrivalWindow(dayFilter, pickedDate, timeRangeMinutes);
-      if (!arrivalWindow.ok) {
-        console.warn('[ParkDetail] Invalid date input value:', pickedDate);
-        return;
-      }
-      const { startTime, endTime } = arrivalWindow;
+      const resolved = resolve();
+      if (!resolved) return;
+      const { startTime, endTime } = resolved;
 
       // Reject windows that have already ended — there's no point
       // announcing an arrival for a slot that's already past.
@@ -114,7 +115,22 @@ export function useParkArrivalPublish(selectedPark: Park | null, dayFilter: DayF
     } finally {
       setPublishingSession(false);
     }
-  }, [timeRangeMinutes, pickedDate, dayFilter, selectedPark]);
+  }, [selectedPark]);
+
+  const handlePublishArrival = useCallback(() => publishWindow(() => {
+    const arrivalWindow = resolveArrivalWindow(dayFilter, pickedDate, timeRangeMinutes);
+    if (!arrivalWindow.ok) {
+      console.warn('[ParkDetail] Invalid date input value:', pickedDate);
+      return null;
+    }
+    return { startTime: arrivalWindow.startTime, endTime: arrivalWindow.endTime };
+  }), [publishWindow, timeRangeMinutes, pickedDate, dayFilter]);
+
+  /** enable_map_polish_v1 wheel — an explicit window (ArrivalWheelSheet → arrivalWindow()). */
+  const handlePublishArrivalAt = useCallback(
+    (win: { startTime: Date; endTime: Date }) => publishWindow(() => win),
+    [publishWindow],
+  );
 
   return {
     showTimePicker,
@@ -127,6 +143,7 @@ export function useParkArrivalPublish(selectedPark: Park | null, dayFilter: DayF
     localArrivals,
     setLocalArrivals,
     handlePublishArrival,
+    handlePublishArrivalAt,
   };
 }
 
