@@ -185,6 +185,11 @@ AUTHORIZED_ROUTE_WRITERS=(
   # No write verb in the file; also on the migrated list below so any future write
   # there must use buildValidatedDoc.
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  # City-mapping hub H0 (22.10.2026, enable_city_mapping_hub): READ-ONLY status
+  # fields of unpublished official_routes per authority for the hub table. No
+  # write verb in the file; also on the migrated list below so any future write
+  # there must use buildValidatedDoc.
+  "src/lib/city-mapping-hub/read-hub-rows.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -210,6 +215,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  "src/lib/city-mapping-hub/read-hub-rows.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

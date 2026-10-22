@@ -1,0 +1,132 @@
+'use client';
+
+/**
+ * CityMappingHub — /admin/city-mapping/hub (CITY-MAPPING-HUB-DESIGN.md §2-3),
+ * behind enable_city_mapping_hub. H0: header + KPIs + filters + the all-
+ * authorities table + the selected authority's summary. The map (H1+) slots
+ * into the right-hand column.
+ *
+ * State is owned by the caller (the page keeps it in the URL — §3.1); this
+ * component is controlled, so it is testable without a router. Desktop: table
+ * on the right (RTL reading start), map side on the left. < md: top tabs
+ * טבלה | מפה | פערים. Plain in-flow layout: no overlay, no z-index.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Loader2, Plus, RefreshCw } from 'lucide-react';
+import type { HubRow } from '@/lib/city-mapping-hub/rows';
+import { filterHubRows, hubKpis, sortHubRows, type HubFilters, type HubSortKey } from '@/lib/city-mapping-hub/filters';
+import type { HubMobileView, HubUrlState } from '@/lib/city-mapping-hub/url-state';
+import { CityMappingHubError, loadHubRows } from '@/features/admin/services/city-mapping-hub.service';
+import HubKpis from './HubKpis';
+import HubFiltersBar from './HubFiltersBar';
+import HubTable from './HubTable';
+import HubAuthoritySummary from './HubAuthoritySummary';
+
+export interface CityMappingHubProps {
+  state: HubUrlState;
+  onStateChange: (next: HubUrlState) => void;
+  /** Injected in tests; defaults to the guarded API loader. */
+  loadRows?: () => Promise<HubRow[]>;
+}
+
+const VIEWS: Array<{ v: HubMobileView; label: string }> = [
+  { v: 'table', label: 'טבלה' },
+  { v: 'map', label: 'מפה' },
+  { v: 'gaps', label: 'פערים' },
+];
+
+/** Columns whose natural reading is "biggest first". */
+const DESC_FIRST: ReadonlySet<HubSortKey> = new Set<HubSortKey>(['pendingRoutes', 'pendingContributions', 'gaps', 'lastRefreshAt']);
+
+export default function CityMappingHub({ state, onStateChange, loadRows = loadHubRows }: CityMappingHubProps) {
+  const [rows, setRows] = useState<HubRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await loadRows());
+    } catch (err) {
+      const e = err as CityMappingHubError;
+      setError(e?.status === 403 ? `אין גישה: ${e.message}` : `שגיאה בטעינת הרשויות: ${e?.message ?? 'לא ידועה'}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadRows]);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const patch = useCallback((p: Partial<HubUrlState>) => onStateChange({ ...state, ...p }), [state, onStateChange]);
+  const visible = useMemo(() => sortHubRows(filterHubRows(rows ?? [], state), state.sort, state.dir), [rows, state]);
+  const kpis = useMemo(() => hubKpis(rows ?? []), [rows]);
+  const selected = useMemo(() => rows?.find((r) => r.authorityId === state.authority) ?? null, [rows, state.authority]);
+
+  // §3.1: filtering down to exactly one authority behaves like selecting it.
+  useEffect(() => {
+    if (visible.length === 1 && state.authority !== visible[0].authorityId) patch({ authority: visible[0].authorityId });
+  }, [visible, state.authority, patch]);
+
+  const onSort = (key: HubSortKey) => {
+    if (state.sort === key) patch({ dir: state.dir === 'asc' ? 'desc' : 'asc' });
+    else patch({ sort: key, dir: DESC_FIRST.has(key) ? 'desc' : 'asc' });
+  };
+  const onFilters = (p: Partial<HubFilters>) => patch(p);
+  const onSelect = (id: string) => patch({ authority: id, view: state.view === 'table' ? 'gaps' : state.view });
+
+  const show = (v: HubMobileView) => (state.view === v ? 'flex' : 'hidden');
+
+  return (
+    <div dir="rtl" className="mx-auto flex w-full max-w-[1600px] flex-col gap-3.5 pb-6">
+      <header className="flex flex-wrap items-center gap-3">
+        <h1 className="text-[22px] font-black tracking-tight">מרכז מיפוי ערים</h1>
+        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-extrabold text-cyan-800">enable_city_mapping_hub</span>
+        <div className="flex-1" />
+        <Link href="/admin/city-mapping" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold hover:bg-slate-50">
+          <Plus className="h-4 w-4" /> הוספה והרצה
+        </Link>
+        <button type="button" onClick={refresh} disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-bold hover:bg-slate-50 disabled:opacity-60">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} רענון
+        </button>
+      </header>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</div>}
+
+      <HubKpis k={kpis} />
+      <HubFiltersBar filters={state} onChange={onFilters} />
+
+      <nav className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 md:hidden" aria-label="תצוגה">
+        {VIEWS.map((v) => (
+          <button key={v.v} type="button" aria-pressed={state.view === v.v} onClick={() => patch({ view: v.v })}
+            className={`flex-1 rounded-lg py-1.5 text-sm font-bold ${state.view === v.v ? 'bg-cyan-50 text-cyan-800' : 'text-slate-600'}`}>
+            {v.label}
+          </button>
+        ))}
+      </nav>
+
+      <main className="grid min-h-0 grid-cols-1 gap-3.5 md:grid-cols-[minmax(0,44fr)_minmax(0,56fr)]">
+        <section className={`${show('table')} min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:h-[max(600px,calc(100vh-260px))]`} aria-label="טבלת רשויות">
+          <div className="flex items-center justify-between gap-2 px-3.5 pb-2 pt-3">
+            <h2 className="text-sm font-black">רשויות</h2>
+            <small className="text-xs font-semibold text-slate-400" data-testid="hub-count">{rows ? `${visible.length} מוצגות מתוך ${rows.length}` : ''}</small>
+          </div>
+          {rows === null && loading ? (
+            <div className="flex items-center gap-2 p-6 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> טוען רשויות…</div>
+          ) : (
+            <HubTable rows={visible} selectedId={state.authority} sort={state.sort} dir={state.dir} onSort={onSort} onSelect={onSelect} />
+          )}
+        </section>
+
+        <section className="flex min-w-0 flex-col gap-3.5" aria-label="מפה ופערים">
+          <div className={`${show('map')} min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm font-semibold text-slate-400 md:flex`}>
+            המפה (מסלולים, נקודות ותרומות) — גל H1
+          </div>
+          <div className={`${show('gaps')} flex-col rounded-2xl border border-slate-100 bg-white shadow-sm md:flex`}>
+            <HubAuthoritySummary row={selected} onClear={() => patch({ authority: null })} />
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

@@ -489,6 +489,13 @@ export const FLAG_DEFS = [
   // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
   // and the server always reads the real value, so the drawer and the routes never disagree.
   { key: 'adminAiAssistantV1', firestoreKey: 'admin_ai_assistant_v1', defaultValue: false, superAdminValue: false },
+  // City-mapping hub (22.10.2026, owner-approved — docs/admin/CITY-MAPPING-HUB-DESIGN.md). The new
+  // super-admin page /admin/city-mapping/hub: every authority in one table (filters / sort / search),
+  // a map with route / point / user-contribution layers and approve / reject from the map (reusing
+  // the approval center's services). Off = the page shows "off" and its hub-only server routes answer
+  // 403; /admin/city-mapping is unchanged either way. superAdminValue FALSE: the panel toggle is the
+  // one switch (the page is super-admin-only, so an override would mean "always on").
+  { key: 'enableCityMappingHub', firestoreKey: 'enable_city_mapping_hub', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

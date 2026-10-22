@@ -13,6 +13,7 @@ export const ADMIN_PAGE_SYNONYMS: Record<string, string[]> = {
   '/admin': ['בית', 'דף הבית', 'דשבורד', 'מסך ראשי', 'סקירה'],
   '/admin/authorities': ['טבלת כל הערים', 'כל הערים', 'ערים', 'רשויות', 'עיריות', 'לקוחות', 'CRM', 'צנרת', 'פייפליין', 'pipeline'],
   '/admin/city-mapping': ['טבלת כל הערים', 'כל הערים', 'ערים במיפוי', 'מוכנות מיפוי', 'מיפוי ערים', 'מלאי עיר'],
+  '/admin/city-mapping/hub': ['מרכז מיפוי', 'האב מיפוי', 'מפת רשויות', 'פערי מיפוי'],
   '/admin/approval-center': ['אישורים', 'ממתינים לאישור', 'מסלולים לאישור', 'תור אישורים', 'בקשות'],
   '/admin/journey': ['אנליטיקה', 'סטטיסטיקות', 'נתונים', 'משפך', 'retention', 'שימור', 'קוהורטות', 'נטישה', 'אונבורדינג'],
   '/admin/users/all': ['משתמשים', 'רשימת משתמשים', 'מתאמנים'],
@@ -45,4 +46,6 @@ export const ADMIN_PAGE_TITLE_OVERRIDES: Record<string, string> = {
   '/admin/finance': 'כספים',
   '/admin/users/[uid]': 'משתמש · פרטים',
   '/admin/locations/import/[category]': 'מיקומים ומסלולים · ייבוא',
+  // Its only static <h1> is the flag-off notice; the hub's own <h1> lives in CityMappingHub.
+  '/admin/city-mapping/hub': 'מרכז מיפוי ערים',
 };
