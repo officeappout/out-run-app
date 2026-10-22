@@ -14,6 +14,7 @@ import { TABATA_BLOCK_SECONDS, TABATA_CLASSIC } from './protocols/tabata.constan
 import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, resolveExerciseLevelForDomains, resolveExerciseDomain as resolveUnifiedExerciseDomain, DOMAIN_RESOLUTION_SKILL_PARENT_MAP } from './workout-selection.utils';
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
+import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -671,6 +672,10 @@ export function assignVolume(
       ? Math.max(2, Math.floor(context.dailySetBudget / exerciseCount))
       : undefined;
 
+  // 3a (enable_adaptive_reps_v1): per-exercise double progression — deterministic placement.
+  const adaptiveOn = context.progressionPolicy?.adaptiveReps === true;
+  const adaptiveNow = Date.now();
+
   return exercises.map((scored) => {
     const priority = classifyPriority(scored.exercise);
     const timeBased = isTimeBasedExercise(scored.exercise);
@@ -737,6 +742,14 @@ export function assignVolume(
 
     // Absolute floor: no exercise should ever have fewer than 2 sets
     sets = Math.max(2, sets);
+
+    // 3a: +1 set after DP_TOP_SESSIONS_FOR_SET sessions at the top — never on a reduced
+    // session, never past the tier's set max (the budget passes may still trim it).
+    const adaptiveState = adaptiveOn ? context.adaptiveStates?.[exercise.id] : undefined;
+    if (adaptiveOn && !(volumeAdjustment.reductionPercent > 0)) {
+      const extra = adaptiveExtraSets(adaptiveState, adaptiveNow);
+      if (extra > 0) sets = Math.min(sets + extra, Math.max(sets, tier.sets.max, volumeTier.sets.max));
+    }
 
     let reps: number;
 
@@ -816,7 +829,18 @@ export function assignVolume(
       // Capped to the active range max so the floor stays inside the
       // physiologically appropriate window for this delta tier.
       const activeRange = uniRepsRange ?? repRange;
-      const floorResult = applyHistoryFloor(reps, activeRange, scored.exercise.id, context.exerciseHistoryMap);
+      if (adaptiveOn) {
+        // 3a: the progression's own target (or the range min raised to last session's best),
+        // instead of a random spot in the range.
+        const hist = applyHistoryFloor(activeRange.min, activeRange, scored.exercise.id, context.exerciseHistoryMap);
+        reps = adaptiveTarget(activeRange, adaptiveState, hist.discarded ? null : hist.lastMax, adaptiveNow);
+        if (volumeAdjustment.reductionPercent > 0) {
+          reps = Math.max(activeRange.min, Math.round(reps * (1 - volumeAdjustment.reductionPercent / 100)));
+        }
+      }
+      const floorResult = adaptiveOn
+        ? { reps, floored: false, lastMax: null }
+        : applyHistoryFloor(reps, activeRange, scored.exercise.id, context.exerciseHistoryMap);
       if (floorResult.floored) {
         console.log(
           `[assignVolume] HistoryFloor "${getLocalizedText(scored.exercise.name) || scored.exercise.id}":` +
@@ -860,6 +884,11 @@ export function assignVolume(
           return { min: baseMin, max: baseMax };
         })()
       : (uniRepsRange ?? { min: effectiveRepRange.min, max: effectiveRepRange.max });
+
+    // 3a: holds — the progression's target inside the (compressed) hold range.
+    if (adaptiveOn && timeBased) {
+      reps = Math.min(holdCap, adaptiveTarget(repsRange, adaptiveState, null, adaptiveNow));
+    }
 
     const exerciseId = scored.exercise.id;
     const isGoalExercise = context.goalExerciseIds?.has(exerciseId) ?? false;

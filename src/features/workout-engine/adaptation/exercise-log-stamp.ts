@@ -22,6 +22,8 @@ export interface StampableWorkoutExercise {
   swappedFromId?: string;
   userDomainLevel?: number;
   swappedToLevel?: number;
+  /** 3a: deload / heat / calm-return session — doesn't move the progression. */
+  adaptiveSkip?: boolean;
 }
 
 /** Plan-level adaptation context carried on the runner's parks `Exercise`. */
@@ -31,6 +33,7 @@ export interface PlanAdaptationStamp {
   userDomainLevel?: number;
   wasSwapped?: true;
   swappedFromId?: string;
+  adaptiveSkip?: true;
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -60,6 +63,7 @@ export function adaptationStampForPlan(we: StampableWorkoutExercise): PlanAdapta
   if (isNum(userDomainLevel) && userDomainLevel > 0) out.userDomainLevel = userDomainLevel;
   if (we.wasSwapped) out.wasSwapped = true;
   if (we.swappedFromId) out.swappedFromId = we.swappedFromId;
+  if (we.adaptiveSkip) out.adaptiveSkip = true;
   return out;
 }
 
@@ -100,6 +104,7 @@ export interface StampablePlanExercise {
   userDomainLevel?: number;
   wasSwapped?: boolean;
   swappedFromId?: string;
+  adaptiveSkip?: boolean;
 }
 
 export interface ExerciseLogStamp {
@@ -110,6 +115,8 @@ export interface ExerciseLogStamp {
   role?: string;
   wasSwapped?: true;
   swappedFromId?: string;
+  /** 3a: this session doesn't move the exercise's progression (only set while the flag is on). */
+  adaptiveSkip?: true;
 }
 
 /** Stamp taken from the plan when a log entry is FIRST created. */
@@ -124,6 +131,7 @@ export function logStampFromPlanExercise(ex: StampablePlanExercise | null | unde
   if (ex.exerciseRole) out.role = ex.exerciseRole;
   if (ex.wasSwapped) out.wasSwapped = true;
   if (ex.swappedFromId && ex.swappedFromId !== ex.id) out.swappedFromId = ex.swappedFromId;
+  if (ex.adaptiveSkip) out.adaptiveSkip = true;
   return out;
 }
 
