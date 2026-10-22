@@ -17,6 +17,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate as animateValue } from 'framer-motion';
 import { Trophy, Share2, ArrowRight, Sparkles, Flame, Target, CheckCircle2 } from 'lucide-react';
 import { hapticLight, hapticSuccess } from '@/lib/haptics';
+import { useSafeAreaTop } from '@/lib/safe-area/useSafeAreaTop';
 import { playTick, playSuccessChime } from '@/lib/sound';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey } from '@/messages/ns/player';
@@ -363,6 +364,7 @@ export default function StrengthDopamineScreen({
   enableHaptics = true,
 }: StrengthDopamineScreenProps) {
   const t = useT(player);
+  const safeTop = useSafeAreaTop();
   // Current displayed percentage (animated)
   const [displayPercent, setDisplayPercent] = useState(initialProgress);
 
@@ -460,7 +462,18 @@ export default function StrengthDopamineScreen({
       dir="rtl"
     >
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center">
+      {/* Full-screen: clear the status bar / notch.
+          The JS-measured safeTop covers Android edge-to-edge WebViews where
+          env() reads 0 (see lib/safe-area). */}
+      <div
+        className="flex-1 overflow-y-auto px-6 flex flex-col items-center"
+        style={{
+          paddingTop: `max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem), ${safeTop + 16}px)`,
+          // Bottom stays 2rem: the pinned action bar below already clears
+          // env(safe-area-inset-bottom).
+          paddingBottom: '2rem',
+        }}
+      >
           
           {/* Circular Progress with Bonus Labels */}
           <div className="relative mt-4 mb-12 flex justify-center items-center w-full">

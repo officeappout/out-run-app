@@ -614,6 +614,7 @@ export default function AerobicSummaryView({
         header={hero}
         peekHeight={peekHeight}
         initialSnap={initialSnap}
+        topBar={isReadOnly ? { title: 'סיכום אימון', onClose } : undefined}
         footer={
           isReadOnly ? (
             // History: optional delete (caller-owned confirm) + close. No save.
