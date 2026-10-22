@@ -89,6 +89,7 @@ interface FlagState {
   enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
+  enable_destination_planner_v1: boolean;
   enable_push_measure_all: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
@@ -671,6 +672,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
     description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
+  },
+  // Destination planner — address pick → planner → commute player (22.10.2026).
+  {
+    key: 'enable_destination_planner_v1',
+    icon: MapIcon,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'מפה: תכנון דרך ליעד',
+    description: 'אחרי בחירת כתובת או "נווט לכאן": מסך תכנון עם הליכה / ריצה / רכיבה וזמן לכל אחת, העדפות (דרך גינת כושר, הכי קצר, מואר ומוצל רק איפה שיש נתונים) ועד 2 דרכים לבחירה עם תגים מנתונים אמיתיים בלבד. "התחל" מפעיל את הניווט הקיים עם הדרך שנבחרה. דורש את הבית החדש.',
   },
   // Analytics — measure every push type (22.10.2026).
   {
