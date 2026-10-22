@@ -59,5 +59,7 @@ export function loopDtoToRoute(l: GeneratedLoopDto, index: number, activity: GhA
     includesOfficialSegments: false,
     visitingParkId: null,
     includesFitnessStop: false,
+    // enable_route_shade_tag: present only when the server measured it (absent = byte-identical route).
+    ...(typeof l.shadedPct === 'number' && Number.isFinite(l.shadedPct) ? { shadeInfo: { shadedPct: l.shadedPct } } : {}),
   };
 }

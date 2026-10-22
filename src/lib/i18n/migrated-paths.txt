@@ -202,6 +202,8 @@ src/features/parks/core/components/hybrid/HybridStationCard.tsx
 src/features/parks/core/components/hybrid/OverviewTitleBar.tsx
 src/features/parks/core/components/hybrid/StrengthStationsToggle.tsx
 src/features/parks/core/components/overview/
+# enable_route_shade_tag (22.10.2026, namespace map, keys shade.*) — route shade tag + detail row, catalog from birth.
+src/features/parks/core/components/route-shade/
 # wave 2 batch q (namespace community, leagues.* keys) — the free league boards + their helpers.
 # Listed per file: NeighborhoodLeaderboard / NationalLeagueBoard / ScopeBattleCard / ScopeCompetitionLeaderboard /
 # GroupLeaderboard / LeagueBoardSheets (open PR #607 + other work) and app/community are not migrated. The helpers

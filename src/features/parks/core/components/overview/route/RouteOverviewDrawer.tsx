@@ -36,6 +36,7 @@ import RoundTripPill from '../RoundTripPill';
 import { journeyItemsFromLegs } from '../overview-legs';
 import RouteLegDetail from './RouteLegDetail';
 import RouteCreditsLine from './RouteCreditsLine';
+import { RouteShadeRow } from '../../route-shade/RouteShade';
 import {
   ROUTE_ACTIVITIES, activityMinutes, buildRouteLegs, finishClock, initialRouteActivity,
   isLoopRoute, routeDescription, routeWalkLegs, type RouteActivity,
@@ -148,6 +149,8 @@ export default function RouteOverviewDrawer({
           <DifficultyBolts difficulty={route.difficulty} size="sm" />
         </span>
       </div>
+      {/* enable_route_shade_tag: shade % · by hour · lit at night (nothing without the flag / data) */}
+      <RouteShadeRow route={route} variant="v2" />
       {detailOpen && (
         <div className="mt-2">
           <div className="mb-2.5 flex items-start gap-1.5 text-[14px] leading-relaxed text-v2-ink-2">

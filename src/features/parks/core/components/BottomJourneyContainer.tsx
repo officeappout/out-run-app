@@ -6,7 +6,7 @@ import { Route, ActivityType } from '../types/route.types';
 import { useMapStore } from '../store/useMapStore';
 import Image from 'next/image';
 import RouteCardUnified from './RouteCardUnified';
-import RouteQualityBadges from './RouteQualityBadges';
+import { RouteQualityBadgesWithShade } from './route-shade/RouteShade';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { bunnyImg } from '@/lib/bunny-image';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
@@ -408,7 +408,7 @@ export default function BottomJourneyContainer({
                   }}
                   className="snap-center snap-always"
                   ctaLoading={isLoading}
-                  extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} scrollable />}
+                  extraContent={<RouteQualityBadgesWithShade route={route} scrollable />}
                   ctaBlockedReason={blockedReason}
                   onCtaBlocked={(reason) => showToast('error', reason)}
                   onCta={(e) => {

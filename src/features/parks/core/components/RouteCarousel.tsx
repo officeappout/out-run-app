@@ -108,7 +108,7 @@ import type { ActivityType, CommuteVariant, Route } from '../types/route.types';
 import { ROUTE_CARD_WIDTH } from '../constants/routeCardSize';
 import RouteCardUnified from './RouteCardUnified';
 import RouteOverviewCompactCard from './overview/route/RouteOverviewCompactCard';
-import RouteQualityBadges from './RouteQualityBadges';
+import { RouteQualityBadgesWithShade } from './route-shade/RouteShade';
 import { UNIFIED_ROUTE_CARDS_ENABLED } from '@/config/feature-flags';
 import { haversineKm } from '../services/geoUtils';
 import { computeStartExperienceState, estimateWalkMinutesFromKm } from '../services/start-experience-state';
@@ -1184,7 +1184,7 @@ function RouteCard({
         difficulty={route.difficulty}
         isActive={isActive}
         className="snap-center snap-always"
-        extraContent={<RouteQualityBadges qualitySignals={route.qualitySignals} />}
+        extraContent={<RouteQualityBadgesWithShade route={route} />}
         onCta={onStart}
         ctaBlockedReason={blockedReason}
         onCtaBlocked={(reason) => showToast('error', reason)}

@@ -349,5 +349,12 @@
   "arrivalWheel.day": "{day, select, today {היום} other {מחר}}",
   "arrivalWheel.dayAria": "יום",
   "arrivalWheel.hourAria": "שעה",
-  "arrivalWheel.minuteAria": "דקות"
+  "arrivalWheel.minuteAria": "דקות",
+  "shade.tag": "🌳 מוצל {pct}%",
+  "shade.row.label": "צל ותאורה לאורך המסלול",
+  "shade.row.shaded": "מוצל {pct}%",
+  "shade.row.now": "עכשיו {pct}%",
+  "shade.row.noon": "בצהריים {pct}%",
+  "shade.row.afternoon": "אחה״צ {pct}%",
+  "shade.row.lit": "מואר בלילה {pct}%"
 }
