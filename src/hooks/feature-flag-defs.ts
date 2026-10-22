@@ -397,6 +397,13 @@ export const FLAG_DEFS = [
   // a compact park card; layers panel toggles for parks and routes. Fail-closed; super admins
   // preview it. Off = byte-identical map.
   { key: 'enableMapPolishV1', firestoreKey: 'enable_map_polish_v1', defaultValue: false, superAdminValue: true },
+  // Level-up v2 (22.10.2026, owner-approved design LV-1…LV-4 — agent-briefs/levelup-build-brief.md).
+  // The post-workout "% screen": the result is computed on the device at once from the same pure
+  // engine formulas the service stores with (progression-calc.ts), the write runs in the
+  // background ("שומר…" → "נשמר") and reconciles silently; one number = exactly what is stored
+  // (master = the stored plain average); ring only, chips push it; level-up = celebration with the
+  // NEW level. Fail-closed; super admins preview it. Off = the legacy dopamine screen, byte-identical.
+  { key: 'enableLevelupV2', firestoreKey: 'enable_levelup_v2', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default
