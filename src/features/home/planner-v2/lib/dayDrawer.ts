@@ -81,7 +81,7 @@ export function doneRowsOf(workouts: readonly DoneWorkoutLike[]): DayDrawerDone[
     row.title = row.title ?? w.title ?? null;
     byKey.set(key, row);
   }
-  return [...byKey.values()]
+  return Array.from(byKey.values())
     .sort((a, b) => a.at - b.at)
     .map(({ at: _at, ...r }) => ({ ...r, minutes: Math.round(r.minutes), km: round1(r.km) }));
 }
