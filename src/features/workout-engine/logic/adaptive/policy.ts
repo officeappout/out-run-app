@@ -25,7 +25,7 @@ export const POLICY_OFF: ProgressionPolicy = Object.freeze({
 export function resolveProgressionPolicy(isSuperAdmin: boolean): ProgressionPolicy {
   return {
     trueSkillCap: isSuperAdmin || readLiveFlag('enableSkillCapTrueSkills'),
-    adaptiveReps: false,
+    adaptiveReps: isSuperAdmin || readLiveFlag('enableAdaptiveRepsV1'),
     goalPresence: false,
   };
 }

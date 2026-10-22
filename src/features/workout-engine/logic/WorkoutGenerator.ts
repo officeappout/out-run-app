@@ -1858,6 +1858,14 @@ export class WorkoutGenerator {
         reasoning.push('skill_soft_offset:-10(general_training)');
       }
 
+      // ── Adaptive nudges (3a variation step / 3e goal presence) ─────────
+      // Precomputed per generation (logic/adaptive/); absent while the flags are off.
+      const adaptiveNudge = context.adaptiveScoreBonus?.get(ex.exercise.id);
+      if (adaptiveNudge && adaptiveNudge.delta !== 0) {
+        bonus += adaptiveNudge.delta;
+        reasoning.push(`adaptive:${adaptiveNudge.reason}`);
+      }
+
       if (bonus === 0) return ex;
       return { ...ex, score: ex.score + bonus, reasoning };
     });

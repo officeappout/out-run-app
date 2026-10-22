@@ -125,6 +125,7 @@ import {
   applyWeatherRest,
   capDifficultyForWeather,
   extraWarmupMinutesForWeather,
+  isHeatLike,
 } from './weather-adaptation';
 import { appendCooldownExercises } from './cooldown.service';
 import { resolveEffectiveBoltTime } from '../logic/bolt-time.utils';
@@ -148,6 +149,9 @@ import { resolveCalmReturn, type CalmReturnState } from '@/lib/calm-return/polic
 import { calmCopy } from '@/lib/calm-return/surface';
 import { readLiveFlag } from '@/lib/feature-flag-live';
 import { resolveProgressionPolicy } from '../logic/adaptive/policy';
+import type { AdaptiveState } from '../logic/adaptive/double-progression';
+import { buildVariationBonus, type ScoreBonusMap } from '../logic/adaptive/selection-bonus';
+import { isProgressHoldSession } from '../logic/adaptive/session-gates';
 import { isBudgetLightModeEnabled } from '../budget-light/flag';
 import { applyBudgetLightToTrio, resolveTrioBudgetGate } from '../budget-light/trio-gate';
 import type {
@@ -1336,6 +1340,18 @@ async function generateHomeWorkoutTrioCore(
       // Weather (heat/UV): rest ×1.25 on main exercises — before the cap so it trims
       // against the real, longer session.
       applyWeatherRest(workout.exercises, options.weather);
+
+      // 3a: a deload / heat / calm-return session doesn't move anyone's progression.
+      if (
+        pipeline.baseGeneratorContext.progressionPolicy?.adaptiveReps
+        && isProgressHoldSession({
+          periodizationWeek: pipeline.sessionPolicy.periodizationWeek,
+          heat: isHeatLike(options.weather),
+          calmReturnLightened: !!pipeline.calmReturn?.isLightened,
+        })
+      ) {
+        for (const ex of workout.exercises) ex.adaptiveSkip = true;
+      }
 
       // Strict body-area request (builder chips / AI domains): the last word on focus,
       // AFTER every post-processing pass that can add or swap a main exercise and
@@ -3201,6 +3217,13 @@ async function _buildSharedPipeline(
   // can clamp `reps` upward to whatever the user actually performed last
   // session — preventing regressions when the user is mid-level (e.g.
   // 50%+ progress with a strong prior session). Empty map when offline.
+  // Adaptive progression switches (3d/3a/3e — logic/adaptive/policy.ts). Read once for this
+  // generation; super admins preview every switch.
+  const progressionPolicy = resolveProgressionPolicy(
+    (userProfile.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin === true,
+  );
+  // 3a: double-progression states ride on the same history query (no extra reads).
+  const adaptiveStates: Record<string, AdaptiveState> = {};
   let exerciseHistoryMap: Record<string, number[]> = {};
   try {
     const userIdForHistory = effectiveProfile.id;
@@ -3208,7 +3231,9 @@ async function _buildSharedPipeline(
       const historyIds = filterResult.exercises
         .filter(se => se.method != null)
         .map(se => se.exercise.id);
-      exerciseHistoryMap = await getHistoryMapForExercises(userIdForHistory, historyIds);
+      exerciseHistoryMap = await getHistoryMapForExercises(
+        userIdForHistory, historyIds, progressionPolicy.adaptiveReps ? adaptiveStates : undefined,
+      );
       console.log(
         `[WorkoutTrio] Exercise history loaded: ${Object.keys(exerciseHistoryMap).length}/${historyIds.length} exercises ` +
         `have prior session data (David Staircase floor active).`,
@@ -3219,11 +3244,16 @@ async function _buildSharedPipeline(
   }
   genPerfMark('#7 exercise-history (fan-out getDoc)');
 
-  // ── 5a-ter. Adaptive progression switches (3d/3a/3e — logic/adaptive/policy.ts) ─
-  // Read once for this generation; super admins preview every switch.
-  const progressionPolicy = resolveProgressionPolicy(
-    (userProfile.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin === true,
-  );
+  // Adaptive selection nudges (3a variation step) — score deltas only, never forced in.
+  const adaptiveScoreBonus: ScoreBonusMap = new Map();
+  if (progressionPolicy.adaptiveReps) {
+    buildVariationBonus(
+      adaptiveStates,
+      filterResult.exercises.filter(se => se.method != null).map(se => se.exercise),
+      Date.now(),
+      adaptiveScoreBonus,
+    );
+  }
 
   // ── 5b. Base generator context (Sprint 3 integrity preserved) ────────
   const baseGeneratorContext: WorkoutGenerationContext = {
@@ -3370,6 +3400,8 @@ async function _buildSharedPipeline(
     availableEquipment,
     exerciseHistoryMap,
     progressionPolicy,
+    ...(progressionPolicy.adaptiveReps ? { adaptiveStates } : {}),
+    ...(adaptiveScoreBonus.size > 0 ? { adaptiveScoreBonus } : {}),
   };
 
   // ── Build metadata context base for per-option title/description resolution ─

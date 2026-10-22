@@ -97,6 +97,8 @@ export interface WorkoutExercise {
   levelDelta?: number;
   isGoalExercise?: boolean;
   rampedTarget?: number;
+  /** 3a: this session doesn't move the exercise's progression (deload / heat / calm return). */
+  adaptiveSkip?: boolean;
   exerciseRole?: 'warmup' | 'main' | 'cooldown';
   /**
    * True ONLY for the Stage-1 general mobility warmup (Part A of
@@ -603,6 +605,16 @@ export interface WorkoutGenerationContext {
    * Absent = every switch off = today's engine.
    */
   progressionPolicy?: import('./adaptive/policy').ProgressionPolicy;
+  /**
+   * 3a (enable_adaptive_reps_v1): exerciseId → double-progression state, read with the history
+   * map (same query). Only consulted while `progressionPolicy.adaptiveReps` is on.
+   */
+  adaptiveStates?: Record<string, import('./adaptive/double-progression').AdaptiveState>;
+  /**
+   * Adaptive selection nudges (3a variation step, 3e goal presence): exerciseId → score delta,
+   * applied in the generator's synergy pass. Absent = no change.
+   */
+  adaptiveScoreBonus?: Map<string, { delta: number; reason: string }>;
   /**
    * @deprecated  Phase 3 — the modular pipeline is now the only path.
    *

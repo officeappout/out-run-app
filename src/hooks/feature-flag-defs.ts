@@ -434,6 +434,13 @@ export const FLAG_DEFS = [
   // the user's level gets 3–6 (hard) / 2–5 (elite) instead of 1–3. Read once per generation
   // (readLiveFlag + the user's own super-admin bit). Default OFF; super admins preview it.
   { key: 'enableSkillCapTrueSkills', firestoreKey: 'enable_skill_cap_true_skills', defaultValue: false, superAdminValue: true },
+  // Adaptive progression 3a (22.10.2026, owner). ON = per-exercise double progression: +1 rep / +5 s
+  // after a session where every set hit the target, +1 set after 2 sessions at the range top, the
+  // harder variation after 3, hold after a miss, step back after 2 misses
+  // (logic/adaptive/double-progression.ts). State lives on users/{uid}/exerciseHistory/{id}.adaptive
+  // (additive, same doc, same reads). Placement inside the range is deterministic. Default OFF;
+  // super admins preview it.
+  { key: 'enableAdaptiveRepsV1', firestoreKey: 'enable_adaptive_reps_v1', defaultValue: false, superAdminValue: true },
   // Demo world (20.10.2026, owner-approved — agent-briefs/demo-users-design.md §2.1). The one
   // kill-switch for the simulated demo users (the scheduled simulator, PR 4, exits without
   // writing while it is off). Nothing reads it yet in PR 1 (isolation guards only). Default

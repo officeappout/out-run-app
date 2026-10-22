@@ -133,7 +133,7 @@ describe('G8.2 — workout history and XP are separate writes, untouched by the 
   it('the active page saves exercise history regardless of the progression result', () => {
     const page = src('../../../../../app/workouts/[id]/active/page.tsx');
     const afterCall = page.slice(page.indexOf('const result = await processWorkoutCompletion({'));
-    const historyAt = afterCall.indexOf('saveExerciseHistory(uid, exerciseResults)');
+    const historyAt = afterCall.indexOf('saveExerciseHistory(uid, exerciseResults');
     const successGateAt = afterCall.indexOf('if (result.success)');
     expect(historyAt).toBeGreaterThan(-1);
     expect(historyAt).toBeLessThan(successGateAt); // not gated on success / skipped

@@ -10,6 +10,7 @@ import type { ExerciseResultLog } from '@/features/workout-engine/players/streng
 import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
 import { buildExerciseProgramLookup, buildWorkoutExerciseResults, planExerciseIds } from '@/features/workout-engine/players/strength/logic/exercise-results';
+import { buildAdaptiveSessionMeta } from '@/features/workout-engine/players/strength/logic/adaptive-session-meta';
 import LevelUpScreen from '@/features/workout-engine/components/strength/levelup-v2/LevelUpScreen';
 import { useLevelUpV2 } from '@/features/workout-engine/components/strength/levelup-v2/useLevelUpV2';
 // Mid-workout modals are code-split + mounted on first open (drop-in replacements).
@@ -975,6 +976,9 @@ export default function ActiveWorkoutPage() {
   // first set and writes nothing itself — FirstRunTour records the seen flag).
   const tourIsSuperAdmin = !!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin;
   const { flags: tourFlags, loading: tourFlagsLoading } = useFeatureFlags(tourIsSuperAdmin);
+  // 3a (enable_adaptive_reps_v1): read at save time through a ref (the save runs in an async chain).
+  const adaptiveRepsOnRef = useRef(false);
+  adaptiveRepsOnRef.current = tourFlags.enableAdaptiveRepsV1 === true;
   const playerToursOn = !tourFlagsLoading && firstRunToursEnabled(tourFlags);
   // enable_home_v2 — styling only, for this page's own loading/error screens (the player
   // itself reads the flag in StrengthRunner).
@@ -1332,7 +1336,9 @@ export default function ActiveWorkoutPage() {
         setProgressionResult(result);
 
         // Persist per-exercise reps to Firestore for future session smart targets
-        saveExerciseHistory(uid, exerciseResults).catch((e) =>
+        // 3a: adaptive meta only while enable_adaptive_reps_v1 is on (off = today's write).
+        const adaptiveMeta = adaptiveRepsOnRef.current ? buildAdaptiveSessionMeta(rawLog, workoutPlan) : undefined;
+        saveExerciseHistory(uid, exerciseResults, adaptiveMeta).catch((e) =>
           console.warn('[ActiveWorkoutPage] saveExerciseHistory failed (non-critical):', e),
         );
 
