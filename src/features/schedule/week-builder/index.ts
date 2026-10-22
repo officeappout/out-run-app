@@ -8,6 +8,7 @@ export type * from './types';
 export { needsWeekBuilder, weekComplexity, shapeOfWeek, isSplitWeek, sessionKey, MANY_DAYS, type WeekShape, type WeekComplexity } from './needsWeekBuilder';
 export { applyMove, findSession, orderDaySessions, toPlacedDays, trainingDowsOf } from './layout';
 export { moveSession, createWeekEngine, weekViolations, newViolationCode, type MoveOptions } from './moveSession';
+export { applyPlannedMoves, type WbPlannedMove, type WbApplyResult } from './applyMoves';
 export { explainWeek, strengthGapLineHe } from './explain';
 export { dropReasonHe, type WbDropCode } from './dropReasons';
 export { trackCounts, tracksOf, weekChips, inTab, trainingDayCount, type WbTab, type WbChip } from './summary';

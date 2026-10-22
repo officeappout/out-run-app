@@ -21,13 +21,15 @@ export interface WeekDayCardProps {
   date: number;
   tab: WbTab;
   hovered: boolean;
+  /** Just changed by Kelly's builder proposal (a short tint). */
+  highlighted?: boolean;
   rowRef: (el: HTMLElement | null) => void;
   onEdit: () => void;
   onDragMove: (clientY: number | null) => void;
   onDrop: (sessionId: string, clientY: number | null) => void;
 }
 
-export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, onDragMove, onDrop }: WeekDayCardProps) {
+export default function WeekDayCard({ day, date, tab, hovered, highlighted = false, rowRef, onEdit, onDragMove, onDrop }: WeekDayCardProps) {
   const t = useT(schedule);
   const shown = day.sessions.filter((s) => inTab(tab, s.track));
   const total = day.sessions.length;
@@ -35,7 +37,7 @@ export default function WeekDayCard({ day, date, tab, hovered, rowRef, onEdit, o
     <div
       ref={rowRef}
       data-dow={day.dow}
-      className={`transition-colors duration-150 ease-v2 first:rounded-t-[22px] last:rounded-b-[22px] ${day.dow > 0 ? 'border-t border-v2-hairline' : ''} ${hovered ? 'bg-v2-tint/70' : ''}`}
+      className={`transition-colors duration-150 ease-v2 first:rounded-t-[22px] last:rounded-b-[22px] ${day.dow > 0 ? 'border-t border-v2-hairline' : ''} ${hovered || highlighted ? 'bg-v2-tint/70' : ''}`}
     >
       <WeekDayRow
         letter={DAY_LETTERS_HE[day.dow]}
