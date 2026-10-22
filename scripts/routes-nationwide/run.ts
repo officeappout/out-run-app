@@ -154,6 +154,15 @@ async function main() {
   console.log(`to do now: ${todo.length}`);
   writeJson(cpFile, cp);
 
+  // --apply: ONE typed YES for the whole batch (owner request 22.10.2026) instead of one per
+  // authority. Per authority the writes are unchanged: create-only official_routes
+  // (status pending, published false — nothing goes live) + route_scores.
+  let batchConfirmed = false;
+  if (APPLY && todo.length) {
+    batchConfirmed = await confirmTypedYes(`\nType YES to write new pending routes + route_scores for ${todo.length} authorities to ${describeTarget(target)} (create-only, nothing published): `);
+    if (!batchConfirmed) { console.log('Not confirmed — nothing was written.'); return; }
+  }
+
   // ── shared heavy inputs (lazy) ──
   let adminIdx: Map<string, AdminRelation[]> | null = null;
   const adminIndex = () => {
@@ -235,7 +244,7 @@ async function main() {
       writeJson(path.join(OUT, 'authorities', `${a.id}.json`), summary);
       printAuthority(summary);
 
-      if (APPLY) await applyAuthority(target, a, result, knownAuthorityIds);
+      if (APPLY) await applyAuthority(target, a, result, knownAuthorityIds, batchConfirmed);
       cp = markDone(cp, { authorityId: a.id, name: a.name, finishedAt: new Date().toISOString(), status: 'done' });
     } catch (e) {
       console.error(`  ✖ ${(e as Error).message}`);
@@ -261,6 +270,7 @@ async function applyAuthority(
   a: AuthorityRow,
   result: Awaited<ReturnType<typeof runAuthorityStages>>,
   knownAuthorityIds: Set<string>,
+  batchConfirmed = false,
 ) {
   const selected = new Set(result.score.selection.selectedIds);
   const rowById = new Map(result.score.selection.rows.map((r) => [r.id, r]));
@@ -272,7 +282,7 @@ async function applyAuthority(
   const plan = await planCollection(target.db, 'official_routes', docs, 'create_only', a.id);
   plan.knownAuthorityIds = knownAuthorityIds;
   console.log(`  APPLY plan: ${formatPlan(plan)} · route_scores: ${result.score.docs.length}`);
-  const ok = await confirmTypedYes(`  Type YES to write ${plan.create.length} route(s) + ${result.score.docs.length} route_scores for ${a.name} to ${describeTarget(target)}: `);
+  const ok = batchConfirmed || await confirmTypedYes(`  Type YES to write ${plan.create.length} route(s) + ${result.score.docs.length} route_scores for ${a.name} to ${describeTarget(target)}: `);
   if (!ok) { console.log('  not confirmed — nothing written for this authority'); return; }
   if (plan.create.length) await executePlan(target.db, plan);
   await writeRouteScoreDocs(target.db as any, result.score.docs);

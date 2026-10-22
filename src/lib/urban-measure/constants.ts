@@ -27,3 +27,18 @@ export const LIGHTING_MIN_KNOWN = 0.5;
 
 /** Amenities count as "along the route" within this distance (owner: ~50 m). */
 export const AMENITY_RADIUS_M = 50;
+
+/**
+ * Q-D (RC10, owner 22.10.2026): a walkway SEPARATED from a major road. Where a
+ * route runs "on" a tertiary+ road (route-quality's on-road test, 10 m), the
+ * walker is on a separated walkway when any of:
+ *   - a walkway way (SEPARATED_WALKWAY_HIGHWAYS, foot not "no" — includes
+ *     OSM footway=sidewalk) runs parallel within SEPARATED_WALKWAY_M of the
+ *     route sample, or
+ *   - the major road itself is tagged with a sidewalk (ROAD_SIDEWALK_VALUES on
+ *     sidewalk / sidewalk:both / sidewalk:left / sidewalk:right).
+ */
+export const SEPARATED_WALKWAY_M = 15;
+export const SEPARATED_WALKWAY_HIGHWAYS: ReadonlySet<string> = new Set(['footway', 'path', 'pedestrian', 'cycleway', 'steps']);
+export const ROAD_SIDEWALK_KEYS = ['sidewalk', 'sidewalk:both', 'sidewalk:left', 'sidewalk:right'] as const;
+export const ROAD_SIDEWALK_VALUES: ReadonlySet<string> = new Set(['both', 'left', 'right', 'separate', 'yes']);

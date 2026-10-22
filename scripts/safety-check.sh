@@ -196,6 +196,14 @@ AUTHORIZED_ROUTE_WRITERS=(
   # …and its CLI: reads official_routes (projected) to plan; every write goes through
   # the lib above. No write verb in the file; also on the migrated list below.
   "scripts/routes-nationwide/backfill-route-publish-status.ts"
+  # City-mapping hub H0 (22.10.2026, enable_city_mapping_hub): READ-ONLY status
+  # fields of unpublished official_routes per authority for the hub table. No
+  # write verb in the file; also on the migrated list below so any future write
+  # there must use buildValidatedDoc.
+  "src/lib/city-mapping-hub/read-hub-rows.server.ts"
+  # City-mapping hub H1: READ-ONLY official_routes geometry per authority for
+  # the hub map layers route. No write verb; also on the migrated list.
+  "src/lib/city-mapping-hub/layers.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -224,6 +232,8 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   "src/lib/admin-routes/no-status-routes.server.ts"
   "scripts/routes-nationwide/lib/publish-status-apply.node.ts"
   "scripts/routes-nationwide/backfill-route-publish-status.ts"
+  "src/lib/city-mapping-hub/read-hub-rows.server.ts"
+  "src/lib/city-mapping-hub/layers.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

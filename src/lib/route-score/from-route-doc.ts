@@ -109,7 +109,7 @@ export interface FromDocOptions {
   /** Other routes in the same city sharing this exact name (decide-accuracy's duplicate-name signal). */
   duplicateNameCount?: number;
   /** Measured safety (route-quality v1 with an OSM road layer), when the caller has one. */
-  osmSafety?: { majorRoadPct: number; unmarkedPerKm: number } | null;
+  osmSafety?: { majorRoadPct: number; unmarkedPerKm: number; separatedMajorPct?: number } | null;
   /** Measured green share (trails PilotContext), when the caller has one. */
   greenShare?: number | null;
   /** Surface metres/percent per SurfaceType from a street_segments join (surfaceMixFromSegments), when the caller has one. */

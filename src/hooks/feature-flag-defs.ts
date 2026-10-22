@@ -489,12 +489,27 @@ export const FLAG_DEFS = [
   // §32) — not a reuse of ai_coach_*. superAdminValue false: the panel toggle is the one switch,
   // and the server always reads the real value, so the drawer and the routes never disagree.
   { key: 'adminAiAssistantV1', firestoreKey: 'admin_ai_assistant_v1', defaultValue: false, superAdminValue: false },
+  // City-mapping hub (22.10.2026, owner-approved — docs/admin/CITY-MAPPING-HUB-DESIGN.md). The new
+  // super-admin page /admin/city-mapping/hub: every authority in one table (filters / sort / search),
+  // a map with route / point / user-contribution layers and approve / reject from the map (reusing
+  // the approval center's services). Off = the page shows "off" and its hub-only server routes answer
+  // 403; /admin/city-mapping is unchanged either way. superAdminValue FALSE: the panel toggle is the
+  // one switch (the page is super-admin-only, so an override would mean "always on").
+  { key: 'enableCityMappingHub', firestoreKey: 'enable_city_mapping_hub', defaultValue: false, superAdminValue: false },
   // Pyramid kill switch (22.10.2026, owner: only pyramids are not accurate yet). ON = the home
   // generator never injects a pyramid — dropped from the protocol list, no forced pyramid on
   // the intense option, so no pyramid steps in hybrid sessions built from the trio either.
   // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
   // superAdminValue false: one switch, same for everyone.
   { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
+  // Scoped official_routes read (22.10.2026, fix/official-routes-cap-and-approval-query). OFF =
+  // today's whole-collection limit(200) read (byte-identical). ON = the app reads only the
+  // user's authorities (core.authorityId + GPS city affiliations), cap 300, else published-only
+  // cap 200 — see src/features/parks/core/services/official-routes-scope.ts. Read synchronously
+  // via readLiveFlag (inventory.service getCachedOfficialRoutes + useRouteGeneration) →
+  // superAdminValue false: one switch, same for everyone. Fail-closed. Preconditions before ON:
+  // the publish-status backfill + authorityId on the 16 legacy routes without one.
+  { key: 'enableScopedOfficialRoutes', firestoreKey: 'enable_scoped_official_routes', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

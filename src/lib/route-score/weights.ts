@@ -7,8 +7,24 @@ import type { ScoreComponentKey, SourceTier } from './types';
  * v1.3 (RC9, 22.10.2026): urban candidates arrive MEASURED (composition, lighting, amenities,
  *   crossings — src/lib/urban-measure); comfort's "other" amenity point also counts toilets and
  *   fitness stations; a dataset tree hint stands in for shade (half coverage) where Technion is missing.
+ * v1.4 (RC10, owner Q-D 22.10.2026): on-foot routes (walking / running) on a walkway SEPARATED from a
+ *   major road (OSM footway=sidewalk, a road tagged sidewalk=*, or a parallel walkway ≤ 15 m —
+ *   urban-measure's separatedMajorPct) get partial safety (SEPARATED_WALKWAY_SAFETY_SHARE) instead of
+ *   0 for that stretch, and that sidewalk counts as walkable surface at full weight. Unmarked
+ *   major-road crossings are still penalised. Bike routes unchanged.
  */
-export const ROUTE_SCORE_VERSION = 'v1.3';
+export const ROUTE_SCORE_VERSION = 'v1.4';
+
+/**
+ * Q-D (v1.4). A separated walkway beside a major road keeps this share of the
+ * safety points the stretch would have had off the road (0 = the v1.3 rule,
+ * "on the major road"; 1 = as safe as a quiet street). Owner start value 0.5.
+ */
+export const SEPARATED_WALKWAY_SAFETY_SHARE = 0.5;
+/** Q-D (v1.4). Surface weight of a separated sidewalk beside a major road (v1.3: 0.25, like any sidewalk). */
+export const SEPARATED_WALKWAY_SURFACE_WEIGHT = 1;
+/** Activities Q-D applies to — bike routes keep the v1.3 rules. */
+export const SEPARATED_WALKWAY_ACTIVITIES: ReadonlySet<string> = new Set(['walking', 'running']);
 
 export const SCORE_WEIGHTS: Record<ScoreComponentKey, number> = {
   surface: 25,
