@@ -559,6 +559,13 @@ export const FLAG_DEFS = [
   // since 22.10.2026 (written always, additive). Older docs keep today's reduced view.
   // Fail-closed; super admins preview it. Off = byte-identical history screen.
   { key: 'enableHistorySummaryParity', firestoreKey: 'enable_history_summary_parity', defaultValue: false, superAdminValue: true },
+  // Workout insights (22.10.2026, owner — agent-briefs/kelly-insights-build-brief.md, canvas page 7
+  // IN-5 / LV-1…LV-5). After a strength workout: Kelly writes one insight + praise line inside the
+  // green "שיפור מהפעם הקודמת" card (AI-star → Kelly chat about this workout), and the lemur says a
+  // funny line under the level-up ring. Lines come from POST /api/insights/workout (Kelly's AI gate:
+  // adult + AI entitlement + kill switch / daily budget). Fail-closed; super admins preview it.
+  // Off = byte-identical summary and level-up screens, no request.
+  { key: 'enableWorkoutInsightsV1', firestoreKey: 'enable_workout_insights_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];
