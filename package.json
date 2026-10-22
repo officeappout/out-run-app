@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "gen:equipment-icons": "node scripts/gen-equipment-icon-manifest.mjs",
+    "gen:admin-page-map": "tsx scripts/gen-admin-page-map.ts",
     "predev": "node scripts/gen-equipment-icon-manifest.mjs",
     "prebuild": "node scripts/gen-equipment-icon-manifest.mjs",
     "dev": "next dev",
