@@ -64,6 +64,8 @@ export interface StrengthSummaryV2Data {
    * Present ⇒ the ring shows in the read-only view (from the saved level).
    */
   savedLevel?: { gain: number; leveledUp: boolean } | null;
+  /** enable_workout_insights_v1: Kelly inside the improvement card (absent = as before). */
+  kelly?: { headerAction?: React.ReactNode; footer?: React.ReactNode };
 }
 
 /**
@@ -234,7 +236,7 @@ export default function StrengthSummaryView({
             />
           )}
 
-          <ImprovementsCardV2 phases={v2.phases} />
+          <ImprovementsCardV2 phases={v2.phases} kelly={v2.kelly} />
 
           <ProgramSuggestionCard
             suggestions={visibleSuggestions}

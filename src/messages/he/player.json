@@ -493,5 +493,10 @@
   "strength.tutorial.chipAria": "הסבר מלא על התרגיל",
   "strength.tutorial.rowItem": "הסבר מלא בווידאו",
   "strength.details.toggle": "פרטי התרגיל",
-  "strength.details.toggleAria": "הצגת פרטי התרגיל"
+  "strength.details.toggleAria": "הצגת פרטי התרגיל",
+  "insights.kellyLabel": "קלי:",
+  "insights.askKelly": "שיחה עם קלי על האימון",
+  "insights.chatSeed": "קלי, בוא נדבר על האימון שסיימתי עכשיו ({minutes} דקות). {insight}",
+  "insights.lemurAlt": "הלמור של OUT",
+  "insights.typing": "מקליד"
 }

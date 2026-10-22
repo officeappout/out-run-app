@@ -380,3 +380,23 @@ describe('tool wiring', () => {
     expect(none.content).toContain('no user found');
   });
 });
+
+describe('audit row masking', () => {
+  it('get_user_lookup queries are never stored raw', async () => {
+    const { auditInput } = await import('../audit-input');
+    const email = auditInput('get_user_lookup', { query: 'dana.cohen@gmail.com' });
+    expect(email).toBe('{"query":"d***@gmail.com"}');
+    const name = auditInput('get_user_lookup', { query: 'דנה כהן' });
+    expect(name).toBe('{"query":"ד. כ."}');
+    expect(auditInput('get_user_lookup', { query: UID1 })).toContain(UID1);
+    expect(auditInput('get_user_lookup', { query: 5 })).toBe('{}');
+    expect(auditInput('get_workouts_overview', { days: 7, authorityId: null })).toBe('{"days":7,"authorityId":null}');
+    expect(email).not.toContain('dana');
+    expect(name).not.toContain('דנה');
+  });
+  it('turn.ts writes the masked input into the audit tools list', async () => {
+    const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../turn.ts', import.meta.url), 'utf8'));
+    expect(src).toContain('auditInput(tu.name, tu.input)');
+    expect(src).not.toContain('JSON.stringify(tu.input');
+  });
+});

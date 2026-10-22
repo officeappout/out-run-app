@@ -189,10 +189,17 @@ export function ProgramCardV2({ item }: { item: ProgramProgressItem | null }) {
   return <ProgramProgressRing items={[item]} />;
 }
 
-export function ImprovementsCardV2({ phases }: { phases: PhaseSummary[] }) {
+export function ImprovementsCardV2({
+  phases,
+  kelly,
+}: {
+  phases: PhaseSummary[];
+  /** enable_workout_insights_v1: Kelly's AI-star + line inside the card (absent = as before). */
+  kelly?: { headerAction?: React.ReactNode; footer?: React.ReactNode };
+}) {
   const items = improvementItems(phases);
   if (items.length === 0) return null;
-  return <ImprovementCard items={items} />;
+  return <ImprovementCard items={items} headerAction={kelly?.headerAction} footer={kelly?.footer} />;
 }
 
 // ── Phase breakdown (F-3g exercise table) ───────────────────────────────────
