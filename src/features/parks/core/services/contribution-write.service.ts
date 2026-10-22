@@ -102,6 +102,7 @@ import {
   computeParkCreate,
   computeParkUpdate,
 } from './park-write.service';
+import { buildCommunityMappedBy } from '../mapped-by/mapped-by';
 
 export { resolveParkWriteCaller as resolveContributionWriteCaller } from './park-write.service';
 
@@ -331,9 +332,24 @@ export async function computeContributionApprove(
     // authority_manager: computeParkCreate uses caller.authorityId
     // directly regardless of parkRequestBody.authorityId — not set here.
 
+    // 22.10.2026 (enable_park_mapped_by_credit) — credit the contributor in
+    // the SAME park create write (no second write to keep in sync). Their uid
+    // is stamped only for a confirmed adult (users/{uid}.core.ageGroup, Admin
+    // SDK); anyone else → anonymous "community". A failed read → anonymous too.
+    let contributorAgeGroup: unknown;
+    if (typeof contribution.userId === 'string' && contribution.userId) {
+      try {
+        const userSnap = await db.collection('users').doc(contribution.userId).get();
+        contributorAgeGroup = userSnap.exists ? (userSnap.data()?.core as { ageGroup?: unknown } | undefined)?.ageGroup : undefined;
+      } catch {
+        contributorAgeGroup = undefined;
+      }
+    }
+
     const createResult = await computeParkCreate(db, caller, parkRequestBody, {
       ...ctx,
       allowUnresolvedAuthority: true,
+      mappedBy: buildCommunityMappedBy(contribution.userId, contributorAgeGroup, contributionId),
     });
     if (createResult.status !== 200) {
       return { status: createResult.status, body: createResult.body };

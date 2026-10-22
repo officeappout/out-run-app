@@ -41,6 +41,7 @@ import ParkActionBar from './sections/ParkActionBar';
 import ParkPhotoLightbox from './sections/ParkPhotoLightbox';
 import ParkShelterTag from './sections/ParkShelterTag';
 import { parkTarget, useMapPolishV1, useNavigateTo } from '@/features/parks/core/map-polish';
+import MappedByCreditLine from '@/features/parks/core/mapped-by/MappedByCreditLine';
 
 interface ParkDetailSheetProps {
   isOpen: boolean;
@@ -53,7 +54,10 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
   const { selectedPark } = useMapStore();
   const { profile } = useUserStore();
   // Home v2 (enable_home_v2): the design-lab park page.
-  const v2 = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags.enableHomeV2;
+  const sheetFlags = useFeatureFlags(!!(profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin).flags;
+  const v2 = sheetFlags.enableHomeV2;
+  // enable_park_mapped_by_credit: the "מופה על ידי …" line. Off → never mounted (no read, no markup).
+  const mappedByOn = sheetFlags.enableParkMappedByCredit;
   const motion = useParkSheetMotion(isOpen, onClose);
 
   const [suggestEditOpen, setSuggestEditOpen] = useState(false);
@@ -235,6 +239,14 @@ export default function ParkDetailSheet({ isOpen, onClose, onStartWorkout, userL
                 reviewerNames={reviewerNames}
                 expanded={reviewsExpanded}
                 onExpand={() => setReviewsExpanded(true)}
+              />
+            )}
+
+            {mappedByOn && (
+              <MappedByCreditLine
+                mappedBy={park.mappedBy}
+                v2={v2}
+                onOpenProfile={(p) => setProfileUser({ uid: p.uid, name: p.name, photoURL: p.photoURL, ageGroup: 'adult' })}
               />
             )}
           </div>

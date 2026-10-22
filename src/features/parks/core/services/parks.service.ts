@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Park, ParkStatus } from '../types/park.types';
+import { parseMappedBy } from '../mapped-by/mapped-by';
 
 const PARKS_COLLECTION = 'parks';
 
@@ -101,6 +102,9 @@ function normalizePark(docId: string, data: any): Park {
     published: data?.published ?? (data?.contentStatus === 'published'),
     createdByUser: data?.createdByUser ?? undefined,
     origin: data?.origin ?? undefined,
+    // Same whitelist-drop class as ratingAvg above: without this line the park
+    // sheet's getPark() would never see the server-stamped credit.
+    mappedBy: parseMappedBy(data?.mappedBy),
     publishedAt: toDate(data?.publishedAt),
     createdAt: toDate(data?.createdAt),
     updatedAt: toDate(data?.updatedAt),

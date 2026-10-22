@@ -356,5 +356,9 @@
   "shade.row.now": "עכשיו {pct}%",
   "shade.row.noon": "בצהריים {pct}%",
   "shade.row.afternoon": "אחה״צ {pct}%",
-  "shade.row.lit": "מואר בלילה {pct}%"
+  "shade.row.lit": "מואר בלילה {pct}%",
+  "mappedBy.team": "מופה על ידי צוות OUT",
+  "mappedBy.community": "מופה על ידי קהילת OUT",
+  "mappedBy.person": "מופה על ידי <b>{name}</b>",
+  "mappedBy.openProfile": "מופה על ידי {name}. פתיחת הפרופיל"
 }

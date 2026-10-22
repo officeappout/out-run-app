@@ -88,3 +88,44 @@ for (const v2 of [false, true]) {
     });
   }
 }
+
+// ── Flag on ────────────────────────────────────────────────────────────────
+// The person case (a userPublic read in an effect) is covered by the jsdom
+// tests in src/features/parks/core/mapped-by/__tests__.
+
+it('flag on — park with no mappedBy (every pre-22.10.2026 park): no line, markup equals flag off', async () => {
+  for (const v2 of [false, true]) {
+    flags.enableHomeV2 = v2;
+    flags.enableParkMappedByCredit = true;
+    mapState.selectedPark = PARKS.none;
+    await expect(html()).toMatchFileSnapshot(snap(`flag-off-none-v${v2 ? 2 : 1}`));
+  }
+});
+
+it('flag on — team park: "מופה על ידי צוות OUT", the only difference from flag off', async () => {
+  flags.enableParkMappedByCredit = true;
+  mapState.selectedPark = PARKS.team;
+  const on = html();
+  expect(on).toContain('מופה על ידי צוות OUT');
+  expect(on).toContain('data-kind="team"');
+  flags.enableParkMappedByCredit = false;
+  const off = html();
+  const lineStart = on.indexOf('<p class="mb-4 flex items-center gap-1.5');
+  const lineEnd = on.indexOf('</p>', lineStart) + '</p>'.length;
+  expect(lineStart).toBeGreaterThan(0);
+  expect(on.slice(0, lineStart) + on.slice(lineEnd)).toBe(off);
+});
+
+it('flag on — anonymous community park (no uid stored): "מופה על ידי קהילת OUT", no name', async () => {
+  flags.enableParkMappedByCredit = true;
+  mapState.selectedPark = { ...BASE, mappedBy: { kind: 'community', contributionId: 'c9' } } as unknown as Park;
+  const on = html();
+  expect(on).toContain('מופה על ידי קהילת OUT');
+  expect(on).not.toContain('<button type="button" aria-label="מופה על ידי');
+});
+
+it('flag on — community park with a uid: nothing until the public profile resolves (no name flicker)', () => {
+  flags.enableParkMappedByCredit = true;
+  mapState.selectedPark = PARKS.community;
+  expect(html()).not.toContain('data-testid="mapped-by-credit"');
+});
