@@ -9,3 +9,4 @@ export { overlapShare, isDuplicate, DEDUP_BUFFER_M, DEDUP_MIN_SHARE } from './ov
 export { assignAuthority, boundaryFromStored, pointInBoundary, samplePoints, MIN_MAJORITY, type AuthorityBoundary, type Assignment } from './authority-assign';
 export { datasetRouteDoc, datasetRouteId, corridorRouteName, stableHash, DATASET_PIPELINE, type DatasetDocContext } from './to-route-doc';
 export { planDatasetImport, type DatasetPlan, type PlannedRoute, type SkippedCorridor, type ExistingRoute } from './plan';
+export { treeShadeHint, TREE_SHADE_HINT, TREE_FIELD, TREE_HINT_MIN_KNOWN } from './tree-hint';

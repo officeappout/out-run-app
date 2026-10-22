@@ -13,6 +13,8 @@ export interface NormalizeReport {
   lines: number;
   skippedNotLine: number;
   skippedStatus: Record<string, number>;
+  /** Features dropped by the spec's excludeWhere (e.g. bike crossings). */
+  skippedExcluded: number;
   skippedBadCoords: number;
   reprojectedFromItm: number;
 }
@@ -45,12 +47,23 @@ export function propCI(props: Record<string, unknown>, field: string): unknown {
   return hit === undefined ? undefined : props[hit];
 }
 
+function keptAttrs(props: Record<string, unknown>, fields: string[] | undefined): Record<string, string> | null {
+  if (!fields?.length) return null;
+  const out: Record<string, string> = {};
+  for (const f of fields) {
+    const v = propCI(props, f);
+    if (v != null && String(v).trim()) out[f] = String(v).trim();
+  }
+  return out;
+}
+
 export function normalizeFeatures(input: unknown, spec: DatasetSpec): { lines: DatasetLine[]; report: NormalizeReport } {
   const features = collectFeatures(input);
-  const report: NormalizeReport = { features: features.length, lines: 0, skippedNotLine: 0, skippedStatus: {}, skippedBadCoords: 0, reprojectedFromItm: 0 };
+  const report: NormalizeReport = { features: features.length, lines: 0, skippedNotLine: 0, skippedStatus: {}, skippedExcluded: 0, skippedBadCoords: 0, reprojectedFromItm: 0 };
   const lines: DatasetLine[] = [];
   features.forEach((f, idx) => {
     const props = f?.properties ?? {};
+    if (spec.excludeWhere && spec.excludeWhere.values.includes(String(propCI(props, spec.excludeWhere.field) ?? '').trim())) { report.skippedExcluded++; return; }
     const parts = linesOf(f?.geometry);
     if (!parts.length) { report.skippedNotLine++; return; }
     const status = spec.statusField ? String(propCI(props, spec.statusField) ?? '').trim() || null : null;
@@ -60,14 +73,15 @@ export function normalizeFeatures(input: unknown, spec: DatasetSpec): { lines: D
       return;
     }
     const baseId = spec.idField && propCI(props, spec.idField) != null && String(propCI(props, spec.idField)).trim() ? String(propCI(props, spec.idField)).trim() : `f${idx}`;
-    const name = String(propCI(props, spec.nameField) ?? '').trim();
+    const name = String(propCI(props, spec.nameField) ?? '').trim() || (spec.nameFallbackField ? String(propCI(props, spec.nameFallbackField) ?? '').trim() : '');
+    const attrs = keptAttrs(props, spec.keepFields);
     parts.forEach((part, pi) => {
       const first = Array.isArray(part) ? (part[0] as number[] | undefined) : undefined;
       const itm = !!first && looksLikeItm(first);
       const coords = (part as unknown[]).map((c) => toLngLat(c, itm)).filter((c): c is LngLat => !!c);
       if (coords.length < 2 || coords.length !== part.length) { report.skippedBadCoords++; return; }
       if (itm) report.reprojectedFromItm++;
-      lines.push({ featureId: parts.length > 1 ? `${baseId}#${pi}` : baseId, name, status, coords });
+      lines.push({ featureId: parts.length > 1 ? `${baseId}#${pi}` : baseId, name, status, coords, ...(attrs ? { attrs } : {}) });
     });
   });
   // Feature ids must be unique for deterministic route ids.

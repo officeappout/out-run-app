@@ -8,7 +8,8 @@ import { normalizeFeatures, type NormalizeReport } from './normalize';
 import { isDuplicate } from './overlap';
 import { stitchCorridors, type StitchReport } from './stitch';
 import { datasetRouteDoc } from './to-route-doc';
-import type { Corridor, DatasetSpec, LngLat } from './types';
+import { treeShadeHint } from './tree-hint';
+import type { Corridor, DatasetLine, DatasetSpec, LngLat } from './types';
 
 /** An existing route to dedup against. authorityId null = compare regardless of authority (geometry decides). */
 export interface ExistingRoute { id: string; authorityId: string | null; name: string; coords: LngLat[] }
@@ -19,6 +20,8 @@ export interface PlannedRoute {
   corridor: Corridor;
   authorityId: string;
   share: number;
+  /** SI-equivalent tree hint from the sections' attributes (null = no answer / dataset has none). */
+  shadeHint: number | null;
 }
 
 export interface SkippedCorridor { name: string; lengthM: number; reason: string }
@@ -29,6 +32,8 @@ export interface DatasetPlan {
   routes: PlannedRoute[];
   skipped: SkippedCorridor[];
   perAuthority: Record<string, number>;
+  /** The normalized sections (with kept attributes) — reused by the bike-adjacent stage. */
+  lines: DatasetLine[];
 }
 
 export function planDatasetImport(
@@ -47,6 +52,7 @@ export function planDatasetImport(
 ): DatasetPlan {
   const { lines, report: normalize } = normalizeFeatures(geojson, spec);
   const { corridors, report: stitch } = stitchCorridors(lines, spec);
+  const lineById = new Map(lines.map((l) => [l.featureId, l]));
   const routes: PlannedRoute[] = [];
   const skipped: SkippedCorridor[] = [];
   const perAuthority: Record<string, number> = {};
@@ -73,8 +79,9 @@ export function planDatasetImport(
     const ordinal = (ordinals.get(ordKey) ?? 0) + 1;
     ordinals.set(ordKey, ordinal);
     const doc = datasetRouteDoc(spec, c, { authorityId: a.authorityId, city, snapshot: opts.snapshot, importBatchId: opts.importBatchId, ordinal });
-    routes.push({ ...doc, corridor: c, authorityId: a.authorityId, share: a.share });
+    const shadeHint = spec.keepFields?.length ? treeShadeHint(c.featureIds.map((id) => lineById.get(id)).filter((l): l is DatasetLine => !!l)) : null;
+    routes.push({ ...doc, corridor: c, authorityId: a.authorityId, share: a.share, shadeHint });
     perAuthority[a.authorityId] = (perAuthority[a.authorityId] ?? 0) + 1;
   }
-  return { normalize, stitch, routes, skipped, perAuthority };
+  return { normalize, stitch, routes, skipped, perAuthority, lines };
 }
