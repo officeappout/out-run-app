@@ -9,6 +9,7 @@
  */
 
 import React, { useRef, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { hapticTap } from '@/lib/haptics';
 
 interface VerticalWheelPickerProps {
   values: number[];
@@ -28,6 +29,8 @@ export default function VerticalWheelPicker({
   label,
 }: VerticalWheelPickerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Last value that ticked (starts at the selected one, so the initial scroll-to-value is silent).
+  const lastTickRef = useRef<number | null>(selectedValue);
   const scrollEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMounted = useRef(false);
 
@@ -73,7 +76,14 @@ export default function VerticalWheelPicker({
 
     const onScroll = () => {
       const val = readCenteredValue();
-      if (val !== null) setDisplayValue(val);
+      if (val !== null) {
+        // enable_haptics_v1: a selection tick each time a new value crosses the band.
+        if (val !== lastTickRef.current) {
+          hapticTap('selection');
+          lastTickRef.current = val;
+        }
+        setDisplayValue(val);
+      }
 
       if (!hasNativeScrollend) {
         if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current);

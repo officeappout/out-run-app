@@ -53,7 +53,7 @@ export interface GeneratedWorkoutExerciseListProps {
    * parent wrapper (legacy behaviour).
    */
   exercisePool: FirestoreExercise[];
-  onSwap?: (exercise: FirestoreExercise, level: number) => void;
+  onSwap?: (exercise: FirestoreExercise, level: number, entry?: EngineWorkoutExercise) => void;
   /** Per-step swap with twin-sync for pyramid exercises. */
   onSwapPyramidStep?: (
     parent: EngineWorkoutExercise,

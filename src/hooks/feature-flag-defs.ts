@@ -397,6 +397,13 @@ export const FLAG_DEFS = [
   // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
   // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Haptics v1 (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md ask 4). On: a light
+  // selection tick on segmented controls and the live set-logger wheel, a light impact on the live
+  // players' primary buttons (start / pause / resume / done) — all via hapticTap (src/lib/haptics) —
+  // and every haptic in the app (old and new) obeys the new "רטט" setting (device-local, default on),
+  // the OS reduced-motion preference, and native only (web no-op). Fail-closed; super admins
+  // preview it. Off = today's haptics exactly, no setting row.
+  { key: 'enableHapticsV1', firestoreKey: 'enable_haptics_v1', defaultValue: false, superAdminValue: true },
   // Two-level schedule UI (21.10.2026, owner-approved — agent-briefs/week-builder-brief.md, boards
   // S-2a…S-2h). Inside the enable_home_v2 signup schedule flows: a simple plan (one repeated
   // workout, one track, under 5 days) keeps the days picker (S-2b look) and today's week screen; a
@@ -518,6 +525,21 @@ export const FLAG_DEFS = [
   // superAdminValue false: one switch, same for everyone. Fail-closed. Preconditions before ON:
   // the publish-status backfill + authorityId on the 16 legacy routes without one.
   { key: 'enableScopedOfficialRoutes', firestoreKey: 'enable_scoped_official_routes', defaultValue: false, superAdminValue: false },
+  // Swap fixes (22.10.2026, swap/hybrid audit §1). ON = exercises already in the workout are never
+  // offered, preview swaps by slot, the active player's ±3 window centres on the exercise's own
+  // level and re-derives reps↔hold, station equipment is filtered before the cap of 3, swaps
+  // survive resume and show in the summary, no swap during a running tabata work interval, the
+  // hybrid pyramid step swap replaces only that step with the park's equipment, list images
+  // follow the chosen method. superAdminValue true: the owner previews it first.
+  { key: 'enableSwapFixesV1', firestoreKey: 'enable_swap_fixes_v1', defaultValue: false, superAdminValue: true },
+  // Strength / timed players drawer (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md).
+  // Inside the enable_home_v2 players: the bottom card of the strength player (reps card, timer
+  // card) and of tabata / AMRAP / EMOM becomes a two-snap drawer (compact ↔ full, drag or tap,
+  // remembered for the app session) so the exercise video stays visible; "צפה בהסבר המלא" moves to
+  // a small "הסבר" chip at the video's top corner and into the exercise row details; the session
+  // list rows get an expandable "פרטי התרגיל" (the exercise page's muscles / cues / equipment).
+  // Fail-closed; super admins preview it. Off = byte-identical players.
+  { key: 'enableStrengthDrawerV1', firestoreKey: 'enable_strength_drawer_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

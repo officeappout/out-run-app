@@ -55,6 +55,8 @@ export interface ExerciseSummary {
   previousBest: number | null;
   /** Exercise image from the plan (live flow only). */
   imageUrl?: string;
+  /** The plan slot was swapped mid-workout (plan `wasSwapped`). Shown only under enable_swap_fixes_v1. */
+  swapped?: boolean;
 }
 
 export interface BlockSummary {
@@ -97,6 +99,7 @@ interface PlanExercise {
   exerciseType?: 'reps' | 'time';
   exerciseRole?: string;
   isTimeBased?: boolean;
+  wasSwapped?: boolean;
   repsSequence?: number[];
   pyramidSequence?: unknown[];
 }
@@ -308,6 +311,7 @@ export function buildPhaseSummary({
             imageUrl: ex.imageUrl,
           }),
         );
+        if (ex.wasSwapped) exercises[exercises.length - 1].swapped = true;
       }
       // Swapped-in exercises: logged under this segment but not in its plan.
       for (const entry of rawLog) {

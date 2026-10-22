@@ -84,6 +84,7 @@ interface FlagState {
   enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
+  enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
   enable_push_measure_all: boolean;
@@ -101,6 +102,8 @@ interface FlagState {
   pyramid_injection_off: boolean;
   enable_hide_route_connectors: boolean;
   enable_scoped_official_routes: boolean;
+  enable_swap_fixes_v1: boolean;
+  enable_strength_drawer_v1: boolean;
 }
 
 // ============================================================================
@@ -620,6 +623,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'נגן ריצה/הליכה: המפה קודם',
     description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
   },
+  // Haptics v1 — one helper, a "רטט" setting, web no-op (22.10.2026).
+  {
+    key: 'enable_haptics_v1',
+    icon: Pointer,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'רטט (הפטיקה) v1',
+    description: 'טיק קל בבחירה בבוררים ובמתגים, ורטט קל בכפתורים הראשיים בנגנים (התחלה, השהייה, המשך, סיימתי). כל הרטטים באפליקציה מכבדים הגדרת "רטט" חדשה בהגדרות (ברירת מחדל דלוקה) ואת הגדרת הפחתת התנועה של המכשיר. באפליקציה בלבד, לא בדפדפן.',
+  },
   // Two-level schedule UI — simple days picker / week builder (21.10.2026).
   {
     key: 'enable_week_builder_v1',
@@ -781,6 +793,24 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-700',
     title: 'פאנל: מרכז מיפוי ערים',
     description: 'דף חדש לסופר-אדמין ב-/admin/city-mapping/hub: כל הרשויות בטבלה אחת (חיפוש, סינון, מיון), מפה עם מסלולים, נקודות ותרומות משתמשים, ואישור או דחייה ישירות מהמפה. כבוי = הדף מציג "כבוי". דף מיפוי העיר הקיים לא משתנה.',
+  },
+  // Swap fixes (22.10.2026) — swap/hybrid audit §1.
+  {
+    key: 'enable_swap_fixes_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-sky-50',
+    iconColor: 'text-sky-500',
+    title: 'החלפת תרגיל — תיקונים',
+    description: 'תרגיל שכבר באימון לא מוצע להחלפה; בתצוגה מקדימה ההחלפה לפי המקום ולא לפי התרגיל; באימון פעיל טווח הרמות סביב רמת התרגיל עצמו והחזרות/ההחזקה מותאמות; בתחנה סינון לפי ציוד הפארק לפני הבחירה של 3; החלפה נשמרת בהמשך אימון ומופיעה בסיכום; אין החלפה בזמן עבודה בטבטה; החלפת שלב בפירמידה משולבת מחליפה רק את השלב ולפי ציוד הפארק; תמונה לפי שיטת הביצוע שנבחרה. מנהל-על רואה את זה כבר עכשיו. כבוי = כמו היום.',
+  },
+  // Strength / timed players — collapsible drawer, details in the list (22.10.2026).
+  {
+    key: 'enable_strength_drawer_v1',
+    icon: Dumbbell,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'נגן כוח/טבטה/AMRAP/EMOM: מגירה מתקפלת',
+    description: 'הכרטיס התחתון בנגן הכוח ובטבטה/AMRAP/EMOM נהיה מגירה: קומפקטית (שם התרגיל, טיימר/סבב, יעד וכפתור ראשי) או מלאה, בגרירה או בהקשה, והבחירה נשמרת. הווידאו נשאר גלוי. "צפה בהסבר המלא" עובר לכפתור "הסבר" קטן בפינת הווידאו ולפרטי התרגיל ברשימה, ושורות הרשימה נפתחות לשרירים, דגשים וציוד כמו בעמוד התרגיל.',
   },
 ];
 

@@ -10,10 +10,11 @@
  */
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, X, Smartphone, Maximize } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertCircle, GraduationCap, Smartphone, Maximize } from 'lucide-react';
 import { useCachedMediaUrl } from '@/features/favorites/hooks/useCachedMedia';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import TutorialVideoPlayer from '@/features/content/exercises/client/components/ExerciseVideoPlayer';
+import FullTutorialOverlay from './FullTutorialOverlay';
+import TutorialChip from './TutorialChip';
 import type { ExternalVideo } from '@/features/content/exercises/core/exercise.types';
 import { FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED } from '@/config/feature-flags';
 import { extractBunnyVideoId } from '@/lib/bunny/bunny.config';
@@ -33,6 +34,9 @@ interface ExerciseVideoPlayerProps {
   hasAudio?: boolean;
   /** Long-form instructional video — renders the "צפה בהסבר המלא" CTA + fullscreen player when present. */
   fullTutorial?: ExternalVideo | null;
+  /** enable_strength_drawer_v1: 'corner' = the small "הסבר" chip at the top corner instead of the
+   *  pill above the bottom card. Default 'legacy' = unchanged. */
+  tutorialPlacement?: 'legacy' | 'corner';
   onVideoProgress?: (progress: number) => void;
   onVideoEnded?: () => void;
   onLoadingChange?: (loading: boolean) => void;
@@ -79,6 +83,7 @@ export default function ExerciseVideoPlayer({
   isPaused,
   hasAudio: _legacyHasAudio = false,
   fullTutorial = null,
+  tutorialPlacement = 'legacy',
   onVideoProgress,
   onVideoEnded,
   onLoadingChange,
@@ -463,7 +468,11 @@ export default function ExerciseVideoPlayer({
           full guided video, so fullscreen is enough. Reps/time exercises (no
           Maximize button) and the YouTube/image-fallback follow-along edge
           case (no Maximize button either) both keep the CTA untouched. */}
-      {fullTutorial?.videoId && !showTutorial &&
+      {tutorialPlacement === 'corner' && fullTutorial?.videoId && !showTutorial &&
+        !(FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED && isGuidedFollowAlong && hasValidDirectVideoUrl) && (
+        <TutorialChip onClick={() => setShowTutorial(true)} />
+      )}
+      {tutorialPlacement !== 'corner' && fullTutorial?.videoId && !showTutorial &&
         !(FOLLOW_ALONG_TUTORIAL_CTA_DEDUP_ENABLED && isGuidedFollowAlong && hasValidDirectVideoUrl) && (
         <button
           onClick={() => setShowTutorial(true)}
@@ -504,36 +513,7 @@ export default function ExerciseVideoPlayer({
                TutorialVideoPlayer's own native control bar — stacking a close button
                there would collide with it, not just be "reachable but cramped". */}
       {showTutorial && fullTutorial?.videoId && (
-        <div
-          className="fixed inset-0 z-[100] bg-black flex flex-col"
-          dir="rtl"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        >
-          <div
-            className="flex items-center justify-between px-4 pb-3 shrink-0"
-            style={{ paddingTop: 'calc(env(safe-area-inset-top, 44px) + 0.75rem)' }}
-          >
-            <button
-              onClick={() => setShowTutorial(false)}
-              className="flex items-center justify-center w-10 h-10 min-w-[44px] min-h-[44px] bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/20 shrink-0"
-              aria-label="סגור"
-            >
-              <X size={20} />
-            </button>
-            <span className="text-white text-base font-bold truncate" style={{ fontFamily: 'var(--font-simpler)' }}>
-              {exerciseName}
-            </span>
-          </div>
-          <div className="flex-1 min-h-0 flex items-center justify-center">
-            <TutorialVideoPlayer
-              video={fullTutorial}
-              mode="tutorial"
-              posterUrl={fullTutorial.thumbnailUrl ?? null}
-              objectFit="contain"
-              className="w-full h-full"
-            />
-          </div>
-        </div>
+        <FullTutorialOverlay video={fullTutorial} exerciseName={exerciseName} onClose={() => setShowTutorial(false)} />
       )}
 
       {/* Follow-along only: fullscreen affordance + one-shot rotate hint.

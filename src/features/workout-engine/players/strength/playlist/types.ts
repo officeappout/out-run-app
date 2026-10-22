@@ -13,6 +13,7 @@
  */
 
 import type { Exercise as WorkoutExercise } from '@/features/parks';
+import type { RowDetailsSource } from '../logic/exercise-row-details';
 import type { PyramidStep } from '@/features/workout-engine/logic/workout-generator.types';
 
 export type BlockStatus = 'completed' | 'active' | 'upcoming';
@@ -55,6 +56,8 @@ export interface ExerciseEntry {
   repsSequence?: number[];
   /** Mechanical Pyramid: per-set exercise variants */
   pyramidSequence?: PyramidStep[];
+  /** enable_strength_drawer_v1: the plan exercise behind the row → "פרטי התרגיל". Absent = no details. */
+  details?: RowDetailsSource;
 }
 
 /**

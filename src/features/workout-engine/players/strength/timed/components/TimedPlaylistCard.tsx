@@ -8,8 +8,16 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { ExerciseThumb } from '@/components/ui/v2';
 import type { TimedPlaylistModel } from '../logic/timed-playlist';
+import ExerciseRowDetails from '../../components/ExerciseRowDetails';
+import type { RowDetailsSource } from '../../logic/exercise-row-details';
 
-export default function TimedPlaylistCard({ model }: { model: TimedPlaylistModel }) {
+export interface TimedPlaylistCardProps {
+  model: TimedPlaylistModel;
+  /** enable_strength_drawer_v1: the plan exercise per row (same order) → "פרטי התרגיל". */
+  details?: ReadonlyArray<RowDetailsSource | null>;
+}
+
+export default function TimedPlaylistCard({ model, details }: TimedPlaylistCardProps) {
   const active = model.status === 'active';
   return (
     <div
@@ -28,7 +36,8 @@ export default function TimedPlaylistCard({ model }: { model: TimedPlaylistModel
         </span>
       </div>
       <ul className="space-y-1.5">
-        {model.rows.map((r) => (
+        {model.rows.map((r, i) => {
+          const row = (
           <li key={r.key} className={`flex items-center gap-2.5 ${model.status === 'upcoming' ? 'opacity-80' : ''}`}>
             <div className="overflow-hidden rounded-[10px]">
               <ExerciseThumb imageUrl={r.imageUrl} size={36} />
@@ -39,7 +48,18 @@ export default function TimedPlaylistCard({ model }: { model: TimedPlaylistModel
             </div>
             {r.done && <Check size={16} strokeWidth={3} className="shrink-0 text-v2-accent" aria-hidden />}
           </li>
-        ))}
+          );
+          const src = details?.[i];
+          if (!src) return row;
+          return (
+            <React.Fragment key={r.key}>
+              {row}
+              <li className="ps-[46px]">
+                <ExerciseRowDetails exercise={src} />
+              </li>
+            </React.Fragment>
+          );
+        })}
       </ul>
     </div>
   );

@@ -96,7 +96,7 @@ interface AxisProps {
   /** Tap an exercise → the real preview detail drawer (owned by the parent). */
   onExerciseTap?: (we: EngineWorkoutExercise) => void;
   /** Swap the exercise at [segIndex][exIndex] → the real replacement modal (parent). */
-  onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise) => void;
+  onSwapExercise?: (segIndex: number, exIndex: number, we: EngineWorkoutExercise, stepIndex?: number) => void;
   /**
    * Domain-assessment gate (David, 23-24.09.2026): tap-through for the route's
    * questionnaire line — the same mechanism as the session-level A3 banner

@@ -32,7 +32,7 @@ import {
   type SessionTotals,
   type SummaryPhase,
 } from '../../utils/phase-summary';
-import { exerciseRows, heroSetGroups, improvementItems } from '../../utils/summary-v2.mapping';
+import { exerciseRows, heroSetGroups, improvementItems, withSwappedTag } from '../../utils/summary-v2.mapping';
 import { useT } from '@/hooks/useT';
 import { player, type PlayerKey, type PlayerT } from '@/messages/ns/player';
 
@@ -222,7 +222,7 @@ function blockTitle(t: PlayerT, phase: SummaryPhase, b: PhaseSummary['blocks'][n
   return parts.length > 0 ? parts.join(' · ') : count;
 }
 
-function PhaseCard({ phase }: { phase: PhaseSummary }) {
+function PhaseCard({ phase, showSwapped = false }: { phase: PhaseSummary; showSwapped?: boolean }) {
   const t = useT(player);
   const meta = PHASE_META[phase.phase];
   const tot = phase.totals;
@@ -255,14 +255,18 @@ function PhaseCard({ phase }: { phase: PhaseSummary }) {
       </div>
       <div className="space-y-3.5">
         {phase.blocks.map((b) => (
-          <ExerciseSetsTable key={b.id} title={blockTitle(t, phase.phase, b)} rows={exerciseRows(b.exercises)} />
+          <ExerciseSetsTable
+            key={b.id}
+            title={blockTitle(t, phase.phase, b)}
+            rows={withSwappedTag(exerciseRows(b.exercises), b.exercises, showSwapped, t('strengthSummary.swappedTag'))}
+          />
         ))}
       </div>
     </Card>
   );
 }
 
-export function PhaseBreakdownV2({ phases }: { phases: PhaseSummary[] }) {
+export function PhaseBreakdownV2({ phases, showSwapped = false }: { phases: PhaseSummary[]; showSwapped?: boolean }) {
   const t = useT(player);
   if (phases.length === 0) {
     return (
@@ -274,7 +278,7 @@ export function PhaseBreakdownV2({ phases }: { phases: PhaseSummary[] }) {
   return (
     <>
       {phases.map((p) => (
-        <PhaseCard key={p.phase} phase={p} />
+        <PhaseCard key={p.phase} phase={p} showSwapped={showSwapped} />
       ))}
     </>
   );

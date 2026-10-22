@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Check } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import { TIMER_AUTO_ADVANCE_ENABLED } from '@/config/feature-flags';
 
 interface FillingButtonProps {
@@ -115,6 +116,7 @@ export default function FillingButton({
     if (disabled || isComplete || hasFiredRef.current) return;
     hasFiredRef.current = true;
     setIsComplete(true);
+    hapticTap('impact');
     onClick();
   }, [disabled, isComplete, onClick]);
 

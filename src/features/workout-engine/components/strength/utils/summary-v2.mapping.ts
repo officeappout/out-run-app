@@ -125,3 +125,18 @@ export function stationRows(log: StationExerciseLike[]): ExerciseSetsRow[] {
     };
   });
 }
+
+/**
+ * enable_swap_fixes_v1 — prefix the subtitle of a slot swapped mid-workout with the tag
+ * ("הוחלף · יעד 8 חזרות"). `rows` and `exercises` are index-aligned (exerciseRows output).
+ * Off → the same rows.
+ */
+export function withSwappedTag(
+  rows: ExerciseSetsRow[],
+  exercises: ExerciseSummary[],
+  show: boolean,
+  tag: string,
+): ExerciseSetsRow[] {
+  if (!show) return rows;
+  return rows.map((r, i) => (exercises[i]?.swapped ? { ...r, subtitle: `${tag} · ${r.subtitle}` } : r));
+}
