@@ -15,6 +15,7 @@ import type { PlannerWbData } from '@/features/schedule/week-builder/planner/pla
 import type { WbSession } from '@/features/schedule/week-builder/types';
 import { useT } from '@/hooks/useT';
 import { home } from '@/messages/ns/home';
+import { useShownPlannedTime } from '../hooks/useShownPlannedTime';
 
 export interface PlannerSessionRowProps {
   session: WbSession<PlannerWbData>;
@@ -34,7 +35,8 @@ export default function PlannerSessionRow({ session: s, draggable, onDragMove, o
       : s.slot === 'long_run' || s.long
         ? { label: t('plannerV2.tag.long'), tone: 'new' as const }
         : null;
-  const subtitle = [s.data?.startTime, s.detailHe].filter(Boolean).join(' · ') || undefined;
+  const shownTime = useShownPlannedTime();
+  const subtitle = [shownTime(s.data?.startTime), s.detailHe].filter(Boolean).join(' · ') || undefined;
   const handle = draggable ? (
     <button
       type="button"

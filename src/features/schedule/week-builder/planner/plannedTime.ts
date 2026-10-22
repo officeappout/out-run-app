@@ -9,6 +9,8 @@
  * (or 07:00), so most strength days already carry a time.
  */
 
+import { DEFAULT_RECURRING_START_TIME } from '@/features/user/scheduling/utils/recurring-day.core';
+
 export const PLANNED_TIME_MINUTE_STEP = 15;
 
 export const PLANNED_HOURS: readonly number[] = Array.from({ length: 24 }, (_, h) => h);
@@ -81,4 +83,28 @@ export function entriesToTime<E extends TimedEntryLike>(dayEntries: readonly E[]
 /** The entry with its planned time set (the existing `startTime` field) — everything else kept. */
 export function withPlannedTime<E extends TimedEntryLike>(entry: E, t: PlannedTime): E {
   return { ...entry, startTime: formatPlannedTime(t) };
+}
+
+/** The template's fallback time (hydrateFromTemplate with no reminder set). */
+export const FALLBACK_PLANNED_TIME = DEFAULT_RECURRING_START_TIME;
+
+export interface PlannedTimePrefs {
+  strengthTime?: unknown;
+  runningTime?: unknown;
+}
+
+/**
+ * The time a row shows, or null. A time the user chose counts — any time other than the
+ * template's 07:00 fallback, and 07:00 too when the user has a reminder / training time set
+ * (then hydration stamped THEIR time). The bare 07:00 fallback with no preference behind it
+ * is hidden. Note: a 07:00 the user picked on the wheel with no reminder set is hidden too
+ * (indistinguishable without a new field).
+ */
+export function shownPlannedTime(startTime: unknown, prefs?: PlannedTimePrefs | null): string | null {
+  const t = parsePlannedTime(startTime);
+  if (!t) return null;
+  const v = formatPlannedTime(t);
+  if (v !== FALLBACK_PLANNED_TIME) return v;
+  const hasPref = !!parsePlannedTime(prefs?.strengthTime) || !!parsePlannedTime(prefs?.runningTime);
+  return hasPref ? v : null;
 }
