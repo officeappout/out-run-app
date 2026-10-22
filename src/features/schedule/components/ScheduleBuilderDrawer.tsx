@@ -55,6 +55,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { hapticTap } from '@/lib/haptics';
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion';
 import { X, Lock, Sunrise, Sun, Sunset, Clock } from 'lucide-react';
 import { DrumTimePicker } from '@/components/ui/DrumTimePicker';
@@ -497,9 +498,9 @@ function AvailabilityStepper({ value, onChange }: { value: number; onChange: (n:
     <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-100 px-4 py-3 mb-2">
       <span className="text-sm font-black text-gray-700">כמה ימים תוכל להתאמן?</span>
       <div className="flex items-center gap-3">
-        <button type="button" onClick={() => onChange(Math.max(1, value - 1))} className="w-8 h-8 rounded-full bg-slate-100 font-black text-gray-700">−</button>
+        <button type="button" onClick={() => { if (value > 1) hapticTap('selection'); onChange(Math.max(1, value - 1)); }} className="w-8 h-8 rounded-full bg-slate-100 font-black text-gray-700">−</button>
         <span className="text-base font-black text-gray-900 w-4 text-center">{value}</span>
-        <button type="button" onClick={() => onChange(Math.min(7, value + 1))} className="w-8 h-8 rounded-full bg-slate-100 font-black text-gray-700">+</button>
+        <button type="button" onClick={() => { if (value < 7) hapticTap('selection'); onChange(Math.min(7, value + 1)); }} className="w-8 h-8 rounded-full bg-slate-100 font-black text-gray-700">+</button>
       </div>
     </div>
   );

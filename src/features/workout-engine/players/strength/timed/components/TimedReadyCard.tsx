@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { Info, Play } from 'lucide-react';
+import { hapticTap } from '@/lib/haptics';
 import { Button, ExerciseThumb } from '@/components/ui/v2';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
 import { blockTitle, readyItemLine } from '../logic/timed-labels';
@@ -51,7 +52,7 @@ export default function TimedReadyCard({ spec, segmentTitle, prefix, onInfo, onS
           </li>
         ))}
       </ul>
-      <Button variant="cta" size="lg" block onClick={onStart}>
+      <Button variant="cta" size="lg" block onClick={() => { hapticTap('impact'); onStart(); }}>
         <Play size={18} fill="currentColor" aria-hidden />
         התחלה
       </Button>

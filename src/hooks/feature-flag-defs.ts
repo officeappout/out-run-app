@@ -397,6 +397,13 @@ export const FLAG_DEFS = [
   // planned runs) and the story bars sit in a header strip attached to the top edge instead of a
   // floating card. Fail-closed; super admins preview it. Off = byte-identical players.
   { key: 'enableRunPlayerDrawerV1', firestoreKey: 'enable_run_player_drawer_v1', defaultValue: false, superAdminValue: true },
+  // Haptics v1 (22.10.2026, owner — agent-briefs/strength-player-drawer-brief.md ask 4). On: a light
+  // selection tick on segmented controls and the live set-logger wheel, a light impact on the live
+  // players' primary buttons (start / pause / resume / done) — all via hapticTap (src/lib/haptics) —
+  // and every haptic in the app (old and new) obeys the new "רטט" setting (device-local, default on),
+  // the OS reduced-motion preference, and native only (web no-op). Fail-closed; super admins
+  // preview it. Off = today's haptics exactly, no setting row.
+  { key: 'enableHapticsV1', firestoreKey: 'enable_haptics_v1', defaultValue: false, superAdminValue: true },
   // Two-level schedule UI (21.10.2026, owner-approved — agent-briefs/week-builder-brief.md, boards
   // S-2a…S-2h). Inside the enable_home_v2 signup schedule flows: a simple plan (one repeated
   // workout, one track, under 5 days) keeps the days picker (S-2b look) and today's week screen; a

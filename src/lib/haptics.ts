@@ -9,9 +9,17 @@
  *
  * Fire-and-forget by design: never await these at the call site, and a
  * failure here must never break the tap/scroll handler it's attached to.
+ *
+ * enable_haptics_v1 (haptics-gate.ts): with the flag on, every call here obeys
+ * the user's "רטט" setting, reduced motion and native-only; hapticTap() is the
+ * ONE entry for the v1 additions (no-op while the flag is off). Flag off =
+ * the functions below behave exactly as before.
  */
 
+import { hapticAllowed } from './haptics-gate';
+
 async function impact(style: 'Light' | 'Medium' | 'Heavy'): Promise<void> {
+  if (!hapticAllowed('existing')) return;
   try {
     const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
     await Haptics.impact({ style: ImpactStyle[style] });
@@ -21,6 +29,7 @@ async function impact(style: 'Light' | 'Medium' | 'Heavy'): Promise<void> {
 }
 
 async function notification(type: 'Success' | 'Warning' | 'Error'): Promise<void> {
+  if (!hapticAllowed('existing')) return;
   try {
     const { Haptics, NotificationType } = await import('@capacitor/haptics');
     await Haptics.notification({ type: NotificationType[type] });
@@ -42,6 +51,7 @@ export function hapticHeavy(): void {
 }
 
 export function hapticSelection(): void {
+  if (!hapticAllowed('existing')) return;
   (async () => {
     try {
       const { Haptics } = await import('@capacitor/haptics');
@@ -62,4 +72,33 @@ export function hapticWarning(): void {
 
 export function hapticError(): void {
   void notification('Error');
+}
+
+/**
+ * enable_haptics_v1 — the one helper for the v1 additions: a light selection
+ * tick (pickers, segmented controls) or a light impact (primary buttons in the
+ * live players). No-op while the flag is off, the user turned "רטט" off,
+ * reduced motion is on, or on the web.
+ */
+export function hapticTap(kind: 'selection' | 'impact' = 'impact'): void {
+  if (!hapticAllowed('new')) return;
+  if (kind === 'selection') {
+    (async () => {
+      try {
+        const { Haptics } = await import('@capacitor/haptics');
+        await Haptics.selectionChanged();
+      } catch {
+        /* no-op */
+      }
+    })();
+    return;
+  }
+  (async () => {
+    try {
+      const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch {
+      /* no-op */
+    }
+  })();
 }

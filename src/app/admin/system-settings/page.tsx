@@ -84,6 +84,7 @@ interface FlagState {
   enable_onboarding_step_funnel: boolean;
   enable_landing_real_fallback: boolean;
   enable_run_player_drawer_v1: boolean;
+  enable_haptics_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
   enable_push_measure_all: boolean;
@@ -616,6 +617,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'נגן ריצה/הליכה: המפה קודם',
     description: 'הרץ והמסלול תמיד גלויים מעל מגירת המדדים (קומפקטית / מלאה), קו מסלול בולט, חזרה אוטומטית למעקב, ופסי הסטורי מחוברים לראש המסך.',
+  },
+  // Haptics v1 — one helper, a "רטט" setting, web no-op (22.10.2026).
+  {
+    key: 'enable_haptics_v1',
+    icon: Pointer,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: 'רטט (הפטיקה) v1',
+    description: 'טיק קל בבחירה בבוררים ובמתגים, ורטט קל בכפתורים הראשיים בנגנים (התחלה, השהייה, המשך, סיימתי). כל הרטטים באפליקציה מכבדים הגדרת "רטט" חדשה בהגדרות (ברירת מחדל דלוקה) ואת הגדרת הפחתת התנועה של המכשיר. באפליקציה בלבד, לא בדפדפן.',
   },
   // Two-level schedule UI — simple days picker / week builder (21.10.2026).
   {
