@@ -4,7 +4,8 @@
  * result aggregation. No I/O — everything here is unit-tested.
  */
 
-export const BULK_APPROVE_BATCH = 500;
+/** 499 updates + 1 audit_logs row = 500, Firestore's per-batch write limit. */
+export const BULK_APPROVE_BATCH = 499;
 
 export interface PendingRouteCandidate {
   id: string;
@@ -88,7 +89,7 @@ export function chunk<T>(items: readonly T[], size = BULK_APPROVE_BATCH): T[][] 
   return out;
 }
 
-export type SkipReason = 'not_found' | 'other_authority' | 'not_pending';
+export type SkipReason = 'not_found' | 'other_authority' | 'not_pending' | 'conflict';
 
 export interface BatchOutcome {
   updated: string[];

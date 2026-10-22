@@ -4,13 +4,16 @@
  * time: each id must exist, belong to the given authority and still be
  * pending + unpublished — anything else is skipped and reported, never
  * written. Published / archived / rejected docs are never touched.
- * ≤ 500 ids per call = ONE batch + ONE audit_logs row. The side effects that
+ * ≤ 499 ids per call = ONE batch (499 updates + 1 audit_logs row = 500).
+ * Each update carries a lastUpdateTime precondition from the read, so a route
+ * archived / rejected / edited in between is never flipped back to published. The side effects that
  * live in client-SDK code (street-segment broadcast, adjacency / enrichment
  * recompute, decision log, cache invalidation) run in the browser right after
  * a successful call: InventoryService.runRouteApproveSideEffects.
  */
 import 'server-only';
-import { FieldValue, type Firestore } from 'firebase-admin/firestore';
+import { FieldValue, type Firestore, type Timestamp } from 'firebase-admin/firestore';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { buildValidatedDoc } from '@/lib/route-collections';
 import { normCity } from '../city-inventory/overview';
 import { validAuthorityId } from './url-state';
@@ -33,6 +36,10 @@ export async function readPendingRoutesNationwide(db: Firestore): Promise<Pendin
   const [authSnap, invSnap, routesSnap] = await Promise.all([
     db.collection('authorities').select('name').get(),
     db.collection('city_inventory').select('city', 'authorityId').get(),
+    // NOTE (axiom §33): `published == false` matches only docs where the field is
+    // PRESENT and false — a doc with NO `published` field is NOT listed here (same
+    // query as the hub table, so counts agree). Sderot was already backfilled; the
+    // write guard below uses isPendingRoute, which does treat a missing field as unpublished.
     db.collection('official_routes').where('published', '==', false)
       .select('name', 'authorityId', 'city', 'status', 'published', 'distance', 'origin').get(),
   ]);
@@ -89,9 +96,12 @@ export function parseBulkApproveRequest(body: unknown): { ok: true; value: BulkA
   return { ok: true, value: { authorityId, ids: Array.from(new Set(b.ids as string[])) } };
 }
 
-async function adminNameOf(db: Firestore, uid: string): Promise<string> {
-  const core = ((await db.collection('users').doc(uid).get()).data()?.core ?? {}) as Data;
-  return str(core.name) ?? str(core.displayName) ?? str(core.email) ?? uid;
+async function adminNameOf(uid: string): Promise<string> {
+  try {
+    return str((await getAdminAuth().getUser(uid)).displayName) ?? uid;
+  } catch {
+    return uid;
+  }
 }
 
 export async function approvePendingRoutes(db: Firestore, uid: string, req: BulkApproveRequest): Promise<BatchOutcome> {
@@ -100,12 +110,13 @@ export async function approvePendingRoutes(db: Firestore, uid: string, req: Bulk
   const mine = new Set(names.map(normCity));
   const snaps = await db.getAll(...req.ids.map((id) => col.doc(id)));
   const out: BatchOutcome = { updated: [], skipped: [] };
+  const lastUpdate = new Map<string, Timestamp | undefined>();
   for (const s of snaps) {
     const d = s.data() as Data | undefined;
     if (!s.exists || !d) out.skipped.push({ id: s.id, reason: 'not_found' });
     else if (!(d.authorityId === req.authorityId || (!str(d.authorityId) && mine.has(normCity(str(d.city) ?? ''))))) out.skipped.push({ id: s.id, reason: 'other_authority' });
     else if (!isPendingRoute(d)) out.skipped.push({ id: s.id, reason: 'not_pending' });
-    else out.updated.push(s.id);
+    else { out.updated.push(s.id); lastUpdate.set(s.id, s.updateTime); }
   }
   if (!out.updated.length) return out;
 
@@ -113,17 +124,38 @@ export async function approvePendingRoutes(db: Firestore, uid: string, req: Bulk
   // the server timestamps are added after validation (a FieldValue is not a schema value).
   const fixed = buildValidatedDoc('official_routes', { published: true, status: 'published' }, { mode: 'update', knownAuthorityIds: new Set<string>(), existing: {} });
   const payload = { ...fixed, publishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
-  const batch = db.batch();
-  for (const id of out.updated) batch.update(col.doc(id), payload);
-  batch.set(db.collection('audit_logs').doc(), {
+  const pre = (id: string) => (lastUpdate.get(id) ? { lastUpdateTime: lastUpdate.get(id)! } : undefined);
+  const audit = async (n: number) => ({
     adminId: uid,
-    adminName: await adminNameOf(db, uid),
+    adminName: await adminNameOf(uid),
     actionType: 'APPROVE',
     targetEntity: 'Route',
-    targetId: out.updated.length === 1 ? out.updated[0] : req.authorityId,
-    details: `Bulk-approved ${out.updated.length} pending route(s) in authority ${req.authorityId} via /admin/city-mapping/hub (nationwide bulk)`,
+    targetId: n === 1 ? out.updated[0] : req.authorityId,
+    details: `Bulk-approved ${n} pending route(s) in authority ${req.authorityId} via /admin/city-mapping/hub (nationwide bulk)`,
     timestamp: new Date(),
   });
-  await batch.commit();
+  const ids = out.updated;
+  try {
+    const batch = db.batch();
+    for (const id of ids) batch.update(col.doc(id), payload, pre(id) as never);
+    batch.set(db.collection('audit_logs').doc(), await audit(ids.length));
+    await batch.commit();
+    return out;
+  } catch (err) {
+    console.warn('[hub/bulk-routes] batch failed, falling back to per-doc updates:', (err as Error)?.message);
+  }
+  // A precondition failed (or the batch failed atomically): redo per doc, so one
+  // concurrently-changed route is reported as a conflict and never aborts the rest.
+  const done: string[] = [];
+  for (const id of ids) {
+    try {
+      await col.doc(id).update(payload, pre(id) as never);
+      done.push(id);
+    } catch {
+      out.skipped.push({ id, reason: 'conflict' });
+    }
+  }
+  out.updated = done;
+  if (done.length) await db.collection('audit_logs').doc().set(await audit(done.length));
   return out;
 }
