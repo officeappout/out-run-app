@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 
 /** enable_push_measure_all (default off) — pure resolver + the real sendPush on a fake Firestore. */
 vi.mock('firebase-admin', async () => (await import('./helpers/fake-firestore')).fakeAdminModule());
@@ -73,6 +73,12 @@ describe('isPushMeasureAllEnabled', () => {
 describe('sendPush with enable_push_measure_all', () => {
   const push = (over: Record<string, unknown> = {}) =>
     sendPush({ toUids: ['u1'], channel: 'progression', title: 't', body: 'b', rateCapHours: 0, ...over } as never);
+
+  // sendPush skips quiet hours (21:00–08:00 Israel) and Shabbat — pin the
+  // clock to a weekday noon so the suite does not fail whenever CI runs at
+  // night or on Saturday (it did on 22.10 ~22:00).
+  beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-20T09:00:00Z')); });
+  afterAll(() => { vi.useRealTimers(); });
 
   beforeEach(() => {
     store.clear();
