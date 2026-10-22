@@ -32,6 +32,12 @@ export interface WbSession<P = unknown> {
   homeDow: number | null;
   /** Show the "חדש" tag (a session added to a week the user already has). */
   isNew?: boolean;
+  /**
+   * Planner (phase 2): what happened to a session of a day that has passed. A 'missed' session
+   * on a past day is not part of the week's load (it never happened) until it is moved to
+   * today or later; 'done' sessions are locked context.
+   */
+  status?: 'done' | 'missed';
   /** Host data (stored ids, the session's origin …) — never read by the builder. */
   data?: P;
 }
@@ -44,6 +50,8 @@ export interface WbDay<P = unknown> {
   sessions: WbSession<P>[];
   /** The engine's reason for this day, one line. */
   whyHe: string | null;
+  /** Planner (phase 2): the day is over — never a drop target; its missed sessions may leave it. */
+  past?: boolean;
 }
 
 export interface WbWeek<P = unknown> {

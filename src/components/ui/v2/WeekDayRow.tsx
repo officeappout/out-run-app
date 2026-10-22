@@ -14,12 +14,14 @@
 import type { ReactNode } from 'react';
 import { ArrowLeftRight, Check, Info } from 'lucide-react';
 
-export type WeekSessionTagTone = 'new' | 'moved';
+export type WeekSessionTagTone = 'new' | 'moved' | 'done' | 'missed';
 export type WeekSessionNoteTone = 'info' | 'kept' | 'moved';
 
 const TAG_CLASS: Record<WeekSessionTagTone, string> = {
   new: 'bg-emerald-50 text-emerald-700',
   moved: 'bg-amber-50 text-amber-700',
+  done: 'bg-v2-tint text-v2-deep',
+  missed: 'bg-rose-50 text-rose-700',
 };
 
 const NOTE_CLASS: Record<WeekSessionNoteTone, string> = {

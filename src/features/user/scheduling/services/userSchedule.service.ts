@@ -593,6 +593,31 @@ export async function replaceRecurringSchedule(
   }
 }
 
+/**
+ * Planner week builder "מעכשיו והלאה" (enable_week_builder_v1, phase 2 — the only caller is
+ * src/features/schedule/week-builder/planner/plannerSave.service.ts). The recurring template
+ * (already merged per day with mergeDayItems by the pure planner) and lifestyle.scheduleDays,
+ * the same two fields updateScheduleDays writes. Dotted paths only.
+ */
+export async function replaceRecurringTemplate(
+  recurringTemplate: Record<string, string[]>,
+  scheduleDays: string[],
+): Promise<boolean> {
+  const uid = await resolveAuthUid();
+  if (!uid) return false;
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      'lifestyle.recurringTemplate': recurringTemplate,
+      'lifestyle.scheduleDays': scheduleDays,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.error('[UserSchedule] replaceRecurringTemplate FAILED', err);
+    return false;
+  }
+}
+
 /** The builder drawer's controls alone ("this week only" still remembers them). Same flag as above. */
 export async function saveScheduleAdvisorPrefs(prefs: { availableDayCount: number; focus: number }): Promise<boolean> {
   const uid = await resolveAuthUid();
