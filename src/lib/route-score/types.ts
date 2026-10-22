@@ -27,6 +27,9 @@ export type SourceTier = 'official' | 'osm_named' | 'named_place' | 'stitched' |
 
 export type CertificateVerdict = 'approve' | 'edit' | 'drop';
 
+/** Named urban route kinds eligible for the urban selection floor (RC9). */
+export type UrbanRouteKind = 'named_corridor' | 'park_loop' | 'known_route' | 'bike_adjacent';
+
 export interface ParkRef {
   source: string;
   id: string;
@@ -65,6 +68,8 @@ export interface RouteScoreInput {
    */
   geometry: { retracedPct: number; uTurnCount: number; spurCount: number; compactness: number; turnsPerKm?: number; zigzagIndex?: number } | null;
   sourceTier: SourceTier;
+  /** RC9: a NAMED urban route (urban floor eligible) — null for everything else. Optional for older callers. */
+  urbanKind?: UrbanRouteKind | null;
   /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
   greenShare: number | null;
   parkRef: ParkRef | null;
