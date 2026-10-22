@@ -17,3 +17,13 @@ describe('newlyReachedGoals (3e)', () => {
     expect(newlyReachedGoals([e('pu', 'מתח', [11])], [pullGoal], new Set([goalKey(pullGoal)]))).toEqual([]);
   });
 });
+
+describe('the in-workout chip copy (he)', () => {
+  it('reps and seconds', async () => {
+    const { makeT } = await import('@/lib/i18n/t');
+    const { player } = await import('@/messages/ns/player');
+    const t = makeT('he', player);
+    expect(t('strengthRunner.goalReached', { value: '10', name: 'מתח', unit: 'reps' })).toBe('הגעת ליעד! 10 מתח ✓');
+    expect(t('strengthRunner.goalReached', { value: '10', name: 'פרונט לבר', unit: 'other' })).toBe('הגעת ליעד! פרונט לבר 10 שניות ✓');
+  });
+});
