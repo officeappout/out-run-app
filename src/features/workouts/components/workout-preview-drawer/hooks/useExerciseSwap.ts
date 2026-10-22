@@ -16,6 +16,7 @@ import { deriveSwappedEntry } from '../utils/derive-swapped-entry.util';
 import { logExerciseSwap } from '@/features/workout-engine/adaptation/log-exercise-swap';
 import { adaptationStampForPlan, domainOfMovementGroup } from '@/features/workout-engine/adaptation/exercise-log-stamp';
 import type { ReplacementMeta } from '@/features/workout-engine/adaptation/adaptation.types';
+import { replaceAtSlot } from '@/features/workout-engine/players/strength/logic/swap-fixes';
 
 // TUT multiplier — kept in lock-step with TUT_REPS_TO_SECONDS in
 // pyramid.processor.ts so both write paths agree on the conversion.
@@ -34,6 +35,8 @@ interface UseExerciseSwapParams {
   onGeneratedWorkoutUpdate?: (updated: GeneratedWorkout) => void;
   /** Execution location shown in the drawer — recorded on the swap log (Phase 0, data only). */
   location?: string;
+  /** enable_swap_fixes_v1 — swap the tapped SLOT, not every slot holding the same exercise id. */
+  swapFixesOn?: boolean;
 }
 
 interface UseExerciseSwapReturn {
@@ -47,7 +50,7 @@ interface UseExerciseSwapReturn {
    * Open the swap modal for a standard (non-pyramid) exercise.  Clears any
    * leftover pyramid context so the next confirm runs the standard path.
    */
-  handleOpenSwapModal: (exercise: FirestoreExercise, level: number) => void;
+  handleOpenSwapModal: (exercise: FirestoreExercise, level: number, entry?: EngineWorkoutExercise) => void;
   /**
    * Open the swap modal scoped to a single PYRAMID STEP.  The parent's
    * movementGroup defines the variant pool; the step's resolved level
@@ -90,6 +93,7 @@ export function useExerciseSwap({
   generatedWorkout,
   onGeneratedWorkoutUpdate,
   location,
+  swapFixesOn = false,
 }: UseExerciseSwapParams): UseExerciseSwapReturn {
   const [replacementModalOpen, setReplacementModalOpen] = useState(false);
   const [exerciseToReplace, setExerciseToReplace] =
@@ -97,15 +101,19 @@ export function useExerciseSwap({
   const [exerciseToReplaceLevel, setExerciseToReplaceLevel] = useState(1);
   const [pyramidSwapContext, setPyramidSwapContext] =
     useState<PyramidSwapContext | null>(null);
+  /** Flag on: the tapped slot's index in generatedWorkout.exercises (null = match by id, today). */
+  const [slotIndex, setSlotIndex] = useState<number | null>(null);
 
   const handleOpenSwapModal = useCallback(
-    (exercise: FirestoreExercise, level: number) => {
+    (exercise: FirestoreExercise, level: number, entry?: EngineWorkoutExercise) => {
       setPyramidSwapContext(null);
+      const idx = swapFixesOn && entry && generatedWorkout ? generatedWorkout.exercises.indexOf(entry) : -1;
+      setSlotIndex(idx >= 0 ? idx : null);
       setExerciseToReplace(exercise);
       setExerciseToReplaceLevel(level);
       setReplacementModalOpen(true);
     },
-    [],
+    [swapFixesOn, generatedWorkout],
   );
 
   const handleOpenPyramidStepSwap = useCallback(
@@ -128,6 +136,7 @@ export function useExerciseSwap({
     setReplacementModalOpen(false);
     setExerciseToReplace(null);
     setPyramidSwapContext(null);
+    setSlotIndex(null);
   }, []);
 
   const handleExerciseReplace = useCallback(
@@ -144,7 +153,8 @@ export function useExerciseSwap({
       {
         const slot = pyramidSwapContext
           ? generatedWorkout.exercises.find((we) => we.exercise.id === pyramidSwapContext.parentExerciseId)
-          : generatedWorkout.exercises.find((we) => we.exercise.id === exerciseToReplace.id);
+          : (slotIndex != null ? generatedWorkout.exercises[slotIndex] : undefined) ??
+            generatedWorkout.exercises.find((we) => we.exercise.id === exerciseToReplace.id);
         const pyramidStep = pyramidSwapContext
           ? slot?.pyramidSequence?.[pyramidSwapContext.stepIndex]
           : undefined;
@@ -269,10 +279,31 @@ export function useExerciseSwap({
       // the two `pairedWith` pointers must be re-stitched in the same pass so
       // `groupExercisesIntoSections` continues bundling them into one composite
       // block rather than demoting both to standalone straight sets.
-      const replacedEntry = generatedWorkout.exercises.find(
+      const slotEntry =
+        slotIndex != null && generatedWorkout.exercises[slotIndex]?.exercise.id === exerciseToReplace.id
+          ? generatedWorkout.exercises[slotIndex]
+          : null;
+      const replacedEntry = slotEntry ?? generatedWorkout.exercises.find(
         (we) => we.exercise.id === exerciseToReplace.id,
       );
       const survivingPartnerId = replacedEntry?.pairedWith ?? null;
+
+      // enable_swap_fixes_v1: only the tapped slot changes (a duplicate elsewhere keeps its
+      // exercise); its pair partner is re-pointed at the new id, as below.
+      if (slotEntry && slotIndex != null) {
+        const healed = generatedWorkout.exercises.map((we, i) =>
+          i !== slotIndex && survivingPartnerId && we.exercise.id === survivingPartnerId
+            ? { ...we, pairedWith: newExercise.id }
+            : we,
+        );
+        const updatedSlot: GeneratedWorkout = {
+          ...generatedWorkout,
+          exercises: replaceAtSlot(healed, slotIndex, (we) => deriveSwappedEntry(we, newExercise, method)),
+        };
+        onGeneratedWorkoutUpdate?.(updatedSlot);
+        setSlotIndex(null);
+        return;
+      }
 
       const updatedExercises = generatedWorkout.exercises.map((we) => {
         if (survivingPartnerId && we.exercise.id === survivingPartnerId) {
@@ -299,6 +330,7 @@ export function useExerciseSwap({
       pyramidSwapContext,
       onGeneratedWorkoutUpdate,
       location,
+      slotIndex,
     ],
   );
 

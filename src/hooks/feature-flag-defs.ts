@@ -510,6 +510,13 @@ export const FLAG_DEFS = [
   // superAdminValue false: one switch, same for everyone. Fail-closed. Preconditions before ON:
   // the publish-status backfill + authorityId on the 16 legacy routes without one.
   { key: 'enableScopedOfficialRoutes', firestoreKey: 'enable_scoped_official_routes', defaultValue: false, superAdminValue: false },
+  // Swap fixes (22.10.2026, swap/hybrid audit §1). ON = exercises already in the workout are never
+  // offered, preview swaps by slot, the active player's ±3 window centres on the exercise's own
+  // level and re-derives reps↔hold, station equipment is filtered before the cap of 3, swaps
+  // survive resume and show in the summary, no swap during a running tabata work interval, the
+  // hybrid pyramid step swap replaces only that step with the park's equipment, list images
+  // follow the chosen method. superAdminValue true: the owner previews it first.
+  { key: 'enableSwapFixesV1', firestoreKey: 'enable_swap_fixes_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

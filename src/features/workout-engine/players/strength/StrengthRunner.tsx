@@ -82,6 +82,8 @@ import { markGenerationOutcome } from '@/features/generation-review/capture/hook
 import { useGoalReachedCelebration } from './hooks/useGoalReachedCelebration';
 import GoalReachedChip from './components/GoalReachedChip';
 import type { GoalTargetLite } from './logic/goal-reached';
+import { useSwapFixesV1 } from './hooks/useSwapFixesV1';
+import { isSwapBlockedNow } from './logic/swap-fixes';
 
 export type { ExerciseResultLog };
 
@@ -453,6 +455,7 @@ export default function StrengthRunner({
   // PREPARING countdown, rest countdown, the rep CTA's auto-fill, and since PR-A the timer
   // card). The gate sheet replaces the pause overlay; the demo clip keeps looping behind it.
   const isTabataBlock = sm.blockProtocol?.id === 'tabata';
+  const swapFixesOn = useSwapFixesV1();
   const isFirstTabataInterval =
     isTabataBlock && sm.currentRound === 1 && sm.currentExerciseIndex === 0 && sm.currentSide !== 'left';
   const gateActiveKey = `active-${sm.currentSegmentIndex}-${sm.currentExerciseIndex}-set-${sm.currentRound}`;
@@ -772,7 +775,8 @@ export default function StrengthRunner({
         workoutLocation={workout.workoutLocation}
         scrollRef={scrollRef}
         onComplete={sm.handleExerciseComplete}
-        onSwap={handleSwap}
+        // enable_swap_fixes_v1: no swap while a tabata work interval runs (the clock doesn't stop).
+        onSwap={isSwapBlockedNow(swapFixesOn, { isTabata: isTabataBlock, isWorkPhase: blockWorkSec != null }) ? undefined : handleSwap}
         onSetVideoProgress={sm.setVideoProgress}
         // PR-B2: the demo keeps looping behind the gate while the player is held paused, and the
         // gate needs the <video> element to unmute it inside the tap. A timed (non-tabata) card

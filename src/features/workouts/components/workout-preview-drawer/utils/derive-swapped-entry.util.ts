@@ -29,25 +29,21 @@ const METRIC_RESET_REPS = 12;
 const METRIC_RESET_RANGE = { min: 6, max: 12 };
 
 /**
- * Build the swapped WorkoutExercise entry: keep `oldWE`'s slot metadata, swap in
- * `newExercise` + `method`, re-derive the metric identity (reps↔hold) and level-delta
- * volume, pin the role, and clear any prior keep+mark flag. `oldWE.exercise` supplies
- * the "from" level (the caller matches the entry being replaced).
+ * The volume half of a swap (shared with the active player under enable_swap_fixes_v1):
+ * a reps↔hold change resets to that metric's default target; a level change scales it
+ * (harder −10%/level, easier +15%/level, with floors / a reps cap).
  */
-export function deriveSwappedEntry(
-  oldWE: WorkoutExercise,
-  newExercise: Exercise,
-  method: ExecutionMethod,
-): WorkoutExercise {
-  const newIsTimeBased = isTimeBasedExercise(newExercise);
-  const metricChanged = newIsTimeBased !== oldWE.isTimeBased;
-
-  const oldLevel = oldWE.exercise.targetPrograms?.[0]?.level ?? 0;
-  const newLevel = newExercise.targetPrograms?.[0]?.level ?? oldLevel;
-  const levelDelta = newLevel - oldLevel;
-
-  let adjustedReps = oldWE.reps;
-  let adjustedRange = oldWE.repsRange;
+export function deriveSwappedVolume(i: {
+  oldIsTimeBased: boolean | undefined;
+  newIsTimeBased: boolean;
+  levelDelta: number;
+  reps: number;
+  repsRange?: { min: number; max: number };
+}): { reps: number; repsRange?: { min: number; max: number } } {
+  const { newIsTimeBased, levelDelta } = i;
+  const metricChanged = newIsTimeBased !== i.oldIsTimeBased;
+  let adjustedReps = i.reps;
+  let adjustedRange = i.repsRange;
 
   if (metricChanged) {
     if (newIsTimeBased) {
@@ -73,6 +69,33 @@ export function deriveSwappedEntry(
       adjustedRange = { min: scaleValue(adjustedRange.min), max: scaleValue(adjustedRange.max) };
     }
   }
+  return { reps: adjustedReps, repsRange: adjustedRange };
+}
+
+/**
+ * Build the swapped WorkoutExercise entry: keep `oldWE`'s slot metadata, swap in
+ * `newExercise` + `method`, re-derive the metric identity (reps↔hold) and level-delta
+ * volume, pin the role, and clear any prior keep+mark flag. `oldWE.exercise` supplies
+ * the "from" level (the caller matches the entry being replaced).
+ */
+export function deriveSwappedEntry(
+  oldWE: WorkoutExercise,
+  newExercise: Exercise,
+  method: ExecutionMethod,
+): WorkoutExercise {
+  const newIsTimeBased = isTimeBasedExercise(newExercise);
+
+  const oldLevel = oldWE.exercise.targetPrograms?.[0]?.level ?? 0;
+  const newLevel = newExercise.targetPrograms?.[0]?.level ?? oldLevel;
+  const levelDelta = newLevel - oldLevel;
+
+  const { reps: adjustedReps, repsRange: adjustedRange } = deriveSwappedVolume({
+    oldIsTimeBased: oldWE.isTimeBased, // raw (undefined ≠ false), as before the extraction
+    newIsTimeBased,
+    levelDelta,
+    reps: oldWE.reps,
+    repsRange: oldWE.repsRange,
+  });
 
   const thisPartnerLink = (oldWE as any).pairedWith as string | null | undefined;
 

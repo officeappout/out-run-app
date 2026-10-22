@@ -19,6 +19,10 @@ import { Dumbbell, X } from 'lucide-react';
 import { LEVEL_COMPARE_ICONS } from '@/components/ui/v2/LevelCompareIcon';
 import { filterAlternativesByEquipment } from '../logic/equipment-filter';
 import type { ReplacementMeta, SwapReason } from '@/features/workout-engine/adaptation/adaptation.types';
+import { useT } from '@/hooks/useT';
+import { player, type PlayerKey } from '@/messages/ns/player';
+import { useSwapFixesV1 } from '../hooks/useSwapFixesV1';
+import { swapOptionImageMethod } from '../logic/swap-fixes';
 
 interface ExerciseReplacementModalProps {
   isOpen: boolean;
@@ -45,6 +49,11 @@ interface ExerciseReplacementModalProps {
    * uses that fitting method. Omitted / null → the modal is exactly as before (every other caller).
    */
   allowedEquipmentIds?: readonly string[] | null;
+  /**
+   * enable_swap_fixes_v1 — ids of every exercise already in the workout (all slots / stations).
+   * They are never offered. Ignored while the flag is off.
+   */
+  excludeExerciseIds?: readonly string[] | null;
 }
 
 type TabType = 'adaptation' | 'alternative';
@@ -54,12 +63,12 @@ type TabType = 'adaptation' | 'alternative';
  * required to swap. 'pain' is recorded for the admin view only — it must
  * never feed adaptation (see adaptation.types.ts) — and shows a safety line.
  */
-const REASON_CHIPS: { id: SwapReason; label: string }[] = [
-  { id: 'too_hard', label: 'קשה מדי' },
-  { id: 'too_easy', label: 'קל מדי' },
-  { id: 'no_equipment', label: 'אין לי את הציוד' },
-  { id: 'dislike', label: 'פחות מתאים לי' },
-  { id: 'pain', label: 'כואב' },
+const REASON_CHIPS: { id: SwapReason; label: PlayerKey }[] = [
+  { id: 'too_hard', label: 'swapModal.reason.tooHard' },
+  { id: 'too_easy', label: 'swapModal.reason.tooEasy' },
+  { id: 'no_equipment', label: 'swapModal.reason.noEquipment' },
+  { id: 'dislike', label: 'swapModal.reason.dislike' },
+  { id: 'pain', label: 'swapModal.reason.pain' },
 ];
 
 // Shared with the run overview's "החלף מקטע" drawer (src/components/ui/v2/LevelCompareIcon).
@@ -148,7 +157,10 @@ export default function ExerciseReplacementModal({
   userProfile,
   onReplace,
   allowedEquipmentIds = null,
+  excludeExerciseIds = null,
 }: ExerciseReplacementModalProps) {
+  const t = useT(player);
+  const fixesOn = useSwapFixesV1();
   const [activeTab, setActiveTab] = useState<TabType>('adaptation');
   const [adaptationExercises, setAdaptationExercises] = useState<AlternativeExerciseOption[]>([]);
   const [alternativeExercises, setAlternativeExercises] = useState<AlternativeExerciseOption[]>([]);
@@ -177,21 +189,29 @@ export default function ExerciseReplacementModal({
     setSelectedExercise(null);
     setReason(null);
 
+    // Flag on: dedupe against the workout + station equipment applied BEFORE the cap of 3
+    // (the service then returns only fitting options). Flag off: exactly as before.
+    const opts = fixesOn
+      ? { excludeIds: new Set(excludeExerciseIds ?? []), allowedEquipmentIds }
+      : undefined;
+    const postFilter = (list: AlternativeExerciseOption[]) =>
+      fixesOn ? list : filterAlternativesByEquipment(list, allowedEquipmentIds);
+
     (async () => {
       try {
         const variations = await getExerciseVariations(
-          currentExercise, currentLevel, location, park, userProfile, activeProgramId,
+          currentExercise, currentLevel, location, park, userProfile, activeProgramId, opts,
         );
         if (id !== fetchId.current) return;
-        setAdaptationExercises(filterAlternativesByEquipment(variations, allowedEquipmentIds));
+        setAdaptationExercises(postFilter(variations));
         setLoadingAdaptation(false);
 
         const tab1Ids = new Set(variations.map((v) => v.exercise.id));
         const alternatives = await getAlternativeExercises(
-          currentExercise, currentLevel, location, park, userProfile, activeProgramId, tab1Ids,
+          currentExercise, currentLevel, location, park, userProfile, activeProgramId, tab1Ids, undefined, opts,
         );
         if (id !== fetchId.current) return;
-        setAlternativeExercises(filterAlternativesByEquipment(alternatives, allowedEquipmentIds));
+        setAlternativeExercises(postFilter(alternatives));
         setLoadingAlternative(false);
       } catch (err) {
         console.error('[ExerciseReplacement] Error:', err);
@@ -203,7 +223,7 @@ export default function ExerciseReplacementModal({
     })();
 
     return () => { fetchId.current++; };
-  }, [isOpen, currentExercise, currentLevel, location, park, userProfile, activeProgramId, allowedEquipmentIds]);
+  }, [isOpen, currentExercise, currentLevel, location, park, userProfile, activeProgramId, allowedEquipmentIds, fixesOn, excludeExerciseIds]);
 
   useEffect(() => { setSelectedExercise(null); }, [activeTab]);
 
@@ -231,8 +251,9 @@ export default function ExerciseReplacementModal({
   }, [selectedExercise, activeTab, location, park, userProfile, onReplace, onClose, allowedEquipmentIds, reason, currentLevel]);
 
   // ── Helpers ──
-  const getImage = (ex: Exercise): string => {
-    const method = findMethodForLocation(ex, location);
+  const getImage = (ex: Exercise, chosen?: ExecutionMethod | null): string => {
+    // Flag on: the photo follows the method the option will actually use (station / brand).
+    const method = swapOptionImageMethod(fixesOn, chosen, () => findMethodForLocation(ex, location));
     const { imageUrl } = resolveExerciseMedia(ex as any, method as any);
     return imageUrl || '/images/park-placeholder.svg';
   };
@@ -327,7 +348,7 @@ export default function ExerciseReplacementModal({
                   />
                 </div>
                 <div className="flex-1 text-right">
-                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">החלפת תרגיל</p>
+                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">{t('swapModal.header')}</p>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 leading-tight">
                     {getLocalizedText(currentExercise.name, 'he')}
                   </h2>
@@ -340,7 +361,7 @@ export default function ExerciseReplacementModal({
                 <button
                   onClick={onClose}
                   className="absolute top-5 left-5 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 active:scale-90 transition-transform"
-                  aria-label="סגור"
+                  aria-label={t('swapModal.closeAria')}
                 >
                   <X size={18} />
                 </button>
@@ -356,7 +377,7 @@ export default function ExerciseReplacementModal({
                       : 'text-slate-400 dark:text-slate-500 border-transparent'
                   }`}
                 >
-                  התאמת התרגיל
+                  {t('swapModal.tab.adaptation')}
                 </button>
                 <button
                   onClick={() => setActiveTab('alternative')}
@@ -366,14 +387,14 @@ export default function ExerciseReplacementModal({
                       : 'text-slate-400 dark:text-slate-500 border-transparent'
                   }`}
                 >
-                  תרגיל חלופי
+                  {t('swapModal.tab.alternative')}
                 </button>
               </div>
 
               <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-6">
                 {activeTab === 'adaptation'
-                  ? 'גרסאות של אותו תרגיל, ברמות קושי שונות'
-                  : 'תרגילים שונים לאותה קבוצת השרירים'}
+                  ? t('swapModal.hint.adaptation')
+                  : t('swapModal.hint.alternative')}
               </p>
 
               {/* ── Exercise List — skeleton until filtering is 100% done ── */}
@@ -382,9 +403,11 @@ export default function ExerciseReplacementModal({
               ) : currentList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <Dumbbell className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-3" />
-                  <p className="text-slate-400 font-semibold mb-1">לא נמצאו תרגילים חלופיים</p>
+                  <p className="text-slate-400 font-semibold mb-1">{t('swapModal.empty.title')}</p>
                   <p className="text-xs text-slate-400">
-                    נסו לעבור ללשונית {activeTab === 'adaptation' ? '"תרגיל חלופי"' : '"התאמת התרגיל"'}
+                    {t('swapModal.empty.tryTab', {
+                      tab: activeTab === 'adaptation' ? t('swapModal.empty.tabAlternative') : t('swapModal.empty.tabAdaptation'),
+                    })}
                   </p>
                 </div>
               ) : (
@@ -392,7 +415,7 @@ export default function ExerciseReplacementModal({
                   {currentList.map((option) => {
                     const isSelected = selectedExercise?.exercise.id === option.exercise.id;
                     const levelCfg = getLevelConfig(option.levelComparison);
-                    const resolvedImageUrl = getImage(option.exercise);
+                    const resolvedImageUrl = getImage(option.exercise, option.selectedExecutionMethod);
                     const gearBadges = resolveGearBadges(option);
 
                     return (
@@ -420,7 +443,7 @@ export default function ExerciseReplacementModal({
                             <div className={`flex items-center gap-1 ${levelCfg.color}`}>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={levelCfg.src} alt="" width={16} height={16} className="object-contain" />
-                              <span className="text-sm font-semibold">רמה {option.resolvedLevel}</span>
+                              <span className="text-sm font-semibold">{t('swapModal.level', { level: option.resolvedLevel })}</span>
                             </div>
 
                             {gearBadges.length > 0 && (
@@ -447,7 +470,7 @@ export default function ExerciseReplacementModal({
               {/* ── Optional reason chips (one row, skippable) ── */}
               <div className="mb-3 -mx-6 px-6 pt-2 bg-white/95 dark:bg-[#1E1E1E]/95">
                 <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 text-right">
-                  למה מחליפים? (לא חובה)
+                  {t('swapModal.reason.prompt')}
                 </p>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
                   {REASON_CHIPS.map((chip) => {
@@ -464,14 +487,14 @@ export default function ExerciseReplacementModal({
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                         }`}
                       >
-                        {chip.label}
+                        {t(chip.label)}
                       </button>
                     );
                   })}
                 </div>
                 {reason === 'pain' && (
                   <p className="text-xs text-orange-600 dark:text-orange-400 mt-1.5 text-right">
-                    כאב הוא סימן לעצור. אם הוא לא עובר — כדאי להתייעץ עם איש מקצוע.
+                    {t('swapModal.reason.painNote')}
                   </p>
                 )}
               </div>
@@ -485,7 +508,7 @@ export default function ExerciseReplacementModal({
                 }`}
                 style={selectedExercise ? { background: 'linear-gradient(135deg, #00BAF7 0%, #0CF2E3 100%)' } : undefined}
               >
-                החליפו תרגיל
+                {t('swapModal.cta')}
               </button>
             </div>
           </motion.div>
