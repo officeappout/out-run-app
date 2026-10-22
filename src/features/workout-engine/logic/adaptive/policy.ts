@@ -26,6 +26,6 @@ export function resolveProgressionPolicy(isSuperAdmin: boolean): ProgressionPoli
   return {
     trueSkillCap: isSuperAdmin || readLiveFlag('enableSkillCapTrueSkills'),
     adaptiveReps: isSuperAdmin || readLiveFlag('enableAdaptiveRepsV1'),
-    goalPresence: false,
+    goalPresence: isSuperAdmin || readLiveFlag('enableGoalPresenceV1'),
   };
 }

@@ -24,7 +24,7 @@ function run(results: ((target: number) => number[])[], start = 4): AdaptiveStat
   return st;
 }
 const hit = (t: number) => [t, t, t];
-const miss = (_t: number) => [2, 3, 4];
+const miss = () => [2, 3, 4];
 const partial = (t: number) => [t, t, t - 1];
 
 describe('evaluateSession', () => {

@@ -15,6 +15,7 @@ import { DOMAIN_ALIAS_MAP, DOMAIN_PARENT_MAP, getShuffleSeed, classifyPriority, 
 import { resolveToSlug } from '../services/program-hierarchy.utils';
 import { aboveLevelRepRange, isTrueSkillExercise, repCeilingFor, trueSkillHoldCap } from './adaptive/true-skill';
 import { adaptiveExtraSets, adaptiveTarget } from './adaptive/double-progression';
+import { goalRampTarget } from './adaptive/goal-presence';
 import {
   DifficultyLevel,
   ExercisePriority,
@@ -894,7 +895,25 @@ export function assignVolume(
     const isGoalExercise = context.goalExerciseIds?.has(exerciseId) ?? false;
     let rampedTarget: number | undefined;
 
-    if (isGoalExercise && context.goalTargets?.has(exerciseId)) {
+    const goalPresenceOn = context.progressionPolicy?.goalPresence === true;
+    if (goalPresenceOn && isGoalExercise && context.goalTargets?.has(exerciseId)) {
+      // 3e: performance-driven ramp — max(today's target, last best), never above the goal;
+      // the range only grows to what the user actually reached.
+      const goal = context.goalTargets.get(exerciseId)!;
+      if ((timeBased && goal.unit === 'seconds') || (!timeBased && goal.unit === 'reps')) {
+        const hist = applyHistoryFloor(reps, repsRange, exerciseId, context.exerciseHistoryMap);
+        rampedTarget = goalRampTarget({
+          current: reps,
+          lastBest: hist.discarded ? null : hist.lastMax,
+          goal: goal.targetValue,
+          isHold: timeBased,
+          adaptiveOn,
+        });
+        reps = Math.max(reps, rampedTarget);
+        if (timeBased) reps = Math.min(reps, holdCap);
+        repsRange = { min: repsRange.min, max: Math.max(repsRange.max, reps) };
+      }
+    } else if (isGoalExercise && context.goalTargets?.has(exerciseId)) {
       const goal = context.goalTargets.get(exerciseId)!;
       const sessionsCompleted = context.workoutsCompletedInLevel ?? 0;
       const rampFraction = Math.min(1.0, 0.3 + 0.1 * sessionsCompleted);

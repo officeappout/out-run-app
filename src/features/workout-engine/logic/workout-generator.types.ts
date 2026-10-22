@@ -616,6 +616,12 @@ export interface WorkoutGenerationContext {
    */
   adaptiveScoreBonus?: Map<string, { delta: number; reason: string }>;
   /**
+   * 3e (enable_goal_presence_v1): goal exercises absent from the recent sessions of their area.
+   * +GOAL_SCORE_BOOST in the synergy pass, never on a D1 option. Empty on deload / heat /
+   * calm return / recovery.
+   */
+  goalPresenceBoostIds?: Set<string>;
+  /**
    * @deprecated  Phase 3 — the modular pipeline is now the only path.
    *
    * Historically toggled the legacy inline budget caps (Steps 4b/4c/4c-prime),

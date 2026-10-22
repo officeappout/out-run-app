@@ -111,6 +111,8 @@ export interface StrengthSummaryViewProps {
   progression: ReturnType<typeof useProgressionSync>;
   email: ReturnType<typeof useEmailCapture>;
   evaluatedGoals: LevelGoalsChecklistProps['evaluatedGoals'];
+  /** 3e (enable_goal_presence_v1): celebratory reached-goal rows. */
+  goalCelebration?: boolean;
   visibleSuggestions: ProgramSuggestionCardProps['suggestions'];
   onAcceptSuggestion: ProgramSuggestionCardProps['onAccept'];
   onDismissSuggestion: ProgramSuggestionCardProps['onDismiss'];
@@ -140,6 +142,7 @@ export default function StrengthSummaryView({
   progression,
   email,
   evaluatedGoals,
+  goalCelebration = false,
   visibleSuggestions,
   onAcceptSuggestion,
   onDismissSuggestion,
@@ -226,7 +229,7 @@ export default function StrengthSummaryView({
             onDismiss={onDismissSuggestion}
           />
 
-          {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
+          {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} celebrate={goalCelebration} />}
 
           <h2 className="px-1 pt-2 text-[17px] font-black text-v2-ink">{t('strengthSummary.exercisesTitle')}</h2>
           <PhaseBreakdownV2 phases={v2.phases} />
@@ -304,7 +307,7 @@ export default function StrengthSummaryView({
           onDismiss={onDismissSuggestion}
         />
 
-        {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} />}
+        {!isReadOnly && <LevelGoalsChecklist evaluatedGoals={evaluatedGoals} celebrate={goalCelebration} />}
 
         <PersonalRecords exercises={completedExercises} />
 
