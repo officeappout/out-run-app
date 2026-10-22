@@ -20,6 +20,8 @@ import {
 } from '@/features/workout-engine/shared/utils/gear-mapping.utils';
 import { useUserStore } from '@/features/user';
 import { hasPersona } from '@/features/workout-engine/services/user-profile.utils';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // Street intentionally omitted: data coverage is too thin, so it produces a flood of
 // "requires a station" keep-marks. Product decision — offer only park + home.
@@ -37,7 +39,7 @@ function gearChips(location: string): LocationSwitcherOption['gear'] {
   return (REPRESENTATIVE_GEAR[location] ?? [])
     .map((id) => {
       const label = resolveEquipmentLabel(id);
-      if (!label || label === 'ציוד לא מזוהה') return null;
+      if (!label || label === 'ציוד לא מזוהה') return null; // i18n-allow-hebrew: data — compared with resolveEquipmentLabel's unknown-gear label
       return { id, label, icon: resolveEquipmentSvgPathList(id)[0] ?? null };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
@@ -55,6 +57,7 @@ export default function WorkoutLocationSwitcher({
   onSwap,
 }: WorkoutLocationSwitcherProps) {
   const [open, setOpen] = useState(false);
+  const t = useT(library);
 
   // Persona gate: the 'service' (military) variant is offered only to the military persona.
   const profile = useUserStore((s) => s.profile);
@@ -70,7 +73,7 @@ export default function WorkoutLocationSwitcher({
 
   return (
     <div dir="rtl" className="mb-4 flex items-center gap-2">
-      <span className="text-xs font-semibold text-slate-500">איפה מתאמנים?</span>
+      <span className="text-xs font-semibold text-slate-500">{t('preview.location.title')}</span>
       <LocationVariantSwitcher
         activeLocation={currentLocation}
         options={options}
@@ -83,7 +86,7 @@ export default function WorkoutLocationSwitcher({
           if (opt.location !== currentLocation) onSwap(opt.location as ExecutionLocation);
         }}
       />
-      {isSwapping && <span className="text-xs text-cyan-600 animate-pulse">מחליף…</span>}
+      {isSwapping && <span className="text-xs text-cyan-600 animate-pulse">{t('preview.location.swapping')}</span>}
     </div>
   );
 }

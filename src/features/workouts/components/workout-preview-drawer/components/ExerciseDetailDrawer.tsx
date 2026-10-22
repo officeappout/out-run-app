@@ -23,6 +23,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useUserStore } from '@/features/user';
 import Sheet, { SheetGrabber } from '@/components/ui/v2/Sheet';
 import { SHEET_Z } from '@/components/ui/v2/tokens';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface ExerciseDetailDrawerProps {
   /** The exercise to render, or `null` when the sheet should be closed. */
@@ -46,6 +48,7 @@ function ExerciseDetailDrawerImpl({
   onMethodChange,
 }: ExerciseDetailDrawerProps) {
   const router = useRouter();
+  const t = useT(library);
   // enable_home_v2: the shared <Sheet>; flag off keeps the markup below untouched.
   const isSuperAdmin = useUserStore((st) => !!(st.profile?.core as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin);
   const v2 = useFeatureFlags(isSuperAdmin).flags.enableHomeV2;
@@ -98,7 +101,7 @@ function ExerciseDetailDrawerImpl({
         dragToDismiss={{ mode: 'follow', maxOffset: 500, onRelease: (offsetY) => { if (offsetY > 140) onDismiss(); } }}
         frameStyle={{ opacity, height: '95vh', fontFamily: 'var(--font-simpler)' }}
         transition={{ type: 'spring', damping: 36, stiffness: 320, mass: 0.7 }}
-        ariaLabel="פרטי תרגיל"
+        ariaLabel={t('preview.exerciseDetail.label')}
       >
         <div
           className="shrink-0 cursor-grab active:cursor-grabbing"

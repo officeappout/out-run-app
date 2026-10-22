@@ -55,6 +55,11 @@ import {
 } from '../utils/timed-preview.utils';
 import { buildExerciseVolumeLabel } from '../utils/exercise-display.utils';
 import type { TimedBlockSpec } from '@/features/workout-engine/engines/timed/timed.types';
+import { makeT } from '@/lib/i18n/t';
+import { library } from '@/messages/ns/library';
+
+// The helpers take the caller's translator since the extraction (commit 2); the snapshots are unchanged.
+const tLib = makeT('he', library);
 
 const html = (el: ReactElement) => renderToStaticMarkup(el).replaceAll('<!-- -->', '');
 const snap = (name: string) => `./__snapshots__/preview-drawer-i18n/${name}.html`;
@@ -346,25 +351,25 @@ describe('pure helpers (text output)', () => {
     const out: Record<string, unknown> = {};
     for (const [k, spec] of Object.entries(SPECS)) {
       out[k] = {
-        header: blockHeaderModel(spec),
-        items: spec.items.map((_, i) => blockItemLine(spec, i)),
-        outOfRange: blockItemLine(spec, 99),
+        header: blockHeaderModel(spec, tLib),
+        items: spec.items.map((_, i) => blockItemLine(spec, i, tLib)),
+        outOfRange: blockItemLine(spec, 99, tLib),
       };
     }
-    out.meta1 = previewMeta(gw({ exercises: [ex('a', 'main')], estimatedDuration: 0 }), NOW);
-    out.meta7 = previewMeta(gw(), new Date(2026, 9, 19, 23, 55));
+    out.meta1 = previewMeta(gw({ exercises: [ex('a', 'main')], estimatedDuration: 0 }), NOW, tLib);
+    out.meta7 = previewMeta(gw(), new Date(2026, 9, 19, 23, 55), tLib);
     await expect(JSON.stringify(out, null, 2)).toMatchFileSnapshot(txt('timed-utils'));
   });
 
   it('exercise-display volume labels', async () => {
     const out = [
-      buildExerciseVolumeLabel(ex('a', 'main'), ''),
-      buildExerciseVolumeLabel(ex('a', 'main'), ' (לכל צד)'),
-      buildExerciseVolumeLabel(ex('a', 'main', { isTimeBased: true, reps: 45 }), ' (לכל צד)'),
-      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 8, max: 12 } }), ' (לכל צד)'),
-      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 20, max: 40 }, isTimeBased: true }), ''),
-      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 10, max: 10 } }), ''),
-      buildExerciseVolumeLabel(ex('a', 'main', { formattedRepRange: '6-8 חזרות' }), ' (לכל צד)'),
+      buildExerciseVolumeLabel(ex('a', 'main'), '', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main'), ' (לכל צד)', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main', { isTimeBased: true, reps: 45 }), ' (לכל צד)', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 8, max: 12 } }), ' (לכל צד)', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 20, max: 40 }, isTimeBased: true }), '', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main', { repsRange: { min: 10, max: 10 } }), '', tLib),
+      buildExerciseVolumeLabel(ex('a', 'main', { formattedRepRange: '6-8 חזרות' }), ' (לכל צד)', tLib),
     ];
     await expect(JSON.stringify(out, null, 2)).toMatchFileSnapshot(txt('volume-labels'));
   });
