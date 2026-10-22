@@ -4,10 +4,12 @@
  *
  * For every authority (clients → big cities → regional councils → the rest),
  * one at a time: existing routes → open datasets (W1.5) → OSM route relations
- * (pipeline B on the local Geofabrik PBF) → park loops (W5, not wired yet) →
- * generated loops ONLY if the quota is still short. Each step is scored and
- * the top-N set re-selected (src/lib/route-score); once the quota minimum is
- * met the remaining sources are skipped.
+ * (pipeline B on the local Geofabrik PBF) → park loops around big parks (W5:
+ * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
+ * GraphHopper foot_turns neighbourhood loops — the last two ONLY if the quota
+ * is still short. Each step is scored (routeScore v1.2: shade where the city
+ * has a layer, turns/zigzag on loops) and the top-N set re-selected
+ * (src/lib/route-score); once the quota minimum is met the rest is skipped.
  *
  *   npx tsx scripts/routes-nationwide/run.ts                          # whole country, dry-run, resumes automatically
  *   npx tsx scripts/routes-nationwide/run.ts --city=חיפה --city=ערד   # by authority name (repeatable)
@@ -15,6 +17,10 @@
  *   … --kind=municipal|regional  --limit=N  --pause-ms=2000
  *   … --datasets-dir=<dir>   (ofneidan.zip, bicycle_jer_2019.zip … downloaded by hand)
  *   … --skip-osm             (no PBF work — existing + datasets only, fast)
+ *   … --graphhopper-url=https://graphhopper-….run.app   (live GH: park inner loops + neighbourhood loops;
+ *                              ID token from the Firebase Admin SA in .env.local; without it both are skipped)
+ *   … --gh-max-calls=30      (hard cap of live GH requests per authority; answers cached in <out>/cache/gh)
+ *   … --no-shade             (do not load the Technion / hourly shade layers)
  *   … --fresh                (ignore the checkpoint, start over)  --retry-errors
  *   … --out=<dir>            (default scripts/output/nationwide-<YYYY-MM-DD>)
  *   … --apply --project appout-1 [--write-candidates]   # OWNER ONLY
@@ -48,7 +54,11 @@ import {
 import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, executePlan, flagValue, formatPlan, openTarget, planCollection } from '../trails/lib/trails-apply.node';
 import { assertOsmium, ensureIsraelPbf } from '../trails/lib/pilot-osm.node';
 import { loadAdminRelations } from './lib/admin-index.node';
-import { DatasetCatalog, TrailsRun, existingProvider, parkLoopsProvider, type AuthorityCtx } from './lib/providers.node';
+import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
+import { AuthorityOsmSlice } from './lib/authority-osm.node';
+import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
+import { neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
+import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 
 const argv = process.argv.slice(2);
 const flagAll = (name: string) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3)).filter(Boolean);
@@ -64,6 +74,9 @@ const PAUSE_MS = Number(flagValue(argv, 'pause-ms') ?? 1000);
 const DATASETS_DIR = flagValue(argv, 'datasets-dir');
 const OUT = flagValue(argv, 'out') ?? path.join('scripts', 'output', `nationwide-${new Date().toISOString().slice(0, 10)}`);
 const TRAILS_OUT = path.join(OUT, 'trails');
+const GH_URL = flagValue(argv, 'graphhopper-url') ?? process.env.GRAPHHOPPER_URL ?? null;
+const GH_MAX_CALLS = Math.max(0, Number(flagValue(argv, 'gh-max-calls') ?? 30) || 0);
+const NO_SHADE = argv.includes('--no-shade');
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let stopRequested = false;
@@ -87,7 +100,7 @@ function printAuthority(s: AuthoritySummary) {
   const surf = s.surface.selected;
   console.log(`  selected ${s.selected.total}/${s.quota.min}-${s.quota.max} (${s.selected.existing} existing + ${s.selected.new} new) · pool ${s.pool} · 🟢${s.bands.green} 🟡${s.bands.yellow} 🔴${s.bands.red} · quota met after: ${s.quotaMetAfter ?? '—'}`);
   console.log(`  surface selected: paved ${surf.walk_run_paved ?? 0} · offroad ${surf.hike_offroad ?? 0} · bike road ${surf.bike_road ?? 0} · bike offroad ${surf.bike_offroad ?? 0} · unknown ${surf.unknown ?? 0}`);
-  for (const st of s.stages) console.log(`    ${st.ran ? '▸' : '·'} ${st.key.padEnd(10)} ${st.ran ? `+${st.added} (offered ${st.offered}, dup ${st.droppedDuplicate})` : ''} ${st.note ?? ''}`);
+  for (const st of s.stages) console.log(`    ${st.ran ? '▸' : '·'} ${st.key.padEnd(13)} ${st.ran ? `+${st.added} (offered ${st.offered}, dup ${st.droppedDuplicate})` : ''} ${st.note ?? ''}`);
 }
 
 async function main() {
@@ -159,6 +172,11 @@ async function main() {
   }
   console.log(`city_registrations with adminRelationId: ${registeredRelation.size}`);
 
+  const gh = createRunnerGhClient(GH_URL);
+  console.log(`GraphHopper: ${gh.client ? `${gh.note} — ≤ ${GH_MAX_CALLS} live call(s) per authority` : `${gh.note} — park inner loops + neighbourhood loops skipped`}`);
+  let shadeLoaders: ShadeLoaders | null = null;
+  if (!NO_SHADE) shadeLoaders = await createShadeLoaders(target, (s) => console.log(`  ${s}`));
+
   const byId = new Map(ordered.map((a) => [a.id, a]));
   for (const id of todo) {
     if (stopRequested) break;
@@ -178,14 +196,26 @@ async function main() {
       }
       const ctx: AuthorityCtx = { id: a.id, name: a.name, knownAuthorityIds };
       const trails = new TrailsRun(ctx, relationId, relationNote, TRAILS_OUT, !SKIP_OSM);
-      const result = await runAuthorityStages(a, [
-        existingProvider(target.db, ctx, { surfaceJoin: !NO_SURFACE_JOIN }),
-        datasets.provider(ctx),
-        trails.osm(),
-        parkLoopsProvider(),
-        trails.generated(),
-      ]);
-      const summary = summarizeAuthority(result, { name: a.name, tier: a.tier });
+      const stored = SKIP_OSM ? null : boundaryFromStored((await target.db.collection('authorities').doc(a.id).get()).get('boundaryGeoJSON'));
+      const slice = new AuthorityOsmSlice(a, stored, relationId, path.join(OUT, 'parks'));
+      const ghA = SKIP_OSM ? null : authorityGh(gh.client, path.join(OUT, 'cache', 'gh'), a.id, GH_MAX_CALLS);
+      const shade = await shadeEnricher(shadeLoaders, a.name);
+      console.log(`  ${shade.note}`);
+      const batch = `nationwide-${a.id}`;
+      let result;
+      try {
+        result = await runAuthorityStages(a, [
+          existingProvider(target.db, ctx, { surfaceJoin: !NO_SURFACE_JOIN }),
+          datasets.provider(ctx),
+          trails.osm(),
+          ...(SKIP_OSM ? [] : [parkLoopsProvider(ctx, slice, ghA, batch)]),
+          trails.generated(),
+          ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
+        ], new Date(), { enrich: shade.enrich });
+      } finally {
+        slice.cleanup();
+      }
+      const summary = { ...summarizeAuthority(result, { name: a.name, tier: a.tier }), gh: ghA?.stats() ?? null, shade: shade.note };
       writeJson(path.join(OUT, 'authorities', `${a.id}.json`), summary);
       printAuthority(summary);
 

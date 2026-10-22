@@ -131,7 +131,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   let geometry: RouteScoreInput['geometry'] = null;
   if (path.length >= 2) {
     const m = computeRouteQualityMetrics(downsample(path, MAX_METRIC_POINTS));
-    geometry = { retracedPct: m.retracedPct, uTurnCount: m.uTurnCount, spurCount: m.spurCount, compactness: m.compactness };
+    geometry = { retracedPct: m.retracedPct, uTurnCount: m.uTurnCount, spurCount: m.spurCount, compactness: m.compactness, turnsPerKm: m.turnsPerKm, zigzagIndex: m.zigzagIndex };
   }
 
   const distanceKm = num(d?.distance);

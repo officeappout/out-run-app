@@ -6,7 +6,7 @@
  */
 import { LOOP_QUALITY_THRESHOLDS } from '../route-quality/acceptance';
 import type { ComponentScore, RouteScoreInput } from './types';
-import { SCORE_WEIGHTS, SHADE_SI_FULL, SHADE_SI_ZERO, SOURCE_TIER_POINTS } from './weights';
+import { GEOMETRY_TURNS, SCORE_WEIGHTS, SHADE_SI_FULL, SHADE_SI_ZERO, SOURCE_TIER_POINTS } from './weights';
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -26,7 +26,8 @@ export function scoreSurface(i: RouteScoreInput): ComponentScore {
 
 /**
  * Geometry (20). Loops are judged on the route-quality v1 bars (retrace,
- * U-turns/spurs, compactness). Linear corridors and point-to-point trails are
+ * U-turns/spurs, compactness) and, from v1.2, on turns/km + zigzag
+ * (GEOMETRY_TURNS — generated / stitched / park loops only). Linear corridors and point-to-point trails are
  * legitimate and never penalised on compactness; an out-and-back keeps its one
  * turnaround.
  */
@@ -53,6 +54,15 @@ export function scoreGeometry(i: RouteScoreInput): ComponentScore {
   if (i.shape === 'loop' && g.compactness < t.minCompactness) {
     pts -= Math.min(6, ((t.minCompactness - g.compactness) / t.minCompactness) * 6);
     notes.push(`compactness ${g.compactness.toFixed(2)}`);
+  }
+  const judgedOnTurns = i.shape === 'loop' && i.sourceTier !== 'official' && i.sourceTier !== 'osm_named';
+  if (judgedOnTurns && g.turnsPerKm != null && g.turnsPerKm > GEOMETRY_TURNS.freeTurnsPerKm) {
+    pts -= Math.min(GEOMETRY_TURNS.maxTurnsPenalty, (g.turnsPerKm - GEOMETRY_TURNS.freeTurnsPerKm) * GEOMETRY_TURNS.pointsPerExtraTurnPerKm);
+    notes.push(`${g.turnsPerKm.toFixed(1)} turns/km`);
+  }
+  if (judgedOnTurns && g.zigzagIndex != null && g.zigzagIndex > GEOMETRY_TURNS.freeZigzag) {
+    pts -= Math.min(GEOMETRY_TURNS.maxZigzagPenalty, ((g.zigzagIndex - GEOMETRY_TURNS.freeZigzag) / 0.1) * GEOMETRY_TURNS.pointsPerZigzagTenth);
+    notes.push(`zigzag ${g.zigzagIndex.toFixed(2)}`);
   }
   return { points: round1(Math.max(0, pts)), max, coverage: 1, notes };
 }

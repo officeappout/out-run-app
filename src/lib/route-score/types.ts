@@ -53,7 +53,11 @@ export interface RouteScoreInput {
   /** From route-quality v1 with an OSM road layer; null when not measured. */
   osmSafety: { majorRoadPct: number; unmarkedPerKm: number } | null;
   /** Geometry facts (computed from `path` by the adapter, or supplied). */
-  geometry: { retracedPct: number; uTurnCount: number; spurCount: number; compactness: number } | null;
+  /**
+   * turnsPerKm / zigzagIndex (route-quality turns.ts, v1.2): optional so older
+   * callers stay valid; absent = not judged.
+   */
+  geometry: { retracedPct: number; uTurnCount: number; spurCount: number; compactness: number; turnsPerKm?: number; zigzagIndex?: number } | null;
   sourceTier: SourceTier;
   /** Share (0..1) of the length inside a park / green / beach — trails PilotContext. Null when not measured. */
   greenShare: number | null;
