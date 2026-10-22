@@ -7,32 +7,32 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('@/lib/firebase', () => ({ db: {} }));
 
-import { SITE_QR_LINKS, buildSiteQrLinkInput } from '../site-qr-links';
-import { DEFAULT_LINK_DESTINATIONS } from '../marketing-links.service';
+import { SITE_QR_LINKS, SITE_QR_SEED_URLS, buildSiteQrLinkInput } from '../site-qr-links';
 import { sanitizeClickSource } from '../link-routing';
 
 describe('site QR links', () => {
   it('has exactly the three fixed ids the marketing site uses', () => {
-    expect(SITE_QR_LINKS.map((d) => d.id)).toEqual(['app-ios', 'app-android', 'app-smart']);
+    expect(SITE_QR_LINKS.map((d) => d.id)).toEqual(['app-smart', 'app-ios', 'app-android']);
   });
 
   it('per-store links send every device to their own store', () => {
     const ios = buildSiteQrLinkInput('app-ios');
     const android = buildSiteQrLinkInput('app-android');
     for (const k of ['iosUrl', 'androidUrl', 'desktopUrl', 'fallbackUrl'] as const) {
-      expect(ios[k]).toBe(DEFAULT_LINK_DESTINATIONS.iosUrl);
-      expect(android[k]).toBe(DEFAULT_LINK_DESTINATIONS.androidUrl);
+      expect(ios[k]).toBe(SITE_QR_SEED_URLS.ios);
+      expect(android[k]).toBe(SITE_QR_SEED_URLS.android);
     }
     expect(ios.useSmartLink).toBe(true);
     expect(android.useSmartLink).toBe(true);
   });
 
-  it('the smart link leaves the slots empty so it follows the global per-device defaults', () => {
+  it('the smart link: iOS → App Store, Android → Play, anything else → the site download page', () => {
     const smart = buildSiteQrLinkInput('app-smart', 'uid1');
     expect(smart.useSmartLink).toBe(true);
-    expect(smart.iosUrl).toBeNull();
-    expect(smart.androidUrl).toBeNull();
-    expect(smart.desktopUrl).toBeNull();
+    expect(smart.iosUrl).toBe('https://apps.apple.com/il/app/outrun/id6770799913?l=he');
+    expect(smart.androidUrl).toBe('https://play.google.com/store/apps/details?id=co.il.appout.outrun');
+    expect(smart.desktopUrl).toMatch(/\/web\/he\/download$/);
+    expect(smart.fallbackUrl).toBe(smart.desktopUrl);
     expect(smart.createdBy).toBe('uid1');
     expect(smart.utmCampaign).toBe('site_qr_smart');
   });

@@ -14,9 +14,23 @@
  */
 
 import {
-  DEFAULT_LINK_DESTINATIONS,
+  SHORT_LINK_DOMAIN,
   type CreateMarketingLinkInput,
 } from './marketing-links.service';
+
+/**
+ * The OutRun store listings the site QR links START with (owner, 22.10).
+ * Only the seed for a newly created link — after that the doc's own fields
+ * are the truth and the owner edits them in /admin/links. Deliberately NOT
+ * the hub-wide `DEFAULT_LINK_DESTINATIONS` (other existing smart links keep
+ * theirs until the owner changes them).
+ */
+export const SITE_QR_SEED_URLS = {
+  ios: 'https://apps.apple.com/il/app/outrun/id6770799913?l=he',
+  android: 'https://play.google.com/store/apps/details?id=co.il.appout.outrun',
+  /** Desktop / other devices on the smart link → the site's download page. */
+  desktop: `${SHORT_LINK_DOMAIN}/web/he/download`,
+} as const;
 
 export type SiteQrLinkId = 'app-ios' | 'app-android' | 'app-smart';
 
@@ -29,20 +43,19 @@ export interface SiteQrLinkDef {
 }
 
 export const SITE_QR_LINKS: readonly SiteQrLinkDef[] = [
+  { id: 'app-smart', label: 'חכם (לפי מכשיר)', hint: 'הקוד הראשי באתר: אייפון → App Store · אנדרואיד → Google Play · אחר → דף ההורדה באתר' },
   { id: 'app-ios', label: 'App Store', hint: 'כל סריקה → App Store' },
   { id: 'app-android', label: 'Google Play', hint: 'כל סריקה → Google Play' },
-  { id: 'app-smart', label: 'חכם (לפי מכשיר)', hint: 'אייפון → App Store · אנדרואיד → Google Play · מחשב → האתר' },
 ] as const;
 
 /**
- * The create payload for one site QR link, seeded with today's store URLs
- * (`DEFAULT_LINK_DESTINATIONS`). The per-store links fill EVERY slot with
- * their own store so a scan never lands anywhere else; the smart link
- * leaves the slots empty so it follows the global defaults per device.
+ * The create payload for one site QR link, seeded with `SITE_QR_SEED_URLS`.
+ * The per-store links fill EVERY slot with their own store so a scan never
+ * lands anywhere else; the smart link (the site's primary QR) routes iOS →
+ * App Store, Android → Google Play, anything else → the site's download page.
  */
 export function buildSiteQrLinkInput(id: SiteQrLinkId, createdBy?: string): CreateMarketingLinkInput {
-  const ios = DEFAULT_LINK_DESTINATIONS.iosUrl;
-  const android = DEFAULT_LINK_DESTINATIONS.androidUrl;
+  const { ios, android, desktop } = SITE_QR_SEED_URLS;
   const store = id === 'app-ios' ? ios : id === 'app-android' ? android : null;
   const def = SITE_QR_LINKS.find((d) => d.id === id)!;
   return {
@@ -52,10 +65,10 @@ export function buildSiteQrLinkInput(id: SiteQrLinkId, createdBy?: string): Crea
     utmCampaign: `site_qr_${id.replace('app-', '')}`,
     linkType: 'web',
     useSmartLink: true,
-    iosUrl: store,
-    androidUrl: store,
-    desktopUrl: store,
-    fallbackUrl: store,
+    iosUrl: store ?? ios,
+    androidUrl: store ?? android,
+    desktopUrl: store ?? desktop,
+    fallbackUrl: store ?? desktop,
     isActive: true,
     notes: `קוד QR באתר (outrun.co.il/web) מפנה ל-/r/${id}. אל תמחקו ואל תשנו את המזהה — רק את היעד.`,
     createdBy,
