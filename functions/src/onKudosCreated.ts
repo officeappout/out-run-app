@@ -42,6 +42,7 @@ import { resolvePushCopy, pushCopyData, loadPushRecipient, loadPushSubjectGender
 import type { PushCopyContext, PushGender } from './shared/push-library.core';
 import { isDemoUid } from './lib/demo';
 import { loadDemoViewerUids } from './lib/demo-world';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -149,6 +150,7 @@ export const onKudosCreated = onDocumentCreated(
       const result = await sendPush({
         toUids: [recipientUid],
         channel: 'social',
+        measurementTypeId: PUSH_TYPE_IDS.kudos, // enable_push_measure_all (off = ignored)
         title: copy.title,
         body: copy.body,
         // '/home' by default (was '/activity', which never existed). The kudos

@@ -32,7 +32,8 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { activateOutcomeWindow } from './services/push-events.service';
+import { activateOutcomeWindowDetailed } from './services/push-events.service';
+import { isPushMeasureAllEnabled } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -50,8 +51,26 @@ export const onPushOpened = onDocumentCreated(
       | { eventType?: string; pushId?: string; uid?: string; openedAt?: admin.firestore.Timestamp }
       | undefined;
 
+    if (data?.eventType === 'landing_screen') {
+      // enable_push_measure_all: the landing record gets its push type id too (flag first, so
+      // flag off = no read, no write — exactly as before).
+      if (!data.pushId || !data.uid || !(await isPushMeasureAllEnabled())) return;
+      try {
+        const sent = await admin
+          .firestore()
+          .collection('push_events')
+          .doc(`${data.pushId}_${data.uid}_push_sent`)
+          .get();
+        const typeId = sent.exists ? (sent.data() as Record<string, unknown>)?.typeId : undefined;
+        if (typeof typeId === 'string' && event.data) await event.data.ref.update({ typeId });
+      } catch (err: unknown) {
+        logger.warn(`[onPushOpened] landing_screen typeId stamp failed eventId=${event.params.eventId}`, err);
+      }
+      return;
+    }
+
     if (!data || data.eventType !== 'push_opened') {
-      return; // not our event — push_sent/post_push_outcome/landing_screen all land here too
+      return; // not our event — push_sent/post_push_outcome land here too
     }
 
     const { pushId, uid, openedAt } = data;
@@ -60,9 +79,18 @@ export const onPushOpened = onDocumentCreated(
       return;
     }
 
-    const activated = await activateOutcomeWindow({ pushId, uid, openedAtMillis: openedAt.toMillis() });
+    const { activated, typeId } = await activateOutcomeWindowDetailed({ pushId, uid, openedAtMillis: openedAt.toMillis() });
     if (activated) {
       logger.info(`[onPushOpened] activated outcome window pushId=${pushId} uid=${uid}`);
+    }
+    // enable_push_measure_all: only sends measured while the flag was on carry typeId — the
+    // open record gets the same id (no typeId on push_sent = no extra write, as before).
+    if (typeId && event.data) {
+      try {
+        await event.data.ref.update({ typeId });
+      } catch (err: unknown) {
+        logger.warn(`[onPushOpened] typeId stamp failed pushId=${pushId} uid=${uid}`, err);
+      }
     }
   },
 );

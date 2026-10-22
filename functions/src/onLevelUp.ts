@@ -41,6 +41,7 @@ import {
   firstNameFromUserData,
 } from './services/push-copy.service';
 import type { PushCopyContext } from './shared/push-library.core';
+import { PUSH_TYPE_IDS } from './services/push-measure-all';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -104,6 +105,7 @@ export const onLevelUp = onDocumentUpdated(
       const result = await sendPush({
         toUids: [uid],
         channel: 'progression',
+        measurementTypeId: PUSH_TYPE_IDS.levelUp, // enable_push_measure_all (off = ignored)
         title: copy.title,
         body: copy.body,
         deepLink: copy.deepLink,

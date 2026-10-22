@@ -83,6 +83,7 @@ interface FlagState {
   enable_run_player_drawer_v1: boolean;
   enable_week_builder_v1: boolean;
   enable_map_polish_v1: boolean;
+  enable_push_measure_all: boolean;
   enable_demo_users: boolean;
   demo_life_llm: boolean;
   enable_ai_testers: boolean;
@@ -600,6 +601,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-cyan-600',
     title: 'מפה: ניווט אחד וכרטיסים קומפקטיים',
     description: 'כל כפתור "ניווט לשם" (גינה, מסלול, משתמש חי) נכנס לניווט שבתוך האפליקציה, פרטי מסלול נשארים במסך המסלול החדש, כרטיס גינה קטן יותר, ובשכבות אפשר להסתיר גינות כושר ומסלולים.',
+  },
+  // Analytics — measure every push type (22.10.2026).
+  {
+    key: 'enable_push_measure_all',
+    icon: MessageCircle,
+    iconBg: 'bg-slate-50',
+    iconColor: 'text-slate-600',
+    title: 'אנליטיקה: מדידת כל סוגי הפושים',
+    description: 'כל פוש שנשלח (לא רק 10 הסוגים שנמדדים היום) נרשם: נשלח, נפתח, ומה המשתמש עשה אחריו, עם מזהה הסוג בכל רשומה. כתיבה אחת לכל פוש לכל נמען, ועוד אחת-שתיים כשנפתח. דורש פריסת functions.',
   },
   // Retire /gateway as the fallback (21.10.2026).
   {
