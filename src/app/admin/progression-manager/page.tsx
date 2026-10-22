@@ -51,7 +51,7 @@ import {
   saveProgramLevelSettings,
 } from '@/features/content/programs/core/programLevelSettings.service';
 import type { ProgramLevelSettings, MovementPattern } from '@/features/content/programs/core/program.types';
-import { AdminRulesBanner, GainPreview, RuleLiveBadge, buildAdminRuleInputs, useAdminRulesSwitch } from './AdminRuleLive';
+import { AdminRulesBanner, GainPreview, RuleLiveBadge, RuleSourcesSummary, RuleValuesLine, buildAdminRuleInputs, useAdminRulesSwitch } from './AdminRuleLive';
 
 const PROGRESSION_RULES_COLLECTION = 'progression_rules';
 
@@ -772,9 +772,7 @@ export default function ProgressionManagerPage() {
                 <h2 className="text-2xl font-bold mb-2">{selectedProgram.name}</h2>
                 <p className="opacity-80 mb-4">{selectedProgram.description || 'אין תיאור'}</p>
                 <div className="flex gap-4 text-sm">
-                  <span className="bg-white/20 px-3 py-1 rounded-full">
-                    {rules.length} רמות מוגדרות
-                  </span>
+                  <RuleSourcesSummary levels={displayLevels} inputs={adminRuleInputs} />
                   {selectedProgram.isMaster && (
                     <span className="bg-yellow-400/30 px-3 py-1 rounded-full">
                       תוכנית מאסטר
@@ -977,17 +975,9 @@ export default function ProgressionManagerPage() {
                         <div>
                           <h3 className="font-bold text-gray-900 flex items-center gap-2">
                             רמה {level}
-                            <RuleLiveBadge level={level} inputs={adminRuleInputs} />
+                            <RuleLiveBadge level={level} inputs={adminRuleInputs} switchOn={adminRulesSwitch} />
                           </h3>
-                          {rule ? (
-                            <p className="text-sm text-gray-500">
-                              {getBaseGain(level)}% בסיס | {rule.bonusPercent}% בונוס | {rule.requiredSetsForFullGain || getDefaultRequiredSets(level)} סטים
-                            </p>
-                          ) : (
-                            <p className="text-sm text-gray-400">
-                              ברירת מחדל: {getProfessionalBaseGain(level)}% בסיס | {defaults.bonusPercent}% בונוס | {getDefaultRequiredSets(level)} סטים
-                            </p>
-                          )}
+                          <RuleValuesLine level={level} inputs={adminRuleInputs} />
                         </div>
                       </div>
 
@@ -1121,10 +1111,8 @@ export default function ProgressionManagerPage() {
                         ) : (
                           <div className="text-center text-gray-400 py-4">
                             <AlertCircle className="mx-auto mb-2" size={24} />
-                            <p>משתמש בהגדרות ברירת מחדל</p>
-                            <p className="text-sm mt-1">
-                              {defaults.baseGain}% בסיס לאימון | {defaults.bonusPercent}% בונוס על חריגה מהיעד
-                            </p>
+                            <p>אין כלל מותאם לרמה הזו — בתוקף:</p>
+                            <RuleValuesLine level={level} inputs={adminRuleInputs} className="text-sm mt-1" />
                           </div>
                         )}
                       </div>
