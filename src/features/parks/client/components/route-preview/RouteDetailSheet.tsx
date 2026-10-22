@@ -30,6 +30,7 @@ import { bunnyImg } from '@/lib/bunny-image';
 import UserProfileSheet, { type ProfileUser } from '../UserProfileSheet';
 import DifficultyBolts from '@/features/workout-engine/components/DifficultyBolts';
 import { computeQualityBadges, isRouteLitVerified } from '@/features/parks/core/services/route-quality-badges.service';
+import { RouteShadeRow } from '@/features/parks/core/components/route-shade/RouteShade';
 import { computeStartExperienceState } from '@/features/parks/core/services/start-experience-state';
 import { formatTooFarLabels } from '@/features/parks/core/services/start-experience-state';
 import { useToast } from '@/components/ui/Toast';
@@ -1018,6 +1019,9 @@ export default function RouteDetailSheet({
                       {route.description}
                     </p>
                   )}
+
+                  {/* enable_route_shade_tag: shade % · by hour · lit at night (nothing without the flag / data) */}
+                  <RouteShadeRow route={route} variant="legacy" />
 
                   {/* Features + amenity tags — merged into one section.
                       surface/environment/lit come from route.features;

@@ -19,6 +19,15 @@ describe('POST /api/routes/generate body', () => {
     expect(parseGenerateRequest({ start, targetKm: 5, activity: 'running', mode: 'x' })).toEqual({ error: 'bad_mode' });
     expect(parseGenerateRequest(null)).toEqual({ error: 'bad_activity' });
   });
+  it('shadeTag (enable_route_shade_tag): kept only when true, with the city; absent otherwise', () => {
+    expect(parseGenerateRequest({ start, targetKm: 5, activity: 'running', shadeTag: true, city: ' חיפה ' }))
+      .toEqual({ mode: 'loop', start, targetKm: 5, activity: 'running', seed: 0, maxResults: 3, shadeTag: true, city: 'חיפה' });
+    const off = parseGenerateRequest({ start, targetKm: 5, activity: 'running', shadeTag: 'yes', city: 'חיפה' }) as Record<string, unknown>;
+    expect(off).not.toHaveProperty('shadeTag');
+    expect(off).not.toHaveProperty('city');
+    expect(parseGenerateRequest({ start, targetKm: 5, activity: 'running', shadeTag: true, preferShade: true, city: 'חיפה' }))
+      .toMatchObject({ shadeTag: true, preferShade: true, city: 'חיפה' });
+  });
   it('ab: needs both points', () => {
     expect(parseGenerateRequest({ mode: 'ab', from: start, to: { lat: 32.0571, lng: 34.7687 }, activity: 'walking' })).toMatchObject({ mode: 'ab' });
     expect(parseGenerateRequest({ mode: 'ab', from: start, activity: 'walking' })).toEqual({ error: 'bad_points' });

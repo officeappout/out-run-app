@@ -288,6 +288,14 @@ export const FLAG_DEFS = [
   // `timeAware` to the request while this is on ("shadiest route" wins when picked).
   // Default OFF, superAdminValue false — the panel toggle is the one switch. Off = byte-identical.
   { key: 'enableRouteTimeAware', firestoreKey: 'enable_route_time_aware', defaultValue: false, superAdminValue: false },
+  // Route shade tag (22.10.2026, owner request) — "🌳 מוצל X%" on route cards (only when the
+  // Technion layer measures ≥ 50% of the route; never "0%") and a shade row in route details
+  // (overall %, "עכשיו · בצהריים · אחה״צ" from the hourly layer, "מואר בלילה X%"). Stored routes
+  // read route_scores via POST /api/routes/shade (server); GraphHopper loops get `shadedPct` in
+  // the generate response. Display only — never changes ranking. Read on the device via
+  // readLiveFlag too, so superAdminValue false — the panel toggle is the one switch.
+  // Default OFF. Off = cards, details and the generate request/response byte-identical.
+  { key: 'enableRouteShadeTag', firestoreKey: 'enable_route_shade_tag', defaultValue: false, superAdminValue: false },
   // Unified search (19.10.2026, owner-approved design canvas) — /search becomes one search over
   // exercises, parks, routes, people & groups, events, articles and help (site_content), with
   // chips + counts, grouped "הכל" results, recents, situation suggestions, "אולי חיפשת" and Ask
