@@ -22,8 +22,16 @@ vi.mock('../HubMap', () => ({
       data-focus={p.selectedFeatureId ?? ''} data-focus-point={p.focusPoint ? p.focusPoint.join(',') : ''}>
       <button type="button" data-testid="map-dot-arad" onClick={() => p.onSelectAuthority('arad')}>dot</button>
       <button type="button" data-testid="map-point-c1" onClick={() => p.onFeatureClick?.({ kind: 'contribution', id: 'c1', properties: { id: 'c1' }, lngLat: [34.8, 31.2] })}>pt</button>
+      <button type="button" data-testid="map-route-r2" onClick={() => p.onFeatureClick?.({ kind: 'route', id: 'r2', properties: { id: 'r2', status: 'pending' }, lngLat: [34.8, 31.2] })}>route</button>
     </div>
   ),
+}));
+// The moderation dispatcher (approval-center services) — recorded, controllable.
+const mod = vi.hoisted(() => ({ one: [] as unknown[], bulk: [] as unknown[], amen: [] as unknown[], fail: false }));
+vi.mock('@/features/admin/services/city-mapping-hub-moderation.service', () => ({
+  moderateOne: async (i: unknown) => { mod.one.push(i); if (mod.fail) throw new Error('permission-denied'); },
+  bulkApproveRoutes: async (ids: string[]) => { mod.bulk.push(ids); return ids.length; },
+  moderateAmenities: async (...a: unknown[]) => { mod.amen.push(a); return { updated: a[1], skipped: [] }; },
 }));
 // MapHealthCard reads the inventory route; not under test here.
 vi.mock('../../city-inventory/MapHealthCard', () => ({ default: (p: { authorityId: string }) => <div data-testid="map-health" data-id={p.authorityId} /> }));
@@ -57,18 +65,22 @@ const loadLayer = vi.fn(async (authorityId: string, layer: string) => {
     : [];
   return { featureCollection: { type: 'FeatureCollection' as const, features: features as never[] }, truncated: layer === 'routes', total: layer === 'routes' ? 6000 : features.length };
 });
-function Harness({ initial }: { initial: HubUrlState }) {
+let rowLoads = 0;
+const ADMIN = { adminId: 'u1', adminName: 'דוד' };
+function Harness({ initial, admin = ADMIN }: { initial: HubUrlState; admin?: typeof ADMIN | null }) {
   const [s, setS] = useState(initial);
-  return <CityMappingHub state={s} onStateChange={(n) => { changes.push(n); setS(n); }} loadRows={async () => ROWS} loadLayer={loadLayer} />;
+  return <CityMappingHub state={s} onStateChange={(n) => { changes.push(n); setS(n); }} loadRows={async () => { rowLoads++; return ROWS; }} loadLayer={loadLayer} admin={admin} />;
 }
 
-async function render(initial: HubUrlState = DEFAULT_HUB_URL_STATE) {
+async function render(initial: HubUrlState = DEFAULT_HUB_URL_STATE, admin: typeof ADMIN | null = ADMIN) {
   changes.length = 0;
   layerCalls.length = 0;
+  rowLoads = 0;
+  mod.one = []; mod.bulk = []; mod.amen = []; mod.fail = false;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  await act(async () => { root!.render(<Harness initial={initial} />); });
+  await act(async () => { root!.render(<Harness initial={initial} admin={admin} />); });
   await act(async () => { await Promise.resolve(); });
   return host;
 }
@@ -161,6 +173,70 @@ describe('CityMappingHub (H0)', () => {
     expect(toilets.getAttribute('aria-disabled')).toBe('true');
     expect(toilets.getAttribute('title')).toContain('אין גאומטריה');
     expect(h.querySelector('[data-testid="chip-parks"]')!.textContent).toContain('2');
+  });
+  it('H3: approve a pending route from the map → the approval-center service, line turns approved, table re-read', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { (h.querySelector('[data-testid="map-route-r2"]') as HTMLElement).click(); });
+    expect(h.querySelector('[data-testid="hub-popover"]')).not.toBeNull();
+    const loadsBefore = rowLoads;
+    await act(async () => { (h.querySelector('[data-testid="hub-approve"]') as HTMLElement).click(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mod.one).toEqual([{ kind: 'route', id: 'r2', authorityId: 'arad', action: 'approve', reason: null, admin: ADMIN }]);
+    expect(h.querySelector('[data-testid="chip-routes_pending"]')!.textContent).toContain('1');
+    expect(h.querySelector('[data-testid="chip-routes_approved"]')!.textContent).toContain('2');
+    expect(h.querySelector('[data-testid="hub-popover"]')!.textContent).toContain('מאושר');
+    expect(rowLoads).toBe(loadsBefore + 1);
+    expect(h.querySelector('[data-testid="hub-notice"]')!.textContent).toContain('אושר');
+  });
+  it('H3: reject asks for a reason (chip) and the line leaves the map', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { (h.querySelector('[data-testid="map-route-r2"]') as HTMLElement).click(); });
+    await act(async () => { (h.querySelector('[data-testid="hub-reject"]') as HTMLElement).click(); });
+    const chip = Array.from(h.querySelectorAll('[data-testid="hub-popover"] button')).find((b) => b.textContent === 'כפול') as HTMLElement;
+    await act(async () => { chip.click(); });
+    await act(async () => { (h.querySelector('[data-testid="hub-reject-confirm"]') as HTMLElement).click(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mod.one).toEqual([expect.objectContaining({ kind: 'route', id: 'r2', action: 'reject', reason: 'כפול' })]);
+    expect(h.querySelector('[data-testid="hub-map"]')!.getAttribute('data-routes')).toBe('2');
+    expect(h.querySelector('[data-testid="hub-popover"]')).toBeNull();
+  });
+  it('H3: a failed write reverts the map and says so', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    mod.fail = true;
+    await act(async () => { (h.querySelector('[data-testid="map-route-r2"]') as HTMLElement).click(); });
+    await act(async () => { (h.querySelector('[data-testid="hub-approve"]') as HTMLElement).click(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(h.querySelector('[data-testid="chip-routes_pending"]')!.textContent).toContain('2');
+    expect(h.querySelector('[data-testid="hub-notice"]')!.getAttribute('role')).toBe('alert');
+    expect(h.querySelector('[data-testid="hub-notice"]')!.textContent).toContain('permission-denied');
+  });
+  it('H3: bulk approve is per authority with an exact-count confirm; cancel writes nothing', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const btn = h.querySelector('[data-testid="hub-bulk-routes"]') as HTMLElement;
+    expect(btn.textContent).toBe('אשר 2 מסלולים ממתינים');
+    await act(async () => { btn.click(); });
+    expect(document.querySelector('[data-testid="hub-bulk-count"]')!.textContent).toBe('2');
+    expect(document.querySelector('[data-testid="hub-bulk-confirm"]')!.textContent).toContain('ערד');
+    const cancel = Array.from(document.querySelectorAll('[data-testid="hub-bulk-confirm"] button')).find((b) => b.textContent === 'ביטול') as HTMLElement;
+    await act(async () => { cancel.click(); });
+    expect(mod.bulk).toEqual([]);
+    await act(async () => { btn.click(); });
+    await act(async () => { (document.querySelector('[data-testid="hub-bulk-ok"]') as HTMLElement).click(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(mod.bulk).toEqual([['r2', 'r3']]);
+    expect(h.querySelector('[data-testid="chip-routes_pending"]')!.textContent).toContain('0');
+    expect(document.querySelector('[data-testid="hub-bulk-confirm"]')).toBeNull();
+  });
+  it('H3: no admin identity ⇒ no bulk bar and no approve buttons', async () => {
+    const h = await render({ ...DEFAULT_HUB_URL_STATE, authority: 'arad' }, null);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(h.querySelector('[data-testid="hub-bulk-routes"]')).toBeNull();
+    await act(async () => { (h.querySelector('[data-testid="map-route-r2"]') as HTMLElement).click(); });
+    expect(h.querySelector('[data-testid="hub-approve"]')).toBeNull();
   });
   it('a loader failure is shown, not swallowed', async () => {
     host = document.createElement('div');

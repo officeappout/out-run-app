@@ -8,11 +8,15 @@
  * the URL. H2: clustered point layers (parks, amenities, user contributions)
  * and the authority panel (gaps | contributions | parks | layers). The layer
  * state lives here so the map and the panel read the same loaded data.
+ * H3: approve / reject from the map (popover) and bulk approve inside the
+ * focused authority (exact-count confirm) — through the approval center's
+ * services only (useHubModeration).
  *
  * State is owned by the caller (the page keeps it in the URL — §3.1); this
  * component is controlled, so it is testable without a router. Desktop: table
  * on the right (RTL reading start), map side on the left. < md: top tabs
- * טבלה | מפה | פערים. No page-level overlay, no z-index.
+ * טבלה | מפה | פערים. The only overlay is the bulk confirm (z-[80]/[81],
+ * the admin "page modals" row).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -29,6 +33,11 @@ import HubMapCard from './HubMapCard';
 import type { HubPointItem } from './HubPointList';
 import { useHubLayers, type LoadHubLayer } from './useHubLayers';
 import { fetchLayersFor, type HubChipLayer } from '@/lib/city-mapping-hub/layers';
+import type { ModeratorInfo } from '@/features/admin/services/moderation.service';
+import HubActionPopover from './HubActionPopover';
+import HubBulkBar, { bulkTargets } from './HubBulkBar';
+import HubBulkConfirm from './HubBulkConfirm';
+import { useHubModeration } from './useHubModeration';
 
 export interface CityMappingHubProps {
   state: HubUrlState;
@@ -37,6 +46,8 @@ export interface CityMappingHubProps {
   loadRows?: () => Promise<HubRow[]>;
   /** Injected in tests; defaults to the guarded layers loader. */
   loadLayer?: LoadHubLayer;
+  /** The signed-in moderator (reviewedBy / audit). null = read-only hub. */
+  admin?: ModeratorInfo | null;
 }
 
 const VIEWS: Array<{ v: HubMobileView; label: string }> = [
@@ -48,9 +59,9 @@ const VIEWS: Array<{ v: HubMobileView; label: string }> = [
 /** Columns whose natural reading is "biggest first". */
 const DESC_FIRST: ReadonlySet<HubSortKey> = new Set<HubSortKey>(['pendingRoutes', 'pendingContributions', 'gaps', 'lastRefreshAt']);
 
-export default function CityMappingHub({ state, onStateChange, loadRows = loadHubRows, loadLayer }: CityMappingHubProps) {
+export default function CityMappingHub({ state, onStateChange, loadRows = loadHubRows, loadLayer, admin = null }: CityMappingHubProps) {
   const [rows, setRows] = useState<HubRow[] | null>(null);
-  /** Layer-cache version: bumped on refresh (and, in H3, after every write). */
+  /** Layer-cache version: bumped by a manual refresh and after a failed bulk write. */
   const [version, setVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +82,7 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
     }
   }, []);
   useEffect(() => { load(); }, [load]);
-  /** Manual refresh: re-read the table AND drop every cached map layer. */
-  const refresh = useCallback(() => { setVersion((v) => v + 1); return load(); }, [load]);
+  const invalidate = useCallback(() => setVersion((v) => v + 1), []);
 
   const patch = useCallback((p: Partial<HubUrlState>) => onStateChange({ ...state, ...p }), [state, onStateChange]);
   const visible = useMemo(() => sortHubRows(filterHubRows(rows ?? [], state), state.sort, state.dir), [rows, state]);
@@ -95,10 +105,24 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
     patch({ layers: state.layers.includes(k) ? state.layers.filter((x) => x !== k) : [...state.layers, k] });
 
   const fetchLayers = useMemo(() => fetchLayersFor(state.layers), [state.layers]);
-  const layerState = useHubLayers(selected?.authorityId ?? null, fetchLayers, version, loadLayer);
-  /** The map / list item in focus (H3: the approve / reject popover target). */
+  const rawLayers = useHubLayers(selected?.authorityId ?? null, fetchLayers, version, loadLayer);
+  const mod = useHubModeration({ authority: selected, admin, data: rawLayers.data, onWritten: load, invalidate });
+  const { resetOverrides } = mod;
+  /** Manual refresh: re-read the table AND drop every cached map layer (and the optimistic overrides with it). */
+  const refresh = useCallback(() => { resetOverrides(); invalidate(); return load(); }, [load, invalidate, resetOverrides]);
+  const layerState = useMemo(() => ({ ...rawLayers, data: mod.viewData }), [rawLayers, mod.viewData]);
+  /** The map / list item in focus — the approve / reject popover target. */
   const [focused, setFocused] = useState<HubPointItem | null>(null);
   useEffect(() => { setFocused(null); }, [state.authority]);
+  // The focused item as currently drawn (after overrides); gone = it left the map.
+  const focusedNow = useMemo(() => {
+    if (!focused) return null;
+    for (const p of Object.values(layerState.data)) {
+      const f = p?.featureCollection.features.find((x) => x.properties?.id === focused.id);
+      if (f) return { ...focused, properties: f.properties as Record<string, unknown> };
+    }
+    return null;
+  }, [focused, layerState.data]);
   const onFocusItem = (it: HubPointItem) => setFocused(it);
   const onFeatureClick = (f: HubPointItem) => {
     setFocused(f);
@@ -123,6 +147,13 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
       </header>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</div>}
+      {mod.notice && (
+        <div role={mod.notice.tone === 'error' ? 'alert' : 'status'} data-testid="hub-notice"
+          className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${mod.notice.tone === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+          {mod.notice.text}
+          <button type="button" onClick={mod.clearNotice} className="ms-auto text-xs font-bold opacity-70 hover:opacity-100">סגור</button>
+        </div>
+      )}
 
       <HubKpis k={kpis} />
       <HubFiltersBar filters={state} onChange={onFilters} />
@@ -162,6 +193,18 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
               onFeatureClick={onFeatureClick}
               selectedFeatureId={focused?.id ?? null}
               focusPoint={focused && focused.kind !== 'route' ? focused.lngLat : null}
+              overlay={() => focusedNow && (
+                <HubActionPopover
+                  key={focusedNow.id}
+                  item={focusedNow}
+                  busy={mod.busyId === focusedNow.id}
+                  canModerate={!!admin}
+                  onApprove={() => mod.approve(focusedNow)}
+                  onReject={(reason) => mod.reject(focusedNow, reason)}
+                  onClose={() => setFocused(null)}
+                />
+              )}
+              footer={selected && admin ? <HubBulkBar targets={bulkTargets(layerState.data, state.layers)} disabled={mod.bulkBusy || !!mod.busyId} onBulk={mod.openBulk} /> : null}
             />
           </div>
           <div className={`${show('gaps')} flex-col overflow-auto rounded-2xl border border-slate-100 bg-white shadow-sm md:flex md:max-h-[300px] md:shrink-0`}>
@@ -177,6 +220,17 @@ export default function CityMappingHub({ state, onStateChange, loadRows = loadHu
           </div>
         </section>
       </main>
+      {mod.bulk && selected && (
+        <HubBulkConfirm
+          authorityName={selected.name}
+          label={mod.bulk.label}
+          count={mod.bulk.ids.length}
+          truncatedTotal={mod.bulk.truncatedTotal}
+          busy={mod.bulkBusy}
+          onConfirm={mod.confirmBulk}
+          onCancel={mod.cancelBulk}
+        />
+      )}
     </div>
   );
 }

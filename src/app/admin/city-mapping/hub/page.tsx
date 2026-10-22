@@ -18,15 +18,18 @@ import { checkUserRole } from '@/features/admin/services/auth.service';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import CityMappingHub from '@/features/admin/components/city-mapping-hub/CityMappingHub';
 import { useHubUrlState } from '@/features/admin/components/city-mapping-hub/useHubUrlState';
+import type { ModeratorInfo } from '@/features/admin/services/moderation.service';
 
-function HubWithUrlState() {
+function HubWithUrlState({ admin }: { admin: ModeratorInfo | null }) {
   const [state, setState] = useHubUrlState();
-  return <CityMappingHub state={state} onStateChange={setState} />;
+  return <CityMappingHub state={state} onStateChange={setState} admin={admin} />;
 }
 
 export default function CityMappingHubPage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  /** The moderator identity for reviewedBy / audit: the signed-in auth user (uid + display name or email). */
+  const [admin, setAdmin] = useState<ModeratorInfo | null>(null);
   const { rawFlags, ready } = useFeatureFlags();
 
   useEffect(() => {
@@ -36,6 +39,7 @@ export default function CityMappingHubPage() {
         const roleInfo = await checkUserRole(user.uid);
         const ok = !!roleInfo.isSuperAdmin || !!roleInfo.isSystemAdmin;
         if (!ok) { router.push('/admin'); return; }
+        setAdmin({ adminId: user.uid, adminName: user.displayName || user.email || user.uid });
         setAuthorized(true);
       } catch (error) {
         console.error('[city-mapping/hub] auth check failed', error);
@@ -62,7 +66,7 @@ export default function CityMappingHubPage() {
   }
   return (
     <Suspense fallback={null}>
-      <HubWithUrlState />
+      <HubWithUrlState admin={admin} />
     </Suspense>
   );
 }

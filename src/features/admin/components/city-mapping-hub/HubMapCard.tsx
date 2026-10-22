@@ -27,6 +27,8 @@ export interface HubMapCardProps {
   focusPoint?: [number, number] | null;
   /** Rendered over the map (H3: the approve / reject popover). */
   overlay?: (data: HubLayerData) => ReactNode;
+  /** In-flow row under the map (H3: bulk approve for this authority). */
+  footer?: ReactNode;
 }
 
 export const LAYER_NAMES: Record<HubFetchLayer, string> = {
@@ -96,6 +98,7 @@ export default function HubMapCard(p: HubMapCardProps) {
         </div>
         {p.overlay?.(data)}
       </div>
+      {p.footer}
     </div>
   );
 }
