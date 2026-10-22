@@ -10,6 +10,8 @@ import React from 'react';
 import type { TimedItem } from '@/features/workout-engine/engines/timed/timed.types';
 import TimedCardShell from './TimedCardShell';
 import TimedNextRow from './TimedNextRow';
+import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
+import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
 
 export interface TimedClockCardProps {
   mode: 'work' | 'rest';
@@ -26,12 +28,23 @@ export interface TimedClockCardProps {
   nextCaption: string;
   /** "סיימת ב-0:39 · 21 שנ׳ מנוחה" (EMOM). */
   line?: string | null;
+  /** enable_strength_drawer_v1: the card as a two-snap drawer. Absent = today's card. */
+  drawer?: SnapDrawerState | null;
 }
 
-export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, item, next, nextCaption, line }: TimedClockCardProps) {
+export default function TimedClockCard({ mode, eyebrow, warn, clock, ofClock, item, next, nextCaption, line, drawer = null }: TimedClockCardProps) {
   const isRest = mode === 'rest';
+  const compact = drawer ? (
+    <PlayerDrawerCompact
+      drawer={drawer}
+      title={isRest ? (item ? `${nextCaption} · ${item.name}` : nextCaption) : item?.name ?? ''}
+      caption={eyebrow}
+      value={clock}
+      warn={warn}
+    />
+  ) : null;
   return (
-    <TimedCardShell eyebrow={eyebrow} warn={warn}>
+    <TimedCardShell eyebrow={eyebrow} warn={warn} drawer={drawer} compact={compact}>
       <div className="mb-0.5 flex justify-center">
         <span
           className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-extrabold ring-1 ring-inset ${

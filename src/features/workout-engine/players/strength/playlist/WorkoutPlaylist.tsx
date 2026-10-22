@@ -21,6 +21,7 @@ import { motion } from 'framer-motion';
 import type { WorkoutPlan } from '@/features/parks';
 import type { ExerciseResultLog } from '../hooks/useWorkoutStateMachine';
 import WorkoutBlockCard from './WorkoutBlockCard';
+import { useStrengthDrawerV1 } from '../hooks/useStrengthDrawerV1';
 import StrengthExerciseCard from './blocks/StrengthExerciseCard';
 import SupersetBlockGroup from './blocks/SupersetBlockGroup';
 import TabataBlockGroup from './blocks/TabataBlockGroup';
@@ -80,6 +81,9 @@ export default function WorkoutPlaylist({
   onSkipRest,
   renderTimedSegment,
 }: WorkoutPlaylistProps) {
+  // enable_strength_drawer_v1: rows get an expandable "פרטי התרגיל".
+  const rowDetailsV1 = useStrengthDrawerV1();
+
   // ── Flat representation & lookups ────────────────────────────────
   const flatExercises = useMemo(
     () => flattenWorkoutToExercises(workout),
@@ -181,6 +185,7 @@ export default function WorkoutPlaylist({
         handleRepetitionSave(fe.targetReps, undefined, true),
       repsSequence: fe.repsSequence,
       pyramidSequence: fe.pyramidSequence,
+      ...(rowDetailsV1 ? { details: fe.exercise } : {}),
     };
   };
 

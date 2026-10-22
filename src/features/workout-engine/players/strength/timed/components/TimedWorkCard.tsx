@@ -14,6 +14,8 @@ import type { TimedItem } from '@/features/workout-engine/engines/timed/timed.ty
 import { itemTarget } from '../logic/timed-labels';
 import TimedCardShell from './TimedCardShell';
 import TimedNextRow from './TimedNextRow';
+import PlayerDrawerCompact from '../../../shared/v2/PlayerDrawerCompact';
+import type { SnapDrawerState } from '../../../shared/v2/useSnapDrawer';
 
 export interface TimedWorkCardProps {
   eyebrow: string;
@@ -27,6 +29,8 @@ export interface TimedWorkCardProps {
   /** Run item: metres covered so far. */
   runDistanceM?: number;
   onDone: () => void;
+  /** enable_strength_drawer_v1: the card as a two-snap drawer. Absent = today's card. */
+  drawer?: SnapDrawerState | null;
 }
 
 function MinuteRing({ clock, fraction, warn }: { clock: string; fraction: number; warn: boolean }) {
@@ -59,12 +63,28 @@ function MinuteRing({ clock, fraction, warn }: { clock: string; fraction: number
   );
 }
 
-export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, hint, minute, runDistanceM = 0, onDone }: TimedWorkCardProps) {
+export default function TimedWorkCard({ eyebrow, warn, item, next, nextCaption, hint, minute, runDistanceM = 0, onDone, drawer = null }: TimedWorkCardProps) {
   const isRun = item.kind === 'aerobic_leg';
   const target = itemTarget(item);
   const left = isRun && item.distanceM ? Math.max(0, Math.round(item.distanceM - runDistanceM)) : null;
+  const compact = drawer ? (
+    <PlayerDrawerCompact
+      drawer={drawer}
+      title={item.name}
+      caption={minute ? `${eyebrow} · ${minute.clock}` : eyebrow}
+      value={left != null ? String(left) : target ? String(target.value) : null}
+      unit={left != null ? 'מ׳' : target?.unit ?? null}
+      warn={warn}
+      action={
+        <Button variant="cta" size="md" onClick={() => { hapticTap('impact'); onDone(); }}>
+          סיימתי
+          <Check size={18} strokeWidth={2.75} aria-hidden />
+        </Button>
+      }
+    />
+  ) : null;
   return (
-    <TimedCardShell eyebrow={eyebrow} warn={warn}>
+    <TimedCardShell eyebrow={eyebrow} warn={warn} drawer={drawer} compact={compact}>
       {minute && <MinuteRing clock={minute.clock} fraction={minute.fraction} warn={warn} />}
       {left != null ? (
         <div className="mb-0.5 flex items-baseline justify-center gap-2">

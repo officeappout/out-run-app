@@ -32,6 +32,7 @@ import StrengthSetRow, { TapVerdict } from './StrengthSetRow';
 import RestProgressBar from './RestProgressBar';
 import { buildPills, findFirstIncompleteSet } from '../utils/set-status.utils';
 import type { ExerciseEntry } from '../types';
+import ExerciseRowDetails from '../../components/ExerciseRowDetails';
 
 const OFFLINE_PLACEHOLDER = '/images/park-placeholder.svg';
 
@@ -567,6 +568,7 @@ export default function StrengthExerciseCard({
                   </div>
                 </div>
               )}
+              {entry.details && <ExerciseRowDetails exercise={entry.details} className="mt-2" />}
             </div>
           </motion.div>
         )}

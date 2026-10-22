@@ -23,6 +23,9 @@ import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { RotateCcw, Pause, Play, Timer, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isPlayerAudioMuted } from '../logic/player-audio-mute';
+import PlayerDrawerBody from '../../shared/v2/PlayerDrawerBody';
+import PlayerDrawerCompact from '../../shared/v2/PlayerDrawerCompact';
+import type { SnapDrawerState } from '../../shared/v2/useSnapDrawer';
 
 interface IsometricTimerCardProps {
   duration: number;
@@ -76,6 +79,8 @@ interface IsometricTimerCardProps {
   externalPaused?: boolean;
   /** PR-B1 guided mode: one short line under the exercise name ("ממשיכים עד שהטיימר נגמר"). */
   guidanceLine?: string;
+  /** enable_strength_drawer_v1: the card as a two-snap drawer (compact = name + clock + action). Absent = today's card. */
+  drawer?: SnapDrawerState | null;
 }
 
 type Phase = 'idle' | 'preparing' | 'counting' | 'overtime';
@@ -147,6 +152,7 @@ export default function IsometricTimerCard({
   prepSeconds = PREP_SECONDS,
   externalPaused = false,
   guidanceLine,
+  drawer = null,
 }: IsometricTimerCardProps) {
   const sideLabel = side === 'right' ? 'צד ימין' : side === 'left' ? 'צד שמאל' : null;
   const [phase, setPhase] = useState<Phase>('idle');
@@ -321,6 +327,42 @@ export default function IsometricTimerCard({
   const strokeDashoffset = RECT_PERIMETER * (1 - progress);
   const overtimeSec = elapsed - duration;
 
+  // ── Compact snap (enable_strength_drawer_v1) ─────────────────────────
+  // Same clock / actions as the full card — the card itself stays mounted,
+  // so collapsing never touches the timer.
+  const compact = drawer ? (
+    <div className="pb-1">
+      <PlayerDrawerCompact
+        drawer={drawer}
+        title={exerciseName}
+        caption={[isTabata ? 'טבטה' : 'זמן החזקה', sideLabel].filter(Boolean).join(' · ')}
+        value={phase === 'preparing' ? String(prepCountdown) : phase === 'idle' ? formatTime(duration) : formatTime(elapsed)}
+        warn={phase === 'counting' && remaining <= 5}
+        action={
+          phase === 'idle' ? (
+            <button
+              onClick={start}
+              className="h-11 px-4 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-white active:scale-[0.98] transition-transform shadow-sm"
+              style={{ fontFamily: 'var(--font-simpler)', background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
+            >
+              <Timer size={16} />
+              <span>{sideLabel ? `התחל ${sideLabel}` : 'התחלה'}</span>
+            </button>
+          ) : isActive && !isTabata ? (
+            <button
+              onClick={handleComplete}
+              className="h-11 px-4 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-white active:scale-[0.98] transition-transform shadow-sm"
+              style={{ fontFamily: 'var(--font-simpler)', background: 'linear-gradient(to left, #00C9F2, #00AEEF)' }}
+            >
+              <Check size={16} />
+              <span>סיימתי</span>
+            </button>
+          ) : null
+        }
+      />
+    </div>
+  ) : null;
+
   // ── Render (Rest-Drawer style) ────────────────────────────────────────
 
   return (
@@ -332,6 +374,7 @@ export default function IsometricTimerCard({
         className="px-6 pt-4"
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 16px))' }}
       >
+        <PlayerDrawerBody drawer={drawer} compact={compact}>
         {/* Section label + side badge */}
         <div className="flex items-center justify-center gap-2 mb-3">
           {/* "זמן החזקה" (hold-time) is wrong for tabata — it's not a hold
@@ -572,6 +615,7 @@ export default function IsometricTimerCard({
             <span>סיימתי</span>
           </button>
         )}
+        </PlayerDrawerBody>
       </div>
     </div>
   );

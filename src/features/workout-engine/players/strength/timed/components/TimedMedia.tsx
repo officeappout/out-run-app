@@ -19,9 +19,11 @@ export interface TimedMediaProps {
   /** Warmed in the media cache (no second <video> — iOS decoder budget). */
   next: Exercise | null;
   isPaused: boolean;
+  /** enable_strength_drawer_v1: 'corner' = the "הסבר" chip at the video's top corner. */
+  tutorialPlacement?: 'legacy' | 'corner';
 }
 
-export default function TimedMedia({ item, planExercise, next, isPaused }: TimedMediaProps) {
+export default function TimedMedia({ item, planExercise, next, isPaused, tutorialPlacement = 'legacy' }: TimedMediaProps) {
   const { safeVideoUrl } = usePlayerMedia({
     exerciseVideoUrl: planExercise?.videoUrl ?? null,
     bunnyVideoId: planExercise?.bunnyVideoId ?? null,
@@ -49,6 +51,7 @@ export default function TimedMedia({ item, planExercise, next, isPaused }: Timed
         isPaused={isPaused}
         hasAudio={false}
         fullTutorial={planExercise?.fullTutorial ?? null}
+        tutorialPlacement={tutorialPlacement}
       />
     </div>
   );

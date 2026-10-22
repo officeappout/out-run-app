@@ -486,5 +486,12 @@
   "swapModal.reason.prompt": "למה מחליפים? (לא חובה)",
   "swapModal.reason.painNote": "כאב הוא סימן לעצור. אם הוא לא עובר — כדאי להתייעץ עם איש מקצוע.",
   "swapModal.cta": "החליפו תרגיל",
-  "strengthSummary.swappedTag": "הוחלף"
+  "strengthSummary.swappedTag": "הוחלף",
+  "strength.drawer.expandAria": "הצגת הכרטיס המלא",
+  "strength.drawer.collapseAria": "הקטנת הכרטיס",
+  "strength.tutorial.chip": "הסבר",
+  "strength.tutorial.chipAria": "הסבר מלא על התרגיל",
+  "strength.tutorial.rowItem": "הסבר מלא בווידאו",
+  "strength.details.toggle": "פרטי התרגיל",
+  "strength.details.toggleAria": "הצגת פרטי התרגיל"
 }

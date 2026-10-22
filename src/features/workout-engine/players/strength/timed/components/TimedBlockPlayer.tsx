@@ -38,6 +38,8 @@ import TimedRepsPanel from './TimedRepsPanel';
 import TimedDoneCard from './TimedDoneCard';
 import TimedRoundToast from './TimedRoundToast';
 import TimedFormatInfoSheet from './TimedFormatInfoSheet';
+import { useSnapDrawer } from '../../../shared/v2/useSnapDrawer';
+import { useStrengthDrawerV1 } from '../../hooks/useStrengthDrawerV1';
 
 export interface TimedBlockPlayerProps {
   store: TimedStore;
@@ -53,6 +55,10 @@ export interface TimedBlockPlayerProps {
 export default function TimedBlockPlayer({ store, workout, segmentIndex, isPaused, hideList, onTogglePause, onList, onHeaderPointerDown }: TimedBlockPlayerProps) {
   const [infoOpen, setInfoOpen] = useState(false);
   const snap = useTimedSnapshot(store);
+  // enable_strength_drawer_v1: the work / clock / rest card as a two-snap drawer + the corner "הסבר" chip.
+  const drawerV1 = useStrengthDrawerV1();
+  const drawerState = useSnapDrawer('timed', drawerV1);
+  const drawer = drawerV1 ? drawerState : null;
   const actions = store.actions;
   const segment = workout.segments[segmentIndex];
   const planOf = useMemo(() => {
@@ -94,6 +100,7 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
           item={view.current}
           next={view.next}
           nextCaption={nextCaption(view)}
+          drawer={drawer}
         />
       );
       break;
@@ -107,6 +114,7 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
           item={view.next}
           nextCaption={nextCaption(view)}
           line={spec.format === 'emom' ? emomRestLine(state as EmomState, view) : null}
+          drawer={drawer}
         />
       );
       break;
@@ -122,13 +130,14 @@ export default function TimedBlockPlayer({ store, workout, segmentIndex, isPause
           minute={spec.format === 'emom' ? { clock: phaseClock(view), fraction: view.phaseElapsedMs / emomMinuteMs(state as EmomState) } : null}
           runDistanceM={snap.runDistanceM}
           onDone={actions.itemDone}
+          drawer={drawer}
         />
       ) : null;
   }
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      <TimedMedia item={mediaItem} planExercise={planOf(mediaItem)} next={planOf(view.next)} isPaused={isPaused || mode === 'ready'} />
+      <TimedMedia item={mediaItem} planExercise={planOf(mediaItem)} next={planOf(view.next)} isPaused={isPaused || mode === 'ready'} tutorialPlacement={drawerV1 ? 'corner' : 'legacy'} />
       <TimedHeader
         bars={segmentBars(workout, segmentIndex)}
         progress={blockProgress(view.activeMs, view.totalMs)}
