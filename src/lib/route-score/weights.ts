@@ -4,8 +4,11 @@ import type { ScoreComponentKey, SourceTier } from './types';
 /**
  * v1.1 (RC6, 21.10.2026): shade (Technion SI) joins comfort on the recalibrated 0.10→0.35 scale.
  * v1.2 (RC8, 22.10.2026): geometry judges turns/km + zigzag on loops (GEOMETRY_TURNS below).
+ * v1.3 (RC9, 22.10.2026): urban candidates arrive MEASURED (composition, lighting, amenities,
+ *   crossings — src/lib/urban-measure); comfort's "other" amenity point also counts toilets and
+ *   fitness stations; a dataset tree hint stands in for shade (half coverage) where Technion is missing.
  */
-export const ROUTE_SCORE_VERSION = 'v1.2';
+export const ROUTE_SCORE_VERSION = 'v1.3';
 
 export const SCORE_WEIGHTS: Record<ScoreComponentKey, number> = {
   surface: 25,

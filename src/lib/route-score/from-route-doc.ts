@@ -102,6 +102,16 @@ export interface FromDocOptions {
   shade?: RouteShade | null;
   /** Hour-aware shade summary (hourlyProfileSummary), when the city has an hourly file. Informational. */
   hourlyShade?: HourlyProfileSummary | null;
+  /**
+   * RC9 urban measurement (src/lib/urban-measure) — fills a gap only: the
+   * stored doc's own qualitySignals always win. A measured composition
+   * replaces the trail-share proxy but never feeds the certificate.
+   */
+  composition?: { sidewalkPct: number; genuinePct: number; ordinaryPct: number; otherPct: number } | null;
+  litCoveragePct?: number | null;
+  amenitiesHas?: RouteScoreInput['amenitiesHas'];
+  /** SI-equivalent tree hint (0..1) from a dataset; used only without a Technion measurement. */
+  shadeHint?: number | null;
 }
 
 export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions = {}): RouteScoreInput {
@@ -116,18 +126,28 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   // proxy; never feeds the certificate (B doesn't run it — NATIONWIDE-PLAN.md §2.3).
   const ts = d?.trail?.stats;
   const trailPct = num(ts?.trailPct);
-  const composition = realComposition ?? (trailPct != null
+  const measuredComposition = !realComposition && opts.composition ? { ...opts.composition } : null;
+  const composition = realComposition ?? measuredComposition ?? (trailPct != null
     ? { sidewalkPct: 0, genuinePct: Math.max(0, Math.min(100, trailPct)), ordinaryPct: Math.max(0, 100 - trailPct), otherPct: 0 }
     : null);
-  const compositionIsProxy = !realComposition && !!composition;
+  const compositionIsProxy = !realComposition && !measuredComposition && !!composition;
   const light = d?.qualitySignals?.lighting;
   const trailLit = num(ts?.litPct);
   const trailLitUnknown = num(ts?.litUnknownPct);
-  const litCoveragePct = light?.status === 'computed'
-    ? num(light?.litCoveragePct)
-    : trailLit != null && trailLitUnknown != null && trailLitUnknown <= 50 ? trailLit : null;
+  const storedLit = light?.status === 'computed' ? num(light?.litCoveragePct) : null;
+  const measuredLit = storedLit == null ? num(opts.litCoveragePct) : null;
+  const litCoveragePct = storedLit ?? measuredLit
+    ?? (trailLit != null && trailLitUnknown != null && trailLitUnknown <= 50 ? trailLit : null);
   const am = d?.qualitySignals?.amenities;
-  const amenitiesHas = am?.status === 'computed' && am?.has && typeof am.has === 'object' ? { ...am.has } : null;
+  const storedAmenities = am?.status === 'computed' && am?.has && typeof am.has === 'object' ? { ...am.has } : null;
+  const measuredAmenities = !storedAmenities && opts.amenitiesHas ? { ...opts.amenitiesHas } : null;
+  const amenitiesHas = storedAmenities ?? measuredAmenities;
+  const measuredBy: NonNullable<RouteScoreInput['measuredBy']> = {
+    ...(measuredComposition ? { composition: 'osm_urban_measure' as const } : {}),
+    ...(measuredLit != null ? { lighting: 'osm_urban_measure' as const } : {}),
+    ...(measuredAmenities ? { amenities: 'osm_urban_measure' as const } : {}),
+    ...(opts.osmSafety ? { safety: 'osm_urban_measure' as const } : {}),
+  };
 
   let geometry: RouteScoreInput['geometry'] = null;
   if (path.length >= 2) {
@@ -184,5 +204,7 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     shadeShare: shade,
     shade: shadeMeasure,
     ...(opts.hourlyShade ? { hourlyShade: opts.hourlyShade } : {}),
+    ...(shade == null && num(opts.shadeHint) != null ? { shadeHint: num(opts.shadeHint) } : {}),
+    ...(Object.keys(measuredBy).length ? { measuredBy } : {}),
   };
 }
