@@ -102,12 +102,13 @@ describe('measureUrbanRoute + urbanScoreOptions', () => {
 });
 
 describe('isUrbanCandidate', () => {
-  it('urban stages always; trail-pipeline routes only when mostly built-up', () => {
+  it('urban stages only; never a trail-pipeline doc (marked trails keep their own trail measurements)', () => {
     expect(isUrbanCandidate('named_ways', {})).toBe(true);
     expect(isUrbanCandidate('neighbourhood', {})).toBe(true);
-    expect(isUrbanCandidate('osm', { trail: { stats: { builtUpPct: 10 } } })).toBe(false);
-    expect(isUrbanCandidate('generated', { trail: { stats: { builtUpPct: 80 } } })).toBe(true);
     expect(isUrbanCandidate('osm', {})).toBe(false);
+    expect(isUrbanCandidate('generated', { trail: { stats: { builtUpPct: 80 } } })).toBe(false);
+    expect(isUrbanCandidate('known_routes', { trail: { kind: 'osm_relation' } })).toBe(false);
+    expect(isUrbanCandidate('known_routes', { origin: 'web_research' })).toBe(true);
   });
 });
 

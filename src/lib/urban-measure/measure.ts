@@ -11,7 +11,7 @@ import { majorRoadCrossings, majorRoadShare } from '../route-quality/major-roads
 import type { OsmRoadLayer } from '../route-quality/types';
 import { litFromTags } from '../trail-graph/tags';
 import {
-  AMENITY_RADIUS_M, COMPOSITION_MIN_MATCHED_PCT, LIGHTING_MIN_KNOWN, URBAN_BUILT_UP_MIN_PCT, URBAN_ON_WAY_M, URBAN_SAMPLE_STEP_M,
+  AMENITY_RADIUS_M, COMPOSITION_MIN_MATCHED_PCT, LIGHTING_MIN_KNOWN, URBAN_ON_WAY_M, URBAN_SAMPLE_STEP_M,
 } from './constants';
 import { amenityCellKey, type UrbanLayer } from './layer';
 import {
@@ -144,12 +144,16 @@ export function urbanScoreOptions(m: UrbanMeasurement): {
 export const URBAN_STAGES: ReadonlySet<string> = new Set(['existing', 'known_routes', 'dataset', 'named_ways', 'bike_adjacent_walk', 'park_loops', 'neighbourhood']);
 
 /**
- * Which candidates get measured. Trail-pipeline routes (OSM relations,
- * generated trail loops) only when they run mostly through built-up area —
- * a hiking trail is not judged on benches and street lamps.
+ * Which candidates get measured: the urban stages — but never a trail-pipeline
+ * doc (OSM route relations, generated trail loops, or a known route matched to
+ * a relation; they carry `trail`). Those already have their own measurements
+ * from the same OSM data (trail share, lamp lighting, surface mix) and are
+ * marked trails: the urban composition classifier counts a `track` as "other"
+ * and benches as missing, which would sink a marked hiking trail that happens
+ * to start inside a city (seen on the first nationwide run: Jerusalem's
+ * marked trails 85 → 58).
  */
 export function isUrbanCandidate(stage: string, data: Record<string, any> | null | undefined): boolean {
-  if (URBAN_STAGES.has(stage)) return true;
-  const builtUp = data?.trail?.stats?.builtUpPct;
-  return typeof builtUp === 'number' && builtUp >= URBAN_BUILT_UP_MIN_PCT;
+  if (data?.trail) return false;
+  return URBAN_STAGES.has(stage);
 }
