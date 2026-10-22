@@ -96,6 +96,12 @@ interface QueueItem {
    *  is the real brigade's icon (authorityId's unitDirectory entry), fetched
    *  once per unique authorityId across the whole loaded batch, not per row. */
   computedUnitId?: string;
+  /** route only (22.10.2026) — the doc has NO `published` field: live for users today, but
+   *  never moderated and invisible to the `published == false` query. Loaded server-side
+   *  (GET /api/admin/routes/no-status). Approve = make it explicit; reject = hide it. */
+  noStatus?: boolean;
+  /** route only, with noStatus — the doc's own `status` when it has one (e.g. 'archived'). */
+  docStatus?: string | null;
   parentIconUrl?: string | null;
 }
 
@@ -283,7 +289,35 @@ export default function ApprovalCenterPage() {
           city: x.city, activityType: x.activityType,
         };
       });
-      return scoped(items, sa, aids, uid);
+      const noStatus = await loadNoStatusRoutes();
+      const seen = new Set(items.map(i => i.id));
+      return scoped([...items, ...noStatus.filter(i => !seen.has(i.id))], sa, aids, uid);
+    } catch { return []; }
+  };
+
+  // Routes with NO `published` field (e.g. the Sderot import) are live for users but can never
+  // match `published == false` — Firestore cannot query an absent field (axiom §33). The server
+  // scans for them with the Admin SDK and scopes the result to the caller (super admin = all,
+  // authority manager = own authority). A failure here never blanks the normal pending list.
+  const loadNoStatusRoutes = async (): Promise<QueueItem[]> => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return [];
+      const res = await fetch('/api/admin/routes/no-status', { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return [];
+      const data = await res.json() as { rows?: Array<{ id: string; name: string; city: string | null; authorityId: string | null; distance: number | null; activityType: string | null; origin: string | null; createdByUser: string | null; status: string | null }> };
+      return (data.rows ?? []).map(x => {
+        const dist = formatDistance(x.distance);
+        const act = x.activityType === 'running' ? 'ריצה' : x.activityType === 'walking' ? 'הליכה' : (x.activityType || '');
+        return {
+          entityType: 'route' as const, id: x.id,
+          title: x.name || '(ללא שם)',
+          subtitle: [dist, act].filter(Boolean).join(' · '),
+          origin: x.origin ?? undefined, authorityId: x.authorityId ?? undefined, createdByUser: x.createdByUser ?? undefined,
+          city: x.city ?? undefined, activityType: x.activityType ?? undefined,
+          noStatus: true, docStatus: x.status,
+        };
+      });
     } catch { return []; }
   };
 
@@ -1225,6 +1259,11 @@ export default function ApprovalCenterPage() {
                       )}
                       {item.origin === 'osm_import' && (
                         <span className="flex items-center gap-1 text-orange-600"><Mountain size={10} /> ייבוא OSM</span>
+                      )}
+                      {item.noStatus && (
+                        <span className="flex items-center gap-1 text-amber-700 bg-amber-50 rounded px-1.5" title="למסלול אין שדה published — הוא מוצג למשתמשים היום אבל מעולם לא אושר. אישור = מסומן כמאושר, דחייה = מוסתר מהמשתמשים.">
+                          ללא סטטוס · חי למשתמשים{item.docStatus ? ` (status: ${item.docStatus})` : ''}
+                        </span>
                       )}
                       {item.subtitle && <span>{item.subtitle}</span>}
                       {item.createdByUser && (
