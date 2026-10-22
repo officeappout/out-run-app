@@ -118,3 +118,22 @@ describe('rolling history', () => {
     expect(h.map((x) => (x.content as any[])[0].text)).toEqual(['q', 'a']);
   });
 });
+
+describe('tool input schemas: shapes the API accepts', () => {
+  // The API rejects an `enum` on a node whose `type` is an array (e.g. ['string','null']) —
+  // a 400 on every chat turn (22.10.2026). A nullable enum must be anyOf [{enum}, {type:'null'}].
+  function walk(node: unknown, path: string, out: string[]): void {
+    if (!node || typeof node !== 'object') return;
+    const n = node as Record<string, unknown>;
+    if (Array.isArray(n.type) && 'enum' in n) out.push(path);
+    for (const [k, v] of Object.entries(n)) {
+      if (Array.isArray(v)) v.forEach((item, i) => walk(item, `${path}.${k}[${i}]`, out));
+      else walk(v, `${path}.${k}`, out);
+    }
+  }
+  it('no enum sits next to an array type', () => {
+    const bad: string[] = [];
+    for (const def of adminToolDefinitions()) walk(def.input_schema, def.name, bad);
+    expect(bad).toEqual([]);
+  });
+});
