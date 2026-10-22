@@ -288,6 +288,7 @@
   "join.cta": "הצטרף לקבוצה",
   "join.redirectNote": "תועבר לאפליקציית OutRun כדי להשלים את ההצטרפות",
   "join.referral.redirecting": "מעביר אותך...",
+  "join.error.generic": "ההצטרפות לא הצליחה. אפשר לנסות שוב.",
   "legacyRedirect.redirecting": "מעביר לאיזור האישי...",
   "signup.runChoice.continue": "המשך",
   "signup.runChoice.walking.label": "הליכה",

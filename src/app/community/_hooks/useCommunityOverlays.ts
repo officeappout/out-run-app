@@ -3,6 +3,8 @@ import type { useRouter, useSearchParams } from 'next/navigation';
 import type { CommunityEvent, CommunityGroup } from '@/types/community.types';
 import type { CommunityTopTab } from '../_lib/community-constants';
 import { groupJoinSuccess, type JoinSuccessData } from '../_lib/community-logic';
+import { useGroupFixesV1 } from '@/lib/group-fixes/useGroupFixesV1';
+import { resolveJoinLanding } from '@/lib/resolveJoinLanding';
 
 /**
  * Which page-level overlay is open (group / event drawers, post-join success,
@@ -33,11 +35,22 @@ export function useCommunityOverlays({
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<JoinSuccessData | null>(null);
 
+  // enable_group_fixes_v1: ?groupId links go to the ONE join landing (the
+  // group page by id on /home) — works for another city's group, a user
+  // without a city, and while the community flags are off (this page then
+  // renders nothing and could only open groups from the city list).
+  const groupFixes = useGroupFixesV1();
+  useEffect(() => {
+    const targetId = searchParams.get('groupId');
+    if (!groupFixes || !targetId) return;
+    router.replace(resolveJoinLanding(targetId, { joined: searchParams.get('joined') === 'true' }));
+  }, [groupFixes, searchParams, router]);
+
   // ── Deep-link: ?groupId=xxx → open drawer, or ?groupId=xxx&joined=true →
   //    fire the post-join success drawer (gateway auto-join completed). ──────
   useEffect(() => {
     const targetId = searchParams.get('groupId');
-    if (!targetId || !groups.length || arenaLoading) return;
+    if (groupFixes || !targetId || !groups.length || arenaLoading) return;
     const target = groups.find((g) => g.id === targetId);
     if (target) {
       const justJoined = searchParams.get('joined') === 'true';
@@ -61,7 +74,7 @@ export function useCommunityOverlays({
       const qs = params.toString();
       router.replace(`/community${qs ? `?${qs}` : ''}`, { scroll: false });
     }
-  }, [searchParams, groups, arenaLoading, router, applyTabParam]);
+  }, [groupFixes, searchParams, groups, arenaLoading, router, applyTabParam]);
 
   // ── Deep-link: ?editGroup=xxx → open CreateGroupWizard in edit mode ──────
   useEffect(() => {

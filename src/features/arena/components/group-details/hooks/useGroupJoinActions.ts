@@ -20,6 +20,8 @@ interface UseGroupJoinActionsArgs {
   onLeave?: (groupId: string) => void | Promise<void>;
   onClose: () => void;
   showToast: (type: 'success' | 'error', text: string) => void;
+  /** enable_group_fixes_v1: the viewer is the group's last admin — leaving is blocked. */
+  leaveBlocked?: boolean;
 }
 
 /**
@@ -27,7 +29,7 @@ interface UseGroupJoinActionsArgs {
  * "join the group?" prompt after it), the private-group invite code, and
  * leaving with confirmation. (No hooks besides state — no effects.)
  */
-export function useGroupJoinActions({ group, userId, userName, userPhoto, effectiveLiveSession, onJoin, onLeave, onClose, showToast }: UseGroupJoinActionsArgs) {
+export function useGroupJoinActions({ group, userId, userName, userPhoto, effectiveLiveSession, onJoin, onLeave, onClose, showToast, leaveBlocked = false }: UseGroupJoinActionsArgs) {
   const t = useT(community);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leavingId, setLeavingId] = useState<string | null>(null);
@@ -100,6 +102,11 @@ export function useGroupJoinActions({ group, userId, userName, userPhoto, effect
 
   const handleConfirmLeave = async () => {
     if (!onLeave || !group) return;
+    if (leaveBlocked) {
+      setConfirmLeave(false);
+      showToast('error', t('group.leave.lastAdmin'));
+      return;
+    }
     setLeavingId(group.id);
     try {
       await onLeave(group.id);
