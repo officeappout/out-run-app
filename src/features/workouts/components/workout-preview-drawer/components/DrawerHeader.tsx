@@ -4,6 +4,8 @@ import React from 'react';
 import { motion, useTransform, type MotionValue } from 'framer-motion';
 import { ArrowRight, Pencil } from 'lucide-react';
 import IconButton from '@/components/ui/v2/IconButton';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 export interface DrawerHeaderProps {
   /**
@@ -51,6 +53,7 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
   v2 = false,
   inactive = false,
 }) => {
+  const t = useT(library);
   const pointerEvents = useTransform(
     headerOpacity,
     (v) => (v < 0.05 ? 'none' : 'auto') as 'none' | 'auto',
@@ -64,14 +67,14 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
     >
       <div className="flex items-center justify-between px-4 pt-10 pb-3">
         {v2 ? (
-          <IconButton aria-label="סגור" tone="surface" size={40} onClick={onClose} tabIndex={inactive ? -1 : undefined}>
+          <IconButton aria-label={t('preview.header.close')} tone="surface" size={40} onClick={onClose} tabIndex={inactive ? -1 : undefined}>
             <ArrowRight size={20} />
           </IconButton>
         ) : (
         <button
           onClick={onClose}
           className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 active:scale-90 transition-transform"
-          aria-label="סגור"
+          aria-label={t('preview.header.close')}
         >
           <ArrowRight size={20} />
         </button>
@@ -84,7 +87,7 @@ const DrawerHeaderImpl: React.FC<DrawerHeaderProps> = ({
             onClick={onEditEntry}
             tabIndex={v2 && inactive ? -1 : undefined}
             className="w-10 h-10 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 active:scale-90 transition-transform"
-            aria-label="ערוך אימון"
+            aria-label={t('preview.header.edit')}
           >
             <Pencil size={18} />
           </button>

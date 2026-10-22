@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { groupExercisesIntoSections } from '../section-grouping.utils';
 import { blockHeaderModel, blockItemLine, previewJourney, previewMeta, previewProfile, previewTimedModel } from '../timed-preview.utils';
+import { makeT } from '@/lib/i18n/t';
+import { library } from '@/messages/ns/library';
+
+// i18n batch aa: the line helpers take the caller's library translator.
+const t = makeT('he', library);
 
 const ex = (id: string, role: string, extra: Record<string, unknown> = {}) =>
   ({ exercise: { id, name: id }, sets: 3, reps: 12, isTimeBased: false, exerciseRole: role, ...extra }) as never;
@@ -29,20 +34,20 @@ describe('timed preview (A-1a / A-2a / A-4a / A-5a)', () => {
     const p = previewProfile(gw({ structure: 'amrap' }), m);
     expect(p.map((s) => s.key)).toEqual(['warmup', 'main-amrap', 'cooldown']);
     expect(p[1].height).toBeGreaterThan(p[0].height);
-    expect(previewMeta(gw(), new Date(2026, 9, 19, 9, 41))).toEqual([
+    expect(previewMeta(gw(), new Date(2026, 9, 19, 9, 41), t)).toEqual([
       { key: 'dur', text: '14 דק׳' },
       { key: 'count', text: '5 תרגילים' },
       { key: 'end', text: 'מסיים ~9:55' },
     ]);
-    expect(blockHeaderModel(m.mainSpec!)).toMatchObject({ name: 'AMRAP', pill: '6′', line: 'כמה שיותר סבבים' });
-    expect(blockItemLine(m.mainSpec!, 1)).toBe('10 חזרות · בכל סבב');
+    expect(blockHeaderModel(m.mainSpec!, t)).toMatchObject({ name: 'AMRAP', pill: '6′', line: 'כמה שיותר סבבים' });
+    expect(blockItemLine(m.mainSpec!, 1, t)).toBe('10 חזרות · בכל סבב');
   });
 
   it('EMOM lines alternate odd / even minutes', () => {
     const m = previewTimedModel(gw({ structure: 'emom' }))!;
-    expect(blockHeaderModel(m.mainSpec!).line).toBe('כל דקה · 2 תרגילים');
-    expect(blockItemLine(m.mainSpec!, 0)).toBe('דקות אי-זוגיות · 12 חזרות');
-    expect(blockItemLine(m.mainSpec!, 1)).toBe('דקות זוגיות · 10 חזרות');
+    expect(blockHeaderModel(m.mainSpec!, t).line).toBe('כל דקה · 2 תרגילים');
+    expect(blockItemLine(m.mainSpec!, 0, t)).toBe('דקות אי-זוגיות · 12 חזרות');
+    expect(blockItemLine(m.mainSpec!, 1, t)).toBe('דקות זוגיות · 10 חזרות');
   });
 
   it('tabata finisher + classic main (mixed)', () => {
@@ -53,7 +58,7 @@ describe('timed preview (A-1a / A-2a / A-4a / A-5a)', () => {
     const m = previewTimedModel(w)!;
     expect(m.main).toBeNull();
     expect(previewJourney(w, m).map((i) => [i.key, i.label ?? null])).toEqual([['main', null], ['tabata', 'טבטה 4′']]);
-    expect(blockItemLine(m.tabataSpec!, 0)).toBe('20 שנ׳');
+    expect(blockItemLine(m.tabataSpec!, 0, t)).toBe('20 שנ׳');
   });
 
   it('grouping: the main part becomes ONE timed section in plan order', () => {

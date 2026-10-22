@@ -35,6 +35,8 @@ import {
 } from '../../utils/equipment-collection.utils';
 import { resolveExerciseImage } from '../../utils/exercise-display.utils';
 import type { PyramidStep, WorkoutActions } from '../../types';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // Local duplicate of the orchestrator's pill border constant.  Tiny one-line
 // string — duplicated rather than imported to keep this module self-contained
@@ -101,6 +103,7 @@ export default function GeneratedWorkoutExerciseList({
   hideStatPills = false,
 }: GeneratedWorkoutExerciseListProps) {
   const v2 = useHomeV2();
+  const t = useT(library);
   // enable_home_v2: a workout with a timed block (AMRAP / EMOM main, tabata) gets the
   // overview header + journey strip + intensity profile and format block headers.
   const timedModel = useMemo(
@@ -240,7 +243,7 @@ export default function GeneratedWorkoutExerciseList({
                 <polyline points="12 6 12 12 16 14" />
               </svg>
               <span className={`${v2 ? "text-[12.5px] font-extrabold tabular-nums" : "text-[13px] font-normal"} text-gray-800 dark:text-gray-100`}>
-                {dur} דק&apos;
+                {t('preview.list.duration', { minutes: String(dur) })}
               </span>
             </div>
           )}
@@ -253,7 +256,7 @@ export default function GeneratedWorkoutExerciseList({
               onClick={actions.onShare}
               disabled={actions.isSharing}
               className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50`}
-              aria-label="שתף"
+              aria-label={t('preview.list.share')}
             >
               {actions.isSharing ? (
                 <Loader2 size={20} className="animate-spin text-gray-400" />
@@ -265,7 +268,7 @@ export default function GeneratedWorkoutExerciseList({
               onClick={actions.onToggleFavorite}
               disabled={actions.isFavToggling}
               className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50`}
-              aria-label={actions.isFav ? 'הסר ממועדפים' : 'מועדפים'}
+              aria-label={actions.isFav ? t('preview.list.favRemove') : t('preview.list.favAdd')}
             >
               {actions.isFavToggling ? (
                 <Loader2 size={20} className="animate-spin text-gray-400" />
@@ -287,7 +290,7 @@ export default function GeneratedWorkoutExerciseList({
                 actions.isFavDownloaded
               }
               className={`${v2 ? "w-9 h-9 bg-white shadow-[0_0_0_1px_rgba(14,27,42,0.08)]" : "w-10 h-10"} flex items-center justify-center rounded-full active:scale-90 transition-all disabled:opacity-50 relative`}
-              aria-label="הורדה לאופליין"
+              aria-label={t('preview.list.download')}
             >
               {actions.isFavDownloading ? (
                 <DownloadProgressCircle progress={actions.downloadProgress} />
@@ -327,7 +330,7 @@ export default function GeneratedWorkoutExerciseList({
             className={`text-right ${v2 ? "text-[16px] font-black text-[#0e1419]" : "text-[15px] font-semibold text-slate-900"} dark:text-white mb-2`}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            ציוד
+            {t('preview.list.equipment')}
           </h3>
           <div
             className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1"
@@ -348,7 +351,7 @@ export default function GeneratedWorkoutExerciseList({
             className={`text-right ${v2 ? "text-[16px] font-black text-[#0e1419]" : "text-[15px] font-semibold text-slate-900"} dark:text-white mb-2`}
             style={{ fontFamily: 'var(--font-simpler)' }}
           >
-            שרירים
+            {t('preview.list.muscles')}
           </h3>
           <div className="flex flex-wrap gap-2" dir="rtl">
             {muscles.map((m) => (
@@ -370,7 +373,7 @@ export default function GeneratedWorkoutExerciseList({
         // enable_home_v2 timed block (null otherwise → today's section).
         const timedSpec =
           section.id === 'timed-main' ? timedModel?.mainSpec ?? null : isTabata ? timedModel?.tabataSpec ?? null : null;
-        const timedRail = timedSpec ? BLOCK_TONE[blockHeaderModel(timedSpec).tone].rail : null;
+        const timedRail = timedSpec ? BLOCK_TONE[blockHeaderModel(timedSpec, t).tone].rail : null;
 
         return (
           <section key={section.id} className="mb-8">
@@ -410,7 +413,7 @@ export default function GeneratedWorkoutExerciseList({
                     Array.isArray(pyramidSeq) && pyramidSeq.length > 0;
                   const isGoal = ex.isGoalExercise === true;
                   const uniLabel =
-                    ex.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
+                    ex.exercise.symmetry === 'unilateral' ? t('preview.list.unilateral') : '';
                   const parentImageUrl = resolveExerciseImage(ex);
                   const parentName =
                     typeof ex.exercise.name === 'string'
@@ -453,11 +456,11 @@ export default function GeneratedWorkoutExerciseList({
                       onSwap={onSwap}
                       volumeOverride={
                         timedSpec
-                          ? blockItemLine(timedSpec, timedSpec.items.findIndex((it) => it.key === ex.exercise.id))
+                          ? blockItemLine(timedSpec, timedSpec.items.findIndex((it) => it.key === ex.exercise.id), t)
                           : isTabata && generatedWorkout.tabataBlock
                           ? ex.exercise.symmetry === 'unilateral'
-                            ? `${generatedWorkout.tabataBlock.config.workSec} שנ' לכל צד`
-                            : `${generatedWorkout.tabataBlock.config.workSec} שנ'`
+                            ? t('preview.list.tabataWorkUni', { sec: String(generatedWorkout.tabataBlock.config.workSec) })
+                            : t('preview.list.tabataWork', { sec: String(generatedWorkout.tabataBlock.config.workSec) })
                           : undefined
                       }
                     />,

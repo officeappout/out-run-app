@@ -370,3 +370,16 @@ src/features/workout-engine/components/strength/components/ProgramSuggestionCard
 src/features/workout-engine/components/strength/utils/level-ring.util.ts
 src/features/workout-engine/components/strength/utils/timed-summary.model.ts
 src/features/workout-engine/components/strength/levelup-v2/
+
+# wave 2 batch aa (namespace library, keys preview.*) — the strength workout preview drawer: shell, header, footer,
+# location switcher, exercise-detail sheet, the generated exercise list (section headers, exercise / pyramid-step
+# cards, timed AMRAP / EMOM / tabata header + meta) and the helpers that build their lines. Listed per file: left as
+# is (manual list in the PR) — utils/section-grouping.utils.ts (section titles also read by HybridStationCard, parks),
+# utils/workout-conversion.utils.ts (Hebrew volume strings matched with .includes — data), hooks/useProgramMap.ts
+# (program-name map also read by DiscoverLayer + MasterExerciseView). Marked: the location switcher's unknown-gear
+# label comparison (data).
+src/features/workouts/components/workout-preview-drawer/WorkoutPreviewDrawer.tsx
+src/features/workouts/components/workout-preview-drawer/components/
+src/features/workouts/components/workout-preview-drawer/hooks/useFavoritesActions.ts
+src/features/workouts/components/workout-preview-drawer/utils/timed-preview.utils.ts
+src/features/workouts/components/workout-preview-drawer/utils/exercise-display.utils.ts

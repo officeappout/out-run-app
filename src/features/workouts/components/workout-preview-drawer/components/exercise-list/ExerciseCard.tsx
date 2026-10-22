@@ -10,6 +10,8 @@ import {
 } from '@/features/content/exercises';
 import type { WorkoutExercise as EngineWorkoutExercise } from '@/features/workout-engine/logic/WorkoutGenerator';
 import { buildExerciseVolumeLabel } from '../../utils/exercise-display.utils';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 interface ExerciseCardProps {
   /** Engine wrapper for the exercise being rendered. */
@@ -55,13 +57,14 @@ function ExerciseCardImpl({
   volumeOverride,
 }: ExerciseCardProps) {
   const v2 = useHomeV2();
+  const t = useT(library);
   const name = typeof exercise.exercise.name === 'string'
     ? exercise.exercise.name
     : getLocalizedText(exercise.exercise.name, 'he');
 
   const isGoal = exercise.isGoalExercise === true;
-  const uniLabel = exercise.exercise.symmetry === 'unilateral' ? ' (לכל צד)' : '';
-  const volume = volumeOverride ?? buildExerciseVolumeLabel(exercise, uniLabel);
+  const uniLabel = exercise.exercise.symmetry === 'unilateral' ? t('preview.card.unilateral') : '';
+  const volume = volumeOverride ?? buildExerciseVolumeLabel(exercise, uniLabel, t);
 
   // Bound click handlers — stable as long as `onTap` / `onSwap` / `exercise`
   // references stay the same.  Eliminates the inline arrow allocations that
@@ -108,12 +111,12 @@ function ExerciseCardImpl({
             {isGoal && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-cyan-100 text-cyan-700 text-[10px] font-bold rounded-full border border-cyan-200 flex-shrink-0">
                 <Target size={9} />
-                יעד
+                {t('preview.card.goal')}
               </span>
             )}
             {exercise.dimensionUnavailable && (
               <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full border border-amber-200 flex-shrink-0">
-                דורש מתקן
+                {t('preview.card.needsStation')}
               </span>
             )}
           </div>

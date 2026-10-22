@@ -4,6 +4,8 @@ import { useHomeV2 } from "@/features/home/context/HomeV2Context";
 import React from 'react';
 import { Play, Pencil, Volume2, VolumeX, WifiOff } from 'lucide-react';
 import ShareAsLiveToggle from '@/features/workout-engine/components/ShareAsLiveToggle';
+import { useT } from '@/hooks/useT';
+import { library } from '@/messages/ns/library';
 
 // Local duplicate of the orchestrator's pill border constant.  One-line
 // string — duplicated rather than imported to keep this module self-contained
@@ -64,6 +66,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
   measureRef,
 }) => {
   const v2 = useHomeV2();
+  const t = useT(library);
   const startDisabled = !isOnline && !isFavDownloaded;
 
   return (
@@ -81,7 +84,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
           style={{ color: '#00ADEF', fontSize: '13px' }}
           dir="rtl"
         >
-          {`${similarCount} אנשים מתאמנים כוח קרוב אליך`}
+          {t('preview.footer.nearby', { count: String(similarCount) })}
         </button>
       )}
 
@@ -97,7 +100,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
         <div className="flex items-center justify-center gap-1.5 pb-2" dir="rtl">
           <WifiOff size={12} className="text-gray-400" />
           <span className="text-[11px] text-gray-400">
-            שמור אימון למועדפים כדי להתאמן אופליין
+            {t('preview.footer.offline')}
           </span>
         </div>
       )}
@@ -119,7 +122,7 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
           }
         >
           <Play size={20} fill="currentColor" />
-          <span>התחלת אימון</span>
+          <span>{t('preview.footer.start')}</span>
         </button>
 
         {/* Edit button — only shown when onEditEntry is provided */}
@@ -128,8 +131,8 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
             onClick={onEditEntry}
             className="flex-shrink-0 w-[42px] h-[42px] rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm"
             style={{ background: '#EFF6FF', border: '0.5px solid #BFDBFE' }}
-            title="ערוך אימון"
-            aria-label="ערוך אימון"
+            title={t('preview.footer.edit')}
+            aria-label={t('preview.footer.edit')}
           >
             <Pencil size={18} className="text-blue-500" />
           </button>
@@ -143,8 +146,8 @@ const DrawerFooterImpl: React.FC<DrawerFooterProps> = ({
             background: isAudioEnabled ? '#F0FDFA' : '#FEFEFE',
             border: PILL_BORDER_DRAWER,
           }}
-          title={isAudioEnabled ? 'השתק סרטונים' : 'הפעל שמע'}
-          aria-label={isAudioEnabled ? 'השתק סרטונים' : 'הפעל שמע'}
+          title={isAudioEnabled ? t('preview.footer.mute') : t('preview.footer.unmute')}
+          aria-label={isAudioEnabled ? t('preview.footer.mute') : t('preview.footer.unmute')}
         >
           {isAudioEnabled ? (
             <Volume2 size={20} className="text-cyan-600" />
