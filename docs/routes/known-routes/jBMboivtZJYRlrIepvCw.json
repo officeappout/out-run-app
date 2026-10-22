@@ -1,0 +1,5 @@
+{"authorityId":"jBMboivtZJYRlrIepvCw","city":"בני שמעון","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל אלון","aliases":["סינגל אלון ביער להב"],"kind":"bike","lengthKm":13,"inPark":null,"description":"לולאת סינגל מאתגרת ביער להב, מסומנת בטיפות צהובות עם אופניים אדומים","sources":[{"url":"https://www.kkl.org.il/bike/trips/north_negev_area/","title":"מסלולי רכיבה באזור יער להב - קק\"ל"}]},
+{"name":"סינגל רימון","aliases":["סינגל רימון ביער להב"],"kind":"bike","lengthKm":8,"inPark":null,"description":"לולאת סינגל בינונית ביער להב, מתחברת לסינגל אלון","sources":[{"url":"https://www.kkl.org.il/bike/trips/north_negev_area/","title":"מסלולי רכיבה באזור יער להב - קק\"ל"},{"url":"https://www.kkl.org.il/bike/trips/2356/","title":"סינגל רימון ביער להב - כרמים - קק\"ל"}]},
+{"name":"סינגל אבו חוף","aliases":[],"kind":"bike","lengthKm":10,"inPark":null,"description":"לולאת סינגל קשה ביער להב, משתלבת עם סינגלי אלון ורימון","sources":[{"url":"https://www.kkl.org.il/bike/trips/north_negev_area/","title":"מסלולי רכיבה באזור יער להב - קק\"ל"}]}
+]}
