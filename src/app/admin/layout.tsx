@@ -2,14 +2,15 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import lightLockStyles from './admin-content-light-lock.module.css';
 import './admin-theme.css';
 import shell from './admin-shell.module.css';
 import { ViewingAsBar } from '@/features/admin/components/authorities/ViewAsCity';
-import { allowedPathsFor, isPathAllowed, sectionOwnsPath } from '@/features/admin/config/adminSections';
+import { allowedPathsFor, isPathAllowed, sectionOwnsPath, type AdminSectionId } from '@/features/admin/config/adminSections';
+import { ADMIN_NAV_SECTIONS, isNavGroup, type AdminNavAudience, type AdminNavIconName, type AdminNavLink } from '@/features/admin/config/adminNavItems';
 import {
     LayoutDashboard,
     Dumbbell,
@@ -95,6 +96,22 @@ const ICON_MAP: Record<LucideIconName, React.ElementType> = {
 // what this round needs.
 const MILITARY_NAV_ICON_MAP: Record<MilitaryNavIconName, React.ElementType> = {
   Dumbbell, LayoutDashboard, ShieldCheck, BarChart3, Shield, ClipboardList,
+};
+
+// adminNavItems.ts icon names → components (the main sidebar renders from that data file).
+const NAV_ICON_MAP: Record<AdminNavIconName, React.ElementType> = {
+  Activity, AlertCircle, BarChart3, Bell, Bot, Building2, Camera, ClipboardCheck, ClipboardList,
+  Compass, Dumbbell, FileText, Flag, FlaskConical, GitBranch, GitMerge, Globe, GraduationCap,
+  KeyRound, LayoutDashboard, LayoutGrid, LineChart, Link2, ListChecks, ListTodo, Map, MapPinned,
+  Megaphone, MessageCircle, Package, SearchX, Settings, Shield, ShieldCheck, Signal, TrendingUp,
+  Users, UsersRound, Video, Wallet, Zap,
+};
+
+// Side border of each vertical section's link list (literal class names for Tailwind).
+const VERTICAL_NAV_BORDER: Record<'municipal' | 'military' | 'educational', string> = {
+  municipal: 'border-blue-700/40',
+  military: 'border-lime-700/40',
+  educational: 'border-orange-600/40',
 };
 
 // Section IDs for collapsible state — 5 global centres + 3 verticals
@@ -821,6 +838,98 @@ function AdminLayoutInner({
         );
     };
 
+    // ── Main sidebar from data (adminNavItems.ts) ─────────────────────────────
+    // Whole-section visibility — the exact conditions the hand-written JSX used.
+    const navSectionVisible = (id: AdminSectionId): boolean => {
+        if (!hasSec(id)) return false;
+        switch (id) {
+            case 'strategy':
+                return true;
+            case 'crm':
+                return !isSystemAdminOnly;
+            case 'municipal':
+            case 'military':
+            case 'educational':
+                return !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === id);
+            case 'marketing':
+            case 'finance':
+            case 'dev':
+                return !onlyAuthorityManager && !isVerticalAdminOnly;
+            case 'product':
+                return !isSystemAdminOnly && !isVerticalAdminOnly;
+        }
+    };
+    const navLinkVisible = (audience: AdminNavAudience | undefined): boolean => {
+        switch (audience) {
+            case undefined:
+                return true;
+            case 'superAdmin':
+                return isSuperAdmin;
+            case 'rootAdmin':
+                return !!roleInfo?.isRootAdmin;
+            case 'superOrRoot':
+                return isSuperAdmin || !!roleInfo?.isRootAdmin;
+            case 'authorityManagerLink':
+                return showAuthorityManagerLink;
+            case 'cityMappingLink':
+                return showCityMappingLink;
+        }
+    };
+    /** undefined = SidebarLink's own default highlight */
+    const navLinkActive = (link: AdminNavLink): boolean | undefined => {
+        const rule = link.active;
+        if (!rule) return undefined;
+        const starts = (p: string) => !!pathname?.startsWith(p);
+        switch (rule.kind) {
+            case 'exact':
+                return pathname === link.href;
+            case 'prefixExcept':
+                return starts(link.href) && !rule.except.some(starts);
+            case 'anyOf':
+                return (rule.exact ?? []).some((p) => pathname === p) || (rule.prefixes ?? []).some(starts);
+            case 'vertical': {
+                const inVertical = urlVerticalType === rule.vertical
+                    || (!urlVerticalType && ((rule.defaultWhenNoOrg && !orgCtx.selectedOrgType) || orgCtx.selectedOrgType === rule.vertical));
+                return starts(link.href.split('?')[0]) && inVertical;
+            }
+        }
+    };
+    const renderNavLink = (link: AdminNavLink) => (navLinkVisible(link.audience) ? (
+        <SidebarLink
+            key={link.href}
+            href={link.href}
+            icon={NAV_ICON_MAP[link.icon]}
+            label={link.label}
+            isActive={navLinkActive(link)}
+        />
+    ) : null);
+    // 06.10.2026 (David's explicit 7-item spec) — rendered from MILITARY_ROOT_NAV_ITEMS, the SAME
+    // array the isolated chief-officer block also renders from. דשבורד/מגמות were previously
+    // reachable only by direct URL — no sidebar item at all (David's own finding).
+    const renderMilitaryRootItems = () => MILITARY_ROOT_NAV_ITEMS.map((item) => {
+        const path = item.href.split('?')[0];
+        const inMilitaryVerticalContext = urlVerticalType === 'military' || (!urlVerticalType && orgCtx.selectedOrgType === 'military');
+        let isActive: boolean;
+        if (path === '/admin/dashboard') {
+            isActive = pathname === path && inMilitaryVerticalContext;
+        } else if (path === '/admin/authority/readiness') {
+            isActive = pathname === path;
+        } else if (path === '/admin/authority/units' || path === '/admin/authority/team') {
+            isActive = !!pathname?.startsWith(path) && inMilitaryVerticalContext;
+        } else {
+            isActive = !!pathname?.startsWith(path);
+        }
+        return (
+            <SidebarLink
+                key={item.href}
+                href={item.href}
+                icon={MILITARY_NAV_ICON_MAP[item.icon]}
+                label={item.label}
+                isActive={isActive}
+            />
+        );
+    });
+
     if (reconnectNeeded) {
         // Login-entry-points unification (00-MASTER-PLAN.md, 28.09.2026),
         // additions 2-4: a terminal, self-contained state — no sidebar (the
@@ -1104,297 +1213,34 @@ function AdminLayoutInner({
                     ) : showFullSidebar ? (
                         <div className="space-y-1">
 
-                            {/* ── 1. אסטרטגיה / קלי ─────────────────────────── */}
-                            {hasSec('strategy') && <SectionHeader sectionId="strategy" icon={TrendingUp} label="אסטרטגיה / קלי" />}
-                            {hasSec('strategy') && expandedSections.has('strategy') && (
-                                <div className="pr-2 space-y-0.5 pb-2">
-                                    <SidebarLink href="/admin" icon={LayoutDashboard} label="דשבורד ראשי" />
-                                    <SidebarLink href="/admin/master-roadmap" icon={LayoutGrid} label="מפת דרכים מאוחדת" />
-                                    <SidebarLink href="/admin/roadmap" icon={ListTodo} label="מפת דרכים — פיתוח" />
-                                </div>
-                            )}
-
-                            {/* ── 2. CRM / מכירות ────────────────────────────── */}
-                            {hasSec('crm') && !isSystemAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="crm" icon={Building2} label="CRM / מכירות" />
-                                    {expandedSections.has('crm') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/authorities" icon={Building2} label="ניהול רשויות" />
-                                            <SidebarLink href="/admin/organizations" icon={Globe} label="ארגונים" />
-                                            {/* (ספריית מנהלים → a tab of "אנשים והרשאות") */}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── Vertical 1: ניהול עירוני ───────────────────── */}
-                            {hasSec('municipal') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'municipal') && (
-                                <>
-                                    <SectionHeader sectionId="municipal" icon={Building2} label="ניהול עירוני" colorClass={VERTICAL_THEMES.municipal.sidebarIcon} />
-                                    {expandedSections.has('municipal') && (
-                                        <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-blue-700/40 mr-2">
-                                            <SidebarLink
-                                                href="/admin/authority/units?type=municipal"
-                                                icon={Users}
-                                                label="שכונות ויישובים"
-                                                isActive={pathname?.startsWith('/admin/authority/units') && (urlVerticalType === 'municipal' || (!urlVerticalType && orgCtx.selectedOrgType === 'municipal'))}
-                                            />
-                                            <SidebarLink
-                                                href="/admin/authority/team?type=municipal"
-                                                icon={Users}
-                                                label="ניהול צוות רשותי"
-                                                isActive={pathname?.startsWith('/admin/authority/team') && (urlVerticalType === 'municipal' || (!urlVerticalType && (!orgCtx.selectedOrgType || orgCtx.selectedOrgType === 'municipal')))}
-                                            />
-                                            {showAuthorityManagerLink && (
-                                                <SidebarLink href="/admin/authority-manager" icon={BarChart3} label="דשבורד אנליטיקה" />
-                                            )}
-                                            <SidebarLink href="/admin/approval-center" icon={ShieldCheck} label="מרכז אישורים" />
-                                            {showCityMappingLink && (
-                                                <SidebarLink href="/admin/city-mapping" icon={MapPinned} label="מיפוי עיר" />
-                                            )}
-                                            <SidebarLink href="/admin/pressure-messages" icon={Megaphone} label="מסרי לחץ" />
-                                            <SidebarLink href="/admin/authority/reports" icon={Flag} label="דיווחי תחזוקה" />
-                                            <SidebarLink href="/admin/heatmap" icon={Activity} label="מפת חום חיה" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── Vertical 2: ניהול צבאי ─────────────────────── */}
-                            {/* 24.09.2026 — was "צי צבאי" ("military fleet" —
-                                "צי" means a fleet of ships/aircraft, not a
-                                fit for army units). Renamed to match the
-                                sibling labels' pattern ("ניהול עירוני"). */}
-                            {hasSec('military') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'military') && (
-                                <>
-                                    <SectionHeader sectionId="military" icon={ShieldCheck} label="ניהול צבאי" colorClass={VERTICAL_THEMES.military.sidebarIcon} />
-                                    {expandedSections.has('military') && (
-                                        <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-lime-700/40 mr-2">
-                                            {/* 06.10.2026 (David's explicit 7-item spec) — rendered from
-                                                MILITARY_ROOT_NAV_ITEMS, the SAME array the isolated
-                                                chief-officer block below also renders from. דשבורד/מגמות
-                                                were previously reachable only by direct URL — no sidebar
-                                                item at all (David's own finding). */}
-                                            {MILITARY_ROOT_NAV_ITEMS.map((item) => {
-                                                const path = item.href.split('?')[0];
-                                                const inMilitaryVerticalContext = urlVerticalType === 'military' || (!urlVerticalType && orgCtx.selectedOrgType === 'military');
-                                                let isActive: boolean;
-                                                if (path === '/admin/dashboard') {
-                                                    isActive = pathname === path && inMilitaryVerticalContext;
-                                                } else if (path === '/admin/authority/readiness') {
-                                                    isActive = pathname === path;
-                                                } else if (path === '/admin/authority/units' || path === '/admin/authority/team') {
-                                                    isActive = !!pathname?.startsWith(path) && inMilitaryVerticalContext;
-                                                } else {
-                                                    isActive = !!pathname?.startsWith(path);
-                                                }
-                                                return (
-                                                    <SidebarLink
-                                                        key={item.href}
-                                                        href={item.href}
-                                                        icon={MILITARY_NAV_ICON_MAP[item.icon]}
-                                                        label={item.label}
-                                                        isActive={isActive}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── Vertical 3: רשת חינוכית ────────────────────── */}
-                            {hasSec('educational') && !isSystemAdminOnly && (!isVerticalAdminOnly || verticalAdminVertical === 'educational') && (
-                                <>
-                                    <SectionHeader sectionId="educational" icon={GraduationCap} label="רשת חינוכית" colorClass={VERTICAL_THEMES.educational.sidebarIcon} />
-                                    {expandedSections.has('educational') && (
-                                        <div className="pr-2 space-y-0.5 pb-2 border-r-2 border-orange-600/40 mr-2">
-                                            <SidebarLink
-                                                href="/admin/authority/units?type=educational"
-                                                icon={GraduationCap}
-                                                label="בתי ספר ושכבות"
-                                                isActive={pathname?.startsWith('/admin/authority/units') && (urlVerticalType === 'educational' || (!urlVerticalType && orgCtx.selectedOrgType === 'educational'))}
-                                            />
-                                            <SidebarLink href="/admin/authority/grades" icon={ClipboardCheck} label="ציוני חנ״ג" />
-                                            <SidebarLink href="/admin/photo-release" icon={Camera} label="אישורי צילום" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── 3. שיווק ותוכן ─────────────────────────────── */}
-                            {hasSec('marketing') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="marketing" icon={Megaphone} label="שיווק ותוכן" />
-                                    {expandedSections.has('marketing') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            {/* grouped by job (audit 15.10.2026) — same links, same access */}
-                                            <SidebarLink href="/admin/marketing-hub" icon={LayoutGrid} label="תור תוכן" />
-                                            <SidebarLink href="/admin/web-traffic" icon={Globe} label="תנועה באתר" />
-                                            <SidebarLink href="/admin/links" icon={Link2} label="מרכז קישורים שיווקיים" />
-                                            <NavGroup label="תקשורת באפליקציה">
-                                                <SidebarLink href="/admin/notifications" icon={Bell} label="מרכז התראות" isActive={pathname === '/admin/notifications'} />
-                                                <SidebarLink href="/admin/notifications/library" icon={FileText} label="ספריית פושים" />
-                                                <SidebarLink href="/admin/messages" icon={MessageCircle} label="הודעות חכמות" />
-                                                <SidebarLink href="/admin/workout-settings" icon={FileText} label="שפה ותיאורי אימונים" />
-                                            </NavGroup>
-                                            <NavGroup label="הפקת תוכן">
-                                                <SidebarLink href="/admin/content-matrix" icon={Video} label="ימי צילום" />
-                                                <SidebarLink href="/admin/media-library" icon={LayoutGrid} label="כיסוי מדיה לתרגילים" />
-                                            </NavGroup>
-                                            <NavGroup label="כלי בדיקה">
-                                                <SidebarLink href="/admin/simulator" icon={Bell} label="סימולטור התראה ← אימון" />
-                                                <SidebarLink href="/admin/workout-simulator" icon={FlaskConical} label="סימולטור אימונים" />
-                                                <SidebarLink href="/admin/unreachable-exercises" icon={SearchX} label="תרגילים שלא נשלפים" />
-                                            </NavGroup>
-                                            {/* (the "↗ משפך המרות" shortcut was removed: it duplicated the ניהול
-                                                מוצר link, lit up together with it, and bounced marketing-only
-                                                members — /admin/analytics is in the product allowlist only) */}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── 4. ניהול מוצר / צמיחה ──────────────────────── */}
-                            {hasSec('product') && !isSystemAdminOnly && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="product" icon={LineChart} label="ניהול מוצר / צמיחה" />
-                                    {expandedSections.has('product') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            {/* Journey hub — analytics / statistics / insights folded into it
-                                                (owner, 15.10.2026; the old URLs redirect, next.config.mjs) */}
-                                            <SidebarLink href="/admin/journey" icon={Compass} label="מסע משתמש" />
-                                            <SidebarLink href="/admin/users/all" icon={Users} label="כל המשתמשים" />
-                                            {/* cross-city moderation — super admins only; a product member
-                                                with the link was bounced (not in their allowlist) */}
-                                            {isSuperAdmin && (
-                                                <SidebarLink href="/admin/community-groups-overview" icon={UsersRound} label="כל הקבוצות במערכת" />
-                                            )}
-                                            {/* onboarding goal notes — super admins only (API: requireSuperAdminApi) */}
-                                            {isSuperAdmin && (
-                                                <SidebarLink href="/admin/goal-notes" icon={MessageCircle} label="מה עוד חשוב למשתמשים" />
-                                            )}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── כספים ──────────────────────────────────────── */}
-                            {hasSec('finance') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    <SectionHeader sectionId="finance" icon={Wallet} label="כספים" />
-                                    {expandedSections.has('finance') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <SidebarLink href="/admin/finance/approvals" icon={Wallet} label="תור אישור חשבוניות" />
-                                            <SidebarLink href="/admin/finance/expenses" icon={LayoutGrid} label="ספר הוצאות" />
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* ── 5. פיתוח ────────────────────────────────────── */}
-                            {hasSec('dev') && !onlyAuthorityManager && !isVerticalAdminOnly && (
-                                <>
-                                    {/* was "פיתוח" — one label for content, levels, map, running and
-                                        system screens told a content editor nothing (audit 15.10.2026).
-                                        Same section key ('dev'), same links, same access. */}
-                                    <SectionHeader sectionId="dev" icon={Zap} label="תוכן ומערכת" />
-                                    {expandedSections.has('dev') && (
-                                        <div className="pr-2 space-y-0.5 pb-2">
-                                            <NavGroup label="תוכן אימונים">
-                                                <SidebarLink
-                                                    href="/admin/exercises"
-                                                    icon={Dumbbell}
-                                                    label="בנק תרגילים"
-                                                    isActive={!!pathname?.startsWith('/admin/exercises') && !pathname?.startsWith('/admin/exercises/swap-stats')}
-                                                />
-                                                {/* soft-adaptation Phase 0 — anonymous swap counters (read-only) */}
-                                                <SidebarLink href="/admin/exercises/swap-stats" icon={BarChart3} label="תרגילים שמחליפים הכי הרבה" />
-                                                <SidebarLink href="/admin/programs" icon={ClipboardList} label="תוכניות אימון" />
-                                                {/* one area, tabs inside (EquipmentTabs): machines, brands, gear, audit */}
-                                                <SidebarLink
-                                                    href="/admin/gym-equipment"
-                                                    icon={Package}
-                                                    label="ציוד ומתקנים"
-                                                    isActive={['/admin/gym-equipment', '/admin/brands', '/admin/gear-definitions', '/admin/audit-equipment'].some((p) => pathname?.startsWith(p))}
-                                                />
-                                            </NavGroup>
-                                            <NavGroup label="רמות והערכה (לפי סדר הזרימה)">
-                                                <SidebarLink href="/admin/questionnaire" icon={ClipboardList} label="שאלון אונבורדינג" />
-                                                <SidebarLink href="/admin/visual-assessment" icon={Video} label="הערכה ויזואלית" />
-                                                <SidebarLink href="/admin/assessment-rules" icon={GitBranch} label="מנוע כללים" />
-                                                <SidebarLink href="/admin/program-thresholds" icon={BarChart3} label="סיפי תוכנית" />
-                                                <SidebarLink href="/admin/levels" icon={Signal} label="רמות ו־XP" />
-                                                <SidebarLink href="/admin/progression-manager" icon={TrendingUp} label="מנהל התקדמות" />
-                                                <SidebarLink href="/admin/level-equivalence" icon={Zap} label="שקילות רמות" />
-                                            </NavGroup>
-                                            <NavGroup label="מפה">
-                                                <SidebarLink href="/admin/locations" icon={Map} label="מיקומים ומסלולים" />
-                                            </NavGroup>
-                                            <NavGroup label="מנוע ריצה">
-                                                <SidebarLink href="/admin/running" icon={LayoutDashboard} label="דשבורד ריצה" />
-                                                <SidebarLink href="/admin/running/pace-map" icon={Activity} label="מפת קצבים" />
-                                                <SidebarLink href="/admin/running/workouts" icon={Dumbbell} label="תבניות אימונים" />
-                                                <SidebarLink href="/admin/running/programs" icon={GitMerge} label="תוכניות ריצה" />
-                                            </NavGroup>
-                                            <NavGroup label="מערכת והרשאות">
-                                                {/* one area, tabs inside (PeopleTabs): users & admin rights,
-                                                    system admins, the admin directory + invitations */}
-                                                <SidebarLink
-                                                    href="/admin/users"
-                                                    icon={Shield}
-                                                    label="אנשים והרשאות"
-                                                    isActive={pathname === '/admin/users' || ['/admin/admins-management', '/admin/admin-directory'].some((p) => pathname?.startsWith(p))}
-                                                />
-                                                <SidebarLink href="/admin/access-codes" icon={KeyRound} label="קודי גישה" />
-                                                <SidebarLink href="/admin/audit-logs" icon={FileText} label="יומן ביקורת" />
-                                                {/* Root only — UX gate; the real boundary is
-                                                    /api/admin/agents/** (generic 403 for non-root). */}
-                                                {roleInfo?.isRootAdmin && (
-                                                    <SidebarLink href="/admin/agents" icon={Bot} label="פאנל סוכנים" />
-                                                )}
-                                                {roleInfo?.isRootAdmin && (
-                                                    <SidebarLink href="/admin/signup-failures" icon={AlertCircle} label="כשלי הרשמה" />
-                                                )}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/system-settings" icon={Settings} label="הגדרות מערכת" />
-                                                )}
-                                                {/* daily AI review of the קלי AI chat — super admins only (API: requireSuperAdminApi) */}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/ai-coach/reviews" icon={MessageCircle} label="שיחות קלי" />
-                                                )}
-                                                {/* FAQ / articles / help — one source for the app + website (API: requireSuperAdminApi) */}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/content" icon={MessageCircle} label="תוכן ושאלות" />
-                                                )}
-                                                {/* platform running costs — super admins only (API: requireSuperAdminApi) */}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/costs" icon={Wallet} label="עלויות" />
-                                                )}
-                                                {/* demo control center — live switches, tester runs, live cost; super admins only (API: requireSuperAdminApi) */}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/demo" icon={Bot} label="מרכז הדמו" />
-                                                )}
-                                                {/* nightly review of generated workouts / routes — super admins only (API: requireSuperAdminApi) */}
-                                                {isSuperAdmin && (
-                                                    <SidebarLink href="/admin/generation-review" icon={ListChecks} label="בקרת אימונים ומסלולים" />
-                                                )}
-                                                {/* unified Kelly: the team's queue + replies (API: requireKellyTeamAdmin) */}
-                                                {(isSuperAdmin || roleInfo?.isRootAdmin) && (
-                                                    <SidebarLink href="/admin/ai-coach/kelly" icon={MessageCircle} label="קלי · ממתינים למענה" />
-                                                )}
-                                                {/* Kelly phase 3: proactive sends + preview (API: requireKellyTeamAdmin) */}
-                                                {(isSuperAdmin || roleInfo?.isRootAdmin) && (
-                                                    <SidebarLink href="/admin/ai-coach/proactive" icon={MessageCircle} label="קלי · הודעות יזומות" />
-                                                )}
-                                            </NavGroup>
-                                            {/* "כלי דמו" (/admin/demo-seed) removed 20.10.2026 — the old
-                                                in-browser demo seeder is disabled (LegacyDemoToolDisabled). */}
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            {/* 22.10.2026 — the main sidebar is rendered from ADMIN_NAV_SECTIONS
+                                (src/features/admin/config/adminNavItems.ts): same sections, order,
+                                labels, icons, access and highlight as the hand-written JSX it
+                                replaced. Section visibility stays here (navSectionVisible). */}
+                            {ADMIN_NAV_SECTIONS.map((section) => {
+                                if (!navSectionVisible(section.id)) return null;
+                                return (
+                                    <Fragment key={section.id}>
+                                        <SectionHeader
+                                            sectionId={section.id}
+                                            icon={NAV_ICON_MAP[section.icon]}
+                                            label={section.label}
+                                            colorClass={section.vertical ? VERTICAL_THEMES[section.vertical].sidebarIcon : undefined}
+                                        />
+                                        {expandedSections.has(section.id) && (
+                                            <div className={section.vertical ? `pr-2 space-y-0.5 pb-2 border-r-2 ${VERTICAL_NAV_BORDER[section.vertical]} mr-2` : 'pr-2 space-y-0.5 pb-2'}>
+                                                {section.vertical === 'military'
+                                                    ? renderMilitaryRootItems()
+                                                    : section.entries.map((entry) => (isNavGroup(entry) ? (
+                                                        <NavGroup key={entry.group} label={entry.group}>
+                                                            {entry.links.map(renderNavLink)}
+                                                        </NavGroup>
+                                                    ) : renderNavLink(entry)))}
+                                            </div>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
 
                         </div>
                     ) : (
