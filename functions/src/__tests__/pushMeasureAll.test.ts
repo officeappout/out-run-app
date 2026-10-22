@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /** enable_push_measure_all (default off) — pure resolver + the real sendPush on a fake Firestore. */
 vi.mock('firebase-admin', async () => (await import('./helpers/fake-firestore')).fakeAdminModule());
@@ -75,12 +75,20 @@ describe('sendPush with enable_push_measure_all', () => {
     sendPush({ toUids: ['u1'], channel: 'progression', title: 't', body: 'b', rateCapHours: 0, ...over } as never);
 
   beforeEach(() => {
+    // sendPush suppresses sends in the 22:00–07:00 Asia/Jerusalem quiet window, so these tests
+    // failed whenever CI ran at night (22.10.2026, ~22:03 IDT). Pin the clock to midday.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-21T09:00:00Z')); // 12:00 IDT, a Wednesday
     store.clear();
     sentMessages.length = 0;
     writePushSentEvent.mockClear();
     __resetPushMeasureAllCache();
     __resetPushPolicyFlagCache();
     store.set('users/u1', { fcmTokens: ['tok'], settings: { pushEnabled: true } });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('flag off: a type-only sender sends the same payload as before, no push_events write', async () => {
