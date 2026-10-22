@@ -18,7 +18,7 @@ import type { WorkoutExerciseResult } from '../../core/types/progression.types';
 import type { UserFullProfile } from '../../core/types/user.types';
 import { hasAssessedStrengthDomain } from '../../identity/services/access-control.service';
 import { readFeatureFlagOnce } from '@/lib/feature-flag-once';
-import { PROGRESSION_RULES_FROM_ADMIN_V1 } from '@/config/feature-flags';
+import { loadLevelSettingsForGoals, resolveAdminRulesFlag } from './progression-admin-rules.loader';
 import { getProgramByTemplateId } from '@/features/content/programs';
 import {
   KNOWN_MASTER_PROGRAMS,
@@ -39,6 +39,9 @@ function snapshot(t: TrackSnapshot | undefined): TrackSnapshot | undefined {
     percent: typeof t.percent === 'number' ? t.percent : 0,
     ...(t.completedGoalIds ? { completedGoalIds: [...t.completedGoalIds] } : {}),
     ...(typeof t.totalWorkoutsCompleted === 'number' ? { totalWorkoutsCompleted: t.totalWorkoutsCompleted } : {}),
+    ...(typeof t.levelSessions === 'number' ? { levelSessions: t.levelSessions } : {}),
+    ...(typeof t.monthKey === 'string' ? { monthKey: t.monthKey } : {}),
+    ...(typeof t.monthSessions === 'number' ? { monthSessions: t.monthSessions } : {}),
   };
 }
 
@@ -87,6 +90,8 @@ export async function loadLevelUpInputs(
     }
 
     const tracks = (userData.progression?.tracks ?? {}) as Tracks;
+    // Same switch as processWorkoutCompletion → same rules, goals and bonuses.
+    const adminRules = await resolveAdminRulesFlag(userData.core?.isSuperAdmin === true);
     const [slugMap, exerciseLookup] = await Promise.all([
       buildProgramSlugMap().catch(() => null),
       fetchExerciseLookup(
@@ -98,7 +103,7 @@ export async function loadLevelUpInputs(
     if (master) {
       const childSlugs = master.subPrograms!.map((id) => slugMap?.idToSlug.get(id) ?? id);
       const rules = await Promise.all(
-        childSlugs.map((slug) => getProgressionRuleForLevel(slug, tracks[slug]?.currentLevel ?? 1, slugMap)),
+        childSlugs.map((slug) => getProgressionRuleForLevel(slug, tracks[slug]?.currentLevel ?? 1, slugMap, { adminRules })),
       );
       // The master recalculateMasterLevel writes is the Firestore doc (recalculateAncestorMasters
       // walks real master docs) — resolve the slug to it; the hardcoded tier-3 id is a fallback.
@@ -121,13 +126,17 @@ export async function loadLevelUpInputs(
         idToSlug: slugMap?.idToSlug ?? null,
         masterTrack: snapshot(tracks[programId]),
         averaging,
+        adminRules,
       };
     }
 
     const track = snapshot(tracks[programId]) ?? { currentLevel: 1, percent: 0 };
     const [rule, levelSettings] = await Promise.all([
-      getProgressionRuleForLevel(programId, track.currentLevel, slugMap),
-      getProgramLevelSetting(programId, track.currentLevel).catch(() => null),
+      getProgressionRuleForLevel(programId, track.currentLevel, slugMap, { adminRules }),
+      (adminRules
+        ? loadLevelSettingsForGoals(programId, track.currentLevel, slugMap)
+        : getProgramLevelSetting(programId, track.currentLevel)
+      ).catch(() => null),
     ]);
     return {
       kind: 'leaf',
@@ -135,7 +144,8 @@ export async function loadLevelUpInputs(
       track,
       rule,
       goals: levelSettings?.targetGoals ?? [],
-      oneTimeGoals: PROGRESSION_RULES_FROM_ADMIN_V1,
+      oneTimeGoals: adminRules,
+      adminRules,
     };
   } catch (e) {
     console.warn('[LevelUpV2] inputs load failed — calm state:', e);

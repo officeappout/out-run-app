@@ -9,6 +9,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const state = vi.hoisted(() => ({
   USER_DOC: null as Record<string, any> | null,
   GOALS: [] as any[],
+  /** progression_rules / programLevelSettings docs by `${col}/${id}` (admin-rules cases). */
+  DOCS: {} as Record<string, Record<string, unknown>>,
+  ADMIN: false,
 }));
 
 function setPath(obj: Record<string, any>, path: string, value: unknown) {
@@ -36,13 +39,15 @@ const { FULL_BODY, CHILDREN, ALL_PROGRAMS } = vi.hoisted(() => {
 });
 
 vi.mock('@/lib/firebase', () => ({ db: {} }));
-vi.mock('@/lib/feature-flag-once', () => ({ readFeatureFlagOnce: vi.fn(async () => false) }));
+vi.mock('@/lib/feature-flag-once', () => ({
+  readFeatureFlagOnce: vi.fn(async (k: string) => k === 'progression_rules_from_admin' && state.ADMIN),
+}));
 
 vi.mock('firebase/firestore', () => ({
   collection: (_db: unknown, col: string) => ({ col }),
   doc: (_db: unknown, col: string, id: string) => ({ col, id }),
-  getDoc: vi.fn(async (ref: { col: string }) => {
-    const user = ref.col === 'users' ? state.USER_DOC : null;
+  getDoc: vi.fn(async (ref: { col: string; id: string }) => {
+    const user = ref.col === 'users' ? state.USER_DOC : (state.DOCS[`${ref.col}/${ref.id}`] ?? null);
     return { exists: () => user !== null, data: () => (user ? JSON.parse(JSON.stringify(user)) : undefined), id: 'x' };
   }),
   getDocs: vi.fn(async (q: { col?: string }) => {
@@ -87,7 +92,7 @@ vi.mock('@/features/content/exercises/core/exercise.service', () => ({
   getAllExercisesCached: vi.fn(async () => []),
 }));
 
-import { processWorkoutCompletion } from '../progression.service';
+import { processWorkoutCompletion, __resetProgressionRuleCacheForTests } from '../progression.service';
 import { loadLevelUpInputs } from '../levelup-inputs.service';
 import { computeLevelUpPreview, outcomeFromStored } from '../levelup-preview';
 import type { WorkoutExerciseResult } from '../../../core/types/progression.types';
@@ -108,6 +113,9 @@ async function run(programId: string, exercises: WorkoutExerciseResult[]) {
 
 beforeEach(() => {
   state.GOALS = [];
+  state.DOCS = {};
+  state.ADMIN = false;
+  __resetProgressionRuleCacheForTests();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -222,5 +230,63 @@ describe('master (full_body) — preview = the stored average', () => {
     })!;
     expect(stored.after.percent).toBeCloseTo(tracks.full_body.percent, 9);
     expect(stored.before).toEqual({ level: 5, percent: 33.33 });
+  });
+});
+
+describe('admin rules ON (progression_rules_from_admin) — preview = stored', () => {
+  const PUSH = 'J0fLpmJhG0KDN2tQouxh';
+  function adminDocs() {
+    // saved under the program DOC ID, like the admin panel does
+    state.DOCS[`progression_rules/${PUSH}_level_5`] = { programId: PUSH, level: 5, baseSessionGain: 9, bonusPercent: 6, requiredSetsForFullGain: 5 };
+    state.DOCS[`programLevelSettings/${PUSH}_level_5`] = {
+      programId: PUSH, levelNumber: 5, firstSessionBonus: 3, maxSets: 4, persistenceBonusConfig: { '2': 1 },
+    };
+  }
+
+  it('leaf: admin rule + maxSets cap + first-session + persistence + goal once — same total and stored percent', async () => {
+    state.ADMIN = true;
+    adminDocs();
+    const now = new Date();
+    const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    state.USER_DOC = { core: {}, progression: { tracks: { push: {
+      currentLevel: 5, percent: 10, totalWorkoutsCompleted: 3, levelSessions: 0, monthKey: mk, monthSessions: 1, completedGoalIds: ['pu'],
+    } }, domains: {}, activePrograms: [] } };
+    state.GOALS = [{ exerciseId: 'pu', exerciseName: 'Push-up', targetValue: 12, unit: 'reps', progressBonus: 4 }];
+    const { inputs, preview, result, tracks } = await run('push', [ex('pu', 'Push-up', [12, 11, 10, 10, 10], 10)]);
+
+    expect(result.activeProgramGain.adminBonuses).toMatchObject({ firstSessionBonus: 3, persistenceBonus: 1, countedSets: 4 });
+    expect(result.activeProgramGain.goalBonusGain).toBe(0); // already completed at this level
+    expect(preview.totalGain).toBeCloseTo(result.activeProgramGain.totalGain, 9);
+    expect(preview.after.percent).toBeCloseTo(tracks.push.percent, 9);
+    const stored = outcomeFromStored(inputs, result, { level: 5, percent: 10 })!;
+    expect(stored.chips.map((c) => [c.id, Math.round(c.gain * 1e6)])).toEqual(preview.chips.map((c) => [c.id, Math.round(c.gain * 1e6)]));
+  });
+
+  it('master: each child on its admin rule + extras — same stored average', async () => {
+    state.ADMIN = true;
+    adminDocs();
+    state.USER_DOC = {
+      core: {},
+      progression: {
+        tracks: {
+          push: { currentLevel: 5, percent: 40, totalWorkoutsCompleted: 2, levelSessions: 0 },
+          pull: { currentLevel: 4, percent: 50, totalWorkoutsCompleted: 2 },
+          legs: { currentLevel: 6, percent: 10, totalWorkoutsCompleted: 2 },
+          core: { currentLevel: 3, percent: 0, totalWorkoutsCompleted: 2 },
+          full_body: { currentLevel: 5, percent: 33.33, totalWorkoutsCompleted: 2 },
+        },
+        domains: {},
+        activePrograms: [],
+      },
+    };
+    const { preview, tracks, result } = await run('full_body', [
+      ex('a', 'Push-up', [10, 10, 10, 10, 10, 10], 10),
+      ex('b', 'Pull-up', [8, 8], 6),
+    ]);
+    const push = result.childDomainGains!.find((c) => c.childId === 'push')!;
+    expect(push.adminBonuses).toMatchObject({ firstSessionBonus: 3, countedSets: 4, ruleSource: 'progression_rules' });
+    expect(preview.after.level).toBe(tracks.full_body.currentLevel);
+    expect(preview.after.percent).toBeCloseTo(tracks.full_body.percent, 6);
+    expect(preview.chips.find((c) => c.id === 'domain:push')!.gain).toBeCloseTo(push.totalGain, 9);
   });
 });
