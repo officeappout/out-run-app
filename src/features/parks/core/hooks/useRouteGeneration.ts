@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { generateDynamicRoutes, MIN_GENERATION_KM } from '../services/route-generator.service';
 import { fetchRealParks } from '../services/parks.service';
 import { InventoryService, getCachedOfficialRoutes } from '../services/inventory.service';
+import { hideConnectorRoutes } from '@/lib/route-collections/display-role';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { Route, ActivityType } from '../types/route.types';
 import { Park } from '../types/park.types';
 import { useRouteFilter, FilterPreferences } from './useRouteFilter';
@@ -93,6 +95,8 @@ export function useRouteGeneration(
     if (officialFetched.current) return;
     officialFetched.current = true;
     InventoryService.fetchOfficialRoutes(undefined, true)
+      // RC10: skip connector routes when enable_hide_route_connectors is on (off → same array).
+      .then((all) => hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors')))
       .then((routes) => {
         console.log(`[Routes] Fetched ${routes.length} published official routes from Firestore`);
         if (routes.length > 0) {

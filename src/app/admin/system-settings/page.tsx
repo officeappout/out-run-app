@@ -98,6 +98,7 @@ interface FlagState {
   enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
   pyramid_injection_off: boolean;
+  enable_hide_route_connectors: boolean;
 }
 
 // ============================================================================
@@ -760,6 +761,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פירמידות כבויות',
     description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
+  },
+  // Route connectors (RC10, 22.10.2026) — src/lib/route-collections/display-role.ts.
+  {
+    key: 'enable_hide_route_connectors',
+    icon: RouteIcon,
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
+    title: 'מסלולים: הסתרת מקטעי חיבור',
+    description: 'מסלולים שסומנו כ"מקטע חיבור" (displayRole: connector — למשל "מקטע 2" או "תוספת א" מהמסלולים של עיריית שדרות) נשארים במערכת אבל לא מוצגים למשתמשים ברשימות המסלולים, בקרוסלת המפה ובחיפוש. כבוי = הכול מוצג כמו היום. לא נדלק אוטומטית לסופר-אדמין.',
   },
 ];
 

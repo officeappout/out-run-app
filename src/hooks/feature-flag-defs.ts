@@ -495,6 +495,14 @@ export const FLAG_DEFS = [
   // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
   // superAdminValue false: one switch, same for everyone.
   { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
+  // Route connectors (RC10, 22.10.2026, owner: Sderot's municipal "transition segments").
+  // ON = official_routes docs with displayRole 'connector' (src/lib/route-collections/display-role.ts)
+  // are skipped by the user-facing route lists — getCachedOfficialRoutes (map, search, hybrid,
+  // planned activity, onboarding geo, route-fit) and the map carousel's own fetch. They stay in
+  // the data and in the behind-the-scenes stitching (loops-prefer-official, corridor engine).
+  // Read synchronously via readLiveFlag → superAdminValue FALSE. Fail-closed. Off = every list
+  // exactly as before.
+  { key: 'enableHideRouteConnectors', firestoreKey: 'enable_hide_route_connectors', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

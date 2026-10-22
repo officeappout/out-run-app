@@ -46,7 +46,11 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 const getCachedOfficialRoutes = vi.fn(async () => [] as unknown[]);
-vi.mock('../inventory.service', () => ({ getCachedOfficialRoutes: () => getCachedOfficialRoutes() }));
+// The loop builder reads the set INCLUDING connector routes (RC10) — same spy for both names.
+vi.mock('../inventory.service', () => ({
+  getCachedOfficialRoutes: () => getCachedOfficialRoutes(),
+  getCachedOfficialRoutesIncludingConnectors: () => getCachedOfficialRoutes(),
+}));
 
 const mapboxCalls: Array<{ waypoints: Array<{ lat: number; lng: number }>; extra: Record<string, string | undefined> | undefined }> = [];
 function squareLoop(): [number, number][] {

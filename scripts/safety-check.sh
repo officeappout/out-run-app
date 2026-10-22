@@ -185,6 +185,10 @@ AUTHORIZED_ROUTE_WRITERS=(
   # No write verb in the file; also on the migrated list below so any future write
   # there must use buildValidatedDoc.
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  # RC10 (22.10.2026): field-level {displayRole:'connector'} tag on one
+  # authority's official_routes — buildValidatedDoc update mode at the write
+  # site, payload asserted to be exactly that one field, updateTime precondition.
+  "scripts/route-connectors/lib/connector-apply.node.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -210,6 +214,10 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
   "src/lib/admin-analytics/pending-approvals.server.ts"
+  # RC10 (22.10.2026): field-level {displayRole:'connector'} tag on one
+  # authority's official_routes — buildValidatedDoc update mode at the write
+  # site, payload asserted to be exactly that one field, updateTime precondition.
+  "scripts/route-connectors/lib/connector-apply.node.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"

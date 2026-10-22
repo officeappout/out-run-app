@@ -28,7 +28,8 @@ import {
 } from './official-route-broadcaster';
 import { IS_ROUTE_ADJACENCY_ENABLED, IS_ROUTE_ENRICHMENT_ORCHESTRATOR_ENABLED, ROUTE_ENRICHMENT_PILOT_CITIES } from '@/config/feature-flags';
 import { getAllAuthorities } from '@/features/admin/services/authority.service';
-import { buildValidatedDoc, stripUndefined } from '@/lib/route-collections';
+import { buildValidatedDoc, stripUndefined, hideConnectorRoutes } from '@/lib/route-collections';
+import { readLiveFlag } from '@/lib/feature-flag-live';
 import { logRouteDecision } from '@/lib/route-decisions/log-decision';
 
 // ── Facilities client cache (stale-while-revalidate, localStorage, 6h TTL) ──
@@ -163,9 +164,25 @@ function chunk<T>(arr: T[], size: number): T[][] {
     return result;
 }
 
-export async function getCachedOfficialRoutes(): Promise<Route[]> {
+/**
+ * The published official set as stored — INCLUDING connector routes
+ * (displayRole 'connector'). For behind-the-scenes stitching only
+ * (loops-prefer-official); every user-facing list uses getCachedOfficialRoutes.
+ */
+export async function getCachedOfficialRoutesIncludingConnectors(): Promise<Route[]> {
     if (!_officialCache) _officialCache = await InventoryService.fetchOfficialRoutes(undefined, true);
     return _officialCache;
+}
+
+/**
+ * The published official set for USER-FACING lists. With enable_hide_route_connectors
+ * on, connector routes (src/lib/route-collections/display-role.ts) are skipped; off →
+ * the cached array itself, exactly as before. The flag is read on every call (cheap,
+ * synchronous), so a flag flip applies without refetching.
+ */
+export async function getCachedOfficialRoutes(): Promise<Route[]> {
+    const all = await getCachedOfficialRoutesIncludingConnectors();
+    return hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors'));
 }
 
 /** Invalidate the in-memory official-routes cache so the next read re-fetches from Firestore. */
