@@ -510,6 +510,14 @@ export const FLAG_DEFS = [
   // Read synchronously via readLiveFlag → superAdminValue FALSE. Fail-closed. Off = every list
   // exactly as before.
   { key: 'enableHideRouteConnectors', firestoreKey: 'enable_hide_route_connectors', defaultValue: false, superAdminValue: false },
+  // Scoped official_routes read (22.10.2026, fix/official-routes-cap-and-approval-query). OFF =
+  // today's whole-collection limit(200) read (byte-identical). ON = the app reads only the
+  // user's authorities (core.authorityId + GPS city affiliations), cap 300, else published-only
+  // cap 200 — see src/features/parks/core/services/official-routes-scope.ts. Read synchronously
+  // via readLiveFlag (inventory.service getCachedOfficialRoutes + useRouteGeneration) →
+  // superAdminValue false: one switch, same for everyone. Fail-closed. Preconditions before ON:
+  // the publish-status backfill + authorityId on the 16 legacy routes without one.
+  { key: 'enableScopedOfficialRoutes', firestoreKey: 'enable_scoped_official_routes', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

@@ -100,6 +100,7 @@ interface FlagState {
   enable_city_mapping_hub: boolean;
   pyramid_injection_off: boolean;
   enable_hide_route_connectors: boolean;
+  enable_scoped_official_routes: boolean;
 }
 
 // ============================================================================
@@ -754,6 +755,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     iconColor: 'text-rose-500',
     title: 'פירמידות כבויות',
     description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
+  },  // Scoped official_routes read (22.10.2026) — the app stops reading the first 200 routes nationwide.
+  {
+    key: 'enable_scoped_official_routes',
+    icon: RouteIcon,
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
+    title: 'מסלולים רשמיים לפי רשות',
+    description: 'דלוק = האפליקציה קוראת רק את המסלולים הרשמיים של הרשות של המשתמש ושל העיר שבה הוא נמצא (עד 300), ואם אין — רק מסלולים מאושרים (עד 200). כבוי = כמו היום: 200 המסלולים הראשונים מכל הארץ, כך שעם ייבוא ארצי רוב הערים לא יראו כלום. לפני הדלקה: להריץ את backfill-route-publish-status ולשייך רשות ל-16 המסלולים הישנים בלי authorityId.',
   },
   // Route connectors (RC10, 22.10.2026) — src/lib/route-collections/display-role.ts.
   {

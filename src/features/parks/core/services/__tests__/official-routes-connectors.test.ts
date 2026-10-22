@@ -1,65 +1,93 @@
 /**
  * RC10 — getCachedOfficialRoutes (every user-facing list) skips connector
- * routes only while enable_hide_route_connectors is on; the behind-the-scenes
- * reader (getCachedOfficialRoutesIncludingConnectors) always keeps them.
+ * routes only while enable_hide_route_connectors is on — on BOTH read paths
+ * (legacy and enable_scoped_official_routes). The behind-the-scenes reader
+ * (getCachedOfficialRoutesIncludingConnectors) always keeps them, on both paths.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIVE_FLAGS_CACHE_KEY } from '@/lib/feature-flag-live';
 
-const docs = [
-  { id: 'loop', data: { name: 'שכונת הכרמים קלאסי', path: [{ lng: 34.6, lat: 31.5 }, { lng: 34.61, lat: 31.5 }] } },
-  { id: 'seg', data: { name: 'מקטע 2', displayRole: 'connector', path: [{ lng: 34.6, lat: 31.51 }, { lng: 34.61, lat: 31.51 }] } },
-];
-const getDocs = vi.fn(async () => ({ docs: docs.map((d) => ({ id: d.id, data: () => d.data })) }));
+const h = vi.hoisted(() => ({
+  reads: 0,
+  docs: [] as Array<{ id: string; data: Record<string, unknown> }>,
+  profile: null as null | { core: Record<string, unknown> },
+}));
 
-vi.mock('@/lib/firebase', () => ({ db: {} }));
-vi.mock('firebase/firestore', () => ({
-  collection: vi.fn(), getDoc: vi.fn(), getDocs: () => getDocs(), writeBatch: vi.fn(), doc: vi.fn(), query: vi.fn(),
-  where: vi.fn(), orderBy: vi.fn(), startAt: vi.fn(), endAt: vi.fn(), limit: vi.fn(), updateDoc: vi.fn(),
-  serverTimestamp: vi.fn(), arrayUnion: vi.fn(),
+vi.mock('@/lib/firebase', () => ({ db: {}, auth: {} }));
+vi.mock('firebase/firestore', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    collection: vi.fn((_db: unknown, name: string) => ({ __col: name })),
+    query: vi.fn((col: { __col: string }, ...constraints: Array<Record<string, unknown>>) => ({ __col: col.__col, constraints })),
+    where: vi.fn((field: string, op: string, value: unknown) => ({ type: 'where', field, op, value })),
+    limit: vi.fn((n: number) => ({ type: 'limit', value: n })),
+    getDocs: vi.fn(async (q: { constraints: Array<Record<string, unknown>> }) => {
+      h.reads++;
+      let rows = h.docs;
+      for (const c of q.constraints ?? []) {
+        if (c.type === 'where' && c.op === 'in') rows = rows.filter((d) => (c.value as unknown[]).includes(d.data[c.field as string]));
+        if (c.type === 'where' && c.op === '==') rows = rows.filter((d) => d.data[c.field as string] === c.value);
+      }
+      const docs = rows.map((d) => ({ id: d.id, data: () => d.data }));
+      return { docs, size: docs.length, empty: docs.length === 0 };
+    }),
+  };
+});
+vi.mock('@/features/user/identity/store/useUserStore', () => ({
+  useUserStore: { getState: () => ({ profile: h.profile }) },
 }));
-vi.mock('../parks.service', () => ({ getParksByAuthority: vi.fn() }));
-vi.mock('../official-route-broadcaster', () => ({
-  broadcastRouteToStreetSegments: vi.fn(), broadcastRoutesToStreetSegments: vi.fn(),
-  deleteOfficialRouteSegments: vi.fn(), deleteOfficialRouteSegmentsForMany: vi.fn(),
-}));
-vi.mock('@/features/admin/services/authority.service', () => ({ getAllAuthorities: vi.fn() }));
-vi.mock('@/lib/route-decisions/log-decision', () => ({ logRouteDecision: vi.fn() }));
+
+const path = [{ lng: 34.6, lat: 31.5 }, { lng: 34.61, lat: 31.5 }];
 
 let store: Record<string, string> = {};
-function setFlag(on: boolean | null) {
-  store = on == null ? {} : { [LIVE_FLAGS_CACHE_KEY]: JSON.stringify({ enableHideRouteConnectors: on }) };
+function setFlags(flags: { hide?: boolean; scoped?: boolean } | null) {
+  store = flags == null ? {} : {
+    [LIVE_FLAGS_CACHE_KEY]: JSON.stringify({
+      ...(flags.hide != null ? { enableHideRouteConnectors: flags.hide } : {}),
+      ...(flags.scoped != null ? { enableScopedOfficialRoutes: flags.scoped } : {}),
+    }),
+  };
 }
 
-beforeEach(() => {
+let svc: typeof import('../inventory.service');
+beforeEach(async () => {
   vi.stubGlobal('window', { localStorage: { getItem: (k: string) => store[k] ?? null } });
+  h.reads = 0;
+  h.profile = { core: { authorityId: 'sderot' } };
+  h.docs = [
+    { id: 'loop', data: { name: 'שכונת הכרמים קלאסי', authorityId: 'sderot', path } },
+    { id: 'seg', data: { name: 'מקטע 2', authorityId: 'sderot', displayRole: 'connector', path } },
+  ];
+  svc = await import('../inventory.service');
+  svc.invalidateOfficialRoutesCache();
 });
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('getCachedOfficialRoutes — connector routes', () => {
-  it('flag off / unknown → every published route, the same cached array', async () => {
-    const svc = await import('../inventory.service');
-    svc.invalidateOfficialRoutesCache();
-    setFlag(null);
+const ids = (rs: Array<{ id: string }>) => rs.map((r) => r.id);
+
+describe.each([
+  ['legacy path', false],
+  ['scoped path', true],
+])('getCachedOfficialRoutes — connector routes (%s)', (_label, scoped) => {
+  it('hide flag off / unknown → every route, the same cached array', async () => {
+    setFlags(scoped ? { scoped } : null);
     const a = await svc.getCachedOfficialRoutes();
-    expect(a.map((r) => r.id)).toEqual(['loop', 'seg']);
-    setFlag(false);
+    expect(ids(a)).toEqual(['loop', 'seg']);
+    setFlags({ hide: false, scoped });
     const b = await svc.getCachedOfficialRoutes();
     expect(b).toBe(a);
     expect(b).toBe(await svc.getCachedOfficialRoutesIncludingConnectors());
   });
 
-  it('flag on → connector skipped; the stitching reader still has it; no refetch on flip', async () => {
-    const svc = await import('../inventory.service');
-    svc.invalidateOfficialRoutesCache();
-    getDocs.mockClear();
-    setFlag(true);
-    expect((await svc.getCachedOfficialRoutes()).map((r) => r.id)).toEqual(['loop']);
-    expect((await svc.getCachedOfficialRoutesIncludingConnectors()).map((r) => r.id)).toEqual(['loop', 'seg']);
-    setFlag(false);
-    expect((await svc.getCachedOfficialRoutes()).map((r) => r.id)).toEqual(['loop', 'seg']);
-    expect(getDocs).toHaveBeenCalledTimes(1);
+  it('hide flag on → connector skipped; the stitching reader still has it; no refetch on flip', async () => {
+    setFlags({ hide: true, scoped });
+    expect(ids(await svc.getCachedOfficialRoutes())).toEqual(['loop']);
+    expect(ids(await svc.getCachedOfficialRoutesIncludingConnectors())).toEqual(['loop', 'seg']);
+    setFlags({ hide: false, scoped });
+    expect(ids(await svc.getCachedOfficialRoutes())).toEqual(['loop', 'seg']);
+    expect(h.reads).toBe(1);
   });
 });

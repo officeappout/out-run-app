@@ -94,9 +94,14 @@ export function useRouteGeneration(
   useEffect(() => {
     if (officialFetched.current) return;
     officialFetched.current = true;
-    InventoryService.fetchOfficialRoutes(undefined, true)
-      // RC10: skip connector routes when enable_hide_route_connectors is on (off → same array).
-      .then((all) => hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors')))
+    // enable_scoped_official_routes ON: share the scoped, cached read every other consumer uses
+    // (one read per session instead of a second whole-collection limit(200) here). OFF: unchanged.
+    // RC10: connectors are skipped on both paths when enable_hide_route_connectors is on —
+    // getCachedOfficialRoutes already filters; the legacy fetch filters here (off → same array).
+    (readLiveFlag('enableScopedOfficialRoutes')
+      ? getCachedOfficialRoutes()
+      : InventoryService.fetchOfficialRoutes(undefined, true)
+          .then((all) => hideConnectorRoutes(all, readLiveFlag('enableHideRouteConnectors'))))
       .then((routes) => {
         console.log(`[Routes] Fetched ${routes.length} published official routes from Firestore`);
         if (routes.length > 0) {
