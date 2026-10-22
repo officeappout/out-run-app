@@ -208,6 +208,75 @@ export const ADMIN_TOOLS: AdminToolSpec[] = [
     minRole: 'super',
     dataTool: true,
   },
+  // ── comparisons & business (compare / ranking / CRM timeline / finance) ──
+  {
+    name: 'compare_authorities',
+    description:
+      'Side-by-side table of 2-5 authorities (names as the admin wrote them, or ids): CRM status, isActiveClient, population, mapping level and score, routes published/pending, parks published/pending, users — the same numbers as get_authority_overview. If a name is ambiguous or unknown it returns candidates (ask which one) and no numbers. definitionId authority_compare.',
+    input_schema: {
+      type: 'object',
+      properties: { ids_or_names: { type: 'array', items: { type: 'string' }, description: '2 to 5 authority names (Hebrew) or ids' } },
+      required: ['ids_or_names'],
+      additionalProperties: false,
+    },
+    zod: z.object({ ids_or_names: z.array(z.string().trim().min(1).max(120)).min(2).max(5) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_authorities_ranking',
+    description:
+      'Top or bottom N cities / councils by one metric: users (registered), routes (published), parks (published), mapping_score (city-inventory readiness 0-100, mapped cities only), crm_stage (furthest along the CRM pipeline). kind: city (cities + local councils) | regional | null = all three. direction: top | bottom | null = top. limit 1-20, null = 10. Use for "which city has the most/least …". definitionId authorities_ranking.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        by: { type: 'string', enum: ['users', 'routes', 'parks', 'mapping_score', 'crm_stage'] },
+        kind: { anyOf: [{ type: 'string', enum: ['city', 'regional', 'any'] }, { type: 'null' }] },
+        direction: { anyOf: [{ type: 'string', enum: ['top', 'bottom'] }, { type: 'null' }] },
+        limit: { type: ['integer', 'null'], description: '1-20, null = 10' },
+      },
+      required: ['by', 'kind', 'direction', 'limit'],
+      additionalProperties: false,
+    },
+    zod: z
+      .object({
+        by: z.enum(['users', 'routes', 'parks', 'mapping_score', 'crm_stage']),
+        kind: z.enum(['city', 'regional', 'any']).nullable(),
+        direction: z.enum(['top', 'bottom']).nullable(),
+        limit: z.number().int().min(1).max(20).nullable(),
+      })
+      .strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_crm_authority_timeline',
+    description:
+      'CRM history of ONE authority: current pipeline status, isActiveClient (read only), the latest activity-log entries (emails, meetings, calls, notes) with dates, last email / meeting / call date and days since last contact, open tasks as next steps, and the number of contacts. The CRM keeps no status-change history — the result says so. If the name is ambiguous it returns candidates. Shows a button to the authority CRM page. definitionId crm_timeline.',
+    input_schema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'authority name (Hebrew) or id' } },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    zod: z.object({ query: z.string().trim().min(1).max(120) }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
+  {
+    name: 'get_finance_overview',
+    description:
+      'Company money: approved expenses and income from the finance module for the last N months (default 6, 1-24), totals per currency (never converted), by category and by month; transactions still pending approval; and what authorities were quoted vs paid (authorities.financials). There is no other revenue data. Shows a button to the expenses page. definitionId finance_overview.',
+    input_schema: {
+      type: 'object',
+      properties: { months: { type: ['integer', 'null'], description: '1-24, null = 6' } },
+      required: ['months'],
+      additionalProperties: false,
+    },
+    zod: z.object({ months: z.number().int().min(1).max(24).nullable() }).strict(),
+    minRole: 'super',
+    dataTool: true,
+  },
 ];
 
 const BY_NAME = new Map(ADMIN_TOOLS.map((t) => [t.name, t]));
