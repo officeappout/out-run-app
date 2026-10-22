@@ -1,7 +1,9 @@
 /**
  * One authority, sources in the plan's order (§3.1 / §3.4):
- *   existing → dataset → osm → named_ways → park_loops → generated → neighbourhood
- * (`named_ways` = same-name OSM paths/promenades stitched into named corridors;
+ *   existing → known_routes → dataset → osm → named_ways → park_loops → generated → neighbourhood
+ * (`known_routes` = names from web research matched to OSM geometry — first, so a
+ *  matched relation / park loop keeps its citation and the later copy is the duplicate;
+ *  `named_ways` = same-name OSM paths/promenades stitched into named corridors;
  *  `generated` = pipeline B's offline trail loops; `neighbourhood` =
  * GraphHopper foot_turns round trips from a few well-spread seeds — RC8.)
  * After every stage the whole pool (existing + new) is scored and the top-N
@@ -22,7 +24,7 @@ import { isDuplicate } from '../dataset-import/overlap';
 import { parsePath, type FromDocOptions } from '../route-score/from-route-doc';
 import { scoreAuthorityRoutes, type AuthorityScoreRun } from '../route-score/score-authority';
 
-export const STAGE_ORDER = ['existing', 'dataset', 'osm', 'named_ways', 'park_loops', 'generated', 'neighbourhood'] as const;
+export const STAGE_ORDER = ['existing', 'known_routes', 'dataset', 'osm', 'named_ways', 'park_loops', 'generated', 'neighbourhood'] as const;
 export type StageKey = (typeof STAGE_ORDER)[number];
 /** Stages that invent geometry — run only while the quota minimum is unmet. */
 export const QUOTA_GATED_STAGES: ReadonlySet<StageKey> = new Set<StageKey>(['generated', 'neighbourhood']);

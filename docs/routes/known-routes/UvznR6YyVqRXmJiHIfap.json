@@ -1,0 +1,26 @@
+{
+  "authorityId": "UvznR6YyVqRXmJiHIfap",
+  "city": "קרית ים",
+  "researchedAt": "2026-10-22",
+  "routes": [
+    {
+      "name": "טיילת קריית ים",
+      "aliases": [
+        "טיילת חוף הים קריית ים",
+        "Kiryat Yam seafront promenade"
+      ],
+      "kind": "walk",
+      "lengthKm": null,
+      "inPark": null,
+      "description": "טיילת להולכי רגל לאורך קו החוף של העיר; המקור אינו נותן לה שם רשמי",
+      "sources": [
+        {
+          "url": "https://www.hamichlol.org.il/קריית_ים",
+          "title": "קריית ים - המכלול"
+        }
+      ],
+      "nameIsDescriptive": true
+    }
+  ],
+  "notes": "Weak coverage: only an unnamed seafront promenade confirmed (name is descriptive); unnamed bike paths mentioned; planned northern park promenade not yet built."
+}
