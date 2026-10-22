@@ -732,6 +732,15 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'פאנל: עוזר AI ("שאל את OUT")',
     description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
   },
+  // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
+  {
+    key: 'admin_ai_assistant_v1',
+    icon: Bot,
+    iconBg: 'bg-violet-50',
+    iconColor: 'text-violet-600',
+    title: 'פאנל: עוזר AI ("שאל את OUT")',
+    description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
+  },
 ];
 
 const FLAG_KEYS = FLAG_CARDS.map((c) => c.key);

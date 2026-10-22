@@ -62,6 +62,15 @@
 - z-[300]/z-[301]: AgendaDayCard's delete-confirm sheet (backdrop / sheet) — rendered IN PLACE inside TrainingPlannerOverlay's `fixed inset-0 z-50` transformed root, so it only competes inside that stacking context (never against the z-[200] skip-link globally). Pre-existing values, backfilled with the v2 `<Sheet>` sheets batch 3 (19.10.2026) — `SHEET_Z.agendaDelete` / `agendaDeletePanel`.
 - DO NOT create new z-index values without updating this table.
 
+## Z-Index Budget (Admin panel — src/app/admin/**)
+The admin panel never shares a screen with the map UI above; its values are listed separately.
+- z-40: `.mobileBar` — the phone top bar (admin-shell.module.css)
+- z-55: `.scrim` behind the phone sidebar drawer (admin-shell.module.css)
+- z-60: `.sidebar` as a phone drawer (admin-shell.module.css)
+- z-[70]: "שאל את OUT" admin AI assistant drawer (src/features/admin/components/assistant/AdminAssistantDrawer.tsx, behind admin_ai_assistant_v1; added 22.10.2026) — docks left on desktop, full screen on phones; above the phone sidebar/scrim, below the page modals.
+- z-[80]/z-[81]: page modals (e.g. finance/expenses backdrop / panel)
+- z-[9999]: roadmap TagManager popover (pre-existing outlier, backfilled 22.10.2026)
+
 ## State Management
 - Zustand is the state management solution. No Redux, no MobX, no new React Contexts.
 - Store ownership: each feature owns its store. Cross-feature reads are allowed; cross-feature writes go through actions/callbacks.

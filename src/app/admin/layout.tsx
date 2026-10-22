@@ -80,6 +80,9 @@ import { resolveLoginDoorForPath } from '@/features/admin/services/loginDoorForP
 import { OrgSelectorProvider, useOrgSelector } from '@/features/admin/context/OrgSelectorContext';
 import { AdminSessionSync } from '@/features/admin/components/AdminSessionSync';
 import { SessionHealthBanner } from '@/features/admin/components/SessionHealthBanner';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import nextDynamic from 'next/dynamic';
+import { AssistantLauncher, useAssistantShortcut } from '@/features/admin/components/assistant/AssistantLauncher';
 
 
 // Icon map for data-driven sidebar rendering
@@ -113,6 +116,13 @@ const VERTICAL_NAV_BORDER: Record<'municipal' | 'military' | 'educational', stri
   military: 'border-lime-700/40',
   educational: 'border-orange-600/40',
 };
+
+// The "שאל את OUT" drawer (with the 77 KB page map) loads only when the assistant is on for
+// this admin — never in the bundle of the other admin pages' first load.
+const AdminAssistantDrawer = nextDynamic(
+    () => import('@/features/admin/components/assistant/AdminAssistantDrawer').then((m) => m.AdminAssistantDrawer),
+    { ssr: false },
+);
 
 // Section IDs for collapsible state — 5 global centres + 3 verticals
 type SectionId = 'strategy' | 'crm' | 'marketing' | 'product' | 'finance' | 'dev' | 'municipal' | 'military' | 'educational';
@@ -151,6 +161,9 @@ function AdminLayoutInner({
 }) {
     const router = useRouter();
     const pathname = usePathname();
+    // Admin AI assistant (admin_ai_assistant_v1) — the live toggle WITHOUT the super-admin
+    // override; the drawer is UX only, every assistant route re-checks the flag + role.
+    const { rawFlags } = useFeatureFlags();
     // phones: the sidebar opens as a drawer from a top bar (it was simply
     // hidden below md — no way to change screens or log out on a phone)
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -621,6 +634,10 @@ function AdminLayoutInner({
     // authority-manager/vertical-admin/platform_member, who would only be
     // redirected away by that guard.
     const showCityMappingLink = isSuperAdmin || isSystemAdmin;
+    // "שאל את OUT" — root / super admins on the full sidebar only (plan §6.1).
+    const assistantRole: 'root' | 'super' | null = roleInfo?.isRootAdmin ? 'root' : isSuperAdmin ? 'super' : null;
+    const assistantEnabled = rawFlags.adminAiAssistantV1 === true && assistantRole !== null && showFullSidebar;
+    useAssistantShortcut(assistantEnabled);
     const tenantLabels = getTenantLabels(authorityTypeToTenantType(authorityType));
     const verticalAdminVertical = roleInfo?.managedVertical;
     const sectionAllowList: string[] = roleInfo?.allowedSections ?? [];
@@ -991,6 +1008,7 @@ function AdminLayoutInner({
         <div className={shell.shell} dir="rtl" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <AdminSessionSync />
             <SessionHealthBanner />
+            {assistantEnabled && assistantRole && <AdminAssistantDrawer role={assistantRole} />}
             {/* phones: scrim behind the open drawer */}
             {mobileNavOpen && (
                 <button type="button" aria-label="סגור תפריט" className={shell.scrim} onClick={() => setMobileNavOpen(false)} />
@@ -1005,6 +1023,7 @@ function AdminLayoutInner({
                     <X size={20} />
                 </button>
                 <BrandBlock meta={isLocalManager && authorityName ? `פורטל ניהול: ${authorityName}` : undefined} />
+                {assistantEnabled && <AssistantLauncher variant="sidebar" />}
 
                 <nav className="p-2 md:p-3 flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-thin">
                     {showSimplifiedSidebar ? (
@@ -1276,6 +1295,7 @@ function AdminLayoutInner({
                         open={mobileNavOpen}
                         onOpen={() => setMobileNavOpen(true)}
                         meta={isLocalManager && authorityName ? authorityName : undefined}
+                        assistant={assistantEnabled}
                     />
                     {children}
                 </main>
@@ -1285,6 +1305,7 @@ function AdminLayoutInner({
                         open={mobileNavOpen}
                         onOpen={() => setMobileNavOpen(true)}
                         meta={isLocalManager && authorityName ? authorityName : undefined}
+                        assistant={assistantEnabled}
                     />
                     <div
                         className={`${shell.sheet} p-4 md:p-8 pb-16 text-slate-900`}
@@ -1339,13 +1360,14 @@ function BrandBlock({ meta }: { meta?: string }) {
 }
 
 /** phones only (hidden from md up): the wordmark + the button that opens the sidebar drawer */
-function MobileBar({ open, onOpen, meta }: { open: boolean; onOpen: () => void; meta?: string }) {
+function MobileBar({ open, onOpen, meta, assistant }: { open: boolean; onOpen: () => void; meta?: string; assistant?: boolean }) {
     return (
         <div className={shell.mobileBar}>
             <span className={shell.brand}>
                 <span className={shell.brandMark}>OUT</span>
                 <span className={shell.brandSub}>{meta ?? 'ניהול'}</span>
             </span>
+            {assistant && <AssistantLauncher variant="icon" />}
             <button
                 type="button"
                 className={shell.menuButton}
