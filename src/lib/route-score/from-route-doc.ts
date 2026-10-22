@@ -8,7 +8,7 @@ import { decideRouteAccuracy } from '../route-decisions/decide-accuracy';
 import { classifyRouteGenerator } from '../route-collections/route-generator';
 import { isOfficialOperator } from '../trail-graph/difficulty';
 import { haversineM } from '../route-quality/geo';
-import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier } from './types';
+import type { CertificateVerdict, LngLat, ParkRef, RouteScoreInput, ScoreShape, SourceTier, UrbanRouteKind } from './types';
 import { CORRIDOR_NAME_PATTERN, NAMED_PLACE_PATTERN } from './weights';
 import { classifySurface, surfaceSharesFromDoc } from './surface-class';
 import type { RouteShade } from '../shade/route-shade';
@@ -79,6 +79,23 @@ export function deriveSourceTier(d: Doc): SourceTier {
   if (origin === 'authority_admin' || origin === 'super_admin') return 'osm_named';
   if (NAMED_PLACE_PATTERN.test(name)) return 'named_place';
   return 'unknown';
+}
+
+/**
+ * RC9 urban floor eligibility: named corridors (OSM named ways), park loops
+ * (perimeter / known — never GraphHopper inner loops), known routes from web
+ * research and bike-adjacent walks. Generated loops never qualify.
+ */
+export function deriveUrbanKind(d: Doc, tier: SourceTier, shape: ScoreShape | null, hasParkRef: boolean): UrbanRouteKind | null {
+  const origin = d?.origin;
+  if (origin === 'bike_adjacent_walk') return 'bike_adjacent';
+  if (origin === 'web_research') return 'known_route';
+  if (origin === 'osm_named_way') return 'named_corridor';
+  if (origin === 'park_loop') return d?.parkLoopKind === 'inner' ? null : 'park_loop';
+  if (tier === 'generated' || tier === 'official' || tier === 'osm_named') return null;
+  if (hasParkRef || (tier === 'named_place' && shape === 'loop')) return 'park_loop';
+  if (tier === 'named_place' && shape === 'linear_corridor') return 'named_corridor';
+  return null;
 }
 
 function parseParkRef(v: unknown): ParkRef | null {
@@ -179,6 +196,9 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
   const shadeMeasure = opts.shade ?? null;
   const shade = num(opts.shadeShare ?? (shadeMeasure?.status === 'measured' ? shadeMeasure.shadeShare : null) ?? d?.qualitySignals?.shade?.shadeShare);
 
+  const shape = deriveShape(d, path);
+  const sourceTier = deriveSourceTier(d);
+  const parkRef = parseParkRef(d?.parkRef);
   return {
     id,
     name: String(d?.name ?? ''),
@@ -187,16 +207,17 @@ export function routeScoreInputFromDoc(id: string, d: Doc, opts: FromDocOptions 
     activityType,
     distanceKm,
     path,
-    shape: deriveShape(d, path),
+    shape,
     composition,
     compositionIsProxy,
     litCoveragePct,
     amenitiesHas,
     osmSafety: opts.osmSafety ?? null,
     geometry,
-    sourceTier: deriveSourceTier(d),
+    sourceTier,
+    urbanKind: deriveUrbanKind(d, sourceTier, shape, !!parkRef),
     greenShare: opts.greenShare ?? null,
-    parkRef: parseParkRef(d?.parkRef),
+    parkRef,
     hasFitnessStop,
     certificate,
     surface,
