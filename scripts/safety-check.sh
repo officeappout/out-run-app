@@ -173,6 +173,11 @@ AUTHORIZED_ROUTE_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  # Admin AI assistant wave 3 (22.10.2026): READ-ONLY counts of official_routes /
+  # climb_segments waiting for approval (same filters as the approval center page).
+  # No write verb in the file; also on the migrated list below so any future write
+  # there must use buildValidatedDoc.
+  "src/lib/admin-analytics/pending-approvals.server.ts"
 )
 MIGRATED_CHOKEPOINT_WRITERS=(
   "src/features/parks/core/services/inventory.service.ts"
@@ -197,6 +202,7 @@ MIGRATED_CHOKEPOINT_WRITERS=(
   # official_routes/curated_routes docs with no authorityId — buildValidatedDoc
   # update mode at the write site, updateTime precondition, never creates.
   "scripts/routes-nationwide/lib/authority-apply.node.ts"
+  "src/lib/admin-analytics/pending-approvals.server.ts"
 )
 
 ROUTE_COLLECTION_PATTERN="\.collection\([^)]*['\"](official_routes|curated_routes|climb_segments|street_segments|route_adjacency)['\"]"
