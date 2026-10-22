@@ -4,12 +4,6 @@
  */
 import type { DayFilter } from '@/features/parks/core/hooks/useCommunityEnrichment';
 
-export const DAY_FILTER_LABELS: Record<DayFilter, string> = {
-  today: 'היום',
-  tomorrow: 'מחר',
-  week: 'השבוע',
-};
-
 export const DAY_FILTERS: DayFilter[] = ['today', 'tomorrow', 'week'];
 
 export const DRAWER_HEIGHT = '92vh';
@@ -23,10 +17,10 @@ export const DRAWER_HEIGHT = '92vh';
 export const PEEK_Y_PX = typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.07) : 57;
 export const CLOSE_THRESHOLD = 120;
 
-export const FACILITY_LABELS: Record<string, string> = {
-  gym_park: 'גינת כושר', court: 'מגרש ספורט', route: 'מסלול',
-  zen_spot: 'פינת גוף-נפש', urban_spot: 'אורבן / אקסטרים', nature_community: 'טבע וקהילה',
-};
+/** Facility types with a category-badge label (map.json `parkDetail.facility`); any other value renders raw. */
+export const FACILITY_TYPE_IDS: readonly string[] = [
+  'gym_park', 'court', 'route', 'zen_spot', 'urban_spot', 'nature_community',
+];
 
 /**
  * Rotating curiosity lines for the primary CTA, replacing the static

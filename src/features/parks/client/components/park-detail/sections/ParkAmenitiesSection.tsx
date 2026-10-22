@@ -4,6 +4,8 @@ import type { Park } from '@/features/parks/core/types/park.types';
 import IconChip from '../IconChip';
 import { AMENITY_ICON_MAP, AMENITY_DISPLAY_ORDER } from '../amenity-icons';
 import { sectionTitleClass } from './section-styles';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 /**
  * AMENITIES — "פירוט על הפארק": the wider park context (shade, lighting,
@@ -12,9 +14,10 @@ import { sectionTitleClass } from './section-styles';
  * SVG asset → lucide vector → emoji placeholder (see `amenity-icons.ts`).
  */
 export default function ParkAmenitiesSection({ park, v2 }: { park: Park; v2: boolean }) {
+  const t = useT(mapNs);
   return (
     <section className="mb-6">
-      <h3 className={sectionTitleClass(v2)}>פירוט על הפארק</h3>
+      <h3 className={sectionTitleClass(v2)}>{t('parkDetail.amenities.title')}</h3>
       {park.featureTags && park.featureTags.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {AMENITY_DISPLAY_ORDER
@@ -35,7 +38,7 @@ export default function ParkAmenitiesSection({ park, v2 }: { park: Park; v2: boo
         </div>
       ) : (
         <div className="text-center py-4 bg-gray-50 dark:bg-slate-800/30 rounded-xl">
-          <p className="text-sm text-gray-400">לא צוינו תכונות</p>
+          <p className="text-sm text-gray-400">{t('parkDetail.amenities.empty')}</p>
         </div>
       )}
     </section>

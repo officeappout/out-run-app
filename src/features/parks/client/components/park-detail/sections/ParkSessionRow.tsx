@@ -4,6 +4,8 @@ import { Users, RefreshCw, Check } from 'lucide-react';
 import type { SessionEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import type { ProfileUser } from '../../UserProfileSheet';
 import { sessionRowTimeLabel } from '../utils/park-detail-format';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkSessionRowProps {
   ev: SessionEnrichment;
@@ -23,6 +25,7 @@ interface ParkSessionRowProps {
  * read-on-mount confirmation that survives refresh).
  */
 export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwnArrival, onJoin, onOpenProfile }: ParkSessionRowProps) {
+  const t = useT(mapNs);
   const timeLabel = sessionRowTimeLabel(ev.nextStartTime);
   const count = Math.max(1, ev.currentRegistrations ?? 0);
 
@@ -32,7 +35,7 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
     >
       <span className={v2 ? 'min-w-[48px] text-[13px] font-extrabold tabular-nums text-v2-muted' : 'text-[11px] font-black text-emerald-700 min-w-[40px] text-center'} dir="ltr">{timeLabel}</span>
       <span className={v2 ? 'flex-1 truncate text-[14.5px] font-extrabold text-v2-ink' : 'flex-1 text-xs font-bold text-emerald-800 truncate'}>
-        {ev.isRecurring ? 'קבוצתי' : ev.eventLabel}
+        {ev.isRecurring ? t('parkDetail.session.group') : ev.eventLabel}
       </span>
       {ev.isRecurring && <RefreshCw size={10} className="text-emerald-400 flex-shrink-0" />}
       {!ev.isPersonalArrival && (
@@ -50,13 +53,13 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
         isOwnArrival ? (
           <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
             <Check size={10} />
-            פרסמת
+            {t('parkDetail.session.published')}
           </span>
         ) : null
       ) : alreadyJoined ? (
         <span className="flex-shrink-0 px-2.5 py-1 border border-emerald-500 text-emerald-600 rounded-md text-[10px] font-bold flex items-center gap-0.5">
           <Check size={10} />
-          נרשמת
+          {t('parkDetail.session.joined')}
         </span>
       ) : (
         <button
@@ -64,7 +67,7 @@ export default function ParkSessionRow({ ev, v2, isJoining, alreadyJoined, isOwn
           disabled={isJoining || ev.spotsLeft === 0}
           className="flex-shrink-0 px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-[10px] font-bold transition-colors"
         >
-          {isJoining ? '...' : 'הצטרף'}
+          {isJoining ? '...' : t('parkDetail.session.join')}
         </button>
       )}
     </div>

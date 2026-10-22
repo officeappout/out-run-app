@@ -4,7 +4,9 @@ import type { ReactNode } from 'react';
 import { Calendar, Users } from 'lucide-react';
 import type { DayFilter, SessionEnrichment } from '@/features/parks/core/hooks/useCommunityEnrichment';
 import type { ProfileUser } from '../../UserProfileSheet';
-import { DAY_FILTERS, DAY_FILTER_LABELS } from '../utils/park-detail-format';
+import { DAY_FILTERS } from '../utils/park-detail-format';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 import { totalParkAttendees } from '../utils/park-detail-logic';
 import ParkSessionRow from './ParkSessionRow';
 
@@ -44,12 +46,13 @@ export default function ParkPulseSection({
   onOpenProfile,
   publishPanel,
 }: ParkPulseSectionProps) {
+  const t = useT(mapNs);
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className={v2 ? 'flex items-center gap-1.5 text-[17px] font-black text-v2-ink' : 'text-[15px] font-bold text-gray-900 dark:text-white flex items-center gap-1.5'}>
           {v2 ? <Users size={18} strokeWidth={2.4} className="text-v2-deep" /> : <Calendar size={14} className="text-emerald-500" />}
-          <span>{v2 ? 'מתאמנים כאן' : 'מתאמנים'}</span>
+          <span>{v2 ? t('parkDetail.pulse.titleHere') : 'מתאמנים' /* i18n-allow-hebrew: legacy v1 (enable_home_v2 on) */}</span>
           {parkEvents.length > 0 && (
             <span className="bg-emerald-500 text-white text-[9px] font-black rounded-full w-[18px] h-[18px] flex items-center justify-center ms-0.5">
               {totalParkAttendees(parkEvents)}
@@ -69,7 +72,7 @@ export default function ParkPulseSection({
                     }`
               }
             >
-              {DAY_FILTER_LABELS[f]}
+              {t('parkDetail.dayFilter', { filter: f })}
             </button>
           ))}
         </div>

@@ -4,7 +4,9 @@ import { motion, type MotionValue } from 'framer-motion';
 import { X, MapPin } from 'lucide-react';
 import { bunnyImg } from '@/lib/bunny-image';
 import type { Park } from '@/features/parks/core/types/park.types';
-import { FACILITY_LABELS } from '../utils/park-detail-format';
+import { FACILITY_TYPE_IDS } from '../utils/park-detail-format';
+import { useT } from '@/hooks/useT';
+import { map as mapNs } from '@/messages/ns/map';
 
 interface ParkHeroProps {
   park: Park;
@@ -18,6 +20,7 @@ interface ParkHeroProps {
 
 /** Scroll-collapsing hero image + close control, then the title block. */
 export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, imageScale, heroControlsPointerEvents }: ParkHeroProps) {
+  const t = useT(mapNs);
   return (
     <>
       {/* Hero image — overflow-hidden prevents bleed on overscroll */}
@@ -72,7 +75,7 @@ export default function ParkHero({ park, v2, onClose, heroHeight, imageOpacity, 
                 : 'inline-block mb-2 px-3 py-1 bg-cyan-500/90 backdrop-blur-sm text-white text-[10px] font-black rounded-full shadow-sm'
             }
           >
-            {FACILITY_LABELS[park.facilityType] || park.facilityType}
+            {FACILITY_TYPE_IDS.includes(park.facilityType) ? t('parkDetail.facility', { type: park.facilityType }) : park.facilityType}
           </span>
         )}
         <h1 className={v2 ? 'whitespace-normal text-[26px] font-black leading-[1.08] !tracking-[-0.02em] text-v2-ink' : 'text-[22px] font-black text-gray-900 dark:text-white leading-tight whitespace-normal'}>
