@@ -25,7 +25,7 @@ vi.mock('firebase/firestore', () => ({
   }),
   getDocs: vi.fn(async (q: { col?: string } | undefined) => {
     const docs = (q?.col && state.QUERY_DOCS[q.col]) || [];
-    return { empty: docs.length === 0, docs: docs.map((d, i) => ({ id: String(i), data: () => d })) };
+    return { empty: docs.length === 0, docs: docs.map((d, i) => ({ id: d.__id ?? String(i), data: () => d })) };
   }),
   query: (c: { col: string }) => c,
   where: vi.fn(),
@@ -150,5 +150,26 @@ describe('flag ON (panel switch)', () => {
     // L2 rule carried to L3: 4% base × (3 capped sets / 6)
     expect(r.activeProgramGain.baseGain).toBeCloseTo(2);
     expect(r.activeProgramGain.adminBonuses?.countedSets).toBe(3);
+  });
+
+  it('goals saved under the program DOC ID (admin) pay for a slug track key; OFF misses them', async () => {
+    // the generator converts slug → doc id (home-workout.service.ts); the admin saves goals by doc id
+    const DOC_ID = 'J0fLpmJhG0KDN2tQouxh';
+    const run = async (on: boolean) => {
+      state.ADMIN_FLAG = on;
+      __resetProgressionRuleCacheForTests();
+      __clearPlsCacheForTests();
+      seed({ totalWorkoutsCompleted: 4, completedGoalIds: [], levelSessions: 2 });
+      state.DOCS[`programLevelSettings/${DOC_ID}_level_3`] = state.DOCS['programLevelSettings/push_level_3'];
+      delete state.DOCS['programLevelSettings/push_level_3'];
+      state.QUERY_DOCS = { programs: [{ __id: DOC_ID, name: 'דחיפה', slug: 'push', movementPattern: 'push' }] };
+      return processWorkoutCompletion(workout() as any);
+    };
+    const on = await run(true);
+    expect(on.activeProgramGain.goalBonusGain).toBe(5);
+    expect(on.activeProgramGain.newlyCompletedGoalIds).toEqual(['ex1']);
+    expect(on.goalProgress.map((g) => g.exerciseId)).toEqual(['ex1']);
+    const off = await run(false);
+    expect(off.activeProgramGain.goalBonusGain).toBe(0);
   });
 });

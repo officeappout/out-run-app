@@ -2526,7 +2526,10 @@ export async function processWorkoutCompletion(
     // ✅ LEVEL GOAL PROGRESS: Persist detailed goal performance so the Home
     //    dashboard can render real checkmarks (not just track-level IDs).
     try {
-      const levelSettings = await getProgramLevelSetting(activeProgramId, leveledUp ? currentLevel : newLevel);
+      const goalsLevel = leveledUp ? currentLevel : newLevel;
+      const levelSettings = adminRules
+        ? await loadLevelSettingsForGoals(activeProgramId, goalsLevel, slugMap)
+        : await getProgramLevelSetting(activeProgramId, goalsLevel);
       const allGoals: LevelGoal[] = levelSettings?.targetGoals || [];
       if (allGoals.length > 0) {
         const goalProgressEntries = allGoals.map((goal) => {
@@ -2643,7 +2646,9 @@ export async function processWorkoutCompletion(
     // 2. Goal Progress — detailed per-goal breakdown
     const goalProgress: import('../../core/types/progression.types').GoalProgressEntry[] = [];
     try {
-      const levelSettingsForGoals = await getProgramLevelSetting(activeProgramId, currentLevel);
+      const levelSettingsForGoals = adminRules
+        ? await loadLevelSettingsForGoals(activeProgramId, currentLevel, slugMap)
+        : await getProgramLevelSetting(activeProgramId, currentLevel);
       const goalsForReport: LevelGoal[] = levelSettingsForGoals?.targetGoals || [];
       for (const goal of goalsForReport) {
         const match = exercises.find(
