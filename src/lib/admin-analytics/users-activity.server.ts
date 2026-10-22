@@ -121,7 +121,7 @@ export function computeSignups(users: SlimUser[], input: SignupsInput, now: Date
 
   const labels = bucketLabels(keys, input.groupBy);
   const series = new Map<string, number>();
-  for (const l of new Set(labels.values())) series.set(l, 0);
+  for (const l of Array.from(new Set(labels.values()))) series.set(l, 0);
   now_.forEach((u) => series.set(labels.get(u.signupDay as string)!, (series.get(labels.get(u.signupDay as string)!) ?? 0) + 1));
 
   const city = new Map<string, number>();
@@ -238,7 +238,7 @@ export function computeWorkouts(rows: WorkoutRow[], input: { days: number }, now
   const previous = period((r) => prevKeys.has(r.day));
   const labels = bucketLabels(keys, input.days <= 31 ? 'day' : 'week');
   const series = new Map<string, number>();
-  for (const l of new Set(labels.values())) series.set(l, 0);
+  for (const l of Array.from(new Set(labels.values()))) series.set(l, 0);
   const types = new Map<WorkoutKind, number>();
   let notCounted = 0;
   for (const r of rows) {
