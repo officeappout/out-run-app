@@ -21,6 +21,7 @@ import {
   assertAiBudget,
   checkAiRateLimit,
   createAiMessage,
+  getAdminAnthropicClient,
   getAiModel,
   recordAiUsage,
   withPromptCaching,
@@ -39,6 +40,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.AI_MODEL_FAST;
   delete process.env.AI_MODEL_SMART;
+  delete process.env.AI_MODEL_ADMIN;
+  delete process.env.ANTHROPIC_API_KEY_ADMIN;
 });
 
 describe('getAiModel', () => {
@@ -49,6 +52,30 @@ describe('getAiModel', () => {
   it('env overrides', () => {
     process.env.AI_MODEL_FAST = 'claude-haiku-x';
     expect(getAiModel('fast')).toBe('claude-haiku-x');
+  });
+  it('admin tier: Sonnet 5.5 by default, AI_MODEL_ADMIN only — never moved by AI_MODEL_SMART', () => {
+    expect(getAiModel('admin')).toBe('claude-sonnet-5-5');
+    process.env.AI_MODEL_SMART = 'claude-opus-5-5';
+    expect(getAiModel('admin')).toBe('claude-sonnet-5-5');
+    process.env.AI_MODEL_ADMIN = ' claude-opus-5-5 ';
+    expect(getAiModel('admin')).toBe('claude-opus-5-5');
+    expect(getAiModel('smart')).toBe('claude-opus-5-5');
+  });
+});
+
+describe('getAdminAnthropicClient (fail closed, no fallback to the app key)', () => {
+  it('missing or blank ANTHROPIC_API_KEY_ADMIN → null, even when ANTHROPIC_API_KEY is set', () => {
+    const prev = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'app-key-placeholder';
+    expect(getAdminAnthropicClient()).toBeNull();
+    process.env.ANTHROPIC_API_KEY_ADMIN = '   ';
+    expect(getAdminAnthropicClient()).toBeNull();
+    if (prev === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = prev;
+  });
+  it('present → a client', () => {
+    process.env.ANTHROPIC_API_KEY_ADMIN = 'admin-key-placeholder';
+    expect(getAdminAnthropicClient()).not.toBeNull();
   });
 });
 
