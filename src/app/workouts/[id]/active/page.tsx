@@ -2120,6 +2120,14 @@ export default function ActiveWorkoutPage() {
         saveState={levelup.saveState}
         onLevelUp={(level) => celebrate(`levelup_${userProgression.programId}_${level}`)}
         onContinue={handleDopamineComplete}
+        // enable_workout_insights_v1 — the lemur's line (gates itself; same inputs as the summary).
+        insight={{
+          durationSec: workoutStats.duration,
+          completedExercises: workoutStats.completedExercises,
+          rawLog: workoutStats.rawExerciseLog,
+          segments: stableWorkoutPlan.segments,
+          previousSets: exerciseHistoryMap,
+        }}
       />
     );
   }
