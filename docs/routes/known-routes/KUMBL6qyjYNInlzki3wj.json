@@ -1,0 +1,6 @@
+{"authorityId":"KUMBL6qyjYNInlzki3wj","city":"מטה אשר","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל יחיעם","aliases":["סינגל יחיעם המחודש"],"kind":"bike","lengthKm":27,"inPark":null,"description":"לולאה בינונית ביער יחיעם, מחניון השיירה ליד צומת כברי","sources":[{"url":"https://www.kkl.org.il/bike/trips/1970/","title":"סינגל יחיעם - קק\"ל"}]},
+{"name":"סינגל כברי","aliases":[],"kind":"bike","lengthKm":16,"inPark":null,"description":"לולאה בינונית מזרחית לנהריה, מחניון אנדרטת שיירת יחיעם","sources":[{"url":"https://www.kkl.org.il/bike/trips/1971/","title":"סינגל כברי - קק\"ל"}]},
+{"name":"סינגל יער חניתה","aliases":[],"kind":"bike","lengthKm":16.5,"inPark":null,"description":"סינגל בינוני ביער חניתה מחניון שלומי, מתחבר לסינגל מצובה","sources":[{"url":"https://www.kkl.org.il/bike/trips/2755/","title":"סינגל יער חניתה - קק\"ל"}]},
+{"name":"סינגל מצובה","aliases":[],"kind":"bike","lengthKm":12,"inPark":null,"description":"סינגל קל סביב קיבוץ מצובה, מתחבר לסינגל יער חניתה","sources":[{"url":"https://www.kkl.org.il/bike/trips/2754/","title":"סינגל מצובה - קק\"ל"}]}
+]}

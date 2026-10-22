@@ -1,0 +1,7 @@
+{"authorityId":"IpaTTbTGgxniStzWl03l","city":"מגידו","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל גחר","aliases":["הלולאה הכחולה גחר"],"kind":"bike","lengthKm":16,"inPark":null,"description":"הלולאה הכחולה של שביל האופניים השופט-גחר ברמות מנשה, ליד עין השופט","sources":[{"url":"https://www.kkl.org.il/bike/trips/1998/","title":"שביל האופניים השופט-גחר - קק\"ל"}]},
+{"name":"סינגל השופט","aliases":["סינגל נחל השופט"],"kind":"bike","lengthKm":14,"inPark":null,"description":"הלולאה הצהובה של שביל השופט-גחר, מחניון החרובים בנחל השופט","sources":[{"url":"https://www.kkl.org.il/bike/trips/1998/","title":"שביל האופניים השופט-גחר - קק\"ל"}]},
+{"name":"נחל השופט - המסלול הנגיש","aliases":["נחל השופט מסלול משפחות"],"kind":"walk","lengthKm":2,"inPark":null,"description":"לולאה קלה ונגישה לעגלות לאורך נחל השופט מחניון החרובים","sources":[{"url":"https://www.weekend.co.il/track.aspx?id=5906","title":"נחל השופט טיול משפחות מעגלי קל - weekend"}]},
+{"name":"שביל מגידו","aliases":[],"kind":"walk","lengthKm":70,"inPark":null,"description":"שביל אזורי ארוך בסימון לבן-סגול-לבן בין יישובי רמות מנשה, יוצא ומסתיים בצומת מגידו","sources":[{"url":"https://www.ias.co.il/?p=137496","title":"שביל מטיילים חדש נולד: שביל מגידו"}]},
+{"name":"שביל סובב דליה","aliases":["סובב דליה"],"kind":"walk","lengthKm":5,"inPark":null,"description":"שביל מעגלי סביב קיבוץ דליה ברמות מנשה, מחולק למקטעים שמתחזקות משפחות הקיבוץ","sources":[{"url":"https://www.hamichlol.org.il/%D7%A9%D7%91%D7%99%D7%9C_%D7%A1%D7%95%D7%91%D7%91_%D7%93%D7%9C%D7%99%D7%94","title":"שביל סובב דליה - המכלול"}]}
+]}
