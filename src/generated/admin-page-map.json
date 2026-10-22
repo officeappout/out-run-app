@@ -1,0 +1,2867 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "href": "/admin",
+      "path": "/admin",
+      "title": "דשבורד ראשי",
+      "titleSource": "sidebar",
+      "section": "strategy",
+      "sectionLabel": "אסטרטגיה / קלי",
+      "group": null,
+      "description": "The panel home — \"מה קורה היום ומה מחכה לי\" (audit 15.10.2026).",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "strategy"
+      ],
+      "navigable": true,
+      "id": "admin",
+      "synonyms": [
+        "בית",
+        "דף הבית",
+        "דשבורד",
+        "מסך ראשי",
+        "סקירה"
+      ]
+    },
+    {
+      "href": "/admin/access-codes",
+      "path": "/admin/access-codes",
+      "title": "קודי גישה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner"
+      ],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/access-codes",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/admin-directory",
+      "path": "/admin/admin-directory",
+      "title": "ספריית מנהלים",
+      "titleSource": "h1",
+      "section": "crm",
+      "sectionLabel": "CRM / מכירות",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "crm"
+      ],
+      "navigable": true,
+      "id": "admin/admin-directory",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/admins-management",
+      "path": "/admin/admins-management",
+      "title": "ניהול מנהלי מערכת",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/admins-management",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/agents",
+      "path": "/admin/agents",
+      "title": "פאנל סוכנים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": "rootAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/agents",
+      "synonyms": [
+        "סוכנים",
+        "בוטים",
+        "אוטומציות"
+      ]
+    },
+    {
+      "href": "/admin/ai-coach/kelly",
+      "path": "/admin/ai-coach/kelly",
+      "title": "קלי · ממתינים למענה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/ai-coach/kelly — \"קלי · ממתינים למענה\": the team's side of unified Kelly (flag kelly_unified_v1).",
+      "params": [],
+      "audience": "superOrRoot",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/ai-coach/kelly",
+      "synonyms": [
+        "קלי",
+        "צאט קלי",
+        "הודעות ממתינות"
+      ]
+    },
+    {
+      "href": "/admin/ai-coach/proactive",
+      "path": "/admin/ai-coach/proactive",
+      "title": "קלי · הודעות יזומות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/ai-coach/proactive — \"קלי · הודעות יזומות\" (Kelly phase 3, flag ai_coach_proactive): sends per day by trigger, a per-user preview (\"what would Kelly s…",
+      "params": [],
+      "audience": "superOrRoot",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/ai-coach/proactive",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/ai-coach/reviews",
+      "path": "/admin/ai-coach/reviews",
+      "title": "שיחות קלי",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/ai-coach/reviews",
+      "synonyms": [
+        "ביקורת שיחות",
+        "איכות קלי"
+      ]
+    },
+    {
+      "href": "/admin/analytics",
+      "path": "/admin/analytics",
+      "title": "משפך המרות ואנליטיקס",
+      "titleSource": "h1",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": "Growth Hub — Dynamic Conversion Funnel Dashboard Renders a 6-stage acquisition → retention funnel sliced by marketing attribution and demographics.",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "product"
+      ],
+      "navigable": true,
+      "id": "admin/analytics",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/approval-center",
+      "path": "/admin/approval-center",
+      "title": "מרכז אישורים",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/approval-center",
+      "synonyms": [
+        "אישורים",
+        "ממתינים לאישור",
+        "מסלולים לאישור",
+        "תור אישורים",
+        "בקשות"
+      ]
+    },
+    {
+      "href": "/admin/assessment-rules",
+      "path": "/admin/assessment-rules",
+      "title": "מנוע כללים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/assessment-rules",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/audit-equipment",
+      "path": "/admin/audit-equipment",
+      "title": "ביקורת ציוד בתרגילים",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/audit-equipment",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/audit-logs",
+      "path": "/admin/audit-logs",
+      "title": "יומן ביקורת",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/audit-logs",
+      "synonyms": [
+        "לוג",
+        "יומן",
+        "מי שינה"
+      ]
+    },
+    {
+      "href": "/admin/auth/callback",
+      "path": "/admin/auth/callback",
+      "title": "callback",
+      "titleSource": "folder",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": false,
+      "id": "admin/auth/callback",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authorities",
+      "path": "/admin/authorities",
+      "title": "ניהול רשויות",
+      "titleSource": "sidebar",
+      "section": "crm",
+      "sectionLabel": "CRM / מכירות",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "crm",
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/authorities",
+      "synonyms": [
+        "טבלת כל הערים",
+        "כל הערים",
+        "ערים",
+        "רשויות",
+        "עיריות",
+        "לקוחות",
+        "CRM",
+        "צנרת",
+        "פייפליין",
+        "pipeline"
+      ]
+    },
+    {
+      "href": "/admin/authorities/[id]",
+      "path": "/admin/authorities/[id]",
+      "title": "ניהול רשויות · פרטים",
+      "titleSource": "parent",
+      "section": "crm",
+      "sectionLabel": "CRM / מכירות",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "crm",
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/authorities/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authorities/new",
+      "path": "/admin/authorities/new",
+      "title": "ניהול רשויות · חדש",
+      "titleSource": "parent",
+      "section": "crm",
+      "sectionLabel": "CRM / מכירות",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "crm",
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/authorities/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority-login",
+      "path": "/admin/authority-login",
+      "title": "authority login",
+      "titleSource": "folder",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": false,
+      "id": "admin/authority-login",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority-manager",
+      "path": "/admin/authority-manager",
+      "title": "דשבורד אנליטיקה",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": "authorityManagerLink",
+      "scopes": [
+        "authority_manager",
+        "tenant_owner"
+      ],
+      "platformSections": [
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/authority-manager",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/community",
+      "path": "/admin/authority/community",
+      "title": "מרכז קהילה ואירועים",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/community",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/events",
+      "path": "/admin/authority/events",
+      "title": "אירועים",
+      "titleSource": "override",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/events",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/grades",
+      "path": "/admin/authority/grades",
+      "title": "ציוני חנ״ג",
+      "titleSource": "sidebar",
+      "section": "educational",
+      "sectionLabel": "רשת חינוכית",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner"
+      ],
+      "platformSections": [
+        "educational"
+      ],
+      "navigable": true,
+      "id": "admin/authority/grades",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/locations",
+      "path": "/admin/authority/locations",
+      "title": "ניהול מיקומים על המפה",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/locations",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/locations/[id]/edit",
+      "path": "/admin/authority/locations/[id]/edit",
+      "title": "ניהול מיקומים על המפה · עריכה",
+      "titleSource": "parent",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/locations/[id]/edit",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/locations/new",
+      "path": "/admin/authority/locations/new",
+      "title": "ניהול מיקומים על המפה · חדש",
+      "titleSource": "parent",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/locations/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/neighborhoods/[id]",
+      "path": "/admin/authority/neighborhoods/[id]",
+      "title": "שכונה · פרטים",
+      "titleSource": "override",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/neighborhoods/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness",
+      "path": "/admin/authority/readiness",
+      "title": "חיילים ותוצאות",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness/entry",
+      "path": "/admin/authority/readiness/entry",
+      "title": "רישום תוצאות בוחן",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "unit_admin",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness/entry",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness/import",
+      "path": "/admin/authority/readiness/import",
+      "title": "ייבוא תוצאות בוחן",
+      "titleSource": "h1",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness/import",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness/trends",
+      "path": "/admin/authority/readiness/trends",
+      "title": "מגמות",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness/trends",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness/unit/[unitId]",
+      "path": "/admin/authority/readiness/unit/[unitId]",
+      "title": "חיילים ותוצאות · פרטים",
+      "titleSource": "parent",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": "Unit-detail screen (Stage 7, 03.10.2026, 00-MASTER-PLAN.md §13.80) — what opens when clicking a unit row on the dashboard table, or a sub-unit card on this s…",
+      "params": [
+        "unitId"
+      ],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "unit_admin",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness/unit/[unitId]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/readiness/vertical-overview",
+      "path": "/admin/authority/readiness/vertical-overview",
+      "title": "כל החטיבות",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [
+        "military"
+      ],
+      "navigable": true,
+      "id": "admin/authority/readiness/vertical-overview",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/reports",
+      "path": "/admin/authority/reports",
+      "title": "דיווחי תחזוקה",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/authority/reports",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/routes",
+      "path": "/admin/authority/routes",
+      "title": "ניהול מסלולים",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/routes",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/routes/[id]/edit",
+      "path": "/admin/authority/routes/[id]/edit",
+      "title": "עריכת מסלול",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/routes/[id]/edit",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/routes/new",
+      "path": "/admin/authority/routes/new",
+      "title": "ניהול מסלולים · חדש",
+      "titleSource": "parent",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/routes/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/team?type=military",
+      "path": "/admin/authority/team",
+      "title": "ניהול צוות צבאי",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/team?type=military",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/team?type=municipal",
+      "path": "/admin/authority/team",
+      "title": "ניהול צוות רשותי",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/team?type=municipal",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/units?type=educational",
+      "path": "/admin/authority/units",
+      "title": "בתי ספר ושכבות",
+      "titleSource": "sidebar",
+      "section": "educational",
+      "sectionLabel": "רשת חינוכית",
+      "group": null,
+      "description": "Slice D (25.09.2026, §13.28) — a fetch that genuinely fails is 'error', never silently coerced to 0.",
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/units?type=educational",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/units?type=military",
+      "path": "/admin/authority/units",
+      "title": "היררכיית יחידות",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": "Slice D (25.09.2026, §13.28) — a fetch that genuinely fails is 'error', never silently coerced to 0.",
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/units?type=military",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/units?type=municipal",
+      "path": "/admin/authority/units",
+      "title": "שכונות ויישובים",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": "Slice D (25.09.2026, §13.28) — a fetch that genuinely fails is 'error', never silently coerced to 0.",
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/units?type=municipal",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/units/[unitId]",
+      "path": "/admin/authority/units/[unitId]",
+      "title": "יחידה · פרטים",
+      "titleSource": "override",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [
+        "unitId"
+      ],
+      "audience": null,
+      "scopes": [
+        "tenant_owner",
+        "unit_admin",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/units/[unitId]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/authority/users",
+      "path": "/admin/authority/users",
+      "title": "תושבים רשומים",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/authority/users",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/brands",
+      "path": "/admin/brands",
+      "title": "מותגי מתקנים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/brands",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/brands/[id]",
+      "path": "/admin/brands/[id]",
+      "title": "עריכת מותג",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/brands/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/brands/new",
+      "path": "/admin/brands/new",
+      "title": "מותג חדש",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/brands/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/city-mapping",
+      "path": "/admin/city-mapping",
+      "title": "מיפוי עיר",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": "cityMappingLink",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/city-mapping",
+      "synonyms": [
+        "טבלת כל הערים",
+        "כל הערים",
+        "ערים במיפוי",
+        "מוכנות מיפוי",
+        "מיפוי ערים",
+        "מלאי עיר"
+      ]
+    },
+    {
+      "href": "/admin/city-mapping/add",
+      "path": "/admin/city-mapping/add",
+      "title": "הוספת עיר חדשה",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/city-mapping/add",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/community-groups-overview",
+      "path": "/admin/community-groups-overview",
+      "title": "כל הקבוצות במערכת",
+      "titleSource": "sidebar",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/community-groups-overview",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/content",
+      "path": "/admin/content",
+      "title": "תוכן ושאלות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/content — \"תוכן ושאלות\": the ONE source for the website FAQ, the articles and the in-app help (site_content).",
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/content",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/content-matrix",
+      "path": "/admin/content-matrix",
+      "title": "ימי צילום",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "הפקת תוכן",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/content-matrix",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/content-messages",
+      "path": "/admin/content-messages",
+      "title": "ניהול הודעות תוכן",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/content-messages",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/content-status",
+      "path": "/admin/content-status",
+      "title": "כיסוי מדיה לתרגילים",
+      "titleSource": "h1",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/content-status",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/costs",
+      "path": "/admin/costs",
+      "title": "עלויות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/costs — \"עלויות\": what the platform costs per month, per vendor, in ILS.",
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/costs",
+      "synonyms": [
+        "עלויות",
+        "עלות AI",
+        "הוצאות ענן",
+        "חשבון",
+        "כמה עולה"
+      ]
+    },
+    {
+      "href": "/admin/dashboard",
+      "path": "/admin/dashboard",
+      "title": "דשבורד כשירות",
+      "titleSource": "sidebar",
+      "section": "military",
+      "sectionLabel": "ניהול צבאי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager",
+        "tenant_owner",
+        "readiness_chief_officer"
+      ],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/dashboard",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/demo",
+      "path": "/admin/demo",
+      "title": "מרכז הדמו",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/demo — \"מרכז הדמו\" (owner, 20.10.2026): start / stop the demo world live and see what it costs.",
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/demo",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/demo-seed",
+      "path": "/admin/demo-seed",
+      "title": "demo seed",
+      "titleSource": "folder",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/demo-seed",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/exercises",
+      "path": "/admin/exercises",
+      "title": "בנק תרגילים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "תוכן אימונים",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/exercises",
+      "synonyms": [
+        "תרגילים",
+        "מאגר תרגילים"
+      ]
+    },
+    {
+      "href": "/admin/exercises/[id]",
+      "path": "/admin/exercises/[id]",
+      "title": "עריכת תרגיל",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/exercises/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/exercises/new",
+      "path": "/admin/exercises/new",
+      "title": "תרגיל חדש",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/exercises/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/exercises/pull-gap-analysis",
+      "path": "/admin/exercises/pull-gap-analysis",
+      "title": "פערי תרגילי משיכה לפי רמה",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/exercises/pull-gap-analysis",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/exercises/swap-stats",
+      "path": "/admin/exercises/swap-stats",
+      "title": "תרגילים שמחליפים הכי הרבה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "תוכן אימונים",
+      "description": "/admin/exercises/swap-stats — \"תרגילים שמחליפים הכי הרבה\" (soft-adaptation Phase 0, 18.10.2026).",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/exercises/swap-stats",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/finance",
+      "path": "/admin/finance",
+      "title": "כספים",
+      "titleSource": "override",
+      "section": "finance",
+      "sectionLabel": "כספים",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "finance"
+      ],
+      "navigable": true,
+      "id": "admin/finance",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/finance/approvals",
+      "path": "/admin/finance/approvals",
+      "title": "תור אישור חשבוניות",
+      "titleSource": "sidebar",
+      "section": "finance",
+      "sectionLabel": "כספים",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "finance"
+      ],
+      "navigable": true,
+      "id": "admin/finance/approvals",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/finance/expenses",
+      "path": "/admin/finance/expenses",
+      "title": "ספר הוצאות",
+      "titleSource": "sidebar",
+      "section": "finance",
+      "sectionLabel": "כספים",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "finance"
+      ],
+      "navigable": true,
+      "id": "admin/finance/expenses",
+      "synonyms": [
+        "הוצאות",
+        "חשבוניות"
+      ]
+    },
+    {
+      "href": "/admin/gear-definitions",
+      "path": "/admin/gear-definitions",
+      "title": "ציוד אישי",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gear-definitions",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/gear-definitions/[id]",
+      "path": "/admin/gear-definitions/[id]",
+      "title": "ערוך ציוד",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gear-definitions/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/gear-definitions/new",
+      "path": "/admin/gear-definitions/new",
+      "title": "ציוד חדש",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gear-definitions/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/generation-review",
+      "path": "/admin/generation-review",
+      "title": "בקרת אימונים ומסלולים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": "/admin/generation-review — \"בקרת אימונים ומסלולים\": what the nightly generation review found in the sessions the generators showed users (flag enable_generat…",
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/generation-review",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/goal-notes",
+      "path": "/admin/goal-notes",
+      "title": "מה עוד חשוב למשתמשים",
+      "titleSource": "sidebar",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/goal-notes",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/gym-equipment",
+      "path": "/admin/gym-equipment",
+      "title": "ציוד ומתקנים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "תוכן אימונים",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gym-equipment",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/gym-equipment/[id]",
+      "path": "/admin/gym-equipment/[id]",
+      "title": "עריכת מתקן",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gym-equipment/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/gym-equipment/new",
+      "path": "/admin/gym-equipment/new",
+      "title": "מתקן חדש",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/gym-equipment/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/heatmap",
+      "path": "/admin/heatmap",
+      "title": "מפת חום חיה",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [
+        "authority_manager"
+      ],
+      "platformSections": [
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/heatmap",
+      "synonyms": [
+        "מפת חום",
+        "פעילות חיה"
+      ]
+    },
+    {
+      "href": "/admin/insights",
+      "path": "/admin/insights",
+      "title": "תובנות אסטרטגיות",
+      "titleSource": "h1",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "product"
+      ],
+      "navigable": true,
+      "id": "admin/insights",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/journey",
+      "path": "/admin/journey",
+      "title": "מסע משתמש",
+      "titleSource": "sidebar",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "product"
+      ],
+      "navigable": true,
+      "id": "admin/journey",
+      "synonyms": [
+        "אנליטיקה",
+        "סטטיסטיקות",
+        "נתונים",
+        "משפך",
+        "retention",
+        "שימור",
+        "קוהורטות",
+        "נטישה",
+        "אונבורדינג"
+      ]
+    },
+    {
+      "href": "/admin/level-equivalence",
+      "path": "/admin/level-equivalence",
+      "title": "שקילות רמות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/level-equivalence",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/levels",
+      "path": "/admin/levels",
+      "title": "רמות ו־XP",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/levels",
+      "synonyms": [
+        "XP",
+        "רמות",
+        "נקודות"
+      ]
+    },
+    {
+      "href": "/admin/links",
+      "path": "/admin/links",
+      "title": "מרכז קישורים שיווקיים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": "/admin/links — מרכז ניהול קישורים שיווקיים (UTM Registry).",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/links",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/links/[id]",
+      "path": "/admin/links/[id]",
+      "title": "מרכז קישורים שיווקיים · פרטים",
+      "titleSource": "parent",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": "/admin/links/[id] — per-link analytics.",
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/links/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/locations",
+      "path": "/admin/locations",
+      "title": "מיקומים ומסלולים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מפה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/locations",
+      "synonyms": [
+        "פארקים",
+        "גינות כושר",
+        "מסלולים",
+        "מפה"
+      ]
+    },
+    {
+      "href": "/admin/locations/import/[category]",
+      "path": "/admin/locations/import/[category]",
+      "title": "מיקומים ומסלולים · ייבוא",
+      "titleSource": "override",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "category"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/locations/import/[category]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/login",
+      "path": "/admin/login",
+      "title": "OUT RUN",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": false,
+      "id": "admin/login",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/marketing-hub",
+      "path": "/admin/marketing-hub",
+      "title": "תור תוכן",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/marketing-hub",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/master-roadmap",
+      "path": "/admin/master-roadmap",
+      "title": "מפת דרכים מאוחדת",
+      "titleSource": "sidebar",
+      "section": "strategy",
+      "sectionLabel": "אסטרטגיה / קלי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "strategy"
+      ],
+      "navigable": true,
+      "id": "admin/master-roadmap",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/media-library",
+      "path": "/admin/media-library",
+      "title": "כיסוי מדיה לתרגילים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "הפקת תוכן",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/media-library",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/messages",
+      "path": "/admin/messages",
+      "title": "הודעות חכמות",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "תקשורת באפליקציה",
+      "description": "Smart Messages Admin Panel Manage contextual messages that appear throughout the app: - Post-workout celebrations - Re-engagement prompts - Personal record n…",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/messages",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/notifications",
+      "path": "/admin/notifications",
+      "title": "מרכז התראות",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "תקשורת באפליקציה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/notifications",
+      "synonyms": [
+        "פושים",
+        "התראות",
+        "push"
+      ]
+    },
+    {
+      "href": "/admin/notifications/library",
+      "path": "/admin/notifications/library",
+      "title": "ספריית פושים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "תקשורת באפליקציה",
+      "description": "/admin/notifications/library — ספריית פושים.",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/notifications/library",
+      "synonyms": [
+        "ספריית התראות",
+        "נוסחי פוש"
+      ]
+    },
+    {
+      "href": "/admin/organizations",
+      "path": "/admin/organizations",
+      "title": "ארגונים",
+      "titleSource": "sidebar",
+      "section": "crm",
+      "sectionLabel": "CRM / מכירות",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "crm"
+      ],
+      "navigable": true,
+      "id": "admin/organizations",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/parks",
+      "path": "/admin/parks",
+      "title": "ניהול פארקים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/parks",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/parks/[id]/edit",
+      "path": "/admin/parks/[id]/edit",
+      "title": "ניהול פארקים · עריכה",
+      "titleSource": "parent",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/parks/[id]/edit",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/parks/import",
+      "path": "/admin/parks/import",
+      "title": "ייבוא פארקים ומתקנים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/parks/import",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/parks/new",
+      "path": "/admin/parks/new",
+      "title": "ניהול פארקים · חדש",
+      "titleSource": "parent",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/parks/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/pending-approval",
+      "path": "/admin/pending-approval",
+      "title": "ממתין לאישור",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": false,
+      "id": "admin/pending-approval",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/photo-release",
+      "path": "/admin/photo-release",
+      "title": "אישורי צילום",
+      "titleSource": "sidebar",
+      "section": "educational",
+      "sectionLabel": "רשת חינוכית",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "educational"
+      ],
+      "navigable": true,
+      "id": "admin/photo-release",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/pressure-messages",
+      "path": "/admin/pressure-messages",
+      "title": "מסרי לחץ",
+      "titleSource": "sidebar",
+      "section": "municipal",
+      "sectionLabel": "ניהול עירוני",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "municipal"
+      ],
+      "navigable": true,
+      "id": "admin/pressure-messages",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/program-thresholds",
+      "path": "/admin/program-thresholds",
+      "title": "סיפי תוכנית",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/program-thresholds",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/programs",
+      "path": "/admin/programs",
+      "title": "תוכניות אימון",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "תוכן אימונים",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/programs",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/progression-manager",
+      "path": "/admin/progression-manager",
+      "title": "מנהל התקדמות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/progression-manager",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/questionnaire",
+      "path": "/admin/questionnaire",
+      "title": "שאלון אונבורדינג",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/questionnaire",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/roadmap",
+      "path": "/admin/roadmap",
+      "title": "מפת דרכים — פיתוח",
+      "titleSource": "sidebar",
+      "section": "strategy",
+      "sectionLabel": "אסטרטגיה / קלי",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "strategy"
+      ],
+      "navigable": true,
+      "id": "admin/roadmap",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/routes",
+      "path": "/admin/routes",
+      "title": "ניהול מסלולים חכם",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/routes",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/routes/new",
+      "path": "/admin/routes/new",
+      "title": "ניהול מסלולים חכם · חדש",
+      "titleSource": "parent",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": "Super-admin manual route builder.",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/routes/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/routes/quality",
+      "path": "/admin/routes/quality",
+      "title": "איכות מסלולים מעגליים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": "/admin/routes/quality — route-quality audit + A/B (phase 0 of the route quality plan).",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/routes/quality",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/routes/shape-review",
+      "path": "/admin/routes/shape-review",
+      "title": "סיווג צורה — סקירת מסלולים ממתינים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": "/admin/routes/shape-review — the geometric shape-review screen, stage 1 of the plan.",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/routes/shape-review",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running",
+      "path": "/admin/running",
+      "title": "דשבורד ריצה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מנוע ריצה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/3k-program",
+      "path": "/admin/running/import/3k-program",
+      "title": "ייבוא תוכנית שיפור 3 ק״מ + תבניות אימון",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/3k-program",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/5k-program",
+      "path": "/admin/running/import/5k-program",
+      "title": "ייבוא תוכנית שיפור 5 ק״מ + 11 אימונים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/5k-program",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/clean-upload",
+      "path": "/admin/running/import/clean-upload",
+      "title": "ניקוי והעלאת תבניות אינטרוולים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/clean-upload",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/clean-upload-fartlek",
+      "path": "/admin/running/import/clean-upload-fartlek",
+      "title": "ניקוי והעלאת תבניות פארטלק v2",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/clean-upload-fartlek",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/decision-tree",
+      "path": "/admin/running/import/decision-tree",
+      "title": "העלאת עץ החלטות + תבניות Taper",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/decision-tree",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/fix-profiles",
+      "path": "/admin/running/import/fix-profiles",
+      "title": "תיקון פרופילים — שחרור אימונים למתקדמים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/fix-profiles",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/programs",
+      "path": "/admin/running/import/programs",
+      "title": "ייבוא תוכנית ריצה",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/programs",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/rank-hills",
+      "path": "/admin/running/import/rank-hills",
+      "title": "דירוג עוצמה + נעילת גבעות + תיקון Fartlek",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/rank-hills",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/tag-beginners",
+      "path": "/admin/running/import/tag-beginners",
+      "title": "תיוג אימונים למתחילים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/tag-beginners",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/import/workouts",
+      "path": "/admin/running/import/workouts",
+      "title": "ייבוא תבניות אימון",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/import/workouts",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/pace-map",
+      "path": "/admin/running/pace-map",
+      "title": "מפת קצבים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מנוע ריצה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/pace-map",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/programs",
+      "path": "/admin/running/programs",
+      "title": "תוכניות ריצה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מנוע ריצה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/programs",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/programs/[id]",
+      "path": "/admin/running/programs/[id]",
+      "title": "עריכת תוכנית",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/programs/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/programs/[id]/simulate",
+      "path": "/admin/running/programs/[id]/simulate",
+      "title": "סימולטור תוכנית",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/programs/[id]/simulate",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/programs/new",
+      "path": "/admin/running/programs/new",
+      "title": "תוכנית ריצה חדשה",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/programs/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/workouts",
+      "path": "/admin/running/workouts",
+      "title": "תבניות אימונים",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מנוע ריצה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/workouts",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/workouts/[id]",
+      "path": "/admin/running/workouts/[id]",
+      "title": "עריכת אימון",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [
+        "id"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/workouts/[id]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/running/workouts/new",
+      "path": "/admin/running/workouts/new",
+      "title": "אימון ריצה חדש",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/running/workouts/new",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/schools",
+      "path": "/admin/schools",
+      "title": "ניהול בתי ספר וארגונים",
+      "titleSource": "h1",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/schools",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/seed-military-school",
+      "path": "/admin/seed-military-school",
+      "title": "seed military school",
+      "titleSource": "folder",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/seed-military-school",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/seed-sderot",
+      "path": "/admin/seed-sderot",
+      "title": "seed sderot",
+      "titleSource": "folder",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/seed-sderot",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/segments",
+      "path": "/admin/segments",
+      "title": "ייבוא קטעי רחוב מ-OSM",
+      "titleSource": "h1",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/segments",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/signup-failures",
+      "path": "/admin/signup-failures",
+      "title": "כשלי הרשמה",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": "rootAdmin",
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/signup-failures",
+      "synonyms": [
+        "הרשמה נכשלה",
+        "שגיאות הרשמה",
+        "כשלי כניסה"
+      ]
+    },
+    {
+      "href": "/admin/simulator",
+      "path": "/admin/simulator",
+      "title": "סימולטור התראה ← אימון",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "כלי בדיקה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/simulator",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/statistics",
+      "path": "/admin/statistics",
+      "title": "סטטיסטיקה",
+      "titleSource": "h1",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "product"
+      ],
+      "navigable": true,
+      "id": "admin/statistics",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/system-settings",
+      "path": "/admin/system-settings",
+      "title": "הגדרות מערכת",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": "superAdmin",
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/system-settings",
+      "synonyms": [
+        "דגלים",
+        "פיצרים",
+        "מתגים",
+        "feature flags",
+        "הגדרות"
+      ]
+    },
+    {
+      "href": "/admin/unreachable-exercises",
+      "path": "/admin/unreachable-exercises",
+      "title": "תרגילים שלא נשלפים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "כלי בדיקה",
+      "description": "\"תרגילים לא נשלפים\" — Unreachable Exercises David's own proposal (00-PLAN.md §13): a permanent admin tool, not a one-off report, showing live which exercises…",
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/unreachable-exercises",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/users",
+      "path": "/admin/users",
+      "title": "אנשים והרשאות",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "מערכת והרשאות",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/users",
+      "synonyms": [
+        "הרשאות",
+        "מנהלים",
+        "אדמינים",
+        "תפקידים"
+      ]
+    },
+    {
+      "href": "/admin/users/[uid]",
+      "path": "/admin/users/[uid]",
+      "title": "משתמש · פרטים",
+      "titleSource": "override",
+      "section": null,
+      "sectionLabel": null,
+      "group": null,
+      "description": null,
+      "params": [
+        "uid"
+      ],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [],
+      "navigable": true,
+      "id": "admin/users/[uid]",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/users/all",
+      "path": "/admin/users/all",
+      "title": "כל המשתמשים",
+      "titleSource": "sidebar",
+      "section": "product",
+      "sectionLabel": "ניהול מוצר / צמיחה",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "product"
+      ],
+      "navigable": true,
+      "id": "admin/users/all",
+      "synonyms": [
+        "משתמשים",
+        "רשימת משתמשים",
+        "מתאמנים"
+      ]
+    },
+    {
+      "href": "/admin/visual-assessment",
+      "path": "/admin/visual-assessment",
+      "title": "הערכה ויזואלית",
+      "titleSource": "sidebar",
+      "section": "dev",
+      "sectionLabel": "תוכן ומערכת",
+      "group": "רמות והערכה (לפי סדר הזרימה)",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "dev"
+      ],
+      "navigable": true,
+      "id": "admin/visual-assessment",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/web-traffic",
+      "path": "/admin/web-traffic",
+      "title": "תנועה באתר",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/web-traffic",
+      "synonyms": [
+        "אתר",
+        "תנועה",
+        "גוגל אנליטיקס"
+      ]
+    },
+    {
+      "href": "/admin/workout-settings",
+      "path": "/admin/workout-settings",
+      "title": "שפה ותיאורי אימונים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "תקשורת באפליקציה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/workout-settings",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/workout-settings/bulk",
+      "path": "/admin/workout-settings/bulk",
+      "title": "העלאה מרוכזת",
+      "titleSource": "h1",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/workout-settings/bulk",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/workout-settings/status",
+      "path": "/admin/workout-settings/status",
+      "title": "מטריצת כיסוי הודעות",
+      "titleSource": "h1",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": null,
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/workout-settings/status",
+      "synonyms": []
+    },
+    {
+      "href": "/admin/workout-simulator",
+      "path": "/admin/workout-simulator",
+      "title": "סימולטור אימונים",
+      "titleSource": "sidebar",
+      "section": "marketing",
+      "sectionLabel": "שיווק ותוכן",
+      "group": "כלי בדיקה",
+      "description": null,
+      "params": [],
+      "audience": null,
+      "scopes": [],
+      "platformSections": [
+        "marketing"
+      ],
+      "navigable": true,
+      "id": "admin/workout-simulator",
+      "synonyms": []
+    }
+  ]
+}
