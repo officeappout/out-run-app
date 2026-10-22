@@ -2,6 +2,8 @@
 
 import React from 'react';
 import type { GroupParticipant } from '@/features/workout-engine/summary/hooks/useGroupSummaryCtx';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface Props {
   participants: GroupParticipant[];
@@ -26,6 +28,7 @@ export default function ParticipantsBlock({
   compact = false,
   onShowAll,
 }: Props) {
+  const t = useT(summary);
   if (!participants.length) return null;
 
   const displayed = compact ? participants.slice(0, 3) : participants;
@@ -81,15 +84,15 @@ export default function ParticipantsBlock({
                   color: '#1b2220',
                 }}
               >
-                {p.name || 'משתתף'}
+                {p.name || t('participants.nameFallback')}
                 {isCurrentUser && (
-                  <span style={{ fontSize: 10, color: '#1D9E75', marginRight: 4 }}> (את/ה)</span>
+                  <span style={{ fontSize: 10, color: '#1D9E75', marginRight: 4 }}>{t('participants.you')}</span>
                 )}
               </span>
             </div>
 
             <div style={{ textAlign: 'left', fontSize: 12, color: '#5b6664' }}>
-              {p.distanceKm > 0 ? `${p.distanceKm.toFixed(2)} ק״מ` : '--'}
+              {p.distanceKm > 0 ? t('participants.distance', { km: p.distanceKm.toFixed(2) }) : '--'}
               {p.pace > 0 && (
                 <span style={{ color: '#9aa3a1', marginRight: 4 }}>· {formatPace(p.pace)}</span>
               )}
@@ -113,7 +116,7 @@ export default function ParticipantsBlock({
             padding: '6px 0 2px',
           }}
         >
-          עוד {hiddenCount} משתתפים ◄
+          {t('participants.more', { count: String(hiddenCount) })}
         </button>
       )}
     </div>

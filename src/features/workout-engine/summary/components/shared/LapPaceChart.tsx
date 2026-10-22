@@ -5,8 +5,11 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { formatPace } from '@/features/workout-engine/core/utils/formatPace';
 import type { Lap } from '@/features/workout-engine/core/types/session.types';
 import MeasuredChartBox from './MeasuredChartBox';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 export default function LapPaceChart({ laps }: { laps: Lap[] }) {
+  const t = useT(summary);
   const data = laps
     .filter((l) => Number.isFinite(l.splitPace))
     .map((l) => ({ lap: l.lapNumber, pace: l.splitPace }));
@@ -25,13 +28,13 @@ export default function LapPaceChart({ laps }: { laps: Lap[] }) {
       style={{ fontFamily: 'var(--font-simpler)' }}
     >
       <div className="flex items-center justify-between mb-3 px-1">
-        <h3 className="text-sm font-bold text-gray-900">קצב לפי הקפה</h3>
-        <span className="text-[11px] font-semibold text-gray-500">דק׳/ק״מ · נמוך = מהיר</span>
+        <h3 className="text-sm font-bold text-gray-900">{t('lapChart.title')}</h3>
+        <span className="text-[11px] font-semibold text-gray-500">{t('lapChart.unit')}</span>
       </div>
 
       {!hasData ? (
         <div className="h-[150px] flex items-center justify-center">
-          <p className="text-xs text-gray-400">אין נתוני קצב להצגה</p>
+          <p className="text-xs text-gray-400">{t('lapChart.empty')}</p>
         </div>
       ) : (
         <MeasuredChartBox className="w-full aspect-[2/1] min-h-[150px]">
@@ -68,8 +71,8 @@ export default function LapPaceChart({ laps }: { laps: Lap[] }) {
                   background: '#1E293B', border: 'none', borderRadius: 10,
                   fontSize: 11, fontWeight: 700, color: '#fff', padding: '6px 10px',
                 }}
-                formatter={((value: number) => [formatPace(value), 'קצב']) as never}
-                labelFormatter={(lap) => `הקפה ${lap}`}
+                formatter={((value: number) => [formatPace(value), t('lapChart.tooltip.pace')]) as never}
+                labelFormatter={(lap) => t('lapChart.tooltip.lap', { lap: String(lap) })}
                 cursor={{ stroke: '#00ADEF', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
               <Area

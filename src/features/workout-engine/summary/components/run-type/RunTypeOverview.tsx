@@ -6,7 +6,9 @@ import { Card, CardTile, IconTile, MetricRings, ProgramProgressRing, RepPaceTabl
 import SegmentRail from '../../blocks/SegmentRail';
 import type { RunTypeModel } from '../../run-type/run-type.mapping';
 import type { RepTableModel } from '../../v2-summary.mapping';
-import { SPLIT_BAR_COLOR, splitsLegend } from './run-type-ui';
+import { SPLIT_BAR_COLOR, splitsLegendKey } from './run-type-ui';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 /**
  * Home v2 (enable_home_v2) — the run summary's overview tab by workout type
@@ -43,6 +45,7 @@ function OpenSegmentsRow({
   chipTone: 'in' | 'tint';
   onClick: () => void;
 }) {
+  const t = useT(summary);
   return (
     <button
       type="button"
@@ -52,7 +55,7 @@ function OpenSegmentsRow({
       <IconTile icon={icon} tone="run" size="sm" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14.5px] font-black text-v2-ink">{title}</span>
-        <span className="block truncate text-[12px] font-bold text-v2-muted">לפירוט בלשונית מקטעים</span>
+        <span className="block truncate text-[12px] font-bold text-v2-muted">{t('runType.openSegments.hint')}</span>
       </span>
       <span
         className={`inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-[12px] font-extrabold tabular-nums ${
@@ -76,6 +79,7 @@ export default function RunTypeOverview({
   recordSlot,
   onOpenSegments,
 }: RunTypeOverviewProps) {
+  const t = useT(summary);
   const { kind, rings, extras, plan, splits, course } = model;
   return (
     <>
@@ -127,8 +131,8 @@ export default function RunTypeOverview({
       {kind === 'intervals' && repTable && (
         <OpenSegmentsRow
           icon={Activity}
-          title="קצב בכל חזרה"
-          chip={repTable.shortLabel ?? `${repTable.reps} חזרות`}
+          title={t('runType.reps.title')}
+          chip={repTable.shortLabel ?? t('runType.reps.chip', { reps: String(repTable.reps) })}
           chipTone="in"
           onClick={onOpenSegments}
         />
@@ -136,7 +140,7 @@ export default function RunTypeOverview({
 
       {course.length > 0 && (
         <Card padding="md">
-          <div className="mb-2 text-[15px] font-black text-v2-ink">מהלך האימון</div>
+          <div className="mb-2 text-[15px] font-black text-v2-ink">{t('runType.course.title')}</div>
           <SegmentRail items={course.map((c) => ({ id: c.id, type: 'aerobic' as const, label: c.label, detail: c.detail }))} />
         </Card>
       )}
@@ -146,12 +150,12 @@ export default function RunTypeOverview({
           <Card padding="md">
             <RepPaceTable
               variant="chart"
-              title="קצב לכל ק״מ"
+              title={t('runType.splits.chartTitle')}
               rows={splits.rows}
               band={splits.band}
               summaryLabel={splits.fastestLabel}
               barColor={SPLIT_BAR_COLOR}
-              legend={splitsLegend(!!splits.band)}
+              legend={t(splitsLegendKey(!!splits.band))}
             />
           </Card>
         </button>
@@ -160,8 +164,8 @@ export default function RunTypeOverview({
       {kind !== 'intervals' && !splits && lapCount > 0 && (
         <OpenSegmentsRow
           icon={activityType === 'walking' ? Footprints : Activity}
-          title="קצב בכל הקפה"
-          chip={`${lapCount} הקפות`}
+          title={t('runType.laps.title')}
+          chip={t('runType.laps.chip', { count: String(lapCount) })}
           chipTone="tint"
           onClick={onOpenSegments}
         />

@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface Props {
   activityType: 'walking' | 'running';
@@ -79,7 +81,8 @@ function Ring({ value, label, pct, stroke, track, size = 78 }: RingProps) {
 }
 
 export default function AerobicStatRingsBlock({ activityType, pace, duration, calories }: Props) {
-  const paceLabel = activityType === 'walking' ? "ד׳/ק״מ" : 'קצב ממוצע';
+  const t = useT(summary);
+  const paceLabel = t('rings.pace', { activityType });
   const durationMinutes = Math.round(duration / 60);
 
   // Ring fills — relative to reasonable maximums for display purposes
@@ -91,8 +94,8 @@ export default function AerobicStatRingsBlock({ activityType, pace, duration, ca
     <div style={{ display: 'flex', justifyContent: 'space-around', padding: '8px 0' }}>
       {/* v2: one accent family (accent / deep / turquoise) on the tint track */}
       <Ring value={formatPace(pace)} label={paceLabel} pct={pacePct} stroke="#00baf7" track="#eef8fc" />
-      <Ring value={formatDuration(duration)} label="זמן" pct={durationPct} stroke="#0284c7" track="#eef8fc" />
-      <Ring value={calories > 0 ? `${Math.round(calories)}` : '--'} label="קק״ל" pct={caloriesPct} stroke="#00dcd0" track="#eef8fc" />
+      <Ring value={formatDuration(duration)} label={t('rings.time')} pct={durationPct} stroke="#0284c7" track="#eef8fc" />
+      <Ring value={calories > 0 ? `${Math.round(calories)}` : '--'} label={t('rings.calories')} pct={caloriesPct} stroke="#00dcd0" track="#eef8fc" />
     </div>
   );
 }

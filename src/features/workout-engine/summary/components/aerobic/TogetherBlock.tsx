@@ -3,6 +3,8 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 import { IconTile } from '@/components/ui/v2';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface Props {
   collectiveDistanceKm: number;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export default function TogetherBlock({ collectiveDistanceKm, participantCount }: Props) {
+  const t = useT(summary);
   if (collectiveDistanceKm <= 0 && participantCount <= 0) return null;
 
   const distanceStr =
@@ -20,12 +23,12 @@ export default function TogetherBlock({ collectiveDistanceKm, participantCount }
       <div className="flex items-center gap-2.5">
         <IconTile icon={Users} tone="accent" size="sm" className="!bg-white" />
         <span className="text-[14px] font-bold text-v2-ink">
-          {participantCount} {participantCount === 1 ? 'אדם' : 'אנשים'} הלכו יחד
+          {t('together.people', { n: participantCount, count: String(participantCount) })}
         </span>
       </div>
       <div className="flex items-baseline gap-1">
         <span className="text-[20px] font-black tabular-nums tracking-[-0.03em] text-v2-deep">{distanceStr}</span>
-        <span className="text-[12px] font-bold text-v2-deep">ק״מ סה״כ</span>
+        <span className="text-[12px] font-bold text-v2-deep">{t('together.unit')}</span>
       </div>
     </div>
   );

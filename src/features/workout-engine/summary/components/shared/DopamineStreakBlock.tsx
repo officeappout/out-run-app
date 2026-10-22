@@ -2,12 +2,15 @@
 
 import { motion } from 'framer-motion';
 import { Flame } from 'lucide-react';
+import { useT } from '@/hooks/useT';
+import { summary } from '@/messages/ns/summary';
 
 interface DopamineStreakBlockProps {
   streakDays: number;
 }
 
 export default function DopamineStreakBlock({ streakDays }: DopamineStreakBlockProps) {
+  const t = useT(summary);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -23,19 +26,19 @@ export default function DopamineStreakBlock({ streakDays }: DopamineStreakBlockP
           </div>
           <div>
             <div className="text-sm font-bold uppercase tracking-wider text-orange-100 mb-1">
-              רצף ימים
+              {t('streak.label')}
             </div>
             <div className="text-4xl md:text-5xl font-black">
               {streakDays}
             </div>
             <div className="text-sm font-medium text-orange-100 mt-1">
-              ימים ברצף
+              {t('streak.days')}
             </div>
           </div>
         </div>
         <div className="text-right">
           <div className="text-xs font-bold text-orange-100 uppercase tracking-wider">
-            כל הכבוד!
+            {t('streak.praise')}
           </div>
         </div>
       </div>
