@@ -224,17 +224,21 @@ export async function requireSuperAdminApi(request: NextRequest): Promise<NextRe
 
 const KELLY_ROOT_ADMIN_EMAIL = /^(david|office)@appout\.co\.il$/i;
 
+/** A verified PERSON who is a root admin (david@/office@) or a super admin (core.isSuperAdmin). */
+export interface RootOrSuperAdminPerson {
+  uid: string;
+  email: string | null;
+  role: 'root' | 'super';
+}
+
 /**
- * Unified Kelly admin routes (/api/admin/ai-coach/kelly/**): a PERSON who is a super admin
- * (core.isSuperAdmin) or a root admin (david@/office@, same allowlist as firestore.rules'
- * isRootAdmin). No agent-key path on purpose — a reply goes to a real user under Kelly's name,
- * so there must be a person behind it (their uid is logged with every reply).
- *
- *   const gate = await requireKellyTeamAdmin(request);
- *   if (gate instanceof NextResponse) return gate;
- *   gate.uid
+ * The person-only root/super-admin check shared by the Kelly admin routes and the admin-panel
+ * AI assistant. Identity comes from the Bearer ID token, else the admin session cookie — there
+ * is NO agent-key path on purpose (a person must be behind every call; their uid is logged).
+ * Root = the same email allowlist as firestore.rules' isRootAdmin; super = core.isSuperAdmin
+ * on the caller's own users doc. 401 when no admin identity, 403 when neither.
  */
-export async function requireKellyTeamAdmin(request: NextRequest): Promise<{ uid: string } | NextResponse> {
+export async function requireRootOrSuperAdminPerson(request: NextRequest): Promise<RootOrSuperAdminPerson | NextResponse> {
   // Verified identity (uid + email) from the Bearer ID token, else the admin session cookie.
   let who: { uid: string; email: string | null } | null = null;
   const authHeader = request.headers.get('authorization') || '';
@@ -252,11 +256,26 @@ export async function requireKellyTeamAdmin(request: NextRequest): Promise<{ uid
   }
   if (!who) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (who.email && KELLY_ROOT_ADMIN_EMAIL.test(who.email)) return { uid: who.uid };
+  if (who.email && KELLY_ROOT_ADMIN_EMAIL.test(who.email)) return { uid: who.uid, email: who.email, role: 'root' };
   const { getAdminDb } = await import('@/lib/firebase-admin');
   const userSnap = await getAdminDb().collection('users').doc(who.uid).get();
   const core = (userSnap.data()?.core ?? {}) as Record<string, unknown>;
-  if (core.isSuperAdmin === true) return { uid: who.uid };
+  if (core.isSuperAdmin === true) return { uid: who.uid, email: who.email, role: 'super' };
 
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
+
+/**
+ * Unified Kelly admin routes (/api/admin/ai-coach/kelly/**): a PERSON who is a super admin
+ * (core.isSuperAdmin) or a root admin (david@/office@, same allowlist as firestore.rules'
+ * isRootAdmin). No agent-key path on purpose — a reply goes to a real user under Kelly's name,
+ * so there must be a person behind it (their uid is logged with every reply).
+ *
+ *   const gate = await requireKellyTeamAdmin(request);
+ *   if (gate instanceof NextResponse) return gate;
+ *   gate.uid
+ */
+export async function requireKellyTeamAdmin(request: NextRequest): Promise<{ uid: string } | NextResponse> {
+  const gate = await requireRootOrSuperAdminPerson(request);
+  return gate instanceof NextResponse ? gate : { uid: gate.uid };
 }

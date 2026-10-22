@@ -125,6 +125,7 @@ export default defineConfig({
       'tests/trails-apply.emulator.test.ts',
       'tests/firestore-fix-ai-entitlements.rules.test.ts',
       'tests/firestore-ai-coach-threads.rules.test.ts',
+      'tests/firestore-admin-ai-assistant.rules.test.ts',
       // Pace self-correction write path (users.running.paceProfile) — emulator :8089.
       'tests/pace-profile-self-correction.rules.test.ts',
       // Streak kept-gap bridge (Saturday rule / shields) under the existing streaks rule — emulator :8089.
