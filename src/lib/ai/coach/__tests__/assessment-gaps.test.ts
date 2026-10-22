@@ -179,3 +179,28 @@ describe('the "בדוק רמה" chip', () => {
     expect(nudgeStateFrom([], now)).toEqual({ nudgeAllowed: true, opening: true });
   });
 });
+
+describe('deriveAssessmentGaps — hidden skills (lib/hidden-programs)', () => {
+  const resolveSlug = (id: string) => id;
+  it('a hidden skill under an active parent is never suggested', () => {
+    const gaps = deriveAssessmentGaps({
+      profile: {
+        progression: {
+          activePrograms: [{ templateId: 'pull' }],
+          tracks: { pull: { currentLevel: 8 } },
+        },
+      },
+      resolveSlug,
+      subProgramsBySlug: { pull: ['muscle_up', 'front_lever'] },
+    });
+    expect(gaps.map((g) => g.slug)).not.toContain('muscle_up');
+  });
+
+  it('a hidden skill the user has ACTIVE themselves can still be suggested', () => {
+    const gaps = deriveAssessmentGaps({
+      profile: { progression: { activePrograms: [{ templateId: 'muscle_up' }], tracks: {} } },
+      resolveSlug,
+    });
+    expect(gaps.map((g) => g.slug)).toContain('muscle_up');
+  });
+});

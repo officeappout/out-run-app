@@ -61,6 +61,7 @@ export {
   type MechanicalBalance,
   type FilterStageCounts,
 } from './contextual-engine.types';
+import { HIDDEN_PROGRAM_SLUGS } from '@/lib/hidden-programs';
 
 /**
  * Maximum straight arm exercises per session (SA limit)
@@ -92,7 +93,9 @@ export function shouldRelaxSABA(activeProgramFilters: string[]): boolean {
 // Technique-heavy skill tracks that must NOT appear in general strength sessions
 // unless the user has explicitly scheduled that skill as their active program.
 // Extend this array when new advanced skill tracks are introduced.
-const GATED_SKILL_DOMAINS = ['muscle_up'] as const;
+// Hidden skills (lib/hidden-programs: muscle_up, handstand, human_flag) are
+// gated the same way, so their exclusive exercises never reach a normal session.
+const GATED_SKILL_DOMAINS: readonly string[] = Array.from(new Set(['muscle_up', ...Array.from(HIDDEN_PROGRAM_SLUGS)]));
 
 // Baseline strength domains: exercises shared with any of these always pass
 // the gate even if they also belong to a gated skill track (e.g. an exercise
@@ -217,7 +220,7 @@ export class ContextualEngine {
       //   [muscle_up] only, skill active    → passes
       //   [muscle_up, pull]                 → passes (shared with baseline 'pull')
       //   [push] only                       → passes (pure baseline)
-      const hasGatedDomain = (GATED_SKILL_DOMAINS as readonly string[]).some(
+      const hasGatedDomain = GATED_SKILL_DOMAINS.some(
         d => exerciseMatchesProgram(exercise, d),
       );
       if (hasGatedDomain) {
@@ -228,7 +231,7 @@ export class ContextualEngine {
           // Exercise is 100% exclusive to a gated skill track.
           // Allow it only when the specific skill domain is active in this session.
           const activeDomainsSet = new Set(activeDomains ?? []);
-          const skillDomainIsActive = (GATED_SKILL_DOMAINS as readonly string[]).some(
+          const skillDomainIsActive = GATED_SKILL_DOMAINS.some(
             d => exerciseMatchesProgram(exercise, d) && activeDomainsSet.has(d),
           );
           if (!skillDomainIsActive) {

@@ -62,7 +62,7 @@ function dominantName(names: Map<string, number>): string {
 export interface StitchReport { pieces: number; chains: number; kept: number; droppedShort: number }
 
 export function stitchCorridors(lines: DatasetLine[], spec: DatasetSpec, opts: { toleranceM?: number; minLengthM?: number } = {}): { corridors: Corridor[]; report: StitchReport } {
-  const tol = opts.toleranceM ?? JOIN_TOLERANCE_M;
+  const tol = opts.toleranceM ?? spec.joinToleranceM ?? JOIN_TOLERANCE_M;
   const minLen = opts.minLengthM ?? MIN_CORRIDOR_M;
   const pieces: Piece[] = lines.map((line) => ({ line, lengthM: pathLengthM(line.coords) }));
   const groups = new Map<string, Piece[]>();

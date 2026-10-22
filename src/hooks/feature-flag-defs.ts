@@ -496,6 +496,12 @@ export const FLAG_DEFS = [
   // 403; /admin/city-mapping is unchanged either way. superAdminValue FALSE: the panel toggle is the
   // one switch (the page is super-admin-only, so an override would mean "always on").
   { key: 'enableCityMappingHub', firestoreKey: 'enable_city_mapping_hub', defaultValue: false, superAdminValue: false },
+  // Pyramid kill switch (22.10.2026, owner: only pyramids are not accurate yet). ON = the home
+  // generator never injects a pyramid — dropped from the protocol list, no forced pyramid on
+  // the intense option, so no pyramid steps in hybrid sessions built from the trio either.
+  // Supersets / EMOM / tabata stay as configured. Read once per generation (readLiveFlag).
+  // superAdminValue false: one switch, same for everyone.
+  { key: 'pyramidInjectionOff', firestoreKey: 'pyramid_injection_off', defaultValue: false, superAdminValue: false },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

@@ -39,6 +39,7 @@ import ExerciseHeroV2 from './ExerciseHeroV2';
 import LocationVariantSwitcher, {
   type LocationSwitcherOption,
 } from './LocationVariantSwitcher';
+import { isHiddenProgram } from '@/lib/hidden-programs';
 import ProgramPathSwitcher, { type ProgramPathOption } from './ProgramPathSwitcher';
 import {
   ensureEquipmentCachesLoaded,
@@ -768,8 +769,12 @@ export default function MasterExerciseView({
   // Switcher only when 2+ targetPrograms entries — a single-program exercise
   // gets a static chip (no chevron, no panel), same rule LocationVariantSwitcher
   // uses for a single-method exercise.
-  const canSwitchProgram = programs.length >= 2;
-  const programSwitcherOptions: ProgramPathOption[] = programs.map((p) => ({
+  // Hidden skills (lib/hidden-programs) are not offered as a path — unless
+  // every path of this exercise is hidden (then the chip must still render).
+  const offeredPrograms = programs.filter((p) => !isHiddenProgram(p.programId));
+  const switcherPrograms = offeredPrograms.length > 0 ? offeredPrograms : programs;
+  const canSwitchProgram = switcherPrograms.length >= 2;
+  const programSwitcherOptions: ProgramPathOption[] = switcherPrograms.map((p) => ({
     programId: p.programId,
     label: p.label,
     level: p.level,

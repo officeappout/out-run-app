@@ -33,6 +33,7 @@ import {
 } from '@/features/user/onboarding/services/mini-domain-assessment';
 import { useT, type ReactTFunction } from '@/hooks/useT';
 import { home, type HomeKey } from '@/messages/ns/home';
+import { isHiddenProgram } from '@/lib/hidden-programs';
 
 // ─── Types & config ──────────────────────────────────────────────────────────
 
@@ -503,7 +504,10 @@ export default function WorkoutBuilderSheet({
     // Skills like 'planche' and 'front_lever' have their own distinct labels
     // and are intentionally preserved alongside their master program pill.
     const seenLabels = new Set<string>();
-    return allProgs.filter(isMasterEligible).filter(p => {
+    // Hidden skills (lib/hidden-programs) are never offered as a NEW pill —
+    // a user already enrolled in one keeps it (owner exception).
+    const isOfferable = (p: DisplayProgram) => !p.isUnenrolled || !(isHiddenProgram(p.id) || isHiddenProgram(p.slug));
+    return allProgs.filter(isMasterEligible).filter(isOfferable).filter(p => {
       if (seenLabels.has(p.label)) return false;
       seenLabels.add(p.label);
       return true;

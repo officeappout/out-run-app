@@ -153,6 +153,7 @@ import type { AdaptiveState } from '../logic/adaptive/double-progression';
 import { buildVariationBonus, type ScoreBonusMap } from '../logic/adaptive/selection-bonus';
 import { isProgressHoldSession } from '../logic/adaptive/session-gates';
 import { goalPresenceBoostIds as goalPresenceBoostIdsFor } from '../logic/adaptive/goal-presence';
+import { readPyramidInjectionOff, applyPyramidKillSwitch } from './pyramid-kill-switch';
 import { isBudgetLightModeEnabled } from '../budget-light/flag';
 import { applyBudgetLightToTrio, resolveTrioBudgetGate } from '../budget-light/trio-gate';
 import type {
@@ -1139,6 +1140,7 @@ async function generateHomeWorkoutTrioCore(
     pipeline.sessionPolicy.defaultFocusIndex,
   );
 
+  const pyramidOff = readPyramidInjectionOff(); // pyramid_injection_off — once per generation
   for (let i = 0; i < 3; i++) {
     // When the Custom Builder requests a specific difficulty, skip the other
     // two iteration slots to avoid generating workouts that are immediately
@@ -1240,11 +1242,12 @@ async function generateHomeWorkoutTrioCore(
     // it still picks the most appropriate elite compound exercise.
     //
     // Applies to training days only — rest-day configs have no "intense" slot.
-    if (i === 2 && !isRestDay && !weatherCapped) {
+    if (i === 2 && !isRestDay && !weatherCapped && !pyramidOff) {
       optionContext.preferredProtocols  = ['pyramid'];
       optionContext.protocolProbability = 1.0;
       console.log('[WorkoutTrio] Option 3 (Bolt3 — intense): pyramid protocol forced (p=1.0)');
     }
+    applyPyramidKillSwitch(optionContext, pyramidOff);
 
     // Generate workout via PipelineOrchestrator (empty-pool guard + blueprint-aware shim)
     const orchResult = orchestrator.run(optionPool, optionContext);

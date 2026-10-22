@@ -98,6 +98,7 @@ interface FlagState {
   enable_app_session_signal: boolean;
   admin_ai_assistant_v1: boolean;
   enable_city_mapping_hub: boolean;
+  pyramid_injection_off: boolean;
 }
 
 // ============================================================================
@@ -725,7 +726,8 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'שפה: גרמנית',
     description: 'משתמשים שבחרו גרמנית (או שהמכשיר שלהם בגרמנית) יקבלו את האפליקציה בגרמנית. להדליק רק כשהתרגום מלא. לא נדלק אוטומטית לסופר-אדמין.',
     parentKey: 'enable_i18n',
-  },  // Analytics — app-session signal (22.10.2026).
+  },
+  // Analytics — app-session signal (22.10.2026).
   {
     key: 'enable_app_session_signal',
     icon: Users,
@@ -743,14 +745,14 @@ const FLAG_CARDS: FlagCardConfig[] = [
     title: 'פאנל: עוזר AI ("שאל את OUT")',
     description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
   },
-  // Admin-panel AI assistant (22.10.2026) — docs/admin/ADMIN-AI-ASSISTANT-PLAN.md.
+  // Pyramid kill switch (22.10.2026) — only pyramids; other protocols stay as configured.
   {
-    key: 'admin_ai_assistant_v1',
-    icon: Bot,
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
-    title: 'פאנל: עוזר AI ("שאל את OUT")',
-    description: 'צ׳אט בתוך פאנל הניהול לסופר-אדמין ולמנהלי השורש בלבד: ניווט לעמודים (בלי מודל), תשובות מהירות ושאלות על נתוני הפאנל. קריאה בלבד. התקציב היומי נקבע ב-app_config/ai (adminAiBudgetUsd). לא נדלק אוטומטית לסופר-אדמין.',
+    key: 'pyramid_injection_off',
+    icon: Dumbbell,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-500',
+    title: 'פירמידות כבויות',
+    description: 'דלוק = המחולל לא מכניס פירמידה לאף אימון: היא יורדת מרשימת הפרוטוקולים של כל תוכנית ורמה, האפשרות ה"עצימה" לא מקבלת פירמידה כפויה, ולכן גם אימוני פארק משולבים לא יכילו שלבי פירמידה. סופרסטים, EMOM וטבטה ממשיכים כפי שהוגדרו. נקרא פעם אחת בכל יצירת אימון. כבוי = כמו היום.',
   },
   // City-mapping hub (22.10.2026) — docs/admin/CITY-MAPPING-HUB-DESIGN.md.
   {
