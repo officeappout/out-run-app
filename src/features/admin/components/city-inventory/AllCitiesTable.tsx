@@ -114,8 +114,8 @@ export default function AllCitiesTable({ onSelectCity, load = loadCityInventoryO
             <thead>
               <tr className="text-gray-500 border-b border-gray-100">
                 {COLUMNS.map((c) => (
-                  <th key={c.key} className="text-start font-black py-2 px-2 whitespace-nowrap">
-                    <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-gray-900" aria-sort={sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <th key={c.key} className="text-start font-black py-2 px-2 whitespace-nowrap" aria-sort={sortKey === c.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-gray-900">
                       {c.label}
                       {sortKey === c.key && (sortDir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
                     </button>
