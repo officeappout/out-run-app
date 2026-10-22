@@ -1,0 +1,6 @@
+{"authorityId":"sL6Z8bHngXH9HhisVqon","city":"חבל אילות","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל המכרות","aliases":[],"kind":"bike","lengthKm":34,"inPark":"פארק תמנע","description":"סינגל מעגלי ארוך בפארק תמנע, מסומן בבורדו ונרכב נגד כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2576/","title":"סינגלים בפארק תמנע - קק\"ל"}]},
+{"name":"סינגל תמנע","aliases":[],"kind":"bike","lengthKm":14,"inPark":"פארק תמנע","description":"הסינגל המקורי של פארק תמנע, מעגלי וקל, נרכב עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2576/","title":"סינגלים בפארק תמנע - קק\"ל"}]},
+{"name":"סינגל יהל-תמנע","aliases":["סינגל יהל - תמנע"],"kind":"bike","lengthKm":null,"inPark":null,"description":"סינגל אופניים ארוך בערבה הדרומית שהושלם במקטע יטבתה-תמנע","sources":[{"url":"https://sport1.maariv.co.il/other-industries/article/1710858/","title":"סינגל יהל-תמנע - ספורט1 מעריב"}]},
+{"name":"סובב תמנע","aliases":[],"kind":"walk","lengthKm":null,"inPark":null,"description":"לולאה מסומנת ארוכה למיטיבי לכת: מלחן לשפת המצוק, לאורך מצוקי תמנע עד הר ברק וירידה לבקעת תמנע","sources":[{"url":"https://www.weekend.co.il/article.aspx?id=693","title":"הערבה הדרומית: שפע מסלולים ונופים - weekend"}]}
+]}

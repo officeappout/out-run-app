@@ -1,0 +1,5 @@
+{"authorityId":"GM95rkG1apJ4INX5TWXh","city":"מועצה אזורית משגב","researchedAt":"2026-10-22","routes":[
+{"name":"סינגל יער שגב","aliases":[],"kind":"bike","lengthKm":13.5,"inPark":null,"description":"סינגל מעגלי ברכס יער שגב, ליד עצמון וכאבול, מסומן באדום ונרכב עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2122/","title":"סינגל יער שגב - קק\"ל"}]},
+{"name":"סינגל יער אחיהוד","aliases":[],"kind":"bike","lengthKm":21,"inPark":null,"description":"סינגל מעגלי על מורדות הר גמל הדרומיים והצפוניים, בין גילון לטל-אל, רכיבה עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2353/","title":"סינגל יער אחיהוד - קק\"ל"}]},
+{"name":"סינגל סובב הר גילון","aliases":["סובב צורית גילון"],"kind":"bike","lengthKm":12,"inPark":null,"description":"סינגל מעגלי סביב פסגת הר גילון, בין צורית לגילון, מסומן בטיפות צהובות ונרכב עם כיוון השעון","sources":[{"url":"https://www.kkl.org.il/bike/trips/2188/","title":"סינגל סובב הר גילון - קק\"ל"}]}
+]}
