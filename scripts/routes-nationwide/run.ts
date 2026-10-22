@@ -10,7 +10,10 @@
  * MoT bph_infra_exist + OSM cycleways with a walkway) → park loops around big parks (W5:
  * known → perimeter → inner via GraphHopper) → pipeline B's generated loops →
  * GraphHopper foot_turns neighbourhood loops (named after the park / streets /
- * neighbourhood they pass). Every finding source always runs; the two
+ * neighbourhood they pass). Regional councils: real sources only — generated,
+ * neighbourhood and (currently OFF) settlement loops never run for them; the
+ * 20–40 quota is a ceiling, never padded (owner 22.10.2026).
+ * Every finding source always runs; the two
  * generating stages run ONLY if the quota is still short. Each step is scored (routeScore v1.3: shade where the city
  * has a layer, turns/zigzag on loops; urban candidates measured on the OSM slice — composition, lighting,
  * amenities ≤ 50 m, road crossings — src/lib/urban-measure) and the top-N set re-selected
@@ -56,7 +59,7 @@ import { boundaryFromStored, type AuthorityBoundary } from '../../src/lib/datase
 import { writeRouteScoreDocs } from '../../src/lib/route-score';
 import {
   buildAdminNameIndex, checkpointMismatch, normalizeAuthorityName, filterAuthorities, markDone, matchAdminRelation, newCheckpoint, orderAuthorities, parseCheckpoint, remaining,
-  combineEnrichers, runAuthorityStages, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
+  combineEnrichers, runAuthorityStages, SETTLEMENT_LOOPS_ENABLED, summarizeAuthority, summarizeNation, type AdminRelation, type AuthorityRow, type AuthoritySummary, type Checkpoint,
 } from '../../src/lib/routes-nationwide';
 import { PRODUCTION_PROJECT, confirmTypedYes, describeTarget, executePlan, flagValue, formatPlan, openTarget, planCollection } from '../trails/lib/trails-apply.node';
 import { assertOsmium, ensureIsraelPbf } from '../trails/lib/pilot-osm.node';
@@ -64,7 +67,7 @@ import { loadAdminRelations } from './lib/admin-index.node';
 import { DatasetCatalog, TrailsRun, existingProvider, type AuthorityCtx } from './lib/providers.node';
 import { AuthorityOsmSlice } from './lib/authority-osm.node';
 import { authorityGh, createRunnerGhClient } from './lib/gh-client.node';
-import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider } from './lib/gh-stages.node';
+import { namedWaysProvider, neighbourhoodProvider, parkLoopsProvider, settlementLoopsProvider } from './lib/gh-stages.node';
 import { KNOWN_ROUTES_DIR, KnownRoutesStage } from './lib/known-routes.node';
 import { createShadeLoaders, shadeEnricher, type ShadeLoaders } from './lib/shade-enrich.node';
 import { urbanEnricher } from './lib/urban-enrich.node';
@@ -235,6 +238,9 @@ async function main() {
           ...(SKIP_OSM ? [] : [namedWaysProvider(ctx, slice, batch), bikeAdjacentProvider(ctx, slice, datasets, batch), parkLoopsProvider(ctx, slice, ghA, batch)]),
           trails.generated(),
           ...(SKIP_OSM ? [] : [neighbourhoodProvider(ctx, slice, ghA, batch)]),
+          // Regional councils: settlement loops — kept in the code, OFF (SETTLEMENT_LOOPS_ENABLED); runAuthorityStages
+          // skips generated / neighbourhood / settlement_loops for every regional council (real trails only, owner 22.10.2026).
+          ...(SKIP_OSM || a.type !== 'regional_council' || !SETTLEMENT_LOOPS_ENABLED ? [] : [settlementLoopsProvider(ctx, slice, ghA, batch)]),
         ], new Date(), { enrich: combineEnrichers(shade.enrich, urban.enrich) });
       } finally {
         slice.cleanup();
