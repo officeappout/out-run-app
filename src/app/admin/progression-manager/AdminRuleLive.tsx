@@ -3,7 +3,9 @@
 /**
  * What the workout engine actually pays for this program — computed with the SAME
  * pure functions the engine uses (progression-admin-rules.ts), so the panel cannot drift:
- *   RuleLiveBadge   — "בשימוש" (admin value) vs "ברירת מחדל" per level
+ *   RuleLiveBadge   — per level: כלל מותאם / מהגדרות הרמה / ממשיך מרמה N / ברירת מחדל
+ *   RuleValuesLine  — the values in effect at the level
+ *   RuleSourcesSummary — header counts by source
  *   GainPreview     — "אימון של 12 סטים ברמה 3 → +X%"
  *   AdminRulesBanner — whether the switch "התקדמות לפי הגדרות הפאנל" is on
  */
@@ -18,6 +20,14 @@ import {
   type AdminRuleDocData,
   type AdminRuleInputs,
 } from '@/features/user/progression/services/progression-admin-rules';
+import {
+  ADMIN_RULE_SWITCH_OFF_NOTE,
+  adminRuleBadge,
+  adminRuleHeaderLabel,
+  adminRuleValuesLine,
+  countAdminRuleSources,
+  type AdminRuleBadgeKind,
+} from '@/features/user/progression/services/progression-admin-labels';
 
 export function buildAdminRuleInputs(
   rules: ProgressionRule[],
@@ -48,28 +58,49 @@ export function AdminRulesBanner({ on }: { on: boolean | null }) {
   return (
     <div className={`rounded-xl px-4 py-2 text-sm border ${on ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
       {on
-        ? 'המתג "התקדמות לפי הגדרות הפאנל" פעיל — המשתמשים מקבלים את מה שמסומן "בשימוש".'
+        ? 'המתג "התקדמות לפי הגדרות הפאנל" פעיל — המשתמשים מקבלים את הערכים שמוצגים מתחת לכל רמה.'
         : 'המתג "התקדמות לפי הגדרות הפאנל" כבוי (הגדרות מערכת) — כרגע כל המשתמשים מקבלים ברירות מחדל. מנהל-על כבר רואה את ההגדרות האלה באימונים שלו. התגיות מראות מה ייכנס לשימוש כשהמתג יופעל.'}
     </div>
   );
 }
 
-export function RuleLiveBadge({ level, inputs }: { level: number; inputs: AdminRuleInputs }) {
+const BADGE_CLASS: Record<AdminRuleBadgeKind, string> = {
+  custom: 'bg-violet-100 text-violet-700',
+  settings: 'bg-emerald-100 text-emerald-700',
+  carried: 'bg-sky-100 text-sky-700',
+  default: 'bg-gray-100 text-gray-600',
+};
+
+/**
+ * Where the engine takes this level's numbers from: "כלל מותאם" / "מהגדרות הרמה" /
+ * "ממשיך מרמה N" / "ברירת מחדל". While the panel switch is off (switchOn === false)
+ * a non-default badge also says it only takes effect once the switch is on.
+ */
+export function RuleLiveBadge({ level, inputs, switchOn }: { level: number; inputs: AdminRuleInputs; switchOn?: boolean | null }) {
   const r = useMemo(() => resolveAdminRule(level, inputs), [level, inputs]);
-  if (r.source === 'default') {
-    return (
-      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full" title="המנוע משתמש בערכי ברירת המחדל הקבועים">
-        ברירת מחדל
-      </span>
-    );
-  }
-  const title = `בסיס ${r.baseSessionGain}% · בונוס ${r.bonusPercent}% · ${r.requiredSetsForFullGain} סטים` +
-    (r.source === 'programLevelSettings' ? ' (מהגדרות הרמה)' : '');
+  const b = adminRuleBadge(r);
   return (
-    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full" title={title}>
-      בשימוש{r.carriedFromLevel != null ? ` (מרמה ${r.carriedFromLevel})` : ''}
+    <span className="inline-flex items-center gap-1">
+      <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${BADGE_CLASS[b.kind]}`} title={adminRuleValuesLine(r)}>
+        {b.label}
+      </span>
+      {switchOn === false && b.kind !== 'default' && (
+        <span className="text-[11px] font-normal text-amber-700">· {ADMIN_RULE_SWITCH_OFF_NOTE}</span>
+      )}
     </span>
   );
+}
+
+/** The values in effect at the level (resolved), never the static defaults unless that is the source. */
+export function RuleValuesLine({ level, inputs, className }: { level: number; inputs: AdminRuleInputs; className?: string }) {
+  const r = useMemo(() => resolveAdminRule(level, inputs), [level, inputs]);
+  return <p className={className ?? 'text-sm text-gray-500'}>{adminRuleValuesLine(r)}</p>;
+}
+
+/** Header chip: "X כללים מותאמים · Y רמות עם הגדרות · Z על ברירת מחדל". */
+export function RuleSourcesSummary({ levels, inputs }: { levels: readonly number[]; inputs: AdminRuleInputs }) {
+  const label = useMemo(() => adminRuleHeaderLabel(countAdminRuleSources(levels, inputs)), [levels, inputs]);
+  return <span className="bg-white/20 px-3 py-1 rounded-full">{label}</span>;
 }
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
