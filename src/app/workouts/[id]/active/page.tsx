@@ -9,6 +9,9 @@ import StrengthRunner from '@/features/workout-engine/players/strength/StrengthR
 import type { ExerciseResultLog } from '@/features/workout-engine/players/strength/StrengthRunner';
 import { clearWorkoutCheckpoint, restoreCheckpoint, type WorkoutCheckpoint } from '@/features/workout-engine/players/strength/hooks/useWorkoutPersistence';
 import { mapToCompletedExercises } from '@/features/workout-engine/players/strength/logic/summary-mapping';
+import { buildExerciseProgramLookup, buildWorkoutExerciseResults, planExerciseIds } from '@/features/workout-engine/players/strength/logic/exercise-results';
+import LevelUpScreen from '@/features/workout-engine/components/strength/levelup-v2/LevelUpScreen';
+import { useLevelUpV2 } from '@/features/workout-engine/components/strength/levelup-v2/useLevelUpV2';
 // Mid-workout modals are code-split + mounted on first open (drop-in replacements).
 import { ExerciseReplacementModal, ResumeWorkoutDialog, useActiveWorkoutOverlayPreload } from './ActiveWorkoutOverlays';
 import { WorkoutPlan, Exercise as WorkoutExercise } from '@/features/parks';
@@ -660,6 +663,8 @@ export default function ActiveWorkoutPage() {
 
   // === UNIFIED PROGRESSION (single source of truth for both Dopamine + Summary) ===
   const [progressionResult, setProgressionResult] = useState<WorkoutCompletionResult | null>(null);
+  // enable_levelup_v2 only reads this (the "שומר…" pill); set when the background run throws.
+  const [progressionFailed, setProgressionFailed] = useState(false);
   const preWorkoutPercentRef = useRef(0);
   const progressionComputedRef = useRef(false);
   
@@ -974,6 +979,34 @@ export default function ActiveWorkoutPage() {
   // enable_home_v2 — styling only, for this page's own loading/error screens (the player
   // itself reads the flag in StrengthRunner).
   const pageV2 = tourFlags.enableHomeV2;
+
+  // enable_levelup_v2 — the new level-up / % screen (instant result, background save).
+  // Off → useLevelUpV2 does nothing and the legacy dopamine screen renders unchanged.
+  const levelupV2 = !tourFlagsLoading && !!tourFlags.enableLevelupV2;
+  const levelupPlanExerciseIds = useMemo(() => planExerciseIds(workoutPlan), [workoutPlan]);
+  const levelupExerciseResults = useMemo(
+    () =>
+      levelupV2 && flowState === 'dopamine'
+        ? buildWorkoutExerciseResults(workoutStats.rawExerciseLog, buildExerciseProgramLookup(workoutPlan))
+        : null,
+    [levelupV2, flowState, workoutStats.rawExerciseLog, workoutPlan],
+  );
+  const levelup = useLevelUpV2({
+    enabled: levelupV2,
+    uid: profile?.id,
+    programId: userProgression.programId,
+    planExerciseIds: levelupPlanExerciseIds,
+    isRecovery: !!workoutPlan?.isRecovery,
+    finished: flowState === 'dopamine',
+    exerciseResults: levelupExerciseResults,
+    progressionResult,
+    progressionFailed,
+    fallback: { level: userProgression.currentLevel, percent: preWorkoutPercentRef.current },
+  });
+  // The summary shows the same stored number as the level-up screen.
+  const levelupSummaryOverride = levelupV2 && levelup.outcome
+    ? { level: levelup.outcome.after.level, percent: levelup.outcome.after.percent }
+    : undefined;
   const [playerTourUnseen, setPlayerTourUnseen] = useState(false);
   useEffect(() => {
     const uid = profile?.id;
@@ -1275,22 +1308,10 @@ export default function ActiveWorkoutPage() {
 
         // ── Build exerciseId → programIds[] lookup from the loaded plan ──
         // The exercise's `programIds` are populated at workout generation time
-        // (see src/app/home/page.tsx, where they are spread from the source
-        // exercise's targetPrograms + programIds). This unlocks
-        // detectLinkedProgramsFromExercises in progression.service.ts so
-        // cross-program credit (e.g. Pull session → Front Lever progress)
-        // is awarded automatically.
-        const exerciseProgramLookup = new Map<string, string[]>();
-        if (workoutPlan?.segments) {
-          for (const seg of workoutPlan.segments) {
-            if (!seg.exercises) continue;
-            for (const ex of seg.exercises) {
-              if (ex.programIds && ex.programIds.length > 0) {
-                exerciseProgramLookup.set(ex.id, ex.programIds);
-              }
-            }
-          }
-        }
+        // (see src/app/home/page.tsx). This unlocks detectLinkedProgramsFromExercises
+        // in progression.service.ts so cross-program credit is awarded automatically.
+        // Shared with the level-up v2 instant preview (logic/exercise-results.ts).
+        const exerciseProgramLookup = buildExerciseProgramLookup(workoutPlan);
         const linkedExerciseCount = Array.from(exerciseProgramLookup.values())
           .reduce((sum, ids) => sum + ids.length, 0);
         console.log(
@@ -1298,27 +1319,7 @@ export default function ActiveWorkoutPage() {
           `with ${linkedExerciseCount} cross-program associations`,
         );
 
-        const exerciseResults: WorkoutExerciseResult[] = rawLog.map(entry => {
-          const linkedProgramIds = exerciseProgramLookup.get(entry.exerciseId) ?? [];
-          // Value 1 is a presence-marker — detectLinkedProgramsFromExercises
-          // only checks `!== undefined`, so the actual numeric value is unused
-          // by the cross-program detection path. Keeping it stable as 1 also
-          // prevents accidental tier confusion in any future readers.
-          const programLevels: Record<string, number> = {};
-          for (const pid of linkedProgramIds) programLevels[pid] = 1;
-
-          return {
-            exerciseId: entry.exerciseId,
-            exerciseName: entry.exerciseName,
-            programLevels,
-            setsCompleted: entry.confirmedReps.length,
-            repsPerSet: entry.confirmedReps,
-            targetReps: entry.targetReps,
-            isCompound: false,
-            ...(entry.confirmedRepsRight && { repsPerSetRight: entry.confirmedRepsRight }),
-            ...(entry.confirmedRepsLeft && { repsPerSetLeft: entry.confirmedRepsLeft }),
-          };
-        });
+        const exerciseResults: WorkoutExerciseResult[] = buildWorkoutExerciseResults(rawLog, exerciseProgramLookup);
 
         const result = await processWorkoutCompletion({
           userId: uid,
@@ -1345,6 +1346,7 @@ export default function ActiveWorkoutPage() {
         }
       } catch (e) {
         console.error('[ActiveWorkoutPage] processWorkoutCompletion failed:', e);
+        setProgressionFailed(true);
         // Mark as failed so StrengthSummaryPage's fallback is allowed to re-run
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('progression_failed_this_session', 'true');
@@ -2022,6 +2024,20 @@ export default function ActiveWorkoutPage() {
   }
   
   // Step 2: Dopamine Celebration Screen
+  if (flowState === 'dopamine' && levelupV2) {
+    return (
+      <LevelUpScreen
+        outcome={levelup.outcome}
+        pending={!levelup.ready}
+        fallback={{ level: userProgression.currentLevel, percent: preWorkoutPercentRef.current }}
+        isRecovery={!!stableWorkoutPlan.isRecovery}
+        programName={stableWorkoutPlan.name || 'אימון כוח'}
+        saveState={levelup.saveState}
+        onLevelUp={(level) => celebrate(`levelup_${userProgression.programId}_${level}`)}
+        onContinue={handleDopamineComplete}
+      />
+    );
+  }
   if (flowState === 'dopamine') {
     return (
       <StrengthDopamineScreen
@@ -2108,6 +2124,7 @@ export default function ActiveWorkoutPage() {
         trainingType={stableWorkoutPlan.trainingType}
         rawExerciseLog={workoutStats.rawExerciseLog}
         precomputedProgression={progressionResult}
+        levelOverride={levelupSummaryOverride}
         domainSets={workoutStats.domainSets}
         isRecovery={stableWorkoutPlan.isRecovery}
         // Fix (30.08.2026) — see WorkoutPlan.totalPlannedSets's own doc comment
