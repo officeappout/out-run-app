@@ -44,3 +44,21 @@ export async function readStreetSegmentSurfaces(db: Firestore, authorityId: stri
   }
   return out;
 }
+
+/** official_routes with exactly this name (single-field equality, no index needed), minus one authority — for the cross-council duplicate check. */
+export async function readOfficialRoutesByName(db: Firestore, name: string, exceptAuthorityId: string): Promise<RawDoc[]> {
+  const snap = await db.collection('official_routes').where('name', '==', name).limit(60).get();
+  return snap.docs.filter((d) => d.get('authorityId') !== exceptAuthorityId).map((d) => ({ id: d.id, data: d.data() }));
+}
+
+/** Which of these official_routes ids exist (ANY status)? id -> authorityId. Read-only; for the legacy-id re-run guard. */
+export async function readExistingIdsAuthority(db: Firestore, ids: string[]): Promise<Map<string, string>> {
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < ids.length; i += 300) {
+    const part = ids.slice(i, i + 300);
+    if (!part.length) continue;
+    const snaps = await db.getAll(...part.map((id) => db.collection('official_routes').doc(id)));
+    for (const s of snaps) if (s.exists) pairs.push([s.id, String(s.get('authorityId') ?? '')]);
+  }
+  return new Map(pairs);
+}

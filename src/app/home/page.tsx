@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { decideLandingRoute } from '@/lib/fast-startup/landing-decision';
+import { homeJoinPlannerPref } from './home-join-planner';
 import { isLandingRealFallbackOn } from '@/lib/landing-fallback/flag';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -4371,6 +4372,7 @@ export default function HomePage() {
         scheduleSlots={joinSuccessData?.scheduleSlots}
         category={joinSuccessData?.category}
         address={joinSuccessData?.address}
+        onPlannerPref={featureFlags.enableGroupFixesV1 ? homeJoinPlannerPref(profile?.id, joinSuccessData) : undefined}
       />
 
       {/* Health declaration hard-block — fires on first workout start */}

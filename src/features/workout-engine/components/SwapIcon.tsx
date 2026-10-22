@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { useT } from '@/hooks/useT';
+import { player } from '@/messages/ns/player';
 
 const FILTER_GRAY =
   'brightness(0) saturate(100%) invert(73%) sepia(8%) saturate(600%) hue-rotate(176deg) brightness(90%) contrast(92%)';
@@ -14,6 +16,7 @@ interface SwapIconProps {
 }
 
 export default function SwapIcon({ size = 22, onClick, isSwapped = false }: SwapIconProps) {
+  const t = useT(player);
   const [spinning, setSpinning] = useState(false);
 
   const handleClick = useCallback(
@@ -31,7 +34,7 @@ export default function SwapIcon({ size = 22, onClick, isSwapped = false }: Swap
   return (
     <button
       className="flex items-center justify-center flex-shrink-0"
-      aria-label="החלף תרגיל"
+      aria-label={t('swapIcon.aria')}
       onClick={handleClick}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

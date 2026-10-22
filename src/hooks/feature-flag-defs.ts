@@ -580,6 +580,14 @@ export const FLAG_DEFS = [
   // data-only tags, one start button → the existing commute player. Fail-closed; super admins
   // preview it. Off = byte-identical commute flow.
   { key: 'enableDestinationPlannerV1', firestoreKey: 'enable_destination_planner_v1', defaultValue: false, superAdminValue: true },
+  // Group / together-training fixes (22.10.2026, owner — agent-briefs/group-fixes-brief.md).
+  // One resolveJoinLanding for every join path (group page by id), one consumePendingInvites()
+  // with an in-flight guard, joinEngine adds the group chat + promotes the designated leader +
+  // keeps attendance currentCount in sync, server-computed "together" summary, invite-run saved
+  // as a group run, re-invite only while isGroupRun, "now" invites in the client's local time,
+  // transactional RSVP with visible errors, last-admin leave guard, /join waits for the profile.
+  // Server routes read the real value OR the caller's own isSuperAdmin. Default OFF.
+  { key: 'enableGroupFixesV1', firestoreKey: 'enable_group_fixes_v1', defaultValue: false, superAdminValue: true },
 ] as const;
 
 export type FirestoreFlagKey = (typeof FLAG_DEFS)[number]['firestoreKey'];

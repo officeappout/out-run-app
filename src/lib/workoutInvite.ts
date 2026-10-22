@@ -13,6 +13,9 @@
 import { auth } from '@/lib/firebase';
 import { useSharedSession } from '@/features/workout-engine/core/store/useSharedSession';
 import type { PlannedRunSettings } from '@/lib/planned-run';
+import { useRunningPlayer } from '@/features/workout-engine/players/running/store/useRunningPlayer';
+import { groupFixesNow } from '@/lib/group-fixes/group-fixes-now';
+import { localNowStamp, shouldReInvite } from '@/lib/group-fixes/run-invite';
 
 export interface RunInviteResult {
   token:        string;
@@ -40,7 +43,12 @@ export interface RunInviteResult {
  */
 export async function createRunInvite(
   activityType: 'running' | 'walking',
-  options?: { scheduledFor?: string; plannedRun?: PlannedRunSettings },
+  options?: {
+    scheduledFor?: string;
+    plannedRun?: PlannedRunSettings;
+    /** The session lobby's own re-invite (the host's live group session). */
+    fromLobby?: boolean;
+  },
 ): Promise<RunInviteResult> {
   const idToken = await auth.currentUser?.getIdToken().catch(() => null);
   if (!idToken) throw new Error('invite-not-authenticated');
@@ -48,13 +56,24 @@ export async function createRunInvite(
   const session = useSharedSession.getState();
   // Re-invite only makes sense for "now" (live session). Scheduled invites always
   // create a new group so participants join at the right future time.
-  const isReInvite = Boolean(!options?.scheduledFor && session.groupId && session.attendanceId);
+  // enable_group_fixes_v1: re-invite only while the run IS a group run (or
+  // from the lobby) — see shouldReInvite; "now" invites carry local time.
+  const groupFixes = await groupFixesNow();
+  const isReInvite = shouldReInvite({
+    scheduled: !!options?.scheduledFor,
+    groupId: session.groupId,
+    attendanceId: session.attendanceId,
+    groupFixes,
+    isGroupRun: useRunningPlayer.getState().isGroupRun,
+    fromLobby: options?.fromLobby,
+  });
 
   const body: Record<string, unknown> = { activityType };
   if (isReInvite) {
     body.existingGroupId      = session.groupId;
     body.existingAttendanceId = session.attendanceId;
   }
+  if (groupFixes && !options?.scheduledFor && !isReInvite) body.clientNow = localNowStamp();
   if (options?.scheduledFor) {
     body.scheduledFor = options.scheduledFor;
     if (options.plannedRun) body.plannedRun = options.plannedRun;

@@ -65,7 +65,7 @@ export default function SessionLobbyOverlay({ onStartFreeRun, ephemeralActivityT
     tokenCreatedRef.current = true;
 
     if (ephemeralActivityType) {
-      createRunInvite(ephemeralActivityType)
+      createRunInvite(ephemeralActivityType, { fromLobby: true })
         .then((result) => setShareUrl(result.shareUrl))
         .catch((err) => console.warn('[SessionLobby] run re-invite failed:', err));
     } else {
