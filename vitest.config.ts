@@ -91,6 +91,8 @@ export default defineConfig({
       'src/features/workout-engine/components/__tests__/**/*.test.tsx',
       // i18n wave 2 batch z (player namespace, strengthSummary.* / dopamine.*) — Hebrew markup parity, static markup.
       'src/features/workout-engine/components/strength/__tests__/**/*.test.tsx',
+      // i18n wave 2 batch aa (library namespace, preview.*) — workout preview drawer Hebrew markup parity, static markup.
+      'src/features/workouts/components/workout-preview-drawer/__tests__/**/*.test.tsx',
       // i18n wave 2 (namespace home) — home screen components, Hebrew markup parity (static + jsdom).
       'src/features/home/components/__tests__/**/*.test.tsx',
       // i18n wave 2 batch v (community namespace, communityPage.*) — /community page surfaces, Hebrew markup parity, static markup.

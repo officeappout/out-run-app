@@ -1,0 +1,96 @@
+{
+  "amrap": {
+    "header": {
+      "name": "AMRAP",
+      "pill": "6′",
+      "line": "כמה שיותר סבבים",
+      "tone": "amrap"
+    },
+    "items": [
+      "12 חזרות · בכל סבב",
+      "30 שנ׳ לכל צד · בכל סבב",
+      "בכל סבב"
+    ],
+    "outOfRange": ""
+  },
+  "emom1": {
+    "header": {
+      "name": "EMOM",
+      "pill": "10′",
+      "line": "כל דקה · 1 תרגיל",
+      "tone": "emom"
+    },
+    "items": [
+      "כל דקה · 8 חזרות"
+    ],
+    "outOfRange": ""
+  },
+  "emom2": {
+    "header": {
+      "name": "EMOM",
+      "pill": "12′",
+      "line": "כל 90 שנ׳ · 2 תרגילים",
+      "tone": "emom"
+    },
+    "items": [
+      "דקות אי-זוגיות · 8 חזרות",
+      "דקות זוגיות"
+    ],
+    "outOfRange": ""
+  },
+  "emom3": {
+    "header": {
+      "name": "EMOM",
+      "pill": "12′",
+      "line": "כל דקה · 3 תרגילים",
+      "tone": "emom"
+    },
+    "items": [
+      "כל 3 דקות · 8 חזרות לכל צד",
+      "כל 3 דקות",
+      "כל 3 דקות"
+    ],
+    "outOfRange": ""
+  },
+  "tabata": {
+    "header": {
+      "name": "טבטה",
+      "pill": "20/10",
+      "line": "8 אינטרוולים",
+      "tone": "tabata"
+    },
+    "items": [
+      "20 שנ׳",
+      "20 שנ׳ לכל צד"
+    ],
+    "outOfRange": ""
+  },
+  "meta1": [
+    {
+      "key": "dur",
+      "text": "1 דק׳"
+    },
+    {
+      "key": "count",
+      "text": "1 תרגיל"
+    },
+    {
+      "key": "end",
+      "text": "מסיים ~9:42"
+    }
+  ],
+  "meta7": [
+    {
+      "key": "dur",
+      "text": "14 דק׳"
+    },
+    {
+      "key": "count",
+      "text": "7 תרגילים"
+    },
+    {
+      "key": "end",
+      "text": "מסיים ~0:09"
+    }
+  ]
+}
